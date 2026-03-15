@@ -17,6 +17,18 @@ pub enum VerticalAlign {
     Bottom,
 }
 
+/// Glow halo effect for a text sprite.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Glow {
+    /// Glow colour. If None, uses a dimmed version of the sprite's fg_colour.
+    pub colour: Option<TermColour>,
+    /// Radius in cells. 1 = 8-neighbor halo. Default 1.
+    #[serde(default = "default_glow_radius")]
+    pub radius: u16,
+}
+
+fn default_glow_radius() -> u16 { 1 }
+
 /// A drawable object within a layer. Has its own local bitmap position and lifecycle.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -50,5 +62,8 @@ pub enum Sprite {
         stages: LayerStages,
         #[serde(default)]
         animations: Vec<crate::scene::Animation>,
+        /// Optional glow halo rendered behind the sprite.
+        #[serde(default)]
+        glow: Option<Glow>,
     },
 }

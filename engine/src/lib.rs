@@ -14,6 +14,7 @@ pub mod rasterizer;
 pub mod systems;
 pub mod terminal_caps;
 pub mod animations;
+pub mod markup;
 
 use std::path::{Path, PathBuf};
 
