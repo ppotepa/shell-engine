@@ -128,4 +128,4 @@ layers:
               amplitude: 1
               period_ms: 2000
               easing: ease-in-out
-next: mainmenu
+next: intro.prologue
