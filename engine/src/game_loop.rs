@@ -8,14 +8,26 @@ use crate::systems;
 use crate::world::World;
 
 pub fn game_loop(world: &mut World) -> Result<(), EngineError> {
-    use crossterm::event::{self, Event, KeyCode};
+    use crossterm::event::{self, Event, KeyCode, KeyEventKind};
     use systems::animator::Animator;
+
+    const FAST_FORWARD_TICKS: u8 = 8;
+    let mut debug_fast_forward = false;
 
     loop {
         // --- INPUT ---
         if event::poll(std::time::Duration::from_millis(TICK_MS))?  {
             match event::read()? {
                 Event::Key(key) => {
+                    if key.kind == KeyEventKind::Release {
+                        continue;
+                    }
+
+                    if is_debug_fast_forward_toggle(key.code, key.modifiers) {
+                        debug_fast_forward = !debug_fast_forward;
+                        continue;
+                    }
+
                     let ev = match key.code {
                         KeyCode::Esc | KeyCode::Char('q') => EngineEvent::Quit,
                         code => EngineEvent::KeyPressed(code),
@@ -91,9 +103,39 @@ pub fn game_loop(world: &mut World) -> Result<(), EngineError> {
         }
 
         // --- SYSTEMS ---
-        systems::animator::animator_system(world);
+        let ticks_this_frame = if debug_fast_forward { FAST_FORWARD_TICKS } else { 1 };
+        for _ in 0..ticks_this_frame {
+            systems::animator::animator_system(world);
+        }
         systems::compositor::compositor_system(world);
         systems::renderer::renderer_system(world);
     }
     Ok(())
+}
+
+#[inline]
+fn is_debug_fast_forward_toggle(code: crossterm::event::KeyCode, modifiers: crossterm::event::KeyModifiers) -> bool {
+    cfg!(debug_assertions)
+        && modifiers.contains(crossterm::event::KeyModifiers::ALT)
+        && matches!(code, crossterm::event::KeyCode::Char('f') | crossterm::event::KeyCode::Char('F'))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_debug_fast_forward_toggle;
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    #[test]
+    fn detects_alt_f_combo_for_debug_fast_forward() {
+        let expected = cfg!(debug_assertions);
+        assert_eq!(is_debug_fast_forward_toggle(KeyCode::Char('f'), KeyModifiers::ALT), expected);
+        assert_eq!(is_debug_fast_forward_toggle(KeyCode::Char('F'), KeyModifiers::ALT), expected);
+    }
+
+    #[test]
+    fn ignores_non_alt_or_non_f_keys() {
+        assert!(!is_debug_fast_forward_toggle(KeyCode::Char('f'), KeyModifiers::NONE));
+        assert!(!is_debug_fast_forward_toggle(KeyCode::Char('g'), KeyModifiers::ALT));
+        assert!(!is_debug_fast_forward_toggle(KeyCode::Esc, KeyModifiers::ALT));
+    }
 }
