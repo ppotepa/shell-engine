@@ -33,7 +33,7 @@ stages:
     steps:
       - duration: 500
         effects: []
-      - duration: 500
+      - duration: 5000
         effects: []
       - effects:
           - name: artifact-out
@@ -106,7 +106,7 @@ layers:
                       easing: ease-in
               - effects:
                   - name: shatter-glitch
-                    duration: 500
+                    duration: 5000
 
       - type: text
         id: press-any-key
