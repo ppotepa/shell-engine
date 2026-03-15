@@ -1,0 +1,201 @@
+# yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
+id: intro.prologue
+title: Intro Prologue
+cutscene: true
+bg_colour: black
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 400
+            params:
+              easing: ease-in
+  on_idle:
+    trigger: any-key
+    steps:
+      - duration: 60000
+        effects: []
+  on_leave:
+    steps:
+      - effects:
+          - name: shatter-glitch
+            duration: 500
+      - effects:
+          - name: artifact-out
+            duration: 900
+layers:
+  - name: storyteller
+    z_index: 0
+    visible: true
+    sprites:
+      - type: text
+        id: prologue-cmd-1
+        content: "> journalctl -b -n 64"
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: green
+        reveal_ms: 900
+        appear_at_ms: 200
+        disappear_at_ms: 10000
+
+      - type: text
+        id: prologue-log-1a
+        content: "[ OK ] mount /proc"
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: gray
+        reveal_ms: 550
+        appear_at_ms: 1200
+        disappear_at_ms: 3800
+
+      - type: text
+        id: prologue-log-2a
+        content: "[ OK ] start tty0"
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: gray
+        reveal_ms: 550
+        appear_at_ms: 2100
+        disappear_at_ms: 4700
+
+      - type: text
+        id: prologue-log-3a
+        content: "kernel: Linux 0.01"
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 650
+        appear_at_ms: 3000
+        disappear_at_ms: 5600
+
+      - type: text
+        id: prologue-log-1b
+        content: "kernel: 1991-09-17"
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 650
+        appear_at_ms: 3900
+        disappear_at_ms: 6500
+
+      - type: text
+        id: prologue-log-2b
+        content: "source lines: 10239"
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 650
+        appear_at_ms: 4800
+        disappear_at_ms: 7400
+
+      - type: text
+        id: prologue-log-3b
+        content: "target: intel 386"
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 650
+        appear_at_ms: 5700
+        disappear_at_ms: 8300
+
+      - type: text
+        id: prologue-log-1c
+        content: "build dep: minix"
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: gray
+        reveal_ms: 650
+        appear_at_ms: 6600
+        disappear_at_ms: 9200
+
+      - type: text
+        id: prologue-log-2c
+        content: "mirror: funet ftp"
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: gray
+        reveal_ms: 650
+        appear_at_ms: 7500
+        disappear_at_ms: 10100
+
+      - type: text
+        id: prologue-log-3c
+        content: "easter: sq.seed=19910917"
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: yellow
+        reveal_ms: 700
+        appear_at_ms: 8400
+        disappear_at_ms: 11000
+
+      - type: text
+        id: prologue-log-1d
+        content: "easter: user=copilot"
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: yellow
+        reveal_ms: 700
+        appear_at_ms: 9300
+        disappear_at_ms: 11900
+
+      - type: text
+        id: prologue-log-2d
+        content: "hint: open source starts"
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: cyan
+        reveal_ms: 800
+        appear_at_ms: 10200
+        disappear_at_ms: 12800
+
+      - type: text
+        id: prologue-cmd-2
+        content: "> tail -f /dev/origin"
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: green
+        reveal_ms: 900
+        appear_at_ms: 11100
+
+      - type: text
+        id: prologue-log-3d
+        content: "[ WAIT ] input required"
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 650
+        appear_at_ms: 12000
+
+      - type: text
+        id: prologue-continue
+        content: "[#808080]PRESS ANY KEY[/]"
+        align_x: center
+        align_y: bottom
+        font: "generic:1"
+        fg_colour: white
+        appear_at_ms: 12900
+        hide_on_leave: true
+        animations:
+          - name: float
+            looping: true
+            params:
+              axis: y
+              amplitude: 1
+              period_ms: 1800
+              easing: ease-in-out
+next: mainmenu
