@@ -1,4 +1,5 @@
 use crossterm::style::Color;
+use crate::animations::AnimationDispatcher;
 use crate::buffer::Buffer;
 use crate::effects::Region;
 use crate::rasterizer;
@@ -26,7 +27,7 @@ pub fn render_sprites(
             Sprite::Text {
                 content, x, y, font, align_x, align_y,
                 fg_colour, bg_colour, appear_at_ms, disappear_at_ms,
-                reveal_ms, stages, ..
+                reveal_ms, stages, animations, ..
             } => {
                 let appear_at = appear_at_ms.unwrap_or(0);
                 if scene_elapsed_ms < appear_at { continue; }
@@ -59,8 +60,14 @@ pub fn render_sprites(
 
                 match font {
                     None => {
-                        draw_x = resolve_x(*x, align_x, scene_w, sprite_width);
-                        draw_y = resolve_y(*y, align_y, scene_h, sprite_height);
+                        let base_x = resolve_x(*x, align_x, scene_w, sprite_width);
+                        let base_y = resolve_y(*y, align_y, scene_h, sprite_height);
+                        let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
+                        // TODO: move AnimationDispatcher to engine init instead of per-frame
+                        let anim_dispatcher = AnimationDispatcher::new();
+                        let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
+                        draw_x = (base_x as i32 + transform.dx as i32).max(0) as u16;
+                        draw_y = (base_y as i32 + transform.dy as i32).max(0) as u16;
                         for (i, ch) in rendered_content.chars().enumerate() {
                             layer_buf.set(draw_x + i as u16, draw_y, ch, fg, sprite_bg);
                         }
@@ -69,12 +76,17 @@ pub fn render_sprites(
                         let text_buf = rasterizer::rasterize(&rendered_content, font_name, fg, sprite_bg);
                         sprite_width = text_buf.width;
                         sprite_height = text_buf.height;
-                        draw_x = resolve_x(*x, align_x, scene_w, sprite_width);
-                        draw_y = resolve_y(*y, align_y, scene_h, sprite_height);
+                        let base_x = resolve_x(*x, align_x, scene_w, sprite_width);
+                        let base_y = resolve_y(*y, align_y, scene_h, sprite_height);
+                        let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
+                        // TODO: move AnimationDispatcher to engine init instead of per-frame
+                        let anim_dispatcher = AnimationDispatcher::new();
+                        let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
+                        draw_x = (base_x as i32 + transform.dx as i32).max(0) as u16;
+                        draw_y = (base_y as i32 + transform.dy as i32).max(0) as u16;
                         rasterizer::blit(&text_buf, layer_buf, draw_x, draw_y);
                     }
                 }
-
                 let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
                 let sprite_region = Region { x: draw_x, y: draw_y, width: sprite_width, height: sprite_height };
                 apply_sprite_effects(stages, current_stage, step_idx, elapsed_ms, sprite_elapsed, sprite_region, layer_buf);
