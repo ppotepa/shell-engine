@@ -9,6 +9,7 @@ pub mod brighten;
 pub mod glitch;
 pub mod devour;
 pub mod artifact;
+pub mod shatter;
 
 pub use crt_on::CrtOnEffect;
 pub use power_off::PowerOffEffect;
@@ -21,3 +22,4 @@ pub use brighten::BrightenEffect;
 pub use glitch::GlitchOutEffect;
 pub use devour::DevourOutEffect;
 pub use artifact::ArtifactOutEffect;
+pub use shatter::ShatterGlitchEffect;
