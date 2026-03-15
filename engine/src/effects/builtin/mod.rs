@@ -7,6 +7,7 @@ pub mod shine;
 pub mod clear_to_colour;
 pub mod brighten;
 pub mod glitch;
+pub mod devour;
 
 pub use crt_on::CrtOnEffect;
 pub use power_off::PowerOffEffect;
@@ -17,3 +18,4 @@ pub use shine::ShineEffect;
 pub use clear_to_colour::ClearToColourEffect;
 pub use brighten::BrightenEffect;
 pub use glitch::GlitchOutEffect;
+pub use devour::DevourOutEffect;
