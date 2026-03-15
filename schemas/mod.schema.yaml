@@ -1,0 +1,21 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/mod.schema.yaml"
+title: Mod Manifest Schema
+type: object
+additionalProperties: true
+required:
+  - name
+  - version
+  - entrypoint
+properties:
+  name:
+    type: string
+    minLength: 1
+  version:
+    type: string
+    minLength: 1
+  entrypoint:
+    type: string
+    minLength: 1
+    pattern: "^/.+\\.yml$"
+

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docs - Mod Shell Quest</title>
+</head>
+<body>
+  <header>
+    <h1>Mod: Shell Quest</h1>
+    <p>Modyfikacja dzialajaca na silniku, rozwijana w `mod/shell-quest`.</p>
+    <p><a href="../../../index.html">Powrot do spisu</a></p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Rola</h2>
+      <p>Mod definiuje zawartosc i logike gry specyficzna dla Shell Quest.</p>
+    </section>
+
+    <section>
+      <h2>Punkt podlaczenia do engine</h2>
+      <p>Shell Quest jest ladowany przez app i przekazywany do engine jako pakiet moda.</p>
+      <p>Plik `mod.yaml` jest entrypointem konfiguracji i musi wskazywac `entrypoint: /scenes/intro.yml` (lub inna scene).</p>
+    </section>
+
+    <section>
+      <h2>Kontrakty YAML</h2>
+      <p>Zmiany w plikach YAML wymagaja utrzymania schematow w `schemas/`:</p>
+      <ul>
+        <li>`schemas/mod.schema.yaml`</li>
+        <li>`schemas/scene.schema.yaml`</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

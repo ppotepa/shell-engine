@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docs - App</title>
+</head>
+<body>
+  <header>
+    <h1>App</h1>
+    <p>Warstwa startowa uruchamiajaca engine z wybranym modem.</p>
+    <p><a href="../index.html">Powrot do spisu</a></p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Rola</h2>
+      <p>`app` odpowiada za punkt wejscia aplikacji i przekazanie kontroli do `engine`.</p>
+    </section>
+
+    <section>
+      <h2>Przeplyw (aktualny)</h2>
+      <ol>
+        <li>Start aplikacji.</li>
+        <li>Utworzenie `ShellEngine` z relatywna sciezka `mod/shell-quest/`.</li>
+        <li>Walidacja pliku `mod.yaml` przez engine.</li>
+        <li>Uruchomienie engine z kontekstem moda.</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>

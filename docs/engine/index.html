@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Docs - Engine</title>
+</head>
+<body>
+  <header>
+    <h1>Engine</h1>
+    <p>Rdzen terminalowego silnika 2D z modulami.</p>
+    <p><a href="../index.html">Powrot do spisu</a></p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Rola</h2>
+      <p>`engine` dostarcza petle gry, systemy i API, ktore wykorzystuja mody.</p>
+    </section>
+
+    <section>
+      <h2>Stack technologiczny</h2>
+      <p>Rust + `ratatui` + `crossterm` jako fundament terminalowego silnika 2D.</p>
+    </section>
+
+    <section>
+      <h2>Integracja z modem</h2>
+      <p>Engine przyjmuje zrodlo moda jako folder lub plik `.zip`.</p>
+      <p>Kazde zrodlo musi zawierac plik wejscia `mod.yaml`.</p>
+      <p>`mod.yaml` musi zawierac pole `entrypoint` wskazujace scene (np. `/scenes/intro.yml`).</p>
+      <p>Glowna struktura to `ShellEngine` (rdzen uruchamiania i walidacji moda).</p>
+    </section>
+  </main>
+</body>
+</html>

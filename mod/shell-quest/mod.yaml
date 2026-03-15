@@ -1,0 +1,3 @@
+name: Shell Quest
+version: 0.1.0
+entrypoint: /scenes/intro.yml
