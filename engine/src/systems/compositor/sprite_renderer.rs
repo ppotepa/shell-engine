@@ -2,7 +2,9 @@ use crossterm::style::Color;
 use crate::animations::AnimationDispatcher;
 use crate::buffer::Buffer;
 use crate::effects::Region;
+use crate::markup::{parse_spans, strip_markup};
 use crate::rasterizer;
+use crate::rasterizer::generic;
 use crate::scene::{HorizontalAlign, Layer, Sprite, VerticalAlign};
 use crate::systems::animator::SceneStage;
 use super::effect_applicator::apply_sprite_effects;
@@ -27,7 +29,7 @@ pub fn render_sprites(
             Sprite::Text {
                 content, x, y, font, align_x, align_y,
                 fg_colour, bg_colour, appear_at_ms, disappear_at_ms,
-                reveal_ms, stages, animations, ..
+                reveal_ms, stages, animations, glow, ..
             } => {
                 let appear_at = appear_at_ms.unwrap_or(0);
                 if scene_elapsed_ms < appear_at { continue; }
@@ -52,46 +54,126 @@ pub fn render_sprites(
                     Some(c) => Color::from(c),
                     None => Color::Reset,
                 };
-                let mut sprite_width = rendered_content.chars().count() as u16;
-                let mut sprite_height = 1u16;
 
-                let draw_x;
-                let draw_y;
+                // Compute sprite dimensions for alignment
+                let (sprite_width, sprite_height) =
+                    sprite_dimensions(&rendered_content, font.as_deref(), fg, sprite_bg);
 
-                match font {
-                    None => {
-                        let base_x = resolve_x(*x, align_x, scene_w, sprite_width);
-                        let base_y = resolve_y(*y, align_y, scene_h, sprite_height);
-                        let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
-                        // TODO: move AnimationDispatcher to engine init instead of per-frame
-                        let anim_dispatcher = AnimationDispatcher::new();
-                        let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
-                        draw_x = (base_x as i32 + transform.dx as i32).max(0) as u16;
-                        draw_y = (base_y as i32 + transform.dy as i32).max(0) as u16;
-                        for (i, ch) in rendered_content.chars().enumerate() {
-                            layer_buf.set(draw_x + i as u16, draw_y, ch, fg, sprite_bg);
+                let base_x = resolve_x(*x, align_x, scene_w, sprite_width);
+                let base_y = resolve_y(*y, align_y, scene_h, sprite_height);
+                let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
+                // TODO: move AnimationDispatcher to engine init instead of per-frame
+                let anim_dispatcher = AnimationDispatcher::new();
+                let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
+                let draw_x = (base_x as i32 + transform.dx as i32).max(0) as u16;
+                let draw_y = (base_y as i32 + transform.dy as i32).max(0) as u16;
+
+                // Glow pass — render stripped content at each offset in glow colour
+                if let Some(glow_opts) = glow.as_ref() {
+                    let glow_col = glow_opts.colour.as_ref()
+                        .map(|c| Color::from(c))
+                        .unwrap_or_else(|| dim_colour(fg));
+                    let radius = glow_opts.radius.max(1) as i32;
+                    let glow_content = strip_markup(&rendered_content);
+                    for dy in -radius..=radius {
+                        for dx in -radius..=radius {
+                            if dx == 0 && dy == 0 { continue; }
+                            let gx = (draw_x as i32 + dx).max(0) as u16;
+                            let gy = (draw_y as i32 + dy).max(0) as u16;
+                            render_text_content(&glow_content, font.as_deref(), glow_col, sprite_bg, gx, gy, layer_buf);
                         }
                     }
-                    Some(font_name) => {
-                        let text_buf = rasterizer::rasterize(&rendered_content, font_name, fg, sprite_bg);
-                        sprite_width = text_buf.width;
-                        sprite_height = text_buf.height;
-                        let base_x = resolve_x(*x, align_x, scene_w, sprite_width);
-                        let base_y = resolve_y(*y, align_y, scene_h, sprite_height);
-                        let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
-                        // TODO: move AnimationDispatcher to engine init instead of per-frame
-                        let anim_dispatcher = AnimationDispatcher::new();
-                        let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
-                        draw_x = (base_x as i32 + transform.dx as i32).max(0) as u16;
-                        draw_y = (base_y as i32 + transform.dy as i32).max(0) as u16;
-                        rasterizer::blit(&text_buf, layer_buf, draw_x, draw_y);
-                    }
                 }
-                let sprite_elapsed = scene_elapsed_ms.saturating_sub(appear_at);
+
+                // Render actual content on top
+                render_text_content(&rendered_content, font.as_deref(), fg, sprite_bg, draw_x, draw_y, layer_buf);
+
                 let sprite_region = Region { x: draw_x, y: draw_y, width: sprite_width, height: sprite_height };
                 apply_sprite_effects(stages, current_stage, step_idx, elapsed_ms, sprite_elapsed, sprite_region, layer_buf);
             }
         }
+    }
+}
+
+/// Render text content at (x, y) on `buf`, respecting font and inline colour markup.
+fn render_text_content(
+    content: &str,
+    font: Option<&str>,
+    fg: Color,
+    bg: Color,
+    x: u16,
+    y: u16,
+    buf: &mut Buffer,
+) {
+    match font {
+        None => {
+            // Native text — parse markup spans and render each with its colour
+            let spans = parse_spans(content);
+            let mut col = 0u16;
+            for span in &spans {
+                let span_fg = span.colour.as_ref()
+                    .map(|c| Color::from(c))
+                    .unwrap_or(fg);
+                for ch in span.text.chars() {
+                    buf.set(x + col, y, ch, span_fg, bg);
+                    col += 1;
+                }
+            }
+        }
+        Some(font_name) if font_name.starts_with("generic") => {
+            let preset: u16 = font_name.strip_prefix("generic")
+                .and_then(|s| s.strip_prefix(':'))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(2);
+            let spans = parse_spans(content);
+            let colored_spans: Vec<(String, Color)> = spans.iter()
+                .map(|s| {
+                    let col = s.colour.as_ref().map(|c| Color::from(c)).unwrap_or(fg);
+                    (s.text.clone(), col)
+                })
+                .collect();
+            generic::rasterize_spans(&colored_spans, preset, x, y, buf);
+        }
+        Some(font_name) => {
+            // TODO: add per-span markup colour support for manifest fonts
+            let stripped = strip_markup(content);
+            let text_buf = rasterizer::rasterize(&stripped, font_name, fg, bg);
+            rasterizer::blit(&text_buf, buf, x, y);
+        }
+    }
+}
+
+/// Compute the rendered dimensions (width, height) of content with the given font.
+fn sprite_dimensions(content: &str, font: Option<&str>, fg: Color, bg: Color) -> (u16, u16) {
+    let visible = strip_markup(content);
+    match font {
+        None => (visible.chars().count() as u16, 1),
+        Some(font_name) if font_name.starts_with("generic") => {
+            let preset: u16 = font_name.strip_prefix("generic")
+                .and_then(|s| s.strip_prefix(':'))
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(2);
+            match preset {
+                1 => generic::generic_dimensions_tiny(&visible),
+                3 => generic::generic_dimensions(&visible, 2),
+                _ => generic::generic_dimensions(&visible, 1),
+            }
+        }
+        Some(font_name) => {
+            let text_buf = rasterizer::rasterize(&visible, font_name, fg, bg);
+            (text_buf.width, text_buf.height)
+        }
+    }
+}
+
+/// Dim a colour to ~25% brightness for use as a default glow colour.
+fn dim_colour(c: Color) -> Color {
+    use crate::effects::utils::color::colour_to_rgb;
+    let (r, g, b) = colour_to_rgb(c);
+    Color::Rgb {
+        r: (r as f32 * 0.25) as u8,
+        g: (g as f32 * 0.25) as u8,
+        b: (b as f32 * 0.25) as u8,
     }
 }
 

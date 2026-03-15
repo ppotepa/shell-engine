@@ -284,8 +284,10 @@ $defs:
           Font for rasterized rendering. Three forms are supported:
 
           Built-in generic pixel font (no asset files required):
-            "generic:N"  — 5×7 hardcoded bitmap glyphs, each pixel = N×N terminal cells.
-            "generic"    — equivalent to "generic:1" (1 cell per pixel).
+            "generic:1"  — 3×5 tiny bitmaps (minimum readable, 3 cells wide × 5 tall per glyph).
+            "generic:2"  — 5×7 standard bitmaps (5 cells wide × 7 tall per glyph). Default.
+            "generic:3"  — 5×7 bitmaps × 2 cell scale (10×14 cells — large pixel art).
+            "generic"    — equivalent to generic:2.
 
           Named bitmap fonts loaded from mod assets:
             "Abril Fatface"        — raster/terminal-pixel mode (default).
@@ -303,10 +305,16 @@ $defs:
         description: Vertical alignment anchor in scene space. y acts as extra offset.
       fg_colour:
         $ref: "#/$defs/colour"
-        description: Foreground (text / glyph pixel) colour.
+        description: >
+          Base foreground (text / glyph pixel) colour.
+          Can be overridden per-run using inline markup in content:
+          [red]text[/] or [#ff8800]text[/].
       bg_colour:
         $ref: "#/$defs/colour"
         description: Background colour behind the sprite. Omit for transparent background.
+      glow:
+        $ref: "#/$defs/glow"
+        description: Optional glow halo rendered behind the sprite at neighbouring cell offsets.
       appear_at_ms:
         type: integer
         minimum: 0
@@ -386,3 +394,40 @@ $defs:
         enum: [linear, ease-in, ease-out, ease-in-out]
         default: ease-in-out
         description: Easing applied within each animation cycle.
+
+  # ── Glow ───────────────────────────────────────────────────────────────────
+  glow:
+    type: object
+    additionalProperties: false
+    description: >
+      Soft halo rendered behind a sprite by drawing shifted copies at neighbouring
+      cell offsets in a dimmed colour. Applied before the main sprite render pass.
+    properties:
+      colour:
+        $ref: "#/$defs/colour"
+        description: >
+          Explicit glow colour.
+          If omitted, the engine auto-derives a dimmed version of the sprite's fg_colour
+          (approximately 25% brightness).
+      radius:
+        type: integer
+        minimum: 1
+        maximum: 4
+        default: 1
+        description: >
+          Halo radius in cells.
+          1 = 8 immediate neighbours (3×3 ring, excluding centre).
+          2 = up to 24 neighbours (5×5 ring) — denser, more diffuse halo.
+
+  # ── Colour markup (inline, within content strings) ─────────────────────────
+  # NOTE: this is documentation only — JSON Schema cannot validate inline string markup.
+  # Format: [colour]text[/] or [/colour] where colour is a named colour or #rrggbb hex.
+  # Examples:
+  #   "[red]PRESS[/] ANY [red]KEY[/]"
+  #   "[#808080]PRESS[/] ANY [#808080]KEY[/]"
+  # Rules:
+  #   - [name]   or [#rrggbb]  opens a colour span
+  #   - [/]      or [/name]    closes it (reverts to sprite fg_colour)
+  #   - Nesting is not supported (last opened tag wins)
+  #   - Invalid/unknown tags are treated as literal text
+  #   - Supported named colours: black white gray grey silver red green blue yellow cyan magenta

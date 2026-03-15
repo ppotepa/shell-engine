@@ -8,16 +8,35 @@ use crossterm::style::Color;
 /// Rasterize `text` using the named bitmap font into a new Buffer.
 pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
     // Handle built-in generic pixel font: "generic" or "generic:N"
+    // preset 1 = 3×5 tiny, preset 2 = 5×7 (default), preset 3 = 5×7 ×2 scale
     if font.starts_with("generic") {
-        let scale: u16 = font.strip_prefix("generic")
+        let preset: u16 = font.strip_prefix("generic")
             .and_then(|s| s.strip_prefix(':'))
             .and_then(|s| s.parse().ok())
-            .unwrap_or(1);
-        let (width, height) = generic::generic_dimensions(text, scale);
-        let mut out = Buffer::new(width.max(1), height.max(1));
-        out.fill(Color::Reset);
-        generic::rasterize_generic(text, scale, fg, 0, 0, &mut out);
-        return out;
+            .unwrap_or(2);
+        match preset {
+            1 => {
+                let (width, height) = generic::generic_dimensions_tiny(text);
+                let mut out = Buffer::new(width.max(1), height.max(1));
+                out.fill(Color::Reset);
+                generic::rasterize_generic_tiny(text, fg, 0, 0, &mut out);
+                return out;
+            }
+            3 => {
+                let (width, height) = generic::generic_dimensions(text, 2);
+                let mut out = Buffer::new(width.max(1), height.max(1));
+                out.fill(Color::Reset);
+                generic::rasterize_generic(text, 2, fg, 0, 0, &mut out);
+                return out;
+            }
+            _ => {
+                let (width, height) = generic::generic_dimensions(text, 1);
+                let mut out = Buffer::new(width.max(1), height.max(1));
+                out.fill(Color::Reset);
+                generic::rasterize_generic(text, 1, fg, 0, 0, &mut out);
+                return out;
+            }
+        }
     }
 
     let glyph_font = match font_loader::load_font_assets(font) {
