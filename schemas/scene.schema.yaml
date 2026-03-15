@@ -130,6 +130,7 @@ $defs:
           shine          — Metallic laser-scan highlight sweep (configurable angle/width/falloff).
           brighten       — Increase foreground brightness toward white.
           glitch-out     — Terminal glitch collapse + flash transition.
+          devour-out     — Consume visible scene content, then spread corruption over full screen.
         enum:
           - crt-on
           - power-off
@@ -141,6 +142,7 @@ $defs:
           - shine
           - brighten
           - glitch-out
+          - devour-out
       duration:
         type: integer
         minimum: 0
