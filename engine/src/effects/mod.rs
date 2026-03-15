@@ -33,6 +33,7 @@ impl EffectDispatcher {
         self.registry.insert("brighten",          Box::new(BrightenEffect));
         self.registry.insert("glitch-out",        Box::new(GlitchOutEffect));
         self.registry.insert("devour-out",        Box::new(DevourOutEffect));
+        self.registry.insert("artifact-out",      Box::new(ArtifactOutEffect));
     }
 
     pub fn apply(
