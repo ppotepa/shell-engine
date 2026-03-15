@@ -37,6 +37,9 @@ pub enum Sprite {
     /// If `font` is None: characters written directly to buffer (fast path).
     /// If `font` is Some: text is rasterized using a bitmap font definition (rasterizer path).
     Text {
+        /// Optional stable identifier for script-side lookups (e.g. intro.rs logic hooks).
+        #[serde(default)]
+        id: Option<String>,
         content: String,
         #[serde(default)]
         x: u16,
