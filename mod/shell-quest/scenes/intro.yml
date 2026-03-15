@@ -14,9 +14,34 @@ stages:
             params:
               easing: ease-out
   on_idle:
-    steps: []
+    trigger: any-key
+    looping: true
+    steps:
+      - duration: 1800
+        effects: []
+      - effects:
+          - name: shine
+            duration: 1000
+            params:
+              angle: 20
+              width: 4
+              falloff: 2.5
+              intensity: 2.0
+              colour: white
+              easing: ease-in
   on_leave:
-    steps: []
+    steps:
+      - duration: 500
+        effects: []
+      - effects:
+          - name: brighten
+            duration: 500
+            params:
+              intensity: 0.12
+              easing: ease-out
+      - effects:
+          - name: glitch-out
+            duration: 1400
 layers:
   - name: title
     z_index: 0
@@ -64,6 +89,15 @@ layers:
                       intensity: 2.0
                       colour: white
                       easing: ease-in
+          on_leave:
+            steps:
+              - effects:
+                  - name: brighten
+                    duration: 500
+                    params:
+                      intensity: 0.12
+                      easing: ease-out
+
       - type: text
         content: "[#808080]PRESS[/] ANY [#808080]KEY[/]"
         align_x: center
@@ -74,6 +108,12 @@ layers:
         glow:
           radius: 1
         appear_at_ms: 8500
+        stages:
+          on_leave:
+            steps:
+              - effects:
+                  - name: fade-out
+                    duration: 300
         animations:
           - name: float
             looping: true
@@ -82,4 +122,4 @@ layers:
               amplitude: 1
               period_ms: 2000
               easing: ease-in-out
-next: null
+next: mainmenu

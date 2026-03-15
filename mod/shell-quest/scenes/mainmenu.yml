@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
+id: mainmenu
+title: Main Menu
+bg_colour: black
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 800
+            params:
+              easing: ease-in
+  on_idle:
+    trigger: any-key
+    steps: []
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 400
+layers:
+  - name: menu
+    z_index: 0
+    sprites:
+      - type: text
+        content: "SHELL QUEST I"
+        align_x: center
+        align_y: center
+        y: -8
+        font: "generic:2"
+        fg_colour: white
+        glow:
+          radius: 1
+
+      - type: text
+        content: "[white]> NEW GAME[/]"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: gray
+
+      - type: text
+        content: "  LOAD GAME"
+        align_x: center
+        align_y: center
+        y: 3
+        font: "generic:1"
+        fg_colour: gray
+
+      - type: text
+        content: "  OPTIONS"
+        align_x: center
+        align_y: center
+        y: 6
+        font: "generic:1"
+        fg_colour: gray
+
+      - type: text
+        content: "  QUIT"
+        align_x: center
+        align_y: center
+        y: 9
+        font: "generic:1"
+        fg_colour: gray
+next: null

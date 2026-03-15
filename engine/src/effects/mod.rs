@@ -30,6 +30,8 @@ impl EffectDispatcher {
         self.registry.insert("scanlines",         Box::new(ScanlinesEffect));
         self.registry.insert("shine",             Box::new(ShineEffect));
         self.registry.insert("clear-to-colour",   Box::new(ClearToColourEffect));
+        self.registry.insert("brighten",          Box::new(BrightenEffect));
+        self.registry.insert("glitch-out",        Box::new(GlitchOutEffect));
     }
 
     pub fn apply(
