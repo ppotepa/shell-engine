@@ -105,15 +105,8 @@ layers:
                       colour: white
                       easing: ease-in
               - effects:
-                  - name: shine
+                  - name: shatter-glitch
                     duration: 500
-                    params:
-                      angle: -20
-                      width: 2
-                      falloff: 3.0
-                      intensity: 1.0
-                      colour: white
-                      easing: ease-out
 
       - type: text
         id: press-any-key

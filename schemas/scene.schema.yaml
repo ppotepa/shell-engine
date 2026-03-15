@@ -132,6 +132,7 @@ $defs:
           glitch-out     — Terminal glitch collapse + flash transition.
           devour-out     — Consume visible scene content, then spread corruption over full screen.
           artifact-out   — Digital GPU artifact transition (glyph corruption, tearing, channel split).
+          shatter-glitch — Sprite-focused glitch: partial line loss, flicker, and displaced fragments.
         enum:
           - crt-on
           - power-off
@@ -145,6 +146,7 @@ $defs:
           - glitch-out
           - devour-out
           - artifact-out
+          - shatter-glitch
       duration:
         type: integer
         minimum: 0
