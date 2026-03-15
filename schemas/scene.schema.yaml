@@ -1,0 +1,24 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/scene.schema.yaml"
+title: Scene Schema
+type: object
+additionalProperties: true
+required:
+  - id
+  - title
+  - text
+properties:
+  id:
+    type: string
+    minLength: 1
+  title:
+    type: string
+    minLength: 1
+  text:
+    type: string
+    minLength: 1
+  next:
+    type:
+      - string
+      - "null"
+
