@@ -1,11 +1,25 @@
 mod types;
 mod font_loader;
+pub mod generic;
 
 use crate::buffer::Buffer;
 use crossterm::style::Color;
 
 /// Rasterize `text` using the named bitmap font into a new Buffer.
 pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
+    // Handle built-in generic pixel font: "generic" or "generic:N"
+    if font.starts_with("generic") {
+        let scale: u16 = font.strip_prefix("generic")
+            .and_then(|s| s.strip_prefix(':'))
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1);
+        let (width, height) = generic::generic_dimensions(text, scale);
+        let mut out = Buffer::new(width.max(1), height.max(1));
+        out.fill(Color::Reset);
+        generic::rasterize_generic(text, scale, fg, 0, 0, &mut out);
+        return out;
+    }
+
     let glyph_font = match font_loader::load_font_assets(font) {
         Some(f) => f,
         None => return rasterize_native(text, fg, bg),

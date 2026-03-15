@@ -281,9 +281,18 @@ $defs:
       font:
         type: [string, "null"]
         description: >
-          Named bitmap font for rasterized rendering.
-          Supports optional mode suffix: "Abril Fatface:ascii" (ASCII art glyphs)
-          or "Abril Fatface:raster" / "Abril Fatface" (bitmap pixel glyphs).
+          Font for rasterized rendering. Three forms are supported:
+
+          Built-in generic pixel font (no asset files required):
+            "generic:N"  — 5×7 hardcoded bitmap glyphs, each pixel = N×N terminal cells.
+            "generic"    — equivalent to "generic:1" (1 cell per pixel).
+
+          Named bitmap fonts loaded from mod assets:
+            "Abril Fatface"        — raster/terminal-pixel mode (default).
+            "Abril Fatface:raster" — explicit raster mode.
+            "Abril Fatface:ascii"  — ASCII-art glyph mode.
+
+          Omit or set null for native terminal text (no rasterization).
       align_x:
         type: string
         enum: [left, center, right]
@@ -315,3 +324,65 @@ $defs:
           over this duration starting from appear_at_ms.
       stages:
         $ref: "#/$defs/layer_stages"
+      animations:
+        type: array
+        default: []
+        description: >
+          Position animations applied to this sprite before rendering.
+          Animations modify the sprite's transform (dx, dy offset) rather than its pixels.
+          Multiple animations combine additively.
+        items:
+          $ref: "#/$defs/animation"
+
+  # ── Animation ──────────────────────────────────────────────────────────────
+  animation:
+    type: object
+    description: >
+      A sprite position animation (tween).
+      Modifies where the sprite is drawn (transform), not pixel colours.
+      Contrast with effects which modify pixels after rasterization.
+    additionalProperties: false
+    required: [name]
+    properties:
+      name:
+        type: string
+        description: >
+          Animation identifier. Built-in animations:
+          float — smooth sinusoidal bob along x or y axis.
+        enum:
+          - float
+      looping:
+        type: boolean
+        default: true
+        description: Whether the animation repeats indefinitely.
+      params:
+        $ref: "#/$defs/animation_params"
+
+  # ── Animation params ────────────────────────────────────────────────────────
+  animation_params:
+    type: object
+    additionalProperties: false
+    description: Parameters for a sprite animation.
+    properties:
+      axis:
+        type: string
+        enum: [x, y]
+        default: y
+        description: >
+          Axis along which the animation operates.
+          "y" = vertical bob (up/down). "x" = horizontal sway (left/right).
+      amplitude:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Maximum offset in terminal cells from the sprite's resting position (±amplitude).
+      period_ms:
+        type: integer
+        minimum: 1
+        default: 2000
+        description: Duration of one full animation cycle in milliseconds.
+      easing:
+        type: string
+        enum: [linear, ease-in, ease-out, ease-in-out]
+        default: ease-in-out
+        description: Easing applied within each animation cycle.

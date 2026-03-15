@@ -5,8 +5,19 @@ pub mod sprite;
 pub use color::TermColour;
 pub use easing::Easing;
 pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};
+pub use crate::animations::AnimationParams;
 
 use serde::Deserialize;
+
+/// A sprite position animation (tween). Modifies sprite transform, not pixel colors.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Animation {
+    pub name: String,
+    #[serde(default)]
+    pub looping: bool,
+    #[serde(default)]
+    pub params: AnimationParams,
+}
 
 /// Named visual effect with duration, loop flag, and arbitrary params.
 #[derive(Debug, Clone, Deserialize)]

@@ -48,5 +48,7 @@ pub enum Sprite {
         reveal_ms: Option<u64>,
         #[serde(default)]
         stages: LayerStages,
+        #[serde(default)]
+        animations: Vec<crate::scene::Animation>,
     },
 }
