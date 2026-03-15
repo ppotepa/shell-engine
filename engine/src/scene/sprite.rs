@@ -61,6 +61,9 @@ pub enum Sprite {
         /// Optional reveal duration (ms). When set, text appears left->right.
         #[serde(default)]
         reveal_ms: Option<u64>,
+        /// Hide the sprite immediately when scene enters on_leave.
+        #[serde(default)]
+        hide_on_leave: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
