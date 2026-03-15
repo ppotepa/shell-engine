@@ -29,8 +29,11 @@ pub fn render_sprites(
             Sprite::Text {
                 content, x, y, font, align_x, align_y,
                 fg_colour, bg_colour, appear_at_ms, disappear_at_ms,
-                reveal_ms, stages, animations, glow, ..
+                reveal_ms, hide_on_leave, stages, animations, glow, ..
             } => {
+                if *hide_on_leave && matches!(current_stage, SceneStage::OnLeave) {
+                    continue;
+                }
                 let appear_at = appear_at_ms.unwrap_or(0);
                 if scene_elapsed_ms < appear_at { continue; }
                 if let Some(disappear_at) = disappear_at_ms {

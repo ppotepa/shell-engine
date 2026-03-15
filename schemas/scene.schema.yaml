@@ -340,6 +340,12 @@ $defs:
           Optional reveal duration (ms).
           When set, the sprite content appears character by character left→right
           over this duration starting from appear_at_ms.
+      hide_on_leave:
+        type: boolean
+        default: false
+        description: >
+          When true, the sprite is not rendered at all once the scene enters on_leave.
+          Useful for prompts like PRESS ANY KEY that should disappear instantly on trigger.
       stages:
         $ref: "#/$defs/layer_stages"
       animations:
