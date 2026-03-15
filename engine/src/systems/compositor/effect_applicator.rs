@@ -3,12 +3,17 @@ use crate::effects::{apply_effect, Region};
 use crate::scene::{Layer, LayerStages, Stage, Step};
 use crate::systems::animator::SceneStage;
 
-/// Apply effects for a sprite's lifecycle stage, driven by sprite-relative elapsed time.
+/// Apply effects for a sprite's lifecycle stage.
+///
+/// Timing model:
+/// - on_enter/on_idle: resolved by sprite-relative elapsed (independent sprite timing).
+/// - on_leave: resolved by scene stage step index + step-local elapsed, so leave effects
+///   start at progress 0.0 when on_leave begins (instead of jumping to completion).
 pub fn apply_sprite_effects(
     stages: &LayerStages,
     stage: &SceneStage,
-    _step_idx: usize,
-    _elapsed_ms: u64,
+    step_idx: usize,
+    elapsed_ms: u64,
     sprite_elapsed_ms: u64,
     region: Region,
     buffer: &mut Buffer,
@@ -20,9 +25,20 @@ pub fn apply_sprite_effects(
         SceneStage::Done    => return,
     };
 
-    let (step, progress) = match resolve_step_by_elapsed(current_stage, sprite_elapsed_ms) {
-        Some(v) => v,
-        None => return,
+    let (step, progress) = match stage {
+        SceneStage::OnLeave => {
+            let step = match current_stage.steps.get(step_idx) {
+                Some(s) => s,
+                None => return,
+            };
+            let dur = step.duration_ms();
+            let p = if dur == 0 { 0.0 } else { (elapsed_ms as f32 / dur as f32).clamp(0.0, 1.0) };
+            (step, p)
+        }
+        _ => match resolve_step_by_elapsed(current_stage, sprite_elapsed_ms) {
+            Some(v) => v,
+            None => return,
+        },
     };
 
     for effect in &step.effects {
