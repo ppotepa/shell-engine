@@ -36,7 +36,7 @@ stages:
       - duration: 500
         effects: []
       - effects:
-          - name: devour-out
+          - name: artifact-out
             duration: 1400
 layers:
   - name: title

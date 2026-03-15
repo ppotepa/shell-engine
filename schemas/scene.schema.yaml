@@ -131,6 +131,7 @@ $defs:
           brighten       — Increase foreground brightness toward white.
           glitch-out     — Terminal glitch collapse + flash transition.
           devour-out     — Consume visible scene content, then spread corruption over full screen.
+          artifact-out   — Digital GPU artifact transition (glyph corruption, tearing, channel split).
         enum:
           - crt-on
           - power-off
@@ -143,6 +144,7 @@ $defs:
           - brighten
           - glitch-out
           - devour-out
+          - artifact-out
       duration:
         type: integer
         minimum: 0
