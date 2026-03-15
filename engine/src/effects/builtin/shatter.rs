@@ -26,6 +26,11 @@ impl Effect for ShatterGlitchEffect {
 
         let t = (progress * 1000.0) as u32;
         let p = smoothstep(progress.clamp(0.0, 1.0));
+        let stable_seed = (region.x as u32)
+            .wrapping_mul(73_856_093)
+            ^ (region.y as u32).wrapping_mul(19_349_663)
+            ^ (region.width as u32).wrapping_mul(83_492_791)
+            ^ (region.height as u32).wrapping_mul(2_654_435_761);
 
         // Snapshot the full region before corruption so shards are recognizable replicas.
         let mut snapshot: Vec<Cell> = Vec::with_capacity((region.width as usize) * (region.height as usize));
@@ -49,6 +54,7 @@ impl Effect for ShatterGlitchEffect {
         let clear_prob = 0.05 + 0.22 * p;
         let flicker_prob = 0.08 + 0.26 * p;
         let block_shift_prob = 0.06 + 0.20 * p;
+        let square_prob = 0.05 + 0.22 * p;
 
         let mut kept_visible = 0usize;
         for (x, y, src) in &signal_cells {
@@ -68,12 +74,18 @@ impl Effect for ShatterGlitchEffect {
                 } else {
                     buffer.set(*x, *y, ' ', TRUE_BLACK, TRUE_BLACK);
                 }
-            } else {
-                let fg = dim(src.fg, 1.0 - 0.30 * p);
-                let ch = if n > 0.94 { glitch_char(n) } else { src.symbol };
-                buffer.set(*x, *y, ch, fg, TRUE_BLACK);
-                kept_visible += 1;
-            }
+                } else {
+                    let fg = dim(src.fg, 1.0 - 0.30 * p);
+                    let ch = if n < square_prob {
+                        square_char(n)
+                    } else if n > 0.94 {
+                        glitch_char(n)
+                    } else {
+                        src.symbol
+                    };
+                    buffer.set(*x, *y, ch, fg, TRUE_BLACK);
+                    kept_visible += 1;
+                }
 
             // Local block shift keeps "broken VRAM" flavor while still recognizable.
             if n > 0.40 && n < 0.40 + block_shift_prob {
@@ -87,12 +99,45 @@ impl Effect for ShatterGlitchEffect {
             }
         }
 
-        // Large shard blocks: copy recognizable chunks of the snapshot into random places.
-        // This is the main "memory corruption / replica" behavior.
-        let chunk_count = (1.0 + p * 7.0).round() as usize;
+        // Large persistent shard blocks: fixed destinations => "stuck VRAM fragments".
+        let persistent_chunk_count = (1.0 + p * 5.0).round() as usize;
         let max_src_x = region.width.saturating_sub(1);
         let max_src_y = region.height.saturating_sub(1);
-        for i in 0..chunk_count {
+        for i in 0..persistent_chunk_count {
+            let seed = stable_seed.wrapping_add(i as u32 * 97);
+            let src_w = choose_span(region.width, noise(seed as u16, seed.rotate_left(7) as u16, seed));
+            let src_h = choose_span(region.height, noise(seed.rotate_left(3) as u16, seed.rotate_left(11) as u16, seed));
+
+            let sx0 = choose_offset(max_src_x.saturating_add(1), src_w, noise(seed.rotate_left(5) as u16, seed.rotate_left(13) as u16, seed));
+            let sy0 = choose_offset(max_src_y.saturating_add(1), src_h, noise(seed.rotate_left(9) as u16, seed.rotate_left(17) as u16, seed));
+
+            let dx0 = (noise(seed.rotate_left(19) as u16, seed.rotate_left(23) as u16, seed) * buffer.width as f32).floor() as i32
+                - (src_w as i32 / 2);
+            let dy0 = (noise(seed.rotate_left(2) as u16, seed.rotate_left(29) as u16, seed) * buffer.height as f32).floor() as i32
+                - (src_h as i32 / 2);
+
+            blit_chunk(
+                &snapshot,
+                region,
+                sx0,
+                sy0,
+                src_w,
+                src_h,
+                dx0,
+                dy0,
+                p,
+                seed,
+                buffer,
+                None,
+                0.12 + 0.30 * p,
+            );
+        }
+
+        // Dynamic shard blocks: blinking replicas layered over persistent ones.
+        let dynamic_chunk_count = (1.0 + p * 3.0).round() as usize;
+        let max_src_x = region.width.saturating_sub(1);
+        let max_src_y = region.height.saturating_sub(1);
+        for i in 0..dynamic_chunk_count {
             let seed = t / 4 + (i as u32 * 37);
             let src_w = choose_span(region.width, noise(region.x.wrapping_add(3), region.y.wrapping_add(5), seed));
             let src_h = choose_span(region.height, noise(region.x.wrapping_add(7), region.y.wrapping_add(11), seed));
@@ -117,7 +162,27 @@ impl Effect for ShatterGlitchEffect {
                 p,
                 seed,
                 buffer,
+                Some(t / 38 + i as u32),
+                0.20 + 0.30 * p,
             );
+        }
+
+        // Full-width line dropouts across the entire screen (cinema-style digital breakdown).
+        let line_count = (1.0 + p * 4.0).round() as usize;
+        let line_strength = 0.15 + 0.55 * p;
+        for i in 0..line_count {
+            let seed = stable_seed.wrapping_add(10_000 + i as u32 * 131);
+            let row = (noise(seed as u16, seed.rotate_left(7) as u16, seed) * buffer.height as f32).floor() as u16;
+            if row >= buffer.height {
+                continue;
+            }
+            let gate = noise(seed.rotate_left(3) as u16, seed.rotate_left(9) as u16, t / 16 + seed);
+            let blink_on = ((t / 42 + i as u32) & 1) == 0;
+            if gate < line_strength && (blink_on || p > 0.78) {
+                for x in 0..buffer.width {
+                    buffer.set(x, row, ' ', TRUE_BLACK, TRUE_BLACK);
+                }
+            }
         }
 
         // Safety: keep at least one visible source pixel/glyph.
@@ -141,6 +206,8 @@ fn blit_chunk(
     progress: f32,
     seed: u32,
     buffer: &mut Buffer,
+    blink_phase: Option<u32>,
+    square_bias: f32,
 ) {
     for yy in 0..h {
         for xx in 0..w {
@@ -166,8 +233,20 @@ fn blit_chunk(
                 continue;
             }
 
+            if let Some(phase) = blink_phase {
+                if ((phase + xx as u32 + yy as u32 * 2) & 1) != 0 {
+                    continue;
+                }
+            }
+
             let n = noise(out_x, out_y, seed / 2 + xx as u32 + yy as u32 * 3);
-            let symbol = if n > 0.97 { glitch_char(n) } else { cell.symbol };
+            let symbol = if n < square_bias {
+                square_char(n)
+            } else if n > 0.97 {
+                glitch_char(n)
+            } else {
+                cell.symbol
+            };
             let fg = dim(channel_split_tint(cell.fg, n), 0.85 - 0.30 * progress);
             buffer.set(out_x, out_y, symbol, fg, TRUE_BLACK);
         }
@@ -205,6 +284,12 @@ const GLITCH_CHARS: &[char] = &['#', '%', '@', '&', '/', '\\', '|', '{', '}', '?
 
 fn glitch_char(n: f32) -> char {
     GLITCH_CHARS[(n * GLITCH_CHARS.len() as f32) as usize % GLITCH_CHARS.len()]
+}
+
+const SQUARE_CHARS: &[char] = &['■', '□', '▣', '▤', '▥', '▦', '▧', '▨', '▩', '▓'];
+
+fn square_char(n: f32) -> char {
+    SQUARE_CHARS[(n * SQUARE_CHARS.len() as f32) as usize % SQUARE_CHARS.len()]
 }
 
 fn channel_split_tint(base: Color, n: f32) -> Color {
