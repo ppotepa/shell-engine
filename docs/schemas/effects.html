@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Built-in Effects</title>
+</head>
+<body>
+<h1>Built-in Effects</h1>
+<p><a href="../index.html">Home</a> / <a href="index.html">Schemas</a> / Built-in Effects</p>
+<hr>
+
+<h2>Overview</h2>
+<p>Effects are named visual transformations applied to a buffer region over a duration. They are declared inside <code>steps[].effects[]</code> in scene or layer stages. All effects receive a <em>progress</em> value (0.0 to 1.0) each frame, optionally transformed by an easing function.</p>
+<p>Usage notes: <b>scene</b> — typically used on scene stages (full buffer); <b>layer</b> — typically used on layer stages (row region); <b>loopable</b> — safe to use with <code>loop: true</code>.</p>
+
+<h2>Easing functions</h2>
+<p>All effects accept an optional <code>params.easing</code> field that transforms the raw linear progress before it is passed to the effect implementation.</p>
+<table border="1">
+  <tr><th>Value</th><th>Formula</th><th>Behaviour</th></tr>
+  <tr><td><code>linear</code> (default)</td><td><code>t</code></td><td>Constant rate throughout.</td></tr>
+  <tr><td><code>ease-in</code></td><td><code>t^2</code></td><td>Starts slow, accelerates.</td></tr>
+  <tr><td><code>ease-out</code></td><td><code>t(2-t)</code></td><td>Starts fast, decelerates.</td></tr>
+  <tr><td><code>ease-in-out</code></td><td>cubic Hermite</td><td>Slow start and end, fast middle.</td></tr>
+</table>
+
+<h2>Effects</h2>
+
+<h3>crt-on</h3>
+<p><b>scene</b></p>
+<p>Simulates a CRT monitor powering on. Content is revealed from the vertical centre row outward as progress increases. At progress 0.0 the entire buffer is blank; at 1.0 the full buffer is visible.</p>
+<table border="1">
+  <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>easing</code></td><td>string</td><td><code>linear</code></td><td>Recommended: <code>ease-out</code> for natural feel.</td></tr>
+</table>
+<pre>
+- name: crt-on
+  duration: 5000
+  params:
+    easing: ease-out
+</pre>
+
+<h3>clear-to-colour</h3>
+<p><b>scene</b></p>
+<p>Fills the region with a solid colour at progress 1.0. No intermediate blend — the fill snaps to the target colour when the step completes. Use after content effects to blank the buffer between scenes.</p>
+<table border="1">
+  <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>colour</code></td><td>colour</td><td><code>black</code></td><td>Target fill colour.</td></tr>
+  <tr><td><code>easing</code></td><td>string</td><td><code>linear</code></td><td>Easing (affects when the threshold fires).</td></tr>
+</table>
+<pre>
+- name: clear-to-colour
+  duration: 3000
+  params:
+    colour: black
+    easing: linear
+</pre>
+
+<h3>power-off</h3>
+<p><b>scene</b></p>
+<p>Simulates a CRT powering off. Content collapses from the edges toward the centre horizontal line as progress increases. The inverse of <code>crt-on</code>.</p>
+<table border="1">
+  <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>easing</code></td><td>string</td><td><code>linear</code></td><td>Recommended: <code>ease-in</code> for a snap-off feel.</td></tr>
+</table>
+<pre>
+- name: power-off
+  duration: 1500
+  params:
+    easing: ease-in
+</pre>
+
+<h3>fade-in</h3>
+<p><b>layer</b></p>
+<p>Reveals a region row-by-row from the top as progress increases. At progress 0.0 the entire region is blank; at 1.0 all rows are visible.</p>
+<table border="1">
+  <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>easing</code></td><td>string</td><td><code>linear</code></td><td>Recommended: <code>ease-in</code> for a gentle appear.</td></tr>
+</table>
+<pre>
+- name: fade-in
+  duration: 1000
+  params:
+    easing: ease-in
+</pre>
+
+<h3>fade-out</h3>
+<p><b>layer</b></p>
+<p>Hides a region row-by-row from the top as progress increases. At progress 0.0 all rows are visible; at 1.0 the entire region is blank. The inverse of <code>fade-in</code>.</p>
+<table border="1">
+  <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>easing</code></td><td>string</td><td><code>linear</code></td><td>Easing applied to the hide progress.</td></tr>
+</table>
+<pre>
+- name: fade-out
+  duration: 500
+</pre>
+
+<h3>scanlines</h3>
+<p><b>scene</b> <b>loopable</b></p>
+<p>Applies an ambient CRT scanline effect: dims every other row in the region by setting its background to black. Progress is ignored — the effect is stateless and renders identically at every progress value. Designed to be used with <code>loop: true</code>.</p>
+<table border="1">
+  <tr><th>Param</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  <tr><td colspan="4">No parameters. All params are ignored.</td></tr>
+</table>
+<pre>
+- name: scanlines
+  duration: 2000
+  loop: true
+</pre>
+
+<h2>Adding a custom effect</h2>
+<p>Custom effects with unknown names are silently ignored (no-op). To add a new built-in effect, add a match arm to <code>apply_effect()</code> in <code>engine/src/effects.rs</code> and add a corresponding entry to the schema's <code>effect.properties.name</code> description.</p>
+
+<hr>
+<p><a href="scene.html">Scene Schema</a> | <a href="index.html">Schemas</a> | <a href="../index.html">Home</a></p>
+</body>
+</html>

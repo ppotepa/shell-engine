@@ -1,30 +1,30 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Docs - Schemas</title>
+<meta charset="utf-8">
+<title>Schemas</title>
 </head>
 <body>
-  <header>
-    <h1>Schemas</h1>
-    <p>Definicje kontraktow YAML dla konfiguracji moda i scen.</p>
-    <p><a href="../index.html">Powrot do spisu</a></p>
-  </header>
+<h1>Schemas</h1>
+<p><a href="../index.html">Home</a> / Schemas</p>
+<hr>
 
-  <main>
-    <section>
-      <h2>Lokalizacja</h2>
-      <p>Schematy trzymamy w folderze `schemas/`.</p>
-    </section>
+<h2>Overview</h2>
+<p>YAML contracts for mod and scene configuration files, defined as JSON Schema 2020-12. Schema files live in <code>schemas/</code> at the repository root.</p>
 
-    <section>
-      <h2>Aktualne schematy</h2>
-      <ul>
-        <li>`schemas/mod.schema.yaml` dla `mod.yaml`</li>
-        <li>`schemas/scene.schema.yaml` dla plikow scen `*.yml`</li>
-      </ul>
-    </section>
-  </main>
+<h2>Schema files</h2>
+<ul>
+  <li><code>schemas/mod.schema.yaml</code> — validates <code>mod.yaml</code> manifests</li>
+  <li><code>schemas/scene.schema.yaml</code> — validates scene <code>*.yml</code> files</li>
+</ul>
+
+<h2>Documentation</h2>
+<ul>
+  <li><a href="scene.html">Scene Schema Reference</a> — every field documented with type, default, and description</li>
+  <li><a href="effects.html">Effects Catalogue</a> — all built-in effects with parameters and YAML examples</li>
+</ul>
+
+<hr>
+<p><a href="../index.html">Home</a></p>
 </body>
 </html>

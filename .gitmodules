@@ -1,0 +1,3 @@
+[submodule "submodules/ttf-rasterizer"]
+	path = submodules/ttf-rasterizer
+	url = https://github.com/ppotepa/ttf-rasterizer.git

@@ -18,4 +18,21 @@ properties:
     type: string
     minLength: 1
     pattern: "^/.+\\.yml$"
+  terminal:
+    type: object
+    description: Optional terminal capability requirements. Engine will refuse to start if not met.
+    additionalProperties: false
+    properties:
+      min_colours:
+        type: integer
+        minimum: 1
+        description: Minimum number of colours the terminal must support (e.g. 8, 16, 256, 16777216).
+      min_width:
+        type: integer
+        minimum: 1
+        description: Minimum terminal width in columns.
+      min_height:
+        type: integer
+        minimum: 1
+        description: Minimum terminal height in rows.
 

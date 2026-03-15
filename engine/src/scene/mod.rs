@@ -1,0 +1,135 @@
+pub mod color;
+pub mod easing;
+pub mod sprite;
+
+pub use color::TermColour;
+pub use easing::Easing;
+pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};
+
+use serde::Deserialize;
+
+/// Named visual effect with duration, loop flag, and arbitrary params.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Effect {
+    pub name: String,
+    #[serde(default)]
+    pub duration: u64,
+    #[serde(default, rename = "loop")]
+    pub looping: bool,
+    #[serde(default)]
+    pub params: EffectParams,
+}
+
+/// Optional named parameters for effect configuration.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct EffectParams {
+    pub colour: Option<TermColour>,
+    #[serde(default)]
+    pub easing: Easing,
+    /// Shine: scan angle in degrees (0 = vertical left→right, 90 = horizontal top→down).
+    #[serde(default)]
+    pub angle: Option<f32>,
+    /// Shine: beam width (gaussian sigma in character cells).
+    #[serde(default)]
+    pub width: Option<f32>,
+    /// Shine: falloff exponent — higher = sharper beam edges (default 1.0).
+    #[serde(default)]
+    pub falloff: Option<f32>,
+    /// Shine: peak brightness multiplier 0.0–1.0 (default 1.0 = full white).
+    #[serde(default)]
+    pub intensity: Option<f32>,
+}
+
+/// A single step in a stage — a group of effects that play in parallel.
+/// Steps within a stage execute sequentially.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Step {
+    pub effects: Vec<Effect>,
+    /// Optional minimum duration for the step (ms), regardless of effects.
+    #[serde(default)]
+    pub duration: Option<u64>,
+}
+
+impl Step {
+    /// Duration of this step = max of explicit duration and max effect duration.
+    pub fn duration_ms(&self) -> u64 {
+        let effect_dur = self.effects.iter().map(|e| e.duration).max().unwrap_or(0);
+        self.duration.unwrap_or(0).max(effect_dur)
+    }
+}
+
+/// What causes transition from on_idle to on_leave.
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum StageTrigger {
+    AnyKey,
+    Timeout,
+    #[default]
+    None,
+}
+
+/// A lifecycle stage containing sequential steps.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Stage {
+    #[serde(default)]
+    pub trigger: StageTrigger,
+    #[serde(default)]
+    pub steps: Vec<Step>,
+    /// If true, stage loops back to step 0 after all steps complete.
+    #[serde(default)]
+    pub looping: bool,
+}
+
+/// Lifecycle stages for a scene.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SceneStages {
+    #[serde(default)]
+    pub on_enter: Stage,
+    #[serde(default)]
+    pub on_idle: Stage,
+    #[serde(default)]
+    pub on_leave: Stage,
+}
+
+/// Lifecycle stages for a layer.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct LayerStages {
+    #[serde(default)]
+    pub on_enter: Stage,
+    #[serde(default)]
+    pub on_idle: Stage,
+    #[serde(default)]
+    pub on_leave: Stage,
+}
+
+/// A compositing layer — a named group of sprites sharing z_index and lifecycle effects.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Layer {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub z_index: i32,
+    #[serde(default = "default_visible")]
+    pub visible: bool,
+    #[serde(default)]
+    pub stages: LayerStages,
+    #[serde(default)]
+    pub sprites: Vec<Sprite>,
+}
+
+fn default_visible() -> bool { true }
+
+/// A parsed scene loaded from a `.yml` file.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Scene {
+    pub id: String,
+    pub title: String,
+    #[serde(default)]
+    pub cutscene: bool,
+    pub bg_colour: Option<TermColour>,
+    #[serde(default)]
+    pub stages: SceneStages,
+    #[serde(default)]
+    pub layers: Vec<Layer>,
+    pub next: Option<String>,
+}

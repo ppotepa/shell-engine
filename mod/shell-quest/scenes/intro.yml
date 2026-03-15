@@ -1,18 +1,67 @@
+# yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
 id: intro
 title: Intro
 cutscene: true
-skippable: true
 bg_colour: black
+stages:
+  on_enter:
+    steps:
+      - duration: 3000
+        effects: []
+      - effects:
+          - name: crt-on
+            duration: 1200
+            params:
+              easing: ease-out
+  on_idle:
+    steps: []
+  on_leave:
+    steps: []
 layers:
-  - type: text
-    content: "Shell Quest"
-    x: 4
-    y: 2
-    fg_colour: white
-  - type: text
-    content: "Nacisnij dowolny klawisz..."
-    x: 4
-    y: 4
-    fg_colour: gray
-next: null
+  - name: title
+    z_index: 0
+    visible: true
+    sprites:
+      - type: text
+        content: "SHELL QUEST I"
+        align_x: center
+        align_y: center
+        font: "Abril Fatface:ascii"
+        fg_colour: white
+        appear_at_ms: 0
+        disappear_at_ms: 3720
+        stages:
+          on_enter:
+            steps:
+              - effects:
+                  - name: fade-in
+                    duration: 3000
+                    params:
+                      easing: ease-in
 
+      - type: text
+        content: "SHELL QUEST I"
+        align_x: center
+        align_y: center
+        font: "Abril Fatface"
+        fg_colour: gray
+        appear_at_ms: 3720
+        stages:
+          on_enter:
+            steps: []
+          on_idle:
+            looping: true
+            steps:
+              - duration: 1800
+                effects: []
+              - effects:
+                  - name: shine
+                    duration: 1000
+                    params:
+                      angle: 20
+                      width: 4
+                      falloff: 2.5
+                      intensity: 2.0
+                      colour: white
+                      easing: ease-in
+next: null
