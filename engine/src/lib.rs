@@ -1,55 +1,23 @@
 mod mod_loader;
+mod error;
+mod game_loop;
+pub use error::EngineError;
 pub mod scene;
 mod scene_loader;
 pub mod renderer;
+pub mod world;
+pub mod events;
+pub mod buffer;
+pub mod components;
+pub mod effects;
+pub mod rasterizer;
+pub mod systems;
+pub mod terminal_caps;
 
 use std::path::{Path, PathBuf};
 
 use mod_loader::load_mod_manifest;
 use serde_yaml::Value;
-
-#[derive(Debug, thiserror::Error)]
-pub enum EngineError {
-    #[error("mod source path does not exist: {0}")]
-    SourceNotFound(PathBuf),
-    #[error("unsupported mod source, expected directory or .zip file: {0}")]
-    UnsupportedSource(PathBuf),
-    #[error("failed to read mod manifest from {path}: {source}")]
-    ManifestRead {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-    #[error("zip archive error for {path}: {source}")]
-    ZipArchive {
-        path: PathBuf,
-        #[source]
-        source: zip::result::ZipError,
-    },
-    #[error("missing required mod entrypoint file mod.yaml in source: {0}")]
-    MissingModEntrypoint(PathBuf),
-    #[error("missing required field `{field}` in mod.yaml for source: {path}")]
-    MissingManifestField { path: PathBuf, field: String },
-    #[error("invalid field `{field}` in mod.yaml for source {path}, expected {expected}")]
-    InvalidManifestFieldType {
-        path: PathBuf,
-        field: String,
-        expected: String,
-    },
-    #[error("entrypoint scene `{entrypoint}` not found in mod source: {mod_source}")]
-    MissingSceneEntrypoint {
-        mod_source: PathBuf,
-        entrypoint: String,
-    },
-    #[error("invalid mod.yaml content in source {path}: {source}")]
-    InvalidModYaml {
-        path: PathBuf,
-        #[source]
-        source: serde_yaml::Error,
-    },
-    #[error("render error: {0}")]
-    Render(#[from] std::io::Error),
-}
 
 #[derive(Debug)]
 pub struct ShellEngine {
@@ -68,19 +36,56 @@ impl ShellEngine {
         })
     }
 
-    /// Load and render the entrypoint scene declared in mod.yaml.
     pub fn run(&self) -> Result<(), EngineError> {
+        use events::EventQueue;
+        use scene_loader::SceneLoader;
+        use systems::animator::Animator;
+        use systems::renderer::TerminalRenderer;
+        use terminal_caps::{TerminalCaps, TerminalRequirements};
+
+        // Check terminal requirements declared by the mod before doing anything else.
+        if let Some(req) = TerminalRequirements::from_manifest(&self.mod_manifest) {
+            let caps = TerminalCaps::detect()?;
+            let violations = caps.validate(&req);
+            if !violations.is_empty() {
+                let details = violations
+                    .iter()
+                    .map(|v| format!("{}: requires {}, detected {}", v.requirement, v.required, v.detected))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                return Err(EngineError::TerminalRequirementsNotMet(details));
+            }
+        }
+
         let entrypoint = self.mod_manifest["entrypoint"]
             .as_str()
-            .expect("entrypoint already validated in loader");
+            .expect("entrypoint already validated");
 
         let scene = scene_loader::load_scene(&self.mod_source, entrypoint)?;
 
-        if scene.cutscene {
-            renderer::render_cutscene(&scene)?;
+        let (term_w, term_h) = crossterm::terminal::size()?;
+
+        let mut world = world::World::new();
+        world.register(EventQueue::new());
+        world.register(buffer::Buffer::new(term_w, term_h));
+
+        // Enter alt-screen and immediately paint black before the game loop starts.
+        // This prevents the terminal's previous content from flashing on the first frame.
+        let mut renderer = TerminalRenderer::new()?;
+        renderer.clear_black()?;
+        world.register(renderer);
+
+        world.register(SceneLoader::new(self.mod_source.clone()));
+        world.register_scoped(scene);
+        world.register_scoped(Animator::new());
+
+        let result = game_loop::game_loop(&mut world);
+
+        if let Some(renderer) = world.get_mut::<TerminalRenderer>() {
+            let _ = renderer.shutdown();
         }
 
-        Ok(())
+        result
     }
 
     pub fn mod_source(&self) -> &Path {

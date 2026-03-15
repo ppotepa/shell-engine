@@ -1,8 +1,12 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://shell-quest.local/schemas/scene.schema.yaml"
 title: Scene Schema
+description: >
+  Defines a scene in a Shell Quest mod.
+  Scenes have a lifecycle managed through stages (on_enter, on_idle, on_leave),
+  each containing sequential steps of parallel effects.
 type: object
-additionalProperties: true
+additionalProperties: false
 required:
   - id
   - title
@@ -10,49 +14,304 @@ properties:
   id:
     type: string
     minLength: 1
+    description: Unique identifier for the scene. Used for scene transitions.
   title:
     type: string
     minLength: 1
+    description: Human-readable title.
   cutscene:
     type: boolean
-  skippable:
-    type: boolean
+    default: false
+    description: Whether this scene is a non-interactive cutscene.
   bg_colour:
-    type: string
-    description: "Terminal background colour filling the whole buffer on scene load (e.g. black, white, red)."
+    $ref: "#/$defs/colour"
+    description: >
+      Terminal background colour filling the entire buffer on scene load.
+      Defaults to true black (RGB 0,0,0) when absent.
+  stages:
+    $ref: "#/$defs/scene_stages"
   layers:
     type: array
+    description: Compositing layers rendered onto the scene buffer, each containing sprites.
     items:
       $ref: "#/$defs/layer"
   next:
-    type:
-      - string
-      - "null"
+    type: [string, "null"]
+    description: Scene id to transition to when on_leave completes.
 
 $defs:
+
+  # ── Colour ─────────────────────────────────────────────────────────────────
+  colour:
+    description: >
+      A colour value. Either a named colour or a CSS-style hex string (#rrggbb).
+      Named colours: black, white, gray (= grey), silver, red, green, blue,
+      yellow, cyan, magenta.
+      Hex example: "#C0C0C0"
+    oneOf:
+      - type: string
+        pattern: "^#[0-9A-Fa-f]{6}$"
+        description: "Hex colour: #rrggbb"
+      - type: string
+        enum:
+          - black
+          - white
+          - gray
+          - grey
+          - silver
+          - red
+          - green
+          - blue
+          - yellow
+          - cyan
+          - magenta
+        description: Named colour.
+
+  # ── Effect params ───────────────────────────────────────────────────────────
+  effect_params:
+    type: object
+    additionalProperties: false
+    description: Parameters passed to an effect implementation. Not all params apply to every effect.
+    properties:
+      colour:
+        $ref: "#/$defs/colour"
+        description: "Target colour. Used by: clear-to-colour, fade-in, fade-out."
+      easing:
+        type: string
+        enum: [linear, ease-in, ease-out, ease-in-out]
+        default: linear
+        description: Easing function applied to the effect progress curve.
+      angle:
+        type: number
+        description: >
+          Beam angle in degrees. 0 = vertical beam sweeps left→right.
+          90 = horizontal beam sweeps top→bottom. Negative = opposite diagonal.
+          Used by: shine.
+      width:
+        type: number
+        minimum: 0.1
+        description: >
+          Gaussian beam half-width in character cells.
+          Larger = softer/wider beam. Used by: shine.
+      falloff:
+        type: number
+        minimum: 0.1
+        description: >
+          Exponent applied to the gaussian kernel.
+          >1 = sharper laser edges, <1 = soft diffuse halo.
+          Used by: shine.
+      intensity:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: >
+          Peak brightness of the beam at its centre (0.0–1.0).
+          Controls how strongly the highlight colour is blended in at full beam overlap.
+          Used by: shine.
+
+  # ── Effect ─────────────────────────────────────────────────────────────────
+  effect:
+    type: object
+    description: A named visual effect applied to a buffer region over a duration.
+    additionalProperties: false
+    required: [name, duration]
+    properties:
+      name:
+        type: string
+        description: >
+          Effect identifier. Built-in effects:
+          crt-on        — CRT power-on scan with scanline flicker and flash.
+          power-off      — CRT power-off collapse animation.
+          fade-in        — Fade sprite/layer from black to full brightness.
+          fade-out       — Fade sprite/layer from full brightness to black.
+          fade-to-black  — Radial vignette fade to black over the whole buffer.
+          clear-to-colour — Instantly fill buffer with params.colour.
+          scanlines      — Overlay horizontal CRT scanlines.
+          shine          — Metallic laser-scan highlight sweep (configurable angle/width/falloff).
+        enum:
+          - crt-on
+          - power-off
+          - fade-in
+          - fade-out
+          - fade-to-black
+          - clear-to-colour
+          - scanlines
+          - shine
+      duration:
+        type: integer
+        minimum: 0
+        description: Duration in milliseconds.
+      looping:
+        type: boolean
+        default: false
+        description: Whether the effect repeats indefinitely within its step.
+      params:
+        $ref: "#/$defs/effect_params"
+
+  # ── Step ───────────────────────────────────────────────────────────────────
+  step:
+    type: object
+    description: >
+      A single step in a stage. All effects within a step run in parallel.
+      Steps execute sequentially.
+      A step with no effects and only `duration` acts as a timed pause.
+    additionalProperties: false
+    properties:
+      duration:
+        type: integer
+        minimum: 0
+        description: >
+          Minimum step duration in milliseconds regardless of effects.
+          When effects are present, the step lasts max(duration, longest effect).
+          Use without effects for a timed pause.
+      effects:
+        type: array
+        description: Effects that run in parallel for the duration of this step. May be empty.
+        items:
+          $ref: "#/$defs/effect"
+
+  # ── Stage ──────────────────────────────────────────────────────────────────
+  stage:
+    type: object
+    description: A lifecycle phase of a scene, layer, or sprite.
+    additionalProperties: false
+    properties:
+      looping:
+        type: boolean
+        default: false
+        description: >
+          When true, the stage wraps back to its first step after the last step completes.
+          Primarily used on on_idle to create repeating ambient effects (e.g. looping shine).
+      trigger:
+        type: string
+        description: What causes transition out of this stage to the next. Only valid on on_idle.
+        enum: [any-key, timeout, none]
+      steps:
+        type: array
+        description: Ordered list of steps. Steps execute sequentially; effects within each step run in parallel.
+        items:
+          $ref: "#/$defs/step"
+
+  # ── Scene stages ───────────────────────────────────────────────────────────
+  scene_stages:
+    type: object
+    description: Lifecycle stages for a scene.
+    additionalProperties: false
+    properties:
+      on_enter:
+        allOf:
+          - $ref: "#/$defs/stage"
+          - description: Plays once when scene loads. Transitions automatically to on_idle when complete.
+      on_idle:
+        allOf:
+          - $ref: "#/$defs/stage"
+          - description: Active while scene is running. Transitions to on_leave when trigger fires.
+      on_leave:
+        allOf:
+          - $ref: "#/$defs/stage"
+          - description: Plays once when leaving the scene. Transitions to next scene when complete.
+
+  # ── Layer stages (also used by sprites) ────────────────────────────────────
+  layer_stages:
+    type: object
+    description: Lifecycle stages for a layer or sprite.
+    additionalProperties: false
+    properties:
+      on_enter:
+        $ref: "#/$defs/stage"
+      on_idle:
+        $ref: "#/$defs/stage"
+      on_leave:
+        $ref: "#/$defs/stage"
+
+  # ── Layer ──────────────────────────────────────────────────────────────────
   layer:
     type: object
-    required:
-      - type
-      - content
-    additionalProperties: true
+    description: A compositing layer — a named group of sprites sharing z_index and lifecycle effects.
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        description: Human-readable identifier for the layer.
+      z_index:
+        type: integer
+        default: 0
+        description: Render order. Higher z_index renders on top.
+      visible:
+        type: boolean
+        default: true
+        description: Whether this layer is composited onto the scene framebuffer.
+      stages:
+        $ref: "#/$defs/layer_stages"
+      sprites:
+        type: array
+        description: Drawable objects within this layer.
+        items:
+          $ref: "#/$defs/sprite"
+
+  # ── Sprite ─────────────────────────────────────────────────────────────────
+  sprite:
+    type: object
+    description: A drawable object within a layer. Has its own local position and lifecycle.
+    additionalProperties: false
+    required: [type, content]
     properties:
       type:
         type: string
         enum: [text]
+        description: Sprite type. Currently only 'text' is supported.
       content:
         type: string
         minLength: 1
+        description: Text content to render.
       x:
         type: integer
         minimum: 0
+        default: 0
+        description: Column offset within the scene buffer.
       y:
         type: integer
         minimum: 0
+        default: 0
+        description: Row offset within the scene buffer.
+      z_index:
+        type: integer
+        default: 0
+        description: Render order within the layer. Higher z_index renders on top.
+      font:
+        type: [string, "null"]
+        description: >
+          Named bitmap font for rasterized rendering.
+          Supports optional mode suffix: "Abril Fatface:ascii" (ASCII art glyphs)
+          or "Abril Fatface:raster" / "Abril Fatface" (bitmap pixel glyphs).
+      align_x:
+        type: string
+        enum: [left, center, right]
+        description: Horizontal alignment anchor in scene space. x acts as extra offset.
+      align_y:
+        type: string
+        enum: [top, center, bottom]
+        description: Vertical alignment anchor in scene space. y acts as extra offset.
       fg_colour:
-        type: string
-        description: "Foreground colour of the layer content."
+        $ref: "#/$defs/colour"
+        description: Foreground (text / glyph pixel) colour.
       bg_colour:
-        type: string
-        description: "Optional background colour override for this layer."
-
+        $ref: "#/$defs/colour"
+        description: Background colour behind the sprite. Omit for transparent background.
+      appear_at_ms:
+        type: integer
+        minimum: 0
+        description: Delay from scene start (ms) before this sprite becomes visible.
+      disappear_at_ms:
+        type: integer
+        minimum: 0
+        description: Absolute scene time (ms) after which this sprite is hidden.
+      reveal_ms:
+        type: integer
+        minimum: 0
+        description: >
+          Optional reveal duration (ms).
+          When set, the sprite content appears character by character left→right
+          over this duration starting from appear_at_ms.
+      stages:
+        $ref: "#/$defs/layer_stages"

@@ -1,0 +1,172 @@
+use crossterm::style::Color;
+
+/// A single terminal cell — the atomic "pixel" of the engine.
+/// Stores a Unicode character plus foreground and background colours.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Cell {
+    pub symbol: char,
+    pub fg: Color,
+    pub bg: Color,
+}
+
+/// True black constant — bypasses terminal theme palette.
+pub const TRUE_BLACK: Color = Color::Rgb { r: 0, g: 0, b: 0 };
+
+impl Cell {
+    pub fn blank(bg: Color) -> Self {
+        Self { symbol: ' ', fg: TRUE_BLACK, bg }
+    }
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self::blank(TRUE_BLACK)
+    }
+}
+
+/// A changed cell ready to be written to the terminal.
+pub struct CellDiff<'a> {
+    pub x: u16,
+    pub y: u16,
+    pub cell: &'a Cell,
+}
+
+/// Double-buffered pixel bitmap for the terminal screen.
+///
+/// `back` is written to by the compositor each frame.
+/// `front` mirrors what is currently visible on the terminal.
+/// Only cells that differ between back and front are flushed on each render.
+/// After flushing, `swap()` copies back → front.
+#[derive(Debug, Clone)]
+pub struct Buffer {
+    pub width:  u16,
+    pub height: u16,
+    /// Back buffer — written to by compositor each frame.
+    back:  Vec<Cell>,
+    /// Front buffer — mirrors what the terminal currently shows.
+    front: Vec<Cell>,
+}
+
+impl Buffer {
+    pub fn new(width: u16, height: u16) -> Self {
+        let size  = width as usize * height as usize;
+        let back  = vec![Cell::default(); size];
+        // Initialise front with a sentinel that differs from every real cell,
+        // so the very first frame always flushes all pixels.
+        let front = vec![Cell { symbol: '\0', fg: Color::Reset, bg: Color::Reset }; size];
+        Self { width, height, back, front }
+    }
+
+    /// Fill the entire back buffer with blank cells of the given background colour.
+    pub fn fill(&mut self, bg: Color) {
+        for cell in &mut self.back {
+            *cell = Cell::blank(bg);
+        }
+    }
+
+    /// Write a single pixel to the back buffer.
+    pub fn set(&mut self, x: u16, y: u16, symbol: char, fg: Color, bg: Color) {
+        if x < self.width && y < self.height {
+            self.back[y as usize * self.width as usize + x as usize] = Cell { symbol, fg, bg };
+        }
+    }
+
+    /// Read a pixel from the back buffer.
+    pub fn get(&self, x: u16, y: u16) -> Option<&Cell> {
+        if x < self.width && y < self.height {
+            self.back.get(y as usize * self.width as usize + x as usize)
+        } else {
+            None
+        }
+    }
+
+    /// Return cells that differ between back and front — the minimal render set.
+    pub fn diff(&self) -> Vec<CellDiff<'_>> {
+        self.back
+            .iter()
+            .zip(self.front.iter())
+            .enumerate()
+            .filter(|(_, (b, f))| b != f)
+            .map(|(idx, (b, _))| CellDiff {
+                x:    (idx as u16) % self.width,
+                y:    (idx as u16) / self.width,
+                cell: b,
+            })
+            .collect()
+    }
+
+    /// Promote back buffer to front — call after every successful flush.
+    pub fn swap(&mut self) {
+        self.front.clone_from(&self.back);
+    }
+
+    /// Force a full re-flush on the next render (e.g. after terminal resize).
+    pub fn invalidate(&mut self) {
+        for cell in &mut self.front {
+            cell.symbol = '\0';
+        }
+    }
+
+    /// Resize both buffers, preserving nothing (invalidates front for full redraw).
+    pub fn resize(&mut self, width: u16, height: u16) {
+        let size = width as usize * height as usize;
+        self.width  = width;
+        self.height = height;
+        self.back   = vec![Cell::default(); size];
+        self.front  = vec![Cell { symbol: '\0', fg: Color::Reset, bg: Color::Reset }; size];
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_buffer_has_all_cells_as_diff() {
+        let buf = Buffer::new(4, 2);
+        // Front is all '\0', back is all ' ' → every cell should diff
+        assert_eq!(buf.diff().len(), 8);
+    }
+
+    #[test]
+    fn after_swap_diff_is_empty_on_unchanged_buffer() {
+        let mut buf = Buffer::new(4, 2);
+        buf.fill(Color::Black);
+        buf.swap();
+        assert_eq!(buf.diff().len(), 0);
+    }
+
+    #[test]
+    fn set_then_diff_returns_only_changed_cells() {
+        let mut buf = Buffer::new(4, 2);
+        buf.fill(Color::Black);
+        buf.swap();
+        buf.fill(Color::Black); // same content
+        buf.set(1, 0, 'X', Color::White, Color::Black); // one change
+        assert_eq!(buf.diff().len(), 1);
+        let d = &buf.diff()[0];
+        assert_eq!(d.x, 1);
+        assert_eq!(d.y, 0);
+        assert_eq!(d.cell.symbol, 'X');
+    }
+
+    #[test]
+    fn invalidate_forces_full_redraw() {
+        let mut buf = Buffer::new(2, 2);
+        buf.fill(Color::Black);
+        buf.swap();
+        assert_eq!(buf.diff().len(), 0);
+        buf.invalidate();
+        assert_eq!(buf.diff().len(), 4);
+    }
+
+    #[test]
+    fn resize_resets_both_buffers() {
+        let mut buf = Buffer::new(2, 2);
+        buf.swap();
+        buf.resize(3, 3);
+        assert_eq!(buf.width, 3);
+        assert_eq!(buf.height, 3);
+        assert_eq!(buf.diff().len(), 9);
+    }
+}

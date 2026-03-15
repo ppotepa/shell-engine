@@ -1,35 +1,64 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Docs - Engine</title>
+<meta charset="utf-8">
+<title>Engine</title>
 </head>
 <body>
-  <header>
-    <h1>Engine</h1>
-    <p>Rdzen terminalowego silnika 2D z modulami.</p>
-    <p><a href="../index.html">Powrot do spisu</a></p>
-  </header>
+<h1>Engine</h1>
+<p><a href="../index.html">Home</a> / Engine</p>
+<hr>
 
-  <main>
-    <section>
-      <h2>Rola</h2>
-      <p>`engine` dostarcza petle gry, systemy i API, ktore wykorzystuja mody.</p>
-    </section>
+<h2>Overview</h2>
+<p>The <code>engine</code> crate is the core runtime library. It loads a mod, validates its manifest, enters an ECS-style game loop, and drives three systems every tick: <b>Animator</b>, <b>Compositor</b>, and <b>Renderer</b>.</p>
+<p>Mods are data-only packages (directory or <code>.zip</code>) containing a <code>mod.yaml</code> manifest and one or more <code>*.yml</code> scene files.</p>
 
-    <section>
-      <h2>Stack technologiczny</h2>
-      <p>Rust + `ratatui` + `crossterm` jako fundament terminalowego silnika 2D.</p>
-    </section>
+<h2>System pipeline</h2>
+<pre>
+  +-------------------------------------------------------------+
+  |                        game_loop()                          |
+  |                                                             |
+  |  INPUT          -&gt; EventQueue                               |
+  |                         |                                   |
+  |                         v                                   |
+  |  animator_system()  advances SceneStage, step_idx           |
+  |                         |                                   |
+  |                         v                                   |
+  |  compositor_system() reads Scene + Animator, writes Buffer  |
+  |                         |                                   |
+  |                         v                                   |
+  |  renderer_system()  flushes Buffer -&gt; terminal (ratatui)    |
+  +-------------------------------------------------------------+
+</pre>
 
-    <section>
-      <h2>Integracja z modem</h2>
-      <p>Engine przyjmuje zrodlo moda jako folder lub plik `.zip`.</p>
-      <p>Kazde zrodlo musi zawierac plik wejscia `mod.yaml`.</p>
-      <p>`mod.yaml` musi zawierac pole `entrypoint` wskazujace scene (np. `/scenes/intro.yml`).</p>
-      <p>Glowna struktura to `ShellEngine` (rdzen uruchamiania i walidacji moda).</p>
-    </section>
-  </main>
+<h2>Components registered in World</h2>
+<table border="1">
+  <tr><th>Type</th><th>Scope</th><th>Description</th></tr>
+  <tr><td><code>EventQueue</code></td><td>Singleton</td><td>Collects and drains engine events each tick.</td></tr>
+  <tr><td><code>Buffer</code></td><td>Singleton</td><td>Terminal cell buffer. Recreated on resize.</td></tr>
+  <tr><td><code>TerminalRenderer</code></td><td>Singleton</td><td>Ratatui terminal handle. Owns raw-mode lifecycle.</td></tr>
+  <tr><td><code>SceneLoader</code></td><td>Singleton</td><td>Loads scene YAML files by id or path.</td></tr>
+  <tr><td><code>Scene</code></td><td>Scoped</td><td>Currently active scene (cleared on transition).</td></tr>
+  <tr><td><code>Animator</code></td><td>Scoped</td><td>Stage/step/elapsed state for the active scene.</td></tr>
+</table>
+<p>Scoped components are cleared via <code>world.clear_scoped()</code> on every scene transition.</p>
+
+<h2>Scene lifecycle</h2>
+<p>Each scene passes through three stages managed by <code>Animator</code>:</p>
+<table border="1">
+  <tr><th>Stage</th><th>Transition into</th><th>Transition out</th></tr>
+  <tr><td><code>OnEnter</code></td><td>Scene load</td><td>All steps complete -&gt; <code>OnIdle</code></td></tr>
+  <tr><td><code>OnIdle</code></td><td>Automatic</td><td>Trigger fires (e.g. <code>any-key</code>) -&gt; <code>OnLeave</code></td></tr>
+  <tr><td><code>OnLeave</code></td><td>Trigger</td><td>All steps complete -&gt; <code>Done</code> + SceneTransition event</td></tr>
+  <tr><td><code>Done</code></td><td>Internal</td><td>Fires <code>SceneTransition</code> with <code>scene.next</code></td></tr>
+</table>
+
+<hr>
+<p>
+  <a href="pipeline.html">Rendering Pipeline</a> |
+  <a href="world.html">World API</a> |
+  <a href="events.html">Events</a> |
+  <a href="../index.html">Home</a>
+</p>
 </body>
 </html>

@@ -1,37 +1,60 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Docs - Mod Shell Quest</title>
+<meta charset="utf-8">
+<title>Mod: Shell Quest</title>
 </head>
 <body>
-  <header>
-    <h1>Mod: Shell Quest</h1>
-    <p>Modyfikacja dzialajaca na silniku, rozwijana w `mod/shell-quest`.</p>
-    <p><a href="../../../index.html">Powrot do spisu</a></p>
-  </header>
+<h1>Mod: Shell Quest</h1>
+<p><a href="../../index.html">Home</a> / Mod: Shell Quest</p>
+<hr>
 
-  <main>
-    <section>
-      <h2>Rola</h2>
-      <p>Mod definiuje zawartosc i logike gry specyficzna dla Shell Quest.</p>
-    </section>
+<h2>Overview</h2>
+<p>Shell Quest is the reference mod. It demonstrates the full stage/effect system and serves as the default content package loaded by the <code>app</code> binary.</p>
+<p>Source location: <code>mod/shell-quest/</code></p>
 
-    <section>
-      <h2>Punkt podlaczenia do engine</h2>
-      <p>Shell Quest jest ladowany przez app i przekazywany do engine jako pakiet moda.</p>
-      <p>Plik `mod.yaml` jest entrypointem konfiguracji i musi wskazywac `entrypoint: /scenes/intro.yml` (lub inna scene).</p>
-    </section>
+<h2>mod.yaml fields</h2>
+<table border="1">
+  <tr><th>Field</th><th>Value</th><th>Description</th></tr>
+  <tr><td><code>name</code></td><td>Shell Quest</td><td>Human-readable mod name.</td></tr>
+  <tr><td><code>version</code></td><td>0.1.0</td><td>Mod version string.</td></tr>
+  <tr><td><code>entrypoint</code></td><td>/scenes/intro.yml</td><td>Path to the first scene, relative to the mod root.</td></tr>
+</table>
 
-    <section>
-      <h2>Kontrakty YAML</h2>
-      <p>Zmiany w plikach YAML wymagaja utrzymania schematow w `schemas/`:</p>
-      <ul>
-        <li>`schemas/mod.schema.yaml`</li>
-        <li>`schemas/scene.schema.yaml`</li>
-      </ul>
-    </section>
-  </main>
+<h2>mod.yaml</h2>
+<pre>
+name: Shell Quest
+version: 0.1.0
+entrypoint: /scenes/intro.yml
+</pre>
+
+<h2>Scenes</h2>
+<table border="1">
+  <tr><th>File</th><th>Scene id</th><th>Description</th></tr>
+  <tr><td><code>scenes/intro.yml</code></td><td>intro</td><td>Title screen. Plays crt-on, then scanlines on idle, then power-off on leave. Contains two text layers: title and prompt.</td></tr>
+</table>
+
+<h2>intro.yml layers</h2>
+<table border="1">
+  <tr><th>content</th><th>x</th><th>y</th><th>fg_colour</th><th>on_enter effect</th><th>on_leave effect</th></tr>
+  <tr><td>Shell Quest</td><td>4</td><td>4</td><td>white</td><td>fade-in 1000ms ease-in</td><td>fade-out 500ms</td></tr>
+  <tr><td>Nacisnij dowolny klawisz...</td><td>4</td><td>6</td><td>gray</td><td>fade-in 1500ms ease-in</td><td>—</td></tr>
+</table>
+
+<h2>Scene flow</h2>
+<pre>
+on_enter:
+  step 1: crt-on (5000ms, ease-out)          -- full buffer reveal
+  step 2: clear-to-colour black (3000ms)     -- blank before idle
+on_idle:
+  trigger: any-key
+  step 1: scanlines (loop: true)             -- ambient CRT effect
+on_leave:
+  step 1: power-off (1500ms, ease-in)        -- collapse to centre line
+next: null
+</pre>
+
+<hr>
+<p><a href="../../index.html">Home</a> | <a href="../../schemas/scene.html">Scene Schema</a></p>
 </body>
 </html>
