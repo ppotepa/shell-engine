@@ -1,4 +1,7 @@
 mod mod_loader;
+pub mod scene;
+mod scene_loader;
+pub mod renderer;
 
 use std::path::{Path, PathBuf};
 
@@ -44,6 +47,8 @@ pub enum EngineError {
         #[source]
         source: serde_yaml::Error,
     },
+    #[error("render error: {0}")]
+    Render(#[from] std::io::Error),
 }
 
 #[derive(Debug)]
@@ -63,6 +68,21 @@ impl ShellEngine {
         })
     }
 
+    /// Load and render the entrypoint scene declared in mod.yaml.
+    pub fn run(&self) -> Result<(), EngineError> {
+        let entrypoint = self.mod_manifest["entrypoint"]
+            .as_str()
+            .expect("entrypoint already validated in loader");
+
+        let scene = scene_loader::load_scene(&self.mod_source, entrypoint)?;
+
+        if scene.cutscene {
+            renderer::render_cutscene(&scene)?;
+        }
+
+        Ok(())
+    }
+
     pub fn mod_source(&self) -> &Path {
         &self.mod_source
     }
@@ -78,18 +98,25 @@ mod tests {
     use std::{fs, path::PathBuf};
     use tempfile::tempdir;
 
-    #[test]
-    fn loads_mod_from_directory_when_mod_yaml_and_scene_exist() {
-        let temp = tempdir().expect("temp dir");
-        let mod_dir = temp.path().join("shell-quest");
+    fn write_valid_mod(mod_dir: &std::path::Path) {
         fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes dir");
         fs::write(
             mod_dir.join("mod.yaml"),
             "name: Shell Quest\nversion: 0.1.0\nentrypoint: /scenes/intro.yml\n",
         )
         .expect("write manifest");
-        fs::write(mod_dir.join("scenes/intro.yml"), "id: intro\ntitle: Intro\ntext: Hello\n")
-            .expect("write scene");
+        fs::write(
+            mod_dir.join("scenes/intro.yml"),
+            "id: intro\ntitle: Intro\ncutscene: true\nskippable: true\nbg_colour: black\nlayers: []\nnext: null\n",
+        )
+        .expect("write scene");
+    }
+
+    #[test]
+    fn loads_mod_from_directory_when_mod_yaml_and_scene_exist() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("shell-quest");
+        write_valid_mod(&mod_dir);
 
         let engine = ShellEngine::new(mod_dir).expect("engine should initialize");
 

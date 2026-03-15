@@ -1,5 +1,18 @@
 id: intro
 title: Intro
-text: Witaj w Shell Quest.
+cutscene: true
+skippable: true
+bg_colour: black
+layers:
+  - type: text
+    content: "Shell Quest"
+    x: 4
+    y: 2
+    fg_colour: white
+  - type: text
+    content: "Nacisnij dowolny klawisz..."
+    x: 4
+    y: 4
+    fg_colour: gray
 next: null
 
