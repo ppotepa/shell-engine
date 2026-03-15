@@ -128,6 +128,8 @@ $defs:
           clear-to-colour — Instantly fill buffer with params.colour.
           scanlines      — Overlay horizontal CRT scanlines.
           shine          — Metallic laser-scan highlight sweep (configurable angle/width/falloff).
+          brighten       — Increase foreground brightness toward white.
+          glitch-out     — Terminal glitch collapse + flash transition.
         enum:
           - crt-on
           - power-off
@@ -137,6 +139,8 @@ $defs:
           - clear-to-colour
           - scanlines
           - shine
+          - brighten
+          - glitch-out
       duration:
         type: integer
         minimum: 0
@@ -264,6 +268,12 @@ $defs:
         type: string
         minLength: 1
         description: Text content to render.
+      id:
+        type: string
+        minLength: 1
+        description: >
+          Optional stable sprite identifier for script-side hooks/custom handlers.
+          Example: "press-any-key" or "intro-logo".
       x:
         type: integer
         minimum: 0
