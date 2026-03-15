@@ -6,7 +6,6 @@ additionalProperties: true
 required:
   - id
   - title
-  - text
 properties:
   id:
     type: string
@@ -14,11 +13,46 @@ properties:
   title:
     type: string
     minLength: 1
-  text:
+  cutscene:
+    type: boolean
+  skippable:
+    type: boolean
+  bg_colour:
     type: string
-    minLength: 1
+    description: "Terminal background colour filling the whole buffer on scene load (e.g. black, white, red)."
+  layers:
+    type: array
+    items:
+      $ref: "#/$defs/layer"
   next:
     type:
       - string
       - "null"
+
+$defs:
+  layer:
+    type: object
+    required:
+      - type
+      - content
+    additionalProperties: true
+    properties:
+      type:
+        type: string
+        enum: [text]
+      content:
+        type: string
+        minLength: 1
+      x:
+        type: integer
+        minimum: 0
+      y:
+        type: integer
+        minimum: 0
+      fg_colour:
+        type: string
+        description: "Foreground colour of the layer content."
+      bg_colour:
+        type: string
+        description: "Optional background colour override for this layer."
 
