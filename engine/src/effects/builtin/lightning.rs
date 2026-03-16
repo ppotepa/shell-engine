@@ -73,6 +73,12 @@ fn fbm2(mut uv: (f32, f32), octaves: u8, amp_start: f32, amp_coeff: f32, freq_co
     value
 }
 
+#[inline]
+fn smoothstep01(v: f32) -> f32 {
+    let t = v.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 fn parse_anchor(anchor: Option<&str>, w: u16, seed: u32) -> f32 {
     if w == 0 {
         return 0.0;
@@ -574,6 +580,268 @@ impl Effect for LightningFbmEffect {
     }
 }
 
+/// More natural lightning band with a bright unstable core, soft halo, and secondary filaments.
+pub struct LightningNaturalEffect;
+
+impl Effect for LightningNaturalEffect {
+    fn apply(&self, progress: f32, params: &EffectParams, region: Region, buffer: &mut Buffer) {
+        if region.width == 0 || region.height == 0 {
+            return;
+        }
+
+        let p = progress.clamp(0.0, 1.0);
+        let frame = (p * 12_000.0) as u32;
+        let orientation = LightningOrientation::from_params(params);
+        let effect_color = params
+            .colour
+            .as_ref()
+            .map(Color::from)
+            .unwrap_or(Color::Rgb {
+                r: 124,
+                g: 170,
+                b: 255,
+            });
+        let intensity = params.intensity.unwrap_or(1.0).clamp(0.1, 2.5);
+        let thickness = params.thickness.unwrap_or(1.2).clamp(0.35, 3.0);
+        let strikes = params.strikes.unwrap_or(2).clamp(1, 4) as usize;
+        let glow = params.glow.unwrap_or(true);
+        let octaves = params.octave_count.unwrap_or(6).clamp(2, 12);
+        let amp_start = params.amp_start.unwrap_or(0.45).clamp(0.05, 1.0);
+        let amp_coeff = params.amp_coeff.unwrap_or(0.52).clamp(0.1, 1.0);
+        let freq_coeff = params.freq_coeff.unwrap_or(2.0).clamp(1.0, 5.0);
+        let speed = params.speed.unwrap_or(0.55).clamp(0.0, 8.0);
+
+        let attack = smoothstep01((p / 0.16).clamp(0.0, 1.0));
+        let sustain = if p < 0.56 {
+            1.0
+        } else {
+            (1.0 - ((p - 0.56) / 0.44)).clamp(0.0, 1.0).powf(1.45)
+        };
+        let decay_flicker = 0.86 + hash12f((p * 14.0, 7.0)) * 0.14;
+        let envelope = (attack * sustain * decay_flicker * intensity).clamp(0.0, 1.0);
+        if envelope <= 0.02 {
+            return;
+        }
+
+        match orientation {
+            LightningOrientation::Horizontal => {
+                let h = region.height.max(1);
+                let w = region.width.max(1);
+                let start = parse_anchor(
+                    params.start_x.as_deref(),
+                    h,
+                    crt_hash(region.x, region.y, frame),
+                );
+                let end = parse_anchor(
+                    params.end_x.as_deref(),
+                    h,
+                    crt_hash(region.x, region.y.saturating_add(1), frame.wrapping_add(19)),
+                );
+                let halo_radius = (thickness * 5.0).ceil() as i32;
+
+                for ix in 0..w {
+                    let x = region.x + ix;
+                    let t = ix as f32 / w.saturating_sub(1).max(1) as f32;
+                    let base_axis = start + (end - start) * t;
+                    let noise = fbm2(
+                        (t * 4.0 + p * speed * 2.3, p * speed * 1.7 + t * 0.75),
+                        octaves,
+                        amp_start,
+                        amp_coeff,
+                        freq_coeff,
+                    ) - 0.5;
+                    let jitter =
+                        (n01(x, region.y, frame.wrapping_add(301)) - 0.5) * thickness * 1.1;
+                    let core_axis = base_axis + noise * thickness * 3.2 + jitter;
+
+                    for oy in -halo_radius..=halo_radius {
+                        let yy = core_axis + oy as f32;
+                        let yi = yy.round() as i32;
+                        if yi < region.y as i32 || yi >= (region.y + region.height) as i32 {
+                            continue;
+                        }
+                        let y = yi as u16;
+                        let dist = oy.abs() as f32;
+                        let core = (1.0 - dist / (0.55 + thickness)).clamp(0.0, 1.0).powf(1.6);
+                        let halo = (1.0 - dist / (2.0 + thickness * 3.0))
+                            .clamp(0.0, 1.0)
+                            .powf(2.2);
+                        let amount = (core * 0.78 + halo * 0.28) * envelope;
+                        if amount <= 0.02 {
+                            continue;
+                        }
+                        let symbol = if core > 0.72 {
+                            Some('█')
+                        } else if core > 0.38 {
+                            Some('▓')
+                        } else if halo > 0.12 {
+                            Some('▒')
+                        } else {
+                            Some('░')
+                        };
+                        let tint = if core > 0.45 {
+                            Color::White
+                        } else {
+                            effect_color
+                        };
+                        blend_cell_to(
+                            buffer,
+                            x,
+                            y,
+                            tint,
+                            amount.clamp(0.0, 1.0),
+                            symbol,
+                            TRUE_BLACK,
+                        );
+                    }
+
+                    if glow {
+                        let glow_y = core_axis
+                            .round()
+                            .clamp(region.y as f32, (region.y + region.height - 1) as f32)
+                            as u16;
+                        apply_glow(buffer, region, x, glow_y, envelope * 0.85);
+                    }
+
+                    let branch_gate = n01(x, region.y.saturating_add(2), frame.wrapping_add(911));
+                    if branch_gate > 0.885 {
+                        let branch_dir = if branch_gate > 0.95 { 1_i32 } else { -1_i32 };
+                        let branch_len = 1 + ((branch_gate * 4.0) as i32);
+                        for branch_idx in 1..=branch_len.min((strikes as i32) + 2) {
+                            let bx_i = x as i32 + branch_idx / 2;
+                            let by_i = core_axis.round() as i32 + branch_dir * branch_idx;
+                            if bx_i < region.x as i32
+                                || bx_i >= (region.x + region.width) as i32
+                                || by_i < region.y as i32
+                                || by_i >= (region.y + region.height) as i32
+                            {
+                                break;
+                            }
+                            let local = (envelope - branch_idx as f32 * 0.11).clamp(0.12, 0.9);
+                            blend_cell_to(
+                                buffer,
+                                bx_i as u16,
+                                by_i as u16,
+                                Color::White,
+                                local,
+                                Some(bolt_symbol(local)),
+                                TRUE_BLACK,
+                            );
+                        }
+                    }
+                }
+            }
+            LightningOrientation::Vertical => {
+                let h = region.height.max(1);
+                let w = region.width.max(1);
+                let start = parse_anchor(
+                    params.start_x.as_deref(),
+                    w,
+                    crt_hash(region.x, region.y, frame),
+                );
+                let end = parse_anchor(
+                    params.end_x.as_deref(),
+                    w,
+                    crt_hash(region.x.saturating_add(1), region.y, frame.wrapping_add(19)),
+                );
+                let halo_radius = (thickness * 5.0).ceil() as i32;
+
+                for iy in 0..h {
+                    let y = region.y + iy;
+                    let t = iy as f32 / h.saturating_sub(1).max(1) as f32;
+                    let base_axis = start + (end - start) * t;
+                    let noise = fbm2(
+                        (p * speed * 1.7 + t * 0.75, t * 4.0 + p * speed * 2.3),
+                        octaves,
+                        amp_start,
+                        amp_coeff,
+                        freq_coeff,
+                    ) - 0.5;
+                    let jitter =
+                        (n01(region.x, y, frame.wrapping_add(301)) - 0.5) * thickness * 1.1;
+                    let core_axis = base_axis + noise * thickness * 3.2 + jitter;
+
+                    for ox in -halo_radius..=halo_radius {
+                        let xx = core_axis + ox as f32;
+                        let xi = xx.round() as i32;
+                        if xi < region.x as i32 || xi >= (region.x + region.width) as i32 {
+                            continue;
+                        }
+                        let x = xi as u16;
+                        let dist = ox.abs() as f32;
+                        let core = (1.0 - dist / (0.55 + thickness)).clamp(0.0, 1.0).powf(1.6);
+                        let halo = (1.0 - dist / (2.0 + thickness * 3.0))
+                            .clamp(0.0, 1.0)
+                            .powf(2.2);
+                        let amount = (core * 0.78 + halo * 0.28) * envelope;
+                        if amount <= 0.02 {
+                            continue;
+                        }
+                        let symbol = if core > 0.72 {
+                            Some('█')
+                        } else if core > 0.38 {
+                            Some('▓')
+                        } else if halo > 0.12 {
+                            Some('▒')
+                        } else {
+                            Some('░')
+                        };
+                        let tint = if core > 0.45 {
+                            Color::White
+                        } else {
+                            effect_color
+                        };
+                        blend_cell_to(
+                            buffer,
+                            x,
+                            y,
+                            tint,
+                            amount.clamp(0.0, 1.0),
+                            symbol,
+                            TRUE_BLACK,
+                        );
+                    }
+
+                    if glow {
+                        let glow_x = core_axis
+                            .round()
+                            .clamp(region.x as f32, (region.x + region.width - 1) as f32)
+                            as u16;
+                        apply_glow(buffer, region, glow_x, y, envelope * 0.85);
+                    }
+
+                    let branch_gate = n01(region.x.saturating_add(2), y, frame.wrapping_add(911));
+                    if branch_gate > 0.885 {
+                        let branch_dir = if branch_gate > 0.95 { 1_i32 } else { -1_i32 };
+                        let branch_len = 1 + ((branch_gate * 4.0) as i32);
+                        for branch_idx in 1..=branch_len.min((strikes as i32) + 2) {
+                            let bx_i = core_axis.round() as i32 + branch_dir * branch_idx;
+                            let by_i = y as i32 + branch_idx / 2;
+                            if bx_i < region.x as i32
+                                || bx_i >= (region.x + region.width) as i32
+                                || by_i < region.y as i32
+                                || by_i >= (region.y + region.height) as i32
+                            {
+                                break;
+                            }
+                            let local = (envelope - branch_idx as f32 * 0.11).clamp(0.12, 0.9);
+                            blend_cell_to(
+                                buffer,
+                                bx_i as u16,
+                                by_i as u16,
+                                Color::White,
+                                local,
+                                Some(bolt_symbol(local)),
+                                TRUE_BLACK,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Renders a spherical "tesla coil" electrical burst around the center.
 pub struct TeslaOrbEffect;
 
@@ -707,7 +975,7 @@ impl Effect for TeslaOrbEffect {
 
 #[cfg(test)]
 mod tests {
-    use super::{Effect, LightningBranchEffect, LightningFbmEffect};
+    use super::{Effect, LightningBranchEffect, LightningFbmEffect, LightningNaturalEffect};
     use crate::buffer::Buffer;
     use crate::effects::Region;
     use crate::scene::EffectParams;
@@ -797,6 +1065,54 @@ mod tests {
                 strikes: Some(1),
                 thickness: Some(1.0),
                 glow: Some(false),
+                orientation: Some("horizontal".to_string()),
+                ..EffectParams::default()
+            },
+            region,
+            &mut horizontal,
+        );
+
+        let (vertical_x, vertical_y) = lit_axes_coverage(&vertical);
+        let (horizontal_x, horizontal_y) = lit_axes_coverage(&horizontal);
+
+        assert!(vertical_y > vertical_x);
+        assert!(horizontal_x > horizontal_y);
+    }
+
+    #[test]
+    fn lightning_natural_orientation_changes_primary_axis() {
+        let effect = LightningNaturalEffect;
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 40,
+            height: 20,
+        };
+
+        let mut vertical = Buffer::new(region.width, region.height);
+        vertical.fill(Color::Black);
+        effect.apply(
+            0.5,
+            &EffectParams {
+                strikes: Some(2),
+                thickness: Some(1.0),
+                glow: Some(false),
+                intensity: Some(0.7),
+                ..EffectParams::default()
+            },
+            region,
+            &mut vertical,
+        );
+
+        let mut horizontal = Buffer::new(region.width, region.height);
+        horizontal.fill(Color::Black);
+        effect.apply(
+            0.5,
+            &EffectParams {
+                strikes: Some(2),
+                thickness: Some(1.0),
+                glow: Some(false),
+                intensity: Some(0.7),
                 orientation: Some("horizontal".to_string()),
                 ..EffectParams::default()
             },
