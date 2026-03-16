@@ -35,11 +35,11 @@ version: 0.1.0
 entrypoint: /scenes/intro.logo.yml
 terminal:
   min_colours: 256
-  min_width: 120
-  min_height: 40
+  min_width: 220
+  min_height: 55
   use_virtual_buffer: true
-  virtual_size: "320x240"
-  virtual_policy: fit
+  virtual_size: "220x55"
+  virtual_policy: strict
 </pre>
 
 <h2>Virtual buffer behavior</h2>
@@ -48,6 +48,14 @@ terminal:
   <li><code>use_virtual_buffer: true</code> — engine renders to virtual buffer, then translates to terminal output.</li>
   <li><code>virtual_policy: strict</code> — requires terminal at least as large as virtual size (startup check enforces).</li>
   <li><code>virtual_policy: fit</code> — fits virtual output into terminal with centered letterbox when needed.</li>
+</ul>
+
+<h2>Notes about schema aliases</h2>
+<ul>
+  <li><code>target-fps</code> is an alias of <code>target_fps</code>.</li>
+  <li><code>use-virtual-buffer</code> is an alias of <code>use_virtual_buffer</code>.</li>
+  <li><code>virtual-size</code> is an alias of <code>virtual_size</code>.</li>
+  <li><code>virtual-policy</code> is an alias of <code>virtual_policy</code>.</li>
 </ul>
 
 <hr>

@@ -1,7 +1,7 @@
 use super::types::{GlyphManifest, LoadedFont, LoadedGlyph};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 static FONT_CACHE: OnceLock<Mutex<HashMap<String, Option<LoadedFont>>>> = OnceLock::new();
@@ -84,22 +84,7 @@ fn load_font_assets_uncached(font_name: &str) -> Option<LoadedFont> {
 }
 
 fn find_font_dir(slug: &str, preferred_mode: Option<&str>) -> Option<PathBuf> {
-    let mut roots = vec![
-        PathBuf::from("mods/shell-quest/assets/fonts"),
-        PathBuf::from("../mods/shell-quest/assets/fonts"),
-        PathBuf::from("mod/shell-quest/assets/fonts"),
-        PathBuf::from("../mod/shell-quest/assets/fonts"),
-    ];
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(bin_dir) = exe.parent() {
-            roots.push(bin_dir.join("../mods/shell-quest/assets/fonts"));
-            roots.push(bin_dir.join("../../mods/shell-quest/assets/fonts"));
-            roots.push(bin_dir.join("../mod/shell-quest/assets/fonts"));
-            roots.push(bin_dir.join("../../mod/shell-quest/assets/fonts"));
-        }
-    }
-
-    for root in roots {
+    for root in font_roots() {
         // Canonical layout: assets/fonts/{font-slug}/{size}px/{mode}/manifest.yaml
         let by_name = root.join(slug);
         if let Ok(size_dirs) = fs::read_dir(&by_name) {
@@ -138,6 +123,47 @@ fn find_font_dir(slug: &str, preferred_mode: Option<&str>) -> Option<PathBuf> {
         }
     }
     None
+}
+
+fn font_roots() -> Vec<PathBuf> {
+    let mut roots: Vec<PathBuf> = Vec::new();
+
+    if let Ok(mod_source) = std::env::var("SHELL_QUEST_MOD_SOURCE") {
+        push_unique(&mut roots, PathBuf::from(mod_source).join("assets/fonts"));
+    }
+
+    for base in ["mods", "../mods", "mod", "../mod"] {
+        collect_mod_roots(Path::new(base), &mut roots);
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(bin_dir) = exe.parent() {
+            for rel in ["../mods", "../../mods", "../mod", "../../mod"] {
+                collect_mod_roots(&bin_dir.join(rel), &mut roots);
+            }
+        }
+    }
+
+    roots
+}
+
+fn collect_mod_roots(base: &Path, roots: &mut Vec<PathBuf>) {
+    let entries = match fs::read_dir(base) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let candidate = entry.path().join("assets/fonts");
+        if candidate.is_dir() {
+            push_unique(roots, candidate);
+        }
+    }
+}
+
+fn push_unique(roots: &mut Vec<PathBuf>, candidate: PathBuf) {
+    if !roots.iter().any(|p| p == &candidate) {
+        roots.push(candidate);
+    }
 }
 
 fn parse_font_spec(input: &str) -> (String, Option<String>) {

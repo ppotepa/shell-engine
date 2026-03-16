@@ -7,6 +7,7 @@ pub use effect::{Effect, Region};
 use crate::buffer::Buffer;
 use crate::scene::{Effect as SceneEffect, EffectParams};
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 /// Dispatches effects by name to their implementations.
 pub struct EffectDispatcher {
@@ -77,10 +78,15 @@ impl Default for EffectDispatcher {
     }
 }
 
+static SHARED_DISPATCHER: OnceLock<EffectDispatcher> = OnceLock::new();
+
+pub fn shared_dispatcher() -> &'static EffectDispatcher {
+    SHARED_DISPATCHER.get_or_init(EffectDispatcher::new)
+}
+
 /// Convenience wrapper for call sites that already have a `&SceneEffect`.
 /// Applies easing, then dispatches to the effect registry.
 pub fn apply_effect(effect: &SceneEffect, progress: f32, region: Region, buffer: &mut Buffer) {
     let p = effect.params.easing.apply(progress);
-    let dispatcher = EffectDispatcher::new();
-    dispatcher.apply(&effect.name, p, &effect.params, region, buffer);
+    shared_dispatcher().apply(&effect.name, p, &effect.params, region, buffer);
 }

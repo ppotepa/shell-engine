@@ -3,9 +3,19 @@ name: Shell Quest
 version: 0.1.0
 entrypoint: /scenes/intro.logo.yml
 terminal:
+  # Hard minimum terminal capabilities required before startup.
   min_colours: 256
-  min_width: 120
-  min_height: 40
+  min_width: 237
+  min_height: 65
+
+  # Active runtime profile (STANDARD):
+  # - scenes run in default rendered-mode "cell"
+  # - intro ASCII -> raster transition is authored for this profile
   use_virtual_buffer: true
-  virtual_size: "320x240"
+
+  # Virtual render target in logical cells (WIDTHxHEIGHT).
+  # Standard project baseline remains 320x240.
+  virtual_size: "237x65"
+
+  # fit -> adaptive scale to current terminal with centered letterbox.
   virtual_policy: fit

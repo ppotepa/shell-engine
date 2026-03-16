@@ -1,4 +1,4 @@
-use crate::effects::EffectDispatcher;
+use crate::effects::{shared_dispatcher, EffectDispatcher};
 use crate::scene::{LayerStages, Scene, Stage};
 use crate::EngineError;
 
@@ -15,11 +15,10 @@ impl StartupCheck for EffectRegistryCheck {
 
     fn run(&self, ctx: &StartupContext, report: &mut StartupReport) -> Result<(), EngineError> {
         let scenes = ctx.all_scenes()?;
-        let dispatcher = EffectDispatcher::new();
         let mut unknown = Vec::new();
 
         for sf in scenes {
-            collect_scene_unknown_effects(&sf.scene, &sf.path, &dispatcher, &mut unknown);
+            collect_scene_unknown_effects(&sf.scene, &sf.path, shared_dispatcher(), &mut unknown);
         }
 
         if !unknown.is_empty() {

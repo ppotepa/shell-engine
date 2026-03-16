@@ -1,6 +1,9 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://shell-quest.local/schemas/mod.schema.yaml"
 title: Mod Manifest Schema
+description: |
+  Root manifest for a Shell Quest mod.
+  Defines entrypoint scene and optional terminal/runtime presentation settings.
 type: object
 additionalProperties: true
 required:
@@ -18,9 +21,12 @@ properties:
     type: string
     minLength: 1
     pattern: "^/.+\\.yml$"
+    description: Absolute path (inside mod) to the first scene YAML file.
   terminal:
     type: object
-    description: Optional terminal capability requirements. Engine will refuse to start if not met.
+    description: |
+      Optional terminal requirements and render presentation settings.
+      Capability checks run at startup. Rendering may use a virtual buffer when enabled.
     additionalProperties: false
     properties:
       min_colours:
@@ -47,14 +53,19 @@ properties:
         description: Alias of target_fps.
       use_virtual_buffer:
         type: boolean
-        description: Enable fixed virtual framebuffer rendering before terminal presentation.
+        description: |
+          Enable virtual-buffer rendering.
+          true  = compose into virtual_size first, then present to terminal.
+          false = compose directly into terminal-size output buffer.
       use-virtual-buffer:
         type: boolean
         description: Alias of use_virtual_buffer.
       virtual_size:
         type: string
         pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
-        description: Virtual framebuffer size in WIDTHxHEIGHT form (e.g. 320x240).
+        description: |
+          Virtual framebuffer size in WIDTHxHEIGHT form (for example 320x240 or 220x55).
+          Used only when use_virtual_buffer/use-virtual-buffer is true.
       virtual-size:
         type: string
         pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
@@ -63,8 +74,9 @@ properties:
         type: string
         enum: [strict, fit]
         description: |
-          strict — require terminal >= virtual size in cells; no downscale.
-          fit    — adaptively scale virtual frame to current terminal with letterbox.
+          strict - require terminal >= virtual size in cells; no downscale.
+          fit    - adaptively scale virtual frame to current terminal with centered letterbox.
+          Policy is meaningful when virtual buffer is enabled.
       virtual-policy:
         type: string
         enum: [strict, fit]
