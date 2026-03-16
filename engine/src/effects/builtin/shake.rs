@@ -19,7 +19,8 @@ impl Effect for ScreenShakeEffect {
         let dx = (phase.sin() * ax).round() as i32;
         let dy = ((phase * 1.37).cos() * ay).round() as i32;
 
-        let mut snapshot: Vec<Cell> = Vec::with_capacity((region.width * region.height) as usize);
+        let snapshot_capacity = usize::from(region.width) * usize::from(region.height);
+        let mut snapshot: Vec<Cell> = Vec::with_capacity(snapshot_capacity);
         for ry in 0..region.height {
             for rx in 0..region.width {
                 let x = region.x + rx;
@@ -45,5 +46,21 @@ impl Effect for ScreenShakeEffect {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ScreenShakeEffect;
+    use crate::buffer::Buffer;
+    use crate::effects::effect::{Effect, Region};
+    use crate::scene::EffectParams;
+
+    #[test]
+    fn does_not_overflow_snapshot_capacity_on_large_regions() {
+        let mut buffer = Buffer::new(369, 186);
+        let effect = ScreenShakeEffect;
+        let region = Region::full(&buffer);
+        effect.apply(0.5, &EffectParams::default(), region, &mut buffer);
     }
 }

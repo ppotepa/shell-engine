@@ -6,3 +6,8 @@
 # Editor/OS
 .DS_Store
 Thumbs.db
+
+# Local notes: ignore markdown files except README
+**/*.md
+![Rr][Ee][Aa][Dd][Mm][Ee].md
+!**/[Rr][Ee][Aa][Dd][Mm][Ee].md
