@@ -4,7 +4,65 @@ mod types;
 
 use crate::buffer::Buffer;
 use crossterm::style::Color;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::Path;
+
+/// Cache key for rasterized bitmap-font text buffers.
+type RasterKey = (
+    Option<String>, // mod_source path
+    String,         // text content
+    String,         // font name
+    (u8, u8, u8),  // fg colour
+    (u8, u8, u8),  // bg colour
+);
+
+thread_local! {
+    static RASTER_CACHE: RefCell<HashMap<RasterKey, Buffer>> = RefCell::new(HashMap::new());
+}
+
+fn color_key(c: Color) -> (u8, u8, u8) {
+    match c {
+        Color::Rgb { r, g, b } => (r, g, b),
+        Color::Black => (0, 0, 0),
+        Color::White => (255, 255, 255),
+        Color::Reset => (0, 0, 0),
+        _ => (0, 0, 0),
+    }
+}
+
+/// Cached variant of `rasterize` — returns a clone of a previously computed
+/// buffer when the same (mod_source, text, font, fg, bg) tuple is requested again.
+/// Uses a thread-local `HashMap` so there is no locking overhead.
+pub fn rasterize_cached(
+    mod_source: Option<&Path>,
+    text: &str,
+    font: &str,
+    fg: Color,
+    bg: Color,
+) -> Buffer {
+    // Skip cache for generic fonts — they are already cheap to compute.
+    if font.starts_with("generic") {
+        return rasterize(mod_source, text, font, fg, bg);
+    }
+
+    let key: RasterKey = (
+        mod_source.map(|p| p.to_string_lossy().into_owned()),
+        text.to_owned(),
+        font.to_owned(),
+        color_key(fg),
+        color_key(bg),
+    );
+
+    RASTER_CACHE.with(|cache| {
+        if let Some(buf) = cache.borrow().get(&key) {
+            return buf.clone();
+        }
+        let buf = rasterize(mod_source, text, font, fg, bg);
+        cache.borrow_mut().insert(key, buf.clone());
+        buf
+    })
+}
 
 /// Rasterize `text` using the named bitmap font into a new Buffer.
 pub fn rasterize(
