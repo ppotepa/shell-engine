@@ -1,6 +1,9 @@
 mod effect_applicator;
+mod grid_tracks;
+mod image_render;
 mod layer_compositor;
 mod sprite_renderer;
+mod text_render;
 
 use crate::assets::AssetRoot;
 use crate::buffer::{Buffer, Cell, VirtualBuffer, TRUE_BLACK};
@@ -13,6 +16,10 @@ use crossterm::style::Color;
 
 pub fn compositor_system(world: &mut World) {
     let asset_root = world.get::<AssetRoot>().cloned();
+    let runtime_mode_override = world
+        .get::<RuntimeSettings>()
+        .and_then(|s| s.renderer_mode_override);
+
     let (
         bg,
         mut layers,
@@ -75,7 +82,7 @@ pub fn compositor_system(world: &mut World) {
             scene_elapsed,
             scene_effects,
             scene_step_dur,
-            scene.rendered_mode,
+            runtime_mode_override.unwrap_or(scene.rendered_mode),
         )
     };
 

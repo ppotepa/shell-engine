@@ -1,6 +1,8 @@
 use serde_yaml::Value;
 use std::env;
 
+use crate::scene::SceneRenderedMode;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VirtualPolicy {
     Strict,
@@ -19,6 +21,7 @@ pub struct RuntimeSettings {
     pub virtual_width: u16,
     pub virtual_height: u16,
     pub virtual_policy: VirtualPolicy,
+    pub renderer_mode_override: Option<SceneRenderedMode>,
 }
 
 impl Default for RuntimeSettings {
@@ -28,6 +31,7 @@ impl Default for RuntimeSettings {
             virtual_width: 320,
             virtual_height: 240,
             virtual_policy: VirtualPolicy::Fit,
+            renderer_mode_override: None,
         }
     }
 }
@@ -63,6 +67,15 @@ impl RuntimeSettings {
             if let Some(policy) = policy {
                 settings.virtual_policy = policy;
             }
+
+            let renderer_mode = block
+                .get("renderer_mode")
+                .or_else(|| block.get("renderer-mode"))
+                .and_then(Value::as_str)
+                .and_then(parse_renderer_mode);
+            if renderer_mode.is_some() {
+                settings.renderer_mode_override = renderer_mode;
+            }
         }
 
         if let Ok(raw) = env::var("SHELL_QUEST_USE_VIRTUAL_BUFFER") {
@@ -84,6 +97,12 @@ impl RuntimeSettings {
             }
         }
 
+        if let Ok(raw) = env::var("SHELL_QUEST_RENDERER_MODE") {
+            if let Some(mode) = parse_renderer_mode(&raw) {
+                settings.renderer_mode_override = Some(mode);
+            }
+        }
+
         settings
     }
 }
@@ -100,6 +119,16 @@ fn parse_virtual_policy(raw: &str) -> Option<VirtualPolicy> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "strict" => Some(VirtualPolicy::Strict),
         "fit" => Some(VirtualPolicy::Fit),
+        _ => None,
+    }
+}
+
+fn parse_renderer_mode(raw: &str) -> Option<SceneRenderedMode> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "cell" => Some(SceneRenderedMode::Cell),
+        "halfblock" | "half-block" => Some(SceneRenderedMode::HalfBlock),
+        "quadblock" | "quad-block" => Some(SceneRenderedMode::QuadBlock),
+        "braille" => Some(SceneRenderedMode::Braille),
         _ => None,
     }
 }
@@ -129,6 +158,7 @@ mod tests {
         assert_eq!(settings.virtual_width, 320);
         assert_eq!(settings.virtual_height, 200);
         assert_eq!(settings.virtual_policy, VirtualPolicy::Strict);
+        assert_eq!(settings.renderer_mode_override, None);
     }
 
     #[test]
@@ -139,5 +169,18 @@ mod tests {
         assert_eq!(settings.virtual_width, 320);
         assert_eq!(settings.virtual_height, 240);
         assert_eq!(settings.virtual_policy, VirtualPolicy::Fit);
+        assert_eq!(settings.renderer_mode_override, None);
+    }
+
+    #[test]
+    fn parses_renderer_mode_from_manifest_terminal_block() {
+        let yaml =
+            serde_yaml::from_str::<serde_yaml::Value>("terminal:\n  renderer-mode: braille\n")
+                .expect("yaml parse");
+        let settings = RuntimeSettings::from_manifest(&yaml);
+        assert_eq!(
+            settings.renderer_mode_override,
+            Some(crate::scene::SceneRenderedMode::Braille)
+        );
     }
 }

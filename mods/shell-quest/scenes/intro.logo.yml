@@ -117,6 +117,8 @@ layers:
         y: 12
         font: "generic:1"
         fg_colour: white
+        glow:
+          radius: 1
         hide_on_leave: true
         appear_at_ms: 8500
         animations:

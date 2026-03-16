@@ -37,3 +37,27 @@ pub fn lerp_colour(from: Color, to: Color, t: f32) -> Color {
         b: rb.round() as u8,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_named_colour_to_rgb() {
+        assert_eq!(colour_to_rgb(Color::Blue), (0, 0, 255));
+    }
+
+    #[test]
+    fn lerp_colour_interpolates_midpoint() {
+        let mid = lerp_colour(
+            Color::Rgb { r: 0, g: 0, b: 0 },
+            Color::Rgb {
+                r: 100,
+                g: 50,
+                b: 0,
+            },
+            0.5,
+        );
+        assert_eq!(mid, Color::Rgb { r: 50, g: 25, b: 0 });
+    }
+}

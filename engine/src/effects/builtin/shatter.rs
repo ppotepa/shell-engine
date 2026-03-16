@@ -1,7 +1,7 @@
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::color::colour_to_rgb;
-use crate::effects::utils::math::smoothstep;
+use crate::effects::utils::math::{smoothstep, TICK_MS};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
 use crossterm::style::Color;
@@ -238,7 +238,7 @@ impl Effect for ShatterGlitchEffect {
             let gate = noise(
                 seed.rotate_left(3) as u16,
                 seed.rotate_left(9) as u16,
-                t / 16 + seed,
+                t / TICK_MS as u32 + seed,
             );
             let blink_on = ((t / 42 + i as u32) & 1) == 0;
             if gate < line_strength && (blink_on || p > 0.78) {

@@ -1,3 +1,5 @@
+use crate::events::{EngineEvent, EventQueue};
+use crate::scene::{Scene, StageTrigger};
 use crate::world::World;
 
 /// Which lifecycle stage the scene is currently in.
@@ -34,124 +36,176 @@ impl Animator {
 }
 
 pub fn animator_system(world: &mut World, tick_ms: u64) {
-    use crate::events::{EngineEvent, EventQueue};
-    use crate::scene::Scene;
-
-    // Snapshot state needed to avoid holding immutable borrows across mutable calls.
-    let snapshot = {
-        let a = match world.get::<Animator>() {
-            Some(a) => a,
-            None => return,
-        };
-        let s = match world.get::<Scene>() {
-            Some(s) => s,
-            None => return,
-        };
-
-        let (step_count, step_dur, stage_looping) = match &a.stage {
-            SceneStage::OnEnter => {
-                let stage = &s.stages.on_enter;
-                let dur = stage
-                    .steps
-                    .get(a.step_idx)
-                    .map(|st| st.duration_ms())
-                    .unwrap_or(0);
-                (stage.steps.len(), dur, stage.looping)
-            }
-            SceneStage::OnIdle => {
-                let stage = &s.stages.on_idle;
-                let dur = stage
-                    .steps
-                    .get(a.step_idx)
-                    .map(|st| st.duration_ms())
-                    .unwrap_or(0);
-                (stage.steps.len(), dur, stage.looping)
-            }
-            SceneStage::OnLeave => {
-                let stage = &s.stages.on_leave;
-                let dur = stage
-                    .steps
-                    .get(a.step_idx)
-                    .map(|st| st.duration_ms())
-                    .unwrap_or(0);
-                (stage.steps.len(), dur, stage.looping)
-            }
-            SceneStage::Done => return,
-        };
-        let idle_trigger = s.stages.on_idle.trigger.clone();
-        let next_scene = s.next.clone();
-        (
-            a.stage.clone(),
-            a.step_idx,
-            a.elapsed_ms,
-            step_count,
-            step_dur,
-            stage_looping,
-            idle_trigger,
-            next_scene,
-        )
+    let scene = match world.get::<Scene>() {
+        Some(scene) => scene.clone(),
+        None => return,
     };
 
-    let (
-        stage,
-        step_idx,
-        elapsed_ms,
-        step_count,
-        step_dur,
-        stage_looping,
-        idle_trigger,
-        next_scene,
-    ) = snapshot;
+    let transition = {
+        let Some(animator) = world.get_mut::<Animator>() else {
+            return;
+        };
+        tick_animator(animator, &scene, tick_ms)
+    };
 
-    if let Some(a) = world.get_mut::<Animator>() {
-        a.elapsed_ms += tick_ms;
-        a.scene_elapsed_ms += tick_ms;
+    if let Some(to_scene_id) = transition {
+        if let Some(queue) = world.get_mut::<EventQueue>() {
+            queue.push(EngineEvent::SceneTransition { to_scene_id });
+        }
+    }
+}
+
+fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option<String> {
+    if animator.stage == SceneStage::Done {
+        return None;
     }
 
-    let new_elapsed = elapsed_ms + tick_ms;
-    let step_done = step_dur > 0 && new_elapsed >= step_dur;
+    let (step_count, step_dur, stage_looping) =
+        stage_runtime(scene, &animator.stage, animator.step_idx)?;
 
-    if step_done {
-        let next_step = step_idx + 1;
-        if next_step < step_count {
-            if let Some(a) = world.get_mut::<Animator>() {
-                a.step_idx = next_step;
-                a.elapsed_ms = 0;
-            }
-        } else {
-            // Stage looping: wrap back to step 0 instead of advancing stage.
-            // on_idle with any-key/timeout trigger also loops — game_loop drives the transition.
-            let should_loop = stage_looping
-                || matches!(
-                    (&stage, &idle_trigger),
-                    (SceneStage::OnIdle, crate::scene::StageTrigger::AnyKey)
-                        | (SceneStage::OnIdle, crate::scene::StageTrigger::Timeout)
-                );
-            if should_loop {
-                if let Some(a) = world.get_mut::<Animator>() {
-                    a.step_idx = 0;
-                    a.elapsed_ms = 0;
-                }
-            } else {
-                let next_stage = match &stage {
-                    SceneStage::OnEnter => SceneStage::OnIdle,
-                    SceneStage::OnIdle => SceneStage::OnLeave,
-                    SceneStage::OnLeave => SceneStage::Done,
-                    SceneStage::Done => SceneStage::Done,
-                };
-                if let Some(a) = world.get_mut::<Animator>() {
-                    a.stage = next_stage.clone();
-                    a.step_idx = 0;
-                    a.elapsed_ms = 0;
-                }
-                if next_stage == SceneStage::Done {
-                    if let Some(id) = next_scene {
-                        if let Some(q) = world.get_mut::<EventQueue>() {
-                            q.push(EngineEvent::SceneTransition { to_scene_id: id });
-                        }
-                    }
-                }
-            }
+    animator.elapsed_ms += tick_ms;
+    animator.scene_elapsed_ms += tick_ms;
+
+    let step_done = step_dur > 0 && animator.elapsed_ms >= step_dur;
+    if !step_done {
+        return None;
+    }
+
+    let next_step = animator.step_idx + 1;
+    if next_step < step_count {
+        animator.step_idx = next_step;
+        animator.elapsed_ms = 0;
+        return None;
+    }
+
+    let should_loop = stage_looping
+        || matches!(
+            (&animator.stage, &scene.stages.on_idle.trigger),
+            (SceneStage::OnIdle, StageTrigger::AnyKey)
+                | (SceneStage::OnIdle, StageTrigger::Timeout)
+        );
+    if should_loop {
+        animator.step_idx = 0;
+        animator.elapsed_ms = 0;
+        return None;
+    }
+
+    animator.stage = next_stage(&animator.stage);
+    animator.step_idx = 0;
+    animator.elapsed_ms = 0;
+    if animator.stage == SceneStage::Done {
+        return scene.next.clone();
+    }
+
+    None
+}
+
+fn stage_runtime(scene: &Scene, stage: &SceneStage, step_idx: usize) -> Option<(usize, u64, bool)> {
+    let stage_def = match stage {
+        SceneStage::OnEnter => &scene.stages.on_enter,
+        SceneStage::OnIdle => &scene.stages.on_idle,
+        SceneStage::OnLeave => &scene.stages.on_leave,
+        SceneStage::Done => return None,
+    };
+    let step_dur = stage_def
+        .steps
+        .get(step_idx)
+        .map(|st| st.duration_ms())
+        .unwrap_or(0);
+    Some((stage_def.steps.len(), step_dur, stage_def.looping))
+}
+
+fn next_stage(stage: &SceneStage) -> SceneStage {
+    match stage {
+        SceneStage::OnEnter => SceneStage::OnIdle,
+        SceneStage::OnIdle => SceneStage::OnLeave,
+        SceneStage::OnLeave | SceneStage::Done => SceneStage::Done,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{tick_animator, Animator, SceneStage};
+    use crate::scene::{
+        Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage, Step, TermColour,
+    };
+
+    fn scene_with_stages(
+        on_enter: Stage,
+        on_idle: Stage,
+        on_leave: Stage,
+        next: Option<&str>,
+    ) -> Scene {
+        Scene {
+            id: "s".to_string(),
+            title: "Scene".to_string(),
+            cutscene: true,
+            rendered_mode: SceneRenderedMode::Cell,
+            virtual_size_override: None,
+            bg_colour: Some(TermColour::Black),
+            stages: SceneStages {
+                on_enter,
+                on_idle,
+                on_leave,
+            },
+            audio: SceneAudio::default(),
+            layers: Vec::new(),
+            next: next.map(str::to_string),
         }
+    }
+
+    #[test]
+    fn advances_from_enter_to_idle_after_stage_steps_finish() {
+        let scene = scene_with_stages(
+            Stage {
+                trigger: crate::scene::StageTrigger::None,
+                steps: vec![Step {
+                    effects: Vec::new(),
+                    duration: Some(100),
+                }],
+                looping: false,
+            },
+            Stage::default(),
+            Stage::default(),
+            None,
+        );
+        let mut animator = Animator::new();
+
+        let transition = tick_animator(&mut animator, &scene, 100);
+
+        assert!(transition.is_none());
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        assert_eq!(animator.step_idx, 0);
+        assert_eq!(animator.elapsed_ms, 0);
+    }
+
+    #[test]
+    fn emits_transition_when_leave_stage_finishes_and_next_exists() {
+        let scene = scene_with_stages(
+            Stage::default(),
+            Stage::default(),
+            Stage {
+                trigger: crate::scene::StageTrigger::None,
+                steps: vec![Step {
+                    effects: Vec::new(),
+                    duration: Some(50),
+                }],
+                looping: false,
+            },
+            Some("next-scene"),
+        );
+        let mut animator = Animator {
+            stage: SceneStage::OnLeave,
+            step_idx: 0,
+            elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+        };
+
+        let transition = tick_animator(&mut animator, &scene, 50);
+
+        assert_eq!(transition.as_deref(), Some("next-scene"));
+        assert_eq!(animator.stage, SceneStage::Done);
+        assert_eq!(animator.step_idx, 0);
+        assert_eq!(animator.elapsed_ms, 0);
     }
 }

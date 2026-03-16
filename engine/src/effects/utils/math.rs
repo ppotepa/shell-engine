@@ -16,3 +16,21 @@ pub fn phase_progress(progress: f32, start: f32, end: f32) -> f32 {
     }
     ((progress - start) / (end - start)).clamp(0.0, 1.0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn smoothstep_clamps_bounds() {
+        assert_eq!(smoothstep(-0.5), 0.0);
+        assert_eq!(smoothstep(1.5), 1.0);
+    }
+
+    #[test]
+    fn phase_progress_maps_interval() {
+        assert_eq!(phase_progress(0.5, 0.0, 1.0), 0.5);
+        assert_eq!(phase_progress(0.2, 0.3, 0.8), 0.0);
+        assert_eq!(phase_progress(0.9, 0.3, 0.8), 1.0);
+    }
+}

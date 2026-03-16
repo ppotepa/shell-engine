@@ -1,7 +1,7 @@
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::color::lerp_colour;
-use crate::effects::utils::math::smoothstep;
+use crate::effects::utils::math::{smoothstep, TICK_MS};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
 use crossterm::style::Color;
@@ -80,7 +80,7 @@ impl Effect for GlitchOutEffect {
                         let x = region.x + dx;
                         let src_dx = (dx as i32 - tear_offset).clamp(0, max_dx) as usize;
                         let src = &row_cells[src_dx];
-                        let n = noise(x, y, t / 16);
+                        let n = noise(x, y, t / TICK_MS as u32);
 
                         if n < dead_pixel_prob {
                             buffer.set(x, y, ' ', TRUE_BLACK, TRUE_BLACK);
