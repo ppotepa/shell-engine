@@ -173,7 +173,7 @@ layers:
                   orientation: horizontal
                   colour: "#6d95ff"
                   intensity: 0.56
-                  octave_count: 8
+                  octave_count: 5
                   amp_start: 0.42
                   amp_coeff: 0.5
                   freq_coeff: 2.0
@@ -186,7 +186,7 @@ layers:
                   orientation: horizontal
                   colour: "#9cbcff"
                   intensity: 0.92
-                  octave_count: 10
+                  octave_count: 6
                   amp_start: 0.52
                   amp_coeff: 0.5
                   freq_coeff: 2.0
