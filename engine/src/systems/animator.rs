@@ -1,5 +1,7 @@
 use crate::events::EngineEvent;
-use crate::scene::{Scene, StageTrigger};
+use crate::scene::StageTrigger;
+#[cfg(test)]
+use crate::scene::Scene;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 
@@ -38,16 +40,52 @@ impl Animator {
 }
 
 pub fn animator_system(world: &mut World, tick_ms: u64) {
-    let scene = match world.scene_runtime() {
-        Some(runtime) => runtime.scene().clone(),
-        None => return,
+    // Extract only the primitives tick_animator needs — avoids cloning the entire Scene.
+    let tick_data = {
+        let Some(runtime) = world.scene_runtime() else {
+            return;
+        };
+        let Some(animator) = world.animator() else {
+            return;
+        };
+        if animator.stage == SceneStage::Done {
+            return;
+        }
+        let scene = runtime.scene();
+        let stage_def = match &animator.stage {
+            SceneStage::OnEnter => &scene.stages.on_enter,
+            SceneStage::OnIdle => &scene.stages.on_idle,
+            SceneStage::OnLeave => &scene.stages.on_leave,
+            SceneStage::Done => return,
+        };
+        let step_dur = stage_def
+            .steps
+            .get(animator.step_idx)
+            .map(|s| s.duration_ms())
+            .unwrap_or(0);
+        (
+            stage_def.steps.len(),
+            step_dur,
+            stage_def.looping,
+            scene.stages.on_idle.trigger.clone(),
+            scene.next.clone(),
+        )
     };
+    let (step_count, step_dur, stage_looping, idle_trigger, next_scene) = tick_data;
 
     let transition = {
         let Some(animator) = world.animator_mut() else {
             return;
         };
-        tick_animator(animator, &scene, tick_ms)
+        tick_animator_primitives(
+            animator,
+            step_count,
+            step_dur,
+            stage_looping,
+            &idle_trigger,
+            next_scene,
+            tick_ms,
+        )
     };
 
     if let Some(to_scene_id) = transition {
@@ -57,14 +95,15 @@ pub fn animator_system(world: &mut World, tick_ms: u64) {
     }
 }
 
-fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option<String> {
-    if animator.stage == SceneStage::Done {
-        return None;
-    }
-
-    let (step_count, step_dur, stage_looping) =
-        stage_runtime(scene, &animator.stage, animator.step_idx)?;
-
+fn tick_animator_primitives(
+    animator: &mut Animator,
+    step_count: usize,
+    step_dur: u64,
+    stage_looping: bool,
+    idle_trigger: &StageTrigger,
+    next_scene: Option<String>,
+    tick_ms: u64,
+) -> Option<String> {
     animator.elapsed_ms += tick_ms;
     animator.stage_elapsed_ms += tick_ms;
     animator.scene_elapsed_ms += tick_ms;
@@ -83,7 +122,7 @@ fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option
 
     let should_loop = stage_looping
         || matches!(
-            (&animator.stage, &scene.stages.on_idle.trigger),
+            (&animator.stage, idle_trigger),
             (SceneStage::OnIdle, StageTrigger::AnyKey)
                 | (SceneStage::OnIdle, StageTrigger::Timeout)
         );
@@ -98,12 +137,34 @@ fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option
     animator.elapsed_ms = 0;
     animator.stage_elapsed_ms = 0;
     if animator.stage == SceneStage::Done {
-        return scene.next.clone();
+        return next_scene;
     }
 
     None
 }
 
+#[cfg(test)]
+fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option<String> {
+    if animator.stage == SceneStage::Done {
+        return None;
+    }
+    let Some((step_count, step_dur, stage_looping)) =
+        stage_runtime(scene, &animator.stage, animator.step_idx)
+    else {
+        return None;
+    };
+    tick_animator_primitives(
+        animator,
+        step_count,
+        step_dur,
+        stage_looping,
+        &scene.stages.on_idle.trigger,
+        scene.next.clone(),
+        tick_ms,
+    )
+}
+
+#[cfg(test)]
 fn stage_runtime(scene: &Scene, stage: &SceneStage, step_idx: usize) -> Option<(usize, u64, bool)> {
     let stage_def = match stage {
         SceneStage::OnEnter => &scene.stages.on_enter,
