@@ -8,6 +8,16 @@
 <h1>Shell Quest Engine</h1>
 <p>Terminal 2D game engine — developer documentation.</p>
 <p>Shell Quest is a data-driven engine for terminal games. Mods are plain YAML packages; the engine loads them, validates their manifest, and runs a fixed-timestep game loop driving three systems: Animator, Compositor, and Renderer.</p>
+
+<section id="demo">
+  <h2>Interactive demo</h2>
+  <p>Watch the short capture of the Shell Quest intro rendered inside the terminal:</p>
+  <video controls preload="metadata" width="640" poster="assets/imported/shell-quest-terminal.png">
+    <source src="demo.mp4" type="video/mp4">
+    Your browser does not support the MP4 video tag. Download the clip from
+    <a href="demo.mp4">docs/demo.mp4</a>.
+  </video>
+</section>
 <hr>
 
 <h2>Contents</h2>
@@ -29,6 +39,12 @@
   </li>
   <li><a href="mod/shell-quest/index.html">Mod: Shell Quest</a> — reference mod demonstrating the stage/effect system</li>
 </ul>
+
+<h3>Editor UI icon themes</h3>
+<p>Sidebar and Project Explorer use the same emoji icon set for consistency. Nerd Font mode is postponed until we add reliable runtime font capability detection.</p>
+
+<h3>Effects Browser (Sidebar 2)</h3>
+<p>Press <code>2</code> to open Builtin Effects Browser. Press <code>F</code> to toggle live preview rendered through the engine effect dispatcher on a demo frame with the Tux sprite.</p>
 
 <h2>Project layout</h2>
 <pre>

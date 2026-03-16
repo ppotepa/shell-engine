@@ -32,10 +32,10 @@ cargo run -p editor
 
 ## Documentation & demo
 
-- Demo video: [▶ Obejrzyj demo](./docs/demo.webm)
+- Demo video: [▶ Obejrzyj demo](./docs/demo.mp4)
 
 <div align="center">
-  <video src="./docs/demo.webm" controls preload="metadata" poster="./docs/assets/imported/shell-quest-terminal.png">
+  <video src="./docs/demo.mp4" controls preload="metadata" poster="./docs/assets/imported/shell-quest-terminal.png">
     Demo video
   </video>
 </div>
