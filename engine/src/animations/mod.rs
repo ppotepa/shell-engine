@@ -1,12 +1,12 @@
 pub mod animation;
-pub mod params;
 pub mod builtin;
+pub mod params;
 
 pub use animation::{SpriteAnimation, Transform};
 pub use params::AnimationParams;
 
-use std::collections::HashMap;
 use crate::scene::Animation;
+use std::collections::HashMap;
 
 pub struct AnimationDispatcher {
     registry: HashMap<&'static str, Box<dyn SpriteAnimation>>,
@@ -14,8 +14,11 @@ pub struct AnimationDispatcher {
 
 impl AnimationDispatcher {
     pub fn new() -> Self {
-        let mut d = Self { registry: HashMap::new() };
-        d.registry.insert("float", Box::new(builtin::FloatAnimation));
+        let mut d = Self {
+            registry: HashMap::new(),
+        };
+        d.registry
+            .insert("float", Box::new(builtin::FloatAnimation));
         d
     }
 

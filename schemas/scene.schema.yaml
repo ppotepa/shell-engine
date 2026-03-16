@@ -23,6 +23,19 @@ properties:
     type: boolean
     default: false
     description: Whether this scene is a non-interactive cutscene.
+  rendered-mode:
+    type: string
+    enum: [cell, halfblock, quadblock, braille]
+    description: >
+      Optional scene-level renderer packing mode override.
+      Runtime currently supports `halfblock` for 2x vertical virtual resolution.
+      Other modes are reserved for upcoming packed renderers.
+  virtual-size-override:
+    type: string
+    pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+    description: >
+      Optional virtual canvas override in WIDTHxHEIGHT form (e.g. 320x240).
+      Declared for future renderer scaling flow; currently informational.
   bg_colour:
     $ref: "#/$defs/colour"
     description: >
@@ -311,16 +324,20 @@ $defs:
     type: object
     description: A drawable object within a layer. Has its own local position and lifecycle.
     additionalProperties: false
-    required: [type, content]
+    required: [type]
     properties:
       type:
         type: string
-        enum: [text]
-        description: Sprite type. Currently only 'text' is supported.
+        enum: [text, image, grid]
+        description: Sprite type. Supported: text, image, grid.
       content:
         type: string
         minLength: 1
-        description: Text content to render.
+        description: Text content to render (required for type=text).
+      source:
+        type: string
+        minLength: 1
+        description: Image asset path (required for type=image), e.g. /assets/images/tux.png.
       id:
         type: string
         minLength: 1
@@ -343,6 +360,26 @@ $defs:
         type: integer
         default: 0
         description: Render order within the layer. Higher z_index renders on top.
+      grid-row:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Grid row index (1-based) when this sprite is a child of a grid container.
+      grid-col:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Grid column index (1-based) when this sprite is a child of a grid container.
+      row-span:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Number of grid rows this sprite spans.
+      col-span:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Number of grid columns this sprite spans.
       font:
         type: [string, "null"]
         description: >
@@ -363,6 +400,84 @@ $defs:
             "Abril Fatface:ascii"  — ASCII-art glyph mode.
 
           Omit or set null for native terminal text (no rasterization).
+      width:
+        type: integer
+        minimum: 1
+        maximum: 65535
+        description: >
+          Target sprite width in terminal cells.
+          For image sprites, when only width is set, height is derived from source aspect ratio.
+      height:
+        type: integer
+        minimum: 1
+        maximum: 65535
+        description: >
+          Target sprite height in terminal cells.
+          For image sprites, when only height is set, width is derived from source aspect ratio.
+          For grid sprites, sets container height.
+      columns:
+        type: array
+        description: >
+          Grid column track definitions for type=grid.
+          Supported track values:
+          - "auto" (fit content),
+          - "<n>fr" (fractional),
+          - "<n>" (fixed cells).
+        items:
+          type: string
+      rows:
+        type: array
+        description: >
+          Grid row track definitions for type=grid.
+          Supported track values:
+          - "auto" (fit content),
+          - "<n>fr" (fractional),
+          - "<n>" (fixed cells).
+        items:
+          type: string
+      gap-x:
+        type: integer
+        minimum: 0
+        default: 0
+        description: Horizontal gap between grid columns in cells.
+      gap-y:
+        type: integer
+        minimum: 0
+        default: 0
+        description: Vertical gap between grid rows in cells.
+      children:
+        type: array
+        default: []
+        description: Child renderable sprites for type=grid.
+        items:
+          $ref: "#/$defs/sprite"
+      force-renderer-mode:
+        type: string
+        enum: [cell, halfblock, quadblock, braille]
+        description: >
+          Optional per-sprite renderer mode override.
+          Priority: sprite.force-renderer-mode > scene.rendered-mode > engine default.
+          Applies only to renderable sprites.
+      force-font-mode:
+        type: string
+        enum:
+          - ascii
+          - raster
+          - terminal-pixels
+          - 1
+          - 2
+          - 3
+          - tiny
+          - standard
+          - large
+          - half
+          - quad
+          - braille
+        description: >
+          Optional per-sprite font mode override.
+          For named bitmap fonts: ascii/raster/terminal-pixels.
+          For generic fonts: 1/2/3 or tiny/standard/large/half/quad/braille.
+          Priority: force-font-mode > renderer-derived generic mode > sprite font declaration.
       align_x:
         type: string
         enum: [left, center, right]
@@ -415,6 +530,25 @@ $defs:
           Multiple animations combine additively.
         items:
           $ref: "#/$defs/animation"
+    allOf:
+      - if:
+          properties:
+            type:
+              const: text
+        then:
+          required: [content]
+      - if:
+          properties:
+            type:
+              const: image
+        then:
+          required: [source]
+      - if:
+          properties:
+            type:
+              const: grid
+        then:
+          required: [columns, rows, children]
 
   # ── Animation ──────────────────────────────────────────────────────────────
   animation:

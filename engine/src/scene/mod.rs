@@ -2,12 +2,25 @@ pub mod color;
 pub mod easing;
 pub mod sprite;
 
+pub use crate::animations::AnimationParams;
 pub use color::TermColour;
 pub use easing::Easing;
 pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};
-pub use crate::animations::AnimationParams;
 
 use serde::Deserialize;
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+pub enum SceneRenderedMode {
+    #[default]
+    #[serde(rename = "cell")]
+    Cell,
+    #[serde(rename = "halfblock")]
+    HalfBlock,
+    #[serde(rename = "quadblock")]
+    QuadBlock,
+    #[serde(rename = "braille")]
+    Braille,
+}
 
 /// A sprite position animation (tween). Modifies sprite transform, not pixel colors.
 #[derive(Debug, Clone, Deserialize)]
@@ -158,7 +171,9 @@ pub struct Layer {
     pub sprites: Vec<Sprite>,
 }
 
-fn default_visible() -> bool { true }
+fn default_visible() -> bool {
+    true
+}
 
 /// A parsed scene loaded from a `.yml` file.
 #[derive(Debug, Clone, Deserialize)]
@@ -167,6 +182,10 @@ pub struct Scene {
     pub title: String,
     #[serde(default)]
     pub cutscene: bool,
+    #[serde(default, rename = "rendered-mode")]
+    pub rendered_mode: SceneRenderedMode,
+    #[serde(default, rename = "virtual-size-override")]
+    pub virtual_size_override: Option<String>,
     pub bg_colour: Option<TermColour>,
     #[serde(default)]
     pub stages: SceneStages,

@@ -45,3 +45,27 @@ properties:
         minimum: 1
         maximum: 240
         description: Alias of target_fps.
+      use_virtual_buffer:
+        type: boolean
+        description: Enable fixed virtual framebuffer rendering before terminal presentation.
+      use-virtual-buffer:
+        type: boolean
+        description: Alias of use_virtual_buffer.
+      virtual_size:
+        type: string
+        pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+        description: Virtual framebuffer size in WIDTHxHEIGHT form (e.g. 320x240).
+      virtual-size:
+        type: string
+        pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+        description: Alias of virtual_size.
+      virtual_policy:
+        type: string
+        enum: [strict, fit]
+        description: |
+          strict — require terminal >= virtual size in cells; no downscale.
+          fit    — adaptively scale virtual frame to current terminal with letterbox.
+      virtual-policy:
+        type: string
+        enum: [strict, fit]
+        description: Alias of virtual_policy.

@@ -1,6 +1,6 @@
-use std::f32::consts::PI;
 use crate::animations::{SpriteAnimation, Transform};
 use crate::scene::AnimationParams;
+use std::f32::consts::PI;
 
 /// Smooth sinusoidal bob animation.
 /// Sprite oscillates along the configured axis by ±amplitude cells

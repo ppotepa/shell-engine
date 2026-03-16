@@ -2,6 +2,7 @@
 id: mainmenu
 title: Main Menu
 bg_colour: black
+virtual-size-override: "320x240"
 stages:
   on_enter:
     steps:
@@ -19,47 +20,100 @@ stages:
           - name: fade-out
             duration: 400
 layers:
-  - name: menu
+  - name: linux-showcase
     z_index: 0
     sprites:
       - type: text
-        content: "SHELL QUEST I"
+        content: "SHELL QUEST I - LINUX PNG SHOWCASE"
         align_x: center
-        align_y: center
-        y: -8
-        font: "generic:2"
+        align_y: top
+        y: 1
+        font: "generic:1"
         fg_colour: white
-        glow:
-          radius: 1
 
-      - type: text
-        content: "[white]> NEW GAME[/]"
+      - type: grid
+        id: linux-grid
         align_x: center
         align_y: center
-        font: "generic:1"
-        fg_colour: gray
+        y: 2
+        width: 96
+        height: 30
+        columns: ["1fr", "1fr", "1fr"]
+        rows: ["auto", "1fr"]
+        gap-x: 2
+        gap-y: 1
+        children:
+          - type: text
+            content: "linux-1 (cell)"
+            grid-col: 1
+            grid-row: 1
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: gray
+
+          - type: image
+            source: "/assets/images/linux-1.png"
+            grid-col: 1
+            grid-row: 2
+            align_x: center
+            align_y: center
+            width: 22
+            height: 22
+            force-renderer-mode: cell
+
+          - type: text
+            content: "linux-2 (halfblock)"
+            grid-col: 2
+            grid-row: 1
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: gray
+
+          - type: image
+            source: "/assets/images/linux-1.png"
+            grid-col: 2
+            grid-row: 2
+            align_x: center
+            align_y: center
+            width: 22
+            height: 22
+            force-renderer-mode: halfblock
+
+          - type: text
+            content: "linux-3 (braille)"
+            grid-col: 3
+            grid-row: 1
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: gray
+
+          - type: image
+            source: "/assets/images/linux-1.png"
+            grid-col: 3
+            grid-row: 2
+            align_x: center
+            align_y: center
+            width: 22
+            height: 22
+            force-renderer-mode: braille
 
       - type: text
-        content: "  LOAD GAME"
+        content: "[#808080]PRESS ANY KEY TO EXIT[/]"
         align_x: center
-        align_y: center
-        y: 3
+        align_y: bottom
+        y: -1
         font: "generic:1"
-        fg_colour: gray
-
-      - type: text
-        content: "  OPTIONS"
-        align_x: center
-        align_y: center
-        y: 6
-        font: "generic:1"
-        fg_colour: gray
-
-      - type: text
-        content: "  QUIT"
-        align_x: center
-        align_y: center
-        y: 9
-        font: "generic:1"
-        fg_colour: gray
+        fg_colour: white
+        hide_on_leave: true
+        animations:
+          - name: float
+            looping: true
+            params:
+              axis: y
+              amplitude: 1
+              period_ms: 1800
+              easing: ease-in-out
 next: null

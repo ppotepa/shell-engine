@@ -37,4 +37,3 @@ impl StartupReport {
         &self.issues
     }
 }
-

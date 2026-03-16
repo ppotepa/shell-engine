@@ -1,8 +1,8 @@
+use super::types::{GlyphManifest, LoadedFont, LoadedGlyph};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use super::types::{GlyphManifest, LoadedFont, LoadedGlyph};
 
 static FONT_CACHE: OnceLock<Mutex<HashMap<String, Option<LoadedFont>>>> = OnceLock::new();
 
@@ -48,12 +48,27 @@ fn load_font_assets_uncached(font_name: &str) -> Option<LoadedFont> {
             count_width += 1;
         }
 
-        let inferred_w = lines.iter().map(|l| l.chars().count() as u16).max().unwrap_or(0);
+        let inferred_w = lines
+            .iter()
+            .map(|l| l.chars().count() as u16)
+            .max()
+            .unwrap_or(0);
         let advance = g.width.max(inferred_w);
-        glyphs.insert(ch, LoadedGlyph { lines, advance, height: g.height.max(1) });
+        glyphs.insert(
+            ch,
+            LoadedGlyph {
+                lines,
+                advance,
+                height: g.height.max(1),
+            },
+        );
     }
 
-    let avg_width = if count_width > 0 { (total_width / count_width) as u16 } else { 3 };
+    let avg_width = if count_width > 0 {
+        (total_width / count_width) as u16
+    } else {
+        3
+    };
     let fallback_space_advance = (avg_width / 3).max(2);
 
     if let Some(space) = glyphs.get_mut(&' ') {
@@ -62,7 +77,10 @@ fn load_font_assets_uncached(font_name: &str) -> Option<LoadedFont> {
         }
     }
 
-    Some(LoadedFont { glyphs, fallback_space_advance })
+    Some(LoadedFont {
+        glyphs,
+        fallback_space_advance,
+    })
 }
 
 fn find_font_dir(slug: &str, preferred_mode: Option<&str>) -> Option<PathBuf> {
@@ -159,7 +177,13 @@ fn mode_order(preferred_mode: Option<&str>) -> Vec<String> {
 fn slugify_font_name(input: &str) -> String {
     input
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .split('-')
         .filter(|s| !s.is_empty())

@@ -1,10 +1,10 @@
-use crossterm::style::Color;
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::color::colour_to_rgb;
 use crate::effects::utils::math::smoothstep;
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
+use crossterm::style::Color;
 
 const PHASE_ARTIFACT_END: f32 = 0.65;
 
@@ -95,7 +95,8 @@ impl Effect for ArtifactOutEffect {
         }
 
         // Final collapse: digital chunks vanish to black in bands.
-        let phase_t = ((progress - PHASE_ARTIFACT_END) / (1.0 - PHASE_ARTIFACT_END)).clamp(0.0, 1.0);
+        let phase_t =
+            ((progress - PHASE_ARTIFACT_END) / (1.0 - PHASE_ARTIFACT_END)).clamp(0.0, 1.0);
         let collapse = smoothstep(phase_t);
         let band_prob = 0.10 + 0.80 * collapse;
 
@@ -109,7 +110,11 @@ impl Effect for ArtifactOutEffect {
                 if wipe {
                     buffer.set(x, y, ' ', TRUE_BLACK, TRUE_BLACK);
                 } else if let Some(cell) = buffer.get(x, y).cloned() {
-                    let symbol = if n > 0.88 { artifact_char(n) } else { cell.symbol };
+                    let symbol = if n > 0.88 {
+                        artifact_char(n)
+                    } else {
+                        cell.symbol
+                    };
                     let fg = dim(channel_split_tint(cell.fg, n), 0.55 * (1.0 - collapse));
                     buffer.set(x, y, symbol, fg, TRUE_BLACK);
                 }
@@ -128,7 +133,7 @@ fn has_signal(cell: &Cell) -> bool {
 }
 
 const ARTIFACT_CHARS: &[char] = &[
-    'A', 'E', 'R', '8', '0', '#', '%', '@', '&', '/', '\\', '|', '}', '{', '?', '!'
+    'A', 'E', 'R', '8', '0', '#', '%', '@', '&', '/', '\\', '|', '}', '{', '?', '!',
 ];
 
 fn artifact_char(n: f32) -> char {

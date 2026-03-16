@@ -20,9 +20,9 @@ pub fn apply_sprite_effects(
 ) {
     let current_stage = match stage {
         SceneStage::OnEnter => &stages.on_enter,
-        SceneStage::OnIdle  => &stages.on_idle,
+        SceneStage::OnIdle => &stages.on_idle,
         SceneStage::OnLeave => &stages.on_leave,
-        SceneStage::Done    => return,
+        SceneStage::Done => return,
     };
 
     let (step, progress) = match stage {
@@ -32,7 +32,11 @@ pub fn apply_sprite_effects(
                 None => return,
             };
             let dur = step.duration_ms();
-            let p = if dur == 0 { 0.0 } else { (elapsed_ms as f32 / dur as f32).clamp(0.0, 1.0) };
+            let p = if dur == 0 {
+                0.0
+            } else {
+                (elapsed_ms as f32 / dur as f32).clamp(0.0, 1.0)
+            };
             (step, p)
         }
         _ => match resolve_step_by_elapsed(current_stage, sprite_elapsed_ms) {
@@ -57,9 +61,9 @@ pub fn apply_layer_effects(
 ) {
     let current_stage = match stage {
         SceneStage::OnEnter => &layer.stages.on_enter,
-        SceneStage::OnIdle  => &layer.stages.on_idle,
+        SceneStage::OnIdle => &layer.stages.on_idle,
         SceneStage::OnLeave => &layer.stages.on_leave,
-        SceneStage::Done    => return,
+        SceneStage::Done => return,
     };
 
     let (step, progress) = if matches!(stage, SceneStage::OnEnter) {
@@ -73,7 +77,11 @@ pub fn apply_layer_effects(
             None => return,
         };
         let dur = step.duration_ms();
-        let p = if dur == 0 { 0.0 } else { (elapsed_ms as f32 / dur as f32).clamp(0.0, 1.0) };
+        let p = if dur == 0 {
+            0.0
+        } else {
+            (elapsed_ms as f32 / dur as f32).clamp(0.0, 1.0)
+        };
         (step, p)
     };
 
@@ -84,17 +92,18 @@ pub fn apply_layer_effects(
 }
 
 /// Find the active step and its normalized progress for a stage at `elapsed_ms`.
-pub fn resolve_step_by_elapsed(
-    stage: &Stage,
-    elapsed_ms: u64,
-) -> Option<(&Step, f32)> {
+pub fn resolve_step_by_elapsed(stage: &Stage, elapsed_ms: u64) -> Option<(&Step, f32)> {
     if stage.steps.is_empty() {
         return None;
     }
 
     let effective_elapsed = if stage.looping {
         let total: u64 = stage.steps.iter().map(|s| s.duration_ms()).sum();
-        if total == 0 { elapsed_ms } else { elapsed_ms % total }
+        if total == 0 {
+            elapsed_ms
+        } else {
+            elapsed_ms % total
+        }
     } else {
         elapsed_ms
     };

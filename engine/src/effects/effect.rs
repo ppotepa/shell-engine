@@ -12,11 +12,21 @@ pub struct Region {
 
 impl Region {
     pub fn full(buffer: &Buffer) -> Self {
-        Self { x: 0, y: 0, width: buffer.width, height: buffer.height }
+        Self {
+            x: 0,
+            y: 0,
+            width: buffer.width,
+            height: buffer.height,
+        }
     }
 
     pub fn row(y: u16, x: u16, width: u16) -> Self {
-        Self { x, y, width, height: 1 }
+        Self {
+            x,
+            y,
+            width,
+            height: 1,
+        }
     }
 }
 

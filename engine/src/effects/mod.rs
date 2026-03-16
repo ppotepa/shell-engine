@@ -1,12 +1,12 @@
+pub mod builtin;
 pub mod effect;
 pub mod utils;
-pub mod builtin;
 
 pub use effect::{Effect, Region};
 
-use std::collections::HashMap;
-use crate::scene::{Effect as SceneEffect, EffectParams};
 use crate::buffer::Buffer;
+use crate::scene::{Effect as SceneEffect, EffectParams};
+use std::collections::HashMap;
 
 /// Dispatches effects by name to their implementations.
 pub struct EffectDispatcher {
@@ -15,31 +15,42 @@ pub struct EffectDispatcher {
 
 impl EffectDispatcher {
     pub fn new() -> Self {
-        let mut d = Self { registry: HashMap::new() };
+        let mut d = Self {
+            registry: HashMap::new(),
+        };
         d.register_builtins();
         d
     }
 
     fn register_builtins(&mut self) {
         use builtin::*;
-        self.registry.insert("crt-on",           Box::new(CrtOnEffect));
-        self.registry.insert("power-off",         Box::new(PowerOffEffect));
-        self.registry.insert("fade-in",           Box::new(FadeInEffect));
-        self.registry.insert("fade-out",          Box::new(FadeOutEffect));
-        self.registry.insert("fade-to-black",     Box::new(FadeToBlackEffect));
-        self.registry.insert("scanlines",         Box::new(ScanlinesEffect));
-        self.registry.insert("shine",             Box::new(ShineEffect));
-        self.registry.insert("clear-to-colour",   Box::new(ClearToColourEffect));
-        self.registry.insert("brighten",          Box::new(BrightenEffect));
-        self.registry.insert("lightning-flash",   Box::new(LightningFlashEffect));
-        self.registry.insert("lightning-branch",  Box::new(LightningBranchEffect));
-        self.registry.insert("tesla-orb",         Box::new(TeslaOrbEffect));
-        self.registry.insert("screen-shake",      Box::new(ScreenShakeEffect));
-        self.registry.insert("whiteout",          Box::new(WhiteoutEffect));
-        self.registry.insert("glitch-out",        Box::new(GlitchOutEffect));
-        self.registry.insert("devour-out",        Box::new(DevourOutEffect));
-        self.registry.insert("artifact-out",      Box::new(ArtifactOutEffect));
-        self.registry.insert("shatter-glitch",    Box::new(ShatterGlitchEffect));
+        self.registry.insert("crt-on", Box::new(CrtOnEffect));
+        self.registry.insert("power-off", Box::new(PowerOffEffect));
+        self.registry.insert("fade-in", Box::new(FadeInEffect));
+        self.registry.insert("fade-out", Box::new(FadeOutEffect));
+        self.registry
+            .insert("fade-to-black", Box::new(FadeToBlackEffect));
+        self.registry.insert("scanlines", Box::new(ScanlinesEffect));
+        self.registry.insert("shine", Box::new(ShineEffect));
+        self.registry
+            .insert("clear-to-colour", Box::new(ClearToColourEffect));
+        self.registry.insert("brighten", Box::new(BrightenEffect));
+        self.registry
+            .insert("lightning-flash", Box::new(LightningFlashEffect));
+        self.registry
+            .insert("lightning-branch", Box::new(LightningBranchEffect));
+        self.registry.insert("tesla-orb", Box::new(TeslaOrbEffect));
+        self.registry
+            .insert("screen-shake", Box::new(ScreenShakeEffect));
+        self.registry.insert("whiteout", Box::new(WhiteoutEffect));
+        self.registry
+            .insert("glitch-out", Box::new(GlitchOutEffect));
+        self.registry
+            .insert("devour-out", Box::new(DevourOutEffect));
+        self.registry
+            .insert("artifact-out", Box::new(ArtifactOutEffect));
+        self.registry
+            .insert("shatter-glitch", Box::new(ShatterGlitchEffect));
     }
 
     pub fn apply(

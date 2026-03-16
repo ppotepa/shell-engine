@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mod Schema</title>
+</head>
+<body>
+<h1>Mod Manifest Schema</h1>
+<p><a href="../index.html">Home</a> / <a href="index.html">Schemas</a> / Mod Schema</p>
+<hr>
+
+<h2>Overview</h2>
+<p><code>mod.yaml</code> is the root manifest loaded by the engine. It defines mod identity, entrypoint scene, and terminal/runtime requirements.</p>
+
+<h2>Current supported fields</h2>
+<table border="1">
+  <tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr>
+  <tr><td><code>name</code></td><td>string</td><td>yes</td><td>Human-readable mod name.</td></tr>
+  <tr><td><code>version</code></td><td>string</td><td>yes</td><td>Mod version.</td></tr>
+  <tr><td><code>entrypoint</code></td><td>string</td><td>yes</td><td>Scene file path (e.g. <code>/scenes/intro.logo.yml</code>).</td></tr>
+  <tr><td><code>terminal.min_colours</code></td><td>integer</td><td>no</td><td>Minimum color capability required.</td></tr>
+  <tr><td><code>terminal.min_width</code></td><td>integer</td><td>no</td><td>Minimum terminal width in columns.</td></tr>
+  <tr><td><code>terminal.min_height</code></td><td>integer</td><td>no</td><td>Minimum terminal height in rows.</td></tr>
+  <tr><td><code>terminal.target_fps</code></td><td>integer</td><td>no</td><td>Target FPS lock (default 60).</td></tr>
+  <tr><td><code>terminal.target-fps</code></td><td>integer</td><td>no</td><td>Alias of <code>target_fps</code>.</td></tr>
+  <tr><td><code>terminal.use_virtual_buffer</code></td><td>boolean</td><td>no</td><td>Enable fixed virtual framebuffer before present.</td></tr>
+  <tr><td><code>terminal.virtual_size</code></td><td>string</td><td>no</td><td>Virtual size in <code>WIDTHxHEIGHT</code> (e.g. <code>320x240</code>).</td></tr>
+  <tr><td><code>terminal.virtual_policy</code></td><td>string</td><td>no</td><td><code>strict</code> (no downscale) or <code>fit</code> (adaptive fit + letterbox).</td></tr>
+</table>
+
+<h2>Current example</h2>
+<pre>
+name: Shell Quest
+version: 0.1.0
+entrypoint: /scenes/intro.logo.yml
+terminal:
+  min_colours: 256
+  min_width: 120
+  min_height: 40
+  use_virtual_buffer: true
+  virtual_size: "320x240"
+  virtual_policy: fit
+</pre>
+
+<h2>Virtual buffer behavior</h2>
+<ul>
+  <li><code>use_virtual_buffer: false</code> — engine renders directly to real terminal buffer.</li>
+  <li><code>use_virtual_buffer: true</code> — engine renders to virtual buffer, then translates to terminal output.</li>
+  <li><code>virtual_policy: strict</code> — requires terminal at least as large as virtual size (startup check enforces).</li>
+  <li><code>virtual_policy: fit</code> — fits virtual output into terminal with centered letterbox when needed.</li>
+</ul>
+
+<hr>
+<p><a href="index.html">Schemas</a> | <a href="../index.html">Home</a></p>
+</body>
+</html>

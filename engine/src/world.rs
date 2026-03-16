@@ -34,7 +34,9 @@ impl World {
     pub fn get_mut<T: Any + 'static>(&mut self) -> Option<&mut T> {
         let id = TypeId::of::<T>();
         if self.singletons.contains_key(&id) {
-            self.singletons.get_mut(&id).and_then(|b| b.downcast_mut::<T>())
+            self.singletons
+                .get_mut(&id)
+                .and_then(|b| b.downcast_mut::<T>())
         } else {
             self.scoped.get_mut(&id).and_then(|b| b.downcast_mut::<T>())
         }

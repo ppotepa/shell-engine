@@ -1,5 +1,5 @@
 use crate::effects::EffectDispatcher;
-use crate::scene::{LayerStages, Scene, Sprite, Stage};
+use crate::scene::{LayerStages, Scene, Stage};
 use crate::EngineError;
 
 use super::super::check::StartupCheck;
@@ -78,15 +78,18 @@ fn collect_scene_unknown_effects(
             out,
         );
         for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
-            let Sprite::Text { stages, .. } = sprite;
-            collect_layer_unknown_effects(
-                stages,
-                path,
-                &scene.id,
-                &format!("layer[{layer_idx}].sprite[{sprite_idx}]"),
-                dispatcher,
-                out,
-            );
+            let mut node_idx = 0usize;
+            sprite.walk_recursive(&mut |node| {
+                collect_layer_unknown_effects(
+                    node.stages(),
+                    path,
+                    &scene.id,
+                    &format!("layer[{layer_idx}].sprite[{sprite_idx}].node[{node_idx}]"),
+                    dispatcher,
+                    out,
+                );
+                node_idx += 1;
+            });
         }
     }
 }

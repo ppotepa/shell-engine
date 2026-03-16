@@ -28,7 +28,10 @@ pub fn parse_spans(input: &str) -> Vec<Span> {
             let mut tag = String::new();
             let mut closed = false;
             for tc in chars.by_ref() {
-                if tc == ']' { closed = true; break; }
+                if tc == ']' {
+                    closed = true;
+                    break;
+                }
                 tag.push(tc);
             }
             if !closed {
@@ -39,7 +42,10 @@ pub fn parse_spans(input: &str) -> Vec<Span> {
             }
             // Flush current text as a span
             if !current_text.is_empty() {
-                spans.push(Span { text: current_text.clone(), colour: current_colour.clone() });
+                spans.push(Span {
+                    text: current_text.clone(),
+                    colour: current_colour.clone(),
+                });
                 current_text.clear();
             }
             if tag.starts_with('/') {
@@ -54,7 +60,10 @@ pub fn parse_spans(input: &str) -> Vec<Span> {
         }
     }
     if !current_text.is_empty() {
-        spans.push(Span { text: current_text, colour: current_colour });
+        spans.push(Span {
+            text: current_text,
+            colour: current_colour,
+        });
     }
     spans
 }
@@ -70,7 +79,10 @@ pub fn strip_markup(input: &str) -> String {
             let mut tag = String::new();
             let mut closed = false;
             for tc in chars.by_ref() {
-                if tc == ']' { closed = true; break; }
+                if tc == ']' {
+                    closed = true;
+                    break;
+                }
                 tag.push(tc);
             }
             if !closed {
@@ -87,16 +99,16 @@ pub fn strip_markup(input: &str) -> String {
 
 fn parse_colour_tag(tag: &str) -> Option<TermColour> {
     match tag.to_lowercase().as_str() {
-        "black"            => return Some(TermColour::Black),
-        "white"            => return Some(TermColour::White),
-        "gray" | "grey"    => return Some(TermColour::Gray),
-        "silver"           => return Some(TermColour::Silver),
-        "red"              => return Some(TermColour::Red),
-        "green"            => return Some(TermColour::Green),
-        "blue"             => return Some(TermColour::Blue),
-        "yellow"           => return Some(TermColour::Yellow),
-        "cyan"             => return Some(TermColour::Cyan),
-        "magenta"          => return Some(TermColour::Magenta),
+        "black" => return Some(TermColour::Black),
+        "white" => return Some(TermColour::White),
+        "gray" | "grey" => return Some(TermColour::Gray),
+        "silver" => return Some(TermColour::Silver),
+        "red" => return Some(TermColour::Red),
+        "green" => return Some(TermColour::Green),
+        "blue" => return Some(TermColour::Blue),
+        "yellow" => return Some(TermColour::Yellow),
+        "cyan" => return Some(TermColour::Cyan),
+        "magenta" => return Some(TermColour::Magenta),
         _ => {}
     }
     if let Some(hex) = tag.strip_prefix('#') {
@@ -140,7 +152,10 @@ mod tests {
         let spans = parse_spans("[#ff8800]text[/]");
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].text, "text");
-        assert!(matches!(spans[0].colour, Some(TermColour::Rgb(0xff, 0x88, 0x00))));
+        assert!(matches!(
+            spans[0].colour,
+            Some(TermColour::Rgb(0xff, 0x88, 0x00))
+        ));
     }
 
     #[test]
@@ -152,7 +167,10 @@ mod tests {
 
     #[test]
     fn strip_markup_removes_tags() {
-        assert_eq!(strip_markup("[red]PRESS[/] ANY [red]KEY[/]"), "PRESS ANY KEY");
+        assert_eq!(
+            strip_markup("[red]PRESS[/] ANY [red]KEY[/]"),
+            "PRESS ANY KEY"
+        );
     }
 
     #[test]

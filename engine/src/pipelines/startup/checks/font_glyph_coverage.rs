@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::markup::strip_markup;
 use crate::rasterizer;
+use crate::render_policy;
 use crate::scene::Sprite;
 use crate::EngineError;
 
@@ -24,25 +25,41 @@ impl StartupCheck for FontGlyphCoverageCheck {
         for sf in scenes {
             for layer in &sf.scene.layers {
                 for sprite in &layer.sprites {
-                    let Sprite::Text { content, font, .. } = sprite;
-                    let Some(font_name) = font.as_ref() else {
-                        continue;
-                    };
-                    if font_name.starts_with("generic") {
-                        continue;
-                    }
-                    let visible = strip_markup(&content);
-                    let chars = required_chars.entry(font_name.clone()).or_default();
-                    for ch in visible.chars() {
-                        if ch.is_whitespace() {
-                            continue;
+                    sprite.walk_recursive(&mut |node| {
+                        let Sprite::Text {
+                            content,
+                            font,
+                            force_renderer_mode,
+                            force_font_mode,
+                            ..
+                        } = node
+                        else {
+                            return;
+                        };
+                        let Some(font_name) = render_policy::resolve_font_spec(
+                            font.as_deref(),
+                            force_font_mode.as_deref(),
+                            sf.scene.rendered_mode,
+                            *force_renderer_mode,
+                        ) else {
+                            return;
+                        };
+                        if font_name.starts_with("generic") {
+                            return;
                         }
-                        chars.insert(ch);
-                    }
-                    used_in_scenes
-                        .entry(font_name.clone())
-                        .or_default()
-                        .insert(sf.scene.id.clone());
+                        let visible = strip_markup(content);
+                        let chars = required_chars.entry(font_name.clone()).or_default();
+                        for ch in visible.chars() {
+                            if ch.is_whitespace() {
+                                continue;
+                            }
+                            chars.insert(ch);
+                        }
+                        used_in_scenes
+                            .entry(font_name.clone())
+                            .or_default()
+                            .insert(sf.scene.id.clone());
+                    });
                 }
             }
         }

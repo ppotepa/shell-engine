@@ -1,21 +1,25 @@
-mod mod_loader;
 mod error;
 mod game_loop;
+mod mod_loader;
 pub use error::EngineError;
-pub mod scene;
-mod scene_loader;
-pub mod renderer;
-pub mod world;
-pub mod events;
+pub mod animations;
+pub mod assets;
 pub mod buffer;
 pub mod components;
 pub mod effects;
-pub mod rasterizer;
-pub mod systems;
-pub mod terminal_caps;
-pub mod animations;
+pub mod events;
+pub mod image_loader;
 pub mod markup;
 pub mod pipelines;
+pub mod rasterizer;
+pub mod render_policy;
+pub mod renderer;
+pub mod runtime_settings;
+pub mod scene;
+mod scene_loader;
+pub mod systems;
+pub mod terminal_caps;
+pub mod world;
 
 use std::path::{Path, PathBuf};
 
@@ -42,6 +46,7 @@ impl ShellEngine {
     pub fn run(&self) -> Result<(), EngineError> {
         use events::EventQueue;
         use pipelines::startup::{StartupContext, StartupIssueLevel, StartupRunner};
+        use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use systems::animator::Animator;
         use systems::renderer::TerminalRenderer;
@@ -61,12 +66,21 @@ impl ShellEngine {
 
         let scene = scene_loader::load_scene(&self.mod_source, entrypoint)?;
         let target_fps = target_fps_from_manifest(&self.mod_manifest);
+        let runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
 
         let (term_w, term_h) = crossterm::terminal::size()?;
 
         let mut world = world::World::new();
         world.register(EventQueue::new());
         world.register(buffer::Buffer::new(term_w, term_h));
+        world.register(runtime_settings);
+        world.register(assets::AssetRoot::new(self.mod_source.clone()));
+        if runtime_settings.use_virtual_buffer {
+            world.register(buffer::VirtualBuffer::new(
+                runtime_settings.virtual_width,
+                runtime_settings.virtual_height,
+            ));
+        }
 
         // Enter alt-screen and immediately paint black before the game loop starts.
         // This prevents the terminal's previous content from flashing on the first frame.

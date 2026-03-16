@@ -4,5 +4,8 @@ version: 0.1.0
 entrypoint: /scenes/intro.logo.yml
 terminal:
   min_colours: 256
-  min_width: 220
-  min_height: 60
+  min_width: 120
+  min_height: 40
+  use_virtual_buffer: true
+  virtual_size: "320x240"
+  virtual_policy: fit

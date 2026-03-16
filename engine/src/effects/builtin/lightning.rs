@@ -1,10 +1,10 @@
-use crossterm::style::Color;
-use std::f32::consts::TAU;
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
+use crossterm::style::Color;
+use std::f32::consts::TAU;
 
 fn n01(x: u16, y: u16, frame: u32) -> f32 {
     crt_hash(x, y, frame) as f32 / u32::MAX as f32
@@ -17,7 +17,10 @@ fn parse_anchor(anchor: Option<&str>, w: u16, seed: u32) -> f32 {
     let max_x = (w - 1) as f32;
     match anchor.map(|s| s.trim().to_ascii_lowercase()) {
         Some(v) if v == "random" => (seed as f32 / u32::MAX as f32) * max_x,
-        Some(v) => v.parse::<f32>().map(|x| x.clamp(0.0, max_x)).unwrap_or(max_x * 0.5),
+        Some(v) => v
+            .parse::<f32>()
+            .map(|x| x.clamp(0.0, max_x))
+            .unwrap_or(max_x * 0.5),
         None => max_x * 0.5,
     }
 }
@@ -55,7 +58,11 @@ fn apply_glow(buffer: &mut Buffer, region: Region, x: u16, y: u16, decay: f32) {
             }
             if let Some(cell) = buffer.get(gx, gy).cloned() {
                 let fg = lerp_colour(cell.fg, Color::White, 0.28 * decay);
-                let sym = if cell.symbol == ' ' { '░' } else { cell.symbol };
+                let sym = if cell.symbol == ' ' {
+                    '░'
+                } else {
+                    cell.symbol
+                };
                 buffer.set(gx, gy, sym, fg, cell.bg);
             }
         }
@@ -119,7 +126,11 @@ impl Effect for LightningBranchEffect {
             let end = parse_anchor(
                 params.end_x.as_deref(),
                 w,
-                crt_hash(region.x, region.y.wrapping_add(s as u16), seed_base.wrapping_add(17)),
+                crt_hash(
+                    region.x,
+                    region.y.wrapping_add(s as u16),
+                    seed_base.wrapping_add(17),
+                ),
             );
 
             let mut x = start;
@@ -132,7 +143,8 @@ impl Effect for LightningBranchEffect {
                 x = x.clamp(0.0, (w - 1) as f32);
 
                 let abs_x = region.x + x.round() as u16;
-                let core_intensity = (0.82 + 0.18 * n01(abs_x, y, seed_base.wrapping_add(333))) * decay;
+                let core_intensity =
+                    (0.82 + 0.18 * n01(abs_x, y, seed_base.wrapping_add(333))) * decay;
 
                 let mut bolt_fg = Color::White;
                 if let Some(cell) = buffer.get(abs_x, y) {
@@ -149,14 +161,9 @@ impl Effect for LightningBranchEffect {
                         continue;
                     }
                     let x_cell = xx as u16;
-                    let local_intensity = (core_intensity - (tx.abs() as f32 * 0.22)).clamp(0.08, 1.0);
-                    buffer.set(
-                        x_cell,
-                        y,
-                        bolt_symbol(local_intensity),
-                        bolt_fg,
-                        TRUE_BLACK,
-                    );
+                    let local_intensity =
+                        (core_intensity - (tx.abs() as f32 * 0.22)).clamp(0.08, 1.0);
+                    buffer.set(x_cell, y, bolt_symbol(local_intensity), bolt_fg, TRUE_BLACK);
                 }
 
                 if glow {
@@ -213,8 +220,8 @@ impl Effect for TeslaOrbEffect {
         let pulse_a = (-((p - 0.14) * 15.0).powi(2)).exp();
         let pulse_b = (-((p - 0.47) * 20.0).powi(2)).exp() * 0.85;
         let pulse_c = (-((p - 0.82) * 24.0).powi(2)).exp() * 0.62;
-        let envelope = ((0.28 + pulse_a + pulse_b + pulse_c).clamp(0.0, 1.0) * intensity)
-            .clamp(0.0, 1.0);
+        let envelope =
+            ((0.28 + pulse_a + pulse_b + pulse_c).clamp(0.0, 1.0) * intensity).clamp(0.0, 1.0);
 
         let orb_i32 = orb_radius.ceil() as i32;
         for oy in -orb_i32..=orb_i32 {
@@ -257,10 +264,14 @@ impl Effect for TeslaOrbEffect {
         for s in 0..strikes {
             let seed = frame.wrapping_add((s as u32).wrapping_mul(81_329));
             let angle = n01(region.x.wrapping_add(s as u16), region.y, seed) * TAU;
-            let spread = (n01(region.x, region.y.wrapping_add(s as u16), seed.wrapping_add(17))
-                - 0.5)
+            let spread = (n01(
+                region.x,
+                region.y.wrapping_add(s as u16),
+                seed.wrapping_add(17),
+            ) - 0.5)
                 * 1.5;
-            let start_r = orb_radius * (0.75 + n01(region.x, region.y, seed.wrapping_add(33)) * 0.3);
+            let start_r =
+                orb_radius * (0.75 + n01(region.x, region.y, seed.wrapping_add(33)) * 0.3);
             let end_r = arc_radius * (0.82 + n01(region.x, region.y, seed.wrapping_add(61)) * 0.38);
             let end_angle = angle + spread + (p * 2.6 * if s % 2 == 0 { 1.0 } else { -1.0 });
 
