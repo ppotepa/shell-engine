@@ -43,6 +43,11 @@ properties:
       Defaults to true black (RGB 0,0,0) when absent.
   stages:
     $ref: "#/$defs/scene_stages"
+  audio:
+    $ref: "#/$defs/scene_audio"
+    description: >
+      Optional audio cue hooks bound to scene lifecycle stages.
+      Design hook only — runtime emits AudioCue events, playback is handled externally.
   layers:
     type: array
     description: Compositing layers rendered onto the scene buffer, each containing sprites.
@@ -602,6 +607,50 @@ $defs:
         enum: [linear, ease-in, ease-out, ease-in-out]
         default: ease-in-out
         description: Easing applied within each animation cycle.
+
+  # ── Audio hooks (design/runtime bridge) ──────────────────────────────────────
+  scene_audio:
+    type: object
+    additionalProperties: false
+    description: >
+      Declarative audio cue hooks for scene lifecycle stages.
+      Cues fire once when scene_elapsed_ms reaches at_ms while the stage is active.
+    properties:
+      on_enter:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/audio_cue"
+      on_idle:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/audio_cue"
+      on_leave:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/audio_cue"
+
+  audio_cue:
+    type: object
+    additionalProperties: false
+    required: [cue]
+    properties:
+      at_ms:
+        type: integer
+        minimum: 0
+        default: 0
+        description: Trigger time in milliseconds from scene start.
+      cue:
+        type: string
+        minLength: 1
+        description: Audio cue identifier (for external audio backend routing).
+      volume:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: Optional playback gain hint.
 
   # ── Glow ───────────────────────────────────────────────────────────────────
   glow:

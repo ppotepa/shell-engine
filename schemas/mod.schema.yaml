@@ -81,3 +81,11 @@ properties:
         type: string
         enum: [strict, fit]
         description: Alias of virtual_policy.
+      renderer_mode:
+        type: string
+        enum: [cell, halfblock, quadblock, braille]
+        description: Optional global renderer mode override for all scenes.
+      renderer-mode:
+        type: string
+        enum: [cell, halfblock, quadblock, braille]
+        description: Alias of renderer_mode.

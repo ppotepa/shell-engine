@@ -155,9 +155,8 @@ layers:
 
 next: mainmenu
 
-# Planned (not yet supported by runtime/schema):
-# audio:
-#   on_enter:
-#     - at_ms: 620
-#       cue: thunder_far_01
-#       volume: 0.75
+audio:
+  on_enter:
+    - at_ms: 620
+      cue: thunder_far_01
+      volume: 0.75

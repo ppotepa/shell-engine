@@ -5,7 +5,6 @@ pub use error::EngineError;
 pub mod animations;
 pub mod assets;
 pub mod buffer;
-pub mod components;
 pub mod effects;
 pub mod events;
 pub mod image_loader;
@@ -13,7 +12,7 @@ pub mod markup;
 pub mod pipelines;
 pub mod rasterizer;
 pub mod render_policy;
-pub mod renderer;
+pub mod repositories;
 pub mod runtime_settings;
 pub mod scene;
 mod scene_loader;
@@ -49,6 +48,7 @@ impl ShellEngine {
         use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use systems::animator::Animator;
+        use systems::audio_hooks::AudioHookState;
         use systems::renderer::TerminalRenderer;
         use terminal_caps::target_fps_from_manifest;
 
@@ -88,9 +88,10 @@ impl ShellEngine {
         renderer.clear_black()?;
         world.register(renderer);
 
-        world.register(SceneLoader::new(self.mod_source.clone()));
+        world.register(SceneLoader::new(self.mod_source.clone())?);
         world.register_scoped(scene);
         world.register_scoped(Animator::new());
+        world.register_scoped(AudioHookState::default());
 
         let result = game_loop::game_loop(&mut world, target_fps);
 

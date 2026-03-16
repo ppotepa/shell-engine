@@ -6,6 +6,7 @@ pub enum EngineEvent {
     KeyPressed(KeyCode),
     SceneLoaded { scene_id: String },
     SceneTransition { to_scene_id: String },
+    AudioCue { cue: String, volume: Option<f32> },
     TerminalResized { width: u16, height: u16 },
     Quit,
 }
