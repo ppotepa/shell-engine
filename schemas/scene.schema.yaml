@@ -43,6 +43,12 @@ properties:
       Defaults to true black (RGB 0,0,0) when absent.
   stages:
     $ref: "#/$defs/scene_stages"
+  behaviors:
+    type: array
+    default: []
+    description: Optional runtime behaviors attached to the root scene GameObject.
+    items:
+      $ref: "#/$defs/behavior"
   audio:
     $ref: "#/$defs/scene_audio"
     description: >
@@ -139,6 +145,10 @@ $defs:
       coverage:
         type: string
         description: Optional scope hint (e.g. "full-screen"). Used by: lightning-flash.
+      orientation:
+        type: string
+        enum: [vertical, horizontal]
+        description: Directional orientation. Used by: lightning-fbm, lightning-branch.
       target:
         type: string
         description: Optional target identifier hint for future targeted effects.
@@ -163,6 +173,27 @@ $defs:
           - type: string
           - type: number
         description: End X anchor for lightning branch (number or "random").
+      octave_count:
+        type: integer
+        minimum: 1
+        maximum: 20
+        description: FBM octave count for shader-like procedural lightning effects.
+      amp_start:
+        type: number
+        minimum: 0.0
+        description: FBM start amplitude (default 0.5).
+      amp_coeff:
+        type: number
+        minimum: 0.0
+        description: FBM amplitude coefficient per octave (default 0.5).
+      freq_coeff:
+        type: number
+        minimum: 1.0
+        description: FBM frequency multiplier per octave (default 2.0).
+      speed:
+        type: number
+        minimum: 0.0
+        description: FBM animation speed multiplier (default 0.5).
 
   # ── Effect ─────────────────────────────────────────────────────────────────
   effect:
@@ -186,6 +217,8 @@ $defs:
           brighten       — Increase foreground brightness toward white.
           lightning-flash — High-energy multi-pulse flash simulating lightning illumination.
           lightning-branch — Draw jagged lightning branches with optional glow.
+          lightning-optical-80s — Cinematic 80s optical lightning (blue halation + white core).
+          lightning-fbm — Shader-inspired procedural lightning warp (FBM/noise driven).
           tesla-orb      — Draw spherical electrical arcs (Tesla coil style) around scene center.
           screen-shake   — Camera-like jitter shifting the rendered frame.
           whiteout       — Overexposure pulse toward white.
@@ -205,6 +238,8 @@ $defs:
           - brighten
           - lightning-flash
           - lightning-branch
+          - lightning-optical-80s
+          - lightning-fbm
           - tesla-orb
           - screen-shake
           - whiteout
@@ -318,6 +353,14 @@ $defs:
         description: Whether this layer is composited onto the scene framebuffer.
       stages:
         $ref: "#/$defs/layer_stages"
+      behaviors:
+        type: array
+        default: []
+        description: >
+          Optional runtime behaviors attached to this layer/GameObject.
+          Useful for steering whole sprite groups together.
+        items:
+          $ref: "#/$defs/behavior"
       sprites:
         type: array
         description: Drawable objects within this layer.
@@ -535,6 +578,14 @@ $defs:
           Multiple animations combine additively.
         items:
           $ref: "#/$defs/animation"
+      behaviors:
+        type: array
+        default: []
+        description: >
+          Optional runtime behaviors attached to this sprite/GameObject.
+          Behaviors can toggle visibility or apply extra runtime x/y offsets.
+        items:
+          $ref: "#/$defs/behavior"
     allOf:
       - if:
           properties:
@@ -607,6 +658,86 @@ $defs:
         enum: [linear, ease-in, ease-out, ease-in-out]
         default: ease-in-out
         description: Easing applied within each animation cycle.
+
+  # ── Behavior ───────────────────────────────────────────────────────────────
+  behavior:
+    type: object
+    description: >
+      A runtime behavior attached to a sprite/GameObject.
+      Behaviors modify object state before rendering rather than applying pixel post-process.
+    additionalProperties: false
+    required: [name]
+    properties:
+      name:
+        type: string
+        description: >
+          Behavior identifier. Built-in behaviors:
+          blink — toggles object visibility on a timed cycle.
+          bob   — applies sinusoidal x/y offsets to the object.
+          follow — mirrors target object visibility/offset with optional extra x/y offsets.
+          stage-visibility — shows the object only during selected scene stages.
+          timed-visibility — shows the object only within an elapsed-time window using scene or stage time.
+        enum:
+          - blink
+          - bob
+          - follow
+          - stage-visibility
+          - timed-visibility
+      params:
+        $ref: "#/$defs/behavior_params"
+
+  behavior_params:
+    type: object
+    additionalProperties: false
+    description: Parameters for a runtime behavior.
+    properties:
+      target:
+        type: string
+        description: Optional target object alias/id. Defaults to the object that owns the behavior.
+      stages:
+        type: array
+        description: >
+          Scene stages used by stage-visibility.
+          Supported values: on-enter, on-idle, on-leave, done.
+        items:
+          type: string
+          enum: [on-enter, on-idle, on-leave, done, enter, idle, leave]
+      time_scope:
+        type: string
+        enum: [scene, stage]
+        description: >
+          Clock used by timed-visibility.
+          `scene` measures from scene start, `stage` measures from entering the current stage.
+      start_ms:
+        type: integer
+        minimum: 0
+        description: Inclusive elapsed time when timed-visibility starts showing the target.
+      end_ms:
+        type: integer
+        minimum: 0
+        description: Exclusive elapsed time when timed-visibility stops showing the target.
+      visible_ms:
+        type: integer
+        minimum: 0
+        description: Visible duration for blink behavior in milliseconds.
+      hidden_ms:
+        type: integer
+        minimum: 0
+        description: Hidden duration for blink behavior in milliseconds.
+      period_ms:
+        type: integer
+        minimum: 1
+        description: Period of one full bob cycle in milliseconds.
+      phase_ms:
+        type: integer
+        minimum: 0
+        description: Initial time offset for blink/bob in milliseconds.
+      amplitude_x:
+        type: integer
+        description: Horizontal bob amplitude in cells.
+      amplitude_y:
+        type: integer
+        description: Vertical bob amplitude in cells.
 
   # ── Audio hooks (design/runtime bridge) ──────────────────────────────────────
   scene_audio:

@@ -4,9 +4,12 @@ mod mod_loader;
 pub use error::EngineError;
 pub mod animations;
 pub mod assets;
+pub mod audio;
+pub mod behavior;
 pub mod buffer;
 pub mod effects;
 pub mod events;
+pub mod game_object;
 pub mod image_loader;
 pub mod markup;
 pub mod pipelines;
@@ -16,6 +19,8 @@ pub mod repositories;
 pub mod runtime_settings;
 pub mod scene;
 mod scene_loader;
+pub mod scene_runtime;
+mod services;
 pub mod systems;
 pub mod terminal_caps;
 pub mod world;
@@ -24,6 +29,7 @@ use std::path::{Path, PathBuf};
 
 use mod_loader::load_mod_manifest;
 use serde_yaml::Value;
+use services::EngineWorldAccess;
 
 #[derive(Debug)]
 pub struct ShellEngine {
@@ -47,8 +53,8 @@ impl ShellEngine {
         use pipelines::startup::{StartupContext, StartupIssueLevel, StartupRunner};
         use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
+        use scene_runtime::SceneRuntime;
         use systems::animator::Animator;
-        use systems::audio_hooks::AudioHookState;
         use systems::renderer::TerminalRenderer;
         use terminal_caps::target_fps_from_manifest;
 
@@ -73,6 +79,7 @@ impl ShellEngine {
         let mut world = world::World::new();
         world.register(EventQueue::new());
         world.register(buffer::Buffer::new(term_w, term_h));
+        world.register(audio::AudioRuntime::null());
         world.register(runtime_settings);
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
         if runtime_settings.use_virtual_buffer {
@@ -89,13 +96,12 @@ impl ShellEngine {
         world.register(renderer);
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
-        world.register_scoped(scene);
+        world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(Animator::new());
-        world.register_scoped(AudioHookState::default());
 
         let result = game_loop::game_loop(&mut world, target_fps);
 
-        if let Some(renderer) = world.get_mut::<TerminalRenderer>() {
+        if let Some(renderer) = world.renderer_mut() {
             let _ = renderer.shutdown();
         }
 

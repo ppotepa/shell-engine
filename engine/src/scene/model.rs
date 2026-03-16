@@ -27,6 +27,41 @@ pub struct Animation {
     pub params: AnimationParams,
 }
 
+/// Named runtime behavior attached to a game object.
+#[derive(Debug, Clone, Deserialize)]
+pub struct BehaviorSpec {
+    pub name: String,
+    #[serde(default)]
+    pub params: BehaviorParams,
+}
+
+/// Optional named parameters for runtime behavior configuration.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct BehaviorParams {
+    #[serde(default)]
+    pub target: Option<String>,
+    #[serde(default)]
+    pub stages: Vec<String>,
+    #[serde(default)]
+    pub time_scope: Option<String>,
+    #[serde(default)]
+    pub start_ms: Option<u64>,
+    #[serde(default)]
+    pub end_ms: Option<u64>,
+    #[serde(default)]
+    pub visible_ms: Option<u64>,
+    #[serde(default)]
+    pub hidden_ms: Option<u64>,
+    #[serde(default)]
+    pub period_ms: Option<u64>,
+    #[serde(default)]
+    pub phase_ms: Option<u64>,
+    #[serde(default)]
+    pub amplitude_x: Option<i32>,
+    #[serde(default)]
+    pub amplitude_y: Option<i32>,
+}
+
 /// Named visual effect with duration, loop flag, and arbitrary params.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Effect {
@@ -69,6 +104,9 @@ pub struct EffectParams {
     /// Optional hint for fullscreen scope.
     #[serde(default)]
     pub coverage: Option<String>,
+    /// Optional orientation for directional effects such as lightning bands.
+    #[serde(default)]
+    pub orientation: Option<String>,
     /// Optional target id/name hint for future targeted effects.
     #[serde(default)]
     pub target: Option<String>,
@@ -87,6 +125,21 @@ pub struct EffectParams {
     /// Lightning branch end anchor; accepts numeric string or "random".
     #[serde(default)]
     pub end_x: Option<String>,
+    /// Shader-like FBM octave count (for procedural lightning variants).
+    #[serde(default)]
+    pub octave_count: Option<u8>,
+    /// FBM starting amplitude.
+    #[serde(default)]
+    pub amp_start: Option<f32>,
+    /// FBM amplitude attenuation per octave.
+    #[serde(default)]
+    pub amp_coeff: Option<f32>,
+    /// FBM frequency multiplier per octave.
+    #[serde(default)]
+    pub freq_coeff: Option<f32>,
+    /// FBM animation speed multiplier.
+    #[serde(default)]
+    pub speed: Option<f32>,
 }
 
 /// A single step in a stage — a group of effects that play in parallel.
@@ -184,6 +237,8 @@ pub struct Layer {
     #[serde(default)]
     pub stages: LayerStages,
     #[serde(default)]
+    pub behaviors: Vec<BehaviorSpec>,
+    #[serde(default)]
     pub sprites: Vec<Sprite>,
 }
 
@@ -205,6 +260,8 @@ pub struct Scene {
     pub bg_colour: Option<TermColour>,
     #[serde(default)]
     pub stages: SceneStages,
+    #[serde(default)]
+    pub behaviors: Vec<BehaviorSpec>,
     #[serde(default)]
     pub audio: SceneAudio,
     #[serde(default)]

@@ -1,5 +1,6 @@
 use crate::error::EngineError;
-use crate::events::{EngineEvent, EventQueue};
+use crate::events::EngineEvent;
+use crate::services::EngineWorldAccess;
 use crate::systems;
 use crate::world::World;
 
@@ -34,11 +35,11 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
                         KeyCode::Esc | KeyCode::Char('q') => EngineEvent::Quit,
                         code => EngineEvent::KeyPressed(code),
                     };
-                    world.get_mut::<EventQueue>().unwrap().push(ev);
+                    world.events_mut().unwrap().push(ev);
                 }
                 Event::Resize(w, h) => {
                     world
-                        .get_mut::<EventQueue>()
+                        .events_mut()
                         .unwrap()
                         .push(EngineEvent::TerminalResized {
                             width: w,
@@ -49,13 +50,10 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
             }
         }
 
-        world
-            .get_mut::<EventQueue>()
-            .unwrap()
-            .push(EngineEvent::Tick);
+        world.events_mut().unwrap().push(EngineEvent::Tick);
 
         // --- DRAIN EVENTS ---
-        let events = world.get_mut::<EventQueue>().unwrap().drain();
+        let events = world.events_mut().unwrap().drain();
 
         let quit = SceneLifecycleManager::process_events(world, events);
         if quit {
@@ -71,7 +69,8 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         for _ in 0..ticks_this_frame {
             systems::animator::animator_system(world, tick_ms);
         }
-        systems::audio_hooks::audio_hooks_system(world);
+        systems::behavior::behavior_system(world);
+        systems::audio::audio_system(world);
         systems::compositor::compositor_system(world);
         systems::renderer::renderer_system(world);
 

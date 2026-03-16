@@ -1,9 +1,8 @@
-use crate::buffer;
 use crate::events::EngineEvent;
-use crate::scene::{self, Scene};
-use crate::scene_loader::SceneLoader;
+use crate::scene::{self};
+use crate::scene_runtime::SceneRuntime;
+use crate::services::EngineWorldAccess;
 use crate::systems::animator::{Animator, SceneStage};
-use crate::systems::audio_hooks::AudioHookState;
 use crate::world::World;
 
 pub struct SceneLifecycleManager;
@@ -22,7 +21,7 @@ impl SceneLifecycleManager {
     pub fn process_events(world: &mut World, events: Vec<EngineEvent>) -> bool {
         let lifecycle = classify_events(events);
         for (width, height) in &lifecycle.resizes {
-            if let Some(buf) = world.get_mut::<buffer::Buffer>() {
+            if let Some(buf) = world.buffer_mut() {
                 buf.resize(*width, *height);
             }
         }
@@ -36,16 +35,21 @@ impl SceneLifecycleManager {
 
     fn advance_on_any_key(world: &mut World) {
         let should_leave = world
-            .get::<Scene>()
-            .map(|s| matches!(s.stages.on_idle.trigger, scene::StageTrigger::AnyKey))
+            .scene_runtime()
+            .map(|runtime| {
+                matches!(
+                    runtime.scene().stages.on_idle.trigger,
+                    scene::StageTrigger::AnyKey
+                )
+            })
             .unwrap_or(false)
             && world
-                .get::<Animator>()
+                .animator()
                 .map(|a| a.stage == SceneStage::OnIdle)
                 .unwrap_or(false);
 
         if should_leave {
-            if let Some(animator) = world.get_mut::<Animator>() {
+            if let Some(animator) = world.animator_mut() {
                 animator.stage = SceneStage::OnLeave;
                 animator.step_idx = 0;
                 animator.elapsed_ms = 0;
@@ -56,14 +60,13 @@ impl SceneLifecycleManager {
     fn apply_transitions(world: &mut World, transitions: Vec<String>) {
         for to_scene_ref in transitions {
             let new_scene = world
-                .get::<SceneLoader>()
+                .scene_loader()
                 .and_then(|loader| loader.load_by_ref(&to_scene_ref).ok());
 
             if let Some(new_scene) = new_scene {
                 world.clear_scoped();
-                world.register_scoped(new_scene);
+                world.register_scoped(SceneRuntime::new(new_scene));
                 world.register_scoped(Animator::new());
-                world.register_scoped(AudioHookState::default());
             }
         }
     }
@@ -93,6 +96,7 @@ mod tests {
         Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage, StageTrigger, TermColour,
     };
     use crate::scene_loader::SceneLoader;
+    use crate::scene_runtime::SceneRuntime;
     use crate::systems::animator::{Animator, SceneStage};
     use crate::world::World;
     use std::fs;
@@ -116,17 +120,19 @@ mod tests {
                 },
                 on_leave: Stage::default(),
             },
+            behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
             next: None,
         };
 
         let mut world = World::new();
-        world.register_scoped(scene);
+        world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(Animator {
             stage: SceneStage::OnIdle,
             step_idx: 3,
             elapsed_ms: 42,
+            stage_elapsed_ms: 42,
             scene_elapsed_ms: 0,
         });
 
@@ -166,6 +172,7 @@ mod tests {
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),
+            behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
             next: Some("mainmenu".to_string()),
@@ -173,11 +180,12 @@ mod tests {
 
         let mut world = World::new();
         world.register(SceneLoader::new(mod_root.to_path_buf()).expect("scene loader"));
-        world.register_scoped(intro);
+        world.register_scoped(SceneRuntime::new(intro));
         world.register_scoped(Animator {
             stage: SceneStage::Done,
             step_idx: 9,
             elapsed_ms: 999,
+            stage_elapsed_ms: 999,
             scene_elapsed_ms: 999,
         });
 
@@ -189,8 +197,8 @@ mod tests {
         );
 
         assert!(!quit);
-        let scene = world.get::<Scene>().expect("scene present");
-        assert_eq!(scene.id, "mainmenu");
+        let scene = world.get::<SceneRuntime>().expect("scene present");
+        assert_eq!(scene.scene().id, "mainmenu");
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.stage, SceneStage::OnEnter);
         assert_eq!(animator.step_idx, 0);
@@ -241,6 +249,7 @@ mod tests {
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),
+            behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
             next: Some("/scenes/mainmenu.yml".to_string()),
@@ -248,7 +257,7 @@ mod tests {
 
         let mut world = World::new();
         world.register(SceneLoader::new(mod_root.to_path_buf()).expect("scene loader"));
-        world.register_scoped(intro);
+        world.register_scoped(SceneRuntime::new(intro));
         world.register_scoped(Animator::new());
 
         let quit = SceneLifecycleManager::process_events(
@@ -259,7 +268,7 @@ mod tests {
         );
 
         assert!(!quit);
-        let scene = world.get::<Scene>().expect("scene present");
-        assert_eq!(scene.id, "mainmenu");
+        let scene = world.get::<SceneRuntime>().expect("scene present");
+        assert_eq!(scene.scene().id, "mainmenu");
     }
 }

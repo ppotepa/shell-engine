@@ -4,9 +4,16 @@ mod types;
 
 use crate::buffer::Buffer;
 use crossterm::style::Color;
+use std::path::Path;
 
 /// Rasterize `text` using the named bitmap font into a new Buffer.
-pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
+pub fn rasterize(
+    mod_source: Option<&Path>,
+    text: &str,
+    font: &str,
+    fg: Color,
+    bg: Color,
+) -> Buffer {
     // Handle built-in generic pixel font: "generic" or "generic:N"
     // preset 1 = 3×5 tiny, preset 2 = 5×7 (default), preset 3 = 5×7 ×2 scale
     if font.starts_with("generic") {
@@ -40,7 +47,8 @@ pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
         }
     }
 
-    let glyph_font = match font_loader::load_font_assets(font) {
+    let glyph_font = match mod_source.and_then(|source| font_loader::load_font_assets(source, font))
+    {
         Some(f) => f,
         None => return rasterize_native(text, fg, bg),
     };
@@ -86,18 +94,20 @@ pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
     out
 }
 
-pub fn has_font_assets(font: &str) -> bool {
+pub fn has_font_assets(mod_source: Option<&Path>, font: &str) -> bool {
     if font.starts_with("generic") {
         return true;
     }
-    font_loader::load_font_assets(font).is_some()
+    mod_source
+        .and_then(|source| font_loader::load_font_assets(source, font))
+        .is_some()
 }
 
-pub fn missing_glyphs(font: &str, text: &str) -> Option<Vec<char>> {
+pub fn missing_glyphs(mod_source: Option<&Path>, font: &str, text: &str) -> Option<Vec<char>> {
     if font.starts_with("generic") {
         return Some(Vec::new());
     }
-    let loaded = font_loader::load_font_assets(font)?;
+    let loaded = font_loader::load_font_assets(mod_source?, font)?;
     let mut missing = Vec::new();
     for ch in text.chars() {
         if ch.is_whitespace() {

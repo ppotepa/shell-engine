@@ -7,7 +7,7 @@ pub use crate::animations::AnimationParams;
 pub use color::TermColour;
 pub use easing::Easing;
 pub use model::{
-    Animation, AudioCue, Effect, EffectParams, Layer, LayerStages, Scene, SceneAudio,
-    SceneRenderedMode, SceneStages, Stage, StageTrigger, Step,
+    Animation, AudioCue, BehaviorParams, BehaviorSpec, Effect, EffectParams, Layer, LayerStages,
+    Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage, StageTrigger, Step,
 };
 pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};

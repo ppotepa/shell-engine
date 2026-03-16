@@ -7,7 +7,9 @@ use crate::effects::Region;
 use crate::markup::strip_markup;
 use crate::render_policy;
 use crate::scene::{HorizontalAlign, Layer, SceneRenderedMode, Sprite, VerticalAlign};
+use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
+use std::collections::BTreeMap;
 
 use super::effect_applicator::apply_sprite_effects;
 use super::grid_tracks::{
@@ -43,11 +45,17 @@ struct GridCellRect {
 
 /// Render all sprites in a layer onto `layer_buf`.
 pub fn render_sprites(
+    layer_idx: usize,
     layer: &mut Layer,
     scene_w: u16,
     scene_h: u16,
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
+    target_resolver: Option<&TargetResolver>,
+    object_regions: &mut BTreeMap<String, Region>,
+    root_origin_x: i32,
+    root_origin_y: i32,
+    object_states: &BTreeMap<String, ObjectRuntimeState>,
     scene_elapsed_ms: u64,
     current_stage: &SceneStage,
     step_idx: usize,
@@ -66,23 +74,48 @@ pub fn render_sprites(
     };
 
     let root_area = RenderArea {
-        origin_x: 0,
-        origin_y: 0,
+        origin_x: root_origin_x,
+        origin_y: root_origin_y,
         width: scene_w,
         height: scene_h,
     };
 
-    for sprite in &layer.sprites {
-        render_sprite(sprite, root_area, scene_rendered_mode, &mut ctx);
+    for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
+        render_sprite(
+            layer_idx,
+            &[sprite_idx],
+            sprite,
+            root_area,
+            scene_rendered_mode,
+            target_resolver,
+            object_regions,
+            object_states,
+            &mut ctx,
+        );
     }
 }
 
 fn render_sprite(
+    layer_idx: usize,
+    sprite_path: &[usize],
     sprite: &Sprite,
     area: RenderArea,
     inherited_mode: SceneRenderedMode,
+    target_resolver: Option<&TargetResolver>,
+    object_regions: &mut BTreeMap<String, Region>,
+    object_states: &BTreeMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
 ) {
+    let object_id =
+        target_resolver.and_then(|resolver| resolver.sprite_object_id(layer_idx, sprite_path));
+    let object_state = object_id
+        .and_then(|id| object_states.get(id))
+        .cloned()
+        .unwrap_or_default();
+    if !object_state.visible {
+        return;
+    }
+
     match sprite {
         Sprite::Text {
             content,
@@ -140,17 +173,29 @@ fn render_sprite(
                 inherited_mode,
                 *force_renderer_mode,
             );
+            let mod_source = ctx.asset_root.map(|root| root.mod_source());
 
-            let (sprite_width, sprite_height) =
-                text_sprite_dimensions(&rendered_content, resolved_font.as_deref(), fg, sprite_bg);
+            let (sprite_width, sprite_height) = text_sprite_dimensions(
+                mod_source,
+                &rendered_content,
+                resolved_font.as_deref(),
+                fg,
+                sprite_bg,
+            );
 
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
             let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
             let anim_dispatcher = AnimationDispatcher::new();
             let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
-            let draw_x = base_x.saturating_add(transform.dx as i32).max(0) as u16;
-            let draw_y = base_y.saturating_add(transform.dy as i32).max(0) as u16;
+            let draw_x = base_x
+                .saturating_add(transform.dx as i32)
+                .saturating_add(object_state.offset_x)
+                .max(0) as u16;
+            let draw_y = base_y
+                .saturating_add(transform.dy as i32)
+                .saturating_add(object_state.offset_y)
+                .max(0) as u16;
 
             if let Some(glow_opts) = glow.as_ref() {
                 let glow_col = glow_opts
@@ -168,6 +213,7 @@ fn render_sprite(
                         let gx = (draw_x as i32 + dx).max(0) as u16;
                         let gy = (draw_y as i32 + dy).max(0) as u16;
                         render_text_content(
+                            mod_source,
                             &glow_content,
                             resolved_font.as_deref(),
                             glow_col,
@@ -181,6 +227,7 @@ fn render_sprite(
             }
 
             render_text_content(
+                mod_source,
                 &rendered_content,
                 resolved_font.as_deref(),
                 fg,
@@ -196,6 +243,9 @@ fn render_sprite(
                 width: sprite_width,
                 height: sprite_height,
             };
+            if let Some(object_id) = object_id {
+                object_regions.insert(object_id.to_string(), sprite_region);
+            }
             apply_sprite_effects(
                 stages,
                 ctx.current_stage,
@@ -203,6 +253,8 @@ fn render_sprite(
                 ctx.elapsed_ms,
                 sprite_elapsed,
                 sprite_region,
+                target_resolver,
+                object_regions,
                 ctx.layer_buf,
             );
         }
@@ -245,8 +297,14 @@ fn render_sprite(
             let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
             let anim_dispatcher = AnimationDispatcher::new();
             let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
-            let draw_x = base_x.saturating_add(transform.dx as i32).max(0) as u16;
-            let draw_y = base_y.saturating_add(transform.dy as i32).max(0) as u16;
+            let draw_x = base_x
+                .saturating_add(transform.dx as i32)
+                .saturating_add(object_state.offset_x)
+                .max(0) as u16;
+            let draw_y = base_y
+                .saturating_add(transform.dy as i32)
+                .saturating_add(object_state.offset_y)
+                .max(0) as u16;
 
             render_image_content(
                 source,
@@ -265,6 +323,9 @@ fn render_sprite(
                 width: sprite_width,
                 height: sprite_height,
             };
+            if let Some(object_id) = object_id {
+                object_regions.insert(object_id.to_string(), sprite_region);
+            }
             apply_sprite_effects(
                 stages,
                 ctx.current_stage,
@@ -272,6 +333,8 @@ fn render_sprite(
                 ctx.elapsed_ms,
                 sprite_elapsed,
                 sprite_region,
+                target_resolver,
+                object_regions,
                 ctx.layer_buf,
             );
         }
@@ -318,8 +381,12 @@ fn render_sprite(
             let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
             let anim_dispatcher = AnimationDispatcher::new();
             let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
-            let draw_x = base_x.saturating_add(transform.dx as i32);
-            let draw_y = base_y.saturating_add(transform.dy as i32);
+            let draw_x = base_x
+                .saturating_add(transform.dx as i32)
+                .saturating_add(object_state.offset_x);
+            let draw_y = base_y
+                .saturating_add(transform.dy as i32)
+                .saturating_add(object_state.offset_y);
 
             let child_cells = compute_grid_cells(
                 columns,
@@ -337,13 +404,25 @@ fn render_sprite(
                 let Some(child) = children.get(idx) else {
                     continue;
                 };
+                let mut child_path = sprite_path.to_vec();
+                child_path.push(idx);
                 let child_area = RenderArea {
                     origin_x: draw_x + rect.x as i32,
                     origin_y: draw_y + rect.y as i32,
                     width: rect.width.max(1),
                     height: rect.height.max(1),
                 };
-                render_sprite(child, child_area, resolved_mode, ctx);
+                render_sprite(
+                    layer_idx,
+                    &child_path,
+                    child,
+                    child_area,
+                    resolved_mode,
+                    target_resolver,
+                    object_regions,
+                    object_states,
+                    ctx,
+                );
             }
 
             let sprite_region = Region {
@@ -352,6 +431,9 @@ fn render_sprite(
                 width: container_w,
                 height: container_h,
             };
+            if let Some(object_id) = object_id {
+                object_regions.insert(object_id.to_string(), sprite_region);
+            }
             apply_sprite_effects(
                 stages,
                 ctx.current_stage,
@@ -359,6 +441,8 @@ fn render_sprite(
                 ctx.elapsed_ms,
                 sprite_elapsed,
                 sprite_region,
+                target_resolver,
+                object_regions,
                 ctx.layer_buf,
             );
         }
@@ -460,7 +544,13 @@ fn measure_sprite_for_layout(
                 inherited_mode,
                 *force_renderer_mode,
             );
-            text_sprite_dimensions(content, resolved_font.as_deref(), fg, bg)
+            text_sprite_dimensions(
+                asset_root.map(|root| root.mod_source()),
+                content,
+                resolved_font.as_deref(),
+                fg,
+                bg,
+            )
         }
         Sprite::Image {
             source,

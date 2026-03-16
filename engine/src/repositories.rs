@@ -14,6 +14,7 @@ pub trait SceneRepository {
 pub trait AssetRepository {
     fn read_asset_bytes(&self, asset_path: &str) -> Result<Vec<u8>, EngineError>;
     fn has_asset(&self, asset_path: &str) -> Result<bool, EngineError>;
+    fn list_assets_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError>;
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +57,13 @@ impl AssetRepository for AnyAssetRepository {
         match self {
             Self::Fs(repo) => repo.has_asset(asset_path),
             Self::Zip(repo) => repo.has_asset(asset_path),
+        }
+    }
+
+    fn list_assets_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError> {
+        match self {
+            Self::Fs(repo) => repo.list_assets_under(asset_prefix),
+            Self::Zip(repo) => repo.list_assets_under(asset_prefix),
         }
     }
 }
@@ -130,6 +138,31 @@ impl AssetRepository for FsSceneRepository {
 
     fn has_asset(&self, asset_path: &str) -> Result<bool, EngineError> {
         Ok(self.scene_abs_path(asset_path).exists())
+    }
+
+    fn list_assets_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError> {
+        let root = self.scene_abs_path(asset_prefix);
+        if !root.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut paths = Vec::new();
+        walk_asset_paths(&root, &mut paths).map_err(|source| EngineError::ManifestRead {
+            path: root.clone(),
+            source,
+        })?;
+        paths.sort();
+
+        let mut normalized = Vec::with_capacity(paths.len());
+        for path in paths {
+            let rel = path
+                .strip_prefix(&self.mod_source)
+                .unwrap_or(path.as_path())
+                .to_string_lossy()
+                .replace('\\', "/");
+            normalized.push(format!("/{rel}"));
+        }
+        Ok(normalized)
     }
 }
 
@@ -240,6 +273,38 @@ impl AssetRepository for ZipSceneRepository {
         let present = archive.by_name(normalized).is_ok();
         Ok(present)
     }
+
+    fn list_assets_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError> {
+        let normalized_prefix = Self::normalized(asset_prefix)
+            .trim_end_matches('/')
+            .to_string();
+        let prefix = if normalized_prefix.is_empty() {
+            String::new()
+        } else {
+            format!("{normalized_prefix}/")
+        };
+
+        let mut archive = self.open_archive()?;
+        let mut out = Vec::new();
+        for idx in 0..archive.len() {
+            let entry = archive
+                .by_index(idx)
+                .map_err(|source| EngineError::ZipArchive {
+                    path: self.mod_source.clone(),
+                    source,
+                })?;
+            if entry.is_dir() {
+                continue;
+            }
+            let name = entry.name().replace('\\', "/");
+            if !name.starts_with(&prefix) {
+                continue;
+            }
+            out.push(format!("/{name}"));
+        }
+        out.sort();
+        Ok(out)
+    }
 }
 
 pub fn create_scene_repository(mod_source: &Path) -> Result<AnySceneRepository, EngineError> {
@@ -278,7 +343,10 @@ fn is_zip_file(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{create_scene_repository, SceneRepository, ZipSceneRepository};
+    use super::{
+        create_asset_repository, create_scene_repository, AssetRepository, SceneRepository,
+        ZipSceneRepository,
+    };
     use std::fs;
     use tempfile::tempdir;
     use zip::write::SimpleFileOptions;
@@ -353,6 +421,54 @@ mod tests {
             vec!["/scenes/intro.yml".to_string()]
         );
     }
+
+    #[test]
+    fn asset_repository_lists_assets_for_directory_and_zip() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("assets/fonts/test/8px/ascii")).expect("create font dir");
+        fs::write(
+            mod_dir.join("assets/fonts/test/8px/ascii/manifest.yaml"),
+            "glyphs: []\n",
+        )
+        .expect("write manifest");
+        fs::write(mod_dir.join("assets/fonts/test/8px/ascii/a.txt"), "A\n").expect("write glyph");
+        let dir_repo = create_asset_repository(&mod_dir).expect("dir asset repo");
+        assert_eq!(
+            dir_repo
+                .list_assets_under("/assets/fonts")
+                .expect("list font assets"),
+            vec![
+                "/assets/fonts/test/8px/ascii/a.txt".to_string(),
+                "/assets/fonts/test/8px/ascii/manifest.yaml".to_string()
+            ]
+        );
+
+        let zip_path = temp.path().join("mod.zip");
+        let file = fs::File::create(&zip_path).expect("create zip");
+        let mut writer = ZipWriter::new(file);
+        let opts = SimpleFileOptions::default();
+        writer
+            .start_file("assets/fonts/test/8px/ascii/manifest.yaml", opts)
+            .expect("start manifest");
+        std::io::Write::write_all(&mut writer, b"glyphs: []\n").expect("write manifest");
+        writer
+            .start_file("assets/fonts/test/8px/ascii/a.txt", opts)
+            .expect("start glyph");
+        std::io::Write::write_all(&mut writer, b"A\n").expect("write glyph");
+        writer.finish().expect("finish zip");
+
+        let zip_repo = create_asset_repository(&zip_path).expect("zip asset repo");
+        assert_eq!(
+            zip_repo
+                .list_assets_under("/assets/fonts")
+                .expect("list font assets"),
+            vec![
+                "/assets/fonts/test/8px/ascii/a.txt".to_string(),
+                "/assets/fonts/test/8px/ascii/manifest.yaml".to_string()
+            ]
+        );
+    }
 }
 
 fn walk_scene_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
@@ -369,6 +485,19 @@ fn walk_scene_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> 
         if ext.eq_ignore_ascii_case("yml") || ext.eq_ignore_ascii_case("yaml") {
             out.push(path);
         }
+    }
+    Ok(())
+}
+
+fn walk_asset_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            walk_asset_paths(&path, out)?;
+            continue;
+        }
+        out.push(path);
     }
     Ok(())
 }

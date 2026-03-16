@@ -6,23 +6,27 @@ mod sprite_renderer;
 mod text_render;
 
 use crate::assets::AssetRoot;
-use crate::buffer::{Buffer, Cell, VirtualBuffer, TRUE_BLACK};
+use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::{apply_effect, Region};
-use crate::runtime_settings::RuntimeSettings;
-use crate::scene::{Scene, SceneRenderedMode};
-use crate::systems::animator::{Animator, SceneStage};
+use crate::scene::SceneRenderedMode;
+use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
+use crate::services::EngineWorldAccess;
+use crate::systems::animator::SceneStage;
 use crate::world::World;
 use crossterm::style::Color;
+use std::collections::BTreeMap;
 
 pub fn compositor_system(world: &mut World) {
-    let asset_root = world.get::<AssetRoot>().cloned();
+    let asset_root = world.asset_root().cloned();
     let runtime_mode_override = world
-        .get::<RuntimeSettings>()
+        .runtime_settings()
         .and_then(|s| s.renderer_mode_override);
 
     let (
         bg,
         mut layers,
+        target_resolver,
+        object_states,
         current_stage,
         step_idx,
         elapsed_ms,
@@ -31,11 +35,19 @@ pub fn compositor_system(world: &mut World) {
         scene_step_dur,
         rendered_mode,
     ) = {
-        let scene = match world.get::<Scene>() {
-            Some(s) => s,
+        let scene = match world.scene_runtime() {
+            Some(runtime) => runtime.scene(),
             None => return,
         };
-        let animator = world.get::<Animator>();
+        let target_resolver = world
+            .scene_runtime()
+            .map(SceneRuntime::target_resolver)
+            .unwrap_or_default();
+        let object_states = world
+            .scene_runtime()
+            .map(SceneRuntime::object_states_snapshot)
+            .unwrap_or_default();
+        let animator = world.animator();
         let stage = animator.map(|a| a.stage.clone()).unwrap_or_default();
         let step = animator.map(|a| a.step_idx).unwrap_or(0);
         let elapsed = animator.map(|a| a.elapsed_ms).unwrap_or(0);
@@ -76,6 +88,8 @@ pub fn compositor_system(world: &mut World) {
         (
             bg,
             layers,
+            target_resolver,
+            object_states,
             stage,
             step,
             elapsed,
@@ -87,12 +101,12 @@ pub fn compositor_system(world: &mut World) {
     };
 
     let use_virtual = world
-        .get::<RuntimeSettings>()
+        .runtime_settings()
         .map(|s| s.use_virtual_buffer)
         .unwrap_or(false);
 
     if use_virtual {
-        let buffer = match world.get_mut::<VirtualBuffer>() {
+        let buffer = match world.virtual_buffer_mut() {
             Some(v) => &mut v.0,
             None => return,
         };
@@ -103,6 +117,8 @@ pub fn compositor_system(world: &mut World) {
                     &mut layers,
                     rendered_mode,
                     asset_root.as_ref(),
+                    &target_resolver,
+                    &object_states,
                     &current_stage,
                     step_idx,
                     elapsed_ms,
@@ -118,6 +134,8 @@ pub fn compositor_system(world: &mut World) {
                     &mut layers,
                     rendered_mode,
                     asset_root.as_ref(),
+                    &target_resolver,
+                    &object_states,
                     &current_stage,
                     step_idx,
                     elapsed_ms,
@@ -131,7 +149,7 @@ pub fn compositor_system(world: &mut World) {
         return;
     }
 
-    let buffer = match world.get_mut::<Buffer>() {
+    let buffer = match world.buffer_mut() {
         Some(b) => b,
         None => return,
     };
@@ -142,6 +160,8 @@ pub fn compositor_system(world: &mut World) {
                 &mut layers,
                 rendered_mode,
                 asset_root.as_ref(),
+                &target_resolver,
+                &object_states,
                 &current_stage,
                 step_idx,
                 elapsed_ms,
@@ -157,6 +177,8 @@ pub fn compositor_system(world: &mut World) {
                 &mut layers,
                 rendered_mode,
                 asset_root.as_ref(),
+                &target_resolver,
+                &object_states,
                 &current_stage,
                 step_idx,
                 elapsed_ms,
@@ -174,6 +196,8 @@ fn composite_scene(
     layers: &mut Vec<crate::scene::Layer>,
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
+    target_resolver: &TargetResolver,
+    object_states: &BTreeMap<String, ObjectRuntimeState>,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
@@ -183,6 +207,23 @@ fn composite_scene(
     buffer: &mut Buffer,
 ) {
     buffer.fill(bg);
+    let scene_state = object_states
+        .get(target_resolver.scene_object_id())
+        .cloned()
+        .unwrap_or_default();
+    if !scene_state.visible {
+        return;
+    }
+    let mut object_regions = BTreeMap::new();
+    object_regions.insert(
+        target_resolver.scene_object_id().to_string(),
+        offset_region(
+            buffer.width,
+            buffer.height,
+            scene_state.offset_x,
+            scene_state.offset_y,
+        ),
+    );
 
     let scene_w = buffer.width;
     let scene_h = buffer.height;
@@ -193,6 +234,11 @@ fn composite_scene(
         scene_h,
         scene_rendered_mode,
         asset_root,
+        Some(target_resolver),
+        &mut object_regions,
+        scene_state.offset_x,
+        scene_state.offset_y,
+        object_states,
         current_stage,
         step_idx,
         elapsed_ms,
@@ -207,7 +253,12 @@ fn composite_scene(
     };
     let full_region = Region::full(buffer);
     for effect in scene_effects {
-        apply_effect(effect, scene_progress, full_region, buffer);
+        let region = target_resolver.effect_region(
+            effect.params.target.as_deref(),
+            full_region,
+            &object_regions,
+        );
+        apply_effect(effect, scene_progress, region, buffer);
     }
 }
 
@@ -216,6 +267,8 @@ fn composite_scene_halfblock(
     layers: &mut Vec<crate::scene::Layer>,
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
+    target_resolver: &TargetResolver,
+    object_states: &BTreeMap<String, ObjectRuntimeState>,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
@@ -230,6 +283,8 @@ fn composite_scene_halfblock(
         layers,
         scene_rendered_mode,
         asset_root,
+        target_resolver,
+        object_states,
         current_stage,
         step_idx,
         elapsed_ms,
@@ -277,6 +332,19 @@ fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Colo
     }
 }
 
+fn offset_region(width: u16, height: u16, offset_x: i32, offset_y: i32) -> Region {
+    let origin_x = offset_x.max(0) as u16;
+    let origin_y = offset_y.max(0) as u16;
+    let clipped_w = width.saturating_sub(offset_x.unsigned_abs().min(width as u32) as u16);
+    let clipped_h = height.saturating_sub(offset_y.unsigned_abs().min(height as u32) as u16);
+    Region {
+        x: origin_x,
+        y: origin_y,
+        width: clipped_w,
+        height: clipped_h,
+    }
+}
+
 fn cell_or_blank(buffer: &Buffer, x: u16, y: u16, fallback_bg: Color) -> Cell {
     buffer
         .get(x, y)
@@ -305,8 +373,13 @@ mod tests {
     use crossterm::style::Color;
 
     use crate::buffer::{Buffer, TRUE_BLACK};
+    use crate::runtime_settings::RuntimeSettings;
+    use crate::scene::Scene;
+    use crate::scene_runtime::SceneRuntime;
+    use crate::systems::animator::{Animator, SceneStage};
+    use crate::world::World;
 
-    use super::pack_halfblock_buffer;
+    use super::{compositor_system, pack_halfblock_buffer};
 
     #[test]
     fn packs_two_virtual_rows_into_one_terminal_cell() {
@@ -335,5 +408,56 @@ mod tests {
         let cell = target.get(0, 0).expect("cell exists");
         assert_eq!(cell.symbol, ' ');
         assert_eq!(cell.bg, Color::DarkGrey);
+    }
+
+    #[test]
+    fn higher_z_layer_renders_above_background_layer_effects() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: intro
+title: Intro
+bg_colour: black
+layers:
+  - name: bg
+    z_index: -1
+    stages:
+      on_idle:
+        steps:
+          - effects:
+              - name: clear-to-colour
+                duration: 1
+                params:
+                  colour: blue
+    sprites: []
+  - name: fg
+    z_index: 1
+    sprites:
+      - type: text
+        id: title
+        content: A
+"#,
+        )
+        .expect("scene should parse");
+
+        let mut world = World::new();
+        world.register(Buffer::new(3, 1));
+        world.register(RuntimeSettings::default());
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 1,
+            stage_elapsed_ms: 1,
+            scene_elapsed_ms: 1,
+        });
+
+        compositor_system(&mut world);
+
+        let buffer = world.get::<Buffer>().expect("buffer");
+        assert_eq!(buffer.get(0, 0).expect("foreground text").symbol, 'A');
+        assert_eq!(
+            buffer.get(1, 0).expect("background neighbour").bg,
+            Color::Blue
+        );
     }
 }

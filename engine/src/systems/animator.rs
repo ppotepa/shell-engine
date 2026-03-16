@@ -1,5 +1,6 @@
-use crate::events::{EngineEvent, EventQueue};
+use crate::events::EngineEvent;
 use crate::scene::{Scene, StageTrigger};
+use crate::services::EngineWorldAccess;
 use crate::world::World;
 
 /// Which lifecycle stage the scene is currently in.
@@ -18,6 +19,7 @@ pub struct Animator {
     pub stage: SceneStage,
     pub step_idx: usize,
     pub elapsed_ms: u64,
+    pub stage_elapsed_ms: u64,
     pub scene_elapsed_ms: u64,
 }
 
@@ -36,20 +38,20 @@ impl Animator {
 }
 
 pub fn animator_system(world: &mut World, tick_ms: u64) {
-    let scene = match world.get::<Scene>() {
-        Some(scene) => scene.clone(),
+    let scene = match world.scene_runtime() {
+        Some(runtime) => runtime.scene().clone(),
         None => return,
     };
 
     let transition = {
-        let Some(animator) = world.get_mut::<Animator>() else {
+        let Some(animator) = world.animator_mut() else {
             return;
         };
         tick_animator(animator, &scene, tick_ms)
     };
 
     if let Some(to_scene_id) = transition {
-        if let Some(queue) = world.get_mut::<EventQueue>() {
+        if let Some(queue) = world.events_mut() {
             queue.push(EngineEvent::SceneTransition { to_scene_id });
         }
     }
@@ -64,6 +66,7 @@ fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option
         stage_runtime(scene, &animator.stage, animator.step_idx)?;
 
     animator.elapsed_ms += tick_ms;
+    animator.stage_elapsed_ms += tick_ms;
     animator.scene_elapsed_ms += tick_ms;
 
     let step_done = step_dur > 0 && animator.elapsed_ms >= step_dur;
@@ -93,6 +96,7 @@ fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option
     animator.stage = next_stage(&animator.stage);
     animator.step_idx = 0;
     animator.elapsed_ms = 0;
+    animator.stage_elapsed_ms = 0;
     if animator.stage == SceneStage::Done {
         return scene.next.clone();
     }
@@ -148,6 +152,7 @@ mod tests {
                 on_idle,
                 on_leave,
             },
+            behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
             next: next.map(str::to_string),
@@ -198,6 +203,7 @@ mod tests {
             stage: SceneStage::OnLeave,
             step_idx: 0,
             elapsed_ms: 0,
+            stage_elapsed_ms: 0,
             scene_elapsed_ms: 0,
         };
 

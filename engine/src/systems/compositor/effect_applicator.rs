@@ -1,7 +1,9 @@
 use crate::buffer::Buffer;
 use crate::effects::{apply_effect, Region};
 use crate::scene::{Layer, LayerStages, Stage, Step};
+use crate::scene_runtime::TargetResolver;
 use crate::systems::animator::SceneStage;
+use std::collections::BTreeMap;
 
 /// Apply effects for a sprite's lifecycle stage.
 ///
@@ -16,6 +18,8 @@ pub fn apply_sprite_effects(
     elapsed_ms: u64,
     sprite_elapsed_ms: u64,
     region: Region,
+    target_resolver: Option<&TargetResolver>,
+    object_regions: &BTreeMap<String, Region>,
     buffer: &mut Buffer,
 ) {
     let current_stage = match stage {
@@ -46,7 +50,12 @@ pub fn apply_sprite_effects(
     };
 
     for effect in &step.effects {
-        apply_effect(effect, progress, region, buffer);
+        let target_region = target_resolver
+            .map(|resolver| {
+                resolver.effect_region(effect.params.target.as_deref(), region, object_regions)
+            })
+            .unwrap_or(region);
+        apply_effect(effect, progress, target_region, buffer);
     }
 }
 
@@ -57,6 +66,8 @@ pub fn apply_layer_effects(
     step_idx: usize,
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
+    target_resolver: Option<&TargetResolver>,
+    object_regions: &BTreeMap<String, Region>,
     buffer: &mut Buffer,
 ) {
     let current_stage = match stage {
@@ -87,7 +98,12 @@ pub fn apply_layer_effects(
 
     let full_region = Region::full(buffer);
     for effect in &step.effects {
-        apply_effect(effect, progress, full_region, buffer);
+        let target_region = target_resolver
+            .map(|resolver| {
+                resolver.effect_region(effect.params.target.as_deref(), full_region, object_regions)
+            })
+            .unwrap_or(full_region);
+        apply_effect(effect, progress, target_region, buffer);
     }
 }
 
@@ -124,4 +140,102 @@ pub fn resolve_step_by_elapsed(stage: &Stage, elapsed_ms: u64) -> Option<(&Step,
     }
     // Non-looping: hold last step at completion.
     stage.steps.last().map(|s| (s, 1.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_layer_effects;
+    use crate::buffer::Buffer;
+    use crate::effects::Region;
+    use crate::scene::{Effect, EffectParams, Layer, LayerStages, Stage, Step, TermColour};
+    use crate::scene_runtime::SceneRuntime;
+    use crate::systems::animator::SceneStage;
+    use crossterm::style::Color;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn layer_effects_can_target_named_sprite_region() {
+        let runtime = SceneRuntime::new(
+            serde_yaml::from_str(
+                r#"
+id: intro
+title: Intro
+bg_colour: black
+layers:
+  - name: UI
+    stages:
+      on_idle:
+        steps:
+          - effects:
+              - name: clear-to-colour
+                duration: 1
+                params:
+                  colour: blue
+                  target: title
+    sprites:
+      - type: text
+        id: title
+        content: HELLO
+"#,
+            )
+            .expect("scene should parse"),
+        );
+        let resolver = runtime.target_resolver();
+        let mut object_regions = BTreeMap::new();
+        let title_id = resolver.resolve_alias("title").expect("title target");
+        object_regions.insert(
+            title_id.to_string(),
+            Region {
+                x: 2,
+                y: 1,
+                width: 3,
+                height: 1,
+            },
+        );
+
+        let mut buffer = Buffer::new(8, 3);
+        buffer.fill(Color::Black);
+        let layer = Layer {
+            name: "UI".to_string(),
+            z_index: 0,
+            visible: true,
+            stages: LayerStages {
+                on_enter: Stage::default(),
+                on_idle: Stage {
+                    trigger: Default::default(),
+                    steps: vec![Step {
+                        effects: vec![Effect {
+                            name: "clear-to-colour".to_string(),
+                            duration: 1,
+                            looping: false,
+                            params: EffectParams {
+                                colour: Some(TermColour::Blue),
+                                target: Some("title".to_string()),
+                                ..EffectParams::default()
+                            },
+                        }],
+                        duration: Some(1),
+                    }],
+                    looping: false,
+                },
+                on_leave: Stage::default(),
+            },
+            behaviors: Vec::new(),
+            sprites: Vec::new(),
+        };
+
+        apply_layer_effects(
+            &layer,
+            &SceneStage::OnIdle,
+            0,
+            1,
+            0,
+            Some(&resolver),
+            &object_regions,
+            &mut buffer,
+        );
+
+        assert_eq!(buffer.get(2, 1).expect("target cell").bg, Color::Blue);
+        assert_eq!(buffer.get(0, 0).expect("untargeted cell").bg, Color::Black);
+    }
 }
