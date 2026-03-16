@@ -46,7 +46,7 @@ struct GridCellRect {
 /// Render all sprites in a layer onto `layer_buf`.
 pub fn render_sprites(
     layer_idx: usize,
-    layer: &mut Layer,
+    layer: &Layer,
     scene_w: u16,
     scene_h: u16,
     scene_rendered_mode: SceneRenderedMode,
@@ -62,8 +62,6 @@ pub fn render_sprites(
     elapsed_ms: u64,
     layer_buf: &mut Buffer,
 ) {
-    layer.sprites.sort_by_key(Sprite::z_index);
-
     let mut ctx = RenderCtx {
         asset_root,
         scene_elapsed_ms,

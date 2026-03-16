@@ -14,7 +14,12 @@ use crate::services::EngineWorldAccess;
 use crate::systems::animator::SceneStage;
 use crate::world::World;
 use crossterm::style::Color;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+
+thread_local! {
+    static HALFBLOCK_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
+}
 
 pub fn compositor_system(world: &mut World) {
     let asset_root = world.asset_root().cloned();
@@ -24,7 +29,7 @@ pub fn compositor_system(world: &mut World) {
 
     let (
         bg,
-        mut layers,
+        layers,
         target_resolver,
         object_states,
         current_stage,
@@ -114,7 +119,7 @@ pub fn compositor_system(world: &mut World) {
             SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
                 composite_scene(
                     bg,
-                    &mut layers,
+                    &layers,
                     rendered_mode,
                     asset_root.as_ref(),
                     &target_resolver,
@@ -131,7 +136,7 @@ pub fn compositor_system(world: &mut World) {
             SceneRenderedMode::HalfBlock => {
                 composite_scene_halfblock(
                     bg,
-                    &mut layers,
+                    &layers,
                     rendered_mode,
                     asset_root.as_ref(),
                     &target_resolver,
@@ -157,7 +162,7 @@ pub fn compositor_system(world: &mut World) {
         SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
             composite_scene(
                 bg,
-                &mut layers,
+                &layers,
                 rendered_mode,
                 asset_root.as_ref(),
                 &target_resolver,
@@ -174,7 +179,7 @@ pub fn compositor_system(world: &mut World) {
         SceneRenderedMode::HalfBlock => {
             composite_scene_halfblock(
                 bg,
-                &mut layers,
+                &layers,
                 rendered_mode,
                 asset_root.as_ref(),
                 &target_resolver,
@@ -193,7 +198,7 @@ pub fn compositor_system(world: &mut World) {
 
 fn composite_scene(
     bg: Color,
-    layers: &mut Vec<crate::scene::Layer>,
+    layers: &[crate::scene::Layer],
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
@@ -264,7 +269,7 @@ fn composite_scene(
 
 fn composite_scene_halfblock(
     bg: Color,
-    layers: &mut Vec<crate::scene::Layer>,
+    layers: &[crate::scene::Layer],
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
@@ -277,23 +282,30 @@ fn composite_scene_halfblock(
     scene_step_dur: u64,
     target: &mut Buffer,
 ) {
-    let mut virtual_buf = Buffer::new(target.width, target.height.saturating_mul(2));
-    composite_scene(
-        bg,
-        layers,
-        scene_rendered_mode,
-        asset_root,
-        target_resolver,
-        object_states,
-        current_stage,
-        step_idx,
-        elapsed_ms,
-        scene_elapsed_ms,
-        scene_effects,
-        scene_step_dur,
-        &mut virtual_buf,
-    );
-    pack_halfblock_buffer(&virtual_buf, target, bg);
+    let needed_w = target.width;
+    let needed_h = target.height.saturating_mul(2);
+    HALFBLOCK_SCRATCH.with(|scratch| {
+        let mut virtual_buf = scratch.borrow_mut();
+        if virtual_buf.width != needed_w || virtual_buf.height != needed_h {
+            virtual_buf.resize(needed_w, needed_h);
+        }
+        composite_scene(
+            bg,
+            layers,
+            scene_rendered_mode,
+            asset_root,
+            target_resolver,
+            object_states,
+            current_stage,
+            step_idx,
+            elapsed_ms,
+            scene_elapsed_ms,
+            scene_effects,
+            scene_step_dur,
+            &mut *virtual_buf,
+        );
+        pack_halfblock_buffer(&*virtual_buf, target, bg);
+    });
 }
 
 fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color) {

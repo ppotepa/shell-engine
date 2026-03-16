@@ -3,10 +3,16 @@ use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
+use std::cell::RefCell;
 use std::io::{self, Write};
 
 pub struct TerminalRenderer {
     stdout: io::Stdout,
+}
+
+thread_local! {
+    static DIFF_SCRATCH: RefCell<Vec<(u16, u16, char, style::Color, style::Color)>> =
+        RefCell::new(Vec::with_capacity(4096));
 }
 
 impl TerminalRenderer {
@@ -53,27 +59,17 @@ pub fn renderer_system(world: &mut World) {
         present_virtual_to_output(world);
     }
 
-    let diffs: Vec<(u16, u16, char, style::Color, style::Color)> = {
-        match world.buffer() {
-            Some(buf) => buf
-                .diff()
-                .into_iter()
-                .map(|d| {
-                    (
-                        d.x,
-                        d.y,
-                        d.cell.symbol,
-                        resolve_color(d.cell.fg),
-                        resolve_color(d.cell.bg),
-                    )
-                })
-                .collect(),
-            None => return,
+    // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
+    DIFF_SCRATCH.with(|scratch| {
+        let mut diffs = scratch.borrow_mut();
+        diffs.clear();
+        if let Some(buf) = world.buffer() {
+            buf.diff_into(&mut diffs);
         }
-    };
+    });
 
-    if diffs.is_empty() {
-        // Still need to swap so compositor can detect unchanged next frame.
+    let is_empty = DIFF_SCRATCH.with(|s| s.borrow().is_empty());
+    if is_empty {
         if let Some(buf) = world.buffer_mut() {
             buf.swap();
         }
@@ -81,7 +77,9 @@ pub fn renderer_system(world: &mut World) {
     }
 
     if let Some(renderer) = world.renderer_mut() {
-        flush_batched(&mut renderer.stdout, &diffs);
+        DIFF_SCRATCH.with(|scratch| {
+            flush_batched(&mut renderer.stdout, &scratch.borrow());
+        });
     }
 
     if let Some(buf) = world.buffer_mut() {
@@ -238,20 +236,21 @@ fn sample_fit_source(
 /// Consecutive cells on the same row sharing the same fg+bg colour are merged
 /// into a single `MoveTo + SetFg + SetBg + Print(run)` command, reducing the
 /// number of terminal I/O operations from O(cells) toward O(colour-runs).
-/// Diffs arrive in row-major order from `Buffer::diff`, so no sort is needed.
-fn flush_batched(
-    stdout: &mut io::Stdout,
-    diffs: &[(u16, u16, char, style::Color, style::Color)],
-) {
+/// Diffs arrive in row-major order from `Buffer::diff_into`, so no sort is needed.
+/// Raw (pre-resolve) colours are accepted; `Color::Reset` is mapped to true black here.
+fn flush_batched(stdout: &mut io::Stdout, diffs: &[(u16, u16, char, style::Color, style::Color)]) {
     if diffs.is_empty() {
         return;
     }
 
     let mut run = String::new();
-    let (mut rx, mut ry, _, mut rfg, mut rbg) = diffs[0];
+    let (mut rx, mut ry, _, raw_fg0, raw_bg0) = diffs[0];
+    let (mut rfg, mut rbg) = (resolve_color(raw_fg0), resolve_color(raw_bg0));
     run.push(diffs[0].2);
 
-    for &(x, y, ch, fg, bg) in &diffs[1..] {
+    for &(x, y, ch, raw_fg, raw_bg) in &diffs[1..] {
+        let fg = resolve_color(raw_fg);
+        let bg = resolve_color(raw_bg);
         let continues = y == ry && x == rx + run.chars().count() as u16 && fg == rfg && bg == rbg;
         if continues {
             run.push(ch);
