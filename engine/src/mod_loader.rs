@@ -29,10 +29,11 @@ fn load_from_directory(mod_source: &Path) -> Result<Value, EngineError> {
         return Err(EngineError::MissingModEntrypoint(mod_source.to_path_buf()));
     }
 
-    let content = fs::read_to_string(&manifest_path).map_err(|source| EngineError::ManifestRead {
-        path: manifest_path.clone(),
-        source,
-    })?;
+    let content =
+        fs::read_to_string(&manifest_path).map_err(|source| EngineError::ManifestRead {
+            path: manifest_path.clone(),
+            source,
+        })?;
 
     let manifest =
         serde_yaml::from_str::<Value>(&content).map_err(|source| EngineError::InvalidModYaml {
@@ -55,10 +56,9 @@ fn load_from_zip(mod_source: &Path) -> Result<Value, EngineError> {
         source,
     })?;
 
-    let mut manifest_file =
-        archive
-            .by_name("mod.yaml")
-            .map_err(|_| EngineError::MissingModEntrypoint(PathBuf::from(mod_source)))?;
+    let mut manifest_file = archive
+        .by_name("mod.yaml")
+        .map_err(|_| EngineError::MissingModEntrypoint(PathBuf::from(mod_source)))?;
     let mut content = String::new();
     manifest_file
         .read_to_string(&mut content)

@@ -1,6 +1,6 @@
-mod types;
 mod font_loader;
 pub mod generic;
+mod types;
 
 use crate::buffer::Buffer;
 use crossterm::style::Color;
@@ -10,7 +10,8 @@ pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
     // Handle built-in generic pixel font: "generic" or "generic:N"
     // preset 1 = 3×5 tiny, preset 2 = 5×7 (default), preset 3 = 5×7 ×2 scale
     if font.starts_with("generic") {
-        let preset: u16 = font.strip_prefix("generic")
+        let preset: u16 = font
+            .strip_prefix("generic")
             .and_then(|s| s.strip_prefix(':'))
             .and_then(|s| s.parse().ok())
             .unwrap_or(2);
@@ -62,7 +63,9 @@ pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
             for (row, line) in glyph.lines.iter().enumerate() {
                 let y = y_base.saturating_add(row as u16);
                 for (col, gch) in line.chars().enumerate() {
-                    if gch == ' ' { continue; }
+                    if gch == ' ' {
+                        continue;
+                    }
                     let x = cursor_x.saturating_add(col as u16);
                     if x < out.width && y < out.height {
                         out.set(x, y, gch, fg, bg);

@@ -14,7 +14,11 @@ pub const TRUE_BLACK: Color = Color::Rgb { r: 0, g: 0, b: 0 };
 
 impl Cell {
     pub fn blank(bg: Color) -> Self {
-        Self { symbol: ' ', fg: TRUE_BLACK, bg }
+        Self {
+            symbol: ' ',
+            fg: TRUE_BLACK,
+            bg,
+        }
     }
 }
 
@@ -39,22 +43,44 @@ pub struct CellDiff<'a> {
 /// After flushing, `swap()` copies back → front.
 #[derive(Debug, Clone)]
 pub struct Buffer {
-    pub width:  u16,
+    pub width: u16,
     pub height: u16,
     /// Back buffer — written to by compositor each frame.
-    back:  Vec<Cell>,
+    back: Vec<Cell>,
     /// Front buffer — mirrors what the terminal currently shows.
     front: Vec<Cell>,
 }
 
+/// Optional off-screen fixed-resolution buffer used before presenting to terminal output.
+#[derive(Debug, Clone)]
+pub struct VirtualBuffer(pub Buffer);
+
+impl VirtualBuffer {
+    pub fn new(width: u16, height: u16) -> Self {
+        Self(Buffer::new(width, height))
+    }
+}
+
 impl Buffer {
     pub fn new(width: u16, height: u16) -> Self {
-        let size  = width as usize * height as usize;
-        let back  = vec![Cell::default(); size];
+        let size = width as usize * height as usize;
+        let back = vec![Cell::default(); size];
         // Initialise front with a sentinel that differs from every real cell,
         // so the very first frame always flushes all pixels.
-        let front = vec![Cell { symbol: '\0', fg: Color::Reset, bg: Color::Reset }; size];
-        Self { width, height, back, front }
+        let front = vec![
+            Cell {
+                symbol: '\0',
+                fg: Color::Reset,
+                bg: Color::Reset
+            };
+            size
+        ];
+        Self {
+            width,
+            height,
+            back,
+            front,
+        }
     }
 
     /// Fill the entire back buffer with blank cells of the given background colour.
@@ -88,8 +114,8 @@ impl Buffer {
             .enumerate()
             .filter(|(_, (b, f))| b != f)
             .map(|(idx, (b, _))| CellDiff {
-                x:    (idx as u16) % self.width,
-                y:    (idx as u16) / self.width,
+                x: (idx as u16) % self.width,
+                y: (idx as u16) / self.width,
                 cell: b,
             })
             .collect()
@@ -110,10 +136,17 @@ impl Buffer {
     /// Resize both buffers, preserving nothing (invalidates front for full redraw).
     pub fn resize(&mut self, width: u16, height: u16) {
         let size = width as usize * height as usize;
-        self.width  = width;
+        self.width = width;
         self.height = height;
-        self.back   = vec![Cell::default(); size];
-        self.front  = vec![Cell { symbol: '\0', fg: Color::Reset, bg: Color::Reset }; size];
+        self.back = vec![Cell::default(); size];
+        self.front = vec![
+            Cell {
+                symbol: '\0',
+                fg: Color::Reset,
+                bg: Color::Reset
+            };
+            size
+        ];
     }
 }
 

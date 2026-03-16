@@ -1,18 +1,20 @@
-use crossterm::style::Color;
 use crate::buffer::{Buffer, TRUE_BLACK};
-use crate::scene::EffectParams;
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::math::{
-    smoothstep, phase_progress,
-    PHASE_POWER_ON, PHASE_WHITE_FLASH, PHASE_SCAN_END, PHASE_SCAN_START, PHASE_BOOT,
+    phase_progress, smoothstep, PHASE_BOOT, PHASE_POWER_ON, PHASE_SCAN_END, PHASE_SCAN_START,
+    PHASE_WHITE_FLASH,
 };
 use crate::effects::utils::noise::crt_hash;
+use crate::scene::EffectParams;
+use crossterm::style::Color;
 
 pub struct CrtOnEffect;
 
 impl Effect for CrtOnEffect {
     fn apply(&self, progress: f32, _params: &EffectParams, region: Region, buffer: &mut Buffer) {
-        if region.height == 0 || region.width == 0 { return; }
+        if region.height == 0 || region.width == 0 {
+            return;
+        }
 
         let centre_y = region.y + region.height / 2;
         let max_w = region.width as f32;
@@ -43,7 +45,13 @@ impl Effect for CrtOnEffect {
         if progress >= PHASE_SCAN_END {
             for dy in 0..region.height {
                 for dx in 0..region.width {
-                    buffer.set(region.x + dx, region.y + dy, '█', Color::White, Color::White);
+                    buffer.set(
+                        region.x + dx,
+                        region.y + dy,
+                        '█',
+                        Color::White,
+                        Color::White,
+                    );
                 }
             }
             return;

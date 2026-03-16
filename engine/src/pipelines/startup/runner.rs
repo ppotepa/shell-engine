@@ -2,8 +2,8 @@ use crate::EngineError;
 
 use super::check::StartupCheck;
 use super::checks::{
-    EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, SceneGraphCheck,
-    TerminalRequirementsCheck,
+    EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
+    SceneGraphCheck, TerminalRequirementsCheck,
 };
 use super::context::StartupContext;
 use super::report::StartupReport;
@@ -32,9 +32,9 @@ impl Default for StartupRunner {
             Box::new(TerminalRequirementsCheck),
             Box::new(SceneGraphCheck),
             Box::new(EffectRegistryCheck),
+            Box::new(ImageAssetsCheck),
             Box::new(FontManifestCheck),
             Box::new(FontGlyphCoverageCheck),
         ])
     }
 }
-

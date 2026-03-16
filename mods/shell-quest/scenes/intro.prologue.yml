@@ -3,6 +3,7 @@ id: intro.prologue
 title: Intro Prologue - Date Strike
 cutscene: true
 bg_colour: black
+virtual-size-override: "320x240"
 
 stages:
   on_enter:

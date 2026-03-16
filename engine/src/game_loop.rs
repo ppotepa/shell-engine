@@ -8,8 +8,8 @@ use crate::world::World;
 
 pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
     use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-    use systems::animator::Animator;
     use std::time::{Duration, Instant};
+    use systems::animator::Animator;
 
     const FAST_FORWARD_TICKS: u8 = 8;
     let mut debug_fast_forward = false;
@@ -43,13 +43,19 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
                     world
                         .get_mut::<EventQueue>()
                         .unwrap()
-                        .push(EngineEvent::TerminalResized { width: w, height: h });
+                        .push(EngineEvent::TerminalResized {
+                            width: w,
+                            height: h,
+                        });
                 }
                 _ => {}
             }
         }
 
-        world.get_mut::<EventQueue>().unwrap().push(EngineEvent::Tick);
+        world
+            .get_mut::<EventQueue>()
+            .unwrap()
+            .push(EngineEvent::Tick);
 
         // --- DRAIN EVENTS ---
         let events = world.get_mut::<EventQueue>().unwrap().drain();
@@ -79,17 +85,19 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         // Any-key trigger: if on_idle with any-key trigger, advance to on_leave
         if key_pressed {
             use scene::StageTrigger;
-            let should_leave = world.get::<scene::Scene>()
+            let should_leave = world
+                .get::<scene::Scene>()
                 .map(|s| matches!(s.stages.on_idle.trigger, StageTrigger::AnyKey))
                 .unwrap_or(false)
-                && world.get::<systems::animator::Animator>()
+                && world
+                    .get::<systems::animator::Animator>()
                     .map(|a| a.stage == systems::animator::SceneStage::OnIdle)
                     .unwrap_or(false);
 
             if should_leave {
                 if let Some(a) = world.get_mut::<systems::animator::Animator>() {
-                    a.stage      = systems::animator::SceneStage::OnLeave;
-                    a.step_idx   = 0;
+                    a.stage = systems::animator::SceneStage::OnLeave;
+                    a.step_idx = 0;
                     a.elapsed_ms = 0;
                 }
             }
@@ -108,7 +116,11 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         }
 
         // --- SYSTEMS ---
-        let ticks_this_frame = if debug_fast_forward { FAST_FORWARD_TICKS } else { 1 };
+        let ticks_this_frame = if debug_fast_forward {
+            FAST_FORWARD_TICKS
+        } else {
+            1
+        };
         for _ in 0..ticks_this_frame {
             systems::animator::animator_system(world, tick_ms);
         }
@@ -124,10 +136,16 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
 }
 
 #[inline]
-fn is_debug_fast_forward_toggle(code: crossterm::event::KeyCode, modifiers: crossterm::event::KeyModifiers) -> bool {
+fn is_debug_fast_forward_toggle(
+    code: crossterm::event::KeyCode,
+    modifiers: crossterm::event::KeyModifiers,
+) -> bool {
     cfg!(debug_assertions)
         && modifiers.contains(crossterm::event::KeyModifiers::ALT)
-        && matches!(code, crossterm::event::KeyCode::Char('f') | crossterm::event::KeyCode::Char('F'))
+        && matches!(
+            code,
+            crossterm::event::KeyCode::Char('f') | crossterm::event::KeyCode::Char('F')
+        )
 }
 
 #[cfg(test)]
@@ -138,14 +156,29 @@ mod tests {
     #[test]
     fn detects_alt_f_combo_for_debug_fast_forward() {
         let expected = cfg!(debug_assertions);
-        assert_eq!(is_debug_fast_forward_toggle(KeyCode::Char('f'), KeyModifiers::ALT), expected);
-        assert_eq!(is_debug_fast_forward_toggle(KeyCode::Char('F'), KeyModifiers::ALT), expected);
+        assert_eq!(
+            is_debug_fast_forward_toggle(KeyCode::Char('f'), KeyModifiers::ALT),
+            expected
+        );
+        assert_eq!(
+            is_debug_fast_forward_toggle(KeyCode::Char('F'), KeyModifiers::ALT),
+            expected
+        );
     }
 
     #[test]
     fn ignores_non_alt_or_non_f_keys() {
-        assert!(!is_debug_fast_forward_toggle(KeyCode::Char('f'), KeyModifiers::NONE));
-        assert!(!is_debug_fast_forward_toggle(KeyCode::Char('g'), KeyModifiers::ALT));
-        assert!(!is_debug_fast_forward_toggle(KeyCode::Esc, KeyModifiers::ALT));
+        assert!(!is_debug_fast_forward_toggle(
+            KeyCode::Char('f'),
+            KeyModifiers::NONE
+        ));
+        assert!(!is_debug_fast_forward_toggle(
+            KeyCode::Char('g'),
+            KeyModifiers::ALT
+        ));
+        assert!(!is_debug_fast_forward_toggle(
+            KeyCode::Esc,
+            KeyModifiers::ALT
+        ));
     }
 }

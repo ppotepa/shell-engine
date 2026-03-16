@@ -1,7 +1,7 @@
 use crate::buffer::{Buffer, TRUE_BLACK};
-use crate::scene::EffectParams;
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::color::lerp_colour;
+use crate::scene::EffectParams;
 
 pub struct FadeInEffect;
 
@@ -14,7 +14,9 @@ impl Effect for FadeInEffect {
                 let y = region.y + dy;
                 if let Some(cell) = buffer.get(x, y) {
                     let symbol = cell.symbol;
-                    if symbol == ' ' { continue; }
+                    if symbol == ' ' {
+                        continue;
+                    }
                     let target_fg = cell.fg;
                     let original_bg = cell.bg;
                     let fg = lerp_colour(TRUE_BLACK, target_fg, p);
@@ -36,7 +38,9 @@ impl Effect for FadeOutEffect {
                 let y = region.y + dy;
                 if let Some(cell) = buffer.get(x, y) {
                     let symbol = cell.symbol;
-                    if symbol == ' ' { continue; }
+                    if symbol == ' ' {
+                        continue;
+                    }
                     if p >= 0.999 {
                         buffer.set(x, y, ' ', TRUE_BLACK, TRUE_BLACK);
                         continue;

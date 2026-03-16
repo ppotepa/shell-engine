@@ -1,5 +1,5 @@
-use std::env;
 use serde_yaml::Value;
+use std::env;
 
 /// Detected terminal capabilities.
 #[derive(Debug, Clone)]
@@ -16,9 +16,9 @@ pub struct TerminalCaps {
 #[derive(Debug, Clone, Default)]
 pub struct TerminalRequirements {
     pub min_colours: Option<u32>,
-    pub min_width:   Option<u16>,
-    pub min_height:  Option<u16>,
-    pub target_fps:  Option<u16>,
+    pub min_width: Option<u16>,
+    pub min_height: Option<u16>,
+    pub target_fps: Option<u16>,
 }
 
 pub const DEFAULT_TARGET_FPS: u16 = 60;
@@ -28,8 +28,8 @@ pub const MAX_TARGET_FPS: u16 = 240;
 #[derive(Debug, Clone)]
 pub struct TerminalViolation {
     pub requirement: String,
-    pub required:    String,
-    pub detected:    String,
+    pub required: String,
+    pub detected: String,
 }
 
 impl TerminalCaps {
@@ -37,7 +37,11 @@ impl TerminalCaps {
     pub fn detect() -> std::io::Result<Self> {
         let (width, height) = crossterm::terminal::size()?;
         let colours = detect_colour_count();
-        Ok(Self { colours, width, height })
+        Ok(Self {
+            colours,
+            width,
+            height,
+        })
     }
 
     /// Validate detected capabilities against mod requirements.
@@ -49,8 +53,8 @@ impl TerminalCaps {
             if self.colours < min {
                 violations.push(TerminalViolation {
                     requirement: "min_colours".into(),
-                    required:    format!("{}", min),
-                    detected:    format!("{}", self.colours),
+                    required: format!("{}", min),
+                    detected: format!("{}", self.colours),
                 });
             }
         }
@@ -59,8 +63,8 @@ impl TerminalCaps {
             if self.width < min {
                 violations.push(TerminalViolation {
                     requirement: "min_width".into(),
-                    required:    format!("{}", min),
-                    detected:    format!("{}", self.width),
+                    required: format!("{}", min),
+                    detected: format!("{}", self.width),
                 });
             }
         }
@@ -69,8 +73,8 @@ impl TerminalCaps {
             if self.height < min {
                 violations.push(TerminalViolation {
                     requirement: "min_height".into(),
-                    required:    format!("{}", min),
-                    detected:    format!("{}", self.height),
+                    required: format!("{}", min),
+                    detected: format!("{}", self.height),
                 });
             }
         }
@@ -86,10 +90,19 @@ impl TerminalRequirements {
         let block = manifest.get("terminal")?;
 
         Some(Self {
-            min_colours: block.get("min_colours").and_then(Value::as_u64).map(|v| v as u32),
-            min_width:   block.get("min_width").and_then(Value::as_u64).map(|v| v as u16),
-            min_height:  block.get("min_height").and_then(Value::as_u64).map(|v| v as u16),
-            target_fps:  block
+            min_colours: block
+                .get("min_colours")
+                .and_then(Value::as_u64)
+                .map(|v| v as u32),
+            min_width: block
+                .get("min_width")
+                .and_then(Value::as_u64)
+                .map(|v| v as u16),
+            min_height: block
+                .get("min_height")
+                .and_then(Value::as_u64)
+                .map(|v| v as u16),
+            target_fps: block
                 .get("target_fps")
                 .or_else(|| block.get("target-fps"))
                 .and_then(Value::as_u64)
@@ -116,15 +129,19 @@ fn detect_colour_count() -> u32 {
     if let Ok(ct) = env::var("COLORTERM") {
         match ct.to_lowercase().as_str() {
             "truecolor" | "24bit" => return 16_777_216,
-            "256color"            => return 256,
-            _                     => {}
+            "256color" => return 256,
+            _ => {}
         }
     }
 
     if let Ok(term) = env::var("TERM") {
         let term = term.to_lowercase();
-        if term.contains("256color") { return 256; }
-        if term.contains("16color")  { return 16;  }
+        if term.contains("256color") {
+            return 256;
+        }
+        if term.contains("16color") {
+            return 16;
+        }
     }
 
     8
@@ -144,7 +161,11 @@ mod tests {
     }
 
     fn caps(colours: u32, width: u16, height: u16) -> TerminalCaps {
-        TerminalCaps { colours, width, height }
+        TerminalCaps {
+            colours,
+            width,
+            height,
+        }
     }
 
     #[test]
@@ -175,8 +196,9 @@ mod tests {
     #[test]
     fn parses_requirements_from_manifest() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  min_colours: 256\n  min_width: 120\n  min_height: 30\n  target_fps: 30\n"
-        ).unwrap();
+            "terminal:\n  min_colours: 256\n  min_width: 120\n  min_height: 30\n  target_fps: 30\n",
+        )
+        .unwrap();
         let req = TerminalRequirements::from_manifest(&yaml).unwrap();
         assert_eq!(req.min_colours, Some(256));
         assert_eq!(req.min_width, Some(120));
@@ -198,9 +220,8 @@ mod tests {
 
     #[test]
     fn target_fps_supports_kebab_case_alias() {
-        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  target-fps: 30\n"
-        ).unwrap();
+        let yaml =
+            serde_yaml::from_str::<serde_yaml::Value>("terminal:\n  target-fps: 30\n").unwrap();
         assert_eq!(target_fps_from_manifest(&yaml), 30);
     }
 }

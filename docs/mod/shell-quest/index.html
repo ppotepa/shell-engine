@@ -19,6 +19,12 @@
   <tr><td><code>name</code></td><td>Shell Quest</td><td>Human-readable mod name.</td></tr>
   <tr><td><code>version</code></td><td>0.1.0</td><td>Mod version string.</td></tr>
   <tr><td><code>entrypoint</code></td><td>/scenes/intro.logo.yml</td><td>Path to the first scene, relative to the mod root.</td></tr>
+  <tr><td><code>terminal.min_colours</code></td><td>256</td><td>Startup requirement: terminal colour capability.</td></tr>
+  <tr><td><code>terminal.min_width</code></td><td>120</td><td>Startup requirement: minimum columns for current content pack.</td></tr>
+  <tr><td><code>terminal.min_height</code></td><td>40</td><td>Startup requirement: minimum rows for current content pack.</td></tr>
+  <tr><td><code>terminal.use_virtual_buffer</code></td><td>true</td><td>Enable fixed virtual framebuffer pipeline.</td></tr>
+  <tr><td><code>terminal.virtual_size</code></td><td>320x240</td><td>Target virtual resolution.</td></tr>
+  <tr><td><code>terminal.virtual_policy</code></td><td>fit</td><td>Adaptive fit to real terminal with letterbox.</td></tr>
 </table>
 
 <h2>mod.yaml</h2>
@@ -26,33 +32,42 @@
 name: Shell Quest
 version: 0.1.0
 entrypoint: /scenes/intro.logo.yml
+terminal:
+  min_colours: 256
+  min_width: 120
+  min_height: 40
+  use_virtual_buffer: true
+  virtual_size: "320x240"
+  virtual_policy: fit
 </pre>
 
 <h2>Scenes</h2>
 <table border="1">
   <tr><th>File</th><th>Scene id</th><th>Description</th></tr>
-  <tr><td><code>scenes/intro.yml</code></td><td>intro</td><td>Title screen. Plays crt-on, then scanlines on idle, then power-off on leave. Contains two text layers: title and prompt.</td></tr>
-</table>
-
-<h2>intro.yml layers</h2>
-<table border="1">
-  <tr><th>content</th><th>x</th><th>y</th><th>fg_colour</th><th>on_enter effect</th><th>on_leave effect</th></tr>
-  <tr><td>Shell Quest</td><td>4</td><td>4</td><td>white</td><td>fade-in 1000ms ease-in</td><td>fade-out 500ms</td></tr>
-  <tr><td>Nacisnij dowolny klawisz...</td><td>4</td><td>6</td><td>gray</td><td>fade-in 1500ms ease-in</td><td>—</td></tr>
+  <tr><td><code>scenes/intro.logo.yml</code></td><td>intro.logo</td><td>Startup logo cutscene with CRT/shine/glitch transition.</td></tr>
+  <tr><td><code>scenes/intro.prologue.yml</code></td><td>intro.prologue</td><td>Date-strike cutscene showing <code>September 17, 1991</code> with lightning effects.</td></tr>
+  <tr><td><code>scenes/mainmenu.yml</code></td><td>mainmenu</td><td>Linux image showcase using <code>grid</code> container and image sprites with per-sprite renderer modes.</td></tr>
 </table>
 
 <h2>Scene flow</h2>
 <pre>
-on_enter:
-  step 1: crt-on (5000ms, ease-out)          -- full buffer reveal
-  step 2: clear-to-colour black (3000ms)     -- blank before idle
-on_idle:
-  trigger: any-key
-  step 1: scanlines (loop: true)             -- ambient CRT effect
-on_leave:
-  step 1: power-off (1500ms, ease-in)        -- collapse to centre line
-next: null
+intro.logo
+  -> intro.prologue
+  -> mainmenu
+
+Removed demo scenes:
+  - intro.yml
+  - intro.font-demo.yml
+  - intro.font-demo-2.yml
 </pre>
+
+<h2>Mainmenu showcase summary</h2>
+<p><code>mainmenu.yml</code> uses one image source (<code>/assets/images/linux-1.png</code>) rendered three times inside a grid:</p>
+<ul>
+  <li><code>linux-1 (cell)</code> via <code>force-renderer-mode: cell</code></li>
+  <li><code>linux-2 (halfblock)</code> via <code>force-renderer-mode: halfblock</code></li>
+  <li><code>linux-3 (braille)</code> via <code>force-renderer-mode: braille</code></li>
+</ul>
 
 <hr>
 <p><a href="../../index.html">Home</a> | <a href="../../schemas/scene.html">Scene Schema</a></p>

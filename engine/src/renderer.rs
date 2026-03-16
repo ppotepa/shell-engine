@@ -1,11 +1,11 @@
 use std::io;
 
 use crossterm::{
+    cursor,
     event::{self, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     style::{Color, ResetColor},
-    cursor,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
 use crate::scene::Scene;

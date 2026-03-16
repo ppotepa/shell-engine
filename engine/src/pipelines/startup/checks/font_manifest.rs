@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::rasterizer;
+use crate::render_policy;
 use crate::scene::Sprite;
 use crate::EngineError;
 
@@ -22,17 +23,32 @@ impl StartupCheck for FontManifestCheck {
         for sf in scenes {
             for layer in &sf.scene.layers {
                 for sprite in &layer.sprites {
-                    let Sprite::Text { font, .. } = sprite;
-                    let Some(font_name) = font.as_ref() else {
-                        continue;
-                    };
-                    if font_name.starts_with("generic") {
-                        continue;
-                    }
-                    fonts
-                        .entry(font_name.clone())
-                        .or_default()
-                        .insert(sf.scene.id.clone());
+                    sprite.walk_recursive(&mut |node| {
+                        let Sprite::Text {
+                            font,
+                            force_renderer_mode,
+                            force_font_mode,
+                            ..
+                        } = node
+                        else {
+                            return;
+                        };
+                        let Some(font_name) = render_policy::resolve_font_spec(
+                            font.as_deref(),
+                            force_font_mode.as_deref(),
+                            sf.scene.rendered_mode,
+                            *force_renderer_mode,
+                        ) else {
+                            return;
+                        };
+                        if font_name.starts_with("generic") {
+                            return;
+                        }
+                        fonts
+                            .entry(font_name)
+                            .or_default()
+                            .insert(sf.scene.id.clone());
+                    });
                 }
             }
         }

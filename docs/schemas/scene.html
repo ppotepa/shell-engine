@@ -46,17 +46,20 @@ stages:
           - name: power-off
             duration: 1500
 layers:
-  - type: text
-    content: "Hello"
-    x: 4
-    y: 4
-    fg_colour: white
-    stages:
-      on_enter:
-        steps:
-          - effects:
-              - name: fade-in
-                duration: 1000
+  - name: hud
+    z_index: 0
+    sprites:
+      - type: text
+        content: "Hello"
+        x: 4
+        y: 4
+        fg_colour: white
+        stages:
+          on_enter:
+            steps:
+              - effects:
+                  - name: fade-in
+                    duration: 1000
 next: null
 </pre>
 
@@ -66,6 +69,8 @@ next: null
   <tr><td><code>id</code></td><td>string</td><td>required</td><td>—</td><td>Unique scene identifier used for transitions.</td></tr>
   <tr><td><code>title</code></td><td>string</td><td>required</td><td>—</td><td>Human-readable scene title.</td></tr>
   <tr><td><code>cutscene</code></td><td>boolean</td><td>optional</td><td><code>false</code></td><td>Marks the scene as non-interactive.</td></tr>
+  <tr><td><code>rendered-mode</code></td><td>string</td><td>optional</td><td><code>cell</code></td><td>Scene renderer mode. Allowed: <code>cell</code>, <code>halfblock</code>, <code>quadblock</code>, <code>braille</code>.</td></tr>
+  <tr><td><code>virtual-size-override</code></td><td>string</td><td>optional</td><td>—</td><td>Virtual canvas hint in <code>WIDTHxHEIGHT</code> format (e.g. <code>320x240</code>).</td></tr>
   <tr><td><code>bg_colour</code></td><td>colour</td><td>optional</td><td><code>black</code></td><td>Background colour filling the entire buffer on load.</td></tr>
   <tr><td><code>stages</code></td><td>SceneStages</td><td>optional</td><td>empty stages</td><td>Lifecycle stages for the scene. See SceneStages below.</td></tr>
   <tr><td><code>layers</code></td><td>Layer[]</td><td>optional</td><td><code>[]</code></td><td>Ordered list of content layers. See Layer below.</td></tr>
@@ -106,19 +111,73 @@ next: null
   <tr><td><code>params.colour</code></td><td>colour</td><td>optional</td><td>—</td><td>Target colour for colour-based effects (e.g. <code>clear-to-colour</code>).</td></tr>
 </table>
 
-<h2>Layer</h2>
-<p>Currently only <code>type: text</code> is supported.</p>
+<h2>Sprite (renderable object)</h2>
+<p>Renderable sprite types currently supported: <code>text</code>, <code>image</code>, and container <code>grid</code> (with nested children).</p>
 <table border="1">
   <tr><th>Field</th><th>Type</th><th>Required</th><th>Default</th><th>Description</th></tr>
-  <tr><td><code>type</code></td><td>string</td><td>required</td><td>—</td><td>Layer type. Must be <code>text</code>.</td></tr>
-  <tr><td><code>content</code></td><td>string</td><td>required</td><td>—</td><td>Text string to render.</td></tr>
+  <tr><td><code>type</code></td><td>string</td><td>required</td><td>—</td><td>Sprite type: <code>text</code>, <code>image</code>, or <code>grid</code>.</td></tr>
+  <tr><td><code>content</code></td><td>string</td><td>type=text</td><td>—</td><td>Text string to render.</td></tr>
+  <tr><td><code>source</code></td><td>string</td><td>type=image</td><td>—</td><td>Image asset path, e.g. <code>/assets/images/tux.png</code>.</td></tr>
   <tr><td><code>x</code></td><td>integer</td><td>optional</td><td><code>0</code></td><td>Column offset from left edge.</td></tr>
   <tr><td><code>y</code></td><td>integer</td><td>optional</td><td><code>0</code></td><td>Row offset from top edge.</td></tr>
   <tr><td><code>z_index</code></td><td>integer</td><td>optional</td><td><code>0</code></td><td>Render order. Higher values render on top (reserved for future use).</td></tr>
+  <tr><td><code>font</code></td><td>string | null</td><td>optional</td><td><code>null</code></td><td>Font spec (e.g. <code>generic:2</code>, <code>Abril Fatface:raster</code>).</td></tr>
+  <tr><td><code>width</code>/<code>height</code></td><td>integer</td><td>optional</td><td>source size</td><td>Target image sprite size in terminal cells (aspect ratio preserved when one axis is omitted).</td></tr>
+  <tr><td><code>columns</code>/<code>rows</code></td><td>string[]</td><td>type=grid</td><td>—</td><td>Grid track definitions (e.g. <code>auto</code>, <code>1fr</code>, <code>24</code>).</td></tr>
+  <tr><td><code>gap-x</code>/<code>gap-y</code></td><td>integer</td><td>type=grid</td><td><code>0</code></td><td>Spacing between tracks in cells.</td></tr>
+  <tr><td><code>children</code></td><td>Sprite[]</td><td>type=grid</td><td><code>[]</code></td><td>Nested renderable children arranged by grid coordinates.</td></tr>
+  <tr><td><code>grid-row</code>/<code>grid-col</code></td><td>integer</td><td>optional</td><td><code>1</code></td><td>1-based row/column placement inside parent grid.</td></tr>
+  <tr><td><code>row-span</code>/<code>col-span</code></td><td>integer</td><td>optional</td><td><code>1</code></td><td>How many tracks the sprite spans in parent grid.</td></tr>
+  <tr><td><code>force-renderer-mode</code></td><td>string</td><td>optional</td><td>scene mode</td><td>Per-renderable override. Priority: sprite &gt; scene &gt; engine default.</td></tr>
+  <tr><td><code>force-font-mode</code></td><td>string</td><td>optional</td><td>derived</td><td>Per-renderable font mode override (e.g. <code>ascii</code>, <code>raster</code>, <code>half</code>, <code>quad</code>, <code>braille</code>).</td></tr>
   <tr><td><code>fg_colour</code></td><td>colour</td><td>optional</td><td><code>white</code></td><td>Foreground glyph colour.</td></tr>
   <tr><td><code>bg_colour</code></td><td>colour</td><td>optional</td><td>scene <code>bg_colour</code></td><td>Background cell colour. Falls back to scene background.</td></tr>
   <tr><td><code>stages</code></td><td>LayerStages</td><td>optional</td><td>empty</td><td>Per-layer lifecycle stages with independent effect steps.</td></tr>
 </table>
+
+<h2>YAML examples by sprite type</h2>
+<h3>Text sprite</h3>
+<pre>
+- type: text
+  content: "PRESS ANY KEY"
+  align_x: center
+  align_y: bottom
+  y: -1
+  font: "generic:1"
+  fg_colour: white
+</pre>
+
+<h3>Image sprite</h3>
+<pre>
+- type: image
+  source: "/assets/images/linux-1.png"
+  width: 22
+  height: 22
+  force-renderer-mode: halfblock
+</pre>
+
+<h3>Grid container with children</h3>
+<pre>
+- type: grid
+  width: 96
+  height: 30
+  columns: ["1fr", "1fr", "1fr"]
+  rows: ["auto", "1fr"]
+  gap-x: 2
+  children:
+    - type: text
+      content: "linux-1 (cell)"
+      grid-col: 1
+      grid-row: 1
+    - type: image
+      source: "/assets/images/linux-1.png"
+      grid-col: 1
+      grid-row: 2
+      force-renderer-mode: cell
+</pre>
+
+<h2>Resolution notes</h2>
+<p><code>virtual-size-override</code> is available on scene root for content authoring and the planned virtual-buffer workflow. Current runtime output still targets the real terminal buffer.</p>
 
 <h2>Colour values</h2>
 <p>Valid colour names for <code>bg_colour</code>, <code>fg_colour</code>, and <code>params.colour</code>:</p>

@@ -1,8 +1,8 @@
-use crossterm::style::Color;
 use crate::buffer::{Buffer, TRUE_BLACK};
-use crate::scene::EffectParams;
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::math::smoothstep;
+use crate::scene::EffectParams;
+use crossterm::style::Color;
 
 pub struct FadeToBlackEffect;
 

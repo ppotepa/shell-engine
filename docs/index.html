@@ -22,6 +22,7 @@
   </li>
   <li><a href="schemas/index.html">Schemas</a> — YAML contracts for mod and scene files
     <ul>
+      <li><a href="schemas/mod.html">Mod Schema</a> — manifest + terminal/runtime settings</li>
       <li><a href="schemas/scene.html">Scene Schema</a> — every field documented</li>
       <li><a href="schemas/effects.html">Effects Catalogue</a> — built-in visual effects</li>
     </ul>
@@ -35,20 +36,24 @@ app/                  &lt;- entry point binary
 engine/               &lt;- core library crate
   src/
     lib.rs            &lt;- ShellEngine, game_loop
-    scene.rs          &lt;- Scene, Layer, Stage, Effect types
-    effects.rs        &lt;- built-in effect implementations
+    scene/            &lt;- Scene, Layer, Sprite, Stage types
+    effects/          &lt;- built-in effect implementations
     buffer.rs         &lt;- terminal cell buffer
+    image_loader.rs   &lt;- PNG asset loading + cache
+    render_policy.rs  &lt;- renderer/font override resolver
     world.rs          &lt;- TypeMap ECS world
     events.rs         &lt;- EngineEvent queue
     systems/
       animator.rs     &lt;- stage lifecycle advancement
-      compositor.rs   &lt;- scene + layer rendering to buffer
-      renderer.rs     &lt;- buffer -&gt; terminal via ratatui
-mod/
+      compositor/     &lt;- scene/layer/sprite composition
+      renderer.rs     &lt;- buffer -&gt; terminal via crossterm
+mods/
   shell-quest/        &lt;- reference mod
     mod.yaml
     scenes/
-      intro.yml
+      intro.logo.yml
+      intro.prologue.yml
+      mainmenu.yml
 schemas/
   mod.schema.yaml
   scene.schema.yaml

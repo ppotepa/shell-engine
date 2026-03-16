@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 cd "$(dirname "$0")"
-cargo run -p app --quiet
+exec ./launcher.sh "$@"

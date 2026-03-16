@@ -1,12 +1,21 @@
-use serde::{Deserialize, Deserializer};
 use crossterm::style::Color;
+use serde::{Deserialize, Deserializer};
 
 /// A colour value in YAML — accepts named colours or `#rrggbb` hex strings.
 ///
 /// Examples: `black`, `white`, `silver`, `#C0C0C0`, `#ff8800`
 #[derive(Debug, Clone, PartialEq)]
 pub enum TermColour {
-    Black, White, Gray, Silver, Red, Green, Blue, Yellow, Cyan, Magenta,
+    Black,
+    White,
+    Gray,
+    Silver,
+    Red,
+    Green,
+    Blue,
+    Yellow,
+    Cyan,
+    Magenta,
     Rgb(u8, u8, u8),
 }
 
@@ -14,15 +23,15 @@ impl<'de> Deserialize<'de> for TermColour {
     fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
         let s = String::deserialize(de)?;
         match s.to_lowercase().as_str() {
-            "black"   => return Ok(TermColour::Black),
-            "white"   => return Ok(TermColour::White),
+            "black" => return Ok(TermColour::Black),
+            "white" => return Ok(TermColour::White),
             "gray" | "grey" => return Ok(TermColour::Gray),
-            "silver"  => return Ok(TermColour::Silver),
-            "red"     => return Ok(TermColour::Red),
-            "green"   => return Ok(TermColour::Green),
-            "blue"    => return Ok(TermColour::Blue),
-            "yellow"  => return Ok(TermColour::Yellow),
-            "cyan"    => return Ok(TermColour::Cyan),
+            "silver" => return Ok(TermColour::Silver),
+            "red" => return Ok(TermColour::Red),
+            "green" => return Ok(TermColour::Green),
+            "blue" => return Ok(TermColour::Blue),
+            "yellow" => return Ok(TermColour::Yellow),
+            "cyan" => return Ok(TermColour::Cyan),
             "magenta" => return Ok(TermColour::Magenta),
             _ => {}
         }
@@ -47,17 +56,33 @@ impl<'de> Deserialize<'de> for TermColour {
 impl From<&TermColour> for Color {
     fn from(c: &TermColour) -> Self {
         match c {
-            TermColour::Black   => Color::Rgb { r: 0,   g: 0,   b: 0   },
-            TermColour::White   => Color::Rgb { r: 255, g: 255, b: 255 },
-            TermColour::Gray    => Color::Rgb { r: 128, g: 128, b: 128 },
-            TermColour::Silver  => Color::Rgb { r: 192, g: 192, b: 200 },
-            TermColour::Red     => Color::Red,
-            TermColour::Green   => Color::Green,
-            TermColour::Blue    => Color::Blue,
-            TermColour::Yellow  => Color::Yellow,
-            TermColour::Cyan    => Color::Cyan,
+            TermColour::Black => Color::Rgb { r: 0, g: 0, b: 0 },
+            TermColour::White => Color::Rgb {
+                r: 255,
+                g: 255,
+                b: 255,
+            },
+            TermColour::Gray => Color::Rgb {
+                r: 128,
+                g: 128,
+                b: 128,
+            },
+            TermColour::Silver => Color::Rgb {
+                r: 192,
+                g: 192,
+                b: 200,
+            },
+            TermColour::Red => Color::Red,
+            TermColour::Green => Color::Green,
+            TermColour::Blue => Color::Blue,
+            TermColour::Yellow => Color::Yellow,
+            TermColour::Cyan => Color::Cyan,
             TermColour::Magenta => Color::Magenta,
-            TermColour::Rgb(r, g, b) => Color::Rgb { r: *r, g: *g, b: *b },
+            TermColour::Rgb(r, g, b) => Color::Rgb {
+                r: *r,
+                g: *g,
+                b: *b,
+            },
         }
     }
 }

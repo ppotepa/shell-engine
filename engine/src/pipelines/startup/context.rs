@@ -49,11 +49,7 @@ impl<'a> StartupContext<'a> {
         }
         let loaded = load_all_scenes(self.mod_source)?;
         let _ = self.scene_cache.set(loaded);
-        Ok(self
-            .scene_cache
-            .get()
-            .map(Vec::as_slice)
-            .unwrap_or(&[]))
+        Ok(self.scene_cache.get().map(Vec::as_slice).unwrap_or(&[]))
     }
 }
 
@@ -109,4 +105,3 @@ fn walk_scene_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> 
     }
     Ok(())
 }
-

@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use crate::scene::Easing;
+use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -21,5 +21,9 @@ pub struct AnimationParams {
     pub easing: Easing,
 }
 
-fn default_amplitude() -> u16 { 1 }
-fn default_period() -> u64 { 2000 }
+fn default_amplitude() -> u16 {
+    1
+}
+fn default_period() -> u64 {
+    2000
+}

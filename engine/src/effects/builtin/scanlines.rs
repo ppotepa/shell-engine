@@ -1,6 +1,6 @@
 use crate::buffer::{Buffer, TRUE_BLACK};
-use crate::scene::EffectParams;
 use crate::effects::effect::{Effect, Region};
+use crate::scene::EffectParams;
 
 pub struct ScanlinesEffect;
 
@@ -12,7 +12,7 @@ impl Effect for ScanlinesEffect {
                 let y = region.y + dy;
                 if let Some(cell) = buffer.get(x, y) {
                     let symbol = cell.symbol;
-                    let fg     = cell.fg;
+                    let fg = cell.fg;
                     buffer.set(x, y, symbol, fg, TRUE_BLACK);
                 }
             }

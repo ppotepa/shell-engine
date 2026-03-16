@@ -40,13 +40,15 @@ impl StartupCheck for SceneGraphCheck {
         }
 
         let entry_path = normalize_scene_path(ctx.entrypoint());
-        let mut current_id = path_to_id
-            .get(&entry_path)
-            .cloned()
-            .ok_or_else(|| EngineError::StartupCheckFailed {
+        let mut current_id = path_to_id.get(&entry_path).cloned().ok_or_else(|| {
+            EngineError::StartupCheckFailed {
                 check: self.name().to_string(),
-                details: format!("entrypoint `{}` not found among discovered scenes", ctx.entrypoint()),
-            })?;
+                details: format!(
+                    "entrypoint `{}` not found among discovered scenes",
+                    ctx.entrypoint()
+                ),
+            }
+        })?;
         let mut reachable = BTreeSet::new();
 
         loop {
@@ -101,4 +103,3 @@ fn normalize_scene_path(path: &str) -> String {
         format!("/{}", path.replace('\\', "/"))
     }
 }
-

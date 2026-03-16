@@ -31,5 +31,9 @@ pub fn lerp_colour(from: Color, to: Color, t: f32) -> Color {
     let rr = fr as f32 + (tr as f32 - fr as f32) * t;
     let rg = fg as f32 + (tg as f32 - fg as f32) * t;
     let rb = fb as f32 + (tb as f32 - fb as f32) * t;
-    Color::Rgb { r: rr.round() as u8, g: rg.round() as u8, b: rb.round() as u8 }
+    Color::Rgb {
+        r: rr.round() as u8,
+        g: rg.round() as u8,
+        b: rb.round() as u8,
+    }
 }

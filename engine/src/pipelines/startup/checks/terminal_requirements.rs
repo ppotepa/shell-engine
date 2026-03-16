@@ -1,4 +1,5 @@
-use crate::terminal_caps::{TerminalCaps, TerminalRequirements};
+use crate::runtime_settings::{RuntimeSettings, VirtualPolicy};
+use crate::terminal_caps::{TerminalCaps, TerminalRequirements, TerminalViolation};
 use crate::EngineError;
 
 use super::super::check::StartupCheck;
@@ -19,7 +20,8 @@ impl StartupCheck for TerminalRequirementsCheck {
         };
 
         let caps = TerminalCaps::detect()?;
-        let violations = caps.validate(&req);
+        let mut violations = caps.validate(&req);
+        append_virtual_buffer_violations(ctx, &caps, &mut violations);
         if violations.is_empty() {
             report.add_info(self.name(), "terminal requirements satisfied");
             return Ok(());
@@ -27,10 +29,35 @@ impl StartupCheck for TerminalRequirementsCheck {
 
         let details = violations
             .iter()
-            .map(|v| format!("{}: requires {}, detected {}", v.requirement, v.required, v.detected))
+            .map(|v| {
+                format!(
+                    "{}: requires {}, detected {}",
+                    v.requirement, v.required, v.detected
+                )
+            })
             .collect::<Vec<_>>()
             .join("; ");
         Err(EngineError::TerminalRequirementsNotMet(details))
     }
 }
 
+fn append_virtual_buffer_violations(
+    ctx: &StartupContext,
+    caps: &TerminalCaps,
+    violations: &mut Vec<TerminalViolation>,
+) {
+    let runtime = RuntimeSettings::from_manifest(ctx.manifest());
+    if !runtime.use_virtual_buffer {
+        return;
+    }
+    if runtime.virtual_policy != VirtualPolicy::Strict {
+        return;
+    }
+    if caps.width < runtime.virtual_width || caps.height < runtime.virtual_height {
+        violations.push(TerminalViolation {
+            requirement: "virtual_buffer(strict)".to_string(),
+            required: format!("{}x{}", runtime.virtual_width, runtime.virtual_height),
+            detected: format!("{}x{}", caps.width, caps.height),
+        });
+    }
+}

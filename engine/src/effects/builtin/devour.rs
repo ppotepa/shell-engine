@@ -1,10 +1,10 @@
-use crossterm::style::Color;
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::effects::utils::math::smoothstep;
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
+use crossterm::style::Color;
 
 const PHASE_CONSUME_END: f32 = 0.70;
 
@@ -59,7 +59,11 @@ impl Effect for DevourOutEffect {
                     }
 
                     if n < pixel_drop_prob + corrupt_prob {
-                        let ch = if cell.symbol == ' ' { residue_char(n) } else { cell.symbol };
+                        let ch = if cell.symbol == ' ' {
+                            residue_char(n)
+                        } else {
+                            cell.symbol
+                        };
                         let fg = lerp_colour(cell.fg, residue_colour(n), 0.25 + 0.60 * eat);
                         buffer.set(x, y, ch, fg, TRUE_BLACK);
                     } else {
@@ -90,12 +94,24 @@ impl Effect for DevourOutEffect {
 
                 if infected {
                     let spread_col = lerp_colour(
-                        Color::Rgb { r: 25, g: 65, b: 38 },
-                        Color::Rgb { r: 150, g: 215, b: 165 },
+                        Color::Rgb {
+                            r: 25,
+                            g: 65,
+                            b: 38,
+                        },
+                        Color::Rgb {
+                            r: 150,
+                            g: 215,
+                            b: 165,
+                        },
                         n,
                     );
                     let fg = lerp_colour(spread_col, TRUE_BLACK, collapse);
-                    let ch = if collapse > 0.85 || n > 0.84 { ' ' } else { spread_char(n) };
+                    let ch = if collapse > 0.85 || n > 0.84 {
+                        ' '
+                    } else {
+                        spread_char(n)
+                    };
                     buffer.set(x, y, ch, fg, TRUE_BLACK);
                 } else if collapse > 0.92 {
                     buffer.set(x, y, ' ', TRUE_BLACK, TRUE_BLACK);
@@ -135,7 +151,11 @@ fn spread_char(n: f32) -> char {
 
 fn residue_colour(n: f32) -> Color {
     let c = (90.0 + n * 130.0).round() as u8;
-    Color::Rgb { r: c / 4, g: c, b: c / 3 }
+    Color::Rgb {
+        r: c / 4,
+        g: c,
+        b: c / 3,
+    }
 }
 
 fn dim(c: Color, factor: f32) -> Color {

@@ -1,8 +1,8 @@
-use crossterm::style::Color;
 use crate::buffer::Buffer;
 use crate::effects::effect::{Effect, Region};
 use crate::effects::utils::color::lerp_colour;
 use crate::scene::EffectParams;
+use crossterm::style::Color;
 
 /// Overexposes the image toward white with a soft pulse.
 pub struct WhiteoutEffect;
