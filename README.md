@@ -2,7 +2,7 @@
 
 ## Demo
 
-[![Watch demo](https://img.youtube.com/vi/sD9wEXBITmM/hqdefault.jpg)](https://www.youtube.com/watch?v=sD9wEXBITmM&autoplay=1)
+![Shell Quest demo](./docs/demo.gif)
 
 Shell Quest is a terminal game + engine for learning shell stuff by actually using commands.
 
