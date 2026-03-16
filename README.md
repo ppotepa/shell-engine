@@ -1,5 +1,9 @@
 # Shell Quest
 
+## Demo
+
+[![Watch demo](https://img.youtube.com/vi/sD9wEXBITmM/hqdefault.jpg)](https://www.youtube.com/watch?v=sD9wEXBITmM&autoplay=1)
+
 Shell Quest is a terminal game + engine for learning shell stuff by actually using commands.
 
 You run YAML-based scenes, solve quests, and get old-school terminal effects on top.
@@ -28,14 +32,4 @@ cargo run -p editor
 - `engine-core/` - shared effects and core logic
 - `editor/` - TUI editor
 - `mods/` - game data (`mods/shell-quest` is the main one)
-- `docs/` - docs + demo clip
-
-## Documentation & demo
-
-- Demo video: [▶ Obejrzyj demo](./docs/demo.mp4)
-
-<div align="center">
-  <video src="./docs/demo.mp4" controls preload="metadata" poster="./docs/assets/imported/shell-quest-terminal.png">
-    Demo video
-  </video>
-</div>
+- `docs/` - docs + static docs site
