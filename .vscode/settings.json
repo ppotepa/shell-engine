@@ -1,0 +1,10 @@
+{
+  "files.exclude": {
+    "**/target": true,
+    "mods/shell-quest/assets/**": true
+  },
+  "search.exclude": {
+    "mods/shell-quest/assets/**": true
+  }
+}
+

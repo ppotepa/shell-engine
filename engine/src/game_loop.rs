@@ -1,5 +1,4 @@
 use crate::buffer;
-use crate::effects::utils::math::TICK_MS;
 use crate::error::EngineError;
 use crate::events::{EngineEvent, EventQueue};
 use crate::scene;
@@ -7,16 +6,22 @@ use crate::scene_loader::SceneLoader;
 use crate::systems;
 use crate::world::World;
 
-pub fn game_loop(world: &mut World) -> Result<(), EngineError> {
+pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
     use crossterm::event::{self, Event, KeyCode, KeyEventKind};
     use systems::animator::Animator;
+    use std::time::{Duration, Instant};
 
     const FAST_FORWARD_TICKS: u8 = 8;
     let mut debug_fast_forward = false;
+    let fps = target_fps.max(1) as u64;
+    let tick_ms = (1000 / fps).max(1);
+    let frame_budget = Duration::from_millis(tick_ms);
 
     loop {
+        let frame_start = Instant::now();
+
         // --- INPUT ---
-        if event::poll(std::time::Duration::from_millis(TICK_MS))?  {
+        while event::poll(Duration::from_millis(0))? {
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind == KeyEventKind::Release {
@@ -105,10 +110,15 @@ pub fn game_loop(world: &mut World) -> Result<(), EngineError> {
         // --- SYSTEMS ---
         let ticks_this_frame = if debug_fast_forward { FAST_FORWARD_TICKS } else { 1 };
         for _ in 0..ticks_this_frame {
-            systems::animator::animator_system(world);
+            systems::animator::animator_system(world, tick_ms);
         }
         systems::compositor::compositor_system(world);
         systems::renderer::renderer_system(world);
+
+        let elapsed = frame_start.elapsed();
+        if elapsed < frame_budget {
+            std::thread::sleep(frame_budget - elapsed);
+        }
     }
     Ok(())
 }

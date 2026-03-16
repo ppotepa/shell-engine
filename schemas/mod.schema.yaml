@@ -35,4 +35,13 @@ properties:
         type: integer
         minimum: 1
         description: Minimum terminal height in rows.
-
+      target_fps:
+        type: integer
+        minimum: 1
+        maximum: 240
+        description: Target engine framerate lock. Default 60 when omitted.
+      target-fps:
+        type: integer
+        minimum: 1
+        maximum: 240
+        description: Alias of target_fps.

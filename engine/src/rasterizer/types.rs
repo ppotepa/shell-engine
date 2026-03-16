@@ -21,7 +21,7 @@ pub struct LoadedGlyph {
     pub height: u16,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LoadedFont {
     pub glyphs: HashMap<char, LoadedGlyph>,
     pub fallback_space_advance: u16,

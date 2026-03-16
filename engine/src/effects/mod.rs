@@ -31,6 +31,11 @@ impl EffectDispatcher {
         self.registry.insert("shine",             Box::new(ShineEffect));
         self.registry.insert("clear-to-colour",   Box::new(ClearToColourEffect));
         self.registry.insert("brighten",          Box::new(BrightenEffect));
+        self.registry.insert("lightning-flash",   Box::new(LightningFlashEffect));
+        self.registry.insert("lightning-branch",  Box::new(LightningBranchEffect));
+        self.registry.insert("tesla-orb",         Box::new(TeslaOrbEffect));
+        self.registry.insert("screen-shake",      Box::new(ScreenShakeEffect));
+        self.registry.insert("whiteout",          Box::new(WhiteoutEffect));
         self.registry.insert("glitch-out",        Box::new(GlitchOutEffect));
         self.registry.insert("devour-out",        Box::new(DevourOutEffect));
         self.registry.insert("artifact-out",      Box::new(ArtifactOutEffect));
@@ -48,6 +53,10 @@ impl EffectDispatcher {
         if let Some(effect) = self.registry.get(name) {
             effect.apply(progress, params, region, buffer);
         }
+    }
+
+    pub fn supports(&self, name: &str) -> bool {
+        self.registry.contains_key(name)
     }
 }
 

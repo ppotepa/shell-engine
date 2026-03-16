@@ -33,9 +33,7 @@ impl Animator {
     }
 }
 
-use crate::effects::utils::math::TICK_MS;
-
-pub fn animator_system(world: &mut World) {
+pub fn animator_system(world: &mut World, tick_ms: u64) {
     use crate::events::{EngineEvent, EventQueue};
     use crate::scene::Scene;
 
@@ -70,11 +68,11 @@ pub fn animator_system(world: &mut World) {
     let (stage, step_idx, elapsed_ms, step_count, step_dur, stage_looping, idle_trigger, next_scene) = snapshot;
 
     if let Some(a) = world.get_mut::<Animator>() {
-        a.elapsed_ms += TICK_MS;
-        a.scene_elapsed_ms += TICK_MS;
+        a.elapsed_ms += tick_ms;
+        a.scene_elapsed_ms += tick_ms;
     }
 
-    let new_elapsed = elapsed_ms + TICK_MS;
+    let new_elapsed = elapsed_ms + tick_ms;
     let step_done   = step_dur > 0 && new_elapsed >= step_dur;
 
     if step_done {

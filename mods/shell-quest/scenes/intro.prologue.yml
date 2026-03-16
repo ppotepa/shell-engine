@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
+id: intro.prologue
+title: Intro Prologue - Date Strike
+cutscene: true
+bg_colour: black
+
+stages:
+  on_enter:
+    steps:
+      - duration: 600
+        effects: []
+
+      - duration: 120
+        effects:
+          - name: lightning-flash
+            duration: 120
+            params:
+              colour: white
+              intensity: 2.8
+              coverage: full-screen
+
+      - duration: 180
+        effects:
+          - name: screen-shake
+            duration: 180
+            params:
+              amplitude_x: 2
+              amplitude_y: 1
+              frequency: 22
+
+      - duration: 90
+        effects: []
+
+      - duration: 160
+        effects:
+          - name: lightning-flash
+            duration: 160
+            params:
+              colour: white
+              intensity: 3.2
+              coverage: full-screen
+          - name: whiteout
+            duration: 220
+            params:
+              intensity: 1.2
+
+      - duration: 200
+        effects:
+          - name: screen-shake
+            duration: 200
+            params:
+              amplitude_x: 3
+              amplitude_y: 2
+              frequency: 26
+
+      - duration: 100
+        effects: []
+
+      - duration: 220
+        effects:
+          - name: tesla-orb
+            duration: 220
+            params:
+              strikes: 14
+              thickness: 1.6
+              glow: true
+              intensity: 1.0
+          - name: whiteout
+            duration: 140
+            params:
+              intensity: 0.95
+
+      - duration: 300
+        effects:
+          - name: lightning-branch
+            duration: 300
+            params:
+              strikes: 2
+              start_x: random
+              end_x: random
+              thickness: 1
+              glow: true
+          - name: brighten
+            duration: 300
+            params:
+              intensity: 0.35
+
+      - duration: 2400
+        effects:
+          - name: scanlines
+            duration: 2400
+
+      - duration: 900
+        effects:
+          - name: fade-out
+            duration: 900
+            params:
+              easing: ease-in
+
+  on_idle:
+    trigger: none
+    steps:
+      - duration: 1
+        effects: []
+
+  on_leave:
+    steps:
+      - duration: 300
+        effects: []
+
+layers:
+  - name: date
+    z_index: 2
+    visible: true
+    sprites:
+      - type: text
+        id: date-text
+        content: "September 17, 1991"
+        align_x: center
+        align_y: center
+        font: "Abril Fatface:raster"
+        fg_colour: white
+        bg_colour: black
+        appear_at_ms: 1500
+        disappear_at_ms: 4300
+        stages:
+          on_enter:
+            steps:
+              - effects:
+                  - name: brighten
+                    duration: 220
+                    params:
+                      intensity: 0.7
+              - effects:
+                  - name: shine
+                    duration: 600
+                    params:
+                      angle: 0
+                      width: 2
+                      falloff: 2.2
+                      intensity: 0.9
+          on_idle:
+            looping: true
+            steps:
+              - duration: 180
+                effects: []
+              - effects:
+                  - name: brighten
+                    duration: 80
+                    params:
+                      intensity: 0.14
+              - duration: 240
+                effects: []
+
+next: mainmenu
+
+# Planned (not yet supported by runtime/schema):
+# audio:
+#   on_enter:
+#     - at_ms: 620
+#       cue: thunder_far_01
+#       volume: 0.75

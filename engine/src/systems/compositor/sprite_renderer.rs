@@ -68,8 +68,12 @@ pub fn render_sprites(
                 // TODO: move AnimationDispatcher to engine init instead of per-frame
                 let anim_dispatcher = AnimationDispatcher::new();
                 let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
-                let draw_x = (base_x as i32 + transform.dx as i32).max(0) as u16;
-                let draw_y = (base_y as i32 + transform.dy as i32).max(0) as u16;
+                let draw_x = base_x
+                    .saturating_add(transform.dx as i32)
+                    .clamp(0, u16::MAX as i32) as u16;
+                let draw_y = base_y
+                    .saturating_add(transform.dy as i32)
+                    .clamp(0, u16::MAX as i32) as u16;
 
                 // Glow pass — render stripped content at each offset in glow colour
                 if let Some(glow_opts) = glow.as_ref() {
@@ -170,22 +174,22 @@ fn dim_colour(c: Color) -> Color {
     }
 }
 
-fn resolve_x(offset_x: u16, align_x: &Option<HorizontalAlign>, scene_w: u16, sprite_w: u16) -> u16 {
+fn resolve_x(offset_x: i32, align_x: &Option<HorizontalAlign>, scene_w: u16, sprite_w: u16) -> i32 {
     let origin = match align_x {
-        Some(HorizontalAlign::Left)   => 0,
-        Some(HorizontalAlign::Center) => scene_w.saturating_sub(sprite_w) / 2,
-        Some(HorizontalAlign::Right)  => scene_w.saturating_sub(sprite_w),
-        None => 0,
+        Some(HorizontalAlign::Left) => 0i32,
+        Some(HorizontalAlign::Center) => (scene_w.saturating_sub(sprite_w) / 2) as i32,
+        Some(HorizontalAlign::Right) => scene_w.saturating_sub(sprite_w) as i32,
+        None => 0i32,
     };
     origin.saturating_add(offset_x)
 }
 
-fn resolve_y(offset_y: u16, align_y: &Option<VerticalAlign>, scene_h: u16, sprite_h: u16) -> u16 {
+fn resolve_y(offset_y: i32, align_y: &Option<VerticalAlign>, scene_h: u16, sprite_h: u16) -> i32 {
     let origin = match align_y {
-        Some(VerticalAlign::Top)    => 0,
-        Some(VerticalAlign::Center) => scene_h.saturating_sub(sprite_h) / 2,
-        Some(VerticalAlign::Bottom) => scene_h.saturating_sub(sprite_h),
-        None => 0,
+        Some(VerticalAlign::Top) => 0i32,
+        Some(VerticalAlign::Center) => (scene_h.saturating_sub(sprite_h) / 2) as i32,
+        Some(VerticalAlign::Bottom) => scene_h.saturating_sub(sprite_h) as i32,
+        None => 0i32,
     };
     origin.saturating_add(offset_y)
 }
