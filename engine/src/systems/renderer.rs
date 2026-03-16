@@ -1,5 +1,6 @@
-use crate::buffer::{Buffer, Cell, VirtualBuffer, TRUE_BLACK};
-use crate::runtime_settings::{RuntimeSettings, VirtualPolicy};
+use crate::buffer::{Buffer, Cell, TRUE_BLACK};
+use crate::runtime_settings::VirtualPolicy;
+use crate::services::EngineWorldAccess;
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
 use std::io::{self, Write};
@@ -53,7 +54,7 @@ pub fn renderer_system(world: &mut World) {
     }
 
     let diffs: Vec<(u16, u16, char, style::Color, style::Color)> = {
-        match world.get::<Buffer>() {
+        match world.buffer() {
             Some(buf) => buf
                 .diff()
                 .into_iter()
@@ -73,13 +74,13 @@ pub fn renderer_system(world: &mut World) {
 
     if diffs.is_empty() {
         // Still need to swap so compositor can detect unchanged next frame.
-        if let Some(buf) = world.get_mut::<Buffer>() {
+        if let Some(buf) = world.buffer_mut() {
             buf.swap();
         }
         return;
     }
 
-    if let Some(renderer) = world.get_mut::<TerminalRenderer>() {
+    if let Some(renderer) = world.renderer_mut() {
         let stdout = &mut renderer.stdout;
         for (x, y, symbol, fg, bg) in &diffs {
             let _ = queue!(
@@ -93,7 +94,7 @@ pub fn renderer_system(world: &mut World) {
         let _ = stdout.flush();
     }
 
-    if let Some(buf) = world.get_mut::<Buffer>() {
+    if let Some(buf) = world.buffer_mut() {
         buf.swap();
     }
 }
@@ -116,19 +117,19 @@ fn to_ct(c: crossterm::style::Color) -> style::Color {
 
 fn should_use_virtual_buffer(world: &World) -> bool {
     world
-        .get::<RuntimeSettings>()
+        .runtime_settings()
         .map(|s| s.use_virtual_buffer)
         .unwrap_or(false)
-        && world.get::<VirtualBuffer>().is_some()
+        && world.virtual_buffer().is_some()
 }
 
 fn present_virtual_to_output(world: &mut World) {
-    let settings = world.get::<RuntimeSettings>().cloned().unwrap_or_default();
-    let virtual_snapshot = world.get::<VirtualBuffer>().map(|v| v.0.clone());
+    let settings = world.runtime_settings().cloned().unwrap_or_default();
+    let virtual_snapshot = world.virtual_buffer().map(|v| v.0.clone());
     let Some(virtual_buf) = virtual_snapshot else {
         return;
     };
-    let Some(output_buf) = world.get_mut::<Buffer>() else {
+    let Some(output_buf) = world.buffer_mut() else {
         return;
     };
 

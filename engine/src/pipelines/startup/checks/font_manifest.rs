@@ -55,7 +55,7 @@ impl StartupCheck for FontManifestCheck {
 
         let mut missing = Vec::new();
         for (font_name, scenes_using) in &fonts {
-            if !rasterizer::has_font_assets(font_name) {
+            if !rasterizer::has_font_assets(Some(ctx.mod_source()), font_name) {
                 missing.push(format!(
                     "{font_name} (used in: {})",
                     scenes_using.iter().cloned().collect::<Vec<_>>().join(", ")

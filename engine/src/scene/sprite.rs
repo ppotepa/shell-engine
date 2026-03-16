@@ -1,4 +1,4 @@
-use super::{color::TermColour, LayerStages, SceneRenderedMode};
+use super::{color::TermColour, BehaviorSpec, LayerStages, SceneRenderedMode};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -92,6 +92,8 @@ pub enum Sprite {
         stages: LayerStages,
         #[serde(default)]
         animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
         /// Optional glow halo rendered behind the sprite.
         #[serde(default)]
         glow: Option<Glow>,
@@ -133,6 +135,8 @@ pub enum Sprite {
         stages: LayerStages,
         #[serde(default)]
         animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
     },
     /// Grid layout container. Children are renderable sprites arranged in rows/columns.
     Grid {
@@ -174,6 +178,8 @@ pub enum Sprite {
         stages: LayerStages,
         #[serde(default)]
         animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
         columns: Vec<String>,
         rows: Vec<String>,
         #[serde(default)]
@@ -236,6 +242,14 @@ impl Sprite {
             }
         }
     }
+
+    pub fn behaviors(&self) -> &[BehaviorSpec] {
+        match self {
+            Sprite::Text { behaviors, .. }
+            | Sprite::Image { behaviors, .. }
+            | Sprite::Grid { behaviors, .. } => behaviors,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -275,10 +289,12 @@ force-font-mode: braille
             Sprite::Text {
                 force_renderer_mode,
                 force_font_mode,
+                behaviors,
                 ..
             } => {
                 assert_eq!(force_renderer_mode, Some(SceneRenderedMode::QuadBlock));
                 assert_eq!(force_font_mode.as_deref(), Some("braille"));
+                assert!(behaviors.is_empty());
             }
             Sprite::Image { .. } | Sprite::Grid { .. } => panic!("expected text sprite"),
         }
@@ -340,6 +356,33 @@ children:
                 assert_eq!(children.len(), 2);
             }
             Sprite::Text { .. } | Sprite::Image { .. } => panic!("expected grid sprite"),
+        }
+    }
+
+    #[test]
+    fn parses_sprite_behaviors() {
+        let raw = r#"
+type: text
+id: title
+content: "TEST"
+behaviors:
+  - name: blink
+    params:
+      visible_ms: 100
+      hidden_ms: 150
+  - name: bob
+    params:
+      amplitude_y: 2
+      period_ms: 1000
+"#;
+        let sprite: Sprite = serde_yaml::from_str(raw).expect("sprite should parse");
+        match sprite {
+            Sprite::Text { behaviors, .. } => {
+                assert_eq!(behaviors.len(), 2);
+                assert_eq!(behaviors[0].name, "blink");
+                assert_eq!(behaviors[1].params.amplitude_y, Some(2));
+            }
+            Sprite::Image { .. } | Sprite::Grid { .. } => panic!("expected text sprite"),
         }
     }
 }

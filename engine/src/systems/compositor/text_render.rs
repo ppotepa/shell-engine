@@ -1,4 +1,5 @@
 use crossterm::style::Color;
+use std::path::Path;
 
 use crate::buffer::Buffer;
 use crate::markup::{parse_spans, strip_markup};
@@ -6,6 +7,7 @@ use crate::rasterizer;
 use crate::rasterizer::generic;
 
 pub(super) fn render_text_content(
+    mod_source: Option<&Path>,
     content: &str,
     font: Option<&str>,
     fg: Color,
@@ -42,13 +44,14 @@ pub(super) fn render_text_content(
         }
         Some(font_name) => {
             let stripped = strip_markup(content);
-            let text_buf = rasterizer::rasterize(&stripped, font_name, fg, bg);
+            let text_buf = rasterizer::rasterize(mod_source, &stripped, font_name, fg, bg);
             rasterizer::blit(&text_buf, buf, x, y);
         }
     }
 }
 
 pub(super) fn text_sprite_dimensions(
+    mod_source: Option<&Path>,
     content: &str,
     font: Option<&str>,
     fg: Color,
@@ -62,7 +65,7 @@ pub(super) fn text_sprite_dimensions(
             generic::generic_dimensions_mode(&visible, mode)
         }
         Some(font_name) => {
-            let text_buf = rasterizer::rasterize(&visible, font_name, fg, bg);
+            let text_buf = rasterizer::rasterize(mod_source, &visible, font_name, fg, bg);
             (text_buf.width, text_buf.height)
         }
     }

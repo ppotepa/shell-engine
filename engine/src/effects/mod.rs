@@ -40,6 +40,10 @@ impl EffectDispatcher {
             .insert("lightning-flash", Box::new(LightningFlashEffect));
         self.registry
             .insert("lightning-branch", Box::new(LightningBranchEffect));
+        self.registry
+            .insert("lightning-optical-80s", Box::new(LightningOptical80sEffect));
+        self.registry
+            .insert("lightning-fbm", Box::new(LightningFbmEffect));
         self.registry.insert("tesla-orb", Box::new(TeslaOrbEffect));
         self.registry
             .insert("screen-shake", Box::new(ScreenShakeEffect));

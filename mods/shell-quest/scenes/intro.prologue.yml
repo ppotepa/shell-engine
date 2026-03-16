@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
 id: intro.prologue
-title: Intro Prologue - Date Strike
+title: Intro Prologue - Date Reveal
 cutscene: true
 bg_colour: black
 virtual-size-override: "320x240"
@@ -8,88 +8,17 @@ virtual-size-override: "320x240"
 stages:
   on_enter:
     steps:
-      - duration: 600
-        effects: []
-
-      - duration: 120
+      - duration: 900
         effects:
-          - name: lightning-flash
-            duration: 120
+          - name: fade-in
+            duration: 900
             params:
-              colour: white
-              intensity: 2.8
-              coverage: full-screen
+              easing: ease-out
 
-      - duration: 180
-        effects:
-          - name: screen-shake
-            duration: 180
-            params:
-              amplitude_x: 2
-              amplitude_y: 1
-              frequency: 22
-
-      - duration: 90
-        effects: []
-
-      - duration: 160
-        effects:
-          - name: lightning-flash
-            duration: 160
-            params:
-              colour: white
-              intensity: 3.2
-              coverage: full-screen
-          - name: whiteout
-            duration: 220
-            params:
-              intensity: 1.2
-
-      - duration: 200
-        effects:
-          - name: screen-shake
-            duration: 200
-            params:
-              amplitude_x: 3
-              amplitude_y: 2
-              frequency: 26
-
-      - duration: 100
-        effects: []
-
-      - duration: 220
-        effects:
-          - name: tesla-orb
-            duration: 220
-            params:
-              strikes: 14
-              thickness: 1.6
-              glow: true
-              intensity: 1.0
-          - name: whiteout
-            duration: 140
-            params:
-              intensity: 0.95
-
-      - duration: 300
-        effects:
-          - name: lightning-branch
-            duration: 300
-            params:
-              strikes: 2
-              start_x: random
-              end_x: random
-              thickness: 1
-              glow: true
-          - name: brighten
-            duration: 300
-            params:
-              intensity: 0.35
-
-      - duration: 2400
+      - duration: 2200
         effects:
           - name: scanlines
-            duration: 2400
+            duration: 2200
 
       - duration: 900
         effects:
@@ -122,41 +51,40 @@ layers:
         font: "Abril Fatface:raster"
         fg_colour: white
         bg_colour: black
-        appear_at_ms: 1500
+        glow:
+          colour: "#5f7cff"
+          radius: 1
+        appear_at_ms: 0
         disappear_at_ms: 4300
         stages:
           on_enter:
             steps:
+              - duration: 900
+                effects: []
               - effects:
                   - name: brighten
-                    duration: 220
+                    duration: 260
                     params:
-                      intensity: 0.7
+                      intensity: 0.22
               - effects:
                   - name: shine
-                    duration: 600
+                    duration: 720
                     params:
                       angle: 0
                       width: 2
                       falloff: 2.2
-                      intensity: 0.9
+                      intensity: 0.7
           on_idle:
             looping: true
             steps:
-              - duration: 180
+              - duration: 220
                 effects: []
               - effects:
                   - name: brighten
-                    duration: 80
+                    duration: 100
                     params:
-                      intensity: 0.14
-              - duration: 240
+                      intensity: 0.12
+              - duration: 260
                 effects: []
 
 next: mainmenu
-
-audio:
-  on_enter:
-    - at_ms: 620
-      cue: thunder_far_01
-      volume: 0.75

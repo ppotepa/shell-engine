@@ -67,7 +67,9 @@ impl StartupCheck for FontGlyphCoverageCheck {
         let mut issues = Vec::new();
         for (font_name, chars) in &required_chars {
             let text: String = chars.iter().collect();
-            let Some(missing) = rasterizer::missing_glyphs(font_name, &text) else {
+            let Some(missing) =
+                rasterizer::missing_glyphs(Some(ctx.mod_source()), font_name, &text)
+            else {
                 issues.push(format!("{font_name}: font assets are missing"));
                 continue;
             };
