@@ -15,6 +15,7 @@ pub struct SceneRuntime {
     layer_ids: BTreeMap<usize, String>,
     sprite_ids: BTreeMap<String, String>,
     behaviors: Vec<ObjectBehaviorRuntime>,
+    resolver_cache: TargetResolver,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -127,9 +128,16 @@ impl SceneRuntime {
             layer_ids,
             sprite_ids,
             behaviors: Vec::new(),
+            resolver_cache: TargetResolver::default(),
         };
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings);
+        // Pre-sort layers and sprites once at load time so the compositor hot path skips sorting.
+        runtime.scene.layers.sort_by_key(|l| l.z_index);
+        for layer in &mut runtime.scene.layers {
+            layer.sprites.sort_by_key(|s| s.z_index());
+        }
+        runtime.resolver_cache = runtime.build_target_resolver();
         runtime
     }
 
@@ -197,6 +205,10 @@ impl SceneRuntime {
     }
 
     pub fn target_resolver(&self) -> TargetResolver {
+        self.resolver_cache.clone()
+    }
+
+    fn build_target_resolver(&self) -> TargetResolver {
         let mut aliases = BTreeMap::new();
 
         for (object_id, object) in &self.objects {
@@ -227,19 +239,18 @@ impl SceneRuntime {
             let Some(object) = self.objects.get(&object_id).cloned() else {
                 continue;
             };
-            let resolver = self.target_resolver();
             let ctx = BehaviorContext {
                 stage: stage.clone(),
                 scene_elapsed_ms,
                 stage_elapsed_ms,
-                target_resolver: resolver.clone(),
+                target_resolver: self.resolver_cache.clone(),
                 object_states: self.effective_object_states_snapshot(),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
                 .behavior
                 .update(&object, &self.scene, &ctx, &mut local_commands);
-            self.apply_behavior_commands(&resolver, &local_commands);
+            self.apply_behavior_commands(&self.resolver_cache.clone(), &local_commands);
             commands.extend(local_commands.iter().cloned());
         }
         commands

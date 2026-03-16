@@ -7,11 +7,16 @@ use crate::scene::{Layer, SceneRenderedMode};
 use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use crossterm::style::Color;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+
+thread_local! {
+    static LAYER_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
+}
 
 /// Composite all visible layers onto the scene framebuffer.
 pub fn composite_layers(
-    layers: &mut Vec<Layer>,
+    layers: &[Layer],
     scene_w: u16,
     scene_h: u16,
     scene_rendered_mode: SceneRenderedMode,
@@ -27,9 +32,7 @@ pub fn composite_layers(
     scene_elapsed_ms: u64,
     buffer: &mut Buffer,
 ) {
-    layers.sort_by_key(|l| l.z_index);
-
-    for (layer_idx, layer) in layers.iter_mut().enumerate() {
+    for (layer_idx, layer) in layers.iter().enumerate() {
         let layer_state = target_resolver
             .and_then(|resolver| resolver.layer_object_id(layer_idx))
             .and_then(|object_id| object_states.get(object_id))
@@ -60,51 +63,56 @@ pub fn composite_layers(
             );
         }
 
-        let mut layer_buf = Buffer::new(scene_w, scene_h);
-        layer_buf.fill(Color::Reset);
+        LAYER_SCRATCH.with(|scratch| {
+            let mut layer_buf = scratch.borrow_mut();
+            if layer_buf.width != scene_w || layer_buf.height != scene_h {
+                layer_buf.resize(scene_w, scene_h);
+            }
+            layer_buf.fill(Color::Reset);
 
-        render_sprites(
-            layer_idx,
-            layer,
-            scene_w,
-            scene_h,
-            scene_rendered_mode,
-            asset_root,
-            target_resolver,
-            object_regions,
-            total_origin_x,
-            total_origin_y,
-            object_states,
-            scene_elapsed_ms,
-            current_stage,
-            step_idx,
-            elapsed_ms,
-            &mut layer_buf,
-        );
+            render_sprites(
+                layer_idx,
+                layer,
+                scene_w,
+                scene_h,
+                scene_rendered_mode,
+                asset_root,
+                target_resolver,
+                object_regions,
+                total_origin_x,
+                total_origin_y,
+                object_states,
+                scene_elapsed_ms,
+                current_stage,
+                step_idx,
+                elapsed_ms,
+                &mut *layer_buf,
+            );
 
-        apply_layer_effects(
-            layer,
-            current_stage,
-            step_idx,
-            elapsed_ms,
-            scene_elapsed_ms,
-            target_resolver,
-            object_regions,
-            &mut layer_buf,
-        );
+            apply_layer_effects(
+                layer,
+                current_stage,
+                step_idx,
+                elapsed_ms,
+                scene_elapsed_ms,
+                target_resolver,
+                object_regions,
+                &mut *layer_buf,
+            );
 
-        // Blit layer onto scene framebuffer — skip transparent pixels
-        for ly in 0..scene_h {
-            for lx in 0..scene_w {
-                if let Some(cell) = layer_buf.get(lx, ly) {
-                    if !(cell.symbol == ' ' && cell.bg == Color::Reset) {
-                        let sym = cell.symbol;
-                        let fg = cell.fg;
-                        let cbg = cell.bg;
-                        buffer.set(lx, ly, sym, fg, cbg);
+            // Blit layer onto scene framebuffer — skip transparent pixels
+            for ly in 0..scene_h {
+                for lx in 0..scene_w {
+                    if let Some(cell) = layer_buf.get(lx, ly) {
+                        if !(cell.symbol == ' ' && cell.bg == Color::Reset) {
+                            let sym = cell.symbol;
+                            let fg = cell.fg;
+                            let cbg = cell.bg;
+                            buffer.set(lx, ly, sym, fg, cbg);
+                        }
                     }
                 }
             }
-        }
+        });
     }
 }

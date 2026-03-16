@@ -121,6 +121,22 @@ impl Buffer {
             .collect()
     }
 
+    /// Fill `out` with raw (pre-resolve) diff tuples, reusing the allocation across frames.
+    pub fn diff_into(&self, out: &mut Vec<(u16, u16, char, Color, Color)>) {
+        out.extend(
+            self.back
+                .iter()
+                .zip(self.front.iter())
+                .enumerate()
+                .filter(|(_, (b, f))| b != f)
+                .map(|(idx, (b, _))| {
+                    let x = (idx as u16) % self.width;
+                    let y = (idx as u16) / self.width;
+                    (x, y, b.symbol, b.fg, b.bg)
+                }),
+        );
+    }
+
     /// Promote back buffer to front — call after every successful flush.
     pub fn swap(&mut self) {
         self.front.clone_from(&self.back);
