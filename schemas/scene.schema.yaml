@@ -148,18 +148,18 @@ $defs:
       orientation:
         type: string
         enum: [vertical, horizontal]
-        description: Directional orientation. Used by: lightning-fbm, lightning-branch, lightning-ambient, lightning-natural.
+        description: Directional orientation. Used by: lightning-fbm, lightning-branch, lightning-growth, lightning-ambient, lightning-natural.
       target:
         type: string
         description: Optional target identifier hint for future targeted effects.
       strikes:
         type: integer
         minimum: 1
-        description: Number of primary lightning branches/arcs. Used by: lightning-branch, lightning-ambient, lightning-natural, tesla-orb.
+        description: Number of primary lightning branches/arcs. Used by: lightning-branch, lightning-growth, lightning-ambient, lightning-natural, tesla-orb.
       thickness:
         type: number
         minimum: 0.1
-        description: Branch/core thickness multiplier. Used by: lightning-branch, lightning-ambient, lightning-natural, tesla-orb.
+        description: Branch/core thickness multiplier. Used by: lightning-branch, lightning-growth, lightning-ambient, lightning-natural, tesla-orb.
       glow:
         type: boolean
         description: Whether lightning should add halo glow around branches/arcs.
@@ -217,6 +217,7 @@ $defs:
           brighten       — Increase foreground brightness toward white.
           lightning-flash — High-energy multi-pulse flash simulating lightning illumination.
           lightning-branch — Draw jagged lightning branches with optional glow.
+          lightning-growth — Progressive branching lightning that grows and forks before the bright return stroke.
           lightning-optical-80s — Cinematic 80s optical lightning (blue halation + white core).
           lightning-fbm — Shader-inspired procedural lightning warp (FBM/noise driven).
           lightning-ambient — Sparse lighter background lightning using the branch/fbm visual language over a long effect window.
@@ -240,6 +241,7 @@ $defs:
           - brighten
           - lightning-flash
           - lightning-branch
+          - lightning-growth
           - lightning-optical-80s
           - lightning-fbm
           - lightning-ambient

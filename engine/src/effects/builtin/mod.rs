@@ -24,7 +24,7 @@ pub use fade_to_black::FadeToBlackEffect;
 pub use glitch::GlitchOutEffect;
 pub use lightning::{
     LightningAmbientEffect, LightningBranchEffect, LightningFbmEffect, LightningFlashEffect,
-    LightningNaturalEffect, LightningOptical80sEffect, TeslaOrbEffect,
+    LightningGrowthEffect, LightningNaturalEffect, LightningOptical80sEffect, TeslaOrbEffect,
 };
 pub use power_off::PowerOffEffect;
 pub use scanlines::ScanlinesEffect;
