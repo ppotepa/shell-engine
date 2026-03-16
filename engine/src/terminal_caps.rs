@@ -18,7 +18,11 @@ pub struct TerminalRequirements {
     pub min_colours: Option<u32>,
     pub min_width:   Option<u16>,
     pub min_height:  Option<u16>,
+    pub target_fps:  Option<u16>,
 }
+
+pub const DEFAULT_TARGET_FPS: u16 = 60;
+pub const MAX_TARGET_FPS: u16 = 240;
 
 /// Violation reported when a terminal requirement is not met.
 #[derive(Debug, Clone)]
@@ -85,8 +89,19 @@ impl TerminalRequirements {
             min_colours: block.get("min_colours").and_then(Value::as_u64).map(|v| v as u32),
             min_width:   block.get("min_width").and_then(Value::as_u64).map(|v| v as u16),
             min_height:  block.get("min_height").and_then(Value::as_u64).map(|v| v as u16),
+            target_fps:  block
+                .get("target_fps")
+                .or_else(|| block.get("target-fps"))
+                .and_then(Value::as_u64)
+                .map(|v| (v as u16).clamp(1, MAX_TARGET_FPS)),
         })
     }
+}
+
+pub fn target_fps_from_manifest(manifest: &Value) -> u16 {
+    TerminalRequirements::from_manifest(manifest)
+        .and_then(|req| req.target_fps)
+        .unwrap_or(DEFAULT_TARGET_FPS)
 }
 
 /// Detect colour depth from environment variables.
@@ -120,7 +135,12 @@ mod tests {
     use super::*;
 
     fn req(colours: Option<u32>, width: Option<u16>, height: Option<u16>) -> TerminalRequirements {
-        TerminalRequirements { min_colours: colours, min_width: width, min_height: height }
+        TerminalRequirements {
+            min_colours: colours,
+            min_width: width,
+            min_height: height,
+            target_fps: None,
+        }
     }
 
     fn caps(colours: u32, width: u16, height: u16) -> TerminalCaps {
@@ -155,17 +175,32 @@ mod tests {
     #[test]
     fn parses_requirements_from_manifest() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  min_colours: 256\n  min_width: 120\n  min_height: 30\n"
+            "terminal:\n  min_colours: 256\n  min_width: 120\n  min_height: 30\n  target_fps: 30\n"
         ).unwrap();
         let req = TerminalRequirements::from_manifest(&yaml).unwrap();
         assert_eq!(req.min_colours, Some(256));
         assert_eq!(req.min_width, Some(120));
         assert_eq!(req.min_height, Some(30));
+        assert_eq!(req.target_fps, Some(30));
     }
 
     #[test]
     fn returns_none_when_terminal_block_absent() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>("name: test\n").unwrap();
         assert!(TerminalRequirements::from_manifest(&yaml).is_none());
+    }
+
+    #[test]
+    fn target_fps_defaults_to_sixty() {
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>("name: test\n").unwrap();
+        assert_eq!(target_fps_from_manifest(&yaml), 60);
+    }
+
+    #[test]
+    fn target_fps_supports_kebab_case_alias() {
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
+            "terminal:\n  target-fps: 30\n"
+        ).unwrap();
+        assert_eq!(target_fps_from_manifest(&yaml), 30);
     }
 }

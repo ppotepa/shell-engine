@@ -58,8 +58,9 @@ pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
     let mut cursor_x: u16 = 0;
     for ch in text.chars() {
         if let Some(glyph) = glyph_font.glyphs.get(&ch) {
+            let y_base = max_height.saturating_sub(glyph.height.max(1));
             for (row, line) in glyph.lines.iter().enumerate() {
-                let y = row as u16;
+                let y = y_base.saturating_add(row as u16);
                 for (col, gch) in line.chars().enumerate() {
                     if gch == ' ' { continue; }
                     let x = cursor_x.saturating_add(col as u16);
@@ -80,6 +81,30 @@ pub fn rasterize(text: &str, font: &str, fg: Color, bg: Color) -> Buffer {
     }
 
     out
+}
+
+pub fn has_font_assets(font: &str) -> bool {
+    if font.starts_with("generic") {
+        return true;
+    }
+    font_loader::load_font_assets(font).is_some()
+}
+
+pub fn missing_glyphs(font: &str, text: &str) -> Option<Vec<char>> {
+    if font.starts_with("generic") {
+        return Some(Vec::new());
+    }
+    let loaded = font_loader::load_font_assets(font)?;
+    let mut missing = Vec::new();
+    for ch in text.chars() {
+        if ch.is_whitespace() {
+            continue;
+        }
+        if !loaded.glyphs.contains_key(&ch) && !missing.contains(&ch) {
+            missing.push(ch);
+        }
+    }
+    Some(missing)
 }
 
 fn rasterize_native(text: &str, fg: Color, bg: Color) -> Buffer {

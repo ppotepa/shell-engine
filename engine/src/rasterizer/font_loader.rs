@@ -1,9 +1,28 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 use super::types::{GlyphManifest, LoadedFont, LoadedGlyph};
 
+static FONT_CACHE: OnceLock<Mutex<HashMap<String, Option<LoadedFont>>>> = OnceLock::new();
+
 pub fn load_font_assets(font_name: &str) -> Option<LoadedFont> {
+    let key = font_name.trim().to_string();
+    let cache = FONT_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(guard) = cache.lock() {
+        if let Some(cached) = guard.get(&key) {
+            return cached.clone();
+        }
+    }
+
+    let loaded = load_font_assets_uncached(font_name);
+    if let Ok(mut guard) = cache.lock() {
+        guard.insert(key, loaded.clone());
+    }
+    loaded
+}
+
+fn load_font_assets_uncached(font_name: &str) -> Option<LoadedFont> {
     let (slug, preferred_mode) = parse_font_spec(font_name);
     let font_dir = find_font_dir(&slug, preferred_mode.as_deref())?;
     let manifest_path = font_dir.join("manifest.yaml");
@@ -48,39 +67,55 @@ pub fn load_font_assets(font_name: &str) -> Option<LoadedFont> {
 
 fn find_font_dir(slug: &str, preferred_mode: Option<&str>) -> Option<PathBuf> {
     let mut roots = vec![
+        PathBuf::from("mods/shell-quest/assets/fonts"),
+        PathBuf::from("../mods/shell-quest/assets/fonts"),
         PathBuf::from("mod/shell-quest/assets/fonts"),
         PathBuf::from("../mod/shell-quest/assets/fonts"),
     ];
     if let Ok(exe) = std::env::current_exe() {
         if let Some(bin_dir) = exe.parent() {
+            roots.push(bin_dir.join("../mods/shell-quest/assets/fonts"));
+            roots.push(bin_dir.join("../../mods/shell-quest/assets/fonts"));
             roots.push(bin_dir.join("../mod/shell-quest/assets/fonts"));
             roots.push(bin_dir.join("../../mod/shell-quest/assets/fonts"));
         }
     }
 
     for root in roots {
+        // Canonical layout: assets/fonts/{font-slug}/{size}px/{mode}/manifest.yaml
         let by_name = root.join(slug);
         if let Ok(size_dirs) = fs::read_dir(&by_name) {
             for size_dir in size_dirs.flatten() {
                 let size_path = size_dir.path();
                 let mode_order = mode_order(preferred_mode);
-                for mode in mode_order {
+                for mode in &mode_order {
                     let candidate = size_path.join(mode);
                     if candidate.join("manifest.yaml").exists() {
                         return Some(candidate);
                     }
                 }
+                if size_path.join("manifest.yaml").exists() {
+                    return Some(size_path);
+                }
             }
         }
 
+        // Legacy fallback: assets/fonts/{size}px/{font-slug}/{mode}/manifest.yaml
         let entries = match fs::read_dir(&root) {
             Ok(e) => e,
             Err(_) => continue,
         };
         for size_dir in entries.flatten() {
-            let candidate = size_dir.path().join(slug);
-            if candidate.join("manifest.yaml").exists() {
-                return Some(candidate);
+            let font_root = size_dir.path().join(slug);
+            let mode_order = mode_order(preferred_mode);
+            for mode in &mode_order {
+                let candidate = font_root.join(mode);
+                if candidate.join("manifest.yaml").exists() {
+                    return Some(candidate);
+                }
+            }
+            if font_root.join("manifest.yaml").exists() {
+                return Some(font_root);
             }
         }
     }
@@ -94,12 +129,31 @@ fn parse_font_spec(input: &str) -> (String, Option<String>) {
     (slugify_font_name(name), mode)
 }
 
-fn mode_order(preferred_mode: Option<&str>) -> [&'static str; 2] {
-    match preferred_mode {
-        Some("ascii") => ["ascii", "raster"],
-        Some("raster") => ["raster", "ascii"],
-        _ => ["raster", "ascii"],
+fn mode_order(preferred_mode: Option<&str>) -> Vec<String> {
+    let mut order: Vec<String> = Vec::new();
+    if let Some(mode) = preferred_mode.map(|m| m.trim().to_ascii_lowercase()) {
+        let canonical = match mode.as_str() {
+            "cell" | "raster" => "terminal-pixels".to_string(),
+            _ => mode,
+        };
+        order.push(canonical.clone());
+        if canonical == "terminal-pixels" {
+            order.push("raster".to_string());
+        } else if canonical == "raster" {
+            order.push("terminal-pixels".to_string());
+        }
     }
+    order.push("terminal-pixels".to_string());
+    order.push("raster".to_string());
+    order.push("ascii".to_string());
+
+    let mut dedup = Vec::new();
+    for mode in order {
+        if !dedup.iter().any(|m: &String| m == &mode) {
+            dedup.push(mode);
+        }
+    }
+    dedup
 }
 
 fn slugify_font_name(input: &str) -> String {

@@ -15,7 +15,7 @@
 <h2>Flow</h2>
 <ol>
   <li>Application starts.</li>
-  <li><code>ShellEngine</code> is constructed with the relative path <code>mod/shell-quest/</code>.</li>
+  <li><code>ShellEngine</code> is constructed with the relative path <code>mods/shell-quest/</code> (or <code>SHELL_QUEST_MOD_SOURCE</code> override).</li>
   <li>The engine validates <code>mod.yaml</code> against the mod schema.</li>
   <li><code>engine.run()</code> enters the game loop and does not return until the user quits.</li>
 </ol>
@@ -24,7 +24,7 @@
 <pre>
 // app/src/main.rs
 fn main() {
-    let engine = ShellEngine::new("mod/shell-quest/");
+    let engine = ShellEngine::new("mods/shell-quest/");
     engine.run();
 }
 </pre>

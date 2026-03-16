@@ -15,6 +15,7 @@ pub mod systems;
 pub mod terminal_caps;
 pub mod animations;
 pub mod markup;
+pub mod pipelines;
 
 use std::path::{Path, PathBuf};
 
@@ -40,30 +41,26 @@ impl ShellEngine {
 
     pub fn run(&self) -> Result<(), EngineError> {
         use events::EventQueue;
+        use pipelines::startup::{StartupContext, StartupIssueLevel, StartupRunner};
         use scene_loader::SceneLoader;
         use systems::animator::Animator;
         use systems::renderer::TerminalRenderer;
-        use terminal_caps::{TerminalCaps, TerminalRequirements};
-
-        // Check terminal requirements declared by the mod before doing anything else.
-        if let Some(req) = TerminalRequirements::from_manifest(&self.mod_manifest) {
-            let caps = TerminalCaps::detect()?;
-            let violations = caps.validate(&req);
-            if !violations.is_empty() {
-                let details = violations
-                    .iter()
-                    .map(|v| format!("{}: requires {}, detected {}", v.requirement, v.required, v.detected))
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                return Err(EngineError::TerminalRequirementsNotMet(details));
-            }
-        }
+        use terminal_caps::target_fps_from_manifest;
 
         let entrypoint = self.mod_manifest["entrypoint"]
             .as_str()
             .expect("entrypoint already validated");
 
+        let startup_ctx = StartupContext::new(&self.mod_source, &self.mod_manifest, entrypoint);
+        let startup_report = StartupRunner::default().run(&startup_ctx)?;
+        for issue in startup_report.issues() {
+            if matches!(issue.level, StartupIssueLevel::Warning) {
+                eprintln!("[startup:{}] warning: {}", issue.check, issue.message);
+            }
+        }
+
         let scene = scene_loader::load_scene(&self.mod_source, entrypoint)?;
+        let target_fps = target_fps_from_manifest(&self.mod_manifest);
 
         let (term_w, term_h) = crossterm::terminal::size()?;
 
@@ -81,7 +78,7 @@ impl ShellEngine {
         world.register_scoped(scene);
         world.register_scoped(Animator::new());
 
-        let result = game_loop::game_loop(&mut world);
+        let result = game_loop::game_loop(&mut world, target_fps);
 
         if let Some(renderer) = world.get_mut::<TerminalRenderer>() {
             let _ = renderer.shutdown();

@@ -49,6 +49,36 @@ pub struct EffectParams {
     /// Shine: peak brightness multiplier 0.0–1.0 (default 1.0 = full white).
     #[serde(default)]
     pub intensity: Option<f32>,
+    /// Screen shake horizontal amplitude in cells.
+    #[serde(default)]
+    pub amplitude_x: Option<f32>,
+    /// Screen shake vertical amplitude in cells.
+    #[serde(default)]
+    pub amplitude_y: Option<f32>,
+    /// Shake oscillation frequency (cycles during effect duration).
+    #[serde(default)]
+    pub frequency: Option<f32>,
+    /// Optional hint for fullscreen scope.
+    #[serde(default)]
+    pub coverage: Option<String>,
+    /// Optional target id/name hint for future targeted effects.
+    #[serde(default)]
+    pub target: Option<String>,
+    /// Lightning branches: number of primary strikes.
+    #[serde(default)]
+    pub strikes: Option<u16>,
+    /// Lightning branch thickness multiplier.
+    #[serde(default)]
+    pub thickness: Option<f32>,
+    /// Lightning branch glow halo toggle.
+    #[serde(default)]
+    pub glow: Option<bool>,
+    /// Lightning branch start anchor; accepts numeric string or "random".
+    #[serde(default)]
+    pub start_x: Option<String>,
+    /// Lightning branch end anchor; accepts numeric string or "random".
+    #[serde(default)]
+    pub end_x: Option<String>,
 }
 
 /// A single step in a stage — a group of effects that play in parallel.

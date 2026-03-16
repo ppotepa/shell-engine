@@ -42,9 +42,9 @@ pub enum Sprite {
         id: Option<String>,
         content: String,
         #[serde(default)]
-        x: u16,
+        x: i32,
         #[serde(default)]
-        y: u16,
+        y: i32,
         #[serde(default)]
         z_index: i32,
         font: Option<String>,
@@ -72,4 +72,26 @@ pub enum Sprite {
         #[serde(default)]
         glow: Option<Glow>,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Sprite;
+
+    #[test]
+    fn supports_negative_sprite_offsets() {
+        let raw = r#"
+type: text
+content: "TEST"
+x: -2
+y: -8
+"#;
+        let sprite: Sprite = serde_yaml::from_str(raw).expect("sprite should parse");
+        match sprite {
+            Sprite::Text { x, y, .. } => {
+                assert_eq!(x, -2);
+                assert_eq!(y, -8);
+            }
+        }
+    }
 }

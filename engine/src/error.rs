@@ -41,6 +41,8 @@ pub enum EngineError {
     },
     #[error("terminal does not meet mod requirements: {0}")]
     TerminalRequirementsNotMet(String),
+    #[error("startup check `{check}` failed: {details}")]
+    StartupCheckFailed { check: String, details: String },
     #[error("render error: {0}")]
     Render(#[from] std::io::Error),
 }
