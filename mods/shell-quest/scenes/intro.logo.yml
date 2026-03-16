@@ -140,6 +140,24 @@ layers:
                   strikes: 1
                   thickness: 1.0
                   glow: false
+      on_idle:
+        looping: true
+        steps:
+          - duration: 7200
+            effects:
+              - name: lightning-ambient
+                duration: 7200
+                params:
+                  orientation: horizontal
+                  colour: "#84a7ff"
+                  intensity: 0.48
+                  thickness: 0.9
+                  glow: true
+                  octave_count: 6
+                  amp_start: 0.40
+                  amp_coeff: 0.5
+                  freq_coeff: 2.0
+                  speed: 0.52
     sprites: []
   - name: title
     z_index: 1

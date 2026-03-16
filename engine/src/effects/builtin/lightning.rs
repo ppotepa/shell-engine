@@ -79,6 +79,33 @@ fn smoothstep01(v: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+fn band_hash(region: Region, lane: u32, salt: u32) -> f32 {
+    crt_hash(
+        region.x.wrapping_add((lane as u16).wrapping_mul(17)),
+        region.y.wrapping_add((lane as u16).wrapping_mul(29)),
+        salt ^ ((region.width as u32) << 16) ^ region.height as u32,
+    ) as f32
+        / u32::MAX as f32
+}
+
+fn ambient_pulse_descriptor(region: Region, pulse_idx: usize, pulse_count: usize) -> (f32, f32) {
+    let segment = 1.0 / (pulse_count as f32 + 1.0);
+    let lane = pulse_idx as u32 + 1;
+    let center_jitter = (band_hash(region, lane, 0xA11D_1E) - 0.5) * segment * 0.55;
+    let center = ((pulse_idx as f32 + 1.0) * segment + center_jitter).clamp(0.06, 0.94);
+    let width = 0.035 + band_hash(region, lane, 0xA11D_EF) * 0.03;
+    (center, width)
+}
+
+fn ambient_pulse_envelope(progress: f32, center: f32, width: f32) -> f32 {
+    let dist = (progress - center).abs();
+    if dist >= width {
+        return 0.0;
+    }
+
+    smoothstep01(1.0 - dist / width)
+}
+
 fn parse_anchor(anchor: Option<&str>, w: u16, seed: u32) -> f32 {
     if w == 0 {
         return 0.0;
@@ -842,6 +869,52 @@ impl Effect for LightningNaturalEffect {
     }
 }
 
+/// Ambient horizontal lightning band that emits sparse, lighter background flashes
+/// without the explicit bolt/core pass used by the transition beat.
+pub struct LightningAmbientEffect;
+
+impl Effect for LightningAmbientEffect {
+    fn apply(&self, progress: f32, params: &EffectParams, region: Region, buffer: &mut Buffer) {
+        if region.width == 0 || region.height == 0 {
+            return;
+        }
+
+        let p = progress.clamp(0.0, 1.0);
+        let pulse_count = 5usize;
+        let fbm = LightningFbmEffect;
+
+        for pulse_idx in 0..pulse_count {
+            let (center, width) = ambient_pulse_descriptor(region, pulse_idx, pulse_count);
+            let envelope = ambient_pulse_envelope(p, center, width);
+            if envelope <= 0.02 {
+                continue;
+            }
+
+            let local_progress = ((p - (center - width)) / (width * 2.0)).clamp(0.0, 1.0);
+
+            let mut fbm_params = params.clone();
+            fbm_params.orientation = Some(
+                params
+                    .orientation
+                    .clone()
+                    .unwrap_or_else(|| "horizontal".to_string()),
+            );
+            fbm_params.start_x = None;
+            fbm_params.end_x = None;
+            fbm_params.strikes = None;
+            fbm_params.intensity =
+                Some((params.intensity.unwrap_or(1.0) * 0.5 * envelope).clamp(0.05, 0.55));
+            fbm_params.octave_count = Some(params.octave_count.unwrap_or(7).clamp(2, 12));
+            fbm_params.amp_start = Some(params.amp_start.unwrap_or(0.42).clamp(0.05, 1.0));
+            fbm_params.amp_coeff = Some(params.amp_coeff.unwrap_or(0.5).clamp(0.1, 1.0));
+            fbm_params.freq_coeff = Some(params.freq_coeff.unwrap_or(2.0).clamp(1.0, 5.0));
+            fbm_params.speed = Some(params.speed.unwrap_or(0.55).clamp(0.0, 8.0));
+
+            fbm.apply(local_progress, &fbm_params, region, buffer);
+        }
+    }
+}
+
 /// Renders a spherical "tesla coil" electrical burst around the center.
 pub struct TeslaOrbEffect;
 
@@ -975,7 +1048,10 @@ impl Effect for TeslaOrbEffect {
 
 #[cfg(test)]
 mod tests {
-    use super::{Effect, LightningBranchEffect, LightningFbmEffect, LightningNaturalEffect};
+    use super::{
+        ambient_pulse_descriptor, Effect, LightningAmbientEffect, LightningBranchEffect,
+        LightningFbmEffect, LightningNaturalEffect,
+    };
     use crate::buffer::Buffer;
     use crate::effects::Region;
     use crate::scene::EffectParams;
@@ -1125,5 +1201,64 @@ mod tests {
 
         assert!(vertical_y > vertical_x);
         assert!(horizontal_x > horizontal_y);
+    }
+
+    #[test]
+    fn lightning_ambient_is_sparse_outside_pulses() {
+        let effect = LightningAmbientEffect;
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 48,
+            height: 18,
+        };
+
+        let mut buffer = Buffer::new(region.width, region.height);
+        buffer.fill(Color::Black);
+        effect.apply(
+            0.0,
+            &EffectParams {
+                orientation: Some("horizontal".to_string()),
+                intensity: Some(0.48),
+                ..EffectParams::default()
+            },
+            region,
+            &mut buffer,
+        );
+
+        let (lit_x, lit_y) = lit_axes_coverage(&buffer);
+        assert_eq!(lit_x, 0);
+        assert_eq!(lit_y, 0);
+    }
+
+    #[test]
+    fn lightning_ambient_flashes_horizontally_at_pulse_center() {
+        let effect = LightningAmbientEffect;
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 48,
+            height: 18,
+        };
+        let (center, _) = ambient_pulse_descriptor(region, 0, 5);
+
+        let mut buffer = Buffer::new(region.width, region.height);
+        buffer.fill(Color::Black);
+        effect.apply(
+            center,
+            &EffectParams {
+                orientation: Some("horizontal".to_string()),
+                intensity: Some(0.48),
+                thickness: Some(0.9),
+                ..EffectParams::default()
+            },
+            region,
+            &mut buffer,
+        );
+
+        let (lit_x, lit_y) = lit_axes_coverage(&buffer);
+        assert!(lit_x > 0);
+        assert!(lit_y > 0);
+        assert!(lit_x > lit_y);
     }
 }
