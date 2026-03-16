@@ -208,7 +208,7 @@ layers:
         font: "Abril Fatface:ascii"
         fg_colour: white
         appear_at_ms: 0
-        disappear_at_ms: 3720
+        disappear_at_ms: 3140
         stages:
           on_enter:
             steps:
@@ -225,7 +225,7 @@ layers:
         align_y: center
         font: "Abril Fatface:raster"
         fg_colour: gray
-        appear_at_ms: 3720
+        appear_at_ms: 3140
         stages:
           on_enter:
             steps:
