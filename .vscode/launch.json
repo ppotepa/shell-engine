@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Shell Quest (app)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "-p",
+          "app"
+        ],
+        "filter": {
+          "name": "app",
+          "kind": "bin"
+        }
+      },
+      "cwd": "${workspaceFolder}",
+      "args": [],
+      "env": {
+        "RUST_BACKTRACE": "1"
+      },
+      "terminal": "integrated",
+      "preLaunchTask": "Check workspace"
+    }
+  ]
+}

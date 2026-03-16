@@ -124,10 +124,7 @@ fn render_text_content(
             }
         }
         Some(font_name) if font_name.starts_with("generic") => {
-            let preset: u16 = font_name.strip_prefix("generic")
-                .and_then(|s| s.strip_prefix(':'))
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(2);
+            let mode = generic::GenericMode::from_font_name(font_name);
             let spans = parse_spans(content);
             let colored_spans: Vec<(String, Color)> = spans.iter()
                 .map(|s| {
@@ -135,7 +132,7 @@ fn render_text_content(
                     (s.text.clone(), col)
                 })
                 .collect();
-            generic::rasterize_spans(&colored_spans, preset, x, y, buf);
+            generic::rasterize_spans_mode(&colored_spans, mode, x, y, buf);
         }
         Some(font_name) => {
             // TODO: add per-span markup colour support for manifest fonts
@@ -152,15 +149,8 @@ fn sprite_dimensions(content: &str, font: Option<&str>, fg: Color, bg: Color) ->
     match font {
         None => (visible.chars().count() as u16, 1),
         Some(font_name) if font_name.starts_with("generic") => {
-            let preset: u16 = font_name.strip_prefix("generic")
-                .and_then(|s| s.strip_prefix(':'))
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(2);
-            match preset {
-                1 => generic::generic_dimensions_tiny(&visible),
-                3 => generic::generic_dimensions(&visible, 2),
-                _ => generic::generic_dimensions(&visible, 1),
-            }
+            let mode = generic::GenericMode::from_font_name(font_name);
+            generic::generic_dimensions_mode(&visible, mode)
         }
         Some(font_name) => {
             let text_buf = rasterizer::rasterize(&visible, font_name, fg, bg);

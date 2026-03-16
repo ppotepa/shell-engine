@@ -303,6 +303,9 @@ $defs:
             "generic:1"  — 3×5 tiny bitmaps (minimum readable, 3 cells wide × 5 tall per glyph).
             "generic:2"  — 5×7 standard bitmaps (5 cells wide × 7 tall per glyph). Default.
             "generic:3"  — 5×7 bitmaps × 2 cell scale (10×14 cells — large pixel art).
+            "generic:half"    — 5×7 compressed with upper/lower half blocks (6×4 cells per glyph).
+            "generic:quad"    — 5×7 compressed with quadrant blocks (3×4 cells per glyph).
+            "generic:braille" — 5×7 compressed with braille dots (3×2 cells per glyph).
             "generic"    — equivalent to generic:2.
 
           Named bitmap fonts loaded from mod assets:

@@ -66,7 +66,7 @@ layers:
         content: "SHELL QUEST I"
         align_x: center
         align_y: center
-        font: "Abril Fatface"
+        font: "Abril Fatface:raster"
         fg_colour: gray
         appear_at_ms: 3720
         stages:
@@ -117,8 +117,6 @@ layers:
         font: "generic:1"
         fg_colour: white
         hide_on_leave: true
-        glow:
-          radius: 1
         appear_at_ms: 8500
         animations:
           - name: float
@@ -128,4 +126,4 @@ layers:
               amplitude: 1
               period_ms: 2000
               easing: ease-in-out
-next: intro.prologue
+next: intro.font-demo
