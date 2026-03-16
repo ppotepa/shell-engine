@@ -33,6 +33,9 @@ cargo run -p editor
 ## Documentation & demo
 
 - Demo video: [▶ Obejrzyj demo](./docs/demo.webm)
-- Click the preview to open the clip:
 
-[![Shell Quest demo preview](./docs/assets/imported/shell-quest-terminal.png)](./docs/demo.webm)
+<div align="center">
+  <video src="./docs/demo.webm" controls preload="metadata" poster="./docs/assets/imported/shell-quest-terminal.png">
+    Demo video
+  </video>
+</div>
