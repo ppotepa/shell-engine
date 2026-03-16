@@ -45,6 +45,8 @@ impl EffectDispatcher {
         self.registry
             .insert("lightning-fbm", Box::new(LightningFbmEffect));
         self.registry
+            .insert("lightning-growth", Box::new(LightningGrowthEffect));
+        self.registry
             .insert("lightning-ambient", Box::new(LightningAmbientEffect));
         self.registry
             .insert("lightning-natural", Box::new(LightningNaturalEffect));

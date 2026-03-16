@@ -106,6 +106,11 @@ fn ambient_pulse_envelope(progress: f32, center: f32, width: f32) -> f32 {
     smoothstep01(1.0 - dist / width)
 }
 
+#[inline]
+fn lerp_f32(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
 fn parse_anchor(anchor: Option<&str>, w: u16, seed: u32) -> f32 {
     if w == 0 {
         return 0.0;
@@ -205,6 +210,82 @@ fn blend_cell_to(
     }
 }
 
+fn render_growth_core(
+    buffer: &mut Buffer,
+    region: Region,
+    x: i32,
+    y: i32,
+    thickness: f32,
+    amount: f32,
+    effect_color: Color,
+    glow: bool,
+) {
+    if x < region.x as i32
+        || y < region.y as i32
+        || x >= (region.x + region.width) as i32
+        || y >= (region.y + region.height) as i32
+    {
+        return;
+    }
+
+    let xi = x as u16;
+    let yi = y as u16;
+    let core_radius = thickness.ceil() as i32;
+    let halo_radius = (thickness * 2.6).ceil() as i32;
+
+    for oy in -halo_radius..=halo_radius {
+        for ox in -halo_radius..=halo_radius {
+            let xx = x + ox;
+            let yy = y + oy;
+            if xx < region.x as i32
+                || yy < region.y as i32
+                || xx >= (region.x + region.width) as i32
+                || yy >= (region.y + region.height) as i32
+            {
+                continue;
+            }
+
+            let dist = ((ox * ox + oy * oy) as f32).sqrt();
+            let core = (1.0 - dist / (0.35 + core_radius as f32))
+                .clamp(0.0, 1.0)
+                .powf(1.65);
+            let halo = (1.0 - dist / (0.8 + halo_radius as f32))
+                .clamp(0.0, 1.0)
+                .powf(2.4);
+            let local = (core * 0.84 + halo * 0.22) * amount;
+            if local <= 0.02 {
+                continue;
+            }
+
+            let symbol = if core > 0.68 {
+                Some('█')
+            } else if core > 0.34 {
+                Some('▓')
+            } else {
+                Some('▒')
+            };
+            let tint = if core > 0.4 {
+                Color::White
+            } else {
+                effect_color
+            };
+            blend_cell_to(
+                buffer,
+                xx as u16,
+                yy as u16,
+                tint,
+                local.clamp(0.0, 1.0),
+                symbol,
+                TRUE_BLACK,
+            );
+        }
+    }
+
+    if glow {
+        apply_glow(buffer, region, xi, yi, amount * 0.9);
+    }
+}
+
 /// Short burst flash with multi-pulse behavior (closer to natural lightning).
 pub struct LightningFlashEffect;
 
@@ -230,6 +311,192 @@ impl Effect for LightningFlashEffect {
                 let row_bias = 0.88 + (1.0 - dy as f32 / region.height as f32) * 0.18;
                 let amount = (envelope * intensity * grain * row_bias).clamp(0.0, 1.0);
                 brighten_cell(buffer, x, y, amount);
+            }
+        }
+    }
+}
+
+/// Progressive branching lightning that grows across the frame before the return stroke.
+pub struct LightningGrowthEffect;
+
+impl Effect for LightningGrowthEffect {
+    fn apply(&self, progress: f32, params: &EffectParams, region: Region, buffer: &mut Buffer) {
+        if region.width == 0 || region.height == 0 {
+            return;
+        }
+
+        let p = progress.clamp(0.0, 1.0);
+        let frame = (p * 12_000.0) as u32;
+        let strikes = params.strikes.unwrap_or(2).clamp(1, 4) as usize;
+        let thickness = params.thickness.unwrap_or(1.0).clamp(0.45, 2.8);
+        let glow = params.glow.unwrap_or(true);
+        let intensity = params.intensity.unwrap_or(1.0).clamp(0.1, 2.5);
+        let octaves = params.octave_count.unwrap_or(6).clamp(2, 12);
+        let amp_start = params.amp_start.unwrap_or(0.45).clamp(0.05, 1.0);
+        let amp_coeff = params.amp_coeff.unwrap_or(0.5).clamp(0.1, 1.0);
+        let freq_coeff = params.freq_coeff.unwrap_or(2.0).clamp(1.0, 5.0);
+        let speed = params.speed.unwrap_or(0.6).clamp(0.0, 8.0);
+        let orientation = LightningOrientation::from_params(params);
+        let effect_color = params
+            .colour
+            .as_ref()
+            .map(Color::from)
+            .unwrap_or(Color::Rgb {
+                r: 132,
+                g: 172,
+                b: 255,
+            });
+
+        let growth_progress = smoothstep01((p / 0.58).clamp(0.0, 1.0));
+        let leader_intensity = (0.22 + 0.42 * smoothstep01((p / 0.42).clamp(0.0, 1.0))) * intensity;
+        let return_pulse = (-((p - 0.58) * 9.0).powi(2)).exp() * 0.52 * intensity;
+        let late_pulse = (-((p - 0.78) * 16.0).powi(2)).exp() * 0.18 * intensity;
+        let sustain = if p < 0.72 {
+            1.0
+        } else {
+            (1.0 - ((p - 0.72) / 0.28)).clamp(0.0, 1.0).powf(1.7)
+        };
+        let envelope = ((leader_intensity + return_pulse + late_pulse) * sustain).clamp(0.0, 1.0);
+        if envelope <= 0.02 {
+            return;
+        }
+
+        let (axis_len, cross_len) = match orientation {
+            LightningOrientation::Vertical => (region.height.max(1), region.width.max(1)),
+            LightningOrientation::Horizontal => (region.width.max(1), region.height.max(1)),
+        };
+        let grown_steps = ((axis_len as f32) * growth_progress)
+            .ceil()
+            .clamp(1.0, axis_len as f32) as usize;
+
+        for s in 0..strikes {
+            let seed = frame.wrapping_add((s as u32).wrapping_mul(117_223));
+            let start = parse_anchor(
+                params.start_x.as_deref(),
+                cross_len,
+                crt_hash(region.x.wrapping_add(s as u16), region.y, seed),
+            );
+            let end = parse_anchor(
+                params.end_x.as_deref(),
+                cross_len,
+                crt_hash(
+                    region.x,
+                    region.y.wrapping_add(s as u16),
+                    seed.wrapping_add(41),
+                ),
+            );
+
+            let mut axis = start;
+            let mut main_points: Vec<(i32, i32, f32)> = Vec::with_capacity(grown_steps);
+
+            for idx in 0..grown_steps {
+                let t = idx as f32 / axis_len.saturating_sub(1).max(1) as f32;
+                let base_axis = lerp_f32(start, end, t);
+                let fbm = fbm2(
+                    (
+                        t * 4.6 + p * speed * 2.2 + s as f32 * 0.31,
+                        p * speed * 1.4 + t * 0.9 + s as f32 * 0.17,
+                    ),
+                    octaves,
+                    amp_start,
+                    amp_coeff,
+                    freq_coeff,
+                ) - 0.5;
+                let side_energy = 1.0 - (t * 2.0 - 1.0).abs();
+                let stepped = (n01(region.x.wrapping_add(idx as u16), region.y, seed) - 0.5)
+                    * 2.0
+                    * thickness
+                    * (0.7 + side_energy * 0.9);
+                axis += (base_axis + fbm * thickness * 4.4 - axis) * 0.52 + stepped * 0.62;
+                axis = axis.clamp(0.0, cross_len.saturating_sub(1) as f32);
+
+                let head_factor = if idx + 3 >= grown_steps { 0.86 } else { 1.0 };
+                let local = (envelope
+                    * (0.82
+                        + n01(
+                            region.x,
+                            region.y.wrapping_add(idx as u16),
+                            seed.wrapping_add(313),
+                        ) * 0.18)
+                    * head_factor)
+                    .clamp(0.0, 1.0);
+
+                let (x, y) = match orientation {
+                    LightningOrientation::Vertical => (
+                        region.x as i32 + axis.round() as i32,
+                        region.y as i32 + idx as i32,
+                    ),
+                    LightningOrientation::Horizontal => (
+                        region.x as i32 + idx as i32,
+                        region.y as i32 + axis.round() as i32,
+                    ),
+                };
+                render_growth_core(buffer, region, x, y, thickness, local, effect_color, glow);
+                main_points.push((x, y, t));
+            }
+
+            for (idx, &(x, y, birth_t)) in main_points.iter().enumerate() {
+                let gate = n01(
+                    (x.max(0) as u16).wrapping_add(s as u16),
+                    (y.max(0) as u16).wrapping_add(idx as u16),
+                    seed.wrapping_add(911),
+                );
+                if gate <= 0.84 || idx < 2 || idx + 3 >= grown_steps {
+                    continue;
+                }
+
+                let branch_progress =
+                    ((growth_progress - birth_t) / (1.0 - birth_t).max(0.15)).clamp(0.0, 1.0);
+                if branch_progress <= 0.08 {
+                    continue;
+                }
+
+                let direction = if gate > 0.93 { 1.0 } else { -1.0 };
+                let max_len = 2 + ((gate * 6.0) as usize);
+                let visible_len = ((max_len as f32) * smoothstep01(branch_progress))
+                    .ceil()
+                    .max(1.0) as usize;
+
+                for bi in 1..=visible_len.min(max_len) {
+                    let bt = bi as f32 / max_len.max(1) as f32;
+                    let branch_noise = fbm2(
+                        (
+                            birth_t * 6.0 + bt * 2.6 + s as f32 * 0.19,
+                            p * speed * 1.6 + bt * 1.7 + s as f32 * 0.37,
+                        ),
+                        4,
+                        0.34,
+                        0.55,
+                        2.0,
+                    ) - 0.5;
+
+                    let (bx, by) = match orientation {
+                        LightningOrientation::Vertical => (
+                            x + (direction * bi as f32 + branch_noise * 1.6).round() as i32,
+                            y + ((bi as f32 * 0.55) + branch_noise.abs() * 0.8).round() as i32,
+                        ),
+                        LightningOrientation::Horizontal => (
+                            x + ((bi as f32 * 0.55) + branch_noise.abs() * 0.8).round() as i32,
+                            y + (direction * bi as f32 + branch_noise * 1.6).round() as i32,
+                        ),
+                    };
+
+                    let local = (envelope
+                        * (0.62 - bt * 0.34)
+                        * (0.86 + gate * 0.14)
+                        * (0.82 + branch_progress * 0.18))
+                        .clamp(0.0, 1.0);
+                    render_growth_core(
+                        buffer,
+                        region,
+                        bx,
+                        by,
+                        (thickness * (0.52 - bt * 0.18)).clamp(0.22, 1.2),
+                        local,
+                        effect_color,
+                        glow && bt < 0.75,
+                    );
+                }
             }
         }
     }
@@ -1050,7 +1317,7 @@ impl Effect for TeslaOrbEffect {
 mod tests {
     use super::{
         ambient_pulse_descriptor, Effect, LightningAmbientEffect, LightningBranchEffect,
-        LightningFbmEffect, LightningNaturalEffect,
+        LightningFbmEffect, LightningGrowthEffect, LightningNaturalEffect,
     };
     use crate::buffer::Buffer;
     use crate::effects::Region;
@@ -1069,6 +1336,13 @@ mod tests {
             })
             .count();
         (lit_x, lit_y)
+    }
+
+    fn lit_cell_count(buffer: &Buffer) -> usize {
+        (0..buffer.height)
+            .flat_map(|y| (0..buffer.width).map(move |x| (x, y)))
+            .filter(|&(x, y)| buffer.get(x, y).is_some_and(|cell| cell.symbol != ' '))
+            .count()
     }
 
     #[test]
@@ -1201,6 +1475,86 @@ mod tests {
 
         assert!(vertical_y > vertical_x);
         assert!(horizontal_x > horizontal_y);
+    }
+
+    #[test]
+    fn lightning_growth_orientation_changes_primary_axis() {
+        let effect = LightningGrowthEffect;
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 40,
+            height: 20,
+        };
+
+        let mut vertical = Buffer::new(region.width, region.height);
+        vertical.fill(Color::Black);
+        effect.apply(
+            0.7,
+            &EffectParams {
+                strikes: Some(2),
+                thickness: Some(1.0),
+                glow: Some(false),
+                intensity: Some(0.7),
+                ..EffectParams::default()
+            },
+            region,
+            &mut vertical,
+        );
+
+        let mut horizontal = Buffer::new(region.width, region.height);
+        horizontal.fill(Color::Black);
+        effect.apply(
+            0.7,
+            &EffectParams {
+                strikes: Some(2),
+                thickness: Some(1.0),
+                glow: Some(false),
+                intensity: Some(0.7),
+                orientation: Some("horizontal".to_string()),
+                ..EffectParams::default()
+            },
+            region,
+            &mut horizontal,
+        );
+
+        let (vertical_x, vertical_y) = lit_axes_coverage(&vertical);
+        let (horizontal_x, horizontal_y) = lit_axes_coverage(&horizontal);
+
+        assert!(vertical_y > vertical_x);
+        assert!(horizontal_x > horizontal_y);
+    }
+
+    #[test]
+    fn lightning_growth_reveals_more_cells_later_in_progress() {
+        let effect = LightningGrowthEffect;
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 48,
+            height: 20,
+        };
+        let params = EffectParams {
+            strikes: Some(2),
+            thickness: Some(1.0),
+            glow: Some(false),
+            intensity: Some(0.8),
+            orientation: Some("horizontal".to_string()),
+            ..EffectParams::default()
+        };
+
+        let mut early = Buffer::new(region.width, region.height);
+        early.fill(Color::Black);
+        effect.apply(0.18, &params, region, &mut early);
+
+        let mut late = Buffer::new(region.width, region.height);
+        late.fill(Color::Black);
+        effect.apply(0.68, &params, region, &mut late);
+
+        assert!(lit_cell_count(&late) > lit_cell_count(&early));
+        let (early_x, _) = lit_axes_coverage(&early);
+        let (late_x, _) = lit_axes_coverage(&late);
+        assert!(late_x >= early_x);
     }
 
     #[test]

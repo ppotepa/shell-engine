@@ -47,13 +47,18 @@ stages:
               easing: ease-in
   on_leave:
     steps:
-      - duration: 500
-        effects: []
-      - duration: 2800
+      - duration: 900
         effects: []
       - effects:
-          - name: artifact-out
-            duration: 1400
+          - name: lightning-flash
+            duration: 180
+            params:
+              intensity: 1.9
+          - name: whiteout
+            duration: 180
+      - effects:
+          - name: fade-to-black
+            duration: 420
 layers:
   - name: lightning-bg
     z_index: -1
@@ -67,7 +72,7 @@ layers:
             effects: []
           - duration: 420
             effects:
-              - name: lightning-branch
+              - name: lightning-growth
                 duration: 420
                 params:
                   orientation: horizontal
@@ -91,7 +96,7 @@ layers:
                   intensity: 0.24
           - duration: 280
             effects:
-              - name: lightning-branch
+              - name: lightning-growth
                 duration: 280
                 params:
                   orientation: horizontal
@@ -111,7 +116,7 @@ layers:
                   speed: 0.55
           - duration: 60
             effects:
-              - name: lightning-branch
+              - name: lightning-growth
                 duration: 60
                 params:
                   orientation: horizontal
@@ -122,7 +127,7 @@ layers:
             effects: []
           - duration: 50
             effects:
-              - name: lightning-branch
+              - name: lightning-growth
                 duration: 50
                 params:
                   orientation: horizontal
@@ -133,7 +138,7 @@ layers:
             effects: []
           - duration: 50
             effects:
-              - name: lightning-branch
+              - name: lightning-growth
                 duration: 50
                 params:
                   orientation: horizontal
@@ -158,6 +163,38 @@ layers:
                   amp_coeff: 0.5
                   freq_coeff: 2.0
                   speed: 0.52
+      on_leave:
+        steps:
+          - duration: 460
+            effects:
+              - name: lightning-fbm
+                duration: 460
+                params:
+                  orientation: horizontal
+                  colour: "#6d95ff"
+                  intensity: 0.56
+                  octave_count: 8
+                  amp_start: 0.42
+                  amp_coeff: 0.5
+                  freq_coeff: 2.0
+                  speed: 0.58
+          - duration: 440
+            effects:
+              - name: lightning-fbm
+                duration: 440
+                params:
+                  orientation: horizontal
+                  colour: "#9cbcff"
+                  intensity: 0.92
+                  octave_count: 10
+                  amp_start: 0.52
+                  amp_coeff: 0.5
+                  freq_coeff: 2.0
+                  speed: 0.64
+              - name: brighten
+                duration: 440
+                params:
+                  intensity: 0.30
     sprites: []
   - name: title
     z_index: 1
@@ -227,12 +264,12 @@ layers:
             steps:
               - effects:
                   - name: brighten
-                    duration: 500
+                    duration: 320
                     params:
-                      intensity: 0.10
+                      intensity: 0.16
                       easing: ease-out
                   - name: shine
-                    duration: 500
+                    duration: 320
                     params:
                       angle: 20
                       width: 2
@@ -241,8 +278,15 @@ layers:
                       colour: white
                       easing: ease-in
               - effects:
-                  - name: shatter-glitch
-                    duration: 2800
+                  - name: brighten
+                    duration: 560
+                    params:
+                      intensity: 0.34
+                      easing: ease-in
+                  - name: fade-out
+                    duration: 560
+                    params:
+                      easing: ease-out
 
       - type: text
         id: press-any-key

@@ -8,6 +8,9 @@ virtual-size-override: "320x240"
 stages:
   on_enter:
     steps:
+      - duration: 3000
+        effects: []
+
       - duration: 900
         effects:
           - name: fade-in
@@ -54,8 +57,8 @@ layers:
         glow:
           colour: "#5f7cff"
           radius: 1
-        appear_at_ms: 0
-        disappear_at_ms: 4300
+        appear_at_ms: 3000
+        disappear_at_ms: 7300
         stages:
           on_enter:
             steps:
