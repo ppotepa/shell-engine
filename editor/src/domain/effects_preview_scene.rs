@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use engine_core::effects::shared_dispatcher;
 use engine_core::scene::{Easing, EffectParams, EffectTargetKind};
 
-const PREVIEW_TEMPLATE: &str = include_str!("../../assets/effects-preview.scene.yml");
+const PREVIEW_TEMPLATE_SPRITE: &str = include_str!("../../assets/effects-preview.scene.yml");
+const PREVIEW_TEMPLATE_SCENE: &str =
+    include_str!("../../assets/effects-preview-scene.scene.yml");
 pub const PREVIEW_DURATION_MS: u64 = 1_600;
 const DEFAULT_VIEWPORT_W: u16 = 32;
 const DEFAULT_VIEWPORT_H: u16 = 18;
@@ -16,6 +18,13 @@ pub enum PreviewPlacement {
     CaptionSprite,
 }
 
+impl PreviewPlacement {
+    /// Ambient effects (scene/layer placement) don't need a subject sprite.
+    pub fn is_ambient(self) -> bool {
+        matches!(self, PreviewPlacement::Scene | PreviewPlacement::Layer)
+    }
+}
+
 pub fn build_preview_scene_yaml(
     effect_name: &str,
     params: &EffectParams,
@@ -24,42 +33,64 @@ pub fn build_preview_scene_yaml(
 ) -> String {
     let placement = choose_preview_placement(effect_name);
     let effect_yaml = render_effect_yaml(effect_name, params, placement.target_kind());
-    let layout = PreviewLayout::for_viewport(viewport_w, viewport_h);
 
-    // The scene uses rendered-mode: halfblock. In halfblock mode, composite_scene_halfblock
-    // renders into a scratch buffer of height*2 then packs 2 virtual rows into 1 terminal cell.
-    // So YAML `height: H` results in H/2 terminal rows after packing, and `y: Y` is in virtual
-    // pixel units (2× terminal cells). We multiply heights and y-offsets by 2 here to produce
-    // the correct terminal-cell coverage from the cell-unit layout values.
-    PREVIEW_TEMPLATE
-        .replace("__PENGUIN_WIDTH__", &layout.penguin_width.to_string())
-        .replace("__PENGUIN_HEIGHT__", &(layout.penguin_height * 2).to_string())
-        .replace("__PENGUIN_OFFSET_Y__", &(layout.penguin_offset_y * 2).to_string())
-        .replace("__CAPTION_OFFSET_Y__", &(layout.caption_offset_y * 2).to_string())
-        .replace(
-            "__SCENE_STAGES__",
-            &render_stages_block("  ", placement == PreviewPlacement::Scene, &effect_yaml),
-        )
-        .replace(
-            "__LAYER_STAGES__",
-            &render_stages_block("      ", placement == PreviewPlacement::Layer, &effect_yaml),
-        )
-        .replace(
-            "__PENGUIN_STAGES__",
-            &render_stages_block(
-                "          ",
-                placement == PreviewPlacement::PenguinSprite,
-                &effect_yaml,
-            ),
-        )
-        .replace(
-            "__CAPTION_STAGES__",
-            &render_stages_block(
-                "          ",
-                placement == PreviewPlacement::CaptionSprite,
-                &effect_yaml,
-            ),
-        )
+    if placement.is_ambient() {
+        // Scene-level or layer-level effects: full-screen template, no sprite subject.
+        PREVIEW_TEMPLATE_SCENE
+            .replace(
+                "__SCENE_STAGES__",
+                &render_stages_block(
+                    "  ",
+                    placement == PreviewPlacement::Scene,
+                    &effect_yaml,
+                ),
+            )
+            .replace(
+                "__LAYER_STAGES__",
+                &render_stages_block(
+                    "      ",
+                    placement == PreviewPlacement::Layer,
+                    &effect_yaml,
+                ),
+            )
+    } else {
+        // Sprite-level effects: show penguin as the subject.
+        // The scene uses rendered-mode: halfblock. In halfblock mode, composite_scene_halfblock
+        // renders into a scratch buffer of height*2 then packs 2 virtual rows into 1 terminal
+        // cell. So YAML `height: H` results in H/2 terminal rows after packing, and `y: Y` is
+        // in virtual pixel units (2× terminal cells). We multiply heights and y-offsets by 2
+        // here to produce the correct terminal-cell coverage from the cell-unit layout values.
+        let layout = PreviewLayout::for_viewport(viewport_w, viewport_h);
+        PREVIEW_TEMPLATE_SPRITE
+            .replace("__PENGUIN_WIDTH__", &layout.penguin_width.to_string())
+            .replace("__PENGUIN_HEIGHT__", &(layout.penguin_height * 2).to_string())
+            .replace("__PENGUIN_OFFSET_Y__", &(layout.penguin_offset_y * 2).to_string())
+            .replace("__CAPTION_OFFSET_Y__", &(layout.caption_offset_y * 2).to_string())
+            .replace(
+                "__SCENE_STAGES__",
+                &render_stages_block("  ", false, &effect_yaml),
+            )
+            .replace(
+                "__LAYER_STAGES__",
+                &render_stages_block("      ", false, &effect_yaml),
+            )
+            .replace(
+                "__PENGUIN_STAGES__",
+                &render_stages_block(
+                    "          ",
+                    placement == PreviewPlacement::PenguinSprite,
+                    &effect_yaml,
+                ),
+            )
+            .replace(
+                "__CAPTION_STAGES__",
+                &render_stages_block(
+                    "          ",
+                    placement == PreviewPlacement::CaptionSprite,
+                    &effect_yaml,
+                ),
+            )
+    }
 }
 
 pub fn build_preview_scene_yaml_default(effect_name: &str, params: &EffectParams) -> String {

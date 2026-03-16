@@ -1,0 +1,15 @@
+id: effect_preview
+title: Effect Preview
+cutscene: false
+rendered-mode: halfblock
+bg_colour: black
+stages:
+__SCENE_STAGES__
+layers:
+  - name: preview
+    z_index: 0
+    visible: true
+    stages:
+__LAYER_STAGES__
+    sprites: []
+next: null
