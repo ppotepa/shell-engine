@@ -81,17 +81,7 @@ pub fn renderer_system(world: &mut World) {
     }
 
     if let Some(renderer) = world.renderer_mut() {
-        let stdout = &mut renderer.stdout;
-        for (x, y, symbol, fg, bg) in &diffs {
-            let _ = queue!(
-                stdout,
-                cursor::MoveTo(*x, *y),
-                style::SetForegroundColor(*fg),
-                style::SetBackgroundColor(*bg),
-                style::Print(symbol)
-            );
-        }
-        let _ = stdout.flush();
+        flush_batched(&mut renderer.stdout, &diffs);
     }
 
     if let Some(buf) = world.buffer_mut() {
@@ -241,6 +231,55 @@ fn sample_fit_source(
     let sy = ((oy as u32).saturating_mul(virtual_h as u32) / viewport_h.max(1) as u32)
         .min(virtual_h.saturating_sub(1) as u32) as u16;
     (sx, sy)
+}
+
+/// Batch-flush diffs to the terminal.
+///
+/// Consecutive cells on the same row sharing the same fg+bg colour are merged
+/// into a single `MoveTo + SetFg + SetBg + Print(run)` command, reducing the
+/// number of terminal I/O operations from O(cells) toward O(colour-runs).
+/// Diffs arrive in row-major order from `Buffer::diff`, so no sort is needed.
+fn flush_batched(
+    stdout: &mut io::Stdout,
+    diffs: &[(u16, u16, char, style::Color, style::Color)],
+) {
+    if diffs.is_empty() {
+        return;
+    }
+
+    let mut run = String::new();
+    let (mut rx, mut ry, _, mut rfg, mut rbg) = diffs[0];
+    run.push(diffs[0].2);
+
+    for &(x, y, ch, fg, bg) in &diffs[1..] {
+        let continues = y == ry && x == rx + run.chars().count() as u16 && fg == rfg && bg == rbg;
+        if continues {
+            run.push(ch);
+        } else {
+            let _ = queue!(
+                stdout,
+                cursor::MoveTo(rx, ry),
+                style::SetForegroundColor(rfg),
+                style::SetBackgroundColor(rbg),
+                style::Print(&run)
+            );
+            run.clear();
+            run.push(ch);
+            rx = x;
+            ry = y;
+            rfg = fg;
+            rbg = bg;
+        }
+    }
+
+    let _ = queue!(
+        stdout,
+        cursor::MoveTo(rx, ry),
+        style::SetForegroundColor(rfg),
+        style::SetBackgroundColor(rbg),
+        style::Print(&run)
+    );
+    let _ = stdout.flush();
 }
 
 fn copy_cell(dst: &mut Buffer, x: u16, y: u16, src: &Cell) {

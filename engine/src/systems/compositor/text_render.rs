@@ -44,7 +44,7 @@ pub(super) fn render_text_content(
         }
         Some(font_name) => {
             let stripped = strip_markup(content);
-            let text_buf = rasterizer::rasterize(mod_source, &stripped, font_name, fg, bg);
+            let text_buf = rasterizer::rasterize_cached(mod_source, &stripped, font_name, fg, bg);
             rasterizer::blit(&text_buf, buf, x, y);
         }
     }
@@ -65,7 +65,7 @@ pub(super) fn text_sprite_dimensions(
             generic::generic_dimensions_mode(&visible, mode)
         }
         Some(font_name) => {
-            let text_buf = rasterizer::rasterize(mod_source, &visible, font_name, fg, bg);
+            let text_buf = rasterizer::rasterize_cached(mod_source, &visible, font_name, fg, bg);
             (text_buf.width, text_buf.height)
         }
     }
