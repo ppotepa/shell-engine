@@ -1,5 +1,5 @@
 [workspace]
-members = ["app", "engine", "submodules/ttf-rasterizer"]
+members = ["app", "engine", "tools/ttf-rasterizer"]
 resolver = "2"
 
 [workspace.package]

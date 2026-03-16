@@ -2,22 +2,70 @@
 /// Each entry: character → array of 7 rows, each row is a 5-bit mask (bit 4 = leftmost).
 pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
     match ch {
-        'S' => Some([0b01110, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110]),
-        'H' => Some([0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001]),
-        'E' => Some([0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111]),
-        'L' => Some([0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111]),
-        'Q' => Some([0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101]),
-        'U' => Some([0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110]),
-        'T' => Some([0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100]),
-        'I' => Some([0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b11111]),
-        'P' => Some([0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000]),
-        'R' => Some([0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001]),
         'A' => Some([0b01110, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001]),
-        'N' => Some([0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001]),
-        'Y' => Some([0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100]),
+        'B' => Some([0b11110, 0b10001, 0b10001, 0b11110, 0b10001, 0b10001, 0b11110]),
+        'C' => Some([0b01110, 0b10001, 0b10000, 0b10000, 0b10000, 0b10001, 0b01110]),
+        'D' => Some([0b11110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b11110]),
+        'E' => Some([0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b11111]),
+        'F' => Some([0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000]),
+        'G' => Some([0b01110, 0b10001, 0b10000, 0b10111, 0b10001, 0b10001, 0b01110]),
+        'H' => Some([0b10001, 0b10001, 0b10001, 0b11111, 0b10001, 0b10001, 0b10001]),
+        'I' => Some([0b01110, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110]),
+        'J' => Some([0b00001, 0b00001, 0b00001, 0b00001, 0b10001, 0b10001, 0b01110]),
         'K' => Some([0b10001, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010, 0b10001]),
+        'L' => Some([0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b10000, 0b11111]),
+        'M' => Some([0b10001, 0b11011, 0b10101, 0b10101, 0b10001, 0b10001, 0b10001]),
+        'N' => Some([0b10001, 0b11001, 0b10101, 0b10011, 0b10001, 0b10001, 0b10001]),
+        'O' => Some([0b01110, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110]),
+        'P' => Some([0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000]),
+        'Q' => Some([0b01110, 0b10001, 0b10001, 0b10001, 0b10101, 0b10010, 0b01101]),
+        'R' => Some([0b11110, 0b10001, 0b10001, 0b11110, 0b10100, 0b10010, 0b10001]),
+        'S' => Some([0b01110, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110]),
+        'T' => Some([0b11111, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100]),
+        'U' => Some([0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01110]),
+        'V' => Some([0b10001, 0b10001, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100]),
+        'W' => Some([0b10001, 0b10001, 0b10001, 0b10101, 0b10101, 0b10101, 0b01010]),
+        'X' => Some([0b10001, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001, 0b10001]),
+        'Y' => Some([0b10001, 0b10001, 0b01010, 0b00100, 0b00100, 0b00100, 0b00100]),
+        'Z' => Some([0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b11111]),
+        '0' => Some([0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110]),
+        '1' => Some([0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110]),
+        '2' => Some([0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b01000, 0b11111]),
+        '3' => Some([0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110]),
+        '4' => Some([0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010]),
+        '5' => Some([0b11111, 0b10000, 0b10000, 0b11110, 0b00001, 0b00001, 0b11110]),
+        '6' => Some([0b01110, 0b10000, 0b10000, 0b11110, 0b10001, 0b10001, 0b01110]),
+        '7' => Some([0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000]),
+        '8' => Some([0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110]),
+        '9' => Some([0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00001, 0b01110]),
+        '.' => Some([0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00100, 0b00100]),
+        ',' => Some([0b00000, 0b00000, 0b00000, 0b00000, 0b00100, 0b00100, 0b01000]),
+        ':' => Some([0b00000, 0b00100, 0b00100, 0b00000, 0b00100, 0b00100, 0b00000]),
+        ';' => Some([0b00000, 0b00100, 0b00100, 0b00000, 0b00100, 0b00100, 0b01000]),
+        '-' => Some([0b00000, 0b00000, 0b00000, 0b11111, 0b00000, 0b00000, 0b00000]),
+        '_' => Some([0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b11111]),
+        '/' => Some([0b00001, 0b00010, 0b00100, 0b01000, 0b10000, 0b00000, 0b00000]),
+        '\\' => Some([0b10000, 0b01000, 0b00100, 0b00010, 0b00001, 0b00000, 0b00000]),
+        '>' => Some([0b10000, 0b01000, 0b00100, 0b00010, 0b00100, 0b01000, 0b10000]),
+        '<' => Some([0b00001, 0b00010, 0b00100, 0b01000, 0b00100, 0b00010, 0b00001]),
+        '?' => Some([0b01110, 0b10001, 0b00001, 0b00010, 0b00100, 0b00000, 0b00100]),
+        '!' => Some([0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00000, 0b00100]),
+        '#' => Some([0b01010, 0b11111, 0b01010, 0b01010, 0b11111, 0b01010, 0b00000]),
+        '$' => Some([0b00100, 0b01111, 0b10100, 0b01110, 0b00101, 0b11110, 0b00100]),
+        '(' => Some([0b00010, 0b00100, 0b01000, 0b01000, 0b01000, 0b00100, 0b00010]),
+        ')' => Some([0b01000, 0b00100, 0b00010, 0b00010, 0b00010, 0b00100, 0b01000]),
+        '[' => Some([0b01110, 0b01000, 0b01000, 0b01000, 0b01000, 0b01000, 0b01110]),
+        ']' => Some([0b01110, 0b00010, 0b00010, 0b00010, 0b00010, 0b00010, 0b01110]),
+        '\'' => Some([0b00100, 0b00100, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000]),
+        '"' => Some([0b01010, 0b01010, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000]),
+        '=' => Some([0b00000, 0b11111, 0b00000, 0b11111, 0b00000, 0b00000, 0b00000]),
+        '+' => Some([0b00000, 0b00100, 0b00100, 0b11111, 0b00100, 0b00100, 0b00000]),
+        '*' => Some([0b00000, 0b01010, 0b00100, 0b11111, 0b00100, 0b01010, 0b00000]),
+        '@' => Some([0b01110, 0b10001, 0b10111, 0b10101, 0b10111, 0b10000, 0b01110]),
+        '|' => Some([0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100]),
         ' ' => Some([0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000]),
-        _   => None,
+        c if c.is_ascii_control() => None,
+        _ => Some([0b01110, 0b00001, 0b00110, 0b00100, 0b00000, 0b00100, 0b00000]), // '?'
     }
 }
 
@@ -89,23 +137,55 @@ pub fn generic_dimensions(content: &str, scale: u16) -> (u16, u16) {
 /// 3×5 minimal bitmaps. Each row is a 3-bit mask (bit 2 = leftmost pixel).
 pub fn generic_glyph_rows_tiny(ch: char) -> Option<[u8; 5]> {
     match ch {
-        'P' => Some([0b110, 0b101, 0b110, 0b100, 0b100]),
-        'R' => Some([0b110, 0b101, 0b110, 0b101, 0b101]),
-        'E' => Some([0b111, 0b100, 0b110, 0b100, 0b111]),
-        'S' => Some([0b111, 0b100, 0b111, 0b001, 0b111]),
-        ' ' => Some([0b000, 0b000, 0b000, 0b000, 0b000]),
-        'A' => Some([0b010, 0b101, 0b111, 0b101, 0b101]),
-        'N' => Some([0b101, 0b111, 0b101, 0b101, 0b101]),
-        'Y' => Some([0b101, 0b101, 0b010, 0b010, 0b010]),
-        'K' => Some([0b101, 0b110, 0b100, 0b110, 0b101]),
-        'H' => Some([0b101, 0b101, 0b111, 0b101, 0b101]),
-        'I' => Some([0b111, 0b010, 0b010, 0b010, 0b111]),
-        'L' => Some([0b100, 0b100, 0b100, 0b100, 0b111]),
-        'Q' => Some([0b010, 0b101, 0b101, 0b110, 0b011]),
-        'T' => Some([0b111, 0b010, 0b010, 0b010, 0b010]),
-        'U' => Some([0b101, 0b101, 0b101, 0b101, 0b111]),
-        _   => None,
+        ' ' => return Some([0b000, 0b000, 0b000, 0b000, 0b000]),
+        '.' => return Some([0b000, 0b000, 0b000, 0b000, 0b010]),
+        ',' => return Some([0b000, 0b000, 0b000, 0b010, 0b100]),
+        ':' => return Some([0b000, 0b010, 0b000, 0b010, 0b000]),
+        ';' => return Some([0b000, 0b010, 0b000, 0b010, 0b100]),
+        '-' => return Some([0b000, 0b000, 0b111, 0b000, 0b000]),
+        '_' => return Some([0b000, 0b000, 0b000, 0b000, 0b111]),
+        '!' => return Some([0b010, 0b010, 0b010, 0b000, 0b010]),
+        '?' => return Some([0b111, 0b001, 0b010, 0b000, 0b010]),
+        '/' => return Some([0b001, 0b001, 0b010, 0b100, 0b100]),
+        '\\' => return Some([0b100, 0b100, 0b010, 0b001, 0b001]),
+        '>' => return Some([0b100, 0b010, 0b001, 0b010, 0b100]),
+        '<' => return Some([0b001, 0b010, 0b100, 0b010, 0b001]),
+        _ => {}
     }
+    let rows_5x7 = generic_glyph_rows(ch)?;
+    Some(shrink_5x7_to_3x5(rows_5x7))
+}
+
+fn shrink_5x7_to_3x5(rows_5x7: [u8; 7]) -> [u8; 5] {
+    // Pixel-preserving downsample (block OR), no smoothing/anti-aliasing.
+    // 5×7 -> 3×5 with fixed source blocks.
+    let y_blocks = [(0usize, 1usize), (2, 2), (3, 4), (5, 5), (6, 6)];
+    let x_blocks = [(0usize, 1usize), (2, 2), (3, 4)];
+    let mut out = [0u8; 5];
+
+    for (oy, &(y0, y1)) in y_blocks.iter().enumerate() {
+        let mut mask = 0u8;
+        for (ox, &(x0, x1)) in x_blocks.iter().enumerate() {
+            let mut on = false;
+            for yy in y0..=y1 {
+                for xx in x0..=x1 {
+                    if ((rows_5x7[yy] >> (4 - xx)) & 1) == 1 {
+                        on = true;
+                        break;
+                    }
+                }
+                if on {
+                    break;
+                }
+            }
+
+            if on {
+                mask |= 1 << (2 - ox);
+            }
+        }
+        out[oy] = mask;
+    }
+    out
 }
 
 /// Rasterize a string using the 3×5 tiny generic pixel font into a layer buffer.
@@ -172,6 +252,235 @@ pub fn span_width_tiny(text: &str) -> u16 {
     generic_dimensions_tiny(text).0
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenericMode {
+    Tiny,
+    Standard,
+    Large,
+    Half,
+    Quad,
+    Braille,
+}
+
+impl GenericMode {
+    pub fn from_font_name(font_name: &str) -> Self {
+        let spec = font_name
+            .strip_prefix("generic")
+            .and_then(|s| s.strip_prefix(':'))
+            .map(|s| s.to_ascii_lowercase());
+
+        match spec.as_deref() {
+            Some("1") | Some("tiny") => Self::Tiny,
+            Some("3") | Some("large") => Self::Large,
+            Some("half") | Some("half-block") | Some("halfblock") => Self::Half,
+            Some("quad") | Some("quadrant") => Self::Quad,
+            Some("braille") | Some("br") => Self::Braille,
+            Some("2") | Some("standard") | None | Some("") => Self::Standard,
+            _ => Self::Standard,
+        }
+    }
+}
+
+pub fn generic_dimensions_mode(content: &str, mode: GenericMode) -> (u16, u16) {
+    let char_count = content
+        .chars()
+        .map(|c| c.to_ascii_uppercase())
+        .filter(|&c| generic_glyph_rows(c).is_some())
+        .count() as u16;
+
+    if char_count == 0 {
+        return match mode {
+            GenericMode::Tiny => (1, 5),
+            GenericMode::Standard => (1, 7),
+            GenericMode::Large => (1, 14),
+            GenericMode::Half => (1, 4),
+            GenericMode::Quad => (1, 4),
+            GenericMode::Braille => (1, 2),
+        };
+    }
+
+    match mode {
+        GenericMode::Tiny => (char_count * 4, 5),
+        GenericMode::Standard => (char_count * 6, 7),
+        GenericMode::Large => (char_count * 12, 14),
+        GenericMode::Half => (char_count * 6, 4),
+        GenericMode::Quad => (char_count * 3, 4),
+        GenericMode::Braille => (char_count * 3, 2),
+    }
+}
+
+fn source_bit(rows: [u8; 7], sx: u16, sy: u16) -> bool {
+    if sx >= 5 || sy >= 7 {
+        return false;
+    }
+    ((rows[sy as usize] >> (4 - sx)) & 1) == 1
+}
+
+fn quadrant_char(mask: u8) -> Option<char> {
+    match mask {
+        0 => None,
+        1 => Some('▘'),
+        2 => Some('▝'),
+        3 => Some('▀'),
+        4 => Some('▖'),
+        5 => Some('▌'),
+        6 => Some('▞'),
+        7 => Some('▛'),
+        8 => Some('▗'),
+        9 => Some('▚'),
+        10 => Some('▐'),
+        11 => Some('▜'),
+        12 => Some('▄'),
+        13 => Some('▙'),
+        14 => Some('▟'),
+        15 => Some('█'),
+        _ => None,
+    }
+}
+
+fn braille_char(mask: u8) -> Option<char> {
+    if mask == 0 {
+        return None;
+    }
+    char::from_u32(0x2800 + mask as u32)
+}
+
+pub fn rasterize_generic_half(
+    content: &str,
+    fg_col: crossterm::style::Color,
+    draw_x: u16,
+    draw_y: u16,
+    buffer: &mut crate::buffer::Buffer,
+) {
+    use crate::buffer::TRUE_BLACK;
+    let mut cursor_x = draw_x;
+    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+        let rows = match generic_glyph_rows(ch) {
+            Some(r) => r,
+            None => continue,
+        };
+        if ch == ' ' {
+            cursor_x += 6;
+            continue;
+        }
+        for oy in 0..4u16 {
+            let sy = oy * 2;
+            for sx in 0..6u16 {
+                let top = source_bit(rows, sx, sy);
+                let bottom = source_bit(rows, sx, sy + 1);
+                let symbol = match (top, bottom) {
+                    (false, false) => None,
+                    (true, false) => Some('▀'),
+                    (false, true) => Some('▄'),
+                    (true, true) => Some('█'),
+                };
+                if let Some(sym) = symbol {
+                    buffer.set(cursor_x + sx, draw_y + oy, sym, fg_col, TRUE_BLACK);
+                }
+            }
+        }
+        cursor_x += 6;
+    }
+}
+
+pub fn rasterize_generic_quad(
+    content: &str,
+    fg_col: crossterm::style::Color,
+    draw_x: u16,
+    draw_y: u16,
+    buffer: &mut crate::buffer::Buffer,
+) {
+    use crate::buffer::TRUE_BLACK;
+    let mut cursor_x = draw_x;
+    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+        let rows = match generic_glyph_rows(ch) {
+            Some(r) => r,
+            None => continue,
+        };
+        if ch == ' ' {
+            cursor_x += 3;
+            continue;
+        }
+        for oy in 0..4u16 {
+            for ox in 0..3u16 {
+                let sx = ox * 2;
+                let sy = oy * 2;
+                let tl = source_bit(rows, sx, sy) as u8;
+                let tr = source_bit(rows, sx + 1, sy) as u8;
+                let bl = source_bit(rows, sx, sy + 1) as u8;
+                let br = source_bit(rows, sx + 1, sy + 1) as u8;
+                let mask = tl | (tr << 1) | (bl << 2) | (br << 3);
+                if let Some(sym) = quadrant_char(mask) {
+                    buffer.set(cursor_x + ox, draw_y + oy, sym, fg_col, TRUE_BLACK);
+                }
+            }
+        }
+        cursor_x += 3;
+    }
+}
+
+pub fn rasterize_generic_braille(
+    content: &str,
+    fg_col: crossterm::style::Color,
+    draw_x: u16,
+    draw_y: u16,
+    buffer: &mut crate::buffer::Buffer,
+) {
+    use crate::buffer::TRUE_BLACK;
+    let mut cursor_x = draw_x;
+    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+        let rows = match generic_glyph_rows(ch) {
+            Some(r) => r,
+            None => continue,
+        };
+        if ch == ' ' {
+            cursor_x += 3;
+            continue;
+        }
+        for oy in 0..2u16 {
+            for ox in 0..3u16 {
+                let sx = ox * 2;
+                let sy = oy * 4;
+                let mut mask = 0u8;
+                if source_bit(rows, sx, sy) { mask |= 0b0000_0001; }      // dot 1
+                if source_bit(rows, sx, sy + 1) { mask |= 0b0000_0010; }  // dot 2
+                if source_bit(rows, sx, sy + 2) { mask |= 0b0000_0100; }  // dot 3
+                if source_bit(rows, sx + 1, sy) { mask |= 0b0000_1000; }  // dot 4
+                if source_bit(rows, sx + 1, sy + 1) { mask |= 0b0001_0000; } // dot 5
+                if source_bit(rows, sx + 1, sy + 2) { mask |= 0b0010_0000; } // dot 6
+                if source_bit(rows, sx, sy + 3) { mask |= 0b0100_0000; }  // dot 7
+                if source_bit(rows, sx + 1, sy + 3) { mask |= 0b1000_0000; } // dot 8
+                if let Some(sym) = braille_char(mask) {
+                    buffer.set(cursor_x + ox, draw_y + oy, sym, fg_col, TRUE_BLACK);
+                }
+            }
+        }
+        cursor_x += 3;
+    }
+}
+
+pub fn rasterize_spans_mode(
+    spans: &[(String, crossterm::style::Color)],
+    mode: GenericMode,
+    draw_x: u16,
+    draw_y: u16,
+    buf: &mut crate::buffer::Buffer,
+) {
+    let mut x = draw_x;
+    for (text, colour) in spans {
+        let w = generic_dimensions_mode(text, mode).0;
+        match mode {
+            GenericMode::Tiny => rasterize_generic_tiny(text, *colour, x, draw_y, buf),
+            GenericMode::Standard => rasterize_generic(text, 1, *colour, x, draw_y, buf),
+            GenericMode::Large => rasterize_generic(text, 2, *colour, x, draw_y, buf),
+            GenericMode::Half => rasterize_generic_half(text, *colour, x, draw_y, buf),
+            GenericMode::Quad => rasterize_generic_quad(text, *colour, x, draw_y, buf),
+            GenericMode::Braille => rasterize_generic_braille(text, *colour, x, draw_y, buf),
+        }
+        x += w;
+    }
+}
+
 /// Rasterize a list of (text, colour) spans using the generic font at the given preset.
 /// preset 1 = 3×5 tiny, preset 3 = 5×7 ×2 scale, default = 5×7 ×1 scale.
 pub fn rasterize_spans(
@@ -181,24 +490,36 @@ pub fn rasterize_spans(
     draw_y: u16,
     buf: &mut crate::buffer::Buffer,
 ) {
-    let mut x = draw_x;
-    for (text, colour) in spans {
-        match preset {
-            1 => {
-                let w = span_width_tiny(text);
-                rasterize_generic_tiny(text, *colour, x, draw_y, buf);
-                x += w;
-            }
-            3 => {
-                let w = span_width(text, 2);
-                rasterize_generic(text, 2, *colour, x, draw_y, buf);
-                x += w;
-            }
-            _ => {
-                let w = span_width(text, 1);
-                rasterize_generic(text, 1, *colour, x, draw_y, buf);
-                x += w;
-            }
-        }
+    let mode = match preset {
+        1 => GenericMode::Tiny,
+        3 => GenericMode::Large,
+        _ => GenericMode::Standard,
+    };
+    rasterize_spans_mode(spans, mode, draw_x, draw_y, buf);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{generic_dimensions_mode, GenericMode};
+
+    #[test]
+    fn parses_generic_mode_from_font_name() {
+        assert_eq!(GenericMode::from_font_name("generic"), GenericMode::Standard);
+        assert_eq!(GenericMode::from_font_name("generic:1"), GenericMode::Tiny);
+        assert_eq!(GenericMode::from_font_name("generic:2"), GenericMode::Standard);
+        assert_eq!(GenericMode::from_font_name("generic:3"), GenericMode::Large);
+        assert_eq!(GenericMode::from_font_name("generic:half"), GenericMode::Half);
+        assert_eq!(GenericMode::from_font_name("generic:quad"), GenericMode::Quad);
+        assert_eq!(GenericMode::from_font_name("generic:braille"), GenericMode::Braille);
+    }
+
+    #[test]
+    fn computes_dimensions_for_all_modes() {
+        assert_eq!(generic_dimensions_mode("AB", GenericMode::Tiny), (8, 5));
+        assert_eq!(generic_dimensions_mode("AB", GenericMode::Standard), (12, 7));
+        assert_eq!(generic_dimensions_mode("AB", GenericMode::Large), (24, 14));
+        assert_eq!(generic_dimensions_mode("AB", GenericMode::Half), (12, 4));
+        assert_eq!(generic_dimensions_mode("AB", GenericMode::Quad), (6, 4));
+        assert_eq!(generic_dimensions_mode("AB", GenericMode::Braille), (6, 2));
     }
 }

@@ -14,7 +14,7 @@ stages:
   on_idle:
     trigger: any-key
     steps:
-      - duration: 60000
+      - duration: 40000
         effects: []
   on_leave:
     steps:
@@ -31,155 +31,274 @@ layers:
     sprites:
       - type: text
         id: prologue-cmd-1
-        content: "> journalctl -b -n 64"
+        content: "Booting from hard disk..."
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 1000
+        appear_at_ms: 200
+        disappear_at_ms: 2200
+
+      - type: text
+        id: prologue-cmd-2
+        content: "# ftp ftp.funet.fi"
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: green
+        reveal_ms: 800
+        appear_at_ms: 2200
+        disappear_at_ms: 6500
+
+      - type: text
+        id: prologue-cmd-3
+        content: "ftp> put linux-0.01.tar.Z"
         x: 2
         y: 1
         font: "generic:1"
         fg_colour: green
         reveal_ms: 900
-        appear_at_ms: 200
-        disappear_at_ms: 10000
-
-      - type: text
-        id: prologue-log-1a
-        content: "[ OK ] mount /proc"
-        x: 2
-        y: 7
-        font: "generic:1"
-        fg_colour: gray
-        reveal_ms: 550
-        appear_at_ms: 1200
-        disappear_at_ms: 3800
-
-      - type: text
-        id: prologue-log-2a
-        content: "[ OK ] start tty0"
-        x: 2
-        y: 13
-        font: "generic:1"
-        fg_colour: gray
-        reveal_ms: 550
-        appear_at_ms: 2100
-        disappear_at_ms: 4700
-
-      - type: text
-        id: prologue-log-3a
-        content: "kernel: Linux 0.01"
-        x: 2
-        y: 19
-        font: "generic:1"
-        fg_colour: white
-        reveal_ms: 650
-        appear_at_ms: 3000
-        disappear_at_ms: 5600
-
-      - type: text
-        id: prologue-log-1b
-        content: "kernel: 1991-09-17"
-        x: 2
-        y: 7
-        font: "generic:1"
-        fg_colour: white
-        reveal_ms: 650
-        appear_at_ms: 3900
-        disappear_at_ms: 6500
-
-      - type: text
-        id: prologue-log-2b
-        content: "source lines: 10239"
-        x: 2
-        y: 13
-        font: "generic:1"
-        fg_colour: white
-        reveal_ms: 650
-        appear_at_ms: 4800
-        disappear_at_ms: 7400
-
-      - type: text
-        id: prologue-log-3b
-        content: "target: intel 386"
-        x: 2
-        y: 19
-        font: "generic:1"
-        fg_colour: white
-        reveal_ms: 650
-        appear_at_ms: 5700
-        disappear_at_ms: 8300
-
-      - type: text
-        id: prologue-log-1c
-        content: "build dep: minix"
-        x: 2
-        y: 7
-        font: "generic:1"
-        fg_colour: gray
-        reveal_ms: 650
-        appear_at_ms: 6600
+        appear_at_ms: 6500
         disappear_at_ms: 9200
 
       - type: text
+        id: prologue-cmd-4
+        content: "# sync"
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: green
+        reveal_ms: 450
+        appear_at_ms: 9200
+        disappear_at_ms: 10300
+
+      - type: text
+        id: prologue-cmd-5
+        content: "Booting from hard disk..."
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 1000
+        appear_at_ms: 10300
+        disappear_at_ms: 12700
+
+      - type: text
+        id: prologue-cmd-6
+        content: "login: unknown"
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 700
+        appear_at_ms: 12700
+        disappear_at_ms: 15200
+
+      - type: text
+        id: prologue-cmd-7
+        content: "/home/unknown $"
+        x: 2
+        y: 1
+        font: "generic:1"
+        fg_colour: green
+        reveal_ms: 800
+        appear_at_ms: 15200
+
+      - type: text
+        id: prologue-log-1a
+        content: "Loading system ..."
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: gray
+        reveal_ms: 700
+        appear_at_ms: 1100
+        disappear_at_ms: 2900
+
+      - type: text
+        id: prologue-log-2a
+        content: "login: root"
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 600
+        appear_at_ms: 1800
+        disappear_at_ms: 3600
+
+      - type: text
+        id: prologue-log-3a
+        content: "Password:"
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 500
+        appear_at_ms: 2500
+        disappear_at_ms: 4300
+
+      - type: text
+        id: prologue-log-1b
+        content: "Connected to ftp.funet.fi."
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 900
+        appear_at_ms: 3200
+        disappear_at_ms: 5200
+
+      - type: text
+        id: prologue-log-2b
+        content: "220 FTP server ready."
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 700
+        appear_at_ms: 4100
+        disappear_at_ms: 6100
+
+      - type: text
+        id: prologue-log-3b
+        content: "Name (...): anonymous"
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 700
+        appear_at_ms: 5000
+        disappear_at_ms: 7000
+
+      - type: text
+        id: prologue-log-1c
+        content: "331 Guest login ok."
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: gray
+        reveal_ms: 700
+        appear_at_ms: 5900
+        disappear_at_ms: 7900
+
+      - type: text
         id: prologue-log-2c
-        content: "mirror: funet ftp"
+        content: "230 Guest login ok."
         x: 2
         y: 13
         font: "generic:1"
         fg_colour: gray
-        reveal_ms: 650
-        appear_at_ms: 7500
-        disappear_at_ms: 10100
+        reveal_ms: 700
+        appear_at_ms: 6800
+        disappear_at_ms: 8800
 
       - type: text
         id: prologue-log-3c
-        content: "easter: sq.seed=19910917"
+        content: "ftp> cd /pub/OS/Linux"
         x: 2
         y: 19
         font: "generic:1"
-        fg_colour: yellow
+        fg_colour: green
         reveal_ms: 700
-        appear_at_ms: 8400
-        disappear_at_ms: 11000
+        appear_at_ms: 7700
+        disappear_at_ms: 9700
 
       - type: text
         id: prologue-log-1d
-        content: "easter: user=copilot"
+        content: "150 Opening data connection."
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 700
+        appear_at_ms: 8600
+        disappear_at_ms: 10600
+
+      - type: text
+        id: prologue-log-2d
+        content: "226 Transfer complete."
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 700
+        appear_at_ms: 9500
+        disappear_at_ms: 11500
+
+      - type: text
+        id: prologue-log-3d
+        content: "221 Goodbye."
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: gray
+        reveal_ms: 500
+        appear_at_ms: 10400
+        disappear_at_ms: 12400
+
+      - type: text
+        id: prologue-log-1e
+        content: "linux-0.01.tar.Z uploaded."
         x: 2
         y: 7
         font: "generic:1"
         fg_colour: yellow
         reveal_ms: 700
-        appear_at_ms: 9300
-        disappear_at_ms: 11900
+        appear_at_ms: 11300
+        disappear_at_ms: 13400
 
       - type: text
-        id: prologue-log-2d
-        content: "hint: open source starts"
+        id: prologue-log-2e
+        content: "sq.seed=19910917"
+        x: 2
+        y: 13
+        font: "generic:1"
+        fg_colour: yellow
+        reveal_ms: 650
+        appear_at_ms: 12100
+        disappear_at_ms: 14200
+
+      - type: text
+        id: prologue-log-3e
+        content: "Login incorrect"
+        x: 2
+        y: 19
+        font: "generic:1"
+        fg_colour: white
+        reveal_ms: 600
+        appear_at_ms: 13200
+        disappear_at_ms: 15200
+
+      - type: text
+        id: prologue-log-1f
+        content: "easter: user=copilot tty0"
+        x: 2
+        y: 7
+        font: "generic:1"
+        fg_colour: cyan
+        reveal_ms: 750
+        appear_at_ms: 14100
+
+      - type: text
+        id: prologue-log-2f
+        content: "funet://pub/OS/Linux"
         x: 2
         y: 13
         font: "generic:1"
         fg_colour: cyan
-        reveal_ms: 800
-        appear_at_ms: 10200
-        disappear_at_ms: 12800
+        reveal_ms: 750
+        appear_at_ms: 14900
 
       - type: text
-        id: prologue-cmd-2
-        content: "> tail -f /dev/origin"
-        x: 2
-        y: 1
-        font: "generic:1"
-        fg_colour: green
-        reveal_ms: 900
-        appear_at_ms: 11100
-
-      - type: text
-        id: prologue-log-3d
-        content: "[ WAIT ] input required"
+        id: prologue-log-3f
+        content: "status: just a hobby"
         x: 2
         y: 19
         font: "generic:1"
         fg_colour: white
-        reveal_ms: 650
-        appear_at_ms: 12000
+        reveal_ms: 800
+        appear_at_ms: 15800
 
       - type: text
         id: prologue-continue
