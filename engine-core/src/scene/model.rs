@@ -280,6 +280,13 @@ pub struct SceneInput {
     pub terminal_size_tester: Option<TerminalSizeTesterControls>,
 }
 
+impl SceneInput {
+    /// Returns names of all built-in input profiles.
+    pub fn builtin_profiles() -> Vec<&'static str> {
+        vec!["obj-viewer", "terminal-size-tester"]
+    }
+}
+
 /// Declarative OBJ viewer controls target.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ObjViewerControls {

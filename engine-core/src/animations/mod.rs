@@ -5,6 +5,7 @@ pub mod params;
 pub use animation::{SpriteAnimation, Transform};
 pub use params::AnimationParams;
 
+use crate::authoring::metadata::{FieldMetadata, Requirement, TargetKind, ValueKind, ValueSource};
 use crate::scene::Animation;
 use std::collections::HashMap;
 
@@ -33,5 +34,79 @@ impl AnimationDispatcher {
             }
         }
         total
+    }
+
+    /// Returns names of all built-in animations.
+    pub fn builtin_names() -> Vec<&'static str> {
+        vec!["float"]
+    }
+
+    /// Returns field metadata for the given animation name.
+    pub fn metadata(name: &str) -> Vec<FieldMetadata> {
+        match name {
+            "float" => vec![
+                FieldMetadata {
+                    target: TargetKind::Sprite,
+                    name: "axis",
+                    value_kind: ValueKind::Select,
+                    requirement: Requirement::Optional,
+                    description: "Axis along which animation moves",
+                    default_text: Some("y"),
+                    default_number: None,
+                    enum_options: Some(&["x", "y"]),
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Sprite,
+                    name: "amplitude",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Peak displacement in terminal cells",
+                    default_text: None,
+                    default_number: Some(1.0),
+                    enum_options: None,
+                    min: Some(0.0),
+                    max: Some(100.0),
+                    step: Some(1.0),
+                    unit: Some("cells"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Sprite,
+                    name: "period_ms",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Full cycle duration",
+                    default_text: None,
+                    default_number: Some(2000.0),
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(10.0),
+                    unit: Some("ms"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Sprite,
+                    name: "easing",
+                    value_kind: ValueKind::Select,
+                    requirement: Requirement::Optional,
+                    description: "Easing function applied to animation curve",
+                    default_text: Some("linear"),
+                    default_number: None,
+                    enum_options: Some(&["linear", "ease-in", "ease-out", "ease-in-out"]),
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+            ],
+            _ => vec![],
+        }
     }
 }

@@ -28,6 +28,15 @@ pub mod systems;
 pub mod terminal_caps;
 pub mod world;
 
+/// Returns (behavior_name, fields) tuples for all built-in behaviors.
+/// Re-exported from engine crate to make available in authoring catalog.
+pub fn behavior_catalog() -> Vec<(&'static str, Vec<engine_core::authoring::metadata::FieldMetadata>)> {
+    behavior::builtin_behavior_names()
+        .into_iter()
+        .map(|name| (name, behavior::behavior_metadata(name)))
+        .collect()
+}
+
 use std::path::{Path, PathBuf};
 
 use mod_loader::load_mod_manifest;
