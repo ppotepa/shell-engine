@@ -1,9 +1,9 @@
 //! Compositor system — walks the scene layer/sprite tree and renders each frame into the terminal `Buffer`.
 
 mod effect_applicator;
-mod grid_tracks;
 mod image_render;
 mod layer_compositor;
+mod layout;
 mod obj_loader;
 mod obj_render;
 mod sprite_renderer;

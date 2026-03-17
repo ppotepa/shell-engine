@@ -649,6 +649,11 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
             sprite_name("grid", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
+        Sprite::Flex { id, .. } => (
+            GameObjectKind::FlexSprite,
+            sprite_name("flex", id.as_deref(), sprite_idx),
+            sprite_aliases(id.as_deref()),
+        ),
     }
 }
 
@@ -726,7 +731,7 @@ fn for_each_obj_mut(sprites: &mut [Sprite], f: &mut impl FnMut(&mut Sprite)) {
     for sprite in sprites.iter_mut() {
         match sprite {
             Sprite::Obj { .. } => f(sprite),
-            Sprite::Grid { children, .. } => for_each_obj_mut(children, f),
+            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => for_each_obj_mut(children, f),
             _ => {}
         }
     }
@@ -744,7 +749,7 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
                     return Some(rotate_y_deg_per_sec.unwrap_or(0.0).abs() > f32::EPSILON);
                 }
             }
-            Sprite::Grid { children, .. } => {
+            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
                 if let Some(result) = obj_orbit_active_in_sprites(children, sprite_id) {
                     return Some(result);
                 }
