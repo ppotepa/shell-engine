@@ -1,7 +1,50 @@
 use crate::animations::AnimationDispatcher;
-use crate::authoring::metadata::FieldMetadata;
+use crate::authoring::metadata::{FieldMetadata, Requirement, TargetKind, ValueKind, ValueSource};
 use crate::effects::EffectDispatcher;
 use crate::scene::{SceneInput, LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
+
+/// Parameter shape for one built-in input profile.
+#[derive(Debug, Clone, Copy)]
+pub struct InputProfileShape {
+    /// Profile name as used in YAML (e.g. "obj-viewer").
+    pub name: &'static str,
+    /// Metadata for every field the profile accepts.
+    pub fields: &'static [FieldMetadata],
+}
+
+const LIT_ONLY: &[ValueSource] = &[ValueSource::Literal];
+
+const OBJ_VIEWER_FIELDS: &[FieldMetadata] = &[FieldMetadata {
+    target: TargetKind::InputProfile,
+    name: "sprite_id",
+    value_kind: ValueKind::Text,
+    requirement: Requirement::Required,
+    description: "Target OBJ sprite id for 3-D viewer controls.",
+    default_text: None,
+    default_number: None,
+    enum_options: None,
+    min: None,
+    max: None,
+    step: None,
+    unit: None,
+    sources: LIT_ONLY,
+}];
+
+const TERMINAL_SIZE_TESTER_FIELDS: &[FieldMetadata] = &[FieldMetadata {
+    target: TargetKind::InputProfile,
+    name: "presets",
+    value_kind: ValueKind::SelectList,
+    requirement: Requirement::Optional,
+    description: "Optional terminal size presets in WIDTHxHEIGHT format (e.g. 120x36).",
+    default_text: None,
+    default_number: None,
+    enum_options: None,
+    min: None,
+    max: None,
+    step: None,
+    unit: None,
+    sources: LIT_ONLY,
+}];
 
 /// Authoring sugar: aliases, shorthands, and normalizers.
 #[derive(Debug, Clone)]
@@ -647,11 +690,25 @@ pub fn input_profile_catalog() -> Vec<&'static str> {
     SceneInput::builtin_profiles()
 }
 
+/// Returns full parameter-shape metadata for all built-in input profiles.
+pub fn input_profile_shapes() -> Vec<InputProfileShape> {
+    vec![
+        InputProfileShape {
+            name: "obj-viewer",
+            fields: OBJ_VIEWER_FIELDS,
+        },
+        InputProfileShape {
+            name: "terminal-size-tester",
+            fields: TERMINAL_SIZE_TESTER_FIELDS,
+        },
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        animation_catalog, behavior_catalog, effect_fields, input_profile_catalog, static_catalog,
-        sugar_catalog,
+        animation_catalog, behavior_catalog, effect_fields, input_profile_catalog,
+        input_profile_shapes, static_catalog, sugar_catalog,
     };
     use crate::authoring::metadata::{Requirement, ValueKind};
 
@@ -685,6 +742,22 @@ mod tests {
         let profiles = input_profile_catalog();
         assert!(profiles.contains(&"obj-viewer"));
         assert!(profiles.contains(&"terminal-size-tester"));
+    }
+
+    #[test]
+    fn input_profile_shapes_have_correct_fields() {
+        let shapes = input_profile_shapes();
+        let obj_viewer = shapes.iter().find(|s| s.name == "obj-viewer").expect("obj-viewer");
+        assert!(obj_viewer.fields.iter().any(|f| f.name == "sprite_id"));
+        assert_eq!(
+            obj_viewer.fields.iter().find(|f| f.name == "sprite_id").unwrap().requirement,
+            Requirement::Required
+        );
+
+        let tst = shapes.iter().find(|s| s.name == "terminal-size-tester").expect("terminal-size-tester");
+        let presets = tst.fields.iter().find(|f| f.name == "presets").expect("presets");
+        assert_eq!(presets.value_kind, ValueKind::SelectList);
+        assert_eq!(presets.requirement, Requirement::Optional);
     }
 
     #[test]

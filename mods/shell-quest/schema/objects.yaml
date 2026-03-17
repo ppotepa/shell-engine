@@ -1,0 +1,5 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/shell-quest/schema/objects.yaml
+title: schema shell-quest alias objects.yaml
+allOf:
+- $ref: ../schemas/objects.yaml

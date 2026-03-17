@@ -8,6 +8,7 @@ pub enum TargetKind {
     Sprite,
     Object,
     Effect,
+    InputProfile,
 }
 
 /// Supported value representation for a field.

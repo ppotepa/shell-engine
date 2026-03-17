@@ -119,7 +119,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     );
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
 
-    Ok(vec![
+    let mut files = vec![
         output_file("schemas/catalog.yaml".to_string(), Value::Mapping(root)),
         output_file("schemas/scenes.yaml".to_string(), build_scene_overlay_schema(mod_name)),
         output_file(
@@ -142,7 +142,25 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
             "schemas/effects.yaml".to_string(),
             build_effect_file_overlay_schema(mod_name, &effect_names),
         ),
-    ])
+    ];
+
+    // Backward-compat path alias (`schema/*`) for editors with stale schema mappings.
+    for name in [
+        "catalog.yaml",
+        "scenes.yaml",
+        "objects.yaml",
+        "layers.yaml",
+        "templates.yaml",
+        "sprites.yaml",
+        "effects.yaml",
+    ] {
+        files.push(output_file(
+            format!("schema/{name}"),
+            build_schema_alias(mod_name, name),
+        ));
+    }
+
+    Ok(files)
 }
 
 /// Renders one schema document as YAML with a trailing newline.
@@ -156,6 +174,29 @@ pub fn render_schema_file(value: &Value) -> Result<String> {
 
 fn output_file(file_name: String, value: Value) -> GeneratedSchemaFile {
     GeneratedSchemaFile { file_name, value }
+}
+
+fn build_schema_alias(mod_name: &str, file_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/mods/{mod_name}/schema/{file_name}"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("schema {mod_name} alias {file_name}")),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![schema_ref(&format!("../schemas/{file_name}"))]),
+    );
+    Value::Mapping(root)
 }
 
 fn enum_schema(values: Vec<String>) -> Value {
