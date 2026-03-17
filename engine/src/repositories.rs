@@ -3,6 +3,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
+use crate::scene_compiler::compile_scene_document;
 use crate::scene::Scene;
 use crate::EngineError;
 
@@ -95,7 +96,7 @@ impl SceneRepository for FsSceneRepository {
                 source,
             })?;
 
-        serde_yaml::from_str::<Scene>(&content).map_err(|source| EngineError::InvalidModYaml {
+        compile_scene_document(&content).map_err(|source| EngineError::InvalidModYaml {
             path: full_path,
             source,
         })
@@ -214,7 +215,7 @@ impl SceneRepository for ZipSceneRepository {
                 source,
             })?;
 
-        serde_yaml::from_str::<Scene>(&content).map_err(|source| EngineError::InvalidModYaml {
+        compile_scene_document(&content).map_err(|source| EngineError::InvalidModYaml {
             path: self.mod_source.clone(),
             source,
         })
