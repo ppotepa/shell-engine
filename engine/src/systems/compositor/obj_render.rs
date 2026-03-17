@@ -194,12 +194,9 @@ pub(super) fn render_obj_content(
             let Some(v2) = projected.get(face.indices[2]).and_then(|p| *p) else {
                 continue;
             };
-            // Back-face culling: skip faces whose screen-space winding is CW
-            // (negative signed area means back-facing in standard left-handed screen coords).
-            let signed_area = (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
-            if signed_area >= 0.0 {
-                continue;
-            }
+            // No back-face culling: OBJ files from public sources often have
+            // inconsistent face winding, so we render both sides with two-sided
+            // Lambert to avoid holes and reversed-material artifacts.
             let shading = face_shading_with_specular(v0.view, v1.view, v2.view);
             let shaded_color = apply_shading(face.color, shading);
             rasterize_triangle(
@@ -360,8 +357,8 @@ fn face_shading_with_specular(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f32 {
     let e2 = sub3(v2, v0);
     let normal = normalize3(cross3(e1, e2));
     let light_dir = normalize3([-0.45, 0.70, -0.85]);
-    // One-sided lambert (with culling in effect, back faces are skipped).
-    let lambert = dot3(normal, light_dir).max(0.0);
+    // Two-sided Lambert: abs() keeps shading stable for OBJ files with inconsistent winding.
+    let lambert = dot3(normal, light_dir).abs();
     // Simple Blinn-Phong specular: half-vector between light and view (0,0,-1 in view space).
     let view_dir = normalize3([0.0, 0.0, -1.0]);
     let half_dir = normalize3([
