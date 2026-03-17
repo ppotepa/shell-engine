@@ -1,5 +1,9 @@
+//! Scene-local sprite template expansion for authored YAML documents.
+
 use serde_yaml::{Mapping, Value};
 
+/// Expands scene-local sprite templates inside every authored layer sprite
+/// list before typed deserialization.
 pub fn expand_scene_templates(scene: &mut Mapping) {
     let templates = collect_templates(scene);
     if templates.is_empty() {
@@ -87,7 +91,7 @@ fn expand_template_in_sprite(sprite: &mut Value, templates: &[(String, Mapping)]
                 *sprite = Value::Mapping(merged);
                 replaced = true;
             }
-        } 
+        }
     }
 
     if !replaced && !sprite.is_mapping() {

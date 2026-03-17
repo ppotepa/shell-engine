@@ -1,21 +1,30 @@
+//! High-level scene loading entry points used at startup and during runtime
+//! scene transitions.
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::repositories::{create_scene_repository, AnySceneRepository, SceneRepository};
 use crate::{scene::Scene, EngineError};
 
-/// Standalone function — used at startup to load the entrypoint scene.
+/// Loads a scene from the active mod source without constructing a long-lived
+/// loader.
+///
+/// This is the startup path for the initial authored scene before the runtime
+/// world has a [`SceneLoader`].
 pub fn load_scene(mod_source: &Path, scene_path: &str) -> Result<Scene, EngineError> {
     create_scene_repository(mod_source)?.load_scene(scene_path)
 }
 
-/// World singleton — used at runtime to load scenes by id or path.
+/// Runtime scene loader that resolves authored scene ids to packaged or flat
+/// scene manifests.
 pub struct SceneLoader {
     repo: AnySceneRepository,
     scene_path_by_id: HashMap<String, String>,
 }
 
 impl SceneLoader {
+    /// Builds a loader and indexes discoverable scene ids for later lookups.
     pub fn new(mod_source: PathBuf) -> Result<Self, EngineError> {
         let repo = create_scene_repository(&mod_source)?;
         let scene_path_by_id = build_scene_id_index(&repo)?;
@@ -39,7 +48,7 @@ impl SceneLoader {
         self.repo.load_scene(&path)
     }
 
-    /// Load a scene from a generic reference:
+    /// Loads a scene from the authored transition reference format:
     /// - "/scenes/name.yml" => treated as explicit path
     /// - "scene-id"         => treated as scene id (convention lookup)
     pub fn load_by_ref(&self, scene_ref: &str) -> Result<Scene, EngineError> {

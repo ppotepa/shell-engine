@@ -1,3 +1,6 @@
+//! Runtime scene materialization and object graph helpers derived from the
+//! authored scene model.
+
 use crate::behavior::{
     built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, SceneAudioBehavior,
 };
@@ -7,6 +10,8 @@ use crate::scene::{BehaviorSpec, Scene, SceneRenderedMode, Sprite};
 use crate::systems::animator::SceneStage;
 use std::collections::BTreeMap;
 
+/// Materialized runtime view of a [`Scene`] with stable object ids, behavior
+/// bindings, and per-frame mutable state.
 pub struct SceneRuntime {
     scene: Scene,
     root_id: String,
@@ -22,6 +27,7 @@ pub struct SceneRuntime {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
+/// Mutable free-camera state tracked for interactive OBJ sprites.
 pub struct ObjCameraState {
     pub pan_x: f32,
     pub pan_y: f32,
@@ -31,6 +37,8 @@ pub struct ObjCameraState {
 }
 
 #[derive(Debug, Clone, Default)]
+/// Resolves authored target aliases to runtime object ids after scene
+/// materialization.
 pub struct TargetResolver {
     scene_object_id: String,
     aliases: BTreeMap<String, String>,
@@ -39,6 +47,7 @@ pub struct TargetResolver {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Runtime state accumulated by behaviors on top of the authored scene data.
 pub struct ObjectRuntimeState {
     pub visible: bool,
     pub offset_x: i32,
@@ -56,6 +65,13 @@ impl Default for ObjectRuntimeState {
 }
 
 impl SceneRuntime {
+    /// Materializes a runtime scene graph from the authored [`Scene`] model.
+    ///
+    /// # Invariants
+    ///
+    /// The runtime assigns stable ids to the scene root, layers, and sprites,
+    /// attaches declared behaviors, and keeps resolver indices aligned with the
+    /// z-sorted layer and sprite order used by the compositor.
     pub fn new(scene: Scene) -> Self {
         let root_id = format!("scene:{}", sanitize_fragment(&scene.id));
         let mut objects = BTreeMap::new();
@@ -159,6 +175,7 @@ impl SceneRuntime {
         runtime
     }
 
+    /// Returns the runtime scene model after load-time normalization and sorting.
     pub fn scene(&self) -> &Scene {
         &self.scene
     }
@@ -194,12 +211,7 @@ impl SceneRuntime {
             .unwrap_or(20.0);
         let mut updated = false;
         for layer in &mut self.scene.layers {
-            toggle_obj_orbit_in_sprites(
-                &mut layer.sprites,
-                sprite_id,
-                default_speed,
-                &mut updated,
-            );
+            toggle_obj_orbit_in_sprites(&mut layer.sprites, sprite_id, default_speed, &mut updated);
         }
         updated
     }
@@ -255,14 +267,17 @@ impl SceneRuntime {
             .and_then(|state| state.last_mouse_pos)
     }
 
+    /// Returns the runtime object id assigned to the scene root node.
     pub fn root_id(&self) -> &str {
         &self.root_id
     }
 
+    /// Looks up a materialized runtime object by its stable runtime id.
     pub fn object(&self, id: &str) -> Option<&GameObject> {
         self.objects.get(id)
     }
 
+    /// Iterates over all materialized runtime objects in the scene graph.
     pub fn objects(&self) -> impl Iterator<Item = &GameObject> {
         self.objects.values()
     }
@@ -271,6 +286,7 @@ impl SceneRuntime {
         self.objects.len()
     }
 
+    /// Returns the direct mutable runtime state stored on a specific object.
     pub fn object_state(&self, id: &str) -> Option<&ObjectRuntimeState> {
         self.object_states.get(id)
     }
@@ -283,6 +299,8 @@ impl SceneRuntime {
         self.obj_camera_states.clone()
     }
 
+    /// Returns the effective object state after inheriting visibility and
+    /// offsets from all runtime parents.
     pub fn effective_object_state(&self, id: &str) -> Option<ObjectRuntimeState> {
         let mut state = self.object_states.get(id)?.clone();
         let mut parent_id = self
@@ -308,6 +326,8 @@ impl SceneRuntime {
         Some(state)
     }
 
+    /// Snapshots effective state for every runtime object for behavior and
+    /// rendering consumers.
     pub fn effective_object_states_snapshot(&self) -> BTreeMap<String, ObjectRuntimeState> {
         self.objects
             .keys()
@@ -318,6 +338,8 @@ impl SceneRuntime {
             .collect()
     }
 
+    /// Returns a resolver for authored target names, layer indices, and sprite
+    /// paths against the current materialized runtime scene.
     pub fn target_resolver(&self) -> TargetResolver {
         self.resolver_cache.clone()
     }
@@ -327,7 +349,7 @@ impl SceneRuntime {
     fn rebuild_indices_after_sort(&mut self) {
         self.layer_ids.clear();
         self.sprite_ids.clear();
-        
+
         for (layer_idx, layer) in self.scene.layers.iter().enumerate() {
             // Find the layer object by matching against scene structure
             let layer_name = if layer.name.trim().is_empty() {
@@ -335,7 +357,7 @@ impl SceneRuntime {
             } else {
                 layer.name.clone()
             };
-            
+
             // Find layer object by name match
             for (object_id, object) in &self.objects {
                 if object.kind == GameObjectKind::Layer && object.name == layer_name {
@@ -343,7 +365,7 @@ impl SceneRuntime {
                     break;
                 }
             }
-            
+
             // Rebuild sprite indices for this layer
             rebuild_sprite_indices_recursive(
                 &layer.sprites,
@@ -374,6 +396,8 @@ impl SceneRuntime {
         }
     }
 
+    /// Updates attached runtime behaviors for the active scene stage and
+    /// applies the generated commands immediately.
     pub fn update_behaviors(
         &mut self,
         stage: SceneStage,
@@ -416,6 +440,8 @@ impl SceneRuntime {
         self.object_regions = object_regions;
     }
 
+    /// Applies behavior commands to runtime object state using the supplied
+    /// target resolver.
     pub fn apply_behavior_commands(
         &mut self,
         resolver: &TargetResolver,
@@ -485,10 +511,12 @@ fn has_scene_audio(scene: &Scene) -> bool {
 }
 
 impl TargetResolver {
+    /// Returns the runtime id of the scene root object.
     pub fn scene_object_id(&self) -> &str {
         &self.scene_object_id
     }
 
+    /// Resolves an authored target alias or object id to its runtime object id.
     pub fn resolve_alias(&self, target: &str) -> Option<&str> {
         self.aliases.get(target).map(String::as_str)
     }
@@ -497,16 +525,21 @@ impl TargetResolver {
         self.aliases.insert(alias, object_id);
     }
 
+    /// Resolves a compositor layer index to its runtime layer object id.
     pub fn layer_object_id(&self, layer_idx: usize) -> Option<&str> {
         self.layer_ids.get(&layer_idx).map(String::as_str)
     }
 
+    /// Resolves a sprite path within a layer to the corresponding runtime
+    /// sprite object id.
     pub fn sprite_object_id(&self, layer_idx: usize, sprite_path: &[usize]) -> Option<&str> {
         self.sprite_ids
             .get(&path_key(layer_idx, sprite_path))
             .map(String::as_str)
     }
 
+    /// Resolves the authored target region for an effect, falling back to the
+    /// caller-provided default region when no target is bound.
     pub fn effect_region(
         &self,
         target: Option<&str>,
@@ -721,7 +754,9 @@ fn adjust_obj_scale_in_sprites(
 fn toggle_obj_surface_mode_in_sprites(sprites: &mut [Sprite], sprite_id: &str, updated: &mut bool) {
     for sprite in sprites {
         match sprite {
-            Sprite::Obj { id, surface_mode, .. } => {
+            Sprite::Obj {
+                id, surface_mode, ..
+            } => {
                 if id.as_deref() == Some(sprite_id) {
                     let is_wireframe = surface_mode
                         .as_deref()
@@ -779,7 +814,11 @@ fn toggle_obj_orbit_in_sprites(
 fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bool> {
     for sprite in sprites {
         match sprite {
-            Sprite::Obj { id, rotate_y_deg_per_sec, .. } => {
+            Sprite::Obj {
+                id,
+                rotate_y_deg_per_sec,
+                ..
+            } => {
                 if id.as_deref() == Some(sprite_id) {
                     return Some(rotate_y_deg_per_sec.unwrap_or(0.0).abs() > f32::EPSILON);
                 }
@@ -806,7 +845,7 @@ fn rebuild_sprite_indices_recursive(
     for (sprite_idx, sprite) in sprites.iter().enumerate() {
         let mut sprite_path = parent_path.to_vec();
         sprite_path.push(sprite_idx);
-        
+
         // Find the sprite object by matching sprite properties
         let sprite_id_in_map = match sprite {
             Sprite::Text { id, .. } => id.as_deref(),
@@ -814,7 +853,7 @@ fn rebuild_sprite_indices_recursive(
             Sprite::Obj { id, .. } => id.as_deref(),
             Sprite::Grid { id, .. } => id.as_deref(),
         };
-        
+
         // Find matching object by ID or by position in hierarchy
         if let Some(explicit_id) = sprite_id_in_map.filter(|s| !s.trim().is_empty()) {
             // Find by explicit ID
@@ -825,10 +864,16 @@ fn rebuild_sprite_indices_recursive(
                 }
             }
         }
-        
+
         // Recurse into grid children
         if let Sprite::Grid { children, .. } = sprite {
-            rebuild_sprite_indices_recursive(children, layer_idx, &sprite_path, objects, sprite_ids);
+            rebuild_sprite_indices_recursive(
+                children,
+                layer_idx,
+                &sprite_path,
+                objects,
+                sprite_ids,
+            );
         }
     }
 }
@@ -1006,7 +1051,9 @@ layers:
             .iter()
             .flat_map(|layer| layer.sprites.iter())
             .find_map(|sprite| match sprite {
-                Sprite::Obj { id, scale, .. } if id.as_deref() == Some("helsinki-uni-wireframe") => {
+                Sprite::Obj { id, scale, .. }
+                    if id.as_deref() == Some("helsinki-uni-wireframe") =>
+                {
                     *scale
                 }
                 _ => None,
@@ -1039,11 +1086,9 @@ layers:
             .iter()
             .flat_map(|layer| layer.sprites.iter())
             .find_map(|sprite| match sprite {
-                Sprite::Obj { id, surface_mode, .. }
-                    if id.as_deref() == Some("helsinki-uni-wireframe") =>
-                {
-                    surface_mode.clone()
-                }
+                Sprite::Obj {
+                    id, surface_mode, ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => surface_mode.clone(),
                 _ => None,
             })
             .expect("surface mode");
