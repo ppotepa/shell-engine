@@ -1,5 +1,0 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/playground/schema/catalog.yaml
-title: schema playground alias catalog.yaml
-allOf:
-- $ref: ../schemas/catalog.yaml
