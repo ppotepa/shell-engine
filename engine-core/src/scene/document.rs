@@ -1,4 +1,5 @@
 use super::model::Scene;
+use super::template::expand_scene_templates;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
 
@@ -25,6 +26,7 @@ fn normalize_scene_value(root: &mut Value) {
     };
 
     apply_alias(scene, "bg", "bg_colour");
+    expand_scene_templates(scene);
 
     if let Some(stages) = scene.get_mut(Value::String("stages".to_string())) {
         normalize_stages(stages);
@@ -247,6 +249,49 @@ menu-options:
                     Some(crate::scene::VerticalAlign::Center)
                 ));
                 assert!(fg_colour.is_some());
+            }
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn expands_scene_templates_with_args() {
+        let raw = r#"
+id: menu
+title: Menu
+templates:
+  menu-item:
+    type: text
+    content: "$label"
+    at: cc
+layers:
+  - sprites:
+      - use: menu-item
+        args:
+          label: START
+        y: 2
+"#;
+
+        let doc: SceneDocument = serde_yaml::from_str(raw).expect("document");
+        let scene = doc.compile().expect("scene");
+        match &scene.layers[0].sprites[0] {
+            crate::scene::Sprite::Text {
+                content,
+                y,
+                align_x,
+                align_y,
+                ..
+            } => {
+                assert_eq!(content, "START");
+                assert_eq!(*y, 2);
+                assert!(matches!(
+                    align_x,
+                    Some(crate::scene::HorizontalAlign::Center)
+                ));
+                assert!(matches!(
+                    align_y,
+                    Some(crate::scene::VerticalAlign::Center)
+                ));
             }
             _ => panic!("expected text sprite"),
         }
