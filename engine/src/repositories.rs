@@ -1,3 +1,6 @@
+//! Scene and asset repository adapters for loading authored scene packages from
+//! either an unpacked mod directory or a packaged zip archive.
+
 use serde_yaml::{Mapping, Value};
 use std::fs;
 use std::io::Read;
@@ -8,11 +11,13 @@ use crate::scene::Scene;
 use crate::scene_compiler::compile_scene_document_with_loader_and_source;
 use crate::EngineError;
 
+/// Loads authored scenes from a mod source after any package-level assembly.
 pub trait SceneRepository {
     fn load_scene(&self, scene_path: &str) -> Result<Scene, EngineError>;
     fn discover_scene_paths(&self) -> Result<Vec<String>, EngineError>;
 }
 
+/// Reads non-scene assets from the same mod source as scene manifests.
 pub trait AssetRepository {
     fn read_asset_bytes(&self, asset_path: &str) -> Result<Vec<u8>, EngineError>;
     fn has_asset(&self, asset_path: &str) -> Result<bool, EngineError>;
@@ -20,6 +25,8 @@ pub trait AssetRepository {
 }
 
 #[derive(Debug, Clone)]
+/// Type-erased scene repository used by the engine when the backing source is
+/// determined at runtime.
 pub enum AnySceneRepository {
     Fs(FsSceneRepository),
     Zip(ZipSceneRepository),
@@ -42,6 +49,7 @@ impl SceneRepository for AnySceneRepository {
 }
 
 #[derive(Debug, Clone)]
+/// Type-erased asset repository paired with the selected mod source.
 pub enum AnyAssetRepository {
     Fs(FsSceneRepository),
     Zip(ZipSceneRepository),
@@ -71,11 +79,13 @@ impl AssetRepository for AnyAssetRepository {
 }
 
 #[derive(Debug, Clone)]
+/// Scene and asset repository backed by an unpacked mod directory on disk.
 pub struct FsSceneRepository {
     mod_source: PathBuf,
 }
 
 impl FsSceneRepository {
+    /// Creates a repository rooted at an unpacked mod directory.
     pub fn new(mod_source: impl Into<PathBuf>) -> Self {
         Self {
             mod_source: mod_source.into(),
@@ -188,11 +198,13 @@ impl AssetRepository for FsSceneRepository {
 }
 
 #[derive(Debug, Clone)]
+/// Scene and asset repository backed by a packaged mod zip archive.
 pub struct ZipSceneRepository {
     mod_source: PathBuf,
 }
 
 impl ZipSceneRepository {
+    /// Creates a repository rooted at a packaged mod archive.
     pub fn new(mod_source: impl Into<PathBuf>) -> Self {
         Self {
             mod_source: mod_source.into(),
@@ -378,6 +390,7 @@ impl AssetRepository for ZipSceneRepository {
     }
 }
 
+/// Selects the scene repository implementation for a mod directory or zip file.
 pub fn create_scene_repository(mod_source: &Path) -> Result<AnySceneRepository, EngineError> {
     if !mod_source.exists() {
         return Err(EngineError::SourceNotFound(mod_source.to_path_buf()));
@@ -391,6 +404,7 @@ pub fn create_scene_repository(mod_source: &Path) -> Result<AnySceneRepository, 
     Err(EngineError::UnsupportedSource(mod_source.to_path_buf()))
 }
 
+/// Selects the asset repository implementation for a mod directory or zip file.
 pub fn create_asset_repository(mod_source: &Path) -> Result<AnyAssetRepository, EngineError> {
     if !mod_source.exists() {
         return Err(EngineError::SourceNotFound(mod_source.to_path_buf()));

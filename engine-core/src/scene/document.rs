@@ -1,11 +1,19 @@
+//! Authored scene document normalization before conversion into the runtime
+//! [`Scene`] model.
+
 use super::model::Scene;
 use super::template::expand_scene_templates;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
 
-/// Authored scene document.
-/// This remains intentionally loose for now and acts as a compilation boundary
-/// between YAML input and runtime `Scene`.
+/// Authored scene document kept as raw YAML until scene-specific shorthands,
+/// aliases, and templates are normalized.
+///
+/// # Purpose
+///
+/// `SceneDocument` is the authored-vs-runtime boundary for scenes. Repositories
+/// and higher-level compilers can deserialize loose YAML into this type first,
+/// then call [`SceneDocument::compile`] to produce the strict runtime [`Scene`].
 #[derive(Debug, Clone, Deserialize)]
 #[serde(transparent)]
 pub struct SceneDocument {
@@ -13,6 +21,7 @@ pub struct SceneDocument {
 }
 
 impl SceneDocument {
+    /// Normalizes authored YAML and materializes the runtime [`Scene`] model.
     pub fn compile(self) -> Result<Scene, serde_yaml::Error> {
         let mut normalized = self.raw;
         normalize_scene_value(&mut normalized);
@@ -195,7 +204,11 @@ fn parse_duration_ms(value: &Value) -> Option<u64> {
             return ms.trim().parse::<u64>().ok();
         }
         if let Some(sec) = trimmed.strip_suffix('s') {
-            return sec.trim().parse::<u64>().ok().map(|v| v.saturating_mul(1000));
+            return sec
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .map(|v| v.saturating_mul(1000));
         }
         return trimmed.parse::<u64>().ok();
     }
@@ -375,10 +388,7 @@ menu-options:
                     align_x,
                     Some(crate::scene::HorizontalAlign::Center)
                 ));
-                assert!(matches!(
-                    align_y,
-                    Some(crate::scene::VerticalAlign::Center)
-                ));
+                assert!(matches!(align_y, Some(crate::scene::VerticalAlign::Center)));
                 assert!(fg_colour.is_some());
             }
             _ => panic!("expected text sprite"),
@@ -419,10 +429,7 @@ layers:
                     align_x,
                     Some(crate::scene::HorizontalAlign::Center)
                 ));
-                assert!(matches!(
-                    align_y,
-                    Some(crate::scene::VerticalAlign::Center)
-                ));
+                assert!(matches!(align_y, Some(crate::scene::VerticalAlign::Center)));
             }
             _ => panic!("expected text sprite"),
         }

@@ -1,3 +1,8 @@
+//! Typed runtime scene model produced by scene compilation.
+//!
+//! These types represent the post-normalization boundary consumed by the scene
+//! runtime, compositor, and behavior systems.
+
 use super::color::TermColour;
 use super::easing::Easing;
 use super::sprite::Sprite;
@@ -17,7 +22,10 @@ pub enum SceneRenderedMode {
     Braille,
 }
 
-/// A sprite position animation (tween). Modifies sprite transform, not pixel colors.
+/// Runtime animation attached to a sprite after authored scene parsing.
+///
+/// Animations modify sprite transform and presentation, not the pixel data
+/// inside rendered assets.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Animation {
     pub name: String,
@@ -27,7 +35,8 @@ pub struct Animation {
     pub params: AnimationParams,
 }
 
-/// Named runtime behavior attached to a game object.
+/// Named runtime behavior attached to a scene, layer, or sprite after authored
+/// scene compilation.
 #[derive(Debug, Clone, Deserialize)]
 pub struct BehaviorSpec {
     pub name: String,
@@ -35,7 +44,8 @@ pub struct BehaviorSpec {
     pub params: BehaviorParams,
 }
 
-/// Optional named parameters for runtime behavior configuration.
+/// Shared parameter bag for authored behavior declarations that survive into
+/// the runtime scene model.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct BehaviorParams {
     #[serde(default)]
@@ -222,7 +232,7 @@ pub struct Stage {
     pub looping: bool,
 }
 
-/// Lifecycle stages for a scene.
+/// Scene-level lifecycle stages materialized from authored stage YAML.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct SceneStages {
     #[serde(default)]
@@ -233,7 +243,7 @@ pub struct SceneStages {
     pub on_leave: Stage,
 }
 
-/// Declarative audio cue hooks for scene lifecycle stages.
+/// Scene-level audio cues keyed by lifecycle stage in the runtime scene model.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct SceneAudio {
     #[serde(default)]
@@ -244,7 +254,7 @@ pub struct SceneAudio {
     pub on_leave: Vec<AudioCue>,
 }
 
-/// Keyboard menu route available from an on_idle any-key scene.
+/// Authored menu option materialized into a runtime scene transition target.
 #[derive(Debug, Clone, Deserialize)]
 pub struct MenuOption {
     pub key: String,
@@ -259,7 +269,7 @@ pub struct MenuOption {
     pub next: String,
 }
 
-/// Scene-level interactive input profile configuration.
+/// Runtime input profiles declared on a scene for specialized interactive modes.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct SceneInput {
     /// Optional OBJ viewer controls profile.
@@ -295,7 +305,7 @@ pub struct AudioCue {
     pub volume: Option<f32>,
 }
 
-/// Lifecycle stages for a layer.
+/// Layer-level lifecycle stages materialized from authored layer YAML.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct LayerStages {
     #[serde(default)]
@@ -306,7 +316,8 @@ pub struct LayerStages {
     pub on_leave: Stage,
 }
 
-/// A compositing layer — a named group of sprites sharing z_index and lifecycle effects.
+/// Runtime compositing layer assembled from authored layer YAML and any object
+/// expansion output.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Layer {
     #[serde(default)]
@@ -327,7 +338,14 @@ fn default_visible() -> bool {
     true
 }
 
-/// A parsed scene loaded from a `.yml` file.
+/// Runtime scene assembled from authored YAML, package fragments, templates,
+/// and object expansion.
+///
+/// # YAML
+///
+/// A scene may originate from a single `scenes/*.yml` file or from a packaged
+/// directory rooted at `scene.yml` plus `layers/`, `templates/`, and `objects/`
+/// fragments merged before deserialization.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Scene {
     pub id: String,
