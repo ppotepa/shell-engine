@@ -124,6 +124,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
         ),
         output_file("behaviors.schema.yaml".to_string(), build_behavior_schema()),
         output_file("animations.schema.yaml".to_string(), build_animation_schema()),
+        output_file("input-profiles.schema.yaml".to_string(), build_input_profile_schema()),
     ])
 }
 
@@ -359,6 +360,43 @@ fn build_animation_schema() -> Value {
     animation_def.insert(Value::String("oneOf".to_string()), Value::Sequence(one_of_variants));
     defs.insert(Value::String("animation".to_string()), Value::Mapping(animation_def));
     
+    root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
+    Value::Mapping(root)
+}
+
+/// Builds schema for all built-in input profiles.
+fn build_input_profile_schema() -> Value {
+    use engine_core::authoring::catalog::input_profile_catalog;
+    
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String("https://shell-quest.local/schemas/generated/input-profiles.schema.yaml".to_string()),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String("Generated input profile schemas from metadata".to_string()),
+    );
+
+    let profiles = input_profile_catalog();
+    let mut defs = Mapping::new();
+    
+    // Create enum of all profile names
+    let mut profile_enum = Mapping::new();
+    profile_enum.insert(
+        Value::String("type".to_string()),
+        Value::String("string".to_string()),
+    );
+    profile_enum.insert(
+        Value::String("enum".to_string()),
+        Value::Sequence(profiles.into_iter().map(|name| Value::String(name.to_string())).collect()),
+    );
+    
+    defs.insert(Value::String("input_profile".to_string()), Value::Mapping(profile_enum));
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
 }
@@ -1296,5 +1334,44 @@ mod tests {
                 == Some("float")
         });
         assert!(has_float, "float animation should be in schema");
+    }
+
+    #[test]
+    fn test_input_profile_schema_generation() {
+        let temp = unique_temp_dir("input-profile-schema-test");
+        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
+        fs::create_dir_all(temp.join("scenes")).unwrap();
+        
+        let files = generate_mod_schema_files(&temp).unwrap();
+        let profile_schema = files
+            .iter()
+            .find(|f| f.file_name == "input-profiles.schema.yaml")
+            .expect("input-profiles.schema.yaml generated");
+        
+        let defs = profile_schema
+            .value
+            .as_mapping()
+            .and_then(|m| m.get(Value::String("$defs".to_string())))
+            .and_then(Value::as_mapping)
+            .expect("$defs in input-profiles schema");
+        
+        let profile_def = defs
+            .get(Value::String("input_profile".to_string()))
+            .and_then(Value::as_mapping)
+            .expect("input_profile def");
+        
+        let enum_values = profile_def
+            .get(Value::String("enum".to_string()))
+            .and_then(Value::as_sequence)
+            .expect("enum values");
+        
+        assert!(!enum_values.is_empty(), "should have profile values");
+        
+        // Check that known profiles exist
+        let has_obj_viewer = enum_values.iter().any(|v| v.as_str() == Some("obj-viewer"));
+        let has_terminal_tester = enum_values.iter().any(|v| v.as_str() == Some("terminal-size-tester"));
+        
+        assert!(has_obj_viewer, "obj-viewer profile should be in schema");
+        assert!(has_terminal_tester, "terminal-size-tester profile should be in schema");
     }
 }
