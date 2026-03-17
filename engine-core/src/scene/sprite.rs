@@ -161,6 +161,10 @@ pub enum Sprite {
         width: Option<u16>,
         #[serde(default)]
         height: Option<u16>,
+        #[serde(default, rename = "force-renderer-mode")]
+        force_renderer_mode: Option<SceneRenderedMode>,
+        #[serde(default, rename = "surface-mode")]
+        surface_mode: Option<String>,
         #[serde(default)]
         scale: Option<f32>,
         #[serde(default, rename = "yaw-deg")]
@@ -169,12 +173,23 @@ pub enum Sprite {
         pitch_deg: Option<f32>,
         #[serde(default, rename = "roll-deg")]
         roll_deg: Option<f32>,
+        /// Static initial rotation of the mesh around the X axis (degrees).
+        #[serde(default, rename = "rotation-x")]
+        rotation_x: Option<f32>,
+        /// Static initial rotation of the mesh around the Y axis (degrees).
+        #[serde(default, rename = "rotation-y")]
+        rotation_y: Option<f32>,
+        /// Static initial rotation of the mesh around the Z axis (degrees).
+        #[serde(default, rename = "rotation-z")]
+        rotation_z: Option<f32>,
         #[serde(default, rename = "rotate-y-deg-per-sec")]
         rotate_y_deg_per_sec: Option<f32>,
         #[serde(default, rename = "camera-distance")]
         camera_distance: Option<f32>,
         #[serde(default, rename = "fov-degrees")]
         fov_degrees: Option<f32>,
+        #[serde(default, rename = "near-clip")]
+        near_clip: Option<f32>,
         #[serde(default, rename = "draw-char")]
         draw_char: Option<String>,
         align_x: Option<HorizontalAlign>,
@@ -193,6 +208,16 @@ pub enum Sprite {
         animations: Vec<crate::scene::Animation>,
         #[serde(default)]
         behaviors: Vec<BehaviorSpec>,
+        /// Runtime-accumulated free-camera pan (view-space). Not set in YAML.
+        #[serde(skip)]
+        camera_pan_x: f32,
+        #[serde(skip)]
+        camera_pan_y: f32,
+        /// Runtime-accumulated free-camera look rotation (degrees). Not set in YAML.
+        #[serde(skip)]
+        camera_look_yaw: f32,
+        #[serde(skip)]
+        camera_look_pitch: f32,
     },
     /// Grid layout container. Children are renderable sprites arranged in rows/columns.
     Grid {

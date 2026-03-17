@@ -451,13 +451,19 @@ fn render_sprite(
             y,
             width,
             height,
+            force_renderer_mode,
+            surface_mode,
             scale,
             yaw_deg,
             pitch_deg,
             roll_deg,
+            rotation_x,
+            rotation_y,
+            rotation_z,
             rotate_y_deg_per_sec,
             camera_distance,
             fov_degrees,
+            near_clip,
             draw_char,
             align_x,
             align_y,
@@ -468,6 +474,10 @@ fn render_sprite(
             hide_on_leave,
             stages,
             animations,
+            camera_pan_x,
+            camera_pan_y,
+            camera_look_yaw,
+            camera_look_pitch,
             ..
         } => {
             if *hide_on_leave && matches!(ctx.current_stage, SceneStage::OnLeave) {
@@ -483,7 +493,10 @@ fn render_sprite(
                 }
             }
 
-            let (sprite_width, sprite_height) = obj_sprite_dimensions(*width, *height);
+            let resolved_mode =
+                render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let sprite_width = width.unwrap_or(area.width).max(1);
+            let sprite_height = height.unwrap_or(area.height).max(1);
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
             let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
@@ -503,20 +516,36 @@ fn render_sprite(
                 .as_deref()
                 .and_then(|s| s.chars().next())
                 .unwrap_or('#');
+            let is_wireframe = surface_mode
+                .as_deref()
+                .map(str::trim)
+                .map(str::to_ascii_lowercase)
+                .as_deref()
+                == Some("wireframe");
             render_obj_content(
                 source,
-                *width,
-                *height,
+                Some(sprite_width),
+                Some(sprite_height),
+                resolved_mode,
                 ObjRenderParams {
                     scale: scale.unwrap_or(1.0),
                     yaw_deg: yaw_deg.unwrap_or(0.0),
                     pitch_deg: pitch_deg.unwrap_or(0.0),
                     roll_deg: roll_deg.unwrap_or(0.0),
+                    rotation_x: rotation_x.unwrap_or(0.0),
+                    rotation_y: rotation_y.unwrap_or(0.0),
+                    rotation_z: rotation_z.unwrap_or(0.0),
                     rotate_y_deg_per_sec: rotate_y_deg_per_sec.unwrap_or(20.0),
                     camera_distance: camera_distance.unwrap_or(3.0),
                     fov_degrees: fov_degrees.unwrap_or(60.0),
+                    near_clip: near_clip.unwrap_or(0.001),
                     scene_elapsed_ms: sprite_elapsed,
+                    camera_pan_x: *camera_pan_x,
+                    camera_pan_y: *camera_pan_y,
+                    camera_look_yaw: *camera_look_yaw,
+                    camera_look_pitch: *camera_look_pitch,
                 },
+                is_wireframe,
                 draw_glyph,
                 fg,
                 bg,

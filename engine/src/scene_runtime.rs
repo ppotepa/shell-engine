@@ -3,7 +3,7 @@ use crate::behavior::{
 };
 use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
-use crate::scene::{BehaviorSpec, Scene, Sprite};
+use crate::scene::{BehaviorSpec, Scene, SceneRenderedMode, Sprite};
 use crate::systems::animator::SceneStage;
 use std::collections::BTreeMap;
 
@@ -17,6 +17,9 @@ pub struct SceneRuntime {
     behaviors: Vec<ObjectBehaviorRuntime>,
     resolver_cache: TargetResolver,
     object_regions: BTreeMap<String, Region>,
+    obj_orbit_default_speed: BTreeMap<String, f32>,
+    /// Last known mouse position for computing delta in free-camera mode.
+    pub last_mouse_pos: Option<(u16, u16)>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -131,7 +134,10 @@ impl SceneRuntime {
             behaviors: Vec::new(),
             resolver_cache: TargetResolver::default(),
             object_regions: BTreeMap::new(),
+            obj_orbit_default_speed: BTreeMap::new(),
+            last_mouse_pos: None,
         };
+        runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings);
         // Pre-sort layers and sprites once at load time so the compositor hot path skips sorting.
@@ -145,6 +151,71 @@ impl SceneRuntime {
 
     pub fn scene(&self) -> &Scene {
         &self.scene
+    }
+
+    pub fn set_scene_rendered_mode(&mut self, mode: SceneRenderedMode) {
+        self.scene.rendered_mode = mode;
+    }
+
+    pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
+        if delta == 0.0 {
+            return false;
+        }
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            adjust_obj_scale_in_sprites(&mut layer.sprites, sprite_id, delta, &mut updated);
+        }
+        updated
+    }
+
+    pub fn toggle_obj_surface_mode(&mut self, sprite_id: &str) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            toggle_obj_surface_mode_in_sprites(&mut layer.sprites, sprite_id, &mut updated);
+        }
+        updated
+    }
+
+    pub fn toggle_obj_orbit(&mut self, sprite_id: &str) -> bool {
+        let default_speed = self
+            .obj_orbit_default_speed
+            .get(sprite_id)
+            .copied()
+            .unwrap_or(20.0);
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            toggle_obj_orbit_in_sprites(
+                &mut layer.sprites,
+                sprite_id,
+                default_speed,
+                &mut updated,
+            );
+        }
+        updated
+    }
+
+    /// Returns true if the OBJ sprite's orbit (auto-rotation) is currently active.
+    pub fn is_obj_orbit_active(&self, sprite_id: &str) -> bool {
+        for layer in &self.scene.layers {
+            if let Some(active) = obj_orbit_active_in_sprites(&layer.sprites, sprite_id) {
+                return active;
+            }
+        }
+        false
+    }
+
+    /// Accumulate free-camera pan (view-space units) for a sprite.
+    pub fn apply_obj_camera_pan(&mut self, sprite_id: &str, dx: f32, dy: f32) {
+        for layer in &mut self.scene.layers {
+            apply_camera_pan_in_sprites(&mut layer.sprites, sprite_id, dx, dy);
+        }
+    }
+
+    /// Accumulate free-camera look rotation (degrees) for a sprite.
+    pub fn apply_obj_camera_look(&mut self, sprite_id: &str, dyaw: f32, dpitch: f32) {
+        for layer in &mut self.scene.layers {
+            apply_camera_look_in_sprites(&mut layer.sprites, sprite_id, dyaw, dpitch);
+        }
     }
 
     pub fn root_id(&self) -> &str {
@@ -521,12 +592,180 @@ fn sanitize_fragment(input: &str) -> String {
     }
 }
 
+fn collect_obj_orbit_defaults(scene: &Scene) -> BTreeMap<String, f32> {
+    let mut out = BTreeMap::new();
+    for layer in &scene.layers {
+        collect_obj_orbit_defaults_in_sprites(&layer.sprites, &mut out);
+    }
+    out
+}
+
+fn collect_obj_orbit_defaults_in_sprites(sprites: &[Sprite], out: &mut BTreeMap<String, f32>) {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id,
+                rotate_y_deg_per_sec,
+                ..
+            } => {
+                if let Some(id) = id.as_deref() {
+                    out.entry(id.to_string())
+                        .or_insert(rotate_y_deg_per_sec.unwrap_or(20.0));
+                }
+            }
+            Sprite::Grid { children, .. } => {
+                collect_obj_orbit_defaults_in_sprites(children, out);
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+}
+
+fn adjust_obj_scale_in_sprites(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    delta: f32,
+    updated: &mut bool,
+) {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj { id, scale, .. } => {
+                if id.as_deref() == Some(sprite_id) {
+                    let next = (scale.unwrap_or(1.0) + delta).clamp(0.1, 8.0);
+                    *scale = Some(next);
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. } => {
+                adjust_obj_scale_in_sprites(children, sprite_id, delta, updated);
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+}
+
+fn toggle_obj_surface_mode_in_sprites(sprites: &mut [Sprite], sprite_id: &str, updated: &mut bool) {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj { id, surface_mode, .. } => {
+                if id.as_deref() == Some(sprite_id) {
+                    let is_wireframe = surface_mode
+                        .as_deref()
+                        .map(str::trim)
+                        .map(str::to_ascii_lowercase)
+                        .as_deref()
+                        == Some("wireframe");
+                    *surface_mode = if is_wireframe {
+                        Some("material".to_string())
+                    } else {
+                        Some("wireframe".to_string())
+                    };
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. } => {
+                toggle_obj_surface_mode_in_sprites(children, sprite_id, updated);
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+}
+
+fn toggle_obj_orbit_in_sprites(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    default_speed: f32,
+    updated: &mut bool,
+) {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id,
+                rotate_y_deg_per_sec,
+                ..
+            } => {
+                if id.as_deref() == Some(sprite_id) {
+                    let current = rotate_y_deg_per_sec.unwrap_or(default_speed);
+                    *rotate_y_deg_per_sec = if current.abs() < f32::EPSILON {
+                        Some(default_speed)
+                    } else {
+                        Some(0.0)
+                    };
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. } => {
+                toggle_obj_orbit_in_sprites(children, sprite_id, default_speed, updated);
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+}
+
+fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bool> {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj { id, rotate_y_deg_per_sec, .. } => {
+                if id.as_deref() == Some(sprite_id) {
+                    return Some(rotate_y_deg_per_sec.unwrap_or(0.0).abs() > f32::EPSILON);
+                }
+            }
+            Sprite::Grid { children, .. } => {
+                if let Some(result) = obj_orbit_active_in_sprites(children, sprite_id) {
+                    return Some(result);
+                }
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+    None
+}
+
+fn apply_camera_pan_in_sprites(sprites: &mut [Sprite], sprite_id: &str, dx: f32, dy: f32) {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj { id, camera_pan_x, camera_pan_y, .. } => {
+                if id.as_deref() == Some(sprite_id) {
+                    *camera_pan_x += dx;
+                    *camera_pan_y += dy;
+                }
+            }
+            Sprite::Grid { children, .. } => {
+                apply_camera_pan_in_sprites(children, sprite_id, dx, dy);
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+}
+
+fn apply_camera_look_in_sprites(sprites: &mut [Sprite], sprite_id: &str, dyaw: f32, dpitch: f32) {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id,
+                camera_look_yaw,
+                camera_look_pitch,
+                ..
+            } => {
+                if id.as_deref() == Some(sprite_id) {
+                    *camera_look_yaw += dyaw;
+                    *camera_look_pitch = (*camera_look_pitch + dpitch).clamp(-85.0, 85.0);
+                }
+            }
+            Sprite::Grid { children, .. } => {
+                apply_camera_look_in_sprites(children, sprite_id, dyaw, dpitch);
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::SceneRuntime;
     use crate::behavior::BehaviorCommand;
     use crate::game_object::GameObjectKind;
-    use crate::scene::Scene;
+    use crate::scene::{Scene, SceneRenderedMode, Sprite};
 
     #[test]
     fn builds_object_hierarchy_for_layers_and_nested_sprites() {
@@ -665,5 +904,130 @@ layers:
         assert!(!state.visible);
         assert_eq!(state.offset_x, 10);
         assert_eq!(state.offset_y, 0);
+    }
+
+    #[test]
+    fn adjusts_obj_scale_for_target_sprite_id() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: playground-3d-scene
+title: 3D
+bg_colour: black
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+        scale: 1.0
+"#,
+        )
+        .expect("scene should parse");
+        let mut runtime = SceneRuntime::new(scene);
+        runtime.set_scene_rendered_mode(SceneRenderedMode::Braille);
+        assert!(runtime.adjust_obj_scale("helsinki-uni-wireframe", 0.2));
+
+        let obj_scale = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj { id, scale, .. } if id.as_deref() == Some("helsinki-uni-wireframe") => {
+                    *scale
+                }
+                _ => None,
+            })
+            .expect("obj scale");
+        assert!((obj_scale - 1.2).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn toggles_obj_surface_mode() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: playground-3d-scene
+title: 3D
+bg_colour: black
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+"#,
+        )
+        .expect("scene should parse");
+        let mut runtime = SceneRuntime::new(scene);
+        assert!(runtime.toggle_obj_surface_mode("helsinki-uni-wireframe"));
+        let mode = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj { id, surface_mode, .. }
+                    if id.as_deref() == Some("helsinki-uni-wireframe") =>
+                {
+                    surface_mode.clone()
+                }
+                _ => None,
+            })
+            .expect("surface mode");
+        assert_eq!(mode, "wireframe");
+    }
+
+    #[test]
+    fn toggles_obj_orbit_speed_on_and_off() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: playground-3d-scene
+title: 3D
+bg_colour: black
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+        rotate-y-deg-per-sec: 14
+"#,
+        )
+        .expect("scene should parse");
+        let mut runtime = SceneRuntime::new(scene);
+
+        assert!(runtime.toggle_obj_orbit("helsinki-uni-wireframe"));
+        let speed_off = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    rotate_y_deg_per_sec,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => *rotate_y_deg_per_sec,
+                _ => None,
+            })
+            .expect("orbit speed");
+        assert!((speed_off - 0.0).abs() < f32::EPSILON);
+
+        assert!(runtime.toggle_obj_orbit("helsinki-uni-wireframe"));
+        let speed_on = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    rotate_y_deg_per_sec,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => *rotate_y_deg_per_sec,
+                _ => None,
+            })
+            .expect("orbit speed");
+        assert!((speed_on - 14.0).abs() < f32::EPSILON);
     }
 }

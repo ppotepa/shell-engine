@@ -4,6 +4,7 @@ use crossterm::event::KeyCode;
 pub enum EngineEvent {
     Tick,
     KeyPressed(KeyCode),
+    MouseMoved { column: u16, row: u16 },
     SceneLoaded { scene_id: String },
     SceneTransition { to_scene_id: String },
     AudioCue { cue: String, volume: Option<f32> },
