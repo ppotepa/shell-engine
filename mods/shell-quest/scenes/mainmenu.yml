@@ -3,7 +3,7 @@
 id: mainmenu
 title: Main Menu
 bg: black
-virtual-size-override: "320x240"
+# Inherit mod-level `virtual_size: max-available` so the menu fills the terminal.
 # Main mod landing scene after the intro.
 # This file is the compact reference for:
 # - a simple scene-level fade in/out
