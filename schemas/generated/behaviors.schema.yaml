@@ -5,11 +5,13 @@ $defs:
   behavior:
     oneOf:
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: blink
         params:
           type: object
+          additionalProperties: false
           properties:
             target:
               type: string
@@ -17,40 +19,57 @@ $defs:
             visible_ms:
               type: integer
               description: Milliseconds visible per cycle
-              default: 500.0
+              default: 250.0
               minimum: 0.0
               multipleOf: 10.0
             hidden_ms:
               type: integer
               description: Milliseconds hidden per cycle
-              default: 500.0
+              default: 250.0
+              minimum: 0.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for the blink cycle
+              default: 0.0
               minimum: 0.0
               multipleOf: 10.0
             stages:
-              type: string
+              type: array
               description: Scene stages when behavior is active
-              enum:
-              - on_enter
-              - on_idle
-              - on_exit
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
       required:
       - name
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: bob
         params:
           type: object
+          additionalProperties: false
           properties:
             target:
               type: string
               description: Sprite ID to bob
+            amplitude_x:
+              type: integer
+              description: Horizontal oscillation amplitude
+              default: 0.0
+              multipleOf: 1.0
             amplitude_y:
               type: integer
               description: Vertical oscillation amplitude
-              default: 2.0
-              minimum: -100.0
-              maximum: 100.0
+              default: 1.0
               multipleOf: 1.0
             period_ms:
               type: integer
@@ -65,39 +84,67 @@ $defs:
               minimum: 0.0
               multipleOf: 10.0
             stages:
-              type: string
+              type: array
               description: Scene stages when behavior is active
-              enum:
-              - on_enter
-              - on_idle
-              - on_exit
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
       required:
       - name
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: follow
         params:
           type: object
+          additionalProperties: false
           properties:
             target:
               type: string
               description: Sprite ID to follow
+            amplitude_x:
+              type: integer
+              description: Horizontal offset from the followed sprite
+              default: 0.0
+              multipleOf: 1.0
+            amplitude_y:
+              type: integer
+              description: Vertical offset from the followed sprite
+              default: 0.0
+              multipleOf: 1.0
             stages:
-              type: string
+              type: array
               description: Scene stages when behavior is active
-              enum:
-              - on_enter
-              - on_idle
-              - on_exit
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - target
       required:
       - name
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: menu-selected
         params:
           type: object
+          additionalProperties: false
           properties:
             index:
               type: integer
@@ -105,21 +152,39 @@ $defs:
               minimum: 0.0
               multipleOf: 1.0
             stages:
-              type: string
+              type: array
               description: Scene stages when behavior is active
-              enum:
-              - on_enter
-              - on_idle
-              - on_exit
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - index
       required:
       - name
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: selected-arrows
         params:
           type: object
+          additionalProperties: false
           properties:
+            target:
+              type: string
+              description: Sprite ID that the arrow should flank
+            index:
+              type: integer
+              description: Menu option index this arrow tracks
+              minimum: 0.0
+              multipleOf: 1.0
             side:
               type: string
               description: Which side the arrow appears on
@@ -131,43 +196,82 @@ $defs:
               type: integer
               description: Cell padding from target sprite edge
               default: 1.0
-              minimum: 0.0
-              maximum: 20.0
               multipleOf: 1.0
+            amplitude_x:
+              type: integer
+              description: Horizontal sway amplitude of the arrow
+              default: 1.0
+              multipleOf: 1.0
+            period_ms:
+              type: integer
+              description: Full sway cycle duration
+              default: 900.0
+              minimum: 1.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for sway phase
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            autoscale_height:
+              type: boolean
+              description: Expand horizontal anchor distance by target item height
             stages:
-              type: string
+              type: array
               description: Scene stages when behavior is active
-              enum:
-              - on_enter
-              - on_idle
-              - on_exit
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - target
+          - index
       required:
       - name
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: stage-visibility
         params:
           type: object
+          additionalProperties: false
           properties:
             target:
               type: string
               description: Sprite ID to control visibility
             stages:
-              type: string
+              type: array
               description: Scene stages when sprite is visible
-              enum:
-              - on_enter
-              - on_idle
-              - on_exit
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - stages
       required:
       - name
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: timed-visibility
         params:
           type: object
+          additionalProperties: false
           properties:
             target:
               type: string
@@ -191,11 +295,17 @@ $defs:
               minimum: 0.0
               multipleOf: 10.0
             stages:
-              type: string
+              type: array
               description: Scene stages when behavior is active
-              enum:
-              - on_enter
-              - on_idle
-              - on_exit
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
       required:
       - name

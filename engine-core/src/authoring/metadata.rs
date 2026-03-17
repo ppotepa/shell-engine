@@ -19,6 +19,7 @@ pub enum ValueKind {
     Text,
     Colour,
     Select,
+    SelectList,
 }
 
 /// Allowed authored source forms for a field.

@@ -5,11 +5,13 @@ $defs:
   animation:
     oneOf:
     - type: object
+      additionalProperties: false
       properties:
         name:
           const: float
         params:
           type: object
+          additionalProperties: false
           properties:
             axis:
               type: string
