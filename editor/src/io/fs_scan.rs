@@ -207,3 +207,37 @@ pub fn infer_mod_root_from_project_yml(path: &Path) -> Option<String> {
         cur = cur.parent()?;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{collect_game_yaml_files, collect_schema_project_yml_files};
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn schema_scanner_includes_object_schema_files() {
+        let temp = tempdir().expect("temp dir");
+        let object_yaml = temp.path().join("npc.yml");
+        fs::write(
+            &object_yaml,
+            "# yaml-language-server: $schema=../../schemas/object.schema.yaml\nname: npc\n",
+        )
+        .expect("write yaml");
+
+        let files = collect_schema_project_yml_files(temp.path());
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("npc.yml"));
+    }
+
+    #[test]
+    fn game_yaml_scanner_includes_objects_directory() {
+        let temp = tempdir().expect("temp dir");
+        let objects_dir = temp.path().join("objects");
+        fs::create_dir_all(&objects_dir).expect("create objects dir");
+        fs::write(objects_dir.join("suzan.yml"), "name: suzan\n").expect("write object");
+
+        let files = collect_game_yaml_files(temp.path());
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("objects/suzan.yml"));
+    }
+}
