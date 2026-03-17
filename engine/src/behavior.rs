@@ -35,6 +35,8 @@ pub trait Behavior: Send + Sync {
     );
 }
 
+type EmittedCueKey = (String, String, SceneStage, u64, String);
+
 pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send + Sync>> {
     let name = spec.name.trim();
     if name.eq_ignore_ascii_case("blink") {
@@ -58,7 +60,7 @@ pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send 
 
 #[derive(Default)]
 pub struct SceneAudioBehavior {
-    emitted: HashSet<(String, String, SceneStage, u64, String)>,
+    emitted: HashSet<EmittedCueKey>,
 }
 
 impl Behavior for SceneAudioBehavior {
@@ -73,12 +75,15 @@ impl Behavior for SceneAudioBehavior {
             if ctx.scene_elapsed_ms < cue.at_ms || cue.cue.trim().is_empty() {
                 continue;
             }
-            let key = (scene.id.clone(), object.id.clone(), ctx.stage, cue.at_ms, cue.cue.clone());
+            let key = (
+                scene.id.clone(),
+                object.id.clone(),
+                ctx.stage,
+                cue.at_ms,
+                cue.cue.clone(),
+            );
             if self.emitted.insert(key) {
-                commands.push(BehaviorCommand::PlayAudioCue {
-                    cue: cue.cue.clone(),
-                    volume: cue.volume,
-                });
+                emit_audio(commands, cue.cue.clone(), cue.volume);
             }
         }
     }
@@ -117,11 +122,7 @@ impl Behavior for BlinkBehavior {
             let t = ctx.scene_elapsed_ms.saturating_add(self.phase_ms) % cycle;
             t < self.visible_ms || self.hidden_ms == 0
         };
-
-        commands.push(BehaviorCommand::SetVisibility {
-            target: resolve_target(&self.target, object),
-            visible,
-        });
+        emit_visibility(commands, resolve_target(&self.target, object), visible);
     }
 }
 
@@ -153,14 +154,13 @@ impl Behavior for BobBehavior {
         ctx: &BehaviorContext,
         commands: &mut Vec<BehaviorCommand>,
     ) {
-        let phase = (ctx.scene_elapsed_ms.saturating_add(self.phase_ms) % self.period_ms) as f32
-            / self.period_ms as f32;
-        let wave = (phase * TAU).sin();
-        commands.push(BehaviorCommand::SetOffset {
-            target: resolve_target(&self.target, object),
-            dx: (self.amplitude_x as f32 * wave).round() as i32,
-            dy: (self.amplitude_y as f32 * wave).round() as i32,
-        });
+        let wave = sine_wave(ctx.scene_elapsed_ms, self.phase_ms, self.period_ms);
+        emit_offset(
+            commands,
+            resolve_target(&self.target, object),
+            (self.amplitude_x as f32 * wave).round() as i32,
+            (self.amplitude_y as f32 * wave).round() as i32,
+        );
     }
 }
 
@@ -191,22 +191,16 @@ impl Behavior for FollowBehavior {
         let Some(target) = self.target.as_deref() else {
             return;
         };
-        let Some(target_id) = ctx.resolve_target(target) else {
+        let Some(target_state) = ctx.resolved_object_state(target) else {
             return;
         };
-        let Some(target_state) = ctx.object_state(target_id) else {
-            return;
-        };
-
-        commands.push(BehaviorCommand::SetVisibility {
-            target: object.id.clone(),
-            visible: target_state.visible,
-        });
-        commands.push(BehaviorCommand::SetOffset {
-            target: object.id.clone(),
-            dx: target_state.offset_x.saturating_add(self.offset_x),
-            dy: target_state.offset_y.saturating_add(self.offset_y),
-        });
+        emit_visibility(commands, object.id.clone(), target_state.visible);
+        emit_offset(
+            commands,
+            object.id.clone(),
+            target_state.offset_x.saturating_add(self.offset_x),
+            target_state.offset_y.saturating_add(self.offset_y),
+        );
     }
 }
 
@@ -237,10 +231,11 @@ impl Behavior for MenuSelectedBehavior {
         ctx: &BehaviorContext,
         commands: &mut Vec<BehaviorCommand>,
     ) {
-        commands.push(BehaviorCommand::SetVisibility {
-            target: resolve_target(&self.target, object),
-            visible: ctx.menu_selected_index == self.index,
-        });
+        emit_visibility(
+            commands,
+            resolve_target(&self.target, object),
+            ctx.menu_selected_index == self.index,
+        );
     }
 }
 
@@ -288,10 +283,7 @@ impl SelectedArrowsBehavior {
     fn hide_and_reset(&mut self, object: &GameObject, commands: &mut Vec<BehaviorCommand>) {
         self.last_dx = 0;
         self.last_dy = 0;
-        commands.push(BehaviorCommand::SetVisibility {
-            target: object.id.clone(),
-            visible: false,
-        });
+        emit_visibility(commands, object.id.clone(), false);
     }
 }
 
@@ -312,20 +304,13 @@ impl Behavior for SelectedArrowsBehavior {
             self.hide_and_reset(object, commands);
             return;
         };
-        let Some(target_id) = ctx.resolve_target(target_alias) else {
+        let Some(target_region) = ctx.resolved_object_region(target_alias) else {
             self.hide_and_reset(object, commands);
             return;
         };
-        let Some(target_region) = ctx.object_regions.get(target_id) else {
-            self.hide_and_reset(object, commands);
-            return;
-        };
-        let own_region = ctx.object_regions.get(&object.id);
+        let own_region = ctx.object_region(&object.id);
 
-        let wave_phase = (ctx.scene_elapsed_ms.saturating_add(self.phase_ms) % self.period_ms)
-            as f32
-            / self.period_ms as f32;
-        let wave = (wave_phase * TAU).sin().round() as i32;
+        let wave = rounded_sine_wave(ctx.scene_elapsed_ms, self.phase_ms, self.period_ms);
         let signed_wave = match self.side {
             ArrowSide::Left => wave,
             ArrowSide::Right => -wave,
@@ -347,10 +332,7 @@ impl Behavior for SelectedArrowsBehavior {
         };
         let target_y = target_region.y as i32 + (target_region.height.saturating_sub(1) as i32 / 2);
 
-        commands.push(BehaviorCommand::SetVisibility {
-            target: object.id.clone(),
-            visible: true,
-        });
+        emit_visibility(commands, object.id.clone(), true);
 
         let Some(own_region) = own_region else {
             // First frame after becoming visible: wait for compositor to discover own region.
@@ -364,11 +346,7 @@ impl Behavior for SelectedArrowsBehavior {
         self.last_dx = new_dx;
         self.last_dy = new_dy;
 
-        commands.push(BehaviorCommand::SetOffset {
-            target: object.id.clone(),
-            dx: new_dx,
-            dy: new_dy,
-        });
+        emit_offset(commands, object.id.clone(), new_dx, new_dy);
     }
 }
 
@@ -399,10 +377,7 @@ impl Behavior for StageVisibilityBehavior {
         } else {
             self.stages.iter().any(|stage| stage == &ctx.stage)
         };
-        commands.push(BehaviorCommand::SetVisibility {
-            target: resolve_target(&self.target, object),
-            visible,
-        });
+        emit_visibility(commands, resolve_target(&self.target, object), visible);
     }
 }
 
@@ -433,19 +408,24 @@ impl Behavior for TimedVisibilityBehavior {
         commands: &mut Vec<BehaviorCommand>,
     ) {
         let elapsed_ms = self.time_scope.elapsed_ms(ctx);
-        let after_start = self
-            .start_ms
-            .map(|start_ms| elapsed_ms >= start_ms)
-            .unwrap_or(true);
-        let before_end = self
-            .end_ms
-            .map(|end_ms| elapsed_ms < end_ms)
-            .unwrap_or(true);
-        commands.push(BehaviorCommand::SetVisibility {
-            target: resolve_target(&self.target, object),
-            visible: after_start && before_end,
-        });
+        emit_visibility(
+            commands,
+            resolve_target(&self.target, object),
+            is_within_time_window(elapsed_ms, self.start_ms, self.end_ms),
+        );
     }
+}
+
+fn emit_audio(commands: &mut Vec<BehaviorCommand>, cue: String, volume: Option<f32>) {
+    commands.push(BehaviorCommand::PlayAudioCue { cue, volume });
+}
+
+fn emit_visibility(commands: &mut Vec<BehaviorCommand>, target: String, visible: bool) {
+    commands.push(BehaviorCommand::SetVisibility { target, visible });
+}
+
+fn emit_offset(commands: &mut Vec<BehaviorCommand>, target: String, dx: i32, dy: i32) {
+    commands.push(BehaviorCommand::SetOffset { target, dx, dy });
 }
 
 fn resolve_target(target: &Option<String>, object: &GameObject) -> String {
@@ -454,6 +434,20 @@ fn resolve_target(target: &Option<String>, object: &GameObject) -> String {
         .filter(|value| !value.trim().is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| object.id.clone())
+}
+
+fn sine_wave(elapsed_ms: u64, phase_ms: u64, period_ms: u64) -> f32 {
+    let phase = (elapsed_ms.saturating_add(phase_ms) % period_ms) as f32 / period_ms as f32;
+    (phase * TAU).sin()
+}
+
+fn rounded_sine_wave(elapsed_ms: u64, phase_ms: u64, period_ms: u64) -> i32 {
+    sine_wave(elapsed_ms, phase_ms, period_ms).round() as i32
+}
+
+fn is_within_time_window(elapsed_ms: u64, start_ms: Option<u64>, end_ms: Option<u64>) -> bool {
+    start_ms.map(|start| elapsed_ms >= start).unwrap_or(true)
+        && end_ms.map(|end| elapsed_ms < end).unwrap_or(true)
 }
 
 #[derive(Clone, Copy)]
@@ -512,6 +506,19 @@ impl BehaviorContext {
     pub fn object_state(&self, object_id: &str) -> Option<&ObjectRuntimeState> {
         self.object_states.get(object_id)
     }
+
+    pub fn object_region(&self, object_id: &str) -> Option<&Region> {
+        self.object_regions.get(object_id)
+    }
+
+    pub fn resolved_object_state(&self, target: &str) -> Option<&ObjectRuntimeState> {
+        self.resolve_target(target).and_then(|object_id| self.object_state(object_id))
+    }
+
+    pub fn resolved_object_region(&self, target: &str) -> Option<&Region> {
+        self.resolve_target(target)
+            .and_then(|object_id| self.object_region(object_id))
+    }
 }
 
 #[cfg(test)]
@@ -529,6 +536,7 @@ mod tests {
     };
     use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
     use crate::systems::animator::SceneStage;
+    use std::collections::BTreeMap;
 
     fn scene_object() -> GameObject {
         GameObject {
@@ -541,9 +549,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn scene_audio_behavior_emits_each_cue_once() {
-        let scene = Scene {
+    fn base_scene() -> Scene {
+        Scene {
             id: "intro".to_string(),
             title: "Intro".to_string(),
             cutscene: true,
@@ -553,30 +560,71 @@ mod tests {
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),
             behaviors: Vec::new(),
-            audio: SceneAudio {
-                on_enter: vec![AudioCue {
-                    at_ms: 100,
-                    cue: "thunder".to_string(),
-                    volume: Some(0.7),
-                }],
-                on_idle: Vec::new(),
-                on_leave: Vec::new(),
-            },
+            audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
             input: Default::default(),
             next: None,
-        };
-        let object = scene_object();
-        let ctx = BehaviorContext {
-            stage: SceneStage::OnEnter,
-            scene_elapsed_ms: 100,
-            stage_elapsed_ms: 100,
+        }
+    }
+
+    fn scene_with_audio(audio: SceneAudio) -> Scene {
+        Scene { audio, ..base_scene() }
+    }
+
+    fn base_ctx() -> BehaviorContext {
+        BehaviorContext {
+            stage: SceneStage::OnIdle,
+            scene_elapsed_ms: 0,
+            stage_elapsed_ms: 0,
             menu_selected_index: 0,
             target_resolver: TargetResolver::default(),
-            object_states: Default::default(),
-            object_regions: Default::default(),
-        };
+            object_states: BTreeMap::new(),
+            object_regions: BTreeMap::new(),
+        }
+    }
+
+    fn ctx(stage: SceneStage, scene_elapsed_ms: u64, stage_elapsed_ms: u64) -> BehaviorContext {
+        BehaviorContext {
+            stage,
+            scene_elapsed_ms,
+            stage_elapsed_ms,
+            ..base_ctx()
+        }
+    }
+
+    fn region(x: u16, y: u16, width: u16, height: u16) -> Region {
+        Region {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    fn run_behavior<B: Behavior>(
+        behavior: &mut B,
+        scene: &Scene,
+        ctx: BehaviorContext,
+    ) -> Vec<BehaviorCommand> {
+        let mut commands = Vec::new();
+        behavior.update(&scene_object(), scene, &ctx, &mut commands);
+        commands
+    }
+
+    #[test]
+    fn scene_audio_behavior_emits_each_cue_once() {
+        let scene = scene_with_audio(SceneAudio {
+            on_enter: vec![AudioCue {
+                at_ms: 100,
+                cue: "thunder".to_string(),
+                volume: Some(0.7),
+            }],
+            on_idle: Vec::new(),
+            on_leave: Vec::new(),
+        });
+        let object = scene_object();
+        let ctx = ctx(SceneStage::OnEnter, 100, 100);
         let mut behavior = SceneAudioBehavior::default();
         let mut commands = Vec::new();
 
@@ -599,39 +647,7 @@ mod tests {
             hidden_ms: Some(100),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 150,
-                stage_elapsed_ms: 150,
-                menu_selected_index: 0,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 150, 150));
 
         assert_eq!(
             commands,
@@ -651,39 +667,7 @@ mod tests {
             phase_ms: Some(250),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 0,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 0, 0));
 
         assert_eq!(
             commands,
@@ -711,39 +695,7 @@ mod tests {
             stages: vec!["on-idle".to_string()],
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnEnter,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 0,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnEnter, 0, 0));
 
         assert_eq!(
             commands,
@@ -762,39 +714,7 @@ mod tests {
             end_ms: Some(200),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 150,
-                stage_elapsed_ms: 150,
-                menu_selected_index: 0,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 150, 150));
 
         assert_eq!(
             commands,
@@ -814,39 +734,7 @@ mod tests {
             end_ms: Some(200),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 500,
-                stage_elapsed_ms: 150,
-                menu_selected_index: 0,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 500, 150));
 
         assert_eq!(
             commands,
@@ -865,26 +753,9 @@ mod tests {
             amplitude_y: Some(-1),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
         let mut resolver = TargetResolver::default();
         resolver.register_alias("leader".to_string(), "obj:leader".to_string());
-        let mut object_states = std::collections::BTreeMap::new();
+        let mut object_states = BTreeMap::new();
         object_states.insert(
             "obj:leader".to_string(),
             ObjectRuntimeState {
@@ -893,22 +764,10 @@ mod tests {
                 offset_y: 2,
             },
         );
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 0,
-                target_resolver: resolver,
-                object_states,
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_states = object_states;
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
 
         assert_eq!(
             commands,
@@ -932,38 +791,9 @@ mod tests {
             index: Some(1),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 1,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.menu_selected_index = 1;
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
 
         assert_eq!(
             commands,
@@ -982,39 +812,7 @@ mod tests {
             side: Some("left".to_string()),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 0,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 0, 0));
 
         assert_eq!(
             commands,
@@ -1037,61 +835,15 @@ mod tests {
             period_ms: Some(1000),
             ..BehaviorParams::default()
         });
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_regions = std::collections::BTreeMap::new();
-        object_regions.insert(
-            "scene:intro".to_string(),
-            Region {
-                x: 20,
-                y: 10,
-                width: 1,
-                height: 1,
-            },
-        );
-        object_regions.insert(
-            "obj:menu-item-0".to_string(),
-            Region {
-                x: 30,
-                y: 8,
-                width: 10,
-                height: 3,
-            },
-        );
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 0,
-                target_resolver: resolver,
-                object_states: Default::default(),
-                object_regions,
-            },
-            &mut commands,
-        );
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("scene:intro".to_string(), region(20, 10, 1, 1));
+        object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 3));
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_regions = object_regions;
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
 
         assert_eq!(
             commands,
@@ -1124,39 +876,9 @@ mod tests {
         behavior.last_dx = 8;
         behavior.last_dy = -1;
 
-        let object = scene_object();
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: None,
-        };
-
-        let mut commands = Vec::new();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 1,
-                target_resolver: TargetResolver::default(),
-                object_states: Default::default(),
-                object_regions: Default::default(),
-            },
-            &mut commands,
-        );
+        let mut deselected_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        deselected_ctx.menu_selected_index = 1;
+        let commands = run_behavior(&mut behavior, &base_scene(), deselected_ctx);
 
         assert_eq!(
             commands,
@@ -1170,41 +892,13 @@ mod tests {
 
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_regions = std::collections::BTreeMap::new();
-        object_regions.insert(
-            "scene:intro".to_string(),
-            Region {
-                x: 20,
-                y: 10,
-                width: 1,
-                height: 1,
-            },
-        );
-        object_regions.insert(
-            "obj:menu-item-0".to_string(),
-            Region {
-                x: 30,
-                y: 8,
-                width: 10,
-                height: 3,
-            },
-        );
-
-        commands.clear();
-        behavior.update(
-            &object,
-            &scene,
-            &BehaviorContext {
-                stage: SceneStage::OnIdle,
-                scene_elapsed_ms: 0,
-                stage_elapsed_ms: 0,
-                menu_selected_index: 0,
-                target_resolver: resolver,
-                object_states: Default::default(),
-                object_regions,
-            },
-            &mut commands,
-        );
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("scene:intro".to_string(), region(20, 10, 1, 1));
+        object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 3));
+        let mut selected_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        selected_ctx.target_resolver = resolver;
+        selected_ctx.object_regions = object_regions;
+        let commands = run_behavior(&mut behavior, &base_scene(), selected_ctx);
 
         assert_eq!(
             commands,
