@@ -326,9 +326,7 @@ impl Sprite {
             Sprite::Text { id, .. }
             | Sprite::Image { id, .. }
             | Sprite::Obj { id, .. }
-            | Sprite::Grid { id, .. } => {
-                id.as_deref()
-            }
+            | Sprite::Grid { id, .. } => id.as_deref(),
         }
     }
 
@@ -402,6 +400,42 @@ impl Sprite {
             | Sprite::Image { behaviors, .. }
             | Sprite::Obj { behaviors, .. }
             | Sprite::Grid { behaviors, .. } => behaviors,
+        }
+    }
+
+    pub fn hide_on_leave(&self) -> bool {
+        match self {
+            Sprite::Text { hide_on_leave, .. }
+            | Sprite::Image { hide_on_leave, .. }
+            | Sprite::Obj { hide_on_leave, .. }
+            | Sprite::Grid { hide_on_leave, .. } => *hide_on_leave,
+        }
+    }
+
+    pub fn appear_at_ms(&self) -> Option<u64> {
+        match self {
+            Sprite::Text { appear_at_ms, .. }
+            | Sprite::Image { appear_at_ms, .. }
+            | Sprite::Obj { appear_at_ms, .. }
+            | Sprite::Grid { appear_at_ms, .. } => *appear_at_ms,
+        }
+    }
+
+    pub fn disappear_at_ms(&self) -> Option<u64> {
+        match self {
+            Sprite::Text { disappear_at_ms, .. }
+            | Sprite::Image { disappear_at_ms, .. }
+            | Sprite::Obj { disappear_at_ms, .. }
+            | Sprite::Grid { disappear_at_ms, .. } => *disappear_at_ms,
+        }
+    }
+
+    pub fn animations(&self) -> &[crate::scene::Animation] {
+        match self {
+            Sprite::Text { animations, .. }
+            | Sprite::Image { animations, .. }
+            | Sprite::Obj { animations, .. }
+            | Sprite::Grid { animations, .. } => animations,
         }
     }
 }
