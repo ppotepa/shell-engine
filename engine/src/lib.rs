@@ -132,6 +132,7 @@ mod tests {
         SceneGraphCheck,
     };
     use crate::pipelines::startup::{StartupContext, StartupRunner};
+    use crate::repositories::{create_scene_repository, SceneRepository};
     use crate::scene_loader;
     use std::{fs, path::PathBuf};
     use tempfile::tempdir;
@@ -198,6 +199,16 @@ mod tests {
         assert_real_mod_starts("shell-quest");
     }
 
+    #[test]
+    fn real_playground_scenes_all_load() {
+        assert_real_mod_scenes_load("playground");
+    }
+
+    #[test]
+    fn real_shell_quest_scenes_all_load() {
+        assert_real_mod_scenes_load("shell-quest");
+    }
+
     fn assert_real_mod_starts(mod_name: &str) {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
@@ -233,5 +244,34 @@ mod tests {
             !scene.title.trim().is_empty(),
             "entrypoint scene title should not be empty for {mod_name}"
         );
+    }
+
+    fn assert_real_mod_scenes_load(mod_name: &str) {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .canonicalize()
+            .expect("repo root");
+        let mod_dir = repo_root.join("mods").join(mod_name);
+        let repo = create_scene_repository(&mod_dir).expect("scene repository");
+        let scene_paths = repo.discover_scene_paths().expect("discover scene paths");
+
+        assert!(
+            !scene_paths.is_empty(),
+            "expected at least one discoverable scene in {mod_name}"
+        );
+
+        for scene_path in scene_paths {
+            let scene = repo
+                .load_scene(&scene_path)
+                .unwrap_or_else(|err| panic!("{mod_name} scene {scene_path} should load: {err}"));
+            assert!(
+                !scene.id.trim().is_empty(),
+                "{mod_name} scene {scene_path} should have non-empty id"
+            );
+            assert!(
+                !scene.title.trim().is_empty(),
+                "{mod_name} scene {scene_path} should have non-empty title"
+            );
+        }
     }
 }

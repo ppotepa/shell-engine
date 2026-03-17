@@ -320,8 +320,9 @@ mod tests {
         collect_game_yaml_files, collect_scene_entry_files, collect_schema_project_yml_files,
         extract_schema_ref, resolve_schema_ref_path,
     };
+    use serde_yaml::Value;
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
     #[test]
@@ -500,5 +501,186 @@ mod tests {
                 schema_path.display()
             );
         }
+    }
+
+    #[test]
+    fn repo_schema_files_parse_and_refs_resolve() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .canonicalize()
+            .expect("repo root");
+        let schema_files = collect_repo_schema_files(&repo_root);
+
+        assert!(
+            !schema_files.is_empty(),
+            "expected repository schema files to exist"
+        );
+
+        for schema_path in schema_files {
+            let raw = fs::read_to_string(&schema_path)
+                .unwrap_or_else(|err| panic!("failed reading {}: {err}", schema_path.display()));
+            let doc: Value = serde_yaml::from_str(&raw)
+                .unwrap_or_else(|err| panic!("failed parsing {}: {err}", schema_path.display()));
+            assert_schema_refs_resolve(&repo_root, &schema_path, &doc, &doc);
+        }
+    }
+
+    fn collect_repo_schema_files(repo_root: &Path) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        let schema_root = repo_root.join("schemas");
+        walk_schema_files(&schema_root, &mut files);
+        files.sort();
+        files
+    }
+
+    fn walk_schema_files(path: &Path, out: &mut Vec<PathBuf>) {
+        let entries = match fs::read_dir(path) {
+            Ok(v) => v,
+            Err(_) => return,
+        };
+        for entry in entries.flatten() {
+            let file_path = entry.path();
+            if file_path.is_dir() {
+                walk_schema_files(&file_path, out);
+                continue;
+            }
+            if file_path.extension().and_then(|ext| ext.to_str()) == Some("yaml") {
+                out.push(file_path);
+            }
+        }
+    }
+
+    fn assert_schema_refs_resolve(
+        repo_root: &Path,
+        schema_path: &Path,
+        root_doc: &Value,
+        value: &Value,
+    ) {
+        match value {
+            Value::Mapping(map) => {
+                for (key, child) in map {
+                    if key.as_str() == Some("$ref") {
+                        let ref_value = child
+                            .as_str()
+                            .unwrap_or_else(|| panic!("$ref in {} must be a string", schema_path.display()));
+                        assert_ref_resolves(repo_root, schema_path, root_doc, ref_value);
+                    } else {
+                        assert_schema_refs_resolve(repo_root, schema_path, root_doc, child);
+                    }
+                }
+            }
+            Value::Sequence(seq) => {
+                for child in seq {
+                    assert_schema_refs_resolve(repo_root, schema_path, root_doc, child);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn assert_ref_resolves(repo_root: &Path, schema_path: &Path, root_doc: &Value, ref_value: &str) {
+        let (path_part, pointer_part) = ref_value.split_once('#').map_or((ref_value, None), |(p, f)| {
+            (p, Some(format!("#{f}")))
+        });
+
+        if path_part.is_empty() {
+            let fragment = pointer_part.as_deref().unwrap_or("#");
+            assert!(
+                schema_pointer_exists(root_doc, fragment),
+                "local $ref {ref_value} in {} points to missing fragment",
+                schema_path.display()
+            );
+            return;
+        }
+
+        if ref_value.starts_with('#') {
+            assert!(
+                schema_pointer_exists(root_doc, ref_value),
+                "local $ref {ref_value} in {} points to missing fragment",
+                schema_path.display()
+            );
+            return;
+        }
+
+        let target_path = if let Some(relative) = path_part.strip_prefix("https://shell-quest.local/") {
+            normalize_ref_path(&repo_root.join(relative))
+        } else if let Some(relative) = path_part.strip_prefix("http://shell-quest.local/") {
+            normalize_ref_path(&repo_root.join(relative))
+        } else if path_part.contains("://") {
+            return;
+        } else {
+            normalize_ref_path(&schema_path.parent().unwrap_or(repo_root).join(path_part))
+        };
+
+        assert!(
+            target_path.exists(),
+            "$ref {ref_value} in {} resolved to missing file {}",
+            schema_path.display(),
+            target_path.display()
+        );
+
+        if let Some(fragment) = pointer_part.as_deref() {
+            let raw = fs::read_to_string(&target_path).unwrap_or_else(|err| {
+                panic!("failed reading ref target {}: {err}", target_path.display())
+            });
+            let target_doc: Value = serde_yaml::from_str(&raw).unwrap_or_else(|err| {
+                panic!("failed parsing ref target {}: {err}", target_path.display())
+            });
+            assert!(
+                schema_pointer_exists(&target_doc, fragment),
+                "$ref {ref_value} in {} points to missing fragment in {}",
+                schema_path.display(),
+                target_path.display()
+            );
+        }
+    }
+
+    fn schema_pointer_exists(root: &Value, pointer: &str) -> bool {
+        if pointer == "#" {
+            return true;
+        }
+        let Some(pointer) = pointer.strip_prefix("#/") else {
+            return false;
+        };
+
+        let mut current = root;
+        for raw_segment in pointer.split('/') {
+            let segment = raw_segment.replace("~1", "/").replace("~0", "~");
+            match current {
+                Value::Mapping(map) => {
+                    let key = Value::String(segment);
+                    let Some(next) = map.get(&key) else {
+                        return false;
+                    };
+                    current = next;
+                }
+                Value::Sequence(seq) => {
+                    let Ok(index) = segment.parse::<usize>() else {
+                        return false;
+                    };
+                    let Some(next) = seq.get(index) else {
+                        return false;
+                    };
+                    current = next;
+                }
+                _ => return false,
+            }
+        }
+
+        true
+    }
+
+    fn normalize_ref_path(path: &Path) -> PathBuf {
+        let mut normalized = PathBuf::new();
+        for component in path.components() {
+            match component {
+                std::path::Component::CurDir => {}
+                std::path::Component::ParentDir => {
+                    normalized.pop();
+                }
+                other => normalized.push(other.as_os_str()),
+            }
+        }
+        normalized
     }
 }
