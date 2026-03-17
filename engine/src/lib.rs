@@ -19,6 +19,7 @@ pub mod render_policy;
 pub mod repositories;
 pub mod runtime_settings;
 mod scene_loader;
+mod scene_compiler;
 pub mod scene_runtime;
 mod services;
 pub mod systems;
