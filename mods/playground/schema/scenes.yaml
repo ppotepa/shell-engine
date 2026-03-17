@@ -1,0 +1,5 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/playground/schema/scenes.yaml
+title: schema playground alias scenes.yaml
+allOf:
+- $ref: ../schemas/scenes.yaml

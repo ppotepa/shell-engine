@@ -1,0 +1,5 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/playground/schema/templates.yaml
+title: schema playground alias templates.yaml
+allOf:
+- $ref: ../schemas/templates.yaml
