@@ -1,0 +1,16 @@
+[package]
+name = "devtool"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "devtool"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde_yaml = { workspace = true }
+engine-authoring = { path = "../../engine-authoring" }
