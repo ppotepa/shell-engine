@@ -119,7 +119,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
 
     // Right column: Actions
     let actions_focused = matches!(app.start_focus, StartFocus::Actions);
-    let actions = vec![
+    let actions = [
         ("Open Project…", true),
         ("Find Schema YML…", true),
         ("New Project…", false),
