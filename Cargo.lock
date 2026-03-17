@@ -1512,6 +1512,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "engine-core",
  "serde",
  "serde_yaml",
 ]
