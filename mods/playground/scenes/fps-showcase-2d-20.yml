@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+id: playground-fps-showcase-2d-20
+title: FPS Showcase 2D 20
+cutscene: true
+target-fps: 20
+bg_colour: black
+rendered-mode: halfblock
+stages:
+  on_idle:
+    trigger: timeout
+    steps:
+      - duration: 5000
+        effects: []
+layers:
+  - name: fps-showcase-2d
+    z_index: 0
+    sprites:
+      - type: image
+        id: tux-20
+        source: "/assets/images/tux.png"
+        align_x: center
+        align_y: center
+        y: 1
+        size: 3
+        animations:
+          - name: float
+            looping: true
+            params:
+              axis: x
+              amplitude: 14
+              period_ms: 1800
+      - type: text
+        content: "FPS CAP SHOWCASE  2D"
+        align_x: center
+        align_y: top
+        y: 1
+        font: "generic:1"
+        fg_colour: white
+      - type: text
+        content: "SCENE 2/6  PENGUIN  TARGET 20 FPS  5s"
+        align_x: center
+        align_y: bottom
+        y: -1
+        font: "generic:1"
+        fg_colour: gray
+next: playground-fps-showcase-2d-10

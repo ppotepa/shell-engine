@@ -42,9 +42,9 @@ layers:
         align_x: center
         align_y: center
         width: 36
-        height: 12
+        height: 15
         columns: ["1fr"]
-        rows: ["auto", "auto", "auto", "auto"]
+        rows: ["auto", "auto", "auto", "auto", "auto"]
         gap-y: 1
         children:
           - type: text
@@ -83,6 +83,15 @@ layers:
             align_y: center
             font: "generic:1"
             fg_colour: silver
+          - type: text
+            id: menu-item-4
+            content: "[5] FPS CAP SHOWCASE 2D+3D"
+            grid-col: 1
+            grid-row: 5
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: gray
       - type: text
         id: sel0-left
         content: ">"
@@ -220,7 +229,41 @@ layers:
               period_ms: 900
               autoscale_height: true
       - type: text
-        content: "Arrows: navigate, Enter: select, [1]/[2]/[3]/[4]: shortcut"
+        id: sel4-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-4
+              index: 4
+              side: left
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        id: sel4-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-4
+              index: 4
+              side: right
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        content: "Arrows: navigate, Enter: select, [1]/[2]/[3]/[4]/[5]: shortcut"
         align_x: center
         align_y: bottom
         y: -1
@@ -254,3 +297,8 @@ menu-options:
     selected-effect: arrows
     scene: playground-terminal-size-test
     next: playground-terminal-size-test
+  - key: "5"
+    label: FPS CAP SHOWCASE 2D+3D
+    selected-effect: arrows
+    scene: playground-fps-showcase-2d-30
+    next: playground-fps-showcase-2d-30

@@ -3,7 +3,7 @@ use crossterm::style::Color;
 use crate::assets::AssetRoot;
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::image_loader::{self, LoadedRgbaImage};
-use crate::scene::SceneRenderedMode;
+use crate::scene::{SceneRenderedMode, SpriteSizePreset};
 
 const ALPHA_THRESHOLD: u8 = 16;
 
@@ -11,6 +11,7 @@ pub(super) fn render_image_content(
     source: &str,
     req_width: Option<u16>,
     req_height: Option<u16>,
+    size: Option<SpriteSizePreset>,
     mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     x: u16,
@@ -23,7 +24,7 @@ pub(super) fn render_image_content(
     let Some(image) = image_loader::load_rgba_image(root.mod_source(), source) else {
         return;
     };
-    let (target_w, target_h) = resolve_image_dimensions(&image, mode, req_width, req_height);
+    let (target_w, target_h) = resolve_image_dimensions(&image, mode, req_width, req_height, size);
     if target_w == 0 || target_h == 0 {
         return;
     }
@@ -46,6 +47,7 @@ pub(super) fn image_sprite_dimensions(
     source: &str,
     req_width: Option<u16>,
     req_height: Option<u16>,
+    size: Option<SpriteSizePreset>,
     mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> (u16, u16) {
@@ -55,7 +57,7 @@ pub(super) fn image_sprite_dimensions(
     let Some(image) = image_loader::load_rgba_image(root.mod_source(), source) else {
         return (req_width.unwrap_or(1), req_height.unwrap_or(1));
     };
-    resolve_image_dimensions(&image, mode, req_width, req_height)
+    resolve_image_dimensions(&image, mode, req_width, req_height, size)
 }
 
 fn resolve_image_dimensions(
@@ -63,6 +65,7 @@ fn resolve_image_dimensions(
     mode: SceneRenderedMode,
     req_width: Option<u16>,
     req_height: Option<u16>,
+    size: Option<SpriteSizePreset>,
 ) -> (u16, u16) {
     let (natural_w, natural_h) = natural_image_dimensions(image, mode);
     match (req_width, req_height) {
@@ -75,8 +78,21 @@ fn resolve_image_dimensions(
             let w = ((natural_w as u32 * h.max(1) as u32) / natural_h.max(1) as u32).max(1);
             (w.min(u16::MAX as u32) as u16, h.max(1))
         }
-        (None, None) => (natural_w.max(1), natural_h.max(1)),
+        (None, None) => match size {
+            Some(size) => scale_dimensions(natural_w, natural_h, size.image_scale_ratio()),
+            None => (natural_w.max(1), natural_h.max(1)),
+        },
     }
+}
+
+fn scale_dimensions(width: u16, height: u16, ratio: (u16, u16)) -> (u16, u16) {
+    let (num, den) = ratio;
+    let scaled_w = ((width.max(1) as u32 * num.max(1) as u32) / den.max(1) as u32).max(1);
+    let scaled_h = ((height.max(1) as u32 * num.max(1) as u32) / den.max(1) as u32).max(1);
+    (
+        scaled_w.min(u16::MAX as u32) as u16,
+        scaled_h.min(u16::MAX as u32) as u16,
+    )
 }
 
 fn natural_image_dimensions(image: &LoadedRgbaImage, mode: SceneRenderedMode) -> (u16, u16) {
@@ -326,5 +342,27 @@ fn braille_char(mask: u8) -> Option<char> {
         None
     } else {
         char::from_u32(0x2800 + mask as u32)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scale_dimensions;
+    use crate::scene::SpriteSizePreset;
+
+    #[test]
+    fn scales_image_dimensions_from_size_preset() {
+        assert_eq!(
+            scale_dimensions(300, 150, SpriteSizePreset::Small.image_scale_ratio()),
+            (100, 50)
+        );
+        assert_eq!(
+            scale_dimensions(300, 150, SpriteSizePreset::Medium.image_scale_ratio()),
+            (150, 75)
+        );
+        assert_eq!(
+            scale_dimensions(300, 150, SpriteSizePreset::Large.image_scale_ratio()),
+            (200, 100)
+        );
     }
 }

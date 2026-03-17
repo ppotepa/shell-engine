@@ -2,7 +2,7 @@ use crossterm::style::Color;
 
 use crate::assets::AssetRoot;
 use crate::buffer::Buffer;
-use crate::scene::SceneRenderedMode;
+use crate::scene::{SceneRenderedMode, SpriteSizePreset};
 
 use super::obj_loader::{load_obj_mesh, ObjFace};
 
@@ -37,8 +37,19 @@ pub(super) struct ObjRenderParams {
     pub camera_look_pitch: f32,
 }
 
-pub(super) fn obj_sprite_dimensions(width: Option<u16>, height: Option<u16>) -> (u16, u16) {
-    (width.unwrap_or(64).max(1), height.unwrap_or(24).max(1))
+pub(super) fn obj_sprite_dimensions(
+    width: Option<u16>,
+    height: Option<u16>,
+    size: Option<SpriteSizePreset>,
+) -> (u16, u16) {
+    match (width, height) {
+        (Some(w), Some(h)) => (w.max(1), h.max(1)),
+        (Some(w), None) => (w.max(1), 24),
+        (None, Some(h)) => (64, h.max(1)),
+        (None, None) => size
+            .unwrap_or(SpriteSizePreset::Medium)
+            .obj_dimensions(),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -46,6 +57,7 @@ pub(super) fn render_obj_content(
     source: &str,
     width: Option<u16>,
     height: Option<u16>,
+    size: Option<SpriteSizePreset>,
     mode: SceneRenderedMode,
     params: ObjRenderParams,
     wireframe: bool,
@@ -63,7 +75,7 @@ pub(super) fn render_obj_content(
     let Some(mesh) = load_obj_mesh(root, source) else {
         return;
     };
-    let (target_w, target_h) = obj_sprite_dimensions(width, height);
+    let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
     if target_w < 2 || target_h < 2 {
         return;
     }
@@ -217,6 +229,28 @@ pub(super) fn render_obj_content(
         buf, mode, &canvas, virtual_w, virtual_h, target_w, target_h, x, y, wireframe, draw_char,
         fg, bg,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::obj_sprite_dimensions;
+    use crate::scene::SpriteSizePreset;
+
+    #[test]
+    fn obj_size_preset_uses_type_defaults() {
+        assert_eq!(
+            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Small)),
+            (32, 12)
+        );
+        assert_eq!(
+            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Medium)),
+            (64, 24)
+        );
+        assert_eq!(
+            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Large)),
+            (96, 36)
+        );
+    }
 }
 
 #[derive(Clone, Copy)]

@@ -39,6 +39,62 @@ fn default_grid_span() -> u16 {
     1
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpriteSizePreset {
+    Small,
+    Medium,
+    Large,
+}
+
+impl SpriteSizePreset {
+    pub const fn generic_mode(self) -> &'static str {
+        match self {
+            Self::Small => "1",
+            Self::Medium => "2",
+            Self::Large => "3",
+        }
+    }
+
+    pub const fn image_scale_ratio(self) -> (u16, u16) {
+        match self {
+            Self::Small => (1, 3),
+            Self::Medium => (1, 2),
+            Self::Large => (2, 3),
+        }
+    }
+
+    pub const fn obj_dimensions(self) -> (u16, u16) {
+        match self {
+            Self::Small => (32, 12),
+            Self::Medium => (64, 24),
+            Self::Large => (96, 36),
+        }
+    }
+}
+
+impl TryFrom<u8> for SpriteSizePreset {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::Small),
+            2 => Ok(Self::Medium),
+            3 => Ok(Self::Large),
+            other => Err(format!("unsupported sprite size preset: {other}")),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for SpriteSizePreset {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = u8::deserialize(deserializer)?;
+        Self::try_from(raw).map_err(serde::de::Error::custom)
+    }
+}
+
 /// A drawable object within a layer. Has its own local bitmap position and lifecycle.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -65,6 +121,8 @@ pub enum Sprite {
         row_span: u16,
         #[serde(default = "default_grid_span", rename = "col-span")]
         col_span: u16,
+        #[serde(default)]
+        size: Option<SpriteSizePreset>,
         font: Option<String>,
         /// Optional per-sprite renderer mode override.
         #[serde(default, rename = "force-renderer-mode")]
@@ -118,6 +176,8 @@ pub enum Sprite {
         #[serde(default = "default_grid_span", rename = "col-span")]
         col_span: u16,
         #[serde(default)]
+        size: Option<SpriteSizePreset>,
+        #[serde(default)]
         width: Option<u16>,
         #[serde(default)]
         height: Option<u16>,
@@ -157,6 +217,8 @@ pub enum Sprite {
         row_span: u16,
         #[serde(default = "default_grid_span", rename = "col-span")]
         col_span: u16,
+        #[serde(default)]
+        size: Option<SpriteSizePreset>,
         #[serde(default)]
         width: Option<u16>,
         #[serde(default)]
@@ -346,7 +408,7 @@ impl Sprite {
 
 #[cfg(test)]
 mod tests {
-    use super::Sprite;
+    use super::{Sprite, SpriteSizePreset};
     use crate::scene::SceneRenderedMode;
 
     #[test]
@@ -401,28 +463,43 @@ force-font-mode: braille
         let raw = r#"
 type: image
 source: "/assets/images/tux.png"
-width: 64
-height: 48
+size: 3
 force-renderer-mode: halfblock
 "#;
         let sprite: Sprite = serde_yaml::from_str(raw).expect("image sprite should parse");
         match sprite {
             Sprite::Image {
                 source,
+                size,
                 width,
                 height,
                 force_renderer_mode,
                 ..
             } => {
                 assert_eq!(source, "/assets/images/tux.png");
-                assert_eq!(width, Some(64));
-                assert_eq!(height, Some(48));
+                assert_eq!(size, Some(SpriteSizePreset::Large));
+                assert_eq!(width, None);
+                assert_eq!(height, None);
                 assert_eq!(force_renderer_mode, Some(SceneRenderedMode::HalfBlock));
             }
             Sprite::Text { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } => {
                 panic!("expected image sprite")
             }
         }
+    }
+
+    #[test]
+    fn rejects_unsupported_size_preset() {
+        let raw = r#"
+type: image
+source: "/assets/images/tux.png"
+size: 4
+"#;
+        let error = serde_yaml::from_str::<Sprite>(raw).expect_err("size should be rejected");
+        assert!(
+            error.to_string().contains("unsupported sprite size preset"),
+            "unexpected error: {error}"
+        );
     }
 
     #[test]
