@@ -62,11 +62,27 @@ where
         let Ok(mut object_value) = serde_yaml::from_str::<Value>(&raw_object) else {
             continue;
         };
+        let mut merged_args = Mapping::new();
+        if let Some(object_map) = object_value.as_mapping() {
+            if let Some(exports) = object_map
+                .get(Value::String("exports".to_string()))
+                .and_then(Value::as_mapping)
+            {
+                for (k, v) in exports {
+                    merged_args.insert(k.clone(), v.clone());
+                }
+            }
+        }
         if let Some(args) = instance_map
             .get(Value::String("with".to_string()))
             .and_then(Value::as_mapping)
         {
-            substitute_args(&mut object_value, args);
+            for (k, v) in args {
+                merged_args.insert(k.clone(), v.clone());
+            }
+        }
+        if !merged_args.is_empty() {
+            substitute_args(&mut object_value, &merged_args);
         }
         let object_doc = serde_yaml::from_value::<ObjectDocument>(object_value.clone()).ok();
         let native_logic_behavior = object_doc
@@ -226,6 +242,8 @@ objects:
 "#;
         let object_raw = r#"
 name: suzan
+exports:
+  label: DEFAULT
 sprites:
   - type: text
     content: "$label"
@@ -243,6 +261,37 @@ sprites:
         assert_eq!(scene.layers[0].name, "monkey-a");
         match &scene.layers[0].sprites[0] {
             crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn uses_object_exports_as_default_substitution_values() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+layers: []
+objects:
+  - use: suzan
+"#;
+        let object_raw = r#"
+name: suzan
+exports:
+  label: DEFAULT
+sprites:
+  - type: text
+    content: "$label"
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/suzan.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+        match &scene.layers[0].sprites[0] {
+            crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "DEFAULT"),
             _ => panic!("expected text sprite"),
         }
     }
