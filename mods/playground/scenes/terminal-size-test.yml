@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+id: playground-terminal-size-test
+title: Terminal Size Test
+bg_colour: black
+input:
+  terminal-size-tester:
+    presets:
+      - "80x24"
+      - "100x30"
+      - "120x36"
+      - "160x48"
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 250
+  on_idle:
+    trigger: any-key
+    steps:
+      - duration: 1
+        effects: []
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 200
+layers:
+  - name: terminal-size-test
+    z_index: 0
+    sprites:
+      - type: text
+        content: "TERMINAL SIZE TEST"
+        align_x: center
+        align_y: top
+        y: 2
+        font: "generic:1"
+        fg_colour: white
+      - type: text
+        content: "Press 1..4 to force terminal size live"
+        align_x: center
+        align_y: center
+        y: -1
+        font: "generic:1"
+        fg_colour: yellow
+      - type: text
+        content: "1: 80x24  |  2: 100x30  |  3: 120x36  |  4: 160x48"
+        align_x: center
+        align_y: center
+        y: 1
+        font: "generic:1"
+        fg_colour: silver
+      - type: text
+        content: "ENTER: back to menu"
+        align_x: center
+        align_y: bottom
+        y: -1
+        font: "generic:1"
+        fg_colour: gray
+        hide_on_leave: true
+next: playground-menu

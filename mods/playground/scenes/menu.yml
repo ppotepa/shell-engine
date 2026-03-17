@@ -42,9 +42,9 @@ layers:
         align_x: center
         align_y: center
         width: 36
-        height: 9
+        height: 12
         columns: ["1fr"]
-        rows: ["auto", "auto", "auto"]
+        rows: ["auto", "auto", "auto", "auto"]
         gap-y: 1
         children:
           - type: text
@@ -74,6 +74,15 @@ layers:
             align_y: center
             font: "generic:1"
             fg_colour: gray
+          - type: text
+            id: menu-item-3
+            content: "[4] TERMINAL SIZE TEST"
+            grid-col: 1
+            grid-row: 4
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: silver
       - type: text
         id: sel0-left
         content: ">"
@@ -177,7 +186,41 @@ layers:
               period_ms: 900
               autoscale_height: true
       - type: text
-        content: "Arrows: navigate, Enter: select, [1]/[2]/[3]: shortcut"
+        id: sel3-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-3
+              index: 3
+              side: left
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        id: sel3-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-3
+              index: 3
+              side: right
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        content: "Arrows: navigate, Enter: select, [1]/[2]/[3]/[4]: shortcut"
         align_x: center
         align_y: bottom
         y: -1
@@ -206,3 +249,8 @@ menu-options:
     selected-effect: arrows
     scene: playground-decoration-showcase
     next: playground-decoration-showcase
+  - key: "4"
+    label: TERMINAL SIZE TEST
+    selected-effect: arrows
+    scene: playground-terminal-size-test
+    next: playground-terminal-size-test

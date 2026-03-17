@@ -264,6 +264,9 @@ pub struct SceneInput {
     /// Optional OBJ viewer controls profile.
     #[serde(default, rename = "obj-viewer")]
     pub obj_viewer: Option<ObjViewerControls>,
+    /// Optional terminal size tester controls profile.
+    #[serde(default, rename = "terminal-size-tester")]
+    pub terminal_size_tester: Option<TerminalSizeTesterControls>,
 }
 
 /// Declarative OBJ viewer controls target.
@@ -271,6 +274,14 @@ pub struct SceneInput {
 pub struct ObjViewerControls {
     /// ID of target OBJ sprite receiving controls.
     pub sprite_id: String,
+}
+
+/// Declarative terminal-size tester controls.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct TerminalSizeTesterControls {
+    /// Optional preset list in WIDTHxHEIGHT format, e.g. "120x36".
+    #[serde(default)]
+    pub presets: Vec<String>,
 }
 
 /// Audio cue descriptor (design hook only; playback is external).
@@ -322,6 +333,8 @@ pub struct Scene {
     pub title: String,
     #[serde(default)]
     pub cutscene: bool,
+    #[serde(default, rename = "target-fps", alias = "target_fps")]
+    pub target_fps: Option<u16>,
     #[serde(default, rename = "rendered-mode")]
     pub rendered_mode: SceneRenderedMode,
     #[serde(default, rename = "virtual-size-override")]
@@ -340,4 +353,39 @@ pub struct Scene {
     #[serde(default)]
     pub input: SceneInput,
     pub next: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Scene;
+
+    #[test]
+    fn parses_scene_target_fps_kebab_case() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: scene-a
+title: A
+target-fps: 30
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.target_fps, Some(30));
+    }
+
+    #[test]
+    fn parses_scene_target_fps_snake_case_alias() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: scene-b
+title: B
+target_fps: 24
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.target_fps, Some(24));
+    }
 }
