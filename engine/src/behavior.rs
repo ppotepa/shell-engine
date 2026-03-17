@@ -280,6 +280,15 @@ impl SelectedArrowsBehavior {
             last_dy: 0,
         }
     }
+
+    fn hide_and_reset(&mut self, object: &GameObject, commands: &mut Vec<BehaviorCommand>) {
+        self.last_dx = 0;
+        self.last_dy = 0;
+        commands.push(BehaviorCommand::SetVisibility {
+            target: object.id.clone(),
+            visible: false,
+        });
+    }
 }
 
 impl Behavior for SelectedArrowsBehavior {
@@ -291,32 +300,20 @@ impl Behavior for SelectedArrowsBehavior {
         commands: &mut Vec<BehaviorCommand>,
     ) {
         if ctx.menu_selected_index != self.index {
-            commands.push(BehaviorCommand::SetVisibility {
-                target: object.id.clone(),
-                visible: false,
-            });
+            self.hide_and_reset(object, commands);
             return;
         }
 
         let Some(target_alias) = self.target.as_deref() else {
-            commands.push(BehaviorCommand::SetVisibility {
-                target: object.id.clone(),
-                visible: false,
-            });
+            self.hide_and_reset(object, commands);
             return;
         };
         let Some(target_id) = ctx.resolve_target(target_alias) else {
-            commands.push(BehaviorCommand::SetVisibility {
-                target: object.id.clone(),
-                visible: false,
-            });
+            self.hide_and_reset(object, commands);
             return;
         };
         let Some(target_region) = ctx.object_regions.get(target_id) else {
-            commands.push(BehaviorCommand::SetVisibility {
-                target: object.id.clone(),
-                visible: false,
-            });
+            self.hide_and_reset(object, commands);
             return;
         };
         let own_region = ctx.object_regions.get(&object.id);
@@ -1061,6 +1058,117 @@ mod tests {
         );
 
         let mut commands = Vec::new();
+        behavior.update(
+            &object,
+            &scene,
+            &BehaviorContext {
+                stage: SceneStage::OnIdle,
+                scene_elapsed_ms: 0,
+                stage_elapsed_ms: 0,
+                menu_selected_index: 0,
+                target_resolver: resolver,
+                object_states: Default::default(),
+                object_regions,
+            },
+            &mut commands,
+        );
+
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "scene:intro".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "scene:intro".to_string(),
+                    dx: 8,
+                    dy: -1
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn selected_arrows_resets_cached_offset_after_deselection() {
+        let mut behavior = SelectedArrowsBehavior::from_params(&BehaviorParams {
+            target: Some("menu-item-0".to_string()),
+            index: Some(0),
+            side: Some("left".to_string()),
+            padding: Some(1),
+            autoscale_height: Some(true),
+            amplitude_x: Some(0),
+            period_ms: Some(1000),
+            ..BehaviorParams::default()
+        });
+        behavior.last_dx = 8;
+        behavior.last_dy = -1;
+
+        let object = scene_object();
+        let scene = Scene {
+            id: "intro".to_string(),
+            title: "Intro".to_string(),
+            cutscene: true,
+            rendered_mode: SceneRenderedMode::Cell,
+            virtual_size_override: None,
+            bg_colour: Some(TermColour::Black),
+            stages: SceneStages::default(),
+            behaviors: Vec::new(),
+            audio: SceneAudio::default(),
+            layers: Vec::new(),
+            menu_options: Vec::new(),
+            next: None,
+        };
+
+        let mut commands = Vec::new();
+        behavior.update(
+            &object,
+            &scene,
+            &BehaviorContext {
+                stage: SceneStage::OnIdle,
+                scene_elapsed_ms: 0,
+                stage_elapsed_ms: 0,
+                menu_selected_index: 1,
+                target_resolver: TargetResolver::default(),
+                object_states: Default::default(),
+                object_regions: Default::default(),
+            },
+            &mut commands,
+        );
+
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetVisibility {
+                target: "scene:intro".to_string(),
+                visible: false
+            }]
+        );
+        assert_eq!(behavior.last_dx, 0);
+        assert_eq!(behavior.last_dy, 0);
+
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_regions = std::collections::BTreeMap::new();
+        object_regions.insert(
+            "scene:intro".to_string(),
+            Region {
+                x: 20,
+                y: 10,
+                width: 1,
+                height: 1,
+            },
+        );
+        object_regions.insert(
+            "obj:menu-item-0".to_string(),
+            Region {
+                x: 30,
+                y: 8,
+                width: 10,
+                height: 3,
+            },
+        );
+
+        commands.clear();
         behavior.update(
             &object,
             &scene,
