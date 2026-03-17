@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::f32::consts::TAU;
 
-use crate::game_object::GameObject;
 use crate::effects::Region;
+use crate::game_object::GameObject;
 use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
@@ -36,21 +36,29 @@ pub trait Behavior: Send + Sync {
 }
 
 pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send + Sync>> {
-    match spec.name.trim().to_ascii_lowercase().as_str() {
-        "blink" => Some(Box::new(BlinkBehavior::from_params(&spec.params))),
-        "bob" => Some(Box::new(BobBehavior::from_params(&spec.params))),
-        "follow" => Some(Box::new(FollowBehavior::from_params(&spec.params))),
-        "menu-selected" => Some(Box::new(MenuSelectedBehavior::from_params(&spec.params))),
-        "selected-arrows" => Some(Box::new(SelectedArrowsBehavior::from_params(&spec.params))),
-        "stage-visibility" => Some(Box::new(StageVisibilityBehavior::from_params(&spec.params))),
-        "timed-visibility" => Some(Box::new(TimedVisibilityBehavior::from_params(&spec.params))),
-        _ => None,
+    let name = spec.name.trim();
+    if name.eq_ignore_ascii_case("blink") {
+        Some(Box::new(BlinkBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("bob") {
+        Some(Box::new(BobBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("follow") {
+        Some(Box::new(FollowBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("menu-selected") {
+        Some(Box::new(MenuSelectedBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("selected-arrows") {
+        Some(Box::new(SelectedArrowsBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("stage-visibility") {
+        Some(Box::new(StageVisibilityBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("timed-visibility") {
+        Some(Box::new(TimedVisibilityBehavior::from_params(&spec.params)))
+    } else {
+        None
     }
 }
 
 #[derive(Default)]
 pub struct SceneAudioBehavior {
-    emitted: HashSet<String>,
+    emitted: HashSet<(String, String, SceneStage, u64, String)>,
 }
 
 impl Behavior for SceneAudioBehavior {
@@ -65,7 +73,7 @@ impl Behavior for SceneAudioBehavior {
             if ctx.scene_elapsed_ms < cue.at_ms || cue.cue.trim().is_empty() {
                 continue;
             }
-            let key = cue_key(&scene.id, &object.id, &ctx.stage, cue);
+            let key = (scene.id.clone(), object.id.clone(), ctx.stage, cue.at_ms, cue.cue.clone());
             if self.emitted.insert(key) {
                 commands.push(BehaviorCommand::PlayAudioCue {
                     cue: cue.cue.clone(),
@@ -257,15 +265,11 @@ enum ArrowSide {
 
 impl SelectedArrowsBehavior {
     fn from_params(params: &BehaviorParams) -> Self {
-        let side = match params
-            .side
-            .as_deref()
-            .map(str::trim)
-            .map(str::to_ascii_lowercase)
-            .as_deref()
-        {
-            Some("right") => ArrowSide::Right,
-            _ => ArrowSide::Left,
+        let side_str = params.side.as_deref().unwrap_or("");
+        let side = if side_str.trim().eq_ignore_ascii_case("right") {
+            ArrowSide::Right
+        } else {
+            ArrowSide::Left
         };
         Self {
             target: params.target.clone(),
@@ -318,7 +322,8 @@ impl Behavior for SelectedArrowsBehavior {
         };
         let own_region = ctx.object_regions.get(&object.id);
 
-        let wave_phase = (ctx.scene_elapsed_ms.saturating_add(self.phase_ms) % self.period_ms) as f32
+        let wave_phase = (ctx.scene_elapsed_ms.saturating_add(self.phase_ms) % self.period_ms)
+            as f32
             / self.period_ms as f32;
         let wave = (wave_phase * TAU).sin().round() as i32;
         let signed_wave = match self.side {
@@ -335,9 +340,7 @@ impl Behavior for SelectedArrowsBehavior {
         let target_x = match self.side {
             ArrowSide::Left => target_region.x as i32 - effective_padding + signed_wave,
             ArrowSide::Right => {
-                target_region.x as i32
-                    + target_region.width as i32
-                    - 1
+                target_region.x as i32 + target_region.width as i32 - 1
                     + effective_padding
                     + signed_wave
             }
@@ -461,15 +464,11 @@ enum TimeScope {
 
 impl TimeScope {
     fn from_params(params: &BehaviorParams) -> Self {
-        match params
-            .time_scope
-            .as_deref()
-            .map(str::trim)
-            .map(str::to_ascii_lowercase)
-            .as_deref()
-        {
-            Some("stage") => Self::Stage,
-            _ => Self::Scene,
+        let scope_str = params.time_scope.as_deref().unwrap_or("");
+        if scope_str.trim().eq_ignore_ascii_case("stage") {
+            Self::Stage
+        } else {
+            Self::Scene
         }
     }
 
@@ -482,12 +481,17 @@ impl TimeScope {
 }
 
 fn parse_stage_name(raw: &str) -> Option<SceneStage> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "on-enter" | "enter" => Some(SceneStage::OnEnter),
-        "on-idle" | "idle" => Some(SceneStage::OnIdle),
-        "on-leave" | "leave" => Some(SceneStage::OnLeave),
-        "done" => Some(SceneStage::Done),
-        _ => None,
+    let trimmed = raw.trim();
+    if trimmed.eq_ignore_ascii_case("on-enter") || trimmed.eq_ignore_ascii_case("enter") {
+        Some(SceneStage::OnEnter)
+    } else if trimmed.eq_ignore_ascii_case("on-idle") || trimmed.eq_ignore_ascii_case("idle") {
+        Some(SceneStage::OnIdle)
+    } else if trimmed.eq_ignore_ascii_case("on-leave") || trimmed.eq_ignore_ascii_case("leave") {
+        Some(SceneStage::OnLeave)
+    } else if trimmed.eq_ignore_ascii_case("done") {
+        Some(SceneStage::Done)
+    } else {
+        None
     }
 }
 
@@ -508,10 +512,6 @@ impl BehaviorContext {
     pub fn object_state(&self, object_id: &str) -> Option<&ObjectRuntimeState> {
         self.object_states.get(object_id)
     }
-}
-
-fn cue_key(scene_id: &str, object_id: &str, stage: &SceneStage, cue: &AudioCue) -> String {
-    format!("{scene_id}:{object_id}:{stage:?}:{}:{}", cue.at_ms, cue.cue)
 }
 
 #[cfg(test)]

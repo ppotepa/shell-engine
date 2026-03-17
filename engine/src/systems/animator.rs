@@ -6,7 +6,7 @@ use crate::services::EngineWorldAccess;
 use crate::world::World;
 
 /// Which lifecycle stage the scene is currently in.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum SceneStage {
     #[default]
     OnEnter,
@@ -62,22 +62,18 @@ pub fn animator_system(world: &mut World, tick_ms: u64) {
         };
         // Pass all step durations so tick_animator_primitives can skip consecutive
         // zero-duration steps in a single tick.
-        let step_durs: Vec<u64> = stage_def
-            .steps
-            .iter()
-            .map(|s| s.duration_ms())
-            .collect();
-        let step_dur = step_durs
-            .get(animator.step_idx)
-            .copied()
-            .unwrap_or(0);
+        let step_durs: Vec<u64> = stage_def.steps.iter().map(|s| s.duration_ms()).collect();
+        let step_dur = step_durs.get(animator.step_idx).copied().unwrap_or(0);
         (
             stage_def.steps.len(),
             step_dur,
             step_durs,
             stage_def.looping,
             scene.stages.on_idle.trigger.clone(),
-            animator.next_scene_override.clone().or_else(|| scene.next.clone()),
+            animator
+                .next_scene_override
+                .clone()
+                .or_else(|| scene.next.clone()),
         )
     };
     let (step_count, step_dur, step_durs, stage_looping, idle_trigger, next_scene) = tick_data;
@@ -203,7 +199,10 @@ fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option
         &step_durs,
         stage_looping,
         &scene.stages.on_idle.trigger,
-        animator.next_scene_override.clone().or_else(|| scene.next.clone()),
+        animator
+            .next_scene_override
+            .clone()
+            .or_else(|| scene.next.clone()),
         tick_ms,
     )
 }
