@@ -132,29 +132,22 @@ fn file_uses_sq_schema(path: &Path) -> bool {
     let Ok(raw) = fs::read_to_string(path) else {
         return false;
     };
-    raw.lines().take(3).any(|line| {
-        line.contains("$schema=")
-            && (line.contains("schemas/scene.schema.yaml")
-                || line.contains("schemas/scene-file.schema.yaml")
-                || line.contains("schemas/layers-file.schema.yaml")
-                || line.contains("schemas/sprites-file.schema.yaml")
-                || line.contains("schemas/templates-file.schema.yaml")
-                || line.contains("schemas/objects-file.schema.yaml")
-                || line.contains("schemas/effect-file.schema.yaml")
-                || line.contains("schemas/object.schema.yaml")
-                || line.contains("schemas/mod.schema.yaml")
-                || line.contains("schemas/font-manifest.schema.yaml")
-                || line.contains("shell-quest.local/schemas/scene.schema.yaml")
-                || line.contains("shell-quest.local/schemas/scene-file.schema.yaml")
-                || line.contains("shell-quest.local/schemas/layers-file.schema.yaml")
-                || line.contains("shell-quest.local/schemas/sprites-file.schema.yaml")
-                || line.contains("shell-quest.local/schemas/templates-file.schema.yaml")
-                || line.contains("shell-quest.local/schemas/objects-file.schema.yaml")
-                || line.contains("shell-quest.local/schemas/effect-file.schema.yaml")
-                || line.contains("shell-quest.local/schemas/object.schema.yaml")
-                || line.contains("shell-quest.local/schemas/mod.schema.yaml")
-                || line.contains("shell-quest.local/schemas/font-manifest.schema.yaml"))
-    })
+    raw.lines()
+        .take(3)
+        .any(|line| line.contains("$schema=") && is_shell_quest_schema_ref(line))
+}
+
+fn is_shell_quest_schema_ref(line: &str) -> bool {
+    let Some((_, schema_ref)) = line.split_once("$schema=") else {
+        return false;
+    };
+    let schema_ref = schema_ref.trim();
+    let references_sq_schema = schema_ref.contains("schemas/")
+        || schema_ref.contains("/schemas/")
+        || schema_ref.contains("shell-quest.local/schemas/");
+    let references_schema_file =
+        schema_ref.ends_with(".schema.yaml") || schema_ref.ends_with(".schema.yml");
+    references_sq_schema && references_schema_file
 }
 
 pub fn collect_game_yaml_files(mod_root: &Path) -> Vec<String> {
@@ -304,6 +297,21 @@ mod tests {
         let files = collect_schema_project_yml_files(temp.path());
         assert_eq!(files.len(), 1);
         assert!(files[0].ends_with("scene.yml"));
+    }
+
+    #[test]
+    fn schema_scanner_includes_generated_overlay_schema_files() {
+        let temp = tempdir().expect("temp dir");
+        let scene_yaml = temp.path().join("intro.yml");
+        fs::write(
+            &scene_yaml,
+            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.scene.schema.yaml\nid: intro\ntitle: Intro\n",
+        )
+        .expect("write yaml");
+
+        let files = collect_schema_project_yml_files(temp.path());
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("intro.yml"));
     }
 
     #[test]
