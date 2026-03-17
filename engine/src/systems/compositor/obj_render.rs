@@ -46,9 +46,7 @@ pub(super) fn obj_sprite_dimensions(
         (Some(w), Some(h)) => (w.max(1), h.max(1)),
         (Some(w), None) => (w.max(1), 24),
         (None, Some(h)) => (64, h.max(1)),
-        (None, None) => size
-            .unwrap_or(SpriteSizePreset::Medium)
-            .obj_dimensions(),
+        (None, None) => size.unwrap_or(SpriteSizePreset::Medium).obj_dimensions(),
     }
 }
 
@@ -86,7 +84,9 @@ pub(super) fn render_obj_content(
 
     let elapsed_s = params.scene_elapsed_ms as f32 / 1000.0;
     // Combine static rotation-y/x/z offsets with yaw-deg/pitch-deg/roll-deg + orbit + camera look.
-    let yaw = (params.yaw_deg + params.rotation_y + params.rotate_y_deg_per_sec * elapsed_s
+    let yaw = (params.yaw_deg
+        + params.rotation_y
+        + params.rotate_y_deg_per_sec * elapsed_s
         + params.camera_look_yaw)
         .to_radians();
     let pitch = (params.pitch_deg + params.rotation_x + params.camera_look_pitch).to_radians();
@@ -157,7 +157,16 @@ pub(super) fn render_obj_content(
             let x1 = pb.x.round() as i32;
             let y1 = pb.y.round() as i32;
             if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, viewport) {
-                draw_line_color(&mut canvas, virtual_w, virtual_h, cx0, cy0, cx1, cy1, line_color);
+                draw_line_color(
+                    &mut canvas,
+                    virtual_w,
+                    virtual_h,
+                    cx0,
+                    cy0,
+                    cx1,
+                    cy1,
+                    line_color,
+                );
                 drawn_edges += 1;
             }
         }
@@ -189,7 +198,8 @@ pub(super) fn render_obj_content(
             // No back-face culling: OBJ files from public sources often have
             // inconsistent face winding, so we render both sides with two-sided
             // Lambert to avoid holes and reversed-material artifacts.
-            let shading = face_shading_with_specular(v0.view, v1.view, v2.view, face.ka, face.ks, face.ns);
+            let shading =
+                face_shading_with_specular(v0.view, v1.view, v2.view, face.ka, face.ks, face.ns);
             let shaded_color = apply_shading(face.color, shading);
             rasterize_triangle(
                 &mut canvas,
@@ -218,8 +228,18 @@ pub(super) fn render_obj_content(
                 let y0 = pa.y.round() as i32;
                 let x1 = pb.x.round() as i32;
                 let y1 = pb.y.round() as i32;
-                if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, viewport) {
-                    draw_line_color(&mut canvas, virtual_w, virtual_h, cx0, cy0, cx1, cy1, line_color);
+                if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, viewport)
+                {
+                    draw_line_color(
+                        &mut canvas,
+                        virtual_w,
+                        virtual_h,
+                        cx0,
+                        cy0,
+                        cx1,
+                        cy1,
+                        line_color,
+                    );
                 }
             }
         }

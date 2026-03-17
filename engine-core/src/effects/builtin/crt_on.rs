@@ -1,5 +1,5 @@
 use crate::buffer::{Buffer, TRUE_BLACK};
-use crate::effects::effect::{Effect, Region, EffectTargetMask};
+use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING};
 use crate::effects::utils::math::{
     phase_progress, smoothstep, PHASE_BOOT, PHASE_POWER_ON, PHASE_SCAN_END, PHASE_SCAN_START,

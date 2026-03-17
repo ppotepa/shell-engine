@@ -4,8 +4,8 @@
 //! their types, defaults, and ranges — the single source of truth consumed by
 //! any tool (editor, documentation generator, schema validator).
 
-use crate::effects::effect::EffectTargetMask;
 use crate::authoring::metadata as authored;
+use crate::effects::effect::EffectTargetMask;
 
 /// How a parameter value is expressed and controlled.
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -28,8 +28,8 @@ layers:
         font: "generic:1"
         fg: gray
 objects:
-  - use: suzan
-    id: suzanne-10
+  - ref: suzan
+    as: suzanne-10
     with:
       id: suzanne-10
 next: playground-menu

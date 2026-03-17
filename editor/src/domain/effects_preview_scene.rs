@@ -4,8 +4,7 @@ use engine_core::effects::shared_dispatcher;
 use engine_core::scene::{Easing, EffectParams, EffectTargetKind};
 
 const PREVIEW_TEMPLATE_SPRITE: &str = include_str!("../../assets/effects-preview.scene.yml");
-const PREVIEW_TEMPLATE_SCENE: &str =
-    include_str!("../../assets/effects-preview-scene.scene.yml");
+const PREVIEW_TEMPLATE_SCENE: &str = include_str!("../../assets/effects-preview-scene.scene.yml");
 pub const PREVIEW_DURATION_MS: u64 = 1_600;
 const DEFAULT_VIEWPORT_W: u16 = 32;
 const DEFAULT_VIEWPORT_H: u16 = 18;
@@ -39,19 +38,11 @@ pub fn build_preview_scene_yaml(
         PREVIEW_TEMPLATE_SCENE
             .replace(
                 "__SCENE_STAGES__",
-                &render_stages_block(
-                    "  ",
-                    placement == PreviewPlacement::Scene,
-                    &effect_yaml,
-                ),
+                &render_stages_block("  ", placement == PreviewPlacement::Scene, &effect_yaml),
             )
             .replace(
                 "__LAYER_STAGES__",
-                &render_stages_block(
-                    "      ",
-                    placement == PreviewPlacement::Layer,
-                    &effect_yaml,
-                ),
+                &render_stages_block("      ", placement == PreviewPlacement::Layer, &effect_yaml),
             )
     } else {
         // Sprite-level effects: show penguin as the subject.
@@ -63,9 +54,18 @@ pub fn build_preview_scene_yaml(
         let layout = PreviewLayout::for_viewport(viewport_w, viewport_h);
         PREVIEW_TEMPLATE_SPRITE
             .replace("__PENGUIN_WIDTH__", &layout.penguin_width.to_string())
-            .replace("__PENGUIN_HEIGHT__", &(layout.penguin_height * 2).to_string())
-            .replace("__PENGUIN_OFFSET_Y__", &(layout.penguin_offset_y * 2).to_string())
-            .replace("__CAPTION_OFFSET_Y__", &(layout.caption_offset_y * 2).to_string())
+            .replace(
+                "__PENGUIN_HEIGHT__",
+                &(layout.penguin_height * 2).to_string(),
+            )
+            .replace(
+                "__PENGUIN_OFFSET_Y__",
+                &(layout.penguin_offset_y * 2).to_string(),
+            )
+            .replace(
+                "__CAPTION_OFFSET_Y__",
+                &(layout.caption_offset_y * 2).to_string(),
+            )
             .replace(
                 "__SCENE_STAGES__",
                 &render_stages_block("  ", false, &effect_yaml),

@@ -1,6 +1,4 @@
-use crate::authoring::metadata::{
-    FieldMetadata, Requirement, TargetKind, ValueKind, ValueSource,
-};
+use crate::authoring::metadata::{FieldMetadata, Requirement, TargetKind, ValueKind, ValueSource};
 
 const LIT_ONLY: &[ValueSource] = &[ValueSource::Literal];
 const LIT_EXPR_BIND_ANIM: &[ValueSource] = &[
@@ -56,7 +54,11 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
         max: None,
         step: None,
         unit: None,
-        sources: &[ValueSource::Literal, ValueSource::Expression, ValueSource::Binding],
+        sources: &[
+            ValueSource::Literal,
+            ValueSource::Expression,
+            ValueSource::Binding,
+        ],
     },
 ];
 
@@ -125,7 +127,11 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         max: None,
         step: None,
         unit: None,
-        sources: &[ValueSource::Literal, ValueSource::Binding, ValueSource::Expression],
+        sources: &[
+            ValueSource::Literal,
+            ValueSource::Binding,
+            ValueSource::Expression,
+        ],
     },
     FieldMetadata {
         target: TargetKind::Sprite,

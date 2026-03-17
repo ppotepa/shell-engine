@@ -190,7 +190,14 @@ impl SceneRuntime {
         }
         let mut updated = false;
         for layer in &mut self.scene.layers {
-            adjust_obj_scale_in_sprites(&mut layer.sprites, sprite_id, delta, &mut updated);
+            for_each_obj_mut(&mut layer.sprites, &mut |sprite| {
+                if let Sprite::Obj { id, scale, .. } = sprite {
+                    if id.as_deref() == Some(sprite_id) {
+                        *scale = Some((scale.unwrap_or(1.0) + delta).clamp(0.1, 8.0));
+                        updated = true;
+                    }
+                }
+            });
         }
         updated
     }
@@ -198,7 +205,19 @@ impl SceneRuntime {
     pub fn toggle_obj_surface_mode(&mut self, sprite_id: &str) -> bool {
         let mut updated = false;
         for layer in &mut self.scene.layers {
-            toggle_obj_surface_mode_in_sprites(&mut layer.sprites, sprite_id, &mut updated);
+            for_each_obj_mut(&mut layer.sprites, &mut |sprite| {
+                if let Sprite::Obj { id, surface_mode, .. } = sprite {
+                    if id.as_deref() == Some(sprite_id) {
+                        let is_wireframe = surface_mode
+                            .as_deref()
+                            .map(str::trim)
+                            .is_some_and(|m| m.eq_ignore_ascii_case("wireframe"));
+                        *surface_mode =
+                            Some(if is_wireframe { "material" } else { "wireframe" }.to_string());
+                        updated = true;
+                    }
+                }
+            });
         }
         updated
     }
@@ -211,7 +230,16 @@ impl SceneRuntime {
             .unwrap_or(20.0);
         let mut updated = false;
         for layer in &mut self.scene.layers {
-            toggle_obj_orbit_in_sprites(&mut layer.sprites, sprite_id, default_speed, &mut updated);
+            for_each_obj_mut(&mut layer.sprites, &mut |sprite| {
+                if let Sprite::Obj { id, rotate_y_deg_per_sec, .. } = sprite {
+                    if id.as_deref() == Some(sprite_id) {
+                        let current = rotate_y_deg_per_sec.unwrap_or(default_speed);
+                        *rotate_y_deg_per_sec =
+                            Some(if current.abs() < f32::EPSILON { default_speed } else { 0.0 });
+                        updated = true;
+                    }
+                }
+            });
         }
         updated
     }
@@ -405,6 +433,9 @@ impl SceneRuntime {
         stage_elapsed_ms: u64,
         menu_selected_index: usize,
     ) -> Vec<BehaviorCommand> {
+        // Clone once per frame — shared across all behavior ticks this frame.
+        let resolver = self.resolver_cache.clone();
+        let object_regions = self.object_regions.clone();
         let mut commands = Vec::new();
         for idx in 0..self.behaviors.len() {
             let object_id = self.behaviors[idx].object_id.clone();
@@ -412,19 +443,19 @@ impl SceneRuntime {
                 continue;
             };
             let ctx = BehaviorContext {
-                stage: stage.clone(),
+                stage,
                 scene_elapsed_ms,
                 stage_elapsed_ms,
                 menu_selected_index,
-                target_resolver: self.resolver_cache.clone(),
+                target_resolver: resolver.clone(),
                 object_states: self.effective_object_states_snapshot(),
-                object_regions: self.object_regions.clone(),
+                object_regions: object_regions.clone(),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
                 .behavior
                 .update(&object, &self.scene, &ctx, &mut local_commands);
-            self.apply_behavior_commands(&self.resolver_cache.clone(), &local_commands);
+            self.apply_behavior_commands(&resolver, &local_commands);
             commands.extend(local_commands.iter().cloned());
         }
         commands
@@ -702,111 +733,33 @@ fn sanitize_fragment(input: &str) -> String {
 fn collect_obj_orbit_defaults(scene: &Scene) -> BTreeMap<String, f32> {
     let mut out = BTreeMap::new();
     for layer in &scene.layers {
-        collect_obj_orbit_defaults_in_sprites(&layer.sprites, &mut out);
+        for_each_obj(&layer.sprites, &mut |sprite| {
+            if let Sprite::Obj { id: Some(id), rotate_y_deg_per_sec, .. } = sprite {
+                out.entry(id.to_string()).or_insert(rotate_y_deg_per_sec.unwrap_or(20.0));
+            }
+        });
     }
     out
 }
 
-fn collect_obj_orbit_defaults_in_sprites(sprites: &[Sprite], out: &mut BTreeMap<String, f32>) {
+/// Visit every [`Sprite::Obj`] in a tree, recursing into grids.
+fn for_each_obj(sprites: &[Sprite], f: &mut impl FnMut(&Sprite)) {
     for sprite in sprites {
         match sprite {
-            Sprite::Obj {
-                id,
-                rotate_y_deg_per_sec,
-                ..
-            } => {
-                if let Some(id) = id.as_deref() {
-                    out.entry(id.to_string())
-                        .or_insert(rotate_y_deg_per_sec.unwrap_or(20.0));
-                }
-            }
-            Sprite::Grid { children, .. } => {
-                collect_obj_orbit_defaults_in_sprites(children, out);
-            }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
+            Sprite::Obj { .. } => f(sprite),
+            Sprite::Grid { children, .. } => for_each_obj(children, f),
+            _ => {}
         }
     }
 }
 
-fn adjust_obj_scale_in_sprites(
-    sprites: &mut [Sprite],
-    sprite_id: &str,
-    delta: f32,
-    updated: &mut bool,
-) {
-    for sprite in sprites {
+/// Visit every [`Sprite::Obj`] mutably in a tree, recursing into grids.
+fn for_each_obj_mut(sprites: &mut [Sprite], f: &mut impl FnMut(&mut Sprite)) {
+    for sprite in sprites.iter_mut() {
         match sprite {
-            Sprite::Obj { id, scale, .. } => {
-                if id.as_deref() == Some(sprite_id) {
-                    let next = (scale.unwrap_or(1.0) + delta).clamp(0.1, 8.0);
-                    *scale = Some(next);
-                    *updated = true;
-                }
-            }
-            Sprite::Grid { children, .. } => {
-                adjust_obj_scale_in_sprites(children, sprite_id, delta, updated);
-            }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
-        }
-    }
-}
-
-fn toggle_obj_surface_mode_in_sprites(sprites: &mut [Sprite], sprite_id: &str, updated: &mut bool) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Obj {
-                id, surface_mode, ..
-            } => {
-                if id.as_deref() == Some(sprite_id) {
-                    let is_wireframe = surface_mode
-                        .as_deref()
-                        .map(str::trim)
-                        .map(str::to_ascii_lowercase)
-                        .as_deref()
-                        == Some("wireframe");
-                    *surface_mode = if is_wireframe {
-                        Some("material".to_string())
-                    } else {
-                        Some("wireframe".to_string())
-                    };
-                    *updated = true;
-                }
-            }
-            Sprite::Grid { children, .. } => {
-                toggle_obj_surface_mode_in_sprites(children, sprite_id, updated);
-            }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
-        }
-    }
-}
-
-fn toggle_obj_orbit_in_sprites(
-    sprites: &mut [Sprite],
-    sprite_id: &str,
-    default_speed: f32,
-    updated: &mut bool,
-) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Obj {
-                id,
-                rotate_y_deg_per_sec,
-                ..
-            } => {
-                if id.as_deref() == Some(sprite_id) {
-                    let current = rotate_y_deg_per_sec.unwrap_or(default_speed);
-                    *rotate_y_deg_per_sec = if current.abs() < f32::EPSILON {
-                        Some(default_speed)
-                    } else {
-                        Some(0.0)
-                    };
-                    *updated = true;
-                }
-            }
-            Sprite::Grid { children, .. } => {
-                toggle_obj_orbit_in_sprites(children, sprite_id, default_speed, updated);
-            }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
+            Sprite::Obj { .. } => f(sprite),
+            Sprite::Grid { children, .. } => for_each_obj_mut(children, f),
+            _ => {}
         }
     }
 }
@@ -885,9 +838,8 @@ mod tests {
     use crate::game_object::GameObjectKind;
     use crate::scene::{Scene, SceneRenderedMode, Sprite};
 
-    #[test]
-    fn builds_object_hierarchy_for_layers_and_nested_sprites() {
-        let scene: Scene = serde_yaml::from_str(
+    fn intro_scene() -> Scene {
+        serde_yaml::from_str(
             r#"
 id: intro
 title: Intro
@@ -907,8 +859,29 @@ layers:
             content: HELLO
 "#,
         )
-        .expect("scene should parse");
-        let runtime = SceneRuntime::new(scene);
+        .expect("scene should parse")
+    }
+
+    fn obj_scene(extra_fields: &str) -> Scene {
+        serde_yaml::from_str(&format!(
+            r#"
+id: playground-3d-scene
+title: 3D
+bg_colour: black
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+{extra_fields}"#
+        ))
+        .expect("scene should parse")
+    }
+
+    #[test]
+    fn builds_object_hierarchy_for_layers_and_nested_sprites() {
+        let runtime = SceneRuntime::new(intro_scene());
 
         assert_eq!(runtime.object_count(), 4);
         let root = runtime
@@ -961,28 +934,7 @@ layers:
 
     #[test]
     fn effective_object_state_accumulates_parent_visibility_and_offsets() {
-        let scene: Scene = serde_yaml::from_str(
-            r#"
-id: intro
-title: Intro
-bg_colour: black
-layers:
-  - name: UI
-    sprites:
-      - type: grid
-        id: root-grid
-        width: 10
-        height: 5
-        columns: ["1fr"]
-        rows: ["1fr"]
-        children:
-          - type: text
-            id: title
-            content: HELLO
-"#,
-        )
-        .expect("scene should parse");
-        let mut runtime = SceneRuntime::new(scene);
+        let mut runtime = SceneRuntime::new(intro_scene());
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
             &resolver,
@@ -1026,22 +978,7 @@ layers:
 
     #[test]
     fn adjusts_obj_scale_for_target_sprite_id() {
-        let scene: Scene = serde_yaml::from_str(
-            r#"
-id: playground-3d-scene
-title: 3D
-bg_colour: black
-layers:
-  - name: obj
-    sprites:
-      - type: obj
-        id: helsinki-uni-wireframe
-        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
-        scale: 1.0
-"#,
-        )
-        .expect("scene should parse");
-        let mut runtime = SceneRuntime::new(scene);
+        let mut runtime = SceneRuntime::new(obj_scene("        scale: 1.0"));
         runtime.set_scene_rendered_mode(SceneRenderedMode::Braille);
         assert!(runtime.adjust_obj_scale("helsinki-uni-wireframe", 0.2));
 
@@ -1064,21 +1001,7 @@ layers:
 
     #[test]
     fn toggles_obj_surface_mode() {
-        let scene: Scene = serde_yaml::from_str(
-            r#"
-id: playground-3d-scene
-title: 3D
-bg_colour: black
-layers:
-  - name: obj
-    sprites:
-      - type: obj
-        id: helsinki-uni-wireframe
-        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
-"#,
-        )
-        .expect("scene should parse");
-        let mut runtime = SceneRuntime::new(scene);
+        let mut runtime = SceneRuntime::new(obj_scene(""));
         assert!(runtime.toggle_obj_surface_mode("helsinki-uni-wireframe"));
         let mode = runtime
             .scene()
@@ -1097,23 +1020,8 @@ layers:
 
     #[test]
     fn toggles_obj_orbit_speed_on_and_off() {
-        let scene: Scene = serde_yaml::from_str(
-            r#"
-id: playground-3d-scene
-title: 3D
-bg_colour: black
-layers:
-  - name: obj
-    sprites:
-      - type: obj
-        id: helsinki-uni-wireframe
-        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
-        rotate-y-deg-per-sec: 14
-"#,
-        )
-        .expect("scene should parse");
-        let mut runtime = SceneRuntime::new(scene);
-
+        let mut runtime =
+            SceneRuntime::new(obj_scene("        rotate-y-deg-per-sec: 14"));
         assert!(runtime.toggle_obj_orbit("helsinki-uni-wireframe"));
         let speed_off = runtime
             .scene()

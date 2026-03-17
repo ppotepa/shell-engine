@@ -687,7 +687,9 @@ impl AppState {
             | Command::SelectPanel2
             | Command::SelectPanel3
             | Command::SelectPanel4
-            | Command::NextCodeTab | Command::PrevCodeTab | Command::Noop => {}
+            | Command::NextCodeTab
+            | Command::PrevCodeTab
+            | Command::Noop => {}
         }
         false
     }
@@ -734,7 +736,9 @@ impl AppState {
             | Command::SelectPanel2
             | Command::SelectPanel3
             | Command::SelectPanel4
-            | Command::NextCodeTab | Command::PrevCodeTab | Command::Noop => {}
+            | Command::NextCodeTab
+            | Command::PrevCodeTab
+            | Command::Noop => {}
         }
         false
     }
@@ -768,7 +772,9 @@ impl AppState {
                 | Command::SelectPanel2
                 | Command::SelectPanel3
                 | Command::SelectPanel4
-                | Command::NextCodeTab | Command::PrevCodeTab | Command::Noop => {}
+                | Command::NextCodeTab
+                | Command::PrevCodeTab
+                | Command::Noop => {}
             }
             return false;
         }
@@ -803,7 +809,9 @@ impl AppState {
             | Command::SelectPanel2
             | Command::SelectPanel3
             | Command::SelectPanel4
-            | Command::NextCodeTab | Command::PrevCodeTab | Command::Noop => {}
+            | Command::NextCodeTab
+            | Command::PrevCodeTab
+            | Command::Noop => {}
         }
         if matches!(cmd, Command::Up | Command::Down) {
             self.refresh_dir_preview();
