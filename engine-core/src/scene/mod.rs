@@ -25,4 +25,4 @@ pub use model::{
     Layer, LayerStages, MenuOption, ObjViewerControls, Scene, SceneAudio, SceneInput,
     SceneRenderedMode, SceneStages, Stage, StageTrigger, Step, TerminalSizeTesterControls,
 };
-pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, TextWrapMode, VerticalAlign};
+pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};

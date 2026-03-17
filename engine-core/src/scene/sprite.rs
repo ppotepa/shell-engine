@@ -57,12 +57,6 @@ pub enum SpriteSizePreset {
     Large,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
-pub enum TextWrapMode {
-    Word,
-}
-
 impl SpriteSizePreset {
     pub const fn generic_mode(self) -> &'static str {
         match self {
@@ -147,10 +141,6 @@ pub enum Sprite {
         /// Optional per-sprite font mode override (e.g. ascii/raster/half/quad/braille).
         #[serde(default, rename = "force-font-mode")]
         force_font_mode: Option<String>,
-        #[serde(default)]
-        wrap: Option<TextWrapMode>,
-        #[serde(default, rename = "max-width")]
-        max_width: Option<u16>,
         align_x: Option<HorizontalAlign>,
         align_y: Option<VerticalAlign>,
         fg_colour: Option<TermColour>,
@@ -528,7 +518,7 @@ impl Sprite {
 #[cfg(test)]
 mod tests {
     use super::{Sprite, SpriteSizePreset};
-    use crate::scene::{SceneRenderedMode, TextWrapMode};
+    use crate::scene::SceneRenderedMode;
 
     #[test]
     fn supports_negative_sprite_offsets() {
@@ -570,29 +560,6 @@ force-font-mode: braille
                 assert_eq!(force_renderer_mode, Some(SceneRenderedMode::QuadBlock));
                 assert_eq!(force_font_mode.as_deref(), Some("braille"));
                 assert!(behaviors.is_empty());
-            }
-            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
-                panic!("expected text sprite")
-            }
-        }
-    }
-
-    #[test]
-    fn parses_text_wrap_settings() {
-        let raw = r#"
-type: text
-content: "TEST"
-font: "Abril Fatface:terminal-pixels"
-wrap: word
-max-width: 72
-"#;
-        let sprite: Sprite = serde_yaml::from_str(raw).expect("sprite should parse");
-        match sprite {
-            Sprite::Text {
-                wrap, max_width, ..
-            } => {
-                assert_eq!(wrap, Some(TextWrapMode::Word));
-                assert_eq!(max_width, Some(72));
             }
             Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
