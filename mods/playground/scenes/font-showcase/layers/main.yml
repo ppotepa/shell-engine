@@ -2,138 +2,136 @@
 # Vertical grid of all generic font modes rendering the same string.
 # Each row: label on the left, rendered text on the right.
 
-layers:
+# ── Header ────────────────────────────────────────────────────────────────
+- name: header
+  sprites:
+    - type: text
+      content: "FONT MODE SHOWCASE  ---  THIS IS A TEXT"
+      font: "generic:1"
+      fg: white
+      at: tc
+      y: 1
 
-  # ── Header ────────────────────────────────────────────────────────────────
-  - name: header
-    sprites:
-      - type: text
-        content: "FONT MODE SHOWCASE  —  every generic:N renders: THIS IS A TEXT"
-        font: "generic:1"
-        fg: white
-        at: tc
-        y: 1
+# ── generic:tiny — smallest, 4 cols x 5 rows per char ─────────────────────
+- name: row-tiny-label
+  sprites:
+    - type: text
+      content: "generic:tiny"
+      font: "generic:1"
+      fg: gray
+      x: 2
+      y: 4
 
-  # ── generic:tiny (generic:tiny) — smallest, 4 cols × 5 rows per char ─────
-  - name: row-tiny-label
-    sprites:
-      - type: text
-        content: "generic:tiny"
-        font: "generic:1"
-        fg: gray
-        x: 2
-        y: 4
+- name: row-tiny-text
+  sprites:
+    - type: text
+      content: "THIS IS A TEXT"
+      font: "generic:tiny"
+      fg: cyan
+      x: 20
+      y: 4
 
-  - name: row-tiny-text
-    sprites:
-      - type: text
-        content: "THIS IS A TEXT"
-        font: "generic:tiny"
-        fg: cyan
-        x: 20
-        y: 4
+# ── generic:1 (Standard) — 6 cols x 7 rows per char ──────────────────────
+- name: row-standard-label
+  sprites:
+    - type: text
+      content: "generic:1 (standard)"
+      font: "generic:1"
+      fg: gray
+      x: 2
+      y: 11
 
-  # ── generic:1 (Standard) — 6 cols × 7 rows per char ─────────────────────
-  - name: row-standard-label
-    sprites:
-      - type: text
-        content: "generic:1 (standard)"
-        font: "generic:1"
-        fg: gray
-        x: 2
-        y: 11
+- name: row-standard-text
+  sprites:
+    - type: text
+      content: "THIS IS A TEXT"
+      font: "generic:1"
+      fg: cyan
+      x: 20
+      y: 11
 
-  - name: row-standard-text
-    sprites:
-      - type: text
-        content: "THIS IS A TEXT"
-        font: "generic:1"
-        fg: cyan
-        x: 20
-        y: 11
+# ── generic:2 (Large) — 12 cols x 14 rows per char ───────────────────────
+- name: row-large-label
+  sprites:
+    - type: text
+      content: "generic:2 (large)"
+      font: "generic:1"
+      fg: gray
+      x: 2
+      y: 20
 
-  # ── generic:2 (Large) — 12 cols × 14 rows per char ───────────────────────
-  - name: row-large-label
-    sprites:
-      - type: text
-        content: "generic:2 (large)"
-        font: "generic:1"
-        fg: gray
-        x: 2
-        y: 20
+- name: row-large-text
+  sprites:
+    - type: text
+      content: "THIS IS A TEXT"
+      font: "generic:2"
+      fg: cyan
+      x: 20
+      y: 20
 
-  - name: row-large-text
-    sprites:
-      - type: text
-        content: "THIS IS A TEXT"
-        font: "generic:2"
-        fg: cyan
-        x: 20
-        y: 20
+# ── generic:half — halfblock, 6 cols x 4 rows per char ───────────────────
+- name: row-half-label
+  sprites:
+    - type: text
+      content: "generic:half"
+      font: "generic:1"
+      fg: gray
+      x: 2
+      y: 36
 
-  # ── generic:half — halfblock, 6 cols × 4 rows per char ───────────────────
-  - name: row-half-label
-    sprites:
-      - type: text
-        content: "generic:half"
-        font: "generic:1"
-        fg: gray
-        x: 2
-        y: 36
+- name: row-half-text
+  sprites:
+    - type: text
+      content: "THIS IS A TEXT"
+      font: "generic:half"
+      fg: yellow
+      x: 20
+      y: 36
 
-  - name: row-half-text
-    sprites:
-      - type: text
-        content: "THIS IS A TEXT"
-        font: "generic:half"
-        fg: yellow
-        x: 20
-        y: 36
+# ── generic:quad — quarter block, 3 cols x 4 rows per char ───────────────
+- name: row-quad-label
+  sprites:
+    - type: text
+      content: "generic:quad"
+      font: "generic:1"
+      fg: gray
+      x: 2
+      y: 42
 
-  # ── generic:quad — quarter block, 3 cols × 4 rows per char ───────────────
-  - name: row-quad-label
-    sprites:
-      - type: text
-        content: "generic:quad"
-        font: "generic:1"
-        fg: gray
-        x: 2
-        y: 42
+- name: row-quad-text
+  sprites:
+    - type: text
+      content: "THIS IS A TEXT"
+      font: "generic:quad"
+      fg: yellow
+      x: 20
+      y: 42
 
-  - name: row-quad-text
-    sprites:
-      - type: text
-        content: "THIS IS A TEXT"
-        font: "generic:quad"
-        fg: yellow
-        x: 20
-        y: 42
+# ── generic:braille — braille 2x4 dots, 3 cols x 2 rows per char ─────────
+- name: row-braille-label
+  sprites:
+    - type: text
+      content: "generic:braille"
+      font: "generic:1"
+      fg: gray
+      x: 2
+      y: 48
 
-  # ── generic:braille — braille 2×4 dots, 3 cols × 2 rows per char ─────────
-  - name: row-braille-label
-    sprites:
-      - type: text
-        content: "generic:braille"
-        font: "generic:1"
-        fg: gray
-        x: 2
-        y: 48
+- name: row-braille-text
+  sprites:
+    - type: text
+      content: "THIS IS A TEXT"
+      font: "generic:braille"
+      fg: magenta
+      x: 20
+      y: 48
 
-  - name: row-braille-text
-    sprites:
-      - type: text
-        content: "THIS IS A TEXT"
-        font: "generic:braille"
-        fg: magenta
-        x: 20
-        y: 48
-
-  # ── Footer ────────────────────────────────────────────────────────────────
-  - name: footer
-    sprites:
-      - type: text
-        content: "press any key to return"
-        font: "generic:1"
-        fg: gray
-        at: bc
-        y: -2
+# ── Footer ────────────────────────────────────────────────────────────────
+- name: footer
+  sprites:
+    - type: text
+      content: "press any key to return"
+      font: "generic:1"
+      fg: gray
+      at: bc
+      y: -2
