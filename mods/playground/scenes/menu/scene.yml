@@ -44,3 +44,7 @@ menu-options:
     label: FPS CAP SHOWCASE 2D+3D
     selected-effect: arrows
     to: playground-fps-showcase-2d-30
+  - key: "6"
+    label: FONT MODE SHOWCASE
+    selected-effect: arrows
+    to: playground-font-showcase

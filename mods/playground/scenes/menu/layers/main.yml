@@ -21,7 +21,7 @@
       width: 36
       height: 15
       columns: ["1fr"]
-      rows: ["auto", "auto", "auto", "auto", "auto"]
+      rows: ["auto", "auto", "auto", "auto", "auto", "auto"]
       gap-y: 1
       # `menu:` sugar is still future work, so this scene stays as the canonical explicit menu example.
       children:
@@ -65,6 +65,14 @@
           at: cc
           font: "generic:1"
           fg: gray
+        - type: text
+          id: menu-item-5
+          content: "[6] FONT MODE SHOWCASE"
+          grid-col: 1
+          grid-row: 6
+          at: cc
+          font: "generic:1"
+          fg: silver
     - type: text
       id: sel0-left
       content: ">"
@@ -227,7 +235,39 @@
             period_ms: 900
             autoscale_height: true
     - type: text
-      content: "Arrows: navigate, Enter: select, [1]/[2]/[3]/[4]/[5]: shortcut"
+      id: sel5-left
+      content: ">"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-5
+            index: 5
+            side: left
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel5-right
+      content: "<"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-5
+            index: 5
+            side: right
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      content: "Arrows: navigate, Enter: select, [1]-[6]: shortcut"
       at: cb
       y: -1
       font: "generic:1"
