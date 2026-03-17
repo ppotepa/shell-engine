@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
 use crate::scene::Scene;
-use crate::scene_compiler::compile_scene_document_with_loader;
+use crate::scene_compiler::compile_scene_document_with_loader_and_source;
 use crate::EngineError;
 
 pub trait SceneRepository {
@@ -112,8 +112,9 @@ impl FsSceneRepository {
 impl SceneRepository for FsSceneRepository {
     fn load_scene(&self, scene_path: &str) -> Result<Scene, EngineError> {
         let (full_path, content) = self.load_scene_content(scene_path)?;
+        let scene_source_path = format!("/{}", relative_to_mod(&self.mod_source, &full_path));
 
-        compile_scene_document_with_loader(&content, |asset_path| {
+        compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
             fs::read_to_string(self.scene_abs_path(asset_path)).ok()
         })
         .map_err(|source| EngineError::InvalidModYaml {
@@ -275,7 +276,8 @@ impl SceneRepository for ZipSceneRepository {
             content
         };
 
-        compile_scene_document_with_loader(&content, |asset_path| {
+        let scene_source_path = format!("/{normalized}");
+        compile_scene_document_with_loader_and_source(&content, &scene_source_path, |asset_path| {
             let normalized_asset = Self::normalized(asset_path);
             let mut nested_archive = self.open_archive().ok()?;
             let mut file = nested_archive.by_name(normalized_asset).ok()?;
@@ -966,6 +968,97 @@ next: null
             .expect("load scene package");
         assert_eq!(scene.id, "intro-package");
         assert_eq!(scene.layers.len(), 2);
+    }
+
+    #[test]
+    fn fs_scene_package_loads_shared_object_via_relative_ref() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes/intro/objects")).expect("create object dir");
+        fs::create_dir_all(mod_dir.join("scenes/shared/objects")).expect("create shared object dir");
+        fs::write(
+            mod_dir.join("scenes/intro/scene.yml"),
+            r#"
+id: intro-package
+title: Intro Package
+next: null
+"#,
+        )
+        .expect("write scene root");
+        fs::write(
+            mod_dir.join("scenes/intro/objects/banner.yml"),
+            r#"
+- use: ../shared/objects/banner.yml
+"#,
+        )
+        .expect("write object partial");
+        fs::write(
+            mod_dir.join("scenes/shared/objects/banner.yml"),
+            r#"
+name: banner
+sprites:
+  - type: text
+    content: SHARED-FS
+"#,
+        )
+        .expect("write shared object");
+
+        let repo = create_scene_repository(&mod_dir).expect("repo");
+        let scene = repo
+            .load_scene("/scenes/intro/scene.yml")
+            .expect("load scene package");
+        assert_eq!(scene.layers.len(), 1);
+    }
+
+    #[test]
+    fn zip_scene_package_loads_shared_object_via_relative_ref() {
+        let temp = tempdir().expect("temp dir");
+        let zip_path = temp.path().join("mod.zip");
+        let file = fs::File::create(&zip_path).expect("create zip");
+        let mut writer = ZipWriter::new(file);
+        let opts = SimpleFileOptions::default();
+        writer
+            .start_file("scenes/intro/scene.yml", opts)
+            .expect("start scene root");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+id: intro-package
+title: Intro Package
+next: null
+"#,
+        )
+        .expect("write scene root");
+        writer
+            .start_file("scenes/intro/objects/banner.yml", opts)
+            .expect("start object partial");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+- use: ../shared/objects/banner.yml
+"#,
+        )
+        .expect("write object partial");
+        writer
+            .start_file("scenes/shared/objects/banner.yml", opts)
+            .expect("start shared object");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+name: banner
+sprites:
+  - type: text
+    content: SHARED-ZIP
+"#,
+        )
+        .expect("write shared object");
+        writer.finish().expect("finish zip");
+
+        let repo = create_scene_repository(&zip_path).expect("repo");
+        let scene = repo
+            .load_scene("/scenes/intro/scene.yml")
+            .expect("load scene package");
+        assert_eq!(scene.layers.len(), 1);
     }
 
     #[test]
