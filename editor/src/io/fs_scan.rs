@@ -164,6 +164,14 @@ pub fn collect_game_yaml_files(mod_root: &Path) -> Vec<String> {
     out
 }
 
+pub fn collect_scene_entry_files(mod_root: &Path) -> Vec<String> {
+    let scenes_root = mod_root.join("scenes");
+    let mut out = Vec::new();
+    walk_scene_entries(mod_root, &scenes_root, &mut out);
+    out.sort();
+    out
+}
+
 fn walk_game_yaml(root: &Path, path: &Path, out: &mut Vec<String>) {
     let entries = match fs::read_dir(path) {
         Ok(v) => v,
@@ -194,7 +202,7 @@ fn is_game_yaml(root: &Path, path: &Path) -> bool {
     if rel_s == "mod.yaml" {
         return true;
     }
-    if rel_s.starts_with("scenes/") && (rel_s.ends_with(".yml") || rel_s.ends_with(".yaml")) {
+    if is_scene_entry_rel(&rel_s) {
         return true;
     }
     if rel_s.starts_with("objects/") && (rel_s.ends_with(".yml") || rel_s.ends_with(".yaml")) {
@@ -204,6 +212,46 @@ fn is_game_yaml(root: &Path, path: &Path) -> bool {
         return true;
     }
     file_uses_sq_schema(path)
+}
+
+fn walk_scene_entries(root: &Path, path: &Path, out: &mut Vec<String>) {
+    let entries = match fs::read_dir(path) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_dir() {
+            walk_scene_entries(root, &p, out);
+            continue;
+        }
+        let rel_s = p
+            .strip_prefix(root)
+            .ok()
+            .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        if is_scene_entry_rel(&rel_s) {
+            out.push(p.display().to_string());
+        }
+    }
+}
+
+fn is_scene_entry_rel(rel_s: &str) -> bool {
+    if !(rel_s.starts_with("scenes/") && (rel_s.ends_with(".yml") || rel_s.ends_with(".yaml"))) {
+        return false;
+    }
+
+    let segments: Vec<&str> = rel_s.split('/').collect();
+    if segments.len() >= 4
+        && matches!(
+            segments[2],
+            "layers" | "sprites" | "templates" | "objects" | "effects"
+        )
+    {
+        return false;
+    }
+
+    true
 }
 
 pub fn infer_mod_root_from_project_yml(path: &Path) -> Option<String> {
@@ -222,7 +270,9 @@ pub fn infer_mod_root_from_project_yml(path: &Path) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{collect_game_yaml_files, collect_schema_project_yml_files};
+    use super::{
+        collect_game_yaml_files, collect_scene_entry_files, collect_schema_project_yml_files,
+    };
     use std::fs;
     use tempfile::tempdir;
 
@@ -266,5 +316,49 @@ mod tests {
         let files = collect_game_yaml_files(temp.path());
         assert_eq!(files.len(), 1);
         assert!(files[0].ends_with("objects/suzan.yml"));
+    }
+
+    #[test]
+    fn game_yaml_scanner_excludes_scene_partial_directories() {
+        let temp = tempdir().expect("temp dir");
+        let layers_dir = temp.path().join("scenes/intro/layers");
+        fs::create_dir_all(&layers_dir).expect("create layers dir");
+        fs::write(
+            temp.path().join("scenes/intro/scene.yml"),
+            "id: intro\ntitle: Intro\n",
+        )
+        .expect("write scene root");
+        fs::write(layers_dir.join("base.yml"), "- name: bg\n  sprites: []\n")
+            .expect("write layer partial");
+
+        let files = collect_game_yaml_files(temp.path());
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("scenes/intro/scene.yml"));
+    }
+
+    #[test]
+    fn scene_entry_scanner_only_returns_scene_roots() {
+        let temp = tempdir().expect("temp dir");
+        let layers_dir = temp.path().join("scenes/intro/layers");
+        fs::create_dir_all(&layers_dir).expect("create layers dir");
+        fs::write(
+            temp.path().join("scenes/intro.yml"),
+            "id: intro-flat\ntitle: Intro\n",
+        )
+        .expect("write flat scene");
+        fs::write(
+            temp.path().join("scenes/intro/scene.yml"),
+            "id: intro\ntitle: Intro\n",
+        )
+        .expect("write scene root");
+        fs::write(layers_dir.join("base.yml"), "- name: bg\n  sprites: []\n")
+            .expect("write layer partial");
+
+        let files = collect_scene_entry_files(temp.path());
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|path| path.ends_with("scenes/intro.yml")));
+        assert!(files
+            .iter()
+            .any(|path| path.ends_with("scenes/intro/scene.yml")));
     }
 }
