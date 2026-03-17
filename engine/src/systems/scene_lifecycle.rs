@@ -49,11 +49,11 @@ impl SceneLifecycleManager {
             Some(s) => s,
             None => return,
         };
-        
+
         if !settings.use_virtual_buffer || !settings.virtual_size_max_available {
             return;
         }
-        
+
         // Resize virtual buffer to match terminal when using max-available
         if let Some(vbuf) = world.virtual_buffer_mut() {
             let new_w = term_width.max(1);
@@ -93,7 +93,7 @@ impl SceneLifecycleManager {
             && world
                 .animator()
                 .map(|a| a.stage == SceneStage::OnIdle)
-            .unwrap_or(false);
+                .unwrap_or(false);
 
         if !should_leave {
             return;
@@ -130,7 +130,7 @@ impl SceneLifecycleManager {
             if let Some(new_scene) = new_scene {
                 // Apply scene-specific virtual size override if present
                 Self::apply_virtual_size_override(world, &new_scene);
-                
+
                 world.clear_scoped();
                 world.register_scoped(SceneRuntime::new(new_scene));
                 world.register_scoped(Animator::new());
@@ -144,17 +144,17 @@ impl SceneLifecycleManager {
             Some(s) => s,
             None => return,
         };
-        
+
         if !settings.use_virtual_buffer {
             return;
         }
-        
+
         // Check if scene has virtual_size_override
         let size_override = match &scene.virtual_size_override {
             Some(s) => s.as_str(),
             None => return,
         };
-        
+
         // Parse the override value
         let parsed_size = crate::runtime_settings::parse_virtual_size_str(size_override);
         let (new_width, new_height) = match parsed_size {
@@ -169,7 +169,7 @@ impl SceneLifecycleManager {
             }
             None => return,
         };
-        
+
         // Resize virtual buffer if size changed
         if let Some(vbuf) = world.virtual_buffer_mut() {
             if vbuf.0.width != new_width || vbuf.0.height != new_height {
@@ -407,8 +407,8 @@ mod tests {
     use super::{classify_events, SceneLifecycleManager};
     use crate::events::EngineEvent;
     use crate::scene::{
-        MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage,
-        StageTrigger, TermColour,
+        MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage, StageTrigger,
+        TermColour,
     };
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
@@ -532,13 +532,11 @@ layers:
                     surface_mode,
                     rotate_y_deg_per_sec,
                     ..
-                } if id.as_deref() == Some("helsinki-uni-wireframe") => {
-                    Some((
-                        scale.unwrap_or(1.0),
-                        surface_mode.clone(),
-                        rotate_y_deg_per_sec.unwrap_or(0.0),
-                    ))
-                }
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => Some((
+                    scale.unwrap_or(1.0),
+                    surface_mode.clone(),
+                    rotate_y_deg_per_sec.unwrap_or(0.0),
+                )),
                 _ => None,
             })
             .expect("obj props");
@@ -649,7 +647,9 @@ layers:
 
         let quit = SceneLifecycleManager::process_events(
             &mut world,
-            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('2'))],
+            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Char(
+                '2',
+            ))],
         );
 
         assert!(!quit);

@@ -103,20 +103,40 @@ properties:
     items:
       type: object
       additionalProperties: false
-      required: [use]
+      oneOf:
+        - required: [ref]
+        - required: [use]
       properties:
+        ref:
+          type: string
+          minLength: 1
+          description: Object prefab/blueprint reference path. Preferred over deprecated 'use'.
         use:
           type: string
           minLength: 1
-          description: Object template/prefab reference.
+          description: "Deprecated: use 'ref' instead. Object template/prefab reference."
+        as:
+          type: string
+          minLength: 1
+          description: Scene-local instance id. Preferred over deprecated 'id'.
         id:
           type: string
           minLength: 1
-          description: Optional scene-local object instance id.
+          description: "Deprecated: use 'as' instead. Scene-local object instance id."
         with:
           type: object
           default: {}
           description: Optional parameter overrides for object exports.
+        state:
+          type: object
+          default: {}
+          description: Optional initial runtime state for the instance.
+        tags:
+          type: array
+          default: []
+          items:
+            type: string
+          description: Optional role/group tags for the instance.
 
 $defs:
 

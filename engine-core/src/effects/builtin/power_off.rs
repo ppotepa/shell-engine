@@ -1,6 +1,6 @@
 use super::crt_on::{crt_blank_row, crt_dim_row, crt_static_row};
 use crate::buffer::{Buffer, TRUE_BLACK};
-use crate::effects::effect::{Effect, Region, EffectTargetMask};
+use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;

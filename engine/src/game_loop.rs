@@ -6,8 +6,7 @@ use crate::world::World;
 
 pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
     use crossterm::event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind,
-        MouseEventKind,
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,
     };
     use crossterm::execute;
     use std::io::stdout;

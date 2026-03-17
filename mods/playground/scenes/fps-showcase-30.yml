@@ -28,8 +28,8 @@ layers:
         font: "generic:1"
         fg: gray
 objects:
-  - use: suzan
-    id: suzanne-30
+  - ref: suzan
+    as: suzanne-30
     with:
       id: suzanne-30
 next: playground-fps-showcase-20

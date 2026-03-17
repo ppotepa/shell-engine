@@ -25,8 +25,8 @@ stages:
             duration: 250
 objects:
   # Reuse the shared object prefab and override only the exported values needed by this scene.
-  - use: suzan
-    id: obj-demo
+  - ref: suzan
+    as: obj-demo
     with:
       id: helsinki-uni-wireframe
       source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj

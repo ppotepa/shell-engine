@@ -1,5 +1,5 @@
 use crate::buffer::{Buffer, TRUE_BLACK};
-use crate::effects::effect::{Effect, Region, EffectTargetMask};
+use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_INTENSITY};
 use crate::scene::EffectParams;
 

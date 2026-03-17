@@ -74,7 +74,8 @@ where
             continue;
         };
         let Some(use_name) = instance_map
-            .get(Value::String("use".to_string()))
+            .get(Value::String("ref".to_string()))
+            .or_else(|| instance_map.get(Value::String("use".to_string())))
             .and_then(Value::as_str)
         else {
             continue;
@@ -151,7 +152,8 @@ where
 
         let mut layer = Mapping::new();
         let layer_name = instance_map
-            .get(Value::String("id".to_string()))
+            .get(Value::String("as".to_string()))
+            .or_else(|| instance_map.get(Value::String("id".to_string())))
             .and_then(Value::as_str)
             .or_else(|| {
                 object_map
@@ -433,5 +435,46 @@ sprites:
         )
         .expect("scene compile");
         assert_eq!(scene.layers.len(), 1);
+    }
+
+    #[test]
+    fn ref_and_as_syntax_expands_same_as_use_and_id() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+layers: []
+objects:
+  - ref: suzan
+    as: monkey-b
+    with:
+      label: "MONKEY"
+    state:
+      alive: true
+    tags:
+      - enemy
+"#;
+        let object_raw = r#"
+name: suzan
+exports:
+  label: DEFAULT
+sprites:
+  - type: text
+    content: "$label"
+    at: cc
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/suzan.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].name, "monkey-b");
+        match &scene.layers[0].sprites[0] {
+            crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
+            _ => panic!("expected text sprite"),
+        }
     }
 }

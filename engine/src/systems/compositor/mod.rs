@@ -188,24 +188,22 @@ pub fn compositor_system(world: &mut World) {
                 buffer,
             )
         }
-        SceneRenderedMode::HalfBlock => {
-            composite_scene_halfblock(
-                bg,
-                &layers,
-                rendered_mode,
-                asset_root.as_ref(),
-                &target_resolver,
-                &object_states,
-                &obj_camera_states,
-                &current_stage,
-                step_idx,
-                elapsed_ms,
-                scene_elapsed_ms,
-                &scene_effects,
-                scene_step_dur,
-                buffer,
-            )
-        }
+        SceneRenderedMode::HalfBlock => composite_scene_halfblock(
+            bg,
+            &layers,
+            rendered_mode,
+            asset_root.as_ref(),
+            &target_resolver,
+            &object_states,
+            &obj_camera_states,
+            &current_stage,
+            step_idx,
+            elapsed_ms,
+            scene_elapsed_ms,
+            &scene_effects,
+            scene_step_dur,
+            buffer,
+        ),
     };
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.set_object_regions(object_regions);

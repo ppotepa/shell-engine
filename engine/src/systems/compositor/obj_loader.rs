@@ -325,7 +325,10 @@ Ns 10
 "#;
         let palette = parse_mtl_palette(raw);
         let mat = palette.get("Wall").expect("Wall material");
-        assert!(mat.kd_srgb[0] > mat.kd_srgb[1], "R should be > G for orange");
+        assert!(
+            mat.kd_srgb[0] > mat.kd_srgb[1],
+            "R should be > G for orange"
+        );
         assert!(mat.kd_srgb[1] > mat.kd_srgb[2], "G should be > B (B is 0)");
         assert_eq!(mat.kd_srgb[2], 0, "B channel should be 0");
         assert!((mat.ka[0] - 0.1).abs() < 1e-3);
