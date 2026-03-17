@@ -110,3 +110,41 @@ impl AnimationDispatcher {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::authoring::catalog::animation_catalog;
+
+    #[test]
+    fn test_all_animations_in_catalog() {
+        // Verify that every animation in AnimationDispatcher is present in catalog
+        let runtime_animations = AnimationDispatcher::builtin_names();
+        let catalog = animation_catalog();
+        let catalog_names: Vec<&str> = catalog.iter().map(|(name, _)| *name).collect();
+
+        for animation in &runtime_animations {
+            assert!(
+                catalog_names.contains(animation),
+                "Animation '{}' is registered in runtime but missing from catalog",
+                animation
+            );
+        }
+
+        for catalog_name in &catalog_names {
+            assert!(
+                runtime_animations.contains(catalog_name),
+                "Animation '{}' is in catalog but not registered in AnimationDispatcher",
+                catalog_name
+            );
+        }
+
+        assert_eq!(
+            runtime_animations.len(),
+            catalog_names.len(),
+            "Mismatch between runtime animations ({}) and catalog ({})",
+            runtime_animations.len(),
+            catalog_names.len()
+        );
+    }
+}
