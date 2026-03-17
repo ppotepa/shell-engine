@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../../../schemas/generated/playground.scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
+id: playground-menu
+title: Playground Menu
+bg: black
+# Playground entry scene.
+# This file is meant as the clearest onboarding example for explicit menu authoring before `menu:` sugar exists.
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 400
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1200ms
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 300
+next: playground-3d-scene
+# `to` is the concise authored alias; the compiler normalizes it to the legacy routing fields.
+menu-options:
+  - key: "1"
+    label: 3D SCENE
+    selected-effect: arrows
+    to: playground-3d-scene
+  - key: "2"
+    label: STOP ANIMATION
+    selected-effect: arrows
+    to: playground-stop-animation
+  - key: "3"
+    label: DECORATION SHOWCASE
+    selected-effect: arrows
+    to: playground-decoration-showcase
+  - key: "4"
+    label: TERMINAL SIZE TEST
+    selected-effect: arrows
+    to: playground-terminal-size-test
+  - key: "5"
+    label: FPS CAP SHOWCASE 2D+3D
+    selected-effect: arrows
+    to: playground-fps-showcase-2d-30

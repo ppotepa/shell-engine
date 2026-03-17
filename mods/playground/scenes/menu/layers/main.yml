@@ -1,0 +1,240 @@
+# yaml-language-server: $schema=../../../../../schemas/generated/playground.layers-file.schema.yaml
+- name: menu
+  z_index: 0
+  # Everything lives in one layer so the menu remains easy to read: title, option list, selection arrows, and footer hint.
+  sprites:
+    - type: text
+      content: "PLAYGROUND"
+      at: ct
+      y: 2
+      font: "generic:1"
+      fg: white
+    - type: text
+      content: "MENU"
+      at: ct
+      y: 4
+      font: "generic:1"
+      fg: gray
+    - type: grid
+      id: menu-grid
+      at: cc
+      width: 36
+      height: 15
+      columns: ["1fr"]
+      rows: ["auto", "auto", "auto", "auto", "auto"]
+      gap-y: 1
+      # `menu:` sugar is still future work, so this scene stays as the canonical explicit menu example.
+      children:
+        - type: text
+          id: menu-item-0
+          content: "[1] 3D SCENE"
+          grid-col: 1
+          grid-row: 1
+          at: cc
+          font: "generic:1"
+          fg: white
+        - type: text
+          id: menu-item-1
+          content: "[2] STOP ANIMATION"
+          grid-col: 1
+          grid-row: 2
+          at: cc
+          font: "generic:1"
+          fg: silver
+        - type: text
+          id: menu-item-2
+          content: "[3] DECORATION SHOWCASE"
+          grid-col: 1
+          grid-row: 3
+          at: cc
+          font: "generic:1"
+          fg: gray
+        - type: text
+          id: menu-item-3
+          content: "[4] TERMINAL SIZE TEST"
+          grid-col: 1
+          grid-row: 4
+          at: cc
+          font: "generic:1"
+          fg: silver
+        - type: text
+          id: menu-item-4
+          content: "[5] FPS CAP SHOWCASE 2D+3D"
+          grid-col: 1
+          grid-row: 5
+          at: cc
+          font: "generic:1"
+          fg: gray
+    - type: text
+      id: sel0-left
+      content: ">"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      # Arrow markers are positioned by behavior, not by hard-coded x/y values.
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-0
+            index: 0
+            side: left
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel0-right
+      content: "<"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-0
+            index: 0
+            side: right
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel1-left
+      content: ">"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-1
+            index: 1
+            side: left
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel1-right
+      content: "<"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-1
+            index: 1
+            side: right
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel2-left
+      content: ">"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-2
+            index: 2
+            side: left
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel2-right
+      content: "<"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-2
+            index: 2
+            side: right
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel3-left
+      content: ">"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-3
+            index: 3
+            side: left
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel3-right
+      content: "<"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-3
+            index: 3
+            side: right
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel4-left
+      content: ">"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-4
+            index: 4
+            side: left
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      id: sel4-right
+      content: "<"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      behaviors:
+        - name: selected-arrows
+          params:
+            target: menu-item-4
+            index: 4
+            side: right
+            padding: 1
+            amplitude_x: 1
+            period_ms: 900
+            autoscale_height: true
+    - type: text
+      content: "Arrows: navigate, Enter: select, [1]/[2]/[3]/[4]/[5]: shortcut"
+      at: cb
+      y: -1
+      font: "generic:1"
+      fg: gray
+      hide_on_leave: true
+      behaviors:
+        - name: blink
+          params:
+            visible_ms: 700
+            hidden_ms: 700
