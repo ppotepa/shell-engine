@@ -25,6 +25,24 @@ cargo run -p app
 cargo run -p editor
 ```
 
+## Dev helper CLI (`devtool`)
+
+`devtool` is a small workspace utility for scaffolding and schema workflow.
+
+Examples:
+```bash
+cargo run -p devtool -- new mod my-mod
+cargo run -p devtool -- new scene my-mod intro-logo --id my-mod.intro-logo
+cargo run -p devtool -- new effect my-mod intro-logo flash --builtin lightning-flash --duration 180
+cargo run -p devtool -- schema refresh --all-mods
+cargo run -p devtool -- schema check --all-mods
+```
+
+Shortcut wrapper:
+```bash
+./devtool.sh new mod my-mod
+```
+
 ## Repo map
 
 - `app/` - launcher

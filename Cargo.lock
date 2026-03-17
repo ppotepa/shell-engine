@@ -383,6 +383,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "devtool"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "engine-authoring",
+ "serde_yaml",
+]
+
+[[package]]
 name = "dirs"
 version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
