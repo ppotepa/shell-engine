@@ -15,3 +15,6 @@ crossterm = "0.29"
 image = { version = "0.25", default-features = false, features = ["png"] }
 engine-core = { path = "../engine-core" }
 engine = { path = "../engine" }
+
+[dev-dependencies]
+tempfile = "3.13"

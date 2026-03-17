@@ -437,6 +437,7 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_yaml",
+ "tempfile",
  "toml",
 ]
 

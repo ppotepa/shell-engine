@@ -481,6 +481,94 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn fs_repository_expands_object_instances_from_objects_directory() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
+        fs::create_dir_all(mod_dir.join("objects")).expect("create objects");
+        fs::write(
+            mod_dir.join("objects/suzan.yml"),
+            r#"
+name: suzan
+sprites:
+  - type: text
+    content: "$label"
+"#,
+        )
+        .expect("write object");
+        fs::write(
+            mod_dir.join("scenes/intro.yml"),
+            r#"
+id: intro
+title: Intro
+layers: []
+objects:
+  - use: suzan
+    with:
+      label: READY
+next: null
+"#,
+        )
+        .expect("write scene");
+
+        let repo = create_scene_repository(&mod_dir).expect("repo");
+        let scene = repo.load_scene("/scenes/intro.yml").expect("load scene");
+        assert_eq!(scene.layers.len(), 1);
+        match &scene.layers[0].sprites[0] {
+            crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "READY"),
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn zip_repository_expands_object_instances_from_objects_directory() {
+        let temp = tempdir().expect("temp dir");
+        let zip_path = temp.path().join("mod.zip");
+        let file = fs::File::create(&zip_path).expect("create zip");
+        let mut writer = ZipWriter::new(file);
+        let opts = SimpleFileOptions::default();
+        writer
+            .start_file("objects/suzan.yml", opts)
+            .expect("start object");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+name: suzan
+sprites:
+  - type: text
+    content: "$label"
+"#,
+        )
+        .expect("write object");
+        writer
+            .start_file("scenes/intro.yml", opts)
+            .expect("start scene");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+id: intro
+title: Intro
+layers: []
+objects:
+  - use: suzan
+    with:
+      label: ZIP
+next: null
+"#,
+        )
+        .expect("write scene");
+        writer.finish().expect("finish zip");
+
+        let repo = create_scene_repository(&zip_path).expect("repo");
+        let scene = repo.load_scene("/scenes/intro.yml").expect("load scene");
+        assert_eq!(scene.layers.len(), 1);
+        match &scene.layers[0].sprites[0] {
+            crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "ZIP"),
+            _ => panic!("expected text sprite"),
+        }
+    }
 }
 
 fn walk_scene_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
