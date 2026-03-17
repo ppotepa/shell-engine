@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct ProjectValidation {
@@ -150,6 +150,50 @@ fn is_shell_quest_schema_ref(line: &str) -> bool {
     references_sq_schema && references_schema_file
 }
 
+fn extract_schema_ref(path: &Path) -> Option<String> {
+    let raw = fs::read_to_string(path).ok()?;
+    raw.lines()
+        .take(3)
+        .find_map(|line| {
+            line.split_once("$schema=")
+                .map(|(_, schema_ref)| schema_ref.trim())
+        })
+        .map(str::to_string)
+}
+
+fn resolve_schema_ref_path(
+    repo_root: &Path,
+    yaml_path: &Path,
+    schema_ref: &str,
+) -> Option<PathBuf> {
+    if let Some(relative) = schema_ref.strip_prefix("https://shell-quest.local/") {
+        return Some(normalize_path(&repo_root.join(relative)));
+    }
+    if let Some(relative) = schema_ref.strip_prefix("http://shell-quest.local/") {
+        return Some(normalize_path(&repo_root.join(relative)));
+    }
+    if schema_ref.contains("://") {
+        return None;
+    }
+    Some(normalize_path(
+        &yaml_path.parent().unwrap_or(repo_root).join(schema_ref),
+    ))
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                normalized.pop();
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized
+}
+
 pub fn collect_game_yaml_files(mod_root: &Path) -> Vec<String> {
     let mut out = Vec::new();
     walk_game_yaml(mod_root, mod_root, &mut out);
@@ -265,8 +309,10 @@ pub fn infer_mod_root_from_project_yml(path: &Path) -> Option<String> {
 mod tests {
     use super::{
         collect_game_yaml_files, collect_scene_entry_files, collect_schema_project_yml_files,
+        extract_schema_ref, resolve_schema_ref_path,
     };
     use std::fs;
+    use std::path::Path;
     use tempfile::tempdir;
 
     #[test]
@@ -368,5 +414,32 @@ mod tests {
         assert!(files
             .iter()
             .any(|path| path.ends_with("scenes/intro/scene.yml")));
+    }
+
+    #[test]
+    fn repo_schema_headers_resolve_to_existing_files() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let yaml_files = collect_game_yaml_files(&repo_root);
+        let schema_files = collect_schema_project_yml_files(&repo_root);
+
+        for path in yaml_files.iter().chain(schema_files.iter()) {
+            let yaml_path = Path::new(path);
+            let Some(schema_ref) = extract_schema_ref(yaml_path) else {
+                continue;
+            };
+            let Some(schema_path) = resolve_schema_ref_path(&repo_root, yaml_path, &schema_ref)
+            else {
+                continue;
+            };
+            assert!(
+                schema_path.exists(),
+                "schema ref {schema_ref} from {} resolved to missing {}",
+                yaml_path.display(),
+                schema_path.display()
+            );
+        }
     }
 }
