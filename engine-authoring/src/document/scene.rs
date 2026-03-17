@@ -57,6 +57,9 @@ fn normalize_stages(stages: &mut Value) {
     }
 }
 
+/// Converts `pause: duration` shorthand into `{duration, effects: []}`.
+///
+/// Documented in: engine_core::authoring::catalog::sugar_catalog()
 fn normalize_stage(stage: &mut Value) {
     let Some(stage_map) = stage.as_mapping_mut() else {
         return;
@@ -90,6 +93,9 @@ fn normalize_stage(stage: &mut Value) {
     }
 }
 
+/// Recursively normalizes all sprites in all layers.
+///
+/// Documented in: engine_core::authoring::catalog::sugar_catalog()
 fn normalize_layers(layers: &mut Value) {
     let Some(layer_seq) = layers.as_sequence_mut() else {
         return;
@@ -105,6 +111,9 @@ fn normalize_layers(layers: &mut Value) {
     }
 }
 
+/// Applies aliases and anchor expansions to sprite fields.
+///
+/// Documented in: engine_core::authoring::catalog::sugar_catalog()
 fn normalize_sprites(sprites: &mut Value) {
     let Some(sprite_seq) = sprites.as_sequence_mut() else {
         return;
@@ -131,6 +140,9 @@ fn normalize_sprites(sprites: &mut Value) {
     }
 }
 
+/// Expands `to: scene_id` shorthand into `{scene, next}`.
+///
+/// Documented in: engine_core::authoring::catalog::sugar_catalog()
 fn normalize_menu_options(scene: &mut Mapping) {
     for key in ["menu-options", "menu_options"] {
         let Some(options) = scene.get_mut(Value::String(key.to_string())) else {
@@ -156,6 +168,10 @@ fn normalize_menu_options(scene: &mut Mapping) {
     }
 }
 
+/// Renames field `from` to `to` if `to` is not already present.
+///
+/// Used for: bg→bg_colour, fg→fg_colour
+/// Documented in: engine_core::authoring::catalog::sugar_catalog()
 fn apply_alias(map: &mut Mapping, from: &str, to: &str) {
     let from_key = Value::String(from.to_string());
     let to_key = Value::String(to.to_string());
@@ -167,6 +183,10 @@ fn apply_alias(map: &mut Mapping, from: &str, to: &str) {
     }
 }
 
+/// Expands `at: anchor` shorthand into {align_x, align_y} pair.
+///
+/// Supported anchors: cc, ct, cb, lc, lt, lb, rc, rt, rb
+/// Documented in: engine_core::authoring::catalog::sugar_catalog()
 fn apply_at_anchor(map: &mut Mapping) {
     let Some(anchor) = map
         .get(Value::String("at".to_string()))
