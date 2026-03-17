@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schemas/generated/playground.layers-file.schema.yaml
+# yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: menu
   z_index: 0
   # Everything lives in one layer so the menu remains easy to read: title, option list, selection arrows, and footer hint.

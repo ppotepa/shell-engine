@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schemas/generated/shell-quest.layers-file.schema.yaml
+# yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: date
   z_index: 2
   visible: true

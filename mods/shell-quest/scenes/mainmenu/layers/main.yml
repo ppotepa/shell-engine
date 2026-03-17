@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schemas/generated/shell-quest.layers-file.schema.yaml
+# yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: linux-showcase
   z_index: 0
   # One layer is enough here because the scene is purely presentational and all children share the same lifecycle.

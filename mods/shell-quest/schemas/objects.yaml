@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/shell-quest/schemas/objects.yaml
+title: schema shell-quest objects
+type: array
+items:
+  allOf:
+  - $ref: ../../../schemas/objects-file.schema.yaml#/items
+  - properties:
+      use:
+        $ref: ./catalog.yaml#/$defs/object_names

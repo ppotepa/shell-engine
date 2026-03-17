@@ -1,11 +1,11 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/schemas/generated/playground.effect-file.schema.yaml
-title: playground effect-file overlay schema
+$id: https://shell-quest.local/mods/shell-quest/schemas/effects.yaml
+title: schema shell-quest effects
 type: array
 items:
   oneOf:
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: artifact-out
@@ -29,9 +29,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: artifact-out effect variant
-    - description: artifact-out overlay from playground generated metadata
+    - description: artifact-out overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: brighten
@@ -55,9 +55,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: brighten effect variant
-    - description: brighten overlay from playground generated metadata
+    - description: brighten overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: clear-to-colour
@@ -79,9 +79,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: clear-to-colour effect variant
-    - description: clear-to-colour overlay from playground generated metadata
+    - description: clear-to-colour overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: crt-on
@@ -99,9 +99,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: crt-on effect variant
-    - description: crt-on overlay from playground generated metadata
+    - description: crt-on overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: devour-out
@@ -125,9 +125,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: devour-out effect variant
-    - description: devour-out overlay from playground generated metadata
+    - description: devour-out overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: fade-in
@@ -145,9 +145,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: fade-in effect variant
-    - description: fade-in overlay from playground generated metadata
+    - description: fade-in overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: fade-out
@@ -165,9 +165,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: fade-out effect variant
-    - description: fade-out overlay from playground generated metadata
+    - description: fade-out overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: fade-to-black
@@ -185,9 +185,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: fade-to-black effect variant
-    - description: fade-to-black overlay from playground generated metadata
+    - description: fade-to-black overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: glitch-out
@@ -211,9 +211,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: glitch-out effect variant
-    - description: glitch-out overlay from playground generated metadata
+    - description: glitch-out overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: lightning-ambient
@@ -257,9 +257,9 @@ items:
               default: horizontal
               description: Directional axis for the effect.
       title: lightning-ambient effect variant
-    - description: lightning-ambient overlay from playground generated metadata
+    - description: lightning-ambient overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: lightning-branch
@@ -314,9 +314,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: lightning-branch effect variant
-    - description: lightning-branch overlay from playground generated metadata
+    - description: lightning-branch overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: lightning-fbm
@@ -359,9 +359,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: lightning-fbm effect variant
-    - description: lightning-fbm overlay from playground generated metadata
+    - description: lightning-fbm overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: lightning-flash
@@ -399,9 +399,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: lightning-flash effect variant
-    - description: lightning-flash overlay from playground generated metadata
+    - description: lightning-flash overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: lightning-growth
@@ -448,9 +448,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: lightning-growth effect variant
-    - description: lightning-growth overlay from playground generated metadata
+    - description: lightning-growth overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: lightning-natural
@@ -503,9 +503,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: lightning-natural effect variant
-    - description: lightning-natural overlay from playground generated metadata
+    - description: lightning-natural overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: lightning-optical-80s
@@ -535,9 +535,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: lightning-optical-80s effect variant
-    - description: lightning-optical-80s overlay from playground generated metadata
+    - description: lightning-optical-80s overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: power-off
@@ -555,9 +555,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: power-off effect variant
-    - description: power-off overlay from playground generated metadata
+    - description: power-off overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: scanlines
@@ -572,9 +572,9 @@ items:
               multipleOf: 0.05000000074505806
               description: Overall strength multiplier.
       title: scanlines effect variant
-    - description: scanlines overlay from playground generated metadata
+    - description: scanlines overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: screen-shake
@@ -610,9 +610,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: screen-shake effect variant
-    - description: screen-shake overlay from playground generated metadata
+    - description: screen-shake overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: shatter-glitch
@@ -636,9 +636,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: shatter-glitch effect variant
-    - description: shatter-glitch overlay from playground generated metadata
+    - description: shatter-glitch overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: shine
@@ -686,9 +686,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: shine effect variant
-    - description: shine overlay from playground generated metadata
+    - description: shine overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: tesla-orb
@@ -730,9 +730,9 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: tesla-orb effect variant
-    - description: tesla-orb overlay from playground generated metadata
+    - description: tesla-orb overlay from shell-quest generated metadata
   - allOf:
-    - $ref: ../effect-file.schema.yaml#/items
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
           const: whiteout
@@ -756,4 +756,4 @@ items:
               default: linear
               description: Progress curve applied to the effect.
       title: whiteout effect variant
-    - description: whiteout overlay from playground generated metadata
+    - description: whiteout overlay from shell-quest generated metadata

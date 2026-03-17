@@ -1,0 +1,5 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/shell-quest/schemas/layers.yaml
+title: schema shell-quest layers
+allOf:
+- $ref: ../../../schemas/layers-file.schema.yaml
