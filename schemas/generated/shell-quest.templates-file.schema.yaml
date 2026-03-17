@@ -1,5 +1,0 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/schemas/generated/shell-quest.templates-file.schema.yaml
-title: shell-quest templates-file overlay schema
-allOf:
-- $ref: ../templates-file.schema.yaml

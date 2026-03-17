@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../schemas/generated/playground.scene.schema.yaml
+# yaml-language-server: $schema=../../schemas/scenes.yaml
 # Font showcase: renders "THIS IS A TEXT" in every generic font mode side by side.
 id: playground-font-showcase
 title: Font Mode Showcase

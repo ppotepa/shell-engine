@@ -56,12 +56,12 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.schema.yaml"
+            "https://shell-quest.local/mods/{mod_name}/schemas/catalog.yaml"
         )),
     );
     root.insert(
         Value::String("title".to_string()),
-        Value::String(format!("{mod_name} generated schema fragment")),
+        Value::String(format!("schema {mod_name} catalog")),
     );
 
     let mut defs = Mapping::new();
@@ -120,45 +120,28 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
 
     Ok(vec![
-        output_file(format!("{mod_name}.schema.yaml"), Value::Mapping(root)),
+        output_file("schemas/catalog.yaml".to_string(), Value::Mapping(root)),
+        output_file("schemas/scenes.yaml".to_string(), build_scene_overlay_schema(mod_name)),
         output_file(
-            format!("{mod_name}.scene.schema.yaml"),
-            build_scene_overlay_schema(mod_name),
-        ),
-        output_file(
-            format!("{mod_name}.scene-file.schema.yaml"),
-            build_scene_file_overlay_schema(mod_name),
-        ),
-        output_file(
-            format!("{mod_name}.objects-file.schema.yaml"),
+            "schemas/objects.yaml".to_string(),
             build_objects_file_overlay_schema(mod_name),
         ),
         output_file(
-            format!("{mod_name}.layers-file.schema.yaml"),
+            "schemas/layers.yaml".to_string(),
             build_layers_file_overlay_schema(mod_name),
         ),
         output_file(
-            format!("{mod_name}.templates-file.schema.yaml"),
+            "schemas/templates.yaml".to_string(),
             build_templates_file_overlay_schema(mod_name),
         ),
         output_file(
-            format!("{mod_name}.sprites-file.schema.yaml"),
+            "schemas/sprites.yaml".to_string(),
             build_sprites_file_overlay_schema(mod_name),
         ),
         output_file(
-            format!("{mod_name}.effect-file.schema.yaml"),
+            "schemas/effects.yaml".to_string(),
             build_effect_file_overlay_schema(mod_name, &effect_names),
         ),
-        output_file("behaviors.schema.yaml".to_string(), build_behavior_schema()),
-        output_file(
-            "animations.schema.yaml".to_string(),
-            build_animation_schema(),
-        ),
-        output_file(
-            "input-profiles.schema.yaml".to_string(),
-            build_input_profile_schema(),
-        ),
-        output_file("sugar.schema.yaml".to_string(), build_sugar_schema()),
     ])
 }
 
@@ -526,7 +509,7 @@ fn build_animation_schema() -> Value {
 
 /// Builds schema for all built-in input profiles.
 fn build_input_profile_schema() -> Value {
-    use engine_core::authoring::catalog::input_profile_catalog;
+    use engine_core::authoring::catalog::{input_profile_catalog, input_profile_shapes};
 
     let mut root = Mapping::new();
     root.insert(
@@ -544,10 +527,10 @@ fn build_input_profile_schema() -> Value {
         Value::String("Generated input profile schemas from metadata".to_string()),
     );
 
-    let profiles = input_profile_catalog();
     let mut defs = Mapping::new();
 
-    // Create enum of all profile names
+    // Enum of all profile names
+    let profiles = input_profile_catalog();
     let mut profile_enum = Mapping::new();
     profile_enum.insert(
         Value::String("type".to_string()),
@@ -562,11 +545,181 @@ fn build_input_profile_schema() -> Value {
                 .collect(),
         ),
     );
-
     defs.insert(
         Value::String("input_profile".to_string()),
         Value::Mapping(profile_enum),
     );
+
+    // Per-profile parameter shapes
+    for shape in input_profile_shapes() {
+        let def_key = shape.name.replace('-', "_");
+        let mut obj = Mapping::new();
+        obj.insert(
+            Value::String("type".to_string()),
+            Value::String("object".to_string()),
+        );
+        obj.insert(
+            Value::String("additionalProperties".to_string()),
+            Value::Bool(false),
+        );
+
+        let mut props = Mapping::new();
+        let mut required_fields: Vec<Value> = Vec::new();
+        for field in shape.fields {
+            use engine_core::authoring::metadata::Requirement;
+            props.insert(
+                Value::String(field.name.to_string()),
+                field_metadata_to_schema(field),
+            );
+            if field.requirement == Requirement::Required {
+                required_fields.push(Value::String(field.name.to_string()));
+            }
+        }
+        obj.insert(Value::String("properties".to_string()), Value::Mapping(props));
+        if !required_fields.is_empty() {
+            obj.insert(
+                Value::String("required".to_string()),
+                Value::Sequence(required_fields),
+            );
+        }
+        defs.insert(Value::String(def_key), Value::Mapping(obj));
+    }
+
+    root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
+    Value::Mapping(root)
+}
+
+/// Builds allOf conditional blocks from RequiredIf metadata for a set of fields.
+/// Returns `if/then` JSON Schema objects — one per unique (field, equals) pair.
+fn build_required_if_allof(
+    fields: &[engine_core::authoring::metadata::FieldMetadata],
+) -> Vec<Value> {
+    use std::collections::BTreeMap;
+    use engine_core::authoring::metadata::Requirement;
+
+    let mut groups: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+    for f in fields {
+        if let Requirement::RequiredIf { field, equals } = f.requirement {
+            groups.entry((field, equals)).or_default().push(f.name);
+        }
+    }
+
+    groups
+        .into_iter()
+        .map(|((field, equals), required_fields)| {
+            let mut if_props = Mapping::new();
+            if_props.insert(
+                Value::String(field.to_string()),
+                Value::Mapping(mapping_with("const", Value::String(equals.to_string()))),
+            );
+            let if_block = Value::Mapping(mapping_with("properties", Value::Mapping(if_props)));
+            let then_block = Value::Mapping(mapping_with(
+                "required",
+                Value::Sequence(
+                    required_fields
+                        .iter()
+                        .map(|f| Value::String(f.to_string()))
+                        .collect(),
+                ),
+            ));
+            let mut block = Mapping::new();
+            block.insert(Value::String("if".to_string()), if_block);
+            block.insert(Value::String("then".to_string()), then_block);
+            Value::Mapping(block)
+        })
+        .collect()
+}
+
+/// Builds a generated schema for scene/layer/sprite/object field constraints.
+/// Emits `$defs` for `sprite_required_if` (if/then allOf blocks from metadata).
+/// Referenced by scene.schema.yaml sprite def to keep RequiredIf auto-generated.
+fn build_scene_fields_schema() -> Value {
+    use engine_core::scene::{SPRITE_FIELDS, SCENE_FIELDS, LAYER_FIELDS, OBJECT_FIELDS};
+
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(
+            "https://shell-quest.local/schemas/generated/scene-fields.schema.yaml".to_string(),
+        ),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String("Generated scene/layer/sprite/object field constraints".to_string()),
+    );
+
+    let mut defs = Mapping::new();
+
+    // sprite_required_if: allOf blocks generated from RequiredIf metadata
+    let sprite_if_blocks = build_required_if_allof(SPRITE_FIELDS);
+    if !sprite_if_blocks.is_empty() {
+        let mut sprite_constraints = Mapping::new();
+        sprite_constraints.insert(
+            Value::String("allOf".to_string()),
+            Value::Sequence(sprite_if_blocks),
+        );
+        defs.insert(
+            Value::String("sprite_required_if".to_string()),
+            Value::Mapping(sprite_constraints),
+        );
+    }
+
+    // scene_required: fields marked Required in SCENE_FIELDS
+    let scene_required: Vec<Value> = SCENE_FIELDS
+        .iter()
+        .filter(|f| f.requirement == engine_core::authoring::metadata::Requirement::Required)
+        .map(|f| Value::String(f.name.to_string()))
+        .collect();
+    if !scene_required.is_empty() {
+        defs.insert(
+            Value::String("scene_required".to_string()),
+            Value::Mapping(mapping_with("required", Value::Sequence(scene_required))),
+        );
+    }
+
+    // layer_required: fields marked Required in LAYER_FIELDS
+    let layer_required: Vec<Value> = LAYER_FIELDS
+        .iter()
+        .filter(|f| f.requirement == engine_core::authoring::metadata::Requirement::Required)
+        .map(|f| Value::String(f.name.to_string()))
+        .collect();
+    if !layer_required.is_empty() {
+        defs.insert(
+            Value::String("layer_required".to_string()),
+            Value::Mapping(mapping_with("required", Value::Sequence(layer_required))),
+        );
+    }
+
+    // sprite_required: fields marked Required in SPRITE_FIELDS (non-conditional)
+    let sprite_required: Vec<Value> = SPRITE_FIELDS
+        .iter()
+        .filter(|f| f.requirement == engine_core::authoring::metadata::Requirement::Required)
+        .map(|f| Value::String(f.name.to_string()))
+        .collect();
+    if !sprite_required.is_empty() {
+        defs.insert(
+            Value::String("sprite_required".to_string()),
+            Value::Mapping(mapping_with("required", Value::Sequence(sprite_required))),
+        );
+    }
+
+    // object_required: fields marked Required in OBJECT_FIELDS
+    let object_required: Vec<Value> = OBJECT_FIELDS
+        .iter()
+        .filter(|f| f.requirement == engine_core::authoring::metadata::Requirement::Required)
+        .map(|f| Value::String(f.name.to_string()))
+        .collect();
+    if !object_required.is_empty() {
+        defs.insert(
+            Value::String("object_required".to_string()),
+            Value::Mapping(mapping_with("required", Value::Sequence(object_required))),
+        );
+    }
+
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
 }
@@ -709,43 +862,17 @@ fn build_scene_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.scene.schema.yaml"
+            "https://shell-quest.local/mods/{mod_name}/schemas/scenes.yaml"
         )),
     );
     root.insert(
         Value::String("title".to_string()),
-        Value::String(format!("{mod_name} scene overlay schema")),
+        Value::String(format!("schema {mod_name} scenes")),
     );
     root.insert(
         Value::String("allOf".to_string()),
         Value::Sequence(vec![
-            schema_ref("../scene.schema.yaml"),
-            Value::Mapping(scene_overlay_patch(mod_name)),
-        ]),
-    );
-    Value::Mapping(root)
-}
-
-fn build_scene_file_overlay_schema(mod_name: &str) -> Value {
-    let mut root = Mapping::new();
-    root.insert(
-        Value::String("$schema".to_string()),
-        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
-    );
-    root.insert(
-        Value::String("$id".to_string()),
-        Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.scene-file.schema.yaml"
-        )),
-    );
-    root.insert(
-        Value::String("title".to_string()),
-        Value::String(format!("{mod_name} scene-file overlay schema")),
-    );
-    root.insert(
-        Value::String("allOf".to_string()),
-        Value::Sequence(vec![
-            schema_ref("../scene-file.schema.yaml"),
+            schema_ref("../../../schemas/scene.schema.yaml"),
             Value::Mapping(scene_overlay_patch(mod_name)),
         ]),
     );
@@ -757,7 +884,7 @@ fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
     let mut use_props = Mapping::new();
     use_props.insert(
         Value::String("use".to_string()),
-        schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/object_names")),
+        schema_ref("./catalog.yaml#/$defs/object_names"),
     );
     items_patch.insert(
         Value::String("properties".to_string()),
@@ -772,12 +899,12 @@ fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.objects-file.schema.yaml"
+            "https://shell-quest.local/mods/{mod_name}/schemas/objects.yaml"
         )),
     );
     root.insert(
         Value::String("title".to_string()),
-        Value::String(format!("{mod_name} objects-file overlay schema")),
+        Value::String(format!("schema {mod_name} objects")),
     );
     root.insert(
         Value::String("type".to_string()),
@@ -788,7 +915,7 @@ fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
         Value::Mapping(mapping_with(
             "allOf",
             Value::Sequence(vec![
-                schema_ref("../objects-file.schema.yaml#/items"),
+                schema_ref("../../../schemas/objects-file.schema.yaml#/items"),
                 Value::Mapping(items_patch),
             ]),
         )),
@@ -805,16 +932,16 @@ fn build_layers_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.layers-file.schema.yaml"
+            "https://shell-quest.local/mods/{mod_name}/schemas/layers.yaml"
         )),
     );
     root.insert(
         Value::String("title".to_string()),
-        Value::String(format!("{mod_name} layers-file overlay schema")),
+        Value::String(format!("schema {mod_name} layers")),
     );
     root.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref("../layers-file.schema.yaml")]),
+        Value::Sequence(vec![schema_ref("../../../schemas/layers-file.schema.yaml")]),
     );
     Value::Mapping(root)
 }
@@ -828,16 +955,16 @@ fn build_templates_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.templates-file.schema.yaml"
+            "https://shell-quest.local/mods/{mod_name}/schemas/templates.yaml"
         )),
     );
     root.insert(
         Value::String("title".to_string()),
-        Value::String(format!("{mod_name} templates-file overlay schema")),
+        Value::String(format!("schema {mod_name} templates")),
     );
     root.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref("../templates-file.schema.yaml")]),
+        Value::Sequence(vec![schema_ref("../../../schemas/templates-file.schema.yaml")]),
     );
     Value::Mapping(root)
 }
@@ -851,16 +978,16 @@ fn build_sprites_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.sprites-file.schema.yaml"
+            "https://shell-quest.local/mods/{mod_name}/schemas/sprites.yaml"
         )),
     );
     root.insert(
         Value::String("title".to_string()),
-        Value::String(format!("{mod_name} sprites-file overlay schema")),
+        Value::String(format!("schema {mod_name} sprites")),
     );
     root.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref("../sprites-file.schema.yaml")]),
+        Value::Sequence(vec![schema_ref("../../../schemas/sprites-file.schema.yaml")]),
     );
     Value::Mapping(root)
 }
@@ -874,12 +1001,12 @@ fn build_effect_file_overlay_schema(mod_name: &str, effect_names: &BTreeSet<Stri
     root.insert(
         Value::String("$id".to_string()),
         Value::String(format!(
-            "https://shell-quest.local/schemas/generated/{mod_name}.effect-file.schema.yaml"
+            "https://shell-quest.local/mods/{mod_name}/schemas/effects.yaml"
         )),
     );
     root.insert(
         Value::String("title".to_string()),
-        Value::String(format!("{mod_name} effect-file overlay schema")),
+        Value::String(format!("schema {mod_name} effects")),
     );
     root.insert(
         Value::String("type".to_string()),
@@ -926,7 +1053,7 @@ fn effect_variant_schemas(mod_name: &str, effect_names: &BTreeSet<String>) -> Ve
             Value::Mapping(mapping_with(
                 "allOf",
                 Value::Sequence(vec![
-                    schema_ref("../effect-file.schema.yaml#/items"),
+                    schema_ref("../../../schemas/effect-file.schema.yaml#/items"),
                     Value::Mapping(patch),
                     Value::Mapping(mapping_with(
                         "description",
@@ -1039,23 +1166,23 @@ fn param_control_schema(control: &ParamControl) -> Mapping {
     map
 }
 
-fn scene_overlay_patch(mod_name: &str) -> Mapping {
+fn scene_overlay_patch(_mod_name: &str) -> Mapping {
     let mut props = Mapping::new();
     props.insert(
         Value::String("next".to_string()),
-        nullable_ref(&format!("./{mod_name}.schema.yaml#/$defs/scene_ids")),
+        nullable_ref("./catalog.yaml#/$defs/scene_ids"),
     );
     props.insert(
         Value::String("menu-options".to_string()),
-        menu_options_overlay(mod_name),
+        menu_options_overlay(),
     );
     props.insert(
         Value::String("menu_options".to_string()),
-        menu_options_overlay(mod_name),
+        menu_options_overlay(),
     );
     props.insert(
         Value::String("objects".to_string()),
-        objects_overlay(mod_name),
+        objects_overlay(),
     );
 
     let mut root = Mapping::new();
@@ -1066,27 +1193,27 @@ fn scene_overlay_patch(mod_name: &str) -> Mapping {
     root
 }
 
-fn menu_options_overlay(mod_name: &str) -> Value {
+fn menu_options_overlay() -> Value {
     Value::Mapping(mapping_with(
         "items",
         Value::Mapping(mapping_with(
             "properties",
             Value::Mapping(mapping_with(
                 "next",
-                schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/scene_ids")),
+                schema_ref("./catalog.yaml#/$defs/scene_ids"),
             )),
         )),
     ))
 }
 
-fn objects_overlay(mod_name: &str) -> Value {
+fn objects_overlay() -> Value {
     Value::Mapping(mapping_with(
         "items",
         Value::Mapping(mapping_with(
             "properties",
             Value::Mapping(mapping_with(
                 "use",
-                schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/object_names")),
+                schema_ref("./catalog.yaml#/$defs/object_names"),
             )),
         )),
     ))
@@ -1421,7 +1548,10 @@ fn walk_yaml(path: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_animation_schema, build_behavior_schema, generate_mod_schema_files};
+    use super::{
+        build_animation_schema, build_behavior_schema, build_input_profile_schema,
+        build_sugar_schema, generate_mod_schema_files,
+    };
     use serde_yaml::Value;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1449,7 +1579,7 @@ mod tests {
         let files = generate_mod_schema_files(&mod_root).expect("generate schemas");
         let root = files
             .iter()
-            .find(|file| file.file_name == "playground.schema.yaml")
+            .find(|file| file.file_name == "schemas/catalog.yaml")
             .expect("root schema");
         let yaml = root.value.as_mapping().expect("schema mapping");
         let defs = yaml
@@ -1561,18 +1691,9 @@ mod tests {
 
     #[test]
     fn test_behavior_schema_generation() {
-        let temp = unique_temp_dir("behavior-schema-test");
-        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
-        fs::create_dir_all(temp.join("scenes")).unwrap();
-
-        let files = generate_mod_schema_files(&temp).unwrap();
-        let behavior_schema = files
-            .iter()
-            .find(|f| f.file_name == "behaviors.schema.yaml")
-            .expect("behaviors.schema.yaml generated");
+        let behavior_schema = build_behavior_schema();
 
         let defs = behavior_schema
-            .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)
@@ -1607,18 +1728,9 @@ mod tests {
 
     #[test]
     fn test_animation_schema_generation() {
-        let temp = unique_temp_dir("animation-schema-test");
-        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
-        fs::create_dir_all(temp.join("scenes")).unwrap();
-
-        let files = generate_mod_schema_files(&temp).unwrap();
-        let animation_schema = files
-            .iter()
-            .find(|f| f.file_name == "animations.schema.yaml")
-            .expect("animations.schema.yaml generated");
+        let animation_schema = build_animation_schema();
 
         let defs = animation_schema
-            .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)
@@ -1653,18 +1765,9 @@ mod tests {
 
     #[test]
     fn test_input_profile_schema_generation() {
-        let temp = unique_temp_dir("input-profile-schema-test");
-        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
-        fs::create_dir_all(temp.join("scenes")).unwrap();
-
-        let files = generate_mod_schema_files(&temp).unwrap();
-        let profile_schema = files
-            .iter()
-            .find(|f| f.file_name == "input-profiles.schema.yaml")
-            .expect("input-profiles.schema.yaml generated");
+        let profile_schema = build_input_profile_schema();
 
         let defs = profile_schema
-            .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)
@@ -1697,18 +1800,9 @@ mod tests {
 
     #[test]
     fn test_sugar_schema_generation() {
-        let temp = unique_temp_dir("sugar-schema-test");
-        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
-        fs::create_dir_all(temp.join("scenes")).unwrap();
-
-        let files = generate_mod_schema_files(&temp).unwrap();
-        let sugar_schema = files
-            .iter()
-            .find(|f| f.file_name == "sugar.schema.yaml")
-            .expect("sugar.schema.yaml generated");
+        let sugar_schema = build_sugar_schema();
 
         let defs = sugar_schema
-            .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)

@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/shell-quest/schemas/scenes.yaml
+title: schema shell-quest scenes
+allOf:
+- $ref: ../../../schemas/scene.schema.yaml
+- properties:
+    next:
+      oneOf:
+      - $ref: ./catalog.yaml#/$defs/scene_ids
+      - type: 'null'
+    menu-options:
+      items:
+        properties:
+          next:
+            $ref: ./catalog.yaml#/$defs/scene_ids
+    menu_options:
+      items:
+        properties:
+          next:
+            $ref: ./catalog.yaml#/$defs/scene_ids
+    objects:
+      items:
+        properties:
+          use:
+            $ref: ./catalog.yaml#/$defs/object_names

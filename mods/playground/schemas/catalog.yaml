@@ -1,6 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/schemas/generated/playground.schema.yaml
-title: playground generated schema fragment
+$id: https://shell-quest.local/mods/playground/schemas/catalog.yaml
+title: schema playground catalog
 $defs:
   scene_ids:
     type: string

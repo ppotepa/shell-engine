@@ -152,8 +152,10 @@ fn is_shell_quest_schema_ref(line: &str) -> bool {
     let references_sq_schema = schema_ref.contains("schemas/")
         || schema_ref.contains("/schemas/")
         || schema_ref.contains("shell-quest.local/schemas/");
-    let references_schema_file =
-        schema_ref.ends_with(".schema.yaml") || schema_ref.ends_with(".schema.yml");
+    let references_schema_file = schema_ref.ends_with(".schema.yaml")
+        || schema_ref.ends_with(".schema.yml")
+        || schema_ref.ends_with(".yaml")
+        || schema_ref.ends_with(".yml");
     references_sq_schema && references_schema_file
 }
 
@@ -368,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn schema_scanner_includes_generated_overlay_schema_files() {
+    fn schema_scanner_includes_mod_local_overlay_schema_files() {
         let temp = tempdir().expect("temp dir");
         let scene_yaml = temp.path().join("intro.yml");
         let layers_yaml = temp.path().join("layers.yml");
@@ -376,22 +378,22 @@ mod tests {
         let objects_yaml = temp.path().join("objects.yml");
         fs::write(
             &scene_yaml,
-            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.scene.schema.yaml\nid: intro\ntitle: Intro\n",
+            "# yaml-language-server: $schema=../../schemas/scenes.yaml\nid: intro\ntitle: Intro\n",
         )
         .expect("write yaml");
         fs::write(
             &layers_yaml,
-            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.layers-file.schema.yaml\n- name: bg\n  sprites: []\n",
+            "# yaml-language-server: $schema=../../schemas/layers.yaml\n- name: bg\n  sprites: []\n",
         )
         .expect("write yaml");
         fs::write(
             &templates_yaml,
-            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.templates-file.schema.yaml\n{}\n",
+            "# yaml-language-server: $schema=../../schemas/templates.yaml\n{}\n",
         )
         .expect("write yaml");
         fs::write(
             &objects_yaml,
-            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.objects-file.schema.yaml\n- use: npc\n",
+            "# yaml-language-server: $schema=../../schemas/objects.yaml\n- use: npc\n",
         )
         .expect("write yaml");
 

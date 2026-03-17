@@ -17,10 +17,6 @@ struct Cli {
     #[arg(long, conflicts_with = "mod")]
     all_mods: bool,
 
-    /// Output directory for generated schema fragments.
-    #[arg(long, default_value = "schemas/generated")]
-    out: PathBuf,
-
     /// Verify that generated schema fragments already match files on disk.
     #[arg(long)]
     check: bool,
@@ -29,13 +25,9 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let mods = resolve_mod_roots(&cli)?;
-    if !cli.check {
-        fs::create_dir_all(&cli.out)
-            .with_context(|| format!("failed to create {}", cli.out.display()))?;
-    }
 
     for mod_root in mods {
-        sync_fragment_for_mod(&mod_root, &cli.out, cli.check)?;
+        sync_fragment_for_mod(&mod_root, cli.check)?;
     }
     Ok(())
 }
@@ -61,9 +53,16 @@ fn resolve_mod_roots(cli: &Cli) -> Result<Vec<PathBuf>> {
     anyhow::bail!("pass either --mod <path> or --all-mods");
 }
 
-fn sync_fragment_for_mod(mod_root: &Path, out_dir: &Path, check: bool) -> Result<()> {
+fn sync_fragment_for_mod(mod_root: &Path, check: bool) -> Result<()> {
     for file in generate_mod_schema_files(mod_root)? {
-        sync_schema_file(&out_dir.join(&file.file_name), &file.value, check)?;
+        let out_path = mod_root.join(&file.file_name);
+        if !check {
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("failed to create {}", parent.display()))?;
+            }
+        }
+        sync_schema_file(&out_path, &file.value, check)?;
     }
     Ok(())
 }
@@ -111,11 +110,9 @@ mod tests {
         .expect("write layer partial");
         fs::write(mod_root.join("objects/npc.yml"), "name: npc\n").expect("write object");
 
-        let out_dir = temp_root.join("out");
-        fs::create_dir_all(&out_dir).expect("create out dir");
-        sync_fragment_for_mod(&mod_root, &out_dir, false).expect("generate");
+        sync_fragment_for_mod(&mod_root, false).expect("generate");
 
-        let out_path = out_dir.join("playground.schema.yaml");
+        let out_path = mod_root.join("schemas/catalog.yaml");
         let raw = fs::read_to_string(out_path).expect("read generated schema");
         let yaml: Value = serde_yaml::from_str(&raw).expect("parse generated schema");
         let defs = yaml
@@ -146,30 +143,29 @@ mod tests {
             .iter()
             .any(|v| v.as_str() == Some("intro/layers/bg.yml")));
 
-        let scene_overlay = fs::read_to_string(out_dir.join("playground.scene.schema.yaml"))
+        let scene_overlay = fs::read_to_string(mod_root.join("schemas/scenes.yaml"))
             .expect("read scene overlay");
-        assert!(scene_overlay.contains("./playground.schema.yaml#/$defs/scene_ids"));
+        assert!(scene_overlay.contains("./catalog.yaml#/$defs/scene_ids"));
+        assert!(scene_overlay.contains("../../../schemas/scene.schema.yaml"));
 
-        let objects_overlay =
-            fs::read_to_string(out_dir.join("playground.objects-file.schema.yaml"))
-                .expect("read objects overlay");
-        assert!(objects_overlay.contains("./playground.schema.yaml#/$defs/object_names"));
+        let objects_overlay = fs::read_to_string(mod_root.join("schemas/objects.yaml"))
+            .expect("read objects overlay");
+        assert!(objects_overlay.contains("./catalog.yaml#/$defs/object_names"));
+        assert!(objects_overlay.contains("../../../schemas/objects-file.schema.yaml#/items"));
 
-        let layers_overlay = fs::read_to_string(out_dir.join("playground.layers-file.schema.yaml"))
+        let layers_overlay = fs::read_to_string(mod_root.join("schemas/layers.yaml"))
             .expect("read layers overlay");
-        assert!(layers_overlay.contains("../layers-file.schema.yaml"));
+        assert!(layers_overlay.contains("../../../schemas/layers-file.schema.yaml"));
 
-        let templates_overlay =
-            fs::read_to_string(out_dir.join("playground.templates-file.schema.yaml"))
-                .expect("read templates overlay");
-        assert!(templates_overlay.contains("../templates-file.schema.yaml"));
+        let templates_overlay = fs::read_to_string(mod_root.join("schemas/templates.yaml"))
+            .expect("read templates overlay");
+        assert!(templates_overlay.contains("../../../schemas/templates-file.schema.yaml"));
 
-        let sprites_overlay =
-            fs::read_to_string(out_dir.join("playground.sprites-file.schema.yaml"))
-                .expect("read sprites overlay");
-        assert!(sprites_overlay.contains("../sprites-file.schema.yaml"));
+        let sprites_overlay = fs::read_to_string(mod_root.join("schemas/sprites.yaml"))
+            .expect("read sprites overlay");
+        assert!(sprites_overlay.contains("../../../schemas/sprites-file.schema.yaml"));
 
-        let effect_overlay = fs::read_to_string(out_dir.join("playground.effect-file.schema.yaml"))
+        let effect_overlay = fs::read_to_string(mod_root.join("schemas/effects.yaml"))
             .expect("read effect overlay");
         assert!(effect_overlay.contains("oneOf:"));
         assert!(effect_overlay.contains("const: fade-in"));
@@ -188,10 +184,8 @@ mod tests {
         )
         .expect("write scene");
 
-        let out_dir = temp_root.join("out");
-        fs::create_dir_all(&out_dir).expect("create out dir");
-        sync_fragment_for_mod(&mod_root, &out_dir, false).expect("generate");
-        sync_fragment_for_mod(&mod_root, &out_dir, true).expect("check");
+        sync_fragment_for_mod(&mod_root, false).expect("generate");
+        sync_fragment_for_mod(&mod_root, true).expect("check");
     }
 
     #[test]
@@ -206,16 +200,14 @@ mod tests {
         )
         .expect("write scene");
 
-        let out_dir = temp_root.join("out");
-        fs::create_dir_all(&out_dir).expect("create out dir");
-        sync_fragment_for_mod(&mod_root, &out_dir, false).expect("generate");
+        sync_fragment_for_mod(&mod_root, false).expect("generate");
         fs::write(
-            out_dir.join("playground.scene.schema.yaml"),
+            mod_root.join("schemas/scenes.yaml"),
             "outdated: true\n",
         )
         .expect("mutate generated file");
 
-        let err = sync_fragment_for_mod(&mod_root, &out_dir, true).expect_err("check should fail");
+        let err = sync_fragment_for_mod(&mod_root, true).expect_err("check should fail");
         assert!(err.to_string().contains("generated schema is out of date"));
     }
 
@@ -225,10 +217,9 @@ mod tests {
             .join("../..")
             .canonicalize()
             .expect("repo root");
-        let out_dir = repo_root.join("schemas/generated");
         for mod_name in ["playground", "shell-quest"] {
             let mod_root = repo_root.join("mods").join(mod_name);
-            sync_fragment_for_mod(&mod_root, &out_dir, true).unwrap_or_else(|err| {
+            sync_fragment_for_mod(&mod_root, true).unwrap_or_else(|err| {
                 panic!("{mod_name} generated schemas should be current: {err}")
             });
         }

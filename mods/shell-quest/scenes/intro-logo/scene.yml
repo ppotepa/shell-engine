@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../schemas/generated/shell-quest.scene.schema.yaml
+# yaml-language-server: $schema=../../schemas/scenes.yaml
 # Authored YAML v2 example: package root keeps scene orchestration only.
 # Opening scene of the main mod.
 # Flow:
