@@ -794,15 +794,18 @@ mod tests {
     }
 
     #[test]
-    fn committed_playground_generated_schemas_are_current() {
+    fn committed_generated_schemas_are_current() {
         let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .canonicalize()
             .expect("repo root");
-        let mod_root = repo_root.join("mods/playground");
         let out_dir = repo_root.join("schemas/generated");
-        sync_fragment_for_mod(&mod_root, &out_dir, true)
-            .expect("playground generated schemas should be current");
+        for mod_name in ["playground", "shell-quest"] {
+            let mod_root = repo_root.join("mods").join(mod_name);
+            sync_fragment_for_mod(&mod_root, &out_dir, true).unwrap_or_else(|err| {
+                panic!("{mod_name} generated schemas should be current: {err}")
+            });
+        }
     }
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
