@@ -123,6 +123,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
             build_effect_file_overlay_schema(mod_name, &effect_names),
         ),
         output_file("behaviors.schema.yaml".to_string(), build_behavior_schema()),
+        output_file("animations.schema.yaml".to_string(), build_animation_schema()),
     ])
 }
 
@@ -283,6 +284,83 @@ fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetad
     }
     
     Value::Mapping(prop)
+}
+
+/// Builds schema for all built-in animations with their parameter schemas.
+fn build_animation_schema() -> Value {
+    use engine_core::authoring::catalog::animation_catalog;
+    
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String("https://shell-quest.local/schemas/generated/animations.schema.yaml".to_string()),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String("Generated animation schemas from metadata".to_string()),
+    );
+
+    // Build oneOf with all animation variants
+    let catalog = animation_catalog();
+    let mut one_of_variants = Vec::new();
+
+    for (name, fields) in catalog {
+        let mut variant = Mapping::new();
+        variant.insert(
+            Value::String("type".to_string()),
+            Value::String("object".to_string()),
+        );
+        
+        // Required name field matching this animation
+        let required = vec![Value::String("name".to_string())];
+        let mut properties = Mapping::new();
+        
+        // name property with const
+        let mut name_prop = Mapping::new();
+        name_prop.insert(Value::String("const".to_string()), Value::String(name.to_string()));
+        properties.insert(Value::String("name".to_string()), Value::Mapping(name_prop));
+        
+        // params property with nested fields
+        if !fields.is_empty() {
+            let mut params_schema = Mapping::new();
+            params_schema.insert(
+                Value::String("type".to_string()),
+                Value::String("object".to_string()),
+            );
+            
+            let mut param_props = Mapping::new();
+            for field in fields {
+                param_props.insert(
+                    Value::String(field.name.to_string()),
+                    field_metadata_to_schema(&field),
+                );
+            }
+            
+            params_schema.insert(
+                Value::String("properties".to_string()),
+                Value::Mapping(param_props),
+            );
+            
+            properties.insert(Value::String("params".to_string()), Value::Mapping(params_schema));
+        }
+        
+        variant.insert(Value::String("properties".to_string()), Value::Mapping(properties));
+        variant.insert(Value::String("required".to_string()), Value::Sequence(required));
+        
+        one_of_variants.push(Value::Mapping(variant));
+    }
+
+    let mut defs = Mapping::new();
+    let mut animation_def = Mapping::new();
+    animation_def.insert(Value::String("oneOf".to_string()), Value::Sequence(one_of_variants));
+    defs.insert(Value::String("animation".to_string()), Value::Mapping(animation_def));
+    
+    root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
+    Value::Mapping(root)
 }
 
 fn build_scene_overlay_schema(mod_name: &str) -> Value {
@@ -1172,5 +1250,51 @@ mod tests {
                 == Some("blink")
         });
         assert!(has_blink, "blink behavior should be in schema");
+    }
+
+    #[test]
+    fn test_animation_schema_generation() {
+        let temp = unique_temp_dir("animation-schema-test");
+        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
+        fs::create_dir_all(temp.join("scenes")).unwrap();
+        
+        let files = generate_mod_schema_files(&temp).unwrap();
+        let animation_schema = files
+            .iter()
+            .find(|f| f.file_name == "animations.schema.yaml")
+            .expect("animations.schema.yaml generated");
+        
+        let defs = animation_schema
+            .value
+            .as_mapping()
+            .and_then(|m| m.get(Value::String("$defs".to_string())))
+            .and_then(Value::as_mapping)
+            .expect("$defs in animations schema");
+        
+        let animation_def = defs
+            .get(Value::String("animation".to_string()))
+            .and_then(Value::as_mapping)
+            .expect("animation def");
+        
+        let one_of = animation_def
+            .get(Value::String("oneOf".to_string()))
+            .and_then(Value::as_sequence)
+            .expect("oneOf variants");
+        
+        assert!(!one_of.is_empty(), "should have animation variants");
+        
+        // Check that float animation exists
+        let has_float = one_of.iter().any(|variant| {
+            variant
+                .as_mapping()
+                .and_then(|m| m.get(Value::String("properties".to_string())))
+                .and_then(Value::as_mapping)
+                .and_then(|props| props.get(Value::String("name".to_string())))
+                .and_then(Value::as_mapping)
+                .and_then(|name_prop| name_prop.get(Value::String("const".to_string())))
+                .and_then(Value::as_str)
+                == Some("float")
+        });
+        assert!(has_float, "float animation should be in schema");
     }
 }
