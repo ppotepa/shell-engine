@@ -4,7 +4,7 @@ id: intro.prologue
 title: Intro Prologue - Date Reveal
 cutscene: true
 bg: black
-virtual-size-override: "320x240"
+# Inherit mod-level `virtual_size: max-available` so the prologue fills the terminal.
 # Second step of the intro flow.
 # Flow:
 # - on_enter waits, reveals the date card, adds scanlines, then fades it back out

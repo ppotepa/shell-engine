@@ -4,6 +4,7 @@ version: 0.1.0
 entrypoint: /scenes/intro.logo.yml
 terminal:
   # Hard minimum terminal capabilities required before startup.
+  # These values gate startup only; they do not scale or stretch the scene.
   min_colours: 256
   min_width: 237
   min_height: 65
@@ -13,9 +14,11 @@ terminal:
   # - intro ASCII -> raster transition is authored for this profile
   use_virtual_buffer: true
 
-  # Virtual render target in logical cells (WIDTHxHEIGHT).
-  # Standard project baseline remains 320x240.
-  virtual_size: "237x65"
+  # `max-available` makes the virtual render target follow the real terminal size.
+  # With no scene override, shell-quest now fills the available terminal area while
+  # still requiring at least the authored minimum size above.
+  virtual_size: max-available
 
-  # fit -> adaptive scale to current terminal with centered letterbox.
+  # `fit` keeps aspect ratio when a scene opts into a fixed virtual size override.
+  # When virtual_size resolves to the full terminal size, the viewport fills it.
   virtual_policy: fit
