@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../../../../schemas/generated/shell-quest.layers-file.schema.yaml
+- name: date
+  z_index: 2
+  visible: true
+  # Single hero layer with one raster text sprite. Good reference for timed reveal + glow + subtle idle pulse.
+  sprites:
+    - type: text
+      id: date-text
+      content: "September 17, 1991"
+      at: cc
+      font: "Abril Fatface:raster"
+      fg: white
+      bg: black
+      glow:
+        colour: "#5f7cff"
+        radius: 1
+      appear_at_ms: 3000
+      disappear_at_ms: 7300
+      stages:
+        on_enter:
+          steps:
+            - pause: 900ms
+            - effects:
+                - name: brighten
+                  duration: 260
+                  params:
+                    intensity: 0.22
+            - effects:
+                - name: shine
+                  duration: 720
+                  params:
+                    angle: 0
+                    width: 2
+                    falloff: 2.2
+                    intensity: 0.7
+        on_idle:
+          looping: true
+          steps:
+            - pause: 220ms
+            - effects:
+                - name: brighten
+                  duration: 100
+                  params:
+                    intensity: 0.12
+            - pause: 260ms
