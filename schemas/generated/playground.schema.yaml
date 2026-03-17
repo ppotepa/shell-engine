@@ -48,7 +48,10 @@ $defs:
     - whiteout
   layer_refs:
     type: string
-    enum: []
+    enum:
+    - 3d-scene/layers/main.yml
+    - menu/layers/main.yml
+    - terminal-size-test/layers/main.yml
   sprite_refs:
     type: string
     enum: []
