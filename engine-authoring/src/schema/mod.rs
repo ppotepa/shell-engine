@@ -666,6 +666,177 @@ fn collect_scene_partial_refs(mod_root: &Path, part_dir: &str) -> Result<BTreeSe
     Ok(refs)
 }
 
+/// Collects font names from assets/fonts/**/manifest.yaml files.
+fn collect_font_names(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let fonts_root = mod_root.join("assets/fonts");
+    let mut names = BTreeSet::new();
+    if !fonts_root.exists() {
+        return Ok(names);
+    }
+    for manifest_file in yaml_files_under(&fonts_root)? {
+        if manifest_file.file_name().and_then(|n| n.to_str()) != Some("manifest.yaml") {
+            continue;
+        }
+        if let Ok(raw) = fs::read_to_string(&manifest_file) {
+            if let Ok(v) = serde_yaml::from_str::<Value>(&raw) {
+                if let Some(name) = v.get("name").and_then(Value::as_str) {
+                    names.insert(name.to_string());
+                }
+            }
+        }
+    }
+    Ok(names)
+}
+
+/// Collects image paths from assets/images/**/*.png files.
+fn collect_image_paths(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let images_root = mod_root.join("assets/images");
+    let mut paths = BTreeSet::new();
+    if !images_root.exists() {
+        return Ok(paths);
+    }
+    walk_images(&images_root, &images_root, &mut paths)?;
+    Ok(paths)
+}
+
+fn walk_images(root: &Path, current: &Path, out: &mut BTreeSet<String>) -> Result<()> {
+    for entry in fs::read_dir(current)
+        .with_context(|| format!("failed to read {}", current.display()))?
+    {
+        let entry = entry?;
+        let p = entry.path();
+        if p.is_dir() {
+            walk_images(root, &p, out)?;
+            continue;
+        }
+        let ext = p.extension().and_then(|s| s.to_str()).unwrap_or_default();
+        if ext == "png" {
+            if let Ok(rel) = p.strip_prefix(root) {
+                out.insert(rel.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Collects OBJ model paths from scenes/**/*.obj and assets/models/**/*.obj files.
+fn collect_model_paths(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let mut paths = BTreeSet::new();
+    
+    // Collect from scenes/**/*.obj
+    let scenes_root = mod_root.join("scenes");
+    if scenes_root.exists() {
+        walk_models(&scenes_root, &scenes_root, &mut paths, "scenes")?;
+    }
+    
+    // Collect from assets/models/**/*.obj
+    let models_root = mod_root.join("assets/models");
+    if models_root.exists() {
+        walk_models(&models_root, &models_root, &mut paths, "assets/models")?;
+    }
+    
+    Ok(paths)
+}
+
+fn walk_models(
+    root: &Path,
+    current: &Path,
+    out: &mut BTreeSet<String>,
+    prefix: &str,
+) -> Result<()> {
+    for entry in fs::read_dir(current)
+        .with_context(|| format!("failed to read {}", current.display()))?
+    {
+        let entry = entry?;
+        let p = entry.path();
+        if p.is_dir() {
+            walk_models(root, &p, out, prefix)?;
+            continue;
+        }
+        let ext = p.extension().and_then(|s| s.to_str()).unwrap_or_default();
+        if ext == "obj" {
+            if let Ok(rel) = p.strip_prefix(root) {
+                out.insert(format!("{}/{}", prefix, rel.to_string_lossy().replace('\\', "/")));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Collects sprite IDs from all scene YAML files.
+fn collect_sprite_ids(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let mut ids = BTreeSet::new();
+    for file in yaml_files_under(&mod_root.join("scenes"))? {
+        if let Ok(raw) = fs::read_to_string(&file) {
+            if let Ok(v) = serde_yaml::from_str::<Value>(&raw) {
+                collect_sprite_ids_from_value(&v, &mut ids);
+            }
+        }
+    }
+    Ok(ids)
+}
+
+fn collect_sprite_ids_from_value(value: &Value, out: &mut BTreeSet<String>) {
+    match value {
+        Value::Mapping(map) => {
+            // Check if this is a sprite with an id field
+            if let Some(id) = map.get(Value::String("id".to_string())).and_then(Value::as_str) {
+                // Verify it's actually a sprite by checking for sprite-related fields
+                if map.contains_key(Value::String("type".to_string()))
+                    || map.contains_key(Value::String("content".to_string()))
+                    || map.contains_key(Value::String("source".to_string()))
+                {
+                    out.insert(id.to_string());
+                }
+            }
+            for v in map.values() {
+                collect_sprite_ids_from_value(v, out);
+            }
+        }
+        Value::Sequence(seq) => {
+            for entry in seq {
+                collect_sprite_ids_from_value(entry, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Collects template names from scenes/**/templates/*.yml files.
+fn collect_template_names(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let mut names = BTreeSet::new();
+    let scenes_root = mod_root.join("scenes");
+    if !scenes_root.exists() {
+        return Ok(names);
+    }
+    
+    for scene_dir_entry in fs::read_dir(&scenes_root)
+        .with_context(|| format!("failed to read {}", scenes_root.display()))?
+    {
+        let scene_dir = scene_dir_entry?;
+        let scene_path = scene_dir.path();
+        if !scene_path.is_dir() {
+            continue;
+        }
+        
+        let templates_root = scene_path.join("templates");
+        if !templates_root.exists() {
+            continue;
+        }
+        
+        for file in yaml_files_under(&templates_root)? {
+            if let Ok(raw) = fs::read_to_string(&file) {
+                if let Ok(v) = serde_yaml::from_str::<Value>(&raw) {
+                    if let Some(name) = v.get("name").and_then(Value::as_str) {
+                        names.insert(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    Ok(names)
+}
+
 fn yaml_files_under(root: &Path) -> Result<Vec<PathBuf>> {
     if !root.exists() {
         return Ok(Vec::new());
@@ -758,5 +929,68 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("{prefix}-{}-{now}", std::process::id()));
         fs::create_dir_all(&dir).expect("create temp dir");
         dir
+    }
+
+    #[test]
+    fn test_collect_font_names() {
+        let temp = unique_temp_dir("font-test");
+        fs::create_dir_all(temp.join("assets/fonts/mono")).unwrap();
+        fs::write(temp.join("assets/fonts/mono/manifest.yaml"), "name: mono-bold\n").unwrap();
+        
+        let names = super::collect_font_names(&temp).unwrap();
+        assert!(names.contains("mono-bold"));
+    }
+
+    #[test]
+    fn test_collect_image_paths() {
+        let temp = unique_temp_dir("image-test");
+        fs::create_dir_all(temp.join("assets/images/ui")).unwrap();
+        fs::write(temp.join("assets/images/logo.png"), b"").unwrap();
+        fs::write(temp.join("assets/images/ui/button.png"), b"").unwrap();
+        
+        let paths = super::collect_image_paths(&temp).unwrap();
+        assert!(paths.contains("logo.png"));
+        assert!(paths.contains("ui/button.png"));
+    }
+
+    #[test]
+    fn test_collect_model_paths() {
+        let temp = unique_temp_dir("model-test");
+        fs::create_dir_all(temp.join("scenes/intro")).unwrap();
+        fs::create_dir_all(temp.join("assets/models")).unwrap();
+        fs::write(temp.join("scenes/intro/cube.obj"), "").unwrap();
+        fs::write(temp.join("assets/models/sphere.obj"), "").unwrap();
+        
+        let paths = super::collect_model_paths(&temp).unwrap();
+        assert!(paths.contains("scenes/intro/cube.obj"));
+        assert!(paths.contains("assets/models/sphere.obj"));
+    }
+
+    #[test]
+    fn test_collect_sprite_ids() {
+        let temp = unique_temp_dir("sprite-id-test");
+        fs::create_dir_all(temp.join("scenes")).unwrap();
+        fs::write(
+            temp.join("scenes/test.yml"),
+            "layers:\n  - sprites:\n      - id: logo\n        type: text\n        content: Test\n",
+        )
+        .unwrap();
+        
+        let ids = super::collect_sprite_ids(&temp).unwrap();
+        assert!(ids.contains("logo"));
+    }
+
+    #[test]
+    fn test_collect_template_names() {
+        let temp = unique_temp_dir("template-test");
+        fs::create_dir_all(temp.join("scenes/intro/templates")).unwrap();
+        fs::write(
+            temp.join("scenes/intro/templates/button.yml"),
+            "name: menu-button\n",
+        )
+        .unwrap();
+        
+        let names = super::collect_template_names(&temp).unwrap();
+        assert!(names.contains("menu-button"));
     }
 }
