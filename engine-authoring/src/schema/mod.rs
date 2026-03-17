@@ -1227,7 +1227,7 @@ fn walk_yaml(path: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::generate_mod_schema_files;
+    use super::{build_animation_schema, build_behavior_schema, generate_mod_schema_files};
     use serde_yaml::Value;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1546,5 +1546,70 @@ mod tests {
             .and_then(Value::as_sequence)
             .expect("normalizers enum");
         assert!(!normalizers.is_empty(), "should have normalizer names");
+    }
+
+    #[test]
+    fn test_no_schema_drift() {
+        // Verify that generated schemas include all runtime behaviors and animations
+        use engine_core::authoring::catalog::{animation_catalog, behavior_catalog};
+        use serde_yaml::Value;
+        
+        let behavior_schema = build_behavior_schema();
+        let animation_schema = build_animation_schema();
+        
+        // Check behaviors
+        let behavior_catalog = behavior_catalog();
+        let defs = behavior_schema.get("$defs").expect("$defs");
+        let defs_map = defs.as_mapping().expect("$defs as mapping");
+        let behavior = defs_map.get(&Value::String("behavior".to_string())).expect("behavior");
+        let behavior_map = behavior.as_mapping().expect("behavior as mapping");
+        let oneof = behavior_map.get(&Value::String("oneOf".to_string())).expect("oneOf");
+        let behavior_oneof = oneof.as_sequence().expect("oneOf as sequence");
+        
+        assert_eq!(
+            behavior_oneof.len(),
+            behavior_catalog.len(),
+            "Generated schema should have oneOf entry for each behavior in catalog"
+        );
+        
+        // Check animations
+        let animation_catalog = animation_catalog();
+        let defs = animation_schema.get("$defs").expect("$defs");
+        let defs_map = defs.as_mapping().expect("$defs as mapping");
+        let animation = defs_map.get(&Value::String("animation".to_string())).expect("animation");
+        let animation_map = animation.as_mapping().expect("animation as mapping");
+        let oneof = animation_map.get(&Value::String("oneOf".to_string())).expect("oneOf");
+        let animation_oneof = oneof.as_sequence().expect("oneOf as sequence");
+        
+        assert_eq!(
+            animation_oneof.len(),
+            animation_catalog.len(),
+            "Generated schema should have oneOf entry for each animation in catalog"
+        );
+    }
+
+    #[test]
+    fn test_metadata_coverage() {
+        // Verify that every behavior/animation metadata has required fields
+        use engine_core::authoring::catalog::{animation_catalog, behavior_catalog};
+        
+        for (name, fields) in behavior_catalog() {
+            assert!(!fields.is_empty(), "Behavior '{}' should have metadata fields", name);
+            
+            // Verify each field has description
+            for field in fields {
+                assert!(!field.description.is_empty(), 
+                    "Behavior '{}' field '{}' should have description", name, field.name);
+            }
+        }
+        
+        for (name, fields) in animation_catalog() {
+            assert!(!fields.is_empty(), "Animation '{}' should have metadata fields", name);
+            
+            for field in fields {
+                assert!(!field.description.is_empty(),
+                    "Animation '{}' field '{}' should have description", name, field.name);
+            }
+        }
     }
 }

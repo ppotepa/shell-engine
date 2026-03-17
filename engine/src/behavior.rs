@@ -1309,4 +1309,47 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_all_behaviors_in_catalog() {
+        // Verify that every behavior registered in built_in_behavior() is present in catalog
+        use engine_core::authoring::catalog::behavior_catalog;
+        
+        let runtime_behaviors: Vec<&str> = vec![
+            "blink",
+            "bob",
+            "follow",
+            "menu-selected",
+            "selected-arrows",
+            "stage-visibility",
+            "timed-visibility",
+        ];
+        
+        let catalog = behavior_catalog();
+        let catalog_names: Vec<&str> = catalog.iter().map(|(name, _)| *name).collect();
+        
+        for behavior in &runtime_behaviors {
+            assert!(
+                catalog_names.contains(behavior),
+                "Behavior '{}' is registered in runtime but missing from catalog",
+                behavior
+            );
+        }
+        
+        for catalog_name in &catalog_names {
+            assert!(
+                runtime_behaviors.contains(catalog_name),
+                "Behavior '{}' is in catalog but not registered in built_in_behavior()",
+                catalog_name
+            );
+        }
+        
+        assert_eq!(
+            runtime_behaviors.len(),
+            catalog_names.len(),
+            "Mismatch between runtime behaviors ({}) and catalog ({})",
+            runtime_behaviors.len(),
+            catalog_names.len()
+        );
+    }
 }
