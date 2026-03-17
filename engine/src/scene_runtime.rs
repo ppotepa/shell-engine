@@ -72,7 +72,11 @@ impl SceneRuntime {
     /// The runtime assigns stable ids to the scene root, layers, and sprites,
     /// attaches declared behaviors, and keeps resolver indices aligned with the
     /// z-sorted layer and sprite order used by the compositor.
-    pub fn new(scene: Scene) -> Self {
+    pub fn new(mut scene: Scene) -> Self {
+        scene.layers.sort_by_key(|l| l.z_index);
+        for layer in &mut scene.layers {
+            layer.sprites.sort_by_key(|s| s.z_index());
+        }
         let root_id = format!("scene:{}", sanitize_fragment(&scene.id));
         let mut objects = BTreeMap::new();
         let mut object_states = BTreeMap::new();
@@ -164,13 +168,6 @@ impl SceneRuntime {
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings);
-        // Pre-sort layers and sprites once at load time so the compositor hot path skips sorting.
-        runtime.scene.layers.sort_by_key(|l| l.z_index);
-        for layer in &mut runtime.scene.layers {
-            layer.sprites.sort_by_key(|s| s.z_index());
-        }
-        // CRITICAL: Rebuild layer_ids and sprite_ids after sorting to maintain correct index→object_id mapping
-        runtime.rebuild_indices_after_sort();
         runtime.resolver_cache = runtime.build_target_resolver();
         runtime
     }
@@ -372,39 +369,6 @@ impl SceneRuntime {
         self.resolver_cache.clone()
     }
 
-    /// Rebuild layer_ids and sprite_ids to match current layer/sprite order after sorting.
-    /// CRITICAL: Must be called after any z-index sort to maintain correct index→object_id mapping.
-    fn rebuild_indices_after_sort(&mut self) {
-        self.layer_ids.clear();
-        self.sprite_ids.clear();
-
-        for (layer_idx, layer) in self.scene.layers.iter().enumerate() {
-            // Find the layer object by matching against scene structure
-            let layer_name = if layer.name.trim().is_empty() {
-                format!("layer-{layer_idx}")
-            } else {
-                layer.name.clone()
-            };
-
-            // Find layer object by name match
-            for (object_id, object) in &self.objects {
-                if object.kind == GameObjectKind::Layer && object.name == layer_name {
-                    self.layer_ids.insert(layer_idx, object_id.clone());
-                    break;
-                }
-            }
-
-            // Rebuild sprite indices for this layer
-            rebuild_sprite_indices_recursive(
-                &layer.sprites,
-                layer_idx,
-                &[],
-                &self.objects,
-                &mut self.sprite_ids,
-            );
-        }
-    }
-
     fn build_target_resolver(&self) -> TargetResolver {
         let mut aliases = BTreeMap::new();
 
@@ -437,6 +401,7 @@ impl SceneRuntime {
         let resolver = self.resolver_cache.clone();
         let object_regions = self.object_regions.clone();
         let mut commands = Vec::new();
+        let mut current_states = self.effective_object_states_snapshot();
         for idx in 0..self.behaviors.len() {
             let object_id = self.behaviors[idx].object_id.clone();
             let Some(object) = self.objects.get(&object_id).cloned() else {
@@ -448,7 +413,7 @@ impl SceneRuntime {
                 stage_elapsed_ms,
                 menu_selected_index,
                 target_resolver: resolver.clone(),
-                object_states: self.effective_object_states_snapshot(),
+                object_states: current_states.clone(),
                 object_regions: object_regions.clone(),
             };
             let mut local_commands = Vec::new();
@@ -456,6 +421,9 @@ impl SceneRuntime {
                 .behavior
                 .update(&object, &self.scene, &ctx, &mut local_commands);
             self.apply_behavior_commands(&resolver, &local_commands);
+            if idx + 1 < self.behaviors.len() {
+                current_states = self.effective_object_states_snapshot();
+            }
             commands.extend(local_commands.iter().cloned());
         }
         commands
@@ -785,50 +753,6 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
         }
     }
     None
-}
-
-/// Rebuild sprite_ids map recursively to match current sprite order after z-index sorting.
-fn rebuild_sprite_indices_recursive(
-    sprites: &[Sprite],
-    layer_idx: usize,
-    parent_path: &[usize],
-    objects: &BTreeMap<String, GameObject>,
-    sprite_ids: &mut BTreeMap<String, String>,
-) {
-    for (sprite_idx, sprite) in sprites.iter().enumerate() {
-        let mut sprite_path = parent_path.to_vec();
-        sprite_path.push(sprite_idx);
-
-        // Find the sprite object by matching sprite properties
-        let sprite_id_in_map = match sprite {
-            Sprite::Text { id, .. } => id.as_deref(),
-            Sprite::Image { id, .. } => id.as_deref(),
-            Sprite::Obj { id, .. } => id.as_deref(),
-            Sprite::Grid { id, .. } => id.as_deref(),
-        };
-
-        // Find matching object by ID or by position in hierarchy
-        if let Some(explicit_id) = sprite_id_in_map.filter(|s| !s.trim().is_empty()) {
-            // Find by explicit ID
-            for (object_id, object) in objects {
-                if object.aliases.contains(&explicit_id.to_string()) {
-                    sprite_ids.insert(path_key(layer_idx, &sprite_path), object_id.clone());
-                    break;
-                }
-            }
-        }
-
-        // Recurse into grid children
-        if let Sprite::Grid { children, .. } = sprite {
-            rebuild_sprite_indices_recursive(
-                children,
-                layer_idx,
-                &sprite_path,
-                objects,
-                sprite_ids,
-            );
-        }
-    }
 }
 
 #[cfg(test)]
