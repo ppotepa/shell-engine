@@ -307,7 +307,7 @@ fn collect_sprite_target_kinds(
         target_kinds.insert(id.to_string(), sprite_target_kind(sprite));
     }
 
-    if let Sprite::Grid { children, .. } = sprite {
+    if let Sprite::Grid { children, .. } | Sprite::Flex { children, .. } = sprite {
         for child in children {
             collect_sprite_target_kinds(child, target_kinds);
         }
@@ -318,7 +318,7 @@ fn sprite_target_kind(sprite: &Sprite) -> EffectTargetKind {
     match sprite {
         Sprite::Text { .. } => EffectTargetKind::SpriteText,
         Sprite::Image { .. } | Sprite::Obj { .. } => EffectTargetKind::SpriteBitmap,
-        Sprite::Grid { .. } => EffectTargetKind::Sprite,
+        Sprite::Grid { .. } | Sprite::Flex { .. } => EffectTargetKind::Sprite,
     }
 }
 

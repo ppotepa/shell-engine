@@ -7,6 +7,7 @@ $defs:
     enum:
     - playground-3d-scene
     - playground-decoration-showcase
+    - playground-font-showcase
     - playground-fps-showcase-10
     - playground-fps-showcase-20
     - playground-fps-showcase-2d-10
@@ -50,6 +51,7 @@ $defs:
     type: string
     enum:
     - 3d-scene/layers/main.yml
+    - font-showcase/layers/main.yml
     - menu/layers/main.yml
     - terminal-size-test/layers/main.yml
   sprite_refs:

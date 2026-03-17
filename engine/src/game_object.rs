@@ -9,6 +9,7 @@ pub enum GameObjectKind {
     ImageSprite,
     ObjSprite,
     GridSprite,
+    FlexSprite,
 }
 
 /// A runtime node in the scene tree, carrying identity, kind, and parent–child relationships.

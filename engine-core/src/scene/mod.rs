@@ -34,5 +34,5 @@ pub use model::{
     SceneRenderedMode, SceneStages, Stage, StageTrigger, Step, TerminalSizeTesterControls,
 };
 pub use object::{LogicKind, LogicSpec, ObjectDocument};
-pub use sprite::{HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
+pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
 pub use value::{ColorValue, ScalarValue};

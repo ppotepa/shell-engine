@@ -39,6 +39,17 @@ fn default_grid_span() -> u16 {
     1
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+/// Declares the main axis used by a flex container sprite.
+pub enum FlexDirection {
+    /// Stacks children top-to-bottom.
+    #[default]
+    Column,
+    /// Stacks children left-to-right.
+    Row,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpriteSizePreset {
     Small,
@@ -318,6 +329,52 @@ pub enum Sprite {
         #[serde(default)]
         children: Vec<Sprite>,
     },
+    /// Flex layout container. Children are auto-stacked vertically (column) or horizontally (row).
+    #[serde(rename = "flex")]
+    Flex {
+        #[serde(default)]
+        id: Option<String>,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default)]
+        z_index: i32,
+        #[serde(default = "default_grid_line", rename = "grid-row")]
+        grid_row: u16,
+        #[serde(default = "default_grid_line", rename = "grid-col")]
+        grid_col: u16,
+        #[serde(default = "default_grid_span", rename = "row-span")]
+        row_span: u16,
+        #[serde(default = "default_grid_span", rename = "col-span")]
+        col_span: u16,
+        #[serde(default)]
+        width: Option<u16>,
+        #[serde(default)]
+        height: Option<u16>,
+        #[serde(default)]
+        gap: u16,
+        #[serde(default)]
+        direction: FlexDirection,
+        #[serde(default, rename = "force-renderer-mode")]
+        force_renderer_mode: Option<SceneRenderedMode>,
+        align_x: Option<HorizontalAlign>,
+        align_y: Option<VerticalAlign>,
+        #[serde(default)]
+        appear_at_ms: Option<u64>,
+        #[serde(default)]
+        disappear_at_ms: Option<u64>,
+        #[serde(default)]
+        hide_on_leave: bool,
+        #[serde(default)]
+        stages: LayerStages,
+        #[serde(default)]
+        animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
+        #[serde(default)]
+        children: Vec<Sprite>,
+    },
 }
 
 impl Sprite {
@@ -326,7 +383,8 @@ impl Sprite {
             Sprite::Text { id, .. }
             | Sprite::Image { id, .. }
             | Sprite::Obj { id, .. }
-            | Sprite::Grid { id, .. } => id.as_deref(),
+            | Sprite::Grid { id, .. }
+            | Sprite::Flex { id, .. } => id.as_deref(),
         }
     }
 
@@ -335,7 +393,8 @@ impl Sprite {
             Sprite::Text { z_index, .. }
             | Sprite::Image { z_index, .. }
             | Sprite::Obj { z_index, .. }
-            | Sprite::Grid { z_index, .. } => *z_index,
+            | Sprite::Grid { z_index, .. }
+            | Sprite::Flex { z_index, .. } => *z_index,
         }
     }
 
@@ -344,7 +403,8 @@ impl Sprite {
             Sprite::Text { stages, .. }
             | Sprite::Image { stages, .. }
             | Sprite::Obj { stages, .. }
-            | Sprite::Grid { stages, .. } => stages,
+            | Sprite::Grid { stages, .. }
+            | Sprite::Flex { stages, .. } => stages,
         }
     }
 
@@ -377,6 +437,13 @@ impl Sprite {
                 row_span,
                 col_span,
                 ..
+            }
+            | Sprite::Flex {
+                grid_row,
+                grid_col,
+                row_span,
+                col_span,
+                ..
             } => (*grid_row, *grid_col, *row_span, *col_span),
         };
         (row.max(1), col.max(1), row_span.max(1), col_span.max(1))
@@ -387,10 +454,13 @@ impl Sprite {
         F: FnMut(&'a Sprite),
     {
         visit(self);
-        if let Sprite::Grid { children, .. } = self {
-            for child in children {
-                child.walk_recursive(visit);
+        match self {
+            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+                for child in children {
+                    child.walk_recursive(visit);
+                }
             }
+            _ => {}
         }
     }
 
@@ -399,7 +469,8 @@ impl Sprite {
             Sprite::Text { behaviors, .. }
             | Sprite::Image { behaviors, .. }
             | Sprite::Obj { behaviors, .. }
-            | Sprite::Grid { behaviors, .. } => behaviors,
+            | Sprite::Grid { behaviors, .. }
+            | Sprite::Flex { behaviors, .. } => behaviors,
         }
     }
 
@@ -408,7 +479,8 @@ impl Sprite {
             Sprite::Text { hide_on_leave, .. }
             | Sprite::Image { hide_on_leave, .. }
             | Sprite::Obj { hide_on_leave, .. }
-            | Sprite::Grid { hide_on_leave, .. } => *hide_on_leave,
+            | Sprite::Grid { hide_on_leave, .. }
+            | Sprite::Flex { hide_on_leave, .. } => *hide_on_leave,
         }
     }
 
@@ -417,7 +489,8 @@ impl Sprite {
             Sprite::Text { appear_at_ms, .. }
             | Sprite::Image { appear_at_ms, .. }
             | Sprite::Obj { appear_at_ms, .. }
-            | Sprite::Grid { appear_at_ms, .. } => *appear_at_ms,
+            | Sprite::Grid { appear_at_ms, .. }
+            | Sprite::Flex { appear_at_ms, .. } => *appear_at_ms,
         }
     }
 
@@ -426,7 +499,8 @@ impl Sprite {
             Sprite::Text { disappear_at_ms, .. }
             | Sprite::Image { disappear_at_ms, .. }
             | Sprite::Obj { disappear_at_ms, .. }
-            | Sprite::Grid { disappear_at_ms, .. } => *disappear_at_ms,
+            | Sprite::Grid { disappear_at_ms, .. }
+            | Sprite::Flex { disappear_at_ms, .. } => *disappear_at_ms,
         }
     }
 
@@ -435,7 +509,8 @@ impl Sprite {
             Sprite::Text { animations, .. }
             | Sprite::Image { animations, .. }
             | Sprite::Obj { animations, .. }
-            | Sprite::Grid { animations, .. } => animations,
+            | Sprite::Grid { animations, .. }
+            | Sprite::Flex { animations, .. } => animations,
         }
     }
 }
@@ -459,7 +534,7 @@ y: -8
                 assert_eq!(x, -2);
                 assert_eq!(y, -8);
             }
-            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } => {
+            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
             }
         }
@@ -486,7 +561,7 @@ force-font-mode: braille
                 assert_eq!(force_font_mode.as_deref(), Some("braille"));
                 assert!(behaviors.is_empty());
             }
-            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } => {
+            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
             }
         }
@@ -516,7 +591,7 @@ force-renderer-mode: halfblock
                 assert_eq!(height, None);
                 assert_eq!(force_renderer_mode, Some(SceneRenderedMode::HalfBlock));
             }
-            Sprite::Text { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } => {
+            Sprite::Text { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
                 panic!("expected image sprite")
             }
         }
@@ -564,7 +639,7 @@ children:
                 assert_eq!(rows.len(), 2);
                 assert_eq!(children.len(), 2);
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Flex { .. } => {
                 panic!("expected grid sprite")
             }
         }
@@ -593,7 +668,7 @@ behaviors:
                 assert_eq!(behaviors[0].name, "blink");
                 assert_eq!(behaviors[1].params.amplitude_y, Some(2));
             }
-            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } => {
+            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
             }
         }

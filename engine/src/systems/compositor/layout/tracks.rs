@@ -1,4 +1,4 @@
-//! CSS-like grid track sizing: parses track specs, resolves pixel sizes, and computes offsets.
+//! CSS-like track sizing primitives used by grid layout.
 
 /// Specifies the sizing mode for a single grid track.
 #[derive(Clone, Copy)]
@@ -24,7 +24,7 @@ pub(crate) fn parse_track_spec(input: &str) -> TrackSpec {
     TrackSpec::Auto
 }
 
-/// Resolves `specs` into pixel widths given a `container` size, `gap`, and per-track auto requirements.
+/// Resolves track specs into concrete cell sizes inside the given container.
 pub(crate) fn resolve_track_sizes(
     specs: &[TrackSpec],
     container: u16,
@@ -92,7 +92,7 @@ pub(crate) fn resolve_track_sizes(
     sizes
 }
 
-/// Returns the pixel start offset of `track_idx` within `sizes`, accounting for `gap`.
+/// Returns the start offset of a track inside the resolved sizes array.
 pub(crate) fn track_start(sizes: &[u16], gap: u16, track_idx: usize) -> u16 {
     let mut pos = 0u16;
     for (i, size) in sizes.iter().enumerate() {
@@ -105,7 +105,7 @@ pub(crate) fn track_start(sizes: &[u16], gap: u16, track_idx: usize) -> u16 {
     pos
 }
 
-/// Returns the total pixel width of `span` consecutive tracks starting at `start_idx`, including gaps.
+/// Returns the size of a multi-track span including gaps.
 pub(crate) fn span_size(sizes: &[u16], gap: u16, start_idx: usize, span: usize) -> u16 {
     let end = (start_idx + span).min(sizes.len());
     if start_idx >= end {
