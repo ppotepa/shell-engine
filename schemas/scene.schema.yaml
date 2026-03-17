@@ -529,17 +529,23 @@ $defs:
           Optional stable sprite identifier for script-side hooks/custom handlers.
           Example: "press-any-key" or "intro-logo".
       x:
-        type: integer
+        oneOf:
+          - type: integer
+          - type: string
         default: 0
         description: >
           Signed horizontal offset within the scene buffer.
           Negative values are allowed (e.g. to shift centered text left/up).
+          String expressions are supported, e.g. oscillate(-2,2,1800ms).
       y:
-        type: integer
+        oneOf:
+          - type: integer
+          - type: string
         default: 0
         description: >
           Signed vertical offset within the scene buffer.
           Negative values are allowed (e.g. title above center line).
+          String expressions are supported, e.g. oscillate(-2,2,1800ms).
       z_index:
         type: integer
         default: 0
@@ -622,6 +628,19 @@ $defs:
       roll-deg:
         type: number
         description: Static roll (Z-axis) rotation in degrees for type=obj.
+      rotation-x:
+        type: number
+        description: Static initial X-axis rotation in degrees for type=obj.
+      rotation-y:
+        oneOf:
+          - type: number
+          - type: string
+        description: >
+          Static initial Y-axis rotation in degrees for type=obj.
+          String expressions are supported, e.g. animate(180deg,540deg,12s,loop).
+      rotation-z:
+        type: number
+        description: Static initial Z-axis rotation in degrees for type=obj.
       rotate-y-deg-per-sec:
         type: number
         description: Continuous Y-axis rotation speed in degrees per second for type=obj.

@@ -107,6 +107,7 @@ fn normalize_sprites(sprites: &mut Value) {
         apply_alias(sprite_map, "fg", "fg_colour");
         apply_alias(sprite_map, "bg", "bg_colour");
         apply_at_anchor(sprite_map);
+        normalize_expression_fields(sprite_map);
 
         if matches!(
             sprite_map
@@ -199,6 +200,136 @@ fn parse_duration_ms(value: &Value) -> Option<u64> {
         return trimmed.parse::<u64>().ok();
     }
     None
+}
+
+fn normalize_expression_fields(map: &mut Mapping) {
+    normalize_oscillate_axis(map, "x", "x");
+    normalize_oscillate_axis(map, "y", "y");
+    normalize_obj_rotation_y(map);
+}
+
+fn normalize_oscillate_axis(map: &mut Mapping, field: &str, axis: &str) {
+    let Some(expr) = map
+        .get(Value::String(field.to_string()))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .map(str::to_string)
+    else {
+        return;
+    };
+    let Some(args) = parse_call_args(&expr, "oscillate") else {
+        return;
+    };
+    if args.len() < 3 {
+        return;
+    }
+    let Some(min) = parse_number_token(&args[0]) else {
+        return;
+    };
+    let Some(max) = parse_number_token(&args[1]) else {
+        return;
+    };
+    let Some(period_ms) = parse_duration_token(&args[2]) else {
+        return;
+    };
+    let center = ((min + max) / 2.0).round() as i64;
+    let amplitude = ((max - min).abs() / 2.0).round().max(1.0) as u64;
+
+    map.insert(
+        Value::String(field.to_string()),
+        Value::Number(Number::from(center)),
+    );
+    let animations = map
+        .entry(Value::String("animations".to_string()))
+        .or_insert_with(|| Value::Sequence(Vec::new()));
+    let Some(seq) = animations.as_sequence_mut() else {
+        return;
+    };
+    let mut params = Mapping::new();
+    params.insert(
+        Value::String("axis".to_string()),
+        Value::String(axis.to_string()),
+    );
+    params.insert(
+        Value::String("amplitude".to_string()),
+        Value::Number(Number::from(amplitude)),
+    );
+    params.insert(
+        Value::String("period_ms".to_string()),
+        Value::Number(Number::from(period_ms)),
+    );
+    let mut anim = Mapping::new();
+    anim.insert(
+        Value::String("name".to_string()),
+        Value::String("float".to_string()),
+    );
+    anim.insert(Value::String("params".to_string()), Value::Mapping(params));
+    anim.insert(Value::String("looping".to_string()), Value::Bool(true));
+    seq.push(Value::Mapping(anim));
+}
+
+fn normalize_obj_rotation_y(map: &mut Mapping) {
+    let Some(expr) = map
+        .get(Value::String("rotation-y".to_string()))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .map(str::to_string)
+    else {
+        return;
+    };
+    let Some(args) = parse_call_args(&expr, "animate") else {
+        return;
+    };
+    if args.len() < 3 {
+        return;
+    }
+    let Some(start_deg) = parse_number_token(&args[0]) else {
+        return;
+    };
+    let Some(end_deg) = parse_number_token(&args[1]) else {
+        return;
+    };
+    let Some(duration_ms) = parse_duration_token(&args[2]) else {
+        return;
+    };
+    if duration_ms == 0 {
+        return;
+    }
+    let speed = (end_deg - start_deg) / (duration_ms as f32 / 1000.0);
+    map.insert(
+        Value::String("rotation-y".to_string()),
+        serde_yaml::to_value(start_deg).unwrap_or(Value::Null),
+    );
+    map.insert(
+        Value::String("rotate-y-deg-per-sec".to_string()),
+        serde_yaml::to_value(speed).unwrap_or(Value::Null),
+    );
+}
+
+fn parse_call_args(expr: &str, name: &str) -> Option<Vec<String>> {
+    let open = format!("{name}(");
+    let lower = expr.to_ascii_lowercase();
+    if !lower.starts_with(&open) || !expr.ends_with(')') {
+        return None;
+    }
+    let inner = &expr[open.len()..expr.len() - 1];
+    let args = inner
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
+    Some(args)
+}
+
+fn parse_number_token(token: &str) -> Option<f32> {
+    let trimmed = token.trim().to_ascii_lowercase();
+    let no_unit = trimmed.strip_suffix("deg").unwrap_or(trimmed.as_str());
+    no_unit.parse::<f32>().ok()
+}
+
+fn parse_duration_token(token: &str) -> Option<u64> {
+    let v = Value::String(token.trim().to_string());
+    parse_duration_ms(&v)
 }
 
 #[cfg(test)]
@@ -294,6 +425,46 @@ layers:
                 ));
             }
             _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn normalizes_expression_oscillate_and_animate() {
+        let raw = r#"
+id: fx
+title: FX
+layers:
+  - sprites:
+      - type: text
+        content: HELLO
+        y: oscillate(-2, 2, 1800ms)
+      - type: obj
+        source: /scenes/3d/model.obj
+        rotation-y: animate(180deg, 540deg, 12s, loop)
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            crate::scene::Sprite::Text { y, animations, .. } => {
+                assert_eq!(*y, 0);
+                assert_eq!(animations.len(), 1);
+                assert_eq!(animations[0].name, "float");
+                assert_eq!(animations[0].params.period_ms, 1800);
+            }
+            _ => panic!("expected text"),
+        }
+        match &scene.layers[0].sprites[1] {
+            crate::scene::Sprite::Obj {
+                rotation_y,
+                rotate_y_deg_per_sec,
+                ..
+            } => {
+                assert_eq!(rotation_y.unwrap_or_default().round() as i32, 180);
+                assert_eq!(rotate_y_deg_per_sec.unwrap_or_default().round() as i32, 30);
+            }
+            _ => panic!("expected obj"),
         }
     }
 }
