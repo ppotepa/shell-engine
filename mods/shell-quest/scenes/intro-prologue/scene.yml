@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../../../schemas/generated/shell-quest.scene.schema.yaml
+# Authored YAML v2 example: package root keeps scene orchestration only.
+# Second step of the intro flow.
+# Flow:
+# - on_enter waits, reveals the date card, adds scanlines, then fades it back out
+# - on_idle uses `trigger: none`, so the scene does not wait for input
+# - after the short leave pause, the flow continues into `mainmenu`
+id: intro.prologue
+title: Intro Prologue - Date Reveal
+cutscene: true
+bg: black
+# Inherit mod-level `virtual_size: max-available` so the prologue fills the terminal.
+stages:
+  on_enter:
+    steps:
+      - pause: 3000ms
+      - duration: 900
+        effects:
+          - name: fade-in
+            duration: 900
+            params:
+              easing: ease-out
+      - duration: 2200
+        effects:
+          - name: scanlines
+            duration: 2200
+      - duration: 900
+        effects:
+          - name: fade-out
+            duration: 900
+            params:
+              easing: ease-in
+  on_idle:
+    trigger: none
+    steps:
+      - pause: 1ms
+  on_leave:
+    steps:
+      - pause: 300ms
+next: mainmenu

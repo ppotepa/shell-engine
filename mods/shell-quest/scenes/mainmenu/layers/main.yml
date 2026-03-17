@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../../../../schemas/generated/shell-quest.layers-file.schema.yaml
+- name: linux-showcase
+  z_index: 0
+  # One layer is enough here because the scene is purely presentational and all children share the same lifecycle.
+  sprites:
+    - type: text
+      content: "SHELL QUEST I - LINUX PNG SHOWCASE"
+      at: ct
+      y: 1
+      font: "generic:1"
+      fg: white
+
+    - type: grid
+      id: linux-grid
+      at: cc
+      y: 2
+      width: 96
+      height: 30
+      # This grid is the reference scene for image layout and per-sprite renderer overrides.
+      columns: ["1fr", "1fr", "1fr"]
+      rows: ["auto", "1fr"]
+      gap-x: 2
+      gap-y: 1
+      children:
+        - type: text
+          content: "linux-1 (cell)"
+          grid-col: 1
+          grid-row: 1
+          at: cc
+          font: "generic:1"
+          fg: gray
+
+        - type: image
+          source: "/assets/images/linux-1.png"
+          grid-col: 1
+          grid-row: 2
+          at: cc
+          width: 22
+          height: 22
+          force-renderer-mode: cell
+
+        - type: text
+          content: "linux-2 (halfblock)"
+          grid-col: 2
+          grid-row: 1
+          at: cc
+          font: "generic:1"
+          fg: gray
+
+        - type: image
+          source: "/assets/images/linux-1.png"
+          grid-col: 2
+          grid-row: 2
+          at: cc
+          width: 22
+          height: 22
+          force-renderer-mode: halfblock
+
+        - type: text
+          content: "linux-3 (braille)"
+          grid-col: 3
+          grid-row: 1
+          at: cc
+          font: "generic:1"
+          fg: gray
+
+        - type: image
+          source: "/assets/images/linux-1.png"
+          grid-col: 3
+          grid-row: 2
+          at: cc
+          width: 22
+          height: 22
+          force-renderer-mode: braille
+
+    - type: text
+      content: "[#808080]PRESS ANY KEY TO EXIT[/]"
+      at: cb
+      y: -1
+      font: "generic:1"
+      fg: white
+      hide_on_leave: true
+      # Small floating prompt: the scene stays simple, but still shows how ambient animation can be attached to one sprite.
+      animations:
+        - name: float
+          looping: true
+          params:
+            axis: y
+            amplitude: 1
+            period_ms: 1800
+            easing: ease-in-out

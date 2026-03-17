@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../../../schemas/generated/shell-quest.scene.schema.yaml
+# Authored YAML v2 example: package root keeps scene orchestration only.
+# Opening scene of the main mod.
+# Flow:
+# - on_enter keeps the screen dark, powers the CRT on, then adds staged lightning beats
+# - on_idle loops a gentle title shine until the player presses any key
+# - on_leave fires a flash + whiteout and hands control to `intro.prologue`
+id: intro.logo
+title: Intro Logo
+cutscene: true
+bg: black
+# Inherit mod-level `virtual_size: max-available` so the intro fills the terminal.
+stages:
+  on_enter:
+    steps:
+      - pause: 3000ms
+      - duration: 720
+        effects:
+          - name: crt-on
+            duration: 720
+            params:
+              easing: ease-out
+      - pause: 420ms
+      - pause: 280ms
+      - pause: 60ms
+      - pause: 70ms
+      - pause: 50ms
+      - pause: 70ms
+      - pause: 50ms
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1800ms
+      - effects:
+          - name: shine
+            duration: 1000
+            params:
+              angle: 20
+              width: 4
+              falloff: 2.5
+              intensity: 2.0
+              colour: white
+              easing: ease-in
+  on_leave:
+    steps:
+      - pause: 900ms
+      - effects:
+          - name: lightning-flash
+            duration: 180
+            params:
+              intensity: 1.9
+          - name: whiteout
+            duration: 180
+      - effects:
+          - name: fade-to-black
+            duration: 420
+next: intro.prologue
