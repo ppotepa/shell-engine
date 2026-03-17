@@ -62,6 +62,18 @@ properties:
   next:
     type: [string, "null"]
     description: Scene id to transition to when on_leave completes.
+  menu-options:
+    type: array
+    default: []
+    description: Optional key-driven routes from menu-like scenes.
+    items:
+      $ref: "#/$defs/menu_option"
+  menu_options:
+    type: array
+    default: []
+    description: Alias of menu-options.
+    items:
+      $ref: "#/$defs/menu_option"
 
 $defs:
 
@@ -308,6 +320,43 @@ $defs:
         items:
           $ref: "#/$defs/step"
 
+  # ── Menu option ─────────────────────────────────────────────────────────────
+  menu_option:
+    type: object
+    additionalProperties: false
+    required: [key, next]
+    properties:
+      key:
+        type: string
+        minLength: 1
+        description: >
+          Key binding used in on_idle with trigger any-key.
+          Examples: "1", "2", "enter", "esc", "f1", "up", "down".
+      label:
+        type: string
+        minLength: 1
+        description: Optional UI label for editors/tooling.
+      selected-effect:
+        type: string
+        enum: [arrows]
+        description: Visual selection marker style for this option.
+      selected_effect:
+        type: string
+        enum: [arrows]
+        description: Alias of selected-effect.
+      action:
+        type: string
+        enum: [goto.scene]
+        description: Optional scripted action for menu option.
+      scene:
+        type: string
+        minLength: 1
+        description: Target scene id/path used by action goto.scene.
+      next:
+        type: string
+        minLength: 1
+        description: Default target scene id/path (backward-compatible routing).
+
   # ── Scene stages ───────────────────────────────────────────────────────────
   scene_stages:
     type: object
@@ -382,8 +431,8 @@ $defs:
     properties:
       type:
         type: string
-        enum: [text, image, grid]
-        description: Sprite type. Supported: text, image, grid.
+        enum: [text, image, obj, grid]
+        description: Sprite type. Supported: text, image, obj, grid.
       content:
         type: string
         minLength: 1
@@ -391,7 +440,7 @@ $defs:
       source:
         type: string
         minLength: 1
-        description: Image asset path (required for type=image), e.g. /assets/images/tux.png.
+        description: Asset path (required for type=image/obj), e.g. /assets/images/tux.png or /scenes/3d/model.obj.
       id:
         type: string
         minLength: 1
@@ -469,6 +518,35 @@ $defs:
           Target sprite height in terminal cells.
           For image sprites, when only height is set, width is derived from source aspect ratio.
           For grid sprites, sets container height.
+      scale:
+        type: number
+        minimum: 0.0001
+        description: Uniform mesh scale multiplier for type=obj.
+      yaw-deg:
+        type: number
+        description: Static yaw (Y-axis) rotation in degrees for type=obj.
+      pitch-deg:
+        type: number
+        description: Static pitch (X-axis) rotation in degrees for type=obj.
+      roll-deg:
+        type: number
+        description: Static roll (Z-axis) rotation in degrees for type=obj.
+      rotate-y-deg-per-sec:
+        type: number
+        description: Continuous Y-axis rotation speed in degrees per second for type=obj.
+      camera-distance:
+        type: number
+        minimum: 0.01
+        description: Camera distance from mesh center for perspective projection (type=obj).
+      fov-degrees:
+        type: number
+        minimum: 1
+        maximum: 179
+        description: Perspective camera FOV in degrees for type=obj.
+      draw-char:
+        type: string
+        minLength: 1
+        description: Single glyph used to draw wireframe edges for type=obj.
       columns:
         type: array
         description: >
@@ -681,12 +759,16 @@ $defs:
           blink — toggles object visibility on a timed cycle.
           bob   — applies sinusoidal x/y offsets to the object.
           follow — mirrors target object visibility/offset with optional extra x/y offsets.
+          menu-selected — shows object only when menu selected index equals params.index.
+          selected-arrows — anchors arrow marker to target sprite bounds using params.target + side.
           stage-visibility — shows the object only during selected scene stages.
           timed-visibility — shows the object only within an elapsed-time window using scene or stage time.
         enum:
           - blink
           - bob
           - follow
+          - menu-selected
+          - selected-arrows
           - stage-visibility
           - timed-visibility
       params:
@@ -744,6 +826,21 @@ $defs:
       amplitude_y:
         type: integer
         description: Vertical bob amplitude in cells.
+      index:
+        type: integer
+        minimum: 0
+        description: Selected menu index used by menu-selected behavior.
+      side:
+        type: string
+        enum: [left, right]
+        description: Side anchor for selected-arrows behavior.
+      padding:
+        type: integer
+        description: Horizontal distance from target edge for selected-arrows behavior.
+      autoscale_height:
+        type: boolean
+        description: >
+          For selected-arrows behavior, expands horizontal anchor distance by target item height.
 
   # ── Audio hooks (design/runtime bridge) ──────────────────────────────────────
   scene_audio:

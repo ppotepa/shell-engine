@@ -2,22 +2,21 @@ mod error;
 mod game_loop;
 mod mod_loader;
 pub use error::EngineError;
-pub mod animations;
+
+// Re-export core modules from engine-core for compatibility
+pub use engine_core::{animations, buffer, effects, markup, scene};
+
 pub mod assets;
 pub mod audio;
 pub mod behavior;
-pub mod buffer;
-pub mod effects;
 pub mod events;
 pub mod game_object;
 pub mod image_loader;
-pub mod markup;
 pub mod pipelines;
 pub mod rasterizer;
 pub mod render_policy;
 pub mod repositories;
 pub mod runtime_settings;
-pub mod scene;
 mod scene_loader;
 pub mod scene_runtime;
 mod services;
@@ -75,6 +74,7 @@ impl ShellEngine {
         let runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
 
         let (term_w, term_h) = crossterm::terminal::size()?;
+        let (virtual_w, virtual_h) = runtime_settings.resolved_virtual_size(term_w, term_h);
 
         let mut world = world::World::new();
         world.register(EventQueue::new());
@@ -83,15 +83,13 @@ impl ShellEngine {
         world.register(runtime_settings);
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
         if runtime_settings.use_virtual_buffer {
-            world.register(buffer::VirtualBuffer::new(
-                runtime_settings.virtual_width,
-                runtime_settings.virtual_height,
-            ));
+            world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
         }
 
-        // Enter alt-screen and immediately paint black before the game loop starts.
+        // Enter alt-screen, hard-reset console surface, then paint black before first frame.
         // This prevents the terminal's previous content from flashing on the first frame.
         let mut renderer = TerminalRenderer::new()?;
+        renderer.reset_console()?;
         renderer.clear_black()?;
         world.register(renderer);
 

@@ -1,0 +1,23 @@
+# Catppuccin Mocha Theme for Shell Engine Editor
+# This file will be copied to ~/.config/sq-editor/theme.toml on first run
+# All colors in RGB format [r, g, b]
+
+# Base background (darkest) - used for unfocused panels
+base = [30, 30, 46]          # #1e1e2e
+
+# Mantle (slightly lighter than base, reserved for future use)
+mantle = [24, 24, 37]        # #181825
+
+# Surface (focused panel background)
+surface0 = [49, 50, 68]      # #313244
+
+# Text colors
+text = [205, 214, 244]       # #cdd6f4 (main text, bold)
+subtext0 = [166, 173, 200]   # #a6adc8 (normal text)
+overlay0 = [108, 112, 134]   # #6c7086 (disabled text)
+
+# Accent color (orange/peach) - used for focus borders, selections
+accent = [250, 179, 135]     # #fab387
+
+# To customize, copy this file to ~/.config/sq-editor/theme.toml and edit
+# Example custom accent (blue): accent = [137, 180, 250]  # #89b4fa

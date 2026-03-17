@@ -4,13 +4,14 @@ use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
 use crate::systems::animator::{Animator, SceneStage};
 use crate::world::World;
+use crossterm::event::KeyCode;
 
 pub struct SceneLifecycleManager;
 
 #[derive(Default)]
 struct LifecycleEvents {
     quit: bool,
-    key_pressed: bool,
+    key_presses: Vec<KeyCode>,
     transitions: Vec<String>,
     resizes: Vec<(u16, u16)>,
 }
@@ -26,14 +27,23 @@ impl SceneLifecycleManager {
             }
         }
 
-        if lifecycle.key_pressed {
-            Self::advance_on_any_key(world);
+        if !lifecycle.key_presses.is_empty() {
+            Self::advance_on_any_key(world, &lifecycle.key_presses);
         }
         Self::apply_transitions(world, lifecycle.transitions);
         lifecycle.quit
     }
 
-    fn advance_on_any_key(world: &mut World) {
+    fn advance_on_any_key(world: &mut World, key_presses: &[KeyCode]) {
+        let menu_options = world
+            .scene_runtime()
+            .map(|runtime| runtime.scene().menu_options.clone())
+            .unwrap_or_default();
+        let selected_index = world
+            .animator()
+            .map(|animator| animator.menu_selected_index)
+            .unwrap_or(0);
+        let menu_action = evaluate_menu_action(&menu_options, selected_index, key_presses);
         let should_leave = world
             .scene_runtime()
             .map(|runtime| {
@@ -46,13 +56,30 @@ impl SceneLifecycleManager {
             && world
                 .animator()
                 .map(|a| a.stage == SceneStage::OnIdle)
-                .unwrap_or(false);
+            .unwrap_or(false);
 
-        if should_leave {
-            if let Some(animator) = world.animator_mut() {
-                animator.stage = SceneStage::OnLeave;
-                animator.step_idx = 0;
-                animator.elapsed_ms = 0;
+        if !should_leave {
+            return;
+        }
+
+        if let Some(animator) = world.animator_mut() {
+            match menu_action {
+                MenuAction::Navigate(index) => {
+                    animator.menu_selected_index = index;
+                }
+                MenuAction::Activate(next_scene) => {
+                    animator.next_scene_override = Some(next_scene);
+                    animator.stage = SceneStage::OnLeave;
+                    animator.step_idx = 0;
+                    animator.elapsed_ms = 0;
+                }
+                MenuAction::None => {
+                    if menu_options.is_empty() {
+                        animator.stage = SceneStage::OnLeave;
+                        animator.step_idx = 0;
+                        animator.elapsed_ms = 0;
+                    }
+                }
             }
         }
     }
@@ -77,7 +104,7 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
     for event in events {
         match event {
             EngineEvent::Quit => lifecycle.quit = true,
-            EngineEvent::KeyPressed(_) => lifecycle.key_pressed = true,
+            EngineEvent::KeyPressed(code) => lifecycle.key_presses.push(code),
             EngineEvent::SceneTransition { to_scene_id } => lifecycle.transitions.push(to_scene_id),
             EngineEvent::TerminalResized { width, height } => {
                 lifecycle.resizes.push((width, height));
@@ -88,12 +115,115 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
     lifecycle
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MenuAction {
+    None,
+    Navigate(usize),
+    Activate(String),
+}
+
+fn evaluate_menu_action(
+    options: &[crate::scene::MenuOption],
+    selected_index: usize,
+    key_presses: &[KeyCode],
+) -> MenuAction {
+    if options.is_empty() {
+        return MenuAction::None;
+    }
+    let mut index = selected_index.min(options.len().saturating_sub(1));
+
+    for key_code in key_presses {
+        for (option_idx, option) in options.iter().enumerate() {
+            if key_matches_binding(key_code, &option.key) {
+                if let Some(target) = resolve_menu_target(option) {
+                    return MenuAction::Activate(target);
+                }
+            }
+            if option_idx == index && matches_confirm_key(key_code) {
+                if let Some(target) = resolve_menu_target(option) {
+                    return MenuAction::Activate(target);
+                }
+            }
+        }
+
+        if is_prev_key(key_code) {
+            index = if index == 0 {
+                options.len().saturating_sub(1)
+            } else {
+                index - 1
+            };
+            continue;
+        }
+
+        if is_next_key(key_code) {
+            index = (index + 1) % options.len();
+            continue;
+        }
+    }
+
+    if index != selected_index {
+        return MenuAction::Navigate(index);
+    }
+    MenuAction::None
+}
+
+fn resolve_menu_target(option: &crate::scene::MenuOption) -> Option<String> {
+    let action = option
+        .action
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase);
+    match action.as_deref() {
+        Some("goto.scene") => option.scene.clone().or_else(|| Some(option.next.clone())),
+        _ => Some(option.next.clone()),
+    }
+}
+
+fn key_matches_binding(key_code: &KeyCode, binding: &str) -> bool {
+    let b = binding.trim().to_ascii_lowercase();
+    match key_code {
+        KeyCode::Char(c) => {
+            b == c.to_ascii_lowercase().to_string() || (*c == ' ' && b == "space")
+        }
+        KeyCode::Enter => b == "enter",
+        KeyCode::Esc => b == "esc" || b == "escape",
+        KeyCode::Tab => b == "tab",
+        KeyCode::Backspace => b == "backspace",
+        KeyCode::Left => b == "left",
+        KeyCode::Right => b == "right",
+        KeyCode::Up => b == "up",
+        KeyCode::Down => b == "down",
+        KeyCode::Home => b == "home",
+        KeyCode::End => b == "end",
+        KeyCode::PageUp => b == "pageup" || b == "page-up",
+        KeyCode::PageDown => b == "pagedown" || b == "page-down",
+        KeyCode::Delete => b == "delete" || b == "del",
+        KeyCode::Insert => b == "insert" || b == "ins",
+        KeyCode::F(n) => b == format!("f{n}"),
+        KeyCode::Null => b == "null",
+        _ => false,
+    }
+}
+
+fn is_prev_key(key_code: &KeyCode) -> bool {
+    matches!(key_code, KeyCode::Up | KeyCode::Left)
+}
+
+fn is_next_key(key_code: &KeyCode) -> bool {
+    matches!(key_code, KeyCode::Down | KeyCode::Right)
+}
+
+fn matches_confirm_key(key_code: &KeyCode) -> bool {
+    matches!(key_code, KeyCode::Enter | KeyCode::Char(' '))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{classify_events, SceneLifecycleManager};
     use crate::events::EngineEvent;
     use crate::scene::{
-        Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage, StageTrigger, TermColour,
+        MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage, StageTrigger,
+        TermColour,
     };
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
@@ -123,6 +253,7 @@ mod tests {
             behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
+            menu_options: Vec::new(),
             next: None,
         };
 
@@ -134,6 +265,8 @@ mod tests {
             elapsed_ms: 42,
             stage_elapsed_ms: 42,
             scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         let quit = SceneLifecycleManager::process_events(
@@ -146,6 +279,205 @@ mod tests {
         assert_eq!(animator.stage, SceneStage::OnLeave);
         assert_eq!(animator.step_idx, 0);
         assert_eq!(animator.elapsed_ms, 0);
+    }
+
+    #[test]
+    fn menu_option_key_sets_next_scene_override() {
+        let scene = Scene {
+            id: "menu".to_string(),
+            title: "Menu".to_string(),
+            cutscene: false,
+            rendered_mode: SceneRenderedMode::Cell,
+            virtual_size_override: None,
+            bg_colour: Some(TermColour::Black),
+            stages: SceneStages {
+                on_enter: Stage::default(),
+                on_idle: Stage {
+                    trigger: StageTrigger::AnyKey,
+                    steps: Vec::new(),
+                    looping: true,
+                },
+                on_leave: Stage::default(),
+            },
+            behaviors: Vec::new(),
+            audio: SceneAudio::default(),
+            layers: Vec::new(),
+            menu_options: vec![
+                MenuOption {
+                    key: "1".to_string(),
+                    label: Some("3D SCENE".to_string()),
+                    selected_effect: None,
+                    action: None,
+                    scene: None,
+                    next: "playground-3d-scene".to_string(),
+                },
+                MenuOption {
+                    key: "2".to_string(),
+                    label: Some("STOP ANIMATION".to_string()),
+                    selected_effect: None,
+                    action: Some("goto.scene".to_string()),
+                    scene: Some("playground-stop-animation".to_string()),
+                    next: "playground-stop-animation".to_string(),
+                },
+            ],
+            next: Some("playground-3d-scene".to_string()),
+        };
+
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        let quit = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('2'))],
+        );
+
+        assert!(!quit);
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(
+            animator.next_scene_override.as_deref(),
+            Some("playground-stop-animation")
+        );
+    }
+
+    #[test]
+    fn menu_navigation_keys_change_selection_without_leaving_scene() {
+        let scene = Scene {
+            id: "menu".to_string(),
+            title: "Menu".to_string(),
+            cutscene: false,
+            rendered_mode: SceneRenderedMode::Cell,
+            virtual_size_override: None,
+            bg_colour: Some(TermColour::Black),
+            stages: SceneStages {
+                on_enter: Stage::default(),
+                on_idle: Stage {
+                    trigger: StageTrigger::AnyKey,
+                    steps: Vec::new(),
+                    looping: true,
+                },
+                on_leave: Stage::default(),
+            },
+            behaviors: Vec::new(),
+            audio: SceneAudio::default(),
+            layers: Vec::new(),
+            menu_options: vec![
+                MenuOption {
+                    key: "1".to_string(),
+                    label: Some("3D SCENE".to_string()),
+                    selected_effect: None,
+                    action: None,
+                    scene: None,
+                    next: "playground-3d-scene".to_string(),
+                },
+                MenuOption {
+                    key: "2".to_string(),
+                    label: Some("STOP ANIMATION".to_string()),
+                    selected_effect: None,
+                    action: None,
+                    scene: None,
+                    next: "playground-stop-animation".to_string(),
+                },
+            ],
+            next: Some("playground-3d-scene".to_string()),
+        };
+
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Down)],
+        );
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.menu_selected_index, 1);
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        assert_eq!(animator.next_scene_override, None);
+    }
+
+    #[test]
+    fn enter_activates_current_menu_selection() {
+        let scene = Scene {
+            id: "menu".to_string(),
+            title: "Menu".to_string(),
+            cutscene: false,
+            rendered_mode: SceneRenderedMode::Cell,
+            virtual_size_override: None,
+            bg_colour: Some(TermColour::Black),
+            stages: SceneStages {
+                on_enter: Stage::default(),
+                on_idle: Stage {
+                    trigger: StageTrigger::AnyKey,
+                    steps: Vec::new(),
+                    looping: true,
+                },
+                on_leave: Stage::default(),
+            },
+            behaviors: Vec::new(),
+            audio: SceneAudio::default(),
+            layers: Vec::new(),
+            menu_options: vec![
+                MenuOption {
+                    key: "1".to_string(),
+                    label: Some("3D SCENE".to_string()),
+                    selected_effect: None,
+                    action: None,
+                    scene: None,
+                    next: "playground-3d-scene".to_string(),
+                },
+                MenuOption {
+                    key: "2".to_string(),
+                    label: Some("STOP ANIMATION".to_string()),
+                    selected_effect: None,
+                    action: None,
+                    scene: None,
+                    next: "playground-stop-animation".to_string(),
+                },
+            ],
+            next: Some("playground-3d-scene".to_string()),
+        };
+
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 1,
+        });
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Enter)],
+        );
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(
+            animator.next_scene_override.as_deref(),
+            Some("playground-stop-animation")
+        );
+        assert_eq!(animator.stage, SceneStage::OnLeave);
     }
 
     #[test]
@@ -175,6 +507,7 @@ mod tests {
             behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
+            menu_options: Vec::new(),
             next: Some("mainmenu".to_string()),
         };
 
@@ -187,6 +520,8 @@ mod tests {
             elapsed_ms: 999,
             stage_elapsed_ms: 999,
             scene_elapsed_ms: 999,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         let quit = SceneLifecycleManager::process_events(
@@ -252,6 +587,7 @@ mod tests {
             behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
+            menu_options: Vec::new(),
             next: Some("/scenes/mainmenu.yml".to_string()),
         };
 

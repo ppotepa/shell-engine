@@ -13,8 +13,8 @@ type RasterKey = (
     Option<String>, // mod_source path
     String,         // text content
     String,         // font name
-    (u8, u8, u8),  // fg colour
-    (u8, u8, u8),  // bg colour
+    (u8, u8, u8),   // fg colour
+    (u8, u8, u8),   // bg colour
 );
 
 thread_local! {

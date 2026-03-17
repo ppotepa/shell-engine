@@ -109,14 +109,15 @@ pub fn preview_asset_root() -> Option<PathBuf> {
 }
 
 pub fn choose_preview_placement(effect_name: &str) -> PreviewPlacement {
-    let dispatcher = shared_dispatcher();
-    if dispatcher.supports_target_kind(effect_name, EffectTargetKind::SpriteBitmap) {
+    let meta = shared_dispatcher().metadata(effect_name);
+    let targets = meta.compatible_targets;
+    if targets.supports(EffectTargetKind::SpriteBitmap) {
         PreviewPlacement::PenguinSprite
-    } else if dispatcher.supports_target_kind(effect_name, EffectTargetKind::SpriteText) {
+    } else if targets.supports(EffectTargetKind::SpriteText) {
         PreviewPlacement::CaptionSprite
-    } else if dispatcher.supports_target_kind(effect_name, EffectTargetKind::Sprite) {
+    } else if targets.supports(EffectTargetKind::Sprite) {
         PreviewPlacement::PenguinSprite
-    } else if dispatcher.supports_target_kind(effect_name, EffectTargetKind::Layer) {
+    } else if targets.supports(EffectTargetKind::Layer) {
         PreviewPlacement::Layer
     } else {
         PreviewPlacement::Scene

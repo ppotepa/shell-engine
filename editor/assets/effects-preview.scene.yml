@@ -1,0 +1,34 @@
+id: effect_preview
+title: Effect Preview
+cutscene: false
+rendered-mode: halfblock
+bg_colour: black
+stages:
+__SCENE_STAGES__
+layers:
+  - name: preview
+    z_index: 0
+    visible: true
+    stages:
+__LAYER_STAGES__
+    sprites:
+      - type: image
+        id: penguin
+        source: /assets/images/tux.png
+        width: __PENGUIN_WIDTH__
+        height: __PENGUIN_HEIGHT__
+        align_x: center
+        align_y: center
+        y: __PENGUIN_OFFSET_Y__
+        stages:
+__PENGUIN_STAGES__
+      - type: text
+        id: caption
+        content: SHELL QUEST
+        align_x: center
+        align_y: center
+        y: __CAPTION_OFFSET_Y__
+        fg_colour: white
+        stages:
+__CAPTION_STAGES__
+next: null

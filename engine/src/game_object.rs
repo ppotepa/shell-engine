@@ -4,6 +4,7 @@ pub enum GameObjectKind {
     Layer,
     TextSprite,
     ImageSprite,
+    ObjSprite,
     GridSprite,
 }
 

@@ -1,7 +1,7 @@
 use crate::events::EngineEvent;
-use crate::scene::StageTrigger;
 #[cfg(test)]
 use crate::scene::Scene;
+use crate::scene::StageTrigger;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 
@@ -23,6 +23,8 @@ pub struct Animator {
     pub elapsed_ms: u64,
     pub stage_elapsed_ms: u64,
     pub scene_elapsed_ms: u64,
+    pub next_scene_override: Option<String>,
+    pub menu_selected_index: usize,
 }
 
 impl Animator {
@@ -68,7 +70,7 @@ pub fn animator_system(world: &mut World, tick_ms: u64) {
             step_dur,
             stage_def.looping,
             scene.stages.on_idle.trigger.clone(),
-            scene.next.clone(),
+            animator.next_scene_override.clone().or_else(|| scene.next.clone()),
         )
     };
     let (step_count, step_dur, stage_looping, idle_trigger, next_scene) = tick_data;
@@ -159,7 +161,7 @@ fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option
         step_dur,
         stage_looping,
         &scene.stages.on_idle.trigger,
-        scene.next.clone(),
+        animator.next_scene_override.clone().or_else(|| scene.next.clone()),
         tick_ms,
     )
 }
@@ -216,6 +218,7 @@ mod tests {
             behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
+            menu_options: Vec::new(),
             next: next.map(str::to_string),
         }
     }
@@ -266,6 +269,8 @@ mod tests {
             elapsed_ms: 0,
             stage_elapsed_ms: 0,
             scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
         };
 
         let transition = tick_animator(&mut animator, &scene, 50);
@@ -274,5 +279,35 @@ mod tests {
         assert_eq!(animator.stage, SceneStage::Done);
         assert_eq!(animator.step_idx, 0);
         assert_eq!(animator.elapsed_ms, 0);
+    }
+
+    #[test]
+    fn uses_next_scene_override_when_present() {
+        let scene = scene_with_stages(
+            Stage::default(),
+            Stage::default(),
+            Stage {
+                trigger: crate::scene::StageTrigger::None,
+                steps: vec![Step {
+                    effects: Vec::new(),
+                    duration: Some(10),
+                }],
+                looping: false,
+            },
+            Some("default-next"),
+        );
+        let mut animator = Animator {
+            stage: SceneStage::OnLeave,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: Some("override-next".to_string()),
+            menu_selected_index: 0,
+        };
+
+        let transition = tick_animator(&mut animator, &scene, 10);
+
+        assert_eq!(transition.as_deref(), Some("override-next"));
     }
 }

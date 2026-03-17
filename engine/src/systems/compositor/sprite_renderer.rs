@@ -16,6 +16,7 @@ use super::grid_tracks::{
     parse_track_spec, resolve_track_sizes, span_size, track_start, TrackSpec,
 };
 use super::image_render::{image_sprite_dimensions, render_image_content};
+use super::obj_render::{obj_sprite_dimensions, render_obj_content, ObjRenderParams};
 use super::text_render::{dim_colour, render_text_content, text_sprite_dimensions};
 
 #[derive(Clone, Copy)]
@@ -444,6 +445,108 @@ fn render_sprite(
                 ctx.layer_buf,
             );
         }
+        Sprite::Obj {
+            source,
+            x,
+            y,
+            width,
+            height,
+            scale,
+            yaw_deg,
+            pitch_deg,
+            roll_deg,
+            rotate_y_deg_per_sec,
+            camera_distance,
+            fov_degrees,
+            draw_char,
+            align_x,
+            align_y,
+            fg_colour,
+            bg_colour,
+            appear_at_ms,
+            disappear_at_ms,
+            hide_on_leave,
+            stages,
+            animations,
+            ..
+        } => {
+            if *hide_on_leave && matches!(ctx.current_stage, SceneStage::OnLeave) {
+                return;
+            }
+            let appear_at = appear_at_ms.unwrap_or(0);
+            if ctx.scene_elapsed_ms < appear_at {
+                return;
+            }
+            if let Some(disappear_at) = disappear_at_ms {
+                if ctx.scene_elapsed_ms >= *disappear_at {
+                    return;
+                }
+            }
+
+            let (sprite_width, sprite_height) = obj_sprite_dimensions(*width, *height);
+            let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
+            let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
+            let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
+            let anim_dispatcher = AnimationDispatcher::new();
+            let transform = anim_dispatcher.compute_transform(animations, sprite_elapsed);
+            let draw_x = base_x
+                .saturating_add(transform.dx as i32)
+                .saturating_add(object_state.offset_x)
+                .max(0) as u16;
+            let draw_y = base_y
+                .saturating_add(transform.dy as i32)
+                .saturating_add(object_state.offset_y)
+                .max(0) as u16;
+            let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
+            let bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
+            let draw_glyph = draw_char
+                .as_deref()
+                .and_then(|s| s.chars().next())
+                .unwrap_or('#');
+            render_obj_content(
+                source,
+                *width,
+                *height,
+                ObjRenderParams {
+                    scale: scale.unwrap_or(1.0),
+                    yaw_deg: yaw_deg.unwrap_or(0.0),
+                    pitch_deg: pitch_deg.unwrap_or(0.0),
+                    roll_deg: roll_deg.unwrap_or(0.0),
+                    rotate_y_deg_per_sec: rotate_y_deg_per_sec.unwrap_or(20.0),
+                    camera_distance: camera_distance.unwrap_or(3.0),
+                    fov_degrees: fov_degrees.unwrap_or(60.0),
+                    scene_elapsed_ms: sprite_elapsed,
+                },
+                draw_glyph,
+                fg,
+                bg,
+                ctx.asset_root,
+                draw_x,
+                draw_y,
+                ctx.layer_buf,
+            );
+
+            let sprite_region = Region {
+                x: draw_x,
+                y: draw_y,
+                width: sprite_width,
+                height: sprite_height,
+            };
+            if let Some(object_id) = object_id {
+                object_regions.insert(object_id.to_string(), sprite_region);
+            }
+            apply_sprite_effects(
+                stages,
+                ctx.current_stage,
+                ctx.step_idx,
+                ctx.elapsed_ms,
+                sprite_elapsed,
+                sprite_region,
+                target_resolver,
+                object_regions,
+                ctx.layer_buf,
+            );
+        }
     }
 }
 
@@ -563,6 +666,7 @@ fn measure_sprite_for_layout(
         Sprite::Grid { width, height, .. } => {
             (width.unwrap_or(1).max(1), height.unwrap_or(1).max(1))
         }
+        Sprite::Obj { width, height, .. } => obj_sprite_dimensions(*width, *height),
     }
 }
 

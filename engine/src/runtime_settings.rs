@@ -20,6 +20,7 @@ pub struct RuntimeSettings {
     pub use_virtual_buffer: bool,
     pub virtual_width: u16,
     pub virtual_height: u16,
+    pub virtual_size_max_available: bool,
     pub virtual_policy: VirtualPolicy,
     pub renderer_mode_override: Option<SceneRenderedMode>,
 }
@@ -30,6 +31,7 @@ impl Default for RuntimeSettings {
             use_virtual_buffer: false,
             virtual_width: 320,
             virtual_height: 240,
+            virtual_size_max_available: false,
             virtual_policy: VirtualPolicy::Fit,
             renderer_mode_override: None,
         }
@@ -54,9 +56,17 @@ impl RuntimeSettings {
                 .or_else(|| block.get("virtual-size"))
                 .and_then(Value::as_str)
                 .and_then(parse_virtual_size);
-            if let Some((w, h)) = size {
-                settings.virtual_width = w;
-                settings.virtual_height = h;
+            if let Some(size) = size {
+                match size {
+                    VirtualSizeSetting::Fixed(w, h) => {
+                        settings.virtual_width = w;
+                        settings.virtual_height = h;
+                        settings.virtual_size_max_available = false;
+                    }
+                    VirtualSizeSetting::MaxAvailable => {
+                        settings.virtual_size_max_available = true;
+                    }
+                }
             }
 
             let policy = block
@@ -85,9 +95,17 @@ impl RuntimeSettings {
         }
 
         if let Ok(raw) = env::var("SHELL_QUEST_VIRTUAL_SIZE") {
-            if let Some((w, h)) = parse_virtual_size(&raw) {
-                settings.virtual_width = w;
-                settings.virtual_height = h;
+            if let Some(size) = parse_virtual_size(&raw) {
+                match size {
+                    VirtualSizeSetting::Fixed(w, h) => {
+                        settings.virtual_width = w;
+                        settings.virtual_height = h;
+                        settings.virtual_size_max_available = false;
+                    }
+                    VirtualSizeSetting::MaxAvailable => {
+                        settings.virtual_size_max_available = true;
+                    }
+                }
             }
         }
 
@@ -104,6 +122,13 @@ impl RuntimeSettings {
         }
 
         settings
+    }
+
+    pub fn resolved_virtual_size(&self, terminal_width: u16, terminal_height: u16) -> (u16, u16) {
+        if self.virtual_size_max_available {
+            return (terminal_width.max(1), terminal_height.max(1));
+        }
+        (self.virtual_width, self.virtual_height)
     }
 }
 
@@ -133,14 +158,27 @@ fn parse_renderer_mode(raw: &str) -> Option<SceneRenderedMode> {
     }
 }
 
-fn parse_virtual_size(raw: &str) -> Option<(u16, u16)> {
-    let mut parts = raw.trim().split('x');
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VirtualSizeSetting {
+    Fixed(u16, u16),
+    MaxAvailable,
+}
+
+fn parse_virtual_size(raw: &str) -> Option<VirtualSizeSetting> {
+    let normalized = raw.trim().to_ascii_lowercase();
+    if matches!(
+        normalized.as_str(),
+        "max-available" | "max_available" | "maxavailable"
+    ) {
+        return Some(VirtualSizeSetting::MaxAvailable);
+    }
+    let mut parts = normalized.split('x');
     let w = parts.next()?.trim().parse::<u16>().ok()?;
     let h = parts.next()?.trim().parse::<u16>().ok()?;
     if parts.next().is_some() || w == 0 || h == 0 {
         return None;
     }
-    Some((w, h))
+    Some(VirtualSizeSetting::Fixed(w, h))
 }
 
 #[cfg(test)]
@@ -157,6 +195,7 @@ mod tests {
         assert!(settings.use_virtual_buffer);
         assert_eq!(settings.virtual_width, 320);
         assert_eq!(settings.virtual_height, 200);
+        assert!(!settings.virtual_size_max_available);
         assert_eq!(settings.virtual_policy, VirtualPolicy::Strict);
         assert_eq!(settings.renderer_mode_override, None);
     }
@@ -168,6 +207,7 @@ mod tests {
         assert!(!settings.use_virtual_buffer);
         assert_eq!(settings.virtual_width, 320);
         assert_eq!(settings.virtual_height, 240);
+        assert!(!settings.virtual_size_max_available);
         assert_eq!(settings.virtual_policy, VirtualPolicy::Fit);
         assert_eq!(settings.renderer_mode_override, None);
     }
@@ -182,5 +222,17 @@ mod tests {
             settings.renderer_mode_override,
             Some(crate::scene::SceneRenderedMode::Braille)
         );
+    }
+
+    #[test]
+    fn parses_max_available_virtual_size() {
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
+            "terminal:\n  use-virtual-buffer: true\n  virtual-size: max-available\n",
+        )
+        .expect("yaml parse");
+        let settings = RuntimeSettings::from_manifest(&yaml);
+        assert!(settings.use_virtual_buffer);
+        assert!(settings.virtual_size_max_available);
+        assert_eq!(settings.resolved_virtual_size(180, 52), (180, 52));
     }
 }

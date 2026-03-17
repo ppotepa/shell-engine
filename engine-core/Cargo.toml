@@ -1,0 +1,14 @@
+[package]
+name = "engine-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Paweł Potępa <pawel.potepa@hotmail.com>"]
+license = "MIT"
+
+[dependencies]
+crossterm = "0.29"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+
+[dev-dependencies]
+tempfile = "3.13"

@@ -208,6 +208,7 @@ layers:
                             name: "clear-to-colour".to_string(),
                             duration: 1,
                             looping: false,
+                            target_kind: Default::default(),
                             params: EffectParams {
                                 colour: Some(TermColour::Blue),
                                 target: Some("title".to_string()),

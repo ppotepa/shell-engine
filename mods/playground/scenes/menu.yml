@@ -1,0 +1,211 @@
+# yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+id: playground-menu
+title: Playground Menu
+bg_colour: black
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 400
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - duration: 1200
+        effects: []
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 300
+layers:
+  - name: menu
+    z_index: 0
+    sprites:
+      - type: text
+        content: "PLAYGROUND"
+        align_x: center
+        align_y: top
+        y: 2
+        font: "generic:1"
+        fg_colour: white
+      - type: text
+        content: "MENU"
+        align_x: center
+        align_y: top
+        y: 4
+        font: "generic:1"
+        fg_colour: gray
+      - type: grid
+        id: menu-grid
+        align_x: center
+        align_y: center
+        width: 36
+        height: 9
+        columns: ["1fr"]
+        rows: ["auto", "auto", "auto"]
+        gap-y: 1
+        children:
+          - type: text
+            id: menu-item-0
+            content: "[1] 3D SCENE"
+            grid-col: 1
+            grid-row: 1
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: white
+          - type: text
+            id: menu-item-1
+            content: "[2] STOP ANIMATION"
+            grid-col: 1
+            grid-row: 2
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: silver
+          - type: text
+            id: menu-item-2
+            content: "[3] DECORATION SHOWCASE"
+            grid-col: 1
+            grid-row: 3
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: gray
+      - type: text
+        id: sel0-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-0
+              index: 0
+              side: left
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        id: sel0-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-0
+              index: 0
+              side: right
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        id: sel1-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-1
+              index: 1
+              side: left
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        id: sel1-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-1
+              index: 1
+              side: right
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        id: sel2-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-2
+              index: 2
+              side: left
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        id: sel2-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: menu-item-2
+              index: 2
+              side: right
+              padding: 1
+              amplitude_x: 1
+              period_ms: 900
+              autoscale_height: true
+      - type: text
+        content: "Arrows: navigate, Enter: select, [1]/[2]/[3]: shortcut"
+        align_x: center
+        align_y: bottom
+        y: -1
+        font: "generic:1"
+        fg_colour: gray
+        hide_on_leave: true
+        behaviors:
+          - name: blink
+            params:
+              visible_ms: 700
+              hidden_ms: 700
+next: playground-3d-scene
+menu-options:
+  - key: "1"
+    label: 3D SCENE
+    selected-effect: arrows
+    action: goto.scene
+    scene: playground-3d-scene
+    next: playground-3d-scene
+  - key: "2"
+    label: STOP ANIMATION
+    selected-effect: arrows
+    action: goto.scene
+    scene: playground-stop-animation
+    next: playground-stop-animation
+  - key: "3"
+    label: DECORATION SHOWCASE
+    selected-effect: arrows
+    action: goto.scene
+    scene: playground-decoration-showcase
+    next: playground-decoration-showcase
