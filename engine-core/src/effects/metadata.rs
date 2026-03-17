@@ -5,6 +5,7 @@
 //! any tool (editor, documentation generator, schema validator).
 
 use crate::effects::effect::EffectTargetMask;
+use crate::authoring::metadata as authored;
 
 /// How a parameter value is expressed and controlled.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -63,6 +64,16 @@ impl ParamControl {
     pub fn is_slider(&self) -> bool {
         matches!(self, ParamControl::Slider { .. })
     }
+
+    pub const fn as_value_kind(&self) -> authored::ValueKind {
+        match self {
+            ParamControl::Slider { .. } => authored::ValueKind::Number,
+            ParamControl::Select { .. } => authored::ValueKind::Select,
+            ParamControl::Toggle { .. } => authored::ValueKind::Boolean,
+            ParamControl::Text { .. } => authored::ValueKind::Text,
+            ParamControl::Colour { .. } => authored::ValueKind::Colour,
+        }
+    }
 }
 
 /// Metadata for a single effect parameter.
@@ -76,6 +87,42 @@ pub struct ParamMetadata {
     pub description: &'static str,
     /// How the value is represented and controlled.
     pub control: ParamControl,
+}
+
+impl ParamMetadata {
+    /// Convert effect-specific parameter metadata into shared authored field metadata.
+    pub const fn as_authored_field(&self) -> authored::FieldMetadata {
+        authored::FieldMetadata {
+            target: authored::TargetKind::Effect,
+            name: self.name,
+            value_kind: self.control.as_value_kind(),
+            requirement: authored::Requirement::Optional,
+            description: self.description,
+            default_text: Some(self.control.default_str()),
+            default_number: Some(self.control.default_float()),
+            enum_options: match self.control {
+                ParamControl::Select { options, .. } => Some(options),
+                _ => None,
+            },
+            min: match self.control {
+                ParamControl::Slider { min, .. } => Some(min),
+                _ => None,
+            },
+            max: match self.control {
+                ParamControl::Slider { max, .. } => Some(max),
+                _ => None,
+            },
+            step: match self.control {
+                ParamControl::Slider { step, .. } => Some(step),
+                _ => None,
+            },
+            unit: match self.control {
+                ParamControl::Slider { unit, .. } => Some(unit),
+                _ => None,
+            },
+            sources: &[authored::ValueSource::Literal],
+        }
+    }
 }
 
 /// Complete metadata for a builtin effect.
@@ -250,3 +297,32 @@ pub static META_UNKNOWN: EffectMetadata = EffectMetadata {
     params: &[P_INTENSITY, P_EASING],
     sample: "- name: EFFECT_NAME\n  duration: 600\n  params:\n    easing: linear",
 };
+
+#[cfg(test)]
+mod tests {
+    use super::{ParamControl, P_EASING, P_INTENSITY};
+    use crate::authoring::metadata::{TargetKind, ValueKind};
+
+    #[test]
+    fn converts_slider_to_shared_field_metadata() {
+        let field = P_INTENSITY.as_authored_field();
+        assert_eq!(field.target, TargetKind::Effect);
+        assert_eq!(field.name, "intensity");
+        assert_eq!(field.value_kind, ValueKind::Number);
+        assert_eq!(field.min, Some(0.0));
+        assert_eq!(field.max, Some(2.0));
+    }
+
+    #[test]
+    fn converts_select_to_shared_field_metadata() {
+        let field = P_EASING.as_authored_field();
+        assert_eq!(field.value_kind, ValueKind::Select);
+        assert!(field.enum_options.is_some());
+        match P_EASING.control {
+            ParamControl::Select { default, .. } => {
+                assert_eq!(field.default_text, Some(default));
+            }
+            _ => panic!("expected select"),
+        }
+    }
+}
