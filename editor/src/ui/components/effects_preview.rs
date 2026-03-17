@@ -1,13 +1,13 @@
 use engine::assets::AssetRoot;
 use engine::audio::AudioRuntime;
 use engine::buffer::Buffer;
-use engine_core::effects::{ParamControl, shared_dispatcher};
 use engine::runtime_settings::RuntimeSettings;
 use engine::scene::Scene;
 use engine::scene_runtime::SceneRuntime;
 use engine::systems::animator::{Animator, SceneStage};
 use engine::systems::compositor::compositor_system;
 use engine::world::World;
+use engine_core::effects::{shared_dispatcher, ParamControl};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
@@ -54,13 +54,17 @@ fn render_code(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
     let tab = app.effects_code_tab;
 
     // Build tab bar title: "[ Info ]  Schema   YAML   Rust"
-    let tab_bar: String = EffectsCodeTab::ALL.iter().map(|&t| {
-        if t == tab {
-            format!(" [{}] ", t.label())
-        } else {
-            format!("  {}  ", t.label())
-        }
-    }).collect::<Vec<_>>().join("│");
+    let tab_bar: String = EffectsCodeTab::ALL
+        .iter()
+        .map(|&t| {
+            if t == tab {
+                format!(" [{}] ", t.label())
+            } else {
+                format!("  {}  ", t.label())
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("│");
 
     let title = format!(" {tab_bar} ");
 
@@ -83,7 +87,11 @@ fn render_code(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
     let max_scroll = lines.len().saturating_sub(visible.max(1)) as u16;
     let scroll = app.effects_code_scroll.min(max_scroll);
 
-    let hint = if focused { "↑/↓ scroll  [/] tabs  Tab pane" } else { "[/] tabs  Tab to focus" };
+    let hint = if focused {
+        "↑/↓ scroll  [/] tabs  Tab pane"
+    } else {
+        "[/] tabs  Tab to focus"
+    };
 
     let widget = Paragraph::new(lines)
         .style(theme::pane_background(focused))
@@ -105,27 +113,36 @@ fn render_code(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
 
 fn tab_info(name: &str) -> Vec<Line<'static>> {
     let doc = effects_catalog::effect_doc(name);
-    let placement = effects_preview_scene::choose_preview_placement(name);
     let meta = shared_dispatcher().metadata(name);
     let t = theme::fg_disabled();
     let a = theme::fg_active();
     vec![
-        Line::from(vec![Span::styled("name      ", t), Span::styled(name.to_string(), a)]),
-        Line::from(vec![Span::styled("category  ", t), Span::raw(meta.category.to_string())]),
-        Line::from(vec![Span::styled("target    ", t), Span::raw(format!("{:?}", placement))]),
+        Line::from(vec![
+            Span::styled("name      ", t),
+            Span::styled(name.to_string(), a),
+        ]),
+        Line::from(vec![
+            Span::styled("category  ", t),
+            Span::raw(doc.category.to_string()),
+        ]),
+        Line::from(vec![
+            Span::styled("target    ", t),
+            Span::raw(format!("{:?}", doc.target_kind)),
+        ]),
         Line::from(""),
         Line::from(Span::styled(doc.summary, theme::fg_normal())),
         Line::from(""),
         Line::from(Span::styled("params", theme::fg_active())),
         Line::from(""),
-    ].into_iter().chain(
-        meta.params.iter().map(|p| {
-            Line::from(vec![
-                Span::styled(format!("  {:<16}", p.name), theme::fg_normal()),
-                Span::styled(p.description.to_string(), theme::fg_disabled()),
-            ])
-        })
-    ).collect()
+    ]
+    .into_iter()
+    .chain(meta.params.iter().map(|p| {
+        Line::from(vec![
+            Span::styled(format!("  {:<16}", p.name), theme::fg_normal()),
+            Span::styled(p.description.to_string(), theme::fg_disabled()),
+        ])
+    }))
+    .collect()
 }
 
 fn tab_schema(name: &str) -> Vec<Line<'static>> {
@@ -173,17 +190,17 @@ fn tab_rust(name: &str) -> Vec<Line<'static>> {
         return vec![
             Line::from(Span::styled("Source file not found.", theme::fg_disabled())),
             Line::from(""),
-            Line::from(format!("Expected engine-core/src/effects/builtin/ for \"{}\"", name)),
+            Line::from(format!(
+                "Expected engine-core/src/effects/builtin/ for \"{}\"",
+                name
+            )),
         ];
     };
 
     match std::fs::read_to_string(&path) {
         Ok(src) => {
             let mut lines: Vec<Line> = vec![
-                Line::from(Span::styled(
-                    format!("// {}", path),
-                    theme::fg_disabled(),
-                )),
+                Line::from(Span::styled(format!("// {}", path), theme::fg_disabled())),
                 Line::from(""),
             ];
             for l in src.lines() {
@@ -203,7 +220,10 @@ fn tab_rust(name: &str) -> Vec<Line<'static>> {
 fn rust_source_path(effect_name: &str) -> Option<String> {
     // Walk up from CWD to find engine-core
     let cwd = std::env::current_dir().ok()?;
-    let root = cwd.ancestors().find(|p| p.join("engine-core").exists())?.to_path_buf();
+    let root = cwd
+        .ancestors()
+        .find(|p| p.join("engine-core").exists())?
+        .to_path_buf();
     let builtin = root.join("engine-core/src/effects/builtin");
 
     let file = match effect_name {
@@ -222,12 +242,20 @@ fn rust_source_path(effect_name: &str) -> Option<String> {
             // try exact file name: "shine" -> "shine.rs"
             let candidate = format!("{}.rs", other.replace('-', "_"));
             let p = builtin.join(&candidate);
-            return if p.exists() { Some(p.to_string_lossy().into_owned()) } else { None };
+            return if p.exists() {
+                Some(p.to_string_lossy().into_owned())
+            } else {
+                None
+            };
         }
     };
 
     let p = builtin.join(file);
-    if p.exists() { Some(p.to_string_lossy().into_owned()) } else { None }
+    if p.exists() {
+        Some(p.to_string_lossy().into_owned())
+    } else {
+        None
+    }
 }
 
 fn param_type_label(c: &ParamControl) -> &'static str {
@@ -242,7 +270,12 @@ fn param_type_label(c: &ParamControl) -> &'static str {
 
 fn param_range_label(c: &ParamControl) -> String {
     match c {
-        ParamControl::Slider { min, max, step, unit } => {
+        ParamControl::Slider {
+            min,
+            max,
+            step,
+            unit,
+        } => {
             if unit.is_empty() {
                 format!("range {min}..{max}  step {step}")
             } else {
@@ -252,7 +285,9 @@ fn param_range_label(c: &ParamControl) -> String {
         ParamControl::Select { options, default } => {
             format!("options: {}  default: {}", options.join(", "), default)
         }
-        ParamControl::Toggle { default } => format!("default: {}", if *default { "true" } else { "false" }),
+        ParamControl::Toggle { default } => {
+            format!("default: {}", if *default { "true" } else { "false" })
+        }
         ParamControl::Text { default } => format!("default: {default}"),
         ParamControl::Colour { default } => format!("default: {default}"),
     }
@@ -326,7 +361,6 @@ fn build_responsive_preview_yaml(app: &AppState, inner_w: u16, inner_h: u16) -> 
 fn render_controls(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
     let effect_name = app.selected_builtin_effect().unwrap_or("shine");
     let specs = app.effect_param_specs();
-    let doc = effects_catalog::effect_doc(effect_name);
     let mut params = effect_params::default_effect_params(effect_name);
     effect_params::apply_overrides(effect_name, &app.effect_param_overrides, &mut params);
 
@@ -373,7 +407,8 @@ fn render_controls(frame: &mut Frame, area: Rect, app: &AppState, focused: bool)
 
     // Extra non-slider params from docs
     let mut extra_params: Vec<(&str, String)> = Vec::new();
-    for &name in doc.params {
+    for param in shared_dispatcher().metadata(effect_name).params {
+        let name = param.name;
         if specs.iter().any(|spec| spec.name == name) {
             continue;
         }
