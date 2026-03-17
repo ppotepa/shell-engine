@@ -262,6 +262,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: next.map(str::to_string),
         }
     }

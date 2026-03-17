@@ -7,7 +7,7 @@ use crate::effects::Region;
 use crate::markup::strip_markup;
 use crate::render_policy;
 use crate::scene::{HorizontalAlign, Layer, SceneRenderedMode, Sprite, VerticalAlign};
-use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
+use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use std::collections::BTreeMap;
 
@@ -34,6 +34,7 @@ struct RenderCtx<'a> {
     step_idx: usize,
     elapsed_ms: u64,
     layer_buf: &'a mut Buffer,
+    obj_camera_states: &'a BTreeMap<String, ObjCameraState>,
 }
 
 #[derive(Clone, Copy)]
@@ -61,6 +62,7 @@ pub fn render_sprites(
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
+    obj_camera_states: &BTreeMap<String, ObjCameraState>,
     layer_buf: &mut Buffer,
 ) {
     let mut ctx = RenderCtx {
@@ -70,6 +72,7 @@ pub fn render_sprites(
         step_idx,
         elapsed_ms,
         layer_buf,
+        obj_camera_states,
     };
 
     let root_area = RenderArea {
@@ -446,6 +449,7 @@ fn render_sprite(
             );
         }
         Sprite::Obj {
+            id,
             source,
             x,
             y,
@@ -474,10 +478,6 @@ fn render_sprite(
             hide_on_leave,
             stages,
             animations,
-            camera_pan_x,
-            camera_pan_y,
-            camera_look_yaw,
-            camera_look_pitch,
             ..
         } => {
             if *hide_on_leave && matches!(ctx.current_stage, SceneStage::OnLeave) {
@@ -522,6 +522,11 @@ fn render_sprite(
                 .map(str::to_ascii_lowercase)
                 .as_deref()
                 == Some("wireframe");
+            let camera_state = id
+                .as_deref()
+                .and_then(|sprite_id| ctx.obj_camera_states.get(sprite_id))
+                .copied()
+                .unwrap_or_default();
             render_obj_content(
                 source,
                 Some(sprite_width),
@@ -540,10 +545,10 @@ fn render_sprite(
                     fov_degrees: fov_degrees.unwrap_or(60.0),
                     near_clip: near_clip.unwrap_or(0.001),
                     scene_elapsed_ms: sprite_elapsed,
-                    camera_pan_x: *camera_pan_x,
-                    camera_pan_y: *camera_pan_y,
-                    camera_look_yaw: *camera_look_yaw,
-                    camera_look_pitch: *camera_look_pitch,
+                    camera_pan_x: camera_state.pan_x,
+                    camera_pan_y: camera_state.pan_y,
+                    camera_look_yaw: camera_state.look_yaw,
+                    camera_look_pitch: camera_state.look_pitch,
                 },
                 is_wireframe,
                 draw_glyph,

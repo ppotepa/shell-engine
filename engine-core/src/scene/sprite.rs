@@ -208,16 +208,6 @@ pub enum Sprite {
         animations: Vec<crate::scene::Animation>,
         #[serde(default)]
         behaviors: Vec<BehaviorSpec>,
-        /// Runtime-accumulated free-camera pan (view-space). Not set in YAML.
-        #[serde(skip)]
-        camera_pan_x: f32,
-        #[serde(skip)]
-        camera_pan_y: f32,
-        /// Runtime-accumulated free-camera look rotation (degrees). Not set in YAML.
-        #[serde(skip)]
-        camera_look_yaw: f32,
-        #[serde(skip)]
-        camera_look_pitch: f32,
     },
     /// Grid layout container. Children are renderable sprites arranged in rows/columns.
     Grid {

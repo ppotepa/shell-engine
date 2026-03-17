@@ -8,7 +8,7 @@ pub use color::TermColour;
 pub use easing::Easing;
 pub use model::{
     Animation, AudioCue, BehaviorParams, BehaviorSpec, Effect, EffectParams, EffectTargetKind,
-    Layer, LayerStages, MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage,
-    StageTrigger, Step,
+    Layer, LayerStages, MenuOption, ObjViewerControls, Scene, SceneAudio, SceneInput,
+    SceneRenderedMode, SceneStages, Stage, StageTrigger, Step,
 };
 pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};

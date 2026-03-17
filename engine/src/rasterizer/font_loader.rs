@@ -1,25 +1,14 @@
 use super::types::{GlyphManifest, LoadedFont, LoadedGlyph};
+use crate::asset_cache::AssetCache;
 use crate::repositories::{create_asset_repository, AssetRepository};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
 
-static FONT_CACHE: OnceLock<Mutex<HashMap<String, Option<LoadedFont>>>> = OnceLock::new();
+static FONT_CACHE: AssetCache<LoadedFont> = AssetCache::new();
 
 pub fn load_font_assets(mod_source: &Path, font_name: &str) -> Option<LoadedFont> {
     let key = format!("{}::{}", mod_source.display(), font_name.trim());
-    let cache = FONT_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Ok(guard) = cache.lock() {
-        if let Some(cached) = guard.get(&key) {
-            return cached.clone();
-        }
-    }
-
-    let loaded = load_font_assets_uncached(mod_source, font_name);
-    if let Ok(mut guard) = cache.lock() {
-        guard.insert(key, loaded.clone());
-    }
-    loaded
+    FONT_CACHE.get_or_load(key, || load_font_assets_uncached(mod_source, font_name))
 }
 
 fn load_font_assets_uncached(mod_source: &Path, font_name: &str) -> Option<LoadedFont> {

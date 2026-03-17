@@ -74,6 +74,9 @@ properties:
     description: Alias of menu-options.
     items:
       $ref: "#/$defs/menu_option"
+  input:
+    $ref: "#/$defs/scene_input"
+    description: Optional scene-level input control profiles.
 
 $defs:
 
@@ -206,6 +209,24 @@ $defs:
         type: number
         minimum: 0.0
         description: FBM animation speed multiplier (default 0.5).
+
+  # ── Scene input profiles ────────────────────────────────────────────────────
+  scene_input:
+    type: object
+    additionalProperties: false
+    properties:
+      obj-viewer:
+        $ref: "#/$defs/obj_viewer_controls"
+
+  obj_viewer_controls:
+    type: object
+    additionalProperties: false
+    required: [sprite_id]
+    properties:
+      sprite_id:
+        type: string
+        minLength: 1
+        description: Target OBJ sprite id for 3D viewer controls.
 
   # ── Effect ─────────────────────────────────────────────────────────────────
   effect:

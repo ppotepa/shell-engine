@@ -4,7 +4,7 @@ use crate::assets::AssetRoot;
 use crate::buffer::Buffer;
 use crate::effects::Region;
 use crate::scene::{Layer, SceneRenderedMode};
-use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
+use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use crossterm::style::Color;
 use std::cell::RefCell;
@@ -30,6 +30,7 @@ pub fn composite_layers(
     step_idx: usize,
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
+    obj_camera_states: &BTreeMap<String, ObjCameraState>,
     buffer: &mut Buffer,
 ) {
     for (layer_idx, layer) in layers.iter().enumerate() {
@@ -86,6 +87,7 @@ pub fn composite_layers(
                 current_stage,
                 step_idx,
                 elapsed_ms,
+                obj_camera_states,
                 &mut *layer_buf,
             );
 

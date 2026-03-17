@@ -18,7 +18,15 @@ pub struct SceneRuntime {
     resolver_cache: TargetResolver,
     object_regions: BTreeMap<String, Region>,
     obj_orbit_default_speed: BTreeMap<String, f32>,
-    /// Last known mouse position for computing delta in free-camera mode.
+    obj_camera_states: BTreeMap<String, ObjCameraState>,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ObjCameraState {
+    pub pan_x: f32,
+    pub pan_y: f32,
+    pub look_yaw: f32,
+    pub look_pitch: f32,
     pub last_mouse_pos: Option<(u16, u16)>,
 }
 
@@ -135,7 +143,7 @@ impl SceneRuntime {
             resolver_cache: TargetResolver::default(),
             object_regions: BTreeMap::new(),
             obj_orbit_default_speed: BTreeMap::new(),
-            last_mouse_pos: None,
+            obj_camera_states: BTreeMap::new(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.attach_default_behaviors();
@@ -208,16 +216,43 @@ impl SceneRuntime {
 
     /// Accumulate free-camera pan (view-space units) for a sprite.
     pub fn apply_obj_camera_pan(&mut self, sprite_id: &str, dx: f32, dy: f32) {
-        for layer in &mut self.scene.layers {
-            apply_camera_pan_in_sprites(&mut layer.sprites, sprite_id, dx, dy);
-        }
+        let state = self
+            .obj_camera_states
+            .entry(sprite_id.to_string())
+            .or_default();
+        state.pan_x += dx;
+        state.pan_y += dy;
     }
 
     /// Accumulate free-camera look rotation (degrees) for a sprite.
     pub fn apply_obj_camera_look(&mut self, sprite_id: &str, dyaw: f32, dpitch: f32) {
-        for layer in &mut self.scene.layers {
-            apply_camera_look_in_sprites(&mut layer.sprites, sprite_id, dyaw, dpitch);
-        }
+        let state = self
+            .obj_camera_states
+            .entry(sprite_id.to_string())
+            .or_default();
+        state.look_yaw += dyaw;
+        state.look_pitch = (state.look_pitch + dpitch).clamp(-85.0, 85.0);
+    }
+
+    pub fn obj_camera_state(&self, sprite_id: &str) -> ObjCameraState {
+        self.obj_camera_states
+            .get(sprite_id)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    pub fn set_obj_last_mouse_pos(&mut self, sprite_id: &str, pos: Option<(u16, u16)>) {
+        let state = self
+            .obj_camera_states
+            .entry(sprite_id.to_string())
+            .or_default();
+        state.last_mouse_pos = pos;
+    }
+
+    pub fn obj_last_mouse_pos(&self, sprite_id: &str) -> Option<(u16, u16)> {
+        self.obj_camera_states
+            .get(sprite_id)
+            .and_then(|state| state.last_mouse_pos)
     }
 
     pub fn root_id(&self) -> &str {
@@ -242,6 +277,10 @@ impl SceneRuntime {
 
     pub fn object_states_snapshot(&self) -> BTreeMap<String, ObjectRuntimeState> {
         self.object_states.clone()
+    }
+
+    pub fn obj_camera_states_snapshot(&self) -> BTreeMap<String, ObjCameraState> {
+        self.obj_camera_states.clone()
     }
 
     pub fn effective_object_state(&self, id: &str) -> Option<ObjectRuntimeState> {
@@ -754,45 +793,6 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
         }
     }
     None
-}
-
-fn apply_camera_pan_in_sprites(sprites: &mut [Sprite], sprite_id: &str, dx: f32, dy: f32) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Obj { id, camera_pan_x, camera_pan_y, .. } => {
-                if id.as_deref() == Some(sprite_id) {
-                    *camera_pan_x += dx;
-                    *camera_pan_y += dy;
-                }
-            }
-            Sprite::Grid { children, .. } => {
-                apply_camera_pan_in_sprites(children, sprite_id, dx, dy);
-            }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
-        }
-    }
-}
-
-fn apply_camera_look_in_sprites(sprites: &mut [Sprite], sprite_id: &str, dyaw: f32, dpitch: f32) {
-    for sprite in sprites {
-        match sprite {
-            Sprite::Obj {
-                id,
-                camera_look_yaw,
-                camera_look_pitch,
-                ..
-            } => {
-                if id.as_deref() == Some(sprite_id) {
-                    *camera_look_yaw += dyaw;
-                    *camera_look_pitch = (*camera_look_pitch + dpitch).clamp(-85.0, 85.0);
-                }
-            }
-            Sprite::Grid { children, .. } => {
-                apply_camera_look_in_sprites(children, sprite_id, dyaw, dpitch);
-            }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
-        }
-    }
 }
 
 /// Rebuild sprite_ids map recursively to match current sprite order after z-index sorting.
