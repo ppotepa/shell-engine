@@ -47,4 +47,3 @@ properties:
         default: {}
         additionalProperties: true
         description: Optional logic parameters.
-

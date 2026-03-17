@@ -1,0 +1,11 @@
+extends: default
+
+ignore: |
+  editor/assets/effects-preview*.scene.yml
+
+rules:
+  document-start: disable
+  line-length: disable
+  indentation:
+    spaces: 2
+    indent-sequences: whatever
