@@ -5,6 +5,11 @@ title: Intro Prologue - Date Reveal
 cutscene: true
 bg: black
 virtual-size-override: "320x240"
+# Second step of the intro flow.
+# Flow:
+# - on_enter waits, reveals the date card, adds scanlines, then fades it back out
+# - on_idle uses `trigger: none`, so the scene does not wait for input
+# - after the short leave pause, the flow continues into `mainmenu`
 
 stages:
   on_enter:
@@ -43,6 +48,7 @@ layers:
   - name: date
     z_index: 2
     visible: true
+    # Single hero layer with one raster text sprite. Good reference for timed reveal + glow + subtle idle pulse.
     sprites:
       - type: text
         id: date-text
