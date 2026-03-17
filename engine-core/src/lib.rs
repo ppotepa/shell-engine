@@ -2,6 +2,7 @@
 //! Used by both the game engine runtime and editor/tooling.
 
 pub mod animations;
+pub mod authoring;
 pub mod buffer;
 pub mod effects;
 pub mod markup;
