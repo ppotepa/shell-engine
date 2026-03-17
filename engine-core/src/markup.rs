@@ -10,9 +10,9 @@ pub struct Span {
 
 /// Parse a string with `[colour]text[/]` markup into a list of Spans.
 /// Supports:
-///   [named]   — named colour (black/white/gray/silver/red/green/blue/yellow/cyan/magenta)
-///   [#rrggbb] — hex colour
-///   [/] or [/name] — close current colour span (revert to base fg)
+///   `\[named]`   — named colour (black/white/gray/silver/red/green/blue/yellow/cyan/magenta)
+///   `\[#rrggbb]` — hex colour
+///   `[/]` or `[/name]` — close current colour span (revert to base fg)
 ///
 /// Unclosed tags: the rest of the string uses the opened colour.
 /// `[text without closing ']'` — the `[` is treated as a literal character.
