@@ -1,10 +1,11 @@
+use serde_yaml::{Mapping, Value};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
-use crate::scene_compiler::compile_scene_document_with_loader;
 use crate::scene::Scene;
+use crate::scene_compiler::compile_scene_document_with_loader;
 use crate::EngineError;
 
 pub trait SceneRepository {
@@ -85,16 +86,32 @@ impl FsSceneRepository {
         let normalized = scene_path.trim_start_matches('/');
         self.mod_source.join(normalized)
     }
-}
 
-impl SceneRepository for FsSceneRepository {
-    fn load_scene(&self, scene_path: &str) -> Result<Scene, EngineError> {
-        let full_path = self.scene_abs_path(scene_path);
+    fn load_scene_content(&self, scene_path: &str) -> Result<(PathBuf, String), EngineError> {
+        let requested_path = self.scene_abs_path(scene_path);
+        let full_path = if requested_path.is_dir() {
+            requested_path.join("scene.yml")
+        } else {
+            requested_path
+        };
         let content =
             fs::read_to_string(&full_path).map_err(|source| EngineError::ManifestRead {
                 path: full_path.clone(),
                 source,
             })?;
+
+        if !is_scene_package_manifest(&relative_to_mod(&self.mod_source, &full_path)) {
+            return Ok((full_path, content));
+        }
+
+        let merged = assemble_fs_scene_package(&full_path, &content)?;
+        Ok((full_path, merged))
+    }
+}
+
+impl SceneRepository for FsSceneRepository {
+    fn load_scene(&self, scene_path: &str) -> Result<Scene, EngineError> {
+        let (full_path, content) = self.load_scene_content(scene_path)?;
 
         compile_scene_document_with_loader(&content, |asset_path| {
             fs::read_to_string(self.scene_abs_path(asset_path)).ok()
@@ -120,11 +137,10 @@ impl SceneRepository for FsSceneRepository {
 
         let mut normalized = Vec::with_capacity(paths.len());
         for path in paths {
-            let rel = path
-                .strip_prefix(&self.mod_source)
-                .unwrap_or(path.as_path())
-                .to_string_lossy()
-                .replace('\\', "/");
+            let rel = relative_to_mod(&self.mod_source, &path);
+            if !is_discoverable_scene_path(&rel) {
+                continue;
+            }
             normalized.push(format!("/{rel}"));
         }
         Ok(normalized)
@@ -197,26 +213,67 @@ impl ZipSceneRepository {
             source,
         })
     }
+
+    fn read_text_file(&self, normalized_path: &str) -> Result<String, EngineError> {
+        let mut archive = self.open_archive()?;
+        let mut file =
+            archive
+                .by_name(normalized_path)
+                .map_err(|_| EngineError::MissingSceneEntrypoint {
+                    mod_source: self.mod_source.clone(),
+                    entrypoint: format!("/{normalized_path}"),
+                })?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .map_err(|source| EngineError::ManifestRead {
+                path: self.mod_source.clone(),
+                source,
+            })?;
+        Ok(content)
+    }
+
+    fn list_yaml_entries_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError> {
+        let prefix = asset_prefix.trim_start_matches('/').trim_end_matches('/');
+        let prefix = if prefix.is_empty() {
+            String::new()
+        } else {
+            format!("{prefix}/")
+        };
+        let mut archive = self.open_archive()?;
+        let mut out = Vec::new();
+        for idx in 0..archive.len() {
+            let entry = archive
+                .by_index(idx)
+                .map_err(|source| EngineError::ZipArchive {
+                    path: self.mod_source.clone(),
+                    source,
+                })?;
+            if entry.is_dir() {
+                continue;
+            }
+            let name = entry.name().replace('\\', "/");
+            if !name.starts_with(&prefix) {
+                continue;
+            }
+            if !is_yaml_path(&name) {
+                continue;
+            }
+            out.push(name);
+        }
+        out.sort();
+        Ok(out)
+    }
 }
 
 impl SceneRepository for ZipSceneRepository {
     fn load_scene(&self, scene_path: &str) -> Result<Scene, EngineError> {
         let normalized = Self::normalized(scene_path);
-        let mut archive = self.open_archive()?;
-        let mut scene_file =
-            archive
-                .by_name(normalized)
-                .map_err(|_| EngineError::MissingSceneEntrypoint {
-                    mod_source: self.mod_source.clone(),
-                    entrypoint: scene_path.to_string(),
-                })?;
-        let mut content = String::new();
-        scene_file
-            .read_to_string(&mut content)
-            .map_err(|source| EngineError::ManifestRead {
-                path: self.mod_source.clone(),
-                source,
-            })?;
+        let content = self.read_text_file(normalized)?;
+        let content = if is_scene_package_manifest(normalized) {
+            assemble_zip_scene_package(self, normalized, &content)?
+        } else {
+            content
+        };
 
         compile_scene_document_with_loader(&content, |asset_path| {
             let normalized_asset = Self::normalized(asset_path);
@@ -249,7 +306,7 @@ impl SceneRepository for ZipSceneRepository {
             if !name.starts_with("scenes/") {
                 continue;
             }
-            if !(name.ends_with(".yml") || name.ends_with(".yaml")) {
+            if !is_discoverable_scene_path(&name) {
                 continue;
             }
             out.push(format!("/{name}"));
@@ -351,6 +408,210 @@ fn is_zip_file(path: &Path) -> bool {
             .extension()
             .and_then(|ext| ext.to_str())
             .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+}
+
+fn assemble_fs_scene_package(scene_file: &Path, root_content: &str) -> Result<String, EngineError> {
+    let mut root = parse_yaml_value(root_content, scene_file)?;
+    let Some(package_dir) = scene_file.parent() else {
+        return Ok(root_content.to_string());
+    };
+
+    merge_sequence_dir(&mut root, &package_dir.join("layers"), "layers")?;
+    merge_mapping_dir(&mut root, &package_dir.join("templates"), "templates")?;
+    merge_sequence_dir(&mut root, &package_dir.join("objects"), "objects")?;
+
+    to_yaml_string(&root, scene_file)
+}
+
+fn assemble_zip_scene_package(
+    repo: &ZipSceneRepository,
+    scene_path: &str,
+    root_content: &str,
+) -> Result<String, EngineError> {
+    let mut root = parse_yaml_value(root_content, &repo.mod_source)?;
+    let Some((package_dir, _)) = scene_path.rsplit_once('/') else {
+        return Ok(root_content.to_string());
+    };
+
+    merge_zip_sequence_dir(repo, &mut root, package_dir, "layers")?;
+    merge_zip_mapping_dir(repo, &mut root, package_dir, "templates")?;
+    merge_zip_sequence_dir(repo, &mut root, package_dir, "objects")?;
+
+    to_yaml_string(&root, &repo.mod_source)
+}
+
+fn merge_sequence_dir(root: &mut Value, dir: &Path, key: &str) -> Result<(), EngineError> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    let mut entries = Vec::new();
+    for file in yaml_files_under(dir).map_err(|source| EngineError::ManifestRead {
+        path: dir.to_path_buf(),
+        source,
+    })? {
+        let raw = fs::read_to_string(&file).map_err(|source| EngineError::ManifestRead {
+            path: file.clone(),
+            source,
+        })?;
+        let value = parse_yaml_value(&raw, &file)?;
+        let Some(seq) = value.as_sequence() else {
+            continue;
+        };
+        entries.extend(seq.iter().cloned());
+    }
+    append_sequence_entries(root, key, entries);
+    Ok(())
+}
+
+fn merge_mapping_dir(root: &mut Value, dir: &Path, key: &str) -> Result<(), EngineError> {
+    if !dir.exists() {
+        return Ok(());
+    }
+    let mut entries = Mapping::new();
+    for file in yaml_files_under(dir).map_err(|source| EngineError::ManifestRead {
+        path: dir.to_path_buf(),
+        source,
+    })? {
+        let raw = fs::read_to_string(&file).map_err(|source| EngineError::ManifestRead {
+            path: file.clone(),
+            source,
+        })?;
+        let value = parse_yaml_value(&raw, &file)?;
+        let Some(map) = value.as_mapping() else {
+            continue;
+        };
+        for (k, v) in map {
+            entries.insert(k.clone(), v.clone());
+        }
+    }
+    merge_mapping_entries(root, key, entries);
+    Ok(())
+}
+
+fn merge_zip_sequence_dir(
+    repo: &ZipSceneRepository,
+    root: &mut Value,
+    package_dir: &str,
+    key: &str,
+) -> Result<(), EngineError> {
+    let prefix = format!("{package_dir}/{key}");
+    let mut entries = Vec::new();
+    for file in repo.list_yaml_entries_under(&prefix)? {
+        let raw = repo.read_text_file(&file)?;
+        let value = parse_yaml_value(&raw, &repo.mod_source)?;
+        let Some(seq) = value.as_sequence() else {
+            continue;
+        };
+        entries.extend(seq.iter().cloned());
+    }
+    append_sequence_entries(root, key, entries);
+    Ok(())
+}
+
+fn merge_zip_mapping_dir(
+    repo: &ZipSceneRepository,
+    root: &mut Value,
+    package_dir: &str,
+    key: &str,
+) -> Result<(), EngineError> {
+    let prefix = format!("{package_dir}/{key}");
+    let mut entries = Mapping::new();
+    for file in repo.list_yaml_entries_under(&prefix)? {
+        let raw = repo.read_text_file(&file)?;
+        let value = parse_yaml_value(&raw, &repo.mod_source)?;
+        let Some(map) = value.as_mapping() else {
+            continue;
+        };
+        for (k, v) in map {
+            entries.insert(k.clone(), v.clone());
+        }
+    }
+    merge_mapping_entries(root, key, entries);
+    Ok(())
+}
+
+fn append_sequence_entries(root: &mut Value, key: &str, entries: Vec<Value>) {
+    if entries.is_empty() {
+        return;
+    }
+    let Some(root_map) = root.as_mapping_mut() else {
+        return;
+    };
+    let value = root_map
+        .entry(Value::String(key.to_string()))
+        .or_insert_with(|| Value::Sequence(Vec::new()));
+    let Some(seq) = value.as_sequence_mut() else {
+        return;
+    };
+    seq.extend(entries);
+}
+
+fn merge_mapping_entries(root: &mut Value, key: &str, entries: Mapping) {
+    if entries.is_empty() {
+        return;
+    }
+    let Some(root_map) = root.as_mapping_mut() else {
+        return;
+    };
+    let value = root_map
+        .entry(Value::String(key.to_string()))
+        .or_insert_with(|| Value::Mapping(Mapping::new()));
+    let Some(map) = value.as_mapping_mut() else {
+        return;
+    };
+    for (k, v) in entries {
+        map.insert(k, v);
+    }
+}
+
+fn parse_yaml_value(raw: &str, path: &Path) -> Result<Value, EngineError> {
+    serde_yaml::from_str(raw).map_err(|source| EngineError::InvalidModYaml {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+fn to_yaml_string(value: &Value, path: &Path) -> Result<String, EngineError> {
+    let mut out = serde_yaml::to_string(value).map_err(|source| EngineError::InvalidModYaml {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if !out.ends_with('\n') {
+        out.push('\n');
+    }
+    Ok(out)
+}
+
+fn relative_to_mod(mod_root: &Path, path: &Path) -> String {
+    path.strip_prefix(mod_root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+fn is_discoverable_scene_path(path: &str) -> bool {
+    path.starts_with("scenes/") && is_yaml_path(path) && !is_reserved_scene_partial_path(path)
+}
+
+fn is_scene_package_manifest(path: &str) -> bool {
+    let trimmed = path.trim_start_matches('/');
+    trimmed.starts_with("scenes/") && trimmed.ends_with("/scene.yml")
+}
+
+fn is_reserved_scene_partial_path(path: &str) -> bool {
+    let trimmed = path.trim_start_matches('/');
+    let segments: Vec<&str> = trimmed.split('/').collect();
+    if segments.len() < 4 || segments.first() != Some(&"scenes") {
+        return false;
+    }
+    matches!(
+        segments[2],
+        "layers" | "sprites" | "templates" | "objects" | "effects"
+    )
+}
+
+fn is_yaml_path(path: &str) -> bool {
+    path.ends_with(".yml") || path.ends_with(".yaml")
 }
 
 #[cfg(test)]
@@ -569,6 +830,137 @@ next: null
             _ => panic!("expected text sprite"),
         }
     }
+
+    #[test]
+    fn fs_repository_discovers_and_loads_scene_packages() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes/intro/layers")).expect("create layer dir");
+        fs::create_dir_all(mod_dir.join("scenes/intro/objects")).expect("create object dir");
+        fs::create_dir_all(mod_dir.join("objects")).expect("create global object dir");
+        fs::write(
+            mod_dir.join("objects/banner.yml"),
+            r#"
+name: banner
+sprites:
+  - type: text
+    content: "$label"
+"#,
+        )
+        .expect("write object");
+        fs::write(
+            mod_dir.join("scenes/intro/scene.yml"),
+            r#"
+id: intro-package
+title: Intro Package
+next: null
+"#,
+        )
+        .expect("write scene root");
+        fs::write(
+            mod_dir.join("scenes/intro/layers/base.yml"),
+            r#"
+- name: base
+  sprites:
+    - type: text
+      content: HELLO
+"#,
+        )
+        .expect("write layer partial");
+        fs::write(
+            mod_dir.join("scenes/intro/objects/banner.yml"),
+            r#"
+- use: banner
+  with:
+    label: PACKAGE
+"#,
+        )
+        .expect("write object partial");
+
+        let repo = create_scene_repository(&mod_dir).expect("repo");
+        assert_eq!(
+            repo.discover_scene_paths().expect("discover scenes"),
+            vec!["/scenes/intro/scene.yml".to_string()]
+        );
+
+        let scene = repo
+            .load_scene("/scenes/intro/scene.yml")
+            .expect("load scene package");
+        assert_eq!(scene.id, "intro-package");
+        assert_eq!(scene.layers.len(), 2);
+    }
+
+    #[test]
+    fn zip_repository_discovers_and_loads_scene_packages() {
+        let temp = tempdir().expect("temp dir");
+        let zip_path = temp.path().join("mod.zip");
+        let file = fs::File::create(&zip_path).expect("create zip");
+        let mut writer = ZipWriter::new(file);
+        let opts = SimpleFileOptions::default();
+        writer
+            .start_file("objects/banner.yml", opts)
+            .expect("start object");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+name: banner
+sprites:
+  - type: text
+    content: "$label"
+"#,
+        )
+        .expect("write object");
+        writer
+            .start_file("scenes/intro/scene.yml", opts)
+            .expect("start scene root");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+id: intro-package
+title: Intro Package
+next: null
+"#,
+        )
+        .expect("write scene root");
+        writer
+            .start_file("scenes/intro/layers/base.yml", opts)
+            .expect("start layer partial");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+- name: base
+  sprites:
+    - type: text
+      content: ZIP
+"#,
+        )
+        .expect("write layer partial");
+        writer
+            .start_file("scenes/intro/objects/banner.yml", opts)
+            .expect("start object partial");
+        std::io::Write::write_all(
+            &mut writer,
+            br#"
+- use: banner
+  with:
+    label: PACKAGE
+"#,
+        )
+        .expect("write object partial");
+        writer.finish().expect("finish zip");
+
+        let repo = create_scene_repository(&zip_path).expect("repo");
+        assert_eq!(
+            repo.discover_scene_paths().expect("discover scenes"),
+            vec!["/scenes/intro/scene.yml".to_string()]
+        );
+
+        let scene = repo
+            .load_scene("/scenes/intro/scene.yml")
+            .expect("load scene package");
+        assert_eq!(scene.id, "intro-package");
+        assert_eq!(scene.layers.len(), 2);
+    }
 }
 
 fn walk_scene_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
@@ -598,6 +990,31 @@ fn walk_asset_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> 
             continue;
         }
         out.push(path);
+    }
+    Ok(())
+}
+
+fn yaml_files_under(root: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut out = Vec::new();
+    walk_yaml_paths(root, &mut out)?;
+    out.sort();
+    Ok(out)
+}
+
+fn walk_yaml_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            walk_yaml_paths(&path, out)?;
+            continue;
+        }
+        let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+            continue;
+        };
+        if ext.eq_ignore_ascii_case("yml") || ext.eq_ignore_ascii_case("yaml") {
+            out.push(path);
+        }
     }
     Ok(())
 }

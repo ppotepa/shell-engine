@@ -90,4 +90,37 @@ layers: []
             .expect("resolve by id");
         assert_eq!(scene.id, "playground-3d-scene");
     }
+
+    #[test]
+    fn load_by_ref_resolves_scene_package_id() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes/intro/layers")).expect("create scene package");
+        fs::write(
+            mod_dir.join("scenes/intro/scene.yml"),
+            r#"
+id: packaged-intro
+title: Package
+next: null
+"#,
+        )
+        .expect("write scene root");
+        fs::write(
+            mod_dir.join("scenes/intro/layers/base.yml"),
+            r#"
+- name: base
+  sprites:
+    - type: text
+      content: HI
+"#,
+        )
+        .expect("write layer");
+
+        let loader = SceneLoader::new(mod_dir).expect("create scene loader");
+        let scene = loader
+            .load_by_ref("packaged-intro")
+            .expect("resolve packaged scene by id");
+        assert_eq!(scene.id, "packaged-intro");
+        assert_eq!(scene.layers.len(), 1);
+    }
 }
