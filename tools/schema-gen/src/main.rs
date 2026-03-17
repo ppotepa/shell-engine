@@ -125,14 +125,29 @@ fn generate_fragment_for_mod(mod_root: &Path, out_dir: &Path) -> Result<()> {
     );
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
 
-    let out_path = out_dir.join(format!("{mod_name}.schema.yaml"));
-    let mut yaml = serde_yaml::to_string(&Value::Mapping(root))?;
-    if !yaml.ends_with('\n') {
-        yaml.push('\n');
-    }
-    fs::write(&out_path, yaml)
-        .with_context(|| format!("failed to write {}", out_path.display()))?;
-    println!("generated {}", out_path.display());
+    let defs_path = out_dir.join(format!("{mod_name}.schema.yaml"));
+    write_schema_file(&defs_path, &Value::Mapping(root))?;
+    println!("generated {}", defs_path.display());
+
+    let scene_overlay = build_scene_overlay_schema(mod_name);
+    let scene_overlay_path = out_dir.join(format!("{mod_name}.scene.schema.yaml"));
+    write_schema_file(&scene_overlay_path, &scene_overlay)?;
+    println!("generated {}", scene_overlay_path.display());
+
+    let scene_file_overlay = build_scene_file_overlay_schema(mod_name);
+    let scene_file_overlay_path = out_dir.join(format!("{mod_name}.scene-file.schema.yaml"));
+    write_schema_file(&scene_file_overlay_path, &scene_file_overlay)?;
+    println!("generated {}", scene_file_overlay_path.display());
+
+    let objects_file_overlay = build_objects_file_overlay_schema(mod_name);
+    let objects_file_overlay_path = out_dir.join(format!("{mod_name}.objects-file.schema.yaml"));
+    write_schema_file(&objects_file_overlay_path, &objects_file_overlay)?;
+    println!("generated {}", objects_file_overlay_path.display());
+
+    let effect_file_overlay = build_effect_file_overlay_schema(mod_name);
+    let effect_file_overlay_path = out_dir.join(format!("{mod_name}.effect-file.schema.yaml"));
+    write_schema_file(&effect_file_overlay_path, &effect_file_overlay)?;
+    println!("generated {}", effect_file_overlay_path.display());
     Ok(())
 }
 
@@ -147,6 +162,226 @@ fn enum_schema(values: Vec<String>) -> Value {
         Value::Sequence(values.into_iter().map(Value::String).collect()),
     );
     Value::Mapping(m)
+}
+
+fn write_schema_file(path: &Path, value: &Value) -> Result<()> {
+    let mut yaml = serde_yaml::to_string(value)?;
+    if !yaml.ends_with('\n') {
+        yaml.push('\n');
+    }
+    fs::write(path, yaml).with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
+fn build_scene_overlay_schema(mod_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/schemas/generated/{mod_name}.scene.schema.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{mod_name} scene overlay schema")),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../scene.schema.yaml"),
+            Value::Mapping(scene_overlay_patch(mod_name)),
+        ]),
+    );
+    Value::Mapping(root)
+}
+
+fn build_scene_file_overlay_schema(mod_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/schemas/generated/{mod_name}.scene-file.schema.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{mod_name} scene-file overlay schema")),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../scene-file.schema.yaml"),
+            Value::Mapping(scene_overlay_patch(mod_name)),
+        ]),
+    );
+    Value::Mapping(root)
+}
+
+fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
+    let mut items_patch = Mapping::new();
+    let mut use_props = Mapping::new();
+    use_props.insert(
+        Value::String("use".to_string()),
+        schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/object_names")),
+    );
+    items_patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(use_props),
+    );
+
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/schemas/generated/{mod_name}.objects-file.schema.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{mod_name} objects-file overlay schema")),
+    );
+    root.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    root.insert(
+        Value::String("items".to_string()),
+        Value::Mapping(mapping_with(
+            "allOf",
+            Value::Sequence(vec![
+                schema_ref("../objects-file.schema.yaml#/items"),
+                Value::Mapping(items_patch),
+            ]),
+        )),
+    );
+    Value::Mapping(root)
+}
+
+fn build_effect_file_overlay_schema(mod_name: &str) -> Value {
+    let mut items_patch = Mapping::new();
+    items_patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(mapping_with(
+            "name",
+            schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/effect_names")),
+        )),
+    );
+
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/schemas/generated/{mod_name}.effect-file.schema.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{mod_name} effect-file overlay schema")),
+    );
+    root.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    root.insert(
+        Value::String("items".to_string()),
+        Value::Mapping(mapping_with(
+            "allOf",
+            Value::Sequence(vec![
+                schema_ref("../effect-file.schema.yaml#/items"),
+                Value::Mapping(items_patch),
+            ]),
+        )),
+    );
+    Value::Mapping(root)
+}
+
+fn scene_overlay_patch(mod_name: &str) -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("next".to_string()),
+        nullable_ref(&format!("./{mod_name}.schema.yaml#/$defs/scene_ids")),
+    );
+    props.insert(
+        Value::String("menu-options".to_string()),
+        menu_options_overlay(mod_name),
+    );
+    props.insert(
+        Value::String("menu_options".to_string()),
+        menu_options_overlay(mod_name),
+    );
+    props.insert(
+        Value::String("objects".to_string()),
+        objects_overlay(mod_name),
+    );
+
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    root
+}
+
+fn menu_options_overlay(mod_name: &str) -> Value {
+    Value::Mapping(mapping_with(
+        "items",
+        Value::Mapping(mapping_with(
+            "properties",
+            Value::Mapping(mapping_with(
+                "next",
+                schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/scene_ids")),
+            )),
+        )),
+    ))
+}
+
+fn objects_overlay(mod_name: &str) -> Value {
+    Value::Mapping(mapping_with(
+        "items",
+        Value::Mapping(mapping_with(
+            "properties",
+            Value::Mapping(mapping_with(
+                "use",
+                schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/object_names")),
+            )),
+        )),
+    ))
+}
+
+fn schema_ref(target: &str) -> Value {
+    Value::Mapping(mapping_with("$ref", Value::String(target.to_string())))
+}
+
+fn nullable_ref(target: &str) -> Value {
+    Value::Mapping(mapping_with(
+        "oneOf",
+        Value::Sequence(vec![
+            schema_ref(target),
+            Value::Mapping(mapping_with("type", Value::String("null".to_string()))),
+        ]),
+    ))
+}
+
+fn mapping_with(key: &str, value: Value) -> Mapping {
+    let mut map = Mapping::new();
+    map.insert(Value::String(key.to_string()), value);
+    map
 }
 
 fn collect_scene_ids(mod_root: &Path) -> Result<BTreeSet<String>> {
@@ -328,6 +563,19 @@ mod tests {
         assert!(layer_refs
             .iter()
             .any(|v| v.as_str() == Some("intro/layers/bg.yml")));
+
+        let scene_overlay = fs::read_to_string(out_dir.join("playground.scene.schema.yaml"))
+            .expect("read scene overlay");
+        assert!(scene_overlay.contains("./playground.schema.yaml#/$defs/scene_ids"));
+
+        let objects_overlay =
+            fs::read_to_string(out_dir.join("playground.objects-file.schema.yaml"))
+                .expect("read objects overlay");
+        assert!(objects_overlay.contains("./playground.schema.yaml#/$defs/object_names"));
+
+        let effect_overlay = fs::read_to_string(out_dir.join("playground.effect-file.schema.yaml"))
+            .expect("read effect overlay");
+        assert!(effect_overlay.contains("./playground.schema.yaml#/$defs/effect_names"));
     }
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
