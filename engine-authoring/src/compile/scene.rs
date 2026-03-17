@@ -288,7 +288,9 @@ fn substitute_args(value: &mut Value, args: &Mapping) {
 
 #[cfg(test)]
 mod tests {
-    use super::{compile_scene_document_with_loader, compile_scene_document_with_loader_and_source};
+    use super::{
+        compile_scene_document_with_loader, compile_scene_document_with_loader_and_source,
+    };
     use engine_core::scene::Sprite;
 
     #[test]

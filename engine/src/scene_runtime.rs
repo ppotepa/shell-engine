@@ -203,14 +203,23 @@ impl SceneRuntime {
         let mut updated = false;
         for layer in &mut self.scene.layers {
             for_each_obj_mut(&mut layer.sprites, &mut |sprite| {
-                if let Sprite::Obj { id, surface_mode, .. } = sprite {
+                if let Sprite::Obj {
+                    id, surface_mode, ..
+                } = sprite
+                {
                     if id.as_deref() == Some(sprite_id) {
                         let is_wireframe = surface_mode
                             .as_deref()
                             .map(str::trim)
                             .is_some_and(|m| m.eq_ignore_ascii_case("wireframe"));
-                        *surface_mode =
-                            Some(if is_wireframe { "material" } else { "wireframe" }.to_string());
+                        *surface_mode = Some(
+                            if is_wireframe {
+                                "material"
+                            } else {
+                                "wireframe"
+                            }
+                            .to_string(),
+                        );
                         updated = true;
                     }
                 }
@@ -228,11 +237,19 @@ impl SceneRuntime {
         let mut updated = false;
         for layer in &mut self.scene.layers {
             for_each_obj_mut(&mut layer.sprites, &mut |sprite| {
-                if let Sprite::Obj { id, rotate_y_deg_per_sec, .. } = sprite {
+                if let Sprite::Obj {
+                    id,
+                    rotate_y_deg_per_sec,
+                    ..
+                } = sprite
+                {
                     if id.as_deref() == Some(sprite_id) {
                         let current = rotate_y_deg_per_sec.unwrap_or(default_speed);
-                        *rotate_y_deg_per_sec =
-                            Some(if current.abs() < f32::EPSILON { default_speed } else { 0.0 });
+                        *rotate_y_deg_per_sec = Some(if current.abs() < f32::EPSILON {
+                            default_speed
+                        } else {
+                            0.0
+                        });
                         updated = true;
                     }
                 }
@@ -707,8 +724,14 @@ fn collect_obj_orbit_defaults(scene: &Scene) -> BTreeMap<String, f32> {
     let mut out = BTreeMap::new();
     for layer in &scene.layers {
         for_each_obj(&layer.sprites, &mut |sprite| {
-            if let Sprite::Obj { id: Some(id), rotate_y_deg_per_sec, .. } = sprite {
-                out.entry(id.to_string()).or_insert(rotate_y_deg_per_sec.unwrap_or(20.0));
+            if let Sprite::Obj {
+                id: Some(id),
+                rotate_y_deg_per_sec,
+                ..
+            } = sprite
+            {
+                out.entry(id.to_string())
+                    .or_insert(rotate_y_deg_per_sec.unwrap_or(20.0));
             }
         });
     }
@@ -731,7 +754,9 @@ fn for_each_obj_mut(sprites: &mut [Sprite], f: &mut impl FnMut(&mut Sprite)) {
     for sprite in sprites.iter_mut() {
         match sprite {
             Sprite::Obj { .. } => f(sprite),
-            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => for_each_obj_mut(children, f),
+            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+                for_each_obj_mut(children, f)
+            }
             _ => {}
         }
     }
@@ -949,8 +974,7 @@ layers:
 
     #[test]
     fn toggles_obj_orbit_speed_on_and_off() {
-        let mut runtime =
-            SceneRuntime::new(obj_scene("        rotate-y-deg-per-sec: 14"));
+        let mut runtime = SceneRuntime::new(obj_scene("        rotate-y-deg-per-sec: 14"));
         assert!(runtime.toggle_obj_orbit("helsinki-uni-wireframe"));
         let speed_off = runtime
             .scene()

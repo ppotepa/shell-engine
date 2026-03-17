@@ -62,7 +62,11 @@ impl PackageError {
 
 impl Display for PackageError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "invalid scene package YAML in {}: {}", self.path, self.source)
+        write!(
+            f,
+            "invalid scene package YAML in {}: {}",
+            self.path, self.source
+        )
     }
 }
 
@@ -215,7 +219,10 @@ title:
     #[test]
     fn reports_partial_path_for_invalid_yaml() {
         let partials = ScenePackagePartials {
-            layers: vec![PackageYamlFile::new("/scenes/intro/layers/base.yml", "layers: [")],
+            layers: vec![PackageYamlFile::new(
+                "/scenes/intro/layers/base.yml",
+                "layers: [",
+            )],
             ..ScenePackagePartials::default()
         };
 

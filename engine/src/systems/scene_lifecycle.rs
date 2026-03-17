@@ -75,15 +75,14 @@ impl SceneLifecycleManager {
             .scene_runtime()
             .map(|r| {
                 let opts = r.scene().menu_options.clone();
-                let any_key =
-                    matches!(r.scene().stages.on_idle.trigger, scene::StageTrigger::AnyKey);
+                let any_key = matches!(
+                    r.scene().stages.on_idle.trigger,
+                    scene::StageTrigger::AnyKey
+                );
                 (opts, any_key)
             })
             .unwrap_or_default();
-        let selected_index = world
-            .animator()
-            .map(|a| a.menu_selected_index)
-            .unwrap_or(0);
+        let selected_index = world.animator().map(|a| a.menu_selected_index).unwrap_or(0);
         let menu_action = evaluate_menu_action(&menu_options, selected_index, key_presses);
 
         if !is_scene_idle(world) || !any_key_trigger {

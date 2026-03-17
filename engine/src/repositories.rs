@@ -185,7 +185,9 @@ impl AssetRepository for FsSceneRepository {
         Ok(paths
             .into_iter()
             .map(|path| {
-                let rel = path.strip_prefix(&self.mod_source).unwrap_or(path.as_path());
+                let rel = path
+                    .strip_prefix(&self.mod_source)
+                    .unwrap_or(path.as_path());
                 format!("/{}", rel.to_string_lossy().replace('\\', "/"))
             })
             .collect())
@@ -421,10 +423,14 @@ fn assemble_zip_scene_package(
         templates: read_zip_package_partials(repo, package_dir, "templates")?,
         objects: read_zip_package_partials(repo, package_dir, "objects")?,
     };
-    assemble_scene_package(root_content, &format!("/{scene_path}"), &partials).map_err(map_package_error)
+    assemble_scene_package(root_content, &format!("/{scene_path}"), &partials)
+        .map_err(map_package_error)
 }
 
-fn read_fs_package_partials(mod_root: &Path, dir: &Path) -> Result<Vec<PackageYamlFile>, EngineError> {
+fn read_fs_package_partials(
+    mod_root: &Path,
+    dir: &Path,
+) -> Result<Vec<PackageYamlFile>, EngineError> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -452,7 +458,10 @@ fn read_zip_package_partials(
 ) -> Result<Vec<PackageYamlFile>, EngineError> {
     let mut out = Vec::new();
     for file in repo.list_yaml_entries_under(&format!("{package_dir}/{key}"))? {
-        out.push(PackageYamlFile::new(format!("/{file}"), repo.read_text_file(&file)?));
+        out.push(PackageYamlFile::new(
+            format!("/{file}"),
+            repo.read_text_file(&file)?,
+        ));
     }
     Ok(out)
 }
@@ -616,10 +625,7 @@ mod tests {
         make_zip(
             &zip_path,
             &[
-                (
-                    "assets/fonts/test/8px/ascii/manifest.yaml",
-                    b"glyphs: []\n",
-                ),
+                ("assets/fonts/test/8px/ascii/manifest.yaml", b"glyphs: []\n"),
                 ("assets/fonts/test/8px/ascii/a.txt", b"A\n"),
             ],
         );
@@ -806,7 +812,8 @@ next: null
         let temp = tempdir().expect("temp dir");
         let mod_dir = temp.path().join("mod");
         fs::create_dir_all(mod_dir.join("scenes/intro/objects")).expect("create object dir");
-        fs::create_dir_all(mod_dir.join("scenes/shared/objects")).expect("create shared object dir");
+        fs::create_dir_all(mod_dir.join("scenes/shared/objects"))
+            .expect("create shared object dir");
         fs::write(
             mod_dir.join("scenes/intro/scene.yml"),
             r#"
@@ -914,7 +921,10 @@ sprites:
                     "scenes/shared/common.yml",
                     b"id: shared\ntitle: Shared\nlayers: []\nnext: null\n",
                 ),
-                ("scenes/intro/layers/base.yml", b"- name: base\n  sprites: []\n"),
+                (
+                    "scenes/intro/layers/base.yml",
+                    b"- name: base\n  sprites: []\n",
+                ),
             ],
         );
 
@@ -925,4 +935,3 @@ sprites:
         );
     }
 }
-

@@ -58,7 +58,9 @@ mod tests {
     #[test]
     fn excludes_shared_and_partial_paths_from_scene_discovery() {
         assert!(is_reserved_scene_partial_path("scenes/shared/banner.yml"));
-        assert!(is_reserved_scene_partial_path("scenes/intro/layers/base.yml"));
+        assert!(is_reserved_scene_partial_path(
+            "scenes/intro/layers/base.yml"
+        ));
         assert!(!is_reserved_scene_partial_path("scenes/intro/scene.yml"));
         assert!(!is_discoverable_scene_path("scenes/shared/banner.yml"));
         assert!(!is_discoverable_scene_path("scenes/intro/layers/base.yml"));

@@ -59,19 +59,22 @@ mod tests {
         let temp_dir = std::env::temp_dir().join("editor-test-indexer");
         std::fs::create_dir_all(&temp_dir).unwrap();
         std::fs::write(temp_dir.join("mod.yaml"), "name: test\n").unwrap();
-        
+
         let index = build_project_index(temp_dir.to_str().unwrap());
-        
+
         // Verify effects come from catalog, not hardcoded
         let catalog_effects: Vec<String> = engine_core::authoring::catalog::static_catalog()
             .effect_names
             .iter()
             .map(|&name| name.to_string())
             .collect();
-        
-        assert_eq!(index.effects, catalog_effects, "Effects should match catalog");
+
+        assert_eq!(
+            index.effects, catalog_effects,
+            "Effects should match catalog"
+        );
         assert!(!index.effects.is_empty(), "Effects should not be empty");
-        
+
         // Cleanup
         std::fs::remove_dir_all(&temp_dir).ok();
     }
