@@ -1,0 +1,11 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/templates-file.schema.yaml"
+title: Templates File Schema
+description: >
+  Partial file schema for scene-local sprite templates in folder-based scene packages.
+  Keys are template names; values are sprite definitions reusable via the `use` field on sprites.
+  Used as the templates.yml partial in a scene folder.
+type: object
+default: {}
+additionalProperties:
+  $ref: "./scene.schema.yaml#/$defs/sprite"

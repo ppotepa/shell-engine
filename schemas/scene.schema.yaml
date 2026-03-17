@@ -1,0 +1,793 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/scene.schema.yaml"
+title: Scene Schema
+description: >
+  Defines a scene in a Shell Quest mod.
+  Scenes have a lifecycle managed through stages (on_enter, on_idle, on_leave),
+  each containing sequential steps of parallel effects.
+type: object
+additionalProperties: false
+required:
+  - id
+  - title
+properties:
+  id:
+    type: string
+    minLength: 1
+    description: Unique identifier for the scene. Used for scene transitions.
+  title:
+    type: string
+    minLength: 1
+    description: Human-readable title.
+  cutscene:
+    type: boolean
+    default: false
+    description: Whether this scene is a non-interactive cutscene.
+  target-fps:
+    type: integer
+    minimum: 1
+    maximum: 240
+    description: Optional scene-level FPS cap override (applies regardless of renderer/scene type).
+  target_fps:
+    type: integer
+    minimum: 1
+    maximum: 240
+    description: Alias of target-fps.
+  rendered-mode:
+    type: string
+    enum: [cell, halfblock, quadblock, braille]
+    description: >
+      Optional scene-level renderer packing mode override.
+      Runtime currently supports `halfblock` for 2x vertical virtual resolution.
+      Other modes are reserved for upcoming packed renderers.
+  virtual-size-override:
+    type: string
+    pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+    description: >
+      Optional virtual canvas override in WIDTHxHEIGHT form (e.g. 320x240).
+      Declared for future renderer scaling flow; currently informational.
+  bg_colour:
+    $ref: "#/$defs/colour"
+    description: >
+      Terminal background colour filling the entire buffer on scene load.
+      Defaults to true black (RGB 0,0,0) when absent.
+  bg:
+    $ref: "#/$defs/colour"
+    description: Alias of bg_colour.
+  stages:
+    $ref: "#/$defs/scene_stages"
+    description: Lifecycle stage definitions (on_enter, on_idle, on_leave) containing sequential effect steps.
+  behaviors:
+    type: array
+    default: []
+    description: Optional runtime behaviors attached to the root scene GameObject.
+    items:
+      $ref: "#/$defs/behavior"
+  audio:
+    $ref: "#/$defs/scene_audio"
+    description: >
+      Optional audio cue hooks bound to scene lifecycle stages.
+      Design hook only — runtime emits AudioCue events, playback is handled externally.
+  layers:
+    type: array
+    description: Compositing layers rendered onto the scene buffer, each containing sprites.
+    items:
+      $ref: "#/$defs/layer"
+  next:
+    type: [string, "null"]
+    description: Scene id to transition to when on_leave completes.
+  menu-options:
+    type: array
+    default: []
+    description: Optional key-driven routes from menu-like scenes.
+    items:
+      $ref: "#/$defs/menu_option"
+  menu_options:
+    type: array
+    default: []
+    description: Alias of menu-options.
+    items:
+      $ref: "#/$defs/menu_option"
+  input:
+    $ref: "#/$defs/scene_input"
+    description: Optional scene-level input control profiles.
+  templates:
+    type: object
+    default: {}
+    description: Optional local sprite templates referenced by `use`.
+    additionalProperties:
+      $ref: "#/$defs/sprite"
+  objects:
+    type: array
+    default: []
+    description: >
+      Object instances placed in the scene using the ref/as/with/state/tags syntax.
+      Each entry references an object prefab by path (ref), optionally assigns a scene-local
+      id (as), overrides exports (with), seeds runtime state (state), and attaches role tags (tags).
+    items:
+      type: object
+      additionalProperties: false
+      oneOf:
+        - required: [ref]
+        - required: [use]
+      properties:
+        ref:
+          type: string
+          minLength: 1
+          description: Object prefab/blueprint reference path. Preferred over deprecated 'use'.
+        use:
+          type: string
+          minLength: 1
+          description: "Deprecated: use 'ref' instead. Object template/prefab reference."
+        as:
+          type: string
+          minLength: 1
+          description: Scene-local instance id. Preferred over deprecated 'id'.
+        id:
+          type: string
+          minLength: 1
+          description: "Deprecated: use 'as' instead. Scene-local object instance id."
+        with:
+          type: object
+          default: {}
+          description: Optional parameter overrides for object exports.
+        state:
+          type: object
+          default: {}
+          description: Optional initial runtime state for the instance.
+        tags:
+          type: array
+          default: []
+          items:
+            type: string
+          description: Optional role/group tags for the instance.
+
+$defs:
+
+  # ── Colour ─────────────────────────────────────────────────────────────────
+  colour:
+    description: >
+      A colour value. Either a named colour or a CSS-style hex string (#rrggbb).
+      Named colours: black, white, gray (= grey), silver, red, green, blue,
+      yellow, cyan, magenta.
+      Hex example: "#C0C0C0"
+    oneOf:
+      - type: string
+        pattern: "^#[0-9A-Fa-f]{6}$"
+        description: "Hex colour: #rrggbb"
+      - type: string
+        enum:
+          - black
+          - white
+          - gray
+          - grey
+          - silver
+          - red
+          - green
+          - blue
+          - yellow
+          - cyan
+          - magenta
+        description: Named colour.
+
+  # ── Effect params ───────────────────────────────────────────────────────────
+  effect_params:
+    $ref: "./effect-params.schema.yaml"
+
+  # ── Scene input profiles ────────────────────────────────────────────────────
+  scene_input:
+    type: object
+    additionalProperties: false
+    properties:
+      obj-viewer:
+        $ref: "#/$defs/obj_viewer_controls"
+      terminal-size-tester:
+        $ref: "#/$defs/terminal_size_tester_controls"
+
+  obj_viewer_controls:
+    type: object
+    additionalProperties: false
+    required: [sprite_id]
+    properties:
+      sprite_id:
+        type: string
+        minLength: 1
+        description: Target OBJ sprite id for 3D viewer controls.
+
+  terminal_size_tester_controls:
+    type: object
+    additionalProperties: false
+    properties:
+      presets:
+        type: array
+        description: Optional terminal size presets in WIDTHxHEIGHT format.
+        items:
+          type: string
+          pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+
+  # ── Effect ─────────────────────────────────────────────────────────────────
+  effect:
+    $ref: "./effect.schema.yaml"
+
+  # ── Step ───────────────────────────────────────────────────────────────────
+  step:
+    description: >
+      A single step in a stage. All effects within a step run in parallel.
+      Steps execute sequentially. Use the `pause` shorthand for a timed
+      delay with no effects; it is expanded by the compiler into
+      `{duration, effects: []}`.
+    oneOf:
+      - type: object
+        description: Pause shorthand — a timed delay with no effects.
+        additionalProperties: false
+        required: [pause]
+        properties:
+          pause:
+            type: string
+            pattern: "^[0-9]+(ms|s)$"
+            description: >
+              Duration string for a timed pause step.
+              Examples: "500ms", "2s".
+      - type: object
+        description: Full step with optional effects and optional minimum duration.
+        additionalProperties: false
+        properties:
+          duration:
+            type: integer
+            minimum: 0
+            description: >
+              Minimum step duration in milliseconds regardless of effects.
+              When effects are present, the step lasts max(duration, longest effect).
+              Use without effects for a timed pause.
+          effects:
+            type: array
+            description: Effects that run in parallel for the duration of this step. May be empty.
+            items:
+              $ref: "#/$defs/effect"
+
+  # ── Stage ──────────────────────────────────────────────────────────────────
+  stage:
+    type: object
+    description: A lifecycle phase of a scene, layer, or sprite.
+    additionalProperties: false
+    properties:
+      looping:
+        type: boolean
+        default: false
+        description: >
+          When true, the stage wraps back to its first step after the last step completes.
+          Primarily used on on_idle to create repeating ambient effects (e.g. looping shine).
+      trigger:
+        type: string
+        description: What causes transition out of this stage to the next. Only valid on on_idle.
+        enum: [any-key, timeout, none]
+      steps:
+        type: array
+        description: Ordered list of steps. Steps execute sequentially; effects within each step run in parallel.
+        items:
+          $ref: "#/$defs/step"
+
+  # ── Menu option ─────────────────────────────────────────────────────────────
+  menu_option:
+    type: object
+    additionalProperties: false
+    required: [key]
+    anyOf:
+      - required: [next]
+      - required: [to]
+    properties:
+      key:
+        type: string
+        minLength: 1
+        description: >
+          Key binding used in on_idle with trigger any-key.
+          Examples: "1", "2", "enter", "esc", "f1", "up", "down".
+      label:
+        type: string
+        minLength: 1
+        description: Optional UI label for editors/tooling.
+      selected-effect:
+        type: string
+        enum: [arrows]
+        description: Visual selection marker style for this option.
+      selected_effect:
+        type: string
+        enum: [arrows]
+        description: Alias of selected-effect.
+      action:
+        type: string
+        enum: [goto.scene]
+        description: Optional scripted action for menu option.
+      scene:
+        type: string
+        minLength: 1
+        description: Target scene id/path used by action goto.scene.
+      next:
+        type: string
+        minLength: 1
+        description: Default target scene id/path (backward-compatible routing).
+      to:
+        type: string
+        minLength: 1
+        description: Alias target scene id/path. Compiler normalizes to scene+next.
+
+  # ── Scene stages ───────────────────────────────────────────────────────────
+  scene_stages:
+    type: object
+    description: Lifecycle stages for a scene.
+    additionalProperties: false
+    properties:
+      on_enter:
+        allOf:
+          - $ref: "#/$defs/stage"
+          - description: Plays once when scene loads. Transitions automatically to on_idle when complete.
+      on_idle:
+        allOf:
+          - $ref: "#/$defs/stage"
+          - description: Active while scene is running. Transitions to on_leave when trigger fires.
+      on_leave:
+        allOf:
+          - $ref: "#/$defs/stage"
+          - description: Plays once when leaving the scene. Transitions to next scene when complete.
+
+  # ── Layer stages (also used by sprites) ────────────────────────────────────
+  layer_stages:
+    type: object
+    description: Lifecycle stages for a layer or sprite.
+    additionalProperties: false
+    properties:
+      on_enter:
+        $ref: "#/$defs/stage"
+      on_idle:
+        $ref: "#/$defs/stage"
+      on_leave:
+        $ref: "#/$defs/stage"
+
+  # ── Layer ──────────────────────────────────────────────────────────────────
+  layer:
+    type: object
+    description: A compositing layer — a named group of sprites sharing z_index and lifecycle effects.
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        description: Human-readable identifier for the layer.
+      z_index:
+        type: integer
+        default: 0
+        description: Render order. Higher z_index renders on top.
+      visible:
+        type: boolean
+        default: true
+        description: Whether this layer is composited onto the scene framebuffer.
+      stages:
+        $ref: "#/$defs/layer_stages"
+      behaviors:
+        type: array
+        default: []
+        description: >
+          Optional runtime behaviors attached to this layer/GameObject.
+          Useful for steering whole sprite groups together.
+        items:
+          $ref: "#/$defs/behavior"
+      sprites:
+        type: array
+        description: Drawable objects within this layer.
+        items:
+          $ref: "#/$defs/sprite"
+
+  # ── Sprite ─────────────────────────────────────────────────────────────────
+  sprite:
+    type: object
+    description: A drawable object within a layer. Has its own local position and lifecycle.
+    additionalProperties: false
+    required: [type]
+    properties:
+      type:
+        type: string
+        enum: [text, image, obj, grid, flex]
+        description: "Sprite type. Supported: text, image, obj, grid, flex."
+      content:
+        type: string
+        minLength: 1
+        description: Text content to render (required for type=text).
+      source:
+        type: string
+        minLength: 1
+        description: Asset path (required for type=image/obj), e.g. /assets/images/tux.png or /scenes/3d/model.obj.
+      id:
+        type: string
+        minLength: 1
+        description: >
+          Optional stable sprite identifier for script-side hooks/custom handlers.
+          Example: "press-any-key" or "intro-logo".
+      x:
+        oneOf:
+          - type: integer
+          - type: string
+        default: 0
+        description: >
+          Signed horizontal offset within the scene buffer.
+          Negative values are allowed (e.g. to shift centered text left/up).
+          String expressions are supported, e.g. oscillate(-2,2,1800ms).
+      y:
+        oneOf:
+          - type: integer
+          - type: string
+        default: 0
+        description: >
+          Signed vertical offset within the scene buffer.
+          Negative values are allowed (e.g. title above center line).
+          String expressions are supported, e.g. oscillate(-2,2,1800ms).
+      z_index:
+        type: integer
+        default: 0
+        description: Render order within the layer. Higher z_index renders on top.
+      grid-row:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Grid row index (1-based) when this sprite is a child of a grid container.
+      grid-col:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Grid column index (1-based) when this sprite is a child of a grid container.
+      row-span:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Number of grid rows this sprite spans.
+      col-span:
+        type: integer
+        minimum: 1
+        default: 1
+        description: Number of grid columns this sprite spans.
+      font:
+        type: [string, "null"]
+        description: >
+          Font for rasterized rendering. Three forms are supported:
+
+          Built-in generic pixel font (no asset files required):
+            "generic:1"  — 3×5 tiny bitmaps (minimum readable, 3 cells wide × 5 tall per glyph).
+            "generic:2"  — 5×7 standard bitmaps (5 cells wide × 7 tall per glyph). Default.
+            "generic:3"  — 5×7 bitmaps × 2 cell scale (10×14 cells — large pixel art).
+            "generic:half"    — 5×7 compressed with upper/lower half blocks (6×4 cells per glyph).
+            "generic:quad"    — 5×7 compressed with quadrant blocks (3×4 cells per glyph).
+            "generic:braille" — 5×7 compressed with braille dots (3×2 cells per glyph).
+            "generic"    — equivalent to generic:2.
+
+          Named bitmap fonts loaded from mod assets:
+            "Abril Fatface"        — raster/terminal-pixel mode (default).
+            "Abril Fatface:raster" — explicit raster mode.
+            "Abril Fatface:ascii"  — ASCII-art glyph mode.
+
+          Omit or set null for native terminal text (no rasterization).
+      width:
+        type: integer
+        minimum: 1
+        maximum: 65535
+        description: >
+          Target sprite width in terminal cells.
+          For image sprites, when only width is set, height is derived from source aspect ratio.
+      size:
+        type: integer
+        minimum: 1
+        maximum: 3
+        description: >
+          Sprite size preset shortcut.
+          `1` = small, `2` = medium, `3` = large.
+          For text sprites it maps to the built-in generic font sizes.
+          For image/obj sprites it uses per-type default dimensions.
+          Explicit `width`/`height` still take priority when provided.
+      height:
+        type: integer
+        minimum: 1
+        maximum: 65535
+        description: >
+          Target sprite height in terminal cells.
+          For image sprites, when only height is set, width is derived from source aspect ratio.
+          For grid sprites, sets container height.
+      scale:
+        type: number
+        minimum: 0.0001
+        description: Uniform mesh scale multiplier for type=obj.
+      yaw-deg:
+        type: number
+        description: Static yaw (Y-axis) rotation in degrees for type=obj.
+      pitch-deg:
+        type: number
+        description: Static pitch (X-axis) rotation in degrees for type=obj.
+      roll-deg:
+        type: number
+        description: Static roll (Z-axis) rotation in degrees for type=obj.
+      rotation-x:
+        type: number
+        description: Static initial X-axis rotation in degrees for type=obj.
+      rotation-y:
+        oneOf:
+          - type: number
+          - type: string
+        description: >
+          Static initial Y-axis rotation in degrees for type=obj.
+          String expressions are supported, e.g. animate(180deg,540deg,12s,loop).
+      rotation-z:
+        type: number
+        description: Static initial Z-axis rotation in degrees for type=obj.
+      rotate-y-deg-per-sec:
+        type: number
+        description: Continuous Y-axis rotation speed in degrees per second for type=obj.
+      camera-distance:
+        type: number
+        minimum: 0.01
+        description: Camera distance from mesh center for perspective projection (type=obj).
+      fov-degrees:
+        type: number
+        minimum: 1
+        maximum: 179
+        description: Perspective camera FOV in degrees for type=obj.
+      near-clip:
+        type: number
+        minimum: 0.000001
+        description: Near clipping plane distance in camera space for type=obj (smaller renders closer geometry).
+      draw-char:
+        type: string
+        minLength: 1
+        description: Single glyph used to draw wireframe edges for type=obj.
+      surface-mode:
+        type: string
+        enum: [material, wireframe]
+        description: Surface rendering style for type=obj. `material` fills faces with MTL colours, `wireframe` draws edges only.
+      columns:
+        type: array
+        description: >
+          Grid column track definitions for type=grid.
+          Supported track values:
+          - "auto" (fit content),
+          - "<n>fr" (fractional),
+          - "<n>" (fixed cells).
+        items:
+          type: string
+      rows:
+        type: array
+        description: >
+          Grid row track definitions for type=grid.
+          Supported track values:
+          - "auto" (fit content),
+          - "<n>fr" (fractional),
+          - "<n>" (fixed cells).
+        items:
+          type: string
+      gap-x:
+        type: integer
+        minimum: 0
+        default: 0
+        description: Horizontal gap between grid columns in cells.
+      gap-y:
+        type: integer
+        minimum: 0
+        default: 0
+        description: Vertical gap between grid rows in cells.
+      gap:
+        type: integer
+        minimum: 0
+        default: 0
+        description: Gap between flex children on the main axis in cells (type=flex).
+      direction:
+        type: string
+        enum: [column, row]
+        default: column
+        description: Flex direction for type=flex. `column` stacks children vertically, `row` stacks horizontally.
+      children:
+        type: array
+        default: []
+        description: Child renderable sprites for type=grid or type=flex.
+        items:
+          $ref: "#/$defs/sprite"
+      force-renderer-mode:
+        type: string
+        enum: [cell, halfblock, quadblock, braille]
+        description: >
+          Optional per-sprite renderer mode override.
+          Priority: sprite.force-renderer-mode > scene.rendered-mode > engine default.
+          Applies only to renderable sprites.
+      force-font-mode:
+        type: string
+        enum:
+          - ascii
+          - raster
+          - terminal-pixels
+          - 1
+          - 2
+          - 3
+          - tiny
+          - standard
+          - large
+          - half
+          - quad
+          - braille
+        description: >
+          Optional per-sprite font mode override.
+          For named bitmap fonts: ascii/raster/terminal-pixels.
+          For generic fonts: 1/2/3 or tiny/standard/large/half/quad/braille.
+          Priority: force-font-mode > renderer-derived generic mode > sprite font declaration.
+      align_x:
+        type: string
+        enum: [left, center, right]
+        description: Horizontal alignment anchor in scene space. x acts as extra offset.
+      align_y:
+        type: string
+        enum: [top, center, bottom]
+        description: Vertical alignment anchor in scene space. y acts as extra offset.
+      at:
+        type: string
+        enum: [cc, ct, cb, lc, rc, lt, lb, rt, rb]
+        description: Alignment shorthand alias for align_x+align_y.
+      fg_colour:
+        $ref: "#/$defs/colour"
+        description: >
+          Base foreground (text / glyph pixel) colour.
+          Can be overridden per-run using inline markup in content:
+          [red]text[/] or [#ff8800]text[/].
+      bg_colour:
+        $ref: "#/$defs/colour"
+        description: Background colour behind the sprite. Omit for transparent background.
+      fg:
+        $ref: "#/$defs/colour"
+        description: Alias of fg_colour.
+      bg:
+        $ref: "#/$defs/colour"
+        description: Alias of bg_colour.
+      glow:
+        $ref: "#/$defs/glow"
+        description: Optional glow halo rendered behind the sprite at neighbouring cell offsets.
+      appear_at_ms:
+        type: integer
+        minimum: 0
+        description: Delay from scene start (ms) before this sprite becomes visible.
+      disappear_at_ms:
+        type: integer
+        minimum: 0
+        description: Absolute scene time (ms) after which this sprite is hidden.
+      reveal_ms:
+        type: integer
+        minimum: 0
+        description: >
+          Optional reveal duration (ms).
+          When set, the sprite content appears character by character left→right
+          over this duration starting from appear_at_ms.
+      hide_on_leave:
+        type: boolean
+        default: false
+        description: >
+          When true, the sprite is not rendered at all once the scene enters on_leave.
+          Useful for prompts like PRESS ANY KEY that should disappear instantly on trigger.
+      stages:
+        $ref: "#/$defs/layer_stages"
+      animations:
+        type: array
+        default: []
+        description: >
+          Position animations applied to this sprite before rendering.
+          Animations modify the sprite's transform (dx, dy offset) rather than its pixels.
+          Multiple animations combine additively.
+        items:
+          $ref: "#/$defs/animation"
+      behaviors:
+        type: array
+        default: []
+        description: >
+          Optional runtime behaviors attached to this sprite/GameObject.
+          Behaviors can toggle visibility or apply extra runtime x/y offsets.
+        items:
+          $ref: "#/$defs/behavior"
+    allOf:
+      - if:
+          properties:
+            type:
+              const: text
+        then:
+          required: [content]
+      - if:
+          properties:
+            type:
+              const: image
+        then:
+          required: [source]
+      - if:
+          properties:
+            type:
+              const: grid
+        then:
+          required: [columns, rows, children]
+
+  # ── Animation ──────────────────────────────────────────────────────────────
+  # Auto-generated from engine metadata - see generated/animations.schema.yaml
+  animation:
+    $ref: "./generated/animations.schema.yaml#/$defs/animation"
+
+  # ── Behavior ───────────────────────────────────────────────────────────────
+  # Auto-generated from engine metadata - see generated/behaviors.schema.yaml
+  behavior:
+    $ref: "./generated/behaviors.schema.yaml#/$defs/behavior"
+
+  # ── Audio hooks (design/runtime bridge) ──────────────────────────────────────
+  scene_audio:
+    type: object
+    additionalProperties: false
+    description: >
+      Declarative audio cue hooks for scene lifecycle stages.
+      Cues fire once when scene_elapsed_ms reaches at_ms while the stage is active.
+    properties:
+      on_enter:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/audio_cue"
+      on_idle:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/audio_cue"
+      on_leave:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/audio_cue"
+
+  audio_cue:
+    type: object
+    additionalProperties: false
+    required: [cue]
+    properties:
+      at_ms:
+        type: integer
+        minimum: 0
+        default: 0
+        description: Trigger time in milliseconds from scene start.
+      cue:
+        type: string
+        minLength: 1
+        description: Audio cue identifier (for external audio backend routing).
+      volume:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: Optional playback gain hint.
+
+  # ── Glow ───────────────────────────────────────────────────────────────────
+  glow:
+    type: object
+    additionalProperties: false
+    description: >
+      Soft halo rendered behind a sprite by drawing shifted copies at neighbouring
+      cell offsets in a dimmed colour. Applied before the main sprite render pass.
+    properties:
+      colour:
+        $ref: "#/$defs/colour"
+        description: >
+          Explicit glow colour.
+          If omitted, the engine auto-derives a dimmed version of the sprite's fg_colour
+          (approximately 25% brightness).
+      radius:
+        type: integer
+        minimum: 1
+        maximum: 4
+        default: 1
+        description: >
+          Halo radius in cells.
+          1 = 8 immediate neighbours (3×3 ring, excluding centre).
+          2 = up to 24 neighbours (5×5 ring) — denser, more diffuse halo.
+
+  # ── Colour markup (inline, within content strings) ─────────────────────────
+  # NOTE: this is documentation only — JSON Schema cannot validate inline string markup.
+  # Format: [colour]text[/] or [/colour] where colour is a named colour or #rrggbb hex.
+  # Examples:
+  #   "[red]PRESS[/] ANY [red]KEY[/]"
+  #   "[#808080]PRESS[/] ANY [#808080]KEY[/]"
+  # Rules:
+  #   - [name]   or [#rrggbb]  opens a colour span
+  #   - [/]      or [/name]    closes it (reverts to sprite fg_colour)
+  #   - Nesting is not supported (last opened tag wins)
+  #   - Invalid/unknown tags are treated as literal text
+  #   - Supported named colours: black white gray grey silver red green blue yellow cyan magenta

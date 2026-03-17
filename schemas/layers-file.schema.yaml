@@ -1,0 +1,10 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/layers-file.schema.yaml"
+title: Layers File Schema
+description: >
+  Partial file schema for the layers array in folder-based scene packages.
+  Each element is a compositing layer (named group of sprites sharing z_index and lifecycle effects).
+  Used as the layers.yml partial alongside sprites.yml/templates.yml/objects.yml in a scene folder.
+type: array
+items:
+  $ref: "./scene.schema.yaml#/$defs/layer"
