@@ -22,16 +22,22 @@ struct Cli {
     /// Output directory for generated schema fragments.
     #[arg(long, default_value = "schemas/generated")]
     out: PathBuf,
+
+    /// Verify that generated schema fragments already match files on disk.
+    #[arg(long)]
+    check: bool,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let mods = resolve_mod_roots(&cli)?;
-    fs::create_dir_all(&cli.out)
-        .with_context(|| format!("failed to create {}", cli.out.display()))?;
+    if !cli.check {
+        fs::create_dir_all(&cli.out)
+            .with_context(|| format!("failed to create {}", cli.out.display()))?;
+    }
 
     for mod_root in mods {
-        generate_fragment_for_mod(&mod_root, &cli.out)?;
+        sync_fragment_for_mod(&mod_root, &cli.out, cli.check)?;
     }
     Ok(())
 }
@@ -57,7 +63,7 @@ fn resolve_mod_roots(cli: &Cli) -> Result<Vec<PathBuf>> {
     anyhow::bail!("pass either --mod <path> or --all-mods");
 }
 
-fn generate_fragment_for_mod(mod_root: &Path, out_dir: &Path) -> Result<()> {
+fn sync_fragment_for_mod(mod_root: &Path, out_dir: &Path, check: bool) -> Result<()> {
     let mod_name = mod_root
         .file_name()
         .and_then(|n| n.to_str())
@@ -126,29 +132,32 @@ fn generate_fragment_for_mod(mod_root: &Path, out_dir: &Path) -> Result<()> {
     );
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
 
-    let defs_path = out_dir.join(format!("{mod_name}.schema.yaml"));
-    write_schema_file(&defs_path, &Value::Mapping(root))?;
-    println!("generated {}", defs_path.display());
+    let outputs = vec![
+        (
+            out_dir.join(format!("{mod_name}.schema.yaml")),
+            Value::Mapping(root),
+        ),
+        (
+            out_dir.join(format!("{mod_name}.scene.schema.yaml")),
+            build_scene_overlay_schema(mod_name),
+        ),
+        (
+            out_dir.join(format!("{mod_name}.scene-file.schema.yaml")),
+            build_scene_file_overlay_schema(mod_name),
+        ),
+        (
+            out_dir.join(format!("{mod_name}.objects-file.schema.yaml")),
+            build_objects_file_overlay_schema(mod_name),
+        ),
+        (
+            out_dir.join(format!("{mod_name}.effect-file.schema.yaml")),
+            build_effect_file_overlay_schema(mod_name, &effect_names),
+        ),
+    ];
 
-    let scene_overlay = build_scene_overlay_schema(mod_name);
-    let scene_overlay_path = out_dir.join(format!("{mod_name}.scene.schema.yaml"));
-    write_schema_file(&scene_overlay_path, &scene_overlay)?;
-    println!("generated {}", scene_overlay_path.display());
-
-    let scene_file_overlay = build_scene_file_overlay_schema(mod_name);
-    let scene_file_overlay_path = out_dir.join(format!("{mod_name}.scene-file.schema.yaml"));
-    write_schema_file(&scene_file_overlay_path, &scene_file_overlay)?;
-    println!("generated {}", scene_file_overlay_path.display());
-
-    let objects_file_overlay = build_objects_file_overlay_schema(mod_name);
-    let objects_file_overlay_path = out_dir.join(format!("{mod_name}.objects-file.schema.yaml"));
-    write_schema_file(&objects_file_overlay_path, &objects_file_overlay)?;
-    println!("generated {}", objects_file_overlay_path.display());
-
-    let effect_file_overlay = build_effect_file_overlay_schema(mod_name, &effect_names);
-    let effect_file_overlay_path = out_dir.join(format!("{mod_name}.effect-file.schema.yaml"));
-    write_schema_file(&effect_file_overlay_path, &effect_file_overlay)?;
-    println!("generated {}", effect_file_overlay_path.display());
+    for (path, value) in outputs {
+        sync_schema_file(&path, &value, check)?;
+    }
     Ok(())
 }
 
@@ -165,12 +174,30 @@ fn enum_schema(values: Vec<String>) -> Value {
     Value::Mapping(m)
 }
 
-fn write_schema_file(path: &Path, value: &Value) -> Result<()> {
+fn render_schema_file(value: &Value) -> Result<String> {
     let mut yaml = serde_yaml::to_string(value)?;
     if !yaml.ends_with('\n') {
         yaml.push('\n');
     }
+    Ok(yaml)
+}
+
+fn sync_schema_file(path: &Path, value: &Value, check: bool) -> Result<()> {
+    let yaml = render_schema_file(value)?;
+    if check {
+        let existing = fs::read_to_string(path)
+            .with_context(|| format!("failed to read {} in --check mode", path.display()))?;
+        if existing != yaml {
+            anyhow::bail!(
+                "generated schema is out of date: {} (run schema-gen without --check)",
+                path.display()
+            );
+        }
+        println!("checked {}", path.display());
+        return Ok(());
+    }
     fs::write(path, yaml).with_context(|| format!("failed to write {}", path.display()))?;
+    println!("generated {}", path.display());
     Ok(())
 }
 
@@ -674,7 +701,7 @@ mod tests {
 
         let out_dir = temp_root.join("out");
         fs::create_dir_all(&out_dir).expect("create out dir");
-        generate_fragment_for_mod(&mod_root, &out_dir).expect("generate");
+        sync_fragment_for_mod(&mod_root, &out_dir, false).expect("generate");
 
         let out_path = out_dir.join("playground.schema.yaml");
         let raw = fs::read_to_string(out_path).expect("read generated schema");
@@ -721,6 +748,49 @@ mod tests {
         assert!(effect_overlay.contains("oneOf:"));
         assert!(effect_overlay.contains("const: fade-in"));
         assert!(effect_overlay.contains("easing:"));
+    }
+
+    #[test]
+    fn check_mode_passes_when_generated_files_match() {
+        let temp_root = unique_temp_dir("schema-gen-check-pass");
+        let mod_root = temp_root.join("playground");
+        fs::create_dir_all(mod_root.join("scenes")).expect("create scenes");
+        fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
+        fs::write(
+            mod_root.join("scenes/menu.yml"),
+            "id: menu\ntitle: Menu\nnext: null\n",
+        )
+        .expect("write scene");
+
+        let out_dir = temp_root.join("out");
+        fs::create_dir_all(&out_dir).expect("create out dir");
+        sync_fragment_for_mod(&mod_root, &out_dir, false).expect("generate");
+        sync_fragment_for_mod(&mod_root, &out_dir, true).expect("check");
+    }
+
+    #[test]
+    fn check_mode_detects_outdated_generated_files() {
+        let temp_root = unique_temp_dir("schema-gen-check-fail");
+        let mod_root = temp_root.join("playground");
+        fs::create_dir_all(mod_root.join("scenes")).expect("create scenes");
+        fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
+        fs::write(
+            mod_root.join("scenes/menu.yml"),
+            "id: menu\ntitle: Menu\nnext: null\n",
+        )
+        .expect("write scene");
+
+        let out_dir = temp_root.join("out");
+        fs::create_dir_all(&out_dir).expect("create out dir");
+        sync_fragment_for_mod(&mod_root, &out_dir, false).expect("generate");
+        fs::write(
+            out_dir.join("playground.scene.schema.yaml"),
+            "outdated: true\n",
+        )
+        .expect("mutate generated file");
+
+        let err = sync_fragment_for_mod(&mod_root, &out_dir, true).expect_err("check should fail");
+        assert!(err.to_string().contains("generated schema is out of date"));
     }
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
