@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../schemas/scene.schema.yaml
 id: playground-3d-scene
 title: 3D Scene (OBJ Wireframe Test)
-bg_colour: black
+bg: black
 rendered-mode: quadblock
 input:
   obj-viewer:
@@ -15,40 +15,35 @@ stages:
   on_idle:
     trigger: any-key
     steps:
-      - duration: 1
-        effects: []
+      - pause: 1ms
   on_leave:
     steps:
       - effects:
           - name: fade-out
             duration: 250
 layers:
-  - name: obj-demo
-    z_index: 0
+  - name: hud
+    z_index: 1
     sprites:
-      - type: obj
-        id: helsinki-uni-wireframe
-        source: "/scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj"
-        align_x: center
-        align_y: center
-        y: 0
-        scale: 1.1
-        surface-mode: material
-        rotation-y: 180
-        yaw-deg: 0
-        pitch-deg: -10
-        rotate-y-deg-per-sec: 14
-        camera-distance: 3.2
-        fov-degrees: 56
-        near-clip: 0.0005
-        draw-char: "#"
-        fg_colour: white
       - type: text
         content: "A/Z zoom, O orbit on/off (arrows+mouse look when off), 1-4 renderer, 5 wireframe, ENTER back"
-        align_x: center
-        align_y: bottom
+        at: cb
         y: -1
         font: "generic:1"
-        fg_colour: gray
+        fg: gray
         hide_on_leave: true
+objects:
+  - use: suzan
+    id: obj-demo
+    with:
+      id: helsinki-uni-wireframe
+      source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+      scale: 1.1
+      rotation_y: 180
+      pitch_deg: -10
+      rotate_y_deg_per_sec: 14
+      camera_distance: 3.2
+      fov_degrees: 56
+      near_clip: 0.0005
+      fg: white
 next: playground-menu

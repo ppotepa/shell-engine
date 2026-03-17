@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../../schemas/scene.schema.yaml
 id: playground-menu
 title: Playground Menu
-bg_colour: black
+bg: black
 stages:
   on_enter:
     steps:
@@ -12,8 +12,7 @@ stages:
     trigger: any-key
     looping: true
     steps:
-      - duration: 1200
-        effects: []
+      - pause: 1200ms
   on_leave:
     steps:
       - effects:
@@ -25,18 +24,16 @@ layers:
     sprites:
       - type: text
         content: "PLAYGROUND"
-        align_x: center
-        align_y: top
+        at: ct
         y: 2
         font: "generic:1"
-        fg_colour: white
+        fg: white
       - type: text
         content: "MENU"
-        align_x: center
-        align_y: top
+        at: ct
         y: 4
         font: "generic:1"
-        fg_colour: gray
+        fg: gray
       - type: grid
         id: menu-grid
         align_x: center
@@ -264,11 +261,10 @@ layers:
               autoscale_height: true
       - type: text
         content: "Arrows: navigate, Enter: select, [1]/[2]/[3]/[4]/[5]: shortcut"
-        align_x: center
-        align_y: bottom
+        at: cb
         y: -1
         font: "generic:1"
-        fg_colour: gray
+        fg: gray
         hide_on_leave: true
         behaviors:
           - name: blink
@@ -280,25 +276,20 @@ menu-options:
   - key: "1"
     label: 3D SCENE
     selected-effect: arrows
-    scene: playground-3d-scene
-    next: playground-3d-scene
+    to: playground-3d-scene
   - key: "2"
     label: STOP ANIMATION
     selected-effect: arrows
-    scene: playground-stop-animation
-    next: playground-stop-animation
+    to: playground-stop-animation
   - key: "3"
     label: DECORATION SHOWCASE
     selected-effect: arrows
-    scene: playground-decoration-showcase
-    next: playground-decoration-showcase
+    to: playground-decoration-showcase
   - key: "4"
     label: TERMINAL SIZE TEST
     selected-effect: arrows
-    scene: playground-terminal-size-test
-    next: playground-terminal-size-test
+    to: playground-terminal-size-test
   - key: "5"
     label: FPS CAP SHOWCASE 2D+3D
     selected-effect: arrows
-    scene: playground-fps-showcase-2d-30
-    next: playground-fps-showcase-2d-30
+    to: playground-fps-showcase-2d-30
