@@ -55,3 +55,31 @@ $defs:
   effect_refs:
     type: string
     enum: []
+  font_names:
+    type: string
+    enum: []
+  image_paths:
+    type: string
+    enum:
+    - campaign/legacy-shell-quest/logos/arch.png
+    - campaign/legacy-shell-quest/logos/debian.png
+    - campaign/legacy-shell-quest/logos/fedora.png
+    - campaign/legacy-shell-quest/screenshots/shell-quest-terminal.png
+    - campaign/legacy-shell-quest/screenshots/shell-quest.png
+    - linux-1.png
+    - tux.png
+  model_paths:
+    type: string
+    enum:
+    - scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+  sprite_ids:
+    type: string
+    enum:
+    - date-text
+    - intro-logo-ascii
+    - intro-logo-raster
+    - linux-grid
+    - press-any-key
+  template_names:
+    type: string
+    enum: []

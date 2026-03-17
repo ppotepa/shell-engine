@@ -40,6 +40,13 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     let template_refs = collect_scene_partial_refs(mod_root, "templates")?;
     let object_refs = collect_scene_partial_refs(mod_root, "objects")?;
     let effect_refs = collect_scene_partial_refs(mod_root, "effects")?;
+    
+    // Asset catalogs for autocomplete
+    let font_names = collect_font_names(mod_root)?;
+    let image_paths = collect_image_paths(mod_root)?;
+    let model_paths = collect_model_paths(mod_root)?;
+    let sprite_ids = collect_sprite_ids(mod_root)?;
+    let template_names = collect_template_names(mod_root)?;
 
     let mut root = Mapping::new();
     root.insert(
@@ -89,6 +96,26 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     defs.insert(
         Value::String("effect_refs".to_string()),
         enum_schema(effect_refs.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("font_names".to_string()),
+        enum_schema(font_names.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("image_paths".to_string()),
+        enum_schema(image_paths.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("model_paths".to_string()),
+        enum_schema(model_paths.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("sprite_ids".to_string()),
+        enum_schema(sprite_ids.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("template_names".to_string()),
+        enum_schema(template_names.into_iter().collect()),
     );
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
 
@@ -1240,6 +1267,11 @@ mod tests {
         assert!(defs.contains_key(Value::String("object_names".to_string())));
         assert!(defs.contains_key(Value::String("effect_names".to_string())));
         assert!(defs.contains_key(Value::String("layer_refs".to_string())));
+        assert!(defs.contains_key(Value::String("font_names".to_string())));
+        assert!(defs.contains_key(Value::String("image_paths".to_string())));
+        assert!(defs.contains_key(Value::String("model_paths".to_string())));
+        assert!(defs.contains_key(Value::String("sprite_ids".to_string())));
+        assert!(defs.contains_key(Value::String("template_names".to_string())));
     }
 
     #[test]

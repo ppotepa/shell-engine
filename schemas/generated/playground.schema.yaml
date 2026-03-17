@@ -66,3 +66,44 @@ $defs:
   effect_refs:
     type: string
     enum: []
+  font_names:
+    type: string
+    enum: []
+  image_paths:
+    type: string
+    enum:
+    - tux.png
+  model_paths:
+    type: string
+    enum:
+    - scenes/3d/blender/suzanne.obj
+    - scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+  sprite_ids:
+    type: string
+    enum:
+    - helsinki-uni-wireframe
+    - menu-grid
+    - menu-item-0
+    - menu-item-1
+    - menu-item-2
+    - menu-item-3
+    - menu-item-4
+    - menu-item-5
+    - sel0-left
+    - sel0-right
+    - sel1-left
+    - sel1-right
+    - sel2-left
+    - sel2-right
+    - sel3-left
+    - sel3-right
+    - sel4-left
+    - sel4-right
+    - sel5-left
+    - sel5-right
+    - tux-10
+    - tux-20
+    - tux-30
+  template_names:
+    type: string
+    enum: []
