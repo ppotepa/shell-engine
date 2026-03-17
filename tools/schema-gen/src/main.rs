@@ -793,6 +793,18 @@ mod tests {
         assert!(err.to_string().contains("generated schema is out of date"));
     }
 
+    #[test]
+    fn committed_playground_generated_schemas_are_current() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let mod_root = repo_root.join("mods/playground");
+        let out_dir = repo_root.join("schemas/generated");
+        sync_fragment_for_mod(&mod_root, &out_dir, true)
+            .expect("playground generated schemas should be current");
+    }
+
     fn unique_temp_dir(prefix: &str) -> PathBuf {
         use std::time::{SystemTime, UNIX_EPOCH};
         let now = SystemTime::now()
