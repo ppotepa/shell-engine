@@ -61,14 +61,21 @@ properties:
         type: boolean
         description: Alias of use_virtual_buffer.
       virtual_size:
-        type: string
-        pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+        oneOf:
+          - type: string
+            pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+          - type: string
+            enum: [max-available]
         description: |
-          Virtual framebuffer size in WIDTHxHEIGHT form (for example 320x240 or 220x55).
+          Virtual framebuffer size in WIDTHxHEIGHT form (for example 320x240 or 220x55),
+          or "max-available" to use current terminal size.
           Used only when use_virtual_buffer/use-virtual-buffer is true.
       virtual-size:
-        type: string
-        pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+        oneOf:
+          - type: string
+            pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+          - type: string
+            enum: [max-available]
         description: Alias of virtual_size.
       virtual_policy:
         type: string

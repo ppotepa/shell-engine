@@ -1,7 +1,7 @@
 use engine::assets::AssetRoot;
 use engine::audio::AudioRuntime;
 use engine::buffer::Buffer;
-use engine_core::effects::{EffectMetadata, ParamControl, shared_dispatcher};
+use engine_core::effects::{ParamControl, shared_dispatcher};
 use engine::runtime_settings::RuntimeSettings;
 use engine::scene::Scene;
 use engine::scene_runtime::SceneRuntime;
@@ -19,10 +19,6 @@ use crate::domain::effects_catalog;
 use crate::domain::effects_preview_scene;
 use crate::state::{focus::FocusPane, AppState, EffectsCodeTab};
 use crate::ui::theme;
-
-fn effect_metadata(name: &str) -> &'static EffectMetadata {
-    shared_dispatcher().metadata(name)
-}
 
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     if app.effects_live_preview {

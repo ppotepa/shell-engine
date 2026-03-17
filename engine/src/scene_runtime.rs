@@ -16,6 +16,7 @@ pub struct SceneRuntime {
     sprite_ids: BTreeMap<String, String>,
     behaviors: Vec<ObjectBehaviorRuntime>,
     resolver_cache: TargetResolver,
+    object_regions: BTreeMap<String, Region>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -129,6 +130,7 @@ impl SceneRuntime {
             sprite_ids,
             behaviors: Vec::new(),
             resolver_cache: TargetResolver::default(),
+            object_regions: BTreeMap::new(),
         };
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings);
@@ -232,6 +234,7 @@ impl SceneRuntime {
         stage: SceneStage,
         scene_elapsed_ms: u64,
         stage_elapsed_ms: u64,
+        menu_selected_index: usize,
     ) -> Vec<BehaviorCommand> {
         let mut commands = Vec::new();
         for idx in 0..self.behaviors.len() {
@@ -243,8 +246,10 @@ impl SceneRuntime {
                 stage: stage.clone(),
                 scene_elapsed_ms,
                 stage_elapsed_ms,
+                menu_selected_index,
                 target_resolver: self.resolver_cache.clone(),
                 object_states: self.effective_object_states_snapshot(),
+                object_regions: self.object_regions.clone(),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
@@ -260,6 +265,10 @@ impl SceneRuntime {
         for state in self.object_states.values_mut() {
             *state = ObjectRuntimeState::default();
         }
+    }
+
+    pub fn set_object_regions(&mut self, object_regions: BTreeMap<String, Region>) {
+        self.object_regions = object_regions;
     }
 
     pub fn apply_behavior_commands(
@@ -451,6 +460,11 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
         Sprite::Image { id, .. } => (
             GameObjectKind::ImageSprite,
             sprite_name("image", id.as_deref(), sprite_idx),
+            sprite_aliases(id.as_deref()),
+        ),
+        Sprite::Obj { id, .. } => (
+            GameObjectKind::ObjSprite,
+            sprite_name("obj", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
         Sprite::Grid { id, .. } => (

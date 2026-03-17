@@ -42,6 +42,17 @@ impl TerminalRenderer {
         self.stdout.flush()
     }
 
+    /// Hard refresh terminal surface before first frame.
+    pub fn reset_console(&mut self) -> io::Result<()> {
+        execute!(
+            self.stdout,
+            style::ResetColor,
+            terminal::Clear(terminal::ClearType::All),
+            cursor::MoveTo(0, 0)
+        )?;
+        self.stdout.flush()
+    }
+
     pub fn shutdown(&mut self) -> io::Result<()> {
         execute!(
             self.stdout,

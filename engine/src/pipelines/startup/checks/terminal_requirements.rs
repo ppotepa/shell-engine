@@ -53,6 +53,9 @@ fn append_virtual_buffer_violations(
     if runtime.virtual_policy != VirtualPolicy::Strict {
         return;
     }
+    if runtime.virtual_size_max_available {
+        return;
+    }
     if caps.width < runtime.virtual_width || caps.height < runtime.virtual_height {
         violations.push(TerminalViolation {
             requirement: "virtual_buffer(strict)".to_string(),

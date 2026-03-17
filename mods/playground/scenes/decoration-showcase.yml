@@ -1,0 +1,258 @@
+# yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+id: playground-decoration-showcase
+title: Decoration Showcase
+bg_colour: black
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 350
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - duration: 1200
+        effects: []
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 250
+layers:
+  - name: showcase
+    z_index: 0
+    sprites:
+      - type: text
+        content: "PLAYGROUND - DECORATION SHOWCASE"
+        align_x: center
+        align_y: top
+        y: 2
+        font: "generic:1"
+        fg_colour: white
+
+      - type: text
+        content: "Three menu styles powered by engine behaviors"
+        align_x: center
+        align_y: top
+        y: 4
+        font: "generic:1"
+        fg_colour: gray
+
+      - type: grid
+        id: showcase-grid
+        align_x: center
+        align_y: center
+        width: 46
+        height: 10
+        columns: ["1fr"]
+        rows: ["auto", "auto", "auto"]
+        gap-y: 1
+        children:
+          - type: text
+            id: show-item-0
+            content: "[1] ARROWS (bbox + autoscale)"
+            grid-col: 1
+            grid-row: 1
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: white
+
+          - type: text
+            id: show-item-1
+            content: "[2] ARROWS + BLINK"
+            grid-col: 1
+            grid-row: 2
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: silver
+
+          - type: text
+            id: show-item-2
+            content: "[3] ARROWS + PULSE"
+            grid-col: 1
+            grid-row: 3
+            align_x: center
+            align_y: center
+            font: "generic:1"
+            fg_colour: gray
+
+      - type: text
+        id: show0-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: show-item-0
+              index: 0
+              side: left
+              padding: 1
+              amplitude_x: 1
+              autoscale_height: true
+              period_ms: 900
+
+      - type: text
+        id: show0-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: yellow
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: show-item-0
+              index: 0
+              side: right
+              padding: 1
+              amplitude_x: 1
+              autoscale_height: true
+              period_ms: 900
+
+      - type: text
+        id: show1-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: cyan
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: show-item-1
+              index: 1
+              side: left
+              padding: 1
+              amplitude_x: 1
+              autoscale_height: true
+              period_ms: 900
+          - name: blink
+            params:
+              visible_ms: 220
+              hidden_ms: 220
+
+      - type: text
+        id: show1-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: cyan
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: show-item-1
+              index: 1
+              side: right
+              padding: 1
+              amplitude_x: 1
+              autoscale_height: true
+              period_ms: 900
+          - name: blink
+            params:
+              visible_ms: 220
+              hidden_ms: 220
+
+      - type: text
+        id: show2-left
+        content: ">"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: magenta
+        stages:
+          on_idle:
+            looping: true
+            steps:
+              - effects:
+                  - name: brighten
+                    duration: 260
+                    params:
+                      intensity: 0.35
+              - effects:
+                  - name: fade-out
+                    duration: 260
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: show-item-2
+              index: 2
+              side: left
+              padding: 1
+              amplitude_x: 1
+              autoscale_height: true
+              period_ms: 900
+
+      - type: text
+        id: show2-right
+        content: "<"
+        align_x: center
+        align_y: center
+        font: "generic:1"
+        fg_colour: magenta
+        stages:
+          on_idle:
+            looping: true
+            steps:
+              - effects:
+                  - name: brighten
+                    duration: 260
+                    params:
+                      intensity: 0.35
+              - effects:
+                  - name: fade-out
+                    duration: 260
+        behaviors:
+          - name: selected-arrows
+            params:
+              target: show-item-2
+              index: 2
+              side: right
+              padding: 1
+              amplitude_x: 1
+              autoscale_height: true
+              period_ms: 900
+
+      - type: text
+        content: "Arrows: navigate, Enter: select, [1]/[2]/[3]: shortcut"
+        align_x: center
+        align_y: bottom
+        y: -2
+        font: "generic:1"
+        fg_colour: gray
+        hide_on_leave: true
+
+      - type: text
+        content: "ENTER on any option returns to MENU"
+        align_x: center
+        align_y: bottom
+        y: -1
+        font: "generic:1"
+        fg_colour: gray
+        hide_on_leave: true
+next: playground-menu
+menu-options:
+  - key: "1"
+    label: ARROWS
+    selected-effect: arrows
+    action: goto.scene
+    scene: playground-menu
+    next: playground-menu
+  - key: "2"
+    label: BLINK
+    selected-effect: arrows
+    action: goto.scene
+    scene: playground-menu
+    next: playground-menu
+  - key: "3"
+    label: PULSE
+    selected-effect: arrows
+    action: goto.scene
+    scene: playground-menu
+    next: playground-menu

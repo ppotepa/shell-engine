@@ -3,10 +3,10 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem};
 use ratatui::Frame;
 
-use crate::domain::effects_preview_scene::choose_preview_placement;
-use crate::domain::effects_preview_scene::PreviewPlacement;
 use crate::state::{focus::FocusPane, AppState};
 use crate::ui::theme;
+use engine_core::effects::shared_dispatcher;
+use engine_core::scene::EffectTargetKind;
 
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let items: Vec<ListItem> = app
@@ -17,8 +17,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
             let is_active = idx == app.effect_cursor;
             let is_focused = app.focus == FocusPane::ProjectTree;
 
-            let placement = choose_preview_placement(name);
-            let is_transition = placement == PreviewPlacement::Scene;
+            let meta = shared_dispatcher().metadata(name);
+            let targets = meta.compatible_targets;
+            let is_transition = !targets.supports(EffectTargetKind::SpriteBitmap)
+                && !targets.supports(EffectTargetKind::Sprite);
 
             let (badge_char, badge_style) = if is_transition {
                 ("T", theme::badge_transition())

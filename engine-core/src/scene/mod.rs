@@ -1,0 +1,14 @@
+pub mod color;
+pub mod easing;
+pub mod model;
+pub mod sprite;
+
+pub use crate::animations::AnimationParams;
+pub use color::TermColour;
+pub use easing::Easing;
+pub use model::{
+    Animation, AudioCue, BehaviorParams, BehaviorSpec, Effect, EffectParams, EffectTargetKind,
+    Layer, LayerStages, MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage,
+    StageTrigger, Step,
+};
+pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};

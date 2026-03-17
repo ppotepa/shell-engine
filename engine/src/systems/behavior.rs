@@ -10,13 +10,19 @@ pub fn behavior_system(world: &mut World) {
     let stage = animator.stage.clone();
     let scene_elapsed_ms = animator.scene_elapsed_ms;
     let stage_elapsed_ms = animator.stage_elapsed_ms;
+    let menu_selected_index = animator.menu_selected_index;
 
     let commands = {
         let Some(runtime) = world.scene_runtime_mut() else {
             return;
         };
         runtime.reset_frame_state();
-        runtime.update_behaviors(stage, scene_elapsed_ms, stage_elapsed_ms)
+        runtime.update_behaviors(
+            stage,
+            scene_elapsed_ms,
+            stage_elapsed_ms,
+            menu_selected_index,
+        )
     };
 
     if let Some(audio_runtime) = world.audio_runtime_mut() {
@@ -66,6 +72,8 @@ layers: []
             elapsed_ms: 0,
             stage_elapsed_ms: 100,
             scene_elapsed_ms: 100,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -107,6 +115,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 150,
             scene_elapsed_ms: 150,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -159,6 +169,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 0,
             scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -214,6 +226,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 0,
             scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -257,6 +271,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 150,
             scene_elapsed_ms: 150,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -301,6 +317,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 0,
             scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -342,6 +360,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 0,
             scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -383,6 +403,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 50,
             scene_elapsed_ms: 50,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -425,6 +447,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 50,
             scene_elapsed_ms: 500,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -467,6 +491,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 150,
             scene_elapsed_ms: 150,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);
@@ -511,6 +537,8 @@ layers:
             elapsed_ms: 0,
             stage_elapsed_ms: 0,
             scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         behavior_system(&mut world);

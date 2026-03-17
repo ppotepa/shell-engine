@@ -1,0 +1,48 @@
+{
+  "coordinate_system": "Y-up",
+  "model_file": "city_scene_horizontal_front_yup.obj",
+  "notes": [
+    "OBJ does not store camera objects, so this is a companion preset.",
+    "The model was rotated -90 degrees around X to make the scene horizontal in Y-up software.",
+    "This camera faces the front of the main building."
+  ],
+  "camera": {
+    "type": "perspective",
+    "position": [
+      0.0,
+      16.0,
+      190.0
+    ],
+    "target": [
+      0.0,
+      12.0,
+      -12.85
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "fov_degrees": 35.0,
+    "near": 0.1,
+    "far": 2000.0
+  },
+  "alternate_closer_camera": {
+    "position": [
+      0.0,
+      15.0,
+      140.0
+    ],
+    "target": [
+      0.0,
+      12.0,
+      -12.85
+    ],
+    "up": [
+      0.0,
+      1.0,
+      0.0
+    ],
+    "fov_degrees": 40.0
+  }
+}

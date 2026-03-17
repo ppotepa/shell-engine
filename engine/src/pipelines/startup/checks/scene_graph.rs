@@ -23,7 +23,7 @@ impl StartupCheck for SceneGraphCheck {
         }
 
         let mut id_to_path = BTreeMap::new();
-        let mut id_to_next = BTreeMap::new();
+        let mut id_to_edges: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut path_to_id = BTreeMap::new();
         for sf in all {
             if let Some(existing) = id_to_path.insert(sf.scene.id.clone(), sf.path.clone()) {
@@ -35,12 +35,19 @@ impl StartupCheck for SceneGraphCheck {
                     ),
                 });
             }
-            id_to_next.insert(sf.scene.id.clone(), sf.scene.next.clone());
+            let mut edges = Vec::new();
+            if let Some(next) = sf.scene.next.clone() {
+                edges.push(next);
+            }
+            for option in &sf.scene.menu_options {
+                edges.push(option.next.clone());
+            }
+            id_to_edges.insert(sf.scene.id.clone(), edges);
             path_to_id.insert(normalize_scene_path(&sf.path), sf.scene.id.clone());
         }
 
         let entry_path = normalize_scene_path(ctx.entrypoint());
-        let mut current_id = path_to_id.get(&entry_path).cloned().ok_or_else(|| {
+        let entry_id = path_to_id.get(&entry_path).cloned().ok_or_else(|| {
             EngineError::StartupCheckFailed {
                 check: self.name().to_string(),
                 details: format!(
@@ -50,29 +57,32 @@ impl StartupCheck for SceneGraphCheck {
             }
         })?;
         let mut reachable = BTreeSet::new();
+        let mut stack = vec![entry_id.clone()];
 
-        loop {
+        while let Some(current_id) = stack.pop() {
             if !reachable.insert(current_id.clone()) {
-                report.add_warning(
-                    self.name(),
-                    format!("scene graph cycle detected at `{}`", current_id),
-                );
-                break;
+                continue;
             }
 
-            let Some(next_id) = id_to_next.get(&current_id).cloned().flatten() else {
-                break;
+            let Some(edges) = id_to_edges.get(&current_id) else {
+                continue;
             };
-            if !id_to_next.contains_key(&next_id) {
-                return Err(EngineError::StartupCheckFailed {
-                    check: self.name().to_string(),
-                    details: format!(
-                        "scene `{}` points to missing next scene `{}`",
-                        current_id, next_id
-                    ),
-                });
+            for target in edges {
+                if !id_to_edges.contains_key(target) {
+                    return Err(EngineError::StartupCheckFailed {
+                        check: self.name().to_string(),
+                        details: format!(
+                            "scene `{}` points to missing target scene `{}`",
+                            current_id, target
+                        ),
+                    });
+                }
+                stack.push(target.clone());
             }
-            current_id = next_id;
+        }
+
+        if has_cycle(&id_to_edges, &entry_id) {
+            report.add_warning(self.name(), "scene graph cycle detected".to_string());
         }
 
         let mut unreachable = Vec::new();
@@ -102,4 +112,33 @@ fn normalize_scene_path(path: &str) -> String {
     } else {
         format!("/{}", path.replace('\\', "/"))
     }
+}
+
+fn has_cycle(graph: &BTreeMap<String, Vec<String>>, entry_id: &str) -> bool {
+    fn visit(
+        node: &str,
+        graph: &BTreeMap<String, Vec<String>>,
+        visiting: &mut BTreeSet<String>,
+        visited: &mut BTreeSet<String>,
+    ) -> bool {
+        if visiting.contains(node) {
+            return true;
+        }
+        if visited.contains(node) {
+            return false;
+        }
+        visiting.insert(node.to_string());
+        for next in graph.get(node).into_iter().flatten() {
+            if visit(next, graph, visiting, visited) {
+                return true;
+            }
+        }
+        visiting.remove(node);
+        visited.insert(node.to_string());
+        false
+    }
+
+    let mut visiting = BTreeSet::new();
+    let mut visited = BTreeSet::new();
+    visit(entry_id, graph, &mut visiting, &mut visited)
 }

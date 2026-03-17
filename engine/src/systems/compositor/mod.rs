@@ -2,6 +2,7 @@ mod effect_applicator;
 mod grid_tracks;
 mod image_render;
 mod layer_compositor;
+mod obj_render;
 mod sprite_renderer;
 mod text_render;
 
@@ -115,7 +116,7 @@ pub fn compositor_system(world: &mut World) {
             Some(v) => &mut v.0,
             None => return,
         };
-        match rendered_mode {
+        let object_regions = match rendered_mode {
             SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
                 composite_scene(
                     bg,
@@ -131,25 +132,26 @@ pub fn compositor_system(world: &mut World) {
                     &scene_effects,
                     scene_step_dur,
                     buffer,
-                );
+                )
             }
-            SceneRenderedMode::HalfBlock => {
-                composite_scene_halfblock(
-                    bg,
-                    &layers,
-                    rendered_mode,
-                    asset_root.as_ref(),
-                    &target_resolver,
-                    &object_states,
-                    &current_stage,
-                    step_idx,
-                    elapsed_ms,
-                    scene_elapsed_ms,
-                    &scene_effects,
-                    scene_step_dur,
-                    buffer,
-                );
-            }
+            SceneRenderedMode::HalfBlock => composite_scene_halfblock(
+                bg,
+                &layers,
+                rendered_mode,
+                asset_root.as_ref(),
+                &target_resolver,
+                &object_states,
+                &current_stage,
+                step_idx,
+                elapsed_ms,
+                scene_elapsed_ms,
+                &scene_effects,
+                scene_step_dur,
+                buffer,
+            ),
+        };
+        if let Some(runtime) = world.scene_runtime_mut() {
+            runtime.set_object_regions(object_regions);
         }
         return;
     }
@@ -158,7 +160,7 @@ pub fn compositor_system(world: &mut World) {
         Some(b) => b,
         None => return,
     };
-    match rendered_mode {
+    let object_regions = match rendered_mode {
         SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
             composite_scene(
                 bg,
@@ -174,7 +176,7 @@ pub fn compositor_system(world: &mut World) {
                 &scene_effects,
                 scene_step_dur,
                 buffer,
-            );
+            )
         }
         SceneRenderedMode::HalfBlock => {
             composite_scene_halfblock(
@@ -191,8 +193,11 @@ pub fn compositor_system(world: &mut World) {
                 &scene_effects,
                 scene_step_dur,
                 buffer,
-            );
+            )
         }
+    };
+    if let Some(runtime) = world.scene_runtime_mut() {
+        runtime.set_object_regions(object_regions);
     }
 }
 
@@ -210,14 +215,14 @@ fn composite_scene(
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
     buffer: &mut Buffer,
-) {
+) -> BTreeMap<String, Region> {
     buffer.fill(bg);
     let scene_state = object_states
         .get(target_resolver.scene_object_id())
         .cloned()
         .unwrap_or_default();
     if !scene_state.visible {
-        return;
+        return BTreeMap::new();
     }
     let mut object_regions = BTreeMap::new();
     object_regions.insert(
@@ -265,6 +270,7 @@ fn composite_scene(
         );
         apply_effect(effect, scene_progress, region, buffer);
     }
+    object_regions
 }
 
 fn composite_scene_halfblock(
@@ -281,7 +287,7 @@ fn composite_scene_halfblock(
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
     target: &mut Buffer,
-) {
+) -> BTreeMap<String, Region> {
     let needed_w = target.width;
     let needed_h = target.height.saturating_mul(2);
     HALFBLOCK_SCRATCH.with(|scratch| {
@@ -289,7 +295,7 @@ fn composite_scene_halfblock(
         if virtual_buf.width != needed_w || virtual_buf.height != needed_h {
             virtual_buf.resize(needed_w, needed_h);
         }
-        composite_scene(
+        let object_regions = composite_scene(
             bg,
             layers,
             scene_rendered_mode,
@@ -305,7 +311,8 @@ fn composite_scene_halfblock(
             &mut *virtual_buf,
         );
         pack_halfblock_buffer(&*virtual_buf, target, bg);
-    });
+        object_regions
+    })
 }
 
 fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color) {
@@ -461,6 +468,8 @@ layers:
             elapsed_ms: 1,
             stage_elapsed_ms: 1,
             scene_elapsed_ms: 1,
+            next_scene_override: None,
+            menu_selected_index: 0,
         });
 
         compositor_system(&mut world);

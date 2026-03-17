@@ -1,0 +1,17 @@
+[package]
+name = "editor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+toml = "0.8"
+dirs = "5.0"
+ratatui = "0.28"
+crossterm = "0.29"
+image = { version = "0.25", default-features = false, features = ["png"] }
+engine-core = { path = "../engine-core" }
+engine = { path = "../engine" }
