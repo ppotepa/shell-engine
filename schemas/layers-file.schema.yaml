@@ -1,0 +1,8 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/layers-file.schema.yaml"
+title: Layers File Schema
+description: >
+  Partial file schema for scene layers in folder-based scene packages.
+type: array
+items:
+  $ref: "./scene.schema.yaml#/$defs/layer"

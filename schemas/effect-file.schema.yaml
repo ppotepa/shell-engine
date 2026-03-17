@@ -1,0 +1,8 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/effect-file.schema.yaml"
+title: Effect File Schema
+description: >
+  Partial file schema for reusable effect specs or effect lists in scene packages.
+type: array
+items:
+  $ref: "./scene.schema.yaml#/$defs/effect"
