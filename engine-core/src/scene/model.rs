@@ -185,6 +185,7 @@ pub struct EffectParams {
 /// Steps within a stage execute sequentially.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Step {
+    #[serde(default)]
     pub effects: Vec<Effect>,
     /// Optional minimum duration for the step (ms), regardless of effects.
     #[serde(default)]
@@ -358,6 +359,7 @@ pub struct Scene {
 #[cfg(test)]
 mod tests {
     use super::Scene;
+    use crate::scene::Stage;
 
     #[test]
     fn parses_scene_target_fps_kebab_case() {
@@ -387,5 +389,20 @@ layers: []
         .expect("scene should parse");
 
         assert_eq!(scene.target_fps, Some(24));
+    }
+
+    #[test]
+    fn parses_stage_step_without_effects_field() {
+        let stage = serde_yaml::from_str::<Stage>(
+            r#"
+steps:
+  - duration: 300
+"#,
+        )
+        .expect("stage should parse");
+
+        assert_eq!(stage.steps.len(), 1);
+        assert!(stage.steps[0].effects.is_empty());
+        assert_eq!(stage.steps[0].duration, Some(300));
     }
 }
