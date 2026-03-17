@@ -19,7 +19,7 @@ use super::render::{
 };
 use super::image_render::{image_sprite_dimensions, render_image_content};
 use super::obj_render::{obj_sprite_dimensions, render_obj_content, ObjRenderParams};
-use super::text_render::{dim_colour, render_text_content, text_sprite_dimensions};
+use super::text_render::{dim_colour, render_text_content, text_sprite_dimensions, wrap_text_content};
 
 /// Render all sprites in a layer onto `layer_buf`.
 pub fn render_sprites(
@@ -109,7 +109,7 @@ fn render_sprite(
     let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
 
     match sprite {
-        Sprite::Text { content, x, y, size, font, force_renderer_mode, force_font_mode,
+        Sprite::Text { content, x, y, size, font, force_renderer_mode, force_font_mode, wrap, max_width,
                         align_x, align_y, fg_colour, bg_colour, reveal_ms, glow, .. } =>
         {
             let total_chars = content.chars().count();
@@ -130,8 +130,17 @@ fn render_sprite(
                 font.as_deref(), force_font_mode.as_deref(), *size, inherited_mode, *force_renderer_mode,
             );
             let mod_source = ctx.asset_root.map(|root| root.mod_source());
+            let wrapped_content = wrap_text_content(
+                mod_source,
+                &rendered_content,
+                resolved_font.as_deref(),
+                fg,
+                sprite_bg,
+                *wrap,
+                *max_width,
+            );
             let (sprite_width, sprite_height) =
-                text_sprite_dimensions(mod_source, &rendered_content, resolved_font.as_deref(), fg, sprite_bg);
+                text_sprite_dimensions(mod_source, &wrapped_content, resolved_font.as_deref(), fg, sprite_bg);
 
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
@@ -140,7 +149,7 @@ fn render_sprite(
             if let Some(glow_opts) = glow.as_ref() {
                 let glow_col = glow_opts.colour.as_ref().map(Color::from).unwrap_or_else(|| dim_colour(fg));
                 let radius = glow_opts.radius.max(1) as i32;
-                let glow_content = strip_markup(&rendered_content);
+                let glow_content = strip_markup(&wrapped_content);
                 for dy in -radius..=radius {
                     for dx in -radius..=radius {
                         if dx == 0 && dy == 0 { continue; }
@@ -150,7 +159,7 @@ fn render_sprite(
                     }
                 }
             }
-            render_text_content(mod_source, &rendered_content, resolved_font.as_deref(), fg, sprite_bg, draw_x, draw_y, ctx.layer_buf);
+            render_text_content(mod_source, &wrapped_content, resolved_font.as_deref(), fg, sprite_bg, draw_x, draw_y, ctx.layer_buf);
             let sprite_region = Region { x: draw_x, y: draw_y, width: sprite_width, height: sprite_height };
             finalize_sprite(object_id, sprite_region, sprite_elapsed, sprite.stages(), ctx, target_resolver, object_regions);
         }

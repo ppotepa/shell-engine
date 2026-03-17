@@ -1,11 +1,17 @@
 //! Scene and asset repository adapters for loading authored scene packages from
 //! either an unpacked mod directory or a packaged zip archive.
 
-use serde_yaml::{Mapping, Value};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
+
+use engine_authoring::package::{
+    assemble_scene_package, PackageError, PackageYamlFile, ScenePackagePartials,
+};
+use engine_authoring::repository::{
+    is_discoverable_scene_path, is_scene_package_manifest, is_yaml_path,
+};
 
 use crate::scene::Scene;
 use crate::scene_compiler::compile_scene_document_with_loader_and_source;
@@ -138,23 +144,17 @@ impl SceneRepository for FsSceneRepository {
         if !root.exists() {
             return Ok(Vec::new());
         }
-
-        let mut paths = Vec::new();
-        walk_scene_paths(&root, &mut paths).map_err(|source| EngineError::ManifestRead {
+        let paths = yaml_files_under(&root).map_err(|source| EngineError::ManifestRead {
             path: root.clone(),
             source,
         })?;
-        paths.sort();
-
-        let mut normalized = Vec::with_capacity(paths.len());
-        for path in paths {
-            let rel = relative_to_mod(&self.mod_source, &path);
-            if !is_discoverable_scene_path(&rel) {
-                continue;
-            }
-            normalized.push(format!("/{rel}"));
-        }
-        Ok(normalized)
+        Ok(paths
+            .into_iter()
+            .filter_map(|path| {
+                let rel = relative_to_mod(&self.mod_source, &path);
+                is_discoverable_scene_path(&rel).then(|| format!("/{rel}"))
+            })
+            .collect())
     }
 }
 
@@ -176,24 +176,19 @@ impl AssetRepository for FsSceneRepository {
         if !root.exists() {
             return Ok(Vec::new());
         }
-
         let mut paths = Vec::new();
         walk_asset_paths(&root, &mut paths).map_err(|source| EngineError::ManifestRead {
             path: root.clone(),
             source,
         })?;
         paths.sort();
-
-        let mut normalized = Vec::with_capacity(paths.len());
-        for path in paths {
-            let rel = path
-                .strip_prefix(&self.mod_source)
-                .unwrap_or(path.as_path())
-                .to_string_lossy()
-                .replace('\\', "/");
-            normalized.push(format!("/{rel}"));
-        }
-        Ok(normalized)
+        Ok(paths
+            .into_iter()
+            .map(|path| {
+                let rel = path.strip_prefix(&self.mod_source).unwrap_or(path.as_path());
+                format!("/{}", rel.to_string_lossy().replace('\\', "/"))
+            })
+            .collect())
     }
 }
 
@@ -245,15 +240,9 @@ impl ZipSceneRepository {
         Ok(content)
     }
 
-    fn list_yaml_entries_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError> {
-        let prefix = asset_prefix.trim_start_matches('/').trim_end_matches('/');
-        let prefix = if prefix.is_empty() {
-            String::new()
-        } else {
-            format!("{prefix}/")
-        };
+    fn zip_file_names(&self) -> Result<Vec<String>, EngineError> {
         let mut archive = self.open_archive()?;
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(archive.len());
         for idx in 0..archive.len() {
             let entry = archive
                 .by_index(idx)
@@ -261,18 +250,25 @@ impl ZipSceneRepository {
                     path: self.mod_source.clone(),
                     source,
                 })?;
-            if entry.is_dir() {
-                continue;
+            if !entry.is_dir() {
+                out.push(entry.name().replace('\\', "/"));
             }
-            let name = entry.name().replace('\\', "/");
-            if !name.starts_with(&prefix) {
-                continue;
-            }
-            if !is_yaml_path(&name) {
-                continue;
-            }
-            out.push(name);
         }
+        Ok(out)
+    }
+
+    fn list_yaml_entries_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError> {
+        let prefix_raw = asset_prefix.trim_start_matches('/').trim_end_matches('/');
+        let prefix = if prefix_raw.is_empty() {
+            String::new()
+        } else {
+            format!("{prefix_raw}/")
+        };
+        let mut out: Vec<String> = self
+            .zip_file_names()?
+            .into_iter()
+            .filter(|n| n.starts_with(&prefix) && is_yaml_path(n))
+            .collect();
         out.sort();
         Ok(out)
     }
@@ -304,27 +300,12 @@ impl SceneRepository for ZipSceneRepository {
     }
 
     fn discover_scene_paths(&self) -> Result<Vec<String>, EngineError> {
-        let mut archive = self.open_archive()?;
-        let mut out = Vec::new();
-        for idx in 0..archive.len() {
-            let entry = archive
-                .by_index(idx)
-                .map_err(|source| EngineError::ZipArchive {
-                    path: self.mod_source.clone(),
-                    source,
-                })?;
-            if entry.is_dir() {
-                continue;
-            }
-            let name = entry.name().replace('\\', "/");
-            if !name.starts_with("scenes/") {
-                continue;
-            }
-            if !is_discoverable_scene_path(&name) {
-                continue;
-            }
-            out.push(format!("/{name}"));
-        }
+        let mut out: Vec<String> = self
+            .zip_file_names()?
+            .into_iter()
+            .filter(|n| is_discoverable_scene_path(n))
+            .map(|n| format!("/{n}"))
+            .collect();
         out.sort();
         Ok(out)
     }
@@ -358,33 +339,18 @@ impl AssetRepository for ZipSceneRepository {
     }
 
     fn list_assets_under(&self, asset_prefix: &str) -> Result<Vec<String>, EngineError> {
-        let normalized_prefix = Self::normalized(asset_prefix)
-            .trim_end_matches('/')
-            .to_string();
-        let prefix = if normalized_prefix.is_empty() {
+        let prefix_raw = Self::normalized(asset_prefix).trim_end_matches('/');
+        let prefix = if prefix_raw.is_empty() {
             String::new()
         } else {
-            format!("{normalized_prefix}/")
+            format!("{prefix_raw}/")
         };
-
-        let mut archive = self.open_archive()?;
-        let mut out = Vec::new();
-        for idx in 0..archive.len() {
-            let entry = archive
-                .by_index(idx)
-                .map_err(|source| EngineError::ZipArchive {
-                    path: self.mod_source.clone(),
-                    source,
-                })?;
-            if entry.is_dir() {
-                continue;
-            }
-            let name = entry.name().replace('\\', "/");
-            if !name.starts_with(&prefix) {
-                continue;
-            }
-            out.push(format!("/{name}"));
-        }
+        let mut out: Vec<String> = self
+            .zip_file_names()?
+            .into_iter()
+            .filter(|n| n.starts_with(&prefix))
+            .map(|n| format!("/{n}"))
+            .collect();
         out.sort();
         Ok(out)
     }
@@ -427,16 +393,19 @@ fn is_zip_file(path: &Path) -> bool {
 }
 
 fn assemble_fs_scene_package(scene_file: &Path, root_content: &str) -> Result<String, EngineError> {
-    let mut root = parse_yaml_value(root_content, scene_file)?;
     let Some(package_dir) = scene_file.parent() else {
         return Ok(root_content.to_string());
     };
-
-    merge_sequence_dir(&mut root, &package_dir.join("layers"), "layers")?;
-    merge_mapping_dir(&mut root, &package_dir.join("templates"), "templates")?;
-    merge_sequence_dir(&mut root, &package_dir.join("objects"), "objects")?;
-
-    to_yaml_string(&root, scene_file)
+    let Some(mod_root) = package_dir.parent().and_then(Path::parent) else {
+        return Ok(root_content.to_string());
+    };
+    let partials = ScenePackagePartials {
+        layers: read_fs_package_partials(mod_root, &package_dir.join("layers"))?,
+        templates: read_fs_package_partials(mod_root, &package_dir.join("templates"))?,
+        objects: read_fs_package_partials(mod_root, &package_dir.join("objects"))?,
+    };
+    let root_path = format!("/{}", relative_to_mod(mod_root, scene_file));
+    assemble_scene_package(root_content, &root_path, &partials).map_err(map_package_error)
 }
 
 fn assemble_zip_scene_package(
@@ -444,23 +413,22 @@ fn assemble_zip_scene_package(
     scene_path: &str,
     root_content: &str,
 ) -> Result<String, EngineError> {
-    let mut root = parse_yaml_value(root_content, &repo.mod_source)?;
     let Some((package_dir, _)) = scene_path.rsplit_once('/') else {
         return Ok(root_content.to_string());
     };
-
-    merge_zip_sequence_dir(repo, &mut root, package_dir, "layers")?;
-    merge_zip_mapping_dir(repo, &mut root, package_dir, "templates")?;
-    merge_zip_sequence_dir(repo, &mut root, package_dir, "objects")?;
-
-    to_yaml_string(&root, &repo.mod_source)
+    let partials = ScenePackagePartials {
+        layers: read_zip_package_partials(repo, package_dir, "layers")?,
+        templates: read_zip_package_partials(repo, package_dir, "templates")?,
+        objects: read_zip_package_partials(repo, package_dir, "objects")?,
+    };
+    assemble_scene_package(root_content, &format!("/{scene_path}"), &partials).map_err(map_package_error)
 }
 
-fn merge_sequence_dir(root: &mut Value, dir: &Path, key: &str) -> Result<(), EngineError> {
+fn read_fs_package_partials(mod_root: &Path, dir: &Path) -> Result<Vec<PackageYamlFile>, EngineError> {
     if !dir.exists() {
-        return Ok(());
+        return Ok(Vec::new());
     }
-    let mut entries = Vec::new();
+    let mut out = Vec::new();
     for file in yaml_files_under(dir).map_err(|source| EngineError::ManifestRead {
         path: dir.to_path_buf(),
         source,
@@ -469,133 +437,32 @@ fn merge_sequence_dir(root: &mut Value, dir: &Path, key: &str) -> Result<(), Eng
             path: file.clone(),
             source,
         })?;
-        let value = parse_yaml_value(&raw, &file)?;
-        let Some(seq) = value.as_sequence() else {
-            continue;
-        };
-        entries.extend(seq.iter().cloned());
-    }
-    append_sequence_entries(root, key, entries);
-    Ok(())
-}
-
-fn merge_mapping_dir(root: &mut Value, dir: &Path, key: &str) -> Result<(), EngineError> {
-    if !dir.exists() {
-        return Ok(());
-    }
-    let mut entries = Mapping::new();
-    for file in yaml_files_under(dir).map_err(|source| EngineError::ManifestRead {
-        path: dir.to_path_buf(),
-        source,
-    })? {
-        let raw = fs::read_to_string(&file).map_err(|source| EngineError::ManifestRead {
-            path: file.clone(),
-            source,
-        })?;
-        let value = parse_yaml_value(&raw, &file)?;
-        let Some(map) = value.as_mapping() else {
-            continue;
-        };
-        for (k, v) in map {
-            entries.insert(k.clone(), v.clone());
-        }
-    }
-    merge_mapping_entries(root, key, entries);
-    Ok(())
-}
-
-fn merge_zip_sequence_dir(
-    repo: &ZipSceneRepository,
-    root: &mut Value,
-    package_dir: &str,
-    key: &str,
-) -> Result<(), EngineError> {
-    let prefix = format!("{package_dir}/{key}");
-    let mut entries = Vec::new();
-    for file in repo.list_yaml_entries_under(&prefix)? {
-        let raw = repo.read_text_file(&file)?;
-        let value = parse_yaml_value(&raw, &repo.mod_source)?;
-        let Some(seq) = value.as_sequence() else {
-            continue;
-        };
-        entries.extend(seq.iter().cloned());
-    }
-    append_sequence_entries(root, key, entries);
-    Ok(())
-}
-
-fn merge_zip_mapping_dir(
-    repo: &ZipSceneRepository,
-    root: &mut Value,
-    package_dir: &str,
-    key: &str,
-) -> Result<(), EngineError> {
-    let prefix = format!("{package_dir}/{key}");
-    let mut entries = Mapping::new();
-    for file in repo.list_yaml_entries_under(&prefix)? {
-        let raw = repo.read_text_file(&file)?;
-        let value = parse_yaml_value(&raw, &repo.mod_source)?;
-        let Some(map) = value.as_mapping() else {
-            continue;
-        };
-        for (k, v) in map {
-            entries.insert(k.clone(), v.clone());
-        }
-    }
-    merge_mapping_entries(root, key, entries);
-    Ok(())
-}
-
-fn append_sequence_entries(root: &mut Value, key: &str, entries: Vec<Value>) {
-    if entries.is_empty() {
-        return;
-    }
-    let Some(root_map) = root.as_mapping_mut() else {
-        return;
-    };
-    let value = root_map
-        .entry(Value::String(key.to_string()))
-        .or_insert_with(|| Value::Sequence(Vec::new()));
-    let Some(seq) = value.as_sequence_mut() else {
-        return;
-    };
-    seq.extend(entries);
-}
-
-fn merge_mapping_entries(root: &mut Value, key: &str, entries: Mapping) {
-    if entries.is_empty() {
-        return;
-    }
-    let Some(root_map) = root.as_mapping_mut() else {
-        return;
-    };
-    let value = root_map
-        .entry(Value::String(key.to_string()))
-        .or_insert_with(|| Value::Mapping(Mapping::new()));
-    let Some(map) = value.as_mapping_mut() else {
-        return;
-    };
-    for (k, v) in entries {
-        map.insert(k, v);
-    }
-}
-
-fn parse_yaml_value(raw: &str, path: &Path) -> Result<Value, EngineError> {
-    serde_yaml::from_str(raw).map_err(|source| EngineError::InvalidModYaml {
-        path: path.to_path_buf(),
-        source,
-    })
-}
-
-fn to_yaml_string(value: &Value, path: &Path) -> Result<String, EngineError> {
-    let mut out = serde_yaml::to_string(value).map_err(|source| EngineError::InvalidModYaml {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    if !out.ends_with('\n') {
-        out.push('\n');
+        out.push(PackageYamlFile::new(
+            format!("/{}", relative_to_mod(mod_root, &file)),
+            raw,
+        ));
     }
     Ok(out)
+}
+
+fn read_zip_package_partials(
+    repo: &ZipSceneRepository,
+    package_dir: &str,
+    key: &str,
+) -> Result<Vec<PackageYamlFile>, EngineError> {
+    let mut out = Vec::new();
+    for file in repo.list_yaml_entries_under(&format!("{package_dir}/{key}"))? {
+        out.push(PackageYamlFile::new(format!("/{file}"), repo.read_text_file(&file)?));
+    }
+    Ok(out)
+}
+
+fn map_package_error(error: PackageError) -> EngineError {
+    let (path, source) = error.into_parts();
+    EngineError::InvalidModYaml {
+        path: PathBuf::from(path),
+        source,
+    }
 }
 
 fn relative_to_mod(mod_root: &Path, path: &Path) -> String {
@@ -605,37 +472,6 @@ fn relative_to_mod(mod_root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
-fn is_discoverable_scene_path(path: &str) -> bool {
-    path.starts_with("scenes/") && is_yaml_path(path) && !is_reserved_scene_partial_path(path)
-}
-
-fn is_scene_package_manifest(path: &str) -> bool {
-    let trimmed = path.trim_start_matches('/');
-    trimmed.starts_with("scenes/") && trimmed.ends_with("/scene.yml")
-}
-
-fn is_reserved_scene_partial_path(path: &str) -> bool {
-    let trimmed = path.trim_start_matches('/');
-    let segments: Vec<&str> = trimmed.split('/').collect();
-    if segments.first() != Some(&"scenes") {
-        return false;
-    }
-    if segments.get(1) == Some(&"shared") {
-        return true;
-    }
-    if segments.len() < 4 {
-        return false;
-    }
-    matches!(
-        segments[2],
-        "layers" | "sprites" | "templates" | "objects" | "effects"
-    )
-}
-
-fn is_yaml_path(path: &str) -> bool {
-    path.ends_with(".yml") || path.ends_with(".yaml")
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
@@ -643,35 +479,39 @@ mod tests {
         ZipSceneRepository,
     };
     use std::fs;
+    use std::path::Path;
     use tempfile::tempdir;
     use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
+
+    fn make_zip(path: &Path, files: &[(&str, &[u8])]) {
+        let file = fs::File::create(path).expect("create zip");
+        let mut writer = ZipWriter::new(file);
+        let opts = SimpleFileOptions::default();
+        for (name, content) in files {
+            writer.start_file(*name, opts).expect("start file");
+            std::io::Write::write_all(&mut writer, content).expect("write file");
+        }
+        writer.finish().expect("finish zip");
+    }
 
     #[test]
     fn zip_repository_discovers_and_loads_scenes() {
         let temp = tempdir().expect("temp dir");
         let zip_path = temp.path().join("mod.zip");
-        let file = fs::File::create(&zip_path).expect("create zip");
-        let mut writer = ZipWriter::new(file);
-        let opts =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-        writer
-            .start_file("mod.yaml", opts)
-            .expect("start mod manifest");
-        std::io::Write::write_all(
-            &mut writer,
-            b"name: test\nversion: 0.1.0\nentrypoint: /scenes/intro.yml\n",
-        )
-        .expect("write manifest");
-        writer
-            .start_file("scenes/intro.yml", opts)
-            .expect("start scene");
-        std::io::Write::write_all(
-            &mut writer,
-            b"id: intro\ntitle: Intro\nbg_colour: black\nlayers: []\nnext: null\n",
-        )
-        .expect("write scene");
-        writer.finish().expect("finish zip");
+        make_zip(
+            &zip_path,
+            &[
+                (
+                    "mod.yaml",
+                    b"name: test\nversion: 0.1.0\nentrypoint: /scenes/intro.yml\n",
+                ),
+                (
+                    "scenes/intro.yml",
+                    b"id: intro\ntitle: Intro\nbg_colour: black\nlayers: []\nnext: null\n",
+                ),
+            ],
+        );
 
         let repo = ZipSceneRepository::new(zip_path);
         let paths = repo.discover_scene_paths().expect("discover scenes");
@@ -697,18 +537,13 @@ mod tests {
         );
 
         let zip_path = temp.path().join("mod.zip");
-        let file = fs::File::create(&zip_path).expect("create zip");
-        let mut writer = ZipWriter::new(file);
-        let opts = SimpleFileOptions::default();
-        writer
-            .start_file("scenes/intro.yml", opts)
-            .expect("start scene");
-        std::io::Write::write_all(
-            &mut writer,
-            b"id: intro\ntitle: Intro\nbg_colour: black\nlayers: []\nnext: null\n",
-        )
-        .expect("write scene");
-        writer.finish().expect("finish zip");
+        make_zip(
+            &zip_path,
+            &[(
+                "scenes/intro.yml",
+                b"id: intro\ntitle: Intro\nbg_colour: black\nlayers: []\nnext: null\n",
+            )],
+        );
 
         let zip_repo = create_scene_repository(&zip_path).expect("zip repo");
         assert_eq!(
@@ -740,18 +575,16 @@ mod tests {
         );
 
         let zip_path = temp.path().join("mod.zip");
-        let file = fs::File::create(&zip_path).expect("create zip");
-        let mut writer = ZipWriter::new(file);
-        let opts = SimpleFileOptions::default();
-        writer
-            .start_file("assets/fonts/test/8px/ascii/manifest.yaml", opts)
-            .expect("start manifest");
-        std::io::Write::write_all(&mut writer, b"glyphs: []\n").expect("write manifest");
-        writer
-            .start_file("assets/fonts/test/8px/ascii/a.txt", opts)
-            .expect("start glyph");
-        std::io::Write::write_all(&mut writer, b"A\n").expect("write glyph");
-        writer.finish().expect("finish zip");
+        make_zip(
+            &zip_path,
+            &[
+                (
+                    "assets/fonts/test/8px/ascii/manifest.yaml",
+                    b"glyphs: []\n",
+                ),
+                ("assets/fonts/test/8px/ascii/a.txt", b"A\n"),
+            ],
+        );
 
         let zip_repo = create_asset_repository(&zip_path).expect("zip asset repo");
         assert_eq!(
@@ -809,40 +642,19 @@ next: null
     fn zip_repository_expands_object_instances_from_objects_directory() {
         let temp = tempdir().expect("temp dir");
         let zip_path = temp.path().join("mod.zip");
-        let file = fs::File::create(&zip_path).expect("create zip");
-        let mut writer = ZipWriter::new(file);
-        let opts = SimpleFileOptions::default();
-        writer
-            .start_file("objects/suzan.yml", opts)
-            .expect("start object");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-name: suzan
-sprites:
-  - type: text
-    content: "$label"
-"#,
-        )
-        .expect("write object");
-        writer
-            .start_file("scenes/intro.yml", opts)
-            .expect("start scene");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-id: intro
-title: Intro
-layers: []
-objects:
-  - use: suzan
-    with:
-      label: ZIP
-next: null
-"#,
-        )
-        .expect("write scene");
-        writer.finish().expect("finish zip");
+        make_zip(
+            &zip_path,
+            &[
+                (
+                    "objects/suzan.yml",
+                    b"\nname: suzan\nsprites:\n  - type: text\n    content: \"$label\"\n",
+                ),
+                (
+                    "scenes/intro.yml",
+                    b"\nid: intro\ntitle: Intro\nlayers: []\nobjects:\n  - use: suzan\n    with:\n      label: ZIP\nnext: null\n",
+                ),
+            ],
+        );
 
         let repo = create_scene_repository(&zip_path).expect("repo");
         let scene = repo.load_scene("/scenes/intro.yml").expect("load scene");
@@ -916,60 +728,27 @@ next: null
     fn zip_repository_discovers_and_loads_scene_packages() {
         let temp = tempdir().expect("temp dir");
         let zip_path = temp.path().join("mod.zip");
-        let file = fs::File::create(&zip_path).expect("create zip");
-        let mut writer = ZipWriter::new(file);
-        let opts = SimpleFileOptions::default();
-        writer
-            .start_file("objects/banner.yml", opts)
-            .expect("start object");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-name: banner
-sprites:
-  - type: text
-    content: "$label"
-"#,
-        )
-        .expect("write object");
-        writer
-            .start_file("scenes/intro/scene.yml", opts)
-            .expect("start scene root");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-id: intro-package
-title: Intro Package
-next: null
-"#,
-        )
-        .expect("write scene root");
-        writer
-            .start_file("scenes/intro/layers/base.yml", opts)
-            .expect("start layer partial");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-- name: base
-  sprites:
-    - type: text
-      content: ZIP
-"#,
-        )
-        .expect("write layer partial");
-        writer
-            .start_file("scenes/intro/objects/banner.yml", opts)
-            .expect("start object partial");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-- use: banner
-  with:
-    label: PACKAGE
-"#,
-        )
-        .expect("write object partial");
-        writer.finish().expect("finish zip");
+        make_zip(
+            &zip_path,
+            &[
+                (
+                    "objects/banner.yml",
+                    b"\nname: banner\nsprites:\n  - type: text\n    content: \"$label\"\n",
+                ),
+                (
+                    "scenes/intro/scene.yml",
+                    b"\nid: intro-package\ntitle: Intro Package\nnext: null\n",
+                ),
+                (
+                    "scenes/intro/layers/base.yml",
+                    b"\n- name: base\n  sprites:\n    - type: text\n      content: ZIP\n",
+                ),
+                (
+                    "scenes/intro/objects/banner.yml",
+                    b"\n- use: banner\n  with:\n    label: PACKAGE\n",
+                ),
+            ],
+        );
 
         let repo = create_scene_repository(&zip_path).expect("repo");
         assert_eq!(
@@ -1028,45 +807,23 @@ sprites:
     fn zip_scene_package_loads_shared_object_via_relative_ref() {
         let temp = tempdir().expect("temp dir");
         let zip_path = temp.path().join("mod.zip");
-        let file = fs::File::create(&zip_path).expect("create zip");
-        let mut writer = ZipWriter::new(file);
-        let opts = SimpleFileOptions::default();
-        writer
-            .start_file("scenes/intro/scene.yml", opts)
-            .expect("start scene root");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-id: intro-package
-title: Intro Package
-next: null
-"#,
-        )
-        .expect("write scene root");
-        writer
-            .start_file("scenes/intro/objects/banner.yml", opts)
-            .expect("start object partial");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-- use: ../shared/objects/banner.yml
-"#,
-        )
-        .expect("write object partial");
-        writer
-            .start_file("scenes/shared/objects/banner.yml", opts)
-            .expect("start shared object");
-        std::io::Write::write_all(
-            &mut writer,
-            br#"
-name: banner
-sprites:
-  - type: text
-    content: SHARED-ZIP
-"#,
-        )
-        .expect("write shared object");
-        writer.finish().expect("finish zip");
+        make_zip(
+            &zip_path,
+            &[
+                (
+                    "scenes/intro/scene.yml",
+                    b"\nid: intro-package\ntitle: Intro Package\nnext: null\n",
+                ),
+                (
+                    "scenes/intro/objects/banner.yml",
+                    b"\n- use: ../shared/objects/banner.yml\n",
+                ),
+                (
+                    "scenes/shared/objects/banner.yml",
+                    b"\nname: banner\nsprites:\n  - type: text\n    content: SHARED-ZIP\n",
+                ),
+            ],
+        );
 
         let repo = create_scene_repository(&zip_path).expect("repo");
         let scene = repo
@@ -1108,31 +865,20 @@ sprites:
     fn zip_repository_discovery_excludes_shared_and_partial_directories() {
         let temp = tempdir().expect("temp dir");
         let zip_path = temp.path().join("mod.zip");
-        let file = fs::File::create(&zip_path).expect("create zip");
-        let mut writer = ZipWriter::new(file);
-        let opts = SimpleFileOptions::default();
-        writer
-            .start_file("scenes/intro/scene.yml", opts)
-            .expect("start scene root");
-        std::io::Write::write_all(
-            &mut writer,
-            b"id: intro\ntitle: Intro\nlayers: []\nnext: null\n",
-        )
-        .expect("write scene root");
-        writer
-            .start_file("scenes/shared/common.yml", opts)
-            .expect("start shared");
-        std::io::Write::write_all(
-            &mut writer,
-            b"id: shared\ntitle: Shared\nlayers: []\nnext: null\n",
-        )
-        .expect("write shared");
-        writer
-            .start_file("scenes/intro/layers/base.yml", opts)
-            .expect("start partial");
-        std::io::Write::write_all(&mut writer, b"- name: base\n  sprites: []\n")
-            .expect("write partial");
-        writer.finish().expect("finish zip");
+        make_zip(
+            &zip_path,
+            &[
+                (
+                    "scenes/intro/scene.yml",
+                    b"id: intro\ntitle: Intro\nlayers: []\nnext: null\n",
+                ),
+                (
+                    "scenes/shared/common.yml",
+                    b"id: shared\ntitle: Shared\nlayers: []\nnext: null\n",
+                ),
+                ("scenes/intro/layers/base.yml", b"- name: base\n  sprites: []\n"),
+            ],
+        );
 
         let repo = create_scene_repository(&zip_path).expect("repo");
         assert_eq!(
@@ -1140,24 +886,6 @@ sprites:
             vec!["/scenes/intro/scene.yml".to_string()]
         );
     }
-}
-
-fn walk_scene_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
-    for entry in fs::read_dir(root)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            walk_scene_paths(&path, out)?;
-            continue;
-        }
-        let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
-            continue;
-        };
-        if ext.eq_ignore_ascii_case("yml") || ext.eq_ignore_ascii_case("yaml") {
-            out.push(path);
-        }
-    }
-    Ok(())
 }
 
 fn walk_asset_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
