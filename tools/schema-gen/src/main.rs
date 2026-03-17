@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use engine_core::authoring::catalog::static_catalog;
+use engine_core::effects::{shared_dispatcher, ParamControl};
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
 use std::fs;
@@ -101,7 +102,7 @@ fn generate_fragment_for_mod(mod_root: &Path, out_dir: &Path) -> Result<()> {
     );
     defs.insert(
         Value::String("effect_names".to_string()),
-        enum_schema(effect_names.into_iter().collect()),
+        enum_schema(effect_names.iter().cloned().collect()),
     );
     defs.insert(
         Value::String("layer_refs".to_string()),
@@ -144,7 +145,7 @@ fn generate_fragment_for_mod(mod_root: &Path, out_dir: &Path) -> Result<()> {
     write_schema_file(&objects_file_overlay_path, &objects_file_overlay)?;
     println!("generated {}", objects_file_overlay_path.display());
 
-    let effect_file_overlay = build_effect_file_overlay_schema(mod_name);
+    let effect_file_overlay = build_effect_file_overlay_schema(mod_name, &effect_names);
     let effect_file_overlay_path = out_dir.join(format!("{mod_name}.effect-file.schema.yaml"));
     write_schema_file(&effect_file_overlay_path, &effect_file_overlay)?;
     println!("generated {}", effect_file_overlay_path.display());
@@ -269,16 +270,7 @@ fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
     Value::Mapping(root)
 }
 
-fn build_effect_file_overlay_schema(mod_name: &str) -> Value {
-    let mut items_patch = Mapping::new();
-    items_patch.insert(
-        Value::String("properties".to_string()),
-        Value::Mapping(mapping_with(
-            "name",
-            schema_ref(&format!("./{mod_name}.schema.yaml#/$defs/effect_names")),
-        )),
-    );
-
+fn build_effect_file_overlay_schema(mod_name: &str, effect_names: &BTreeSet<String>) -> Value {
     let mut root = Mapping::new();
     root.insert(
         Value::String("$schema".to_string()),
@@ -301,14 +293,165 @@ fn build_effect_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("items".to_string()),
         Value::Mapping(mapping_with(
-            "allOf",
-            Value::Sequence(vec![
-                schema_ref("../effect-file.schema.yaml#/items"),
-                Value::Mapping(items_patch),
-            ]),
+            "oneOf",
+            Value::Sequence(effect_variant_schemas(mod_name, effect_names)),
         )),
     );
     Value::Mapping(root)
+}
+
+fn effect_variant_schemas(mod_name: &str, effect_names: &BTreeSet<String>) -> Vec<Value> {
+    effect_names
+        .iter()
+        .map(|effect_name| {
+            let meta = shared_dispatcher().metadata(effect_name);
+            let mut name_props = Mapping::new();
+            name_props.insert(
+                Value::String("name".to_string()),
+                Value::Mapping(mapping_with(
+                    "const",
+                    Value::String(effect_name.to_string()),
+                )),
+            );
+            name_props.insert(
+                Value::String("params".to_string()),
+                effect_params_schema(meta.params),
+            );
+
+            let mut patch = Mapping::new();
+            patch.insert(
+                Value::String("properties".to_string()),
+                Value::Mapping(name_props),
+            );
+            patch.insert(
+                Value::String("title".to_string()),
+                Value::String(format!("{effect_name} effect variant")),
+            );
+
+            Value::Mapping(mapping_with(
+                "allOf",
+                Value::Sequence(vec![
+                    schema_ref("../effect-file.schema.yaml#/items"),
+                    Value::Mapping(patch),
+                    Value::Mapping(mapping_with(
+                        "description",
+                        Value::String(format!(
+                            "{effect_name} overlay from {mod_name} generated metadata"
+                        )),
+                    )),
+                ]),
+            ))
+        })
+        .collect()
+}
+
+fn effect_params_schema(params: &'static [engine_core::effects::ParamMetadata]) -> Value {
+    let mut properties = Mapping::new();
+    for param in params {
+        let mut schema = Mapping::new();
+        for (k, v) in param_control_schema(&param.control) {
+            schema.insert(k, v);
+        }
+        schema.insert(
+            Value::String("description".to_string()),
+            Value::String(param.description.to_string()),
+        );
+        properties.insert(
+            Value::String(param.name.to_string()),
+            Value::Mapping(schema),
+        );
+    }
+
+    let mut map = Mapping::new();
+    map.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    map.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(false),
+    );
+    map.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(properties),
+    );
+    Value::Mapping(map)
+}
+
+fn param_control_schema(control: &ParamControl) -> Mapping {
+    let mut map = Mapping::new();
+    match control {
+        ParamControl::Slider {
+            min,
+            max,
+            step,
+            unit: _,
+        } => {
+            map.insert(
+                Value::String("type".to_string()),
+                Value::String("number".to_string()),
+            );
+            map.insert(
+                Value::String("minimum".to_string()),
+                serde_yaml::to_value(*min).expect("min value"),
+            );
+            map.insert(
+                Value::String("maximum".to_string()),
+                serde_yaml::to_value(*max).expect("max value"),
+            );
+            map.insert(
+                Value::String("multipleOf".to_string()),
+                serde_yaml::to_value(*step).expect("step value"),
+            );
+        }
+        ParamControl::Select { options, default } => {
+            map.insert(
+                Value::String("type".to_string()),
+                Value::String("string".to_string()),
+            );
+            map.insert(
+                Value::String("enum".to_string()),
+                Value::Sequence(
+                    options
+                        .iter()
+                        .map(|v| Value::String((*v).to_string()))
+                        .collect(),
+                ),
+            );
+            map.insert(
+                Value::String("default".to_string()),
+                Value::String((*default).to_string()),
+            );
+        }
+        ParamControl::Toggle { default } => {
+            map.insert(
+                Value::String("type".to_string()),
+                Value::String("boolean".to_string()),
+            );
+            map.insert(Value::String("default".to_string()), Value::Bool(*default));
+        }
+        ParamControl::Text { default } => {
+            map.insert(
+                Value::String("type".to_string()),
+                Value::String("string".to_string()),
+            );
+            map.insert(
+                Value::String("default".to_string()),
+                Value::String((*default).to_string()),
+            );
+        }
+        ParamControl::Colour { default } => {
+            map.insert(
+                Value::String("type".to_string()),
+                Value::String("string".to_string()),
+            );
+            map.insert(
+                Value::String("default".to_string()),
+                Value::String((*default).to_string()),
+            );
+        }
+    }
+    map
 }
 
 fn scene_overlay_patch(mod_name: &str) -> Mapping {
@@ -519,7 +662,7 @@ mod tests {
         fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
         fs::write(
             mod_root.join("scenes/intro/scene.yml"),
-            "id: intro\neffects:\n  - name: fade\n    duration: 1.0\n",
+            "id: intro\neffects:\n  - name: fade-in\n    duration: 1.0\n",
         )
         .expect("write scene");
         fs::write(
@@ -575,7 +718,9 @@ mod tests {
 
         let effect_overlay = fs::read_to_string(out_dir.join("playground.effect-file.schema.yaml"))
             .expect("read effect overlay");
-        assert!(effect_overlay.contains("./playground.schema.yaml#/$defs/effect_names"));
+        assert!(effect_overlay.contains("oneOf:"));
+        assert!(effect_overlay.contains("const: fade-in"));
+        assert!(effect_overlay.contains("easing:"));
     }
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {
