@@ -3,7 +3,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
-use crate::scene_compiler::compile_scene_document;
+use crate::scene_compiler::compile_scene_document_with_loader;
 use crate::scene::Scene;
 use crate::EngineError;
 
@@ -96,7 +96,10 @@ impl SceneRepository for FsSceneRepository {
                 source,
             })?;
 
-        compile_scene_document(&content).map_err(|source| EngineError::InvalidModYaml {
+        compile_scene_document_with_loader(&content, |asset_path| {
+            fs::read_to_string(self.scene_abs_path(asset_path)).ok()
+        })
+        .map_err(|source| EngineError::InvalidModYaml {
             path: full_path,
             source,
         })
@@ -215,7 +218,15 @@ impl SceneRepository for ZipSceneRepository {
                 source,
             })?;
 
-        compile_scene_document(&content).map_err(|source| EngineError::InvalidModYaml {
+        compile_scene_document_with_loader(&content, |asset_path| {
+            let normalized_asset = Self::normalized(asset_path);
+            let mut nested_archive = self.open_archive().ok()?;
+            let mut file = nested_archive.by_name(normalized_asset).ok()?;
+            let mut raw = String::new();
+            file.read_to_string(&mut raw).ok()?;
+            Some(raw)
+        })
+        .map_err(|source| EngineError::InvalidModYaml {
             path: self.mod_source.clone(),
             source,
         })
