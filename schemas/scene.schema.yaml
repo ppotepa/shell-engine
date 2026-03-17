@@ -28,11 +28,6 @@ properties:
     minimum: 1
     maximum: 240
     description: Optional scene-level FPS cap override (applies regardless of renderer/scene type).
-  target_fps:
-    type: integer
-    minimum: 1
-    maximum: 240
-    description: Alias of target-fps.
   rendered-mode:
     type: string
     enum: [cell, halfblock, quadblock, braille]
@@ -80,12 +75,6 @@ properties:
     type: array
     default: []
     description: Optional key-driven routes from menu-like scenes.
-    items:
-      $ref: "#/$defs/menu_option"
-  menu_options:
-    type: array
-    default: []
-    description: Alias of menu-options.
     items:
       $ref: "#/$defs/menu_option"
   input:
@@ -141,6 +130,12 @@ properties:
           items:
             type: string
           description: Optional role/group tags for the instance.
+
+patternProperties:
+  "^target_fps$":
+    $ref: "#/properties/target-fps"
+  "^menu_options$":
+    $ref: "#/properties/menu-options"
 
 $defs:
 

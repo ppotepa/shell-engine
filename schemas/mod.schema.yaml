@@ -48,20 +48,12 @@ properties:
         minimum: 1
         maximum: 240
         description: Target engine framerate lock. Default 60 when omitted.
-      target-fps:
-        type: integer
-        minimum: 1
-        maximum: 240
-        description: Alias of target_fps.
       use_virtual_buffer:
         type: boolean
         description: |
           Enable virtual-buffer rendering.
           true  = compose into virtual_size first, then present to terminal.
           false = compose directly into terminal-size output buffer.
-      use-virtual-buffer:
-        type: boolean
-        description: Alias of use_virtual_buffer.
       virtual_size:
         oneOf:
           - type: string
@@ -72,13 +64,6 @@ properties:
           Virtual framebuffer size in WIDTHxHEIGHT form (for example 320x240 or 220x55),
           or "max-available" to use current terminal size.
           Used only when use_virtual_buffer/use-virtual-buffer is true.
-      virtual-size:
-        oneOf:
-          - type: string
-            pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
-          - type: string
-            enum: [max-available]
-        description: Alias of virtual_size.
       virtual_policy:
         type: string
         enum: [strict, fit]
@@ -86,15 +71,18 @@ properties:
           strict - require terminal >= virtual size in cells; no downscale.
           fit    - adaptively scale virtual frame to current terminal with centered letterbox.
           Policy is meaningful when virtual buffer is enabled.
-      virtual-policy:
-        type: string
-        enum: [strict, fit]
-        description: Alias of virtual_policy.
       renderer_mode:
         type: string
         enum: [cell, halfblock, quadblock, braille]
         description: Optional global renderer mode override for all scenes.
-      renderer-mode:
-        type: string
-        enum: [cell, halfblock, quadblock, braille]
-        description: Alias of renderer_mode.
+    patternProperties:
+      "^target-fps$":
+        $ref: "#/properties/terminal/properties/target_fps"
+      "^use-virtual-buffer$":
+        $ref: "#/properties/terminal/properties/use_virtual_buffer"
+      "^virtual-size$":
+        $ref: "#/properties/terminal/properties/virtual_size"
+      "^virtual-policy$":
+        $ref: "#/properties/terminal/properties/virtual_policy"
+      "^renderer-mode$":
+        $ref: "#/properties/terminal/properties/renderer_mode"

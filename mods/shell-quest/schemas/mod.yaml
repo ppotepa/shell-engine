@@ -1,10 +1,20 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://shell-quest.local/mods/shell-quest/schemas/mod.yaml
 title: schema shell-quest mod
-allOf:
-- $ref: ../../../schemas/mod.schema.yaml
-- properties:
-    entrypoint:
-      anyOf:
-      - $ref: ./catalog.yaml#/$defs/scene_paths
-      - $ref: ../../../schemas/mod.schema.yaml#/properties/entrypoint
+type: object
+additionalProperties: true
+required:
+- name
+- version
+- entrypoint
+properties:
+  name:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/name
+  version:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/version
+  entrypoint:
+    anyOf:
+    - $ref: ./catalog.yaml#/$defs/scene_paths
+    - $ref: ../../../schemas/mod.schema.yaml#/properties/entrypoint
+  terminal:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/terminal

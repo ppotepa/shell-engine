@@ -203,17 +203,17 @@ mod tests {
 
         let layers_overlay =
             fs::read_to_string(mod_root.join("schemas/layers.yaml")).expect("read layers overlay");
-        assert!(layers_overlay.contains("../../../schemas/layers-file.schema.yaml"));
+        assert!(layers_overlay.contains("type: array"));
         assert!(layers_overlay.contains("#/$defs/layer_overlay"));
 
         let templates_overlay = fs::read_to_string(mod_root.join("schemas/templates.yaml"))
             .expect("read templates overlay");
-        assert!(templates_overlay.contains("../../../schemas/templates-file.schema.yaml"));
+        assert!(templates_overlay.contains("type: object"));
         assert!(templates_overlay.contains("#/$defs/sprite_overlay"));
 
         let sprites_overlay = fs::read_to_string(mod_root.join("schemas/sprites.yaml"))
             .expect("read sprites overlay");
-        assert!(sprites_overlay.contains("../../../schemas/sprites-file.schema.yaml"));
+        assert!(sprites_overlay.contains("type: array"));
         assert!(sprites_overlay.contains("#/$defs/sprite_overlay"));
 
         let effect_overlay =
