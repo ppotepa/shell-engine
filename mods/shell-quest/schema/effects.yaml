@@ -1,5 +1,0 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/shell-quest/schema/effects.yaml
-title: schema shell-quest alias effects.yaml
-allOf:
-- $ref: ../schemas/effects.yaml
