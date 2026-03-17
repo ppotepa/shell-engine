@@ -1,0 +1,5 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/schemas/generated/playground.templates-file.schema.yaml
+title: playground templates-file overlay schema
+allOf:
+- $ref: ../templates-file.schema.yaml

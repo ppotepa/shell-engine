@@ -150,6 +150,18 @@ fn sync_fragment_for_mod(mod_root: &Path, out_dir: &Path, check: bool) -> Result
             build_objects_file_overlay_schema(mod_name),
         ),
         (
+            out_dir.join(format!("{mod_name}.layers-file.schema.yaml")),
+            build_layers_file_overlay_schema(mod_name),
+        ),
+        (
+            out_dir.join(format!("{mod_name}.templates-file.schema.yaml")),
+            build_templates_file_overlay_schema(mod_name),
+        ),
+        (
+            out_dir.join(format!("{mod_name}.sprites-file.schema.yaml")),
+            build_sprites_file_overlay_schema(mod_name),
+        ),
+        (
             out_dir.join(format!("{mod_name}.effect-file.schema.yaml")),
             build_effect_file_overlay_schema(mod_name, &effect_names),
         ),
@@ -293,6 +305,75 @@ fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
                 Value::Mapping(items_patch),
             ]),
         )),
+    );
+    Value::Mapping(root)
+}
+
+fn build_layers_file_overlay_schema(mod_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/schemas/generated/{mod_name}.layers-file.schema.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{mod_name} layers-file overlay schema")),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![schema_ref("../layers-file.schema.yaml")]),
+    );
+    Value::Mapping(root)
+}
+
+fn build_templates_file_overlay_schema(mod_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/schemas/generated/{mod_name}.templates-file.schema.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{mod_name} templates-file overlay schema")),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![schema_ref("../templates-file.schema.yaml")]),
+    );
+    Value::Mapping(root)
+}
+
+fn build_sprites_file_overlay_schema(mod_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/schemas/generated/{mod_name}.sprites-file.schema.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{mod_name} sprites-file overlay schema")),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![schema_ref("../sprites-file.schema.yaml")]),
     );
     Value::Mapping(root)
 }
@@ -742,6 +823,20 @@ mod tests {
             fs::read_to_string(out_dir.join("playground.objects-file.schema.yaml"))
                 .expect("read objects overlay");
         assert!(objects_overlay.contains("./playground.schema.yaml#/$defs/object_names"));
+
+        let layers_overlay = fs::read_to_string(out_dir.join("playground.layers-file.schema.yaml"))
+            .expect("read layers overlay");
+        assert!(layers_overlay.contains("../layers-file.schema.yaml"));
+
+        let templates_overlay =
+            fs::read_to_string(out_dir.join("playground.templates-file.schema.yaml"))
+                .expect("read templates overlay");
+        assert!(templates_overlay.contains("../templates-file.schema.yaml"));
+
+        let sprites_overlay =
+            fs::read_to_string(out_dir.join("playground.sprites-file.schema.yaml"))
+                .expect("read sprites overlay");
+        assert!(sprites_overlay.contains("../sprites-file.schema.yaml"));
 
         let effect_overlay = fs::read_to_string(out_dir.join("playground.effect-file.schema.yaml"))
             .expect("read effect overlay");
