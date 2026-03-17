@@ -5,4 +5,4 @@ description: >
   Partial file schema for reusable effect specs or effect lists in scene packages.
 type: array
 items:
-  $ref: "./scene.schema.yaml#/$defs/effect"
+  $ref: "./effect.schema.yaml"
