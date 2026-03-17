@@ -26,6 +26,7 @@ impl StartupCheck for FontManifestCheck {
                     sprite.walk_recursive(&mut |node| {
                         let Sprite::Text {
                             font,
+                            size,
                             force_renderer_mode,
                             force_font_mode,
                             ..
@@ -33,9 +34,10 @@ impl StartupCheck for FontManifestCheck {
                         else {
                             return;
                         };
-                        let Some(font_name) = render_policy::resolve_font_spec(
+                        let Some(font_name) = render_policy::resolve_text_font_spec(
                             font.as_deref(),
                             force_font_mode.as_deref(),
+                            *size,
                             sf.scene.rendered_mode,
                             *force_renderer_mode,
                         ) else {

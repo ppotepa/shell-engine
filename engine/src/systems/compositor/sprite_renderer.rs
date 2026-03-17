@@ -123,6 +123,7 @@ fn render_sprite(
             content,
             x,
             y,
+            size,
             font,
             force_renderer_mode,
             force_font_mode,
@@ -169,9 +170,10 @@ fn render_sprite(
             let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
             let sprite_bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
 
-            let resolved_font = render_policy::resolve_font_spec(
+            let resolved_font = render_policy::resolve_text_font_spec(
                 font.as_deref(),
                 force_font_mode.as_deref(),
+                *size,
                 inherited_mode,
                 *force_renderer_mode,
             );
@@ -264,6 +266,7 @@ fn render_sprite(
             source,
             x,
             y,
+            size,
             width,
             height,
             force_renderer_mode,
@@ -292,7 +295,7 @@ fn render_sprite(
             let resolved_mode =
                 render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             let (sprite_width, sprite_height) =
-                image_sprite_dimensions(source, *width, *height, resolved_mode, ctx.asset_root);
+                image_sprite_dimensions(source, *width, *height, *size, resolved_mode, ctx.asset_root);
 
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
@@ -312,6 +315,7 @@ fn render_sprite(
                 source,
                 *width,
                 *height,
+                *size,
                 resolved_mode,
                 ctx.asset_root,
                 draw_x,
@@ -453,6 +457,7 @@ fn render_sprite(
             source,
             x,
             y,
+            size,
             width,
             height,
             force_renderer_mode,
@@ -495,8 +500,11 @@ fn render_sprite(
 
             let resolved_mode =
                 render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-            let sprite_width = width.unwrap_or(area.width).max(1);
-            let sprite_height = height.unwrap_or(area.height).max(1);
+            let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
+                obj_sprite_dimensions(*width, *height, *size)
+            } else {
+                (area.width.max(1), area.height.max(1))
+            };
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
             let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
@@ -531,6 +539,7 @@ fn render_sprite(
                 source,
                 Some(sprite_width),
                 Some(sprite_height),
+                *size,
                 resolved_mode,
                 ObjRenderParams {
                     scale: scale.unwrap_or(1.0),
@@ -664,6 +673,7 @@ fn measure_sprite_for_layout(
     match sprite {
         Sprite::Text {
             content,
+            size,
             font,
             force_renderer_mode,
             force_font_mode,
@@ -673,9 +683,10 @@ fn measure_sprite_for_layout(
         } => {
             let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
             let bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
-            let resolved_font = render_policy::resolve_font_spec(
+            let resolved_font = render_policy::resolve_text_font_spec(
                 font.as_deref(),
                 force_font_mode.as_deref(),
+                *size,
                 inherited_mode,
                 *force_renderer_mode,
             );
@@ -689,18 +700,19 @@ fn measure_sprite_for_layout(
         }
         Sprite::Image {
             source,
+            size,
             width,
             height,
             force_renderer_mode,
             ..
         } => {
             let mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-            image_sprite_dimensions(source, *width, *height, mode, asset_root)
+            image_sprite_dimensions(source, *width, *height, *size, mode, asset_root)
         }
         Sprite::Grid { width, height, .. } => {
             (width.unwrap_or(1).max(1), height.unwrap_or(1).max(1))
         }
-        Sprite::Obj { width, height, .. } => obj_sprite_dimensions(*width, *height),
+        Sprite::Obj { width, height, size, .. } => obj_sprite_dimensions(*width, *height, *size),
     }
 }
 

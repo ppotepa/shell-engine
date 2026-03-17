@@ -29,6 +29,7 @@ impl StartupCheck for FontGlyphCoverageCheck {
                         let Sprite::Text {
                             content,
                             font,
+                            size,
                             force_renderer_mode,
                             force_font_mode,
                             ..
@@ -36,9 +37,10 @@ impl StartupCheck for FontGlyphCoverageCheck {
                         else {
                             return;
                         };
-                        let Some(font_name) = render_policy::resolve_font_spec(
+                        let Some(font_name) = render_policy::resolve_text_font_spec(
                             font.as_deref(),
                             force_font_mode.as_deref(),
+                            *size,
                             sf.scene.rendered_mode,
                             *force_renderer_mode,
                         ) else {

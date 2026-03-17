@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+id: playground-fps-showcase-20
+title: FPS Showcase 3D 20
+cutscene: true
+target-fps: 20
+bg_colour: black
+rendered-mode: quadblock
+stages:
+  on_idle:
+    trigger: timeout
+    steps:
+      - duration: 5000
+        effects: []
+layers:
+  - name: fps-showcase
+    z_index: 0
+    sprites:
+      - type: obj
+        id: suzanne-20
+        source: "/scenes/3d/blender/suzanne.obj"
+        align_x: center
+        align_y: center
+        y: 0
+        scale: 1.55
+        surface-mode: material
+        rotation-y: 180
+        pitch-deg: -12
+        rotate-y-deg-per-sec: 24
+        camera-distance: 2.8
+        fov-degrees: 52
+        near-clip: 0.0005
+        fg_colour: white
+      - type: text
+        content: "FPS CAP SHOWCASE  3D"
+        align_x: center
+        align_y: top
+        y: 1
+        font: "generic:1"
+        fg_colour: white
+      - type: text
+        content: "SCENE 5/6  MONKEY  TARGET 20 FPS  5s"
+        align_x: center
+        align_y: bottom
+        y: -1
+        font: "generic:1"
+        fg_colour: gray
+next: playground-fps-showcase-10

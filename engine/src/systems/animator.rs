@@ -161,7 +161,6 @@ fn tick_animator_primitives(
         || matches!(
             (&animator.stage, idle_trigger),
             (SceneStage::OnIdle, StageTrigger::AnyKey)
-                | (SceneStage::OnIdle, StageTrigger::Timeout)
         );
     if should_loop {
         animator.step_idx = 0;
@@ -250,6 +249,7 @@ mod tests {
             id: "s".to_string(),
             title: "Scene".to_string(),
             cutscene: true,
+            target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
@@ -393,6 +393,70 @@ mod tests {
             None,
         );
         let mut animator = Animator::new();
+
+        let transition = tick_animator(&mut animator, &scene, 1);
+
+        assert!(transition.is_none());
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+    }
+
+    #[test]
+    fn timeout_idle_stage_advances_to_leave_when_duration_finishes() {
+        let scene = scene_with_stages(
+            Stage::default(),
+            Stage {
+                trigger: crate::scene::StageTrigger::Timeout,
+                steps: vec![Step {
+                    effects: Vec::new(),
+                    duration: Some(5_000),
+                }],
+                looping: false,
+            },
+            Stage::default(),
+            Some("next-scene"),
+        );
+        let mut animator = Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        };
+
+        let transition = tick_animator(&mut animator, &scene, 5_000);
+
+        assert!(transition.is_none());
+        assert_eq!(animator.stage, SceneStage::OnLeave);
+        assert_eq!(animator.step_idx, 0);
+        assert_eq!(animator.elapsed_ms, 0);
+    }
+
+    #[test]
+    fn any_key_idle_stage_stays_idle_after_step_finishes() {
+        let scene = scene_with_stages(
+            Stage::default(),
+            Stage {
+                trigger: crate::scene::StageTrigger::AnyKey,
+                steps: vec![Step {
+                    effects: Vec::new(),
+                    duration: Some(1),
+                }],
+                looping: false,
+            },
+            Stage::default(),
+            Some("next-scene"),
+        );
+        let mut animator = Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        };
 
         let transition = tick_animator(&mut animator, &scene, 1);
 

@@ -11,4 +11,4 @@ pub use model::{
     Layer, LayerStages, MenuOption, ObjViewerControls, Scene, SceneAudio, SceneInput,
     SceneRenderedMode, SceneStages, Stage, StageTrigger, Step, TerminalSizeTesterControls,
 };
-pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};
+pub use sprite::{HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};

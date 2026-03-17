@@ -1,4 +1,5 @@
 use crate::scene::SceneRenderedMode;
+use crate::scene::SpriteSizePreset;
 
 pub fn resolve_renderer_mode(
     scene_mode: SceneRenderedMode,
@@ -41,6 +42,30 @@ pub fn resolve_font_spec(
         Some(mode) => apply_named_font_mode(base, normalize_named_font_mode(mode)),
         None => base.to_string(),
     })
+}
+
+pub fn resolve_text_font_spec(
+    font: Option<&str>,
+    force_font_mode: Option<&str>,
+    size: Option<SpriteSizePreset>,
+    scene_mode: SceneRenderedMode,
+    force_renderer_mode: Option<SceneRenderedMode>,
+) -> Option<String> {
+    let sized_font = match (font.map(str::trim).filter(|f| !f.is_empty()), size) {
+        (Some(base), Some(size)) if base.starts_with("generic") => {
+            Some(format!("generic:{}", size.generic_mode()))
+        }
+        (None, Some(size)) => Some(format!("generic:{}", size.generic_mode())),
+        (Some(base), _) => Some(base.to_string()),
+        (None, None) => None,
+    };
+
+    resolve_font_spec(
+        sized_font.as_deref(),
+        force_font_mode,
+        scene_mode,
+        force_renderer_mode,
+    )
 }
 
 fn apply_generic_mode_override(base: &str, mode: Option<&str>) -> String {
@@ -88,8 +113,8 @@ fn normalize_named_font_mode(mode: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_font_spec, resolve_renderer_mode};
-    use crate::scene::SceneRenderedMode;
+    use super::{resolve_font_spec, resolve_renderer_mode, resolve_text_font_spec};
+    use crate::scene::{SceneRenderedMode, SpriteSizePreset};
 
     #[test]
     fn sprite_force_mode_overrides_scene_mode() {
@@ -132,5 +157,44 @@ mod tests {
         )
         .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:ascii");
+    }
+
+    #[test]
+    fn size_preset_creates_generic_text_font_when_font_missing() {
+        let resolved = resolve_text_font_spec(
+            None,
+            None,
+            Some(SpriteSizePreset::Large),
+            SceneRenderedMode::Cell,
+            None,
+        )
+        .expect("font should resolve");
+        assert_eq!(resolved, "generic:3");
+    }
+
+    #[test]
+    fn size_preset_overrides_generic_font_mode() {
+        let resolved = resolve_text_font_spec(
+            Some("generic:1"),
+            None,
+            Some(SpriteSizePreset::Medium),
+            SceneRenderedMode::Cell,
+            None,
+        )
+        .expect("font should resolve");
+        assert_eq!(resolved, "generic:2");
+    }
+
+    #[test]
+    fn size_preset_does_not_override_named_font() {
+        let resolved = resolve_text_font_spec(
+            Some("Abril Fatface"),
+            None,
+            Some(SpriteSizePreset::Small),
+            SceneRenderedMode::Cell,
+            None,
+        )
+        .expect("font should resolve");
+        assert_eq!(resolved, "Abril Fatface");
     }
 }

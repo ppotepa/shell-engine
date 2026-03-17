@@ -16,14 +16,17 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
 
     const FAST_FORWARD_TICKS: u8 = 8;
     let mut debug_fast_forward = false;
-    let fps = target_fps.max(1) as u64;
-    let tick_ms = (1000 / fps).max(1);
-    let frame_budget = Duration::from_millis(tick_ms);
 
     execute!(stdout(), EnableMouseCapture)?;
 
     loop {
         let frame_start = Instant::now();
+        let scene_target_fps = world
+            .scene_runtime()
+            .and_then(|runtime| runtime.scene().target_fps);
+        let fps = resolve_target_fps(target_fps, scene_target_fps) as u64;
+        let tick_ms = (1000 / fps).max(1);
+        let frame_budget = Duration::from_millis(tick_ms);
 
         // --- INPUT ---
         while event::poll(Duration::from_millis(0))? {
@@ -111,9 +114,16 @@ fn is_debug_fast_forward_toggle(
         )
 }
 
+#[inline]
+fn resolve_target_fps(default_target_fps: u16, scene_target_fps: Option<u16>) -> u16 {
+    scene_target_fps
+        .unwrap_or(default_target_fps)
+        .clamp(1, crate::terminal_caps::MAX_TARGET_FPS)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::is_debug_fast_forward_toggle;
+    use super::{is_debug_fast_forward_toggle, resolve_target_fps};
     use crossterm::event::{KeyCode, KeyModifiers};
 
     #[test]
@@ -143,5 +153,23 @@ mod tests {
             KeyCode::Esc,
             KeyModifiers::ALT
         ));
+    }
+
+    #[test]
+    fn scene_fps_override_has_priority() {
+        assert_eq!(resolve_target_fps(60, Some(30)), 30);
+    }
+
+    #[test]
+    fn fps_is_clamped_to_supported_range() {
+        assert_eq!(resolve_target_fps(0, None), 1);
+        assert_eq!(
+            resolve_target_fps(crate::terminal_caps::MAX_TARGET_FPS + 100, None),
+            crate::terminal_caps::MAX_TARGET_FPS
+        );
+        assert_eq!(
+            resolve_target_fps(60, Some(crate::terminal_caps::MAX_TARGET_FPS + 1)),
+            crate::terminal_caps::MAX_TARGET_FPS
+        );
     }
 }

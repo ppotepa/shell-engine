@@ -554,6 +554,16 @@ $defs:
         description: >
           Target sprite width in terminal cells.
           For image sprites, when only width is set, height is derived from source aspect ratio.
+      size:
+        type: integer
+        minimum: 1
+        maximum: 3
+        description: >
+          Sprite size preset shortcut.
+          `1` = small, `2` = medium, `3` = large.
+          For text sprites it maps to the built-in generic font sizes.
+          For image/obj sprites it uses per-type default dimensions.
+          Explicit `width`/`height` still take priority when provided.
       height:
         type: integer
         minimum: 1
