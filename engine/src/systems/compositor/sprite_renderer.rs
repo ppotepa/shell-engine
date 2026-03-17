@@ -5,14 +5,13 @@ use crate::buffer::Buffer;
 use crate::effects::Region;
 use crate::markup::strip_markup;
 use crate::render_policy;
-use crate::scene::{Layer, LayerStages, SceneRenderedMode, Sprite};
+use crate::scene::{Layer, SceneRenderedMode, Sprite};
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use std::collections::BTreeMap;
 
 use super::layout::{
-    compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
-    RenderArea,
+    compute_flex_cells, compute_grid_cells, resolve_x, resolve_y, RenderArea,
 };
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
