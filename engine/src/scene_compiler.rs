@@ -3,13 +3,24 @@ use serde_yaml::{Mapping, Value};
 
 pub fn compile_scene_document_with_loader<F>(
     content: &str,
+    object_loader: F,
+) -> Result<Scene, serde_yaml::Error>
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    compile_scene_document_with_loader_and_source(content, "/", object_loader)
+}
+
+pub fn compile_scene_document_with_loader_and_source<F>(
+    content: &str,
+    scene_source_path: &str,
     mut object_loader: F,
 ) -> Result<Scene, serde_yaml::Error>
 where
     F: FnMut(&str) -> Option<String>,
 {
     let mut raw = serde_yaml::from_str::<Value>(content)?;
-    expand_scene_objects(&mut raw, &mut object_loader);
+    expand_scene_objects(&mut raw, scene_source_path, &mut object_loader);
     let mut compiled_input = serde_yaml::to_string(&raw)?;
     if !compiled_input.ends_with('\n') {
         compiled_input.push('\n');
@@ -18,7 +29,7 @@ where
     document.compile()
 }
 
-fn expand_scene_objects<F>(root: &mut Value, object_loader: &mut F)
+fn expand_scene_objects<F>(root: &mut Value, scene_source_path: &str, object_loader: &mut F)
 where
     F: FnMut(&str) -> Option<String>,
 {
@@ -51,11 +62,7 @@ where
         else {
             continue;
         };
-        let path = if use_name.starts_with('/') {
-            use_name.to_string()
-        } else {
-            format!("/objects/{use_name}.yml")
-        };
+        let path = resolve_object_ref_path(scene_source_path, use_name);
         let Some(raw_object) = object_loader(&path) else {
             continue;
         };
@@ -129,7 +136,11 @@ where
         let layer_name = instance_map
             .get(Value::String("id".to_string()))
             .and_then(Value::as_str)
-            .or_else(|| object_map.get(Value::String("name".to_string())).and_then(Value::as_str))
+            .or_else(|| {
+                object_map
+                    .get(Value::String("name".to_string()))
+                    .and_then(Value::as_str)
+            })
             .unwrap_or(use_name);
         layer.insert(
             Value::String("name".to_string()),
@@ -151,7 +162,49 @@ where
     }
 }
 
-fn attach_layer_behavior(layer_value: &mut Value, behavior_name: &str, params: &std::collections::BTreeMap<String, Value>) {
+fn resolve_object_ref_path(scene_source_path: &str, use_name: &str) -> String {
+    if use_name.starts_with('/') {
+        return normalize_mod_path(use_name);
+    }
+    if use_name.starts_with("./") || use_name.starts_with("../") {
+        let scene_dir = parent_dir(scene_source_path);
+        return normalize_mod_path(&format!("{scene_dir}/{use_name}"));
+    }
+    format!("/objects/{use_name}.yml")
+}
+
+fn parent_dir(path: &str) -> String {
+    let normalized = normalize_mod_path(path);
+    match normalized.rsplit_once('/') {
+        Some(("", _)) | None => "/".to_string(),
+        Some((dir, _)) => dir.to_string(),
+    }
+}
+
+fn normalize_mod_path(path: &str) -> String {
+    let mut parts = Vec::new();
+    for part in path.split('/') {
+        if part.is_empty() || part == "." {
+            continue;
+        }
+        if part == ".." {
+            let _ = parts.pop();
+            continue;
+        }
+        parts.push(part);
+    }
+    if parts.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/{}", parts.join("/"))
+    }
+}
+
+fn attach_layer_behavior(
+    layer_value: &mut Value,
+    behavior_name: &str,
+    params: &std::collections::BTreeMap<String, Value>,
+) {
     let Some(layer_map) = layer_value.as_mapping_mut() else {
         return;
     };
@@ -179,7 +232,10 @@ fn build_behavior_spec(
         for (k, v) in params {
             params_map.insert(Value::String(k.clone()), v.clone());
         }
-        map.insert(Value::String("params".to_string()), Value::Mapping(params_map));
+        map.insert(
+            Value::String("params".to_string()),
+            Value::Mapping(params_map),
+        );
     }
     Value::Mapping(map)
 }
@@ -212,7 +268,7 @@ fn substitute_args(value: &mut Value, args: &Mapping) {
 
 #[cfg(test)]
 mod tests {
-    use super::compile_scene_document_with_loader;
+    use super::{compile_scene_document_with_loader, compile_scene_document_with_loader_and_source};
 
     #[test]
     fn compiles_legacy_scene_yaml_into_runtime_scene() {
@@ -329,5 +385,36 @@ sprites:
         assert_eq!(scene.layers[0].behaviors.len(), 1);
         assert_eq!(scene.layers[0].behaviors[0].name, "bob");
         assert_eq!(scene.layers[0].behaviors[0].params.amplitude_y, Some(2));
+    }
+
+    #[test]
+    fn resolves_relative_object_refs_from_scene_package_path() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+layers: []
+objects:
+  - use: ../shared/objects/banner.yml
+next: null
+"#;
+        let object_raw = r#"
+name: banner
+sprites:
+  - type: text
+    content: SHARED
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| {
+                if path == "/scenes/shared/objects/banner.yml" {
+                    Some(object_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+        assert_eq!(scene.layers.len(), 1);
     }
 }
