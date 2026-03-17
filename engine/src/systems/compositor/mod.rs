@@ -1,3 +1,5 @@
+//! Compositor system — walks the scene layer/sprite tree and renders each frame into the terminal `Buffer`.
+
 mod effect_applicator;
 mod grid_tracks;
 mod image_render;
@@ -23,6 +25,7 @@ thread_local! {
     static HALFBLOCK_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
 }
 
+/// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
     let asset_root = world.asset_root().cloned();
     let runtime_mode_override = world

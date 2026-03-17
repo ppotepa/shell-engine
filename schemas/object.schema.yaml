@@ -2,7 +2,9 @@ $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://shell-quest.local/schemas/object.schema.yaml"
 title: Object Schema
 description: >
-  Defines a reusable object/prefab document for future scene object instancing.
+  Defines a reusable object/prefab blueprint that scenes can instantiate via the objects[] list.
+  Instances reference this file by path using `ref`, override exported parameters via `with`,
+  assign a scene-local id via `as`, seed runtime state via `state`, and attach role tags via `tags`.
 type: object
 additionalProperties: false
 required:

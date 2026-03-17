@@ -1,3 +1,5 @@
+//! Verifies that every image path referenced by image sprites exists in the mod's asset tree.
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::image_loader;
@@ -8,6 +10,7 @@ use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
 
+/// Startup check that fails if any image sprite references an asset that cannot be loaded.
 pub struct ImageAssetsCheck;
 
 impl StartupCheck for ImageAssetsCheck {

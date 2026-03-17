@@ -1,3 +1,5 @@
+//! Content preview pane: renders a contextual view of the selected project tree item.
+
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
@@ -8,6 +10,7 @@ use std::path::Path;
 use crate::state::{AppState, TreeItem};
 use crate::ui::theme;
 
+/// Renders the preview pane with contextual content for the selected project tree item.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let content = match app.selected_tree_item() {
         Some(TreeItem::ModYaml) => render_mod_yaml(app),

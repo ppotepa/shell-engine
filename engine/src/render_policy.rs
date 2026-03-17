@@ -1,6 +1,9 @@
+//! Renderer-mode and font-spec resolution helpers used by the compositor.
+
 use crate::scene::SceneRenderedMode;
 use crate::scene::SpriteSizePreset;
 
+/// Returns the effective render mode, applying `force_renderer_mode` over `scene_mode` when set.
 pub fn resolve_renderer_mode(
     scene_mode: SceneRenderedMode,
     force_renderer_mode: Option<SceneRenderedMode>,
@@ -8,6 +11,7 @@ pub fn resolve_renderer_mode(
     force_renderer_mode.unwrap_or(scene_mode)
 }
 
+/// Resolves the final font spec string, applying force-font and generic-mode overrides.
 pub fn resolve_font_spec(
     font: Option<&str>,
     force_font_mode: Option<&str>,
@@ -44,6 +48,7 @@ pub fn resolve_font_spec(
     })
 }
 
+/// Resolves the font spec for a text sprite, deriving a generic mode from `size` when appropriate.
 pub fn resolve_text_font_spec(
     font: Option<&str>,
     force_font_mode: Option<&str>,

@@ -1,7 +1,10 @@
+//! Application colour theme and ratatui style helpers.
+
 use ratatui::style::{Color, Modifier, Style};
 use serde::Deserialize;
 use std::fs;
 
+/// Catppuccin Mocha–inspired colour palette, loadable from a TOML config file.
 // Catppuccin Mocha inspired theme
 #[derive(Debug, Clone, Deserialize)]
 pub struct Theme {
@@ -59,6 +62,7 @@ impl Default for Theme {
 }
 
 impl Theme {
+    /// Loads the theme from the user config directory, falling back to the built-in defaults.
     pub fn load() -> Self {
         if let Some(config_dir) = dirs::config_dir() {
             let theme_path = config_dir.join("sq-editor").join("theme.toml");
@@ -75,6 +79,7 @@ impl Theme {
 // Singleton for loaded theme
 static THEME: std::sync::OnceLock<Theme> = std::sync::OnceLock::new();
 
+/// Initialises the global theme singleton, loading from config if available.
 pub fn init_theme() {
     THEME.get_or_init(Theme::load);
 }
@@ -83,11 +88,13 @@ fn theme() -> &'static Theme {
     THEME.get_or_init(Theme::load)
 }
 
+/// Returns a dimmed style for inactive or secondary text.
 pub fn fg_normal() -> Style {
     let t = theme();
     Style::default().fg(Color::Rgb(t.subtext0[0], t.subtext0[1], t.subtext0[2]))
 }
 
+/// Returns a bold style for primary/focused text.
 pub fn fg_active() -> Style {
     let t = theme();
     Style::default()
@@ -95,16 +102,19 @@ pub fn fg_active() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+/// Returns a muted style for disabled or unavailable items.
 pub fn fg_disabled() -> Style {
     let t = theme();
     Style::default().fg(Color::Rgb(t.overlay0[0], t.overlay0[1], t.overlay0[2]))
 }
 
+/// Returns the accent colour style (peach/orange) used for highlights and selections.
 pub fn accent() -> Style {
     let t = theme();
     Style::default().fg(Color::Rgb(t.accent[0], t.accent[1], t.accent[2]))
 }
 
+/// Returns the style for an active sidebar entry (accent background, base foreground).
 pub fn sidebar_active_entry() -> Style {
     let t = theme();
     Style::default()
@@ -113,6 +123,7 @@ pub fn sidebar_active_entry() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+/// Returns a title style that is active (bold) when focused or dimmed otherwise.
 pub fn pane_title(is_focused: bool) -> Style {
     if is_focused {
         fg_active()
@@ -121,6 +132,7 @@ pub fn pane_title(is_focused: bool) -> Style {
     }
 }
 
+/// Returns a border style that uses the accent colour when focused or normal otherwise.
 pub fn pane_border(is_focused: bool) -> Style {
     if is_focused {
         accent()
@@ -129,6 +141,7 @@ pub fn pane_border(is_focused: bool) -> Style {
     }
 }
 
+/// Returns a background style using the raised surface colour when focused or base otherwise.
 pub fn pane_background(is_focused: bool) -> Style {
     let t = theme();
     if is_focused {
@@ -142,10 +155,12 @@ pub fn pane_background(is_focused: bool) -> Style {
     }
 }
 
+/// Returns a pure black background style for the effects preview area.
 pub fn preview_background() -> Style {
     Style::default().bg(Color::Rgb(0, 0, 0))
 }
 
+/// Returns the blue badge style used for scene-level transition effects.
 pub fn badge_transition() -> Style {
     // Blue — scene-level / transitions
     Style::default()
@@ -153,6 +168,7 @@ pub fn badge_transition() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+/// Returns the purple badge style used for sprite/layer-level effects.
 pub fn badge_effect() -> Style {
     // Purple — object-level effects
     Style::default()

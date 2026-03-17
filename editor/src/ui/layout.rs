@@ -1,6 +1,9 @@
+//! Terminal layout calculation for the main editor panes.
+
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::Frame;
 
+/// Holds the computed [`Rect`] areas for each main UI region in the current frame.
 pub struct MainChunks {
     pub sidebar_icons: Rect,
     pub sidebar_panel: Option<Rect>, // None when panel hidden
@@ -8,6 +11,7 @@ pub struct MainChunks {
     pub status: Rect,
 }
 
+/// Computes layout rectangles for the current frame, accounting for sidebar visibility.
 pub fn main_chunks(frame: &Frame, sidebar_visible: bool) -> MainChunks {
     let vertical = Layout::default()
         .direction(Direction::Vertical)

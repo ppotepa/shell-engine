@@ -1,5 +1,8 @@
+//! Engine error type covering all failure modes from mod loading through runtime execution.
+
 use std::path::PathBuf;
 
+/// Top-level error enum for all engine failure modes.
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
     #[error("mod source path does not exist: {0}")]

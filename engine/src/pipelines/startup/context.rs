@@ -1,3 +1,5 @@
+//! Startup context — lazily loads and caches all scene files for use by [`StartupCheck`](super::check::StartupCheck) implementations.
+
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -7,12 +9,14 @@ use crate::repositories::{create_scene_repository, SceneRepository};
 use crate::scene::Scene;
 use crate::EngineError;
 
+/// A parsed scene file alongside its path, used during startup validation.
 #[derive(Debug, Clone)]
 pub struct StartupSceneFile {
     pub path: String,
     pub scene: Scene,
 }
 
+/// Read-only view of the mod under validation, with lazy-loaded scene cache.
 pub struct StartupContext<'a> {
     mod_source: &'a Path,
     manifest: &'a Value,
@@ -21,6 +25,7 @@ pub struct StartupContext<'a> {
 }
 
 impl<'a> StartupContext<'a> {
+    /// Creates a new context for the given mod source, manifest, and entrypoint.
     pub fn new(mod_source: &'a Path, manifest: &'a Value, entrypoint: &'a str) -> Self {
         Self {
             mod_source,
@@ -30,18 +35,22 @@ impl<'a> StartupContext<'a> {
         }
     }
 
+    /// Returns the path to the mod source directory or archive.
     pub fn mod_source(&self) -> &Path {
         self.mod_source
     }
 
+    /// Returns the parsed `mod.yaml` manifest value.
     pub fn manifest(&self) -> &Value {
         self.manifest
     }
 
+    /// Returns the entrypoint scene path declared in the manifest.
     pub fn entrypoint(&self) -> &str {
         self.entrypoint
     }
 
+    /// Returns (and caches) every parsed scene in the mod, loading them on first call.
     pub fn all_scenes(&self) -> Result<&[StartupSceneFile], EngineError> {
         if let Some(cached) = self.scene_cache.get() {
             return Ok(cached.as_slice());

@@ -1,9 +1,12 @@
+//! Effect that fills a region with a solid terminal colour.
+
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, Region};
 use crate::effects::metadata::{EffectMetadata, ParamControl, ParamMetadata, P_EASING};
 use crate::scene::EffectParams;
 use crossterm::style::Color;
 
+/// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "clear-to-colour",
     display_name: "Clear to Colour",
@@ -22,6 +25,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
     sample: "- name: clear-to-colour\n  duration: 500\n  params:\n    colour: black",
 };
 
+/// Effect that immediately fills the target region with a single colour.
 pub struct ClearToColourEffect;
 
 impl Effect for ClearToColourEffect {

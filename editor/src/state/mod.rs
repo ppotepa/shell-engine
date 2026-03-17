@@ -1,3 +1,5 @@
+//! Application state: mode, cursor positions, project index, and all UI-level state.
+
 pub mod filters;
 pub mod focus;
 pub mod selection;
@@ -18,6 +20,7 @@ use crate::io::indexer::build_project_index;
 use crate::io::recent::push_recent;
 use focus::FocusPane;
 
+/// Available tabs in the effects browser code pane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EffectsCodeTab {
     Info,
@@ -29,6 +32,7 @@ pub enum EffectsCodeTab {
 impl EffectsCodeTab {
     pub const ALL: &'static [Self] = &[Self::Info, Self::Schema, Self::Yaml, Self::Rust];
 
+    /// Returns the display label for this tab.
     pub fn label(self) -> &'static str {
         match self {
             Self::Info => "Info",
@@ -38,6 +42,7 @@ impl EffectsCodeTab {
         }
     }
 
+    /// Returns the next tab in cyclic order.
     pub fn next(self) -> Self {
         match self {
             Self::Info => Self::Schema,
@@ -47,6 +52,7 @@ impl EffectsCodeTab {
         }
     }
 
+    /// Returns the previous tab in cyclic order.
     pub fn prev(self) -> Self {
         match self {
             Self::Info => Self::Rust,
@@ -57,6 +63,7 @@ impl EffectsCodeTab {
     }
 }
 
+/// Top-level application mode controlling which screen and input bindings are active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppMode {
     Start,
@@ -64,6 +71,7 @@ pub enum AppMode {
     EditMode,
 }
 
+/// Which overlay dialog is active on the start screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StartDialog {
     RecentMenu,
@@ -71,12 +79,14 @@ pub enum StartDialog {
     DirectoryBrowser,
 }
 
+/// Which column of the start screen (recents or actions) currently has focus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StartFocus {
     Recents,
     Actions,
 }
 
+/// An action item selectable from the start screen actions column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StartAction {
     OpenProject,
@@ -85,12 +95,14 @@ pub enum StartAction {
     Quit,
 }
 
+/// A single selectable row in the start screen, either a recent project or an action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StartItem {
     Recent(usize),
     Action(StartAction),
 }
 
+/// An item in the directory browser list, representing a navigable entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DirBrowserItem {
     OpenHere,
@@ -102,6 +114,7 @@ pub enum DirBrowserItem {
     },
 }
 
+/// A single entry in the project tree sidebar, representing a file or folder node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TreeItem {
     ModYaml,
@@ -113,6 +126,7 @@ pub enum TreeItem {
     Font(String),
 }
 
+/// The panel currently shown in the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SidebarItem {
     Explorer,
@@ -121,6 +135,7 @@ pub enum SidebarItem {
     Settings,
 }
 
+/// Complete runtime state for the editor application.
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub launch_mod_source: String,
@@ -168,6 +183,7 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// Creates a new [`AppState`] with the given mod source path and recent project list.
     pub fn new(launch_mod_source: String, recent_projects: Vec<String>) -> Self {
         let builtin_effects = effects_catalog::builtin_effect_names();
         let initial_effect = builtin_effects
@@ -224,6 +240,7 @@ impl AppState {
         }
     }
 
+    /// Builds the flat ordered list of tree items from the current project index.
     pub fn build_tree_items(&self) -> Vec<TreeItem> {
         let mut items = Vec::new();
 
@@ -257,16 +274,19 @@ impl AppState {
         items
     }
 
+    /// Returns the tree item at the current cursor position, if any.
     pub fn selected_tree_item(&self) -> Option<&TreeItem> {
         self.tree_items.get(self.tree_cursor)
     }
 
+    /// Returns the name of the currently selected built-in effect, if any.
     pub fn selected_builtin_effect(&self) -> Option<&str> {
         self.builtin_effects
             .get(self.effect_cursor)
             .map(String::as_str)
     }
 
+    /// Returns the normalised playback progress (0.0–1.0) of the live effects preview.
     pub fn effect_preview_progress(&self) -> f32 {
         if !self.effects_live_preview {
             return 0.0;
@@ -283,16 +303,19 @@ impl AppState {
         self.effects_preview_started_at_ms = now_millis();
     }
 
+    /// Returns the parameter specifications for the currently selected effect.
     pub fn effect_param_specs(&self) -> &'static [EffectParamSpec] {
         self.selected_builtin_effect()
             .map(effect_params::effect_param_specs)
             .unwrap_or(&[])
     }
 
+    /// Returns the spec for the currently focused effect parameter, if any.
     pub fn selected_effect_param_spec(&self) -> Option<&'static EffectParamSpec> {
         self.effect_param_specs().get(self.effect_param_cursor)
     }
 
+    /// Returns the current value for the given parameter, preferring user overrides.
     pub fn effect_param_value(&self, spec: &EffectParamSpec) -> EffectParamValue {
         if let Some(value) = self.effect_param_overrides.get(spec.name) {
             return *value;
@@ -396,6 +419,7 @@ impl AppState {
             effects_preview_scene::build_preview_scene_yaml_default(effect_name, &params);
     }
 
+    /// Returns the flat ordered list of start screen items (recents then actions).
     pub fn start_items(&self) -> Vec<StartItem> {
         let mut items = (0..self.recent_projects.len())
             .map(StartItem::Recent)
@@ -427,6 +451,7 @@ impl AppState {
         self.status = format!("Opened: {path} | Ctrl+W close project");
     }
 
+    /// Returns the validation status label and valid flag for a recent project by index.
     pub fn recent_project_status(&self, idx: usize) -> (String, bool) {
         let Some(path) = self.recent_projects.get(idx) else {
             return ("MISSING".to_string(), false);
@@ -593,6 +618,7 @@ impl AppState {
         }
     }
 
+    /// Applies the given command for the current mode; returns `true` if the app should quit.
     pub fn apply_command(&mut self, cmd: Command) -> bool {
         match self.mode {
             AppMode::Start => self.apply_start_command(cmd),
@@ -999,6 +1025,7 @@ impl AppState {
                 .to_string();
     }
 
+    /// Advances any in-progress transition animations by `dt_secs` seconds.
     pub fn update_transition(&mut self, _dt_secs: f32) {
         // Simple immediate switching - no animation
     }

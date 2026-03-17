@@ -1,3 +1,5 @@
+//! Root crate for the Shell Quest engine — initialises a mod, runs startup checks, and drives the game loop.
+
 mod error;
 mod game_loop;
 mod mod_loader;
@@ -32,6 +34,7 @@ use mod_loader::load_mod_manifest;
 use serde_yaml::Value;
 use services::EngineWorldAccess;
 
+/// Top-level engine handle that owns the mod source path and parsed manifest.
 #[derive(Debug)]
 pub struct ShellEngine {
     mod_source: PathBuf,
@@ -39,6 +42,7 @@ pub struct ShellEngine {
 }
 
 impl ShellEngine {
+    /// Loads and validates a mod from `mod_source` (directory or `.zip`).
     pub fn new(mod_source: impl Into<PathBuf>) -> Result<Self, EngineError> {
         let mod_source = mod_source.into();
         let mod_manifest = load_mod_manifest(&mod_source)?;
@@ -49,6 +53,7 @@ impl ShellEngine {
         })
     }
 
+    /// Runs startup checks, enters the alt-screen, and drives the game loop until the player quits.
     pub fn run(&self) -> Result<(), EngineError> {
         use events::EventQueue;
         use pipelines::startup::{StartupContext, StartupIssueLevel, StartupRunner};
@@ -108,10 +113,12 @@ impl ShellEngine {
         result
     }
 
+    /// Returns the path to the mod source used to initialise this engine.
     pub fn mod_source(&self) -> &Path {
         &self.mod_source
     }
 
+    /// Returns the parsed `mod.yaml` manifest value.
     pub fn mod_manifest(&self) -> &Value {
         &self.mod_manifest
     }

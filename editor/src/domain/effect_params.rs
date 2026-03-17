@@ -1,6 +1,9 @@
+//! Effect parameter specifications, UI controls, and runtime value helpers.
+
 use engine_core::scene::{Easing, EffectParams, TermColour};
 use std::collections::HashMap;
 
+/// Describes the UI control type and bounds for a single adjustable effect parameter.
 #[derive(Debug, Clone, Copy)]
 pub enum EffectParamControl {
     Slider {
@@ -45,6 +48,7 @@ impl EffectParamControl {
     }
 }
 
+/// Metadata for a single effect parameter: its name, display label, and control specification.
 #[derive(Debug, Clone, Copy)]
 pub struct EffectParamSpec {
     pub name: &'static str,
@@ -97,6 +101,7 @@ impl EffectParamSpec {
     }
 }
 
+/// A resolved single-float value for an effect parameter.
 #[derive(Debug, Clone, Copy)]
 pub struct EffectParamValue(pub f32);
 
@@ -143,6 +148,7 @@ const LIGHTNING_SPECS: &[EffectParamSpec] = &[
     SPEC_OCTAVE_COUNT,
 ];
 
+/// Returns the parameter specifications for the named effect.
 pub fn effect_param_specs(effect_name: &str) -> &'static [EffectParamSpec] {
     match effect_name {
         "shine" => SHINE_SPECS,
@@ -159,6 +165,7 @@ pub fn effect_param_specs(effect_name: &str) -> &'static [EffectParamSpec] {
     }
 }
 
+/// Builds a default [`EffectParams`] populated with sensible values for the named effect.
 pub fn default_effect_params(effect_name: &str) -> EffectParams {
     let mut params = EffectParams::default();
     params.intensity = Some(1.0);
@@ -192,6 +199,7 @@ pub fn default_effect_params(effect_name: &str) -> EffectParams {
     params
 }
 
+/// Reads a named float parameter from an [`EffectParams`] instance.
 pub fn effect_param_value(params: &EffectParams, name: &str) -> Option<EffectParamValue> {
     let value = match name {
         "intensity" => params.intensity,
@@ -211,6 +219,7 @@ pub fn effect_param_value(params: &EffectParams, name: &str) -> Option<EffectPar
     Some(EffectParamValue(value))
 }
 
+/// Returns a human-readable display label for the given parameter name.
 pub fn param_label(name: &str) -> &'static str {
     match name {
         "colour" => "Colour",
@@ -239,6 +248,7 @@ pub fn param_label(name: &str) -> &'static str {
     }
 }
 
+/// Formats the current value of a named parameter as a display string.
 pub fn param_text_value(params: &EffectParams, name: &str) -> Option<String> {
     match name {
         "colour" => params.colour.as_ref().map(render_colour),
@@ -280,6 +290,7 @@ fn render_colour(colour: &TermColour) -> String {
     }
 }
 
+/// Applies a map of named float overrides to an [`EffectParams`] instance in-place.
 pub fn apply_overrides(
     _effect_name: &str,
     overrides: &HashMap<String, EffectParamValue>,

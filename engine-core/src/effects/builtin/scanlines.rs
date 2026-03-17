@@ -1,8 +1,11 @@
+//! Effect that overlays classic CRT horizontal scanlines onto the frame.
+
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_INTENSITY};
 use crate::scene::EffectParams;
 
+/// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "scanlines",
     display_name: "Scanlines",
@@ -13,6 +16,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
     sample: "- name: scanlines\n  duration: 0\n  params:\n    intensity: 0.5",
 };
 
+/// Effect that darkens every other row to produce a CRT scanline appearance.
 pub struct ScanlinesEffect;
 
 impl Effect for ScanlinesEffect {

@@ -3,6 +3,7 @@
 use engine_core::effects::{shared_dispatcher, EffectDispatcher};
 use engine_core::scene::EffectTargetKind;
 
+/// Renderable documentation snapshot sourced from engine-core effect metadata.
 #[derive(Debug, Clone, Copy)]
 pub struct EffectDoc {
     pub summary: &'static str,
@@ -11,6 +12,7 @@ pub struct EffectDoc {
     pub target_kind: EffectTargetKind,
 }
 
+/// Returns a list of all built-in effect names from the engine dispatcher.
 pub fn builtin_effect_names() -> Vec<String> {
     EffectDispatcher::builtin_names()
         .iter()
@@ -18,6 +20,7 @@ pub fn builtin_effect_names() -> Vec<String> {
         .collect()
 }
 
+/// Returns documentation metadata for the named effect from the engine dispatcher.
 pub fn effect_doc(name: &str) -> EffectDoc {
     let meta = shared_dispatcher().metadata(name);
     EffectDoc {

@@ -1,3 +1,5 @@
+//! Verifies that every font referenced by text sprites has a loadable manifest in the mod's asset tree.
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::rasterizer;
@@ -9,6 +11,7 @@ use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
 
+/// Startup check that fails if a font used by a scene cannot be resolved to a manifest file.
 pub struct FontManifestCheck;
 
 impl StartupCheck for FontManifestCheck {

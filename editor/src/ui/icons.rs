@@ -11,6 +11,7 @@ use crate::state::SidebarItem;
 
 const ICON_THEME_VAR: &str = "SHELL_QUEST_ICON_THEME";
 
+/// Active icon theme determining which glyph set is used at runtime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IconTheme {
     Ascii,
@@ -36,6 +37,7 @@ fn theme() -> IconTheme {
     })
 }
 
+/// Returns the active [`IconTheme`] resolved from the environment variable at startup.
 pub fn current_theme() -> IconTheme {
     theme()
 }
@@ -48,6 +50,7 @@ fn pick(nerd: &'static str, emoji: &'static str, ascii: &'static str) -> &'stati
     }
 }
 
+/// Returns the sidebar icon glyph for the given [`SidebarItem`] using the active theme.
 pub fn sidebar_glyph(item: SidebarItem) -> &'static str {
     match item {
         SidebarItem::Explorer => pick("\u{f115}", "\u{1f4c1}", "[F]"),
@@ -57,6 +60,7 @@ pub fn sidebar_glyph(item: SidebarItem) -> &'static str {
     }
 }
 
+/// Returns a short human-readable label for the active icon theme.
 pub fn theme_hint() -> &'static str {
     match theme() {
         IconTheme::Nerd => "Nerd Font",

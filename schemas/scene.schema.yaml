@@ -56,6 +56,7 @@ properties:
     description: Alias of bg_colour.
   stages:
     $ref: "#/$defs/scene_stages"
+    description: Lifecycle stage definitions (on_enter, on_idle, on_leave) containing sequential effect steps.
   behaviors:
     type: array
     default: []
@@ -99,7 +100,10 @@ properties:
   objects:
     type: array
     default: []
-    description: Optional reusable object instances for future prefab pipeline.
+    description: >
+      Object instances placed in the scene using the ref/as/with/state/tags syntax.
+      Each entry references an object prefab by path (ref), optionally assigns a scene-local
+      id (as), overrides exports (with), seeds runtime state (state), and attaches role tags (tags).
     items:
       type: object
       additionalProperties: false

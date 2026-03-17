@@ -1,3 +1,5 @@
+//! Text sprite rendering — writes terminal-cell or rasterized glyph text into the compositor buffer.
+
 use crossterm::style::Color;
 use std::path::Path;
 

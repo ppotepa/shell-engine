@@ -1,3 +1,5 @@
+//! Validates the scene graph — unique scene IDs, reachability from the entrypoint, and no dangling transitions.
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::EngineError;
@@ -6,6 +8,7 @@ use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
 
+/// Startup check that validates scene IDs are unique, all transitions resolve, and the graph is connected.
 pub struct SceneGraphCheck;
 
 impl StartupCheck for SceneGraphCheck {

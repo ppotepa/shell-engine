@@ -1,3 +1,5 @@
+//! Behavior system types: the [`Behavior`] trait, built-in behavior structs, and the [`BehaviorContext`] passed each tick.
+
 use std::collections::HashSet;
 use std::f32::consts::TAU;
 
@@ -7,6 +9,7 @@ use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 
+/// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
 pub struct BehaviorContext {
     pub stage: SceneStage,
@@ -18,6 +21,7 @@ pub struct BehaviorContext {
     pub object_regions: std::collections::BTreeMap<String, Region>,
 }
 
+/// A side-effect produced by a behavior and consumed by the engine systems.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BehaviorCommand {
     PlayAudioCue { cue: String, volume: Option<f32> },
@@ -25,6 +29,7 @@ pub enum BehaviorCommand {
     SetOffset { target: String, dx: i32, dy: i32 },
 }
 
+/// Defines the per-tick update logic for a scene object behavior.
 pub trait Behavior: Send + Sync {
     fn update(
         &mut self,
@@ -37,6 +42,7 @@ pub trait Behavior: Send + Sync {
 
 type EmittedCueKey = (String, String, SceneStage, u64, String);
 
+/// Returns the built-in [`Behavior`] implementation for `spec`, or `None` if the name is unrecognised.
 pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send + Sync>> {
     let name = spec.name.trim();
     if name.eq_ignore_ascii_case("blink") {
@@ -59,6 +65,7 @@ pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send 
 }
 
 #[derive(Default)]
+/// Fires scene-level audio cues at their scheduled `at_ms` timestamps.
 pub struct SceneAudioBehavior {
     emitted: HashSet<EmittedCueKey>,
 }
@@ -89,6 +96,7 @@ impl Behavior for SceneAudioBehavior {
     }
 }
 
+/// Alternates an object's visibility on a configurable on/off cycle.
 pub struct BlinkBehavior {
     target: Option<String>,
     visible_ms: u64,
@@ -126,6 +134,7 @@ impl Behavior for BlinkBehavior {
     }
 }
 
+/// Applies a sinusoidal offset to an object along the X and/or Y axes.
 pub struct BobBehavior {
     target: Option<String>,
     amplitude_x: i32,
@@ -164,6 +173,7 @@ impl Behavior for BobBehavior {
     }
 }
 
+/// Locks an object's position to match the current frame position of a named target.
 pub struct FollowBehavior {
     target: Option<String>,
     offset_x: i32,
@@ -204,11 +214,13 @@ impl Behavior for FollowBehavior {
     }
 }
 
+/// Shows the object only during the specified scene stages.
 pub struct StageVisibilityBehavior {
     target: Option<String>,
     stages: Vec<SceneStage>,
 }
 
+/// Shows the object only while it is the currently selected menu option.
 pub struct MenuSelectedBehavior {
     target: Option<String>,
     index: usize,
@@ -239,6 +251,7 @@ impl Behavior for MenuSelectedBehavior {
     }
 }
 
+/// Shows directional arrow sprites flanking the selected menu option.
 pub struct SelectedArrowsBehavior {
     target: Option<String>,
     index: usize,
@@ -381,6 +394,7 @@ impl Behavior for StageVisibilityBehavior {
     }
 }
 
+/// Shows the object only within a configured time window relative to the scene or stage clock.
 pub struct TimedVisibilityBehavior {
     target: Option<String>,
     start_ms: Option<u64>,

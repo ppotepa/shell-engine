@@ -1,3 +1,5 @@
+//! Top-level UI rendering: dispatches frame drawing to the appropriate component tree.
+
 pub mod components;
 pub mod icons;
 pub mod layout;
@@ -7,6 +9,7 @@ use ratatui::Frame;
 
 use crate::state::{AppMode, AppState, SidebarItem};
 
+/// Renders the complete application frame based on the current [`AppState`].
 pub fn draw(frame: &mut Frame, app: &AppState) {
     if app.mode == AppMode::Start {
         components::start_screen::render(frame, frame.area(), app);

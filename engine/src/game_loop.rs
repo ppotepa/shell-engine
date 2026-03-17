@@ -1,9 +1,12 @@
+//! Fixed-timestep game loop: polls input, ticks systems, and paces frames to the target FPS.
+
 use crate::error::EngineError;
 use crate::events::EngineEvent;
 use crate::services::EngineWorldAccess;
 use crate::systems;
 use crate::world::World;
 
+/// Runs the engine game loop for `world` at `target_fps` until the player quits.
 pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
     use crossterm::event::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,

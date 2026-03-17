@@ -1,3 +1,5 @@
+//! Mod manifest loader — reads and validates `mod.yaml` from a directory or `.zip` archive.
+
 use std::{
     fs,
     io::Read,
@@ -9,6 +11,7 @@ use zip::ZipArchive;
 
 use crate::EngineError;
 
+/// Reads, parses, and validates `mod.yaml` from `mod_source` (directory or `.zip`), returning the manifest value.
 pub fn load_mod_manifest(mod_source: &Path) -> Result<Value, EngineError> {
     if !mod_source.exists() {
         return Err(EngineError::SourceNotFound(mod_source.to_path_buf()));

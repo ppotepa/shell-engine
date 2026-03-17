@@ -1,3 +1,5 @@
+//! Effect that sweeps a Gaussian highlight beam across the frame.
+
 use crate::buffer::Buffer;
 use crate::effects::effect::{Effect, Region};
 use crate::effects::metadata::{slider, EffectMetadata, P_EASING, P_INTENSITY, P_SPEED};
@@ -5,6 +7,7 @@ use crate::effects::utils::color::lerp_colour;
 use crate::scene::EffectParams;
 use crossterm::style::Color;
 
+/// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "shine",
     display_name: "Shine",
@@ -47,6 +50,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
         "- name: shine\n  duration: 800\n  params:\n    angle: 18\n    width: 6\n    intensity: 1.0",
 };
 
+/// Effect that sweeps a directional Gaussian highlight beam across the target region.
 pub struct ShineEffect;
 
 impl Effect for ShineEffect {

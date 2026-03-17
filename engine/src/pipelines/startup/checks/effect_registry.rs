@@ -1,3 +1,5 @@
+//! Verifies that every effect name referenced in the mod's scenes is registered in the effect dispatcher.
+
 use crate::effects::{shared_dispatcher, EffectDispatcher};
 use crate::scene::{Effect, EffectTargetKind, LayerStages, Scene, Sprite, Stage};
 use crate::EngineError;
@@ -7,6 +9,7 @@ use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
 
+/// Startup check that fails if any scene references an unknown or incompatible effect.
 pub struct EffectRegistryCheck;
 
 impl StartupCheck for EffectRegistryCheck {

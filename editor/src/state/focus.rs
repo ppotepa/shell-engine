@@ -1,3 +1,6 @@
+//! Keyboard focus tracking across the three main UI panes.
+
+/// Identifies which of the three main UI panes currently holds keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FocusPane {
     ProjectTree,
@@ -6,6 +9,7 @@ pub enum FocusPane {
 }
 
 impl FocusPane {
+    /// Returns the next pane in the Tab-cycle order.
     pub fn next(self) -> Self {
         match self {
             FocusPane::ProjectTree => FocusPane::Browser,
@@ -14,6 +18,7 @@ impl FocusPane {
         }
     }
 
+    /// Returns the previous pane in the Tab-cycle order.
     pub fn prev(self) -> Self {
         match self {
             FocusPane::ProjectTree => FocusPane::Inspector,

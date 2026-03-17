@@ -2,8 +2,9 @@ $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://shell-quest.local/schemas/effect-params.schema.yaml"
 title: Effect Params Schema
 description: >
-  Reusable effect parameter object schema.
-  Not all params apply to every effect.
+  Parameter overrides for a visual effect step.
+  Not all parameters apply to every effect — see each property description for which effects use it.
+  Omitted parameters fall back to per-effect defaults inside the engine.
 type: object
 additionalProperties: false
 properties:

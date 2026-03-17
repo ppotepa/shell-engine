@@ -1,3 +1,5 @@
+//! Domain model: asset index, diagnostics, effect parameters, effects catalog, and mod manifest.
+
 pub mod asset_index;
 pub mod diagnostics;
 pub mod effect_params;

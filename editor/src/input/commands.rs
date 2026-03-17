@@ -1,3 +1,6 @@
+//! High-level editor commands dispatched from key events.
+
+/// High-level action the application should perform in response to a key event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
     Quit,

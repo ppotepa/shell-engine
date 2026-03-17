@@ -1,3 +1,5 @@
+//! Internal [`EngineWorldAccess`] trait that gives systems typed access to [`World`] resources.
+
 use crate::assets::AssetRoot;
 use crate::audio::AudioRuntime;
 use crate::buffer::{Buffer, VirtualBuffer};
@@ -9,6 +11,7 @@ use crate::systems::animator::Animator;
 use crate::systems::renderer::TerminalRenderer;
 use crate::world::World;
 
+/// Typed accessor trait for all engine-managed resources stored in [`World`].
 pub(crate) trait EngineWorldAccess {
     fn events_mut(&mut self) -> Option<&mut EventQueue>;
     fn scene_runtime(&self) -> Option<&SceneRuntime>;

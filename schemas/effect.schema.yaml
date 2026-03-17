@@ -1,7 +1,9 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
 $id: "https://shell-quest.local/schemas/effect.schema.yaml"
 title: Effect Schema
-description: Reusable named visual effect schema.
+description: >
+  A single named visual effect step used inside scene/layer/sprite lifecycle stages.
+  Specifies the effect name, duration, optional looping, and per-effect parameter overrides.
 type: object
 additionalProperties: false
 required: [name, duration]

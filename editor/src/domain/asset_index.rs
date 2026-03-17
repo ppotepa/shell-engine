@@ -1,5 +1,8 @@
+//! Aggregated project asset index built by scanning the mod root directory.
+
 use super::{diagnostics::Diagnostics, mod_manifest::ModManifestSummary, scene_index::SceneIndex};
 
+/// Snapshot of all discovered assets for an open mod project.
 #[derive(Debug, Clone, Default)]
 #[allow(dead_code)]
 pub struct AssetIndex {

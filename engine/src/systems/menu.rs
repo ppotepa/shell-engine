@@ -1,6 +1,9 @@
+//! Menu input system — maps key presses to navigation and activation actions for scene menus.
+
 use crate::scene::MenuOption;
 use crossterm::event::KeyCode;
 
+/// The outcome of evaluating menu input for a single frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MenuAction {
     None,
@@ -8,6 +11,7 @@ pub enum MenuAction {
     Activate(String),
 }
 
+/// Evaluates `key_presses` against `options` to produce a [`MenuAction`] for the current frame.
 pub fn evaluate_menu_action(
     options: &[MenuOption],
     selected_index: usize,

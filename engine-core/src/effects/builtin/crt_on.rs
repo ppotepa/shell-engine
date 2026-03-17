@@ -1,3 +1,5 @@
+//! Effect simulating a CRT monitor powering on with phosphor-like reveal phases.
+
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING};
@@ -9,6 +11,7 @@ use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
 use crossterm::style::Color;
 
+/// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "crt-on",
     display_name: "CRT On",
@@ -19,6 +22,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
     sample: "- name: crt-on\n  duration: 900\n  params:\n    easing: ease-out",
 };
 
+/// Effect that plays a multi-phase CRT startup animation: boot line → scanline expand → white flash → reveal.
 pub struct CrtOnEffect;
 
 impl Effect for CrtOnEffect {
@@ -114,12 +118,14 @@ impl Effect for CrtOnEffect {
     }
 }
 
+/// Fills every cell in `y` with blank/black (used to erase collapsed rows).
 pub(super) fn crt_blank_row(region: Region, y: u16, buffer: &mut Buffer) {
     for dx in 0..region.width {
         buffer.set(region.x + dx, y, ' ', TRUE_BLACK, TRUE_BLACK);
     }
 }
 
+/// Renders a noisy static row using a per-cell hash seeded by `seed`.
 pub(super) fn crt_static_row(region: Region, y: u16, fg: Color, seed: u32, buffer: &mut Buffer) {
     const CHARS: &[char] = &['░', '▒', '▓', '╌', '┄', '▪', '▫', '·', '╍', '▒', '░'];
     for dx in 0..region.width {
@@ -129,6 +135,7 @@ pub(super) fn crt_static_row(region: Region, y: u16, fg: Color, seed: u32, buffe
     }
 }
 
+/// Renders a dim, sparse static row used for the trailing edge of the collapse.
 pub(super) fn crt_dim_row(region: Region, y: u16, seed: u32, buffer: &mut Buffer) {
     const CHARS: &[char] = &['░', ' ', ' ', ' ', '·', ' ', '·', ' ', '░'];
     for dx in 0..region.width {

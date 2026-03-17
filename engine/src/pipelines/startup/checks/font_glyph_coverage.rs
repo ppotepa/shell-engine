@@ -1,3 +1,5 @@
+//! Verifies that every glyph required by text sprites is present in the corresponding font asset.
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::markup::strip_markup;
@@ -10,6 +12,7 @@ use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
 
+/// Startup check that warns when a font is missing glyphs required by scene text sprites.
 pub struct FontGlyphCoverageCheck;
 
 impl StartupCheck for FontGlyphCoverageCheck {
