@@ -1,0 +1,41 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/schemas/generated/sugar.schema.yaml
+title: Authoring sugar transformations catalog
+description: Documents all shorthand syntax, aliases, and normalizers applied during YAML authoring. These are automatically expanded by the compiler before deserialization.
+$defs:
+  aliases:
+    description: Field name aliases automatically renamed during compilation
+    type: array
+    items:
+    - from: bg
+      to: bg_colour
+    - from: fg
+      to: fg_colour
+  shorthands:
+    description: Shorthand syntax automatically expanded during compilation
+    type: array
+    items:
+    - name: pause
+      description: Duration-only step without effects
+      from_syntax: 'pause: 1ms'
+      to_structure: '{duration: 1, effects: []}'
+    - name: at
+      description: Alignment anchor shorthand
+      from_syntax: 'at: cc'
+      to_structure: '{align_x: center, align_y: center}'
+    - name: to
+      description: Menu option scene target
+      from_syntax: 'to: main-menu'
+      to_structure: '{scene: main-menu, next: main-menu}'
+  normalizers:
+    description: Normalizer functions applied during document processing (see engine-authoring/src/document/scene.rs)
+    type: array
+    items:
+      type: string
+    enum:
+    - normalize_stage
+    - normalize_layers
+    - normalize_sprites
+    - normalize_menu_options
+    - apply_alias
+    - apply_at_anchor
