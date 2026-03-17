@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use engine_core::authoring::catalog::static_catalog;
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
 use std::fs;
@@ -63,7 +64,15 @@ fn generate_fragment_for_mod(mod_root: &Path, out_dir: &Path) -> Result<()> {
 
     let scene_ids = collect_scene_ids(mod_root)?;
     let object_names = collect_object_names(mod_root)?;
-    let effect_names = collect_effect_names(mod_root)?;
+    let mut effect_names = collect_effect_names(mod_root)?;
+    for name in static_catalog().effect_names {
+        effect_names.insert((*name).to_string());
+    }
+    let layer_refs = collect_scene_partial_refs(mod_root, "layers")?;
+    let sprite_refs = collect_scene_partial_refs(mod_root, "sprites")?;
+    let template_refs = collect_scene_partial_refs(mod_root, "templates")?;
+    let object_refs = collect_scene_partial_refs(mod_root, "objects")?;
+    let effect_refs = collect_scene_partial_refs(mod_root, "effects")?;
 
     let mut root = Mapping::new();
     root.insert(
@@ -93,6 +102,26 @@ fn generate_fragment_for_mod(mod_root: &Path, out_dir: &Path) -> Result<()> {
     defs.insert(
         Value::String("effect_names".to_string()),
         enum_schema(effect_names.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("layer_refs".to_string()),
+        enum_schema(layer_refs.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("sprite_refs".to_string()),
+        enum_schema(sprite_refs.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("template_refs".to_string()),
+        enum_schema(template_refs.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("object_refs".to_string()),
+        enum_schema(object_refs.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("effect_refs".to_string()),
+        enum_schema(effect_refs.into_iter().collect()),
     );
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
 
@@ -184,6 +213,37 @@ fn collect_effect_names_from_value(value: &Value, out: &mut BTreeSet<String>) {
     }
 }
 
+fn collect_scene_partial_refs(mod_root: &Path, part_dir: &str) -> Result<BTreeSet<String>> {
+    let scenes_root = mod_root.join("scenes");
+    if !scenes_root.exists() {
+        return Ok(BTreeSet::new());
+    }
+    let mut refs = BTreeSet::new();
+    for scene_dir in fs::read_dir(&scenes_root)
+        .with_context(|| format!("failed to read {}", scenes_root.display()))?
+    {
+        let scene_dir = scene_dir?;
+        let scene_path = scene_dir.path();
+        if !scene_path.is_dir() {
+            continue;
+        }
+        let scene_name = match scene_path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+        let part_root = scene_path.join(part_dir);
+        if !part_root.exists() {
+            continue;
+        }
+        for file in yaml_files_under(&part_root)? {
+            if let Ok(rel) = file.strip_prefix(&part_root) {
+                refs.insert(format!("{scene_name}/{part_dir}/{}", rel.to_string_lossy()));
+            }
+        }
+    }
+    Ok(refs)
+}
+
 fn yaml_files_under(root: &Path) -> Result<Vec<PathBuf>> {
     if !root.exists() {
         return Ok(Vec::new());
@@ -208,4 +268,76 @@ fn walk_yaml(path: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_fragment_contains_dynamic_defs() {
+        let temp_root = unique_temp_dir("schema-gen-test");
+        let mod_root = temp_root.join("playground");
+        fs::create_dir_all(mod_root.join("scenes/intro/layers")).expect("create layers");
+        fs::create_dir_all(mod_root.join("scenes/intro/sprites")).expect("create sprites");
+        fs::create_dir_all(mod_root.join("objects")).expect("create objects");
+        fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
+        fs::write(
+            mod_root.join("scenes/intro/scene.yml"),
+            "id: intro\neffects:\n  - name: fade\n    duration: 1.0\n",
+        )
+        .expect("write scene");
+        fs::write(
+            mod_root.join("scenes/intro/layers/bg.yml"),
+            "name: background\n",
+        )
+        .expect("write layer partial");
+        fs::write(mod_root.join("objects/npc.yml"), "name: npc\n").expect("write object");
+
+        let out_dir = temp_root.join("out");
+        fs::create_dir_all(&out_dir).expect("create out dir");
+        generate_fragment_for_mod(&mod_root, &out_dir).expect("generate");
+
+        let out_path = out_dir.join("playground.schema.yaml");
+        let raw = fs::read_to_string(out_path).expect("read generated schema");
+        let yaml: Value = serde_yaml::from_str(&raw).expect("parse generated schema");
+        let defs = yaml
+            .get("$defs")
+            .and_then(Value::as_mapping)
+            .expect("defs mapping");
+
+        assert!(defs.contains_key(Value::String("scene_ids".to_string())));
+        assert!(defs.contains_key(Value::String("object_names".to_string())));
+        assert!(defs.contains_key(Value::String("effect_names".to_string())));
+        assert!(defs.contains_key(Value::String("layer_refs".to_string())));
+
+        let object_names = defs
+            .get(Value::String("object_names".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("object_names enum");
+        assert!(object_names.iter().any(|v| v.as_str() == Some("npc")));
+
+        let layer_refs = defs
+            .get(Value::String("layer_refs".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("layer_refs enum");
+        assert!(layer_refs
+            .iter()
+            .any(|v| v.as_str() == Some("intro/layers/bg.yml")));
+    }
+
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("{prefix}-{}-{now}", std::process::id()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
 }
