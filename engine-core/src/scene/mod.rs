@@ -4,6 +4,7 @@ pub mod easing;
 pub mod model;
 pub mod object;
 pub mod sprite;
+pub mod template;
 pub mod value;
 
 pub use crate::animations::AnimationParams;
