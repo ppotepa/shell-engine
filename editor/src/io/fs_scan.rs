@@ -135,10 +135,22 @@ fn file_uses_sq_schema(path: &Path) -> bool {
     raw.lines().take(3).any(|line| {
         line.contains("$schema=")
             && (line.contains("schemas/scene.schema.yaml")
+                || line.contains("schemas/scene-file.schema.yaml")
+                || line.contains("schemas/layers-file.schema.yaml")
+                || line.contains("schemas/sprites-file.schema.yaml")
+                || line.contains("schemas/templates-file.schema.yaml")
+                || line.contains("schemas/objects-file.schema.yaml")
+                || line.contains("schemas/effect-file.schema.yaml")
                 || line.contains("schemas/object.schema.yaml")
                 || line.contains("schemas/mod.schema.yaml")
                 || line.contains("schemas/font-manifest.schema.yaml")
                 || line.contains("shell-quest.local/schemas/scene.schema.yaml")
+                || line.contains("shell-quest.local/schemas/scene-file.schema.yaml")
+                || line.contains("shell-quest.local/schemas/layers-file.schema.yaml")
+                || line.contains("shell-quest.local/schemas/sprites-file.schema.yaml")
+                || line.contains("shell-quest.local/schemas/templates-file.schema.yaml")
+                || line.contains("shell-quest.local/schemas/objects-file.schema.yaml")
+                || line.contains("shell-quest.local/schemas/effect-file.schema.yaml")
                 || line.contains("shell-quest.local/schemas/object.schema.yaml")
                 || line.contains("shell-quest.local/schemas/mod.schema.yaml")
                 || line.contains("shell-quest.local/schemas/font-manifest.schema.yaml"))
@@ -227,6 +239,21 @@ mod tests {
         let files = collect_schema_project_yml_files(temp.path());
         assert_eq!(files.len(), 1);
         assert!(files[0].ends_with("npc.yml"));
+    }
+
+    #[test]
+    fn schema_scanner_includes_scene_partial_schema_files() {
+        let temp = tempdir().expect("temp dir");
+        let partial_yaml = temp.path().join("scene.yml");
+        fs::write(
+            &partial_yaml,
+            "# yaml-language-server: $schema=../../schemas/scene-file.schema.yaml\nid: intro\ntitle: Intro\n",
+        )
+        .expect("write yaml");
+
+        let files = collect_schema_project_yml_files(temp.path());
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("scene.yml"));
     }
 
     #[test]
