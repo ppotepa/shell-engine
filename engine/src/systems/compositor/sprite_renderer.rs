@@ -10,15 +10,13 @@ use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use std::collections::BTreeMap;
 
-use super::layout::{
-    compute_flex_cells, compute_grid_cells, resolve_x, resolve_y, RenderArea,
-};
+use super::image_render::{image_sprite_dimensions, render_image_content};
+use super::layout::{compute_flex_cells, compute_grid_cells, resolve_x, resolve_y, RenderArea};
+use super::obj_render::{obj_sprite_dimensions, render_obj_content, ObjRenderParams};
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
     sprite_transform_offset, RenderCtx,
 };
-use super::image_render::{image_sprite_dimensions, render_image_content};
-use super::obj_render::{obj_sprite_dimensions, render_obj_content, ObjRenderParams};
 use super::text_render::{dim_colour, render_text_content, text_sprite_dimensions};
 
 /// Render all sprites in a layer onto `layer_buf`.
@@ -109,9 +107,22 @@ fn render_sprite(
     let sprite_elapsed = ctx.scene_elapsed_ms.saturating_sub(appear_at);
 
     match sprite {
-        Sprite::Text { content, x, y, size, font, force_renderer_mode, force_font_mode,
-                        align_x, align_y, fg_colour, bg_colour, reveal_ms, glow, .. } =>
-        {
+        Sprite::Text {
+            content,
+            x,
+            y,
+            size,
+            font,
+            force_renderer_mode,
+            force_font_mode,
+            align_x,
+            align_y,
+            fg_colour,
+            bg_colour,
+            reveal_ms,
+            glow,
+            ..
+        } => {
             let total_chars = content.chars().count();
             let rendered_content = match reveal_ms {
                 Some(reveal) if *reveal > 0 => {
@@ -122,65 +133,191 @@ fn render_sprite(
                 }
                 _ => content.clone(),
             };
-            if rendered_content.is_empty() { return; }
+            if rendered_content.is_empty() {
+                return;
+            }
 
             let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
             let sprite_bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
             let resolved_font = render_policy::resolve_text_font_spec(
-                font.as_deref(), force_font_mode.as_deref(), *size, inherited_mode, *force_renderer_mode,
+                font.as_deref(),
+                force_font_mode.as_deref(),
+                *size,
+                inherited_mode,
+                *force_renderer_mode,
             );
             let mod_source = ctx.asset_root.map(|root| root.mod_source());
-            let (sprite_width, sprite_height) =
-                text_sprite_dimensions(mod_source, &rendered_content, resolved_font.as_deref(), fg, sprite_bg);
+            let (sprite_width, sprite_height) = text_sprite_dimensions(
+                mod_source,
+                &rendered_content,
+                resolved_font.as_deref(),
+                fg,
+                sprite_bg,
+            );
 
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
-            let (draw_x, draw_y) = compute_draw_pos(base_x, base_y, sprite.animations(), sprite_elapsed, &object_state);
+            let (draw_x, draw_y) = compute_draw_pos(
+                base_x,
+                base_y,
+                sprite.animations(),
+                sprite_elapsed,
+                &object_state,
+            );
 
             if let Some(glow_opts) = glow.as_ref() {
-                let glow_col = glow_opts.colour.as_ref().map(Color::from).unwrap_or_else(|| dim_colour(fg));
+                let glow_col = glow_opts
+                    .colour
+                    .as_ref()
+                    .map(Color::from)
+                    .unwrap_or_else(|| dim_colour(fg));
                 let radius = glow_opts.radius.max(1) as i32;
                 let glow_content = strip_markup(&rendered_content);
                 for dy in -radius..=radius {
                     for dx in -radius..=radius {
-                        if dx == 0 && dy == 0 { continue; }
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
                         let gx = (draw_x as i32 + dx).max(0) as u16;
                         let gy = (draw_y as i32 + dy).max(0) as u16;
-                        render_text_content(mod_source, &glow_content, resolved_font.as_deref(), glow_col, sprite_bg, gx, gy, ctx.layer_buf);
+                        render_text_content(
+                            mod_source,
+                            &glow_content,
+                            resolved_font.as_deref(),
+                            glow_col,
+                            sprite_bg,
+                            gx,
+                            gy,
+                            ctx.layer_buf,
+                        );
                     }
                 }
             }
-            render_text_content(mod_source, &rendered_content, resolved_font.as_deref(), fg, sprite_bg, draw_x, draw_y, ctx.layer_buf);
-            let sprite_region = Region { x: draw_x, y: draw_y, width: sprite_width, height: sprite_height };
-            finalize_sprite(object_id, sprite_region, sprite_elapsed, sprite.stages(), ctx, target_resolver, object_regions);
+            render_text_content(
+                mod_source,
+                &rendered_content,
+                resolved_font.as_deref(),
+                fg,
+                sprite_bg,
+                draw_x,
+                draw_y,
+                ctx.layer_buf,
+            );
+            let sprite_region = Region {
+                x: draw_x,
+                y: draw_y,
+                width: sprite_width,
+                height: sprite_height,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
         }
 
-        Sprite::Image { source, x, y, size, width, height, force_renderer_mode, align_x, align_y, .. } => {
-            let resolved_mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-            let (sprite_width, sprite_height) =
-                image_sprite_dimensions(source, *width, *height, *size, resolved_mode, ctx.asset_root);
+        Sprite::Image {
+            source,
+            x,
+            y,
+            size,
+            width,
+            height,
+            force_renderer_mode,
+            align_x,
+            align_y,
+            ..
+        } => {
+            let resolved_mode =
+                render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let (sprite_width, sprite_height) = image_sprite_dimensions(
+                source,
+                *width,
+                *height,
+                *size,
+                resolved_mode,
+                ctx.asset_root,
+            );
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
-            let (draw_x, draw_y) = compute_draw_pos(base_x, base_y, sprite.animations(), sprite_elapsed, &object_state);
-            render_image_content(source, *width, *height, *size, resolved_mode, ctx.asset_root, draw_x, draw_y, ctx.layer_buf);
-            let sprite_region = Region { x: draw_x, y: draw_y, width: sprite_width, height: sprite_height };
-            finalize_sprite(object_id, sprite_region, sprite_elapsed, sprite.stages(), ctx, target_resolver, object_regions);
+            let (draw_x, draw_y) = compute_draw_pos(
+                base_x,
+                base_y,
+                sprite.animations(),
+                sprite_elapsed,
+                &object_state,
+            );
+            render_image_content(
+                source,
+                *width,
+                *height,
+                *size,
+                resolved_mode,
+                ctx.asset_root,
+                draw_x,
+                draw_y,
+                ctx.layer_buf,
+            );
+            let sprite_region = Region {
+                x: draw_x,
+                y: draw_y,
+                width: sprite_width,
+                height: sprite_height,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
         }
 
-        Sprite::Grid { x, y, width, height, gap_x, gap_y, force_renderer_mode,
-                        align_x, align_y, columns, rows, children, .. } =>
-        {
-            let resolved_mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+        Sprite::Grid {
+            x,
+            y,
+            width,
+            height,
+            gap_x,
+            gap_y,
+            force_renderer_mode,
+            align_x,
+            align_y,
+            columns,
+            rows,
+            children,
+            ..
+        } => {
+            let resolved_mode =
+                render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             let container_w = width.unwrap_or(area.width).max(1);
             let container_h = height.unwrap_or(area.height).max(1);
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);
             let (dx, dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
-            let draw_x = base_x.saturating_add(dx).saturating_add(object_state.offset_x);
-            let draw_y = base_y.saturating_add(dy).saturating_add(object_state.offset_y);
+            let draw_x = base_x
+                .saturating_add(dx)
+                .saturating_add(object_state.offset_x);
+            let draw_y = base_y
+                .saturating_add(dy)
+                .saturating_add(object_state.offset_y);
 
             let child_cells = compute_grid_cells(
-                columns, rows, children, container_w, container_h, *gap_x, *gap_y, resolved_mode, ctx.asset_root,
+                columns,
+                rows,
+                children,
+                container_w,
+                container_h,
+                *gap_x,
+                *gap_y,
+                resolved_mode,
+                ctx.asset_root,
             );
             render_children_in_cells(
                 layer_idx,
@@ -197,23 +334,59 @@ fn render_sprite(
                 render_sprite,
             );
 
-            let sprite_region = Region { x: draw_x.max(0) as u16, y: draw_y.max(0) as u16, width: container_w, height: container_h };
-            finalize_sprite(object_id, sprite_region, sprite_elapsed, sprite.stages(), ctx, target_resolver, object_regions);
+            let sprite_region = Region {
+                x: draw_x.max(0) as u16,
+                y: draw_y.max(0) as u16,
+                width: container_w,
+                height: container_h,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
         }
 
-        Sprite::Flex { x, y, width, height, gap, direction, force_renderer_mode,
-                        align_x, align_y, children, .. } =>
-        {
-            let resolved_mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+        Sprite::Flex {
+            x,
+            y,
+            width,
+            height,
+            gap,
+            direction,
+            force_renderer_mode,
+            align_x,
+            align_y,
+            children,
+            ..
+        } => {
+            let resolved_mode =
+                render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             let container_w = width.unwrap_or(area.width).max(1);
             let container_h = height.unwrap_or(area.height).max(1);
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);
             let (dx, dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
-            let draw_x = base_x.saturating_add(dx).saturating_add(object_state.offset_x);
-            let draw_y = base_y.saturating_add(dy).saturating_add(object_state.offset_y);
+            let draw_x = base_x
+                .saturating_add(dx)
+                .saturating_add(object_state.offset_x);
+            let draw_y = base_y
+                .saturating_add(dy)
+                .saturating_add(object_state.offset_y);
 
-            let child_cells = compute_flex_cells(children, *direction, container_w, container_h, *gap, resolved_mode, ctx.asset_root);
+            let child_cells = compute_flex_cells(
+                children,
+                *direction,
+                container_w,
+                container_h,
+                *gap,
+                resolved_mode,
+                ctx.asset_root,
+            );
             render_children_in_cells(
                 layer_idx,
                 sprite_path,
@@ -229,35 +402,92 @@ fn render_sprite(
                 render_sprite,
             );
 
-            let sprite_region = Region { x: draw_x.max(0) as u16, y: draw_y.max(0) as u16, width: container_w, height: container_h };
-            finalize_sprite(object_id, sprite_region, sprite_elapsed, sprite.stages(), ctx, target_resolver, object_regions);
+            let sprite_region = Region {
+                x: draw_x.max(0) as u16,
+                y: draw_y.max(0) as u16,
+                width: container_w,
+                height: container_h,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
         }
 
-        Sprite::Obj { id, source, x, y, size, width, height, force_renderer_mode,
-                       surface_mode, scale, yaw_deg, pitch_deg, roll_deg,
-                       rotation_x, rotation_y, rotation_z, rotate_y_deg_per_sec,
-                       camera_distance, fov_degrees, near_clip, draw_char,
-                       align_x, align_y, fg_colour, bg_colour, .. } =>
-        {
-            let resolved_mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-            let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
-                obj_sprite_dimensions(*width, *height, *size)
-            } else {
-                (area.width.max(1), area.height.max(1))
-            };
+        Sprite::Obj {
+            id,
+            source,
+            x,
+            y,
+            size,
+            width,
+            height,
+            force_renderer_mode,
+            surface_mode,
+            scale,
+            yaw_deg,
+            pitch_deg,
+            roll_deg,
+            rotation_x,
+            rotation_y,
+            rotation_z,
+            rotate_y_deg_per_sec,
+            camera_distance,
+            fov_degrees,
+            near_clip,
+            draw_char,
+            align_x,
+            align_y,
+            fg_colour,
+            bg_colour,
+            ..
+        } => {
+            let resolved_mode =
+                render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let (sprite_width, sprite_height) =
+                if width.is_some() || height.is_some() || size.is_some() {
+                    obj_sprite_dimensions(*width, *height, *size)
+                } else {
+                    (area.width.max(1), area.height.max(1))
+                };
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
-            let (draw_x, draw_y) = compute_draw_pos(base_x, base_y, sprite.animations(), sprite_elapsed, &object_state);
+            let (draw_x, draw_y) = compute_draw_pos(
+                base_x,
+                base_y,
+                sprite.animations(),
+                sprite_elapsed,
+                &object_state,
+            );
 
             let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
             let bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
-            let draw_glyph = draw_char.as_deref().and_then(|s| s.chars().next()).unwrap_or('#');
+            let draw_glyph = draw_char
+                .as_deref()
+                .and_then(|s| s.chars().next())
+                .unwrap_or('#');
             // Avoid allocating a lowercase String by using eq_ignore_ascii_case.
-            let is_wireframe = surface_mode.as_deref().map(|s| s.trim().eq_ignore_ascii_case("wireframe")).unwrap_or(false);
-            let camera_state = id.as_deref().and_then(|sid| ctx.obj_camera_states.get(sid)).copied().unwrap_or_default();
+            let is_wireframe = surface_mode
+                .as_deref()
+                .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
+                .unwrap_or(false);
+            let camera_state = id
+                .as_deref()
+                .and_then(|sid| ctx.obj_camera_states.get(sid))
+                .copied()
+                .unwrap_or_default();
 
             render_obj_content(
-                source, Some(sprite_width), Some(sprite_height), *size, resolved_mode,
+                source,
+                Some(sprite_width),
+                Some(sprite_height),
+                *size,
+                resolved_mode,
                 ObjRenderParams {
                     scale: scale.unwrap_or(1.0),
                     yaw_deg: yaw_deg.unwrap_or(0.0),
@@ -271,13 +501,35 @@ fn render_sprite(
                     fov_degrees: fov_degrees.unwrap_or(60.0),
                     near_clip: near_clip.unwrap_or(0.001),
                     scene_elapsed_ms: sprite_elapsed,
-                    camera_pan_x: camera_state.pan_x, camera_pan_y: camera_state.pan_y,
-                    camera_look_yaw: camera_state.look_yaw, camera_look_pitch: camera_state.look_pitch,
+                    camera_pan_x: camera_state.pan_x,
+                    camera_pan_y: camera_state.pan_y,
+                    camera_look_yaw: camera_state.look_yaw,
+                    camera_look_pitch: camera_state.look_pitch,
                 },
-                is_wireframe, draw_glyph, fg, bg, ctx.asset_root, draw_x, draw_y, ctx.layer_buf,
+                is_wireframe,
+                draw_glyph,
+                fg,
+                bg,
+                ctx.asset_root,
+                draw_x,
+                draw_y,
+                ctx.layer_buf,
             );
-            let sprite_region = Region { x: draw_x, y: draw_y, width: sprite_width, height: sprite_height };
-            finalize_sprite(object_id, sprite_region, sprite_elapsed, sprite.stages(), ctx, target_resolver, object_regions);
+            let sprite_region = Region {
+                x: draw_x,
+                y: draw_y,
+                width: sprite_width,
+                height: sprite_height,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
         }
     }
 }

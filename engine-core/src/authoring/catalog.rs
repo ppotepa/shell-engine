@@ -747,15 +747,30 @@ mod tests {
     #[test]
     fn input_profile_shapes_have_correct_fields() {
         let shapes = input_profile_shapes();
-        let obj_viewer = shapes.iter().find(|s| s.name == "obj-viewer").expect("obj-viewer");
+        let obj_viewer = shapes
+            .iter()
+            .find(|s| s.name == "obj-viewer")
+            .expect("obj-viewer");
         assert!(obj_viewer.fields.iter().any(|f| f.name == "sprite_id"));
         assert_eq!(
-            obj_viewer.fields.iter().find(|f| f.name == "sprite_id").unwrap().requirement,
+            obj_viewer
+                .fields
+                .iter()
+                .find(|f| f.name == "sprite_id")
+                .unwrap()
+                .requirement,
             Requirement::Required
         );
 
-        let tst = shapes.iter().find(|s| s.name == "terminal-size-tester").expect("terminal-size-tester");
-        let presets = tst.fields.iter().find(|f| f.name == "presets").expect("presets");
+        let tst = shapes
+            .iter()
+            .find(|s| s.name == "terminal-size-tester")
+            .expect("terminal-size-tester");
+        let presets = tst
+            .fields
+            .iter()
+            .find(|f| f.name == "presets")
+            .expect("presets");
         assert_eq!(presets.value_kind, ValueKind::SelectList);
         assert_eq!(presets.requirement, Requirement::Optional);
     }

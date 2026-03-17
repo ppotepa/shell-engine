@@ -496,11 +496,21 @@ impl Sprite {
 
     pub fn disappear_at_ms(&self) -> Option<u64> {
         match self {
-            Sprite::Text { disappear_at_ms, .. }
-            | Sprite::Image { disappear_at_ms, .. }
-            | Sprite::Obj { disappear_at_ms, .. }
-            | Sprite::Grid { disappear_at_ms, .. }
-            | Sprite::Flex { disappear_at_ms, .. } => *disappear_at_ms,
+            Sprite::Text {
+                disappear_at_ms, ..
+            }
+            | Sprite::Image {
+                disappear_at_ms, ..
+            }
+            | Sprite::Obj {
+                disappear_at_ms, ..
+            }
+            | Sprite::Grid {
+                disappear_at_ms, ..
+            }
+            | Sprite::Flex {
+                disappear_at_ms, ..
+            } => *disappear_at_ms,
         }
     }
 
@@ -534,7 +544,10 @@ y: -8
                 assert_eq!(x, -2);
                 assert_eq!(y, -8);
             }
-            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
+            Sprite::Image { .. }
+            | Sprite::Obj { .. }
+            | Sprite::Grid { .. }
+            | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
             }
         }
@@ -561,7 +574,10 @@ force-font-mode: braille
                 assert_eq!(force_font_mode.as_deref(), Some("braille"));
                 assert!(behaviors.is_empty());
             }
-            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
+            Sprite::Image { .. }
+            | Sprite::Obj { .. }
+            | Sprite::Grid { .. }
+            | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
             }
         }
@@ -591,7 +607,10 @@ force-renderer-mode: halfblock
                 assert_eq!(height, None);
                 assert_eq!(force_renderer_mode, Some(SceneRenderedMode::HalfBlock));
             }
-            Sprite::Text { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
+            Sprite::Text { .. }
+            | Sprite::Obj { .. }
+            | Sprite::Grid { .. }
+            | Sprite::Flex { .. } => {
                 panic!("expected image sprite")
             }
         }
@@ -639,7 +658,10 @@ children:
                 assert_eq!(rows.len(), 2);
                 assert_eq!(children.len(), 2);
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Flex { .. } => {
+            Sprite::Text { .. }
+            | Sprite::Image { .. }
+            | Sprite::Obj { .. }
+            | Sprite::Flex { .. } => {
                 panic!("expected grid sprite")
             }
         }
@@ -668,7 +690,10 @@ behaviors:
                 assert_eq!(behaviors[0].name, "blink");
                 assert_eq!(behaviors[1].params.amplitude_y, Some(2));
             }
-            Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => {
+            Sprite::Image { .. }
+            | Sprite::Obj { .. }
+            | Sprite::Grid { .. }
+            | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
             }
         }

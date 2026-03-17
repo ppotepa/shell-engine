@@ -251,7 +251,6 @@ pub(super) fn render_obj_content(
     );
 }
 
-
 #[derive(Clone, Copy)]
 struct Viewport {
     min_x: i32,

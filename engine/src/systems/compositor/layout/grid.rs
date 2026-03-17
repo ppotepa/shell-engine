@@ -70,7 +70,15 @@ pub(crate) fn compute_grid_cells(
             let y = track_start(&row_sizes, gap_y, row_idx);
             let width = span_size(&col_sizes, gap_x, col_idx, col_span).max(1);
             let height = span_size(&row_sizes, gap_y, row_idx, row_span).max(1);
-            (idx, GridCellRect { x, y, width, height })
+            (
+                idx,
+                GridCellRect {
+                    x,
+                    y,
+                    width,
+                    height,
+                },
+            )
         })
         .collect()
 }

@@ -54,8 +54,15 @@ pub(crate) fn measure_sprite_for_layout(
             let mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             image_sprite_dimensions(source, *width, *height, *size, mode, asset_root)
         }
-        Sprite::Grid { width, height, .. } => (width.unwrap_or(1).max(1), height.unwrap_or(1).max(1)),
-        Sprite::Obj { width, height, size, .. } => obj_sprite_dimensions(*width, *height, *size),
+        Sprite::Grid { width, height, .. } => {
+            (width.unwrap_or(1).max(1), height.unwrap_or(1).max(1))
+        }
+        Sprite::Obj {
+            width,
+            height,
+            size,
+            ..
+        } => obj_sprite_dimensions(*width, *height, *size),
         Sprite::Flex {
             width,
             height,
@@ -80,7 +87,10 @@ pub(crate) fn measure_sprite_for_layout(
                         .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).1)
                         .fold(0u16, |acc, h| acc.saturating_add(h));
                     let gaps = gap.saturating_mul(n.saturating_sub(1) as u16);
-                    (width.unwrap_or(max_w), height.unwrap_or(sum_h.saturating_add(gaps)))
+                    (
+                        width.unwrap_or(max_w),
+                        height.unwrap_or(sum_h.saturating_add(gaps)),
+                    )
                 }
                 FlexDirection::Row => {
                     let sum_w: u16 = children
@@ -93,7 +103,10 @@ pub(crate) fn measure_sprite_for_layout(
                         .max()
                         .unwrap_or(1);
                     let gaps = gap.saturating_mul(n.saturating_sub(1) as u16);
-                    (width.unwrap_or(sum_w.saturating_add(gaps)), height.unwrap_or(max_h))
+                    (
+                        width.unwrap_or(sum_w.saturating_add(gaps)),
+                        height.unwrap_or(max_h),
+                    )
                 }
             };
             (total_w.max(1), total_h.max(1))
