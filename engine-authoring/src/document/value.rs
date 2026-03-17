@@ -17,6 +17,6 @@ pub enum ScalarValue {
 /// Authored colour field that may be either a concrete terminal colour or an
 /// expression string awaiting later interpretation.
 pub enum ColorValue {
-    Literal(crate::scene::TermColour),
+    Literal(engine_core::scene::TermColour),
     Expression(String),
 }

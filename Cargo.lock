@@ -452,6 +452,7 @@ name = "engine"
 version = "0.1.0"
 dependencies = [
  "crossterm 0.29.0",
+ "engine-authoring",
  "engine-core",
  "image",
  "serde",
@@ -459,6 +460,16 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "zip",
+]
+
+[[package]]
+name = "engine-authoring"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "engine-core",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]
