@@ -30,7 +30,7 @@ where
 pub fn compile_scene_document_with_loader_and_source<F>(
     content: &str,
     scene_source_path: &str,
-    mut object_loader: F,
+    object_loader: F,
 ) -> Result<Scene, serde_yaml::Error>
 where
     F: FnMut(&str) -> Option<String>,

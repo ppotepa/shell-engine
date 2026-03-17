@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/schemas/generated/intro-text.test.scene.schema.yaml
+title: intro-text.test scene overlay schema
+allOf:
+- $ref: ../scene.schema.yaml
+- properties:
+    next:
+      oneOf:
+      - $ref: ./intro-text.test.schema.yaml#/$defs/scene_ids
+      - type: 'null'
+    menu-options:
+      items:
+        properties:
+          next:
+            $ref: ./intro-text.test.schema.yaml#/$defs/scene_ids
+    menu_options:
+      items:
+        properties:
+          next:
+            $ref: ./intro-text.test.schema.yaml#/$defs/scene_ids
+    objects:
+      items:
+        properties:
+          use:
+            $ref: ./intro-text.test.schema.yaml#/$defs/object_names
