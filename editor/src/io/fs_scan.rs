@@ -346,18 +346,68 @@ mod tests {
     }
 
     #[test]
+    fn schema_scanner_includes_package_partial_schema_files() {
+        let temp = tempdir().expect("temp dir");
+        let layers_yaml = temp.path().join("layers.yml");
+        let templates_yaml = temp.path().join("templates.yml");
+        let objects_yaml = temp.path().join("objects.yml");
+        fs::write(
+            &layers_yaml,
+            "# yaml-language-server: $schema=../../schemas/layers-file.schema.yaml\n- name: bg\n  sprites: []\n",
+        )
+        .expect("write layers yaml");
+        fs::write(
+            &templates_yaml,
+            "# yaml-language-server: $schema=../../schemas/templates-file.schema.yaml\n{}\n",
+        )
+        .expect("write templates yaml");
+        fs::write(
+            &objects_yaml,
+            "# yaml-language-server: $schema=../../schemas/objects-file.schema.yaml\n- use: npc\n",
+        )
+        .expect("write objects yaml");
+
+        let files = collect_schema_project_yml_files(temp.path());
+        assert_eq!(files.len(), 3);
+        assert!(files.iter().any(|path| path.ends_with("layers.yml")));
+        assert!(files.iter().any(|path| path.ends_with("templates.yml")));
+        assert!(files.iter().any(|path| path.ends_with("objects.yml")));
+    }
+
+    #[test]
     fn schema_scanner_includes_generated_overlay_schema_files() {
         let temp = tempdir().expect("temp dir");
         let scene_yaml = temp.path().join("intro.yml");
+        let layers_yaml = temp.path().join("layers.yml");
+        let templates_yaml = temp.path().join("templates.yml");
+        let objects_yaml = temp.path().join("objects.yml");
         fs::write(
             &scene_yaml,
             "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.scene.schema.yaml\nid: intro\ntitle: Intro\n",
         )
         .expect("write yaml");
+        fs::write(
+            &layers_yaml,
+            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.layers-file.schema.yaml\n- name: bg\n  sprites: []\n",
+        )
+        .expect("write yaml");
+        fs::write(
+            &templates_yaml,
+            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.templates-file.schema.yaml\n{}\n",
+        )
+        .expect("write yaml");
+        fs::write(
+            &objects_yaml,
+            "# yaml-language-server: $schema=https://shell-quest.local/schemas/generated/playground.objects-file.schema.yaml\n- use: npc\n",
+        )
+        .expect("write yaml");
 
         let files = collect_schema_project_yml_files(temp.path());
-        assert_eq!(files.len(), 1);
-        assert!(files[0].ends_with("intro.yml"));
+        assert_eq!(files.len(), 4);
+        assert!(files.iter().any(|path| path.ends_with("intro.yml")));
+        assert!(files.iter().any(|path| path.ends_with("layers.yml")));
+        assert!(files.iter().any(|path| path.ends_with("templates.yml")));
+        assert!(files.iter().any(|path| path.ends_with("objects.yml")));
     }
 
     #[test]

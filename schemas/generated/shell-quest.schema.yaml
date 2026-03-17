@@ -6,6 +6,7 @@ $defs:
     type: string
     enum:
     - intro.logo
+    - intro.prologue
     - mainmenu
   object_names:
     type: string
