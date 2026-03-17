@@ -1,0 +1,100 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/font-manifest.schema.yaml"
+title: Font Manifest Schema
+description: >
+  Describes a bitmap font asset used by the Shell Quest engine rasterizer.
+  Each font variant (ascii / raster) has its own manifest.yaml alongside a glyphs/ directory.
+  The engine locates manifests by searching for a directory matching the font label,
+  then the mode subdirectory (ascii or raster).
+type: object
+additionalProperties: false
+required:
+  - schema_version
+  - font_family
+  - mode
+  - glyphs
+properties:
+  schema_version:
+    type: integer
+    const: 1
+    description: Manifest format version. Always 1 for the current format.
+  font_family:
+    type: string
+    minLength: 1
+    description: Typeface family name, e.g. "Abril Fatface".
+  font_variant:
+    type: string
+    description: Font variant/weight, e.g. "regular", "bold", "italic".
+    default: regular
+  font_label:
+    type: string
+    description: >
+      Display label used to reference this font in scene YAML.
+      Must match the string used in sprite `font` field (without mode suffix).
+      Example: sprite font "Abril Fatface:ascii" → font_label "Abril Fatface".
+  size_px:
+    type: number
+    minimum: 1
+    description: Original point/pixel size the font was rendered at.
+  profile:
+    type: string
+    description: Visual rendering profile, e.g. "classic".
+  mode:
+    type: string
+    description: >
+      Rendering mode for this manifest's glyphs.
+      "terminal-pixels" — each glyph file contains a block of '█' / ' ' characters
+                          forming a pixel-art bitmap rendered cell-by-cell.
+      "ascii"           — each glyph file contains ASCII art characters
+                          drawn directly as terminal text (no per-pixel colouring).
+    enum:
+      - terminal-pixels
+      - ascii
+  glyphs:
+    type: array
+    minItems: 1
+    description: List of character glyphs defined in this font.
+    items:
+      $ref: "#/$defs/glyph_entry"
+
+$defs:
+  glyph_entry:
+    type: object
+    additionalProperties: false
+    required:
+      - character
+      - file
+      - width
+      - height
+    description: A single character definition within the font.
+    properties:
+      character:
+        type: string
+        minLength: 1
+        maxLength: 2
+        description: >
+          The character this glyph represents. Single characters or a space (' ').
+          Unicode characters are allowed.
+      codepoint:
+        type: string
+        pattern: "^U\\+[0-9A-Fa-f]{4,6}$"
+        description: Unicode codepoint in U+XXXX format, e.g. "U+0053" for 'S'. Informational only.
+      file:
+        type: string
+        pattern: "^glyphs/[^/]+\\.txt$"
+        description: >
+          Path to the glyph definition file, relative to the manifest.
+          Must be a .txt file inside the glyphs/ directory.
+      width:
+        type: integer
+        minimum: 0
+        description: >
+          Glyph advance width in character cells.
+          0 is valid only for the space character — the engine will compute
+          a fallback width from the average of other glyphs.
+      height:
+        type: integer
+        minimum: 0
+        description: >
+          Glyph height in character cells / lines.
+          0 is valid only for the space character.

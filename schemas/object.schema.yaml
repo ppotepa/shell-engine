@@ -1,0 +1,50 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/object.schema.yaml"
+title: Object Schema
+description: >
+  Defines a reusable object/prefab blueprint that scenes can instantiate via the objects[] list.
+  Instances reference this file by path using `ref`, override exported parameters via `with`,
+  assign a scene-local id via `as`, seed runtime state via `state`, and attach role tags via `tags`.
+type: object
+additionalProperties: false
+required:
+  - name
+properties:
+  kind:
+    type: string
+    enum: [object]
+    description: Optional explicit document kind marker.
+  name:
+    type: string
+    minLength: 1
+    description: Unique object name used by scene `objects[].use`.
+  exports:
+    type: object
+    default: {}
+    description: Named parameters that scene instances can override via `with`.
+    additionalProperties: true
+  state:
+    type: object
+    default: {}
+    description: Initial object-local state values.
+    additionalProperties: true
+  logic:
+    type: object
+    additionalProperties: false
+    description: Optional behavior/script binding for object code-behind.
+    properties:
+      type:
+        type: string
+        enum: [native, graph, script]
+        default: native
+        description: Logic implementation kind.
+      behavior:
+        type: string
+        minLength: 1
+        description: Native behavior/controller identifier.
+      params:
+        type: object
+        default: {}
+        additionalProperties: true
+        description: Optional logic parameters.
+
