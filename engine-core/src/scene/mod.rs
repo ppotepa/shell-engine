@@ -9,6 +9,6 @@ pub use easing::Easing;
 pub use model::{
     Animation, AudioCue, BehaviorParams, BehaviorSpec, Effect, EffectParams, EffectTargetKind,
     Layer, LayerStages, MenuOption, ObjViewerControls, Scene, SceneAudio, SceneInput,
-    SceneRenderedMode, SceneStages, Stage, StageTrigger, Step,
+    SceneRenderedMode, SceneStages, Stage, StageTrigger, Step, TerminalSizeTesterControls,
 };
 pub use sprite::{HorizontalAlign, Sprite, VerticalAlign};

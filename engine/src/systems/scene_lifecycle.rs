@@ -6,6 +6,8 @@ use crate::systems::animator::{Animator, SceneStage};
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
 use crossterm::event::KeyCode;
+use crossterm::terminal::SetSize;
+use std::io::stdout;
 
 pub struct SceneLifecycleManager;
 
@@ -64,6 +66,9 @@ impl SceneLifecycleManager {
 
     fn advance_on_any_key(world: &mut World, key_presses: &[KeyCode]) {
         if handle_obj_viewer_controls(world, key_presses) {
+            return;
+        }
+        if handle_terminal_size_tester_controls(world, key_presses) {
             return;
         }
 
@@ -196,6 +201,70 @@ fn active_obj_viewer_target(world: &World) -> Option<String> {
         .scene_runtime()
         .and_then(|runtime| runtime.scene().input.obj_viewer.as_ref())
         .map(|cfg| cfg.sprite_id.clone())
+}
+
+fn active_terminal_size_presets(world: &World) -> Option<Vec<(u16, u16)>> {
+    let cfg = world
+        .scene_runtime()
+        .and_then(|runtime| runtime.scene().input.terminal_size_tester.clone())?;
+    let mut out = Vec::new();
+    for preset in cfg.presets {
+        if let Some((w, h, is_max)) = crate::runtime_settings::parse_virtual_size_str(&preset) {
+            if !is_max {
+                out.push((w, h));
+            }
+        }
+    }
+    if out.is_empty() {
+        out.extend([(80, 24), (100, 30), (120, 36), (160, 48)]);
+    }
+    Some(out)
+}
+
+fn apply_terminal_size_change(world: &mut World, width: u16, height: u16) {
+    let _ = crossterm::execute!(stdout(), SetSize(width, height));
+    if let Some(buf) = world.buffer_mut() {
+        buf.resize(width, height);
+    }
+    if let Some(vbuf) = world.virtual_buffer_mut() {
+        vbuf.0.resize(width, height);
+    }
+}
+
+fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyCode]) -> bool {
+    let Some(presets) = active_terminal_size_presets(world) else {
+        return false;
+    };
+    let is_idle = world
+        .animator()
+        .map(|animator| animator.stage == SceneStage::OnIdle)
+        .unwrap_or(false);
+    if !is_idle {
+        return false;
+    }
+    if key_presses.iter().any(|key| matches!(key, KeyCode::Enter)) {
+        return false;
+    }
+
+    for key in key_presses {
+        let idx = match key {
+            KeyCode::Char('1') => Some(0usize),
+            KeyCode::Char('2') => Some(1usize),
+            KeyCode::Char('3') => Some(2usize),
+            KeyCode::Char('4') => Some(3usize),
+            KeyCode::Char('5') => Some(4usize),
+            KeyCode::Char('6') => Some(5usize),
+            KeyCode::Char('7') => Some(6usize),
+            KeyCode::Char('8') => Some(7usize),
+            KeyCode::Char('9') => Some(8usize),
+            _ => None,
+        };
+        if let Some(i) = idx.and_then(|i| presets.get(i).copied()) {
+            apply_terminal_size_change(world, i.0, i.1);
+            return true;
+        }
+    }
+    false
 }
 
 fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyCode]) -> bool {
@@ -354,6 +423,7 @@ mod tests {
             id: "intro".to_string(),
             title: "Intro".to_string(),
             cutscene: true,
+            target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
@@ -527,6 +597,7 @@ layers:
             id: "menu".to_string(),
             title: "Menu".to_string(),
             cutscene: false,
+            target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
@@ -595,6 +666,7 @@ layers:
             id: "menu".to_string(),
             title: "Menu".to_string(),
             cutscene: false,
+            target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
@@ -661,6 +733,7 @@ layers:
             id: "menu".to_string(),
             title: "Menu".to_string(),
             cutscene: false,
+            target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
@@ -743,6 +816,7 @@ layers:
             id: "intro".to_string(),
             title: "Intro".to_string(),
             cutscene: true,
+            target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
@@ -824,6 +898,7 @@ layers:
             id: "intro".to_string(),
             title: "Intro".to_string(),
             cutscene: true,
+            target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),

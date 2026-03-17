@@ -23,6 +23,16 @@ properties:
     type: boolean
     default: false
     description: Whether this scene is a non-interactive cutscene.
+  target-fps:
+    type: integer
+    minimum: 1
+    maximum: 240
+    description: Optional scene-level FPS cap override (applies regardless of renderer/scene type).
+  target_fps:
+    type: integer
+    minimum: 1
+    maximum: 240
+    description: Alias of target-fps.
   rendered-mode:
     type: string
     enum: [cell, halfblock, quadblock, braille]
@@ -217,6 +227,8 @@ $defs:
     properties:
       obj-viewer:
         $ref: "#/$defs/obj_viewer_controls"
+      terminal-size-tester:
+        $ref: "#/$defs/terminal_size_tester_controls"
 
   obj_viewer_controls:
     type: object
@@ -227,6 +239,17 @@ $defs:
         type: string
         minLength: 1
         description: Target OBJ sprite id for 3D viewer controls.
+
+  terminal_size_tester_controls:
+    type: object
+    additionalProperties: false
+    properties:
+      presets:
+        type: array
+        description: Optional terminal size presets in WIDTHxHEIGHT format.
+        items:
+          type: string
+          pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
 
   # ── Effect ─────────────────────────────────────────────────────────────────
   effect:
