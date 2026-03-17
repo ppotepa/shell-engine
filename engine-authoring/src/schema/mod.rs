@@ -122,6 +122,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
             format!("{mod_name}.effect-file.schema.yaml"),
             build_effect_file_overlay_schema(mod_name, &effect_names),
         ),
+        output_file("behaviors.schema.yaml".to_string(), build_behavior_schema()),
     ])
 }
 
@@ -149,6 +150,139 @@ fn enum_schema(values: Vec<String>) -> Value {
         Value::Sequence(values.into_iter().map(Value::String).collect()),
     );
     Value::Mapping(m)
+}
+
+/// Builds schema for all built-in behaviors with their parameter schemas.
+fn build_behavior_schema() -> Value {
+    use engine_core::authoring::catalog::behavior_catalog;
+    
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String("https://shell-quest.local/schemas/generated/behaviors.schema.yaml".to_string()),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String("Generated behavior schemas from metadata".to_string()),
+    );
+
+    // Build oneOf with all behavior variants
+    let catalog = behavior_catalog();
+    let mut one_of_variants = Vec::new();
+
+    for (name, fields) in catalog {
+        let mut variant = Mapping::new();
+        variant.insert(
+            Value::String("type".to_string()),
+            Value::String("object".to_string()),
+        );
+        
+        // Required name field matching this behavior
+        let mut required = vec![Value::String("name".to_string())];
+        let mut properties = Mapping::new();
+        
+        // name property with const
+        let mut name_prop = Mapping::new();
+        name_prop.insert(Value::String("const".to_string()), Value::String(name.to_string()));
+        properties.insert(Value::String("name".to_string()), Value::Mapping(name_prop));
+        
+        // params property with nested fields
+        if !fields.is_empty() {
+            let mut params_schema = Mapping::new();
+            params_schema.insert(
+                Value::String("type".to_string()),
+                Value::String("object".to_string()),
+            );
+            
+            let mut param_props = Mapping::new();
+            for field in fields {
+                param_props.insert(
+                    Value::String(field.name.to_string()),
+                    field_metadata_to_schema(&field),
+                );
+            }
+            
+            params_schema.insert(
+                Value::String("properties".to_string()),
+                Value::Mapping(param_props),
+            );
+            
+            properties.insert(Value::String("params".to_string()), Value::Mapping(params_schema));
+        }
+        
+        variant.insert(Value::String("properties".to_string()), Value::Mapping(properties));
+        variant.insert(Value::String("required".to_string()), Value::Sequence(required));
+        
+        one_of_variants.push(Value::Mapping(variant));
+    }
+
+    let mut defs = Mapping::new();
+    let mut behavior_def = Mapping::new();
+    behavior_def.insert(Value::String("oneOf".to_string()), Value::Sequence(one_of_variants));
+    defs.insert(Value::String("behavior".to_string()), Value::Mapping(behavior_def));
+    
+    root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
+    Value::Mapping(root)
+}
+
+/// Converts FieldMetadata to JSON Schema property definition.
+fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetadata) -> Value {
+    use engine_core::authoring::metadata::{Requirement, ValueKind};
+    
+    let mut prop = Mapping::new();
+    
+    // Type
+    let type_str = match field.value_kind {
+        ValueKind::Number => "number",
+        ValueKind::Integer => "integer",
+        ValueKind::Boolean => "boolean",
+        ValueKind::Text | ValueKind::Colour => "string",
+        ValueKind::Select => "string",
+    };
+    prop.insert(Value::String("type".to_string()), Value::String(type_str.to_string()));
+    
+    // Description
+    if !field.description.is_empty() {
+        prop.insert(
+            Value::String("description".to_string()),
+            Value::String(field.description.to_string()),
+        );
+    }
+    
+    // Default
+    if let Some(default) = field.default_text {
+        prop.insert(Value::String("default".to_string()), Value::String(default.to_string()));
+    } else if let Some(default) = field.default_number {
+        prop.insert(
+            Value::String("default".to_string()),
+            serde_yaml::to_value(default).unwrap(),
+        );
+    }
+    
+    // Enum options
+    if let Some(options) = field.enum_options {
+        prop.insert(
+            Value::String("enum".to_string()),
+            Value::Sequence(options.iter().map(|s| Value::String(s.to_string())).collect()),
+        );
+    }
+    
+    // Number constraints
+    if let Some(min) = field.min {
+        prop.insert(Value::String("minimum".to_string()), serde_yaml::to_value(min).unwrap());
+    }
+    if let Some(max) = field.max {
+        prop.insert(Value::String("maximum".to_string()), serde_yaml::to_value(max).unwrap());
+    }
+    if let Some(step) = field.step {
+        prop.insert(Value::String("multipleOf".to_string()), serde_yaml::to_value(step).unwrap());
+    }
+    
+    Value::Mapping(prop)
 }
 
 fn build_scene_overlay_schema(mod_name: &str) -> Value {
@@ -992,5 +1126,51 @@ mod tests {
         
         let names = super::collect_template_names(&temp).unwrap();
         assert!(names.contains("menu-button"));
+    }
+
+    #[test]
+    fn test_behavior_schema_generation() {
+        let temp = unique_temp_dir("behavior-schema-test");
+        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
+        fs::create_dir_all(temp.join("scenes")).unwrap();
+        
+        let files = generate_mod_schema_files(&temp).unwrap();
+        let behavior_schema = files
+            .iter()
+            .find(|f| f.file_name == "behaviors.schema.yaml")
+            .expect("behaviors.schema.yaml generated");
+        
+        let defs = behavior_schema
+            .value
+            .as_mapping()
+            .and_then(|m| m.get(Value::String("$defs".to_string())))
+            .and_then(Value::as_mapping)
+            .expect("$defs in behaviors schema");
+        
+        let behavior_def = defs
+            .get(Value::String("behavior".to_string()))
+            .and_then(Value::as_mapping)
+            .expect("behavior def");
+        
+        let one_of = behavior_def
+            .get(Value::String("oneOf".to_string()))
+            .and_then(Value::as_sequence)
+            .expect("oneOf variants");
+        
+        assert!(!one_of.is_empty(), "should have behavior variants");
+        
+        // Check that at least one known behavior exists
+        let has_blink = one_of.iter().any(|variant| {
+            variant
+                .as_mapping()
+                .and_then(|m| m.get(Value::String("properties".to_string())))
+                .and_then(Value::as_mapping)
+                .and_then(|props| props.get(Value::String("name".to_string())))
+                .and_then(Value::as_mapping)
+                .and_then(|name_prop| name_prop.get(Value::String("const".to_string())))
+                .and_then(Value::as_str)
+                == Some("blink")
+        });
+        assert!(has_blink, "blink behavior should be in schema");
     }
 }

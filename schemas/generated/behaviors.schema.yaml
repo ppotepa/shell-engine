@@ -1,0 +1,201 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/schemas/generated/behaviors.schema.yaml
+title: Generated behavior schemas from metadata
+$defs:
+  behavior:
+    oneOf:
+    - type: object
+      properties:
+        name:
+          const: blink
+        params:
+          type: object
+          properties:
+            target:
+              type: string
+              description: Sprite ID to blink
+            visible_ms:
+              type: integer
+              description: Milliseconds visible per cycle
+              default: 500.0
+              minimum: 0.0
+              multipleOf: 10.0
+            hidden_ms:
+              type: integer
+              description: Milliseconds hidden per cycle
+              default: 500.0
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: string
+              description: Scene stages when behavior is active
+              enum:
+              - on_enter
+              - on_idle
+              - on_exit
+      required:
+      - name
+    - type: object
+      properties:
+        name:
+          const: bob
+        params:
+          type: object
+          properties:
+            target:
+              type: string
+              description: Sprite ID to bob
+            amplitude_y:
+              type: integer
+              description: Vertical oscillation amplitude
+              default: 2.0
+              minimum: -100.0
+              maximum: 100.0
+              multipleOf: 1.0
+            period_ms:
+              type: integer
+              description: Full oscillation cycle duration
+              default: 2000.0
+              minimum: 1.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for wave phase
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: string
+              description: Scene stages when behavior is active
+              enum:
+              - on_enter
+              - on_idle
+              - on_exit
+      required:
+      - name
+    - type: object
+      properties:
+        name:
+          const: follow
+        params:
+          type: object
+          properties:
+            target:
+              type: string
+              description: Sprite ID to follow
+            stages:
+              type: string
+              description: Scene stages when behavior is active
+              enum:
+              - on_enter
+              - on_idle
+              - on_exit
+      required:
+      - name
+    - type: object
+      properties:
+        name:
+          const: menu-selected
+        params:
+          type: object
+          properties:
+            index:
+              type: integer
+              description: Menu option index this behavior tracks
+              minimum: 0.0
+              multipleOf: 1.0
+            stages:
+              type: string
+              description: Scene stages when behavior is active
+              enum:
+              - on_enter
+              - on_idle
+              - on_exit
+      required:
+      - name
+    - type: object
+      properties:
+        name:
+          const: selected-arrows
+        params:
+          type: object
+          properties:
+            side:
+              type: string
+              description: Which side the arrow appears on
+              default: left
+              enum:
+              - left
+              - right
+            padding:
+              type: integer
+              description: Cell padding from target sprite edge
+              default: 1.0
+              minimum: 0.0
+              maximum: 20.0
+              multipleOf: 1.0
+            stages:
+              type: string
+              description: Scene stages when behavior is active
+              enum:
+              - on_enter
+              - on_idle
+              - on_exit
+      required:
+      - name
+    - type: object
+      properties:
+        name:
+          const: stage-visibility
+        params:
+          type: object
+          properties:
+            target:
+              type: string
+              description: Sprite ID to control visibility
+            stages:
+              type: string
+              description: Scene stages when sprite is visible
+              enum:
+              - on_enter
+              - on_idle
+              - on_exit
+      required:
+      - name
+    - type: object
+      properties:
+        name:
+          const: timed-visibility
+        params:
+          type: object
+          properties:
+            target:
+              type: string
+              description: Sprite ID to control visibility
+            time_scope:
+              type: string
+              description: Whether times are scene-relative or stage-relative
+              default: scene
+              enum:
+              - scene
+              - stage
+            start_ms:
+              type: integer
+              description: When sprite becomes visible
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            end_ms:
+              type: integer
+              description: When sprite becomes hidden
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: string
+              description: Scene stages when behavior is active
+              enum:
+              - on_enter
+              - on_idle
+              - on_exit
+      required:
+      - name
