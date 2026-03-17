@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/playground/schemas/mod.yaml
+title: schema playground mod
+allOf:
+- $ref: ../../../schemas/mod.schema.yaml
+- properties:
+    entrypoint:
+      anyOf:
+      - $ref: ./catalog.yaml#/$defs/scene_paths
+      - $ref: ../../../schemas/mod.schema.yaml#/properties/entrypoint

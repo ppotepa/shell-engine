@@ -1,5 +1,192 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://shell-quest.local/mods/playground/schemas/sprites.yaml
 title: schema playground sprites
+$defs:
+  step_overlay:
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/step
+    - type: object
+      properties:
+        effects:
+          type: array
+          items:
+            $ref: ./effects.yaml#/items
+  stage_overlay:
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/stage
+    - type: object
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: '#/$defs/step_overlay'
+  scene_stages_overlay:
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_stages
+    - type: object
+      properties:
+        on_enter:
+          $ref: '#/$defs/stage_overlay'
+        on_idle:
+          $ref: '#/$defs/stage_overlay'
+        on_leave:
+          $ref: '#/$defs/stage_overlay'
+  lifecycle_stages_overlay:
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer_stages
+    - type: object
+      properties:
+        on_enter:
+          $ref: '#/$defs/stage_overlay'
+        on_idle:
+          $ref: '#/$defs/stage_overlay'
+        on_leave:
+          $ref: '#/$defs/stage_overlay'
+  sprite_overlay:
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/sprite
+    - type: object
+      properties:
+        use:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/template_names
+          - type: string
+            minLength: 1
+        args:
+          type: object
+          default: {}
+          additionalProperties: true
+        source:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/image_paths
+          - $ref: ./catalog.yaml#/$defs/model_paths
+          - type: string
+            minLength: 1
+        font:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/font_specs
+          - type: string
+            minLength: 1
+          - type: 'null'
+        stages:
+          $ref: '#/$defs/lifecycle_stages_overlay'
+        behaviors:
+          type: array
+          items:
+            $ref: '#/$defs/behavior_overlay'
+        children:
+          type: array
+          items:
+            $ref: '#/$defs/sprite_overlay'
+  behavior_overlay:
+    oneOf:
+    - allOf:
+      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
+      - properties:
+          name:
+            const: blink
+          params:
+            type: object
+            properties:
+              target:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/sprite_ids
+                - type: string
+                  minLength: 1
+        title: blink behavior overlay
+    - allOf:
+      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
+      - properties:
+          name:
+            const: bob
+          params:
+            type: object
+            properties:
+              target:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/sprite_ids
+                - type: string
+                  minLength: 1
+        title: bob behavior overlay
+    - allOf:
+      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
+      - properties:
+          name:
+            const: follow
+          params:
+            type: object
+            properties:
+              target:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/sprite_ids
+                - type: string
+                  minLength: 1
+        title: follow behavior overlay
+    - allOf:
+      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
+      - properties:
+          name:
+            const: menu-selected
+        title: menu-selected behavior overlay
+    - allOf:
+      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
+      - properties:
+          name:
+            const: selected-arrows
+          params:
+            type: object
+            properties:
+              target:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/sprite_ids
+                - type: string
+                  minLength: 1
+        title: selected-arrows behavior overlay
+    - allOf:
+      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
+      - properties:
+          name:
+            const: stage-visibility
+          params:
+            type: object
+            properties:
+              target:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/sprite_ids
+                - type: string
+                  minLength: 1
+        title: stage-visibility behavior overlay
+    - allOf:
+      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
+      - properties:
+          name:
+            const: timed-visibility
+          params:
+            type: object
+            properties:
+              target:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/sprite_ids
+                - type: string
+                  minLength: 1
+        title: timed-visibility behavior overlay
+  layer_overlay:
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer
+    - type: object
+      properties:
+        stages:
+          $ref: '#/$defs/lifecycle_stages_overlay'
+        behaviors:
+          type: array
+          items:
+            $ref: '#/$defs/behavior_overlay'
+        sprites:
+          type: array
+          items:
+            $ref: '#/$defs/sprite_overlay'
+type: array
+items:
+  $ref: '#/$defs/sprite_overlay'
 allOf:
 - $ref: ../../../schemas/sprites-file.schema.yaml

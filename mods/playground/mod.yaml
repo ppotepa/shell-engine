@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../schemas/mod.schema.yaml
+# yaml-language-server: $schema=./schemas/mod.yaml
 name: Playground
 version: 0.1.0
 entrypoint: /scenes/menu/scene.yml

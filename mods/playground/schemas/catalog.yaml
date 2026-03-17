@@ -17,6 +17,48 @@ $defs:
     - playground-menu
     - playground-stop-animation
     - playground-terminal-size-test
+  scene_paths:
+    type: string
+    enum:
+    - /scenes/3d-scene/scene.yml
+    - /scenes/decoration-showcase.yml
+    - /scenes/font-showcase/scene.yml
+    - /scenes/fps-showcase-10.yml
+    - /scenes/fps-showcase-20.yml
+    - /scenes/fps-showcase-2d-10.yml
+    - /scenes/fps-showcase-2d-20.yml
+    - /scenes/fps-showcase-2d-30.yml
+    - /scenes/fps-showcase-30.yml
+    - /scenes/menu/scene.yml
+    - /scenes/stop-animation.yml
+    - /scenes/terminal-size-test/scene.yml
+  scene_refs:
+    type: string
+    enum:
+    - /scenes/3d-scene/scene.yml
+    - /scenes/decoration-showcase.yml
+    - /scenes/font-showcase/scene.yml
+    - /scenes/fps-showcase-10.yml
+    - /scenes/fps-showcase-20.yml
+    - /scenes/fps-showcase-2d-10.yml
+    - /scenes/fps-showcase-2d-20.yml
+    - /scenes/fps-showcase-2d-30.yml
+    - /scenes/fps-showcase-30.yml
+    - /scenes/menu/scene.yml
+    - /scenes/stop-animation.yml
+    - /scenes/terminal-size-test/scene.yml
+    - playground-3d-scene
+    - playground-decoration-showcase
+    - playground-font-showcase
+    - playground-fps-showcase-10
+    - playground-fps-showcase-20
+    - playground-fps-showcase-2d-10
+    - playground-fps-showcase-2d-20
+    - playground-fps-showcase-2d-30
+    - playground-fps-showcase-30
+    - playground-menu
+    - playground-stop-animation
+    - playground-terminal-size-test
   object_names:
     type: string
     enum:
@@ -62,22 +104,37 @@ $defs:
     enum: []
   object_refs:
     type: string
-    enum: []
+    enum:
+    - /objects/suzan.yml
+    - suzan
   effect_refs:
     type: string
     enum: []
   font_names:
     type: string
     enum: []
+  font_specs:
+    type: string
+    enum:
+    - generic
+    - generic:1
+    - generic:2
+    - generic:3
+    - generic:braille
+    - generic:half
+    - generic:large
+    - generic:quad
+    - generic:standard
+    - generic:tiny
   image_paths:
     type: string
     enum:
-    - tux.png
+    - /assets/images/tux.png
   model_paths:
     type: string
     enum:
-    - scenes/3d/blender/suzanne.obj
-    - scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+    - /scenes/3d/blender/suzanne.obj
+    - /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
   sprite_ids:
     type: string
     enum:

@@ -316,7 +316,7 @@ mod tests {
         let object_yaml = temp.path().join("npc.yml");
         fs::write(
             &object_yaml,
-            "# yaml-language-server: $schema=../../schemas/object.schema.yaml\nname: npc\n",
+            "# yaml-language-server: $schema=../schemas/object.yaml\nname: npc\n",
         )
         .expect("write yaml");
 
@@ -545,9 +545,9 @@ mod tests {
             Value::Mapping(map) => {
                 for (key, child) in map {
                     if key.as_str() == Some("$ref") {
-                        let ref_value = child
-                            .as_str()
-                            .unwrap_or_else(|| panic!("$ref in {} must be a string", schema_path.display()));
+                        let ref_value = child.as_str().unwrap_or_else(|| {
+                            panic!("$ref in {} must be a string", schema_path.display())
+                        });
                         assert_ref_resolves(repo_root, schema_path, root_doc, ref_value);
                     } else {
                         assert_schema_refs_resolve(repo_root, schema_path, root_doc, child);
@@ -563,10 +563,15 @@ mod tests {
         }
     }
 
-    fn assert_ref_resolves(repo_root: &Path, schema_path: &Path, root_doc: &Value, ref_value: &str) {
-        let (path_part, pointer_part) = ref_value.split_once('#').map_or((ref_value, None), |(p, f)| {
-            (p, Some(format!("#{f}")))
-        });
+    fn assert_ref_resolves(
+        repo_root: &Path,
+        schema_path: &Path,
+        root_doc: &Value,
+        ref_value: &str,
+    ) {
+        let (path_part, pointer_part) = ref_value
+            .split_once('#')
+            .map_or((ref_value, None), |(p, f)| (p, Some(format!("#{f}"))));
 
         if path_part.is_empty() {
             let fragment = pointer_part.as_deref().unwrap_or("#");
@@ -587,15 +592,16 @@ mod tests {
             return;
         }
 
-        let target_path = if let Some(relative) = path_part.strip_prefix("https://shell-quest.local/") {
-            normalize_ref_path(&repo_root.join(relative))
-        } else if let Some(relative) = path_part.strip_prefix("http://shell-quest.local/") {
-            normalize_ref_path(&repo_root.join(relative))
-        } else if path_part.contains("://") {
-            return;
-        } else {
-            normalize_ref_path(&schema_path.parent().unwrap_or(repo_root).join(path_part))
-        };
+        let target_path =
+            if let Some(relative) = path_part.strip_prefix("https://shell-quest.local/") {
+                normalize_ref_path(&repo_root.join(relative))
+            } else if let Some(relative) = path_part.strip_prefix("http://shell-quest.local/") {
+                normalize_ref_path(&repo_root.join(relative))
+            } else if path_part.contains("://") {
+                return;
+            } else {
+                normalize_ref_path(&schema_path.parent().unwrap_or(repo_root).join(path_part))
+            };
 
         assert!(
             target_path.exists(),

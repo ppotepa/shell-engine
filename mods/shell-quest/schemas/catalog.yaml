@@ -8,6 +8,21 @@ $defs:
     - intro.logo
     - intro.prologue
     - mainmenu
+  scene_paths:
+    type: string
+    enum:
+    - /scenes/intro-logo/scene.yml
+    - /scenes/intro-prologue/scene.yml
+    - /scenes/mainmenu/scene.yml
+  scene_refs:
+    type: string
+    enum:
+    - /scenes/intro-logo/scene.yml
+    - /scenes/intro-prologue/scene.yml
+    - /scenes/mainmenu/scene.yml
+    - intro.logo
+    - intro.prologue
+    - mainmenu
   object_names:
     type: string
     enum: []
@@ -58,20 +73,33 @@ $defs:
   font_names:
     type: string
     enum: []
+  font_specs:
+    type: string
+    enum:
+    - generic
+    - generic:1
+    - generic:2
+    - generic:3
+    - generic:braille
+    - generic:half
+    - generic:large
+    - generic:quad
+    - generic:standard
+    - generic:tiny
   image_paths:
     type: string
     enum:
-    - campaign/legacy-shell-quest/logos/arch.png
-    - campaign/legacy-shell-quest/logos/debian.png
-    - campaign/legacy-shell-quest/logos/fedora.png
-    - campaign/legacy-shell-quest/screenshots/shell-quest-terminal.png
-    - campaign/legacy-shell-quest/screenshots/shell-quest.png
-    - linux-1.png
-    - tux.png
+    - /assets/images/campaign/legacy-shell-quest/logos/arch.png
+    - /assets/images/campaign/legacy-shell-quest/logos/debian.png
+    - /assets/images/campaign/legacy-shell-quest/logos/fedora.png
+    - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest-terminal.png
+    - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest.png
+    - /assets/images/linux-1.png
+    - /assets/images/tux.png
   model_paths:
     type: string
     enum:
-    - scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+    - /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
   sprite_ids:
     type: string
     enum:
