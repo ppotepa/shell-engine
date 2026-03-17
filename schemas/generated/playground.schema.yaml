@@ -1,0 +1,63 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/schemas/generated/playground.schema.yaml
+title: playground generated schema fragment
+$defs:
+  scene_ids:
+    type: string
+    enum:
+    - playground-3d-scene
+    - playground-decoration-showcase
+    - playground-fps-showcase-10
+    - playground-fps-showcase-20
+    - playground-fps-showcase-2d-10
+    - playground-fps-showcase-2d-20
+    - playground-fps-showcase-2d-30
+    - playground-fps-showcase-30
+    - playground-menu
+    - playground-stop-animation
+    - playground-terminal-size-test
+  object_names:
+    type: string
+    enum:
+    - suzan
+  effect_names:
+    type: string
+    enum:
+    - artifact-out
+    - brighten
+    - clear-to-colour
+    - crt-on
+    - devour-out
+    - fade-in
+    - fade-out
+    - fade-to-black
+    - glitch-out
+    - lightning-ambient
+    - lightning-branch
+    - lightning-fbm
+    - lightning-flash
+    - lightning-growth
+    - lightning-natural
+    - lightning-optical-80s
+    - power-off
+    - scanlines
+    - screen-shake
+    - shatter-glitch
+    - shine
+    - tesla-orb
+    - whiteout
+  layer_refs:
+    type: string
+    enum: []
+  sprite_refs:
+    type: string
+    enum: []
+  template_refs:
+    type: string
+    enum: []
+  object_refs:
+    type: string
+    enum: []
+  effect_refs:
+    type: string
+    enum: []
