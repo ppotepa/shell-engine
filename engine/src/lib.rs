@@ -6,8 +6,8 @@ pub use error::EngineError;
 // Re-export core modules from engine-core for compatibility
 pub use engine_core::{animations, buffer, effects, markup, scene};
 
-pub mod assets;
 pub mod asset_cache;
+pub mod assets;
 pub mod audio;
 pub mod behavior;
 pub mod events;
@@ -18,8 +18,8 @@ pub mod rasterizer;
 pub mod render_policy;
 pub mod repositories;
 pub mod runtime_settings;
-mod scene_loader;
 mod scene_compiler;
+mod scene_loader;
 pub mod scene_runtime;
 mod services;
 pub mod systems;
@@ -120,6 +120,12 @@ impl ShellEngine {
 #[cfg(test)]
 mod tests {
     use super::ShellEngine;
+    use crate::pipelines::startup::checks::{
+        EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
+        SceneGraphCheck,
+    };
+    use crate::pipelines::startup::{StartupContext, StartupRunner};
+    use crate::scene_loader;
     use std::{fs, path::PathBuf};
     use tempfile::tempdir;
 
@@ -173,5 +179,52 @@ mod tests {
         let result = ShellEngine::new(mod_dir);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn real_playground_mod_manifest_and_entrypoint_load() {
+        assert_real_mod_starts("playground");
+    }
+
+    #[test]
+    fn real_shell_quest_mod_manifest_and_entrypoint_load() {
+        assert_real_mod_starts("shell-quest");
+    }
+
+    fn assert_real_mod_starts(mod_name: &str) {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .canonicalize()
+            .expect("repo root");
+        let mod_dir = repo_root.join("mods").join(mod_name);
+
+        let engine = ShellEngine::new(&mod_dir).expect("engine should initialize from real mod");
+        let entrypoint = engine
+            .mod_manifest()
+            .get("entrypoint")
+            .and_then(|value| value.as_str())
+            .expect("entrypoint string");
+
+        let startup_ctx = StartupContext::new(&mod_dir, engine.mod_manifest(), entrypoint);
+        StartupRunner::with_checks(vec![
+            Box::new(SceneGraphCheck),
+            Box::new(EffectRegistryCheck),
+            Box::new(ImageAssetsCheck),
+            Box::new(FontManifestCheck),
+            Box::new(FontGlyphCoverageCheck),
+        ])
+        .run(&startup_ctx)
+        .expect("startup checks should pass");
+
+        let scene = scene_loader::load_scene(&mod_dir, entrypoint)
+            .expect("entrypoint scene should load from real mod");
+        assert!(
+            !scene.id.trim().is_empty(),
+            "entrypoint scene id should not be empty for {mod_name}"
+        );
+        assert!(
+            !scene.title.trim().is_empty(),
+            "entrypoint scene title should not be empty for {mod_name}"
+        );
     }
 }

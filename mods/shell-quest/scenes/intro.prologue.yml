@@ -54,7 +54,6 @@ layers:
         id: date-text
         content: "September 17, 1991"
         at: cc
-        size: 20
         font: "Abril Fatface:raster"
         fg: white
         bg: black
