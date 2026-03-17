@@ -601,7 +601,13 @@ fn is_scene_package_manifest(path: &str) -> bool {
 fn is_reserved_scene_partial_path(path: &str) -> bool {
     let trimmed = path.trim_start_matches('/');
     let segments: Vec<&str> = trimmed.split('/').collect();
-    if segments.len() < 4 || segments.first() != Some(&"scenes") {
+    if segments.first() != Some(&"scenes") {
+        return false;
+    }
+    if segments.get(1) == Some(&"shared") {
+        return true;
+    }
+    if segments.len() < 4 {
         return false;
     }
     matches!(
@@ -960,6 +966,72 @@ next: null
             .expect("load scene package");
         assert_eq!(scene.id, "intro-package");
         assert_eq!(scene.layers.len(), 2);
+    }
+
+    #[test]
+    fn fs_repository_discovery_excludes_shared_and_partial_directories() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes/shared")).expect("create shared dir");
+        fs::create_dir_all(mod_dir.join("scenes/intro/layers")).expect("create layers dir");
+        fs::write(
+            mod_dir.join("scenes/intro/scene.yml"),
+            "id: intro\ntitle: Intro\nlayers: []\nnext: null\n",
+        )
+        .expect("write scene root");
+        fs::write(
+            mod_dir.join("scenes/shared/common.yml"),
+            "id: shared\ntitle: Shared\nlayers: []\nnext: null\n",
+        )
+        .expect("write shared");
+        fs::write(
+            mod_dir.join("scenes/intro/layers/base.yml"),
+            "- name: base\n  sprites: []\n",
+        )
+        .expect("write partial");
+
+        let repo = create_scene_repository(&mod_dir).expect("repo");
+        assert_eq!(
+            repo.discover_scene_paths().expect("discover scenes"),
+            vec!["/scenes/intro/scene.yml".to_string()]
+        );
+    }
+
+    #[test]
+    fn zip_repository_discovery_excludes_shared_and_partial_directories() {
+        let temp = tempdir().expect("temp dir");
+        let zip_path = temp.path().join("mod.zip");
+        let file = fs::File::create(&zip_path).expect("create zip");
+        let mut writer = ZipWriter::new(file);
+        let opts = SimpleFileOptions::default();
+        writer
+            .start_file("scenes/intro/scene.yml", opts)
+            .expect("start scene root");
+        std::io::Write::write_all(
+            &mut writer,
+            b"id: intro\ntitle: Intro\nlayers: []\nnext: null\n",
+        )
+        .expect("write scene root");
+        writer
+            .start_file("scenes/shared/common.yml", opts)
+            .expect("start shared");
+        std::io::Write::write_all(
+            &mut writer,
+            b"id: shared\ntitle: Shared\nlayers: []\nnext: null\n",
+        )
+        .expect("write shared");
+        writer
+            .start_file("scenes/intro/layers/base.yml", opts)
+            .expect("start partial");
+        std::io::Write::write_all(&mut writer, b"- name: base\n  sprites: []\n")
+            .expect("write partial");
+        writer.finish().expect("finish zip");
+
+        let repo = create_scene_repository(&zip_path).expect("repo");
+        assert_eq!(
+            repo.discover_scene_paths().expect("discover scenes"),
+            vec!["/scenes/intro/scene.yml".to_string()]
+        );
     }
 }
 
