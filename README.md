@@ -1,4 +1,4 @@
-# Shell Quest
+# Shell Quest - Inspired by One Lone Coder https://www.youtube.com/javidx9
 
 ## Demo
 
