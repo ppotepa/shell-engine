@@ -432,6 +432,7 @@ dependencies = [
  "crossterm 0.29.0",
  "dirs",
  "engine",
+ "engine-authoring",
  "engine-core",
  "image",
  "ratatui",

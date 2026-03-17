@@ -45,9 +45,8 @@ impl SceneLifecycleManager {
     }
 
     fn handle_virtual_buffer_resize(world: &mut World, term_width: u16, term_height: u16) {
-        let settings = match world.runtime_settings() {
-            Some(s) => s,
-            None => return,
+        let Some(settings) = world.runtime_settings() else {
+            return;
         };
 
         if !settings.use_virtual_buffer || !settings.virtual_size_max_available {
@@ -72,105 +71,73 @@ impl SceneLifecycleManager {
             return;
         }
 
-        let menu_options = world
+        let (menu_options, any_key_trigger) = world
             .scene_runtime()
-            .map(|runtime| runtime.scene().menu_options.clone())
+            .map(|r| {
+                let opts = r.scene().menu_options.clone();
+                let any_key =
+                    matches!(r.scene().stages.on_idle.trigger, scene::StageTrigger::AnyKey);
+                (opts, any_key)
+            })
             .unwrap_or_default();
         let selected_index = world
             .animator()
-            .map(|animator| animator.menu_selected_index)
+            .map(|a| a.menu_selected_index)
             .unwrap_or(0);
         let menu_action = evaluate_menu_action(&menu_options, selected_index, key_presses);
-        let should_leave = world
-            .scene_runtime()
-            .map(|runtime| {
-                matches!(
-                    runtime.scene().stages.on_idle.trigger,
-                    scene::StageTrigger::AnyKey
-                )
-            })
-            .unwrap_or(false)
-            && world
-                .animator()
-                .map(|a| a.stage == SceneStage::OnIdle)
-                .unwrap_or(false);
 
-        if !should_leave {
+        if !is_scene_idle(world) || !any_key_trigger {
             return;
         }
 
         if let Some(animator) = world.animator_mut() {
             match menu_action {
-                MenuAction::Navigate(index) => {
-                    animator.menu_selected_index = index;
-                }
+                MenuAction::Navigate(index) => animator.menu_selected_index = index,
                 MenuAction::Activate(next_scene) => {
                     animator.next_scene_override = Some(next_scene);
-                    animator.stage = SceneStage::OnLeave;
-                    animator.step_idx = 0;
-                    animator.elapsed_ms = 0;
+                    begin_leave(animator);
                 }
-                MenuAction::None => {
-                    if menu_options.is_empty() {
-                        animator.stage = SceneStage::OnLeave;
-                        animator.step_idx = 0;
-                        animator.elapsed_ms = 0;
-                    }
-                }
+                MenuAction::None if menu_options.is_empty() => begin_leave(animator),
+                MenuAction::None => {}
             }
         }
     }
 
     fn apply_transitions(world: &mut World, transitions: Vec<String>) {
         for to_scene_ref in transitions {
-            let new_scene = world
+            let Some(new_scene) = world
                 .scene_loader()
-                .and_then(|loader| loader.load_by_ref(&to_scene_ref).ok());
-
-            if let Some(new_scene) = new_scene {
-                // Apply scene-specific virtual size override if present
-                Self::apply_virtual_size_override(world, &new_scene);
-
-                world.clear_scoped();
-                world.register_scoped(SceneRuntime::new(new_scene));
-                world.register_scoped(Animator::new());
-            }
+                .and_then(|loader| loader.load_by_ref(&to_scene_ref).ok())
+            else {
+                continue;
+            };
+            Self::apply_virtual_size_override(world, &new_scene);
+            world.clear_scoped();
+            world.register_scoped(SceneRuntime::new(new_scene));
+            world.register_scoped(Animator::new());
         }
     }
 
     fn apply_virtual_size_override(world: &mut World, scene: &scene::Scene) {
-        // Only apply override if virtual buffer is enabled
-        let settings = match world.runtime_settings() {
-            Some(s) => s,
-            None => return,
+        let Some(settings) = world.runtime_settings() else {
+            return;
         };
-
         if !settings.use_virtual_buffer {
             return;
         }
-
-        // Check if scene has virtual_size_override
-        let size_override = match &scene.virtual_size_override {
-            Some(s) => s.as_str(),
-            None => return,
+        let Some(size_override) = scene.virtual_size_override.as_deref() else {
+            return;
         };
-
-        // Parse the override value
-        let parsed_size = crate::runtime_settings::parse_virtual_size_str(size_override);
-        let (new_width, new_height) = match parsed_size {
-            Some((w, h, is_max)) => {
-                if is_max {
-                    // max-available: use current terminal size
-                    let (term_w, term_h) = crossterm::terminal::size().unwrap_or((80, 24));
-                    (term_w.max(1), term_h.max(1))
-                } else {
-                    (w, h)
-                }
-            }
-            None => return,
+        let Some((w, h, is_max)) = crate::runtime_settings::parse_virtual_size_str(size_override)
+        else {
+            return;
         };
-
-        // Resize virtual buffer if size changed
+        let (new_width, new_height) = if is_max {
+            let (term_w, term_h) = crossterm::terminal::size().unwrap_or((80, 24));
+            (term_w.max(1), term_h.max(1))
+        } else {
+            (w, h)
+        };
         if let Some(vbuf) = world.virtual_buffer_mut() {
             if vbuf.0.width != new_width || vbuf.0.height != new_height {
                 vbuf.0.resize(new_width, new_height);
@@ -194,6 +161,19 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
         }
     }
     lifecycle
+}
+
+fn is_scene_idle(world: &World) -> bool {
+    world
+        .animator()
+        .map(|a| a.stage == SceneStage::OnIdle)
+        .unwrap_or(false)
+}
+
+fn begin_leave(a: &mut crate::systems::animator::Animator) {
+    a.stage = SceneStage::OnLeave;
+    a.step_idx = 0;
+    a.elapsed_ms = 0;
 }
 
 fn active_obj_viewer_target(world: &World) -> Option<String> {
@@ -235,11 +215,7 @@ fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyCod
     let Some(presets) = active_terminal_size_presets(world) else {
         return false;
     };
-    let is_idle = world
-        .animator()
-        .map(|animator| animator.stage == SceneStage::OnIdle)
-        .unwrap_or(false);
-    if !is_idle {
+    if !is_scene_idle(world) {
         return false;
     }
     if key_presses.iter().any(|key| matches!(key, KeyCode::Enter)) {
@@ -247,21 +223,12 @@ fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyCod
     }
 
     for key in key_presses {
-        let idx = match key {
-            KeyCode::Char('1') => Some(0usize),
-            KeyCode::Char('2') => Some(1usize),
-            KeyCode::Char('3') => Some(2usize),
-            KeyCode::Char('4') => Some(3usize),
-            KeyCode::Char('5') => Some(4usize),
-            KeyCode::Char('6') => Some(5usize),
-            KeyCode::Char('7') => Some(6usize),
-            KeyCode::Char('8') => Some(7usize),
-            KeyCode::Char('9') => Some(8usize),
-            _ => None,
-        };
-        if let Some(i) = idx.and_then(|i| presets.get(i).copied()) {
-            apply_terminal_size_change(world, i.0, i.1);
-            return true;
+        if let KeyCode::Char(c @ '1'..='9') = key {
+            let i = (*c as usize) - ('1' as usize);
+            if let Some(&(w, h)) = presets.get(i) {
+                apply_terminal_size_change(world, w, h);
+                return true;
+            }
         }
     }
     false
@@ -271,11 +238,7 @@ fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyCode]) -> boo
     let Some(sprite_id) = active_obj_viewer_target(world) else {
         return false;
     };
-    let is_idle = world
-        .animator()
-        .map(|animator| animator.stage == SceneStage::OnIdle)
-        .unwrap_or(false);
-    if !is_idle {
+    if !is_scene_idle(world) {
         return false;
     }
 
@@ -345,11 +308,7 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
     let Some(sprite_id) = active_obj_viewer_target(world) else {
         return;
     };
-    let is_idle = world
-        .animator()
-        .map(|animator| animator.stage == SceneStage::OnIdle)
-        .unwrap_or(false);
-    if !is_idle {
+    if !is_scene_idle(world) {
         return;
     }
 
@@ -417,12 +376,34 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
-    #[test]
-    fn any_key_moves_idle_scene_to_leave_when_trigger_is_any_key() {
-        let scene = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
+    fn make_idle_animator() -> Animator {
+        Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        }
+    }
+
+    fn make_menu_option(key: &str, label: &str, next: &str) -> MenuOption {
+        MenuOption {
+            key: key.into(),
+            label: Some(label.into()),
+            selected_effect: None,
+            action: None,
+            scene: None,
+            next: next.into(),
+        }
+    }
+
+    fn make_menu_scene(menu_options: Vec<MenuOption>) -> Scene {
+        Scene {
+            id: "menu".into(),
+            title: "Menu".into(),
+            cutscene: false,
             target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
             virtual_size_override: None,
@@ -439,9 +420,59 @@ mod tests {
             behaviors: Vec::new(),
             audio: SceneAudio::default(),
             layers: Vec::new(),
+            menu_options,
+            input: Default::default(),
+            next: Some("playground-3d-scene".into()),
+        }
+    }
+
+    fn make_cutscene(id: &str, next: Option<&str>) -> Scene {
+        Scene {
+            id: id.into(),
+            title: id.into(),
+            cutscene: true,
+            target_fps: None,
+            rendered_mode: SceneRenderedMode::Cell,
+            virtual_size_override: None,
+            bg_colour: Some(TermColour::Black),
+            stages: SceneStages::default(),
+            behaviors: Vec::new(),
+            audio: SceneAudio::default(),
+            layers: Vec::new(),
             menu_options: Vec::new(),
             input: Default::default(),
-            next: None,
+            next: next.map(Into::into),
+        }
+    }
+
+    const OBJ_VIEWER_SCENE_YAML: &str = r#"
+id: playground-3d-scene
+title: 3D
+bg_colour: black
+input:
+  obj-viewer:
+    sprite_id: helsinki-uni-wireframe
+stages:
+  on_idle:
+    trigger: any-key
+    steps: []
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+        scale: 1.0
+        rotate-y-deg-per-sec: 14
+"#;
+
+    #[test]
+    fn any_key_moves_idle_scene_to_leave_when_trigger_is_any_key() {
+        let mut scene = make_cutscene("intro", None);
+        scene.stages.on_idle = Stage {
+            trigger: StageTrigger::AnyKey,
+            steps: Vec::new(),
+            looping: true,
         };
 
         let mut world = World::new();
@@ -470,41 +501,11 @@ mod tests {
 
     #[test]
     fn playground_3d_controls_consume_keys_and_update_runtime() {
-        let scene: Scene = serde_yaml::from_str(
-            r#"
-id: playground-3d-scene
-title: 3D
-bg_colour: black
-input:
-  obj-viewer:
-    sprite_id: helsinki-uni-wireframe
-stages:
-  on_idle:
-    trigger: any-key
-    steps: []
-layers:
-  - name: obj
-    sprites:
-      - type: obj
-        id: helsinki-uni-wireframe
-        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
-        scale: 1.0
-        rotate-y-deg-per-sec: 14
-"#,
-        )
-        .expect("scene parse");
+        let scene: Scene = serde_yaml::from_str(OBJ_VIEWER_SCENE_YAML).expect("scene parse");
 
         let mut world = World::new();
         world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(Animator {
-            stage: SceneStage::OnIdle,
-            step_idx: 0,
-            elapsed_ms: 0,
-            stage_elapsed_ms: 0,
-            scene_elapsed_ms: 0,
-            next_scene_override: None,
-            menu_selected_index: 0,
-        });
+        world.register_scoped(make_idle_animator());
 
         let _ = SceneLifecycleManager::process_events(
             &mut world,
@@ -547,39 +548,11 @@ layers:
 
     #[test]
     fn playground_3d_enter_still_leaves_scene() {
-        let scene: Scene = serde_yaml::from_str(
-            r#"
-id: playground-3d-scene
-title: 3D
-bg_colour: black
-input:
-  obj-viewer:
-    sprite_id: helsinki-uni-wireframe
-stages:
-  on_idle:
-    trigger: any-key
-    steps: []
-layers:
-  - name: obj
-    sprites:
-      - type: obj
-        id: helsinki-uni-wireframe
-        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
-"#,
-        )
-        .expect("scene parse");
+        let scene: Scene = serde_yaml::from_str(OBJ_VIEWER_SCENE_YAML).expect("scene parse");
 
         let mut world = World::new();
         world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(Animator {
-            stage: SceneStage::OnIdle,
-            step_idx: 0,
-            elapsed_ms: 0,
-            stage_elapsed_ms: 0,
-            scene_elapsed_ms: 0,
-            next_scene_override: None,
-            menu_selected_index: 0,
-        });
+        world.register_scoped(make_idle_animator());
 
         let _ = SceneLifecycleManager::process_events(
             &mut world,
@@ -591,59 +564,18 @@ layers:
 
     #[test]
     fn menu_option_key_sets_next_scene_override() {
-        let scene = Scene {
-            id: "menu".to_string(),
-            title: "Menu".to_string(),
-            cutscene: false,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages {
-                on_enter: Stage::default(),
-                on_idle: Stage {
-                    trigger: StageTrigger::AnyKey,
-                    steps: Vec::new(),
-                    looping: true,
-                },
-                on_leave: Stage::default(),
+        let scene = make_menu_scene(vec![
+            make_menu_option("1", "3D SCENE", "playground-3d-scene"),
+            MenuOption {
+                action: Some("goto.scene".into()),
+                scene: Some("playground-stop-animation".into()),
+                ..make_menu_option("2", "STOP ANIMATION", "playground-stop-animation")
             },
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: vec![
-                MenuOption {
-                    key: "1".to_string(),
-                    label: Some("3D SCENE".to_string()),
-                    selected_effect: None,
-                    action: None,
-                    scene: None,
-                    next: "playground-3d-scene".to_string(),
-                },
-                MenuOption {
-                    key: "2".to_string(),
-                    label: Some("STOP ANIMATION".to_string()),
-                    selected_effect: None,
-                    action: Some("goto.scene".to_string()),
-                    scene: Some("playground-stop-animation".to_string()),
-                    next: "playground-stop-animation".to_string(),
-                },
-            ],
-            input: Default::default(),
-            next: Some("playground-3d-scene".to_string()),
-        };
+        ]);
 
         let mut world = World::new();
         world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(Animator {
-            stage: SceneStage::OnIdle,
-            step_idx: 0,
-            elapsed_ms: 0,
-            stage_elapsed_ms: 0,
-            scene_elapsed_ms: 0,
-            next_scene_override: None,
-            menu_selected_index: 0,
-        });
+        world.register_scoped(make_idle_animator());
 
         let quit = SceneLifecycleManager::process_events(
             &mut world,
@@ -662,59 +594,14 @@ layers:
 
     #[test]
     fn menu_navigation_keys_change_selection_without_leaving_scene() {
-        let scene = Scene {
-            id: "menu".to_string(),
-            title: "Menu".to_string(),
-            cutscene: false,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages {
-                on_enter: Stage::default(),
-                on_idle: Stage {
-                    trigger: StageTrigger::AnyKey,
-                    steps: Vec::new(),
-                    looping: true,
-                },
-                on_leave: Stage::default(),
-            },
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: vec![
-                MenuOption {
-                    key: "1".to_string(),
-                    label: Some("3D SCENE".to_string()),
-                    selected_effect: None,
-                    action: None,
-                    scene: None,
-                    next: "playground-3d-scene".to_string(),
-                },
-                MenuOption {
-                    key: "2".to_string(),
-                    label: Some("STOP ANIMATION".to_string()),
-                    selected_effect: None,
-                    action: None,
-                    scene: None,
-                    next: "playground-stop-animation".to_string(),
-                },
-            ],
-            input: Default::default(),
-            next: Some("playground-3d-scene".to_string()),
-        };
+        let scene = make_menu_scene(vec![
+            make_menu_option("1", "3D SCENE", "playground-3d-scene"),
+            make_menu_option("2", "STOP ANIMATION", "playground-stop-animation"),
+        ]);
 
         let mut world = World::new();
         world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(Animator {
-            stage: SceneStage::OnIdle,
-            step_idx: 0,
-            elapsed_ms: 0,
-            stage_elapsed_ms: 0,
-            scene_elapsed_ms: 0,
-            next_scene_override: None,
-            menu_selected_index: 0,
-        });
+        world.register_scoped(make_idle_animator());
 
         let _ = SceneLifecycleManager::process_events(
             &mut world,
@@ -729,58 +616,16 @@ layers:
 
     #[test]
     fn enter_activates_current_menu_selection() {
-        let scene = Scene {
-            id: "menu".to_string(),
-            title: "Menu".to_string(),
-            cutscene: false,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages {
-                on_enter: Stage::default(),
-                on_idle: Stage {
-                    trigger: StageTrigger::AnyKey,
-                    steps: Vec::new(),
-                    looping: true,
-                },
-                on_leave: Stage::default(),
-            },
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: vec![
-                MenuOption {
-                    key: "1".to_string(),
-                    label: Some("3D SCENE".to_string()),
-                    selected_effect: None,
-                    action: None,
-                    scene: None,
-                    next: "playground-3d-scene".to_string(),
-                },
-                MenuOption {
-                    key: "2".to_string(),
-                    label: Some("STOP ANIMATION".to_string()),
-                    selected_effect: None,
-                    action: None,
-                    scene: None,
-                    next: "playground-stop-animation".to_string(),
-                },
-            ],
-            input: Default::default(),
-            next: Some("playground-3d-scene".to_string()),
-        };
+        let scene = make_menu_scene(vec![
+            make_menu_option("1", "3D SCENE", "playground-3d-scene"),
+            make_menu_option("2", "STOP ANIMATION", "playground-stop-animation"),
+        ]);
 
         let mut world = World::new();
         world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(Animator {
-            stage: SceneStage::OnIdle,
-            step_idx: 0,
-            elapsed_ms: 0,
-            stage_elapsed_ms: 0,
-            scene_elapsed_ms: 0,
-            next_scene_override: None,
             menu_selected_index: 1,
+            ..make_idle_animator()
         });
 
         let _ = SceneLifecycleManager::process_events(
@@ -812,22 +657,7 @@ layers:
         )
         .expect("write mainmenu");
 
-        let intro = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: Some("mainmenu".to_string()),
-        };
+        let intro = make_cutscene("intro", Some("mainmenu"));
 
         let mut world = World::new();
         world.register(SceneLoader::new(mod_root.to_path_buf()).expect("scene loader"));
@@ -894,22 +724,7 @@ layers:
         )
         .expect("write mainmenu");
 
-        let intro = Scene {
-            id: "intro".to_string(),
-            title: "Intro".to_string(),
-            cutscene: true,
-            target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
-            virtual_size_override: None,
-            bg_colour: Some(TermColour::Black),
-            stages: SceneStages::default(),
-            behaviors: Vec::new(),
-            audio: SceneAudio::default(),
-            layers: Vec::new(),
-            menu_options: Vec::new(),
-            input: Default::default(),
-            next: Some("/scenes/mainmenu.yml".to_string()),
-        };
+        let intro = make_cutscene("intro", Some("/scenes/mainmenu.yml"));
 
         let mut world = World::new();
         world.register(SceneLoader::new(mod_root.to_path_buf()).expect("scene loader"));

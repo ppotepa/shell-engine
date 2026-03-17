@@ -211,25 +211,39 @@ $defs:
 
   # ── Step ───────────────────────────────────────────────────────────────────
   step:
-    type: object
     description: >
       A single step in a stage. All effects within a step run in parallel.
-      Steps execute sequentially.
-      A step with no effects and only `duration` acts as a timed pause.
-    additionalProperties: false
-    properties:
-      duration:
-        type: integer
-        minimum: 0
-        description: >
-          Minimum step duration in milliseconds regardless of effects.
-          When effects are present, the step lasts max(duration, longest effect).
-          Use without effects for a timed pause.
-      effects:
-        type: array
-        description: Effects that run in parallel for the duration of this step. May be empty.
-        items:
-          $ref: "#/$defs/effect"
+      Steps execute sequentially. Use the `pause` shorthand for a timed
+      delay with no effects; it is expanded by the compiler into
+      `{duration, effects: []}`.
+    oneOf:
+      - type: object
+        description: Pause shorthand — a timed delay with no effects.
+        additionalProperties: false
+        required: [pause]
+        properties:
+          pause:
+            type: string
+            pattern: "^[0-9]+(ms|s)$"
+            description: >
+              Duration string for a timed pause step.
+              Examples: "500ms", "2s".
+      - type: object
+        description: Full step with optional effects and optional minimum duration.
+        additionalProperties: false
+        properties:
+          duration:
+            type: integer
+            minimum: 0
+            description: >
+              Minimum step duration in milliseconds regardless of effects.
+              When effects are present, the step lasts max(duration, longest effect).
+              Use without effects for a timed pause.
+          effects:
+            type: array
+            description: Effects that run in parallel for the duration of this step. May be empty.
+            items:
+              $ref: "#/$defs/effect"
 
   # ── Stage ──────────────────────────────────────────────────────────────────
   stage:
