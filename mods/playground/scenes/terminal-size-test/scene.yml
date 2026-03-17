@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../../schemas/generated/playground.scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
+id: playground-terminal-size-test
+title: Terminal Size Test
+bg: black
+input:
+  # This block demonstrates scene-level input helpers without changing the rest of the scene format.
+  terminal-size-tester:
+    presets:
+      - "80x24"
+      - "100x30"
+      - "120x36"
+      - "160x48"
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 250
+  on_idle:
+    trigger: any-key
+    steps:
+      - pause: 1ms
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 200
+next: playground-menu

@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../../../../../schemas/generated/playground.layers-file.schema.yaml
+- name: hud
+  z_index: 1
+  sprites:
+    - type: text
+      content: "A/Z zoom, O orbit on/off (arrows+mouse look when off), 1-4 renderer, 5 wireframe, ENTER back"
+      at: cb
+      y: -1
+      font: "generic:1"
+      fg: gray
+      hide_on_leave: true
