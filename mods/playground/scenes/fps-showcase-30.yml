@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: playground-fps-showcase-30
 title: FPS Showcase 3D 30
 cutscene: true

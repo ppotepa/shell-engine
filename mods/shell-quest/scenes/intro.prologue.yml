@@ -1,15 +1,15 @@
 # yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: intro.prologue
 title: Intro Prologue - Date Reveal
 cutscene: true
-bg_colour: black
+bg: black
 virtual-size-override: "320x240"
 
 stages:
   on_enter:
     steps:
-      - duration: 3000
-        effects: []
+      - pause: 3000ms
 
       - duration: 900
         effects:
@@ -33,13 +33,11 @@ stages:
   on_idle:
     trigger: none
     steps:
-      - duration: 1
-        effects: []
+      - pause: 1ms
 
   on_leave:
     steps:
-      - duration: 300
-        effects: []
+      - pause: 300ms
 
 layers:
   - name: date
@@ -49,11 +47,12 @@ layers:
       - type: text
         id: date-text
         content: "September 17, 1991"
-        align_x: center
-        align_y: center
+        at: cc
+        siz
+        e: 20
         font: "Abril Fatface:raster"
-        fg_colour: white
-        bg_colour: black
+        fg: white
+        bg: black
         glow:
           colour: "#5f7cff"
           radius: 1
@@ -62,8 +61,7 @@ layers:
         stages:
           on_enter:
             steps:
-              - duration: 900
-                effects: []
+              - pause: 900ms
               - effects:
                   - name: brighten
                     duration: 260
@@ -80,14 +78,12 @@ layers:
           on_idle:
             looping: true
             steps:
-              - duration: 220
-                effects: []
+              - pause: 220ms
               - effects:
                   - name: brighten
                     duration: 100
                     params:
                       intensity: 0.12
-              - duration: 260
-                effects: []
+              - pause: 260ms
 
 next: mainmenu

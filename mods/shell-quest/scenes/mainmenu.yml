@@ -1,7 +1,8 @@
 # yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: mainmenu
 title: Main Menu
-bg_colour: black
+bg: black
 virtual-size-override: "320x240"
 stages:
   on_enter:
@@ -25,19 +26,18 @@ layers:
     sprites:
       - type: text
         content: "SHELL QUEST I - LINUX PNG SHOWCASE"
-        align_x: center
-        align_y: top
+        at: ct
         y: 1
         font: "generic:1"
-        fg_colour: white
+        fg: white
 
       - type: grid
         id: linux-grid
-        align_x: center
-        align_y: center
+        at: cc
         y: 2
         width: 96
         height: 30
+        # This grid is the reference scene for image layout and per-sprite renderer overrides.
         columns: ["1fr", "1fr", "1fr"]
         rows: ["auto", "1fr"]
         gap-x: 2
@@ -47,17 +47,15 @@ layers:
             content: "linux-1 (cell)"
             grid-col: 1
             grid-row: 1
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: gray
+            fg: gray
 
           - type: image
             source: "/assets/images/linux-1.png"
             grid-col: 1
             grid-row: 2
-            align_x: center
-            align_y: center
+            at: cc
             width: 22
             height: 22
             force-renderer-mode: cell
@@ -66,17 +64,15 @@ layers:
             content: "linux-2 (halfblock)"
             grid-col: 2
             grid-row: 1
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: gray
+            fg: gray
 
           - type: image
             source: "/assets/images/linux-1.png"
             grid-col: 2
             grid-row: 2
-            align_x: center
-            align_y: center
+            at: cc
             width: 22
             height: 22
             force-renderer-mode: halfblock
@@ -85,28 +81,25 @@ layers:
             content: "linux-3 (braille)"
             grid-col: 3
             grid-row: 1
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: gray
+            fg: gray
 
           - type: image
             source: "/assets/images/linux-1.png"
             grid-col: 3
             grid-row: 2
-            align_x: center
-            align_y: center
+            at: cc
             width: 22
             height: 22
             force-renderer-mode: braille
 
       - type: text
         content: "[#808080]PRESS ANY KEY TO EXIT[/]"
-        align_x: center
-        align_y: bottom
+        at: cb
         y: -1
         font: "generic:1"
-        fg_colour: white
+        fg: white
         hide_on_leave: true
         animations:
           - name: float
