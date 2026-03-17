@@ -1,5 +1,6 @@
 //! File-system scanning helpers for discovering project assets and validating mod layouts.
 
+use engine_authoring::repository::is_discoverable_scene_path;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -247,7 +248,7 @@ fn is_game_yaml(root: &Path, path: &Path) -> bool {
     if rel_s == "mod.yaml" {
         return true;
     }
-    if is_scene_entry_rel(&rel_s) {
+    if is_discoverable_scene_path(&rel_s) {
         return true;
     }
     if rel_s.starts_with("objects/") && (rel_s.ends_with(".yml") || rel_s.ends_with(".yaml")) {
@@ -275,28 +276,10 @@ fn walk_scene_entries(root: &Path, path: &Path, out: &mut Vec<String>) {
             .ok()
             .map(|rel| rel.to_string_lossy().replace('\\', "/"))
             .unwrap_or_default();
-        if is_scene_entry_rel(&rel_s) {
+        if is_discoverable_scene_path(&rel_s) {
             out.push(p.display().to_string());
         }
     }
-}
-
-fn is_scene_entry_rel(rel_s: &str) -> bool {
-    if !(rel_s.starts_with("scenes/") && (rel_s.ends_with(".yml") || rel_s.ends_with(".yaml"))) {
-        return false;
-    }
-
-    let segments: Vec<&str> = rel_s.split('/').collect();
-    if segments.len() >= 4
-        && matches!(
-            segments[2],
-            "layers" | "sprites" | "templates" | "objects" | "effects"
-        )
-    {
-        return false;
-    }
-
-    true
 }
 
 /// Walks up from a project YAML path to infer the mod root directory.
