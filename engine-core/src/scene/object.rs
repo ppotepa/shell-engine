@@ -14,7 +14,7 @@ pub struct ObjectDocument {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct LogicSpec {
-    #[serde(default)]
+    #[serde(default, rename = "type", alias = "kind")]
     pub kind: LogicKind,
     #[serde(default)]
     pub behavior: Option<String>,
@@ -30,4 +30,3 @@ pub enum LogicKind {
     Graph,
     Script,
 }
-

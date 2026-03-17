@@ -1,4 +1,4 @@
-use crate::scene::{Scene, SceneDocument};
+use crate::scene::{LogicKind, ObjectDocument, Scene, SceneDocument};
 use serde_yaml::{Mapping, Value};
 
 pub fn compile_scene_document_with_loader<F>(
@@ -68,6 +68,22 @@ where
         {
             substitute_args(&mut object_value, args);
         }
+        let object_doc = serde_yaml::from_value::<ObjectDocument>(object_value.clone()).ok();
+        let native_logic_behavior = object_doc
+            .as_ref()
+            .and_then(|doc| doc.logic.as_ref())
+            .and_then(|logic| {
+                if logic.kind == LogicKind::Native {
+                    logic.behavior.as_deref()
+                } else {
+                    None
+                }
+            });
+        let native_logic_params = object_doc
+            .as_ref()
+            .and_then(|doc| doc.logic.as_ref())
+            .map(|logic| logic.params.clone())
+            .unwrap_or_default();
         let Some(object_map) = object_value.as_mapping_mut() else {
             continue;
         };
@@ -77,7 +93,11 @@ where
             .and_then(Value::as_sequence)
         {
             for layer in object_layers {
-                scene_layers.push(layer.clone());
+                let mut layer_value = layer.clone();
+                if let Some(behavior_name) = native_logic_behavior {
+                    attach_layer_behavior(&mut layer_value, behavior_name, &native_logic_params);
+                }
+                scene_layers.push(layer_value);
             }
             continue;
         }
@@ -103,8 +123,49 @@ where
             Value::String("sprites".to_string()),
             Value::Sequence(object_sprites.clone()),
         );
+        if let Some(behavior_name) = native_logic_behavior {
+            let mut behaviors = Vec::new();
+            behaviors.push(build_behavior_spec(behavior_name, &native_logic_params));
+            layer.insert(
+                Value::String("behaviors".to_string()),
+                Value::Sequence(behaviors),
+            );
+        }
         scene_layers.push(Value::Mapping(layer));
     }
+}
+
+fn attach_layer_behavior(layer_value: &mut Value, behavior_name: &str, params: &std::collections::BTreeMap<String, Value>) {
+    let Some(layer_map) = layer_value.as_mapping_mut() else {
+        return;
+    };
+    let behavior_value = build_behavior_spec(behavior_name, params);
+    let behaviors_entry = layer_map
+        .entry(Value::String("behaviors".to_string()))
+        .or_insert_with(|| Value::Sequence(Vec::new()));
+    let Some(seq) = behaviors_entry.as_sequence_mut() else {
+        return;
+    };
+    seq.push(behavior_value);
+}
+
+fn build_behavior_spec(
+    behavior_name: &str,
+    params: &std::collections::BTreeMap<String, Value>,
+) -> Value {
+    let mut map = Mapping::new();
+    map.insert(
+        Value::String("name".to_string()),
+        Value::String(behavior_name.to_string()),
+    );
+    if !params.is_empty() {
+        let mut params_map = Mapping::new();
+        for (k, v) in params {
+            params_map.insert(Value::String(k.clone()), v.clone());
+        }
+        map.insert(Value::String("params".to_string()), Value::Mapping(params_map));
+    }
+    Value::Mapping(map)
 }
 
 fn substitute_args(value: &mut Value, args: &Mapping) {
@@ -184,5 +245,40 @@ sprites:
             crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
             _ => panic!("expected text sprite"),
         }
+    }
+
+    #[test]
+    fn maps_object_native_logic_to_layer_behaviors() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+layers: []
+objects:
+  - use: suzan
+    id: monkey-a
+"#;
+        let object_raw = r#"
+name: suzan
+logic:
+  type: native
+  behavior: bob
+  params:
+    amplitude_y: 2
+sprites:
+  - type: text
+    content: "M"
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/suzan.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].behaviors.len(), 1);
+        assert_eq!(scene.layers[0].behaviors[0].name, "bob");
+        assert_eq!(scene.layers[0].behaviors[0].params.amplitude_y, Some(2));
     }
 }
