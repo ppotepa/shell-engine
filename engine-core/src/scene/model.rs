@@ -258,6 +258,21 @@ pub struct MenuOption {
     pub next: String,
 }
 
+/// Scene-level interactive input profile configuration.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SceneInput {
+    /// Optional OBJ viewer controls profile.
+    #[serde(default, rename = "obj-viewer")]
+    pub obj_viewer: Option<ObjViewerControls>,
+}
+
+/// Declarative OBJ viewer controls target.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ObjViewerControls {
+    /// ID of target OBJ sprite receiving controls.
+    pub sprite_id: String,
+}
+
 /// Audio cue descriptor (design hook only; playback is external).
 #[derive(Debug, Clone, Deserialize)]
 pub struct AudioCue {
@@ -322,5 +337,7 @@ pub struct Scene {
     pub layers: Vec<Layer>,
     #[serde(default, alias = "menu_options", rename = "menu-options")]
     pub menu_options: Vec<MenuOption>,
+    #[serde(default)]
+    pub input: SceneInput,
     pub next: Option<String>,
 }

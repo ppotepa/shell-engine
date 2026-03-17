@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
 
 use image::load_from_memory;
 
+use crate::asset_cache::AssetCache;
 use crate::repositories::{create_asset_repository, AssetRepository};
 
 #[derive(Debug, Clone)]
@@ -22,23 +21,12 @@ impl LoadedRgbaImage {
     }
 }
 
-static IMAGE_CACHE: OnceLock<Mutex<HashMap<String, Option<LoadedRgbaImage>>>> = OnceLock::new();
+static IMAGE_CACHE: AssetCache<LoadedRgbaImage> = AssetCache::new();
 
 pub fn load_rgba_image(mod_source: &Path, asset_path: &str) -> Option<LoadedRgbaImage> {
     let normalized = asset_path.trim_start_matches('/');
     let key = format!("{}::{normalized}", mod_source.display());
-    let cache = IMAGE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Ok(guard) = cache.lock() {
-        if let Some(cached) = guard.get(&key) {
-            return cached.clone();
-        }
-    }
-
-    let loaded = load_rgba_image_uncached(mod_source, asset_path);
-    if let Ok(mut guard) = cache.lock() {
-        guard.insert(key, loaded.clone());
-    }
-    loaded
+    IMAGE_CACHE.get_or_load(key, || load_rgba_image_uncached(mod_source, asset_path))
 }
 
 pub fn has_image_asset(mod_source: &Path, asset_path: &str) -> bool {

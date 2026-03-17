@@ -3,6 +3,9 @@ id: playground-3d-scene
 title: 3D Scene (OBJ Wireframe Test)
 bg_colour: black
 rendered-mode: quadblock
+input:
+  obj-viewer:
+    sprite_id: helsinki-uni-wireframe
 stages:
   on_enter:
     steps:

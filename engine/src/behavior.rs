@@ -563,6 +563,7 @@ mod tests {
             },
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
         let object = scene_object();
@@ -610,6 +611,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -660,6 +662,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -718,6 +721,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -767,6 +771,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -817,6 +822,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -866,6 +872,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
         let mut resolver = TargetResolver::default();
@@ -931,6 +938,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
         let mut commands = Vec::new();
@@ -979,6 +987,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -1032,6 +1041,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -1117,6 +1127,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 

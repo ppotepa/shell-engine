@@ -3,6 +3,7 @@ use crate::scene::{self, SceneRenderedMode};
 use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
 use crate::systems::animator::{Animator, SceneStage};
+use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
 use crossterm::event::KeyCode;
 
@@ -62,7 +63,7 @@ impl SceneLifecycleManager {
     }
 
     fn advance_on_any_key(world: &mut World, key_presses: &[KeyCode]) {
-        if handle_playground_3d_controls(world, key_presses) {
+        if handle_obj_viewer_controls(world, key_presses) {
             return;
         }
 
@@ -190,118 +191,22 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
     lifecycle
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum MenuAction {
-    None,
-    Navigate(usize),
-    Activate(String),
-}
-
-fn evaluate_menu_action(
-    options: &[crate::scene::MenuOption],
-    selected_index: usize,
-    key_presses: &[KeyCode],
-) -> MenuAction {
-    if options.is_empty() {
-        return MenuAction::None;
-    }
-    let mut index = selected_index.min(options.len().saturating_sub(1));
-
-    for key_code in key_presses {
-        for (option_idx, option) in options.iter().enumerate() {
-            if key_matches_binding(key_code, &option.key) {
-                if let Some(target) = resolve_menu_target(option) {
-                    return MenuAction::Activate(target);
-                }
-            }
-            if option_idx == index && matches_confirm_key(key_code) {
-                if let Some(target) = resolve_menu_target(option) {
-                    return MenuAction::Activate(target);
-                }
-            }
-        }
-
-        if is_prev_key(key_code) {
-            index = if index == 0 {
-                options.len().saturating_sub(1)
-            } else {
-                index - 1
-            };
-            continue;
-        }
-
-        if is_next_key(key_code) {
-            index = (index + 1) % options.len();
-            continue;
-        }
-    }
-
-    if index != selected_index {
-        return MenuAction::Navigate(index);
-    }
-    MenuAction::None
-}
-
-fn resolve_menu_target(option: &crate::scene::MenuOption) -> Option<String> {
-    let action = option
-        .action
-        .as_deref()
-        .map(str::trim)
-        .map(str::to_ascii_lowercase);
-    match action.as_deref() {
-        Some("goto.scene") => option.scene.clone().or_else(|| Some(option.next.clone())),
-        _ => Some(option.next.clone()),
-    }
-}
-
-fn key_matches_binding(key_code: &KeyCode, binding: &str) -> bool {
-    let b = binding.trim().to_ascii_lowercase();
-    match key_code {
-        KeyCode::Char(c) => {
-            b == c.to_ascii_lowercase().to_string() || (*c == ' ' && b == "space")
-        }
-        KeyCode::Enter => b == "enter",
-        KeyCode::Esc => b == "esc" || b == "escape",
-        KeyCode::Tab => b == "tab",
-        KeyCode::Backspace => b == "backspace",
-        KeyCode::Left => b == "left",
-        KeyCode::Right => b == "right",
-        KeyCode::Up => b == "up",
-        KeyCode::Down => b == "down",
-        KeyCode::Home => b == "home",
-        KeyCode::End => b == "end",
-        KeyCode::PageUp => b == "pageup" || b == "page-up",
-        KeyCode::PageDown => b == "pagedown" || b == "page-down",
-        KeyCode::Delete => b == "delete" || b == "del",
-        KeyCode::Insert => b == "insert" || b == "ins",
-        KeyCode::F(n) => b == format!("f{n}"),
-        KeyCode::Null => b == "null",
-        _ => false,
-    }
-}
-
-fn is_prev_key(key_code: &KeyCode) -> bool {
-    matches!(key_code, KeyCode::Up | KeyCode::Left)
-}
-
-fn is_next_key(key_code: &KeyCode) -> bool {
-    matches!(key_code, KeyCode::Down | KeyCode::Right)
-}
-
-fn matches_confirm_key(key_code: &KeyCode) -> bool {
-    matches!(key_code, KeyCode::Enter | KeyCode::Char(' '))
-}
-
-fn handle_playground_3d_controls(world: &mut World, key_presses: &[KeyCode]) -> bool {
-    let is_playground_3d = world
+fn active_obj_viewer_target(world: &World) -> Option<String> {
+    world
         .scene_runtime()
-        .map(|runtime| runtime.scene().id == "playground-3d-scene")
-        .unwrap_or(false);
+        .and_then(|runtime| runtime.scene().input.obj_viewer.as_ref())
+        .map(|cfg| cfg.sprite_id.clone())
+}
+
+fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyCode]) -> bool {
+    let Some(sprite_id) = active_obj_viewer_target(world) else {
+        return false;
+    };
     let is_idle = world
         .animator()
         .map(|animator| animator.stage == SceneStage::OnIdle)
         .unwrap_or(false);
-    if !is_playground_3d || !is_idle {
+    if !is_idle {
         return false;
     }
 
@@ -311,7 +216,7 @@ fn handle_playground_3d_controls(world: &mut World, key_presses: &[KeyCode]) -> 
 
     let orbit_active = world
         .scene_runtime()
-        .map(|r| r.is_obj_orbit_active("helsinki-uni-wireframe"))
+        .map(|r| r.is_obj_orbit_active(&sprite_id))
         .unwrap_or(true);
 
     let mut zoom_delta = 0.0f32;
@@ -346,21 +251,21 @@ fn handle_playground_3d_controls(world: &mut World, key_presses: &[KeyCode]) -> 
 
     if let Some(runtime) = world.scene_runtime_mut() {
         if zoom_delta != 0.0 {
-            let _ = runtime.adjust_obj_scale("helsinki-uni-wireframe", zoom_delta);
+            let _ = runtime.adjust_obj_scale(&sprite_id, zoom_delta);
         }
         if let Some(mode) = mode_switch {
             runtime.set_scene_rendered_mode(mode);
         }
         if toggle_wireframe {
-            let _ = runtime.toggle_obj_surface_mode("helsinki-uni-wireframe");
+            let _ = runtime.toggle_obj_surface_mode(&sprite_id);
         }
         if toggle_orbit {
-            let _ = runtime.toggle_obj_orbit("helsinki-uni-wireframe");
+            let _ = runtime.toggle_obj_orbit(&sprite_id);
             // Reset mouse reference so first mouse move after toggle doesn't jump.
-            runtime.last_mouse_pos = None;
+            runtime.set_obj_last_mouse_pos(&sprite_id, None);
         }
         if pan_dx != 0.0 || pan_dy != 0.0 {
-            runtime.apply_obj_camera_pan("helsinki-uni-wireframe", pan_dx, pan_dy);
+            runtime.apply_obj_camera_pan(&sprite_id, pan_dx, pan_dy);
         }
     }
 
@@ -368,27 +273,26 @@ fn handle_playground_3d_controls(world: &mut World, key_presses: &[KeyCode]) -> 
 }
 
 fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
-    let is_playground_3d = world
-        .scene_runtime()
-        .map(|runtime| runtime.scene().id == "playground-3d-scene")
-        .unwrap_or(false);
+    let Some(sprite_id) = active_obj_viewer_target(world) else {
+        return;
+    };
     let is_idle = world
         .animator()
         .map(|animator| animator.stage == SceneStage::OnIdle)
         .unwrap_or(false);
-    if !is_playground_3d || !is_idle {
+    if !is_idle {
         return;
     }
 
     let orbit_active = world
         .scene_runtime()
-        .map(|r| r.is_obj_orbit_active("helsinki-uni-wireframe"))
+        .map(|r| r.is_obj_orbit_active(&sprite_id))
         .unwrap_or(true);
     if orbit_active {
         // Orbit is on — mouse look is disabled; just update position reference.
         if let Some(last) = mouse_moves.last() {
             if let Some(runtime) = world.scene_runtime_mut() {
-                runtime.last_mouse_pos = Some(*last);
+                runtime.set_obj_last_mouse_pos(&sprite_id, Some(*last));
             }
         }
         return;
@@ -396,13 +300,13 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
 
     let last_pos = world
         .scene_runtime()
-        .and_then(|r| r.last_mouse_pos);
+        .and_then(|r| r.obj_last_mouse_pos(&sprite_id));
 
     let Some((mut prev_col, mut prev_row)) = last_pos else {
         // First event after orbit was toggled off — seed position, don't rotate.
         if let Some(last) = mouse_moves.last() {
             if let Some(runtime) = world.scene_runtime_mut() {
-                runtime.last_mouse_pos = Some(*last);
+                runtime.set_obj_last_mouse_pos(&sprite_id, Some(*last));
             }
         }
         return;
@@ -422,9 +326,9 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
     }
 
     if let Some(runtime) = world.scene_runtime_mut() {
-        runtime.last_mouse_pos = Some((prev_col, prev_row));
+        runtime.set_obj_last_mouse_pos(&sprite_id, Some((prev_col, prev_row)));
         if total_dyaw != 0.0 || total_dpitch != 0.0 {
-            runtime.apply_obj_camera_look("helsinki-uni-wireframe", total_dyaw, total_dpitch);
+            runtime.apply_obj_camera_look(&sprite_id, total_dyaw, total_dpitch);
         }
     }
 }
@@ -466,6 +370,7 @@ mod tests {
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: None,
         };
 
@@ -500,6 +405,9 @@ mod tests {
 id: playground-3d-scene
 title: 3D
 bg_colour: black
+input:
+  obj-viewer:
+    sprite_id: helsinki-uni-wireframe
 stages:
   on_idle:
     trigger: any-key
@@ -576,6 +484,9 @@ layers:
 id: playground-3d-scene
 title: 3D
 bg_colour: black
+input:
+  obj-viewer:
+    sprite_id: helsinki-uni-wireframe
 stages:
   on_idle:
     trigger: any-key
@@ -649,6 +560,7 @@ layers:
                     next: "playground-stop-animation".to_string(),
                 },
             ],
+            input: Default::default(),
             next: Some("playground-3d-scene".to_string()),
         };
 
@@ -716,6 +628,7 @@ layers:
                     next: "playground-stop-animation".to_string(),
                 },
             ],
+            input: Default::default(),
             next: Some("playground-3d-scene".to_string()),
         };
 
@@ -781,6 +694,7 @@ layers:
                     next: "playground-stop-animation".to_string(),
                 },
             ],
+            input: Default::default(),
             next: Some("playground-3d-scene".to_string()),
         };
 
@@ -837,6 +751,7 @@ layers:
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: Some("mainmenu".to_string()),
         };
 
@@ -917,6 +832,7 @@ layers:
             audio: SceneAudio::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
+            input: Default::default(),
             next: Some("/scenes/mainmenu.yml".to_string()),
         };
 

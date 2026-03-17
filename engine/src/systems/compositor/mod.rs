@@ -2,6 +2,7 @@ mod effect_applicator;
 mod grid_tracks;
 mod image_render;
 mod layer_compositor;
+mod obj_loader;
 mod obj_render;
 mod sprite_renderer;
 mod text_render;
@@ -33,6 +34,7 @@ pub fn compositor_system(world: &mut World) {
         layers,
         target_resolver,
         object_states,
+        obj_camera_states,
         current_stage,
         step_idx,
         elapsed_ms,
@@ -52,6 +54,10 @@ pub fn compositor_system(world: &mut World) {
         let object_states = world
             .scene_runtime()
             .map(SceneRuntime::object_states_snapshot)
+            .unwrap_or_default();
+        let obj_camera_states = world
+            .scene_runtime()
+            .map(SceneRuntime::obj_camera_states_snapshot)
             .unwrap_or_default();
         let animator = world.animator();
         let stage = animator.map(|a| a.stage.clone()).unwrap_or_default();
@@ -96,6 +102,7 @@ pub fn compositor_system(world: &mut World) {
             layers,
             target_resolver,
             object_states,
+            obj_camera_states,
             stage,
             step,
             elapsed,
@@ -125,6 +132,7 @@ pub fn compositor_system(world: &mut World) {
                     asset_root.as_ref(),
                     &target_resolver,
                     &object_states,
+                    &obj_camera_states,
                     &current_stage,
                     step_idx,
                     elapsed_ms,
@@ -141,6 +149,7 @@ pub fn compositor_system(world: &mut World) {
                 asset_root.as_ref(),
                 &target_resolver,
                 &object_states,
+                &obj_camera_states,
                 &current_stage,
                 step_idx,
                 elapsed_ms,
@@ -169,6 +178,7 @@ pub fn compositor_system(world: &mut World) {
                 asset_root.as_ref(),
                 &target_resolver,
                 &object_states,
+                &obj_camera_states,
                 &current_stage,
                 step_idx,
                 elapsed_ms,
@@ -186,6 +196,7 @@ pub fn compositor_system(world: &mut World) {
                 asset_root.as_ref(),
                 &target_resolver,
                 &object_states,
+                &obj_camera_states,
                 &current_stage,
                 step_idx,
                 elapsed_ms,
@@ -208,6 +219,7 @@ fn composite_scene(
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
     object_states: &BTreeMap<String, ObjectRuntimeState>,
+    obj_camera_states: &BTreeMap<String, crate::scene_runtime::ObjCameraState>,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
@@ -253,6 +265,7 @@ fn composite_scene(
         step_idx,
         elapsed_ms,
         scene_elapsed_ms,
+        obj_camera_states,
         buffer,
     );
 
@@ -280,6 +293,7 @@ fn composite_scene_halfblock(
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
     object_states: &BTreeMap<String, ObjectRuntimeState>,
+    obj_camera_states: &BTreeMap<String, crate::scene_runtime::ObjCameraState>,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
@@ -302,6 +316,7 @@ fn composite_scene_halfblock(
             asset_root,
             target_resolver,
             object_states,
+            obj_camera_states,
             current_stage,
             step_idx,
             elapsed_ms,

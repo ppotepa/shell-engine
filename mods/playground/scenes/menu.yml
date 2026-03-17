@@ -194,18 +194,15 @@ menu-options:
   - key: "1"
     label: 3D SCENE
     selected-effect: arrows
-    action: goto.scene
     scene: playground-3d-scene
     next: playground-3d-scene
   - key: "2"
     label: STOP ANIMATION
     selected-effect: arrows
-    action: goto.scene
     scene: playground-stop-animation
     next: playground-stop-animation
   - key: "3"
     label: DECORATION SHOWCASE
     selected-effect: arrows
-    action: goto.scene
     scene: playground-decoration-showcase
     next: playground-decoration-showcase
