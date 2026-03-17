@@ -181,6 +181,15 @@ fn parse_virtual_size(raw: &str) -> Option<VirtualSizeSetting> {
     Some(VirtualSizeSetting::Fixed(w, h))
 }
 
+/// Parse a virtual size string and return (width, height, is_max_available).
+/// Returns None if the string is invalid.
+pub fn parse_virtual_size_str(raw: &str) -> Option<(u16, u16, bool)> {
+    match parse_virtual_size(raw)? {
+        VirtualSizeSetting::Fixed(w, h) => Some((w, h, false)),
+        VirtualSizeSetting::MaxAvailable => Some((0, 0, true)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{RuntimeSettings, VirtualPolicy};

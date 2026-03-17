@@ -60,20 +60,27 @@ pub fn animator_system(world: &mut World, tick_ms: u64) {
             SceneStage::OnLeave => &scene.stages.on_leave,
             SceneStage::Done => return,
         };
-        let step_dur = stage_def
+        // Pass all step durations so tick_animator_primitives can skip consecutive
+        // zero-duration steps in a single tick.
+        let step_durs: Vec<u64> = stage_def
             .steps
-            .get(animator.step_idx)
+            .iter()
             .map(|s| s.duration_ms())
+            .collect();
+        let step_dur = step_durs
+            .get(animator.step_idx)
+            .copied()
             .unwrap_or(0);
         (
             stage_def.steps.len(),
             step_dur,
+            step_durs,
             stage_def.looping,
             scene.stages.on_idle.trigger.clone(),
             animator.next_scene_override.clone().or_else(|| scene.next.clone()),
         )
     };
-    let (step_count, step_dur, stage_looping, idle_trigger, next_scene) = tick_data;
+    let (step_count, step_dur, step_durs, stage_looping, idle_trigger, next_scene) = tick_data;
 
     let transition = {
         let Some(animator) = world.animator_mut() else {
@@ -83,6 +90,7 @@ pub fn animator_system(world: &mut World, tick_ms: u64) {
             animator,
             step_count,
             step_dur,
+            &step_durs,
             stage_looping,
             &idle_trigger,
             next_scene,
@@ -101,6 +109,7 @@ fn tick_animator_primitives(
     animator: &mut Animator,
     step_count: usize,
     step_dur: u64,
+    step_durs: &[u64],
     stage_looping: bool,
     idle_trigger: &StageTrigger,
     next_scene: Option<String>,
@@ -110,18 +119,44 @@ fn tick_animator_primitives(
     animator.stage_elapsed_ms += tick_ms;
     animator.scene_elapsed_ms += tick_ms;
 
-    let step_done = step_dur > 0 && animator.elapsed_ms >= step_dur;
+    // Empty stages (step_count == 0) or instant steps (step_dur == 0) should advance immediately.
+    let step_done = (step_count == 0 || step_dur == 0) || animator.elapsed_ms >= step_dur;
     if !step_done {
         return None;
     }
 
-    let next_step = animator.step_idx + 1;
-    if next_step < step_count {
-        animator.step_idx = next_step;
+    // Advance through consecutive zero-duration steps in one tick.
+    let mut step_idx = animator.step_idx;
+    loop {
+        let next_step = step_idx + 1;
+        if next_step < step_count {
+            step_idx = next_step;
+            // If next step also has zero duration, keep going in same tick.
+            if step_durs.get(step_idx).copied().unwrap_or(1) == 0 {
+                continue;
+            }
+        }
+        break;
+    }
+
+    if step_idx > animator.step_idx {
+        // Advanced one or more steps but still within the stage.
+        animator.step_idx = step_idx;
+        animator.elapsed_ms = 0;
+        // Check if we've consumed all steps.
+        if animator.step_idx + 1 < step_count
+            || step_durs.get(animator.step_idx).copied().unwrap_or(1) != 0
+        {
+            return None;
+        }
+    } else if animator.step_idx + 1 < step_count {
+        // Normal advance to next step.
+        animator.step_idx += 1;
         animator.elapsed_ms = 0;
         return None;
     }
 
+    // All steps done — check for loop or stage transition.
     let should_loop = stage_looping
         || matches!(
             (&animator.stage, idle_trigger),
@@ -155,10 +190,18 @@ fn tick_animator(animator: &mut Animator, scene: &Scene, tick_ms: u64) -> Option
     else {
         return None;
     };
+    let stage_def = match &animator.stage {
+        SceneStage::OnEnter => &scene.stages.on_enter,
+        SceneStage::OnIdle => &scene.stages.on_idle,
+        SceneStage::OnLeave => &scene.stages.on_leave,
+        SceneStage::Done => return None,
+    };
+    let step_durs: Vec<u64> = stage_def.steps.iter().map(|s| s.duration_ms()).collect();
     tick_animator_primitives(
         animator,
         step_count,
         step_dur,
+        &step_durs,
         stage_looping,
         &scene.stages.on_idle.trigger,
         animator.next_scene_override.clone().or_else(|| scene.next.clone()),
@@ -309,5 +352,50 @@ mod tests {
         let transition = tick_animator(&mut animator, &scene, 10);
 
         assert_eq!(transition.as_deref(), Some("override-next"));
+    }
+
+    #[test]
+    fn empty_enter_stage_advances_immediately() {
+        let scene = scene_with_stages(
+            Stage::default(), // empty stage
+            Stage::default(),
+            Stage::default(),
+            None,
+        );
+        let mut animator = Animator::new();
+
+        let transition = tick_animator(&mut animator, &scene, 1);
+
+        assert!(transition.is_none());
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+    }
+
+    #[test]
+    fn zero_duration_steps_advance_immediately() {
+        let scene = scene_with_stages(
+            Stage {
+                trigger: crate::scene::StageTrigger::None,
+                steps: vec![
+                    Step {
+                        effects: Vec::new(),
+                        duration: Some(0),
+                    },
+                    Step {
+                        effects: Vec::new(),
+                        duration: Some(0),
+                    },
+                ],
+                looping: false,
+            },
+            Stage::default(),
+            Stage::default(),
+            None,
+        );
+        let mut animator = Animator::new();
+
+        let transition = tick_animator(&mut animator, &scene, 1);
+
+        assert!(transition.is_none());
+        assert_eq!(animator.stage, SceneStage::OnIdle);
     }
 }

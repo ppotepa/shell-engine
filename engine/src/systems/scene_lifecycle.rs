@@ -23,9 +23,12 @@ impl SceneLifecycleManager {
     pub fn process_events(world: &mut World, events: Vec<EngineEvent>) -> bool {
         let lifecycle = classify_events(events);
         for (width, height) in &lifecycle.resizes {
+            // Resize output buffer
             if let Some(buf) = world.buffer_mut() {
                 buf.resize(*width, *height);
             }
+            // Also resize virtual buffer if using max-available
+            Self::handle_virtual_buffer_resize(world, *width, *height);
         }
 
         if !lifecycle.key_presses.is_empty() {
@@ -36,6 +39,26 @@ impl SceneLifecycleManager {
         }
         Self::apply_transitions(world, lifecycle.transitions);
         lifecycle.quit
+    }
+
+    fn handle_virtual_buffer_resize(world: &mut World, term_width: u16, term_height: u16) {
+        let settings = match world.runtime_settings() {
+            Some(s) => s,
+            None => return,
+        };
+        
+        if !settings.use_virtual_buffer || !settings.virtual_size_max_available {
+            return;
+        }
+        
+        // Resize virtual buffer to match terminal when using max-available
+        if let Some(vbuf) = world.virtual_buffer_mut() {
+            let new_w = term_width.max(1);
+            let new_h = term_height.max(1);
+            if vbuf.0.width != new_w || vbuf.0.height != new_h {
+                vbuf.0.resize(new_w, new_h);
+            }
+        }
     }
 
     fn advance_on_any_key(world: &mut World, key_presses: &[KeyCode]) {
@@ -99,9 +122,52 @@ impl SceneLifecycleManager {
                 .and_then(|loader| loader.load_by_ref(&to_scene_ref).ok());
 
             if let Some(new_scene) = new_scene {
+                // Apply scene-specific virtual size override if present
+                Self::apply_virtual_size_override(world, &new_scene);
+                
                 world.clear_scoped();
                 world.register_scoped(SceneRuntime::new(new_scene));
                 world.register_scoped(Animator::new());
+            }
+        }
+    }
+
+    fn apply_virtual_size_override(world: &mut World, scene: &scene::Scene) {
+        // Only apply override if virtual buffer is enabled
+        let settings = match world.runtime_settings() {
+            Some(s) => s,
+            None => return,
+        };
+        
+        if !settings.use_virtual_buffer {
+            return;
+        }
+        
+        // Check if scene has virtual_size_override
+        let size_override = match &scene.virtual_size_override {
+            Some(s) => s.as_str(),
+            None => return,
+        };
+        
+        // Parse the override value
+        let parsed_size = crate::runtime_settings::parse_virtual_size_str(size_override);
+        let (new_width, new_height) = match parsed_size {
+            Some((w, h, is_max)) => {
+                if is_max {
+                    // max-available: use current terminal size
+                    let (term_w, term_h) = crossterm::terminal::size().unwrap_or((80, 24));
+                    (term_w.max(1), term_h.max(1))
+                } else {
+                    (w, h)
+                }
+            }
+            None => return,
+        };
+        
+        // Resize virtual buffer if size changed
+        if let Some(vbuf) = world.virtual_buffer_mut() {
+            if vbuf.0.width != new_width || vbuf.0.height != new_height {
+                vbuf.0.resize(new_width, new_height);
             }
         }
     }

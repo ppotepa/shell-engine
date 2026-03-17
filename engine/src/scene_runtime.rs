@@ -145,6 +145,8 @@ impl SceneRuntime {
         for layer in &mut runtime.scene.layers {
             layer.sprites.sort_by_key(|s| s.z_index());
         }
+        // CRITICAL: Rebuild layer_ids and sprite_ids after sorting to maintain correct index→object_id mapping
+        runtime.rebuild_indices_after_sort();
         runtime.resolver_cache = runtime.build_target_resolver();
         runtime
     }
@@ -279,6 +281,39 @@ impl SceneRuntime {
 
     pub fn target_resolver(&self) -> TargetResolver {
         self.resolver_cache.clone()
+    }
+
+    /// Rebuild layer_ids and sprite_ids to match current layer/sprite order after sorting.
+    /// CRITICAL: Must be called after any z-index sort to maintain correct index→object_id mapping.
+    fn rebuild_indices_after_sort(&mut self) {
+        self.layer_ids.clear();
+        self.sprite_ids.clear();
+        
+        for (layer_idx, layer) in self.scene.layers.iter().enumerate() {
+            // Find the layer object by matching against scene structure
+            let layer_name = if layer.name.trim().is_empty() {
+                format!("layer-{layer_idx}")
+            } else {
+                layer.name.clone()
+            };
+            
+            // Find layer object by name match
+            for (object_id, object) in &self.objects {
+                if object.kind == GameObjectKind::Layer && object.name == layer_name {
+                    self.layer_ids.insert(layer_idx, object_id.clone());
+                    break;
+                }
+            }
+            
+            // Rebuild sprite indices for this layer
+            rebuild_sprite_indices_recursive(
+                &layer.sprites,
+                layer_idx,
+                &[],
+                &self.objects,
+                &mut self.sprite_ids,
+            );
+        }
     }
 
     fn build_target_resolver(&self) -> TargetResolver {
@@ -756,6 +791,44 @@ fn apply_camera_look_in_sprites(sprites: &mut [Sprite], sprite_id: &str, dyaw: f
                 apply_camera_look_in_sprites(children, sprite_id, dyaw, dpitch);
             }
             Sprite::Text { .. } | Sprite::Image { .. } => {}
+        }
+    }
+}
+
+/// Rebuild sprite_ids map recursively to match current sprite order after z-index sorting.
+fn rebuild_sprite_indices_recursive(
+    sprites: &[Sprite],
+    layer_idx: usize,
+    parent_path: &[usize],
+    objects: &BTreeMap<String, GameObject>,
+    sprite_ids: &mut BTreeMap<String, String>,
+) {
+    for (sprite_idx, sprite) in sprites.iter().enumerate() {
+        let mut sprite_path = parent_path.to_vec();
+        sprite_path.push(sprite_idx);
+        
+        // Find the sprite object by matching sprite properties
+        let sprite_id_in_map = match sprite {
+            Sprite::Text { id, .. } => id.as_deref(),
+            Sprite::Image { id, .. } => id.as_deref(),
+            Sprite::Obj { id, .. } => id.as_deref(),
+            Sprite::Grid { id, .. } => id.as_deref(),
+        };
+        
+        // Find matching object by ID or by position in hierarchy
+        if let Some(explicit_id) = sprite_id_in_map.filter(|s| !s.trim().is_empty()) {
+            // Find by explicit ID
+            for (object_id, object) in objects {
+                if object.aliases.contains(&explicit_id.to_string()) {
+                    sprite_ids.insert(path_key(layer_idx, &sprite_path), object_id.clone());
+                    break;
+                }
+            }
+        }
+        
+        // Recurse into grid children
+        if let Sprite::Grid { children, .. } = sprite {
+            rebuild_sprite_indices_recursive(children, layer_idx, &sprite_path, objects, sprite_ids);
         }
     }
 }
