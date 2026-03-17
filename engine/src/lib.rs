@@ -30,11 +30,11 @@ pub mod world;
 
 /// Returns (behavior_name, fields) tuples for all built-in behaviors.
 /// Re-exported from engine crate to make available in authoring catalog.
-pub fn behavior_catalog() -> Vec<(&'static str, Vec<engine_core::authoring::metadata::FieldMetadata>)> {
-    behavior::builtin_behavior_names()
-        .into_iter()
-        .map(|name| (name, behavior::behavior_metadata(name)))
-        .collect()
+pub fn behavior_catalog() -> Vec<(
+    &'static str,
+    Vec<engine_core::authoring::metadata::FieldMetadata>,
+)> {
+    engine_core::authoring::catalog::behavior_catalog()
 }
 
 use std::path::{Path, PathBuf};

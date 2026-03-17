@@ -40,7 +40,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     let template_refs = collect_scene_partial_refs(mod_root, "templates")?;
     let object_refs = collect_scene_partial_refs(mod_root, "objects")?;
     let effect_refs = collect_scene_partial_refs(mod_root, "effects")?;
-    
+
     // Asset catalogs for autocomplete
     let font_names = collect_font_names(mod_root)?;
     let image_paths = collect_image_paths(mod_root)?;
@@ -150,8 +150,14 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
             build_effect_file_overlay_schema(mod_name, &effect_names),
         ),
         output_file("behaviors.schema.yaml".to_string(), build_behavior_schema()),
-        output_file("animations.schema.yaml".to_string(), build_animation_schema()),
-        output_file("input-profiles.schema.yaml".to_string(), build_input_profile_schema()),
+        output_file(
+            "animations.schema.yaml".to_string(),
+            build_animation_schema(),
+        ),
+        output_file(
+            "input-profiles.schema.yaml".to_string(),
+            build_input_profile_schema(),
+        ),
         output_file("sugar.schema.yaml".to_string(), build_sugar_schema()),
     ])
 }
@@ -185,7 +191,8 @@ fn enum_schema(values: Vec<String>) -> Value {
 /// Builds schema for all built-in behaviors with their parameter schemas.
 fn build_behavior_schema() -> Value {
     use engine_core::authoring::catalog::behavior_catalog;
-    
+    use engine_core::authoring::metadata::Requirement;
+
     let mut root = Mapping::new();
     root.insert(
         Value::String("$schema".to_string()),
@@ -193,7 +200,9 @@ fn build_behavior_schema() -> Value {
     );
     root.insert(
         Value::String("$id".to_string()),
-        Value::String("https://shell-quest.local/schemas/generated/behaviors.schema.yaml".to_string()),
+        Value::String(
+            "https://shell-quest.local/schemas/generated/behaviors.schema.yaml".to_string(),
+        ),
     );
     root.insert(
         Value::String("title".to_string()),
@@ -210,16 +219,23 @@ fn build_behavior_schema() -> Value {
             Value::String("type".to_string()),
             Value::String("object".to_string()),
         );
-        
+        variant.insert(
+            Value::String("additionalProperties".to_string()),
+            Value::Bool(false),
+        );
+
         // Required name field matching this behavior
-        let mut required = vec![Value::String("name".to_string())];
+        let required = vec![Value::String("name".to_string())];
         let mut properties = Mapping::new();
-        
+
         // name property with const
         let mut name_prop = Mapping::new();
-        name_prop.insert(Value::String("const".to_string()), Value::String(name.to_string()));
+        name_prop.insert(
+            Value::String("const".to_string()),
+            Value::String(name.to_string()),
+        );
         properties.insert(Value::String("name".to_string()), Value::Mapping(name_prop));
-        
+
         // params property with nested fields
         if !fields.is_empty() {
             let mut params_schema = Mapping::new();
@@ -227,54 +243,106 @@ fn build_behavior_schema() -> Value {
                 Value::String("type".to_string()),
                 Value::String("object".to_string()),
             );
-            
+            params_schema.insert(
+                Value::String("additionalProperties".to_string()),
+                Value::Bool(false),
+            );
+
             let mut param_props = Mapping::new();
-            for field in fields {
+            let mut param_required = Vec::new();
+            for field in &fields {
                 param_props.insert(
                     Value::String(field.name.to_string()),
-                    field_metadata_to_schema(&field),
+                    field_metadata_to_schema(field),
                 );
+                if matches!(field.requirement, Requirement::Required) {
+                    param_required.push(Value::String(field.name.to_string()));
+                }
             }
-            
+
             params_schema.insert(
                 Value::String("properties".to_string()),
                 Value::Mapping(param_props),
             );
-            
-            properties.insert(Value::String("params".to_string()), Value::Mapping(params_schema));
+            if !param_required.is_empty() {
+                params_schema.insert(
+                    Value::String("required".to_string()),
+                    Value::Sequence(param_required),
+                );
+            }
+
+            properties.insert(
+                Value::String("params".to_string()),
+                Value::Mapping(params_schema),
+            );
         }
-        
-        variant.insert(Value::String("properties".to_string()), Value::Mapping(properties));
-        variant.insert(Value::String("required".to_string()), Value::Sequence(required));
-        
+
+        variant.insert(
+            Value::String("properties".to_string()),
+            Value::Mapping(properties),
+        );
+        variant.insert(
+            Value::String("required".to_string()),
+            Value::Sequence(required),
+        );
+
         one_of_variants.push(Value::Mapping(variant));
     }
 
     let mut defs = Mapping::new();
     let mut behavior_def = Mapping::new();
-    behavior_def.insert(Value::String("oneOf".to_string()), Value::Sequence(one_of_variants));
-    defs.insert(Value::String("behavior".to_string()), Value::Mapping(behavior_def));
-    
+    behavior_def.insert(
+        Value::String("oneOf".to_string()),
+        Value::Sequence(one_of_variants),
+    );
+    defs.insert(
+        Value::String("behavior".to_string()),
+        Value::Mapping(behavior_def),
+    );
+
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
 }
 
 /// Converts FieldMetadata to JSON Schema property definition.
 fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetadata) -> Value {
-    use engine_core::authoring::metadata::{Requirement, ValueKind};
-    
+    use engine_core::authoring::metadata::ValueKind;
+
     let mut prop = Mapping::new();
-    
-    // Type
-    let type_str = match field.value_kind {
-        ValueKind::Number => "number",
-        ValueKind::Integer => "integer",
-        ValueKind::Boolean => "boolean",
-        ValueKind::Text | ValueKind::Colour => "string",
-        ValueKind::Select => "string",
-    };
-    prop.insert(Value::String("type".to_string()), Value::String(type_str.to_string()));
-    
+
+    match field.value_kind {
+        ValueKind::Number => {
+            prop.insert(
+                Value::String("type".to_string()),
+                Value::String("number".to_string()),
+            );
+        }
+        ValueKind::Integer => {
+            prop.insert(
+                Value::String("type".to_string()),
+                Value::String("integer".to_string()),
+            );
+        }
+        ValueKind::Boolean => {
+            prop.insert(
+                Value::String("type".to_string()),
+                Value::String("boolean".to_string()),
+            );
+        }
+        ValueKind::Text | ValueKind::Colour | ValueKind::Select => {
+            prop.insert(
+                Value::String("type".to_string()),
+                Value::String("string".to_string()),
+            );
+        }
+        ValueKind::SelectList => {
+            prop.insert(
+                Value::String("type".to_string()),
+                Value::String("array".to_string()),
+            );
+        }
+    }
+
     // Description
     if !field.description.is_empty() {
         prop.insert(
@@ -282,43 +350,69 @@ fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetad
             Value::String(field.description.to_string()),
         );
     }
-    
+
     // Default
     if let Some(default) = field.default_text {
-        prop.insert(Value::String("default".to_string()), Value::String(default.to_string()));
+        prop.insert(
+            Value::String("default".to_string()),
+            Value::String(default.to_string()),
+        );
     } else if let Some(default) = field.default_number {
         prop.insert(
             Value::String("default".to_string()),
             serde_yaml::to_value(default).unwrap(),
         );
     }
-    
+
     // Enum options
     if let Some(options) = field.enum_options {
-        prop.insert(
-            Value::String("enum".to_string()),
-            Value::Sequence(options.iter().map(|s| Value::String(s.to_string())).collect()),
+        let values = Value::Sequence(
+            options
+                .iter()
+                .map(|s| Value::String(s.to_string()))
+                .collect(),
         );
+        if matches!(field.value_kind, ValueKind::SelectList) {
+            let mut items = Mapping::new();
+            items.insert(
+                Value::String("type".to_string()),
+                Value::String("string".to_string()),
+            );
+            items.insert(Value::String("enum".to_string()), values);
+            prop.insert(Value::String("items".to_string()), Value::Mapping(items));
+        } else {
+            prop.insert(Value::String("enum".to_string()), values);
+        }
     }
-    
+
     // Number constraints
     if let Some(min) = field.min {
-        prop.insert(Value::String("minimum".to_string()), serde_yaml::to_value(min).unwrap());
+        prop.insert(
+            Value::String("minimum".to_string()),
+            serde_yaml::to_value(min).unwrap(),
+        );
     }
     if let Some(max) = field.max {
-        prop.insert(Value::String("maximum".to_string()), serde_yaml::to_value(max).unwrap());
+        prop.insert(
+            Value::String("maximum".to_string()),
+            serde_yaml::to_value(max).unwrap(),
+        );
     }
     if let Some(step) = field.step {
-        prop.insert(Value::String("multipleOf".to_string()), serde_yaml::to_value(step).unwrap());
+        prop.insert(
+            Value::String("multipleOf".to_string()),
+            serde_yaml::to_value(step).unwrap(),
+        );
     }
-    
+
     Value::Mapping(prop)
 }
 
 /// Builds schema for all built-in animations with their parameter schemas.
 fn build_animation_schema() -> Value {
     use engine_core::authoring::catalog::animation_catalog;
-    
+    use engine_core::authoring::metadata::Requirement;
+
     let mut root = Mapping::new();
     root.insert(
         Value::String("$schema".to_string()),
@@ -326,7 +420,9 @@ fn build_animation_schema() -> Value {
     );
     root.insert(
         Value::String("$id".to_string()),
-        Value::String("https://shell-quest.local/schemas/generated/animations.schema.yaml".to_string()),
+        Value::String(
+            "https://shell-quest.local/schemas/generated/animations.schema.yaml".to_string(),
+        ),
     );
     root.insert(
         Value::String("title".to_string()),
@@ -343,16 +439,23 @@ fn build_animation_schema() -> Value {
             Value::String("type".to_string()),
             Value::String("object".to_string()),
         );
-        
+        variant.insert(
+            Value::String("additionalProperties".to_string()),
+            Value::Bool(false),
+        );
+
         // Required name field matching this animation
         let required = vec![Value::String("name".to_string())];
         let mut properties = Mapping::new();
-        
+
         // name property with const
         let mut name_prop = Mapping::new();
-        name_prop.insert(Value::String("const".to_string()), Value::String(name.to_string()));
+        name_prop.insert(
+            Value::String("const".to_string()),
+            Value::String(name.to_string()),
+        );
         properties.insert(Value::String("name".to_string()), Value::Mapping(name_prop));
-        
+
         // params property with nested fields
         if !fields.is_empty() {
             let mut params_schema = Mapping::new();
@@ -360,34 +463,63 @@ fn build_animation_schema() -> Value {
                 Value::String("type".to_string()),
                 Value::String("object".to_string()),
             );
-            
+            params_schema.insert(
+                Value::String("additionalProperties".to_string()),
+                Value::Bool(false),
+            );
+
             let mut param_props = Mapping::new();
-            for field in fields {
+            let mut param_required = Vec::new();
+            for field in &fields {
                 param_props.insert(
                     Value::String(field.name.to_string()),
-                    field_metadata_to_schema(&field),
+                    field_metadata_to_schema(field),
                 );
+                if matches!(field.requirement, Requirement::Required) {
+                    param_required.push(Value::String(field.name.to_string()));
+                }
             }
-            
+
             params_schema.insert(
                 Value::String("properties".to_string()),
                 Value::Mapping(param_props),
             );
-            
-            properties.insert(Value::String("params".to_string()), Value::Mapping(params_schema));
+            if !param_required.is_empty() {
+                params_schema.insert(
+                    Value::String("required".to_string()),
+                    Value::Sequence(param_required),
+                );
+            }
+
+            properties.insert(
+                Value::String("params".to_string()),
+                Value::Mapping(params_schema),
+            );
         }
-        
-        variant.insert(Value::String("properties".to_string()), Value::Mapping(properties));
-        variant.insert(Value::String("required".to_string()), Value::Sequence(required));
-        
+
+        variant.insert(
+            Value::String("properties".to_string()),
+            Value::Mapping(properties),
+        );
+        variant.insert(
+            Value::String("required".to_string()),
+            Value::Sequence(required),
+        );
+
         one_of_variants.push(Value::Mapping(variant));
     }
 
     let mut defs = Mapping::new();
     let mut animation_def = Mapping::new();
-    animation_def.insert(Value::String("oneOf".to_string()), Value::Sequence(one_of_variants));
-    defs.insert(Value::String("animation".to_string()), Value::Mapping(animation_def));
-    
+    animation_def.insert(
+        Value::String("oneOf".to_string()),
+        Value::Sequence(one_of_variants),
+    );
+    defs.insert(
+        Value::String("animation".to_string()),
+        Value::Mapping(animation_def),
+    );
+
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
 }
@@ -395,7 +527,7 @@ fn build_animation_schema() -> Value {
 /// Builds schema for all built-in input profiles.
 fn build_input_profile_schema() -> Value {
     use engine_core::authoring::catalog::input_profile_catalog;
-    
+
     let mut root = Mapping::new();
     root.insert(
         Value::String("$schema".to_string()),
@@ -403,7 +535,9 @@ fn build_input_profile_schema() -> Value {
     );
     root.insert(
         Value::String("$id".to_string()),
-        Value::String("https://shell-quest.local/schemas/generated/input-profiles.schema.yaml".to_string()),
+        Value::String(
+            "https://shell-quest.local/schemas/generated/input-profiles.schema.yaml".to_string(),
+        ),
     );
     root.insert(
         Value::String("title".to_string()),
@@ -412,7 +546,7 @@ fn build_input_profile_schema() -> Value {
 
     let profiles = input_profile_catalog();
     let mut defs = Mapping::new();
-    
+
     // Create enum of all profile names
     let mut profile_enum = Mapping::new();
     profile_enum.insert(
@@ -421,10 +555,18 @@ fn build_input_profile_schema() -> Value {
     );
     profile_enum.insert(
         Value::String("enum".to_string()),
-        Value::Sequence(profiles.into_iter().map(|name| Value::String(name.to_string())).collect()),
+        Value::Sequence(
+            profiles
+                .into_iter()
+                .map(|name| Value::String(name.to_string()))
+                .collect(),
+        ),
     );
-    
-    defs.insert(Value::String("input_profile".to_string()), Value::Mapping(profile_enum));
+
+    defs.insert(
+        Value::String("input_profile".to_string()),
+        Value::Mapping(profile_enum),
+    );
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
 }
@@ -432,7 +574,7 @@ fn build_input_profile_schema() -> Value {
 /// Builds documentation schema for all authoring sugar transformations.
 fn build_sugar_schema() -> Value {
     use engine_core::authoring::catalog::sugar_catalog;
-    
+
     let mut root = Mapping::new();
     root.insert(
         Value::String("$schema".to_string()),
@@ -453,13 +595,19 @@ fn build_sugar_schema() -> Value {
 
     let catalog = sugar_catalog();
     let mut defs = Mapping::new();
-    
+
     // Aliases section
     let mut aliases_array = Vec::new();
     for (from, to) in catalog.aliases {
         let mut alias = Mapping::new();
-        alias.insert(Value::String("from".to_string()), Value::String(from.to_string()));
-        alias.insert(Value::String("to".to_string()), Value::String(to.to_string()));
+        alias.insert(
+            Value::String("from".to_string()),
+            Value::String(from.to_string()),
+        );
+        alias.insert(
+            Value::String("to".to_string()),
+            Value::String(to.to_string()),
+        );
         aliases_array.push(Value::Mapping(alias));
     }
     let mut aliases_def = Mapping::new();
@@ -467,18 +615,39 @@ fn build_sugar_schema() -> Value {
         Value::String("description".to_string()),
         Value::String("Field name aliases automatically renamed during compilation".to_string()),
     );
-    aliases_def.insert(Value::String("type".to_string()), Value::String("array".to_string()));
-    aliases_def.insert(Value::String("items".to_string()), Value::Sequence(aliases_array));
-    defs.insert(Value::String("aliases".to_string()), Value::Mapping(aliases_def));
-    
+    aliases_def.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    aliases_def.insert(
+        Value::String("items".to_string()),
+        Value::Sequence(aliases_array),
+    );
+    defs.insert(
+        Value::String("aliases".to_string()),
+        Value::Mapping(aliases_def),
+    );
+
     // Shorthands section
     let mut shorthands_array = Vec::new();
     for shorthand in catalog.shorthands {
         let mut sh = Mapping::new();
-        sh.insert(Value::String("name".to_string()), Value::String(shorthand.name.to_string()));
-        sh.insert(Value::String("description".to_string()), Value::String(shorthand.description.to_string()));
-        sh.insert(Value::String("from_syntax".to_string()), Value::String(shorthand.from_syntax.to_string()));
-        sh.insert(Value::String("to_structure".to_string()), Value::String(shorthand.to_structure.to_string()));
+        sh.insert(
+            Value::String("name".to_string()),
+            Value::String(shorthand.name.to_string()),
+        );
+        sh.insert(
+            Value::String("description".to_string()),
+            Value::String(shorthand.description.to_string()),
+        );
+        sh.insert(
+            Value::String("from_syntax".to_string()),
+            Value::String(shorthand.from_syntax.to_string()),
+        );
+        sh.insert(
+            Value::String("to_structure".to_string()),
+            Value::String(shorthand.to_structure.to_string()),
+        );
         shorthands_array.push(Value::Mapping(sh));
     }
     let mut shorthands_def = Mapping::new();
@@ -486,10 +655,19 @@ fn build_sugar_schema() -> Value {
         Value::String("description".to_string()),
         Value::String("Shorthand syntax automatically expanded during compilation".to_string()),
     );
-    shorthands_def.insert(Value::String("type".to_string()), Value::String("array".to_string()));
-    shorthands_def.insert(Value::String("items".to_string()), Value::Sequence(shorthands_array));
-    defs.insert(Value::String("shorthands".to_string()), Value::Mapping(shorthands_def));
-    
+    shorthands_def.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    shorthands_def.insert(
+        Value::String("items".to_string()),
+        Value::Sequence(shorthands_array),
+    );
+    defs.insert(
+        Value::String("shorthands".to_string()),
+        Value::Mapping(shorthands_def),
+    );
+
     // Normalizers section
     let normalizers_array: Vec<Value> = catalog
         .normalizers
@@ -501,14 +679,23 @@ fn build_sugar_schema() -> Value {
         Value::String("description".to_string()),
         Value::String("Normalizer functions applied during document processing (see engine-authoring/src/document/scene.rs)".to_string()),
     );
-    normalizers_def.insert(Value::String("type".to_string()), Value::String("array".to_string()));
+    normalizers_def.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
     normalizers_def.insert(
         Value::String("items".to_string()),
         Value::Mapping(mapping_with("type", Value::String("string".to_string()))),
     );
-    normalizers_def.insert(Value::String("enum".to_string()), Value::Sequence(normalizers_array));
-    defs.insert(Value::String("normalizers".to_string()), Value::Mapping(normalizers_def));
-    
+    normalizers_def.insert(
+        Value::String("enum".to_string()),
+        Value::Sequence(normalizers_array),
+    );
+    defs.insert(
+        Value::String("normalizers".to_string()),
+        Value::Mapping(normalizers_def),
+    );
+
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
 }
@@ -1062,8 +1249,8 @@ fn collect_image_paths(mod_root: &Path) -> Result<BTreeSet<String>> {
 }
 
 fn walk_images(root: &Path, current: &Path, out: &mut BTreeSet<String>) -> Result<()> {
-    for entry in fs::read_dir(current)
-        .with_context(|| format!("failed to read {}", current.display()))?
+    for entry in
+        fs::read_dir(current).with_context(|| format!("failed to read {}", current.display()))?
     {
         let entry = entry?;
         let p = entry.path();
@@ -1084,19 +1271,19 @@ fn walk_images(root: &Path, current: &Path, out: &mut BTreeSet<String>) -> Resul
 /// Collects OBJ model paths from scenes/**/*.obj and assets/models/**/*.obj files.
 fn collect_model_paths(mod_root: &Path) -> Result<BTreeSet<String>> {
     let mut paths = BTreeSet::new();
-    
+
     // Collect from scenes/**/*.obj
     let scenes_root = mod_root.join("scenes");
     if scenes_root.exists() {
         walk_models(&scenes_root, &scenes_root, &mut paths, "scenes")?;
     }
-    
+
     // Collect from assets/models/**/*.obj
     let models_root = mod_root.join("assets/models");
     if models_root.exists() {
         walk_models(&models_root, &models_root, &mut paths, "assets/models")?;
     }
-    
+
     Ok(paths)
 }
 
@@ -1106,8 +1293,8 @@ fn walk_models(
     out: &mut BTreeSet<String>,
     prefix: &str,
 ) -> Result<()> {
-    for entry in fs::read_dir(current)
-        .with_context(|| format!("failed to read {}", current.display()))?
+    for entry in
+        fs::read_dir(current).with_context(|| format!("failed to read {}", current.display()))?
     {
         let entry = entry?;
         let p = entry.path();
@@ -1118,7 +1305,11 @@ fn walk_models(
         let ext = p.extension().and_then(|s| s.to_str()).unwrap_or_default();
         if ext == "obj" {
             if let Ok(rel) = p.strip_prefix(root) {
-                out.insert(format!("{}/{}", prefix, rel.to_string_lossy().replace('\\', "/")));
+                out.insert(format!(
+                    "{}/{}",
+                    prefix,
+                    rel.to_string_lossy().replace('\\', "/")
+                ));
             }
         }
     }
@@ -1142,7 +1333,10 @@ fn collect_sprite_ids_from_value(value: &Value, out: &mut BTreeSet<String>) {
     match value {
         Value::Mapping(map) => {
             // Check if this is a sprite with an id field
-            if let Some(id) = map.get(Value::String("id".to_string())).and_then(Value::as_str) {
+            if let Some(id) = map
+                .get(Value::String("id".to_string()))
+                .and_then(Value::as_str)
+            {
                 // Verify it's actually a sprite by checking for sprite-related fields
                 if map.contains_key(Value::String("type".to_string()))
                     || map.contains_key(Value::String("content".to_string()))
@@ -1171,7 +1365,7 @@ fn collect_template_names(mod_root: &Path) -> Result<BTreeSet<String>> {
     if !scenes_root.exists() {
         return Ok(names);
     }
-    
+
     for scene_dir_entry in fs::read_dir(&scenes_root)
         .with_context(|| format!("failed to read {}", scenes_root.display()))?
     {
@@ -1180,12 +1374,12 @@ fn collect_template_names(mod_root: &Path) -> Result<BTreeSet<String>> {
         if !scene_path.is_dir() {
             continue;
         }
-        
+
         let templates_root = scene_path.join("templates");
         if !templates_root.exists() {
             continue;
         }
-        
+
         for file in yaml_files_under(&templates_root)? {
             if let Ok(raw) = fs::read_to_string(&file) {
                 if let Ok(v) = serde_yaml::from_str::<Value>(&raw) {
@@ -1302,8 +1496,12 @@ mod tests {
     fn test_collect_font_names() {
         let temp = unique_temp_dir("font-test");
         fs::create_dir_all(temp.join("assets/fonts/mono")).unwrap();
-        fs::write(temp.join("assets/fonts/mono/manifest.yaml"), "name: mono-bold\n").unwrap();
-        
+        fs::write(
+            temp.join("assets/fonts/mono/manifest.yaml"),
+            "name: mono-bold\n",
+        )
+        .unwrap();
+
         let names = super::collect_font_names(&temp).unwrap();
         assert!(names.contains("mono-bold"));
     }
@@ -1314,7 +1512,7 @@ mod tests {
         fs::create_dir_all(temp.join("assets/images/ui")).unwrap();
         fs::write(temp.join("assets/images/logo.png"), b"").unwrap();
         fs::write(temp.join("assets/images/ui/button.png"), b"").unwrap();
-        
+
         let paths = super::collect_image_paths(&temp).unwrap();
         assert!(paths.contains("logo.png"));
         assert!(paths.contains("ui/button.png"));
@@ -1327,7 +1525,7 @@ mod tests {
         fs::create_dir_all(temp.join("assets/models")).unwrap();
         fs::write(temp.join("scenes/intro/cube.obj"), "").unwrap();
         fs::write(temp.join("assets/models/sphere.obj"), "").unwrap();
-        
+
         let paths = super::collect_model_paths(&temp).unwrap();
         assert!(paths.contains("scenes/intro/cube.obj"));
         assert!(paths.contains("assets/models/sphere.obj"));
@@ -1342,7 +1540,7 @@ mod tests {
             "layers:\n  - sprites:\n      - id: logo\n        type: text\n        content: Test\n",
         )
         .unwrap();
-        
+
         let ids = super::collect_sprite_ids(&temp).unwrap();
         assert!(ids.contains("logo"));
     }
@@ -1356,7 +1554,7 @@ mod tests {
             "name: menu-button\n",
         )
         .unwrap();
-        
+
         let names = super::collect_template_names(&temp).unwrap();
         assert!(names.contains("menu-button"));
     }
@@ -1366,32 +1564,32 @@ mod tests {
         let temp = unique_temp_dir("behavior-schema-test");
         fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
         fs::create_dir_all(temp.join("scenes")).unwrap();
-        
+
         let files = generate_mod_schema_files(&temp).unwrap();
         let behavior_schema = files
             .iter()
             .find(|f| f.file_name == "behaviors.schema.yaml")
             .expect("behaviors.schema.yaml generated");
-        
+
         let defs = behavior_schema
             .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)
             .expect("$defs in behaviors schema");
-        
+
         let behavior_def = defs
             .get(Value::String("behavior".to_string()))
             .and_then(Value::as_mapping)
             .expect("behavior def");
-        
+
         let one_of = behavior_def
             .get(Value::String("oneOf".to_string()))
             .and_then(Value::as_sequence)
             .expect("oneOf variants");
-        
+
         assert!(!one_of.is_empty(), "should have behavior variants");
-        
+
         // Check that at least one known behavior exists
         let has_blink = one_of.iter().any(|variant| {
             variant
@@ -1412,32 +1610,32 @@ mod tests {
         let temp = unique_temp_dir("animation-schema-test");
         fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
         fs::create_dir_all(temp.join("scenes")).unwrap();
-        
+
         let files = generate_mod_schema_files(&temp).unwrap();
         let animation_schema = files
             .iter()
             .find(|f| f.file_name == "animations.schema.yaml")
             .expect("animations.schema.yaml generated");
-        
+
         let defs = animation_schema
             .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)
             .expect("$defs in animations schema");
-        
+
         let animation_def = defs
             .get(Value::String("animation".to_string()))
             .and_then(Value::as_mapping)
             .expect("animation def");
-        
+
         let one_of = animation_def
             .get(Value::String("oneOf".to_string()))
             .and_then(Value::as_sequence)
             .expect("oneOf variants");
-        
+
         assert!(!one_of.is_empty(), "should have animation variants");
-        
+
         // Check that float animation exists
         let has_float = one_of.iter().any(|variant| {
             variant
@@ -1458,38 +1656,43 @@ mod tests {
         let temp = unique_temp_dir("input-profile-schema-test");
         fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
         fs::create_dir_all(temp.join("scenes")).unwrap();
-        
+
         let files = generate_mod_schema_files(&temp).unwrap();
         let profile_schema = files
             .iter()
             .find(|f| f.file_name == "input-profiles.schema.yaml")
             .expect("input-profiles.schema.yaml generated");
-        
+
         let defs = profile_schema
             .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)
             .expect("$defs in input-profiles schema");
-        
+
         let profile_def = defs
             .get(Value::String("input_profile".to_string()))
             .and_then(Value::as_mapping)
             .expect("input_profile def");
-        
+
         let enum_values = profile_def
             .get(Value::String("enum".to_string()))
             .and_then(Value::as_sequence)
             .expect("enum values");
-        
+
         assert!(!enum_values.is_empty(), "should have profile values");
-        
+
         // Check that known profiles exist
         let has_obj_viewer = enum_values.iter().any(|v| v.as_str() == Some("obj-viewer"));
-        let has_terminal_tester = enum_values.iter().any(|v| v.as_str() == Some("terminal-size-tester"));
-        
+        let has_terminal_tester = enum_values
+            .iter()
+            .any(|v| v.as_str() == Some("terminal-size-tester"));
+
         assert!(has_obj_viewer, "obj-viewer profile should be in schema");
-        assert!(has_terminal_tester, "terminal-size-tester profile should be in schema");
+        assert!(
+            has_terminal_tester,
+            "terminal-size-tester profile should be in schema"
+        );
     }
 
     #[test]
@@ -1497,20 +1700,20 @@ mod tests {
         let temp = unique_temp_dir("sugar-schema-test");
         fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
         fs::create_dir_all(temp.join("scenes")).unwrap();
-        
+
         let files = generate_mod_schema_files(&temp).unwrap();
         let sugar_schema = files
             .iter()
             .find(|f| f.file_name == "sugar.schema.yaml")
             .expect("sugar.schema.yaml generated");
-        
+
         let defs = sugar_schema
             .value
             .as_mapping()
             .and_then(|m| m.get(Value::String("$defs".to_string())))
             .and_then(Value::as_mapping)
             .expect("$defs in sugar schema");
-        
+
         // Check aliases
         let aliases = defs
             .get(Value::String("aliases".to_string()))
@@ -1519,7 +1722,7 @@ mod tests {
             .and_then(Value::as_sequence)
             .expect("aliases items");
         assert!(!aliases.is_empty(), "should have alias definitions");
-        
+
         // Check shorthands
         let shorthands = defs
             .get(Value::String("shorthands".to_string()))
@@ -1528,7 +1731,7 @@ mod tests {
             .and_then(Value::as_sequence)
             .expect("shorthands items");
         assert!(!shorthands.is_empty(), "should have shorthand definitions");
-        
+
         // Check that pause shorthand exists
         let has_pause = shorthands.iter().any(|sh| {
             sh.as_mapping()
@@ -1537,7 +1740,7 @@ mod tests {
                 == Some("pause")
         });
         assert!(has_pause, "pause shorthand should be in schema");
-        
+
         // Check normalizers
         let normalizers = defs
             .get(Value::String("normalizers".to_string()))
@@ -1553,34 +1756,42 @@ mod tests {
         // Verify that generated schemas include all runtime behaviors and animations
         use engine_core::authoring::catalog::{animation_catalog, behavior_catalog};
         use serde_yaml::Value;
-        
+
         let behavior_schema = build_behavior_schema();
         let animation_schema = build_animation_schema();
-        
+
         // Check behaviors
         let behavior_catalog = behavior_catalog();
         let defs = behavior_schema.get("$defs").expect("$defs");
         let defs_map = defs.as_mapping().expect("$defs as mapping");
-        let behavior = defs_map.get(&Value::String("behavior".to_string())).expect("behavior");
+        let behavior = defs_map
+            .get(&Value::String("behavior".to_string()))
+            .expect("behavior");
         let behavior_map = behavior.as_mapping().expect("behavior as mapping");
-        let oneof = behavior_map.get(&Value::String("oneOf".to_string())).expect("oneOf");
+        let oneof = behavior_map
+            .get(&Value::String("oneOf".to_string()))
+            .expect("oneOf");
         let behavior_oneof = oneof.as_sequence().expect("oneOf as sequence");
-        
+
         assert_eq!(
             behavior_oneof.len(),
             behavior_catalog.len(),
             "Generated schema should have oneOf entry for each behavior in catalog"
         );
-        
+
         // Check animations
         let animation_catalog = animation_catalog();
         let defs = animation_schema.get("$defs").expect("$defs");
         let defs_map = defs.as_mapping().expect("$defs as mapping");
-        let animation = defs_map.get(&Value::String("animation".to_string())).expect("animation");
+        let animation = defs_map
+            .get(&Value::String("animation".to_string()))
+            .expect("animation");
         let animation_map = animation.as_mapping().expect("animation as mapping");
-        let oneof = animation_map.get(&Value::String("oneOf".to_string())).expect("oneOf");
+        let oneof = animation_map
+            .get(&Value::String("oneOf".to_string()))
+            .expect("oneOf");
         let animation_oneof = oneof.as_sequence().expect("oneOf as sequence");
-        
+
         assert_eq!(
             animation_oneof.len(),
             animation_catalog.len(),
@@ -1592,24 +1803,133 @@ mod tests {
     fn test_metadata_coverage() {
         // Verify that every behavior/animation metadata has required fields
         use engine_core::authoring::catalog::{animation_catalog, behavior_catalog};
-        
+
         for (name, fields) in behavior_catalog() {
-            assert!(!fields.is_empty(), "Behavior '{}' should have metadata fields", name);
-            
+            assert!(
+                !fields.is_empty(),
+                "Behavior '{}' should have metadata fields",
+                name
+            );
+
             // Verify each field has description
             for field in fields {
-                assert!(!field.description.is_empty(), 
-                    "Behavior '{}' field '{}' should have description", name, field.name);
+                assert!(
+                    !field.description.is_empty(),
+                    "Behavior '{}' field '{}' should have description",
+                    name,
+                    field.name
+                );
             }
         }
-        
+
         for (name, fields) in animation_catalog() {
-            assert!(!fields.is_empty(), "Animation '{}' should have metadata fields", name);
-            
+            assert!(
+                !fields.is_empty(),
+                "Animation '{}' should have metadata fields",
+                name
+            );
+
             for field in fields {
-                assert!(!field.description.is_empty(),
-                    "Animation '{}' field '{}' should have description", name, field.name);
+                assert!(
+                    !field.description.is_empty(),
+                    "Animation '{}' field '{}' should have description",
+                    name,
+                    field.name
+                );
             }
         }
+    }
+
+    #[test]
+    fn test_behavior_schema_preserves_required_and_stage_list_shapes() {
+        let schema = build_behavior_schema();
+        let defs = schema
+            .get("$defs")
+            .and_then(Value::as_mapping)
+            .expect("$defs mapping");
+        let behavior = defs
+            .get(Value::String("behavior".to_string()))
+            .and_then(Value::as_mapping)
+            .expect("behavior def");
+        let variants = behavior
+            .get(Value::String("oneOf".to_string()))
+            .and_then(Value::as_sequence)
+            .expect("behavior oneOf");
+
+        let follow = variants
+            .iter()
+            .find(|variant| {
+                variant
+                    .as_mapping()
+                    .and_then(|variant| variant.get(Value::String("properties".to_string())))
+                    .and_then(Value::as_mapping)
+                    .and_then(|props| props.get(Value::String("name".to_string())))
+                    .and_then(Value::as_mapping)
+                    .and_then(|name| name.get(Value::String("const".to_string())))
+                    .and_then(Value::as_str)
+                    == Some("follow")
+            })
+            .and_then(Value::as_mapping)
+            .expect("follow variant");
+        let follow_params = follow
+            .get(Value::String("properties".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|props| props.get(Value::String("params".to_string())))
+            .and_then(Value::as_mapping)
+            .expect("follow params");
+        let follow_required = follow_params
+            .get(Value::String("required".to_string()))
+            .and_then(Value::as_sequence)
+            .expect("follow required");
+        assert!(follow_required
+            .iter()
+            .any(|value| value.as_str() == Some("target")));
+
+        let stage_visibility = variants
+            .iter()
+            .find(|variant| {
+                variant
+                    .as_mapping()
+                    .and_then(|variant| variant.get(Value::String("properties".to_string())))
+                    .and_then(Value::as_mapping)
+                    .and_then(|props| props.get(Value::String("name".to_string())))
+                    .and_then(Value::as_mapping)
+                    .and_then(|name| name.get(Value::String("const".to_string())))
+                    .and_then(Value::as_str)
+                    == Some("stage-visibility")
+            })
+            .and_then(Value::as_mapping)
+            .expect("stage-visibility variant");
+        let stages_schema = stage_visibility
+            .get(Value::String("properties".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|props| props.get(Value::String("params".to_string())))
+            .and_then(Value::as_mapping)
+            .and_then(|params| params.get(Value::String("properties".to_string())))
+            .and_then(Value::as_mapping)
+            .and_then(|props| props.get(Value::String("stages".to_string())))
+            .and_then(Value::as_mapping)
+            .expect("stages schema");
+
+        assert_eq!(
+            stages_schema
+                .get(Value::String("type".to_string()))
+                .and_then(Value::as_str),
+            Some("array")
+        );
+        let items = stages_schema
+            .get(Value::String("items".to_string()))
+            .and_then(Value::as_mapping)
+            .expect("stages items");
+        let enum_values = items
+            .get(Value::String("enum".to_string()))
+            .and_then(Value::as_sequence)
+            .expect("stages enum");
+        assert!(enum_values
+            .iter()
+            .any(|value| value.as_str() == Some("on-leave")));
+        assert!(enum_values
+            .iter()
+            .any(|value| value.as_str() == Some("done")));
     }
 }

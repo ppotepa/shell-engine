@@ -8,7 +8,7 @@ use crate::game_object::GameObject;
 use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
-use engine_core::authoring::metadata::{FieldMetadata, Requirement, TargetKind, ValueKind, ValueSource};
+use engine_core::authoring::metadata::FieldMetadata;
 
 /// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
@@ -80,368 +80,10 @@ pub fn builtin_behavior_names() -> Vec<&'static str> {
 
 /// Returns field metadata for the given behavior name.
 pub fn behavior_metadata(name: &str) -> Vec<FieldMetadata> {
-    match name {
-        "blink" => vec![
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "target",
-                value_kind: ValueKind::Text,
-                requirement: Requirement::Optional,
-                description: "Sprite ID to blink",
-                default_text: None,
-                default_number: None,
-                enum_options: None,
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "visible_ms",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "Milliseconds visible per cycle",
-                default_text: None,
-                default_number: Some(500.0),
-                enum_options: None,
-                min: Some(0.0),
-                max: None,
-                step: Some(10.0),
-                unit: Some("ms"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "hidden_ms",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "Milliseconds hidden per cycle",
-                default_text: None,
-                default_number: Some(500.0),
-                enum_options: None,
-                min: Some(0.0),
-                max: None,
-                step: Some(10.0),
-                unit: Some("ms"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "stages",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Scene stages when behavior is active",
-                default_text: None,
-                default_number: None,
-                enum_options: Some(&["on_enter", "on_idle", "on_exit"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-        ],
-        "bob" => vec![
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "target",
-                value_kind: ValueKind::Text,
-                requirement: Requirement::Optional,
-                description: "Sprite ID to bob",
-                default_text: None,
-                default_number: None,
-                enum_options: None,
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "amplitude_y",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "Vertical oscillation amplitude",
-                default_text: None,
-                default_number: Some(2.0),
-                enum_options: None,
-                min: Some(-100.0),
-                max: Some(100.0),
-                step: Some(1.0),
-                unit: Some("cells"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "period_ms",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "Full oscillation cycle duration",
-                default_text: None,
-                default_number: Some(2000.0),
-                enum_options: None,
-                min: Some(1.0),
-                max: None,
-                step: Some(10.0),
-                unit: Some("ms"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "phase_ms",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "Time offset for wave phase",
-                default_text: None,
-                default_number: Some(0.0),
-                enum_options: None,
-                min: Some(0.0),
-                max: None,
-                step: Some(10.0),
-                unit: Some("ms"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "stages",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Scene stages when behavior is active",
-                default_text: None,
-                default_number: None,
-                enum_options: Some(&["on_enter", "on_idle", "on_exit"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-        ],
-        "follow" => vec![
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "target",
-                value_kind: ValueKind::Text,
-                requirement: Requirement::Required,
-                description: "Sprite ID to follow",
-                default_text: None,
-                default_number: None,
-                enum_options: None,
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "stages",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Scene stages when behavior is active",
-                default_text: None,
-                default_number: None,
-                enum_options: Some(&["on_enter", "on_idle", "on_exit"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-        ],
-        "menu-selected" => vec![
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "index",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Required,
-                description: "Menu option index this behavior tracks",
-                default_text: None,
-                default_number: None,
-                enum_options: None,
-                min: Some(0.0),
-                max: None,
-                step: Some(1.0),
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "stages",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Scene stages when behavior is active",
-                default_text: None,
-                default_number: None,
-                enum_options: Some(&["on_enter", "on_idle", "on_exit"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-        ],
-        "selected-arrows" => vec![
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "side",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Which side the arrow appears on",
-                default_text: Some("left"),
-                default_number: None,
-                enum_options: Some(&["left", "right"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "padding",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "Cell padding from target sprite edge",
-                default_text: None,
-                default_number: Some(1.0),
-                enum_options: None,
-                min: Some(0.0),
-                max: Some(20.0),
-                step: Some(1.0),
-                unit: Some("cells"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "stages",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Scene stages when behavior is active",
-                default_text: None,
-                default_number: None,
-                enum_options: Some(&["on_enter", "on_idle", "on_exit"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-        ],
-        "stage-visibility" => vec![
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "target",
-                value_kind: ValueKind::Text,
-                requirement: Requirement::Optional,
-                description: "Sprite ID to control visibility",
-                default_text: None,
-                default_number: None,
-                enum_options: None,
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "stages",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Required,
-                description: "Scene stages when sprite is visible",
-                default_text: None,
-                default_number: None,
-                enum_options: Some(&["on_enter", "on_idle", "on_exit"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-        ],
-        "timed-visibility" => vec![
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "target",
-                value_kind: ValueKind::Text,
-                requirement: Requirement::Optional,
-                description: "Sprite ID to control visibility",
-                default_text: None,
-                default_number: None,
-                enum_options: None,
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "time_scope",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Whether times are scene-relative or stage-relative",
-                default_text: Some("scene"),
-                default_number: None,
-                enum_options: Some(&["scene", "stage"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "start_ms",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "When sprite becomes visible",
-                default_text: None,
-                default_number: Some(0.0),
-                enum_options: None,
-                min: Some(0.0),
-                max: None,
-                step: Some(10.0),
-                unit: Some("ms"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "end_ms",
-                value_kind: ValueKind::Integer,
-                requirement: Requirement::Optional,
-                description: "When sprite becomes hidden",
-                default_text: None,
-                default_number: None,
-                enum_options: None,
-                min: Some(0.0),
-                max: None,
-                step: Some(10.0),
-                unit: Some("ms"),
-                sources: &[ValueSource::Literal],
-            },
-            FieldMetadata {
-                target: TargetKind::Effect,
-                name: "stages",
-                value_kind: ValueKind::Select,
-                requirement: Requirement::Optional,
-                description: "Scene stages when behavior is active",
-                default_text: None,
-                default_number: None,
-                enum_options: Some(&["on_enter", "on_idle", "on_exit"]),
-                min: None,
-                max: None,
-                step: None,
-                unit: None,
-                sources: &[ValueSource::Literal],
-            },
-        ],
-        _ => vec![],
-    }
+    engine_core::authoring::catalog::behavior_catalog()
+        .into_iter()
+        .find_map(|(behavior_name, fields)| (behavior_name == name).then_some(fields))
+        .unwrap_or_default()
 }
 
 #[derive(Default)]
@@ -906,7 +548,8 @@ impl BehaviorContext {
     }
 
     pub fn resolved_object_state(&self, target: &str) -> Option<&ObjectRuntimeState> {
-        self.resolve_target(target).and_then(|object_id| self.object_state(object_id))
+        self.resolve_target(target)
+            .and_then(|object_id| self.object_state(object_id))
     }
 
     pub fn resolved_object_region(&self, target: &str) -> Option<&Region> {
@@ -963,7 +606,10 @@ mod tests {
     }
 
     fn scene_with_audio(audio: SceneAudio) -> Scene {
-        Scene { audio, ..base_scene() }
+        Scene {
+            audio,
+            ..base_scene()
+        }
     }
 
     fn base_ctx() -> BehaviorContext {
@@ -1041,7 +687,11 @@ mod tests {
             hidden_ms: Some(100),
             ..BehaviorParams::default()
         });
-        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 150, 150));
+        let commands = run_behavior(
+            &mut behavior,
+            &base_scene(),
+            ctx(SceneStage::OnIdle, 150, 150),
+        );
 
         assert_eq!(
             commands,
@@ -1108,7 +758,11 @@ mod tests {
             end_ms: Some(200),
             ..BehaviorParams::default()
         });
-        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 150, 150));
+        let commands = run_behavior(
+            &mut behavior,
+            &base_scene(),
+            ctx(SceneStage::OnIdle, 150, 150),
+        );
 
         assert_eq!(
             commands,
@@ -1128,7 +782,11 @@ mod tests {
             end_ms: Some(200),
             ..BehaviorParams::default()
         });
-        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 500, 150));
+        let commands = run_behavior(
+            &mut behavior,
+            &base_scene(),
+            ctx(SceneStage::OnIdle, 500, 150),
+        );
 
         assert_eq!(
             commands,
@@ -1314,7 +972,7 @@ mod tests {
     fn test_all_behaviors_in_catalog() {
         // Verify that every behavior registered in built_in_behavior() is present in catalog
         use engine_core::authoring::catalog::behavior_catalog;
-        
+
         let runtime_behaviors: Vec<&str> = vec![
             "blink",
             "bob",
@@ -1324,10 +982,10 @@ mod tests {
             "stage-visibility",
             "timed-visibility",
         ];
-        
+
         let catalog = behavior_catalog();
         let catalog_names: Vec<&str> = catalog.iter().map(|(name, _)| *name).collect();
-        
+
         for behavior in &runtime_behaviors {
             assert!(
                 catalog_names.contains(behavior),
@@ -1335,7 +993,7 @@ mod tests {
                 behavior
             );
         }
-        
+
         for catalog_name in &catalog_names {
             assert!(
                 runtime_behaviors.contains(catalog_name),
@@ -1343,7 +1001,7 @@ mod tests {
                 catalog_name
             );
         }
-        
+
         assert_eq!(
             runtime_behaviors.len(),
             catalog_names.len(),
