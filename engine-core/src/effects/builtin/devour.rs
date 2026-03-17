@@ -1,3 +1,5 @@
+//! Effect that corrupts and consumes cell content, spreading a decay across the frame.
+
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING, P_INTENSITY};
@@ -7,6 +9,7 @@ use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
 use crossterm::style::Color;
 
+/// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "devour-out",
     display_name: "Devour Out",
@@ -24,6 +27,7 @@ fn noise(x: u16, y: u16, frame: u32) -> f32 {
     crt_hash(x, y, frame) as f32 / u32::MAX as f32
 }
 
+/// Effect that corrupts pixels with dropout and spreading infection, fading the frame to black.
 pub struct DevourOutEffect;
 
 impl Effect for DevourOutEffect {

@@ -1,3 +1,5 @@
+//! Sidebar icon rail: the narrow column of numbered panel-switch glyphs.
+
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
@@ -6,6 +8,7 @@ use ratatui::Frame;
 use crate::state::{AppState, SidebarItem};
 use crate::ui::theme;
 
+/// Renders the sidebar icon rail with numbered glyphs for switching between panels.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let entries = [
         (SidebarItem::Explorer, "1", "\u{1f4c1}"),        // 📁

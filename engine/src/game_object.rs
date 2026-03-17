@@ -1,3 +1,6 @@
+//! Core scene-object types: [`GameObjectKind`] discriminant and the [`GameObject`] data record.
+
+/// Discriminates the kind of node a [`GameObject`] represents in the scene tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GameObjectKind {
     Scene,
@@ -8,6 +11,7 @@ pub enum GameObjectKind {
     GridSprite,
 }
 
+/// A runtime node in the scene tree, carrying identity, kind, and parent–child relationships.
 #[derive(Debug, Clone)]
 pub struct GameObject {
     pub id: String,

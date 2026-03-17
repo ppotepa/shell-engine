@@ -1,6 +1,9 @@
+//! File-system scanning helpers for discovering project assets and validating mod layouts.
+
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
+/// Result of validating a directory as a Shell Quest mod project.
 #[derive(Debug, Clone)]
 pub struct ProjectValidation {
     pub valid: bool,
@@ -8,6 +11,7 @@ pub struct ProjectValidation {
     pub message: String,
 }
 
+/// Recursively collects sorted file paths under `root/rel` that match the given extension.
 pub fn collect_files(root: &Path, rel: &str, ext: &str) -> Vec<String> {
     let base = root.join(rel);
     let mut out = Vec::new();
@@ -16,6 +20,7 @@ pub fn collect_files(root: &Path, rel: &str, ext: &str) -> Vec<String> {
     out
 }
 
+/// Validates the given directory as a Shell Quest mod project, checking `mod.yaml` and entrypoint.
 pub fn validate_project_dir(dir: &Path) -> ProjectValidation {
     let mod_path = dir.join("mod.yaml");
     if !mod_path.exists() {
@@ -101,6 +106,7 @@ fn walk(path: &Path, ext: &str, out: &mut Vec<String>) {
     }
 }
 
+/// Collects all `.yml` files under `root` that reference a Shell Quest schema header.
 pub fn collect_schema_project_yml_files(root: &Path) -> Vec<String> {
     let mut out = Vec::new();
     walk_schema_yml(root, &mut out);
@@ -194,6 +200,7 @@ fn normalize_path(path: &Path) -> PathBuf {
     normalized
 }
 
+/// Collects all game-relevant YAML/YML files under `mod_root` (mod.yaml, scenes, objects, fonts).
 pub fn collect_game_yaml_files(mod_root: &Path) -> Vec<String> {
     let mut out = Vec::new();
     walk_game_yaml(mod_root, mod_root, &mut out);
@@ -201,6 +208,7 @@ pub fn collect_game_yaml_files(mod_root: &Path) -> Vec<String> {
     out
 }
 
+/// Collects scene entry files (scene roots, not partial sub-directory files) under `mod_root/scenes/`.
 pub fn collect_scene_entry_files(mod_root: &Path) -> Vec<String> {
     let scenes_root = mod_root.join("scenes");
     let mut out = Vec::new();
@@ -291,6 +299,7 @@ fn is_scene_entry_rel(rel_s: &str) -> bool {
     true
 }
 
+/// Walks up from a project YAML path to infer the mod root directory.
 pub fn infer_mod_root_from_project_yml(path: &Path) -> Option<String> {
     let mut cur = path.parent()?;
     loop {

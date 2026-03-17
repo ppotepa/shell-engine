@@ -14,9 +14,11 @@ properties:
   name:
     type: string
     minLength: 1
+    description: Human-readable mod name displayed in menus and diagnostics.
   version:
     type: string
     minLength: 1
+    description: Mod version string (e.g. "1.0.0"). Informational only.
   entrypoint:
     type: string
     minLength: 1

@@ -1,3 +1,5 @@
+//! Built-in visual effect implementations.
+
 pub mod artifact;
 pub mod brighten;
 pub mod clear_to_colour;

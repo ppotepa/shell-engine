@@ -1,3 +1,5 @@
+//! Recent project list persistence: load, save, and push with deduplication.
+
 use std::fs;
 use std::path::PathBuf;
 
@@ -18,6 +20,7 @@ fn normalize_path(path: &str) -> Option<String> {
         .and_then(|p| p.to_str().map(ToOwned::to_owned))
 }
 
+/// Loads and deduplicates the recent project list from `~/.config/sq-editor/recent_projects.txt`.
 pub fn load_recent() -> Vec<String> {
     let path = recent_file();
     let Ok(raw) = fs::read_to_string(path) else {
@@ -51,6 +54,7 @@ pub fn load_recent() -> Vec<String> {
     result
 }
 
+/// Persists up to `MAX_RECENT` project paths to disk.
 pub fn save_recent(items: &[String]) {
     let path = recent_file();
     if let Some(parent) = path.parent() {
@@ -65,6 +69,7 @@ pub fn save_recent(items: &[String]) {
     let _ = fs::write(path, content);
 }
 
+/// Prepends `path` to `items`, deduplicating on canonical form and capping at `MAX_RECENT`.
 pub fn push_recent(items: &mut Vec<String>, path: &str) {
     // Normalize the incoming path
     let normalized = normalize_path(path).unwrap_or_else(|| path.to_string());

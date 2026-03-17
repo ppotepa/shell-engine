@@ -1,3 +1,5 @@
+//! Placeholder sidebar panel for panels not yet implemented.
+
 use ratatui::layout::Rect;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
@@ -5,6 +7,7 @@ use ratatui::Frame;
 
 use crate::ui::theme;
 
+/// Renders a placeholder panel displaying a title and informational text lines.
 pub fn render(frame: &mut Frame, area: Rect, title: &str, lines: &[&str]) {
     let mut content = Vec::new();
     for line in lines {

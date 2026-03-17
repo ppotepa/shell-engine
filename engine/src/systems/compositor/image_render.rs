@@ -1,3 +1,5 @@
+//! Image sprite rendering — maps RGBA pixels to terminal cells using the active render mode.
+
 use crossterm::style::Color;
 
 use crate::assets::AssetRoot;

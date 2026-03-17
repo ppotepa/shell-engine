@@ -1,3 +1,5 @@
+//! Effects browser sidebar panel.
+
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem};
@@ -8,6 +10,7 @@ use crate::ui::theme;
 use engine_core::effects::shared_dispatcher;
 use engine_core::scene::EffectTargetKind;
 
+/// Renders the effects browser list with type badges and cursor/focus highlighting.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let items: Vec<ListItem> = app
         .builtin_effects

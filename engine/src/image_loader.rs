@@ -1,3 +1,5 @@
+//! Image loading and RGBA pixel access, backed by a process-wide cache keyed on mod source + path.
+
 use std::path::Path;
 
 use image::load_from_memory;
@@ -5,6 +7,7 @@ use image::load_from_memory;
 use crate::asset_cache::AssetCache;
 use crate::repositories::{create_asset_repository, AssetRepository};
 
+/// A decoded RGBA image whose pixels are addressable by (x, y) coordinates.
 #[derive(Debug, Clone)]
 pub struct LoadedRgbaImage {
     pub width: u32,
@@ -13,6 +16,7 @@ pub struct LoadedRgbaImage {
 }
 
 impl LoadedRgbaImage {
+    /// Returns the `[r, g, b, a]` pixel at `(x, y)`, or `None` if out of bounds.
     pub fn pixel(&self, x: u32, y: u32) -> Option<[u8; 4]> {
         let idx = (y as usize)
             .saturating_mul(self.width as usize)
@@ -23,12 +27,14 @@ impl LoadedRgbaImage {
 
 static IMAGE_CACHE: AssetCache<LoadedRgbaImage> = AssetCache::new();
 
+/// Loads the RGBA image at `asset_path` from `mod_source`, returning a cached result on repeated calls.
 pub fn load_rgba_image(mod_source: &Path, asset_path: &str) -> Option<LoadedRgbaImage> {
     let normalized = asset_path.trim_start_matches('/');
     let key = format!("{}::{normalized}", mod_source.display());
     IMAGE_CACHE.get_or_load(key, || load_rgba_image_uncached(mod_source, asset_path))
 }
 
+/// Returns `true` if `asset_path` resolves to a loadable image within `mod_source`.
 pub fn has_image_asset(mod_source: &Path, asset_path: &str) -> bool {
     load_rgba_image(mod_source, asset_path).is_some()
 }

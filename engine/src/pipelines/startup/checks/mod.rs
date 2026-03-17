@@ -1,3 +1,5 @@
+//! Built-in startup checks — re-exports all concrete [`StartupCheck`](super::check::StartupCheck) implementations.
+
 mod effect_registry;
 mod font_glyph_coverage;
 mod font_manifest;

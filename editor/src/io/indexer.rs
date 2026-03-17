@@ -1,3 +1,5 @@
+//! Project index builder: scans a mod root directory and assembles an [`AssetIndex`].
+
 use std::path::Path;
 
 use crate::domain::asset_index::AssetIndex;
@@ -10,6 +12,7 @@ use super::fs_scan::{
 };
 use super::yaml::load_yaml;
 
+/// Scans `mod_source` and returns a fully populated [`AssetIndex`] for the project.
 pub fn build_project_index(mod_source: &str) -> AssetIndex {
     let root = Path::new(mod_source);
     let manifest = load_yaml::<ModManifestSummary>(&root.join("mod.yaml"));

@@ -1,3 +1,5 @@
+//! Font asset loader — discovers, parses, and caches glyph manifest files from a mod's asset tree.
+
 use super::types::{GlyphManifest, LoadedFont, LoadedGlyph};
 use crate::asset_cache::AssetCache;
 use crate::repositories::{create_asset_repository, AssetRepository};
@@ -6,6 +8,7 @@ use std::path::Path;
 
 static FONT_CACHE: AssetCache<LoadedFont> = AssetCache::new();
 
+/// Loads and caches the [`LoadedFont`] for `font_name` from `mod_source`, returning `None` if not found.
 pub fn load_font_assets(mod_source: &Path, font_name: &str) -> Option<LoadedFont> {
     let key = format!("{}::{}", mod_source.display(), font_name.trim());
     FONT_CACHE.get_or_load(key, || load_font_assets_uncached(mod_source, font_name))

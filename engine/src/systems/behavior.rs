@@ -1,8 +1,11 @@
+//! Behavior system — evaluates all scene-object behaviors and dispatches resulting commands each frame.
+
 use crate::audio::AudioCommand;
 use crate::behavior::BehaviorCommand;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 
+/// Runs all registered behaviors against the current scene runtime state and dispatches their commands.
 pub fn behavior_system(world: &mut World) {
     let Some(animator) = world.animator() else {
         return;

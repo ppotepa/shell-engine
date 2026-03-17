@@ -1,8 +1,11 @@
+//! Crossterm key-event mapping to editor [`Command`]s.
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::commands::Command;
 use crate::state::AppMode;
 
+/// Maps a raw key event and the current application mode to a high-level [`Command`].
 pub fn map_key_event(key: KeyEvent, mode: AppMode) -> Command {
     // EditMode: ESC exits, T toggles sidebar
     if mode == AppMode::EditMode {

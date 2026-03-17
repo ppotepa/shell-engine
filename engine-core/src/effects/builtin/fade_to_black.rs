@@ -1,3 +1,5 @@
+//! Effect that fades a region to black with a radial vignette collapse.
+
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING};
@@ -5,6 +7,7 @@ use crate::effects::utils::math::smoothstep;
 use crate::scene::EffectParams;
 use crossterm::style::Color;
 
+/// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "fade-to-black",
     display_name: "Fade to Black",
@@ -15,6 +18,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
     sample: "- name: fade-to-black\n  duration: 650\n  params:\n    easing: ease-in-out",
 };
 
+/// Effect that converges the frame to black via a radial brightness collapse from the centre.
 pub struct FadeToBlackEffect;
 
 impl Effect for FadeToBlackEffect {

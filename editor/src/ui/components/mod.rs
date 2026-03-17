@@ -1,3 +1,5 @@
+//! UI component modules for the editor, preview, sidebar, start screen, and status bar.
+
 pub mod editor;
 pub mod effects_preview;
 pub mod preview;

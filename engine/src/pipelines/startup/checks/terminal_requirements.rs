@@ -1,3 +1,5 @@
+//! Checks that the current terminal satisfies any minimum capability requirements declared in `mod.yaml`.
+
 use crate::runtime_settings::{RuntimeSettings, VirtualPolicy};
 use crate::terminal_caps::{TerminalCaps, TerminalRequirements, TerminalViolation};
 use crate::EngineError;
@@ -6,6 +8,7 @@ use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
 
+/// Startup check that fails when the current terminal does not meet the mod's declared requirements.
 pub struct TerminalRequirementsCheck;
 
 impl StartupCheck for TerminalRequirementsCheck {

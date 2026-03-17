@@ -1,3 +1,5 @@
+//! Start screen component: welcome dialog with recent projects and action menu.
+
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
@@ -10,6 +12,7 @@ use crate::io::yaml::load_yaml;
 use crate::state::{AppState, DirBrowserItem, StartDialog};
 use crate::ui::theme;
 
+/// Renders the start screen popup with the recent projects list and action menu.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let popup = centered_rect(80, 70, area);
     frame.render_widget(Clear, popup);

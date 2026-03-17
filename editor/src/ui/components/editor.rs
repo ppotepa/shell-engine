@@ -1,3 +1,5 @@
+//! Text file editor pane component.
+
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
@@ -6,6 +8,7 @@ use ratatui::Frame;
 use crate::state::AppState;
 use crate::ui::theme;
 
+/// Renders the editor pane with line numbers and the current file content.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let title = app
         .editing_file

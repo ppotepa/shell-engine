@@ -1,3 +1,5 @@
+//! Static field-metadata tables for every authoring target (scene, layer, sprite, object).
+
 use crate::authoring::metadata::{FieldMetadata, Requirement, TargetKind, ValueKind, ValueSource};
 
 const LIT_ONLY: &[ValueSource] = &[ValueSource::Literal];
@@ -10,6 +12,7 @@ const LIT_EXPR_BIND_ANIM: &[ValueSource] = &[
 const SPRITE_TYPE_OPTIONS: &[&str] = &["text", "image", "obj", "grid"];
 const LOGIC_TYPE_OPTIONS: &[&str] = &["native", "graph", "script"];
 
+/// Field metadata for scene-level properties.
 pub static SCENE_FIELDS: &[FieldMetadata] = &[
     FieldMetadata {
         target: TargetKind::Scene,
@@ -62,6 +65,7 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
     },
 ];
 
+/// Field metadata for layer-level properties.
 pub static LAYER_FIELDS: &[FieldMetadata] = &[
     FieldMetadata {
         target: TargetKind::Layer,
@@ -95,6 +99,7 @@ pub static LAYER_FIELDS: &[FieldMetadata] = &[
     },
 ];
 
+/// Field metadata for sprite-level properties.
 pub static SPRITE_FIELDS: &[FieldMetadata] = &[
     FieldMetadata {
         target: TargetKind::Sprite,
@@ -183,6 +188,7 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
     },
 ];
 
+/// Field metadata for object/prefab-level properties.
 pub static OBJECT_FIELDS: &[FieldMetadata] = &[
     FieldMetadata {
         target: TargetKind::Object,

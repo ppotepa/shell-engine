@@ -1,3 +1,5 @@
+//! Status bar component: renders the one-line contextual hint at the bottom of the screen.
+
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::Paragraph;
@@ -6,6 +8,7 @@ use ratatui::Frame;
 use crate::state::{focus::FocusPane, AppMode, AppState, SidebarItem};
 use crate::ui::theme;
 
+/// Renders the status bar with the current mode, context, and key-hint sections.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     // Split into 3 sections: LEFT (mode), CENTER (context), RIGHT (hints)
     let chunks = Layout::default()

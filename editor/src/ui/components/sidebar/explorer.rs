@@ -1,3 +1,5 @@
+//! File explorer sidebar panel.
+
 use ratatui::layout::Rect;
 use ratatui::widgets::{Block, Borders, List, ListItem};
 use ratatui::Frame;
@@ -7,6 +9,7 @@ use crate::state::focus::FocusPane;
 use crate::state::{AppState, TreeItem};
 use crate::ui::theme;
 
+/// Renders the project tree as a navigable list with folder and file icons.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let items: Vec<ListItem> = app
         .tree_items

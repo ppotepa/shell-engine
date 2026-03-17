@@ -1,5 +1,8 @@
+//! Engine event types and the per-frame [`EventQueue`] that shuttles them between systems.
+
 use crossterm::event::KeyCode;
 
+/// Represents a discrete engine event produced by input, the game loop, or scene transitions.
 #[derive(Debug, Clone)]
 pub enum EngineEvent {
     Tick,
@@ -12,24 +15,29 @@ pub enum EngineEvent {
     Quit,
 }
 
+/// Collects [`EngineEvent`]s during a frame and delivers them to systems via [`drain`](Self::drain).
 #[derive(Debug, Default)]
 pub struct EventQueue {
     events: Vec<EngineEvent>,
 }
 
 impl EventQueue {
+    /// Creates an empty [`EventQueue`].
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Appends `event` to the queue.
     pub fn push(&mut self, event: EngineEvent) {
         self.events.push(event);
     }
 
+    /// Removes and returns all queued events, leaving the queue empty.
     pub fn drain(&mut self) -> Vec<EngineEvent> {
         std::mem::take(&mut self.events)
     }
 
+    /// Returns `true` if no events are waiting.
     pub fn is_empty(&self) -> bool {
         self.events.is_empty()
     }

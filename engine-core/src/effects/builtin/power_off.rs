@@ -1,3 +1,5 @@
+//! Effect simulating an old CRT display shutting down (collapse to centre line).
+
 use super::crt_on::{crt_blank_row, crt_dim_row, crt_static_row};
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
@@ -6,6 +8,7 @@ use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
 use crossterm::style::Color;
 
+/// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "power-off",
     display_name: "Power Off",
@@ -16,6 +19,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
     sample: "- name: power-off\n  duration: 700\n  params:\n    easing: ease-in",
 };
 
+/// Effect that collapses the display inward to a horizontal centre line, mimicking CRT power-off.
 pub struct PowerOffEffect;
 
 impl Effect for PowerOffEffect {

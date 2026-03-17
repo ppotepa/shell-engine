@@ -1,17 +1,26 @@
 //! Scene authoring and runtime model types shared across the scene pipeline.
 //!
 //! This module exposes both the authored YAML compilation boundary
-//! ([`SceneDocument`], [`ObjectDocument`]) and the typed runtime scene model
-//! ([`Scene`], [`Layer`], [`Sprite`]).
+//! (`SceneDocument`, `ObjectDocument`) and the typed runtime scene model
+//! (`Scene`, `Layer`, `Sprite`).
 
+/// Terminal colour type for scene backgrounds and sprites.
 pub mod color;
+/// Scene and object document (YAML-deserialisable) types.
 pub mod document;
+/// Easing function variants for animations and effects.
 pub mod easing;
+/// Static field-metadata tables for the authoring editor.
 pub mod metadata;
+/// Runtime scene model: [`Scene`], [`Layer`], [`Stage`], and related types.
 pub mod model;
+/// Object/prefab document and logic specification types.
 pub mod object;
+/// Sprite template expansion types.
 pub mod sprite;
+/// Template substitution helpers.
 pub mod template;
+/// Typed scalar and colour value wrappers.
 pub mod value;
 
 pub use crate::animations::AnimationParams;

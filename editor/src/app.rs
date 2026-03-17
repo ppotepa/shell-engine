@@ -1,3 +1,5 @@
+//! Application entry point: terminal setup, main event loop, and teardown.
+
 use std::io;
 use std::time::Duration;
 
@@ -16,6 +18,7 @@ use crate::io::recent::{load_recent, save_recent};
 use crate::state::AppState;
 use crate::ui;
 
+/// Initialises the terminal, runs the editor event loop, and restores the terminal on exit.
 pub fn run(cli: Cli) -> Result<()> {
     let mut stdout = io::stdout();
     enable_raw_mode()?;

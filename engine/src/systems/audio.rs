@@ -1,6 +1,9 @@
+//! Audio system — flushes the [`AudioRuntime`](crate::audio::AudioRuntime) command queue each frame.
+
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 
+/// Flushes all pending audio commands to the backend for the current frame.
 pub fn audio_system(world: &mut World) {
     let Some(audio_runtime) = world.audio_runtime_mut() else {
         return;

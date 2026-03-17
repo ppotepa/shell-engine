@@ -1,3 +1,5 @@
+//! Engine ECS-style systems: animator, audio, behavior, compositor, menu, renderer, and scene-lifecycle.
+
 pub mod animator;
 pub mod audio;
 pub mod behavior;
