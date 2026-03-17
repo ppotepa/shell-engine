@@ -3,191 +3,428 @@ $id: https://shell-quest.local/mods/shell-quest/schemas/scenes.yaml
 title: schema shell-quest scenes
 $defs:
   step_overlay:
+    type: object
+    properties:
+      effects:
+        type: array
+        items:
+          $ref: ./effects.yaml#/items
     allOf:
     - $ref: ../../../schemas/scene.schema.yaml#/$defs/step
-    - type: object
-      properties:
-        effects:
-          type: array
-          items:
-            $ref: ./effects.yaml#/items
   stage_overlay:
+    type: object
+    properties:
+      steps:
+        type: array
+        items:
+          $ref: '#/$defs/step_overlay'
     allOf:
     - $ref: ../../../schemas/scene.schema.yaml#/$defs/stage
-    - type: object
-      properties:
-        steps:
-          type: array
-          items:
-            $ref: '#/$defs/step_overlay'
   scene_stages_overlay:
+    type: object
+    additionalProperties: false
+    properties:
+      on_enter:
+        $ref: '#/$defs/stage_overlay'
+      on_idle:
+        $ref: '#/$defs/stage_overlay'
+      on_leave:
+        $ref: '#/$defs/stage_overlay'
     allOf:
     - $ref: ../../../schemas/scene.schema.yaml#/$defs/scene_stages
-    - type: object
-      properties:
-        on_enter:
-          $ref: '#/$defs/stage_overlay'
-        on_idle:
-          $ref: '#/$defs/stage_overlay'
-        on_leave:
-          $ref: '#/$defs/stage_overlay'
   lifecycle_stages_overlay:
+    type: object
+    additionalProperties: false
+    properties:
+      on_enter:
+        $ref: '#/$defs/stage_overlay'
+      on_idle:
+        $ref: '#/$defs/stage_overlay'
+      on_leave:
+        $ref: '#/$defs/stage_overlay'
     allOf:
     - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer_stages
-    - type: object
-      properties:
-        on_enter:
-          $ref: '#/$defs/stage_overlay'
-        on_idle:
-          $ref: '#/$defs/stage_overlay'
-        on_leave:
-          $ref: '#/$defs/stage_overlay'
   sprite_overlay:
+    type: object
+    properties:
+      use:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/template_names
+        - type: string
+          minLength: 1
+      args:
+        type: object
+        default: {}
+        additionalProperties: true
+      source:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/image_paths
+        - $ref: ./catalog.yaml#/$defs/model_paths
+        - type: string
+          minLength: 1
+      font:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/font_specs
+        - type: string
+          minLength: 1
+        - type: 'null'
+      stages:
+        $ref: '#/$defs/lifecycle_stages_overlay'
+      behaviors:
+        type: array
+        items:
+          $ref: '#/$defs/behavior_overlay'
+      children:
+        type: array
+        items:
+          $ref: '#/$defs/sprite_overlay'
     allOf:
     - $ref: ../../../schemas/scene.schema.yaml#/$defs/sprite
-    - type: object
-      properties:
-        use:
-          anyOf:
-          - $ref: ./catalog.yaml#/$defs/template_names
-          - type: string
-            minLength: 1
-        args:
-          type: object
-          default: {}
-          additionalProperties: true
-        source:
-          anyOf:
-          - $ref: ./catalog.yaml#/$defs/image_paths
-          - $ref: ./catalog.yaml#/$defs/model_paths
-          - type: string
-            minLength: 1
-        font:
-          anyOf:
-          - $ref: ./catalog.yaml#/$defs/font_specs
-          - type: string
-            minLength: 1
-          - type: 'null'
-        stages:
-          $ref: '#/$defs/lifecycle_stages_overlay'
-        behaviors:
-          type: array
-          items:
-            $ref: '#/$defs/behavior_overlay'
-        children:
-          type: array
-          items:
-            $ref: '#/$defs/sprite_overlay'
   behavior_overlay:
     oneOf:
-    - allOf:
-      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
-      - properties:
-          name:
-            const: blink
-          params:
-            type: object
-            properties:
-              target:
-                anyOf:
-                - $ref: ./catalog.yaml#/$defs/sprite_ids
-                - type: string
-                  minLength: 1
-        title: blink behavior overlay
-    - allOf:
-      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
-      - properties:
-          name:
-            const: bob
-          params:
-            type: object
-            properties:
-              target:
-                anyOf:
-                - $ref: ./catalog.yaml#/$defs/sprite_ids
-                - type: string
-                  minLength: 1
-        title: bob behavior overlay
-    - allOf:
-      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
-      - properties:
-          name:
-            const: follow
-          params:
-            type: object
-            properties:
-              target:
-                anyOf:
-                - $ref: ./catalog.yaml#/$defs/sprite_ids
-                - type: string
-                  minLength: 1
-        title: follow behavior overlay
-    - allOf:
-      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
-      - properties:
-          name:
-            const: menu-selected
-        title: menu-selected behavior overlay
-    - allOf:
-      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
-      - properties:
-          name:
-            const: selected-arrows
-          params:
-            type: object
-            properties:
-              target:
-                anyOf:
-                - $ref: ./catalog.yaml#/$defs/sprite_ids
-                - type: string
-                  minLength: 1
-        title: selected-arrows behavior overlay
-    - allOf:
-      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
-      - properties:
-          name:
-            const: stage-visibility
-          params:
-            type: object
-            properties:
-              target:
-                anyOf:
-                - $ref: ./catalog.yaml#/$defs/sprite_ids
-                - type: string
-                  minLength: 1
-        title: stage-visibility behavior overlay
-    - allOf:
-      - $ref: ../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior
-      - properties:
-          name:
-            const: timed-visibility
-          params:
-            type: object
-            properties:
-              target:
-                anyOf:
-                - $ref: ./catalog.yaml#/$defs/sprite_ids
-                - type: string
-                  minLength: 1
-        title: timed-visibility behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: blink
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to blink
+            visible_ms:
+              type: integer
+              description: Milliseconds visible per cycle
+              default: 250.0
+              minimum: 0.0
+              multipleOf: 10.0
+            hidden_ms:
+              type: integer
+              description: Milliseconds hidden per cycle
+              default: 250.0
+              minimum: 0.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for the blink cycle
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+      required:
+      - name
+      title: blink behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: bob
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to bob
+            amplitude_x:
+              type: integer
+              description: Horizontal oscillation amplitude
+              default: 0.0
+              multipleOf: 1.0
+            amplitude_y:
+              type: integer
+              description: Vertical oscillation amplitude
+              default: 1.0
+              multipleOf: 1.0
+            period_ms:
+              type: integer
+              description: Full oscillation cycle duration
+              default: 2000.0
+              minimum: 1.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for wave phase
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+      required:
+      - name
+      title: bob behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: follow
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to follow
+            amplitude_x:
+              type: integer
+              description: Horizontal offset from the followed sprite
+              default: 0.0
+              multipleOf: 1.0
+            amplitude_y:
+              type: integer
+              description: Vertical offset from the followed sprite
+              default: 0.0
+              multipleOf: 1.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - target
+      required:
+      - name
+      title: follow behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: menu-selected
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            index:
+              type: integer
+              description: Menu option index this behavior tracks
+              minimum: 0.0
+              multipleOf: 1.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - index
+      required:
+      - name
+      title: menu-selected behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: selected-arrows
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID that the arrow should flank
+            index:
+              type: integer
+              description: Menu option index this arrow tracks
+              minimum: 0.0
+              multipleOf: 1.0
+            side:
+              type: string
+              description: Which side the arrow appears on
+              default: left
+              enum:
+              - left
+              - right
+            padding:
+              type: integer
+              description: Cell padding from target sprite edge
+              default: 1.0
+              multipleOf: 1.0
+            amplitude_x:
+              type: integer
+              description: Horizontal sway amplitude of the arrow
+              default: 1.0
+              multipleOf: 1.0
+            period_ms:
+              type: integer
+              description: Full sway cycle duration
+              default: 900.0
+              minimum: 1.0
+              multipleOf: 10.0
+            phase_ms:
+              type: integer
+              description: Time offset for sway phase
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            autoscale_height:
+              type: boolean
+              description: Expand horizontal anchor distance by target item height
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - target
+          - index
+      required:
+      - name
+      title: selected-arrows behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: stage-visibility
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to control visibility
+            stages:
+              type: array
+              description: Scene stages when sprite is visible
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+          required:
+          - stages
+      required:
+      - name
+      title: stage-visibility behavior overlay
+    - type: object
+      additionalProperties: false
+      properties:
+        name:
+          const: timed-visibility
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            target:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/sprite_ids
+              - type: string
+                description: Sprite ID to control visibility
+            time_scope:
+              type: string
+              description: Whether times are scene-relative or stage-relative
+              default: scene
+              enum:
+              - scene
+              - stage
+            start_ms:
+              type: integer
+              description: When sprite becomes visible
+              default: 0.0
+              minimum: 0.0
+              multipleOf: 10.0
+            end_ms:
+              type: integer
+              description: When sprite becomes hidden
+              minimum: 0.0
+              multipleOf: 10.0
+            stages:
+              type: array
+              description: Scene stages when behavior is active
+              items:
+                type: string
+                enum:
+                - on-enter
+                - enter
+                - on-idle
+                - idle
+                - on-leave
+                - leave
+                - done
+      required:
+      - name
+      title: timed-visibility behavior overlay
   layer_overlay:
+    type: object
+    properties:
+      stages:
+        $ref: '#/$defs/lifecycle_stages_overlay'
+      behaviors:
+        type: array
+        items:
+          $ref: '#/$defs/behavior_overlay'
+      sprites:
+        type: array
+        items:
+          $ref: '#/$defs/sprite_overlay'
     allOf:
     - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer
-    - type: object
-      properties:
-        stages:
-          $ref: '#/$defs/lifecycle_stages_overlay'
-        behaviors:
-          type: array
-          items:
-            $ref: '#/$defs/behavior_overlay'
-        sprites:
-          type: array
-          items:
-            $ref: '#/$defs/sprite_overlay'
 allOf:
 - $ref: ../../../schemas/scene.schema.yaml
-- properties:
+- type: object
+  properties:
     next:
       anyOf:
       - $ref: ./catalog.yaml#/$defs/scene_refs
@@ -196,6 +433,7 @@ allOf:
       - type: 'null'
     menu-options:
       items:
+        type: object
         properties:
           next:
             anyOf:
@@ -214,6 +452,7 @@ allOf:
               minLength: 1
     menu_options:
       items:
+        type: object
         properties:
           next:
             anyOf:
@@ -232,6 +471,7 @@ allOf:
               minLength: 1
     objects:
       items:
+        type: object
         properties:
           use:
             anyOf:
