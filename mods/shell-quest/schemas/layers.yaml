@@ -424,5 +424,3 @@ $defs:
 type: array
 items:
   $ref: '#/$defs/layer_overlay'
-allOf:
-- $ref: ../../../schemas/layers-file.schema.yaml

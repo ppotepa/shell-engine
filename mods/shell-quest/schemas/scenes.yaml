@@ -424,86 +424,131 @@ $defs:
 allOf:
 - $ref: ../../../schemas/scene.schema.yaml
 - type: object
-  properties:
-    next:
-      anyOf:
-      - $ref: ./catalog.yaml#/$defs/scene_refs
-      - type: string
-        minLength: 1
-      - type: 'null'
-    menu-options:
-      items:
-        type: object
-        properties:
-          next:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/scene_refs
-            - type: string
-              minLength: 1
-          scene:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/scene_refs
-            - type: string
-              minLength: 1
-          to:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/scene_refs
-            - type: string
-              minLength: 1
-    menu_options:
-      items:
-        type: object
-        properties:
-          next:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/scene_refs
-            - type: string
-              minLength: 1
-          scene:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/scene_refs
-            - type: string
-              minLength: 1
-          to:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/scene_refs
-            - type: string
-              minLength: 1
-    objects:
-      items:
-        type: object
-        properties:
-          use:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/object_refs
-            - type: string
-              minLength: 1
-          ref:
-            anyOf:
-            - $ref: ./catalog.yaml#/$defs/object_refs
-            - type: string
-              minLength: 1
-    input:
-      type: object
+  allOf:
+  - if:
+      required:
+      - next
+    then:
       properties:
-        obj-viewer:
+        next:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/scene_refs
+          - type: string
+            minLength: 1
+          - type: 'null'
+  - if:
+      required:
+      - menu-options
+    then:
+      properties:
+        menu-options:
+          items:
+            type: object
+            properties:
+              next:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              scene:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              to:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+  - if:
+      required:
+      - menu_options
+    then:
+      properties:
+        menu_options:
+          items:
+            type: object
+            properties:
+              next:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              scene:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+              to:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/scene_refs
+                - type: string
+                  minLength: 1
+  - if:
+      required:
+      - objects
+    then:
+      properties:
+        objects:
+          items:
+            type: object
+            properties:
+              use:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/object_refs
+                - type: string
+                  minLength: 1
+              ref:
+                anyOf:
+                - $ref: ./catalog.yaml#/$defs/object_refs
+                - type: string
+                  minLength: 1
+  - if:
+      required:
+      - input
+    then:
+      properties:
+        input:
+          type: object
           properties:
-            sprite_id:
-              anyOf:
-              - $ref: ./catalog.yaml#/$defs/sprite_ids
-              - type: string
-                minLength: 1
-    behaviors:
-      type: array
-      items:
-        $ref: '#/$defs/behavior_overlay'
-    layers:
-      type: array
-      items:
-        $ref: '#/$defs/layer_overlay'
-    templates:
-      type: object
-      additionalProperties:
-        $ref: '#/$defs/sprite_overlay'
-    stages:
-      $ref: '#/$defs/scene_stages_overlay'
+            obj-viewer:
+              properties:
+                sprite_id:
+                  anyOf:
+                  - $ref: ./catalog.yaml#/$defs/sprite_ids
+                  - type: string
+                    minLength: 1
+  - if:
+      required:
+      - behaviors
+    then:
+      properties:
+        behaviors:
+          type: array
+          items:
+            $ref: '#/$defs/behavior_overlay'
+  - if:
+      required:
+      - layers
+    then:
+      properties:
+        layers:
+          type: array
+          items:
+            $ref: '#/$defs/layer_overlay'
+  - if:
+      required:
+      - templates
+    then:
+      properties:
+        templates:
+          type: object
+          additionalProperties:
+            $ref: '#/$defs/sprite_overlay'
+  - if:
+      required:
+      - stages
+    then:
+      properties:
+        stages:
+          $ref: '#/$defs/scene_stages_overlay'

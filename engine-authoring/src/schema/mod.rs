@@ -873,11 +873,47 @@ fn build_mod_overlay_schema(mod_name: &str) -> Value {
         Value::String(format!("schema {mod_name} mod")),
     );
     root.insert(
-        Value::String("allOf".to_string()),
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    root.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(true),
+    );
+    root.insert(
+        Value::String("required".to_string()),
         Value::Sequence(vec![
-            schema_ref("../../../schemas/mod.schema.yaml"),
-            Value::Mapping(mod_overlay_patch()),
+            Value::String("name".to_string()),
+            Value::String("version".to_string()),
+            Value::String("entrypoint".to_string()),
         ]),
+    );
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("name".to_string()),
+        schema_ref("../../../schemas/mod.schema.yaml#/properties/name"),
+    );
+    props.insert(
+        Value::String("version".to_string()),
+        schema_ref("../../../schemas/mod.schema.yaml#/properties/version"),
+    );
+    props.insert(
+        Value::String("entrypoint".to_string()),
+        Value::Mapping(mapping_with(
+            "anyOf",
+            Value::Sequence(vec![
+                schema_ref("./catalog.yaml#/$defs/scene_paths"),
+                schema_ref("../../../schemas/mod.schema.yaml#/properties/entrypoint"),
+            ]),
+        )),
+    );
+    props.insert(
+        Value::String("terminal".to_string()),
+        schema_ref("../../../schemas/mod.schema.yaml#/properties/terminal"),
+    );
+    root.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
     );
     Value::Mapping(root)
 }
@@ -1006,10 +1042,6 @@ fn build_layers_file_overlay_schema(mod_name: &str) -> Value {
         Value::String("items".to_string()),
         schema_ref("#/$defs/layer_overlay"),
     );
-    root.insert(
-        Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref("../../../schemas/layers-file.schema.yaml")]),
-    );
     Value::Mapping(root)
 }
 
@@ -1045,12 +1077,6 @@ fn build_templates_file_overlay_schema(mod_name: &str) -> Value {
         Value::String("additionalProperties".to_string()),
         schema_ref("#/$defs/sprite_overlay"),
     );
-    root.insert(
-        Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref(
-            "../../../schemas/templates-file.schema.yaml",
-        )]),
-    );
     Value::Mapping(root)
 }
 
@@ -1081,12 +1107,6 @@ fn build_sprites_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("items".to_string()),
         schema_ref("#/$defs/sprite_overlay"),
-    );
-    root.insert(
-        Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref(
-            "../../../schemas/sprites-file.schema.yaml",
-        )]),
     );
     Value::Mapping(root)
 }
@@ -1265,69 +1285,71 @@ fn param_control_schema(control: &ParamControl) -> Mapping {
     map
 }
 
-fn mod_overlay_patch() -> Mapping {
-    let mut props = Mapping::new();
-    props.insert(
-        Value::String("entrypoint".to_string()),
-        Value::Mapping(mapping_with(
-            "anyOf",
-            Value::Sequence(vec![
-                schema_ref("./catalog.yaml#/$defs/scene_paths"),
-                schema_ref("../../../schemas/mod.schema.yaml#/properties/entrypoint"),
-            ]),
-        )),
-    );
-    let mut root = Mapping::new();
-    root.insert(
-        Value::String("properties".to_string()),
-        Value::Mapping(props),
-    );
-    root
-}
-
 fn scene_overlay_patch() -> Mapping {
-    let mut props = Mapping::new();
-    props.insert(
-        Value::String("next".to_string()),
+    let mut patches = Vec::new();
+    patches.push(conditional_property_overlay(
+        "next",
         nullable_suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
-    );
-    props.insert(
-        Value::String("menu-options".to_string()),
+    ));
+    patches.push(conditional_property_overlay(
+        "menu-options",
         menu_options_overlay(),
-    );
-    props.insert(
-        Value::String("menu_options".to_string()),
+    ));
+    patches.push(conditional_property_overlay(
+        "menu_options",
         menu_options_overlay(),
-    );
-    props.insert(Value::String("objects".to_string()), objects_overlay());
-    props.insert(Value::String("input".to_string()), scene_input_overlay());
-    props.insert(
-        Value::String("behaviors".to_string()),
+    ));
+    patches.push(conditional_property_overlay("objects", objects_overlay()));
+    patches.push(conditional_property_overlay("input", scene_input_overlay()));
+    patches.push(conditional_property_overlay(
+        "behaviors",
         array_items_ref("#/$defs/behavior_overlay"),
-    );
-    props.insert(
-        Value::String("layers".to_string()),
+    ));
+    patches.push(conditional_property_overlay(
+        "layers",
         array_items_ref("#/$defs/layer_overlay"),
-    );
-    props.insert(
-        Value::String("templates".to_string()),
+    ));
+    patches.push(conditional_property_overlay(
+        "templates",
         object_additional_properties_ref("#/$defs/sprite_overlay"),
-    );
-    props.insert(
-        Value::String("stages".to_string()),
+    ));
+    patches.push(conditional_property_overlay(
+        "stages",
         schema_ref("#/$defs/scene_stages_overlay"),
-    );
+    ));
 
     let mut root = Mapping::new();
     root.insert(
         Value::String("type".to_string()),
         Value::String("object".to_string()),
     );
-    root.insert(
+    root.insert(Value::String("allOf".to_string()), Value::Sequence(patches));
+    root
+}
+
+fn conditional_property_overlay(property_name: &str, property_schema: Value) -> Value {
+    let mut if_block = Mapping::new();
+    if_block.insert(
+        Value::String("required".to_string()),
+        Value::Sequence(vec![Value::String(property_name.to_string())]),
+    );
+
+    let mut props = Mapping::new();
+    props.insert(Value::String(property_name.to_string()), property_schema);
+
+    let mut then_block = Mapping::new();
+    then_block.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
     );
-    root
+
+    let mut block = Mapping::new();
+    block.insert(Value::String("if".to_string()), Value::Mapping(if_block));
+    block.insert(
+        Value::String("then".to_string()),
+        Value::Mapping(then_block),
+    );
+    Value::Mapping(block)
 }
 
 fn menu_options_overlay() -> Value {

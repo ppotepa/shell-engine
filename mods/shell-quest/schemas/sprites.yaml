@@ -424,5 +424,3 @@ $defs:
 type: array
 items:
   $ref: '#/$defs/sprite_overlay'
-allOf:
-- $ref: ../../../schemas/sprites-file.schema.yaml
