@@ -7,4 +7,12 @@ items:
   - $ref: ../../../schemas/objects-file.schema.yaml#/items
   - properties:
       use:
-        $ref: ./catalog.yaml#/$defs/object_names
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/object_refs
+        - type: string
+          minLength: 1
+      ref:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/object_refs
+        - type: string
+          minLength: 1

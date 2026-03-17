@@ -96,19 +96,40 @@ mod tests {
         let mod_root = temp_root.join("playground");
         fs::create_dir_all(mod_root.join("scenes/intro/layers")).expect("create layers");
         fs::create_dir_all(mod_root.join("scenes/intro/sprites")).expect("create sprites");
+        fs::create_dir_all(mod_root.join("scenes/intro/templates")).expect("create templates");
+        fs::create_dir_all(mod_root.join("scenes/shared/objects")).expect("create shared objects");
         fs::create_dir_all(mod_root.join("objects")).expect("create objects");
+        fs::create_dir_all(mod_root.join("assets/fonts/mono")).expect("create fonts");
+        fs::create_dir_all(mod_root.join("assets/images")).expect("create images");
         fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
         fs::write(
             mod_root.join("scenes/intro/scene.yml"),
-            "id: intro\neffects:\n  - name: fade-in\n    duration: 1.0\n",
+            "id: intro\ntemplates:\n  title-card:\n    type: text\n    content: TEST\ninput:\n  obj-viewer:\n    sprite_id: logo\neffects:\n  - name: fade-in\n    duration: 1.0\n",
         )
         .expect("write scene");
         fs::write(
             mod_root.join("scenes/intro/layers/bg.yml"),
-            "name: background\n",
+            "- name: background\n  sprites:\n    - id: logo\n      use: title-card\n      font: generic:1\n      source: /assets/images/logo.png\n",
         )
         .expect("write layer partial");
+        fs::write(
+            mod_root.join("scenes/intro/templates/common.yml"),
+            "menu-item:\n  type: text\n  content: START\n",
+        )
+        .expect("write template partial");
         fs::write(mod_root.join("objects/npc.yml"), "name: npc\n").expect("write object");
+        fs::write(
+            mod_root.join("scenes/shared/objects/banner.yml"),
+            "name: banner\nsprites:\n  - type: text\n    content: SHARED\n",
+        )
+        .expect("write shared object");
+        fs::write(
+            mod_root.join("assets/fonts/mono/manifest.yaml"),
+            "name: Mono Display\n",
+        )
+        .expect("write font manifest");
+        fs::write(mod_root.join("assets/images/logo.png"), b"").expect("write image");
+        fs::write(mod_root.join("scenes/intro/cube.obj"), "").expect("write model");
 
         sync_fragment_for_mod(&mod_root, false).expect("generate");
 
@@ -121,9 +142,13 @@ mod tests {
             .expect("defs mapping");
 
         assert!(defs.contains_key(Value::String("scene_ids".to_string())));
+        assert!(defs.contains_key(Value::String("scene_paths".to_string())));
+        assert!(defs.contains_key(Value::String("scene_refs".to_string())));
         assert!(defs.contains_key(Value::String("object_names".to_string())));
+        assert!(defs.contains_key(Value::String("object_refs".to_string())));
         assert!(defs.contains_key(Value::String("effect_names".to_string())));
         assert!(defs.contains_key(Value::String("layer_refs".to_string())));
+        assert!(defs.contains_key(Value::String("font_specs".to_string())));
 
         let object_names = defs
             .get(Value::String("object_names".to_string()))
@@ -143,30 +168,51 @@ mod tests {
             .iter()
             .any(|v| v.as_str() == Some("intro/layers/bg.yml")));
 
-        let scene_overlay = fs::read_to_string(mod_root.join("schemas/scenes.yaml"))
-            .expect("read scene overlay");
-        assert!(scene_overlay.contains("./catalog.yaml#/$defs/scene_ids"));
+        let mod_overlay =
+            fs::read_to_string(mod_root.join("schemas/mod.yaml")).expect("read mod overlay");
+        assert!(mod_overlay.contains("../../../schemas/mod.schema.yaml"));
+        assert!(mod_overlay.contains("./catalog.yaml#/$defs/scene_paths"));
+
+        let object_doc_overlay =
+            fs::read_to_string(mod_root.join("schemas/object.yaml")).expect("read object overlay");
+        assert!(object_doc_overlay.contains("../../../schemas/object.schema.yaml"));
+        assert!(object_doc_overlay.contains("const: blink"));
+        assert!(object_doc_overlay.contains("visible_ms:"));
+
+        let scene_overlay =
+            fs::read_to_string(mod_root.join("schemas/scenes.yaml")).expect("read scene overlay");
+        assert!(scene_overlay.contains("./catalog.yaml#/$defs/scene_refs"));
+        assert!(scene_overlay.contains("./catalog.yaml#/$defs/sprite_ids"));
+        assert!(scene_overlay.contains("./catalog.yaml#/$defs/template_names"));
+        assert!(scene_overlay.contains("./catalog.yaml#/$defs/font_specs"));
+        assert!(scene_overlay.contains("./effects.yaml#/items"));
+        assert!(scene_overlay.contains("#/$defs/behavior_overlay"));
+        assert!(scene_overlay.contains("const: blink"));
+        assert!(scene_overlay.contains("#/$defs/sprite_overlay"));
         assert!(scene_overlay.contains("../../../schemas/scene.schema.yaml"));
 
         let objects_overlay = fs::read_to_string(mod_root.join("schemas/objects.yaml"))
             .expect("read objects overlay");
-        assert!(objects_overlay.contains("./catalog.yaml#/$defs/object_names"));
+        assert!(objects_overlay.contains("./catalog.yaml#/$defs/object_refs"));
         assert!(objects_overlay.contains("../../../schemas/objects-file.schema.yaml#/items"));
 
-        let layers_overlay = fs::read_to_string(mod_root.join("schemas/layers.yaml"))
-            .expect("read layers overlay");
+        let layers_overlay =
+            fs::read_to_string(mod_root.join("schemas/layers.yaml")).expect("read layers overlay");
         assert!(layers_overlay.contains("../../../schemas/layers-file.schema.yaml"));
+        assert!(layers_overlay.contains("#/$defs/layer_overlay"));
 
         let templates_overlay = fs::read_to_string(mod_root.join("schemas/templates.yaml"))
             .expect("read templates overlay");
         assert!(templates_overlay.contains("../../../schemas/templates-file.schema.yaml"));
+        assert!(templates_overlay.contains("#/$defs/sprite_overlay"));
 
         let sprites_overlay = fs::read_to_string(mod_root.join("schemas/sprites.yaml"))
             .expect("read sprites overlay");
         assert!(sprites_overlay.contains("../../../schemas/sprites-file.schema.yaml"));
+        assert!(sprites_overlay.contains("#/$defs/sprite_overlay"));
 
-        let effect_overlay = fs::read_to_string(mod_root.join("schemas/effects.yaml"))
-            .expect("read effect overlay");
+        let effect_overlay =
+            fs::read_to_string(mod_root.join("schemas/effects.yaml")).expect("read effect overlay");
         assert!(effect_overlay.contains("oneOf:"));
         assert!(effect_overlay.contains("const: fade-in"));
         assert!(effect_overlay.contains("easing:"));
@@ -201,11 +247,8 @@ mod tests {
         .expect("write scene");
 
         sync_fragment_for_mod(&mod_root, false).expect("generate");
-        fs::write(
-            mod_root.join("schemas/scenes.yaml"),
-            "outdated: true\n",
-        )
-        .expect("mutate generated file");
+        fs::write(mod_root.join("schemas/scenes.yaml"), "outdated: true\n")
+            .expect("mutate generated file");
 
         let err = sync_fragment_for_mod(&mod_root, true).expect_err("check should fail");
         assert!(err.to_string().contains("generated schema is out of date"));

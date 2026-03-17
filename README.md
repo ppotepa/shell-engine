@@ -43,6 +43,58 @@ Shortcut wrapper:
 ./devtool.sh new mod my-mod
 ```
 
+## YAML-first authoring workflow
+
+`./refresh-schemas.sh` is the main authoring refresh entrypoint.
+
+Run it after changing mod content, scene ids, templates, objects, effects, sprites, or assets:
+```bash
+./refresh-schemas.sh
+```
+
+Strict drift check:
+```bash
+cargo run -p schema-gen -- --all-mods --check
+```
+
+What the refresh flow does:
+
+- scans every mod under `mods/`
+- rebuilds per-mod authoring overlays in `mods/{mod}/schemas/*.yaml`
+- rebuilds `mods/{mod}/schemas/catalog.yaml` with dynamic authoring enums
+- keeps `mod.yaml`, `scene.yml`, and scene partial schemas aligned with current content
+
+Important schema layout:
+
+- global base schemas stay in `schemas/*.yaml`
+- dynamic per-mod overlays live in `mods/{mod}/schemas/*.yaml`
+- `mods/{mod}/mod.yaml` points to local `./schemas/mod.yaml`
+- scene roots and partials point to local per-mod overlays such as `schemas/scenes.yaml`, `schemas/layers.yaml`, `schemas/sprites.yaml`
+
+Current generated authoring suggestions include:
+
+- `mod.yaml.entrypoint` from real discoverable scene paths
+- scene routing in `next`, `menu-options[].next`, `menu-options[].scene`, `to`
+- object references in `objects[].ref` and `objects[].use`
+- object prefab logic in `object.logic.behavior` and `object.logic.params`
+- sprite template usage in `sprite.use`
+- input target selection in `input.obj-viewer.sprite_id`
+- sprite asset values in `source` and `font`
+- embedded effect names/params in scene, layer, and sprite stages
+- behavior target fields such as `params.target` / `params.sprite_id`
+
+Recommended daily flow:
+
+1. Scaffold or edit YAML with `devtool` and normal editor workflow.
+2. Run `./refresh-schemas.sh`.
+3. Re-open or continue editing YAML with updated completions.
+4. Use `schema-gen --check` in CI or before pushing when you want to verify no generated schema drift remains.
+
+Notes:
+
+- `devtool new mod`, `devtool new scene`, and `devtool new effect` already refresh the touched mod schemas for you
+- every new dynamic authoring surface should follow the same pipeline: collector -> `catalog.yaml` -> per-mod overlay -> regression test
+
 ## Repo map
 
 - `app/` - launcher

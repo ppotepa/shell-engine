@@ -4,7 +4,7 @@
 //! tests, and future editor integrations all consume the same descriptors.
 
 use anyhow::{Context, Result};
-use engine_core::authoring::catalog::static_catalog;
+use engine_core::authoring::catalog::{behavior_catalog, static_catalog};
 use engine_core::effects::{shared_dispatcher, ParamControl};
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
@@ -30,7 +30,14 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
         .ok_or_else(|| anyhow::anyhow!("invalid mod path: {}", mod_root.display()))?;
 
     let scene_ids = collect_scene_ids(mod_root)?;
+    let scene_paths = collect_scene_paths(mod_root)?;
+    let scene_refs: BTreeSet<String> = scene_ids
+        .iter()
+        .cloned()
+        .chain(scene_paths.iter().cloned())
+        .collect();
     let object_names = collect_object_names(mod_root)?;
+    let object_refs = collect_object_ref_values(mod_root, &object_names)?;
     let mut effect_names = collect_effect_names(mod_root)?;
     for name in static_catalog().effect_names {
         effect_names.insert((*name).to_string());
@@ -38,11 +45,11 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     let layer_refs = collect_scene_partial_refs(mod_root, "layers")?;
     let sprite_refs = collect_scene_partial_refs(mod_root, "sprites")?;
     let template_refs = collect_scene_partial_refs(mod_root, "templates")?;
-    let object_refs = collect_scene_partial_refs(mod_root, "objects")?;
     let effect_refs = collect_scene_partial_refs(mod_root, "effects")?;
 
     // Asset catalogs for autocomplete
     let font_names = collect_font_names(mod_root)?;
+    let font_specs = collect_font_specs(&font_names);
     let image_paths = collect_image_paths(mod_root)?;
     let model_paths = collect_model_paths(mod_root)?;
     let sprite_ids = collect_sprite_ids(mod_root)?;
@@ -68,6 +75,14 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     defs.insert(
         Value::String("scene_ids".to_string()),
         enum_schema(scene_ids.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("scene_paths".to_string()),
+        enum_schema(scene_paths.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("scene_refs".to_string()),
+        enum_schema(scene_refs.into_iter().collect()),
     );
     defs.insert(
         Value::String("object_names".to_string()),
@@ -102,6 +117,10 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
         enum_schema(font_names.into_iter().collect()),
     );
     defs.insert(
+        Value::String("font_specs".to_string()),
+        enum_schema(font_specs.into_iter().collect()),
+    );
+    defs.insert(
         Value::String("image_paths".to_string()),
         enum_schema(image_paths.into_iter().collect()),
     );
@@ -121,7 +140,18 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
 
     Ok(vec![
         output_file("schemas/catalog.yaml".to_string(), Value::Mapping(root)),
-        output_file("schemas/scenes.yaml".to_string(), build_scene_overlay_schema(mod_name)),
+        output_file(
+            "schemas/mod.yaml".to_string(),
+            build_mod_overlay_schema(mod_name),
+        ),
+        output_file(
+            "schemas/scenes.yaml".to_string(),
+            build_scene_overlay_schema(mod_name),
+        ),
+        output_file(
+            "schemas/object.yaml".to_string(),
+            build_object_doc_overlay_schema(mod_name),
+        ),
         output_file(
             "schemas/objects.yaml".to_string(),
             build_objects_file_overlay_schema(mod_name),
@@ -289,7 +319,6 @@ fn build_behavior_schema() -> Value {
 }
 
 /// Converts FieldMetadata to JSON Schema property definition.
-#[cfg(test)]
 fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetadata) -> Value {
     use engine_core::authoring::metadata::ValueKind;
 
@@ -561,11 +590,12 @@ fn build_input_profile_schema() -> Value {
 /// Builds allOf conditional blocks from RequiredIf metadata for a set of fields.
 /// Returns `if/then` JSON Schema objects — one per unique (field, equals) pair.
 #[cfg(test)]
+#[allow(dead_code)]
 fn build_required_if_allof(
     fields: &[engine_core::authoring::metadata::FieldMetadata],
 ) -> Vec<Value> {
-    use std::collections::BTreeMap;
     use engine_core::authoring::metadata::Requirement;
+    use std::collections::BTreeMap;
 
     let mut groups: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
     for f in fields {
@@ -604,8 +634,9 @@ fn build_required_if_allof(
 /// Emits `$defs` for `sprite_required_if` (if/then allOf blocks from metadata).
 /// Referenced by scene.schema.yaml sprite def to keep RequiredIf auto-generated.
 #[cfg(test)]
+#[allow(dead_code)]
 fn build_scene_fields_schema() -> Value {
-    use engine_core::scene::{SPRITE_FIELDS, SCENE_FIELDS, LAYER_FIELDS, OBJECT_FIELDS};
+    use engine_core::scene::{LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
 
     let mut root = Mapping::new();
     root.insert(
@@ -825,6 +856,32 @@ fn build_sugar_schema() -> Value {
     Value::Mapping(root)
 }
 
+fn build_mod_overlay_schema(mod_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/mods/{mod_name}/schemas/mod.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("schema {mod_name} mod")),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/mod.schema.yaml"),
+            Value::Mapping(mod_overlay_patch()),
+        ]),
+    );
+    Value::Mapping(root)
+}
+
 fn build_scene_overlay_schema(mod_name: &str) -> Value {
     let mut root = Mapping::new();
     root.insert(
@@ -842,27 +899,53 @@ fn build_scene_overlay_schema(mod_name: &str) -> Value {
         Value::String(format!("schema {mod_name} scenes")),
     );
     root.insert(
+        Value::String("$defs".to_string()),
+        Value::Mapping(shared_overlay_defs()),
+    );
+    root.insert(
         Value::String("allOf".to_string()),
         Value::Sequence(vec![
             schema_ref("../../../schemas/scene.schema.yaml"),
-            Value::Mapping(scene_overlay_patch(mod_name)),
+            Value::Mapping(scene_overlay_patch()),
+        ]),
+    );
+    Value::Mapping(root)
+}
+
+fn build_object_doc_overlay_schema(mod_name: &str) -> Value {
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String(format!(
+            "https://shell-quest.local/mods/{mod_name}/schemas/object.yaml"
+        )),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("schema {mod_name} object")),
+    );
+    root.insert(
+        Value::String("$defs".to_string()),
+        Value::Mapping(mapping_with(
+            "object_logic_overlay",
+            Value::Mapping(object_logic_overlay_def()),
+        )),
+    );
+    root.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/object.schema.yaml"),
+            Value::Mapping(object_doc_overlay_patch()),
         ]),
     );
     Value::Mapping(root)
 }
 
 fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
-    let mut items_patch = Mapping::new();
-    let mut use_props = Mapping::new();
-    use_props.insert(
-        Value::String("use".to_string()),
-        schema_ref("./catalog.yaml#/$defs/object_names"),
-    );
-    items_patch.insert(
-        Value::String("properties".to_string()),
-        Value::Mapping(use_props),
-    );
-
     let mut root = Mapping::new();
     root.insert(
         Value::String("$schema".to_string()),
@@ -888,7 +971,7 @@ fn build_objects_file_overlay_schema(mod_name: &str) -> Value {
             "allOf",
             Value::Sequence(vec![
                 schema_ref("../../../schemas/objects-file.schema.yaml#/items"),
-                Value::Mapping(items_patch),
+                Value::Mapping(object_instance_overlay_patch()),
             ]),
         )),
     );
@@ -910,6 +993,18 @@ fn build_layers_file_overlay_schema(mod_name: &str) -> Value {
     root.insert(
         Value::String("title".to_string()),
         Value::String(format!("schema {mod_name} layers")),
+    );
+    root.insert(
+        Value::String("$defs".to_string()),
+        Value::Mapping(shared_overlay_defs()),
+    );
+    root.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    root.insert(
+        Value::String("items".to_string()),
+        schema_ref("#/$defs/layer_overlay"),
     );
     root.insert(
         Value::String("allOf".to_string()),
@@ -935,8 +1030,26 @@ fn build_templates_file_overlay_schema(mod_name: &str) -> Value {
         Value::String(format!("schema {mod_name} templates")),
     );
     root.insert(
+        Value::String("$defs".to_string()),
+        Value::Mapping(shared_overlay_defs()),
+    );
+    root.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    root.insert(
+        Value::String("default".to_string()),
+        Value::Mapping(Mapping::new()),
+    );
+    root.insert(
+        Value::String("additionalProperties".to_string()),
+        schema_ref("#/$defs/sprite_overlay"),
+    );
+    root.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref("../../../schemas/templates-file.schema.yaml")]),
+        Value::Sequence(vec![schema_ref(
+            "../../../schemas/templates-file.schema.yaml",
+        )]),
     );
     Value::Mapping(root)
 }
@@ -958,8 +1071,22 @@ fn build_sprites_file_overlay_schema(mod_name: &str) -> Value {
         Value::String(format!("schema {mod_name} sprites")),
     );
     root.insert(
+        Value::String("$defs".to_string()),
+        Value::Mapping(shared_overlay_defs()),
+    );
+    root.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    root.insert(
+        Value::String("items".to_string()),
+        schema_ref("#/$defs/sprite_overlay"),
+    );
+    root.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref("../../../schemas/sprites-file.schema.yaml")]),
+        Value::Sequence(vec![schema_ref(
+            "../../../schemas/sprites-file.schema.yaml",
+        )]),
     );
     Value::Mapping(root)
 }
@@ -1138,11 +1265,31 @@ fn param_control_schema(control: &ParamControl) -> Mapping {
     map
 }
 
-fn scene_overlay_patch(_mod_name: &str) -> Mapping {
+fn mod_overlay_patch() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("entrypoint".to_string()),
+        Value::Mapping(mapping_with(
+            "anyOf",
+            Value::Sequence(vec![
+                schema_ref("./catalog.yaml#/$defs/scene_paths"),
+                schema_ref("../../../schemas/mod.schema.yaml#/properties/entrypoint"),
+            ]),
+        )),
+    );
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    root
+}
+
+fn scene_overlay_patch() -> Mapping {
     let mut props = Mapping::new();
     props.insert(
         Value::String("next".to_string()),
-        nullable_ref("./catalog.yaml#/$defs/scene_ids"),
+        nullable_suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
     );
     props.insert(
         Value::String("menu-options".to_string()),
@@ -1152,9 +1299,23 @@ fn scene_overlay_patch(_mod_name: &str) -> Mapping {
         Value::String("menu_options".to_string()),
         menu_options_overlay(),
     );
+    props.insert(Value::String("objects".to_string()), objects_overlay());
+    props.insert(Value::String("input".to_string()), scene_input_overlay());
     props.insert(
-        Value::String("objects".to_string()),
-        objects_overlay(),
+        Value::String("behaviors".to_string()),
+        array_items_ref("#/$defs/behavior_overlay"),
+    );
+    props.insert(
+        Value::String("layers".to_string()),
+        array_items_ref("#/$defs/layer_overlay"),
+    );
+    props.insert(
+        Value::String("templates".to_string()),
+        object_additional_properties_ref("#/$defs/sprite_overlay"),
+    );
+    props.insert(
+        Value::String("stages".to_string()),
+        schema_ref("#/$defs/scene_stages_overlay"),
     );
 
     let mut root = Mapping::new();
@@ -1166,28 +1327,490 @@ fn scene_overlay_patch(_mod_name: &str) -> Mapping {
 }
 
 fn menu_options_overlay() -> Value {
-    Value::Mapping(mapping_with(
-        "items",
-        Value::Mapping(mapping_with(
-            "properties",
-            Value::Mapping(mapping_with(
-                "next",
-                schema_ref("./catalog.yaml#/$defs/scene_ids"),
-            )),
-        )),
-    ))
+    let mut option_props = Mapping::new();
+    option_props.insert(
+        Value::String("next".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
+    );
+    option_props.insert(
+        Value::String("scene".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
+    );
+    option_props.insert(
+        Value::String("to".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
+    );
+    let mut items = Mapping::new();
+    items.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(option_props),
+    );
+    Value::Mapping(mapping_with("items", Value::Mapping(items)))
 }
 
 fn objects_overlay() -> Value {
     Value::Mapping(mapping_with(
         "items",
+        Value::Mapping(object_instance_overlay_patch()),
+    ))
+}
+
+fn scene_input_overlay() -> Value {
+    let mut obj_viewer_props = Mapping::new();
+    obj_viewer_props.insert(
+        Value::String("sprite_id".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
+    );
+    let mut obj_viewer = Mapping::new();
+    obj_viewer.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(obj_viewer_props),
+    );
+
+    let mut input_props = Mapping::new();
+    input_props.insert(
+        Value::String("obj-viewer".to_string()),
+        Value::Mapping(obj_viewer),
+    );
+
+    let mut input = Mapping::new();
+    input.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    input.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(input_props),
+    );
+    Value::Mapping(input)
+}
+
+fn object_instance_overlay_patch() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("use".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/object_refs"]),
+    );
+    props.insert(
+        Value::String("ref".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/object_refs"]),
+    );
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    patch
+}
+
+fn object_doc_overlay_patch() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("logic".to_string()),
+        schema_ref("#/$defs/object_logic_overlay"),
+    );
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    patch
+}
+
+fn object_logic_overlay_def() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("behavior".to_string()),
+        suggested_enum_strings(
+            behavior_catalog()
+                .into_iter()
+                .map(|(name, _)| name.to_string())
+                .collect(),
+        ),
+    );
+
+    let conditional_blocks: Vec<Value> = behavior_catalog()
+        .into_iter()
+        .map(|(behavior_name, fields)| {
+            let mut if_props = Mapping::new();
+            if_props.insert(
+                Value::String("behavior".to_string()),
+                Value::Mapping(mapping_with(
+                    "const",
+                    Value::String(behavior_name.to_string()),
+                )),
+            );
+            let mut if_block = Mapping::new();
+            if_block.insert(
+                Value::String("properties".to_string()),
+                Value::Mapping(if_props),
+            );
+
+            let mut then_props = Mapping::new();
+            then_props.insert(
+                Value::String("params".to_string()),
+                behavior_params_schema(&fields),
+            );
+            let mut then_block = Mapping::new();
+            then_block.insert(
+                Value::String("properties".to_string()),
+                Value::Mapping(then_props),
+            );
+
+            let mut block = Mapping::new();
+            block.insert(Value::String("if".to_string()), Value::Mapping(if_block));
+            block.insert(
+                Value::String("then".to_string()),
+                Value::Mapping(then_block),
+            );
+            Value::Mapping(block)
+        })
+        .collect();
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    if !conditional_blocks.is_empty() {
+        patch.insert(
+            Value::String("allOf".to_string()),
+            Value::Sequence(conditional_blocks),
+        );
+    }
+
+    let mut overlay = Mapping::new();
+    overlay.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/object.schema.yaml#/properties/logic"),
+            Value::Mapping(patch),
+        ]),
+    );
+    overlay
+}
+
+fn behavior_params_schema(fields: &[engine_core::authoring::metadata::FieldMetadata]) -> Value {
+    use engine_core::authoring::metadata::Requirement;
+
+    let mut props = Mapping::new();
+    let mut required = Vec::new();
+    for field in fields {
+        props.insert(
+            Value::String(field.name.to_string()),
+            field_metadata_to_schema(field),
+        );
+        if matches!(field.requirement, Requirement::Required) {
+            required.push(Value::String(field.name.to_string()));
+        }
+    }
+
+    let mut schema = Mapping::new();
+    schema.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    schema.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(false),
+    );
+    schema.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    if !required.is_empty() {
+        schema.insert(
+            Value::String("required".to_string()),
+            Value::Sequence(required),
+        );
+    }
+    Value::Mapping(schema)
+}
+
+fn shared_overlay_defs() -> Mapping {
+    let mut defs = Mapping::new();
+    defs.insert(
+        Value::String("step_overlay".to_string()),
+        Value::Mapping(step_overlay_def()),
+    );
+    defs.insert(
+        Value::String("stage_overlay".to_string()),
+        Value::Mapping(stage_overlay_def()),
+    );
+    defs.insert(
+        Value::String("scene_stages_overlay".to_string()),
+        Value::Mapping(scene_stages_overlay_def()),
+    );
+    defs.insert(
+        Value::String("lifecycle_stages_overlay".to_string()),
+        Value::Mapping(lifecycle_stages_overlay_def()),
+    );
+    defs.insert(
+        Value::String("sprite_overlay".to_string()),
+        Value::Mapping(sprite_overlay_def()),
+    );
+    defs.insert(
+        Value::String("behavior_overlay".to_string()),
+        Value::Mapping(behavior_overlay_def()),
+    );
+    defs.insert(
+        Value::String("layer_overlay".to_string()),
+        Value::Mapping(layer_overlay_def()),
+    );
+    defs
+}
+
+fn step_overlay_def() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("effects".to_string()),
+        array_items_ref("./effects.yaml#/items"),
+    );
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+
+    let mut step = Mapping::new();
+    step.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/scene.schema.yaml#/$defs/step"),
+            Value::Mapping(patch),
+        ]),
+    );
+    step
+}
+
+fn scene_stages_overlay_def() -> Mapping {
+    lifecycle_stages_overlay_def_with_base("../../../schemas/scene.schema.yaml#/$defs/scene_stages")
+}
+
+fn lifecycle_stages_overlay_def() -> Mapping {
+    lifecycle_stages_overlay_def_with_base("../../../schemas/scene.schema.yaml#/$defs/layer_stages")
+}
+
+fn lifecycle_stages_overlay_def_with_base(base_ref: &str) -> Mapping {
+    let mut stage_props = Mapping::new();
+    for stage in ["on_enter", "on_idle", "on_leave"] {
+        stage_props.insert(
+            Value::String(stage.to_string()),
+            schema_ref("#/$defs/stage_overlay"),
+        );
+    }
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(stage_props),
+    );
+
+    let mut stages = Mapping::new();
+    stages.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![schema_ref(base_ref), Value::Mapping(patch)]),
+    );
+    stages
+}
+
+fn stage_overlay_def() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("steps".to_string()),
+        array_items_ref("#/$defs/step_overlay"),
+    );
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+
+    let mut stage = Mapping::new();
+    stage.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/scene.schema.yaml#/$defs/stage"),
+            Value::Mapping(patch),
+        ]),
+    );
+    stage
+}
+
+fn layer_overlay_def() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("stages".to_string()),
+        schema_ref("#/$defs/lifecycle_stages_overlay"),
+    );
+    props.insert(
+        Value::String("behaviors".to_string()),
+        array_items_ref("#/$defs/behavior_overlay"),
+    );
+    props.insert(
+        Value::String("sprites".to_string()),
+        array_items_ref("#/$defs/sprite_overlay"),
+    );
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+
+    let mut layer = Mapping::new();
+    layer.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/scene.schema.yaml#/$defs/layer"),
+            Value::Mapping(patch),
+        ]),
+    );
+    layer
+}
+
+fn sprite_overlay_def() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("use".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/template_names"]),
+    );
+    props.insert(Value::String("args".to_string()), object_schema());
+    props.insert(
+        Value::String("source".to_string()),
+        suggested_string_refs(&[
+            "./catalog.yaml#/$defs/image_paths",
+            "./catalog.yaml#/$defs/model_paths",
+        ]),
+    );
+    props.insert(
+        Value::String("font".to_string()),
+        nullable_suggested_string_refs(&["./catalog.yaml#/$defs/font_specs"]),
+    );
+    props.insert(
+        Value::String("stages".to_string()),
+        schema_ref("#/$defs/lifecycle_stages_overlay"),
+    );
+    props.insert(
+        Value::String("behaviors".to_string()),
+        array_items_ref("#/$defs/behavior_overlay"),
+    );
+    props.insert(
+        Value::String("children".to_string()),
+        array_items_ref("#/$defs/sprite_overlay"),
+    );
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+
+    let mut sprite = Mapping::new();
+    sprite.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/scene.schema.yaml#/$defs/sprite"),
+            Value::Mapping(patch),
+        ]),
+    );
+    sprite
+}
+
+fn behavior_overlay_def() -> Mapping {
+    let variants = behavior_catalog()
+        .into_iter()
+        .map(|(behavior_name, fields)| behavior_variant_overlay(behavior_name, &fields))
+        .collect();
+
+    let mut behavior = Mapping::new();
+    behavior.insert(
+        Value::String("oneOf".to_string()),
+        Value::Sequence(variants),
+    );
+    behavior
+}
+
+fn behavior_variant_overlay(
+    behavior_name: &str,
+    fields: &[engine_core::authoring::metadata::FieldMetadata],
+) -> Value {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("name".to_string()),
         Value::Mapping(mapping_with(
-            "properties",
-            Value::Mapping(mapping_with(
-                "use",
-                schema_ref("./catalog.yaml#/$defs/object_names"),
-            )),
+            "const",
+            Value::String(behavior_name.to_string()),
         )),
+    );
+
+    let mut params_props = Mapping::new();
+    for field in fields {
+        if matches!(field.name, "target" | "sprite_id") {
+            params_props.insert(
+                Value::String(field.name.to_string()),
+                suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
+            );
+        }
+    }
+
+    if !params_props.is_empty() {
+        let mut params = Mapping::new();
+        params.insert(
+            Value::String("type".to_string()),
+            Value::String("object".to_string()),
+        );
+        params.insert(
+            Value::String("properties".to_string()),
+            Value::Mapping(params_props),
+        );
+        props.insert(Value::String("params".to_string()), Value::Mapping(params));
+    }
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    patch.insert(
+        Value::String("title".to_string()),
+        Value::String(format!("{behavior_name} behavior overlay")),
+    );
+
+    Value::Mapping(mapping_with(
+        "allOf",
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior"),
+            Value::Mapping(patch),
+        ]),
     ))
 }
 
@@ -1195,14 +1818,81 @@ fn schema_ref(target: &str) -> Value {
     Value::Mapping(mapping_with("$ref", Value::String(target.to_string())))
 }
 
-fn nullable_ref(target: &str) -> Value {
+fn array_items_ref(target: &str) -> Value {
+    let mut map = Mapping::new();
+    map.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    map.insert(Value::String("items".to_string()), schema_ref(target));
+    Value::Mapping(map)
+}
+
+fn object_additional_properties_ref(target: &str) -> Value {
+    let mut map = Mapping::new();
+    map.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    map.insert(
+        Value::String("additionalProperties".to_string()),
+        schema_ref(target),
+    );
+    Value::Mapping(map)
+}
+
+fn object_schema() -> Value {
+    let mut map = Mapping::new();
+    map.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    map.insert(
+        Value::String("default".to_string()),
+        Value::Mapping(Mapping::new()),
+    );
+    map.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(true),
+    );
+    Value::Mapping(map)
+}
+
+fn non_empty_string_schema() -> Value {
+    let mut map = Mapping::new();
+    map.insert(
+        Value::String("type".to_string()),
+        Value::String("string".to_string()),
+    );
+    map.insert(
+        Value::String("minLength".to_string()),
+        serde_yaml::to_value(1).expect("minLength"),
+    );
+    Value::Mapping(map)
+}
+
+fn suggested_enum_strings(values: Vec<String>) -> Value {
     Value::Mapping(mapping_with(
-        "oneOf",
-        Value::Sequence(vec![
-            schema_ref(target),
-            Value::Mapping(mapping_with("type", Value::String("null".to_string()))),
-        ]),
+        "anyOf",
+        Value::Sequence(vec![enum_schema(values), non_empty_string_schema()]),
     ))
+}
+
+fn null_schema() -> Value {
+    Value::Mapping(mapping_with("type", Value::String("null".to_string())))
+}
+
+fn suggested_string_refs(targets: &[&str]) -> Value {
+    let mut variants: Vec<Value> = targets.iter().map(|target| schema_ref(target)).collect();
+    variants.push(non_empty_string_schema());
+    Value::Mapping(mapping_with("anyOf", Value::Sequence(variants)))
+}
+
+fn nullable_suggested_string_refs(targets: &[&str]) -> Value {
+    let mut variants: Vec<Value> = targets.iter().map(|target| schema_ref(target)).collect();
+    variants.push(non_empty_string_schema());
+    variants.push(null_schema());
+    Value::Mapping(mapping_with("anyOf", Value::Sequence(variants)))
 }
 
 fn mapping_with(key: &str, value: Value) -> Mapping {
@@ -1233,6 +1923,22 @@ fn collect_scene_ids(mod_root: &Path) -> Result<BTreeSet<String>> {
     Ok(ids)
 }
 
+fn collect_scene_paths(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let scenes_root = mod_root.join("scenes");
+    let mut paths = BTreeSet::new();
+    for file in yaml_files_under(&scenes_root)? {
+        let rel = match file.strip_prefix(mod_root) {
+            Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+            Err(_) => continue,
+        };
+        if !is_discoverable_scene_path(&rel) {
+            continue;
+        }
+        paths.insert(format!("/{rel}"));
+    }
+    Ok(paths)
+}
+
 fn collect_object_names(mod_root: &Path) -> Result<BTreeSet<String>> {
     let mut names = BTreeSet::new();
     for file in yaml_files_under(&mod_root.join("objects"))? {
@@ -1245,6 +1951,27 @@ fn collect_object_names(mod_root: &Path) -> Result<BTreeSet<String>> {
         }
     }
     Ok(names)
+}
+
+fn collect_object_ref_values(
+    mod_root: &Path,
+    object_names: &BTreeSet<String>,
+) -> Result<BTreeSet<String>> {
+    let mut refs = object_names.clone();
+
+    for file in yaml_files_under(&mod_root.join("objects"))? {
+        if let Ok(rel) = file.strip_prefix(mod_root) {
+            refs.insert(format!("/{}", rel.to_string_lossy().replace('\\', "/")));
+        }
+    }
+
+    for file in yaml_files_under(&mod_root.join("scenes/shared/objects"))? {
+        if let Ok(rel) = file.strip_prefix(mod_root) {
+            refs.insert(format!("/{}", rel.to_string_lossy().replace('\\', "/")));
+        }
+    }
+
+    Ok(refs)
 }
 
 fn collect_effect_names(mod_root: &Path) -> Result<BTreeSet<String>> {
@@ -1336,6 +2063,30 @@ fn collect_font_names(mod_root: &Path) -> Result<BTreeSet<String>> {
     Ok(names)
 }
 
+fn collect_font_specs(font_names: &BTreeSet<String>) -> BTreeSet<String> {
+    let mut specs = BTreeSet::from([
+        "generic".to_string(),
+        "generic:1".to_string(),
+        "generic:tiny".to_string(),
+        "generic:2".to_string(),
+        "generic:standard".to_string(),
+        "generic:3".to_string(),
+        "generic:large".to_string(),
+        "generic:half".to_string(),
+        "generic:quad".to_string(),
+        "generic:braille".to_string(),
+    ]);
+
+    for name in font_names {
+        specs.insert(name.clone());
+        for mode in ["ascii", "raster", "terminal-pixels"] {
+            specs.insert(format!("{name}:{mode}"));
+        }
+    }
+
+    specs
+}
+
 /// Collects image paths from assets/images/**/*.png files.
 fn collect_image_paths(mod_root: &Path) -> Result<BTreeSet<String>> {
     let images_root = mod_root.join("assets/images");
@@ -1360,7 +2111,10 @@ fn walk_images(root: &Path, current: &Path, out: &mut BTreeSet<String>) -> Resul
         let ext = p.extension().and_then(|s| s.to_str()).unwrap_or_default();
         if ext == "png" {
             if let Ok(rel) = p.strip_prefix(root) {
-                out.insert(rel.to_string_lossy().replace('\\', "/"));
+                out.insert(format!(
+                    "/assets/images/{}",
+                    rel.to_string_lossy().replace('\\', "/")
+                ));
             }
         }
     }
@@ -1405,7 +2159,7 @@ fn walk_models(
         if ext == "obj" {
             if let Ok(rel) = p.strip_prefix(root) {
                 out.insert(format!(
-                    "{}/{}",
+                    "/{}/{}",
                     prefix,
                     rel.to_string_lossy().replace('\\', "/")
                 ));
@@ -1465,31 +2219,44 @@ fn collect_template_names(mod_root: &Path) -> Result<BTreeSet<String>> {
         return Ok(names);
     }
 
-    for scene_dir_entry in fs::read_dir(&scenes_root)
-        .with_context(|| format!("failed to read {}", scenes_root.display()))?
-    {
-        let scene_dir = scene_dir_entry?;
-        let scene_path = scene_dir.path();
-        if !scene_path.is_dir() {
+    for file in yaml_files_under(&scenes_root)? {
+        let rel = match file.strip_prefix(mod_root) {
+            Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+            Err(_) => continue,
+        };
+        let Ok(raw) = fs::read_to_string(&file) else {
+            continue;
+        };
+        let Ok(v) = serde_yaml::from_str::<Value>(&raw) else {
+            continue;
+        };
+
+        if is_discoverable_scene_path(&rel) {
+            if let Some(templates) = v
+                .as_mapping()
+                .and_then(|map| map.get(Value::String("templates".to_string())))
+                .and_then(Value::as_mapping)
+            {
+                collect_template_names_from_mapping(templates, &mut names);
+            }
             continue;
         }
 
-        let templates_root = scene_path.join("templates");
-        if !templates_root.exists() {
-            continue;
-        }
-
-        for file in yaml_files_under(&templates_root)? {
-            if let Ok(raw) = fs::read_to_string(&file) {
-                if let Ok(v) = serde_yaml::from_str::<Value>(&raw) {
-                    if let Some(name) = v.get("name").and_then(Value::as_str) {
-                        names.insert(name.to_string());
-                    }
-                }
+        if rel.contains("/templates/") {
+            if let Some(map) = v.as_mapping() {
+                collect_template_names_from_mapping(map, &mut names);
             }
         }
     }
     Ok(names)
+}
+
+fn collect_template_names_from_mapping(map: &Mapping, out: &mut BTreeSet<String>) {
+    for key in map.keys() {
+        if let Some(name) = key.as_str() {
+            out.insert(name.to_string());
+        }
+    }
 }
 
 fn yaml_files_under(root: &Path) -> Result<Vec<PathBuf>> {
@@ -1522,7 +2289,7 @@ fn walk_yaml(path: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
 mod tests {
     use super::{
         build_animation_schema, build_behavior_schema, build_input_profile_schema,
-        build_sugar_schema, generate_mod_schema_files,
+        build_sugar_schema, generate_mod_schema_files, render_schema_file,
     };
     use serde_yaml::Value;
     use std::fs;
@@ -1534,11 +2301,15 @@ mod tests {
         let mod_root = temp_root.join("playground");
         fs::create_dir_all(mod_root.join("scenes/intro/layers")).expect("create layers");
         fs::create_dir_all(mod_root.join("scenes/intro/sprites")).expect("create sprites");
+        fs::create_dir_all(mod_root.join("scenes/intro/templates")).expect("create templates");
+        fs::create_dir_all(mod_root.join("scenes/shared/objects")).expect("create shared objects");
         fs::create_dir_all(mod_root.join("objects")).expect("create objects");
+        fs::create_dir_all(mod_root.join("assets/fonts/mono")).expect("create fonts");
+        fs::create_dir_all(mod_root.join("assets/images")).expect("create images");
         fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
         fs::write(
             mod_root.join("scenes/intro/scene.yml"),
-            "id: intro\neffects:\n  - name: fade-in\n    duration: 1.0\n",
+            "id: intro\ntemplates:\n  title-card:\n    type: text\n    content: TEST\neffects:\n  - name: fade-in\n    duration: 1.0\n",
         )
         .expect("write scene");
         fs::write(
@@ -1546,9 +2317,30 @@ mod tests {
             "name: background\n",
         )
         .expect("write layer partial");
+        fs::write(
+            mod_root.join("scenes/intro/templates/common.yml"),
+            "menu-item:\n  type: text\n  content: START\n",
+        )
+        .expect("write template partial");
         fs::write(mod_root.join("objects/npc.yml"), "name: npc\n").expect("write object");
+        fs::write(
+            mod_root.join("scenes/shared/objects/banner.yml"),
+            "name: banner\nsprites:\n  - type: text\n    content: SHARED\n",
+        )
+        .expect("write shared object");
+        fs::write(
+            mod_root.join("assets/fonts/mono/manifest.yaml"),
+            "name: Mono Display\n",
+        )
+        .expect("write font manifest");
+        fs::write(mod_root.join("assets/images/logo.png"), b"").expect("write image");
+        fs::write(mod_root.join("scenes/intro/cube.obj"), "").expect("write model");
 
         let files = generate_mod_schema_files(&mod_root).expect("generate schemas");
+        let object_overlay = files
+            .iter()
+            .find(|file| file.file_name == "schemas/object.yaml")
+            .expect("object overlay");
         let root = files
             .iter()
             .find(|file| file.file_name == "schemas/catalog.yaml")
@@ -1560,14 +2352,106 @@ mod tests {
             .expect("defs mapping");
 
         assert!(defs.contains_key(Value::String("scene_ids".to_string())));
+        assert!(defs.contains_key(Value::String("scene_paths".to_string())));
+        assert!(defs.contains_key(Value::String("scene_refs".to_string())));
         assert!(defs.contains_key(Value::String("object_names".to_string())));
+        assert!(defs.contains_key(Value::String("object_refs".to_string())));
         assert!(defs.contains_key(Value::String("effect_names".to_string())));
         assert!(defs.contains_key(Value::String("layer_refs".to_string())));
         assert!(defs.contains_key(Value::String("font_names".to_string())));
+        assert!(defs.contains_key(Value::String("font_specs".to_string())));
         assert!(defs.contains_key(Value::String("image_paths".to_string())));
         assert!(defs.contains_key(Value::String("model_paths".to_string())));
         assert!(defs.contains_key(Value::String("sprite_ids".to_string())));
         assert!(defs.contains_key(Value::String("template_names".to_string())));
+
+        let scene_paths = defs
+            .get(Value::String("scene_paths".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("scene_paths enum");
+        assert!(scene_paths
+            .iter()
+            .any(|v| v.as_str() == Some("/scenes/intro/scene.yml")));
+
+        let scene_refs = defs
+            .get(Value::String("scene_refs".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("scene_refs enum");
+        assert!(scene_refs.iter().any(|v| v.as_str() == Some("intro")));
+        assert!(scene_refs
+            .iter()
+            .any(|v| v.as_str() == Some("/scenes/intro/scene.yml")));
+
+        let object_refs = defs
+            .get(Value::String("object_refs".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("object_refs enum");
+        assert!(object_refs.iter().any(|v| v.as_str() == Some("npc")));
+        assert!(object_refs
+            .iter()
+            .any(|v| v.as_str() == Some("/objects/npc.yml")));
+        assert!(object_refs
+            .iter()
+            .any(|v| v.as_str() == Some("/scenes/shared/objects/banner.yml")));
+
+        let font_specs = defs
+            .get(Value::String("font_specs".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("font_specs enum");
+        assert!(font_specs
+            .iter()
+            .any(|v| v.as_str() == Some("generic:quad")));
+        assert!(font_specs
+            .iter()
+            .any(|v| v.as_str() == Some("Mono Display:raster")));
+
+        let image_paths = defs
+            .get(Value::String("image_paths".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("image_paths enum");
+        assert!(image_paths
+            .iter()
+            .any(|v| v.as_str() == Some("/assets/images/logo.png")));
+
+        let model_paths = defs
+            .get(Value::String("model_paths".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("model_paths enum");
+        assert!(model_paths
+            .iter()
+            .any(|v| v.as_str() == Some("/scenes/intro/cube.obj")));
+
+        let template_names = defs
+            .get(Value::String("template_names".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("template_names enum");
+        assert!(template_names
+            .iter()
+            .any(|v| v.as_str() == Some("title-card")));
+        assert!(template_names
+            .iter()
+            .any(|v| v.as_str() == Some("menu-item")));
+
+        let object_overlay_yaml =
+            render_schema_file(&object_overlay.value).expect("render object overlay");
+        assert!(object_overlay_yaml.contains("../../../schemas/object.schema.yaml"));
+        assert!(object_overlay_yaml.contains("const: blink"));
+        assert!(object_overlay_yaml.contains("behavior:"));
+        assert!(object_overlay_yaml.contains("visible_ms:"));
     }
 
     #[test]
@@ -1616,8 +2500,8 @@ mod tests {
         fs::write(temp.join("assets/images/ui/button.png"), b"").unwrap();
 
         let paths = super::collect_image_paths(&temp).unwrap();
-        assert!(paths.contains("logo.png"));
-        assert!(paths.contains("ui/button.png"));
+        assert!(paths.contains("/assets/images/logo.png"));
+        assert!(paths.contains("/assets/images/ui/button.png"));
     }
 
     #[test]
@@ -1629,8 +2513,8 @@ mod tests {
         fs::write(temp.join("assets/models/sphere.obj"), "").unwrap();
 
         let paths = super::collect_model_paths(&temp).unwrap();
-        assert!(paths.contains("scenes/intro/cube.obj"));
-        assert!(paths.contains("assets/models/sphere.obj"));
+        assert!(paths.contains("/scenes/intro/cube.obj"));
+        assert!(paths.contains("/assets/models/sphere.obj"));
     }
 
     #[test]
@@ -1653,7 +2537,7 @@ mod tests {
         fs::create_dir_all(temp.join("scenes/intro/templates")).unwrap();
         fs::write(
             temp.join("scenes/intro/templates/button.yml"),
-            "name: menu-button\n",
+            "menu-button:\n  type: text\n  content: START\n",
         )
         .unwrap();
 

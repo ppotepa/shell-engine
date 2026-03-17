@@ -381,12 +381,25 @@ $defs:
     type: object
     description: A drawable object within a layer. Has its own local position and lifecycle.
     additionalProperties: false
-    required: [type]
+    anyOf:
+      - required: [type]
+      - required: [use]
     properties:
       type:
         type: string
         enum: [text, image, obj, grid, flex]
         description: "Sprite type. Supported: text, image, obj, grid, flex."
+      use:
+        type: string
+        minLength: 1
+        description: >
+          Scene-local sprite template name to expand before typed deserialization.
+          The compiler resolves it from the current scene `templates:` map.
+      args:
+        type: object
+        default: {}
+        additionalProperties: true
+        description: Optional template arguments substituted into a sprite declared with `use`.
       content:
         type: string
         minLength: 1
