@@ -251,27 +251,6 @@ pub(super) fn render_obj_content(
     );
 }
 
-#[cfg(test)]
-mod tests {
-    use super::obj_sprite_dimensions;
-    use crate::scene::SpriteSizePreset;
-
-    #[test]
-    fn obj_size_preset_uses_type_defaults() {
-        assert_eq!(
-            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Small)),
-            (32, 12)
-        );
-        assert_eq!(
-            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Medium)),
-            (64, 24)
-        );
-        assert_eq!(
-            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Large)),
-            (96, 36)
-        );
-    }
-}
 
 #[derive(Clone, Copy)]
 struct Viewport {
@@ -796,4 +775,26 @@ fn rotate_xyz(v: [f32; 3], pitch: f32, yaw: f32, roll: f32) -> [f32; 3] {
     let x3 = x2 * cr - y2 * sr;
     let y3 = x2 * sr + y2 * cr;
     [x3, y3, z2]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::obj_sprite_dimensions;
+    use crate::scene::SpriteSizePreset;
+
+    #[test]
+    fn obj_size_preset_uses_type_defaults() {
+        assert_eq!(
+            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Small)),
+            (32, 12)
+        );
+        assert_eq!(
+            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Medium)),
+            (64, 24)
+        );
+        assert_eq!(
+            obj_sprite_dimensions(None, None, Some(SpriteSizePreset::Large)),
+            (96, 36)
+        );
+    }
 }

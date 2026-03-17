@@ -472,6 +472,44 @@ fn relative_to_mod(mod_root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
+fn walk_asset_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            walk_asset_paths(&path, out)?;
+            continue;
+        }
+        out.push(path);
+    }
+    Ok(())
+}
+
+fn yaml_files_under(root: &Path) -> std::io::Result<Vec<PathBuf>> {
+    let mut out = Vec::new();
+    walk_yaml_paths(root, &mut out)?;
+    out.sort();
+    Ok(out)
+}
+
+fn walk_yaml_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            walk_yaml_paths(&path, out)?;
+            continue;
+        }
+        let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+            continue;
+        };
+        if ext.eq_ignore_ascii_case("yml") || ext.eq_ignore_ascii_case("yaml") {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -888,40 +926,3 @@ sprites:
     }
 }
 
-fn walk_asset_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
-    for entry in fs::read_dir(root)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            walk_asset_paths(&path, out)?;
-            continue;
-        }
-        out.push(path);
-    }
-    Ok(())
-}
-
-fn yaml_files_under(root: &Path) -> std::io::Result<Vec<PathBuf>> {
-    let mut out = Vec::new();
-    walk_yaml_paths(root, &mut out)?;
-    out.sort();
-    Ok(out)
-}
-
-fn walk_yaml_paths(root: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
-    for entry in fs::read_dir(root)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            walk_yaml_paths(&path, out)?;
-            continue;
-        }
-        let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
-            continue;
-        };
-        if ext.eq_ignore_ascii_case("yml") || ext.eq_ignore_ascii_case("yaml") {
-            out.push(path);
-        }
-    }
-    Ok(())
-}
