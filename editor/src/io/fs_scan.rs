@@ -135,9 +135,11 @@ fn file_uses_sq_schema(path: &Path) -> bool {
     raw.lines().take(3).any(|line| {
         line.contains("$schema=")
             && (line.contains("schemas/scene.schema.yaml")
+                || line.contains("schemas/object.schema.yaml")
                 || line.contains("schemas/mod.schema.yaml")
                 || line.contains("schemas/font-manifest.schema.yaml")
                 || line.contains("shell-quest.local/schemas/scene.schema.yaml")
+                || line.contains("shell-quest.local/schemas/object.schema.yaml")
                 || line.contains("shell-quest.local/schemas/mod.schema.yaml")
                 || line.contains("shell-quest.local/schemas/font-manifest.schema.yaml"))
     })
@@ -180,7 +182,10 @@ fn is_game_yaml(root: &Path, path: &Path) -> bool {
     if rel_s == "mod.yaml" {
         return true;
     }
-    if rel_s.starts_with("scenes/") && rel_s.ends_with(".yml") {
+    if rel_s.starts_with("scenes/") && (rel_s.ends_with(".yml") || rel_s.ends_with(".yaml")) {
+        return true;
+    }
+    if rel_s.starts_with("objects/") && (rel_s.ends_with(".yml") || rel_s.ends_with(".yaml")) {
         return true;
     }
     if rel_s.contains("/assets/fonts/") && rel_s.ends_with("/manifest.yaml") {

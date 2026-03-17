@@ -51,6 +51,9 @@ properties:
     description: >
       Terminal background colour filling the entire buffer on scene load.
       Defaults to true black (RGB 0,0,0) when absent.
+  bg:
+    $ref: "#/$defs/colour"
+    description: Alias of bg_colour.
   stages:
     $ref: "#/$defs/scene_stages"
   behaviors:
@@ -87,6 +90,33 @@ properties:
   input:
     $ref: "#/$defs/scene_input"
     description: Optional scene-level input control profiles.
+  templates:
+    type: object
+    default: {}
+    description: Optional local sprite templates referenced by `use`.
+    additionalProperties:
+      $ref: "#/$defs/sprite"
+  objects:
+    type: array
+    default: []
+    description: Optional reusable object instances for future prefab pipeline.
+    items:
+      type: object
+      additionalProperties: false
+      required: [use]
+      properties:
+        use:
+          type: string
+          minLength: 1
+          description: Object template/prefab reference.
+        id:
+          type: string
+          minLength: 1
+          description: Optional scene-local object instance id.
+        with:
+          type: object
+          default: {}
+          description: Optional parameter overrides for object exports.
 
 $defs:
 
@@ -368,7 +398,10 @@ $defs:
   menu_option:
     type: object
     additionalProperties: false
-    required: [key, next]
+    required: [key]
+    anyOf:
+      - required: [next]
+      - required: [to]
     properties:
       key:
         type: string
@@ -400,6 +433,10 @@ $defs:
         type: string
         minLength: 1
         description: Default target scene id/path (backward-compatible routing).
+      to:
+        type: string
+        minLength: 1
+        description: Alias target scene id/path. Compiler normalizes to scene+next.
 
   # ── Scene stages ───────────────────────────────────────────────────────────
   scene_stages:
@@ -680,6 +717,10 @@ $defs:
         type: string
         enum: [top, center, bottom]
         description: Vertical alignment anchor in scene space. y acts as extra offset.
+      at:
+        type: string
+        enum: [cc, ct, cb, lc, rc, lt, lb, rt, rb]
+        description: Alignment shorthand alias for align_x+align_y.
       fg_colour:
         $ref: "#/$defs/colour"
         description: >
@@ -689,6 +730,12 @@ $defs:
       bg_colour:
         $ref: "#/$defs/colour"
         description: Background colour behind the sprite. Omit for transparent background.
+      fg:
+        $ref: "#/$defs/colour"
+        description: Alias of fg_colour.
+      bg:
+        $ref: "#/$defs/colour"
+        description: Alias of bg_colour.
       glow:
         $ref: "#/$defs/glow"
         description: Optional glow halo rendered behind the sprite at neighbouring cell offsets.
