@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
+# yaml-language-server: $schema=../../../../../schemas/generated/shell-quest.scene.schema.yaml
 # Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: mainmenu
 title: Main Menu
