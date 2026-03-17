@@ -509,7 +509,7 @@ fn build_animation_schema() -> Value {
 
 /// Builds schema for all built-in input profiles.
 fn build_input_profile_schema() -> Value {
-    use engine_core::authoring::catalog::{input_profile_catalog, input_profile_shapes};
+    use engine_core::authoring::catalog::input_profile_catalog;
 
     let mut root = Mapping::new();
     root.insert(
@@ -549,41 +549,6 @@ fn build_input_profile_schema() -> Value {
         Value::String("input_profile".to_string()),
         Value::Mapping(profile_enum),
     );
-
-    // Per-profile parameter shapes
-    for shape in input_profile_shapes() {
-        let def_key = shape.name.replace('-', "_");
-        let mut obj = Mapping::new();
-        obj.insert(
-            Value::String("type".to_string()),
-            Value::String("object".to_string()),
-        );
-        obj.insert(
-            Value::String("additionalProperties".to_string()),
-            Value::Bool(false),
-        );
-
-        let mut props = Mapping::new();
-        let mut required_fields: Vec<Value> = Vec::new();
-        for field in shape.fields {
-            use engine_core::authoring::metadata::Requirement;
-            props.insert(
-                Value::String(field.name.to_string()),
-                field_metadata_to_schema(field),
-            );
-            if field.requirement == Requirement::Required {
-                required_fields.push(Value::String(field.name.to_string()));
-            }
-        }
-        obj.insert(Value::String("properties".to_string()), Value::Mapping(props));
-        if !required_fields.is_empty() {
-            obj.insert(
-                Value::String("required".to_string()),
-                Value::Sequence(required_fields),
-            );
-        }
-        defs.insert(Value::String(def_key), Value::Mapping(obj));
-    }
 
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
