@@ -4,6 +4,11 @@ id: mainmenu
 title: Main Menu
 bg: black
 virtual-size-override: "320x240"
+# Main mod landing scene after the intro.
+# This file is the compact reference for:
+# - a simple scene-level fade in/out
+# - grid-based layout
+# - image sprites rendered with different terminal packing modes
 stages:
   on_enter:
     steps:
@@ -23,6 +28,7 @@ stages:
 layers:
   - name: linux-showcase
     z_index: 0
+    # One layer is enough here because the scene is purely presentational and all children share the same lifecycle.
     sprites:
       - type: text
         content: "SHELL QUEST I - LINUX PNG SHOWCASE"
@@ -101,6 +107,7 @@ layers:
         font: "generic:1"
         fg: white
         hide_on_leave: true
+        # Small floating prompt: the scene stays simple, but still shows how ambient animation can be attached to one sprite.
         animations:
           - name: float
             looping: true

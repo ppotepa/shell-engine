@@ -3,6 +3,8 @@
 id: playground-menu
 title: Playground Menu
 bg: black
+# Playground entry scene.
+# This file is meant as the clearest onboarding example for explicit menu authoring before `menu:` sugar exists.
 stages:
   on_enter:
     steps:
@@ -22,6 +24,7 @@ stages:
 layers:
   - name: menu
     z_index: 0
+    # Everything lives in one layer so the menu remains easy to read: title, option list, selection arrows, and footer hint.
     sprites:
       - type: text
         content: "PLAYGROUND"
@@ -91,6 +94,7 @@ layers:
         at: cc
         font: "generic:1"
         fg: yellow
+        # Arrow markers are positioned by behavior, not by hard-coded x/y values.
         behaviors:
           - name: selected-arrows
             params:
