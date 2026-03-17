@@ -12,7 +12,7 @@ stages:
       - pause: 5000ms
 layers:
   - name: fps-showcase
-    z_index: 0
+    z_index: 1
     sprites:
       - type: text
         content: "FPS CAP SHOWCASE  3D"

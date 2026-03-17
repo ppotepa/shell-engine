@@ -14,6 +14,7 @@ exports:
   fov_degrees: 52
   near_clip: 0.0005
   fg: white
+  draw_char: "#"
 sprites:
   - type: obj
     id: "$id"
@@ -28,5 +29,5 @@ sprites:
     camera-distance: "$camera_distance"
     fov-degrees: "$fov_degrees"
     near-clip: "$near_clip"
+    draw-char: "$draw_char"
     fg: "$fg"
-
