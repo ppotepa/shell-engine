@@ -188,6 +188,11 @@ mod tests {
         assert!(scene_overlay.contains("./effects.yaml#/items"));
         assert!(scene_overlay.contains("#/$defs/behavior_overlay"));
         assert!(scene_overlay.contains("const: blink"));
+        assert!(scene_overlay
+            .contains("scene_stages_overlay:\n    type: object\n    additionalProperties: false"));
+        assert!(scene_overlay.contains(
+            "behavior_overlay:\n    oneOf:\n    - type: object\n      additionalProperties: false"
+        ));
         assert!(scene_overlay.contains("#/$defs/sprite_overlay"));
         assert!(scene_overlay.contains("../../../schemas/scene.schema.yaml"));
 

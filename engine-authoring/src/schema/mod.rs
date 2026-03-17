@@ -1320,6 +1320,10 @@ fn scene_overlay_patch() -> Mapping {
 
     let mut root = Mapping::new();
     root.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    root.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
     );
@@ -1341,6 +1345,10 @@ fn menu_options_overlay() -> Value {
         suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
     );
     let mut items = Mapping::new();
+    items.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
     items.insert(
         Value::String("properties".to_string()),
         Value::Mapping(option_props),
@@ -1397,6 +1405,10 @@ fn object_instance_overlay_patch() -> Mapping {
     );
 
     let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
     patch.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
@@ -1573,23 +1585,20 @@ fn step_overlay_def() -> Mapping {
         array_items_ref("./effects.yaml#/items"),
     );
 
-    let mut patch = Mapping::new();
-    patch.insert(
+    let mut step = Mapping::new();
+    step.insert(
         Value::String("type".to_string()),
         Value::String("object".to_string()),
     );
-    patch.insert(
+    step.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
     );
-
-    let mut step = Mapping::new();
     step.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![
-            schema_ref("../../../schemas/scene.schema.yaml#/$defs/step"),
-            Value::Mapping(patch),
-        ]),
+        Value::Sequence(vec![schema_ref(
+            "../../../schemas/scene.schema.yaml#/$defs/step",
+        )]),
     );
     step
 }
@@ -1611,20 +1620,22 @@ fn lifecycle_stages_overlay_def_with_base(base_ref: &str) -> Mapping {
         );
     }
 
-    let mut patch = Mapping::new();
-    patch.insert(
+    let mut stages = Mapping::new();
+    stages.insert(
         Value::String("type".to_string()),
         Value::String("object".to_string()),
     );
-    patch.insert(
+    stages.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(false),
+    );
+    stages.insert(
         Value::String("properties".to_string()),
         Value::Mapping(stage_props),
     );
-
-    let mut stages = Mapping::new();
     stages.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![schema_ref(base_ref), Value::Mapping(patch)]),
+        Value::Sequence(vec![schema_ref(base_ref)]),
     );
     stages
 }
@@ -1636,23 +1647,20 @@ fn stage_overlay_def() -> Mapping {
         array_items_ref("#/$defs/step_overlay"),
     );
 
-    let mut patch = Mapping::new();
-    patch.insert(
+    let mut stage = Mapping::new();
+    stage.insert(
         Value::String("type".to_string()),
         Value::String("object".to_string()),
     );
-    patch.insert(
+    stage.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
     );
-
-    let mut stage = Mapping::new();
     stage.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![
-            schema_ref("../../../schemas/scene.schema.yaml#/$defs/stage"),
-            Value::Mapping(patch),
-        ]),
+        Value::Sequence(vec![schema_ref(
+            "../../../schemas/scene.schema.yaml#/$defs/stage",
+        )]),
     );
     stage
 }
@@ -1672,23 +1680,20 @@ fn layer_overlay_def() -> Mapping {
         array_items_ref("#/$defs/sprite_overlay"),
     );
 
-    let mut patch = Mapping::new();
-    patch.insert(
+    let mut layer = Mapping::new();
+    layer.insert(
         Value::String("type".to_string()),
         Value::String("object".to_string()),
     );
-    patch.insert(
+    layer.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
     );
-
-    let mut layer = Mapping::new();
     layer.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![
-            schema_ref("../../../schemas/scene.schema.yaml#/$defs/layer"),
-            Value::Mapping(patch),
-        ]),
+        Value::Sequence(vec![schema_ref(
+            "../../../schemas/scene.schema.yaml#/$defs/layer",
+        )]),
     );
     layer
 }
@@ -1724,23 +1729,20 @@ fn sprite_overlay_def() -> Mapping {
         array_items_ref("#/$defs/sprite_overlay"),
     );
 
-    let mut patch = Mapping::new();
-    patch.insert(
+    let mut sprite = Mapping::new();
+    sprite.insert(
         Value::String("type".to_string()),
         Value::String("object".to_string()),
     );
-    patch.insert(
+    sprite.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
     );
-
-    let mut sprite = Mapping::new();
     sprite.insert(
         Value::String("allOf".to_string()),
-        Value::Sequence(vec![
-            schema_ref("../../../schemas/scene.schema.yaml#/$defs/sprite"),
-            Value::Mapping(patch),
-        ]),
+        Value::Sequence(vec![schema_ref(
+            "../../../schemas/scene.schema.yaml#/$defs/sprite",
+        )]),
     );
     sprite
 }
@@ -1763,6 +1765,8 @@ fn behavior_variant_overlay(
     behavior_name: &str,
     fields: &[engine_core::authoring::metadata::FieldMetadata],
 ) -> Value {
+    use engine_core::authoring::metadata::Requirement;
+
     let mut props = Mapping::new();
     props.insert(
         Value::String("name".to_string()),
@@ -1773,45 +1777,70 @@ fn behavior_variant_overlay(
     );
 
     let mut params_props = Mapping::new();
+    let mut params_required = Vec::new();
     for field in fields {
         if matches!(field.name, "target" | "sprite_id") {
+            let mut variants = vec![schema_ref("./catalog.yaml#/$defs/sprite_ids")];
+            variants.push(field_metadata_to_schema(field));
             params_props.insert(
                 Value::String(field.name.to_string()),
-                suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
+                Value::Mapping(mapping_with("anyOf", Value::Sequence(variants))),
             );
+        } else {
+            params_props.insert(
+                Value::String(field.name.to_string()),
+                field_metadata_to_schema(field),
+            );
+        }
+        if matches!(field.requirement, Requirement::Required) {
+            params_required.push(Value::String(field.name.to_string()));
         }
     }
 
-    if !params_props.is_empty() {
-        let mut params = Mapping::new();
+    let mut params = Mapping::new();
+    params.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    params.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(false),
+    );
+    params.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(params_props),
+    );
+    if !params_required.is_empty() {
         params.insert(
-            Value::String("type".to_string()),
-            Value::String("object".to_string()),
+            Value::String("required".to_string()),
+            Value::Sequence(params_required),
         );
-        params.insert(
-            Value::String("properties".to_string()),
-            Value::Mapping(params_props),
-        );
-        props.insert(Value::String("params".to_string()), Value::Mapping(params));
     }
+    props.insert(Value::String("params".to_string()), Value::Mapping(params));
 
-    let mut patch = Mapping::new();
-    patch.insert(
+    let mut variant = Mapping::new();
+    variant.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    variant.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(false),
+    );
+    variant.insert(
         Value::String("properties".to_string()),
         Value::Mapping(props),
     );
-    patch.insert(
+    variant.insert(
+        Value::String("required".to_string()),
+        Value::Sequence(vec![Value::String("name".to_string())]),
+    );
+    variant.insert(
         Value::String("title".to_string()),
         Value::String(format!("{behavior_name} behavior overlay")),
     );
 
-    Value::Mapping(mapping_with(
-        "allOf",
-        Value::Sequence(vec![
-            schema_ref("../../../schemas/generated/behaviors.schema.yaml#/$defs/behavior"),
-            Value::Mapping(patch),
-        ]),
-    ))
+    Value::Mapping(variant)
 }
 
 fn schema_ref(target: &str) -> Value {
