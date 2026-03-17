@@ -6,6 +6,7 @@ mod layer_compositor;
 mod layout;
 mod obj_loader;
 mod obj_render;
+mod render;
 mod sprite_renderer;
 mod text_render;
 
