@@ -447,23 +447,8 @@ $defs:
             "Abril Fatface"        — raster/terminal-pixel mode (default).
             "Abril Fatface:raster" — explicit raster mode.
             "Abril Fatface:ascii"  — ASCII-art glyph mode.
-            "Abril Fatface:terminal-pixels" — terminal-pixel shaded glyph mode.
 
           Omit or set null for native terminal text (no rasterization).
-      wrap:
-        type: string
-        enum: [word]
-        description: >
-          Optional text wrapping mode for type=text.
-          `word` wraps the content to new lines using measured glyph widths.
-          Requires `max-width`.
-      max-width:
-        type: integer
-        minimum: 1
-        maximum: 65535
-        description: >
-          Maximum rendered line width in terminal cells for wrapped text sprites.
-          Only used when `wrap` is set on type=text.
       width:
         type: integer
         minimum: 1

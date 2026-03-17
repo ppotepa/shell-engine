@@ -1,5 +1,0 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/schemas/generated/intro-text.test.sprites-file.schema.yaml
-title: intro-text.test sprites-file overlay schema
-allOf:
-- $ref: ../sprites-file.schema.yaml

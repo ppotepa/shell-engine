@@ -7,7 +7,7 @@ use crate::render_policy;
 use crate::scene::{FlexDirection, SceneRenderedMode, Sprite};
 use crate::systems::compositor::image_render::image_sprite_dimensions;
 use crate::systems::compositor::obj_render::obj_sprite_dimensions;
-use crate::systems::compositor::text_render::{text_sprite_dimensions, wrap_text_content};
+use crate::systems::compositor::text_render::text_sprite_dimensions;
 
 /// Measures the approximate render size of a sprite for layout purposes.
 pub(crate) fn measure_sprite_for_layout(
@@ -22,8 +22,6 @@ pub(crate) fn measure_sprite_for_layout(
             font,
             force_renderer_mode,
             force_font_mode,
-            wrap,
-            max_width,
             fg_colour,
             bg_colour,
             ..
@@ -37,18 +35,9 @@ pub(crate) fn measure_sprite_for_layout(
                 inherited_mode,
                 *force_renderer_mode,
             );
-            let wrapped_content = wrap_text_content(
-                asset_root.map(|root| root.mod_source()),
-                content,
-                resolved_font.as_deref(),
-                fg,
-                bg,
-                *wrap,
-                *max_width,
-            );
             text_sprite_dimensions(
                 asset_root.map(|root| root.mod_source()),
-                &wrapped_content,
+                content,
                 resolved_font.as_deref(),
                 fg,
                 bg,
