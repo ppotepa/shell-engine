@@ -1,8 +1,8 @@
 //! Authored scene document normalization before conversion into the runtime
 //! [`Scene`] model.
 
-use super::model::Scene;
-use super::template::expand_scene_templates;
+use engine_core::scene::template::expand_scene_templates;
+use engine_core::scene::Scene;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
 
@@ -348,6 +348,7 @@ fn parse_duration_token(token: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::SceneDocument;
+    use engine_core::scene::{HorizontalAlign, Sprite, VerticalAlign};
 
     #[test]
     fn compiles_scene_with_aliases_and_pause_shorthand() {
@@ -378,17 +379,14 @@ menu-options:
         assert_eq!(scene.menu_options[0].scene.as_deref(), Some("next-scene"));
         assert_eq!(scene.menu_options[0].next, "next-scene");
         match &scene.layers[0].sprites[0] {
-            crate::scene::Sprite::Text {
+            Sprite::Text {
                 align_x,
                 align_y,
                 fg_colour,
                 ..
             } => {
-                assert!(matches!(
-                    align_x,
-                    Some(crate::scene::HorizontalAlign::Center)
-                ));
-                assert!(matches!(align_y, Some(crate::scene::VerticalAlign::Center)));
+                assert!(matches!(align_x, Some(HorizontalAlign::Center)));
+                assert!(matches!(align_y, Some(VerticalAlign::Center)));
                 assert!(fg_colour.is_some());
             }
             _ => panic!("expected text sprite"),
@@ -416,7 +414,7 @@ layers:
         let doc: SceneDocument = serde_yaml::from_str(raw).expect("document");
         let scene = doc.compile().expect("scene");
         match &scene.layers[0].sprites[0] {
-            crate::scene::Sprite::Text {
+            Sprite::Text {
                 content,
                 y,
                 align_x,
@@ -425,11 +423,8 @@ layers:
             } => {
                 assert_eq!(content, "START");
                 assert_eq!(*y, 2);
-                assert!(matches!(
-                    align_x,
-                    Some(crate::scene::HorizontalAlign::Center)
-                ));
-                assert!(matches!(align_y, Some(crate::scene::VerticalAlign::Center)));
+                assert!(matches!(align_x, Some(HorizontalAlign::Center)));
+                assert!(matches!(align_y, Some(VerticalAlign::Center)));
             }
             _ => panic!("expected text sprite"),
         }
@@ -454,7 +449,7 @@ layers:
             .compile()
             .expect("scene");
         match &scene.layers[0].sprites[0] {
-            crate::scene::Sprite::Text { y, animations, .. } => {
+            Sprite::Text { y, animations, .. } => {
                 assert_eq!(*y, 0);
                 assert_eq!(animations.len(), 1);
                 assert_eq!(animations[0].name, "float");
@@ -463,7 +458,7 @@ layers:
             _ => panic!("expected text"),
         }
         match &scene.layers[0].sprites[1] {
-            crate::scene::Sprite::Obj {
+            Sprite::Obj {
                 rotation_y,
                 rotate_y_deg_per_sec,
                 ..

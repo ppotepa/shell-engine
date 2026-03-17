@@ -1,0 +1,12 @@
+[package]
+name = "engine-authoring"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+engine-core = { path = "../engine-core" }
