@@ -68,7 +68,8 @@ impl StartupCheck for SceneGraphCheck {
                 continue;
             };
             for target in edges {
-                if !id_to_edges.contains_key(target) {
+                let resolved_target = resolve_scene_ref(target, &path_to_id);
+                if !id_to_edges.contains_key(&resolved_target) {
                     return Err(EngineError::StartupCheckFailed {
                         check: self.name().to_string(),
                         details: format!(
@@ -77,7 +78,7 @@ impl StartupCheck for SceneGraphCheck {
                         ),
                     });
                 }
-                stack.push(target.clone());
+                stack.push(resolved_target);
             }
         }
 
@@ -114,6 +115,17 @@ fn normalize_scene_path(path: &str) -> String {
     }
 }
 
+fn resolve_scene_ref(scene_ref: &str, path_to_id: &BTreeMap<String, String>) -> String {
+    if scene_ref.starts_with('/') {
+        let normalized = normalize_scene_path(scene_ref);
+        return path_to_id
+            .get(&normalized)
+            .cloned()
+            .unwrap_or_else(|| scene_ref.to_string());
+    }
+    scene_ref.to_string()
+}
+
 fn has_cycle(graph: &BTreeMap<String, Vec<String>>, entry_id: &str) -> bool {
     fn visit(
         node: &str,
@@ -141,4 +153,60 @@ fn has_cycle(graph: &BTreeMap<String, Vec<String>>, entry_id: &str) -> bool {
     let mut visiting = BTreeSet::new();
     let mut visited = BTreeSet::new();
     visit(entry_id, graph, &mut visiting, &mut visited)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SceneGraphCheck;
+    use crate::pipelines::startup::{
+        StartupCheck, StartupContext, StartupIssueLevel, StartupReport,
+    };
+    use serde_yaml::Value;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn accepts_explicit_path_refs_in_scene_graph() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes/intro")).expect("create intro dir");
+        fs::create_dir_all(mod_dir.join("scenes/next")).expect("create next dir");
+        fs::write(
+            mod_dir.join("scenes/intro/scene.yml"),
+            r#"
+id: intro
+title: Intro
+next: /scenes/next/scene.yml
+layers: []
+"#,
+        )
+        .expect("write intro");
+        fs::write(
+            mod_dir.join("scenes/next/scene.yml"),
+            r#"
+id: next-scene
+title: Next
+next: null
+layers: []
+"#,
+        )
+        .expect("write next");
+
+        let manifest: Value = serde_yaml::from_str(
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/intro/scene.yml\n",
+        )
+        .expect("manifest");
+        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/intro/scene.yml");
+        let mut report = StartupReport::default();
+
+        SceneGraphCheck
+            .run(&ctx, &mut report)
+            .expect("scene graph ok");
+
+        assert!(report
+            .issues()
+            .iter()
+            .any(|issue| issue.level == StartupIssueLevel::Info
+                && issue.message.contains("scene graph verified")));
+    }
 }
