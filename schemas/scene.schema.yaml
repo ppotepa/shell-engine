@@ -543,10 +543,18 @@ $defs:
         minimum: 1
         maximum: 179
         description: Perspective camera FOV in degrees for type=obj.
+      near-clip:
+        type: number
+        minimum: 0.000001
+        description: Near clipping plane distance in camera space for type=obj (smaller renders closer geometry).
       draw-char:
         type: string
         minLength: 1
         description: Single glyph used to draw wireframe edges for type=obj.
+      surface-mode:
+        type: string
+        enum: [material, wireframe]
+        description: Surface rendering style for type=obj. `material` fills faces with MTL colours, `wireframe` draws edges only.
       columns:
         type: array
         description: >

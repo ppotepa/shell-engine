@@ -5,7 +5,12 @@ use crate::systems;
 use crate::world::World;
 
 pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
-    use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+    use crossterm::event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind,
+        MouseEventKind,
+    };
+    use crossterm::execute;
+    use std::io::stdout;
     use std::time::{Duration, Instant};
     use systems::scene_lifecycle::SceneLifecycleManager;
 
@@ -14,6 +19,8 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
     let fps = target_fps.max(1) as u64;
     let tick_ms = (1000 / fps).max(1);
     let frame_budget = Duration::from_millis(tick_ms);
+
+    execute!(stdout(), EnableMouseCapture)?;
 
     loop {
         let frame_start = Instant::now();
@@ -37,6 +44,14 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
                     };
                     world.events_mut().unwrap().push(ev);
                 }
+                Event::Mouse(mouse) => {
+                    if matches!(mouse.kind, MouseEventKind::Moved) {
+                        world.events_mut().unwrap().push(EngineEvent::MouseMoved {
+                            column: mouse.column,
+                            row: mouse.row,
+                        });
+                    }
+                }
                 Event::Resize(w, h) => {
                     world
                         .events_mut()
@@ -57,6 +72,7 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
 
         let quit = SceneLifecycleManager::process_events(world, events);
         if quit {
+            execute!(stdout(), DisableMouseCapture).ok();
             break;
         }
 

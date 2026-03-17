@@ -2,6 +2,7 @@
 id: playground-3d-scene
 title: 3D Scene (OBJ Wireframe Test)
 bg_colour: black
+rendered-mode: quadblock
 stages:
   on_enter:
     steps:
@@ -27,19 +28,20 @@ layers:
         source: "/scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj"
         align_x: center
         align_y: center
-        y: -2
-        width: 86
-        height: 28
+        y: 0
         scale: 1.1
-        yaw-deg: 10
+        surface-mode: material
+        rotation-y: 180
+        yaw-deg: 0
         pitch-deg: -10
         rotate-y-deg-per-sec: 14
         camera-distance: 3.2
         fov-degrees: 56
+        near-clip: 0.0005
         draw-char: "#"
         fg_colour: white
       - type: text
-        content: "OBJ wireframe test: Helsinki Uni. Press any key to return."
+        content: "A/Z zoom, O orbit on/off (arrows+mouse look when off), 1-4 renderer, 5 wireframe, ENTER back"
         align_x: center
         align_y: bottom
         y: -1

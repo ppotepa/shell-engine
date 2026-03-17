@@ -1,5 +1,5 @@
 use crate::events::EngineEvent;
-use crate::scene::{self};
+use crate::scene::{self, SceneRenderedMode};
 use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
 use crate::systems::animator::{Animator, SceneStage};
@@ -14,6 +14,7 @@ struct LifecycleEvents {
     key_presses: Vec<KeyCode>,
     transitions: Vec<String>,
     resizes: Vec<(u16, u16)>,
+    mouse_moves: Vec<(u16, u16)>,
 }
 
 impl SceneLifecycleManager {
@@ -30,11 +31,18 @@ impl SceneLifecycleManager {
         if !lifecycle.key_presses.is_empty() {
             Self::advance_on_any_key(world, &lifecycle.key_presses);
         }
+        if !lifecycle.mouse_moves.is_empty() {
+            handle_playground_3d_mouse(world, &lifecycle.mouse_moves);
+        }
         Self::apply_transitions(world, lifecycle.transitions);
         lifecycle.quit
     }
 
     fn advance_on_any_key(world: &mut World, key_presses: &[KeyCode]) {
+        if handle_playground_3d_controls(world, key_presses) {
+            return;
+        }
+
         let menu_options = world
             .scene_runtime()
             .map(|runtime| runtime.scene().menu_options.clone())
@@ -105,6 +113,7 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
         match event {
             EngineEvent::Quit => lifecycle.quit = true,
             EngineEvent::KeyPressed(code) => lifecycle.key_presses.push(code),
+            EngineEvent::MouseMoved { column, row } => lifecycle.mouse_moves.push((column, row)),
             EngineEvent::SceneTransition { to_scene_id } => lifecycle.transitions.push(to_scene_id),
             EngineEvent::TerminalResized { width, height } => {
                 lifecycle.resizes.push((width, height));
@@ -217,13 +226,150 @@ fn matches_confirm_key(key_code: &KeyCode) -> bool {
     matches!(key_code, KeyCode::Enter | KeyCode::Char(' '))
 }
 
+fn handle_playground_3d_controls(world: &mut World, key_presses: &[KeyCode]) -> bool {
+    let is_playground_3d = world
+        .scene_runtime()
+        .map(|runtime| runtime.scene().id == "playground-3d-scene")
+        .unwrap_or(false);
+    let is_idle = world
+        .animator()
+        .map(|animator| animator.stage == SceneStage::OnIdle)
+        .unwrap_or(false);
+    if !is_playground_3d || !is_idle {
+        return false;
+    }
+
+    if key_presses.iter().any(|key| matches!(key, KeyCode::Enter)) {
+        return false;
+    }
+
+    let orbit_active = world
+        .scene_runtime()
+        .map(|r| r.is_obj_orbit_active("helsinki-uni-wireframe"))
+        .unwrap_or(true);
+
+    let mut zoom_delta = 0.0f32;
+    let mut mode_switch: Option<SceneRenderedMode> = None;
+    let mut toggle_wireframe = false;
+    let mut toggle_orbit = false;
+    let mut pan_dx = 0.0f32;
+    let mut pan_dy = 0.0f32;
+
+    for key in key_presses {
+        match key {
+            KeyCode::Char('a') | KeyCode::Char('A') => zoom_delta += 0.1,
+            KeyCode::Char('z') | KeyCode::Char('Z') => zoom_delta -= 0.1,
+            KeyCode::Char('1') | KeyCode::Char('6') => mode_switch = Some(SceneRenderedMode::Cell),
+            KeyCode::Char('2') | KeyCode::Char('7') => {
+                mode_switch = Some(SceneRenderedMode::HalfBlock)
+            }
+            KeyCode::Char('3') | KeyCode::Char('8') => {
+                mode_switch = Some(SceneRenderedMode::QuadBlock)
+            }
+            KeyCode::Char('4') => mode_switch = Some(SceneRenderedMode::Braille),
+            KeyCode::Char('5') => toggle_wireframe = true,
+            KeyCode::Char('o') | KeyCode::Char('O') => toggle_orbit = true,
+            // Arrow keys: pan camera when orbit is off.
+            KeyCode::Left if !orbit_active => pan_dx -= 0.04,
+            KeyCode::Right if !orbit_active => pan_dx += 0.04,
+            KeyCode::Up if !orbit_active => pan_dy += 0.04,
+            KeyCode::Down if !orbit_active => pan_dy -= 0.04,
+            _ => {}
+        }
+    }
+
+    if let Some(runtime) = world.scene_runtime_mut() {
+        if zoom_delta != 0.0 {
+            let _ = runtime.adjust_obj_scale("helsinki-uni-wireframe", zoom_delta);
+        }
+        if let Some(mode) = mode_switch {
+            runtime.set_scene_rendered_mode(mode);
+        }
+        if toggle_wireframe {
+            let _ = runtime.toggle_obj_surface_mode("helsinki-uni-wireframe");
+        }
+        if toggle_orbit {
+            let _ = runtime.toggle_obj_orbit("helsinki-uni-wireframe");
+            // Reset mouse reference so first mouse move after toggle doesn't jump.
+            runtime.last_mouse_pos = None;
+        }
+        if pan_dx != 0.0 || pan_dy != 0.0 {
+            runtime.apply_obj_camera_pan("helsinki-uni-wireframe", pan_dx, pan_dy);
+        }
+    }
+
+    true
+}
+
+fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
+    let is_playground_3d = world
+        .scene_runtime()
+        .map(|runtime| runtime.scene().id == "playground-3d-scene")
+        .unwrap_or(false);
+    let is_idle = world
+        .animator()
+        .map(|animator| animator.stage == SceneStage::OnIdle)
+        .unwrap_or(false);
+    if !is_playground_3d || !is_idle {
+        return;
+    }
+
+    let orbit_active = world
+        .scene_runtime()
+        .map(|r| r.is_obj_orbit_active("helsinki-uni-wireframe"))
+        .unwrap_or(true);
+    if orbit_active {
+        // Orbit is on — mouse look is disabled; just update position reference.
+        if let Some(last) = mouse_moves.last() {
+            if let Some(runtime) = world.scene_runtime_mut() {
+                runtime.last_mouse_pos = Some(*last);
+            }
+        }
+        return;
+    }
+
+    let last_pos = world
+        .scene_runtime()
+        .and_then(|r| r.last_mouse_pos);
+
+    let Some((mut prev_col, mut prev_row)) = last_pos else {
+        // First event after orbit was toggled off — seed position, don't rotate.
+        if let Some(last) = mouse_moves.last() {
+            if let Some(runtime) = world.scene_runtime_mut() {
+                runtime.last_mouse_pos = Some(*last);
+            }
+        }
+        return;
+    };
+
+    let mut total_dyaw = 0.0f32;
+    let mut total_dpitch = 0.0f32;
+
+    for &(col, row) in mouse_moves {
+        let dc = col as f32 - prev_col as f32;
+        let dr = row as f32 - prev_row as f32;
+        // Scale: 1 terminal cell ≈ 1.8 degrees horizontal, 2.8 degrees vertical.
+        total_dyaw += dc * 1.8;
+        total_dpitch += dr * 2.8;
+        prev_col = col;
+        prev_row = row;
+    }
+
+    if let Some(runtime) = world.scene_runtime_mut() {
+        runtime.last_mouse_pos = Some((prev_col, prev_row));
+        if total_dyaw != 0.0 || total_dpitch != 0.0 {
+            runtime.apply_obj_camera_look("helsinki-uni-wireframe", total_dyaw, total_dpitch);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{classify_events, SceneLifecycleManager};
     use crate::events::EngineEvent;
     use crate::scene::{
-        MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Stage, StageTrigger,
-        TermColour,
+        MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage,
+        StageTrigger, TermColour,
     };
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
@@ -279,6 +425,123 @@ mod tests {
         assert_eq!(animator.stage, SceneStage::OnLeave);
         assert_eq!(animator.step_idx, 0);
         assert_eq!(animator.elapsed_ms, 0);
+    }
+
+    #[test]
+    fn playground_3d_controls_consume_keys_and_update_runtime() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: playground-3d-scene
+title: 3D
+bg_colour: black
+stages:
+  on_idle:
+    trigger: any-key
+    steps: []
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+        scale: 1.0
+        rotate-y-deg-per-sec: 14
+"#,
+        )
+        .expect("scene parse");
+
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('A')),
+                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('4')),
+                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('5')),
+                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('O')),
+            ],
+        );
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        let runtime = world.get::<SceneRuntime>().expect("runtime present");
+        assert_eq!(runtime.scene().rendered_mode, SceneRenderedMode::Braille);
+        let (scale, surface_mode, orbit_speed) = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    scale,
+                    surface_mode,
+                    rotate_y_deg_per_sec,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => {
+                    Some((
+                        scale.unwrap_or(1.0),
+                        surface_mode.clone(),
+                        rotate_y_deg_per_sec.unwrap_or(0.0),
+                    ))
+                }
+                _ => None,
+            })
+            .expect("obj props");
+        assert!((scale - 1.1).abs() < f32::EPSILON);
+        assert_eq!(surface_mode.as_deref(), Some("wireframe"));
+        assert!((orbit_speed - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn playground_3d_enter_still_leaves_scene() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: playground-3d-scene
+title: 3D
+bg_colour: black
+stages:
+  on_idle:
+    trigger: any-key
+    steps: []
+layers:
+  - name: obj
+    sprites:
+      - type: obj
+        id: helsinki-uni-wireframe
+        source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+"#,
+        )
+        .expect("scene parse");
+
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Enter)],
+        );
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnLeave);
     }
 
     #[test]
