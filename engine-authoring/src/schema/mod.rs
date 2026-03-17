@@ -125,6 +125,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
         output_file("behaviors.schema.yaml".to_string(), build_behavior_schema()),
         output_file("animations.schema.yaml".to_string(), build_animation_schema()),
         output_file("input-profiles.schema.yaml".to_string(), build_input_profile_schema()),
+        output_file("sugar.schema.yaml".to_string(), build_sugar_schema()),
     ])
 }
 
@@ -397,6 +398,90 @@ fn build_input_profile_schema() -> Value {
     );
     
     defs.insert(Value::String("input_profile".to_string()), Value::Mapping(profile_enum));
+    root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
+    Value::Mapping(root)
+}
+
+/// Builds documentation schema for all authoring sugar transformations.
+fn build_sugar_schema() -> Value {
+    use engine_core::authoring::catalog::sugar_catalog;
+    
+    let mut root = Mapping::new();
+    root.insert(
+        Value::String("$schema".to_string()),
+        Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+    );
+    root.insert(
+        Value::String("$id".to_string()),
+        Value::String("https://shell-quest.local/schemas/generated/sugar.schema.yaml".to_string()),
+    );
+    root.insert(
+        Value::String("title".to_string()),
+        Value::String("Authoring sugar transformations catalog".to_string()),
+    );
+    root.insert(
+        Value::String("description".to_string()),
+        Value::String("Documents all shorthand syntax, aliases, and normalizers applied during YAML authoring. These are automatically expanded by the compiler before deserialization.".to_string()),
+    );
+
+    let catalog = sugar_catalog();
+    let mut defs = Mapping::new();
+    
+    // Aliases section
+    let mut aliases_array = Vec::new();
+    for (from, to) in catalog.aliases {
+        let mut alias = Mapping::new();
+        alias.insert(Value::String("from".to_string()), Value::String(from.to_string()));
+        alias.insert(Value::String("to".to_string()), Value::String(to.to_string()));
+        aliases_array.push(Value::Mapping(alias));
+    }
+    let mut aliases_def = Mapping::new();
+    aliases_def.insert(
+        Value::String("description".to_string()),
+        Value::String("Field name aliases automatically renamed during compilation".to_string()),
+    );
+    aliases_def.insert(Value::String("type".to_string()), Value::String("array".to_string()));
+    aliases_def.insert(Value::String("items".to_string()), Value::Sequence(aliases_array));
+    defs.insert(Value::String("aliases".to_string()), Value::Mapping(aliases_def));
+    
+    // Shorthands section
+    let mut shorthands_array = Vec::new();
+    for shorthand in catalog.shorthands {
+        let mut sh = Mapping::new();
+        sh.insert(Value::String("name".to_string()), Value::String(shorthand.name.to_string()));
+        sh.insert(Value::String("description".to_string()), Value::String(shorthand.description.to_string()));
+        sh.insert(Value::String("from_syntax".to_string()), Value::String(shorthand.from_syntax.to_string()));
+        sh.insert(Value::String("to_structure".to_string()), Value::String(shorthand.to_structure.to_string()));
+        shorthands_array.push(Value::Mapping(sh));
+    }
+    let mut shorthands_def = Mapping::new();
+    shorthands_def.insert(
+        Value::String("description".to_string()),
+        Value::String("Shorthand syntax automatically expanded during compilation".to_string()),
+    );
+    shorthands_def.insert(Value::String("type".to_string()), Value::String("array".to_string()));
+    shorthands_def.insert(Value::String("items".to_string()), Value::Sequence(shorthands_array));
+    defs.insert(Value::String("shorthands".to_string()), Value::Mapping(shorthands_def));
+    
+    // Normalizers section
+    let normalizers_array: Vec<Value> = catalog
+        .normalizers
+        .iter()
+        .map(|name| Value::String(name.to_string()))
+        .collect();
+    let mut normalizers_def = Mapping::new();
+    normalizers_def.insert(
+        Value::String("description".to_string()),
+        Value::String("Normalizer functions applied during document processing (see engine-authoring/src/document/scene.rs)".to_string()),
+    );
+    normalizers_def.insert(Value::String("type".to_string()), Value::String("array".to_string()));
+    normalizers_def.insert(
+        Value::String("items".to_string()),
+        Value::Mapping(mapping_with("type", Value::String("string".to_string()))),
+    );
+    normalizers_def.insert(Value::String("enum".to_string()), Value::Sequence(normalizers_array));
+    defs.insert(Value::String("normalizers".to_string()), Value::Mapping(normalizers_def));
+    
     root.insert(Value::String("$defs".to_string()), Value::Mapping(defs));
     Value::Mapping(root)
 }
@@ -1373,5 +1458,61 @@ mod tests {
         
         assert!(has_obj_viewer, "obj-viewer profile should be in schema");
         assert!(has_terminal_tester, "terminal-size-tester profile should be in schema");
+    }
+
+    #[test]
+    fn test_sugar_schema_generation() {
+        let temp = unique_temp_dir("sugar-schema-test");
+        fs::write(temp.join("mod.yaml"), "name: test\n").unwrap();
+        fs::create_dir_all(temp.join("scenes")).unwrap();
+        
+        let files = generate_mod_schema_files(&temp).unwrap();
+        let sugar_schema = files
+            .iter()
+            .find(|f| f.file_name == "sugar.schema.yaml")
+            .expect("sugar.schema.yaml generated");
+        
+        let defs = sugar_schema
+            .value
+            .as_mapping()
+            .and_then(|m| m.get(Value::String("$defs".to_string())))
+            .and_then(Value::as_mapping)
+            .expect("$defs in sugar schema");
+        
+        // Check aliases
+        let aliases = defs
+            .get(Value::String("aliases".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("items".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("aliases items");
+        assert!(!aliases.is_empty(), "should have alias definitions");
+        
+        // Check shorthands
+        let shorthands = defs
+            .get(Value::String("shorthands".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("items".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("shorthands items");
+        assert!(!shorthands.is_empty(), "should have shorthand definitions");
+        
+        // Check that pause shorthand exists
+        let has_pause = shorthands.iter().any(|sh| {
+            sh.as_mapping()
+                .and_then(|m| m.get(Value::String("name".to_string())))
+                .and_then(Value::as_str)
+                == Some("pause")
+        });
+        assert!(has_pause, "pause shorthand should be in schema");
+        
+        // Check normalizers
+        let normalizers = defs
+            .get(Value::String("normalizers".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("normalizers enum");
+        assert!(!normalizers.is_empty(), "should have normalizer names");
     }
 }
