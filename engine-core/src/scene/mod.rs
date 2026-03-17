@@ -1,6 +1,7 @@
 pub mod color;
 pub mod document;
 pub mod easing;
+pub mod metadata;
 pub mod model;
 pub mod object;
 pub mod sprite;
@@ -19,3 +20,4 @@ pub use model::{
 pub use object::{LogicKind, LogicSpec, ObjectDocument};
 pub use sprite::{HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
 pub use value::{ColorValue, ScalarValue};
+pub use metadata::{LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
