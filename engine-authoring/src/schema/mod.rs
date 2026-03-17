@@ -172,6 +172,7 @@ fn enum_schema(values: Vec<String>) -> Value {
 }
 
 /// Builds schema for all built-in behaviors with their parameter schemas.
+#[cfg(test)]
 fn build_behavior_schema() -> Value {
     use engine_core::authoring::catalog::behavior_catalog;
     use engine_core::authoring::metadata::Requirement;
@@ -288,6 +289,7 @@ fn build_behavior_schema() -> Value {
 }
 
 /// Converts FieldMetadata to JSON Schema property definition.
+#[cfg(test)]
 fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetadata) -> Value {
     use engine_core::authoring::metadata::ValueKind;
 
@@ -392,6 +394,7 @@ fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetad
 }
 
 /// Builds schema for all built-in animations with their parameter schemas.
+#[cfg(test)]
 fn build_animation_schema() -> Value {
     use engine_core::authoring::catalog::animation_catalog;
     use engine_core::authoring::metadata::Requirement;
@@ -508,6 +511,7 @@ fn build_animation_schema() -> Value {
 }
 
 /// Builds schema for all built-in input profiles.
+#[cfg(test)]
 fn build_input_profile_schema() -> Value {
     use engine_core::authoring::catalog::input_profile_catalog;
 
@@ -556,6 +560,7 @@ fn build_input_profile_schema() -> Value {
 
 /// Builds allOf conditional blocks from RequiredIf metadata for a set of fields.
 /// Returns `if/then` JSON Schema objects — one per unique (field, equals) pair.
+#[cfg(test)]
 fn build_required_if_allof(
     fields: &[engine_core::authoring::metadata::FieldMetadata],
 ) -> Vec<Value> {
@@ -598,6 +603,7 @@ fn build_required_if_allof(
 /// Builds a generated schema for scene/layer/sprite/object field constraints.
 /// Emits `$defs` for `sprite_required_if` (if/then allOf blocks from metadata).
 /// Referenced by scene.schema.yaml sprite def to keep RequiredIf auto-generated.
+#[cfg(test)]
 fn build_scene_fields_schema() -> Value {
     use engine_core::scene::{SPRITE_FIELDS, SCENE_FIELDS, LAYER_FIELDS, OBJECT_FIELDS};
 
@@ -690,6 +696,7 @@ fn build_scene_fields_schema() -> Value {
 }
 
 /// Builds documentation schema for all authoring sugar transformations.
+#[cfg(test)]
 fn build_sugar_schema() -> Value {
     use engine_core::authoring::catalog::sugar_catalog;
 
