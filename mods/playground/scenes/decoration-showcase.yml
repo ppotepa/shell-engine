@@ -1,7 +1,8 @@
 # yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: playground-decoration-showcase
 title: Decoration Showcase (Placeholder)
-bg_colour: black
+bg: black
 stages:
   on_enter:
     steps:
@@ -11,8 +12,7 @@ stages:
   on_idle:
     trigger: any-key
     steps:
-      - duration: 1
-        effects: []
+      - pause: 1ms
   on_leave:
     steps:
       - effects:
@@ -24,9 +24,8 @@ layers:
     sprites:
       - type: text
         content: "PLACEHOLDER TEXT"
-        align_x: center
-        align_y: center
+        at: cc
         y: 0
         font: "generic:1"
-        fg_colour: white
+        fg: white
 next: playground-menu

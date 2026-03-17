@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=../../../schemas/scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: playground-menu
 title: Playground Menu
 bg: black
@@ -36,66 +37,60 @@ layers:
         fg: gray
       - type: grid
         id: menu-grid
-        align_x: center
-        align_y: center
+        at: cc
         width: 36
         height: 15
         columns: ["1fr"]
         rows: ["auto", "auto", "auto", "auto", "auto"]
         gap-y: 1
+        # `menu:` sugar is still future work, so this scene stays as the canonical explicit menu example.
         children:
           - type: text
             id: menu-item-0
             content: "[1] 3D SCENE"
             grid-col: 1
             grid-row: 1
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: white
+            fg: white
           - type: text
             id: menu-item-1
             content: "[2] STOP ANIMATION"
             grid-col: 1
             grid-row: 2
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: silver
+            fg: silver
           - type: text
             id: menu-item-2
             content: "[3] DECORATION SHOWCASE"
             grid-col: 1
             grid-row: 3
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: gray
+            fg: gray
           - type: text
             id: menu-item-3
             content: "[4] TERMINAL SIZE TEST"
             grid-col: 1
             grid-row: 4
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: silver
+            fg: silver
           - type: text
             id: menu-item-4
             content: "[5] FPS CAP SHOWCASE 2D+3D"
             grid-col: 1
             grid-row: 5
-            align_x: center
-            align_y: center
+            at: cc
             font: "generic:1"
-            fg_colour: gray
+            fg: gray
       - type: text
         id: sel0-left
         content: ">"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -109,10 +104,9 @@ layers:
       - type: text
         id: sel0-right
         content: "<"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -126,10 +120,9 @@ layers:
       - type: text
         id: sel1-left
         content: ">"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -143,10 +136,9 @@ layers:
       - type: text
         id: sel1-right
         content: "<"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -160,10 +152,9 @@ layers:
       - type: text
         id: sel2-left
         content: ">"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -177,10 +168,9 @@ layers:
       - type: text
         id: sel2-right
         content: "<"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -194,10 +184,9 @@ layers:
       - type: text
         id: sel3-left
         content: ">"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -211,10 +200,9 @@ layers:
       - type: text
         id: sel3-right
         content: "<"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -228,10 +216,9 @@ layers:
       - type: text
         id: sel4-left
         content: ">"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -245,10 +232,9 @@ layers:
       - type: text
         id: sel4-right
         content: "<"
-        align_x: center
-        align_y: center
+        at: cc
         font: "generic:1"
-        fg_colour: yellow
+        fg: yellow
         behaviors:
           - name: selected-arrows
             params:
@@ -272,6 +258,7 @@ layers:
               visible_ms: 700
               hidden_ms: 700
 next: playground-3d-scene
+# `to` is the concise authored alias; the compiler normalizes it to the legacy routing fields.
 menu-options:
   - key: "1"
     label: 3D SCENE

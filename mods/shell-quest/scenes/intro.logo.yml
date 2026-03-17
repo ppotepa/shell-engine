@@ -1,40 +1,33 @@
 # yaml-language-server: $schema=../../../../../schemas/scene.schema.yaml
+# Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
 id: intro.logo
 title: Intro Logo
 cutscene: true
-bg_colour: black
+bg: black
 virtual-size-override: "320x240"
+# This scene is intentionally effect-heavy so it doubles as the reference example for stage-driven FX authoring.
 stages:
   on_enter:
     steps:
-      - duration: 3000
-        effects: []
+      - pause: 3000ms
       - duration: 720
         effects:
           - name: crt-on
             duration: 720
             params:
               easing: ease-out
-      - duration: 420
-        effects: []
-      - duration: 280
-        effects: []
-      - duration: 60
-        effects: []
-      - duration: 70
-        effects: []
-      - duration: 50
-        effects: []
-      - duration: 70
-        effects: []
-      - duration: 50
-        effects: []
+      - pause: 420ms
+      - pause: 280ms
+      - pause: 60ms
+      - pause: 70ms
+      - pause: 50ms
+      - pause: 70ms
+      - pause: 50ms
   on_idle:
     trigger: any-key
     looping: true
     steps:
-      - duration: 1800
-        effects: []
+      - pause: 1800ms
       - effects:
           - name: shine
             duration: 1000
@@ -47,8 +40,7 @@ stages:
               easing: ease-in
   on_leave:
     steps:
-      - duration: 900
-        effects: []
+      - pause: 900ms
       - effects:
           - name: lightning-flash
             duration: 180
@@ -64,12 +56,11 @@ layers:
     z_index: -1
     visible: true
     stages:
+      # Background lightning stays explicit because it is a good example of parallel effects inside one step.
       on_enter:
         steps:
-          - duration: 3000
-            effects: []
-          - duration: 720
-            effects: []
+          - pause: 3000ms
+          - pause: 720ms
           - duration: 420
             effects:
               - name: lightning-growth
@@ -123,8 +114,7 @@ layers:
                   strikes: 1
                   thickness: 1.0
                   glow: false
-          - duration: 70
-            effects: []
+          - pause: 70ms
           - duration: 50
             effects:
               - name: lightning-growth
@@ -134,8 +124,7 @@ layers:
                   strikes: 1
                   thickness: 1.0
                   glow: false
-          - duration: 70
-            effects: []
+          - pause: 70ms
           - duration: 50
             effects:
               - name: lightning-growth
@@ -203,10 +192,9 @@ layers:
       - type: text
         id: intro-logo-ascii
         content: "SHELL QUEST I"
-        align_x: center
-        align_y: center
+        at: cc
         font: "Abril Fatface:ascii"
-        fg_colour: white
+        fg: white
         appear_at_ms: 0
         disappear_at_ms: 3140
         stages:
@@ -221,10 +209,9 @@ layers:
       - type: text
         id: intro-logo-raster
         content: "SHELL QUEST I"
-        align_x: center
-        align_y: center
+        at: cc
         font: "Abril Fatface:raster"
-        fg_colour: gray
+        fg: gray
         appear_at_ms: 3140
         stages:
           on_enter:
@@ -248,8 +235,7 @@ layers:
           on_idle:
             looping: true
             steps:
-              - duration: 1800
-                effects: []
+              - pause: 1800ms
               - effects:
                   - name: shine
                     duration: 1000
@@ -291,11 +277,10 @@ layers:
       - type: text
         id: press-any-key
         content: "[#808080]PRESS[/] ANY [#808080]KEY[/]"
-        align_x: center
-        align_y: center
+        at: cc
         y: 12
         font: "generic:1"
-        fg_colour: white
+        fg: white
         glow:
           radius: 1
         hide_on_leave: true
