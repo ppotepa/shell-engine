@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: demo-mod.intro
+title: Intro
+bg: black
+stages:
+  on_enter:
+    steps:
+      - pause: 300ms
+  on_idle:
+    trigger: any-key
+    steps:
+      - pause: 300ms
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 220
+next: null

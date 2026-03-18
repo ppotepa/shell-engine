@@ -1,0 +1,823 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/demo-mod/schemas/effects.yaml
+title: schema demo-mod effects
+type: array
+items:
+  oneOf:
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: artifact-out
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: artifact-out effect variant
+    - description: artifact-out overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: blur
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            radius:
+              type: number
+              minimum: 1.0
+              maximum: 6.0
+              multipleOf: 0.5
+              description: Blur kernel half-size in cells. 1 = 3×3 neighbourhood, 2 = 5×5, etc.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: blur effect variant
+    - description: blur overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: brighten
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: brighten effect variant
+    - description: brighten overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: clear-to-colour
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            colour:
+              type: string
+              default: black
+              description: 'Target colour (name or #rrggbb).'
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: clear-to-colour effect variant
+    - description: clear-to-colour overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: crt-on
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-on effect variant
+    - description: crt-on overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: crt-reflection
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            sphericality:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Curved-glass spherical distortion strength.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: How strongly the reflected image remains visible.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Brightness multiplier applied to the reflected image.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-reflection effect variant
+    - description: crt-reflection overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: devour-out
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: devour-out effect variant
+    - description: devour-out overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: fade-in
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: fade-in effect variant
+    - description: fade-in overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: fade-out
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: fade-out effect variant
+    - description: fade-out overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: fade-to-black
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: fade-to-black effect variant
+    - description: fade-to-black overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: glitch-out
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: glitch-out effect variant
+    - description: glitch-out overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: lightning-ambient
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            strikes:
+              type: number
+              minimum: 1.0
+              maximum: 10.0
+              multipleOf: 1.0
+              description: Number of primary arcs / branches.
+            thickness:
+              type: number
+              minimum: 0.10000000149011612
+              maximum: 3.0
+              multipleOf: 0.10000000149011612
+              description: Branch / bolt thickness multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            glow:
+              type: boolean
+              default: true
+              description: Draw halo glow around the bolt.
+            orientation:
+              type: string
+              enum:
+              - horizontal
+              - vertical
+              default: horizontal
+              description: Directional axis for the effect.
+      title: lightning-ambient effect variant
+    - description: lightning-ambient overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: lightning-branch
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            strikes:
+              type: number
+              minimum: 1.0
+              maximum: 10.0
+              multipleOf: 1.0
+              description: Number of primary arcs / branches.
+            thickness:
+              type: number
+              minimum: 0.10000000149011612
+              maximum: 3.0
+              multipleOf: 0.10000000149011612
+              description: Branch / bolt thickness multiplier.
+            glow:
+              type: boolean
+              default: true
+              description: Draw halo glow around the bolt.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            orientation:
+              type: string
+              enum:
+              - horizontal
+              - vertical
+              default: horizontal
+              description: Directional axis for the effect.
+            start_x:
+              type: string
+              default: random
+              description: Start anchor (number or "random").
+            end_x:
+              type: string
+              default: random
+              description: End anchor (number or "random").
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: lightning-branch effect variant
+    - description: lightning-branch overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: lightning-fbm
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            octave_count:
+              type: number
+              minimum: 1.0
+              maximum: 8.0
+              multipleOf: 1.0
+              description: FBM complexity octaves.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            orientation:
+              type: string
+              enum:
+              - horizontal
+              - vertical
+              default: horizontal
+              description: Directional axis for the effect.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: lightning-fbm effect variant
+    - description: lightning-fbm overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: lightning-flash
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            coverage:
+              type: string
+              enum:
+              - full-screen
+              - region
+              default: full-screen
+              description: Scope hint for the flash.
+            orientation:
+              type: string
+              enum:
+              - horizontal
+              - vertical
+              default: horizontal
+              description: Directional axis for the effect.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: lightning-flash effect variant
+    - description: lightning-flash overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: lightning-growth
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            strikes:
+              type: number
+              minimum: 1.0
+              maximum: 10.0
+              multipleOf: 1.0
+              description: Number of primary arcs / branches.
+            thickness:
+              type: number
+              minimum: 0.10000000149011612
+              maximum: 3.0
+              multipleOf: 0.10000000149011612
+              description: Branch / bolt thickness multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            glow:
+              type: boolean
+              default: true
+              description: Draw halo glow around the bolt.
+            orientation:
+              type: string
+              enum:
+              - horizontal
+              - vertical
+              default: horizontal
+              description: Directional axis for the effect.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: lightning-growth effect variant
+    - description: lightning-growth overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: lightning-natural
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            strikes:
+              type: number
+              minimum: 1.0
+              maximum: 10.0
+              multipleOf: 1.0
+              description: Number of primary arcs / branches.
+            thickness:
+              type: number
+              minimum: 0.10000000149011612
+              maximum: 3.0
+              multipleOf: 0.10000000149011612
+              description: Branch / bolt thickness multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            glow:
+              type: boolean
+              default: true
+              description: Draw halo glow around the bolt.
+            orientation:
+              type: string
+              enum:
+              - horizontal
+              - vertical
+              default: horizontal
+              description: Directional axis for the effect.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: lightning-natural effect variant
+    - description: lightning-natural overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: lightning-optical-80s
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: lightning-optical-80s effect variant
+    - description: lightning-optical-80s overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: power-off
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: power-off effect variant
+    - description: power-off overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: scanlines
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+      title: scanlines effect variant
+    - description: scanlines overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: screen-shake
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            amplitude_x:
+              type: number
+              minimum: 0.0
+              maximum: 3.0
+              multipleOf: 0.10000000149011612
+              description: Horizontal shake in cells.
+            amplitude_y:
+              type: number
+              minimum: 0.0
+              maximum: 3.0
+              multipleOf: 0.10000000149011612
+              description: Vertical shake in cells.
+            frequency:
+              type: number
+              minimum: 0.0
+              maximum: 20.0
+              multipleOf: 0.5
+              description: Oscillation cycles during effect.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: screen-shake effect variant
+    - description: screen-shake overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: shatter-glitch
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: shatter-glitch effect variant
+    - description: shatter-glitch overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: shine
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            angle:
+              type: number
+              minimum: 0.0
+              maximum: 90.0
+              multipleOf: 2.0
+              description: Beam angle in degrees (0=vertical sweep).
+            width:
+              type: number
+              minimum: 1.0
+              maximum: 12.0
+              multipleOf: 0.5
+              description: Gaussian beam half-width in cells.
+            falloff:
+              type: number
+              minimum: 0.0
+              maximum: 5.0
+              multipleOf: 0.20000000298023224
+              description: Edge sharpness exponent (>1 = sharper).
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: shine effect variant
+    - description: shine overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: tesla-orb
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            octave_count:
+              type: number
+              minimum: 1.0
+              maximum: 8.0
+              multipleOf: 1.0
+              description: FBM complexity octaves.
+            strikes:
+              type: number
+              minimum: 1.0
+              maximum: 10.0
+              multipleOf: 1.0
+              description: Number of primary arcs / branches.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: tesla-orb effect variant
+    - description: tesla-orb overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: whiteout
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: whiteout effect variant
+    - description: whiteout overlay from demo-mod generated metadata
