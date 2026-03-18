@@ -25,22 +25,88 @@ cargo run -p app
 cargo run -p editor
 ```
 
+## Project docs
+
+- `authoring.md` - metadata-first rollout and tooling direction
+- `assets.md` - asset, sprite, object, and source model guide
+- `editor.md` - editor architecture and refactor direction
+- `docs/scene-centric-authoring.md` - scene/layer/object authoring model
+
+## How the project fits together
+
+The repository is split into a few clear domains:
+
+- `engine-core/` = shared scene model, builtin effects, and authoring/runtime data types
+- `engine-authoring/` = scene package assembly, authored YAML compilation, schema overlay generation
+- `engine/` = runtime loading, repositories, render pipeline, compositor, startup checks
+- `editor/` = YAML-first TUI editor and preview tooling
+- `mods/` = authored game data and generated per-mod schemas
+
+In practice the flow is:
+
+1. author YAML in `mods/<mod>/`
+2. refresh generated schema overlays
+3. `engine-authoring` assembles/normalizes authored content
+4. runtime loads the compiled scene model
+5. editor should preview the same compiled result, not invent a parallel format
+
+## Current authoring model
+
+The preferred direction is now **scene-centric**:
+
+- `scene.yml` orchestrates flow and explicit layer order
+- `layers/*.yml` hold visual composition
+- `objects/*.yml` hold reusable prefabs
+
+For package scenes, prefer explicit layer references such as:
+
+```yaml
+layers:
+  - ref: main
+```
+
+instead of relying only on implicit package merge order.
+
+## Practical engine limits to remember
+
+These limits matter when designing content and editor features:
+
+- image alpha is thresholded, not smoothly blended
+- PNG is the current intentional image baseline
+- 3D mesh support is currently **OBJ**, not glTF/glb
+- there is no dedicated `3D -> offscreen buffer -> projected reflection texture` pipeline yet
+
+So if you want a reflected 3D element today, the realistic options are:
+
+- author it as an `obj` sprite,
+- pre-render it to images,
+- or add a new engine feature rather than expecting glTF reflection support to already exist
+
 ## Dev helper CLI (`devtool`)
 
-`devtool` is a small workspace utility for scaffolding and schema workflow.
+`devtool` is a workspace utility for authoring scaffolds and schema workflow.
 
 Examples:
 ```bash
-cargo run -p devtool -- new mod my-mod
-cargo run -p devtool -- new scene my-mod intro-logo --id my-mod.intro-logo
-cargo run -p devtool -- new effect my-mod intro-logo flash --builtin lightning-flash --duration 180
+cargo run -p devtool -- create mod my-mod
+cargo run -p devtool -- create scene --mod my-mod intro-logo --id my-mod.intro-logo
+cargo run -p devtool -- create layer --mod my-mod --scene intro-logo overlay
+cargo run -p devtool -- create sprite ./logo.png --mod my-mod --scene intro-logo --layer main --width 18
+cargo run -p devtool -- edit sprite --mod my-mod --scene intro-logo --layer main --id logo --x -3 --y "oscillate(-1,1,1200ms)" --width 24
+cargo run -p devtool -- create effect --mod my-mod --scene intro-logo flash --builtin lightning-flash --duration 180
 cargo run -p devtool -- schema refresh --all-mods
 cargo run -p devtool -- schema check --all-mods
 ```
 
 Shortcut wrapper:
 ```bash
-./devtool.sh new mod my-mod
+./devtool.sh create mod my-mod
+```
+
+Raw frame sequence -> GIF helper:
+```bash
+python tools/devtool/stop_animation_converter.py frame1.png frame2.png ... \
+  --output mods/shell-quest/assets/images/intro/cutscene.gif
 ```
 
 ## YAML-first authoring workflow
@@ -92,13 +158,18 @@ Recommended daily flow:
 
 Notes:
 
-- `devtool new mod`, `devtool new scene`, and `devtool new effect` already refresh the touched mod schemas for you
+- `devtool create mod`, `devtool create scene`, `devtool create layer`, `devtool create sprite`, and `devtool create effect` already refresh the touched mod schemas for you
+- `devtool create sprite` copies the source image into `assets/images/` and appends an image sprite into the target layer (`main/main` by default)
+- `devtool edit sprite` updates common sprite fields (`at`, `x`, `y`, `width`, `height`) in-place and also refreshes schemas for the touched mod
+- `mods/*/assets/raw/` is treated as local staging space for source frames/raw inputs and is ignored by git; commit converted assets outside `raw/`
+- `devtool new ...` still works as a backward-compatible alias for `devtool create ...`
 - every new dynamic authoring surface should follow the same pipeline: collector -> `catalog.yaml` -> per-mod overlay -> regression test
 
 ## Repo map
 
 - `app/` - launcher
 - `engine/` - runtime loop, systems, renderer
+- `engine-authoring/` - scene compiler, package assembly, schema overlay generation
 - `engine-core/` - shared effects and core logic
 - `editor/` - TUI editor
 - `mods/` - game data (`mods/shell-quest` is the main one)
