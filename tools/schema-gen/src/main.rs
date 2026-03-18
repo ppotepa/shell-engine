@@ -1,7 +1,9 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use engine_authoring::schema::{generate_mod_schema_files, render_schema_file};
-use serde_yaml::Value;
+use engine_core::effects::{shared_dispatcher, EffectDispatcher, ParamControl};
+use serde_yaml::{Mapping, Value};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -29,6 +31,7 @@ fn main() -> Result<()> {
     for mod_root in mods {
         sync_fragment_for_mod(&mod_root, cli.check)?;
     }
+    sync_shared_effect_schemas(Path::new("."), cli.check)?;
     Ok(())
 }
 
@@ -84,6 +87,256 @@ fn sync_schema_file(path: &Path, value: &Value, check: bool) -> Result<()> {
     fs::write(path, yaml).with_context(|| format!("failed to write {}", path.display()))?;
     println!("generated {}", path.display());
     Ok(())
+}
+
+fn sync_shared_effect_schemas(repo_root: &Path, check: bool) -> Result<()> {
+    let effect_schema_path = repo_root.join("schemas/effect.schema.yaml");
+    let effect_params_schema_path = repo_root.join("schemas/effect-params.schema.yaml");
+    let effect_schema = generate_shared_effect_schema();
+    let effect_params_schema = generate_shared_effect_params_schema()?;
+    sync_schema_file(&effect_schema_path, &effect_schema, check)?;
+    sync_schema_file(&effect_params_schema_path, &effect_params_schema, check)?;
+    Ok(())
+}
+
+fn generate_shared_effect_schema() -> Value {
+    let dispatcher = shared_dispatcher();
+    let names = EffectDispatcher::builtin_names();
+    let mut summary_lines = vec!["Effect identifier. Built-in effects:".to_string()];
+    for name in names {
+        let summary = dispatcher.metadata(name).summary;
+        summary_lines.push(format!("- {name}: {summary}"));
+    }
+
+    let mut name_prop = Mapping::new();
+    name_prop.insert(yaml_str("type"), yaml_str("string"));
+    name_prop.insert(yaml_str("description"), yaml_str(&summary_lines.join("\n")));
+    name_prop.insert(
+        yaml_str("enum"),
+        Value::Sequence(names.iter().map(|name| yaml_str(name)).collect()),
+    );
+
+    let mut duration_prop = Mapping::new();
+    duration_prop.insert(yaml_str("type"), yaml_str("integer"));
+    duration_prop.insert(yaml_str("minimum"), yaml_int(0));
+    duration_prop.insert(
+        yaml_str("description"),
+        yaml_str("Duration in milliseconds."),
+    );
+
+    let mut looping_prop = Mapping::new();
+    looping_prop.insert(yaml_str("type"), yaml_str("boolean"));
+    looping_prop.insert(yaml_str("default"), Value::Bool(false));
+    looping_prop.insert(
+        yaml_str("description"),
+        yaml_str("Whether the effect repeats indefinitely within its step."),
+    );
+
+    let mut properties = Mapping::new();
+    properties.insert(yaml_str("name"), Value::Mapping(name_prop));
+    properties.insert(yaml_str("duration"), Value::Mapping(duration_prop));
+    properties.insert(yaml_str("looping"), Value::Mapping(looping_prop));
+    properties.insert(
+        yaml_str("params"),
+        Value::Mapping(mapping_with_ref("./effect-params.schema.yaml")),
+    );
+
+    let mut root = Mapping::new();
+    root.insert(
+        yaml_str("$schema"),
+        yaml_str("https://json-schema.org/draft/2020-12/schema"),
+    );
+    root.insert(
+        yaml_str("$id"),
+        yaml_str("https://shell-quest.local/schemas/effect.schema.yaml"),
+    );
+    root.insert(yaml_str("title"), yaml_str("Effect Schema"));
+    root.insert(
+        yaml_str("description"),
+        yaml_str(
+            "A single named visual effect step used inside scene/layer/sprite lifecycle stages.",
+        ),
+    );
+    root.insert(yaml_str("type"), yaml_str("object"));
+    root.insert(yaml_str("additionalProperties"), Value::Bool(false));
+    root.insert(
+        yaml_str("required"),
+        Value::Sequence(vec![yaml_str("name"), yaml_str("duration")]),
+    );
+    root.insert(yaml_str("properties"), Value::Mapping(properties));
+    Value::Mapping(root)
+}
+
+fn generate_shared_effect_params_schema() -> Result<Value> {
+    #[derive(Clone, Copy)]
+    struct ParamEntry {
+        description: &'static str,
+        control: ParamControl,
+    }
+
+    let dispatcher = shared_dispatcher();
+    let mut params: BTreeMap<&'static str, ParamEntry> = BTreeMap::new();
+    let mut used_by: BTreeMap<&'static str, BTreeSet<&'static str>> = BTreeMap::new();
+
+    for effect_name in EffectDispatcher::builtin_names() {
+        for param in dispatcher.metadata(effect_name).params {
+            used_by.entry(param.name).or_default().insert(effect_name);
+            match params.get(param.name) {
+                None => {
+                    params.insert(
+                        param.name,
+                        ParamEntry {
+                            description: param.description,
+                            control: param.control,
+                        },
+                    );
+                }
+                Some(existing) if existing.control == param.control => {}
+                Some(existing) => {
+                    anyhow::bail!(
+                        "parameter '{}' has conflicting controls across effects: {:?} vs {:?}",
+                        param.name,
+                        existing.control,
+                        param.control
+                    );
+                }
+            }
+        }
+    }
+
+    let mut properties = Mapping::new();
+    for (param_name, entry) in params {
+        let users = used_by
+            .get(param_name)
+            .map(|set| set.iter().copied().collect::<Vec<_>>().join(", "))
+            .unwrap_or_default();
+        let description = if users.is_empty() {
+            entry.description.to_string()
+        } else {
+            format!("{} Used by: {}.", entry.description, users)
+        };
+        properties.insert(
+            yaml_str(param_name),
+            param_control_schema(entry.control, &description),
+        );
+    }
+
+    let mut defs = Mapping::new();
+    defs.insert(yaml_str("colour"), colour_value_schema());
+
+    let mut root = Mapping::new();
+    root.insert(
+        yaml_str("$schema"),
+        yaml_str("https://json-schema.org/draft/2020-12/schema"),
+    );
+    root.insert(
+        yaml_str("$id"),
+        yaml_str("https://shell-quest.local/schemas/effect-params.schema.yaml"),
+    );
+    root.insert(yaml_str("title"), yaml_str("Effect Params Schema"));
+    root.insert(
+        yaml_str("description"),
+        yaml_str("Parameter overrides for a visual effect step. Omitted parameters fall back to per-effect defaults."),
+    );
+    root.insert(yaml_str("type"), yaml_str("object"));
+    root.insert(yaml_str("additionalProperties"), Value::Bool(false));
+    root.insert(yaml_str("properties"), Value::Mapping(properties));
+    root.insert(yaml_str("$defs"), Value::Mapping(defs));
+    Ok(Value::Mapping(root))
+}
+
+fn param_control_schema(control: ParamControl, description: &str) -> Value {
+    let mut prop = Mapping::new();
+    match control {
+        ParamControl::Slider {
+            min,
+            max,
+            step,
+            unit: _,
+        } => {
+            prop.insert(yaml_str("type"), yaml_str("number"));
+            prop.insert(yaml_str("minimum"), yaml_float(min));
+            prop.insert(yaml_str("maximum"), yaml_float(max));
+            if step > 0.0 {
+                prop.insert(yaml_str("multipleOf"), yaml_float(step));
+            }
+        }
+        ParamControl::Select { options, default } => {
+            prop.insert(yaml_str("type"), yaml_str("string"));
+            prop.insert(
+                yaml_str("enum"),
+                Value::Sequence(options.iter().map(|v| yaml_str(v)).collect()),
+            );
+            prop.insert(yaml_str("default"), yaml_str(default));
+        }
+        ParamControl::Toggle { default } => {
+            prop.insert(yaml_str("type"), yaml_str("boolean"));
+            prop.insert(yaml_str("default"), Value::Bool(default));
+        }
+        ParamControl::Text { default } => {
+            prop.insert(yaml_str("type"), yaml_str("string"));
+            prop.insert(yaml_str("default"), yaml_str(default));
+        }
+        ParamControl::Colour { default } => {
+            prop.insert(yaml_str("$ref"), yaml_str("#/$defs/colour"));
+            prop.insert(yaml_str("default"), yaml_str(default));
+        }
+    }
+    prop.insert(yaml_str("description"), yaml_str(description));
+    Value::Mapping(prop)
+}
+
+fn colour_value_schema() -> Value {
+    let mut hex = Mapping::new();
+    hex.insert(yaml_str("type"), yaml_str("string"));
+    hex.insert(yaml_str("pattern"), yaml_str("^#[0-9A-Fa-f]{6}$"));
+    hex.insert(yaml_str("description"), yaml_str("Hex colour: #rrggbb"));
+
+    let mut named = Mapping::new();
+    named.insert(yaml_str("type"), yaml_str("string"));
+    named.insert(
+        yaml_str("enum"),
+        Value::Sequence(
+            [
+                "black", "white", "gray", "grey", "silver", "red", "green", "blue", "yellow",
+                "cyan", "magenta",
+            ]
+            .iter()
+            .map(|name| yaml_str(name))
+            .collect(),
+        ),
+    );
+    named.insert(yaml_str("description"), yaml_str("Named colour."));
+
+    let mut root = Mapping::new();
+    root.insert(
+        yaml_str("description"),
+        yaml_str("A colour value. Either a named colour or a CSS-style hex string (#rrggbb)."),
+    );
+    root.insert(
+        yaml_str("anyOf"),
+        Value::Sequence(vec![Value::Mapping(hex), Value::Mapping(named)]),
+    );
+    Value::Mapping(root)
+}
+
+fn mapping_with_ref(reference: &str) -> Mapping {
+    let mut map = Mapping::new();
+    map.insert(yaml_str("$ref"), yaml_str(reference));
+    map
+}
+
+fn yaml_str(value: &str) -> Value {
+    Value::String(value.to_string())
+}
+
+fn yaml_int(value: i64) -> Value {
+    Value::Number(value.into())
+}
+
+fn yaml_float(value: f32) -> Value {
+    let rounded = ((value as f64) * 1000.0).round() / 1000.0;
+    serde_yaml::to_value(rounded).expect("serialize float")
 }
 
 #[cfg(test)]
@@ -271,6 +524,16 @@ mod tests {
                 panic!("{mod_name} generated schemas should be current: {err}")
             });
         }
+    }
+
+    #[test]
+    fn shared_effect_schemas_cover_builtin_metadata() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        sync_shared_effect_schemas(&repo_root, true)
+            .expect("shared effect schemas should be generated from builtin metadata");
     }
 
     fn unique_temp_dir(prefix: &str) -> PathBuf {

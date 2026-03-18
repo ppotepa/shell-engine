@@ -43,6 +43,7 @@ $defs:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - posterize
     - power-off
     - scanlines
     - screen-shake

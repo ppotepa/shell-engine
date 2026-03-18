@@ -4,6 +4,8 @@ use ratatui::style::{Color, Modifier, Style};
 use serde::Deserialize;
 use std::fs;
 
+use crate::state::AppMode;
+
 /// Catppuccin Mocha–inspired colour palette, loadable from a TOML config file.
 // Catppuccin Mocha inspired theme
 #[derive(Debug, Clone, Deserialize)]
@@ -132,13 +134,23 @@ pub fn pane_title(is_focused: bool) -> Style {
     }
 }
 
-/// Returns a border style that uses the accent colour when focused or normal otherwise.
-pub fn pane_border(is_focused: bool) -> Style {
+/// Returns a border style based on the current mode: white for normal/start, green for edit.
+pub fn pane_border(mode: AppMode, is_focused: bool) -> Style {
+    let color = match mode {
+        AppMode::EditMode => Color::Green,
+        AppMode::Start | AppMode::Browser => Color::White,
+    };
+
+    let mut style = Style::default().fg(color);
     if is_focused {
-        accent()
-    } else {
-        fg_normal()
+        style = style.add_modifier(Modifier::BOLD);
     }
+    style
+}
+
+/// Returns the mode badge style used in the header and status bar.
+pub fn mode_badge(mode: AppMode) -> Style {
+    pane_border(mode, true).add_modifier(Modifier::BOLD)
 }
 
 /// Returns a background style using the raised surface colour when focused or base otherwise.

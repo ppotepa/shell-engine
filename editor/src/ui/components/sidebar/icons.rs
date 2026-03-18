@@ -11,10 +11,10 @@ use crate::ui::theme;
 /// Renders the sidebar icon rail with numbered glyphs for switching between panels.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let entries = [
-        (SidebarItem::Explorer, "1", "\u{1f4c1}"),        // 📁
-        (SidebarItem::Search, "2", "\u{1f50d}"),          // 🔍
-        (SidebarItem::Scenes, "3", "\u{1f3ac}"),          // 🎬
-        (SidebarItem::Settings, "4", "\u{2699}\u{fe0f}"), // ⚙️
+        (SidebarItem::Explorer, "1", "\u{1f4c1}"), // 📁
+        (SidebarItem::Search, "2", "\u{1f50d}"),   // 🔍
+        (SidebarItem::Scenes, "3", "\u{1f3ac}"),   // 🎬
+        (SidebarItem::Cutscene, "4", "\u{1f4f7}"), // 📷
     ];
 
     let mut lines = Vec::new();
@@ -39,7 +39,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
         .style(theme::pane_background(false))
         .block(
             Block::default()
-                .border_style(theme::fg_disabled())
+                .border_style(theme::pane_border(app.mode, false))
                 .borders(Borders::RIGHT)
                 .style(theme::pane_background(false)),
         );

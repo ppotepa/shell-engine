@@ -7,6 +7,10 @@ use crate::state::AppMode;
 
 /// Maps a raw key event and the current application mode to a high-level [`Command`].
 pub fn map_key_event(key: KeyEvent, mode: AppMode) -> Command {
+    if key.code == KeyCode::F(1) && key.kind == KeyEventKind::Press {
+        return Command::ToggleHelp;
+    }
+
     // EditMode: ESC exits, T toggles sidebar
     if mode == AppMode::EditMode {
         return match key.code {

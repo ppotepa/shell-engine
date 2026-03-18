@@ -1,7 +1,9 @@
 //! Built-in visual effect implementations.
 
 pub mod artifact;
+pub mod blur;
 pub mod brighten;
+pub mod cutout;
 pub mod clear_to_colour;
 pub mod crt_on;
 pub mod crt_reflection;
@@ -10,6 +12,8 @@ pub mod fade;
 pub mod fade_to_black;
 pub mod glitch;
 pub mod lightning;
+pub mod posterize;
+pub mod cutout;
 pub mod power_off;
 pub mod scanlines;
 pub mod shake;
@@ -18,7 +22,9 @@ pub mod shine;
 pub mod whiteout;
 
 pub use artifact::ArtifactOutEffect;
+pub use blur::BlurEffect;
 pub use brighten::BrightenEffect;
+pub use cutout::CutoutEffect;
 pub use clear_to_colour::ClearToColourEffect;
 pub use crt_on::CrtOnEffect;
 pub use crt_reflection::CrtReflectionEffect;
@@ -30,9 +36,169 @@ pub use lightning::{
     LightningAmbientEffect, LightningBranchEffect, LightningFbmEffect, LightningFlashEffect,
     LightningGrowthEffect, LightningNaturalEffect, LightningOptical80sEffect, TeslaOrbEffect,
 };
+pub use posterize::PosterizeEffect;
+pub use cutout::CutoutEffect;
 pub use power_off::PowerOffEffect;
 pub use scanlines::ScanlinesEffect;
 pub use shake::ScreenShakeEffect;
 pub use shatter::ShatterGlitchEffect;
 pub use shine::ShineEffect;
 pub use whiteout::WhiteoutEffect;
+
+use std::sync::OnceLock;
+
+pub type EffectConstructor = fn() -> Box<dyn super::Effect>;
+
+pub struct BuiltinEffectDefinition {
+    pub name: &'static str,
+    pub constructor: EffectConstructor,
+}
+
+pub static BUILTIN_EFFECTS: &[BuiltinEffectDefinition] = &[
+    BuiltinEffectDefinition {
+        name: "artifact-out",
+        constructor: || Box::new(ArtifactOutEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "blur",
+        constructor: || Box::new(BlurEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "brighten",
+        constructor: || Box::new(BrightenEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "clear-to-colour",
+        constructor: || Box::new(ClearToColourEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "crt-on",
+        constructor: || Box::new(CrtOnEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "cutout",
+        constructor: || Box::new(CutoutEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "crt-reflection",
+        constructor: || Box::new(CrtReflectionEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "devour-out",
+        constructor: || Box::new(DevourOutEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "fade-in",
+        constructor: || Box::new(FadeInEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "fade-out",
+        constructor: || Box::new(FadeOutEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "fade-to-black",
+        constructor: || Box::new(FadeToBlackEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "glitch-out",
+        constructor: || Box::new(GlitchOutEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lightning-ambient",
+        constructor: || Box::new(LightningAmbientEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lightning-branch",
+        constructor: || Box::new(LightningBranchEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lightning-fbm",
+        constructor: || Box::new(LightningFbmEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lightning-flash",
+        constructor: || Box::new(LightningFlashEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lightning-growth",
+        constructor: || Box::new(LightningGrowthEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lightning-natural",
+        constructor: || Box::new(LightningNaturalEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lightning-optical-80s",
+        constructor: || Box::new(LightningOptical80sEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "cutout",
+        constructor: || Box::new(CutoutEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "posterize",
+        constructor: || Box::new(PosterizeEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "power-off",
+        constructor: || Box::new(PowerOffEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "scanlines",
+        constructor: || Box::new(ScanlinesEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "screen-shake",
+        constructor: || Box::new(ScreenShakeEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "shatter-glitch",
+        constructor: || Box::new(ShatterGlitchEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "shine",
+        constructor: || Box::new(ShineEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "tesla-orb",
+        constructor: || Box::new(TeslaOrbEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "whiteout",
+        constructor: || Box::new(WhiteoutEffect),
+    },
+];
+
+static BUILTIN_EFFECT_NAMES: OnceLock<Box<[&'static str]>> = OnceLock::new();
+
+pub fn builtin_names() -> &'static [&'static str] {
+    BUILTIN_EFFECT_NAMES
+        .get_or_init(|| {
+            BUILTIN_EFFECTS
+                .iter()
+                .map(|def| def.name)
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+        })
+        .as_ref()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{builtin_names, BUILTIN_EFFECTS};
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn builtin_effect_names_are_unique() {
+        let unique: BTreeSet<_> = builtin_names().iter().copied().collect();
+        assert_eq!(unique.len(), builtin_names().len());
+    }
+
+    #[test]
+    fn builtin_effect_keys_match_metadata_names() {
+        for def in BUILTIN_EFFECTS {
+            let effect = (def.constructor)();
+            assert_eq!(effect.metadata().name, def.name);
+        }
+    }
+}

@@ -56,7 +56,7 @@ pub fn sidebar_glyph(item: SidebarItem) -> &'static str {
         SidebarItem::Explorer => pick("\u{f115}", "\u{1f4c1}", "[F]"),
         SidebarItem::Search => pick("\u{f002}", "\u{1f50d}", "[S]"),
         SidebarItem::Scenes => pick("\u{f008}", "\u{1f3ac}", "[3]"),
-        SidebarItem::Settings => pick("\u{f013}", "\u{2699}\u{fe0f}", "[C]"),
+        SidebarItem::Cutscene => pick("\u{f03d}", "\u{1f4f7}", "[C]"),
     }
 }
 

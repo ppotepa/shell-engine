@@ -1,12 +1,12 @@
 //! Engine event types and the per-frame [`EventQueue`] that shuttles them between systems.
 
-use crossterm::event::KeyCode;
+use crossterm::event::KeyEvent;
 
 /// Represents a discrete engine event produced by input, the game loop, or scene transitions.
 #[derive(Debug, Clone)]
 pub enum EngineEvent {
     Tick,
-    KeyPressed(KeyCode),
+    KeyPressed(KeyEvent),
     MouseMoved { column: u16, row: u16 },
     SceneLoaded { scene_id: String },
     SceneTransition { to_scene_id: String },

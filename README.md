@@ -20,6 +20,10 @@ cd shell-quest
 ```bash
 cargo run -p app
 ```
+   Run playground mod explicitly:
+```bash
+cargo run -p app -- --mod-source mods/playground
+```
 4. Run the editor (optional):
 ```bash
 cargo run -p editor
@@ -72,7 +76,7 @@ instead of relying only on implicit package merge order.
 These limits matter when designing content and editor features:
 
 - image alpha is thresholded, not smoothly blended
-- PNG is the current intentional image baseline
+- image sprites now support static PNG and animated GIF playback through the same pixel-buffer render path
 - 3D mesh support is currently **OBJ**, not glTF/glb
 - there is no dedicated `3D -> offscreen buffer -> projected reflection texture` pipeline yet
 
@@ -81,6 +85,13 @@ So if you want a reflected 3D element today, the realistic options are:
 - author it as an `obj` sprite,
 - pre-render it to images,
 - or add a new engine feature rather than expecting glTF reflection support to already exist
+
+For authored animated cutscenes today:
+
+- use an `image` sprite with a `.gif` source
+- the engine decodes GIF frames and renders them through the normal terminal pixel buffer
+- timing follows the GIF frame delays
+- current playback behavior loops automatically and does not yet expose dedicated controls like `once`, `hold-last-frame`, or manual playhead control
 
 ## Dev helper CLI (`devtool`)
 
@@ -108,6 +119,33 @@ Raw frame sequence -> GIF helper:
 python tools/devtool/stop_animation_converter.py frame1.png frame2.png ... \
   --output mods/shell-quest/assets/images/intro/cutscene.gif
 ```
+
+Retro cel-shaded style preset (lower palette, stronger edges):
+```bash
+python tools/devtool/stop_animation_converter.py frame1.png frame2.png ... \
+  --output mods/shell-quest/assets/images/intro/cutscene_cellshaded.gif \
+  --fps 4 --colors 48 --contrast 1.2 --sharpness 1.35
+```
+
+## Interactive terminal shell (scene input profile)
+
+Scenes can now declare an interactive command shell that writes into normal text sprites.
+This reuses existing scene layers (background + output panel + prompt line), so UI can be narrow/wide/fullscreen depending on authored sprite layout.
+
+```yaml
+input:
+  terminal-shell:
+    prompt-sprite-id: terminal-prompt
+    output-sprite-id: terminal-output
+    prompt-prefix: "λ "
+    max-lines: 120
+    banner: ["connected: shell-node", "try: help, ls, status"]
+    commands:
+      - name: status
+        output: ["power: online", "hull: 92%"]
+```
+
+Built-ins: `help`, `clear`, `ls`, `pwd`, `echo`, `whoami`.
 
 ## YAML-first authoring workflow
 

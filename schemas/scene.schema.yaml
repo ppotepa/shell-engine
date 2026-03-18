@@ -151,6 +151,15 @@ $defs:
         $ref: "#/$defs/obj_viewer_controls"
       terminal-size-tester:
         $ref: "#/$defs/terminal_size_tester_controls"
+      terminal-shell:
+        $ref: "#/$defs/terminal_shell_controls"
+    patternProperties:
+      "^obj_viewer$":
+        $ref: "#/$defs/obj_viewer_controls"
+      "^terminal_size_tester$":
+        $ref: "#/$defs/terminal_size_tester_controls"
+      "^terminal_shell$":
+        $ref: "#/$defs/terminal_shell_controls"
 
   obj_viewer_controls:
     type: object
@@ -172,6 +181,82 @@ $defs:
         items:
           type: string
           pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+
+  terminal_shell_controls:
+    type: object
+    additionalProperties: false
+    anyOf:
+      - required: [prompt-sprite-id, output-sprite-id]
+      - required: [prompt_sprite_id, output_sprite_id]
+    properties:
+      prompt-sprite-id:
+        type: string
+        minLength: 1
+        description: Text sprite id used for the editable command prompt.
+      output-sprite-id:
+        type: string
+        minLength: 1
+        description: Text sprite id used for command transcript/output.
+      prompt-prefix:
+        type: string
+        default: "> "
+        description: Prefix rendered before the current command line.
+      max-lines:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 120
+        description: Maximum transcript line count retained in the output sprite.
+      banner:
+        type: array
+        default: []
+        description: Initial output transcript lines shown when scene starts.
+        items:
+          type: string
+      unknown_message:
+        type: string
+        minLength: 1
+        description: Optional fallback line used for unknown commands.
+      commands:
+        type: array
+        default: []
+        description: Optional command table handled by the terminal-shell input profile.
+        items:
+          $ref: "#/$defs/terminal_shell_command"
+    patternProperties:
+      "^prompt_sprite_id$":
+        $ref: "#/$defs/terminal_shell_controls/properties/prompt-sprite-id"
+      "^output_sprite_id$":
+        $ref: "#/$defs/terminal_shell_controls/properties/output-sprite-id"
+      "^prompt_prefix$":
+        $ref: "#/$defs/terminal_shell_controls/properties/prompt-prefix"
+      "^max_lines$":
+        $ref: "#/$defs/terminal_shell_controls/properties/max-lines"
+      "^unknown-message$":
+        $ref: "#/$defs/terminal_shell_controls/properties/unknown_message"
+      "^unknown_message$":
+        $ref: "#/$defs/terminal_shell_controls/properties/unknown_message"
+
+  terminal_shell_command:
+    type: object
+    additionalProperties: false
+    required: [name]
+    properties:
+      name:
+        type: string
+        minLength: 1
+        description: Command name without arguments, for example `ls` or `status`.
+      description:
+        type: string
+        minLength: 1
+        description: Optional description shown in `help`.
+      output:
+        oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
+        description: Output line(s) emitted when this command runs.
 
   # ── Effect ─────────────────────────────────────────────────────────────────
   effect:

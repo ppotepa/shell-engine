@@ -16,6 +16,7 @@ $defs:
     - playground-fps-showcase-30
     - playground-menu
     - playground-stop-animation
+    - playground-terminal-shell
     - playground-terminal-size-test
   scene_paths:
     type: string
@@ -31,6 +32,7 @@ $defs:
     - /scenes/fps-showcase-30.yml
     - /scenes/menu/scene.yml
     - /scenes/stop-animation.yml
+    - /scenes/terminal-shell/scene.yml
     - /scenes/terminal-size-test/scene.yml
   scene_refs:
     type: string
@@ -46,6 +48,7 @@ $defs:
     - /scenes/fps-showcase-30.yml
     - /scenes/menu/scene.yml
     - /scenes/stop-animation.yml
+    - /scenes/terminal-shell/scene.yml
     - /scenes/terminal-size-test/scene.yml
     - playground-3d-scene
     - playground-decoration-showcase
@@ -58,6 +61,7 @@ $defs:
     - playground-fps-showcase-30
     - playground-menu
     - playground-stop-animation
+    - playground-terminal-shell
     - playground-terminal-size-test
   object_names:
     type: string
@@ -84,6 +88,7 @@ $defs:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - posterize
     - power-off
     - scanlines
     - screen-shake
@@ -97,6 +102,7 @@ $defs:
     - 3d-scene/layers/main.yml
     - font-showcase/layers/main.yml
     - menu/layers/main.yml
+    - terminal-shell/layers/main.yml
     - terminal-size-test/layers/main.yml
   sprite_refs:
     type: string
@@ -151,6 +157,7 @@ $defs:
     - menu-item-3
     - menu-item-4
     - menu-item-5
+    - menu-item-6
     - sel0-left
     - sel0-right
     - sel1-left
@@ -163,6 +170,10 @@ $defs:
     - sel4-right
     - sel5-left
     - sel5-right
+    - sel6-left
+    - sel6-right
+    - terminal-output
+    - terminal-prompt
     - tux-10
     - tux-20
     - tux-30

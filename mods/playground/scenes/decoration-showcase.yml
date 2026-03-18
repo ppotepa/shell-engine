@@ -6,26 +6,13 @@ bg: black
 stages:
   on_enter:
     steps:
-      - effects:
-          - name: fade-in
-            duration: 350
+      - { effects: [{ name: fade-in, duration: 350 }] }
   on_idle:
     trigger: any-key
-    steps:
-      - pause: 1ms
+    steps: [{ pause: 1ms }]
   on_leave:
     steps:
-      - effects:
-          - name: fade-out
-            duration: 250
+      - { effects: [{ name: fade-out, duration: 250 }] }
 layers:
-  - name: placeholder
-    z_index: 0
-    sprites:
-      - type: text
-        content: "PLACEHOLDER TEXT"
-        at: cc
-        y: 0
-        font: "generic:1"
-        fg: white
+  - { name: placeholder, z_index: 0, sprites: [{ type: text, content: "PLACEHOLDER TEXT", at: cc, y: 0, font: "generic:1", fg: white }] }
 next: playground-menu

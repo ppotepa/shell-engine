@@ -4,6 +4,8 @@ id: playground-3d-scene
 title: 3D Scene (OBJ Wireframe Test)
 bg: black
 rendered-mode: quadblock
+layers:
+  - ref: main
 input:
   # `obj-viewer` is runtime-facing; authored YAML stays compact around the target sprite id.
   obj-viewer:
@@ -11,31 +13,30 @@ input:
 stages:
   on_enter:
     steps:
-      - effects:
-          - name: fade-in
-            duration: 300
+      - { effects: [{ name: fade-in, duration: 300 }] }
   on_idle:
     trigger: any-key
-    steps:
-      - pause: 1ms
+    steps: [{ pause: 1ms }]
   on_leave:
     steps:
-      - effects:
-          - name: fade-out
-            duration: 250
+      - { effects: [{ name: fade-out, duration: 250 }] }
 objects:
   # Reuse the shared object prefab and override only the exported values needed by this scene.
-  - ref: suzan
-    as: obj-demo
-    with:
-      id: helsinki-uni-wireframe
-      source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
-      scale: 1.1
-      rotation_y: 180
-      pitch_deg: -10
-      rotate_y_deg_per_sec: 14
-      camera_distance: 3.2
-      fov_degrees: 56
-      near_clip: 0.0005
-      fg: white
+  - {
+      ref: suzan,
+      as: obj-demo,
+      with:
+        {
+          id: helsinki-uni-wireframe,
+          source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj,
+          scale: 1.1,
+          rotation_y: 180,
+          pitch_deg: -10,
+          rotate_y_deg_per_sec: 14,
+          camera_distance: 3.2,
+          fov_degrees: 56,
+          near_clip: 0.0005,
+          fg: white,
+        },
+    }
 next: playground-menu

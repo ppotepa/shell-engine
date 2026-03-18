@@ -13,6 +13,7 @@ print_usage() {
 Usage: ./launcher.sh [options]
 
 Options:
+  --mod-source <path>      Explicit mod source (directory or .zip)
   --in-place              Run in current terminal (no new window)
   --terminal <name>       Force terminal binary (e.g. konsole, gnome-terminal)
   --game-window           Try fullscreen / minimal chrome game-like window
@@ -28,6 +29,15 @@ while [[ $# -gt 0 ]]; do
     --in-place)
       IN_PLACE=1
       shift
+      ;;
+    --mod-source)
+      MOD_SOURCE="${2:-}"
+      if [[ -z "$MOD_SOURCE" ]]; then
+        echo "[launcher] --mod-source requires a value" >&2
+        exit 2
+      fi
+      MOD_MANIFEST="$MOD_SOURCE/mod.yaml"
+      shift 2
       ;;
     --terminal)
       FORCED_TERMINAL="${2:-}"
@@ -98,7 +108,6 @@ build_game_cmd() {
 
   cat <<EOF
 cd $shell_root
-export SHELL_QUEST_MOD_SOURCE=$shell_mod
 export COLUMNS=$MIN_WIDTH
 export LINES=$MIN_HEIGHT
 if [[ ${MIN_COLOURS} -ge 16777216 ]]; then
@@ -110,7 +119,7 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
   esac
 fi
 stty cols "$MIN_WIDTH" rows "$MIN_HEIGHT" 2>/dev/null || true
-cargo run -q -p app
+cargo run -q -p app -- --mod-source $shell_mod
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
 $hold_line
@@ -231,4 +240,3 @@ case "$TERMINAL_BIN" in
 esac
 
 disown || true
-

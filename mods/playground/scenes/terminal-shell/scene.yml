@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-terminal-shell
+title: Playground Terminal Shell
+bg: black
+layers:
+  - ref: main
+input:
+  terminal-shell:
+    prompt_sprite_id: terminal-prompt
+    output_sprite_id: terminal-output
+    prompt_prefix: "λ "
+    max_lines: 14
+    banner:
+      - "[ shell-node online ]"
+      - "try: help, ls, status, mission"
+    commands:
+      - name: status
+        description: Show system status
+        output:
+          - "power: online"
+          - "hull: 92%"
+          - "signal: stable"
+      - name: mission
+        description: Show current mission objective
+        output:
+          - "Objective: inspect the derelict relay station"
+      - name: logs
+        description: Tail recent system logs
+        output:
+          - "21:14:02 boot sequence complete"
+          - "21:14:09 link established"
+          - "21:14:12 awaiting operator command"
+    unknown_message: "command not recognized"
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 250 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1200ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 180 }] }

@@ -24,7 +24,7 @@ use crate::ui::theme;
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let h_split = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(34), Constraint::Percentage(66)])
+        .constraints([Constraint::Percentage(17), Constraint::Percentage(83)])
         .split(area);
 
     let left_split = Layout::default()
@@ -87,7 +87,7 @@ fn render_scenes_list(frame: &mut Frame, area: Rect, app: &AppState, focused: bo
             Block::default()
                 .title("Scenes")
                 .title_style(theme::pane_title(focused))
-                .border_style(theme::pane_border(focused))
+                .border_style(theme::pane_border(app.mode, focused))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(focused))
                 .title_bottom(Span::styled(
@@ -136,7 +136,7 @@ fn render_layers_list(frame: &mut Frame, area: Rect, app: &AppState, focused: bo
             Block::default()
                 .title("Layers")
                 .title_style(theme::pane_title(focused))
-                .border_style(theme::pane_border(focused))
+                .border_style(theme::pane_border(app.mode, focused))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(focused))
                 .title_bottom(Span::styled(
@@ -169,7 +169,7 @@ fn render_live_preview(
                     Block::default()
                         .title(title)
                         .title_style(theme::pane_title(focused))
-                        .border_style(theme::pane_border(focused))
+                        .border_style(theme::pane_border(app.mode, focused))
                         .borders(Borders::ALL)
                         .style(theme::preview_background()),
                 )
@@ -246,7 +246,7 @@ fn render_live_preview(
                 Block::default()
                     .title(title)
                     .title_style(theme::pane_title(focused))
-                    .border_style(theme::pane_border(focused))
+                    .border_style(theme::pane_border(app.mode, focused))
                     .borders(Borders::ALL)
                     .style(theme::preview_background())
                     .title_bottom(Span::styled(

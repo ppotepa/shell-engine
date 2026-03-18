@@ -1429,10 +1429,37 @@ fn scene_input_overlay() -> Value {
         Value::Mapping(obj_viewer_props),
     );
 
+    let mut terminal_shell_props = Mapping::new();
+    terminal_shell_props.insert(
+        Value::String("prompt-sprite-id".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
+    );
+    terminal_shell_props.insert(
+        Value::String("prompt_sprite_id".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
+    );
+    terminal_shell_props.insert(
+        Value::String("output-sprite-id".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
+    );
+    terminal_shell_props.insert(
+        Value::String("output_sprite_id".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
+    );
+    let mut terminal_shell = Mapping::new();
+    terminal_shell.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(terminal_shell_props),
+    );
+
     let mut input_props = Mapping::new();
     input_props.insert(
         Value::String("obj-viewer".to_string()),
         Value::Mapping(obj_viewer),
+    );
+    input_props.insert(
+        Value::String("terminal-shell".to_string()),
+        Value::Mapping(terminal_shell),
     );
 
     let mut input = Mapping::new();
@@ -2827,11 +2854,18 @@ mod tests {
         let has_terminal_tester = enum_values
             .iter()
             .any(|v| v.as_str() == Some("terminal-size-tester"));
+        let has_terminal_shell = enum_values
+            .iter()
+            .any(|v| v.as_str() == Some("terminal-shell"));
 
         assert!(has_obj_viewer, "obj-viewer profile should be in schema");
         assert!(
             has_terminal_tester,
             "terminal-size-tester profile should be in schema"
+        );
+        assert!(
+            has_terminal_shell,
+            "terminal-shell profile should be in schema"
         );
     }
 

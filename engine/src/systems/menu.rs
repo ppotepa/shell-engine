@@ -1,7 +1,7 @@
 //! Menu input system — maps key presses to navigation and activation actions for scene menus.
 
 use crate::scene::MenuOption;
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent};
 
 /// The outcome of evaluating menu input for a single frame.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,7 +15,7 @@ pub enum MenuAction {
 pub fn evaluate_menu_action(
     options: &[MenuOption],
     selected_index: usize,
-    key_presses: &[KeyCode],
+    key_presses: &[KeyEvent],
 ) -> MenuAction {
     if options.is_empty() {
         return MenuAction::None;
@@ -60,10 +60,10 @@ fn resolve_menu_target(option: &MenuOption) -> Option<String> {
     option.scene.clone().or_else(|| Some(option.next.clone()))
 }
 
-fn key_matches_binding(key_code: &KeyCode, binding: &str) -> bool {
+fn key_matches_binding(key_code: &KeyEvent, binding: &str) -> bool {
     let b = binding.trim().to_ascii_lowercase();
-    match key_code {
-        KeyCode::Char(c) => b == c.to_ascii_lowercase().to_string() || (*c == ' ' && b == "space"),
+    match key_code.code {
+        KeyCode::Char(c) => b == c.to_ascii_lowercase().to_string() || (c == ' ' && b == "space"),
         KeyCode::Enter => b == "enter",
         KeyCode::Esc => b == "esc" || b == "escape",
         KeyCode::Tab => b == "tab",
@@ -84,14 +84,14 @@ fn key_matches_binding(key_code: &KeyCode, binding: &str) -> bool {
     }
 }
 
-fn is_prev_key(key_code: &KeyCode) -> bool {
-    matches!(key_code, KeyCode::Up | KeyCode::Left)
+fn is_prev_key(key_code: &KeyEvent) -> bool {
+    matches!(key_code.code, KeyCode::Up | KeyCode::Left)
 }
 
-fn is_next_key(key_code: &KeyCode) -> bool {
-    matches!(key_code, KeyCode::Down | KeyCode::Right)
+fn is_next_key(key_code: &KeyEvent) -> bool {
+    matches!(key_code.code, KeyCode::Down | KeyCode::Right)
 }
 
-fn matches_confirm_key(key_code: &KeyCode) -> bool {
-    matches!(key_code, KeyCode::Enter | KeyCode::Char(' '))
+fn matches_confirm_key(key_code: &KeyEvent) -> bool {
+    matches!(key_code.code, KeyCode::Enter | KeyCode::Char(' '))
 }

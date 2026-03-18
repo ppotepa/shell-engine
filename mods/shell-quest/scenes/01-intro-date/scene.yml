@@ -2,39 +2,28 @@
 # Authored YAML v2 package root keeps scene orchestration only.
 # Intro beat 01: history strikes first.
 # Flow:
-# - on_enter waits, reveals the date card, adds scanlines, then fades it back out
-# - on_idle uses timeout so the scene can continue automatically into the boot beat
-# - after the short leave pause, the flow continues into `02.intro.boot`
+# - on_enter waits, reveals the date card, crossfades into the Helsinki location card,
+#   then fades the whole scene out
+# - on_idle/on_leave keep the frame black while transitioning into the boot beat
 id: 01.intro.date
 title: 01 Intro Date
 cutscene: true
 bg: black
+layers:
+  - ref: main
 # Inherit mod-level `virtual_size: max-available` so the date card fills the terminal.
 stages:
   on_enter:
     steps:
       - pause: 3000ms
-      - duration: 900
-        effects:
-          - name: fade-in
-            duration: 900
-            params:
-              easing: ease-out
-      - duration: 2200
-        effects:
-          - name: scanlines
-            duration: 2200
-      - duration: 900
-        effects:
-          - name: fade-out
-            duration: 900
-            params:
-              easing: ease-in
+      - { duration: 900, effects: [{ name: fade-in, duration: 900, params: { easing: ease-out } }] }
+      - { duration: 3200, effects: [{ name: scanlines, duration: 3200 }] }
+      - { duration: 900, effects: [{ name: fade-out, duration: 900, params: { easing: ease-in } }] }
   on_idle:
     trigger: timeout
     steps:
-      - pause: 1ms
+      - { duration: 1, effects: [{ name: clear-to-colour, duration: 1, params: { colour: black } }] }
   on_leave:
     steps:
-      - pause: 300ms
+      - { duration: 300, effects: [{ name: clear-to-colour, duration: 300, params: { colour: black } }] }
 next: 02.intro.boot

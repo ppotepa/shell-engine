@@ -99,7 +99,7 @@ fn render_code(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
             Block::default()
                 .title(title)
                 .title_style(theme::pane_title(focused))
-                .border_style(theme::pane_border(focused))
+                .border_style(theme::pane_border(app.mode, focused))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(focused))
                 .title_bottom(Span::styled(format!(" {hint} "), theme::fg_disabled())),
@@ -303,7 +303,7 @@ fn render_live(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
                 Block::default()
                     .title(title)
                     .title_style(theme::pane_title(focused))
-                    .border_style(theme::pane_border(focused))
+                    .border_style(theme::pane_border(app.mode, focused))
                     .borders(Borders::ALL)
                     .style(theme::preview_background()),
             );
@@ -339,7 +339,7 @@ fn render_live(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
             Block::default()
                 .title(title)
                 .title_style(theme::pane_title(focused))
-                .border_style(theme::pane_border(focused))
+                .border_style(theme::pane_border(app.mode, focused))
                 .borders(Borders::ALL)
                 .style(theme::preview_background()),
         )
@@ -434,7 +434,7 @@ fn render_controls(frame: &mut Frame, area: Rect, app: &AppState, focused: bool)
             Block::default()
                 .title("Parameters")
                 .title_style(theme::pane_title(focused))
-                .border_style(theme::pane_border(focused))
+                .border_style(theme::pane_border(app.mode, focused))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(focused)),
         )

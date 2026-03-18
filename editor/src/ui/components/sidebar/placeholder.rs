@@ -5,10 +5,11 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
+use crate::state::AppState;
 use crate::ui::theme;
 
 /// Renders a placeholder panel displaying a title and informational text lines.
-pub fn render(frame: &mut Frame, area: Rect, title: &str, lines: &[&str]) {
+pub fn render(frame: &mut Frame, area: Rect, app: &AppState, title: &str, lines: &[&str]) {
     let mut content = Vec::new();
     for line in lines {
         content.push(Line::from((*line).to_string()));
@@ -20,7 +21,7 @@ pub fn render(frame: &mut Frame, area: Rect, title: &str, lines: &[&str]) {
             Block::default()
                 .title(title)
                 .title_style(theme::fg_active())
-                .border_style(theme::fg_normal())
+                .border_style(theme::pane_border(app.mode, false))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(false)),
         );

@@ -5,7 +5,7 @@ use crate::services::EngineWorldAccess;
 use crate::systems::animator::{Animator, SceneStage};
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyEvent};
 use crossterm::terminal::SetSize;
 use std::io::stdout;
 
@@ -14,7 +14,7 @@ pub struct SceneLifecycleManager;
 #[derive(Default)]
 struct LifecycleEvents {
     quit: bool,
-    key_presses: Vec<KeyCode>,
+    key_presses: Vec<KeyEvent>,
     transitions: Vec<String>,
     resizes: Vec<(u16, u16)>,
     mouse_moves: Vec<(u16, u16)>,
@@ -63,7 +63,10 @@ impl SceneLifecycleManager {
         }
     }
 
-    fn advance_on_any_key(world: &mut World, key_presses: &[KeyCode]) {
+    fn advance_on_any_key(world: &mut World, key_presses: &[KeyEvent]) {
+        if handle_terminal_shell_controls(world, key_presses) {
+            return;
+        }
         if handle_obj_viewer_controls(world, key_presses) {
             return;
         }
@@ -210,20 +213,23 @@ fn apply_terminal_size_change(world: &mut World, width: u16, height: u16) {
     }
 }
 
-fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyCode]) -> bool {
+fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
     let Some(presets) = active_terminal_size_presets(world) else {
         return false;
     };
     if !is_scene_idle(world) {
         return false;
     }
-    if key_presses.iter().any(|key| matches!(key, KeyCode::Enter)) {
+    if key_presses
+        .iter()
+        .any(|key| matches!(key.code, KeyCode::Enter))
+    {
         return false;
     }
 
     for key in key_presses {
-        if let KeyCode::Char(c @ '1'..='9') = key {
-            let i = (*c as usize) - ('1' as usize);
+        if let KeyCode::Char(c @ '1'..='9') = key.code {
+            let i = (c as usize) - ('1' as usize);
             if let Some(&(w, h)) = presets.get(i) {
                 apply_terminal_size_change(world, w, h);
                 return true;
@@ -233,7 +239,20 @@ fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyCod
     false
 }
 
-fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyCode]) -> bool {
+fn handle_terminal_shell_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
+    if !is_scene_idle(world) {
+        return false;
+    }
+    let Some(runtime) = world.scene_runtime_mut() else {
+        return false;
+    };
+    if !runtime.has_terminal_shell() {
+        return false;
+    }
+    runtime.handle_terminal_shell_keys(key_presses)
+}
+
+fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
     let Some(sprite_id) = active_obj_viewer_target(world) else {
         return false;
     };
@@ -241,7 +260,10 @@ fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyCode]) -> boo
         return false;
     }
 
-    if key_presses.iter().any(|key| matches!(key, KeyCode::Enter)) {
+    if key_presses
+        .iter()
+        .any(|key| matches!(key.code, KeyCode::Enter))
+    {
         return false;
     }
 
@@ -258,7 +280,7 @@ fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyCode]) -> boo
     let mut pan_dy = 0.0f32;
 
     for key in key_presses {
-        match key {
+        match key.code {
             KeyCode::Char('a') | KeyCode::Char('A') => zoom_delta += 0.1,
             KeyCode::Char('z') | KeyCode::Char('Z') => zoom_delta -= 0.1,
             KeyCode::Char('1') | KeyCode::Char('6') => mode_switch = Some(SceneRenderedMode::Cell),
@@ -372,8 +394,17 @@ mod tests {
     use crate::scene_runtime::SceneRuntime;
     use crate::systems::animator::{Animator, SceneStage};
     use crate::world::World;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use std::fs;
     use tempfile::tempdir;
+
+    fn key_pressed(code: KeyCode) -> EngineEvent {
+        EngineEvent::KeyPressed(KeyEvent::new(code, KeyModifiers::NONE))
+    }
+
+    fn key_pressed_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> EngineEvent {
+        EngineEvent::KeyPressed(KeyEvent::new(code, modifiers))
+    }
 
     fn make_idle_animator() -> Animator {
         Animator {
@@ -465,6 +496,45 @@ layers:
         rotate-y-deg-per-sec: 14
 "#;
 
+    const TERMINAL_SHELL_SCENE_YAML: &str = r#"
+id: playground-terminal-shell
+title: Terminal Shell
+bg_colour: black
+input:
+  terminal-shell:
+    prompt_sprite_id: terminal-prompt
+    output_sprite_id: terminal-output
+    prompt_prefix: "λ "
+    max_lines: 20
+    banner:
+      - "connected: shell-node"
+    commands:
+      - name: status
+        description: Show system status
+        output:
+          - "hull: 92%"
+          - "power: online"
+stages:
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps: []
+menu-options:
+  - key: "1"
+    next: playground-3d-scene
+layers:
+  - name: ui
+    sprites:
+      - type: text
+        id: terminal-output
+        at: lt
+        content: ""
+      - type: text
+        id: terminal-prompt
+        at: lb
+        content: ""
+"#;
+
     #[test]
     fn any_key_moves_idle_scene_to_leave_when_trigger_is_any_key() {
         let mut scene = make_cutscene("intro", None);
@@ -486,10 +556,8 @@ layers:
             menu_selected_index: 0,
         });
 
-        let quit = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Enter)],
-        );
+        let quit =
+            SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Enter)]);
 
         assert!(!quit);
         let animator = world.get::<Animator>().expect("animator present");
@@ -509,10 +577,10 @@ layers:
         let _ = SceneLifecycleManager::process_events(
             &mut world,
             vec![
-                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('A')),
-                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('4')),
-                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('5')),
-                EngineEvent::KeyPressed(crossterm::event::KeyCode::Char('O')),
+                key_pressed(KeyCode::Char('A')),
+                key_pressed(KeyCode::Char('4')),
+                key_pressed(KeyCode::Char('5')),
+                key_pressed(KeyCode::Char('O')),
             ],
         );
 
@@ -553,12 +621,81 @@ layers:
         world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(make_idle_animator());
 
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Enter)],
-        );
+        let _ =
+            SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Enter)]);
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.stage, SceneStage::OnLeave);
+    }
+
+    #[test]
+    fn terminal_shell_consumes_keys_and_updates_text_sprites() {
+        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                key_pressed(KeyCode::Char('l')),
+                key_pressed(KeyCode::Char('s')),
+                key_pressed(KeyCode::Enter),
+                key_pressed(KeyCode::Char('1')),
+            ],
+        );
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        assert_eq!(animator.next_scene_override, None);
+
+        let runtime = world.get::<SceneRuntime>().expect("runtime present");
+        let output = runtime
+            .text_sprite_content("terminal-output")
+            .expect("terminal output sprite");
+        assert!(output.contains("connected: shell-node"));
+        assert!(output.contains("λ ls"));
+        assert!(output.contains("logs  vault  airlock  notes"));
+
+        let prompt = runtime
+            .text_sprite_content("terminal-prompt")
+            .expect("terminal prompt sprite");
+        assert_eq!(prompt, "λ 1");
+    }
+
+    #[test]
+    fn terminal_shell_supports_line_edit_shortcuts() {
+        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                key_pressed(KeyCode::Char('a')),
+                key_pressed(KeyCode::Char('b')),
+                key_pressed(KeyCode::Char('c')),
+                key_pressed_with_modifiers(KeyCode::Char('a'), KeyModifiers::CONTROL),
+                key_pressed(KeyCode::Char('x')),
+                key_pressed_with_modifiers(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            ],
+        );
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        assert_eq!(animator.next_scene_override, None);
+
+        let runtime = world.get::<SceneRuntime>().expect("runtime present");
+        let prompt = runtime
+            .text_sprite_content("terminal-prompt")
+            .expect("terminal prompt sprite");
+        assert_eq!(prompt, "λ x");
+
+        let output = runtime
+            .text_sprite_content("terminal-output")
+            .expect("terminal output sprite");
+        assert!(output.contains("connected: shell-node"));
+        assert!(!output.contains("λ abc"));
     }
 
     #[test]
@@ -578,9 +715,7 @@ layers:
 
         let quit = SceneLifecycleManager::process_events(
             &mut world,
-            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Char(
-                '2',
-            ))],
+            vec![key_pressed(KeyCode::Char('2'))],
         );
 
         assert!(!quit);
@@ -602,10 +737,7 @@ layers:
         world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(make_idle_animator());
 
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Down)],
-        );
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Down)]);
 
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.menu_selected_index, 1);
@@ -627,10 +759,8 @@ layers:
             ..make_idle_animator()
         });
 
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![EngineEvent::KeyPressed(crossterm::event::KeyCode::Enter)],
-        );
+        let _ =
+            SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Enter)]);
 
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(

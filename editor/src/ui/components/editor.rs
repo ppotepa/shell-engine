@@ -33,8 +33,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
         .block(
             Block::default()
                 .title(title)
-                .title_style(theme::accent())
-                .border_style(theme::accent())
+                .title_style(theme::fg_active())
+                .border_style(theme::pane_border(app.mode, true))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(false)),
         )

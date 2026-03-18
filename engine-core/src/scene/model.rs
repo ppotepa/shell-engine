@@ -198,6 +198,45 @@ pub struct EffectParams {
     /// FBM animation speed multiplier.
     #[serde(default)]
     pub speed: Option<f32>,
+    /// Blur kernel half-size in cells. Used by: blur.
+    #[serde(default)]
+    pub radius: Option<f32>,
+    /// Posterize quantization level count per RGB channel. Used by: posterize.
+    #[serde(default)]
+    pub levels: Option<u8>,
+    /// Cutout: pre-simplify radius (cells)
+    #[serde(default)]
+    pub simplify: Option<f32>,
+    /// Cutout: edge detection strength (0..1)
+    #[serde(default)]
+    pub edge_strength: Option<f32>,
+    /// Cutout: edge detection fidelity/threshold (0..1)
+    #[serde(default)]
+    pub edge_fidelity: Option<f32>,
+    /// Cutout: outline width in cells
+    #[serde(default)]
+    pub edge_width: Option<u8>,
+    /// Cutout: saturation multiplier
+    #[serde(default)]
+    pub saturation: Option<f32>,
+    /// Cutout pre-quantization smoothing strength in cell-space. Used by: cutout.
+    #[serde(default)]
+    pub simplify: Option<u8>,
+    /// Cutout edge detection sensitivity threshold (0..1). Used by: cutout.
+    #[serde(default)]
+    pub edge_fidelity: Option<f32>,
+    /// Cutout edge accent strength (0..1). Used by: cutout.
+    #[serde(default)]
+    pub edge_strength: Option<f32>,
+    /// Cutout outline thickness in cells. Used by: cutout.
+    #[serde(default)]
+    pub edge_width: Option<u8>,
+    /// Cutout saturation multiplier. Used by: cutout.
+    #[serde(default)]
+    pub saturation: Option<f32>,
+    /// Cutout blend mode: replace or overlay. Used by: cutout.
+    #[serde(default)]
+    pub blend_mode: Option<String>,
 }
 
 /// A single step in a stage — a group of effects that play in parallel.
@@ -287,12 +326,15 @@ pub struct SceneInput {
     /// Optional terminal size tester controls profile.
     #[serde(default, rename = "terminal-size-tester")]
     pub terminal_size_tester: Option<TerminalSizeTesterControls>,
+    /// Optional interactive terminal shell profile.
+    #[serde(default, rename = "terminal-shell", alias = "terminal_shell")]
+    pub terminal_shell: Option<TerminalShellControls>,
 }
 
 impl SceneInput {
     /// Returns names of all built-in input profiles.
     pub fn builtin_profiles() -> Vec<&'static str> {
-        vec!["obj-viewer", "terminal-size-tester"]
+        vec!["obj-viewer", "terminal-size-tester", "terminal-shell"]
     }
 }
 
@@ -309,6 +351,72 @@ pub struct TerminalSizeTesterControls {
     /// Optional preset list in WIDTHxHEIGHT format, e.g. "120x36".
     #[serde(default)]
     pub presets: Vec<String>,
+}
+
+fn default_terminal_prompt_prefix() -> String {
+    "> ".to_string()
+}
+
+fn default_terminal_max_lines() -> usize {
+    120
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum TerminalShellOutput {
+    Single(String),
+    Multi(Vec<String>),
+}
+
+impl TerminalShellOutput {
+    pub fn lines(&self) -> Vec<String> {
+        match self {
+            Self::Single(line) => vec![line.clone()],
+            Self::Multi(lines) => lines.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct TerminalShellCommand {
+    pub name: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub output: Option<TerminalShellOutput>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TerminalShellControls {
+    /// Text sprite id used for the command prompt line.
+    #[serde(rename = "prompt-sprite-id", alias = "prompt_sprite_id")]
+    pub prompt_sprite_id: String,
+    /// Text sprite id used for command output transcript.
+    #[serde(rename = "output-sprite-id", alias = "output_sprite_id")]
+    pub output_sprite_id: String,
+    /// Prompt prefix rendered before the current command line.
+    #[serde(
+        default = "default_terminal_prompt_prefix",
+        rename = "prompt-prefix",
+        alias = "prompt_prefix"
+    )]
+    pub prompt_prefix: String,
+    /// Maximum number of output transcript lines preserved on screen.
+    #[serde(
+        default = "default_terminal_max_lines",
+        rename = "max-lines",
+        alias = "max_lines"
+    )]
+    pub max_lines: usize,
+    /// Initial transcript lines shown when scene loads.
+    #[serde(default)]
+    pub banner: Vec<String>,
+    /// Optional custom command table, in addition to built-ins.
+    #[serde(default)]
+    pub commands: Vec<TerminalShellCommand>,
+    /// Optional message shown for unknown commands.
+    #[serde(default, rename = "unknown-message", alias = "unknown_message")]
+    pub unknown_message: Option<String>,
 }
 
 /// Audio cue descriptor (design hook only; playback is external).
@@ -392,7 +500,7 @@ pub struct Scene {
 
 #[cfg(test)]
 mod tests {
-    use super::Scene;
+    use super::{Scene, TerminalShellOutput};
     use crate::scene::Stage;
 
     #[test]
@@ -438,5 +546,51 @@ steps:
         assert_eq!(stage.steps.len(), 1);
         assert!(stage.steps[0].effects.is_empty());
         assert_eq!(stage.steps[0].duration, Some(300));
+    }
+
+    #[test]
+    fn parses_terminal_shell_input_profile() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: terminal-shell
+title: Terminal
+input:
+  terminal-shell:
+    prompt-sprite-id: terminal-prompt
+    output-sprite-id: terminal-output
+    prompt-prefix: "$ "
+    max-lines: 80
+    banner:
+      - boot ok
+    commands:
+      - name: status
+        output:
+          - online
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        let controls = scene
+            .input
+            .terminal_shell
+            .expect("terminal-shell controls should parse");
+        assert_eq!(controls.prompt_sprite_id, "terminal-prompt");
+        assert_eq!(controls.output_sprite_id, "terminal-output");
+        assert_eq!(controls.prompt_prefix, "$ ");
+        assert_eq!(controls.max_lines, 80);
+        assert_eq!(controls.banner, vec!["boot ok".to_string()]);
+        assert_eq!(controls.commands.len(), 1);
+    }
+
+    #[test]
+    fn terminal_shell_output_supports_string_and_array() {
+        let single: TerminalShellOutput =
+            serde_yaml::from_str("online").expect("single output should parse");
+        assert_eq!(single.lines(), vec!["online".to_string()]);
+
+        let multiple: TerminalShellOutput =
+            serde_yaml::from_str("[a, b]").expect("array output should parse");
+        assert_eq!(multiple.lines(), vec!["a".to_string(), "b".to_string()]);
     }
 }

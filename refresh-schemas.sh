@@ -15,6 +15,7 @@ run_once() {
         echo "[$(date '+%H:%M:%S')] Done."
     else
         echo "[$(date '+%H:%M:%S')] ERROR: schema-gen failed (see above)." >&2
+        return 1
     fi
 }
 

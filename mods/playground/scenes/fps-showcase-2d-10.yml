@@ -9,8 +9,7 @@ rendered-mode: halfblock
 stages:
   on_idle:
     trigger: timeout
-    steps:
-      - pause: 5000ms
+    steps: [{ pause: 5000ms }]
 layers:
   - name: fps-showcase-2d
     z_index: 0
@@ -21,13 +20,7 @@ layers:
         at: cc
         y: 1
         size: 3
-        animations:
-          - name: float
-            looping: true
-            params:
-              axis: x
-              amplitude: 14
-              period_ms: 1800
+        animations: [{ name: float, looping: true, params: { axis: x, amplitude: 14, period_ms: 1800 } }]
       - type: text
         content: "FPS CAP SHOWCASE  2D"
         at: ct

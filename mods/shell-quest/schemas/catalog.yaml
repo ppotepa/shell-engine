@@ -52,6 +52,7 @@ $defs:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - posterize
     - power-off
     - scanlines
     - screen-shake
@@ -105,11 +106,6 @@ $defs:
     - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest-terminal.png
     - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest.png
     - /assets/images/linux-1.png
-    - /assets/images/prologue/bios.png
-    - /assets/images/prologue/crt-reflection-overlay.png
-    - /assets/images/prologue/crt-reflection.png
-    - /assets/images/prologue/reflection.png
-    - /assets/images/prologue/x1.png
     - /assets/images/tux.png
   model_paths:
     type: string
@@ -122,7 +118,6 @@ $defs:
     type: string
     enum:
     - date-text
-    - intro-boot-crt-reflection
     - intro-linus-cutscene
     - intro-logo-ascii
     - intro-logo-raster
