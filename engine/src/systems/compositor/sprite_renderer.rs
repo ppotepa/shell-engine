@@ -227,6 +227,7 @@ fn render_sprite(
             size,
             width,
             height,
+            stretch_to_area,
             force_renderer_mode,
             align_x,
             align_y,
@@ -234,11 +235,22 @@ fn render_sprite(
         } => {
             let resolved_mode =
                 render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let target_width = if *stretch_to_area {
+                Some(area.width.max(1))
+            } else {
+                *width
+            };
+            let target_height = if *stretch_to_area {
+                Some(area.height.max(1))
+            } else {
+                *height
+            };
+            let target_size = if *stretch_to_area { None } else { *size };
             let (sprite_width, sprite_height) = image_sprite_dimensions(
                 source,
-                *width,
-                *height,
-                *size,
+                target_width,
+                target_height,
+                target_size,
                 resolved_mode,
                 ctx.asset_root,
             );
@@ -253,10 +265,11 @@ fn render_sprite(
             );
             render_image_content(
                 source,
-                *width,
-                *height,
-                *size,
+                target_width,
+                target_height,
+                target_size,
                 resolved_mode,
+                sprite_elapsed,
                 ctx.asset_root,
                 draw_x,
                 draw_y,

@@ -1,53 +1,14 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
-- name: reflection
-  z_index: 1
+- name: boot-layout
+  z_index: 0
   visible: true
-  # The human is seen only indirectly, and only through bitmap glass reflections.
+  # For now this beat is driven as an engine-native GIF player rendered through the normal image pixel buffer path.
   sprites:
-    - type: image
-      id: reflection-approach
-      source: /assets/images/prologue/reflection-approach.png
-      at: cc
-      y: -1
-      width: 48
-      height: 18
-      force-renderer-mode: halfblock
-      appear_at_ms: 1500
-      disappear_at_ms: 3500
-      stages:
-        on_enter:
-          steps:
-            - duration: 1900
-              effects:
-                - name: crt-reflection
-                  duration: 1900
-                  params:
-                    sphericality: 0.30
-                    transparency: 0.42
-                    brightness: 0.78
-
-    - type: image
-      id: reflection-face-flash
-      source: /assets/images/prologue/face-flash.png
-      at: cc
-      y: -1
-      width: 48
-      height: 18
-      force-renderer-mode: halfblock
-      appear_at_ms: 3440
-      disappear_at_ms: 3760
-      stages:
-        on_enter:
-          steps:
-            - duration: 180
-              effects:
-                - name: crt-reflection
-                  duration: 180
-                  params:
-                    sphericality: 0.46
-                    transparency: 0.88
-                    brightness: 1.35
-            - duration: 140
-              effects:
-                - name: shatter-glitch
-                  duration: 160
+    - {
+        type: image,
+        id: intro-linus-cutscene,
+        source: /assets/images/intro/cutscene.gif,
+        at: cc,
+        stretch-to-area: true,
+        force-renderer-mode: cell,
+      }

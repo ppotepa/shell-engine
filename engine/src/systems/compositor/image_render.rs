@@ -15,6 +15,7 @@ pub(super) fn render_image_content(
     req_height: Option<u16>,
     size: Option<SpriteSizePreset>,
     mode: SceneRenderedMode,
+    elapsed_ms: u64,
     asset_root: Option<&AssetRoot>,
     x: u16,
     y: u16,
@@ -23,9 +24,10 @@ pub(super) fn render_image_content(
     let Some(root) = asset_root else {
         return;
     };
-    let Some(image) = image_loader::load_rgba_image(root.mod_source(), source) else {
+    let Some(image_asset) = image_loader::load_image_asset(root.mod_source(), source) else {
         return;
     };
+    let image = image_asset.frame_at(elapsed_ms);
     let (target_w, target_h) = resolve_image_dimensions(&image, mode, req_width, req_height, size);
     if target_w == 0 || target_h == 0 {
         return;
@@ -56,9 +58,10 @@ pub(super) fn image_sprite_dimensions(
     let Some(root) = asset_root else {
         return (req_width.unwrap_or(1), req_height.unwrap_or(1));
     };
-    let Some(image) = image_loader::load_rgba_image(root.mod_source(), source) else {
+    let Some(image_asset) = image_loader::load_image_asset(root.mod_source(), source) else {
         return (req_width.unwrap_or(1), req_height.unwrap_or(1));
     };
+    let image = image_asset.first_frame();
     resolve_image_dimensions(&image, mode, req_width, req_height, size)
 }
 
