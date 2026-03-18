@@ -23,6 +23,12 @@ properties:
     type: boolean
     default: false
     description: Whether this scene is a non-interactive cutscene.
+  cutscene-ref:
+    type: string
+    minLength: 1
+    description: >
+      Optional cutscene manifest reference.
+      Compiler resolves it (default /cutscenes/<name>.yml) into timed image sprites.
   target-fps:
     type: integer
     minimum: 1
@@ -67,7 +73,7 @@ properties:
     type: array
     description: Compositing layers rendered onto the scene buffer, each containing sprites.
     items:
-      $ref: "#/$defs/layer"
+      $ref: "#/$defs/layer_entry"
   next:
     type: [string, "null"]
     description: Scene id to transition to when on_leave completes.
@@ -94,44 +100,11 @@ properties:
       Each entry references an object prefab by path (ref), optionally assigns a scene-local
       id (as), overrides exports (with), seeds runtime state (state), and attaches role tags (tags).
     items:
-      type: object
-      additionalProperties: false
-      oneOf:
-        - required: [ref]
-        - required: [use]
-      properties:
-        ref:
-          type: string
-          minLength: 1
-          description: Object prefab/blueprint reference path. Preferred over deprecated 'use'.
-        use:
-          type: string
-          minLength: 1
-          description: "Deprecated: use 'ref' instead. Object template/prefab reference."
-        as:
-          type: string
-          minLength: 1
-          description: Scene-local instance id. Preferred over deprecated 'id'.
-        id:
-          type: string
-          minLength: 1
-          description: "Deprecated: use 'as' instead. Scene-local object instance id."
-        with:
-          type: object
-          default: {}
-          description: Optional parameter overrides for object exports.
-        state:
-          type: object
-          default: {}
-          description: Optional initial runtime state for the instance.
-        tags:
-          type: array
-          default: []
-          items:
-            type: string
-          description: Optional role/group tags for the instance.
+      $ref: "#/$defs/object_instance"
 
 patternProperties:
+  "^cutscene_ref$":
+    $ref: "#/properties/cutscene-ref"
   "^target_fps$":
     $ref: "#/properties/target-fps"
   "^menu_options$":
@@ -146,7 +119,7 @@ $defs:
       Named colours: black, white, gray (= grey), silver, red, green, blue,
       yellow, cyan, magenta.
       Hex example: "#C0C0C0"
-    oneOf:
+    anyOf:
       - type: string
         pattern: "^#[0-9A-Fa-f]{6}$"
         description: "Hex colour: #rrggbb"
@@ -338,6 +311,95 @@ $defs:
       on_leave:
         $ref: "#/$defs/stage"
 
+  # ── Object instance ─────────────────────────────────────────────────────────
+  object_instance:
+    type: object
+    additionalProperties: false
+    oneOf:
+      - required: [ref]
+      - required: [use]
+    properties:
+      ref:
+        type: string
+        minLength: 1
+        description: Object prefab/blueprint reference path. Preferred over deprecated 'use'.
+      use:
+        type: string
+        minLength: 1
+        description: "Deprecated: use 'ref' instead. Object template/prefab reference."
+      as:
+        type: string
+        minLength: 1
+        description: Scene- or layer-local instance id. Preferred over deprecated 'id'.
+      id:
+        type: string
+        minLength: 1
+        description: "Deprecated: use 'as' instead. Scene- or layer-local object instance id."
+      with:
+        type: object
+        default: {}
+        description: Optional parameter overrides for object exports.
+      state:
+        type: object
+        default: {}
+        description: Optional initial runtime state for the instance.
+      tags:
+        type: array
+        default: []
+        items:
+          type: string
+        description: Optional role/group tags for the instance.
+
+  # ── Layer reference instance ───────────────────────────────────────────────
+  layer_ref_instance:
+    type: object
+    description: >
+      Reference to a reusable layer partial with optional per-instance overrides.
+    additionalProperties: false
+    oneOf:
+      - required: [ref]
+      - required: [use]
+    properties:
+      ref:
+        type: string
+        minLength: 1
+        description: Layer partial reference path. Preferred over deprecated 'use'.
+      use:
+        type: string
+        minLength: 1
+        description: "Deprecated: use 'ref' instead. Layer partial reference path."
+      as:
+        type: string
+        minLength: 1
+        description: Optional instance name override. Preferred over deprecated 'id'.
+      id:
+        type: string
+        minLength: 1
+        description: "Deprecated: use 'as' instead. Optional instance name override."
+      with:
+        type: object
+        default: {}
+        description: Optional parameter overrides applied during layer reference expansion.
+      z_index:
+        type: integer
+        description: Optional z-index override for the referenced layer instance.
+      visible:
+        type: boolean
+        description: Optional visibility override for the referenced layer instance.
+      stages:
+        $ref: "#/$defs/layer_stages"
+      behaviors:
+        type: array
+        default: []
+        items:
+          $ref: "#/$defs/behavior"
+
+  # ── Layer entry ────────────────────────────────────────────────────────────
+  layer_entry:
+    anyOf:
+      - $ref: "#/$defs/layer"
+      - $ref: "#/$defs/layer_ref_instance"
+
   # ── Layer ──────────────────────────────────────────────────────────────────
   layer:
     type: object
@@ -365,6 +427,14 @@ $defs:
           Useful for steering whole sprite groups together.
         items:
           $ref: "#/$defs/behavior"
+      objects:
+        type: array
+        default: []
+        description: >
+          Optional object instances local to this layer.
+          Uses the same ref/as/with/state/tags contract as scene-level `objects`.
+        items:
+          $ref: "#/$defs/object_instance"
       sprites:
         type: array
         description: Drawable objects within this layer.
