@@ -1,9 +1,11 @@
 //! Compilation helpers that turn authored scene YAML into the runtime `Scene`
 //! model, including object expansion before typed deserialization.
 
+use super::cutscene::{expand_scene_cutscene_ref_with_filters, CutsceneFilterRegistry};
 use crate::document::{LogicKind, ObjectDocument, SceneDocument};
 use engine_core::scene::Scene;
 use serde_yaml::{Mapping, Value};
+use std::collections::BTreeMap;
 
 /// Compiles authored scene YAML into a runtime [`Scene`] using the default
 /// root path when resolving referenced object documents.
@@ -23,28 +25,188 @@ where
 /// # Purpose
 ///
 /// This is the authored-scene entry point used by repositories after they have
-/// assembled any scene package fragments. It expands `objects:` references,
-/// merges authored overrides from `with:`, and then hands the normalized YAML to
-/// [`SceneDocument`] for the final authored-to-runtime conversion.
+/// assembled any scene package fragments. It resolves `layers[].ref` references,
+/// expands `objects:` and `layer.objects` references, merges authored overrides
+/// from `with:`, and then hands the normalized YAML to [`SceneDocument`] for the
+/// final authored-to-runtime conversion.
 ///
 /// `scene_source_path` is used to resolve relative object references inside a
 /// scene package.
 pub fn compile_scene_document_with_loader_and_source<F>(
     content: &str,
     scene_source_path: &str,
+    object_loader: F,
+) -> Result<Scene, serde_yaml::Error>
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let filters = CutsceneFilterRegistry::with_builtin_filters();
+    compile_scene_document_with_loader_and_source_and_filters(
+        content,
+        scene_source_path,
+        object_loader,
+        &filters,
+    )
+}
+
+/// Compiles authored scene YAML into a runtime [`Scene`] with an explicit
+/// cutscene filter registry.
+pub fn compile_scene_document_with_loader_and_source_and_filters<F>(
+    content: &str,
+    scene_source_path: &str,
     mut object_loader: F,
+    cutscene_filters: &CutsceneFilterRegistry,
 ) -> Result<Scene, serde_yaml::Error>
 where
     F: FnMut(&str) -> Option<String>,
 {
     let mut raw = serde_yaml::from_str::<Value>(content)?;
+    expand_scene_layer_refs(&mut raw, scene_source_path, &mut object_loader);
     expand_scene_objects(&mut raw, scene_source_path, &mut object_loader);
+    expand_layer_objects(&mut raw, scene_source_path, &mut object_loader);
+    expand_scene_cutscene_ref_with_filters(
+        &mut raw,
+        scene_source_path,
+        &mut object_loader,
+        cutscene_filters,
+    )?;
     let mut compiled_input = serde_yaml::to_string(&raw)?;
     if !compiled_input.ends_with('\n') {
         compiled_input.push('\n');
     }
     let document = serde_yaml::from_str::<SceneDocument>(&compiled_input)?;
     document.compile()
+}
+
+fn expand_scene_layer_refs<F>(root: &mut Value, scene_source_path: &str, asset_loader: &mut F)
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let Some(scene_map) = root.as_mapping_mut() else {
+        return;
+    };
+    let Some(layers) = scene_map
+        .get(Value::String("layers".to_string()))
+        .and_then(Value::as_sequence)
+        .cloned()
+    else {
+        return;
+    };
+
+    let mut expanded_layers = Vec::new();
+    let mut active_layer_ref_stack = Vec::new();
+    for layer_entry in layers {
+        resolve_layer_entry_refs(
+            layer_entry,
+            scene_source_path,
+            asset_loader,
+            &mut active_layer_ref_stack,
+            &mut expanded_layers,
+        );
+    }
+
+    scene_map.insert(
+        Value::String("layers".to_string()),
+        Value::Sequence(expanded_layers),
+    );
+}
+
+fn resolve_layer_entry_refs<F>(
+    layer_entry: Value,
+    source_path: &str,
+    asset_loader: &mut F,
+    active_layer_ref_stack: &mut Vec<String>,
+    out: &mut Vec<Value>,
+) where
+    F: FnMut(&str) -> Option<String>,
+{
+    let Some(layer_map) = layer_entry.as_mapping() else {
+        out.push(layer_entry);
+        return;
+    };
+    let Some(layer_ref) = layer_map
+        .get(Value::String("ref".to_string()))
+        .or_else(|| layer_map.get(Value::String("use".to_string())))
+        .and_then(Value::as_str)
+    else {
+        out.push(layer_entry);
+        return;
+    };
+
+    let path = resolve_layer_ref_path(source_path, layer_ref);
+    if active_layer_ref_stack.contains(&path) {
+        out.push(layer_entry);
+        return;
+    }
+    let Some(raw_layer) = asset_loader(&path) else {
+        out.push(layer_entry);
+        return;
+    };
+    let Ok(mut loaded_layer_value) = serde_yaml::from_str::<Value>(&raw_layer) else {
+        out.push(layer_entry);
+        return;
+    };
+
+    if let Some(args) = layer_map
+        .get(Value::String("with".to_string()))
+        .and_then(Value::as_mapping)
+    {
+        substitute_args(&mut loaded_layer_value, args);
+    }
+
+    let mut loaded_entries = layer_entries_from_value(loaded_layer_value);
+    for loaded_entry in &mut loaded_entries {
+        apply_layer_ref_overrides(loaded_entry, layer_map);
+    }
+
+    active_layer_ref_stack.push(path.clone());
+    for loaded_entry in loaded_entries {
+        resolve_layer_entry_refs(
+            loaded_entry,
+            &path,
+            asset_loader,
+            active_layer_ref_stack,
+            out,
+        );
+    }
+    let _ = active_layer_ref_stack.pop();
+}
+
+fn layer_entries_from_value(value: Value) -> Vec<Value> {
+    match value {
+        Value::Sequence(seq) => seq,
+        other => vec![other],
+    }
+}
+
+fn apply_layer_ref_overrides(layer_entry: &mut Value, layer_ref_instance: &Mapping) {
+    let Some(layer_map) = layer_entry.as_mapping_mut() else {
+        return;
+    };
+
+    if let Some(name) = layer_ref_instance
+        .get(Value::String("as".to_string()))
+        .or_else(|| layer_ref_instance.get(Value::String("id".to_string())))
+        .and_then(Value::as_str)
+    {
+        layer_map.insert(
+            Value::String("name".to_string()),
+            Value::String(name.to_string()),
+        );
+    }
+
+    for key in [
+        "z_index",
+        "visible",
+        "stages",
+        "behaviors",
+        "sprites",
+        "objects",
+    ] {
+        if let Some(value) = layer_ref_instance.get(Value::String(key.to_string())) {
+            layer_map.insert(Value::String(key.to_string()), value.clone());
+        }
+    }
 }
 
 fn expand_scene_objects<F>(root: &mut Value, scene_source_path: &str, object_loader: &mut F)
@@ -74,59 +236,11 @@ where
         let Some(instance_map) = instance.as_mapping() else {
             continue;
         };
-        let Some(use_name) = instance_map
-            .get(Value::String("ref".to_string()))
-            .or_else(|| instance_map.get(Value::String("use".to_string())))
-            .and_then(Value::as_str)
+        let Some(mut loaded) = load_object_instance(instance_map, scene_source_path, object_loader)
         else {
             continue;
         };
-        let path = resolve_object_ref_path(scene_source_path, use_name);
-        let Some(raw_object) = object_loader(&path) else {
-            continue;
-        };
-        let Ok(mut object_value) = serde_yaml::from_str::<Value>(&raw_object) else {
-            continue;
-        };
-        let mut merged_args = Mapping::new();
-        if let Some(object_map) = object_value.as_mapping() {
-            if let Some(exports) = object_map
-                .get(Value::String("exports".to_string()))
-                .and_then(Value::as_mapping)
-            {
-                for (k, v) in exports {
-                    merged_args.insert(k.clone(), v.clone());
-                }
-            }
-        }
-        if let Some(args) = instance_map
-            .get(Value::String("with".to_string()))
-            .and_then(Value::as_mapping)
-        {
-            for (k, v) in args {
-                merged_args.insert(k.clone(), v.clone());
-            }
-        }
-        if !merged_args.is_empty() {
-            substitute_args(&mut object_value, &merged_args);
-        }
-        let object_doc = serde_yaml::from_value::<ObjectDocument>(object_value.clone()).ok();
-        let native_logic_behavior = object_doc
-            .as_ref()
-            .and_then(|doc| doc.logic.as_ref())
-            .and_then(|logic| {
-                if logic.kind == LogicKind::Native {
-                    logic.behavior.as_deref()
-                } else {
-                    None
-                }
-            });
-        let native_logic_params = object_doc
-            .as_ref()
-            .and_then(|doc| doc.logic.as_ref())
-            .map(|logic| logic.params.clone())
-            .unwrap_or_default();
-        let Some(object_map) = object_value.as_mapping_mut() else {
+        let Some(object_map) = loaded.object_value.as_mapping_mut() else {
             continue;
         };
 
@@ -136,8 +250,12 @@ where
         {
             for layer in object_layers {
                 let mut layer_value = layer.clone();
-                if let Some(behavior_name) = native_logic_behavior {
-                    attach_layer_behavior(&mut layer_value, behavior_name, &native_logic_params);
+                if let Some(behavior_name) = loaded.native_logic_behavior.as_deref() {
+                    attach_layer_behavior(
+                        &mut layer_value,
+                        behavior_name,
+                        &loaded.native_logic_params,
+                    );
                 }
                 scene_layers.push(layer_value);
             }
@@ -161,7 +279,7 @@ where
                     .get(Value::String("name".to_string()))
                     .and_then(Value::as_str)
             })
-            .unwrap_or(use_name);
+            .unwrap_or(loaded.instance_ref.as_str());
         layer.insert(
             Value::String("name".to_string()),
             Value::String(layer_name.to_string()),
@@ -170,9 +288,12 @@ where
             Value::String("sprites".to_string()),
             Value::Sequence(object_sprites.clone()),
         );
-        if let Some(behavior_name) = native_logic_behavior {
+        if let Some(behavior_name) = loaded.native_logic_behavior.as_deref() {
             let mut behaviors = Vec::new();
-            behaviors.push(build_behavior_spec(behavior_name, &native_logic_params));
+            behaviors.push(build_behavior_spec(
+                behavior_name,
+                &loaded.native_logic_params,
+            ));
             layer.insert(
                 Value::String("behaviors".to_string()),
                 Value::Sequence(behaviors),
@@ -180,6 +301,175 @@ where
         }
         scene_layers.push(Value::Mapping(layer));
     }
+}
+
+fn expand_layer_objects<F>(root: &mut Value, scene_source_path: &str, object_loader: &mut F)
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let Some(scene_map) = root.as_mapping_mut() else {
+        return;
+    };
+    let Some(scene_layers) = scene_map
+        .get_mut(Value::String("layers".to_string()))
+        .and_then(Value::as_sequence_mut)
+    else {
+        return;
+    };
+
+    for layer in scene_layers {
+        let Some(layer_map) = layer.as_mapping_mut() else {
+            continue;
+        };
+        let object_instances = layer_map
+            .get(Value::String("objects".to_string()))
+            .and_then(Value::as_sequence)
+            .cloned()
+            .unwrap_or_default();
+        if object_instances.is_empty() {
+            continue;
+        }
+
+        for instance in object_instances {
+            let Some(instance_map) = instance.as_mapping() else {
+                continue;
+            };
+            let Some(mut loaded) =
+                load_object_instance(instance_map, scene_source_path, object_loader)
+            else {
+                continue;
+            };
+            let Some(object_map) = loaded.object_value.as_mapping_mut() else {
+                continue;
+            };
+
+            if let Some(object_layers) = object_map
+                .get(Value::String("layers".to_string()))
+                .and_then(Value::as_sequence)
+            {
+                for object_layer in object_layers {
+                    let Some(obj_layer_map) = object_layer.as_mapping() else {
+                        continue;
+                    };
+                    if let Some(sprites) = obj_layer_map
+                        .get(Value::String("sprites".to_string()))
+                        .and_then(Value::as_sequence)
+                    {
+                        append_sequence_items(layer_map, "sprites", sprites.to_vec());
+                    }
+                    if let Some(behaviors) = obj_layer_map
+                        .get(Value::String("behaviors".to_string()))
+                        .and_then(Value::as_sequence)
+                    {
+                        append_sequence_items(layer_map, "behaviors", behaviors.to_vec());
+                    }
+                }
+            }
+
+            if let Some(object_sprites) = object_map
+                .get(Value::String("sprites".to_string()))
+                .and_then(Value::as_sequence)
+            {
+                append_sequence_items(layer_map, "sprites", object_sprites.to_vec());
+            }
+
+            if let Some(behavior_name) = loaded.native_logic_behavior.as_deref() {
+                append_sequence_items(
+                    layer_map,
+                    "behaviors",
+                    vec![build_behavior_spec(
+                        behavior_name,
+                        &loaded.native_logic_params,
+                    )],
+                );
+            }
+        }
+
+        layer_map.remove(Value::String("objects".to_string()));
+    }
+}
+
+fn append_sequence_items(layer_map: &mut Mapping, key: &str, mut items: Vec<Value>) {
+    let key_value = Value::String(key.to_string());
+    let entry = layer_map
+        .entry(key_value.clone())
+        .or_insert_with(|| Value::Sequence(Vec::new()));
+    if let Some(seq) = entry.as_sequence_mut() {
+        seq.append(&mut items);
+    } else {
+        layer_map.insert(key_value, Value::Sequence(items));
+    }
+}
+
+struct LoadedObjectInstance {
+    instance_ref: String,
+    object_value: Value,
+    native_logic_behavior: Option<String>,
+    native_logic_params: BTreeMap<String, Value>,
+}
+
+fn load_object_instance<F>(
+    instance_map: &Mapping,
+    scene_source_path: &str,
+    object_loader: &mut F,
+) -> Option<LoadedObjectInstance>
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let use_name = instance_map
+        .get(Value::String("ref".to_string()))
+        .or_else(|| instance_map.get(Value::String("use".to_string())))
+        .and_then(Value::as_str)?;
+    let path = resolve_object_ref_path(scene_source_path, use_name);
+    let raw_object = object_loader(&path)?;
+    let mut object_value = serde_yaml::from_str::<Value>(&raw_object).ok()?;
+
+    let mut merged_args = Mapping::new();
+    if let Some(object_map) = object_value.as_mapping() {
+        if let Some(exports) = object_map
+            .get(Value::String("exports".to_string()))
+            .and_then(Value::as_mapping)
+        {
+            for (k, v) in exports {
+                merged_args.insert(k.clone(), v.clone());
+            }
+        }
+    }
+    if let Some(args) = instance_map
+        .get(Value::String("with".to_string()))
+        .and_then(Value::as_mapping)
+    {
+        for (k, v) in args {
+            merged_args.insert(k.clone(), v.clone());
+        }
+    }
+    if !merged_args.is_empty() {
+        substitute_args(&mut object_value, &merged_args);
+    }
+
+    let object_doc = serde_yaml::from_value::<ObjectDocument>(object_value.clone()).ok();
+    let native_logic_behavior = object_doc
+        .as_ref()
+        .and_then(|doc| doc.logic.as_ref())
+        .and_then(|logic| {
+            if logic.kind == LogicKind::Native {
+                logic.behavior.clone()
+            } else {
+                None
+            }
+        });
+    let native_logic_params = object_doc
+        .as_ref()
+        .and_then(|doc| doc.logic.as_ref())
+        .map(|logic| logic.params.clone())
+        .unwrap_or_default();
+
+    Some(LoadedObjectInstance {
+        instance_ref: use_name.to_string(),
+        object_value,
+        native_logic_behavior,
+        native_logic_params,
+    })
 }
 
 fn resolve_object_ref_path(scene_source_path: &str, use_name: &str) -> String {
@@ -191,6 +481,49 @@ fn resolve_object_ref_path(scene_source_path: &str, use_name: &str) -> String {
         return normalize_mod_path(&format!("{scene_dir}/{use_name}"));
     }
     format!("/objects/{use_name}.yml")
+}
+
+fn resolve_layer_ref_path(scene_source_path: &str, use_name: &str) -> String {
+    if use_name.starts_with('/') {
+        return normalize_mod_path(use_name);
+    }
+    if use_name.starts_with("./") || use_name.starts_with("../") {
+        let scene_dir = parent_dir(scene_source_path);
+        return normalize_mod_path(&format!("{scene_dir}/{use_name}"));
+    }
+
+    let trimmed = use_name.trim_start_matches('/');
+    let has_yaml_ext = trimmed.ends_with(".yml") || trimmed.ends_with(".yaml");
+    let scene_dir = parent_dir(scene_source_path);
+    let source_is_layer_dir = scene_dir.ends_with("/layers");
+
+    if has_yaml_ext {
+        if trimmed.starts_with("scenes/") {
+            return normalize_mod_path(&format!("/{trimmed}"));
+        }
+        if trimmed.starts_with("layers/") {
+            if source_is_layer_dir {
+                let rel = trimmed.trim_start_matches("layers/");
+                return normalize_mod_path(&format!("{scene_dir}/{rel}"));
+            }
+            return normalize_mod_path(&format!("{scene_dir}/{trimmed}"));
+        }
+        if trimmed.contains('/') {
+            return normalize_mod_path(&format!("/scenes/{trimmed}"));
+        }
+        if source_is_layer_dir {
+            return normalize_mod_path(&format!("{scene_dir}/{trimmed}"));
+        }
+        return normalize_mod_path(&format!("{scene_dir}/layers/{trimmed}"));
+    }
+
+    if trimmed.contains('/') {
+        return normalize_mod_path(&format!("/scenes/{trimmed}.yml"));
+    }
+    if source_is_layer_dir {
+        return normalize_mod_path(&format!("{scene_dir}/{trimmed}.yml"));
+    }
+    normalize_mod_path(&format!("{scene_dir}/layers/{trimmed}.yml"))
 }
 
 fn parent_dir(path: &str) -> String {
@@ -290,7 +623,9 @@ fn substitute_args(value: &mut Value, args: &Mapping) {
 mod tests {
     use super::{
         compile_scene_document_with_loader, compile_scene_document_with_loader_and_source,
+        compile_scene_document_with_loader_and_source_and_filters,
     };
+    use crate::compile::{CutsceneCompileFilter, CutsceneCompileFrame, CutsceneFilterRegistry};
     use engine_core::scene::Sprite;
 
     #[test]
@@ -479,6 +814,303 @@ sprites:
         match &scene.layers[0].sprites[0] {
             Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
             _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn expands_scene_layer_ref_with_with_args_and_overrides() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+layers:
+  - ref: background
+    as: bg-main
+    z_index: 7
+    with:
+      label: HELLO
+next: null
+"#;
+        let layer_raw = r#"
+- name: background
+  sprites:
+    - type: text
+      content: "$label"
+"#;
+
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| {
+                if path == "/scenes/intro/layers/background.yml" {
+                    Some(layer_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].name, "bg-main");
+        assert_eq!(scene.layers[0].z_index, 7);
+        match &scene.layers[0].sprites[0] {
+            Sprite::Text { content, .. } => assert_eq!(content, "HELLO"),
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn expands_layer_local_objects_into_layer_sprites() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+layers:
+  - name: base
+    objects:
+      - ref: suzan
+        with:
+          label: LAYER
+next: null
+"#;
+        let object_raw = r#"
+name: suzan
+exports:
+  label: DEFAULT
+sprites:
+  - type: text
+    content: "$label"
+"#;
+
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/suzan.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+
+        assert_eq!(scene.layers.len(), 1);
+        match &scene.layers[0].sprites[0] {
+            Sprite::Text { content, .. } => assert_eq!(content, "LAYER"),
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn resolves_nested_layer_refs_recursively() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+layers:
+  - ref: base
+next: null
+"#;
+        let base_layer_raw = r#"
+- ref: nested
+"#;
+        let nested_layer_raw = r#"
+name: nested
+sprites:
+  - type: text
+    content: "OK"
+"#;
+
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| match path {
+                "/scenes/intro/layers/base.yml" => Some(base_layer_raw.to_string()),
+                "/scenes/intro/layers/nested.yml" => Some(nested_layer_raw.to_string()),
+                _ => None,
+            },
+        )
+        .expect("scene compile");
+
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].name, "nested");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Text { content, .. } => assert_eq!(content, "OK"),
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn layer_ref_cycles_do_not_recurse_forever() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+layers:
+  - ref: a
+next: null
+"#;
+        let a_layer_raw = r#"
+- ref: b
+"#;
+        let b_layer_raw = r#"
+- ref: a
+"#;
+
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| match path {
+                "/scenes/intro/layers/a.yml" => Some(a_layer_raw.to_string()),
+                "/scenes/intro/layers/b.yml" => Some(b_layer_raw.to_string()),
+                _ => None,
+            },
+        )
+        .expect("scene compile");
+
+        assert_eq!(scene.layers.len(), 1);
+    }
+
+    #[test]
+    fn expands_cutscene_ref_into_timed_image_sprites() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+layers: []
+cutscene-ref: intro-sequence
+next: null
+"#;
+        let cutscene_raw = r#"
+layer-name: intro-cutscene
+defaults:
+  at: cc
+  width: 30
+  height: 12
+frames:
+  - source: /assets/images/intro/1.png
+    delay-ms: 100
+  - source: /assets/images/intro/2.png
+    delay-ms: 200
+"#;
+
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| {
+                if path == "/cutscenes/intro-sequence.yml" {
+                    Some(cutscene_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+
+        assert!(scene.cutscene);
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].name, "intro-cutscene");
+        assert_eq!(scene.layers[0].sprites.len(), 2);
+
+        match &scene.layers[0].sprites[0] {
+            Sprite::Image {
+                source,
+                width,
+                height,
+                appear_at_ms,
+                disappear_at_ms,
+                ..
+            } => {
+                assert_eq!(source, "/assets/images/intro/1.png");
+                assert_eq!(*width, Some(30));
+                assert_eq!(*height, Some(12));
+                assert_eq!(*appear_at_ms, Some(0));
+                assert_eq!(*disappear_at_ms, Some(100));
+            }
+            _ => panic!("expected image sprite"),
+        }
+        match &scene.layers[0].sprites[1] {
+            Sprite::Image {
+                source,
+                appear_at_ms,
+                disappear_at_ms,
+                ..
+            } => {
+                assert_eq!(source, "/assets/images/intro/2.png");
+                assert_eq!(*appear_at_ms, Some(100));
+                assert_eq!(*disappear_at_ms, Some(300));
+            }
+            _ => panic!("expected image sprite"),
+        }
+    }
+
+    struct AddDelayFilter;
+
+    impl CutsceneCompileFilter for AddDelayFilter {
+        fn name(&self) -> &'static str {
+            "add-delay"
+        }
+
+        fn apply(
+            &self,
+            frame: &mut CutsceneCompileFrame,
+            params: &serde_yaml::Mapping,
+        ) -> Result<(), serde_yaml::Error> {
+            let add_ms = params
+                .get(serde_yaml::Value::String("ms".to_string()))
+                .and_then(serde_yaml::Value::as_u64)
+                .unwrap_or(0);
+            frame.delay_ms = frame.delay_ms.saturating_add(add_ms);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn applies_custom_cutscene_filter_registry() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+layers: []
+cutscene-ref: intro-sequence
+next: null
+"#;
+        let cutscene_raw = r#"
+filters:
+  - name: add-delay
+    params:
+      ms: 5
+frames:
+  - source: /assets/images/intro/1.png
+    delay-ms: 10
+  - source: /assets/images/intro/2.png
+    delay-ms: 20
+"#;
+        let mut filters = CutsceneFilterRegistry::default();
+        filters.register(AddDelayFilter);
+
+        let scene = compile_scene_document_with_loader_and_source_and_filters(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| {
+                if path == "/cutscenes/intro-sequence.yml" {
+                    Some(cutscene_raw.to_string())
+                } else {
+                    None
+                }
+            },
+            &filters,
+        )
+        .expect("scene compile");
+
+        match &scene.layers[0].sprites[0] {
+            Sprite::Image {
+                disappear_at_ms, ..
+            } => assert_eq!(*disappear_at_ms, Some(15)),
+            _ => panic!("expected image sprite"),
+        }
+        match &scene.layers[0].sprites[1] {
+            Sprite::Image {
+                appear_at_ms,
+                disappear_at_ms,
+                ..
+            } => {
+                assert_eq!(*appear_at_ms, Some(15));
+                assert_eq!(*disappear_at_ms, Some(40));
+            }
+            _ => panic!("expected image sprite"),
         }
     }
 }

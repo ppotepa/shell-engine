@@ -52,6 +52,7 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     let font_specs = collect_font_specs(&font_names);
     let image_paths = collect_image_paths(mod_root)?;
     let model_paths = collect_model_paths(mod_root)?;
+    let cutscene_refs = collect_cutscene_refs(mod_root)?;
     let sprite_ids = collect_sprite_ids(mod_root)?;
     let template_names = collect_template_names(mod_root)?;
 
@@ -127,6 +128,10 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     defs.insert(
         Value::String("model_paths".to_string()),
         enum_schema(model_paths.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("cutscene_refs".to_string()),
+        enum_schema(cutscene_refs.into_iter().collect()),
     );
     defs.insert(
         Value::String("sprite_ids".to_string()),
@@ -1288,6 +1293,14 @@ fn param_control_schema(control: &ParamControl) -> Mapping {
 fn scene_overlay_patch() -> Mapping {
     let mut patches = Vec::new();
     patches.push(conditional_property_overlay(
+        "cutscene-ref",
+        suggested_string_refs(&["./catalog.yaml#/$defs/cutscene_refs"]),
+    ));
+    patches.push(conditional_property_overlay(
+        "cutscene_ref",
+        suggested_string_refs(&["./catalog.yaml#/$defs/cutscene_refs"]),
+    ));
+    patches.push(conditional_property_overlay(
         "next",
         nullable_suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
     ));
@@ -1307,7 +1320,7 @@ fn scene_overlay_patch() -> Mapping {
     ));
     patches.push(conditional_property_overlay(
         "layers",
-        array_items_ref("#/$defs/layer_overlay"),
+        scene_layers_overlay(),
     ));
     patches.push(conditional_property_overlay(
         "templates",
@@ -1383,6 +1396,25 @@ fn objects_overlay() -> Value {
         "items",
         Value::Mapping(object_instance_overlay_patch()),
     ))
+}
+
+fn scene_layers_overlay() -> Value {
+    let mut map = Mapping::new();
+    map.insert(
+        Value::String("type".to_string()),
+        Value::String("array".to_string()),
+    );
+    map.insert(
+        Value::String("items".to_string()),
+        Value::Mapping(mapping_with(
+            "anyOf",
+            Value::Sequence(vec![
+                schema_ref("#/$defs/layer_overlay"),
+                schema_ref("#/$defs/layer_ref_instance_overlay"),
+            ]),
+        )),
+    );
+    Value::Mapping(map)
 }
 
 fn scene_input_overlay() -> Value {
@@ -1597,6 +1629,10 @@ fn shared_overlay_defs() -> Mapping {
         Value::String("layer_overlay".to_string()),
         Value::Mapping(layer_overlay_def()),
     );
+    defs.insert(
+        Value::String("layer_ref_instance_overlay".to_string()),
+        Value::Mapping(layer_ref_instance_overlay_def()),
+    );
     defs
 }
 
@@ -1697,6 +1733,7 @@ fn layer_overlay_def() -> Mapping {
         Value::String("behaviors".to_string()),
         array_items_ref("#/$defs/behavior_overlay"),
     );
+    props.insert(Value::String("objects".to_string()), objects_overlay());
     props.insert(
         Value::String("sprites".to_string()),
         array_items_ref("#/$defs/sprite_overlay"),
@@ -1718,6 +1755,35 @@ fn layer_overlay_def() -> Mapping {
         )]),
     );
     layer
+}
+
+fn layer_ref_instance_overlay_def() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("use".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/layer_refs"]),
+    );
+    props.insert(
+        Value::String("ref".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/layer_refs"]),
+    );
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    patch.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![schema_ref(
+            "../../../schemas/scene.schema.yaml#/$defs/layer_ref_instance",
+        )]),
+    );
+    patch
 }
 
 fn sprite_overlay_def() -> Mapping {
@@ -2220,6 +2286,35 @@ fn walk_models(
     Ok(())
 }
 
+/// Collects cutscene references from cutscenes/**/*.yml files.
+fn collect_cutscene_refs(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let cutscenes_root = mod_root.join("cutscenes");
+    let mut refs = BTreeSet::new();
+    if !cutscenes_root.exists() {
+        return Ok(refs);
+    }
+
+    for file in yaml_files_under(&cutscenes_root)? {
+        let rel_from_mod = match file.strip_prefix(mod_root) {
+            Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+            Err(_) => continue,
+        };
+        let rel_from_cutscenes = match file.strip_prefix(&cutscenes_root) {
+            Ok(rel) => rel.to_string_lossy().replace('\\', "/"),
+            Err(_) => continue,
+        };
+        refs.insert(format!("/{rel_from_mod}"));
+        let no_ext = rel_from_cutscenes
+            .trim_end_matches(".yml")
+            .trim_end_matches(".yaml");
+        if !no_ext.is_empty() {
+            refs.insert(no_ext.to_string());
+        }
+    }
+
+    Ok(refs)
+}
+
 /// Collects sprite IDs from all scene YAML files.
 fn collect_sprite_ids(mod_root: &Path) -> Result<BTreeSet<String>> {
     let mut ids = BTreeSet::new();
@@ -2357,6 +2452,7 @@ mod tests {
         fs::create_dir_all(mod_root.join("objects")).expect("create objects");
         fs::create_dir_all(mod_root.join("assets/fonts/mono")).expect("create fonts");
         fs::create_dir_all(mod_root.join("assets/images")).expect("create images");
+        fs::create_dir_all(mod_root.join("cutscenes")).expect("create cutscenes");
         fs::write(mod_root.join("mod.yaml"), "name: playground\n").expect("write mod");
         fs::write(
             mod_root.join("scenes/intro/scene.yml"),
@@ -2386,6 +2482,11 @@ mod tests {
         .expect("write font manifest");
         fs::write(mod_root.join("assets/images/logo.png"), b"").expect("write image");
         fs::write(mod_root.join("scenes/intro/cube.obj"), "").expect("write model");
+        fs::write(
+            mod_root.join("cutscenes/intro-main.yml"),
+            "frames:\n  - source: /assets/images/logo.png\n    delay-ms: 100\n",
+        )
+        .expect("write cutscene");
 
         let files = generate_mod_schema_files(&mod_root).expect("generate schemas");
         let object_overlay = files
@@ -2413,6 +2514,7 @@ mod tests {
         assert!(defs.contains_key(Value::String("font_specs".to_string())));
         assert!(defs.contains_key(Value::String("image_paths".to_string())));
         assert!(defs.contains_key(Value::String("model_paths".to_string())));
+        assert!(defs.contains_key(Value::String("cutscene_refs".to_string())));
         assert!(defs.contains_key(Value::String("sprite_ids".to_string())));
         assert!(defs.contains_key(Value::String("template_names".to_string())));
 
@@ -2483,6 +2585,19 @@ mod tests {
         assert!(model_paths
             .iter()
             .any(|v| v.as_str() == Some("/scenes/intro/cube.obj")));
+
+        let cutscene_refs = defs
+            .get(Value::String("cutscene_refs".to_string()))
+            .and_then(Value::as_mapping)
+            .and_then(|m| m.get(Value::String("enum".to_string())))
+            .and_then(Value::as_sequence)
+            .expect("cutscene_refs enum");
+        assert!(cutscene_refs
+            .iter()
+            .any(|v| v.as_str() == Some("intro-main")));
+        assert!(cutscene_refs
+            .iter()
+            .any(|v| v.as_str() == Some("/cutscenes/intro-main.yml")));
 
         let template_names = defs
             .get(Value::String("template_names".to_string()))
@@ -2566,6 +2681,21 @@ mod tests {
         let paths = super::collect_model_paths(&temp).unwrap();
         assert!(paths.contains("/scenes/intro/cube.obj"));
         assert!(paths.contains("/assets/models/sphere.obj"));
+    }
+
+    #[test]
+    fn test_collect_cutscene_refs() {
+        let temp = unique_temp_dir("cutscene-test");
+        fs::create_dir_all(temp.join("cutscenes/intro")).unwrap();
+        fs::write(
+            temp.join("cutscenes/intro/opening.yml"),
+            "frames:\n  - source: /assets/images/logo.png\n    delay-ms: 100\n",
+        )
+        .unwrap();
+
+        let refs = super::collect_cutscene_refs(&temp).unwrap();
+        assert!(refs.contains("intro/opening"));
+        assert!(refs.contains("/cutscenes/intro/opening.yml"));
     }
 
     #[test]

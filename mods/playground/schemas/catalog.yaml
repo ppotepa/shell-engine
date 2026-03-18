@@ -67,6 +67,7 @@ $defs:
     type: string
     enum:
     - artifact-out
+    - blur
     - brighten
     - clear-to-colour
     - crt-on
@@ -136,6 +137,9 @@ $defs:
     enum:
     - /scenes/3d/blender/suzanne.obj
     - /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+  cutscene_refs:
+    type: string
+    enum: []
   sprite_ids:
     type: string
     enum:
