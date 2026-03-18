@@ -9,6 +9,7 @@ pub use error::EngineError;
 pub use engine_core::{animations, buffer, effects, markup, scene};
 
 pub mod asset_cache;
+pub mod asset_source;
 pub mod assets;
 pub mod audio;
 pub mod behavior;

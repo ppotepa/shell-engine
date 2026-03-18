@@ -2,8 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::asset_cache::AssetCache;
+use crate::asset_source::{
+    load_decoded_source, ModAssetSourceLoader, SourceAdapter, SourceLoader, SourceRef,
+};
 use crate::assets::AssetRoot;
-use crate::repositories::{create_asset_repository, AssetRepository};
+use crate::EngineError;
 
 #[derive(Debug, Clone)]
 pub(super) struct ObjMesh {
@@ -29,6 +32,27 @@ pub(super) struct ObjFace {
 
 static OBJ_CACHE: AssetCache<ObjMesh> = AssetCache::new();
 
+struct ObjMeshAdapter;
+
+impl SourceAdapter<ObjMesh> for ObjMeshAdapter {
+    fn decode(
+        &self,
+        source: &SourceRef,
+        bytes: &[u8],
+        loader: &dyn SourceLoader,
+    ) -> Result<ObjMesh, EngineError> {
+        let text = std::str::from_utf8(bytes).map_err(|_| EngineError::StartupCheckFailed {
+            check: "obj-decode".to_string(),
+            details: format!("OBJ source is not valid UTF-8: {}", source.value()),
+        })?;
+        let materials = load_material_palette(text, source, loader);
+        parse_obj_mesh_from_text(text, &materials).ok_or_else(|| EngineError::StartupCheckFailed {
+            check: "obj-decode".to_string(),
+            details: format!("failed to parse OBJ mesh: {}", source.value()),
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 struct MaterialProps {
     /// Diffuse color as sRGB u8 (gamma-corrected from MTL linear Kd).
@@ -53,23 +77,15 @@ impl Default for MaterialProps {
 }
 
 pub(super) fn load_obj_mesh(asset_root: &AssetRoot, source: &str) -> Option<ObjMesh> {
-    let normalized = source.trim_start_matches('/');
-    let key = format!("{}::{normalized}", asset_root.mod_source().display());
-    OBJ_CACHE.get_or_load(key, || load_obj_mesh_uncached(asset_root, source))
-}
-
-fn load_obj_mesh_uncached(asset_root: &AssetRoot, source: &str) -> Option<ObjMesh> {
-    let repo = create_asset_repository(asset_root.mod_source()).ok()?;
-    let bytes = repo.read_asset_bytes(source).ok()?;
-    let text = std::str::from_utf8(&bytes).ok()?;
-    let materials = load_material_palette(text, source, &repo);
-    parse_obj_mesh_from_text(text, &materials)
+    let loader = ModAssetSourceLoader::new(asset_root.mod_source()).ok()?;
+    let source = SourceRef::mod_asset(source);
+    load_decoded_source(&OBJ_CACHE, &loader, &source, &ObjMeshAdapter)
 }
 
 fn load_material_palette(
     obj_text: &str,
-    obj_source: &str,
-    repo: &dyn AssetRepository,
+    obj_source: &SourceRef,
+    loader: &dyn SourceLoader,
 ) -> HashMap<String, MaterialProps> {
     let mut out = HashMap::new();
     for raw in obj_text.lines() {
@@ -78,8 +94,9 @@ fn load_material_palette(
             continue;
         };
         for rel in rest.split_whitespace() {
-            let mtl_path = resolve_relative_asset_path(obj_source, rel);
-            let Ok(bytes) = repo.read_asset_bytes(&mtl_path) else {
+            let mtl_path = resolve_relative_asset_path(obj_source.value(), rel);
+            let mtl_source = SourceRef::mod_asset(mtl_path);
+            let Ok(bytes) = loader.read_bytes(&mtl_source) else {
                 continue;
             };
             let parsed = parse_mtl_palette(&bytes);
@@ -297,8 +314,13 @@ fn parse_obj_vertex_index(token: &str, vertex_count: usize) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::fs;
 
-    use super::{parse_mtl_palette, parse_obj_mesh_from_text};
+    use super::{load_obj_mesh, parse_mtl_palette, parse_obj_mesh_from_text};
+    use crate::assets::AssetRoot;
+    use tempfile::tempdir;
+    use zip::write::SimpleFileOptions;
+    use zip::ZipWriter;
 
     #[test]
     fn parses_vertices_faces_and_edges() {
@@ -333,5 +355,54 @@ Ns 10
         assert_eq!(mat.kd_srgb[2], 0, "B channel should be 0");
         assert!((mat.ka[0] - 0.1).abs() < 1e-3);
         assert!((mat.ns - 10.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn loads_obj_mesh_from_directory_source() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("assets/models")).expect("models dir");
+        fs::write(
+            mod_dir.join("assets/models/test.obj"),
+            "mtllib test.mtl\nv 0 0 0\nv 1 0 0\nv 1 1 0\nusemtl Wall\nf 1 2 3\n",
+        )
+        .expect("obj");
+        fs::write(
+            mod_dir.join("assets/models/test.mtl"),
+            "newmtl Wall\nKd 0.5 0.25 0.0\n",
+        )
+        .expect("mtl");
+
+        let mesh = load_obj_mesh(&AssetRoot::new(mod_dir), "/assets/models/test.obj")
+            .expect("mesh should load");
+        assert_eq!(mesh.vertices.len(), 3);
+        assert_eq!(mesh.faces.len(), 1);
+    }
+
+    #[test]
+    fn loads_obj_mesh_from_zip_source() {
+        let temp = tempdir().expect("temp dir");
+        let zip_path = temp.path().join("mod.zip");
+        let file = fs::File::create(&zip_path).expect("zip file");
+        let mut writer = ZipWriter::new(file);
+        writer
+            .start_file("assets/models/test.obj", SimpleFileOptions::default())
+            .expect("obj entry");
+        std::io::Write::write_all(
+            &mut writer,
+            b"mtllib test.mtl\nv 0 0 0\nv 1 0 0\nv 1 1 0\nusemtl Wall\nf 1 2 3\n",
+        )
+        .expect("obj bytes");
+        writer
+            .start_file("assets/models/test.mtl", SimpleFileOptions::default())
+            .expect("mtl entry");
+        std::io::Write::write_all(&mut writer, b"newmtl Wall\nKd 0.5 0.25 0.0\n")
+            .expect("mtl bytes");
+        writer.finish().expect("finish zip");
+
+        let mesh = load_obj_mesh(&AssetRoot::new(zip_path), "/assets/models/test.obj")
+            .expect("mesh should load");
+        assert_eq!(mesh.vertices.len(), 3);
+        assert_eq!(mesh.faces.len(), 1);
     }
 }
