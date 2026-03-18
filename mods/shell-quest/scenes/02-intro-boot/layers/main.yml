@@ -15,10 +15,6 @@
         on_enter:
           steps:
             - effects:
-                - name: posterize
-                  duration: 10750
-                  params:
-                    levels: 7
                 - name: cutout
                   duration: 10750
                   params:
