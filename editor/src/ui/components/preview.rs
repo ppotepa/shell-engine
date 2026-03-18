@@ -48,7 +48,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
             Block::default()
                 .title("Content Preview")
                 .title_style(theme::fg_active())
-                .border_style(theme::fg_normal())
+                .border_style(theme::pane_border(app.mode, false))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(false)),
         )

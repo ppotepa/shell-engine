@@ -8,18 +8,14 @@ use crate::world::World;
 
 /// Runs the engine game loop for `world` at `target_fps` until the player quits.
 pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
-    use crossterm::event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, MouseEventKind,
-    };
-    use crossterm::execute;
-    use std::io::stdout;
+    use crossterm::event::{self, Event, KeyEventKind, MouseEventKind};
     use std::time::{Duration, Instant};
     use systems::scene_lifecycle::SceneLifecycleManager;
 
     const FAST_FORWARD_TICKS: u8 = 8;
     let mut debug_fast_forward = false;
 
-    execute!(stdout(), EnableMouseCapture)?;
+    let _mouse_capture_guard = MouseCaptureGuard::new()?;
 
     loop {
         let frame_start = Instant::now();
@@ -44,8 +40,8 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
                     }
 
                     let ev = match key.code {
-                        KeyCode::Esc | KeyCode::Char('q') => EngineEvent::Quit,
-                        code => EngineEvent::KeyPressed(code),
+                        code if is_quit_key(code, key.modifiers) => EngineEvent::Quit,
+                        _ => EngineEvent::KeyPressed(key),
                     };
                     world.events_mut().unwrap().push(ev);
                 }
@@ -77,7 +73,6 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
 
         let quit = SceneLifecycleManager::process_events(world, events);
         if quit {
-            execute!(stdout(), DisableMouseCapture).ok();
             break;
         }
 
@@ -90,6 +85,14 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         for _ in 0..ticks_this_frame {
             systems::animator::animator_system(world, tick_ms);
         }
+        // Process transitions emitted by animator in the same frame to avoid
+        // rendering one extra "done" frame that can briefly re-show sprites.
+        let post_animator_events = world.events_mut().unwrap().drain();
+        let quit_after_animator =
+            SceneLifecycleManager::process_events(world, post_animator_events);
+        if quit_after_animator {
+            break;
+        }
         systems::behavior::behavior_system(world);
         systems::audio::audio_system(world);
         systems::compositor::compositor_system(world);
@@ -101,6 +104,32 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         }
     }
     Ok(())
+}
+
+struct MouseCaptureGuard;
+
+impl MouseCaptureGuard {
+    fn new() -> std::io::Result<Self> {
+        crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
+        Ok(Self)
+    }
+}
+
+impl Drop for MouseCaptureGuard {
+    fn drop(&mut self) {
+        let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
+    }
+}
+
+#[inline]
+fn is_quit_key(code: crossterm::event::KeyCode, modifiers: crossterm::event::KeyModifiers) -> bool {
+    matches!(code, crossterm::event::KeyCode::Esc)
+        || matches!(code, crossterm::event::KeyCode::Char('q'))
+        || (modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+            && matches!(
+                code,
+                crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('C')
+            ))
 }
 
 #[inline]
@@ -125,7 +154,7 @@ fn resolve_target_fps(default_target_fps: u16, scene_target_fps: Option<u16>) ->
 
 #[cfg(test)]
 mod tests {
-    use super::{is_debug_fast_forward_toggle, resolve_target_fps};
+    use super::{is_debug_fast_forward_toggle, is_quit_key, resolve_target_fps};
     use crossterm::event::{KeyCode, KeyModifiers};
 
     #[test]
@@ -155,6 +184,18 @@ mod tests {
             KeyCode::Esc,
             KeyModifiers::ALT
         ));
+    }
+
+    #[test]
+    fn quit_key_includes_ctrl_c() {
+        assert!(is_quit_key(KeyCode::Esc, KeyModifiers::NONE));
+        assert!(is_quit_key(KeyCode::Char('q'), KeyModifiers::NONE));
+        assert!(is_quit_key(KeyCode::Char('c'), KeyModifiers::CONTROL));
+        assert!(is_quit_key(
+            KeyCode::Char('C'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT
+        ));
+        assert!(!is_quit_key(KeyCode::Char('c'), KeyModifiers::NONE));
     }
 
     #[test]

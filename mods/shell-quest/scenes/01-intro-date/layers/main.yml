@@ -2,7 +2,7 @@
 - name: date
   z_index: 2
   visible: true
-  # Restore the original hero date presentation as its own dedicated scene.
+  # Date/location cards crossfade before the intro transitions into the boot beat.
   sprites:
     - type: text
       id: date-text
@@ -11,42 +11,29 @@
       font: "Abril Fatface:raster"
       fg: white
       bg: black
-      glow:
-        colour: "#5f7cff"
-        radius: 1
+      glow: { colour: "#5f7cff", radius: 1 }
       appear_at_ms: 3000
-      disappear_at_ms: 7300
+      disappear_at_ms: 6600
       stages:
         on_enter:
           steps:
             - pause: 900ms
-            - effects:
-                - name: brighten
-                  duration: 260
-                  params:
-                    intensity: 0.22
-            - effects:
-                - name: shine
-                  duration: 720
-                  params:
-                    angle: 0
-                    width: 2
-                    falloff: 2.2
-                    intensity: 0.7
-        on_idle:
-          looping: true
+            - { effects: [{ name: brighten, duration: 260, params: { intensity: 0.22 } }] }
+            - { effects: [{ name: shine, duration: 720, params: { angle: 0, width: 2, falloff: 2.2, intensity: 0.7 } }] }
+            - pause: 1160ms
+            - { effects: [{ name: fade-out, duration: 520, params: { easing: ease-in } }] }
+
+    - type: text
+      id: location-text
+      content: "HELSINKI, FINLAND"
+      at: cc
+      font: "Abril Fatface:raster"
+      fg: white
+      bg: black
+      glow: { colour: "#5f7cff", radius: 1 }
+      appear_at_ms: 5840
+      stages:
+        on_enter:
           steps:
-            - pause: 220ms
-            - effects:
-                - name: brighten
-                  duration: 100
-                  params:
-                    intensity: 0.12
-            - pause: 260ms
-        on_leave:
-          steps:
-            - effects:
-                - name: fade-out
-                  duration: 260
-                  params:
-                    easing: ease-in
+            - { effects: [{ name: fade-in, duration: 520, params: { easing: ease-out } }, { name: brighten, duration: 220, params: { intensity: 0.18 } }] }
+            - { effects: [{ name: shine, duration: 620, params: { angle: 0, width: 2, falloff: 2.2, intensity: 0.72 } }] }

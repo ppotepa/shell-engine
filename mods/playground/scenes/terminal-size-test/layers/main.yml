@@ -2,28 +2,7 @@
 - name: terminal-size-test
   z_index: 0
   sprites:
-    - type: text
-      content: "TERMINAL SIZE TEST"
-      at: ct
-      y: 2
-      font: "generic:1"
-      fg: white
-    - type: text
-      content: "Press 1..4 to force terminal size live"
-      at: cc
-      y: -1
-      font: "generic:1"
-      fg: yellow
-    - type: text
-      content: "1: 80x24  |  2: 100x30  |  3: 120x36  |  4: 160x48"
-      at: cc
-      y: 1
-      font: "generic:1"
-      fg: silver
-    - type: text
-      content: "ENTER: back to menu"
-      at: cb
-      y: -1
-      font: "generic:1"
-      fg: gray
-      hide_on_leave: true
+    - { type: text, content: "TERMINAL SIZE TEST", at: ct, y: 2, font: "generic:1", fg: white }
+    - { type: text, content: "Press 1..4 to force terminal size live", at: cc, y: -1, font: "generic:1", fg: yellow }
+    - { type: text, content: "1: 80x24  |  2: 100x30  |  3: 120x36  |  4: 160x48", at: cc, y: 1, font: "generic:1", fg: silver }
+    - { type: text, content: "ENTER: back to menu", at: cb, y: -1, font: "generic:1", fg: gray, hide_on_leave: true }

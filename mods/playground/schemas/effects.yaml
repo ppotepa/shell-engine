@@ -34,6 +34,32 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: blur
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            radius:
+              type: number
+              minimum: 1.0
+              maximum: 6.0
+              multipleOf: 0.5
+              description: Blur kernel half-size in cells. 1 = 3×3 neighbourhood, 2 = 5×5, etc.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: blur effect variant
+    - description: blur overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: brighten
         params:
           type: object
@@ -574,6 +600,32 @@ items:
               description: Progress curve applied to the effect.
       title: lightning-optical-80s effect variant
     - description: lightning-optical-80s overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: posterize
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            levels:
+              type: number
+              minimum: 1.0
+              maximum: 100.0
+              multipleOf: 1.0
+              description: Number of quantization bands per colour channel.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: posterize effect variant
+    - description: posterize overlay from playground generated metadata
   - allOf:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:

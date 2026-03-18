@@ -26,46 +26,9 @@ impl EffectDispatcher {
     }
 
     fn register_builtins(&mut self) {
-        use builtin::*;
-        self.registry.insert("crt-on", Box::new(CrtOnEffect));
-        self.registry
-            .insert("crt-reflection", Box::new(CrtReflectionEffect));
-        self.registry.insert("power-off", Box::new(PowerOffEffect));
-        self.registry.insert("fade-in", Box::new(FadeInEffect));
-        self.registry.insert("fade-out", Box::new(FadeOutEffect));
-        self.registry
-            .insert("fade-to-black", Box::new(FadeToBlackEffect));
-        self.registry.insert("scanlines", Box::new(ScanlinesEffect));
-        self.registry.insert("shine", Box::new(ShineEffect));
-        self.registry
-            .insert("clear-to-colour", Box::new(ClearToColourEffect));
-        self.registry.insert("brighten", Box::new(BrightenEffect));
-        self.registry
-            .insert("lightning-flash", Box::new(LightningFlashEffect));
-        self.registry
-            .insert("lightning-branch", Box::new(LightningBranchEffect));
-        self.registry
-            .insert("lightning-optical-80s", Box::new(LightningOptical80sEffect));
-        self.registry
-            .insert("lightning-fbm", Box::new(LightningFbmEffect));
-        self.registry
-            .insert("lightning-growth", Box::new(LightningGrowthEffect));
-        self.registry
-            .insert("lightning-ambient", Box::new(LightningAmbientEffect));
-        self.registry
-            .insert("lightning-natural", Box::new(LightningNaturalEffect));
-        self.registry.insert("tesla-orb", Box::new(TeslaOrbEffect));
-        self.registry
-            .insert("screen-shake", Box::new(ScreenShakeEffect));
-        self.registry.insert("whiteout", Box::new(WhiteoutEffect));
-        self.registry
-            .insert("glitch-out", Box::new(GlitchOutEffect));
-        self.registry
-            .insert("devour-out", Box::new(DevourOutEffect));
-        self.registry
-            .insert("artifact-out", Box::new(ArtifactOutEffect));
-        self.registry
-            .insert("shatter-glitch", Box::new(ShatterGlitchEffect));
+        for def in builtin::BUILTIN_EFFECTS {
+            self.registry.insert(def.name, (def.constructor)());
+        }
     }
 
     pub fn apply(
@@ -106,32 +69,7 @@ impl EffectDispatcher {
 
     /// Return list of all registered builtin effect names.
     pub fn builtin_names() -> &'static [&'static str] {
-        &[
-            "artifact-out",
-            "brighten",
-            "clear-to-colour",
-            "crt-on",
-            "crt-reflection",
-            "devour-out",
-            "fade-in",
-            "fade-out",
-            "fade-to-black",
-            "glitch-out",
-            "lightning-ambient",
-            "lightning-branch",
-            "lightning-fbm",
-            "lightning-flash",
-            "lightning-growth",
-            "lightning-natural",
-            "lightning-optical-80s",
-            "power-off",
-            "scanlines",
-            "screen-shake",
-            "shatter-glitch",
-            "shine",
-            "tesla-orb",
-            "whiteout",
-        ]
+        builtin::builtin_names()
     }
 }
 

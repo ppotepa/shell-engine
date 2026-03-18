@@ -415,12 +415,41 @@ $defs:
         type: array
         items:
           $ref: '#/$defs/behavior_overlay'
+      objects:
+        items:
+          type: object
+          properties:
+            use:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/object_refs
+              - type: string
+                minLength: 1
+            ref:
+              anyOf:
+              - $ref: ./catalog.yaml#/$defs/object_refs
+              - type: string
+                minLength: 1
       sprites:
         type: array
         items:
           $ref: '#/$defs/sprite_overlay'
     allOf:
     - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer
+  layer_ref_instance_overlay:
+    type: object
+    properties:
+      use:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/layer_refs
+        - type: string
+          minLength: 1
+      ref:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/layer_refs
+        - type: string
+          minLength: 1
+    allOf:
+    - $ref: ../../../schemas/scene.schema.yaml#/$defs/layer_ref_instance
 type: array
 items:
   $ref: '#/$defs/sprite_overlay'

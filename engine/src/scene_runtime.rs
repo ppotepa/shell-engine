@@ -6,9 +6,11 @@ use crate::behavior::{
 };
 use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
-use crate::scene::{BehaviorSpec, Scene, SceneRenderedMode, Sprite};
+use crate::scene::{BehaviorSpec, Scene, SceneRenderedMode, Sprite, TerminalShellControls};
 use crate::systems::animator::SceneStage;
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use std::collections::BTreeMap;
+use tui_input::{Input, InputRequest};
 
 /// Materialized runtime view of a [`Scene`] with stable object ids, behavior
 /// bindings, and per-frame mutable state.
@@ -24,6 +26,7 @@ pub struct SceneRuntime {
     object_regions: BTreeMap<String, Region>,
     obj_orbit_default_speed: BTreeMap<String, f32>,
     obj_camera_states: BTreeMap<String, ObjCameraState>,
+    terminal_shell_state: Option<TerminalShellState>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -54,6 +57,15 @@ pub struct ObjectRuntimeState {
     pub offset_y: i32,
 }
 
+#[derive(Debug, Clone)]
+struct TerminalShellState {
+    controls: TerminalShellControls,
+    input: Input,
+    output_lines: Vec<String>,
+    history: Vec<String>,
+    history_cursor: Option<usize>,
+}
+
 impl Default for ObjectRuntimeState {
     fn default() -> Self {
         Self {
@@ -61,6 +73,133 @@ impl Default for ObjectRuntimeState {
             offset_x: 0,
             offset_y: 0,
         }
+    }
+}
+
+impl TerminalShellState {
+    fn new(controls: TerminalShellControls) -> Self {
+        let mut state = Self {
+            output_lines: controls.banner.clone(),
+            controls,
+            input: Input::default(),
+            history: Vec::new(),
+            history_cursor: None,
+        };
+        state.trim_output();
+        state
+    }
+
+    fn prompt_line(&self) -> String {
+        format!("{}{}", self.controls.prompt_prefix, self.input.value())
+    }
+
+    fn trim_output(&mut self) {
+        let max_lines = self.controls.max_lines.max(1);
+        if self.output_lines.len() > max_lines {
+            let drop_count = self.output_lines.len() - max_lines;
+            self.output_lines.drain(0..drop_count);
+        }
+    }
+
+    fn push_output_line(&mut self, line: String) {
+        self.output_lines.push(line);
+        self.trim_output();
+    }
+
+    fn clear_output(&mut self) {
+        self.output_lines.clear();
+    }
+
+    fn output_text(&self) -> String {
+        self.output_lines.join("\n")
+    }
+
+    fn execute_command(&mut self, raw_command: &str) {
+        let command_line = raw_command.trim();
+        if command_line.is_empty() {
+            return;
+        }
+
+        self.push_output_line(format!("{}{}", self.controls.prompt_prefix, command_line));
+        self.history.push(command_line.to_string());
+        self.history_cursor = None;
+
+        let mut parts = command_line.split_whitespace();
+        let command = parts.next().unwrap_or_default();
+        let args = parts.collect::<Vec<_>>();
+
+        if command.eq_ignore_ascii_case("clear") {
+            self.clear_output();
+            return;
+        }
+
+        if command.eq_ignore_ascii_case("help") {
+            self.push_output_line("Built-ins: help, clear, ls, pwd, echo, whoami".to_string());
+            if !self.controls.commands.is_empty() {
+                let custom_lines: Vec<String> = self
+                    .controls
+                    .commands
+                    .iter()
+                    .map(|command| {
+                        let description =
+                            command.description.as_deref().unwrap_or("no description");
+                        format!("  {} — {}", command.name, description)
+                    })
+                    .collect();
+                self.push_output_line("Custom commands:".to_string());
+                for line in custom_lines {
+                    self.push_output_line(line);
+                }
+            }
+            return;
+        }
+
+        if command.eq_ignore_ascii_case("pwd") {
+            self.push_output_line("/world/terminal".to_string());
+            return;
+        }
+
+        if command.eq_ignore_ascii_case("whoami") {
+            self.push_output_line("operator".to_string());
+            return;
+        }
+
+        if command.eq_ignore_ascii_case("echo") {
+            self.push_output_line(args.join(" "));
+            return;
+        }
+
+        if command.eq_ignore_ascii_case("ls") {
+            if let Some(custom_lines) = self.custom_command_lines("ls") {
+                for line in custom_lines {
+                    self.push_output_line(line);
+                }
+            } else {
+                self.push_output_line("logs  vault  airlock  notes".to_string());
+            }
+            return;
+        }
+
+        if let Some(custom_lines) = self.custom_command_lines(command) {
+            for line in custom_lines {
+                self.push_output_line(line);
+            }
+            return;
+        }
+
+        if let Some(message) = &self.controls.unknown_message {
+            self.push_output_line(message.clone());
+        } else {
+            self.push_output_line(format!("unknown command: {command}"));
+        }
+    }
+
+    fn custom_command_lines(&self, name: &str) -> Option<Vec<String>> {
+        self.controls
+            .commands
+            .iter()
+            .find(|command| command.name.eq_ignore_ascii_case(name))
+            .and_then(|command| command.output.as_ref().map(|output| output.lines()))
     }
 }
 
@@ -164,8 +303,16 @@ impl SceneRuntime {
             object_regions: BTreeMap::new(),
             obj_orbit_default_speed: BTreeMap::new(),
             obj_camera_states: BTreeMap::new(),
+            terminal_shell_state: None,
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
+        runtime.terminal_shell_state = runtime
+            .scene
+            .input
+            .terminal_shell
+            .clone()
+            .map(TerminalShellState::new);
+        runtime.sync_terminal_shell_sprites();
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings);
         runtime.resolver_cache = runtime.build_target_resolver();
@@ -307,6 +454,87 @@ impl SceneRuntime {
         self.obj_camera_states
             .get(sprite_id)
             .and_then(|state| state.last_mouse_pos)
+    }
+
+    pub fn has_terminal_shell(&self) -> bool {
+        self.terminal_shell_state.is_some()
+    }
+
+    pub fn handle_terminal_shell_keys(&mut self, key_presses: &[KeyEvent]) -> bool {
+        let Some(state) = self.terminal_shell_state.as_mut() else {
+            return false;
+        };
+        if key_presses.is_empty() {
+            return false;
+        }
+
+        let mut changed = false;
+        for key in key_presses {
+            match key.code {
+                KeyCode::Esc => {
+                    if !state.input.value().is_empty() {
+                        state.input = Input::default();
+                        state.history_cursor = None;
+                        changed = true;
+                    }
+                }
+                KeyCode::Up => {
+                    if !state.history.is_empty() {
+                        let next_cursor = state
+                            .history_cursor
+                            .unwrap_or(state.history.len())
+                            .saturating_sub(1)
+                            .min(state.history.len() - 1);
+                        state.history_cursor = Some(next_cursor);
+                        state.input = Input::new(state.history[next_cursor].clone());
+                        changed = true;
+                    }
+                }
+                KeyCode::Down => {
+                    if let Some(cursor) = state.history_cursor {
+                        let next = cursor + 1;
+                        if next < state.history.len() {
+                            state.history_cursor = Some(next);
+                            state.input = Input::new(state.history[next].clone());
+                        } else {
+                            state.history_cursor = None;
+                            state.input = Input::default();
+                        }
+                        changed = true;
+                    }
+                }
+                KeyCode::Enter => {
+                    let command_line = state.input.value().to_string();
+                    state.execute_command(&command_line);
+                    state.input = Input::default();
+                    changed = true;
+                }
+                _ => {
+                    let before = state.input.value().to_string();
+                    if let Some(request) = terminal_input_request(key) {
+                        state.input.handle(request);
+                    }
+                    if state.input.value() != before {
+                        state.history_cursor = None;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if changed {
+            self.sync_terminal_shell_sprites();
+        }
+        changed
+    }
+
+    pub fn text_sprite_content(&self, sprite_id: &str) -> Option<&str> {
+        for layer in &self.scene.layers {
+            if let Some(content) = find_text_content(&layer.sprites, sprite_id) {
+                return Some(content);
+            }
+        }
+        None
     }
 
     /// Returns the runtime object id assigned to the scene root node.
@@ -452,6 +680,26 @@ impl SceneRuntime {
         }
     }
 
+    fn sync_terminal_shell_sprites(&mut self) {
+        let Some(state) = self.terminal_shell_state.as_ref() else {
+            return;
+        };
+        let prompt_id = state.controls.prompt_sprite_id.clone();
+        let output_id = state.controls.output_sprite_id.clone();
+        let prompt_line = state.prompt_line();
+        let output_text = state.output_text();
+        let _ = self.set_text_sprite_content(&prompt_id, prompt_line);
+        let _ = self.set_text_sprite_content(&output_id, output_text);
+    }
+
+    fn set_text_sprite_content(&mut self, sprite_id: &str, next_content: String) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_text_content_recursive(&mut layer.sprites, sprite_id, &next_content, &mut updated);
+        }
+        updated
+    }
+
     pub fn set_object_regions(&mut self, object_regions: BTreeMap<String, Region>) {
         self.object_regions = object_regions;
     }
@@ -507,6 +755,43 @@ impl SceneRuntime {
                 }
             }
         }
+    }
+}
+
+fn terminal_input_request(key: &KeyEvent) -> Option<InputRequest> {
+    use InputRequest::*;
+    match (key.code, key.modifiers) {
+        (_, _) if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => None,
+        (KeyCode::Backspace, KeyModifiers::NONE) | (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
+            Some(DeletePrevChar)
+        }
+        (KeyCode::Delete, KeyModifiers::NONE) => Some(DeleteNextChar),
+        (KeyCode::Left, KeyModifiers::NONE) | (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
+            Some(GoToPrevChar)
+        }
+        (KeyCode::Left, KeyModifiers::CONTROL) | (KeyCode::Char('b'), KeyModifiers::ALT) => {
+            Some(GoToPrevWord)
+        }
+        (KeyCode::Right, KeyModifiers::NONE) | (KeyCode::Char('f'), KeyModifiers::CONTROL) => {
+            Some(GoToNextChar)
+        }
+        (KeyCode::Right, KeyModifiers::CONTROL) | (KeyCode::Char('f'), KeyModifiers::ALT) => {
+            Some(GoToNextWord)
+        }
+        (KeyCode::Char('u'), KeyModifiers::CONTROL) => Some(DeleteLine),
+        (KeyCode::Char('w'), KeyModifiers::CONTROL)
+        | (KeyCode::Char('d'), KeyModifiers::ALT)
+        | (KeyCode::Backspace, KeyModifiers::ALT) => Some(DeletePrevWord),
+        (KeyCode::Delete, KeyModifiers::CONTROL) => Some(DeleteNextWord),
+        (KeyCode::Char('k'), KeyModifiers::CONTROL) => Some(DeleteTillEnd),
+        (KeyCode::Char('a'), KeyModifiers::CONTROL) | (KeyCode::Home, KeyModifiers::NONE) => {
+            Some(GoToStart)
+        }
+        (KeyCode::Char('e'), KeyModifiers::CONTROL) | (KeyCode::End, KeyModifiers::NONE) => {
+            Some(GoToEnd)
+        }
+        (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(InsertChar(c)),
+        _ => None,
     }
 }
 
@@ -756,6 +1041,49 @@ fn for_each_obj_mut(sprites: &mut [Sprite], f: &mut impl FnMut(&mut Sprite)) {
             Sprite::Obj { .. } => f(sprite),
             Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
                 for_each_obj_mut(children, f)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn find_text_content<'a>(sprites: &'a [Sprite], sprite_id: &str) -> Option<&'a str> {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Text {
+                id: Some(id),
+                content,
+                ..
+            } if id == sprite_id => return Some(content.as_str()),
+            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+                if let Some(content) = find_text_content(children, sprite_id) {
+                    return Some(content);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn set_text_content_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    next_content: &str,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Text {
+                id: Some(id),
+                content,
+                ..
+            } if id == sprite_id => {
+                *content = next_content.to_string();
+                *updated = true;
+            }
+            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+                set_text_content_recursive(children, sprite_id, next_content, updated)
             }
             _ => {}
         }

@@ -46,6 +46,84 @@ const TERMINAL_SIZE_TESTER_FIELDS: &[FieldMetadata] = &[FieldMetadata {
     sources: LIT_ONLY,
 }];
 
+const TERMINAL_SHELL_FIELDS: &[FieldMetadata] = &[
+    FieldMetadata {
+        target: TargetKind::InputProfile,
+        name: "prompt_sprite_id",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Required,
+        description: "Text sprite id used for the editable command prompt.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::InputProfile,
+        name: "output_sprite_id",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Required,
+        description: "Text sprite id used for the command transcript.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::InputProfile,
+        name: "prompt_prefix",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Prompt prefix rendered before the typed command.",
+        default_text: Some("> "),
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::InputProfile,
+        name: "max_lines",
+        value_kind: ValueKind::Integer,
+        requirement: Requirement::Optional,
+        description: "Maximum output transcript line count retained on screen.",
+        default_text: None,
+        default_number: Some(120.0),
+        enum_options: None,
+        min: Some(1.0),
+        max: Some(1000.0),
+        step: Some(1.0),
+        unit: Some("lines"),
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::InputProfile,
+        name: "commands",
+        value_kind: ValueKind::SelectList,
+        requirement: Requirement::Optional,
+        description: "Optional command table with scripted outputs.",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+];
+
 /// Authoring sugar: aliases, shorthands, and normalizers.
 #[derive(Debug, Clone)]
 pub struct SugarCatalog {
@@ -701,6 +779,10 @@ pub fn input_profile_shapes() -> Vec<InputProfileShape> {
             name: "terminal-size-tester",
             fields: TERMINAL_SIZE_TESTER_FIELDS,
         },
+        InputProfileShape {
+            name: "terminal-shell",
+            fields: TERMINAL_SHELL_FIELDS,
+        },
     ]
 }
 
@@ -742,6 +824,7 @@ mod tests {
         let profiles = input_profile_catalog();
         assert!(profiles.contains(&"obj-viewer"));
         assert!(profiles.contains(&"terminal-size-tester"));
+        assert!(profiles.contains(&"terminal-shell"));
     }
 
     #[test]
@@ -773,6 +856,19 @@ mod tests {
             .expect("presets");
         assert_eq!(presets.value_kind, ValueKind::SelectList);
         assert_eq!(presets.requirement, Requirement::Optional);
+
+        let terminal_shell = shapes
+            .iter()
+            .find(|s| s.name == "terminal-shell")
+            .expect("terminal-shell");
+        assert!(terminal_shell
+            .fields
+            .iter()
+            .any(|f| f.name == "prompt_sprite_id"));
+        assert!(terminal_shell
+            .fields
+            .iter()
+            .any(|f| f.name == "output_sprite_id"));
     }
 
     #[test]

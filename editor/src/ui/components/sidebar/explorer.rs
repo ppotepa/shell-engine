@@ -65,7 +65,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
             Block::default()
                 .title("Project Tree")
                 .title_style(theme::pane_title(focused))
-                .border_style(theme::pane_border(focused))
+                .border_style(theme::pane_border(app.mode, focused))
                 .borders(Borders::ALL)
                 .style(theme::pane_background(focused)),
         );

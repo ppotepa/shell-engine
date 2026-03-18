@@ -3,27 +3,20 @@
 id: playground-terminal-size-test
 title: Terminal Size Test
 bg: black
+layers:
+  - ref: main
 input:
   # This block demonstrates scene-level input helpers without changing the rest of the scene format.
   terminal-size-tester:
-    presets:
-      - "80x24"
-      - "100x30"
-      - "120x36"
-      - "160x48"
+    presets: ["80x24", "100x30", "120x36", "160x48"]
 stages:
   on_enter:
     steps:
-      - effects:
-          - name: fade-in
-            duration: 250
+      - { effects: [{ name: fade-in, duration: 250 }] }
   on_idle:
     trigger: any-key
-    steps:
-      - pause: 1ms
+    steps: [{ pause: 1ms }]
   on_leave:
     steps:
-      - effects:
-          - name: fade-out
-            duration: 200
+      - { effects: [{ name: fade-out, duration: 200 }] }
 next: playground-menu

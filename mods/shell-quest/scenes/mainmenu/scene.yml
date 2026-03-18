@@ -8,21 +8,17 @@
 id: mainmenu
 title: Main Menu
 bg: black
+layers:
+  - ref: main
 # Inherit mod-level `virtual_size: max-available` so the menu fills the terminal.
 stages:
   on_enter:
     steps:
-      - effects:
-          - name: fade-in
-            duration: 800
-            params:
-              easing: ease-in
+      - { effects: [{ name: fade-in, duration: 800, params: { easing: ease-in } }] }
   on_idle:
     trigger: any-key
     steps: []
   on_leave:
     steps:
-      - effects:
-          - name: fade-out
-            duration: 400
+      - { effects: [{ name: fade-out, duration: 400 }] }
 next: null

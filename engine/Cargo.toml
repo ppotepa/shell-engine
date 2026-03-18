@@ -7,6 +7,8 @@ edition = "2021"
 engine-authoring = { path = "../engine-authoring" }
 engine-core = { path = "../engine-core" }
 crossterm = "0.29"
+tui-input = { version = "0.11", default-features = false }
+taffy = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "gif"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"

@@ -567,6 +567,28 @@ allOf:
                   - $ref: ./catalog.yaml#/$defs/sprite_ids
                   - type: string
                     minLength: 1
+            terminal-shell:
+              properties:
+                prompt-sprite-id:
+                  anyOf:
+                  - $ref: ./catalog.yaml#/$defs/sprite_ids
+                  - type: string
+                    minLength: 1
+                prompt_sprite_id:
+                  anyOf:
+                  - $ref: ./catalog.yaml#/$defs/sprite_ids
+                  - type: string
+                    minLength: 1
+                output-sprite-id:
+                  anyOf:
+                  - $ref: ./catalog.yaml#/$defs/sprite_ids
+                  - type: string
+                    minLength: 1
+                output_sprite_id:
+                  anyOf:
+                  - $ref: ./catalog.yaml#/$defs/sprite_ids
+                  - type: string
+                    minLength: 1
   - if:
       required:
       - behaviors

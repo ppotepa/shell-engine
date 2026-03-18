@@ -1,154 +1,163 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/effect-params.schema.yaml"
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/schemas/effect-params.schema.yaml
 title: Effect Params Schema
-description: >
-  Parameter overrides for a visual effect step.
-  Not all parameters apply to every effect — see each property description for which effects use it.
-  Omitted parameters fall back to per-effect defaults inside the engine.
+description: Parameter overrides for a visual effect step. Omitted parameters fall back to per-effect defaults.
 type: object
 additionalProperties: false
 properties:
-  colour:
-    $ref: "#/$defs/colour"
-    description: "Target colour. Used by: clear-to-colour, fade-in, fade-out."
-  easing:
-    type: string
-    enum: [linear, ease-in, ease-out, ease-in-out]
-    default: linear
-    description: Easing function applied to the effect progress curve.
+  amplitude_x:
+    type: number
+    minimum: 0.0
+    maximum: 3.0
+    multipleOf: 0.1
+    description: 'Horizontal shake in cells. Used by: screen-shake.'
+  amplitude_y:
+    type: number
+    minimum: 0.0
+    maximum: 3.0
+    multipleOf: 0.1
+    description: 'Vertical shake in cells. Used by: screen-shake.'
   angle:
     type: number
-    description: >
-      Beam angle in degrees. 0 = vertical beam sweeps left→right.
-      90 = horizontal beam sweeps top→bottom. Negative = opposite diagonal.
-      Used by: shine.
-  width:
-    type: number
-    minimum: 0.1
-    description: >
-      Gaussian beam half-width in character cells.
-      Larger = softer/wider beam. Used by: shine.
-  falloff:
-    type: number
-    minimum: 0.1
-    description: >
-      Exponent applied to the gaussian kernel.
-      >1 = sharper laser edges, <1 = soft diffuse halo.
-      Used by: shine.
-  intensity:
-    type: number
     minimum: 0.0
-    description: >
-      Effect intensity multiplier. Meaning is effect-specific.
-      Used by: shine, brighten, lightning-flash, tesla-orb, whiteout.
-  sphericality:
-    type: number
-    minimum: 0.0
-    maximum: 1.0
-    description: >
-      Curved-glass spherical distortion strength.
-      Used by: crt-reflection.
-  transparency:
-    type: number
-    minimum: 0.0
-    maximum: 1.0
-    description: >
-      Visibility of the reflected image after distortion.
-      Used by: crt-reflection.
+    maximum: 90.0
+    multipleOf: 2.0
+    description: 'Beam angle in degrees (0=vertical sweep). Used by: shine.'
   brightness:
     type: number
     minimum: 0.0
     maximum: 2.0
-    description: >
-      Brightness multiplier applied to the reflected image.
-      Used by: crt-reflection.
-  amplitude_x:
+    multipleOf: 0.05
+    description: 'Brightness multiplier applied to the reflected image. Used by: crt-reflection.'
+  colour:
+    $ref: '#/$defs/colour'
+    default: black
+    description: 'Target colour (name or #rrggbb). Used by: clear-to-colour.'
+  coverage:
+    type: string
+    enum:
+    - full-screen
+    - region
+    default: full-screen
+    description: 'Scope hint for the flash. Used by: lightning-flash.'
+  easing:
+    type: string
+    enum:
+    - linear
+    - ease-in
+    - ease-out
+    - ease-in-out
+    default: linear
+    description: 'Progress curve applied to the effect. Used by: artifact-out, blur, brighten, clear-to-colour, crt-on, crt-reflection, devour-out, fade-in, fade-out, fade-to-black, glitch-out, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural, lightning-optical-80s, posterize, power-off, screen-shake, shatter-glitch, shine, tesla-orb, whiteout.'
+  end_x:
+    type: string
+    default: random
+    description: 'End anchor (number or "random"). Used by: lightning-branch.'
+  falloff:
     type: number
     minimum: 0.0
-    description: "Horizontal shake amplitude in cells. Used by: screen-shake."
-  amplitude_y:
-    type: number
-    minimum: 0.0
-    description: "Vertical shake amplitude in cells. Used by: screen-shake."
+    maximum: 5.0
+    multipleOf: 0.2
+    description: 'Edge sharpness exponent (>1 = sharper). Used by: shine.'
   frequency:
     type: number
     minimum: 0.0
-    description: "Oscillation frequency / cycles for shake-like effects. Used by: screen-shake."
-  coverage:
-    type: string
-    description: 'Optional scope hint (e.g. "full-screen"). Used by: lightning-flash.'
-  orientation:
-    type: string
-    enum: [vertical, horizontal]
-    description: "Directional orientation. Used by: lightning-fbm, lightning-branch, lightning-growth, lightning-ambient, lightning-natural."
-  target:
-    type: string
-    description: Optional target identifier hint for future targeted effects.
-  strikes:
-    type: integer
-    minimum: 1
-    description: "Number of primary lightning branches/arcs. Used by: lightning-branch, lightning-growth, lightning-ambient, lightning-natural, tesla-orb."
-  thickness:
-    type: number
-    minimum: 0.1
-    description: "Branch/core thickness multiplier. Used by: lightning-branch, lightning-growth, lightning-ambient, lightning-natural, tesla-orb."
+    maximum: 20.0
+    multipleOf: 0.5
+    description: 'Oscillation cycles during effect. Used by: screen-shake.'
   glow:
     type: boolean
-    description: Whether lightning should add halo glow around branches/arcs.
-  start_x:
-    oneOf:
-      - type: string
-      - type: number
-    description: Start X anchor for lightning branch (number or "random").
-  end_x:
-    oneOf:
-      - type: string
-      - type: number
-    description: End X anchor for lightning branch (number or "random").
-  octave_count:
-    type: integer
-    minimum: 1
-    maximum: 20
-    description: FBM octave count for shader-like procedural lightning effects.
-  amp_start:
+    default: true
+    description: 'Draw halo glow around the bolt. Used by: lightning-ambient, lightning-branch, lightning-growth, lightning-natural.'
+  intensity:
     type: number
     minimum: 0.0
-    description: FBM start amplitude (default 0.5).
-  amp_coeff:
-    type: number
-    minimum: 0.0
-    description: FBM amplitude coefficient per octave (default 0.5).
-  freq_coeff:
+    maximum: 2.0
+    multipleOf: 0.05
+    description: 'Overall strength multiplier. Used by: artifact-out, brighten, devour-out, glitch-out, lightning-ambient, lightning-fbm, lightning-flash, lightning-natural, lightning-optical-80s, scanlines, shatter-glitch, shine, tesla-orb, whiteout.'
+  levels:
     type: number
     minimum: 1.0
-    description: FBM frequency multiplier per octave (default 2.0).
+    maximum: 100.0
+    multipleOf: 1.0
+    description: 'Number of quantization bands per colour channel. Used by: posterize.'
+  octave_count:
+    type: number
+    minimum: 1.0
+    maximum: 8.0
+    multipleOf: 1.0
+    description: 'FBM complexity octaves. Used by: lightning-fbm, tesla-orb.'
+  orientation:
+    type: string
+    enum:
+    - horizontal
+    - vertical
+    default: horizontal
+    description: 'Directional axis for the effect. Used by: lightning-ambient, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural.'
+  radius:
+    type: number
+    minimum: 1.0
+    maximum: 6.0
+    multipleOf: 0.5
+    description: 'Blur kernel half-size in cells. 1 = 3×3 neighbourhood, 2 = 5×5, etc. Used by: blur.'
   speed:
     type: number
     minimum: 0.0
-    description: FBM animation speed multiplier (default 0.5).
-
+    maximum: 2.0
+    multipleOf: 0.1
+    description: 'Animation speed multiplier. Used by: lightning-ambient, lightning-branch, lightning-fbm, lightning-growth, lightning-natural, lightning-optical-80s, shine, tesla-orb.'
+  sphericality:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    multipleOf: 0.05
+    description: 'Curved-glass spherical distortion strength. Used by: crt-reflection.'
+  start_x:
+    type: string
+    default: random
+    description: 'Start anchor (number or "random"). Used by: lightning-branch.'
+  strikes:
+    type: number
+    minimum: 1.0
+    maximum: 10.0
+    multipleOf: 1.0
+    description: 'Number of primary arcs / branches. Used by: lightning-ambient, lightning-branch, lightning-growth, lightning-natural, tesla-orb.'
+  thickness:
+    type: number
+    minimum: 0.1
+    maximum: 3.0
+    multipleOf: 0.1
+    description: 'Branch / bolt thickness multiplier. Used by: lightning-ambient, lightning-branch, lightning-growth, lightning-natural.'
+  transparency:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    multipleOf: 0.05
+    description: 'How strongly the reflected image remains visible. Used by: crt-reflection.'
+  width:
+    type: number
+    minimum: 1.0
+    maximum: 12.0
+    multipleOf: 0.5
+    description: 'Gaussian beam half-width in cells. Used by: shine.'
 $defs:
   colour:
-    description: >
-      A colour value. Either a named colour or a CSS-style hex string (#rrggbb).
-      Named colours: black, white, gray (= grey), silver, red, green, blue,
-      yellow, cyan, magenta.
-      Hex example: "#C0C0C0"
-    oneOf:
-      - type: string
-        pattern: "^#[0-9A-Fa-f]{6}$"
-        description: "Hex colour: #rrggbb"
-      - type: string
-        enum:
-          - black
-          - white
-          - gray
-          - grey
-          - silver
-          - red
-          - green
-          - blue
-          - yellow
-          - cyan
-          - magenta
-        description: Named colour.
+    description: A colour value. Either a named colour or a CSS-style hex string (#rrggbb).
+    anyOf:
+    - type: string
+      pattern: ^#[0-9A-Fa-f]{6}$
+      description: 'Hex colour: #rrggbb'
+    - type: string
+      enum:
+      - black
+      - white
+      - gray
+      - grey
+      - silver
+      - red
+      - green
+      - blue
+      - yellow
+      - cyan
+      - magenta
+      description: Named colour.

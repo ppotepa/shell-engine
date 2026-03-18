@@ -604,6 +604,32 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: posterize
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            levels:
+              type: number
+              minimum: 1.0
+              maximum: 100.0
+              multipleOf: 1.0
+              description: Number of quantization bands per colour channel.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: posterize effect variant
+    - description: posterize overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: power-off
         params:
           type: object

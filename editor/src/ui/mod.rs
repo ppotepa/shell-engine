@@ -11,8 +11,16 @@ use crate::state::{AppMode, AppState, SidebarItem};
 
 /// Renders the complete application frame based on the current [`AppState`].
 pub fn draw(frame: &mut Frame, app: &AppState) {
+    let sidebar_visible = app.mode != AppMode::Start && app.sidebar_visible;
+    let chunks = layout::main_chunks(frame, sidebar_visible);
+    components::header::render(frame, chunks.header, app);
+
     if app.mode == AppMode::Start {
-        components::start_screen::render(frame, frame.area(), app);
+        components::start_screen::render(frame, chunks.body, app);
+        components::status_bar::render(frame, chunks.status, app);
+        if app.help_overlay_active {
+            components::help::render(frame, chunks.body, app);
+        }
         return;
     }
 
@@ -20,11 +28,13 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
         && app.sidebar_active == SidebarItem::Scenes
         && app.scene_preview_fullscreen_active()
     {
-        components::scenes_preview::render_fullscreen(frame, frame.area(), app);
+        components::scenes_preview::render_fullscreen(frame, chunks.body, app);
+        components::status_bar::render(frame, chunks.status, app);
+        if app.help_overlay_active {
+            components::help::render(frame, chunks.body, app);
+        }
         return;
     }
-
-    let chunks = layout::main_chunks(frame, app.sidebar_visible);
 
     // Always render sidebar icons (in Browser and EditMode)
     components::sidebar::icons::render(frame, chunks.sidebar_icons, app);
@@ -40,27 +50,33 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
                 SidebarItem::Scenes => components::sidebar::placeholder::render(
                     frame,
                     panel_rect,
+                    app,
                     "Scenes",
                     &[
                         "Scene browser lives in the center panel.",
                         "",
-                        "Tip: hide this sidebar with T for full 50/50 scene layout.",
+                        "Tip: hide this sidebar with T for a wider scene layout.",
                     ],
                 ),
-                SidebarItem::Settings => components::sidebar::placeholder::render(
+                SidebarItem::Cutscene => components::sidebar::placeholder::render(
                     frame,
                     panel_rect,
-                    "Settings",
+                    app,
+                    "Cutscene Maker",
                     &[
-                        "Panel in progress",
+                        "Stop-action source: assets/raw",
                         "",
-                        "Planned: theme, keybinds, runtime prefs",
+                        "Expected naming: 1.png, 2.png, 3.png ...",
+                        "Press F5 to rescan source frames.",
                     ],
                 ),
             }
         }
         components::editor::render(frame, chunks.center, app);
         components::status_bar::render(frame, chunks.status, app);
+        if app.help_overlay_active {
+            components::help::render(frame, chunks.body, app);
+        }
         return;
     }
 
@@ -72,21 +88,24 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
             SidebarItem::Scenes => components::sidebar::placeholder::render(
                 frame,
                 panel_rect,
+                app,
                 "Scenes",
                 &[
                     "Scene browser lives in the center panel.",
                     "",
-                    "Tip: hide this sidebar with T for full 50/50 scene layout.",
+                    "Tip: hide this sidebar with T for a wider scene layout.",
                 ],
             ),
-            SidebarItem::Settings => components::sidebar::placeholder::render(
+            SidebarItem::Cutscene => components::sidebar::placeholder::render(
                 frame,
                 panel_rect,
-                "Settings",
+                app,
+                "Cutscene Maker",
                 &[
-                    "Panel in progress",
+                    "Stop-action source: assets/raw",
                     "",
-                    "Planned: theme, keybinds, runtime prefs",
+                    "Expected naming: 1.png, 2.png, 3.png ...",
+                    "Press F5 to rescan source frames.",
                 ],
             ),
         }
@@ -95,8 +114,13 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
         components::effects_preview::render(frame, chunks.center, app);
     } else if app.sidebar_active == SidebarItem::Scenes {
         components::scenes_preview::render(frame, chunks.center, app);
+    } else if app.sidebar_active == SidebarItem::Cutscene {
+        components::cutscene_preview::render(frame, chunks.center, app);
     } else {
         components::preview::render(frame, chunks.center, app);
     }
     components::status_bar::render(frame, chunks.status, app);
+    if app.help_overlay_active {
+        components::help::render(frame, chunks.body, app);
+    }
 }

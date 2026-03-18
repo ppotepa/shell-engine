@@ -31,5 +31,6 @@ pub enum Command {
     SelectPanel4,
     NextCodeTab,
     PrevCodeTab,
+    ToggleHelp,
     Noop,
 }

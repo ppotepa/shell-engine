@@ -9,8 +9,7 @@ rendered-mode: quadblock
 stages:
   on_idle:
     trigger: timeout
-    steps:
-      - pause: 5000ms
+    steps: [{ pause: 5000ms }]
 layers:
   - name: fps-showcase
     z_index: 1
@@ -28,8 +27,5 @@ layers:
         font: "generic:1"
         fg: gray
 objects:
-  - ref: suzan
-    as: suzanne-20
-    with:
-      id: suzanne-20
+  - { ref: suzan, as: suzanne-20, with: { id: suzanne-20 } }
 next: playground-fps-showcase-10

@@ -20,7 +20,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
         Block::default()
             .title("Shell Engine Editor")
             .title_style(theme::fg_active())
-            .border_style(theme::fg_normal())
+            .border_style(theme::pane_border(app.mode, false))
             .borders(Borders::ALL),
         popup,
     );
@@ -59,7 +59,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
             .style(theme::accent())
             .block(
                 Block::default()
-                    .border_style(theme::fg_normal())
+                    .border_style(theme::pane_border(app.mode, false))
                     .borders(Borders::ALL),
             ),
         header,
@@ -106,11 +106,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
                     } else {
                         theme::fg_normal()
                     })
-                    .border_style(if recents_focused {
-                        theme::accent()
-                    } else {
-                        theme::fg_normal()
-                    })
+                    .border_style(theme::pane_border(app.mode, recents_focused))
                     .borders(Borders::ALL)
                     .style(theme::pane_background(recents_focused)),
             ),
@@ -151,11 +147,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
                     } else {
                         theme::fg_normal()
                     })
-                    .border_style(if actions_focused {
-                        theme::accent()
-                    } else {
-                        theme::fg_normal()
-                    })
+                    .border_style(theme::pane_border(app.mode, actions_focused))
                     .borders(Borders::ALL)
                     .style(theme::pane_background(actions_focused)),
             ),
@@ -170,7 +162,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
             Block::default()
                 .title("Hint")
                 .title_style(theme::fg_normal())
-                .border_style(theme::fg_normal())
+                .border_style(theme::pane_border(app.mode, false))
                 .borders(Borders::ALL),
         ),
         footer,
@@ -183,7 +175,7 @@ fn render_schema_picker(frame: &mut Frame, header: Rect, body: Rect, footer: Rec
             .style(theme::accent())
             .block(
                 Block::default()
-                    .border_style(theme::fg_normal())
+                    .border_style(theme::pane_border(app.mode, false))
                     .borders(Borders::ALL),
             ),
         header,
@@ -209,7 +201,7 @@ fn render_schema_picker(frame: &mut Frame, header: Rect, body: Rect, footer: Rec
             Block::default()
                 .title("Schema YML")
                 .title_style(theme::fg_active())
-                .border_style(theme::accent())
+                .border_style(theme::pane_border(app.mode, true))
                 .borders(Borders::ALL),
         ),
         body,
@@ -222,7 +214,7 @@ fn render_schema_picker(frame: &mut Frame, header: Rect, body: Rect, footer: Rec
                 Block::default()
                     .title("Hint")
                     .title_style(theme::fg_normal())
-                    .border_style(theme::fg_normal())
+                    .border_style(theme::pane_border(app.mode, false))
                     .borders(Borders::ALL),
             ),
         footer,
@@ -245,7 +237,7 @@ fn render_directory_browser(
         .style(theme::accent())
         .block(
             Block::default()
-                .border_style(theme::fg_normal())
+                .border_style(theme::pane_border(app.mode, false))
                 .borders(Borders::ALL),
         ),
         header,
@@ -300,7 +292,7 @@ fn render_directory_browser(
             Block::default()
                 .title("Navigator")
                 .title_style(theme::fg_active())
-                .border_style(theme::accent())
+                .border_style(theme::pane_border(app.mode, true))
                 .borders(Borders::ALL),
         ),
         split[0],
@@ -350,7 +342,7 @@ fn render_directory_browser(
             Block::default()
                 .title("Project Preview")
                 .title_style(theme::fg_active())
-                .border_style(theme::fg_normal())
+                .border_style(theme::pane_border(app.mode, false))
                 .borders(Borders::ALL),
         ),
         right[0],
@@ -384,7 +376,7 @@ fn render_directory_browser(
             Block::default()
                 .title("Summary")
                 .title_style(theme::fg_normal())
-                .border_style(theme::fg_normal())
+                .border_style(theme::pane_border(app.mode, false))
                 .borders(Borders::ALL),
         ),
         right[1],
@@ -397,7 +389,7 @@ fn render_directory_browser(
                 Block::default()
                     .title("Hint")
                     .title_style(theme::fg_normal())
-                    .border_style(theme::fg_normal())
+                    .border_style(theme::pane_border(app.mode, false))
                     .borders(Borders::ALL),
             ),
         footer,
@@ -460,7 +452,7 @@ fn render_live_preview_popup(frame: &mut Frame, area: Rect, app: &AppState) {
             Block::default()
                 .title("Preview")
                 .title_style(theme::fg_active())
-                .border_style(theme::accent())
+                .border_style(theme::pane_border(app.mode, true))
                 .borders(Borders::ALL),
         ),
         popup,

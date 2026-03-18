@@ -9,8 +9,9 @@ use std::collections::BTreeMap;
 ///
 /// Timing model:
 /// - on_enter/on_idle: resolved by sprite-relative elapsed (independent sprite timing).
-/// - on_leave: resolved by scene stage step index + step-local elapsed, so leave effects
-///   start at progress 0.0 when on_leave begins (instead of jumping to completion).
+/// - on_leave: resolved by scene stage step index + step-local elapsed; when the
+///   scene has more leave steps than the sprite, hold the sprite's last leave step
+///   at completion to avoid one-frame pop-ins.
 pub fn apply_sprite_effects(
     stages: &LayerStages,
     stage: &SceneStage,
@@ -31,17 +32,10 @@ pub fn apply_sprite_effects(
 
     let (step, progress) = match stage {
         SceneStage::OnLeave => {
-            let step = match current_stage.steps.get(step_idx) {
-                Some(s) => s,
+            match resolve_step_by_index_or_hold_last(current_stage, step_idx, elapsed_ms) {
+                Some(v) => v,
                 None => return,
-            };
-            let dur = step.duration_ms();
-            let p = if dur == 0 {
-                0.0
-            } else {
-                (elapsed_ms as f32 / dur as f32).clamp(0.0, 1.0)
-            };
-            (step, p)
+            }
         }
         _ => match resolve_step_by_elapsed(current_stage, sprite_elapsed_ms) {
             Some(v) => v,
@@ -82,6 +76,11 @@ pub fn apply_layer_effects(
             Some(v) => v,
             None => return,
         }
+    } else if matches!(stage, SceneStage::OnLeave) {
+        match resolve_step_by_index_or_hold_last(current_stage, step_idx, elapsed_ms) {
+            Some(v) => v,
+            None => return,
+        }
     } else {
         let step = match current_stage.steps.get(step_idx) {
             Some(s) => s,
@@ -105,6 +104,26 @@ pub fn apply_layer_effects(
             .unwrap_or(full_region);
         apply_effect(effect, progress, target_region, buffer);
     }
+}
+
+fn resolve_step_by_index_or_hold_last(
+    stage: &Stage,
+    step_idx: usize,
+    elapsed_ms: u64,
+) -> Option<(&Step, f32)> {
+    let Some(step) = stage.steps.get(step_idx).or_else(|| stage.steps.last()) else {
+        return None;
+    };
+    if step_idx >= stage.steps.len() {
+        return Some((step, 1.0));
+    }
+    let dur = step.duration_ms();
+    let p = if dur == 0 {
+        0.0
+    } else {
+        (elapsed_ms as f32 / dur as f32).clamp(0.0, 1.0)
+    };
+    Some((step, p))
 }
 
 /// Find the active step and its normalized progress for a stage at `elapsed_ms`.
@@ -144,7 +163,7 @@ pub fn resolve_step_by_elapsed(stage: &Stage, elapsed_ms: u64) -> Option<(&Step,
 
 #[cfg(test)]
 mod tests {
-    use super::apply_layer_effects;
+    use super::{apply_layer_effects, apply_sprite_effects};
     use crate::buffer::Buffer;
     use crate::effects::Region;
     use crate::scene::{Effect, EffectParams, Layer, LayerStages, Stage, Step, TermColour};
@@ -238,5 +257,99 @@ layers:
 
         assert_eq!(buffer.get(2, 1).expect("target cell").bg, Color::Blue);
         assert_eq!(buffer.get(0, 0).expect("untargeted cell").bg, Color::Black);
+    }
+
+    #[test]
+    fn leave_stage_holds_last_layer_step_when_scene_has_more_steps() {
+        let mut buffer = Buffer::new(4, 2);
+        buffer.fill(Color::Black);
+        let layer = Layer {
+            name: "fx".to_string(),
+            z_index: 0,
+            visible: true,
+            stages: LayerStages {
+                on_enter: Stage::default(),
+                on_idle: Stage::default(),
+                on_leave: Stage {
+                    trigger: Default::default(),
+                    steps: vec![Step {
+                        effects: vec![Effect {
+                            name: "clear-to-colour".to_string(),
+                            duration: 1,
+                            looping: false,
+                            target_kind: Default::default(),
+                            params: EffectParams {
+                                colour: Some(TermColour::Blue),
+                                ..EffectParams::default()
+                            },
+                        }],
+                        duration: Some(1),
+                    }],
+                    looping: false,
+                },
+            },
+            behaviors: Vec::new(),
+            sprites: Vec::new(),
+        };
+
+        apply_layer_effects(
+            &layer,
+            &SceneStage::OnLeave,
+            2,
+            1,
+            0,
+            None,
+            &BTreeMap::new(),
+            &mut buffer,
+        );
+
+        assert_eq!(buffer.get(0, 0).expect("cell").bg, Color::Blue);
+    }
+
+    #[test]
+    fn leave_stage_holds_last_sprite_step_when_scene_has_more_steps() {
+        let mut buffer = Buffer::new(4, 2);
+        buffer.fill(Color::Black);
+        let stages = LayerStages {
+            on_enter: Stage::default(),
+            on_idle: Stage::default(),
+            on_leave: Stage {
+                trigger: Default::default(),
+                steps: vec![Step {
+                    effects: vec![Effect {
+                        name: "clear-to-colour".to_string(),
+                        duration: 1,
+                        looping: false,
+                        target_kind: Default::default(),
+                        params: EffectParams {
+                            colour: Some(TermColour::Blue),
+                            ..EffectParams::default()
+                        },
+                    }],
+                    duration: Some(1),
+                }],
+                looping: false,
+            },
+        };
+        let sprite_region = Region {
+            x: 0,
+            y: 0,
+            width: 2,
+            height: 1,
+        };
+
+        apply_sprite_effects(
+            &stages,
+            &SceneStage::OnLeave,
+            3,
+            1,
+            0,
+            sprite_region,
+            None,
+            &BTreeMap::new(),
+            &mut buffer,
+        );
+
+        assert_eq!(buffer.get(0, 0).expect("cell").bg, Color::Blue);
     }
 }

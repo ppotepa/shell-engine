@@ -21,6 +21,14 @@ pub fn collect_files(root: &Path, rel: &str, ext: &str) -> Vec<String> {
     out
 }
 
+/// Recursively collects all file paths under `root`, sorted for stable change detection.
+pub fn collect_project_files(root: &Path) -> Vec<String> {
+    let mut out = Vec::new();
+    walk_all_files(root, &mut out);
+    out.sort();
+    out
+}
+
 /// Validates the given directory as a Shell Quest mod project, checking `mod.yaml` and entrypoint.
 pub fn validate_project_dir(dir: &Path) -> ProjectValidation {
     let mod_path = dir.join("mod.yaml");
@@ -104,6 +112,21 @@ fn walk(path: &Path, ext: &str, out: &mut Vec<String>) {
         if p.extension().and_then(|s| s.to_str()) == Some(ext) {
             out.push(p.display().to_string());
         }
+    }
+}
+
+fn walk_all_files(path: &Path, out: &mut Vec<String>) {
+    let entries = match fs::read_dir(path) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    for e in entries.flatten() {
+        let p: PathBuf = e.path();
+        if p.is_dir() {
+            walk_all_files(&p, out);
+            continue;
+        }
+        out.push(p.display().to_string());
     }
 }
 
@@ -302,8 +325,8 @@ pub fn infer_mod_root_from_project_yml(path: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        collect_game_yaml_files, collect_scene_entry_files, collect_schema_project_yml_files,
-        extract_schema_ref, resolve_schema_ref_path,
+        collect_game_yaml_files, collect_project_files, collect_scene_entry_files,
+        collect_schema_project_yml_files, extract_schema_ref, resolve_schema_ref_path,
     };
     use serde_yaml::Value;
     use std::fs;
@@ -433,6 +456,31 @@ mod tests {
         let files = collect_game_yaml_files(temp.path());
         assert_eq!(files.len(), 1);
         assert!(files[0].ends_with("scenes/intro/scene.yml"));
+    }
+
+    #[test]
+    fn project_file_scanner_includes_non_indexed_runtime_assets() {
+        let temp = tempdir().expect("temp dir");
+        fs::create_dir_all(temp.path().join("scenes/intro")).expect("create scene dir");
+        fs::create_dir_all(temp.path().join("assets/images")).expect("create images dir");
+        fs::write(temp.path().join("mod.yaml"), "name: demo\nversion: 0.1.0\n").expect("mod");
+        fs::write(
+            temp.path().join("scenes/intro/scene.yml"),
+            "id: intro\ntitle: Intro\n",
+        )
+        .expect("scene");
+        fs::write(temp.path().join("scenes/intro/model.obj"), "o cube\n").expect("model");
+        fs::write(temp.path().join("assets/images/logo.png"), b"png").expect("image");
+
+        let files = collect_project_files(temp.path());
+
+        assert!(files.iter().any(|path| path.ends_with("mod.yaml")));
+        assert!(files
+            .iter()
+            .any(|path| path.ends_with("scenes/intro/model.obj")));
+        assert!(files
+            .iter()
+            .any(|path| path.ends_with("assets/images/logo.png")));
     }
 
     #[test]

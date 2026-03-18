@@ -1,12 +1,7 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: font-showcase
   sprites:
-    - type: text
-      content: "FONT MODE SHOWCASE"
-      font: "generic:1"
-      fg: white
-      at: tc
-      y: 1
+    - { type: text, content: "FONT MODE SHOWCASE", font: "generic:1", fg: white, at: tc, y: 1 }
 
     - type: flex
       direction: column
@@ -14,87 +9,11 @@
       x: 2
       y: 4
       children:
-        - type: flex
-          direction: row
-          gap: 4
-          children:
-            - type: text
-              content: "generic:tiny    "
-              font: "generic:1"
-              fg: gray
-            - type: text
-              content: "THIS IS A TEXT"
-              font: "generic:tiny"
-              fg: cyan
+        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:tiny    ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:tiny", fg: cyan }] }
+        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:1       ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:1", fg: cyan }] }
+        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:2       ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:2", fg: cyan }] }
+        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:half    ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:half", fg: yellow }] }
+        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:quad    ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:quad", fg: yellow }] }
+        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:braille ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:braille", fg: magenta }] }
 
-        - type: flex
-          direction: row
-          gap: 4
-          children:
-            - type: text
-              content: "generic:1       "
-              font: "generic:1"
-              fg: gray
-            - type: text
-              content: "THIS IS A TEXT"
-              font: "generic:1"
-              fg: cyan
-
-        - type: flex
-          direction: row
-          gap: 4
-          children:
-            - type: text
-              content: "generic:2       "
-              font: "generic:1"
-              fg: gray
-            - type: text
-              content: "THIS IS A TEXT"
-              font: "generic:2"
-              fg: cyan
-
-        - type: flex
-          direction: row
-          gap: 4
-          children:
-            - type: text
-              content: "generic:half    "
-              font: "generic:1"
-              fg: gray
-            - type: text
-              content: "THIS IS A TEXT"
-              font: "generic:half"
-              fg: yellow
-
-        - type: flex
-          direction: row
-          gap: 4
-          children:
-            - type: text
-              content: "generic:quad    "
-              font: "generic:1"
-              fg: gray
-            - type: text
-              content: "THIS IS A TEXT"
-              font: "generic:quad"
-              fg: yellow
-
-        - type: flex
-          direction: row
-          gap: 4
-          children:
-            - type: text
-              content: "generic:braille "
-              font: "generic:1"
-              fg: gray
-            - type: text
-              content: "THIS IS A TEXT"
-              font: "generic:braille"
-              fg: magenta
-
-    - type: text
-      content: "press any key to return"
-      font: "generic:1"
-      fg: gray
-      at: bc
-      y: -2
+    - { type: text, content: "press any key to return", font: "generic:1", fg: gray, at: bc, y: -2 }

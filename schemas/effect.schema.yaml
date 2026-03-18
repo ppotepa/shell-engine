@@ -1,66 +1,70 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://shell-quest.local/schemas/effect.schema.yaml"
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/schemas/effect.schema.yaml
 title: Effect Schema
-description: >
-  A single named visual effect step used inside scene/layer/sprite lifecycle stages.
-  Specifies the effect name, duration, optional looping, and per-effect parameter overrides.
+description: A single named visual effect step used inside scene/layer/sprite lifecycle stages.
 type: object
 additionalProperties: false
-required: [name, duration]
+required:
+- name
+- duration
 properties:
   name:
     type: string
-    description: >
+    description: |-
       Effect identifier. Built-in effects:
-      crt-on        — CRT power-on scan with scanline flicker and flash.
-      crt-reflection — Curved CRT glass reflection warp for bitmap sprites.
-      power-off      — CRT power-off collapse animation.
-      fade-in        — Fade sprite/layer from black to full brightness.
-      fade-out       — Fade sprite/layer from full brightness to black.
-      fade-to-black  — Radial vignette fade to black over the whole buffer.
-      clear-to-colour — Instantly fill buffer with params.colour.
-      scanlines      — Overlay horizontal CRT scanlines.
-      shine          — Metallic laser-scan highlight sweep (configurable angle/width/falloff).
-      brighten       — Increase foreground brightness toward white.
-      lightning-flash — High-energy multi-pulse flash simulating lightning illumination.
-      lightning-branch — Draw jagged lightning branches with optional glow.
-      lightning-growth — Progressive branching lightning that grows and forks before the bright return stroke.
-      lightning-optical-80s — Cinematic 80s optical lightning (blue halation + white core).
-      lightning-fbm — Shader-inspired procedural lightning warp (FBM/noise driven).
-      lightning-ambient — Sparse lighter background lightning using the branch/fbm visual language over a long effect window.
-      lightning-natural — More natural lightning with bright core, halo, and secondary filaments.
-      tesla-orb      — Draw spherical electrical arcs (Tesla coil style) around scene center.
-      screen-shake   — Camera-like jitter shifting the rendered frame.
-      whiteout       — Overexposure pulse toward white.
-      glitch-out     — Terminal glitch collapse + flash transition.
-      devour-out     — Consume visible scene content, then spread corruption over full screen.
-      artifact-out   — Digital GPU artifact transition (glyph corruption, tearing, channel split).
-      shatter-glitch — Sprite-focused glitch: partial line loss, flicker, and displaced fragments.
+      - artifact-out: Digital compression artefacts fragmenting the image.
+      - blur: Box blur: softens terminal cell colours by averaging a neighbourhood of pixels.
+      - brighten: Brightens pixels toward white by intensity over duration.
+      - clear-to-colour: Clears region to a target terminal colour.
+      - crt-on: CRT startup sweep with phosphor-like reveal.
+      - crt-reflection: Curved CRT glass reflection warp for bitmap sprites.
+      - devour-out: Pixel dropout and corruption spreading across the frame.
+      - fade-in: Reveal from dark to full brightness.
+      - fade-out: Fade from full brightness to dark.
+      - fade-to-black: Colour-preserving fade converging to black.
+      - glitch-out: Signal decay, dead pixels, and horizontal tear corruption.
+      - lightning-ambient: Looping ambient electric atmosphere.
+      - lightning-branch: Procedural forked bolt between start/end anchors.
+      - lightning-fbm: Fractal Brownian Motion plasma bolt.
+      - lightning-flash: Short global lightning flash with a glow peak.
+      - lightning-growth: Slow-growing branched bolt spreading outward.
+      - lightning-natural: Naturalistic bolt with secondary arcs.
+      - lightning-optical-80s: Retro 80s neon-style optical lightning.
+      - posterize: Reduces colour band count by quantizing RGB channels.
+      - power-off: Old display shutdown collapse to center line.
+      - scanlines: Classic CRT horizontal scanline overlay.
+      - screen-shake: Camera-like shake offsetting rendered output.
+      - shatter-glitch: Frame shatters and scatters across the buffer.
+      - shine: Moving highlight beam crossing the whole frame.
+      - tesla-orb: Orbital electric arcs around a plasma core.
+      - whiteout: Flash all pixels toward white.
     enum:
-      - crt-on
-      - crt-reflection
-      - power-off
-      - fade-in
-      - fade-out
-      - fade-to-black
-      - clear-to-colour
-      - scanlines
-      - shine
-      - brighten
-      - lightning-flash
-      - lightning-branch
-      - lightning-growth
-      - lightning-optical-80s
-      - lightning-fbm
-      - lightning-ambient
-      - lightning-natural
-      - tesla-orb
-      - screen-shake
-      - whiteout
-      - glitch-out
-      - devour-out
-      - artifact-out
-      - shatter-glitch
+    - artifact-out
+    - blur
+    - brighten
+    - clear-to-colour
+    - crt-on
+    - crt-reflection
+    - devour-out
+    - fade-in
+    - fade-out
+    - fade-to-black
+    - glitch-out
+    - lightning-ambient
+    - lightning-branch
+    - lightning-fbm
+    - lightning-flash
+    - lightning-growth
+    - lightning-natural
+    - lightning-optical-80s
+    - posterize
+    - power-off
+    - scanlines
+    - screen-shake
+    - shatter-glitch
+    - shine
+    - tesla-orb
+    - whiteout
   duration:
     type: integer
     minimum: 0
@@ -70,4 +74,4 @@ properties:
     default: false
     description: Whether the effect repeats indefinitely within its step.
   params:
-    $ref: "./effect-params.schema.yaml"
+    $ref: ./effect-params.schema.yaml

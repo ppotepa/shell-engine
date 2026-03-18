@@ -80,23 +80,30 @@ impl Error for PackageError {
 ///
 /// Merge order is fixed and matches the current package contract:
 /// root `scene.yml` -> `layers/` -> `templates/` -> `objects/`.
+///
+/// Sequence partials for `layers` and `objects` are legacy fallbacks: if the
+/// root scene already defines the key explicitly, the authored root wins and
+/// package partials are not appended automatically.
 pub fn assemble_scene_package(
     root_content: &str,
     root_path: &str,
     partials: &ScenePackagePartials,
 ) -> Result<String, PackageError> {
     let mut root = parse_yaml_value(root_content, root_path)?;
-    append_sequence_partials(&mut root, "layers", &partials.layers)?;
+    append_sequence_partials_if_absent(&mut root, "layers", &partials.layers)?;
     merge_mapping_partials(&mut root, "templates", &partials.templates)?;
-    append_sequence_partials(&mut root, "objects", &partials.objects)?;
+    append_sequence_partials_if_absent(&mut root, "objects", &partials.objects)?;
     to_yaml_string(&root, root_path)
 }
 
-fn append_sequence_partials(
+fn append_sequence_partials_if_absent(
     root: &mut Value,
     key: &str,
     partials: &[PackageYamlFile],
 ) -> Result<(), PackageError> {
+    if root_has_key(root, key) {
+        return Ok(());
+    }
     let mut entries = Vec::new();
     for partial in partials {
         let value = parse_yaml_value(&partial.content, &partial.path)?;
@@ -106,6 +113,11 @@ fn append_sequence_partials(
     }
     append_sequence_entries(root, key, entries);
     Ok(())
+}
+
+fn root_has_key(root: &Value, key: &str) -> bool {
+    root.as_mapping()
+        .is_some_and(|map| map.contains_key(Value::String(key.to_string())))
 }
 
 fn merge_mapping_partials(
@@ -235,5 +247,58 @@ title:
 
         let (path, _) = error.into_parts();
         assert_eq!(path, "/scenes/intro/layers/base.yml");
+    }
+
+    #[test]
+    fn explicit_root_layers_win_over_legacy_layer_partials() {
+        let root = r#"
+id: intro
+title: Intro
+layers:
+  - ref: main
+next: null
+"#;
+        let partials = ScenePackagePartials {
+            layers: vec![PackageYamlFile::new(
+                "/scenes/intro/layers/base.yml",
+                r#"
+- name: base
+  sprites: []
+"#,
+            )],
+            ..ScenePackagePartials::default()
+        };
+
+        let assembled =
+            assemble_scene_package(root, "/scenes/intro/scene.yml", &partials).expect("assemble");
+
+        assert!(assembled.contains("ref: main"));
+        assert!(!assembled.contains("name: base"));
+    }
+
+    #[test]
+    fn explicit_root_objects_win_over_legacy_object_partials() {
+        let root = r#"
+id: intro
+title: Intro
+objects:
+  - ref: banner
+next: null
+"#;
+        let partials = ScenePackagePartials {
+            objects: vec![PackageYamlFile::new(
+                "/scenes/intro/objects/banner.yml",
+                r#"
+- use: legacy-banner
+"#,
+            )],
+            ..ScenePackagePartials::default()
+        };
+
+        let assembled =
+            assemble_scene_package(root, "/scenes/intro/scene.yml", &partials).expect("assemble");
+
+        assert!(assembled.contains("ref: banner"));
+        assert!(!assembled.contains("legacy-banner"));
     }
 }
