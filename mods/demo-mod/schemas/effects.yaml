@@ -168,6 +168,69 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: cutout
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            levels:
+              type: number
+              minimum: 1.0
+              maximum: 100.0
+              multipleOf: 1.0
+              description: Number of colour quantization bands per RGB channel.
+            simplify:
+              type: number
+              minimum: 0.0
+              maximum: 8.0
+              multipleOf: 1.0
+              description: Box-blur smoothing passes applied before quantization.
+            edge_fidelity:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Sensitivity threshold for detecting colour boundaries.
+            edge_strength:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: How strongly detected edges are darkened.
+            edge_width:
+              type: number
+              minimum: 1.0
+              maximum: 3.0
+              multipleOf: 1.0
+              description: How many cells around an edge receive the accent.
+            saturation:
+              type: number
+              minimum: 0.5
+              maximum: 1.5
+              multipleOf: 0.05000000074505806
+              description: Per-cell saturation multiplier after edge shaping.
+            blend_mode:
+              type: string
+              enum:
+              - replace
+              - overlay
+              default: replace
+              description: Whether to replace the source cell or overlay the processed result.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: cutout effect variant
+    - description: cutout overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: devour-out
         params:
           type: object
