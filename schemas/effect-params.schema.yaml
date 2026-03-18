@@ -41,6 +41,27 @@ properties:
     description: >
       Effect intensity multiplier. Meaning is effect-specific.
       Used by: shine, brighten, lightning-flash, tesla-orb, whiteout.
+  sphericality:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    description: >
+      Curved-glass spherical distortion strength.
+      Used by: crt-reflection.
+  transparency:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    description: >
+      Visibility of the reflected image after distortion.
+      Used by: crt-reflection.
+  brightness:
+    type: number
+    minimum: 0.0
+    maximum: 2.0
+    description: >
+      Brightness multiplier applied to the reflected image.
+      Used by: crt-reflection.
   amplitude_x:
     type: number
     minimum: 0.0

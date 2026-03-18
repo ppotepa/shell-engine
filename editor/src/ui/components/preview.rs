@@ -82,14 +82,22 @@ fn render_mod_yaml(app: &AppState) -> Vec<Line<'static>> {
 
 fn render_scene(app: &AppState, scene_path: &str) -> Vec<Line<'static>> {
     let full_path = Path::new(&app.mod_source).join(scene_path);
-    let mut lines = vec![
-        Line::from(format!(
-            "🎬 {}",
+    let scene_display_name = app
+        .index
+        .scenes
+        .scene_paths
+        .iter()
+        .position(|candidate| candidate == scene_path)
+        .map(|idx| app.scene_display_name(idx))
+        .unwrap_or_else(|| {
             Path::new(scene_path)
-                .file_name()
+                .file_stem()
                 .and_then(|n| n.to_str())
                 .unwrap_or(scene_path)
-        )),
+                .to_string()
+        });
+    let mut lines = vec![
+        Line::from(format!("🎬 {}", scene_display_name)),
         Line::from(""),
     ];
 

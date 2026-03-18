@@ -216,6 +216,9 @@ fn render_params_yaml(params: &EffectParams) -> Vec<String> {
     push_number(&mut lines, "width", params.width);
     push_number(&mut lines, "falloff", params.falloff);
     push_number(&mut lines, "intensity", params.intensity);
+    push_number(&mut lines, "sphericality", params.sphericality);
+    push_number(&mut lines, "transparency", params.transparency);
+    push_number(&mut lines, "brightness", params.brightness);
     push_number(&mut lines, "amplitude_x", params.amplitude_x);
     push_number(&mut lines, "amplitude_y", params.amplitude_y);
     push_number(&mut lines, "frequency", params.frequency);

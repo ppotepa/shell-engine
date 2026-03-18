@@ -2,7 +2,7 @@
 - name: date
   z_index: 2
   visible: true
-  # Single hero layer with one raster text sprite. Good reference for timed reveal + glow + subtle idle pulse.
+  # Restore the original hero date presentation as its own dedicated scene.
   sprites:
     - type: text
       id: date-text
@@ -43,3 +43,10 @@
                   params:
                     intensity: 0.12
             - pause: 260ms
+        on_leave:
+          steps:
+            - effects:
+                - name: fade-out
+                  duration: 260
+                  params:
+                    easing: ease-in

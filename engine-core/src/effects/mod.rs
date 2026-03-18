@@ -28,6 +28,8 @@ impl EffectDispatcher {
     fn register_builtins(&mut self) {
         use builtin::*;
         self.registry.insert("crt-on", Box::new(CrtOnEffect));
+        self.registry
+            .insert("crt-reflection", Box::new(CrtReflectionEffect));
         self.registry.insert("power-off", Box::new(PowerOffEffect));
         self.registry.insert("fade-in", Box::new(FadeInEffect));
         self.registry.insert("fade-out", Box::new(FadeOutEffect));
@@ -109,6 +111,7 @@ impl EffectDispatcher {
             "brighten",
             "clear-to-colour",
             "crt-on",
+            "crt-reflection",
             "devour-out",
             "fade-in",
             "fade-out",

@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+# Authored YAML v2 package root keeps scene orchestration only.
+# Intro beat 02: machine appears second, human appears third, identity is lost at power-on.
+# Flow:
+# - darkness gives way to an image-based dead monitor
+# - a figure approaches only as bitmap reflection in the cold glass
+# - the power click ignites a white burst
+# - the face exists for a split second, then breaks into distortion
+id: 02.intro.boot
+title: 02 Intro Boot
+cutscene: true
+bg: black
+# Inherit mod-level `virtual_size: max-available` so the reflection scene fills the terminal.
+stages:
+  on_enter:
+    steps:
+      - pause: 420ms
+      - duration: 120
+        effects:
+          - name: lightning-flash
+            duration: 120
+            params:
+              intensity: 0.30
+      - pause: 2620ms
+      - duration: 140
+        effects:
+          - name: whiteout
+            duration: 140
+            params:
+              intensity: 1.18
+              easing: ease-in-out
+          - name: screen-shake
+            duration: 140
+            params:
+              amplitude_x: 0.7
+              amplitude_y: 0.2
+              frequency: 8.0
+              easing: ease-out
+      - duration: 260
+        effects:
+          - name: glitch-out
+            duration: 260
+            params:
+              easing: ease-out
+      - duration: 340
+        effects:
+          - name: fade-to-black
+            duration: 340
+            params:
+              easing: ease-in
+  on_idle:
+    trigger: timeout
+    steps:
+      - pause: 1ms
+  on_leave:
+    steps:
+      - pause: 180ms
+objects:
+  - ref: prologue-monitor
+    as: boot-monitor
+    with:
+      base: boot-monitor
+      y: -1
+      width: 48
+      height: 18
+next: mainmenu

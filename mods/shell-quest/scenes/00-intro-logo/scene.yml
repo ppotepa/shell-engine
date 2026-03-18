@@ -4,9 +4,9 @@
 # Flow:
 # - on_enter keeps the screen dark, powers the CRT on, then adds staged lightning beats
 # - on_idle loops a gentle title shine until the player presses any key
-# - on_leave fires a flash + whiteout and hands control to `intro.prologue`
-id: intro.logo
-title: Intro Logo
+# - on_leave fires a flash + whiteout and hands control to `01.intro.date`
+id: 00.intro.logo
+title: 00 Intro Logo
 cutscene: true
 bg: black
 # Inherit mod-level `virtual_size: max-available` so the intro fills the terminal.
@@ -55,4 +55,4 @@ stages:
       - effects:
           - name: fade-to-black
             duration: 420
-next: intro.prologue
+next: 01.intro.date

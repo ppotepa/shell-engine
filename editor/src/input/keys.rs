@@ -1,6 +1,6 @@
 //! Crossterm key-event mapping to editor [`Command`]s.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 use super::commands::Command;
 use crate::state::AppMode;
@@ -27,7 +27,24 @@ pub fn map_key_event(key: KeyEvent, mode: AppMode) -> Command {
         match key.code {
             KeyCode::Enter => return Command::EnterFile,
             KeyCode::Char('t') | KeyCode::Char('T') => return Command::ToggleSidebar,
-            KeyCode::Char('f') | KeyCode::Char('F') => return Command::ToggleEffectsPreview,
+            KeyCode::Char('f') | KeyCode::Char('F')
+                if key.modifiers.contains(KeyModifiers::CONTROL)
+                    && key.kind == KeyEventKind::Press =>
+            {
+                return Command::ToggleSceneFullscreen;
+            }
+            KeyCode::Char('f') | KeyCode::Char('F')
+                if !key.modifiers.contains(KeyModifiers::CONTROL) =>
+            {
+                return match key.kind {
+                    KeyEventKind::Release => Command::SceneFullscreenHoldEnd,
+                    KeyEventKind::Press => Command::SceneFullscreenHoldStart,
+                    KeyEventKind::Repeat => Command::Noop,
+                };
+            }
+            KeyCode::Char(' ') if key.kind == KeyEventKind::Press => {
+                return Command::ToggleSceneLayer;
+            }
             KeyCode::Char('1') => return Command::SelectPanel1,
             KeyCode::Char('2') => return Command::SelectPanel2,
             KeyCode::Char('3') => return Command::SelectPanel3,

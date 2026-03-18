@@ -20,16 +20,22 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
                 TreeItem::ModYaml => ("📄 mod.yaml".to_string(), theme::fg_active()),
                 TreeItem::ScenesFolder => ("📁 scenes/".to_string(), theme::accent()),
                 TreeItem::Scene(path) => {
-                    let name = Path::new(path)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or(path);
-                    (format!("  🎬 {}", name), theme::fg_normal())
+                    let idx = app
+                        .index
+                        .scenes
+                        .scene_paths
+                        .iter()
+                        .position(|candidate| candidate == path)
+                        .unwrap_or(0);
+                    (
+                        format!("  🎬 {}", app.scene_display_name(idx)),
+                        theme::fg_normal(),
+                    )
                 }
                 TreeItem::ImagesFolder => ("📁 images/".to_string(), theme::accent()),
                 TreeItem::Image(path) => {
                     let name = Path::new(path)
-                        .file_name()
+                        .file_stem()
                         .and_then(|n| n.to_str())
                         .unwrap_or(path);
                     (format!("  🖼️  {}", name), theme::fg_normal())
@@ -37,7 +43,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
                 TreeItem::FontsFolder => ("📁 fonts/".to_string(), theme::accent()),
                 TreeItem::Font(path) => {
                     let name = Path::new(path)
-                        .file_name()
+                        .file_stem()
                         .and_then(|n| n.to_str())
                         .unwrap_or(path);
                     (format!("  🔤 {}", name), theme::fg_normal())

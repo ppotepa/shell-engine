@@ -13,7 +13,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let entries = [
         (SidebarItem::Explorer, "1", "\u{1f4c1}"),        // 📁
         (SidebarItem::Search, "2", "\u{1f50d}"),          // 🔍
-        (SidebarItem::Git, "3", "\u{1f33f}"),             // 🌿
+        (SidebarItem::Scenes, "3", "\u{1f3ac}"),          // 🎬
         (SidebarItem::Settings, "4", "\u{2699}\u{fe0f}"), // ⚙️
     ];
 

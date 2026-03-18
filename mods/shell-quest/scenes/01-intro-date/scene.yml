@@ -1,15 +1,15 @@
 # yaml-language-server: $schema=../../schemas/scenes.yaml
-# Authored YAML v2 example: package root keeps scene orchestration only.
-# Second step of the intro flow.
+# Authored YAML v2 package root keeps scene orchestration only.
+# Intro beat 01: history strikes first.
 # Flow:
 # - on_enter waits, reveals the date card, adds scanlines, then fades it back out
-# - on_idle uses `trigger: none`, so the scene does not wait for input
-# - after the short leave pause, the flow continues into `mainmenu`
-id: intro.prologue
-title: Intro Prologue - Date Reveal
+# - on_idle uses timeout so the scene can continue automatically into the boot beat
+# - after the short leave pause, the flow continues into `02.intro.boot`
+id: 01.intro.date
+title: 01 Intro Date
 cutscene: true
 bg: black
-# Inherit mod-level `virtual_size: max-available` so the prologue fills the terminal.
+# Inherit mod-level `virtual_size: max-available` so the date card fills the terminal.
 stages:
   on_enter:
     steps:
@@ -31,10 +31,10 @@ stages:
             params:
               easing: ease-in
   on_idle:
-    trigger: none
+    trigger: timeout
     steps:
       - pause: 1ms
   on_leave:
     steps:
       - pause: 300ms
-next: mainmenu
+next: 02.intro.boot

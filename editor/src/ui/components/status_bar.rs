@@ -51,6 +51,26 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
                 "-"
             },
         )
+    } else if app.sidebar_active == SidebarItem::Scenes {
+        let scene_name = app
+            .selected_scene_display_name()
+            .unwrap_or_else(|| "none".to_string());
+        let visible_layers = app
+            .scene_layer_visibility
+            .iter()
+            .filter(|enabled| **enabled)
+            .count();
+        format!(
+            " scenes: {} | visible: {}/{} | layer: {}",
+            scene_name,
+            visible_layers,
+            app.scene_preview_layers.len(),
+            if app.focus == FocusPane::Browser {
+                app.selected_scene_layer().unwrap_or("-")
+            } else {
+                "-"
+            },
+        )
     } else if !app.mod_source.is_empty() {
         format!(
             " {}",
@@ -67,6 +87,9 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
         AppMode::Start => "j/k: move | Enter: select | q: quit",
         AppMode::Browser if app.sidebar_active == SidebarItem::Search => {
             "Tab: focus | j/k: move | ←/→: adjust | F: live"
+        }
+        AppMode::Browser if app.sidebar_active == SidebarItem::Scenes => {
+            "Tab: focus | j/k: scenes/layers | Space:toggle | Enter:solo | F/Ctrl+F fullscreen"
         }
         AppMode::Browser => "1-4: panels | T: sidebar | q: quit",
         AppMode::EditMode if app.sidebar_active == SidebarItem::Search => {
