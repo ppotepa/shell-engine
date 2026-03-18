@@ -16,6 +16,14 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
         return;
     }
 
+    if app.mode == AppMode::Browser
+        && app.sidebar_active == SidebarItem::Scenes
+        && app.scene_preview_fullscreen_active()
+    {
+        components::scenes_preview::render_fullscreen(frame, frame.area(), app);
+        return;
+    }
+
     let chunks = layout::main_chunks(frame, app.sidebar_visible);
 
     // Always render sidebar icons (in Browser and EditMode)
@@ -29,14 +37,14 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
                     components::sidebar::explorer::render(frame, panel_rect, app)
                 }
                 SidebarItem::Search => components::sidebar::effects::render(frame, panel_rect, app),
-                SidebarItem::Git => components::sidebar::placeholder::render(
+                SidebarItem::Scenes => components::sidebar::placeholder::render(
                     frame,
                     panel_rect,
-                    "Git",
+                    "Scenes",
                     &[
-                        "Panel in progress",
+                        "Scene browser lives in the center panel.",
                         "",
-                        "Planned: status, staged files, branch info",
+                        "Tip: hide this sidebar with T for full 50/50 scene layout.",
                     ],
                 ),
                 SidebarItem::Settings => components::sidebar::placeholder::render(
@@ -61,14 +69,14 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
         match app.sidebar_active {
             SidebarItem::Explorer => components::sidebar::explorer::render(frame, panel_rect, app),
             SidebarItem::Search => components::sidebar::effects::render(frame, panel_rect, app),
-            SidebarItem::Git => components::sidebar::placeholder::render(
+            SidebarItem::Scenes => components::sidebar::placeholder::render(
                 frame,
                 panel_rect,
-                "Git",
+                "Scenes",
                 &[
-                    "Panel in progress",
+                    "Scene browser lives in the center panel.",
                     "",
-                    "Planned: status, staged files, branch info",
+                    "Tip: hide this sidebar with T for full 50/50 scene layout.",
                 ],
             ),
             SidebarItem::Settings => components::sidebar::placeholder::render(
@@ -85,6 +93,8 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
     }
     if app.sidebar_active == SidebarItem::Search {
         components::effects_preview::render(frame, chunks.center, app);
+    } else if app.sidebar_active == SidebarItem::Scenes {
+        components::scenes_preview::render(frame, chunks.center, app);
     } else {
         components::preview::render(frame, chunks.center, app);
     }

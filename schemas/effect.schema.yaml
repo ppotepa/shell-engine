@@ -13,6 +13,7 @@ properties:
     description: >
       Effect identifier. Built-in effects:
       crt-on        — CRT power-on scan with scanline flicker and flash.
+      crt-reflection — Curved CRT glass reflection warp for bitmap sprites.
       power-off      — CRT power-off collapse animation.
       fade-in        — Fade sprite/layer from black to full brightness.
       fade-out       — Fade sprite/layer from full brightness to black.
@@ -37,6 +38,7 @@ properties:
       shatter-glitch — Sprite-focused glitch: partial line loss, flicker, and displaced fragments.
     enum:
       - crt-on
+      - crt-reflection
       - power-off
       - fade-in
       - fade-out

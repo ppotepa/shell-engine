@@ -141,6 +141,15 @@ pub struct EffectParams {
     /// Shine: peak brightness multiplier 0.0–1.0 (default 1.0 = full white).
     #[serde(default)]
     pub intensity: Option<f32>,
+    /// CRT reflection: curved-glass warp strength.
+    #[serde(default)]
+    pub sphericality: Option<f32>,
+    /// CRT reflection: how strongly the reflected image remains visible.
+    #[serde(default)]
+    pub transparency: Option<f32>,
+    /// CRT reflection: brightness multiplier applied to the reflected sample.
+    #[serde(default)]
+    pub brightness: Option<f32>,
     /// Screen shake horizontal amplitude in cells.
     #[serde(default)]
     pub amplitude_x: Option<f32>,

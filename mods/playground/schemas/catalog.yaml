@@ -70,6 +70,7 @@ $defs:
     - brighten
     - clear-to-colour
     - crt-on
+    - crt-reflection
     - devour-out
     - fade-in
     - fade-out

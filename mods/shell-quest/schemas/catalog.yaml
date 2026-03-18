@@ -5,27 +5,32 @@ $defs:
   scene_ids:
     type: string
     enum:
-    - intro.logo
-    - intro.prologue
+    - 00.intro.logo
+    - 01.intro.date
+    - 02.intro.boot
     - mainmenu
   scene_paths:
     type: string
     enum:
-    - /scenes/intro-logo/scene.yml
-    - /scenes/intro-prologue/scene.yml
+    - /scenes/00-intro-logo/scene.yml
+    - /scenes/01-intro-date/scene.yml
+    - /scenes/02-intro-boot/scene.yml
     - /scenes/mainmenu/scene.yml
   scene_refs:
     type: string
     enum:
-    - /scenes/intro-logo/scene.yml
-    - /scenes/intro-prologue/scene.yml
+    - /scenes/00-intro-logo/scene.yml
+    - /scenes/01-intro-date/scene.yml
+    - /scenes/02-intro-boot/scene.yml
     - /scenes/mainmenu/scene.yml
-    - intro.logo
-    - intro.prologue
+    - 00.intro.logo
+    - 01.intro.date
+    - 02.intro.boot
     - mainmenu
   object_names:
     type: string
-    enum: []
+    enum:
+    - prologue-monitor
   effect_names:
     type: string
     enum:
@@ -33,6 +38,7 @@ $defs:
     - brighten
     - clear-to-colour
     - crt-on
+    - crt-reflection
     - devour-out
     - fade-in
     - fade-out
@@ -55,8 +61,9 @@ $defs:
   layer_refs:
     type: string
     enum:
-    - intro-logo/layers/main.yml
-    - intro-prologue/layers/main.yml
+    - 00-intro-logo/layers/main.yml
+    - 01-intro-date/layers/main.yml
+    - 02-intro-boot/layers/main.yml
     - mainmenu/layers/main.yml
   sprite_refs:
     type: string
@@ -66,7 +73,9 @@ $defs:
     enum: []
   object_refs:
     type: string
-    enum: []
+    enum:
+    - /objects/prologue-monitor.yml
+    - prologue-monitor
   effect_refs:
     type: string
     enum: []
@@ -95,6 +104,12 @@ $defs:
     - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest-terminal.png
     - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest.png
     - /assets/images/linux-1.png
+    - /assets/images/prologue/aurora-bios-logo.png
+    - /assets/images/prologue/date-card-1991.png
+    - /assets/images/prologue/face-flash.png
+    - /assets/images/prologue/monitor-frame.png
+    - /assets/images/prologue/monitor-screen-off.png
+    - /assets/images/prologue/reflection-approach.png
     - /assets/images/tux.png
   model_paths:
     type: string
@@ -108,6 +123,8 @@ $defs:
     - intro-logo-raster
     - linux-grid
     - press-any-key
+    - reflection-approach
+    - reflection-face-flash
   template_names:
     type: string
     enum: []

@@ -4,7 +4,10 @@ use std::io;
 use std::time::Duration;
 
 use anyhow::Result;
-use crossterm::event::{self, Event};
+use crossterm::event::{
+    self, Event, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+    PushKeyboardEnhancementFlags,
+};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
@@ -23,6 +26,11 @@ pub fn run(cli: Cli) -> Result<()> {
     let mut stdout = io::stdout();
     enable_raw_mode()?;
     stdout.execute(EnterAlternateScreen)?;
+    let keyboard_flags = KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+        | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES;
+    let keyboard_flags_pushed = stdout
+        .execute(PushKeyboardEnhancementFlags(keyboard_flags))
+        .is_ok();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
@@ -51,6 +59,9 @@ pub fn run(cli: Cli) -> Result<()> {
     }
 
     disable_raw_mode()?;
+    if keyboard_flags_pushed {
+        let _ = terminal.backend_mut().execute(PopKeyboardEnhancementFlags);
+    }
     terminal.backend_mut().execute(LeaveAlternateScreen)?;
     terminal.show_cursor()?;
     save_recent(&app.recent_projects);

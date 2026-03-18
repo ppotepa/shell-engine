@@ -104,6 +104,44 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: crt-reflection
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            sphericality:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Curved-glass spherical distortion strength.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: How strongly the reflected image remains visible.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Brightness multiplier applied to the reflected image.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-reflection effect variant
+    - description: crt-reflection overlay from shell-quest generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: devour-out
         params:
           type: object
