@@ -167,7 +167,7 @@ pub enum Sprite {
         #[serde(default)]
         glow: Option<Glow>,
     },
-    /// PNG image sprite rendered on terminal grid in selected mode.
+    /// Bitmap image sprite rendered on terminal grid in selected mode.
     Image {
         #[serde(default)]
         id: Option<String>,
@@ -192,6 +192,9 @@ pub enum Sprite {
         width: Option<u16>,
         #[serde(default)]
         height: Option<u16>,
+        /// When true, scales the image to exactly fill its resolved draw area.
+        #[serde(default, rename = "stretch-to-area")]
+        stretch_to_area: bool,
         #[serde(default, rename = "force-renderer-mode")]
         force_renderer_mode: Option<SceneRenderedMode>,
         align_x: Option<HorizontalAlign>,
@@ -590,6 +593,7 @@ type: image
 source: "/assets/images/tux.png"
 size: 3
 force-renderer-mode: halfblock
+stretch-to-area: true
 "#;
         let sprite: Sprite = serde_yaml::from_str(raw).expect("image sprite should parse");
         match sprite {
@@ -598,6 +602,7 @@ force-renderer-mode: halfblock
                 size,
                 width,
                 height,
+                stretch_to_area,
                 force_renderer_mode,
                 ..
             } => {
@@ -605,6 +610,7 @@ force-renderer-mode: halfblock
                 assert_eq!(size, Some(SpriteSizePreset::Large));
                 assert_eq!(width, None);
                 assert_eq!(height, None);
+                assert!(stretch_to_area);
                 assert_eq!(force_renderer_mode, Some(SceneRenderedMode::HalfBlock));
             }
             Sprite::Text { .. }

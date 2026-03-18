@@ -7,7 +7,7 @@ edition = "2021"
 engine-authoring = { path = "../engine-authoring" }
 engine-core = { path = "../engine-core" }
 crossterm = "0.29"
-image = { version = "0.25", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png", "gif"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 thiserror = "2.0"
