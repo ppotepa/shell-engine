@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=./schemas/mod.yaml
+name: demo-mod
+version: 0.1.0
+entrypoint: /scenes/intro/scene.yml
+terminal:
+  min_colours: 256
+  use_virtual_buffer: true
+  virtual_size: max-available
+  virtual_policy: fit
