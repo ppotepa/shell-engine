@@ -219,21 +219,6 @@ pub struct EffectParams {
     /// Cutout: saturation multiplier
     #[serde(default)]
     pub saturation: Option<f32>,
-    /// Cutout pre-quantization smoothing strength in cell-space. Used by: cutout.
-    #[serde(default)]
-    pub simplify: Option<u8>,
-    /// Cutout edge detection sensitivity threshold (0..1). Used by: cutout.
-    #[serde(default)]
-    pub edge_fidelity: Option<f32>,
-    /// Cutout edge accent strength (0..1). Used by: cutout.
-    #[serde(default)]
-    pub edge_strength: Option<f32>,
-    /// Cutout outline thickness in cells. Used by: cutout.
-    #[serde(default)]
-    pub edge_width: Option<u8>,
-    /// Cutout saturation multiplier. Used by: cutout.
-    #[serde(default)]
-    pub saturation: Option<f32>,
     /// Cutout blend mode: replace or overlay. Used by: cutout.
     #[serde(default)]
     pub blend_mode: Option<String>,

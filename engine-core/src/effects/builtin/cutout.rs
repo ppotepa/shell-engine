@@ -16,8 +16,8 @@ pub static METADATA: EffectMetadata = EffectMetadata {
             "levels",
             "Levels",
             "Number of colour quantization bands per RGB channel.",
-            2.0,
-            20.0,
+            1.0,
+            100.0,
             1.0,
             "",
         ),
@@ -87,7 +87,7 @@ impl Effect for CutoutEffect {
         }
 
         let levels = params.levels.unwrap_or(8).clamp(2, 20);
-        let simplify = params.simplify.unwrap_or(0).clamp(0, 8) as usize;
+        let simplify = params.simplify.unwrap_or(0.0).clamp(0.0, 8.0).round() as usize;
         let edge_fidelity = params.edge_fidelity.unwrap_or(0.35).clamp(0.0, 1.0);
         let edge_strength = params.edge_strength.unwrap_or(0.65).clamp(0.0, 1.0);
         let edge_width = params.edge_width.unwrap_or(1).clamp(1, 3) as usize;
@@ -259,7 +259,14 @@ fn build_edge_map(snapshot: &[Cell], width: usize, height: usize, threshold: f32
     edges
 }
 
-fn edge_influence(edges: &[f32], width: usize, height: usize, x: usize, y: usize, edge_width: usize) -> f32 {
+fn edge_influence(
+    edges: &[f32],
+    width: usize,
+    height: usize,
+    x: usize,
+    y: usize,
+    edge_width: usize,
+) -> f32 {
     let radius = edge_width.saturating_sub(1);
     let x0 = x.saturating_sub(radius);
     let y0 = y.saturating_sub(radius);
@@ -286,11 +293,15 @@ fn edge_influence(edges: &[f32], width: usize, height: usize, x: usize, y: usize
 fn colour_delta(a: &Cell, b: &Cell) -> f32 {
     let (ar, ag, ab) = colour_to_rgb(normalize_reset(a.fg));
     let (br, bg, bb) = colour_to_rgb(normalize_reset(b.fg));
-    let fg_delta = channel_delta(ar, br).max(channel_delta(ag, bg)).max(channel_delta(ab, bb));
+    let fg_delta = channel_delta(ar, br)
+        .max(channel_delta(ag, bg))
+        .max(channel_delta(ab, bb));
 
     let (ar, ag, ab) = colour_to_rgb(normalize_reset(a.bg));
     let (br, bg, bb) = colour_to_rgb(normalize_reset(b.bg));
-    let bg_delta = channel_delta(ar, br).max(channel_delta(ag, bg)).max(channel_delta(ab, bb));
+    let bg_delta = channel_delta(ar, br)
+        .max(channel_delta(ag, bg))
+        .max(channel_delta(ab, bb));
 
     fg_delta.max(bg_delta)
 }
@@ -313,7 +324,9 @@ fn quantize_component(value: u8, levels: u8) -> u8 {
         return 0;
     }
     let step = 255.0 / (levels as f32 - 1.0);
-    ((value as f32 / step).round() * step).clamp(0.0, 255.0).round() as u8
+    ((value as f32 / step).round() * step)
+        .clamp(0.0, 255.0)
+        .round() as u8
 }
 
 fn darken_colour(color: Color, amount: f32) -> Color {
@@ -420,7 +433,7 @@ mod tests {
             1.0,
             &EffectParams {
                 levels: Some(2),
-                simplify: Some(0),
+                simplify: Some(0.0),
                 edge_fidelity: Some(1.0),
                 edge_strength: Some(0.0),
                 edge_width: Some(1),
@@ -481,7 +494,7 @@ mod tests {
             1.0,
             &EffectParams {
                 levels: Some(20),
-                simplify: Some(0),
+                simplify: Some(0.0),
                 edge_fidelity: Some(0.0),
                 edge_strength: Some(1.0),
                 edge_width: Some(1),

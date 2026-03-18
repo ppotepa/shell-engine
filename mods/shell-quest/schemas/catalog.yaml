@@ -40,6 +40,7 @@ $defs:
     - clear-to-colour
     - crt-on
     - crt-reflection
+    - cutout
     - devour-out
     - fade-in
     - fade-out

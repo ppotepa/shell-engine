@@ -3,17 +3,16 @@
 pub mod artifact;
 pub mod blur;
 pub mod brighten;
-pub mod cutout;
 pub mod clear_to_colour;
 pub mod crt_on;
 pub mod crt_reflection;
+pub mod cutout;
 pub mod devour;
 pub mod fade;
 pub mod fade_to_black;
 pub mod glitch;
 pub mod lightning;
 pub mod posterize;
-pub mod cutout;
 pub mod power_off;
 pub mod scanlines;
 pub mod shake;
@@ -24,10 +23,10 @@ pub mod whiteout;
 pub use artifact::ArtifactOutEffect;
 pub use blur::BlurEffect;
 pub use brighten::BrightenEffect;
-pub use cutout::CutoutEffect;
 pub use clear_to_colour::ClearToColourEffect;
 pub use crt_on::CrtOnEffect;
 pub use crt_reflection::CrtReflectionEffect;
+pub use cutout::CutoutEffect;
 pub use devour::DevourOutEffect;
 pub use fade::{FadeInEffect, FadeOutEffect};
 pub use fade_to_black::FadeToBlackEffect;
@@ -37,7 +36,6 @@ pub use lightning::{
     LightningGrowthEffect, LightningNaturalEffect, LightningOptical80sEffect, TeslaOrbEffect,
 };
 pub use posterize::PosterizeEffect;
-pub use cutout::CutoutEffect;
 pub use power_off::PowerOffEffect;
 pub use scanlines::ScanlinesEffect;
 pub use shake::ScreenShakeEffect;
@@ -130,10 +128,6 @@ pub static BUILTIN_EFFECTS: &[BuiltinEffectDefinition] = &[
     BuiltinEffectDefinition {
         name: "lightning-optical-80s",
         constructor: || Box::new(LightningOptical80sEffect),
-    },
-    BuiltinEffectDefinition {
-        name: "cutout",
-        constructor: || Box::new(CutoutEffect),
     },
     BuiltinEffectDefinition {
         name: "posterize",

@@ -17,6 +17,7 @@ properties:
       - brighten: Brightens pixels toward white by intensity over duration.
       - clear-to-colour: Clears region to a target terminal colour.
       - crt-on: CRT startup sweep with phosphor-like reveal.
+      - cutout: Post-raster cutout look with smoothing, posterization, edge accents, and saturation shaping.
       - crt-reflection: Curved CRT glass reflection warp for bitmap sprites.
       - devour-out: Pixel dropout and corruption spreading across the frame.
       - fade-in: Reveal from dark to full brightness.
@@ -44,6 +45,7 @@ properties:
     - brighten
     - clear-to-colour
     - crt-on
+    - cutout
     - crt-reflection
     - devour-out
     - fade-in

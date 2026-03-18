@@ -23,6 +23,13 @@ properties:
     maximum: 90.0
     multipleOf: 2.0
     description: 'Beam angle in degrees (0=vertical sweep). Used by: shine.'
+  blend_mode:
+    type: string
+    enum:
+    - replace
+    - overlay
+    default: replace
+    description: 'Whether to replace the source cell or overlay the processed result. Used by: cutout.'
   brightness:
     type: number
     minimum: 0.0
@@ -48,7 +55,25 @@ properties:
     - ease-out
     - ease-in-out
     default: linear
-    description: 'Progress curve applied to the effect. Used by: artifact-out, blur, brighten, clear-to-colour, crt-on, crt-reflection, devour-out, fade-in, fade-out, fade-to-black, glitch-out, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural, lightning-optical-80s, posterize, power-off, screen-shake, shatter-glitch, shine, tesla-orb, whiteout.'
+    description: 'Progress curve applied to the effect. Used by: artifact-out, blur, brighten, clear-to-colour, crt-on, crt-reflection, cutout, devour-out, fade-in, fade-out, fade-to-black, glitch-out, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural, lightning-optical-80s, posterize, power-off, screen-shake, shatter-glitch, shine, tesla-orb, whiteout.'
+  edge_fidelity:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    multipleOf: 0.05
+    description: 'Sensitivity threshold for detecting colour boundaries. Used by: cutout.'
+  edge_strength:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    multipleOf: 0.05
+    description: 'How strongly detected edges are darkened. Used by: cutout.'
+  edge_width:
+    type: number
+    minimum: 1.0
+    maximum: 3.0
+    multipleOf: 1.0
+    description: 'How many cells around an edge receive the accent. Used by: cutout.'
   end_x:
     type: string
     default: random
@@ -80,7 +105,7 @@ properties:
     minimum: 1.0
     maximum: 100.0
     multipleOf: 1.0
-    description: 'Number of quantization bands per colour channel. Used by: posterize.'
+    description: 'Number of colour quantization bands per RGB channel. Used by: cutout, posterize.'
   octave_count:
     type: number
     minimum: 1.0
@@ -100,6 +125,18 @@ properties:
     maximum: 6.0
     multipleOf: 0.5
     description: 'Blur kernel half-size in cells. 1 = 3×3 neighbourhood, 2 = 5×5, etc. Used by: blur.'
+  saturation:
+    type: number
+    minimum: 0.5
+    maximum: 1.5
+    multipleOf: 0.05
+    description: 'Per-cell saturation multiplier after edge shaping. Used by: cutout.'
+  simplify:
+    type: number
+    minimum: 0.0
+    maximum: 8.0
+    multipleOf: 1.0
+    description: 'Box-blur smoothing passes applied before quantization. Used by: cutout.'
   speed:
     type: number
     minimum: 0.0
