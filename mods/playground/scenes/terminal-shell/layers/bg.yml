@@ -8,16 +8,11 @@
   sprites:
     - type: text
       id: ui-shell-header
-      at: ct
-      y: -10
-      content: "PLAYGROUND // TERMINAL SHELL PROJECT"
-      fg: "#8C8C8C"
-    - type: text
-      id: ui-shell-subheader
-      at: ct
-      y: -8
-      content: "background output stream"
-      fg: "#6D6D6D"
+      at: lt
+      x: 2
+      y: 0
+      content: "TERMINAL OUTPUT"
+      fg: "#707070"
     - type: text
       id: ui-terminal-output
       at: lt

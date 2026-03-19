@@ -8,14 +8,15 @@
   sprites:
     - type: text
       id: ui-shell-status
-      at: ct
-      y: 10
-      content: "WAITING FOR OPERATOR INPUT"
-      fg: "#7B7B7B"
+      at: cb
+      y: -10
+      content: "waiting for operator input"
+      fg: "#727272"
     - type: text
       id: ui-shell-status-cursor
-      at: ct
-      y: 11
+      at: cb
+      x: -16
+      y: -10
       content: "*"
       fg: "#F39C12"
       behaviors:
@@ -27,5 +28,5 @@
       at: cb
       y: -1
       content: "ESC ON EMPTY PROMPT: BACK TO MENU"
-      fg: "#8A8A8A"
+      fg: "#7B7B7B"
       hide_on_leave: true
