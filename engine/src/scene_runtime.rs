@@ -7,7 +7,7 @@ use crate::behavior::{
 use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
 use crate::scene::{
-    normalize_theme_key, resolve_ui_theme, BehaviorSpec, Scene, SceneRenderedMode, Sprite,
+    resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite,
     TerminalShellControls, UiThemeStyle,
 };
 use crate::systems::animator::SceneStage;
@@ -873,8 +873,9 @@ impl SceneRuntime {
         }
         self.ui_state.focus_order = focus_order;
         self.ui_state.focused_index = 0;
-        self.ui_state.theme_id = normalize_theme_key(self.scene.ui.theme.as_deref());
-        self.ui_state.theme_style = resolve_ui_theme(self.scene.ui.theme.as_deref());
+        let resolved_theme = resolve_ui_theme_or_default(self.scene.ui.theme.as_deref());
+        self.ui_state.theme_id = Some(resolved_theme.id.to_string());
+        self.ui_state.theme_style = Some(resolved_theme);
         self.ui_state.last_submit = None;
         self.ui_state.last_change = None;
     }
@@ -1454,9 +1455,25 @@ layers: []
         )
         .expect("scene should parse");
         let runtime = SceneRuntime::new(scene);
-        assert_eq!(runtime.ui_theme_id(), Some("windows-98"));
+        assert_eq!(runtime.ui_theme_id(), Some("win98"));
         let style = runtime.ui_theme_style().expect("theme style");
         assert_eq!(style.id, "win98");
+    }
+
+    #[test]
+    fn falls_back_to_engine_default_theme_when_ui_theme_missing() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: ui-theme-runtime-default
+title: UI Theme Runtime Default
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        let runtime = SceneRuntime::new(scene);
+        assert_eq!(runtime.ui_theme_id(), Some("engine-default"));
+        let style = runtime.ui_theme_style().expect("theme style");
+        assert_eq!(style.id, "engine-default");
     }
 
     #[test]
