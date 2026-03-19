@@ -65,6 +65,7 @@ pub fn render_sprites(
             sprite,
             root_area,
             scene_rendered_mode,
+            None,
             target_resolver,
             object_regions,
             object_states,
@@ -79,6 +80,7 @@ fn render_sprite(
     sprite: &Sprite,
     area: RenderArea,
     inherited_mode: SceneRenderedMode,
+    clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut BTreeMap<String, Region>,
     object_states: &BTreeMap<String, ObjectRuntimeState>,
@@ -164,12 +166,7 @@ fn render_sprite(
                 sprite_elapsed,
                 &object_state,
             );
-            let clip = Some(ClipRect {
-                x: area.origin_x,
-                y: area.origin_y,
-                width: area.width,
-                height: area.height,
-            });
+            let clip = clip_rect;
 
             if let Some(glow_opts) = glow.as_ref() {
                 let glow_col = glow_opts
@@ -386,6 +383,13 @@ fn render_sprite(
                 width: inner_w.max(1),
                 height: inner_h.max(1),
             };
+            let panel_inner_clip = Some(ClipRect {
+                x: inner_area.origin_x,
+                y: inner_area.origin_y,
+                width: inner_area.width,
+                height: inner_area.height,
+            });
+            let child_clip = intersect_clip_rect(clip_rect, panel_inner_clip);
             for (child_idx, child) in children.iter().enumerate() {
                 sprite_path.push(child_idx);
                 render_sprite(
@@ -394,6 +398,7 @@ fn render_sprite(
                     child,
                     inner_area,
                     resolved_mode,
+                    child_clip,
                     target_resolver,
                     object_regions,
                     object_states,
@@ -467,6 +472,7 @@ fn render_sprite(
                 draw_x,
                 draw_y,
                 resolved_mode,
+                clip_rect,
                 target_resolver,
                 object_regions,
                 object_states,
@@ -535,6 +541,7 @@ fn render_sprite(
                 draw_x,
                 draw_y,
                 resolved_mode,
+                clip_rect,
                 target_resolver,
                 object_regions,
                 object_states,
@@ -721,6 +728,27 @@ fn render_panel_box(
                 draw_y.saturating_add(py as i32),
                 color,
             );
+        }
+    }
+}
+
+fn intersect_clip_rect(a: Option<ClipRect>, b: Option<ClipRect>) -> Option<ClipRect> {
+    match (a, b) {
+        (None, other) | (other, None) => other,
+        (Some(a), Some(b)) => {
+            let left = a.x.max(b.x);
+            let top = a.y.max(b.y);
+            let right = (a.x + i32::from(a.width)).min(b.x + i32::from(b.width));
+            let bottom = (a.y + i32::from(a.height)).min(b.y + i32::from(b.height));
+            if right <= left || bottom <= top {
+                return None;
+            }
+            Some(ClipRect {
+                x: left,
+                y: top,
+                width: (right - left) as u16,
+                height: (bottom - top) as u16,
+            })
         }
     }
 }
