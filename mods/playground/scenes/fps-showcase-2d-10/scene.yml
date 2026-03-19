@@ -1,9 +1,9 @@
-# yaml-language-server: $schema=../schemas/scenes.yaml
+# yaml-language-server: $schema=../../schemas/scenes.yaml
 # Authored YAML v2 example: prefer `bg`, `fg`, `at`, and `pause` shorthands where the current compiler supports them.
-id: playground-fps-showcase-2d-20
-title: FPS Showcase 2D 20
+id: playground-fps-showcase-2d-10
+title: FPS Showcase 2D 10
 cutscene: true
-target-fps: 20
+target-fps: 10
 bg: black
 rendered-mode: halfblock
 stages-ref: /stages/fps-timeout-5s.yml
@@ -12,7 +12,7 @@ layers:
     z_index: 0
     sprites:
       - type: image
-        id: tux-20
+        id: tux-10
         source: "/assets/images/tux.png"
         at: cc
         y: 1
@@ -25,9 +25,9 @@ layers:
         font: "generic:1"
         fg: white
       - type: text
-        content: "SCENE 2/6  PENGUIN  TARGET 20 FPS  5s"
+        content: "SCENE 3/6  PENGUIN  TARGET 10 FPS  5s"
         at: cb
         y: -1
         font: "generic:1"
         fg: gray
-next: playground-fps-showcase-2d-10
+next: playground-fps-showcase-30

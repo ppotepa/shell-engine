@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: terminal-window
+exports:
+  frame_id: terminal-window-frame
+  title_id: terminal-window-title
+  output_id: terminal-window-output
+  prompt_id: terminal-window-prompt
+  title: TERMINAL WINDOW
+  width: 66
+  height: 15
+  x: 0
+  y: 4
+sprites:
+  - type: grid
+    id: "$frame_id"
+    at: cc
+    x: "$x"
+    y: "$y"
+    width: "$width"
+    height: "$height"
+    columns: ["1fr"]
+    rows: ["auto", "auto", "auto", "1fr", "auto", "auto", "auto"]
+    children:
+      - { type: text, content: "┌────────────────────────────────────────────────────────────────┐", grid-col: 1, grid-row: 1, at: cc, fg: gray, font: "generic:1" }
+      - { type: text, id: "$title_id", content: "$title", grid-col: 1, grid-row: 2, at: cc, fg: white, font: "generic:1" }
+      - { type: text, content: "├────────────────────────────────────────────────────────────────┤", grid-col: 1, grid-row: 3, at: cc, fg: gray, font: "generic:1" }
+      - { type: text, id: "$output_id", content: "", grid-col: 1, grid-row: 4, at: lt, x: 2, y: 0, fg: silver, font: "generic:1" }
+      - { type: text, content: "├────────────────────────────────────────────────────────────────┤", grid-col: 1, grid-row: 5, at: cc, fg: gray, font: "generic:1" }
+      - { type: text, id: "$prompt_id", content: "", grid-col: 1, grid-row: 6, at: lt, x: 2, y: 0, fg: green, font: "generic:1" }
+      - { type: text, content: "└────────────────────────────────────────────────────────────────┘", grid-col: 1, grid-row: 7, at: cc, fg: gray, font: "generic:1" }

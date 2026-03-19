@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: terminal-shell-windows
+  z_index: 1
+  objects:
+    - ref: terminal-window
+      as: ui-terminal-window
+      with:
+        frame_id: ui-terminal-frame
+        title_id: ui-terminal-title
+        output_id: ui-terminal-output
+        prompt_id: ui-terminal-prompt
+        title: "TERMINAL WINDOW // FOREGROUND"
+        width: 66
+        height: 15
+        x: 0
+        y: 4

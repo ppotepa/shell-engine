@@ -30,3 +30,5 @@ menu-options:
   - { key: "6", label: FONT MODE SHOWCASE, to: playground-font-showcase }
   - { key: "7", label: TERMINAL SHELL DEMO, to: playground-terminal-shell }
   - { key: "8", label: LAYOUT LAB, to: playground-layout-lab }
+  - { key: "9", label: RHAI LAB, to: playground-rhai-lab }
+  - { key: "0", label: EXIT, to: playground-exit }

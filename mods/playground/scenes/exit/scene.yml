@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-exit
+title: Exit
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - pause: 1ms
+next: null
+

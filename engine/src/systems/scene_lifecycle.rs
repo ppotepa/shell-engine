@@ -1,3 +1,4 @@
+use crate::debug_features::DebugFeatures;
 use crate::events::EngineEvent;
 use crate::scene::{self, SceneRenderedMode};
 use crate::scene_runtime::SceneRuntime;
@@ -10,6 +11,8 @@ use crossterm::terminal::SetSize;
 use std::io::stdout;
 
 pub struct SceneLifecycleManager;
+const PLAYGROUND_MENU_ID: &str = "playground-menu";
+const PLAYGROUND_EXIT_ID: &str = "playground-exit";
 
 #[derive(Default)]
 struct LifecycleEvents {
@@ -40,8 +43,8 @@ impl SceneLifecycleManager {
         if !lifecycle.mouse_moves.is_empty() {
             handle_playground_3d_mouse(world, &lifecycle.mouse_moves);
         }
-        Self::apply_transitions(world, lifecycle.transitions);
-        lifecycle.quit
+        let quit_from_transition = Self::apply_transitions(world, lifecycle.transitions);
+        lifecycle.quit || quit_from_transition
     }
 
     fn handle_virtual_buffer_resize(world: &mut World, term_width: u16, term_height: u16) {
@@ -64,6 +67,12 @@ impl SceneLifecycleManager {
     }
 
     fn advance_on_any_key(world: &mut World, key_presses: &[KeyEvent]) {
+        if handle_debug_controls(world, key_presses) {
+            return;
+        }
+        if handle_playground_escape_to_menu(world, key_presses) {
+            return;
+        }
         if handle_terminal_shell_controls(world, key_presses) {
             return;
         }
@@ -105,7 +114,7 @@ impl SceneLifecycleManager {
         }
     }
 
-    fn apply_transitions(world: &mut World, transitions: Vec<String>) {
+    fn apply_transitions(world: &mut World, transitions: Vec<String>) -> bool {
         for to_scene_ref in transitions {
             let Some(new_scene) = world
                 .scene_loader()
@@ -113,11 +122,15 @@ impl SceneLifecycleManager {
             else {
                 continue;
             };
+            if new_scene.id == PLAYGROUND_EXIT_ID {
+                return true;
+            }
             Self::apply_virtual_size_override(world, &new_scene);
             world.clear_scoped();
             world.register_scoped(SceneRuntime::new(new_scene));
             world.register_scoped(Animator::new());
         }
+        false
     }
 
     fn apply_virtual_size_override(world: &mut World, scene: &scene::Scene) {
@@ -176,6 +189,92 @@ fn begin_leave(a: &mut crate::systems::animator::Animator) {
     a.stage = SceneStage::OnLeave;
     a.step_idx = 0;
     a.elapsed_ms = 0;
+}
+
+fn handle_playground_escape_to_menu(world: &mut World, key_presses: &[KeyEvent]) -> bool {
+    if !is_scene_idle(world) {
+        return false;
+    }
+    if !key_presses
+        .iter()
+        .any(|key| matches!(key.code, KeyCode::Esc))
+    {
+        return false;
+    }
+
+    let Some(scene_id) = world
+        .scene_runtime()
+        .map(|runtime| runtime.scene().id.clone())
+    else {
+        return false;
+    };
+    if !scene_id.starts_with("playground-")
+        || scene_id == PLAYGROUND_MENU_ID
+        || scene_id == PLAYGROUND_EXIT_ID
+    {
+        return false;
+    }
+
+    if let Some(animator) = world.animator_mut() {
+        animator.next_scene_override = Some(PLAYGROUND_MENU_ID.to_string());
+        begin_leave(animator);
+    }
+    true
+}
+
+fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
+    let debug_enabled = world
+        .get::<DebugFeatures>()
+        .map(|debug| debug.enabled)
+        .unwrap_or(false);
+    if !debug_enabled {
+        return false;
+    }
+
+    let mut handled = false;
+    for key in key_presses {
+        match key.code {
+            KeyCode::F(1) => {
+                if let Some(debug) = world.get_mut::<DebugFeatures>() {
+                    debug.overlay_visible = !debug.overlay_visible;
+                    handled = true;
+                }
+            }
+            KeyCode::F(3) | KeyCode::F(4) => {
+                if !is_scene_idle(world) {
+                    continue;
+                }
+                let target_scene = {
+                    let Some(current_scene_id) = world
+                        .scene_runtime()
+                        .map(|runtime| runtime.scene().id.clone())
+                    else {
+                        continue;
+                    };
+                    let Some(loader) = world.scene_loader() else {
+                        continue;
+                    };
+                    let candidate = if matches!(key.code, KeyCode::F(3)) {
+                        loader.prev_scene_id(&current_scene_id)
+                    } else {
+                        loader.next_scene_id(&current_scene_id)
+                    };
+                    match candidate {
+                        Some(scene_id) if scene_id != current_scene_id => Some(scene_id),
+                        _ => None,
+                    }
+                };
+
+                if let (Some(scene_id), Some(animator)) = (target_scene, world.animator_mut()) {
+                    animator.next_scene_override = Some(scene_id);
+                    begin_leave(animator);
+                    handled = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    handled
 }
 
 fn active_obj_viewer_target(world: &World) -> Option<String> {
@@ -400,6 +499,7 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
 #[cfg(test)]
 mod tests {
     use super::{classify_events, SceneLifecycleManager};
+    use crate::debug_features::DebugFeatures;
     use crate::events::EngineEvent;
     use crate::scene::{
         MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage, StageTrigger,
@@ -740,6 +840,76 @@ layers:
     }
 
     #[test]
+    fn playground_escape_routes_scene_back_to_playground_menu() {
+        let scene = make_cutscene("playground-layout-lab", Some("other"));
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Esc)]);
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnLeave);
+        assert_eq!(
+            animator.next_scene_override.as_deref(),
+            Some("playground-menu")
+        );
+    }
+
+    #[test]
+    fn debug_f4_moves_to_next_scene_in_loader_order() {
+        let temp = tempdir().expect("temp dir");
+        let mod_root = temp.path();
+        fs::create_dir_all(mod_root.join("scenes")).expect("create scenes dir");
+        fs::write(
+            mod_root.join("scenes/a.yml"),
+            "id: scene-a\ntitle: A\nbg_colour: black\nlayers: []\nnext: null\n",
+        )
+        .expect("write a");
+        fs::write(
+            mod_root.join("scenes/b.yml"),
+            "id: scene-b\ntitle: B\nbg_colour: black\nlayers: []\nnext: null\n",
+        )
+        .expect("write b");
+
+        let mut world = World::new();
+        world.register(SceneLoader::new(mod_root.to_path_buf()).expect("scene loader"));
+        world.register(DebugFeatures {
+            enabled: true,
+            overlay_visible: true,
+        });
+        world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", Some("scene-b"))));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::F(4))]);
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnLeave);
+        assert_eq!(animator.next_scene_override.as_deref(), Some("scene-b"));
+    }
+
+    #[test]
+    fn debug_f1_toggles_overlay_visibility() {
+        let mut world = World::new();
+        world.register(DebugFeatures {
+            enabled: true,
+            overlay_visible: true,
+        });
+        world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", None)));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::F(1))]);
+
+        let debug = world
+            .get::<DebugFeatures>()
+            .expect("debug settings present");
+        assert!(debug.enabled);
+        assert!(!debug.overlay_visible);
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+    }
+
+    #[test]
     fn menu_option_key_sets_next_scene_override() {
         let scene = make_menu_scene(vec![
             make_menu_option("1", "3D SCENE", "playground-3d-scene"),
@@ -910,5 +1080,41 @@ layers:
         assert!(!quit);
         let scene = world.get::<SceneRuntime>().expect("scene present");
         assert_eq!(scene.scene().id, "mainmenu");
+    }
+
+    #[test]
+    fn transitioning_to_playground_exit_requests_quit() {
+        let temp = tempdir().expect("temp dir");
+        let mod_root = temp.path();
+        fs::create_dir_all(mod_root.join("scenes")).expect("create scenes dir");
+        fs::write(
+            mod_root.join("scenes/intro.yml"),
+            "id: intro\ntitle: Intro\nbg_colour: black\nlayers: []\nnext: null\n",
+        )
+        .expect("write intro");
+        fs::write(
+            mod_root.join("scenes/exit.yml"),
+            "id: playground-exit\ntitle: Exit\nbg_colour: black\nlayers: []\nnext: null\n",
+        )
+        .expect("write exit");
+
+        let mut world = World::new();
+        world.register(SceneLoader::new(mod_root.to_path_buf()).expect("scene loader"));
+        world.register_scoped(SceneRuntime::new(make_cutscene(
+            "intro",
+            Some("playground-exit"),
+        )));
+        world.register_scoped(Animator::new());
+
+        let quit = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::SceneTransition {
+                to_scene_id: "playground-exit".to_string(),
+            }],
+        );
+
+        assert!(quit);
+        let scene = world.get::<SceneRuntime>().expect("scene present");
+        assert_eq!(scene.scene().id, "intro");
     }
 }

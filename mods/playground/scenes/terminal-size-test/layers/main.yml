@@ -5,7 +5,14 @@
     type: text
     font: "generic:1"
   sprites:
-    - { content: "TERMINAL SIZE TEST", at: ct, y: 2, fg: white }
-    - { content: "Press 1..4 to force terminal size live", at: cc, y: -1, fg: yellow }
-    - { content: "1: 80x24  |  2: 100x30  |  3: 120x36  |  4: 160x48", at: cc, y: 1, fg: silver }
-    - { content: "ENTER: back to menu", at: cb, y: -1, fg: gray, hide_on_leave: true }
+    - type: grid
+      id: terminal-size-root
+      at: cc
+      columns: ["1fr"]
+      rows: ["auto", "auto", "auto", "auto"]
+      gap-y: 1
+      children:
+        - { content: "TERMINAL SIZE TEST", grid-col: 1, grid-row: 1, at: cc, fg: white }
+        - { content: "Press 1..4 to force terminal size live", grid-col: 1, grid-row: 2, at: cc, fg: yellow }
+        - { content: "1: 80x24 | 2: 100x30 | 3: 120x36 | 4: 160x48", grid-col: 1, grid-row: 3, at: cc, fg: silver }
+        - { content: "ENTER: back to menu", grid-col: 1, grid-row: 4, at: cc, fg: gray, hide_on_leave: true }

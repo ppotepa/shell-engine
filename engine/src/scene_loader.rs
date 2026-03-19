@@ -21,16 +21,18 @@ pub fn load_scene(mod_source: &Path, scene_path: &str) -> Result<Scene, EngineEr
 pub struct SceneLoader {
     repo: AnySceneRepository,
     scene_path_by_id: HashMap<String, String>,
+    scene_ids_in_order: Vec<String>,
 }
 
 impl SceneLoader {
     /// Builds a loader and indexes discoverable scene ids for later lookups.
     pub fn new(mod_source: PathBuf) -> Result<Self, EngineError> {
         let repo = create_scene_repository(&mod_source)?;
-        let scene_path_by_id = build_scene_id_index(&repo)?;
+        let (scene_path_by_id, scene_ids_in_order) = build_scene_id_index(&repo)?;
         Ok(Self {
             repo,
             scene_path_by_id,
+            scene_ids_in_order,
         })
     }
 
@@ -58,17 +60,51 @@ impl SceneLoader {
         }
         self.load_by_id(trimmed)
     }
+
+    /// Returns the previous scene id in repository discovery order (wrap-around).
+    pub fn prev_scene_id(&self, current_scene_id: &str) -> Option<String> {
+        let len = self.scene_ids_in_order.len();
+        if len == 0 {
+            return None;
+        }
+        let idx = self
+            .scene_ids_in_order
+            .iter()
+            .position(|id| id == current_scene_id)?;
+        let prev_idx = if idx == 0 { len - 1 } else { idx - 1 };
+        self.scene_ids_in_order.get(prev_idx).cloned()
+    }
+
+    /// Returns the next scene id in repository discovery order (wrap-around).
+    pub fn next_scene_id(&self, current_scene_id: &str) -> Option<String> {
+        let len = self.scene_ids_in_order.len();
+        if len == 0 {
+            return None;
+        }
+        let idx = self
+            .scene_ids_in_order
+            .iter()
+            .position(|id| id == current_scene_id)?;
+        let next_idx = (idx + 1) % len;
+        self.scene_ids_in_order.get(next_idx).cloned()
+    }
 }
 
-fn build_scene_id_index(repo: &AnySceneRepository) -> Result<HashMap<String, String>, EngineError> {
+fn build_scene_id_index(
+    repo: &AnySceneRepository,
+) -> Result<(HashMap<String, String>, Vec<String>), EngineError> {
     let mut scene_path_by_id = HashMap::new();
+    let mut scene_ids_in_order = Vec::new();
     for path in repo.discover_scene_paths()? {
         let Ok(scene) = repo.load_scene(&path) else {
             continue;
         };
+        if !scene_path_by_id.contains_key(&scene.id) {
+            scene_ids_in_order.push(scene.id.clone());
+        }
         scene_path_by_id.entry(scene.id).or_insert(path);
     }
-    Ok(scene_path_by_id)
+    Ok((scene_path_by_id, scene_ids_in_order))
 }
 
 #[cfg(test)]
@@ -131,5 +167,31 @@ next: null
             .expect("resolve packaged scene by id");
         assert_eq!(scene.id, "packaged-intro");
         assert_eq!(scene.layers.len(), 1);
+    }
+
+    #[test]
+    fn prev_next_scene_id_wraps_in_discovery_order() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes dir");
+        fs::write(
+            mod_dir.join("scenes/a.yml"),
+            "id: scene-a\ntitle: A\nbg_colour: black\nlayers: []\n",
+        )
+        .expect("write scene a");
+        fs::write(
+            mod_dir.join("scenes/b.yml"),
+            "id: scene-b\ntitle: B\nbg_colour: black\nlayers: []\n",
+        )
+        .expect("write scene b");
+        fs::write(
+            mod_dir.join("scenes/c.yml"),
+            "id: scene-c\ntitle: C\nbg_colour: black\nlayers: []\n",
+        )
+        .expect("write scene c");
+
+        let loader = SceneLoader::new(mod_dir).expect("create scene loader");
+        assert_eq!(loader.next_scene_id("scene-a").as_deref(), Some("scene-b"));
+        assert_eq!(loader.prev_scene_id("scene-a").as_deref(), Some("scene-c"));
     }
 }
