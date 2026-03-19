@@ -3,6 +3,7 @@
 
 use engine_core::scene::template::expand_scene_templates;
 use engine_core::scene::Scene;
+use serde::de::Error as _;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
 
@@ -24,14 +25,14 @@ impl SceneDocument {
     /// Normalizes authored YAML and materializes the runtime [`Scene`] model.
     pub fn compile(self) -> Result<Scene, serde_yaml::Error> {
         let mut normalized = self.raw;
-        normalize_scene_value(&mut normalized);
+        normalize_scene_value(&mut normalized)?;
         serde_yaml::from_value(normalized)
     }
 }
 
-fn normalize_scene_value(root: &mut Value) {
+fn normalize_scene_value(root: &mut Value) -> Result<(), serde_yaml::Error> {
     let Some(scene) = root.as_mapping_mut() else {
-        return;
+        return Ok(());
     };
 
     apply_alias(scene, "bg", "bg_colour");
@@ -40,10 +41,17 @@ fn normalize_scene_value(root: &mut Value) {
     if let Some(stages) = scene.get_mut(Value::String("stages".to_string())) {
         normalize_stages(stages);
     }
-    if let Some(layers) = scene.get_mut(Value::String("layers".to_string())) {
-        normalize_layers(layers);
-    }
     normalize_menu_options(scene);
+    expand_menu_ui(scene);
+    let scene_sprite_defaults = scene
+        .get(Value::String("sprite-defaults".to_string()))
+        .and_then(Value::as_mapping)
+        .cloned();
+    if let Some(layers) = scene.get_mut(Value::String("layers".to_string())) {
+        normalize_layers(layers, scene_sprite_defaults.as_ref())?;
+    }
+    scene.remove(Value::String("sprite-defaults".to_string()));
+    Ok(())
 }
 
 fn normalize_stages(stages: &mut Value) {
@@ -96,32 +104,60 @@ fn normalize_stage(stage: &mut Value) {
 /// Recursively normalizes all sprites in all layers.
 ///
 /// Documented in: engine_core::authoring::catalog::sugar_catalog()
-fn normalize_layers(layers: &mut Value) {
+fn normalize_layers(
+    layers: &mut Value,
+    inherited_defaults: Option<&Mapping>,
+) -> Result<(), serde_yaml::Error> {
     let Some(layer_seq) = layers.as_sequence_mut() else {
-        return;
+        return Ok(());
     };
     for layer in layer_seq {
         let Some(layer_map) = layer.as_mapping_mut() else {
             continue;
         };
+        let layer_defaults = merge_defaults(
+            inherited_defaults,
+            layer_map
+                .get(Value::String("sprite-defaults".to_string()))
+                .and_then(Value::as_mapping),
+        );
         let Some(sprites) = layer_map.get_mut(Value::String("sprites".to_string())) else {
             continue;
         };
-        normalize_sprites(sprites);
+        normalize_sprites(sprites, layer_defaults.as_ref())?;
+        layer_map.remove(Value::String("sprite-defaults".to_string()));
     }
+    Ok(())
 }
 
 /// Applies aliases and anchor expansions to sprite fields.
 ///
 /// Documented in: engine_core::authoring::catalog::sugar_catalog()
-fn normalize_sprites(sprites: &mut Value) {
+fn normalize_sprites(
+    sprites: &mut Value,
+    inherited_defaults: Option<&Mapping>,
+) -> Result<(), serde_yaml::Error> {
     let Some(sprite_seq) = sprites.as_sequence_mut() else {
-        return;
+        return Ok(());
     };
-    for sprite in sprite_seq {
+    let mut out = Vec::with_capacity(sprite_seq.len());
+    for mut sprite in std::mem::take(sprite_seq) {
         let Some(sprite_map) = sprite.as_mapping_mut() else {
+            out.push(sprite);
             continue;
         };
+        let local_defaults = sprite_map
+            .get(Value::String("sprite-defaults".to_string()))
+            .and_then(Value::as_mapping)
+            .cloned();
+        apply_defaults(sprite_map, inherited_defaults);
+        if is_sprite_type(sprite_map, "frame-sequence") {
+            let seq_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
+            let mut expanded = expand_frame_sequence(sprite_map, seq_defaults.as_ref())?;
+            out.append(&mut expanded);
+            continue;
+        }
+
         apply_alias(sprite_map, "fg", "fg_colour");
         apply_alias(sprite_map, "bg", "bg_colour");
         apply_at_anchor(sprite_map);
@@ -131,13 +167,19 @@ fn normalize_sprites(sprites: &mut Value) {
             sprite_map
                 .get(Value::String("type".to_string()))
                 .and_then(Value::as_str),
-            Some("grid")
+            Some("grid" | "flex")
         ) {
             if let Some(children) = sprite_map.get_mut(Value::String("children".to_string())) {
-                normalize_sprites(children);
+                let child_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
+                normalize_sprites(children, child_defaults.as_ref())?;
             }
         }
+
+        sprite_map.remove(Value::String("sprite-defaults".to_string()));
+        out.push(sprite);
     }
+    *sprite_seq = out;
+    Ok(())
 }
 
 /// Expands `to: scene_id` shorthand into `{scene, next}`.
@@ -166,6 +208,518 @@ fn normalize_menu_options(scene: &mut Mapping) {
                 .or_insert(to_value);
         }
     }
+}
+
+fn expand_menu_ui(scene: &mut Mapping) {
+    let Some(menu_ui_cfg) = scene
+        .get(Value::String("menu-ui".to_string()))
+        .and_then(Value::as_mapping)
+        .cloned()
+    else {
+        return;
+    };
+    let options = collect_menu_options(scene);
+    if options.is_empty() {
+        scene.remove(Value::String("menu-ui".to_string()));
+        return;
+    }
+    let Some(layer_map) = resolve_menu_ui_target_layer(scene, &menu_ui_cfg) else {
+        scene.remove(Value::String("menu-ui".to_string()));
+        return;
+    };
+    let sprites = layer_map
+        .entry(Value::String("sprites".to_string()))
+        .or_insert_with(|| Value::Sequence(Vec::new()));
+    let Some(sprite_seq) = sprites.as_sequence_mut() else {
+        scene.remove(Value::String("menu-ui".to_string()));
+        return;
+    };
+
+    let grid_id = cfg_str(&menu_ui_cfg, &["grid-id", "grid_id"]).unwrap_or("menu-grid");
+    let item_prefix =
+        cfg_str(&menu_ui_cfg, &["item-prefix", "item_prefix"]).unwrap_or("menu-item-");
+    let font = cfg_str(&menu_ui_cfg, &["font"]).unwrap_or("generic:1");
+    let at = cfg_str(&menu_ui_cfg, &["at"]).unwrap_or("cc");
+    let window = cfg_u64(&menu_ui_cfg, &["window"]).unwrap_or(5).max(1);
+    let step_y = cfg_u64(&menu_ui_cfg, &["step-y", "step_y"])
+        .unwrap_or(2)
+        .max(1);
+    let endless = cfg_bool(&menu_ui_cfg, &["endless"]).unwrap_or(true);
+    let arrows = cfg_bool(&menu_ui_cfg, &["arrows"]).unwrap_or(true);
+    let width = cfg_u64(&menu_ui_cfg, &["width"]).unwrap_or(56);
+    let height = cfg_u64(&menu_ui_cfg, &["height"]).unwrap_or(10);
+    let gap_y = cfg_u64(&menu_ui_cfg, &["gap-y", "gap_y"]).unwrap_or(2);
+    let fg_selected = cfg_str(&menu_ui_cfg, &["fg-selected", "fg_selected"]).unwrap_or("white");
+    let fg_alt_a = cfg_str(&menu_ui_cfg, &["fg-alt-a", "fg_alt_a"]).unwrap_or("silver");
+    let fg_alt_b = cfg_str(&menu_ui_cfg, &["fg-alt-b", "fg_alt_b"]).unwrap_or("gray");
+
+    let mut rows = Vec::with_capacity(options.len());
+    let mut children = Vec::with_capacity(options.len());
+    for (idx, option) in options.iter().enumerate() {
+        rows.push(Value::String("auto".to_string()));
+        let item_id = format!("{item_prefix}{idx}");
+        let fg = if idx == 0 {
+            fg_selected
+        } else if idx % 2 == 0 {
+            fg_alt_b
+        } else {
+            fg_alt_a
+        };
+        let content = format!("[{}] {}", option.key, option.label);
+        children.push(Value::Mapping(menu_item_sprite(
+            &item_id, &content, idx, grid_id, window, step_y, endless, font, at, fg,
+        )));
+    }
+
+    let mut grid = Mapping::new();
+    grid.insert(
+        Value::String("type".to_string()),
+        Value::String("grid".to_string()),
+    );
+    grid.insert(
+        Value::String("id".to_string()),
+        Value::String(grid_id.to_string()),
+    );
+    grid.insert(
+        Value::String("at".to_string()),
+        Value::String(at.to_string()),
+    );
+    grid.insert(
+        Value::String("width".to_string()),
+        Value::Number(Number::from(width)),
+    );
+    grid.insert(
+        Value::String("height".to_string()),
+        Value::Number(Number::from(height)),
+    );
+    grid.insert(
+        Value::String("columns".to_string()),
+        Value::Sequence(vec![Value::String("1fr".to_string())]),
+    );
+    grid.insert(Value::String("rows".to_string()), Value::Sequence(rows));
+    grid.insert(
+        Value::String("gap-y".to_string()),
+        Value::Number(Number::from(gap_y)),
+    );
+    grid.insert(
+        Value::String("children".to_string()),
+        Value::Sequence(children),
+    );
+    sprite_seq.push(Value::Mapping(grid));
+
+    if arrows {
+        for (idx, _) in options.iter().enumerate() {
+            let item_id = format!("{item_prefix}{idx}");
+            sprite_seq.push(Value::Mapping(arrow_sprite(
+                &format!("{item_id}-left-arrow"),
+                ">",
+                "left",
+                &item_id,
+                idx,
+                font,
+                at,
+            )));
+            sprite_seq.push(Value::Mapping(arrow_sprite(
+                &format!("{item_id}-right-arrow"),
+                "<",
+                "right",
+                &item_id,
+                idx,
+                font,
+                at,
+            )));
+        }
+    }
+    scene.remove(Value::String("menu-ui".to_string()));
+}
+
+#[derive(Clone)]
+struct MenuUiOption {
+    key: String,
+    label: String,
+}
+
+fn collect_menu_options(scene: &Mapping) -> Vec<MenuUiOption> {
+    for key in ["menu-options", "menu_options"] {
+        let Some(options) = scene.get(Value::String(key.to_string())) else {
+            continue;
+        };
+        let Some(seq) = options.as_sequence() else {
+            continue;
+        };
+        let mut out = Vec::with_capacity(seq.len());
+        for (idx, option) in seq.iter().enumerate() {
+            let Some(option_map) = option.as_mapping() else {
+                continue;
+            };
+            let key_value = option_map
+                .get(Value::String("key".to_string()))
+                .and_then(Value::as_str)
+                .map(ToString::to_string)
+                .unwrap_or_else(|| (idx + 1).to_string());
+            let label_value = option_map
+                .get(Value::String("label".to_string()))
+                .and_then(Value::as_str)
+                .map(ToString::to_string)
+                .unwrap_or_else(|| key_value.clone());
+            out.push(MenuUiOption {
+                key: key_value,
+                label: label_value,
+            });
+        }
+        return out;
+    }
+    Vec::new()
+}
+
+fn resolve_menu_ui_target_layer<'a>(
+    scene: &'a mut Mapping,
+    cfg: &Mapping,
+) -> Option<&'a mut Mapping> {
+    let layer_name =
+        cfg_str(cfg, &["layer", "target-layer", "target_layer"]).map(|s| s.to_string());
+    let layers = scene.get_mut(Value::String("layers".to_string()))?;
+    let layer_seq = layers.as_sequence_mut()?;
+    if let Some(name) = layer_name {
+        for layer in layer_seq {
+            let Some(layer_map) = layer.as_mapping_mut() else {
+                continue;
+            };
+            if layer_map
+                .get(Value::String("name".to_string()))
+                .and_then(Value::as_str)
+                == Some(name.as_str())
+            {
+                return Some(layer_map);
+            }
+        }
+        return None;
+    }
+    layer_seq.first_mut()?.as_mapping_mut()
+}
+
+fn menu_item_sprite(
+    id: &str,
+    content: &str,
+    index: usize,
+    grid_id: &str,
+    window: u64,
+    step_y: u64,
+    endless: bool,
+    font: &str,
+    at: &str,
+    fg: &str,
+) -> Mapping {
+    let mut sprite = Mapping::new();
+    sprite.insert(
+        Value::String("type".to_string()),
+        Value::String("text".to_string()),
+    );
+    sprite.insert(
+        Value::String("id".to_string()),
+        Value::String(id.to_string()),
+    );
+    sprite.insert(
+        Value::String("content".to_string()),
+        Value::String(content.to_string()),
+    );
+    sprite.insert(
+        Value::String("grid-col".to_string()),
+        Value::Number(Number::from(1)),
+    );
+    sprite.insert(
+        Value::String("grid-row".to_string()),
+        Value::Number(Number::from(index + 1)),
+    );
+    sprite.insert(
+        Value::String("at".to_string()),
+        Value::String(at.to_string()),
+    );
+    sprite.insert(
+        Value::String("font".to_string()),
+        Value::String(font.to_string()),
+    );
+    sprite.insert(
+        Value::String("fg".to_string()),
+        Value::String(fg.to_string()),
+    );
+    let mut params = Mapping::new();
+    params.insert(
+        Value::String("target".to_string()),
+        Value::String(grid_id.to_string()),
+    );
+    params.insert(
+        Value::String("index".to_string()),
+        Value::Number(Number::from(index)),
+    );
+    params.insert(
+        Value::String("window".to_string()),
+        Value::Number(Number::from(window)),
+    );
+    params.insert(
+        Value::String("step_y".to_string()),
+        Value::Number(Number::from(step_y)),
+    );
+    params.insert(Value::String("endless".to_string()), Value::Bool(endless));
+    let mut behavior = Mapping::new();
+    behavior.insert(
+        Value::String("name".to_string()),
+        Value::String("menu-carousel".to_string()),
+    );
+    behavior.insert(Value::String("params".to_string()), Value::Mapping(params));
+    sprite.insert(
+        Value::String("behaviors".to_string()),
+        Value::Sequence(vec![Value::Mapping(behavior)]),
+    );
+    sprite
+}
+
+fn arrow_sprite(
+    id: &str,
+    content: &str,
+    side: &str,
+    target: &str,
+    index: usize,
+    font: &str,
+    at: &str,
+) -> Mapping {
+    let mut sprite = Mapping::new();
+    sprite.insert(
+        Value::String("type".to_string()),
+        Value::String("text".to_string()),
+    );
+    sprite.insert(
+        Value::String("id".to_string()),
+        Value::String(id.to_string()),
+    );
+    sprite.insert(
+        Value::String("content".to_string()),
+        Value::String(content.to_string()),
+    );
+    sprite.insert(
+        Value::String("at".to_string()),
+        Value::String(at.to_string()),
+    );
+    sprite.insert(
+        Value::String("font".to_string()),
+        Value::String(font.to_string()),
+    );
+    sprite.insert(
+        Value::String("fg".to_string()),
+        Value::String("yellow".to_string()),
+    );
+    let mut params = Mapping::new();
+    params.insert(
+        Value::String("target".to_string()),
+        Value::String(target.to_string()),
+    );
+    params.insert(
+        Value::String("index".to_string()),
+        Value::Number(Number::from(index)),
+    );
+    params.insert(
+        Value::String("side".to_string()),
+        Value::String(side.to_string()),
+    );
+    params.insert(
+        Value::String("padding".to_string()),
+        Value::Number(Number::from(1)),
+    );
+    params.insert(
+        Value::String("amplitude_x".to_string()),
+        Value::Number(Number::from(1)),
+    );
+    params.insert(
+        Value::String("period_ms".to_string()),
+        Value::Number(Number::from(900)),
+    );
+    params.insert(
+        Value::String("autoscale_height".to_string()),
+        Value::Bool(true),
+    );
+    let mut behavior = Mapping::new();
+    behavior.insert(
+        Value::String("name".to_string()),
+        Value::String("selected-arrows".to_string()),
+    );
+    behavior.insert(Value::String("params".to_string()), Value::Mapping(params));
+    sprite.insert(
+        Value::String("behaviors".to_string()),
+        Value::Sequence(vec![Value::Mapping(behavior)]),
+    );
+    sprite
+}
+
+fn cfg_str<'a>(cfg: &'a Mapping, keys: &[&str]) -> Option<&'a str> {
+    keys.iter().find_map(|k| {
+        cfg.get(Value::String((*k).to_string()))
+            .and_then(Value::as_str)
+    })
+}
+
+fn cfg_u64(cfg: &Mapping, keys: &[&str]) -> Option<u64> {
+    keys.iter().find_map(|k| {
+        cfg.get(Value::String((*k).to_string()))
+            .and_then(Value::as_u64)
+    })
+}
+
+fn cfg_bool(cfg: &Mapping, keys: &[&str]) -> Option<bool> {
+    keys.iter().find_map(|k| {
+        cfg.get(Value::String((*k).to_string()))
+            .and_then(Value::as_bool)
+    })
+}
+
+fn is_sprite_type(map: &Mapping, expected: &str) -> bool {
+    map.get(Value::String("type".to_string()))
+        .and_then(Value::as_str)
+        .map(|ty| ty.eq_ignore_ascii_case(expected))
+        .unwrap_or(false)
+}
+
+fn merge_defaults(parent: Option<&Mapping>, local: Option<&Mapping>) -> Option<Mapping> {
+    if parent.is_none() && local.is_none() {
+        return None;
+    }
+    let mut merged = parent.cloned().unwrap_or_default();
+    if let Some(local_map) = local {
+        for (k, v) in local_map {
+            merged.insert(k.clone(), v.clone());
+        }
+    }
+    Some(merged)
+}
+
+fn apply_defaults(map: &mut Mapping, defaults: Option<&Mapping>) {
+    let Some(defaults_map) = defaults else {
+        return;
+    };
+    for (k, v) in defaults_map {
+        if k.as_str() == Some("sprite-defaults") {
+            continue;
+        }
+        if !map.contains_key(k) {
+            map.insert(k.clone(), v.clone());
+        }
+    }
+}
+
+fn expand_frame_sequence(
+    sprite_map: &Mapping,
+    inherited_defaults: Option<&Mapping>,
+) -> Result<Vec<Value>, serde_yaml::Error> {
+    let pattern = map_get_str(sprite_map, &["source-pattern", "source_pattern"])
+        .ok_or_else(|| serde_yaml::Error::custom("frame-sequence requires `source-pattern`"))?;
+    let from = map_get_u64(sprite_map, &["from"]).unwrap_or(1);
+    let to = if let Some(to_value) = map_get_u64(sprite_map, &["to"]) {
+        to_value
+    } else if let Some(count) = map_get_u64(sprite_map, &["count"]) {
+        from.saturating_add(count.saturating_sub(1))
+    } else {
+        return Err(serde_yaml::Error::custom(
+            "frame-sequence requires `to` or `count`",
+        ));
+    };
+    if to < from {
+        return Err(serde_yaml::Error::custom(
+            "frame-sequence requires `to >= from`",
+        ));
+    }
+    let delay_ms = map_get_u64(sprite_map, &["delay-ms", "delay_ms"]).unwrap_or(100);
+    if delay_ms == 0 {
+        return Err(serde_yaml::Error::custom(
+            "frame-sequence requires `delay-ms > 0`",
+        ));
+    }
+    let last_delay_ms =
+        map_get_u64(sprite_map, &["last-delay-ms", "last_delay_ms"]).unwrap_or(delay_ms);
+    if last_delay_ms == 0 {
+        return Err(serde_yaml::Error::custom(
+            "frame-sequence requires `last-delay-ms > 0`",
+        ));
+    }
+    let id_prefix = map_get_str(sprite_map, &["id-prefix", "id_prefix"]).unwrap_or("frame-");
+    let mut base = Mapping::new();
+    base.insert(
+        Value::String("type".to_string()),
+        Value::String("image".to_string()),
+    );
+    apply_defaults(&mut base, inherited_defaults);
+
+    for (k, v) in sprite_map {
+        let key = k.as_str().unwrap_or("");
+        if matches!(
+            key,
+            "type"
+                | "source-pattern"
+                | "source_pattern"
+                | "from"
+                | "to"
+                | "count"
+                | "delay-ms"
+                | "delay_ms"
+                | "last-delay-ms"
+                | "last_delay_ms"
+                | "start-at-ms"
+                | "start_at_ms"
+                | "id-prefix"
+                | "id_prefix"
+                | "sprite-defaults"
+        ) {
+            continue;
+        }
+        base.insert(k.clone(), v.clone());
+    }
+
+    let mut out = Vec::with_capacity((to - from + 1) as usize);
+    let mut elapsed = map_get_u64(sprite_map, &["start-at-ms", "start_at_ms"]).unwrap_or(0);
+    for idx in from..=to {
+        let mut frame = base.clone();
+        let source = pattern
+            .replace("{i}", &idx.to_string())
+            .replace("{index}", &idx.to_string());
+        frame.insert(
+            Value::String("id".to_string()),
+            Value::String(format!("{id_prefix}{idx}")),
+        );
+        frame.insert(Value::String("source".to_string()), Value::String(source));
+        frame.insert(
+            Value::String("appear_at_ms".to_string()),
+            Value::Number(Number::from(elapsed)),
+        );
+        let duration = if idx == to { last_delay_ms } else { delay_ms };
+        let disappear_at = elapsed.saturating_add(duration);
+        frame.insert(
+            Value::String("disappear_at_ms".to_string()),
+            Value::Number(Number::from(disappear_at)),
+        );
+        apply_alias(&mut frame, "fg", "fg_colour");
+        apply_alias(&mut frame, "bg", "bg_colour");
+        apply_at_anchor(&mut frame);
+        normalize_expression_fields(&mut frame);
+        out.push(Value::Mapping(frame));
+        elapsed = disappear_at;
+    }
+    Ok(out)
+}
+
+fn map_get_u64(map: &Mapping, keys: &[&str]) -> Option<u64> {
+    keys.iter().find_map(|key| {
+        map.get(Value::String((*key).to_string()))
+            .and_then(|value| {
+                value
+                    .as_u64()
+                    .or_else(|| value.as_str().and_then(|raw| raw.parse::<u64>().ok()))
+            })
+    })
+}
+
+fn map_get_str<'a>(map: &'a Mapping, keys: &[&str]) -> Option<&'a str> {
+    keys.iter().find_map(|key| {
+        map.get(Value::String((*key).to_string()))
+            .and_then(Value::as_str)
+    })
 }
 
 /// Renames field `from` to `to` if `to` is not already present.
@@ -488,5 +1042,124 @@ layers:
             }
             _ => panic!("expected obj"),
         }
+    }
+
+    #[test]
+    fn applies_sprite_defaults_with_child_override() {
+        let raw = r#"
+id: defaults
+title: Defaults
+sprite-defaults:
+  at: cc
+  font: "generic:1"
+  fg: silver
+layers:
+  - sprites:
+      - type: text
+        content: A
+      - type: text
+        content: B
+        fg: yellow
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Text {
+                align_x,
+                align_y,
+                font,
+                fg_colour,
+                ..
+            } => {
+                assert!(matches!(align_x, Some(HorizontalAlign::Center)));
+                assert!(matches!(align_y, Some(VerticalAlign::Center)));
+                assert_eq!(font.as_deref(), Some("generic:1"));
+                assert!(fg_colour.is_some());
+            }
+            _ => panic!("expected text"),
+        }
+        match &scene.layers[0].sprites[1] {
+            Sprite::Text { fg_colour, .. } => {
+                assert!(fg_colour.is_some());
+            }
+            _ => panic!("expected text"),
+        }
+    }
+
+    #[test]
+    fn expands_frame_sequence_to_timed_images() {
+        let raw = r#"
+id: sequence
+title: Sequence
+layers:
+  - sprites:
+      - type: frame-sequence
+        id-prefix: cut-
+        source-pattern: /assets/seq/{i}.png
+        from: 1
+        to: 3
+        delay-ms: 120
+        last-delay-ms: 200
+        at: cc
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        assert_eq!(scene.layers[0].sprites.len(), 3);
+        match &scene.layers[0].sprites[0] {
+            Sprite::Image {
+                source,
+                appear_at_ms,
+                disappear_at_ms,
+                ..
+            } => {
+                assert_eq!(source, "/assets/seq/1.png");
+                assert_eq!(*appear_at_ms, Some(0));
+                assert_eq!(*disappear_at_ms, Some(120));
+            }
+            _ => panic!("expected image"),
+        }
+        match &scene.layers[0].sprites[2] {
+            Sprite::Image {
+                source,
+                appear_at_ms,
+                disappear_at_ms,
+                ..
+            } => {
+                assert_eq!(source, "/assets/seq/3.png");
+                assert_eq!(*appear_at_ms, Some(240));
+                assert_eq!(*disappear_at_ms, Some(440));
+            }
+            _ => panic!("expected image"),
+        }
+    }
+
+    #[test]
+    fn expands_menu_ui_into_sprites() {
+        let raw = r#"
+id: menu
+title: Menu
+layers:
+  - name: main
+    sprites: []
+menu-options:
+  - key: "1"
+    label: PLAY
+    to: next-scene
+  - key: "2"
+    label: EXIT
+    to: quit-scene
+menu-ui:
+  layer: main
+  grid-id: test-grid
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        assert!(scene.layers[0].sprites.len() >= 3);
     }
 }

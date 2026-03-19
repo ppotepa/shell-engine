@@ -1,0 +1,4 @@
+on_idle:
+  trigger: timeout
+  steps:
+    - pause: 5000ms

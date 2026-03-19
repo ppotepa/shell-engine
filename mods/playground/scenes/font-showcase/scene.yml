@@ -5,14 +5,5 @@ title: Font Mode Showcase
 bg: black
 layers:
   - ref: main
-stages:
-  on_enter:
-    steps:
-      - { effects: [{ name: fade-in, duration: 250 }] }
-  on_idle:
-    trigger: any-key
-    steps: [{ pause: 1ms }]
-  on_leave:
-    steps:
-      - { effects: [{ name: fade-out, duration: 200 }] }
+stages-ref: /stages/anykey-fade-250-200.yml
 next: playground-menu

@@ -25,6 +25,7 @@ pub(crate) fn parse_track_spec(input: &str) -> TrackSpec {
 }
 
 /// Resolves track specs into concrete cell sizes inside the given container.
+#[cfg(test)]
 pub(crate) fn resolve_track_sizes(
     specs: &[TrackSpec],
     container: u16,
@@ -93,6 +94,7 @@ pub(crate) fn resolve_track_sizes(
 }
 
 /// Returns the start offset of a track inside the resolved sizes array.
+#[cfg(test)]
 pub(crate) fn track_start(sizes: &[u16], gap: u16, track_idx: usize) -> u16 {
     let mut pos = 0u16;
     for (i, size) in sizes.iter().enumerate() {
@@ -106,6 +108,7 @@ pub(crate) fn track_start(sizes: &[u16], gap: u16, track_idx: usize) -> u16 {
 }
 
 /// Returns the size of a multi-track span including gaps.
+#[cfg(test)]
 pub(crate) fn span_size(sizes: &[u16], gap: u16, start_idx: usize, span: usize) -> u16 {
     let end = (start_idx + span).min(sizes.len());
     if start_idx >= end {

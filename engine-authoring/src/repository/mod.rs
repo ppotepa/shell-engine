@@ -20,6 +20,9 @@ pub fn is_scene_package_manifest(path: &str) -> bool {
 /// therefore should not be indexed as a standalone scene.
 pub fn is_reserved_scene_partial_path(path: &str) -> bool {
     let trimmed = path.trim_start_matches('/');
+    if trimmed.ends_with(".logic.yml") || trimmed.ends_with(".logic.yaml") {
+        return true;
+    }
     let segments: Vec<&str> = trimmed.split('/').collect();
     if segments.first() != Some(&"scenes") {
         return false;
@@ -64,6 +67,7 @@ mod tests {
         assert!(!is_reserved_scene_partial_path("scenes/intro/scene.yml"));
         assert!(!is_discoverable_scene_path("scenes/shared/banner.yml"));
         assert!(!is_discoverable_scene_path("scenes/intro/layers/base.yml"));
+        assert!(!is_discoverable_scene_path("scenes/intro/intro.logic.yml"));
         assert!(is_discoverable_scene_path("scenes/intro/scene.yml"));
     }
 

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: lab-open-gif
+exports:
+  sprite_id: lab-open-gif
+  source: /assets/images/lab-open-320.gif
+sprites:
+  - type: image
+    id: "$sprite_id"
+    source: "$source"
+    at: cc
+    stretch-to-area: true
+    force-renderer-mode: cell

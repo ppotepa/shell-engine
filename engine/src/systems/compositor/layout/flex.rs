@@ -20,39 +20,8 @@ pub(crate) fn compute_flex_cells(
     inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> Vec<(usize, GridCellRect)> {
-    if let Some(cells) = compute_flex_cells_taffy(
-        children,
-        direction,
-        container_w,
-        container_h,
-        gap,
-        inherited_mode,
-        asset_root,
-    ) {
-        return cells;
-    }
-    compute_flex_cells_fallback(
-        children,
-        direction,
-        container_w,
-        container_h,
-        gap,
-        inherited_mode,
-        asset_root,
-    )
-}
-
-fn compute_flex_cells_taffy(
-    children: &[Sprite],
-    direction: SceneFlexDirection,
-    container_w: u16,
-    container_h: u16,
-    gap: u16,
-    inherited_mode: SceneRenderedMode,
-    asset_root: Option<&AssetRoot>,
-) -> Option<Vec<(usize, GridCellRect)>> {
     if children.is_empty() {
-        return Some(vec![]);
+        return vec![];
     }
 
     let mut taffy: TaffyTree<()> = TaffyTree::new();
@@ -75,7 +44,9 @@ fn compute_flex_cells_taffy(
                 ..Default::default()
             },
         };
-        let node = taffy.new_leaf(child_style).ok()?;
+        let node = taffy
+            .new_leaf(child_style)
+            .expect("taffy: failed to allocate flex child node");
         child_nodes.push(node);
     }
 
@@ -99,7 +70,7 @@ fn compute_flex_cells_taffy(
             },
             &child_nodes,
         )
-        .ok()?;
+        .expect("taffy: failed to create flex root node");
 
     taffy
         .compute_layout(
@@ -109,15 +80,17 @@ fn compute_flex_cells_taffy(
                 height: AvailableSpace::Definite(container_h.max(1) as f32),
             },
         )
-        .ok()?;
+        .expect("taffy: failed to compute flex layout");
 
     let mut out = Vec::with_capacity(child_nodes.len());
     for (idx, node) in child_nodes.iter().enumerate() {
-        let layout = taffy.layout(*node).ok()?;
+        let layout = taffy
+            .layout(*node)
+            .expect("taffy: missing computed layout for flex child");
         let width = layout.size.width.round().max(1.0) as u16;
         let height = layout.size.height.round().max(1.0) as u16;
-        let x = layout.location.x.round().max(0.0) as u16;
-        let y = layout.location.y.round().max(0.0) as u16;
+        let x = layout.location.x.max(0.0).floor() as u16;
+        let y = layout.location.y.max(0.0).floor() as u16;
         out.push((
             idx,
             GridCellRect {
@@ -129,71 +102,7 @@ fn compute_flex_cells_taffy(
         ));
     }
 
-    Some(out)
-}
-
-fn compute_flex_cells_fallback(
-    children: &[Sprite],
-    direction: SceneFlexDirection,
-    container_w: u16,
-    container_h: u16,
-    gap: u16,
-    inherited_mode: SceneRenderedMode,
-    asset_root: Option<&AssetRoot>,
-) -> Vec<(usize, GridCellRect)> {
-    if children.is_empty() {
-        return vec![];
-    }
-
-    let measurements: Vec<(u16, u16)> = children
-        .iter()
-        .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root))
-        .collect();
-
-    match direction {
-        SceneFlexDirection::Column => {
-            let cell_w = container_w;
-            let mut y_cursor = 0u16;
-            measurements
-                .iter()
-                .enumerate()
-                .map(|(i, &(_, h))| {
-                    let h = h.max(1);
-                    let rect = GridCellRect {
-                        x: 0,
-                        y: y_cursor,
-                        width: cell_w,
-                        height: h,
-                    };
-                    y_cursor = y_cursor
-                        .saturating_add(h)
-                        .saturating_add(if i + 1 < children.len() { gap } else { 0 });
-                    (i, rect)
-                })
-                .collect()
-        }
-        SceneFlexDirection::Row => {
-            let cell_h = container_h;
-            let mut x_cursor = 0u16;
-            measurements
-                .iter()
-                .enumerate()
-                .map(|(i, &(w, _))| {
-                    let w = w.max(1);
-                    let rect = GridCellRect {
-                        x: x_cursor,
-                        y: 0,
-                        width: w,
-                        height: cell_h,
-                    };
-                    x_cursor = x_cursor
-                        .saturating_add(w)
-                        .saturating_add(if i + 1 < children.len() { gap } else { 0 });
-                    (i, rect)
-                })
-                .collect()
-        }
-    }
+    out
 }
 
 #[cfg(test)]

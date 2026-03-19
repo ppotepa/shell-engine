@@ -1,6 +1,6 @@
 //! Behavior system types: the [`Behavior`] trait, built-in behavior structs, and the [`BehaviorContext`] passed each tick.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::f32::consts::TAU;
 
 use crate::effects::Region;
@@ -52,6 +52,12 @@ pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send 
         Some(Box::new(BobBehavior::from_params(&spec.params)))
     } else if name.eq_ignore_ascii_case("follow") {
         Some(Box::new(FollowBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("menu-carousel") {
+        Some(Box::new(MenuCarouselBehavior::from_params(&spec.params)))
+    } else if name.eq_ignore_ascii_case("menu-carousel-object") {
+        Some(Box::new(MenuCarouselObjectBehavior::from_params(
+            &spec.params,
+        )))
     } else if name.eq_ignore_ascii_case("menu-selected") {
         Some(Box::new(MenuSelectedBehavior::from_params(&spec.params)))
     } else if name.eq_ignore_ascii_case("selected-arrows") {
@@ -71,6 +77,8 @@ pub fn builtin_behavior_names() -> Vec<&'static str> {
         "blink",
         "bob",
         "follow",
+        "menu-carousel",
+        "menu-carousel-object",
         "menu-selected",
         "selected-arrows",
         "stage-visibility",
@@ -270,6 +278,183 @@ impl Behavior for MenuSelectedBehavior {
             resolve_target(&self.target, object),
             ctx.menu_selected_index == self.index,
         );
+    }
+}
+
+/// Repositions menu items into a centered rolling window around selected index.
+pub struct MenuCarouselBehavior {
+    target: Option<String>,
+    index: usize,
+    count: Option<usize>,
+    window: usize,
+    step_y: i32,
+    endless: bool,
+    last_dy: i32,
+}
+
+impl MenuCarouselBehavior {
+    fn from_params(params: &BehaviorParams) -> Self {
+        Self {
+            target: params.target.clone(),
+            index: params.index.unwrap_or(0),
+            count: params.count,
+            window: params.window.unwrap_or(5).max(1),
+            step_y: params.step_y.unwrap_or(2).max(1),
+            endless: params.endless.unwrap_or(true),
+            last_dy: 0,
+        }
+    }
+
+    fn hide_and_reset(&mut self, object: &GameObject, commands: &mut Vec<BehaviorCommand>) {
+        self.last_dy = 0;
+        emit_visibility(commands, object.id.clone(), false);
+    }
+}
+
+impl Behavior for MenuCarouselBehavior {
+    fn update(
+        &mut self,
+        object: &GameObject,
+        scene: &Scene,
+        ctx: &BehaviorContext,
+        commands: &mut Vec<BehaviorCommand>,
+    ) {
+        let total = self.count.unwrap_or(scene.menu_options.len());
+        if total == 0 || self.index >= total {
+            self.hide_and_reset(object, commands);
+            return;
+        }
+        let Some(target_alias) = self.target.as_deref() else {
+            self.hide_and_reset(object, commands);
+            return;
+        };
+        let Some(target_region) = ctx.resolved_object_region(target_alias) else {
+            self.hide_and_reset(object, commands);
+            return;
+        };
+
+        let selected = ctx.menu_selected_index % total;
+        let relative = if self.endless {
+            wrapped_menu_distance(self.index, selected, total)
+        } else {
+            self.index as i32 - selected as i32
+        };
+        let half_window = ((self.window.saturating_sub(1)) / 2) as i32;
+        if relative.abs() > half_window {
+            self.hide_and_reset(object, commands);
+            return;
+        }
+
+        emit_visibility(commands, object.id.clone(), true);
+
+        let Some(own_region) = ctx.object_region(&object.id) else {
+            // First frame after becoming visible: wait for compositor to discover own region.
+            return;
+        };
+
+        // Keep menu items from collapsing into each other when authored `step_y`
+        // is too small for the current rendered item height.
+        let item_height = own_region.height.max(1) as i32;
+        let effective_step_y = self.step_y.max(item_height.saturating_add(1));
+        let center_y = target_region.y as i32 + (target_region.height.saturating_sub(1) as i32 / 2);
+        let desired_y = center_y.saturating_add(relative.saturating_mul(effective_step_y));
+        let base_y = own_region.y as i32 - self.last_dy;
+        let new_dy = desired_y - base_y;
+        self.last_dy = new_dy;
+        emit_offset(commands, object.id.clone(), 0, new_dy);
+    }
+}
+
+/// Repositions a group of menu items from one controller behavior attached to
+/// the parent object/layer.
+pub struct MenuCarouselObjectBehavior {
+    target: Option<String>,
+    item_prefix: String,
+    count: Option<usize>,
+    window: usize,
+    step_y: i32,
+    endless: bool,
+    last_dy_by_index: BTreeMap<usize, i32>,
+}
+
+impl MenuCarouselObjectBehavior {
+    fn from_params(params: &BehaviorParams) -> Self {
+        Self {
+            target: params.target.clone(),
+            item_prefix: params
+                .item_prefix
+                .clone()
+                .unwrap_or_else(|| "menu-item-".to_string()),
+            count: params.count,
+            window: params.window.unwrap_or(5).max(1),
+            step_y: params.step_y.unwrap_or(2).max(1),
+            endless: params.endless.unwrap_or(true),
+            last_dy_by_index: BTreeMap::new(),
+        }
+    }
+
+    fn item_alias(&self, index: usize) -> String {
+        if self.item_prefix.contains("{}") {
+            self.item_prefix.replace("{}", &index.to_string())
+        } else {
+            format!("{}{}", self.item_prefix, index)
+        }
+    }
+}
+
+impl Behavior for MenuCarouselObjectBehavior {
+    fn update(
+        &mut self,
+        _object: &GameObject,
+        scene: &Scene,
+        ctx: &BehaviorContext,
+        commands: &mut Vec<BehaviorCommand>,
+    ) {
+        let total = self.count.unwrap_or(scene.menu_options.len());
+        if total == 0 {
+            self.last_dy_by_index.clear();
+            return;
+        }
+        let Some(target_alias) = self.target.as_deref() else {
+            self.last_dy_by_index.clear();
+            return;
+        };
+        let Some(target_region) = ctx.resolved_object_region(target_alias) else {
+            self.last_dy_by_index.clear();
+            return;
+        };
+
+        let selected = ctx.menu_selected_index % total;
+        let half_window = ((self.window.saturating_sub(1)) / 2) as i32;
+        for index in 0..total {
+            let item_alias = self.item_alias(index);
+            let relative = if self.endless {
+                wrapped_menu_distance(index, selected, total)
+            } else {
+                index as i32 - selected as i32
+            };
+            if relative.abs() > half_window {
+                self.last_dy_by_index.insert(index, 0);
+                emit_visibility(commands, item_alias, false);
+                continue;
+            }
+            emit_visibility(commands, item_alias.clone(), true);
+
+            let Some(item_region) = ctx.resolved_object_region(&item_alias) else {
+                // First visible frame can happen before compositor reports regions.
+                continue;
+            };
+            let last_dy = self.last_dy_by_index.get(&index).copied().unwrap_or(0);
+            let item_height = item_region.height.max(1) as i32;
+            let effective_step_y = self.step_y.max(item_height.saturating_add(1));
+            let center_y =
+                target_region.y as i32 + (target_region.height.saturating_sub(1) as i32 / 2);
+            let desired_y = center_y.saturating_add(relative.saturating_mul(effective_step_y));
+            let base_y = item_region.y as i32 - last_dy;
+            let new_dy = desired_y - base_y;
+            self.last_dy_by_index.insert(index, new_dy);
+            emit_offset(commands, item_alias, 0, new_dy);
+        }
     }
 }
 
@@ -481,6 +666,18 @@ fn rounded_sine_wave(elapsed_ms: u64, phase_ms: u64, period_ms: u64) -> i32 {
     sine_wave(elapsed_ms, phase_ms, period_ms).round() as i32
 }
 
+fn wrapped_menu_distance(index: usize, selected: usize, total: usize) -> i32 {
+    let raw = index as i32 - selected as i32;
+    if total <= 1 {
+        return raw;
+    }
+    let total_i = total as i32;
+    [raw, raw - total_i, raw + total_i]
+        .into_iter()
+        .min_by_key(|value| value.abs())
+        .unwrap_or(raw)
+}
+
 fn is_within_time_window(elapsed_ms: u64, start_ms: Option<u64>, end_ms: Option<u64>) -> bool {
     start_ms.map(|start| elapsed_ms >= start).unwrap_or(true)
         && end_ms.map(|end| elapsed_ms < end).unwrap_or(true)
@@ -562,14 +759,15 @@ impl BehaviorContext {
 mod tests {
     use super::{
         built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, BlinkBehavior, BobBehavior,
-        FollowBehavior, MenuSelectedBehavior, SceneAudioBehavior, SelectedArrowsBehavior,
-        StageVisibilityBehavior, TimedVisibilityBehavior,
+        FollowBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior, MenuSelectedBehavior,
+        SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
+        TimedVisibilityBehavior,
     };
     use crate::effects::Region;
     use crate::game_object::{GameObject, GameObjectKind};
     use crate::scene::{
-        AudioCue, BehaviorParams, BehaviorSpec, Scene, SceneAudio, SceneRenderedMode, SceneStages,
-        TermColour,
+        AudioCue, BehaviorParams, BehaviorSpec, MenuOption, Scene, SceneAudio, SceneRenderedMode,
+        SceneStages, TermColour,
     };
     use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
     use crate::systems::animator::SceneStage;
@@ -608,6 +806,20 @@ mod tests {
     fn scene_with_audio(audio: SceneAudio) -> Scene {
         Scene {
             audio,
+            ..base_scene()
+        }
+    }
+
+    fn scene_with_menu_options(count: usize) -> Scene {
+        Scene {
+            menu_options: (0..count)
+                .map(|idx| MenuOption {
+                    key: idx.to_string(),
+                    label: Some(format!("Option {idx}")),
+                    scene: None,
+                    next: format!("next-{idx}"),
+                })
+                .collect(),
             ..base_scene()
         }
     }
@@ -857,6 +1069,220 @@ mod tests {
     }
 
     #[test]
+    fn menu_carousel_centers_selected_item_in_target_region() {
+        let mut behavior = MenuCarouselBehavior::from_params(&BehaviorParams {
+            target: Some("menu-grid".to_string()),
+            index: Some(2),
+            window: Some(5),
+            step_y: Some(2),
+            endless: Some(true),
+            ..BehaviorParams::default()
+        });
+
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("scene:intro".to_string(), region(10, 20, 12, 1));
+        object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
+
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_regions = object_regions;
+        test_ctx.menu_selected_index = 2;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(7), test_ctx);
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "scene:intro".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "scene:intro".to_string(),
+                    dx: 0,
+                    dy: -6
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn menu_carousel_wraps_when_endless_enabled() {
+        let mut behavior = MenuCarouselBehavior::from_params(&BehaviorParams {
+            target: Some("menu-grid".to_string()),
+            index: Some(0),
+            window: Some(5),
+            step_y: Some(2),
+            endless: Some(true),
+            ..BehaviorParams::default()
+        });
+
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("scene:intro".to_string(), region(10, 20, 12, 1));
+        object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
+
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_regions = object_regions;
+        test_ctx.menu_selected_index = 6;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(7), test_ctx);
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "scene:intro".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "scene:intro".to_string(),
+                    dx: 0,
+                    dy: -4
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn menu_carousel_hides_items_outside_window() {
+        let mut behavior = MenuCarouselBehavior::from_params(&BehaviorParams {
+            target: Some("menu-grid".to_string()),
+            index: Some(6),
+            window: Some(5),
+            step_y: Some(2),
+            endless: Some(false),
+            ..BehaviorParams::default()
+        });
+
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("scene:intro".to_string(), region(10, 20, 12, 1));
+        object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
+
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_regions = object_regions;
+        test_ctx.menu_selected_index = 0;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(7), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetVisibility {
+                target: "scene:intro".to_string(),
+                visible: false
+            }]
+        );
+    }
+
+    #[test]
+    fn menu_carousel_uses_min_step_based_on_item_height() {
+        let mut behavior = MenuCarouselBehavior::from_params(&BehaviorParams {
+            target: Some("menu-grid".to_string()),
+            index: Some(0),
+            window: Some(3),
+            step_y: Some(1),
+            endless: Some(true),
+            ..BehaviorParams::default()
+        });
+
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
+        let mut object_regions = BTreeMap::new();
+        // Item currently at y=20 with height=3 (simulates a taller rendered row).
+        object_regions.insert("scene:intro".to_string(), region(10, 20, 24, 3));
+        object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
+
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_regions = object_regions;
+        test_ctx.menu_selected_index = 2;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(3), test_ctx);
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "scene:intro".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "scene:intro".to_string(),
+                    dx: 0,
+                    dy: -2
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn menu_carousel_object_controls_multiple_items_from_single_behavior() {
+        let mut behavior = MenuCarouselObjectBehavior::from_params(&BehaviorParams {
+            target: Some("menu-grid".to_string()),
+            item_prefix: Some("menu-item-".to_string()),
+            count: Some(3),
+            window: Some(3),
+            step_y: Some(2),
+            endless: Some(true),
+            ..BehaviorParams::default()
+        });
+
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        resolver.register_alias("menu-item-1".to_string(), "obj:menu-item-1".to_string());
+        resolver.register_alias("menu-item-2".to_string(), "obj:menu-item-2".to_string());
+
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
+        object_regions.insert("obj:menu-item-0".to_string(), region(10, 6, 20, 1));
+        object_regions.insert("obj:menu-item-1".to_string(), region(10, 10, 20, 1));
+        object_regions.insert("obj:menu-item-2".to_string(), region(10, 14, 20, 1));
+
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_regions = object_regions;
+        test_ctx.menu_selected_index = 1;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(3), test_ctx);
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "menu-item-0".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 0,
+                    dy: 6
+                },
+                BehaviorCommand::SetVisibility {
+                    target: "menu-item-1".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-1".to_string(),
+                    dx: 0,
+                    dy: 4
+                },
+                BehaviorCommand::SetVisibility {
+                    target: "menu-item-2".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-2".to_string(),
+                    dx: 0,
+                    dy: 2
+                }
+            ]
+        );
+    }
+
+    #[test]
     fn selected_arrows_hides_when_target_region_missing() {
         let mut behavior = SelectedArrowsBehavior::from_params(&BehaviorParams {
             target: Some("menu-item-0".to_string()),
@@ -977,6 +1403,8 @@ mod tests {
             "blink",
             "bob",
             "follow",
+            "menu-carousel",
+            "menu-carousel-object",
             "menu-selected",
             "selected-arrows",
             "stage-visibility",

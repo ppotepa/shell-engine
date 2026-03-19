@@ -15,6 +15,7 @@ $defs:
     - /scenes/door-gif-2x/scene.yml
     - /scenes/door-gif/scene.yml
     - /scenes/door-png/scene.yml
+    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
   scene_refs:
     type: string
@@ -22,6 +23,7 @@ $defs:
     - /scenes/door-gif-2x/scene.yml
     - /scenes/door-gif/scene.yml
     - /scenes/door-png/scene.yml
+    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
     - test-scenes-door-gif
     - test-scenes-door-gif-2x
@@ -29,7 +31,10 @@ $defs:
     - test-scenes-menu
   object_names:
     type: string
-    enum: []
+    enum:
+    - centered-endless-menu-3
+    - lab-open-gif
+    - lab-open-png-sequence-640
   effect_names:
     type: string
     enum:
@@ -75,7 +80,13 @@ $defs:
     enum: []
   object_refs:
     type: string
-    enum: []
+    enum:
+    - /objects/centered-endless-menu-3.yml
+    - /objects/lab-open-gif.yml
+    - /objects/lab-open-png-sequence-640.yml
+    - centered-endless-menu-3
+    - lab-open-gif
+    - lab-open-png-sequence-640
   effect_refs:
     type: string
     enum: []
@@ -106,27 +117,7 @@ $defs:
     enum: []
   sprite_ids:
     type: string
-    enum:
-    - door-png-1
-    - door-png-2
-    - door-png-3
-    - door-png-4
-    - door-png-5
-    - door-png-6
-    - door-png-7
-    - door-png-8
-    - lab-open-gif-320
-    - lab-open-gif-640
-    - menu-grid
-    - menu-item-0
-    - menu-item-1
-    - menu-item-2
-    - sel0-left
-    - sel0-right
-    - sel1-left
-    - sel1-right
-    - sel2-left
-    - sel2-right
+    enum: []
   template_names:
     type: string
     enum: []

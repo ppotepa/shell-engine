@@ -78,6 +78,16 @@ pub struct BehaviorParams {
     pub padding: Option<i32>,
     #[serde(default)]
     pub autoscale_height: Option<bool>,
+    #[serde(default)]
+    pub count: Option<usize>,
+    #[serde(default)]
+    pub window: Option<usize>,
+    #[serde(default)]
+    pub step_y: Option<i32>,
+    #[serde(default)]
+    pub endless: Option<bool>,
+    #[serde(default)]
+    pub item_prefix: Option<String>,
 }
 
 /// Named visual effect with duration, loop flag, and arbitrary params.
@@ -293,10 +303,6 @@ pub struct MenuOption {
     pub key: String,
     #[serde(default)]
     pub label: Option<String>,
-    #[serde(default, rename = "selected-effect", alias = "selected_effect")]
-    pub selected_effect: Option<String>,
-    #[serde(default)]
-    pub action: Option<String>,
     #[serde(default)]
     pub scene: Option<String>,
     pub next: String,

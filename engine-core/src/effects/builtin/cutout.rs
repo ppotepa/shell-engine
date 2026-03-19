@@ -4,6 +4,9 @@ use crate::effects::metadata::{select, slider, EffectMetadata, P_EASING};
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::scene::EffectParams;
 use crossterm::style::Color;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::{Mutex, OnceLock};
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "cutout",
@@ -36,7 +39,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
             "Sensitivity threshold for detecting colour boundaries.",
             0.0,
             1.0,
-            0.05,
+            0.0,
             "",
         ),
         slider(
@@ -45,7 +48,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
             "How strongly detected edges are darkened.",
             0.0,
             1.0,
-            0.05,
+            0.0,
             "",
         ),
         slider(
@@ -63,7 +66,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
             "Per-cell saturation multiplier after edge shaping.",
             0.5,
             1.5,
-            0.05,
+            0.0,
             "",
         ),
         select(
@@ -93,10 +96,33 @@ impl Effect for CutoutEffect {
         let edge_width = params.edge_width.unwrap_or(1).clamp(1, 3) as usize;
         let saturation = params.saturation.unwrap_or(1.0).clamp(0.5, 1.5);
         let blend_mode = params.blend_mode.as_deref().unwrap_or("replace");
+        let overlay_mode = blend_mode == "overlay";
 
         let width = region.width as usize;
         let height = region.height as usize;
-        let mut snapshot = snapshot_region(buffer, region);
+        let (mut snapshot, source_hash) = snapshot_region_and_hash(buffer, region);
+        let cache_key = CutoutCacheKey {
+            width,
+            height,
+            source_hash,
+            levels,
+            simplify,
+            edge_width,
+            edge_fidelity_bits: edge_fidelity.to_bits(),
+            edge_strength_bits: edge_strength.to_bits(),
+            saturation_bits: saturation.to_bits(),
+            overlay_mode,
+        };
+
+        let cache = cutout_cache();
+        if let Ok(guard) = cache.lock() {
+            if let Some(entry) = guard.as_ref() {
+                if entry.key == cache_key {
+                    write_region_cells(region, &entry.cells, buffer);
+                    return;
+                }
+            }
+        }
 
         for _ in 0..simplify {
             snapshot = simplify_pass(&snapshot, width, height);
@@ -111,7 +137,14 @@ impl Effect for CutoutEffect {
             cell.bg = quantize_color(cell.bg, levels);
         }
 
-        let edge_map = build_edge_map(&quantized, width, height, edge_fidelity);
+        let edge_map = if edge_strength > 0.0 {
+            Some(build_edge_map(&quantized, width, height, edge_fidelity))
+        } else {
+            None
+        };
+        let apply_saturation = (saturation - 1.0).abs() > f32::EPSILON;
+        let overlay_weight = overlay_weight(edge_strength);
+        let mut output = snapshot.clone();
 
         for dy in 0..height {
             for dx in 0..width {
@@ -124,33 +157,43 @@ impl Effect for CutoutEffect {
                 let mut fg = quantized[idx].fg;
                 let mut bg = quantized[idx].bg;
 
-                let edge_influence = edge_influence(&edge_map, width, height, dx, dy, edge_width);
-                if edge_influence > 0.0 {
-                    let accent = (edge_strength * edge_influence).clamp(0.0, 1.0);
-                    fg = darken_colour(fg, accent);
-                    bg = darken_colour(bg, accent);
+                if let Some(edges) = edge_map.as_ref() {
+                    let edge_influence = edge_influence(edges, width, height, dx, dy, edge_width);
+                    if edge_influence > 0.0 {
+                        let accent = (edge_strength * edge_influence).clamp(0.0, 1.0);
+                        fg = darken_colour(fg, accent);
+                        bg = darken_colour(bg, accent);
+                    }
                 }
 
-                fg = adjust_saturation(fg, saturation);
-                bg = adjust_saturation(bg, saturation);
+                if apply_saturation {
+                    fg = adjust_saturation(fg, saturation);
+                    bg = adjust_saturation(bg, saturation);
+                }
 
-                let final_fg = match blend_mode {
-                    "overlay" => blend_colour(center.fg, fg, overlay_weight(edge_strength)),
-                    _ => fg,
+                let final_fg = if overlay_mode {
+                    blend_colour(center.fg, fg, overlay_weight)
+                } else {
+                    fg
                 };
-                let final_bg = match blend_mode {
-                    "overlay" => blend_colour(center.bg, bg, overlay_weight(edge_strength)),
-                    _ => bg,
+                let final_bg = if overlay_mode {
+                    blend_colour(center.bg, bg, overlay_weight)
+                } else {
+                    bg
                 };
 
-                buffer.set(
-                    region.x + dx as u16,
-                    region.y + dy as u16,
-                    center.symbol,
-                    final_fg,
-                    final_bg,
-                );
+                output[idx].symbol = center.symbol;
+                output[idx].fg = final_fg;
+                output[idx].bg = final_bg;
             }
+        }
+
+        write_region_cells(region, &output, buffer);
+        if let Ok(mut guard) = cache.lock() {
+            *guard = Some(CutoutCacheEntry {
+                key: cache_key,
+                cells: output,
+            });
         }
     }
 
@@ -159,19 +202,79 @@ impl Effect for CutoutEffect {
     }
 }
 
-fn snapshot_region(buffer: &Buffer, region: Region) -> Vec<Cell> {
+fn snapshot_region_and_hash(buffer: &Buffer, region: Region) -> (Vec<Cell>, u64) {
     let mut snapshot = Vec::with_capacity(region.width as usize * region.height as usize);
+    let mut hasher = DefaultHasher::new();
     for dy in 0..region.height {
         for dx in 0..region.width {
-            snapshot.push(
-                buffer
-                    .get(region.x + dx, region.y + dy)
-                    .cloned()
-                    .unwrap_or_default(),
+            let cell = buffer
+                .get(region.x + dx, region.y + dy)
+                .cloned()
+                .unwrap_or_default();
+            hash_cell(&cell, &mut hasher);
+            snapshot.push(cell);
+        }
+    }
+    (snapshot, hasher.finish())
+}
+
+fn hash_cell(cell: &Cell, hasher: &mut DefaultHasher) {
+    cell.symbol.hash(hasher);
+    hash_colour(cell.fg, hasher);
+    hash_colour(cell.bg, hasher);
+}
+
+fn hash_colour(color: Color, hasher: &mut DefaultHasher) {
+    if matches!(color, Color::Reset) {
+        0u8.hash(hasher);
+    } else {
+        1u8.hash(hasher);
+    }
+    let (r, g, b) = colour_to_rgb(normalize_reset(color));
+    r.hash(hasher);
+    g.hash(hasher);
+    b.hash(hasher);
+}
+
+fn write_region_cells(region: Region, cells: &[Cell], buffer: &mut Buffer) {
+    let width = region.width as usize;
+    for dy in 0..region.height as usize {
+        for dx in 0..width {
+            let cell = &cells[dy * width + dx];
+            buffer.set(
+                region.x.saturating_add(dx as u16),
+                region.y.saturating_add(dy as u16),
+                cell.symbol,
+                cell.fg,
+                cell.bg,
             );
         }
     }
-    snapshot
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct CutoutCacheKey {
+    width: usize,
+    height: usize,
+    source_hash: u64,
+    levels: u8,
+    simplify: usize,
+    edge_width: usize,
+    edge_fidelity_bits: u32,
+    edge_strength_bits: u32,
+    saturation_bits: u32,
+    overlay_mode: bool,
+}
+
+#[derive(Debug, Clone)]
+struct CutoutCacheEntry {
+    key: CutoutCacheKey,
+    cells: Vec<Cell>,
+}
+
+fn cutout_cache() -> &'static Mutex<Option<CutoutCacheEntry>> {
+    static CUTOUT_CACHE: OnceLock<Mutex<Option<CutoutCacheEntry>>> = OnceLock::new();
+    CUTOUT_CACHE.get_or_init(|| Mutex::new(None))
 }
 
 fn simplify_pass(snapshot: &[Cell], width: usize, height: usize) -> Vec<Cell> {

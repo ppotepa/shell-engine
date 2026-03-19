@@ -64,6 +64,9 @@ properties:
     description: Optional runtime behaviors attached to the root scene GameObject.
     items:
       $ref: "#/$defs/behavior"
+  logic:
+    $ref: "#/$defs/scene_logic"
+    description: Optional scene-level controller binding (native or script).
   audio:
     $ref: "#/$defs/scene_audio"
     description: >
@@ -141,6 +144,26 @@ $defs:
   # ── Effect params ───────────────────────────────────────────────────────────
   effect_params:
     $ref: "./effect-params.schema.yaml"
+
+  scene_logic:
+    type: object
+    additionalProperties: false
+    properties:
+      type:
+        type: string
+        enum: [native, graph, script]
+        default: native
+      behavior:
+        type: string
+        minLength: 1
+      src:
+        type: string
+        minLength: 1
+        description: Optional script/controller path.
+      params:
+        type: object
+        default: {}
+        additionalProperties: true
 
   # ── Scene input profiles ────────────────────────────────────────────────────
   scene_input:
@@ -774,6 +797,10 @@ $defs:
           For named bitmap fonts: ascii/raster/terminal-pixels.
           For generic fonts: 1/2/3 or tiny/standard/large/half/quad/braille.
           Priority: force-font-mode > renderer-derived generic mode > sprite font declaration.
+      stretch-to-area:
+        type: boolean
+        default: false
+        description: Image sprite only. Stretch source bitmap/GIF to fill resolved draw area.
       align_x:
         type: string
         enum: [left, center, right]

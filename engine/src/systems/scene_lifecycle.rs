@@ -243,13 +243,28 @@ fn handle_terminal_shell_controls(world: &mut World, key_presses: &[KeyEvent]) -
     if !is_scene_idle(world) {
         return false;
     }
-    let Some(runtime) = world.scene_runtime_mut() else {
-        return false;
+    let back_next_scene = {
+        let Some(runtime) = world.scene_runtime_mut() else {
+            return false;
+        };
+        if !runtime.has_terminal_shell() {
+            return false;
+        }
+        if runtime.terminal_shell_back_requested(key_presses) {
+            Some(runtime.scene().next.clone())
+        } else {
+            // Scene-local terminal shell takes ownership of regular key input.
+            let _ = runtime.handle_terminal_shell_keys(key_presses);
+            None
+        }
     };
-    if !runtime.has_terminal_shell() {
-        return false;
+    if let Some(next_scene) = back_next_scene {
+        if let Some(animator) = world.animator_mut() {
+            animator.next_scene_override = next_scene;
+            begin_leave(animator);
+        }
     }
-    runtime.handle_terminal_shell_keys(key_presses)
+    true
 }
 
 fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
@@ -422,8 +437,6 @@ mod tests {
         MenuOption {
             key: key.into(),
             label: Some(label.into()),
-            selected_effect: None,
-            action: None,
             scene: None,
             next: next.into(),
         }
@@ -519,6 +532,7 @@ stages:
     trigger: any-key
     looping: true
     steps: []
+next: playground-menu
 menu-options:
   - key: "1"
     next: playground-3d-scene
@@ -699,11 +713,37 @@ layers:
     }
 
     #[test]
+    fn terminal_shell_escape_on_empty_prompt_leaves_scene() {
+        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Esc)]);
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnLeave);
+    }
+
+    #[test]
+    fn terminal_shell_non_edit_key_does_not_auto_leave() {
+        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::F(5))]);
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        assert_eq!(animator.next_scene_override, None);
+    }
+
+    #[test]
     fn menu_option_key_sets_next_scene_override() {
         let scene = make_menu_scene(vec![
             make_menu_option("1", "3D SCENE", "playground-3d-scene"),
             MenuOption {
-                action: Some("goto.scene".into()),
                 scene: Some("playground-stop-animation".into()),
                 ..make_menu_option("2", "STOP ANIMATION", "playground-stop-animation")
             },

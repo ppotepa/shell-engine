@@ -1,0 +1,15 @@
+on_enter:
+  steps:
+    - effects:
+        - name: fade-in
+          duration: 250
+on_idle:
+  trigger: any-key
+  looping: true
+  steps:
+    - pause: 1200ms
+on_leave:
+  steps:
+    - effects:
+        - name: fade-out
+          duration: 180

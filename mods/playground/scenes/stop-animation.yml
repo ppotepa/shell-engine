@@ -3,16 +3,7 @@
 id: playground-stop-animation
 title: Stop Animation (Placeholder)
 bg: black
-stages:
-  on_enter:
-    steps:
-      - { effects: [{ name: fade-in, duration: 300 }] }
-  on_idle:
-    trigger: any-key
-    steps: [{ pause: 1ms }]
-  on_leave:
-    steps:
-      - { effects: [{ name: fade-out, duration: 250 }] }
+stages-ref: /stages/anykey-fade-300-250.yml
 layers:
   - { name: placeholder, z_index: 0, sprites: [{ type: text, content: "PLACEHOLDER TEXT", at: cc, y: 0, font: "generic:1", fg: white }] }
 next: playground-menu

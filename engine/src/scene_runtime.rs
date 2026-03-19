@@ -460,6 +460,20 @@ impl SceneRuntime {
         self.terminal_shell_state.is_some()
     }
 
+    pub fn terminal_shell_back_requested(&self, key_presses: &[KeyEvent]) -> bool {
+        let Some(state) = self.terminal_shell_state.as_ref() else {
+            return false;
+        };
+        if !state.input.value().is_empty() {
+            return false;
+        }
+        key_presses.iter().any(|key| {
+            matches!(key.code, KeyCode::Esc)
+                || (matches!(key.code, KeyCode::Char('q' | 'Q'))
+                    && key.modifiers.contains(KeyModifiers::CONTROL))
+        })
+    }
+
     pub fn handle_terminal_shell_keys(&mut self, key_presses: &[KeyEvent]) -> bool {
         let Some(state) = self.terminal_shell_state.as_mut() else {
             return false;

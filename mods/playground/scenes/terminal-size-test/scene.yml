@@ -9,14 +9,5 @@ input:
   # This block demonstrates scene-level input helpers without changing the rest of the scene format.
   terminal-size-tester:
     presets: ["80x24", "100x30", "120x36", "160x48"]
-stages:
-  on_enter:
-    steps:
-      - { effects: [{ name: fade-in, duration: 250 }] }
-  on_idle:
-    trigger: any-key
-    steps: [{ pause: 1ms }]
-  on_leave:
-    steps:
-      - { effects: [{ name: fade-out, duration: 200 }] }
+stages-ref: /stages/anykey-fade-250-200.yml
 next: playground-menu

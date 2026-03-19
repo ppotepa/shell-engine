@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: centered-endless-menu-3
+exports:
+  grid_id: menu-grid
+  item_prefix: menu-item-
+  window: 3
+  step_y: 2
+  endless: true
+sprites:
+  - type: grid
+    id: "$grid_id"
+    at: cc
+    width: 56
+    height: 10
+    columns: ["1fr"]
+    rows: ["auto", "auto", "auto"]
+    gap-y: 2
+    children:
+      - { type: text, id: menu-item-0, content: "[1] LAB OPEN GIF 320x180", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
+      - { type: text, id: menu-item-1, content: "[2] LAB OPEN GIF 640x360", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: silver }
+      - { type: text, id: menu-item-2, content: "[3] LAB OPEN PNG 640x360 (direct)", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: gray }
+
+  - { type: text, id: sel0-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel0-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel1-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel1-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel2-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel2-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }

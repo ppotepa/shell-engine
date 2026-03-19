@@ -14,6 +14,7 @@ $defs:
     - playground-fps-showcase-2d-20
     - playground-fps-showcase-2d-30
     - playground-fps-showcase-30
+    - playground-layout-lab
     - playground-menu
     - playground-stop-animation
     - playground-terminal-shell
@@ -30,6 +31,8 @@ $defs:
     - /scenes/fps-showcase-2d-20.yml
     - /scenes/fps-showcase-2d-30.yml
     - /scenes/fps-showcase-30.yml
+    - /scenes/layout-lab/scene.yml
+    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
     - /scenes/stop-animation.yml
     - /scenes/terminal-shell/scene.yml
@@ -46,6 +49,8 @@ $defs:
     - /scenes/fps-showcase-2d-20.yml
     - /scenes/fps-showcase-2d-30.yml
     - /scenes/fps-showcase-30.yml
+    - /scenes/layout-lab/scene.yml
+    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
     - /scenes/stop-animation.yml
     - /scenes/terminal-shell/scene.yml
@@ -59,6 +64,7 @@ $defs:
     - playground-fps-showcase-2d-20
     - playground-fps-showcase-2d-30
     - playground-fps-showcase-30
+    - playground-layout-lab
     - playground-menu
     - playground-stop-animation
     - playground-terminal-shell
@@ -66,6 +72,7 @@ $defs:
   object_names:
     type: string
     enum:
+    - centered-endless-menu
     - suzan
   effect_names:
     type: string
@@ -102,6 +109,7 @@ $defs:
     enum:
     - 3d-scene/layers/main.yml
     - font-showcase/layers/main.yml
+    - layout-lab/layers/main.yml
     - menu/layers/main.yml
     - terminal-shell/layers/main.yml
     - terminal-size-test/layers/main.yml
@@ -114,7 +122,9 @@ $defs:
   object_refs:
     type: string
     enum:
+    - /objects/centered-endless-menu.yml
     - /objects/suzan.yml
+    - centered-endless-menu
     - suzan
   effect_refs:
     type: string
@@ -150,29 +160,11 @@ $defs:
   sprite_ids:
     type: string
     enum:
+    - centered-case
     - helsinki-uni-wireframe
-    - menu-grid
-    - menu-item-0
-    - menu-item-1
-    - menu-item-2
-    - menu-item-3
-    - menu-item-4
-    - menu-item-5
-    - menu-item-6
-    - sel0-left
-    - sel0-right
-    - sel1-left
-    - sel1-right
-    - sel2-left
-    - sel2-right
-    - sel3-left
-    - sel3-right
-    - sel4-left
-    - sel4-right
-    - sel5-left
-    - sel5-right
-    - sel6-left
-    - sel6-right
+    - lab-shell
+    - left-right-row
+    - nested-flex-grid-case
     - terminal-output
     - terminal-prompt
     - tux-10
