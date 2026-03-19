@@ -6,8 +6,10 @@
     - type: flex
       direction: column
       gap: 1
-      at: cc
-      y: 1
+      at: tc
+      y: 3
+      width: 360
+      height: 220
       children:
         - type: grid
           width: 64
