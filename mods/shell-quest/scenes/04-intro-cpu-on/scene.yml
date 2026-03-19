@@ -5,12 +5,13 @@ cutscene: true
 bg: black
 layers:
   - ref: main
+audio:
+  on_enter:
+    - { at_ms: 4600, cue: beep, volume: 1.0 }
 stages:
   on_enter:
     steps:
-      - { effects: [{ name: fade-in, duration: 180, params: { easing: ease-out } }] }
-      - { pause: 1200ms }
-      - { effects: [{ name: fade-out, duration: 240, params: { easing: ease-in } }] }
+      - { pause: 13000ms }
   on_idle:
     trigger: timeout
     steps: [{ pause: 1ms }]
