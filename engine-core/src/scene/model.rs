@@ -353,6 +353,8 @@ pub struct SceneUi {
     pub enabled: bool,
     #[serde(default)]
     pub persist: UiPersistence,
+    #[serde(default)]
+    pub theme: Option<String>,
     #[serde(default, rename = "focus-order", alias = "focus_order")]
     pub focus_order: Vec<String>,
 }
@@ -362,6 +364,7 @@ impl Default for SceneUi {
         Self {
             enabled: true,
             persist: UiPersistence::Scene,
+            theme: None,
             focus_order: Vec::new(),
         }
     }
@@ -640,6 +643,7 @@ layers: []
 
         assert!(scene.ui.enabled);
         assert_eq!(scene.ui.persist, UiPersistence::Scene);
+        assert_eq!(scene.ui.theme, None);
     }
 
     #[test]
@@ -699,5 +703,20 @@ layers: []
             alias_scene.ui.focus_order,
             vec!["terminal-prompt".to_string()]
         );
+    }
+
+    #[test]
+    fn parses_scene_ui_theme() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-theme
+title: UI Theme
+ui:
+  theme: win98
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        assert_eq!(scene.ui.theme.as_deref(), Some("win98"));
     }
 }

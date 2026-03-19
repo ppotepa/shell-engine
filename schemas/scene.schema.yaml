@@ -203,6 +203,10 @@ $defs:
         description: Enables or disables rendering of layers marked with ui=true.
       persist:
         $ref: "#/$defs/ui_persist_mode"
+      theme:
+        type: string
+        minLength: 1
+        description: Optional UI theme id resolved by the runtime/theme registry.
       focus-order:
         type: array
         description: Ordered list of focusable UI target ids cycled by Tab/Shift+Tab.
