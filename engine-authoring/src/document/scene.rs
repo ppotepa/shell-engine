@@ -751,7 +751,7 @@ fn expand_window_sprite(
             Some(title_id.as_str()),
             title,
             1,
-            "cc",
+            "ct",
             0,
             0,
             title_fg,
@@ -2062,6 +2062,20 @@ layers:
                     })
                     .expect("generated title text child");
                 assert_eq!(title, "TERMINAL");
+                let (align_x, align_y) = children
+                    .iter()
+                    .find_map(|child| match child {
+                        Sprite::Text {
+                            id: Some(id),
+                            align_x,
+                            align_y,
+                            ..
+                        } if id == "terminal-window-title" => Some((align_x, align_y)),
+                        _ => None,
+                    })
+                    .expect("generated title alignment");
+                assert!(matches!(align_x, Some(HorizontalAlign::Center)));
+                assert!(matches!(align_y, Some(VerticalAlign::Top)));
             }
             _ => panic!("expected panel from window sugar"),
         }
