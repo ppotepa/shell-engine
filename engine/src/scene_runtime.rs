@@ -69,6 +69,16 @@ struct TerminalShellState {
     output_lines: Vec<String>,
     history: Vec<String>,
     history_cursor: Option<usize>,
+    prompt_panel_height: Option<f32>,
+    last_layout_sync_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PanelLayoutSpec {
+    width: u16,
+    border_width: u16,
+    padding: u16,
+    height: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +115,8 @@ impl TerminalShellState {
             input: Input::default(),
             history: Vec::new(),
             history_cursor: None,
+            prompt_panel_height: None,
+            last_layout_sync_ms: 0,
         };
         state.trim_output();
         state
@@ -113,13 +125,8 @@ impl TerminalShellState {
     fn prompt_line(&self, scene_elapsed_ms: u64) -> String {
         // Default shell prompt (`>`) uses a blinking marker.
         if self.controls.prompt_prefix.trim() == ">" {
-            let marker_len = self.controls.prompt_prefix.chars().count().max(1);
             let blink_on = ((scene_elapsed_ms / 450) % 2) == 0;
-            let prefix = if blink_on {
-                format!("[white]{}[/]", self.controls.prompt_prefix)
-            } else {
-                " ".repeat(marker_len)
-            };
+            let prefix = if blink_on { ">" } else { " " };
             return format!("{prefix}{}", self.input.value());
         }
         format!("{}{}", self.controls.prompt_prefix, self.input.value())
@@ -849,15 +856,109 @@ impl SceneRuntime {
     }
 
     fn sync_terminal_shell_sprites(&mut self) {
-        let Some(state) = self.terminal_shell_state.as_ref() else {
+        let Some(mut state) = self.terminal_shell_state.clone() else {
             return;
         };
         let prompt_id = state.controls.prompt_sprite_id.clone();
         let output_id = state.controls.output_sprite_id.clone();
         let prompt_line = state.prompt_line(self.terminal_shell_scene_elapsed_ms);
+        let controls = state.controls.clone();
+        let prompt_rendered = self.render_prompt_for_panel(&prompt_line, &controls, &mut state);
         let output_text = state.output_text();
-        let _ = self.set_text_sprite_content(&prompt_id, prompt_line);
+        let _ = self.set_text_sprite_content(&prompt_id, prompt_rendered);
         let _ = self.set_text_sprite_content(&output_id, output_text);
+        self.terminal_shell_state = Some(state);
+    }
+
+    fn render_prompt_for_panel(
+        &mut self,
+        prompt_line: &str,
+        controls: &TerminalShellControls,
+        state: &mut TerminalShellState,
+    ) -> String {
+        let Some(panel_id) = controls.prompt_panel_id.as_deref() else {
+            return prompt_line.to_string();
+        };
+        let Some(layout) = self.resolve_panel_layout(panel_id) else {
+            return prompt_line.to_string();
+        };
+        let inset = u16::saturating_add(layout.border_width, layout.padding);
+        let inner_width = layout.width.saturating_sub(inset.saturating_mul(2)).max(1) as usize;
+        let mut lines = if controls.prompt_wrap {
+            wrap_text_to_width(prompt_line, inner_width)
+        } else {
+            vec![prompt_line.to_string()]
+        };
+        if lines.is_empty() {
+            lines.push(String::new());
+        }
+        let min_lines = controls.prompt_min_lines.max(1) as usize;
+        let max_lines = controls
+            .prompt_max_lines
+            .max(1)
+            .max(controls.prompt_min_lines) as usize;
+        let target_lines = if controls.prompt_auto_grow {
+            lines.len().clamp(min_lines, max_lines)
+        } else {
+            min_lines
+        };
+        if lines.len() > target_lines {
+            let start = lines.len().saturating_sub(target_lines);
+            lines = lines[start..].to_vec();
+        }
+        while lines.len() < target_lines {
+            lines.push(String::new());
+        }
+        if controls.prompt_auto_grow {
+            let target_height = (target_lines as u16)
+                .saturating_add(inset.saturating_mul(2))
+                .max(layout.height.max(3));
+            self.animate_prompt_panel_height(panel_id, target_height, controls, state);
+        }
+        lines.join("\n")
+    }
+
+    fn animate_prompt_panel_height(
+        &mut self,
+        panel_id: &str,
+        target_height: u16,
+        controls: &TerminalShellControls,
+        state: &mut TerminalShellState,
+    ) {
+        let previous = state.prompt_panel_height.unwrap_or(target_height as f32);
+        let dt = self
+            .terminal_shell_scene_elapsed_ms
+            .saturating_sub(state.last_layout_sync_ms);
+        let animated = if controls.prompt_growth_ms == 0 {
+            target_height as f32
+        } else {
+            let alpha = (dt as f32 / controls.prompt_growth_ms as f32).clamp(0.0, 1.0);
+            previous + (target_height as f32 - previous) * alpha
+        };
+        state.prompt_panel_height = Some(animated);
+        state.last_layout_sync_ms = self.terminal_shell_scene_elapsed_ms;
+        let next_height = animated.round().max(3.0) as u16;
+        let _ = self.set_panel_sprite_height(panel_id, next_height);
+    }
+
+    fn resolve_panel_layout(&self, panel_id: &str) -> Option<PanelLayoutSpec> {
+        let scene_width = self
+            .object_regions
+            .get(self.resolver_cache.scene_object_id())
+            .map(|region| region.width)
+            .unwrap_or(120);
+        self.scene
+            .layers
+            .iter()
+            .find_map(|layer| find_panel_layout_recursive(&layer.sprites, panel_id, scene_width))
+    }
+
+    fn set_panel_sprite_height(&mut self, panel_id: &str, next_height: u16) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_panel_height_recursive(&mut layer.sprites, panel_id, next_height, &mut updated);
+        }
+        updated
     }
 
     fn initialize_ui_state(&mut self) {
@@ -1326,6 +1427,110 @@ fn set_text_content_recursive(
                 set_text_content_recursive(children, sprite_id, next_content, updated)
             }
             _ => {}
+        }
+    }
+}
+
+fn wrap_text_to_width(input: &str, width: usize) -> Vec<String> {
+    let width = width.max(1);
+    let mut out = Vec::new();
+    for raw_line in input.split('\n') {
+        if raw_line.is_empty() {
+            out.push(String::new());
+            continue;
+        }
+        let mut current = String::new();
+        let mut count = 0usize;
+        for ch in raw_line.chars() {
+            if count >= width {
+                out.push(current);
+                current = String::new();
+                count = 0;
+            }
+            current.push(ch);
+            count += 1;
+        }
+        out.push(current);
+    }
+    out
+}
+
+fn find_panel_layout_recursive(
+    sprites: &[Sprite],
+    panel_id: &str,
+    scene_width: u16,
+) -> Option<PanelLayoutSpec> {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Panel {
+                id: Some(id),
+                width,
+                width_percent,
+                height,
+                border_width,
+                padding,
+                children,
+                ..
+            } => {
+                if id == panel_id {
+                    let computed_width = if let Some(explicit) = *width {
+                        explicit
+                    } else if let Some(percent) = *width_percent {
+                        ((u32::from(scene_width) * u32::from(percent.clamp(1, 100))) / 100).max(1)
+                            as u16
+                    } else {
+                        scene_width
+                    };
+                    return Some(PanelLayoutSpec {
+                        width: computed_width.max(1),
+                        border_width: *border_width,
+                        padding: *padding,
+                        height: height.unwrap_or(3).max(1),
+                    });
+                }
+                if let Some(layout) = find_panel_layout_recursive(children, panel_id, scene_width) {
+                    return Some(layout);
+                }
+            }
+            Sprite::Panel { children, .. }
+            | Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. } => {
+                if let Some(layout) = find_panel_layout_recursive(children, panel_id, scene_width) {
+                    return Some(layout);
+                }
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
+        }
+    }
+    None
+}
+
+fn set_panel_height_recursive(
+    sprites: &mut [Sprite],
+    panel_id: &str,
+    next_height: u16,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Panel {
+                id: Some(id),
+                height,
+                children,
+                ..
+            } => {
+                if id == panel_id {
+                    *height = Some(next_height.max(1));
+                    *updated = true;
+                }
+                set_panel_height_recursive(children, panel_id, next_height, updated);
+            }
+            Sprite::Panel { children, .. }
+            | Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. } => {
+                set_panel_height_recursive(children, panel_id, next_height, updated)
+            }
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
         }
     }
 }

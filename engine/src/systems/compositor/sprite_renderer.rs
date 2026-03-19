@@ -296,6 +296,7 @@ fn render_sprite(
             x,
             y,
             width,
+            width_percent,
             height,
             padding,
             border_width,
@@ -313,7 +314,15 @@ fn render_sprite(
         } => {
             let resolved_mode =
                 render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-            let container_w = width.unwrap_or(area.width).max(3);
+            let container_w = if let Some(explicit) = *width {
+                explicit
+            } else if let Some(percent) = *width_percent {
+                let p = percent.clamp(1, 100) as u32;
+                ((u32::from(area.width).saturating_mul(p)) / 100).max(1) as u16
+            } else {
+                area.width
+            }
+            .max(3);
             let container_h = height.unwrap_or(area.height).max(3);
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);

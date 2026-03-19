@@ -393,6 +393,22 @@ fn default_terminal_max_lines() -> usize {
     120
 }
 
+fn default_terminal_prompt_wrap() -> bool {
+    true
+}
+
+fn default_terminal_prompt_min_lines() -> u16 {
+    1
+}
+
+fn default_terminal_prompt_max_lines() -> u16 {
+    4
+}
+
+fn default_terminal_prompt_growth_ms() -> u64 {
+    120
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum TerminalShellOutput {
@@ -426,6 +442,9 @@ pub struct TerminalShellControls {
     /// Text sprite id used for command output transcript.
     #[serde(rename = "output-sprite-id", alias = "output_sprite_id")]
     pub output_sprite_id: String,
+    /// Optional panel widget id that hosts the prompt sprite.
+    #[serde(default, rename = "prompt-panel-id", alias = "prompt_panel_id")]
+    pub prompt_panel_id: Option<String>,
     /// Prompt prefix rendered before the current command line.
     #[serde(
         default = "default_terminal_prompt_prefix",
@@ -433,6 +452,41 @@ pub struct TerminalShellControls {
         alias = "prompt_prefix"
     )]
     pub prompt_prefix: String,
+    /// Enables prompt word wrapping inside the prompt panel.
+    #[serde(
+        default = "default_terminal_prompt_wrap",
+        rename = "prompt-wrap",
+        alias = "prompt_wrap"
+    )]
+    pub prompt_wrap: bool,
+    /// Enables auto-growing prompt panel height based on wrapped line count.
+    #[serde(
+        default = "default_terminal_prompt_wrap",
+        rename = "prompt-auto-grow",
+        alias = "prompt_auto_grow"
+    )]
+    pub prompt_auto_grow: bool,
+    /// Minimum number of input lines kept visible in prompt panel.
+    #[serde(
+        default = "default_terminal_prompt_min_lines",
+        rename = "prompt-min-lines",
+        alias = "prompt_min_lines"
+    )]
+    pub prompt_min_lines: u16,
+    /// Maximum number of wrapped input lines shown before clipping.
+    #[serde(
+        default = "default_terminal_prompt_max_lines",
+        rename = "prompt-max-lines",
+        alias = "prompt_max_lines"
+    )]
+    pub prompt_max_lines: u16,
+    /// Target animation time for panel auto-grow transitions.
+    #[serde(
+        default = "default_terminal_prompt_growth_ms",
+        rename = "prompt-growth-ms",
+        alias = "prompt_growth_ms"
+    )]
+    pub prompt_growth_ms: u64,
     /// Maximum number of output transcript lines preserved on screen.
     #[serde(
         default = "default_terminal_max_lines",
@@ -594,7 +648,13 @@ input:
   terminal-shell:
     prompt-sprite-id: terminal-prompt
     output-sprite-id: terminal-output
+    prompt-panel-id: prompt-panel
     prompt-prefix: "$ "
+    prompt-wrap: true
+    prompt-auto-grow: true
+    prompt-min-lines: 1
+    prompt-max-lines: 3
+    prompt-growth-ms: 200
     max-lines: 80
     banner:
       - boot ok
@@ -613,7 +673,13 @@ layers: []
             .expect("terminal-shell controls should parse");
         assert_eq!(controls.prompt_sprite_id, "terminal-prompt");
         assert_eq!(controls.output_sprite_id, "terminal-output");
+        assert_eq!(controls.prompt_panel_id.as_deref(), Some("prompt-panel"));
         assert_eq!(controls.prompt_prefix, "$ ");
+        assert!(controls.prompt_wrap);
+        assert!(controls.prompt_auto_grow);
+        assert_eq!(controls.prompt_min_lines, 1);
+        assert_eq!(controls.prompt_max_lines, 3);
+        assert_eq!(controls.prompt_growth_ms, 200);
         assert_eq!(controls.max_lines, 80);
         assert_eq!(controls.banner, vec!["boot ok".to_string()]);
         assert_eq!(controls.commands.len(), 1);

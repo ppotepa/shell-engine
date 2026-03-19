@@ -8,7 +8,8 @@
       at: cb
       x: 1
       y: -2
-      width: 112
+      width-percent: 95
+      height: 5
       title: ""
       title-id: ui-terminal-shadow-title
       body-id: ui-terminal-shadow-body
@@ -30,7 +31,8 @@
       at: cb
       x: 0
       y: -3
-      width: 112
+      width-percent: 95
+      height: 5
       title: ""
       title-id: ui-terminal-input-title
       body-id: ui-terminal-input-body
@@ -43,6 +45,26 @@
       title-fg: "#F1F1F1"
       body-fg: "#E4E4E4"
       footer-fg: "#DADADA"
+      corner-radius: 1
+      shadow-x: 1
+      shadow-y: 1
+      font: "generic:half"
+    - type: window
+      id: ui-terminal-help-tooltip
+      at: rt
+      x: -2
+      y: 1
+      width: 38
+      height: 5
+      title: "HELP"
+      body-content: "help | ls | status | mission | logs"
+      footer-content: "Esc on empty prompt -> menu"
+      border-fg: "#3B3B3B"
+      border-bg: "#181818"
+      panel-bg: "#4A4A4A"
+      title-fg: "#F0F0F0"
+      body-fg: "#DCDCDC"
+      footer-fg: "#CFCFCF"
       corner-radius: 1
       shadow-x: 1
       shadow-y: 1

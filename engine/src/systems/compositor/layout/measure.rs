@@ -153,6 +153,7 @@ pub(crate) fn measure_sprite_for_layout(
         } => obj_sprite_dimensions(*width, *height, *size),
         Sprite::Panel {
             width,
+            width_percent,
             height,
             padding,
             border_width,
@@ -173,7 +174,13 @@ pub(crate) fn measure_sprite_for_layout(
                 .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).1)
                 .fold(0u16, |acc, h| acc.saturating_add(h))
                 .max(1);
-            let measured_w = width.unwrap_or(max_w.saturating_add(inset.saturating_mul(2)));
+            let measured_w = if let Some(explicit) = *width {
+                explicit
+            } else if width_percent.is_some() {
+                max_w.saturating_add(inset.saturating_mul(2))
+            } else {
+                max_w.saturating_add(inset.saturating_mul(2))
+            };
             let measured_h = height.unwrap_or(sum_h.saturating_add(inset.saturating_mul(2)));
             (measured_w.max(1), measured_h.max(1))
         }
