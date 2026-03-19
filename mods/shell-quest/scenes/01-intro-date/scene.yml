@@ -2,8 +2,8 @@
 # Authored YAML v2 package root keeps scene orchestration only.
 # Intro beat 01: history strikes first.
 # Flow:
-# - on_enter waits, reveals the date card, crossfades into the Helsinki location card,
-#   then fades the whole scene out
+# - on_enter keeps a subtle scanline pass while sprite-local timing runs:
+#   date fades in/out first, then Helsinki fades in/out
 # - on_idle/on_leave keep the frame black while transitioning into the boot beat
 id: 01.intro.date
 title: 01 Intro Date
