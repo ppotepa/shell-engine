@@ -4,11 +4,23 @@
   sprite-defaults:
     type: text
     font: "generic:half"
-    fg: "#9A9A9A"
+    fg: "#B0B0B0"
   sprites:
+    - type: text
+      id: ui-shell-header
+      at: ct
+      y: -10
+      content: "PLAYGROUND // TERMINAL SHELL PROJECT"
+      fg: "#8C8C8C"
+    - type: text
+      id: ui-shell-subheader
+      at: ct
+      y: -8
+      content: "background output stream"
+      fg: "#6D6D6D"
     - type: text
       id: ui-terminal-output
       at: lt
-      x: 1
-      y: 1
+      x: 2
+      y: 2
       content: ""
