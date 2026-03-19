@@ -34,7 +34,7 @@ Scena może być:
 - identyfikację (`id`, `title`),
 - lifecycle (`stages` lub `stages-ref`),
 - kolejność kompozycji (`layers`),
-- kontrakt UI (`ui.enabled`, `ui.persist`, `ui.focus-order`),
+- kontrakt UI (`ui.enabled`, `ui.persist`, `ui.theme`, `ui.focus-order`),
 - routing (`next`, `menu-options`),
 - profile wejścia (`input`).
 
@@ -72,6 +72,7 @@ title: UI Demo
 ui:
   enabled: true
   persist: scene
+  theme: terminal
   focus-order: [terminal-prompt]
 layers:
   - name: world
@@ -271,6 +272,11 @@ Zakres danych w scope obejmuje:
 - `regions`.
 - `ui` (`focused_target`, `has_submit`, `submit_target`, `submit_text`, `has_change`, `change_target`, `change_text`)
 - aliasy flat: `ui_focused_target`, `ui_submit_target`, `ui_submit_text`, `ui_change_target`, `ui_change_text`, `ui_has_submit`, `ui_has_change`.
+
+`ui.theme`:
+
+- opcjonalny identyfikator motywu UI dla sceny (np. `terminal`, `win98`, `jrpg`),
+- w kolejnych etapach będzie rozwiązywany przez rejestr motywów runtime.
 
 `ui.focus-order`:
 
