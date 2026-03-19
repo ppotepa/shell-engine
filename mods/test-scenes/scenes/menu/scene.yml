@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: test-scenes-menu
+title: Test Scenes Menu
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: fade-in
+            duration: 240
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1200ms
+  on_leave:
+    steps:
+      - effects:
+          - name: fade-out
+            duration: 220
+next: null
+menu-options:
+  - { key: "1", label: "LAB OPEN GIF 320x180", selected-effect: arrows, to: test-scenes-door-gif }
+  - { key: "2", label: "LAB OPEN GIF 640x360", selected-effect: arrows, to: test-scenes-door-gif-2x }
+  - { key: "3", label: "LAB OPEN PNG 640x360 (direct)", selected-effect: arrows, to: test-scenes-door-png }
