@@ -8,7 +8,7 @@
       id: date-text
       content: "September 17, 1991"
       at: cc
-      font: "Abril Fatface:raster"
+      font: "generic:half"
       fg: white
       bg: black
       glow: { colour: "#5f7cff", radius: 1 }
@@ -27,7 +27,7 @@
       id: location-text
       content: "HELSINKI, FINLAND"
       at: cc
-      font: "Abril Fatface:raster"
+      font: "generic:half"
       fg: white
       bg: black
       glow: { colour: "#5f7cff", radius: 1 }

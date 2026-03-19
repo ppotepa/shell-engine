@@ -7,4 +7,5 @@
       type: text
       at: cc
       content: "Overlay"
+      font: "generic:1"
       fg: white

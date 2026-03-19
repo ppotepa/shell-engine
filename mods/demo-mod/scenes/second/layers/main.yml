@@ -7,4 +7,5 @@
       type: text
       at: cc
       content: "Second"
+      font: "generic:1"
       fg: white
