@@ -292,6 +292,7 @@ Zakres danych w scope obejmuje:
 `input.terminal-shell` (prompt widget):
 
 - `prompt-panel-id` wiąże prompt z panelem UI i aktywuje layout-aware wrapping,
+- `prompt-shadow-panel-id` (opcjonalnie) synchronizuje wysokość panelu cienia przy auto-grow,
 - `prompt-wrap` włącza zawijanie linii do szerokości panelu,
 - `prompt-auto-grow` + `prompt-min-lines`/`prompt-max-lines` rozszerzają panel wraz z liczbą linii,
 - `prompt-growth-ms` ustala czas animacji wzrostu wysokości panelu.
