@@ -15,15 +15,12 @@ layers:
 stages:
   on_enter:
     steps:
-      - pause: 3000ms
-      - { duration: 900, effects: [{ name: fade-in, duration: 900, params: { easing: ease-out } }] }
-      - { duration: 3200, effects: [{ name: scanlines, duration: 3200 }] }
-      - { duration: 900, effects: [{ name: fade-out, duration: 900, params: { easing: ease-in } }] }
+      - { duration: 8600, effects: [{ name: scanlines, duration: 8600 }] }
   on_idle:
     trigger: timeout
     steps:
       - { duration: 1, effects: [{ name: clear-to-colour, duration: 1, params: { colour: black } }] }
   on_leave:
     steps:
-      - { duration: 300, effects: [{ name: clear-to-colour, duration: 300, params: { colour: black } }] }
+      - { duration: 180, effects: [{ name: clear-to-colour, duration: 180, params: { colour: black } }] }
 next: 02.intro.boot
