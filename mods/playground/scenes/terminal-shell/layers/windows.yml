@@ -21,7 +21,9 @@
       title-fg: "#2F2F2F"
       body-fg: "#2F2F2F"
       footer-fg: "#2F2F2F"
-      border-style: ascii
+      corner-radius: 1
+      shadow-x: 1
+      shadow-y: 1
       font: "generic:half"
     - type: window
       id: ui-terminal-input-window
@@ -41,5 +43,7 @@
       title-fg: "#F1F1F1"
       body-fg: "#E4E4E4"
       footer-fg: "#DADADA"
-      border-style: ascii
+      corner-radius: 1
+      shadow-x: 1
+      shadow-y: 1
       font: "generic:half"

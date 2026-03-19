@@ -31,5 +31,5 @@ pub use model::{
 pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
 pub use ui_theme::{
     normalize_theme_key, resolve_ui_theme, resolve_ui_theme_or_default, ScrollListThemeStyle,
-    UiThemeStyle, WindowFrameStyle, WindowThemeStyle,
+    UiThemeStyle, WindowThemeStyle,
 };

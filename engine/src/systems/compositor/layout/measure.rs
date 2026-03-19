@@ -151,6 +151,32 @@ pub(crate) fn measure_sprite_for_layout(
             size,
             ..
         } => obj_sprite_dimensions(*width, *height, *size),
+        Sprite::Panel {
+            width,
+            height,
+            padding,
+            border_width,
+            children,
+            ..
+        } => {
+            if let (Some(w), Some(h)) = (width.as_ref().copied(), height.as_ref().copied()) {
+                return (w.max(1), h.max(1));
+            }
+            let inset = border_width.saturating_add(*padding).max(1);
+            let max_w = children
+                .iter()
+                .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).0)
+                .max()
+                .unwrap_or(1);
+            let sum_h: u16 = children
+                .iter()
+                .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).1)
+                .fold(0u16, |acc, h| acc.saturating_add(h))
+                .max(1);
+            let measured_w = width.unwrap_or(max_w.saturating_add(inset.saturating_mul(2)));
+            let measured_h = height.unwrap_or(sum_h.saturating_add(inset.saturating_mul(2)));
+            (measured_w.max(1), measured_h.max(1))
+        }
         Sprite::Flex {
             width,
             height,

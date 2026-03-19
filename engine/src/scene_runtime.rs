@@ -1129,7 +1129,10 @@ fn build_sprite_objects(
         parent.children.push(sprite_id.clone());
     }
 
-    if let Sprite::Grid { children, .. } = sprite {
+    if let Sprite::Grid { children, .. }
+    | Sprite::Flex { children, .. }
+    | Sprite::Panel { children, .. } = sprite
+    {
         for (child_idx, child) in children.iter().enumerate() {
             let mut child_path = sprite_path.to_vec();
             child_path.push(child_idx);
@@ -1172,6 +1175,11 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
         Sprite::Obj { id, .. } => (
             GameObjectKind::ObjSprite,
             sprite_name("obj", id.as_deref(), sprite_idx),
+            sprite_aliases(id.as_deref()),
+        ),
+        Sprite::Panel { id, .. } => (
+            GameObjectKind::PanelSprite,
+            sprite_name("panel", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
         Sprite::Grid { id, .. } => (
@@ -1267,9 +1275,9 @@ fn for_each_obj_mut(sprites: &mut [Sprite], f: &mut impl FnMut(&mut Sprite)) {
     for sprite in sprites.iter_mut() {
         match sprite {
             Sprite::Obj { .. } => f(sprite),
-            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
-                for_each_obj_mut(children, f)
-            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => for_each_obj_mut(children, f),
             _ => {}
         }
     }
@@ -1283,7 +1291,9 @@ fn find_text_content<'a>(sprites: &'a [Sprite], sprite_id: &str) -> Option<&'a s
                 content,
                 ..
             } if id == sprite_id => return Some(content.as_str()),
-            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
                 if let Some(content) = find_text_content(children, sprite_id) {
                     return Some(content);
                 }
@@ -1310,7 +1320,9 @@ fn set_text_content_recursive(
                 *content = next_content.to_string();
                 *updated = true;
             }
-            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
                 set_text_content_recursive(children, sprite_id, next_content, updated)
             }
             _ => {}
@@ -1330,7 +1342,9 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
                     return Some(rotate_y_deg_per_sec.unwrap_or(0.0).abs() > f32::EPSILON);
                 }
             }
-            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
                 if let Some(result) = obj_orbit_active_in_sprites(children, sprite_id) {
                     return Some(result);
                 }

@@ -2,7 +2,7 @@
 //! [`Scene`] model.
 
 use engine_core::scene::template::expand_scene_templates;
-use engine_core::scene::{resolve_ui_theme_or_default, Scene, WindowFrameStyle};
+use engine_core::scene::{resolve_ui_theme_or_default, Scene};
 use serde::de::Error as _;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
@@ -675,162 +675,114 @@ fn expand_window_sprite(
         .or_else(|| Some(theme_defaults.window.footer_fg))
         .unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
-    let border_style = resolve_window_border_style(
-        sprite_map,
-        window_font.as_deref(),
-        Some(theme_defaults.window.frame_style),
-    );
-    let width_cells = map_get_u64(sprite_map, &["width"])
-        .unwrap_or(48)
-        .clamp(4, 512) as usize;
-    let (top_line, mid_line, bottom_line, inner_line) =
-        build_window_frame_lines(width_cells, border_style);
-
-    let mut grid = Mapping::new();
+    let mut panel = Mapping::new();
     for (key, value) in sprite_map {
         let Some(name) = key.as_str() else {
-            grid.insert(key.clone(), value.clone());
+            panel.insert(key.clone(), value.clone());
             continue;
         };
         if WINDOW_RESERVED_KEYS.contains(&name) {
             continue;
         }
-        grid.insert(key.clone(), value.clone());
+        panel.insert(key.clone(), value.clone());
     }
-    grid.insert(
+    panel.insert(
         Value::String("type".to_string()),
-        Value::String("grid".to_string()),
+        Value::String("panel".to_string()),
     );
-    if !grid.contains_key(Value::String("columns".to_string())) {
-        grid.insert(
-            Value::String("columns".to_string()),
-            Value::Sequence(vec![Value::String("1fr".to_string())]),
+    if !panel.contains_key(Value::String("width".to_string())) {
+        panel.insert(
+            Value::String("width".to_string()),
+            Value::Number(Number::from(48)),
         );
     }
-    if !grid.contains_key(Value::String("rows".to_string())) {
-        grid.insert(
-            Value::String("rows".to_string()),
-            Value::Sequence(vec![
-                Value::String("auto".to_string()),
-                Value::String("auto".to_string()),
-                Value::String("auto".to_string()),
-                Value::String("auto".to_string()),
-                Value::String("auto".to_string()),
-                Value::String("auto".to_string()),
-                Value::String("auto".to_string()),
-            ]),
+    if !panel.contains_key(Value::String("height".to_string())) {
+        panel.insert(
+            Value::String("height".to_string()),
+            Value::Number(Number::from(7)),
+        );
+    }
+    if !panel.contains_key(Value::String("padding".to_string())) {
+        panel.insert(
+            Value::String("padding".to_string()),
+            Value::Number(Number::from(1)),
+        );
+    }
+    if !panel.contains_key(Value::String("border-width".to_string())) {
+        panel.insert(
+            Value::String("border-width".to_string()),
+            Value::Number(Number::from(1)),
+        );
+    }
+    if !panel.contains_key(Value::String("corner-radius".to_string())) {
+        panel.insert(
+            Value::String("corner-radius".to_string()),
+            Value::Number(Number::from(1)),
+        );
+    }
+    if !panel.contains_key(Value::String("shadow-x".to_string())) {
+        panel.insert(
+            Value::String("shadow-x".to_string()),
+            Value::Number(Number::from(1)),
+        );
+    }
+    if !panel.contains_key(Value::String("shadow-y".to_string())) {
+        panel.insert(
+            Value::String("shadow-y".to_string()),
+            Value::Number(Number::from(1)),
+        );
+    }
+    if !panel.contains_key(Value::String("bg".to_string())) {
+        panel.insert(
+            Value::String("bg".to_string()),
+            Value::String(panel_bg.to_string()),
+        );
+    }
+    if !panel.contains_key(Value::String("border-colour".to_string())) {
+        panel.insert(
+            Value::String("border-colour".to_string()),
+            Value::String(border_fg.to_string()),
+        );
+    }
+    if !panel.contains_key(Value::String("shadow-colour".to_string())) {
+        panel.insert(
+            Value::String("shadow-colour".to_string()),
+            Value::String(border_bg.to_string()),
         );
     }
 
     let mut children = vec![
         build_window_text_child(
-            None,
-            &top_line,
+            Some(title_id.as_str()),
+            title,
             1,
             "cc",
             0,
             0,
-            border_fg,
-            Some(border_bg),
-            window_font.as_deref(),
-        ),
-        build_window_text_child(
-            None,
-            &inner_line,
-            2,
-            "cc",
-            0,
-            0,
-            border_fg,
-            Some(panel_bg),
-            window_font.as_deref(),
-        ),
-        build_window_text_child(
-            None,
-            &mid_line,
-            3,
-            "cc",
-            0,
-            0,
-            border_fg,
-            Some(border_bg),
-            window_font.as_deref(),
-        ),
-        build_window_text_child(
-            None,
-            &inner_line,
-            4,
-            "cc",
-            0,
-            0,
-            border_fg,
-            Some(panel_bg),
-            window_font.as_deref(),
-        ),
-        build_window_text_child(
-            None,
-            &mid_line,
-            5,
-            "cc",
-            0,
-            0,
-            border_fg,
-            Some(border_bg),
-            window_font.as_deref(),
-        ),
-        build_window_text_child(
-            None,
-            &inner_line,
-            6,
-            "cc",
-            0,
-            0,
-            border_fg,
-            Some(panel_bg),
-            window_font.as_deref(),
-        ),
-        build_window_text_child(
-            None,
-            &bottom_line,
-            7,
-            "cc",
-            0,
-            0,
-            border_fg,
-            Some(border_bg),
-            window_font.as_deref(),
-        ),
-        build_window_text_child(
-            Some(title_id.as_str()),
-            title,
-            2,
-            "cc",
-            0,
-            0,
             title_fg,
-            Some(panel_bg),
+            None,
             window_font.as_deref(),
         ),
         build_window_text_child(
             Some(body_id.as_str()),
             body,
-            4,
+            1,
             "lt",
-            2,
             0,
+            1,
             body_fg,
-            Some(panel_bg),
+            None,
             window_font.as_deref(),
         ),
         build_window_text_child(
             Some(footer_id.as_str()),
             footer,
-            6,
+            1,
             "lt",
-            2,
             0,
+            2,
             footer_fg,
-            Some(panel_bg),
+            None,
             window_font.as_deref(),
         ),
     ];
@@ -843,17 +795,8 @@ fn expand_window_sprite(
             let mut child_value = child.clone();
             if let Some(child_map) = child_value.as_mapping_mut() {
                 child_map
-                    .entry(Value::String("grid-col".to_string()))
-                    .or_insert_with(|| Value::Number(Number::from(1)));
-                child_map
-                    .entry(Value::String("grid-row".to_string()))
-                    .or_insert_with(|| Value::Number(Number::from(4)));
-                child_map
                     .entry(Value::String("at".to_string()))
                     .or_insert_with(|| Value::String("lt".to_string()));
-                child_map
-                    .entry(Value::String("x".to_string()))
-                    .or_insert_with(|| Value::Number(Number::from(2)));
                 if let Some(font) = window_font.as_deref() {
                     child_map
                         .entry(Value::String("font".to_string()))
@@ -864,112 +807,19 @@ fn expand_window_sprite(
         }
     }
 
-    grid.insert(
+    panel.insert(
         Value::String("children".to_string()),
         Value::Sequence(children),
     );
-    apply_alias(&mut grid, "fg", "fg_colour");
-    apply_alias(&mut grid, "bg", "bg_colour");
-    apply_at_anchor(&mut grid);
-    normalize_expression_fields(&mut grid);
-    if let Some(children) = grid.get_mut(Value::String("children".to_string())) {
+    apply_alias(&mut panel, "fg", "fg_colour");
+    apply_alias(&mut panel, "bg", "bg_colour");
+    apply_at_anchor(&mut panel);
+    normalize_expression_fields(&mut panel);
+    if let Some(children) = panel.get_mut(Value::String("children".to_string())) {
         normalize_sprites(children, inherited_defaults, scene_theme)?;
     }
 
-    Ok(vec![Value::Mapping(grid)])
-}
-
-fn resolve_window_border_style(
-    sprite_map: &Mapping,
-    window_font: Option<&str>,
-    themed_default: Option<WindowFrameStyle>,
-) -> WindowFrameStyle {
-    let raw_style = map_get_str(
-        sprite_map,
-        &["border-style", "border_style", "frame-style", "frame_style"],
-    )
-    .unwrap_or("auto")
-    .trim()
-    .to_ascii_lowercase();
-
-    match raw_style.as_str() {
-        "ascii" => WindowFrameStyle::Ascii,
-        "soft" | "soft-ascii" | "soft_ascii" => WindowFrameStyle::SoftAscii,
-        "single" | "unicode" => WindowFrameStyle::Single,
-        "rounded" => WindowFrameStyle::Rounded,
-        "double" => WindowFrameStyle::Double,
-        _ => {
-            if let Some(style) = themed_default {
-                if window_font.is_some_and(|font| font.trim_start().starts_with("generic"))
-                    && style != WindowFrameStyle::Ascii
-                    && style != WindowFrameStyle::SoftAscii
-                {
-                    return WindowFrameStyle::Ascii;
-                }
-                return style;
-            }
-            if window_font.is_some_and(|font| font.trim_start().starts_with("generic")) {
-                WindowFrameStyle::Ascii
-            } else {
-                WindowFrameStyle::Single
-            }
-        }
-    }
-}
-
-fn build_window_frame_lines(
-    width_cells: usize,
-    style: WindowFrameStyle,
-) -> (String, String, String, String) {
-    let width_cells = width_cells.max(4);
-    let inner = width_cells.saturating_sub(2);
-    match style {
-        WindowFrameStyle::Single => {
-            let line_inner = "─".repeat(inner);
-            (
-                format!("┌{line_inner}┐"),
-                format!("├{line_inner}┤"),
-                format!("└{line_inner}┘"),
-                format!("│{}│", " ".repeat(inner)),
-            )
-        }
-        WindowFrameStyle::Rounded => {
-            let line_inner = "─".repeat(inner);
-            (
-                format!("╭{line_inner}╮"),
-                format!("├{line_inner}┤"),
-                format!("╰{line_inner}╯"),
-                format!("│{}│", " ".repeat(inner)),
-            )
-        }
-        WindowFrameStyle::Double => {
-            let line_inner = "═".repeat(inner);
-            (
-                format!("╔{line_inner}╗"),
-                format!("╠{line_inner}╣"),
-                format!("╚{line_inner}╝"),
-                format!("║{}║", " ".repeat(inner)),
-            )
-        }
-        WindowFrameStyle::SoftAscii => {
-            let line_inner = "-".repeat(inner);
-            (
-                format!("/{line_inner}\\"),
-                format!("|{line_inner}|"),
-                format!("\\{line_inner}/"),
-                format!("|{}|", " ".repeat(inner)),
-            )
-        }
-        WindowFrameStyle::Ascii => {
-            let line_inner = "-".repeat(inner);
-            (
-                format!("+{line_inner}+"),
-                format!("+{line_inner}+"),
-                format!("+{line_inner}+"),
-                format!("|{}|", " ".repeat(inner)),
-            )
-        }
-    }
+    Ok(vec![Value::Mapping(panel)])
 }
 
 fn expand_scroll_list_sprite(
@@ -1854,7 +1704,7 @@ layers:
     }
 
     #[test]
-    fn expands_window_sprite_to_grid_with_frame_children() {
+    fn expands_window_sprite_to_panel_with_slot_children() {
         let raw = r#"
 id: window-scene
 title: Window
@@ -1875,17 +1725,9 @@ layers:
             .expect("scene");
         assert_eq!(scene.layers[0].sprites.len(), 1);
         match &scene.layers[0].sprites[0] {
-            Sprite::Grid {
-                id,
-                columns,
-                rows,
-                children,
-                ..
-            } => {
+            Sprite::Panel { id, children, .. } => {
                 assert_eq!(id.as_deref(), Some("terminal-window"));
-                assert_eq!(columns, &vec!["1fr".to_string()]);
-                assert_eq!(rows.len(), 7);
-                assert!(children.len() >= 10);
+                assert_eq!(children.len(), 3);
                 let title = children
                     .iter()
                     .find_map(|child| match child {
@@ -1899,12 +1741,12 @@ layers:
                     .expect("generated title text child");
                 assert_eq!(title, "TERMINAL");
             }
-            _ => panic!("expected grid from window sugar"),
+            _ => panic!("expected panel from window sugar"),
         }
     }
 
     #[test]
-    fn expands_window_sprite_with_generic_font_using_ascii_frame() {
+    fn expands_window_sprite_with_generic_font_forwards_font_to_slot_children() {
         let raw = r#"
 id: window-ascii
 title: Window Ascii
@@ -1922,11 +1764,16 @@ layers:
             .compile()
             .expect("scene");
         match &scene.layers[0].sprites[0] {
-            Sprite::Grid { children, .. } => match &children[0] {
-                Sprite::Text { content, .. } => assert!(content.starts_with('+')),
-                _ => panic!("expected generated top border text child"),
-            },
-            _ => panic!("expected grid from window sugar"),
+            Sprite::Panel { children, .. } => {
+                let title_font = children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id: Some(id), font, ..
+                    } if id == "terminal-window-title" => font.as_deref(),
+                    _ => None,
+                });
+                assert_eq!(title_font, Some("generic:half"));
+            }
+            _ => panic!("expected panel from window sugar"),
         }
     }
 
@@ -1952,16 +1799,16 @@ layers:
             .compile()
             .expect("scene");
         match &scene.layers[0].sprites[0] {
-            Sprite::Grid { children, .. } => {
-                match &children[0] {
-                    Sprite::Text {
-                        content, fg_colour, ..
-                    } => {
-                        assert!(content.starts_with('+'));
-                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Silver));
-                    }
-                    _ => panic!("expected generated top border text child"),
-                }
+            Sprite::Panel {
+                bg_colour,
+                border_colour,
+                shadow_colour,
+                children,
+                ..
+            } => {
+                assert_eq!(bg_colour.as_ref(), Some(&TermColour::Silver));
+                assert_eq!(border_colour.as_ref(), Some(&TermColour::Silver));
+                assert_eq!(shadow_colour.as_ref(), Some(&TermColour::Gray));
                 let footer_fg = children
                     .iter()
                     .find_map(|child| match child {
@@ -1975,7 +1822,7 @@ layers:
                     .expect("generated footer text child");
                 assert_eq!(footer_fg, &TermColour::Silver);
             }
-            _ => panic!("expected grid from window sugar"),
+            _ => panic!("expected panel from window sugar"),
         }
     }
 
@@ -2002,20 +1849,12 @@ layers:
             .compile()
             .expect("scene");
         match &scene.layers[0].sprites[0] {
-            Sprite::Grid { children, .. } => {
-                match &children[0] {
-                    Sprite::Text {
-                        content, fg_colour, ..
-                    } => {
-                        assert!(content.starts_with('┌'));
-                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Yellow));
-                    }
-                    _ => panic!("expected generated top border text child"),
-                }
-                match &children[1] {
-                    Sprite::Text { .. } => {}
-                    _ => panic!("expected generated frame child"),
-                };
+            Sprite::Panel {
+                border_colour,
+                children,
+                ..
+            } => {
+                assert_eq!(border_colour.as_ref(), Some(&TermColour::Yellow));
                 let title_fg = children
                     .iter()
                     .find_map(|child| match child {
@@ -2053,12 +1892,12 @@ layers:
                     .expect("generated footer text child");
                 assert_eq!(footer_fg, &TermColour::Green);
             }
-            _ => panic!("expected grid from window sugar"),
+            _ => panic!("expected panel from window sugar"),
         }
     }
 
     #[test]
-    fn window_theme_auto_style_falls_back_to_ascii_for_generic_font() {
+    fn window_theme_applies_when_generic_font_is_used() {
         let raw = r#"
 id: window-theme-generic-fallback
 title: Window Theme Generic Fallback
@@ -2076,11 +1915,15 @@ layers:
             .compile()
             .expect("scene");
         match &scene.layers[0].sprites[0] {
-            Sprite::Grid { children, .. } => match &children[0] {
-                Sprite::Text { content, .. } => assert!(content.starts_with('+')),
-                _ => panic!("expected generated top border text child"),
-            },
-            _ => panic!("expected grid from window sugar"),
+            Sprite::Panel {
+                bg_colour,
+                border_colour,
+                ..
+            } => {
+                assert_eq!(bg_colour.as_ref(), Some(&TermColour::Silver));
+                assert_eq!(border_colour.as_ref(), Some(&TermColour::Silver));
+            }
+            _ => panic!("expected panel from window sugar"),
         }
     }
 

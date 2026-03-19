@@ -39,6 +39,26 @@ fn default_grid_span() -> u16 {
     1
 }
 
+fn default_panel_padding() -> u16 {
+    1
+}
+
+fn default_panel_border_width() -> u16 {
+    1
+}
+
+fn default_panel_radius() -> u16 {
+    1
+}
+
+fn default_panel_shadow_x() -> i32 {
+    1
+}
+
+fn default_panel_shadow_y() -> i32 {
+    1
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 /// Declares the main axis used by a flex container sprite.
@@ -285,6 +305,64 @@ pub enum Sprite {
         #[serde(default)]
         behaviors: Vec<BehaviorSpec>,
     },
+    /// UI panel container rendered as a themed box with optional border, corner radius and shadow.
+    #[serde(rename = "panel")]
+    Panel {
+        #[serde(default)]
+        id: Option<String>,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default)]
+        z_index: i32,
+        #[serde(default = "default_grid_line", rename = "grid-row")]
+        grid_row: u16,
+        #[serde(default = "default_grid_line", rename = "grid-col")]
+        grid_col: u16,
+        #[serde(default = "default_grid_span", rename = "row-span")]
+        row_span: u16,
+        #[serde(default = "default_grid_span", rename = "col-span")]
+        col_span: u16,
+        #[serde(default)]
+        width: Option<u16>,
+        #[serde(default)]
+        height: Option<u16>,
+        #[serde(default = "default_panel_padding")]
+        padding: u16,
+        #[serde(default = "default_panel_border_width", rename = "border-width")]
+        border_width: u16,
+        #[serde(default = "default_panel_radius", rename = "corner-radius")]
+        corner_radius: u16,
+        #[serde(default = "default_panel_shadow_x", rename = "shadow-x")]
+        shadow_x: i32,
+        #[serde(default = "default_panel_shadow_y", rename = "shadow-y")]
+        shadow_y: i32,
+        #[serde(default, rename = "force-renderer-mode")]
+        force_renderer_mode: Option<SceneRenderedMode>,
+        align_x: Option<HorizontalAlign>,
+        align_y: Option<VerticalAlign>,
+        fg_colour: Option<TermColour>,
+        bg_colour: Option<TermColour>,
+        #[serde(rename = "border-colour")]
+        border_colour: Option<TermColour>,
+        #[serde(rename = "shadow-colour")]
+        shadow_colour: Option<TermColour>,
+        #[serde(default)]
+        appear_at_ms: Option<u64>,
+        #[serde(default)]
+        disappear_at_ms: Option<u64>,
+        #[serde(default)]
+        hide_on_leave: bool,
+        #[serde(default)]
+        stages: LayerStages,
+        #[serde(default)]
+        animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
+        #[serde(default)]
+        children: Vec<Sprite>,
+    },
     /// Grid layout container. Children are renderable sprites arranged in rows/columns.
     Grid {
         #[serde(default)]
@@ -386,6 +464,7 @@ impl Sprite {
             Sprite::Text { id, .. }
             | Sprite::Image { id, .. }
             | Sprite::Obj { id, .. }
+            | Sprite::Panel { id, .. }
             | Sprite::Grid { id, .. }
             | Sprite::Flex { id, .. } => id.as_deref(),
         }
@@ -396,6 +475,7 @@ impl Sprite {
             Sprite::Text { z_index, .. }
             | Sprite::Image { z_index, .. }
             | Sprite::Obj { z_index, .. }
+            | Sprite::Panel { z_index, .. }
             | Sprite::Grid { z_index, .. }
             | Sprite::Flex { z_index, .. } => *z_index,
         }
@@ -406,6 +486,7 @@ impl Sprite {
             Sprite::Text { stages, .. }
             | Sprite::Image { stages, .. }
             | Sprite::Obj { stages, .. }
+            | Sprite::Panel { stages, .. }
             | Sprite::Grid { stages, .. }
             | Sprite::Flex { stages, .. } => stages,
         }
@@ -428,6 +509,13 @@ impl Sprite {
                 ..
             }
             | Sprite::Obj {
+                grid_row,
+                grid_col,
+                row_span,
+                col_span,
+                ..
+            }
+            | Sprite::Panel {
                 grid_row,
                 grid_col,
                 row_span,
@@ -458,7 +546,9 @@ impl Sprite {
     {
         visit(self);
         match self {
-            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+            Sprite::Panel { children, .. }
+            | Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. } => {
                 for child in children {
                     child.walk_recursive(visit);
                 }
@@ -472,6 +562,7 @@ impl Sprite {
             Sprite::Text { behaviors, .. }
             | Sprite::Image { behaviors, .. }
             | Sprite::Obj { behaviors, .. }
+            | Sprite::Panel { behaviors, .. }
             | Sprite::Grid { behaviors, .. }
             | Sprite::Flex { behaviors, .. } => behaviors,
         }
@@ -482,6 +573,7 @@ impl Sprite {
             Sprite::Text { hide_on_leave, .. }
             | Sprite::Image { hide_on_leave, .. }
             | Sprite::Obj { hide_on_leave, .. }
+            | Sprite::Panel { hide_on_leave, .. }
             | Sprite::Grid { hide_on_leave, .. }
             | Sprite::Flex { hide_on_leave, .. } => *hide_on_leave,
         }
@@ -492,6 +584,7 @@ impl Sprite {
             Sprite::Text { appear_at_ms, .. }
             | Sprite::Image { appear_at_ms, .. }
             | Sprite::Obj { appear_at_ms, .. }
+            | Sprite::Panel { appear_at_ms, .. }
             | Sprite::Grid { appear_at_ms, .. }
             | Sprite::Flex { appear_at_ms, .. } => *appear_at_ms,
         }
@@ -508,6 +601,9 @@ impl Sprite {
             | Sprite::Obj {
                 disappear_at_ms, ..
             }
+            | Sprite::Panel {
+                disappear_at_ms, ..
+            }
             | Sprite::Grid {
                 disappear_at_ms, ..
             }
@@ -522,6 +618,7 @@ impl Sprite {
             Sprite::Text { animations, .. }
             | Sprite::Image { animations, .. }
             | Sprite::Obj { animations, .. }
+            | Sprite::Panel { animations, .. }
             | Sprite::Grid { animations, .. }
             | Sprite::Flex { animations, .. } => animations,
         }
@@ -549,6 +646,7 @@ y: -8
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
@@ -579,6 +677,7 @@ force-font-mode: braille
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
@@ -615,6 +714,7 @@ stretch-to-area: true
             }
             Sprite::Text { .. }
             | Sprite::Obj { .. }
+            | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {
                 panic!("expected image sprite")
@@ -667,6 +767,7 @@ children:
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Panel { .. }
             | Sprite::Flex { .. } => {
                 panic!("expected grid sprite")
             }
@@ -698,6 +799,7 @@ behaviors:
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {
                 panic!("expected text sprite")
