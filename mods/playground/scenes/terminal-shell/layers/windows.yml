@@ -24,14 +24,14 @@
       with:
         frame_id: ui-terminal-input-frame
         title_id: ui-terminal-input-title
-        body_id: ui-terminal-prompt
-        footer_id: ui-terminal-input-footer
-        title: "OPERATOR INPUT"
+        body_id: ui-terminal-input-body
+        footer_id: ui-terminal-prompt
+        title: ""
         width: 90
         x: 0
         y: -3
         border_fg: gray
-        title_fg: white
-        body_fg: "#B5B5B5"
-        footer_fg: gray
+        title_fg: gray
+        body_fg: "#6D6D6D"
+        footer_fg: "#B5B5B5"
         border_style: soft-ascii
