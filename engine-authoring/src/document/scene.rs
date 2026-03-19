@@ -827,15 +827,22 @@ fn resolve_window_border_style(
 
     match raw_style.as_str() {
         "ascii" => WindowFrameStyle::Ascii,
-        "unicode" => WindowFrameStyle::Unicode,
+        "single" | "unicode" => WindowFrameStyle::Single,
+        "rounded" => WindowFrameStyle::Rounded,
+        "double" => WindowFrameStyle::Double,
         _ => {
             if let Some(style) = themed_default {
+                if window_font.is_some_and(|font| font.trim_start().starts_with("generic"))
+                    && style != WindowFrameStyle::Ascii
+                {
+                    return WindowFrameStyle::Ascii;
+                }
                 return style;
             }
             if window_font.is_some_and(|font| font.trim_start().starts_with("generic")) {
                 WindowFrameStyle::Ascii
             } else {
-                WindowFrameStyle::Unicode
+                WindowFrameStyle::Single
             }
         }
     }
@@ -848,12 +855,28 @@ fn build_window_frame_lines(
     let width_cells = width_cells.max(4);
     let inner = width_cells.saturating_sub(2);
     match style {
-        WindowFrameStyle::Unicode => {
+        WindowFrameStyle::Single => {
             let line_inner = "─".repeat(inner);
             (
                 format!("┌{line_inner}┐"),
                 format!("├{line_inner}┤"),
                 format!("└{line_inner}┘"),
+            )
+        }
+        WindowFrameStyle::Rounded => {
+            let line_inner = "─".repeat(inner);
+            (
+                format!("╭{line_inner}╮"),
+                format!("├{line_inner}┤"),
+                format!("╰{line_inner}╯"),
+            )
+        }
+        WindowFrameStyle::Double => {
+            let line_inner = "═".repeat(inner);
+            (
+                format!("╔{line_inner}╗"),
+                format!("╠{line_inner}╣"),
+                format!("╚{line_inner}╝"),
             )
         }
         WindowFrameStyle::Ascii => {
@@ -1895,6 +1918,33 @@ layers:
                     _ => panic!("expected generated footer text child"),
                 }
             }
+            _ => panic!("expected grid from window sugar"),
+        }
+    }
+
+    #[test]
+    fn window_theme_auto_style_falls_back_to_ascii_for_generic_font() {
+        let raw = r#"
+id: window-theme-generic-fallback
+title: Window Theme Generic Fallback
+ui:
+  theme: xp
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        width: 20
+        font: "generic:half"
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid { children, .. } => match &children[0] {
+                Sprite::Text { content, .. } => assert!(content.starts_with('+')),
+                _ => panic!("expected generated top border text child"),
+            },
             _ => panic!("expected grid from window sugar"),
         }
     }
