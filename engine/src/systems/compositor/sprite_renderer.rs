@@ -17,7 +17,7 @@ use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
     sprite_transform_offset, RenderCtx,
 };
-use super::text_render::{dim_colour, render_text_content, text_sprite_dimensions};
+use super::text_render::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};
 
 /// Render all sprites in a layer onto `layer_buf`.
 pub fn render_sprites(
@@ -164,6 +164,12 @@ fn render_sprite(
                 sprite_elapsed,
                 &object_state,
             );
+            let clip = Some(ClipRect {
+                x: area.origin_x,
+                y: area.origin_y,
+                width: area.width,
+                height: area.height,
+            });
 
             if let Some(glow_opts) = glow.as_ref() {
                 let glow_col = glow_opts
@@ -188,6 +194,7 @@ fn render_sprite(
                             sprite_bg,
                             gx,
                             gy,
+                            clip,
                             ctx.layer_buf,
                         );
                     }
@@ -201,6 +208,7 @@ fn render_sprite(
                 sprite_bg,
                 draw_x,
                 draw_y,
+                clip,
                 ctx.layer_buf,
             );
             let sprite_region = Region {

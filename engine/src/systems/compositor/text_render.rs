@@ -8,6 +8,24 @@ use crate::markup::{parse_spans, strip_markup};
 use crate::rasterizer;
 use crate::rasterizer::generic;
 
+#[derive(Debug, Clone, Copy)]
+pub(super) struct ClipRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u16,
+    pub height: u16,
+}
+
+impl ClipRect {
+    fn contains(self, cell_x: u16, cell_y: u16) -> bool {
+        let x = i32::from(cell_x);
+        let y = i32::from(cell_y);
+        let x_end = self.x.saturating_add(i32::from(self.width));
+        let y_end = self.y.saturating_add(i32::from(self.height));
+        x >= self.x && y >= self.y && x < x_end && y < y_end
+    }
+}
+
 pub(super) fn render_text_content(
     mod_source: Option<&Path>,
     content: &str,
@@ -16,6 +34,7 @@ pub(super) fn render_text_content(
     bg: Color,
     x: u16,
     y: u16,
+    clip: Option<ClipRect>,
     buf: &mut Buffer,
 ) {
     match font {
@@ -31,7 +50,9 @@ pub(super) fn render_text_content(
                         row = row.saturating_add(1);
                         continue;
                     }
-                    buf.set(col, row, ch, span_fg, bg);
+                    if clip.is_none_or(|rect| rect.contains(col, row)) {
+                        buf.set(col, row, ch, span_fg, bg);
+                    }
                     col = col.saturating_add(1);
                 }
             }
@@ -51,7 +72,15 @@ pub(super) fn render_text_content(
                     })
                     .collect();
                 let line_y = y.saturating_add((line_idx as u16).saturating_mul(line_h));
-                generic::rasterize_spans_mode(&colored_spans, mode, x, line_y, buf);
+                let line_width = colored_spans
+                    .iter()
+                    .map(|(text, _)| generic::generic_dimensions_mode(text, mode).0)
+                    .fold(0u16, |acc, w| acc.saturating_add(w))
+                    .max(1);
+                let mut line_buf = Buffer::new(line_width, line_h.max(1));
+                line_buf.fill(Color::Reset);
+                generic::rasterize_spans_mode(&colored_spans, mode, 0, 0, &mut line_buf);
+                blit_with_clip(&line_buf, buf, x, line_y, clip);
             }
         }
         Some(font_name) => {
@@ -60,7 +89,22 @@ pub(super) fn render_text_content(
             for (line_idx, line) in stripped.split('\n').enumerate() {
                 let text_buf = rasterizer::rasterize_cached(mod_source, line, font_name, fg, bg);
                 let line_y = y.saturating_add((line_idx as u16).saturating_mul(line_h));
-                rasterizer::blit(&text_buf, buf, x, line_y);
+                blit_with_clip(&text_buf, buf, x, line_y, clip);
+            }
+        }
+    }
+}
+
+fn blit_with_clip(src: &Buffer, dst: &mut Buffer, dx: u16, dy: u16, clip: Option<ClipRect>) {
+    for sy in 0..src.height {
+        for sx in 0..src.width {
+            let tx = dx.saturating_add(sx);
+            let ty = dy.saturating_add(sy);
+            if clip.is_some_and(|rect| !rect.contains(tx, ty)) {
+                continue;
+            }
+            if let Some(cell) = src.get(sx, sy) {
+                dst.set(tx, ty, cell.symbol, cell.fg, cell.bg);
             }
         }
     }
