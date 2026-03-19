@@ -17,7 +17,6 @@
       corner-radius: 1
       shadow-x: 1
       shadow-y: 1
-      font: "generic:half"
     - type: window
       id: ui-terminal-help-tooltip
       at: rt
@@ -26,10 +25,10 @@
       title-bar: "HINTS"
       padding: 1
       body-content: |
-        LS TO LOOK AROUND
-        STATUS TO CHECK SHIP STATE
-        MISSION TO VIEW OBJECTIVE
-        LOGS TO READ RECENT EVENTS
+        LS - LIST
+        STATUS - STATE
+        MISSION - OBJECTIVE
+        LOGS - EVENTS
       footer-content: "ESC ON EMPTY PROMPT -> MENU"
       border-fg: "#3B3B3B"
       border-bg: "#181818"
@@ -40,4 +39,3 @@
       corner-radius: 1
       shadow-x: 1
       shadow-y: 1
-      font: "generic:half"
