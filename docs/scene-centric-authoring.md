@@ -278,8 +278,9 @@ Zakres danych w scope obejmuje:
 - opcjonalny identyfikator motywu UI dla sceny (np. `terminal`, `win98`, `jrpg`),
 - aktualnie wpływa na domyślne wartości sugar `type: window` i `type: scroll-list` (kolory sekcji/listy oraz domyślny styl ramki),
 - runtime rozwiązuje `ui.theme` przez wspólny registry presetów (`engine-core`),
+- gdy `ui.theme` nie jest podany lub jest nieznany, używany jest fallback `engine-default`,
 - jawne pola sprite (`border-style`, `border-fg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
-- `window.border-style` wspiera: `auto`, `ascii`, `single`, `rounded`, `double` (`auto` z `generic:*` fallbackuje do ASCII).
+- `window.border-style` wspiera: `auto`, `ascii`, `soft-ascii`, `single`, `rounded`, `double` (`auto` z `generic:*` fallbackuje do bezpiecznego ASCII).
 
 `ui.focus-order`:
 

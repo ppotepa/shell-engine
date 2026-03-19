@@ -13,11 +13,12 @@
         title: ""
         width: 90
         x: 1
-        y: 9
+        y: -2
         border_fg: "#2B2B2B"
         title_fg: "#2B2B2B"
         body_fg: "#2B2B2B"
         footer_fg: "#2B2B2B"
+        border_style: soft-ascii
     - ref: terminal-window
       as: ui-terminal-window-main
       with:
@@ -28,8 +29,9 @@
         title: "OPERATOR INPUT"
         width: 90
         x: 0
-        y: 8
+        y: -3
         border_fg: gray
         title_fg: white
         body_fg: "#B5B5B5"
         footer_fg: gray
+        border_style: soft-ascii

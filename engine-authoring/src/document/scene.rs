@@ -2,7 +2,7 @@
 //! [`Scene`] model.
 
 use engine_core::scene::template::expand_scene_templates;
-use engine_core::scene::{resolve_ui_theme, Scene, WindowFrameStyle};
+use engine_core::scene::{resolve_ui_theme_or_default, Scene, WindowFrameStyle};
 use serde::de::Error as _;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
@@ -623,7 +623,7 @@ fn expand_window_sprite(
     let footer = map_get_str(sprite_map, &["footer-content", "footer_content", "footer"])
         .unwrap_or_default();
 
-    let theme_defaults = resolve_ui_theme(scene_theme);
+    let theme_defaults = resolve_ui_theme_or_default(scene_theme);
     let border_fg = map_get_str(
         sprite_map,
         &[
@@ -637,22 +637,22 @@ fn expand_window_sprite(
             "fg_colour",
         ],
     )
-    .or_else(|| theme_defaults.map(|theme| theme.window.border_fg))
+    .or_else(|| Some(theme_defaults.window.border_fg))
     .unwrap_or("gray");
     let title_fg = map_get_str(sprite_map, &["title-fg", "title_fg"])
-        .or_else(|| theme_defaults.map(|theme| theme.window.title_fg))
+        .or_else(|| Some(theme_defaults.window.title_fg))
         .unwrap_or("white");
     let body_fg = map_get_str(sprite_map, &["body-fg", "body_fg"])
-        .or_else(|| theme_defaults.map(|theme| theme.window.body_fg))
+        .or_else(|| Some(theme_defaults.window.body_fg))
         .unwrap_or("silver");
     let footer_fg = map_get_str(sprite_map, &["footer-fg", "footer_fg"])
-        .or_else(|| theme_defaults.map(|theme| theme.window.footer_fg))
+        .or_else(|| Some(theme_defaults.window.footer_fg))
         .unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
     let border_style = resolve_window_border_style(
         sprite_map,
         window_font.as_deref(),
-        theme_defaults.map(|theme| theme.window.frame_style),
+        Some(theme_defaults.window.frame_style),
     );
     let width_cells = map_get_u64(sprite_map, &["width"])
         .unwrap_or(48)
@@ -827,6 +827,7 @@ fn resolve_window_border_style(
 
     match raw_style.as_str() {
         "ascii" => WindowFrameStyle::Ascii,
+        "soft" | "soft-ascii" | "soft_ascii" => WindowFrameStyle::SoftAscii,
         "single" | "unicode" => WindowFrameStyle::Single,
         "rounded" => WindowFrameStyle::Rounded,
         "double" => WindowFrameStyle::Double,
@@ -834,6 +835,7 @@ fn resolve_window_border_style(
             if let Some(style) = themed_default {
                 if window_font.is_some_and(|font| font.trim_start().starts_with("generic"))
                     && style != WindowFrameStyle::Ascii
+                    && style != WindowFrameStyle::SoftAscii
                 {
                     return WindowFrameStyle::Ascii;
                 }
@@ -879,6 +881,14 @@ fn build_window_frame_lines(
                 format!("╚{line_inner}╝"),
             )
         }
+        WindowFrameStyle::SoftAscii => {
+            let line_inner = "-".repeat(inner);
+            (
+                format!("/{line_inner}\\"),
+                format!("|{line_inner}|"),
+                format!("\\{line_inner}/"),
+            )
+        }
         WindowFrameStyle::Ascii => {
             let line_inner = "-".repeat(inner);
             (
@@ -911,15 +921,15 @@ fn expand_scroll_list_sprite(
         .unwrap_or(1)
         .max(1);
     let gap_y = map_get_u64(sprite_map, &["gap-y", "gap_y"]).unwrap_or(1);
-    let theme_defaults = resolve_ui_theme(scene_theme);
+    let theme_defaults = resolve_ui_theme_or_default(scene_theme);
     let selected_fg = map_get_str(sprite_map, &["fg-selected", "fg_selected"])
-        .or_else(|| theme_defaults.map(|theme| theme.scroll_list.selected_fg))
+        .or_else(|| Some(theme_defaults.scroll_list.selected_fg))
         .unwrap_or("white");
     let fg_alt_a = map_get_str(sprite_map, &["fg-alt-a", "fg_alt_a"])
-        .or_else(|| theme_defaults.map(|theme| theme.scroll_list.alt_a_fg))
+        .or_else(|| Some(theme_defaults.scroll_list.alt_a_fg))
         .unwrap_or("silver");
     let fg_alt_b = map_get_str(sprite_map, &["fg-alt-b", "fg_alt_b"])
-        .or_else(|| theme_defaults.map(|theme| theme.scroll_list.alt_b_fg))
+        .or_else(|| Some(theme_defaults.scroll_list.alt_b_fg))
         .unwrap_or("gray");
     let list_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
 

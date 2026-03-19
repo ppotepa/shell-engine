@@ -6,6 +6,7 @@ pub enum WindowFrameStyle {
     Single,
     Rounded,
     Double,
+    SoftAscii,
     Ascii,
 }
 
@@ -35,6 +36,22 @@ pub struct UiThemeStyle {
     pub scroll_list: ScrollListThemeStyle,
 }
 
+const DEFAULT_UI_THEME: UiThemeStyle = UiThemeStyle {
+    id: "engine-default",
+    window: WindowThemeStyle {
+        border_fg: "gray",
+        title_fg: "white",
+        body_fg: "silver",
+        footer_fg: "gray",
+        frame_style: WindowFrameStyle::Ascii,
+    },
+    scroll_list: ScrollListThemeStyle {
+        selected_fg: "white",
+        alt_a_fg: "silver",
+        alt_b_fg: "gray",
+    },
+};
+
 /// Normalizes authored theme id into canonical lookup key.
 pub fn normalize_theme_key(theme_id: Option<&str>) -> Option<String> {
     let trimmed = theme_id?.trim();
@@ -48,6 +65,7 @@ pub fn normalize_theme_key(theme_id: Option<&str>) -> Option<String> {
 pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
     let key = normalize_theme_key(theme_id)?;
     match key.as_str() {
+        "default" | "engine-default" => Some(DEFAULT_UI_THEME),
         "terminal" | "terminal-shell" | "shell" => Some(UiThemeStyle {
             id: "terminal",
             window: WindowThemeStyle {
@@ -112,9 +130,16 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
     }
 }
 
+/// Resolves UI theme and falls back to engine default when missing or unknown.
+pub fn resolve_ui_theme_or_default(theme_id: Option<&str>) -> UiThemeStyle {
+    resolve_ui_theme(theme_id).unwrap_or(DEFAULT_UI_THEME)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{normalize_theme_key, resolve_ui_theme, WindowFrameStyle};
+    use super::{
+        normalize_theme_key, resolve_ui_theme, resolve_ui_theme_or_default, WindowFrameStyle,
+    };
 
     #[test]
     fn normalizes_theme_key() {
@@ -149,5 +174,13 @@ mod tests {
     #[test]
     fn returns_none_for_unknown_theme() {
         assert!(resolve_ui_theme(Some("neo-glass")).is_none());
+    }
+
+    #[test]
+    fn resolves_default_for_missing_or_unknown() {
+        let missing = resolve_ui_theme_or_default(None);
+        assert_eq!(missing.id, "engine-default");
+        let unknown = resolve_ui_theme_or_default(Some("neo-glass"));
+        assert_eq!(unknown.id, "engine-default");
     }
 }

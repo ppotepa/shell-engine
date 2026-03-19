@@ -9,16 +9,17 @@ exports:
   title: TERMINAL WINDOW
   width: 90
   x: 0
-  y: 8
+  y: -3
   border_fg: gray
   title_fg: white
   body_fg: silver
   footer_fg: gray
+  border_style: soft-ascii
   font: "generic:half"
 sprites:
   - type: window
     id: "$frame_id"
-    at: ct
+    at: cb
     x: "$x"
     y: "$y"
     width: "$width"
@@ -32,4 +33,5 @@ sprites:
     title-fg: "$title_fg"
     body-fg: "$body_fg"
     footer-fg: "$footer_fg"
+    border-style: "$border_style"
     font: "$font"
