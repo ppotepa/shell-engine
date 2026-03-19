@@ -690,7 +690,9 @@ fn expand_window_sprite(
         Value::String("type".to_string()),
         Value::String("panel".to_string()),
     );
-    if !panel.contains_key(Value::String("width".to_string())) {
+    if !panel.contains_key(Value::String("width".to_string()))
+        && !panel.contains_key(Value::String("width-percent".to_string()))
+    {
         panel.insert(
             Value::String("width".to_string()),
             Value::Number(Number::from(48)),
@@ -705,7 +707,7 @@ fn expand_window_sprite(
     if !panel.contains_key(Value::String("padding".to_string())) {
         panel.insert(
             Value::String("padding".to_string()),
-            Value::Number(Number::from(1)),
+            Value::Number(Number::from(0)),
         );
     }
     if !panel.contains_key(Value::String("border-width".to_string())) {
@@ -1740,6 +1742,61 @@ layers:
                     })
                     .expect("generated title text child");
                 assert_eq!(title, "TERMINAL");
+            }
+            _ => panic!("expected panel from window sugar"),
+        }
+    }
+
+    #[test]
+    fn window_sprite_preserves_width_percent_without_injecting_fixed_width() {
+        let raw = r#"
+id: window-percent
+title: Window Percent
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        at: cc
+        width-percent: 95
+        height: 5
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Panel {
+                width,
+                width_percent,
+                ..
+            } => {
+                assert_eq!(*width, None);
+                assert_eq!(*width_percent, Some(95));
+            }
+            _ => panic!("expected panel from window sugar"),
+        }
+    }
+
+    #[test]
+    fn window_sprite_uses_zero_padding_by_default_for_three_slot_layout() {
+        let raw = r#"
+id: window-padding-default
+title: Window Padding
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        at: cc
+        width: 32
+        height: 5
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Panel { padding, .. } => {
+                assert_eq!(*padding, 0);
             }
             _ => panic!("expected panel from window sugar"),
         }
