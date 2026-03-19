@@ -1074,6 +1074,24 @@ impl SceneRuntime {
                         state.offset_y = state.offset_y.saturating_add(*dy);
                     }
                 }
+                BehaviorCommand::SetText { target, text } => {
+                    if self.set_text_sprite_content(target, text.clone()) {
+                        continue;
+                    }
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        continue;
+                    };
+                    let aliases = self
+                        .objects
+                        .get(object_id)
+                        .map(|object| object.aliases.clone())
+                        .unwrap_or_default();
+                    for alias in aliases {
+                        if self.set_text_sprite_content(&alias, text.clone()) {
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -1809,6 +1827,38 @@ layers: []
         assert!(!state.visible);
         assert_eq!(state.offset_x, 10);
         assert_eq!(state.offset_y, 0);
+    }
+
+    #[test]
+    fn apply_behavior_commands_updates_text_content_from_set_text() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetText {
+                target: "title".to_string(),
+                text: "WORLD".to_string(),
+            }],
+        );
+        assert_eq!(runtime.text_sprite_content("title"), Some("WORLD"));
+    }
+
+    #[test]
+    fn apply_behavior_commands_updates_text_content_from_runtime_target_alias() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        let title_runtime_id = resolver
+            .resolve_alias("title")
+            .expect("title runtime object id")
+            .to_string();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetText {
+                target: title_runtime_id,
+                text: "UPDATED".to_string(),
+            }],
+        );
+        assert_eq!(runtime.text_sprite_content("title"), Some("UPDATED"));
     }
 
     #[test]

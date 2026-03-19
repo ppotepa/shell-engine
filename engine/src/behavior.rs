@@ -35,6 +35,7 @@ pub enum BehaviorCommand {
     PlayAudioCue { cue: String, volume: Option<f32> },
     SetVisibility { target: String, visible: bool },
     SetOffset { target: String, dx: i32, dy: i32 },
+    SetText { target: String, text: String },
 }
 
 /// Defines the per-tick update logic for a scene object behavior.
@@ -751,6 +752,10 @@ fn emit_offset(commands: &mut Vec<BehaviorCommand>, target: String, dx: i32, dy:
     commands.push(BehaviorCommand::SetOffset { target, dx, dy });
 }
 
+fn emit_text(commands: &mut Vec<BehaviorCommand>, target: String, text: String) {
+    commands.push(BehaviorCommand::SetText { target, text });
+}
+
 fn resolve_target(target: &Option<String>, object: &GameObject) -> String {
     target
         .as_deref()
@@ -903,6 +908,21 @@ fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>)
                     .and_then(|value| value.clone().try_cast::<rhai::INT>())
                     .unwrap_or(0);
                 emit_offset(commands, target, dx as i32, dy as i32);
+            }
+            "set-text" => {
+                let Some(target) = map
+                    .get("target")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                else {
+                    continue;
+                };
+                let Some(text) = map
+                    .get("text")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                else {
+                    continue;
+                };
+                emit_text(commands, target, text);
             }
             _ => {}
         }
@@ -1602,6 +1622,33 @@ out
                     dy: 0
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_emits_set_text_command() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+out.push(#{ op: "set-text", target: "ram-counter-line", text: "Memory Check: 0640K" });
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetText {
+                target: "ram-counter-line".to_string(),
+                text: "Memory Check: 0640K".to_string()
+            }]
         );
     }
 
