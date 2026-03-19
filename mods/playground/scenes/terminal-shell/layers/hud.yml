@@ -6,6 +6,32 @@
     type: text
     font: "generic:half"
   sprites:
-    - { content: "STATUS", at: rt, x: -8, y: 1, fg: yellow }
-    - { id: ui-shell-status-dot, content: "*", at: rt, x: -2, y: 1, fg: yellow }
-    - { content: "ESC on empty prompt: back to menu", at: cb, y: -1, fg: gray }
+    - type: grid
+      id: ui-hud-root
+      at: lt
+      columns: ["1fr"]
+      rows: ["4fr", "1fr"]
+      children:
+        - type: grid
+          id: ui-input-shadow
+          grid-row: 2
+          at: cc
+          x: 1
+          y: 1
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto"]
+          children:
+            - { type: text, grid-row: 1, at: cc, content: "┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐", fg: "#2B2B2B" }
+            - { type: text, grid-row: 2, at: cc, content: "│                                                                                                          │", fg: "#2B2B2B" }
+            - { type: text, grid-row: 3, at: cc, content: "└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘", fg: "#2B2B2B" }
+        - type: grid
+          id: ui-input-frame
+          grid-row: 2
+          at: cc
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto"]
+          children:
+            - { type: text, grid-row: 1, at: cc, content: "┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐", fg: gray }
+            - { type: text, grid-row: 2, at: cc, content: "│                                                                                                          │", fg: gray }
+            - { type: text, grid-row: 3, at: cc, content: "└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘", fg: gray }
+            - { type: text, id: ui-terminal-prompt, grid-row: 2, at: lt, x: 2, content: "", fg: "#A8A8A8" }

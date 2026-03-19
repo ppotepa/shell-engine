@@ -9,25 +9,16 @@ ui:
     - ui-terminal-prompt
 layers:
   - ref: bg
-  - ref: windows
   - ref: hud
-behaviors:
-  - name: rhai-script
-    params:
-      script: |
-        let commands = [];
-        let blink_on = ((scene_elapsed_ms / 450) % 2) == 0;
-        commands.push(#{ op: "visibility", target: "ui-shell-status-dot", visible: blink_on });
-        commands
 input:
   terminal-shell:
     prompt_sprite_id: ui-terminal-prompt
     output_sprite_id: ui-terminal-output
-    prompt_prefix: "λ "
-    max_lines: 7
+    prompt_prefix: ">"
+    max_lines: 200
     banner:
-      - "[ shell-node online ]"
-      - "try: help, ls, status, mission"
+      - "[gray][ shell-node online ][/]"
+      - "[gray]type: help, ls, status, mission[/]"
     commands:
       - name: status
         description: Show system status

@@ -4,17 +4,11 @@
   sprite-defaults:
     type: text
     font: "generic:half"
+    fg: "#9A9A9A"
   sprites:
-    - type: grid
-      id: terminal-shell-bg-root
-      at: ct
+    - type: text
+      id: ui-terminal-output
+      at: lt
+      x: 1
       y: 1
-      columns: ["1fr"]
-      rows: ["auto", "auto", "auto", "auto", "auto"]
-      gap-y: 1
-      children:
-        - { content: "PLAYGROUND // TERMINAL SHELL PROJECT", grid-col: 1, grid-row: 1, at: cc, fg: gray }
-        - { content: "BACKGROUND OUTPUT STREAM", grid-col: 1, grid-row: 2, at: cc, fg: silver }
-        - { content: "[21:14:02] relay online", grid-col: 1, grid-row: 3, at: cc, fg: gray }
-        - { content: "[21:14:09] viewport synced", grid-col: 1, grid-row: 4, at: cc, fg: gray }
-        - { content: "[21:14:12] waiting for operator input", grid-col: 1, grid-row: 5, at: cc, fg: gray }
+      content: ""
