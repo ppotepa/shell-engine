@@ -203,6 +203,14 @@ $defs:
         description: Enables or disables rendering of layers marked with ui=true.
       persist:
         $ref: "#/$defs/ui_persist_mode"
+      focus-order:
+        type: array
+        description: Ordered list of focusable UI target ids cycled by Tab/Shift+Tab.
+        items:
+          type: string
+          minLength: 1
+      focus_order:
+        $ref: "#/$defs/ui_config/properties/focus-order"
 
   obj_viewer_controls:
     type: object

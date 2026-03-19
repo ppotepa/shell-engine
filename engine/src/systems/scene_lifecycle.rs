@@ -70,16 +70,29 @@ impl SceneLifecycleManager {
         if handle_debug_controls(world, key_presses) {
             return;
         }
-        if handle_playground_escape_to_menu(world, key_presses) {
+        let ui_focus_handled = handle_ui_focus_controls(world, key_presses);
+        let routed_keys = if ui_focus_handled {
+            key_presses
+                .iter()
+                .filter(|key| !is_focus_navigation_key(key))
+                .cloned()
+                .collect::<Vec<_>>()
+        } else {
+            key_presses.to_vec()
+        };
+        if routed_keys.is_empty() {
             return;
         }
-        if handle_terminal_shell_controls(world, key_presses) {
+        if handle_playground_escape_to_menu(world, &routed_keys) {
             return;
         }
-        if handle_obj_viewer_controls(world, key_presses) {
+        if handle_terminal_shell_controls(world, &routed_keys) {
             return;
         }
-        if handle_terminal_size_tester_controls(world, key_presses) {
+        if handle_obj_viewer_controls(world, &routed_keys) {
+            return;
+        }
+        if handle_terminal_size_tester_controls(world, &routed_keys) {
             return;
         }
 
@@ -95,7 +108,7 @@ impl SceneLifecycleManager {
             })
             .unwrap_or_default();
         let selected_index = world.animator().map(|a| a.menu_selected_index).unwrap_or(0);
-        let menu_action = evaluate_menu_action(&menu_options, selected_index, key_presses);
+        let menu_action = evaluate_menu_action(&menu_options, selected_index, &routed_keys);
 
         if !is_scene_idle(world) || !any_key_trigger {
             return;
@@ -159,6 +172,14 @@ impl SceneLifecycleManager {
             }
         }
     }
+}
+
+fn is_focus_navigation_key(key: &KeyEvent) -> bool {
+    matches!(key.code, KeyCode::Tab | KeyCode::BackTab)
+        && matches!(
+            key.kind,
+            crossterm::event::KeyEventKind::Press | crossterm::event::KeyEventKind::Repeat
+        )
 }
 
 fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
@@ -275,6 +296,16 @@ fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
         }
     }
     handled
+}
+
+fn handle_ui_focus_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
+    if !is_scene_idle(world) {
+        return false;
+    }
+    let Some(runtime) = world.scene_runtime_mut() else {
+        return false;
+    };
+    runtime.handle_ui_focus_keys(key_presses)
 }
 
 fn active_obj_viewer_target(world: &World) -> Option<String> {
@@ -651,6 +682,41 @@ layers:
         content: ""
 "#;
 
+    const TERMINAL_SHELL_FOCUS_SCENE_YAML: &str = r#"
+id: terminal-shell-focus
+title: Terminal Shell Focus
+bg_colour: black
+ui:
+  focus-order:
+    - terminal-output
+    - terminal-prompt
+input:
+  terminal-shell:
+    prompt_sprite_id: terminal-prompt
+    output_sprite_id: terminal-output
+    prompt_prefix: "λ "
+    max_lines: 20
+    banner:
+      - "connected: shell-node"
+stages:
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps: []
+next: terminal-next
+layers:
+  - name: ui
+    sprites:
+      - type: text
+        id: terminal-output
+        at: lt
+        content: ""
+      - type: text
+        id: terminal-prompt
+        at: lb
+        content: ""
+"#;
+
     #[test]
     fn any_key_moves_idle_scene_to_leave_when_trigger_is_any_key() {
         let mut scene = make_cutscene("intro", None);
@@ -839,6 +905,73 @@ layers:
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.stage, SceneStage::OnIdle);
         assert_eq!(animator.next_scene_override, None);
+    }
+
+    #[test]
+    fn terminal_shell_focus_order_blocks_prompt_editing_until_tab() {
+        let scene: Scene =
+            serde_yaml::from_str(TERMINAL_SHELL_FOCUS_SCENE_YAML).expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                key_pressed(KeyCode::Char('l')),
+                key_pressed(KeyCode::Char('s')),
+                key_pressed(KeyCode::Enter),
+            ],
+        );
+        let runtime = world.get::<SceneRuntime>().expect("runtime present");
+        let prompt = runtime
+            .text_sprite_content("terminal-prompt")
+            .expect("terminal prompt sprite");
+        assert_eq!(prompt, "λ ");
+        let output = runtime
+            .text_sprite_content("terminal-output")
+            .expect("terminal output sprite");
+        assert_eq!(output, "connected: shell-node");
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                key_pressed(KeyCode::Tab),
+                key_pressed(KeyCode::Char('l')),
+                key_pressed(KeyCode::Char('s')),
+                key_pressed(KeyCode::Enter),
+            ],
+        );
+        let runtime = world.get::<SceneRuntime>().expect("runtime present");
+        let output = runtime
+            .text_sprite_content("terminal-output")
+            .expect("terminal output sprite");
+        assert!(output.contains("λ ls"));
+    }
+
+    #[test]
+    fn terminal_shell_back_requires_prompt_focus() {
+        let scene: Scene =
+            serde_yaml::from_str(TERMINAL_SHELL_FOCUS_SCENE_YAML).expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Esc)]);
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        assert_eq!(animator.next_scene_override, None);
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed(KeyCode::Tab), key_pressed(KeyCode::Esc)],
+        );
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnLeave);
+        assert_eq!(
+            animator.next_scene_override.as_deref(),
+            Some("terminal-next")
+        );
     }
 
     #[test]

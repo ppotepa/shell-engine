@@ -21,6 +21,11 @@ pub struct BehaviorContext {
     pub target_resolver: TargetResolver,
     pub object_states: std::collections::BTreeMap<String, ObjectRuntimeState>,
     pub object_regions: std::collections::BTreeMap<String, Region>,
+    pub ui_focused_target_id: Option<String>,
+    pub ui_last_submit_target_id: Option<String>,
+    pub ui_last_submit_text: Option<String>,
+    pub ui_last_change_target_id: Option<String>,
+    pub ui_last_change_text: Option<String>,
 }
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -521,6 +526,29 @@ impl Behavior for RhaiScriptBehavior {
         scope.push("menu_count", scene.menu_options.len() as rhai::INT);
         scope.push_dynamic("params", behavior_params_to_rhai_map(&self.params).into());
         scope.push_dynamic("regions", self.build_regions_map(ctx, scene).into());
+        scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
+        scope.push(
+            "ui_focused_target",
+            ctx.ui_focused_target_id.clone().unwrap_or_default(),
+        );
+        scope.push(
+            "ui_submit_target",
+            ctx.ui_last_submit_target_id.clone().unwrap_or_default(),
+        );
+        scope.push(
+            "ui_submit_text",
+            ctx.ui_last_submit_text.clone().unwrap_or_default(),
+        );
+        scope.push(
+            "ui_change_target",
+            ctx.ui_last_change_target_id.clone().unwrap_or_default(),
+        );
+        scope.push(
+            "ui_change_text",
+            ctx.ui_last_change_text.clone().unwrap_or_default(),
+        );
+        scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
+        scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
 
         let engine = RhaiEngine::new();
         let Ok(result) = engine.eval_with_scope::<RhaiDynamic>(&mut scope, script) else {
@@ -788,6 +816,34 @@ fn region_to_rhai_map(region: &Region) -> RhaiMap {
     out
 }
 
+fn ui_context_to_rhai_map(ctx: &BehaviorContext) -> RhaiMap {
+    let mut out = RhaiMap::new();
+    if let Some(value) = ctx.ui_focused_target_id.as_ref() {
+        out.insert("focused_target".into(), value.clone().into());
+    }
+    out.insert(
+        "has_submit".into(),
+        ctx.ui_last_submit_target_id.is_some().into(),
+    );
+    if let Some(value) = ctx.ui_last_submit_target_id.as_ref() {
+        out.insert("submit_target".into(), value.clone().into());
+    }
+    if let Some(value) = ctx.ui_last_submit_text.as_ref() {
+        out.insert("submit_text".into(), value.clone().into());
+    }
+    out.insert(
+        "has_change".into(),
+        ctx.ui_last_change_target_id.is_some().into(),
+    );
+    if let Some(value) = ctx.ui_last_change_target_id.as_ref() {
+        out.insert("change_target".into(), value.clone().into());
+    }
+    if let Some(value) = ctx.ui_last_change_text.as_ref() {
+        out.insert("change_text".into(), value.clone().into());
+    }
+    out
+}
+
 fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>) {
     let commands_dynamic = if result.is::<RhaiArray>() {
         result
@@ -1004,6 +1060,11 @@ mod tests {
             target_resolver: TargetResolver::default(),
             object_states: BTreeMap::new(),
             object_regions: BTreeMap::new(),
+            ui_focused_target_id: None,
+            ui_last_submit_target_id: None,
+            ui_last_submit_text: None,
+            ui_last_change_target_id: None,
+            ui_last_change_text: None,
         }
     }
 
@@ -1483,6 +1544,47 @@ out
                     target: "menu-item-0".to_string(),
                     dx: 1,
                     dy: -2
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_reads_ui_scope_values() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+if ui.has_submit && ui_submit_text == "status" && ui_focused_target == "terminal-prompt" {
+  out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
+}
+if ui_has_change && ui_change_target == "terminal-prompt" {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 2, dy: 0 });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.ui_focused_target_id = Some("terminal-prompt".to_string());
+        test_ctx.ui_last_submit_target_id = Some("terminal-prompt".to_string());
+        test_ctx.ui_last_submit_text = Some("status".to_string());
+        test_ctx.ui_last_change_target_id = Some("terminal-prompt".to_string());
+        test_ctx.ui_last_change_text = Some("sta".to_string());
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "menu-item-0".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 2,
+                    dy: 0
                 }
             ]
         );
