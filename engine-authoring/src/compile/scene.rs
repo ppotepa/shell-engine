@@ -113,20 +113,23 @@ where
     if logic_value.is_none() {
         // Keep legacy behavior: if no explicit `logic:` block exists, auto-detect
         // sidecar scene logic script from scene package path.
-        let mut discovered_behavior = None;
-        let mut discovered_params = BTreeMap::new();
         for path in infer_scene_logic_paths(scene_source_path) {
             let Some(raw_script) = asset_loader(&path) else {
                 continue;
             };
-            if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
-                discovered_behavior = controller.behavior;
-                discovered_params = controller.params;
+            if is_rhai_path(&path) {
+                let mut params = BTreeMap::new();
+                params.insert("src".to_string(), Value::String(path.clone()));
+                params.insert("script".to_string(), Value::String(raw_script));
+                attach_scene_behavior(scene_map, "rhai-script", &params);
+                return;
             }
-            break;
-        }
-        if let Some(behavior_name) = discovered_behavior {
-            attach_scene_behavior(scene_map, &behavior_name, &discovered_params);
+            if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
+                if let Some(behavior_name) = controller.behavior {
+                    attach_scene_behavior(scene_map, &behavior_name, &controller.params);
+                }
+                return;
+            }
         }
         return;
     }
@@ -141,8 +144,6 @@ where
             }
         }
         LogicKind::Script => {
-            let mut merged_params = BTreeMap::new();
-            let mut script_behavior = None;
             let candidate_paths = if let Some(src) = logic.src.clone() {
                 vec![resolve_script_ref_path(scene_source_path, &src)]
             } else {
@@ -152,18 +153,29 @@ where
                 let Some(raw_script) = asset_loader(&path) else {
                     continue;
                 };
-                if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
-                    script_behavior = controller.behavior;
-                    merged_params = controller.params;
+                let mut merged_params = logic.params.clone();
+                if is_rhai_path(&path) {
+                    merged_params.insert("src".to_string(), Value::String(path));
+                    merged_params.insert("script".to_string(), Value::String(raw_script));
+                    let behavior_name = logic
+                        .behavior
+                        .clone()
+                        .unwrap_or_else(|| "rhai-script".to_string());
+                    attach_scene_behavior(scene_map, &behavior_name, &merged_params);
+                    return;
                 }
-                break;
+                if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
+                    for (k, v) in controller.params {
+                        merged_params.insert(k, v);
+                    }
+                    if let Some(behavior_name) = logic.behavior.clone().or(controller.behavior) {
+                        attach_scene_behavior(scene_map, &behavior_name, &merged_params);
+                    }
+                    return;
+                }
             }
-            for (k, v) in logic.params {
-                merged_params.insert(k, v);
-            }
-
-            if let Some(behavior_name) = logic.behavior.or(script_behavior) {
-                attach_scene_behavior(scene_map, &behavior_name, &merged_params);
+            if let Some(behavior_name) = logic.behavior {
+                attach_scene_behavior(scene_map, &behavior_name, &logic.params);
             }
         }
         LogicKind::Graph => {}
@@ -725,6 +737,10 @@ fn infer_scene_logic_paths(scene_source_path: &str) -> Vec<String> {
             .filter(|name| !name.is_empty())
             .unwrap_or("scene");
         return vec![
+            normalize_mod_path(&format!("{scene_dir}/{folder_name}.rhai")),
+            normalize_mod_path(&format!("{scene_dir}/scene.rhai")),
+            normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.rhai")),
+            normalize_mod_path(&format!("{scene_dir}/scene.logic.rhai")),
             normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.yml")),
             normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.yaml")),
             normalize_mod_path(&format!("{scene_dir}/scene.logic.yml")),
@@ -740,9 +756,15 @@ fn infer_scene_logic_paths(scene_source_path: &str) -> Vec<String> {
         normalized
     };
     vec![
+        normalize_mod_path(&format!("{base}.rhai")),
+        normalize_mod_path(&format!("{base}.logic.rhai")),
         normalize_mod_path(&format!("{base}.logic.yml")),
         normalize_mod_path(&format!("{base}.logic.yaml")),
     ]
+}
+
+fn is_rhai_path(path: &str) -> bool {
+    path.ends_with(".rhai")
 }
 
 fn resolve_stages_ref_path(scene_source_path: &str, reference: &str) -> String {
@@ -1086,6 +1108,76 @@ params:
         assert_eq!(scene.behaviors[0].name, "blink");
         assert_eq!(scene.behaviors[0].params.visible_ms, Some(400));
         assert_eq!(scene.behaviors[0].params.hidden_ms, Some(200));
+    }
+
+    #[test]
+    fn maps_scene_script_logic_from_explicit_rhai_src() {
+        let scene_raw = r#"
+id: menu
+title: Menu
+logic:
+  type: script
+  src: ./menu.rhai
+layers: []
+next: null
+"#;
+        let script_raw = r#"
+let out = [];
+out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
+out
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/menu/scene.yml",
+            |path| {
+                if path == "/scenes/menu/menu.rhai" {
+                    Some(script_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+        assert_eq!(scene.behaviors.len(), 1);
+        assert_eq!(scene.behaviors[0].name, "rhai-script");
+        assert_eq!(
+            scene.behaviors[0].params.src.as_deref(),
+            Some("/scenes/menu/menu.rhai")
+        );
+        assert!(scene.behaviors[0].params.script.is_some());
+    }
+
+    #[test]
+    fn auto_detects_rhai_logic_file_next_to_scene_package() {
+        let scene_raw = r#"
+id: menu
+title: Menu
+layers: []
+next: null
+"#;
+        let script_raw = r#"
+let out = [];
+out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
+out
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/mainmenu/scene.yml",
+            |path| {
+                if path == "/scenes/mainmenu/mainmenu.rhai" {
+                    Some(script_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+        assert_eq!(scene.behaviors.len(), 1);
+        assert_eq!(scene.behaviors[0].name, "rhai-script");
+        assert_eq!(
+            scene.behaviors[0].params.src.as_deref(),
+            Some("/scenes/mainmenu/mainmenu.rhai")
+        );
     }
 
     #[test]

@@ -32,7 +32,6 @@ $defs:
     - /scenes/fps-showcase-2d-30.yml
     - /scenes/fps-showcase-30.yml
     - /scenes/layout-lab/scene.yml
-    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
     - /scenes/stop-animation.yml
     - /scenes/terminal-shell/scene.yml
@@ -50,7 +49,6 @@ $defs:
     - /scenes/fps-showcase-2d-30.yml
     - /scenes/fps-showcase-30.yml
     - /scenes/layout-lab/scene.yml
-    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
     - /scenes/stop-animation.yml
     - /scenes/terminal-shell/scene.yml

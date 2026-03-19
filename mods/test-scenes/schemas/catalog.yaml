@@ -15,7 +15,6 @@ $defs:
     - /scenes/door-gif-2x/scene.yml
     - /scenes/door-gif/scene.yml
     - /scenes/door-png/scene.yml
-    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
   scene_refs:
     type: string
@@ -23,7 +22,6 @@ $defs:
     - /scenes/door-gif-2x/scene.yml
     - /scenes/door-gif/scene.yml
     - /scenes/door-png/scene.yml
-    - /scenes/menu/menu.logic.yml
     - /scenes/menu/scene.yml
     - test-scenes-door-gif
     - test-scenes-door-gif-2x

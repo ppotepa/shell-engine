@@ -709,6 +709,131 @@ pub fn behavior_catalog() -> Vec<(&'static str, Vec<FieldMetadata>)> {
             ],
         ),
         (
+            "rhai-script",
+            vec![
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "src",
+                    value_kind: ValueKind::Text,
+                    requirement: Requirement::Optional,
+                    description: "Script source path (for diagnostics/introspection).",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "script",
+                    value_kind: ValueKind::Text,
+                    requirement: Requirement::Required,
+                    description: "Embedded Rhai script body.",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "target",
+                    value_kind: ValueKind::Text,
+                    requirement: Requirement::Optional,
+                    description: "Primary target alias (script-defined semantics).",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "item_prefix",
+                    value_kind: ValueKind::Text,
+                    requirement: Requirement::Optional,
+                    description: "Optional item alias prefix used by scripts.",
+                    default_text: Some("menu-item-"),
+                    default_number: None,
+                    enum_options: None,
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "count",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Optional item count hint for scripts.",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "window",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Optional visible window hint for scripts.",
+                    default_text: None,
+                    default_number: Some(5.0),
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: Some("items"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "step_y",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Optional spacing hint for scripts.",
+                    default_text: None,
+                    default_number: Some(2.0),
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: Some("cells"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "endless",
+                    value_kind: ValueKind::Boolean,
+                    requirement: Requirement::Optional,
+                    description: "Optional endless-wrap hint for scripts.",
+                    default_text: Some("true"),
+                    default_number: None,
+                    enum_options: Some(&["true", "false"]),
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+            ],
+        ),
+        (
             "selected-arrows",
             vec![
                 FieldMetadata {
@@ -1093,6 +1218,7 @@ mod tests {
         assert!(names.contains(&"follow"));
         assert!(names.contains(&"menu-carousel"));
         assert!(names.contains(&"menu-carousel-object"));
+        assert!(names.contains(&"rhai-script"));
         assert!(names.contains(&"menu-selected"));
         assert!(names.contains(&"selected-arrows"));
         assert!(names.contains(&"stage-visibility"));
@@ -1193,6 +1319,26 @@ mod tests {
                     .iter()
                     .any(|field| field.name == field_name),
                 "menu-carousel-object metadata missing {field_name}"
+            );
+        }
+
+        let rhai_script = catalog
+            .iter()
+            .find(|(name, _)| *name == "rhai-script")
+            .expect("rhai-script metadata");
+        for field_name in [
+            "src",
+            "script",
+            "target",
+            "item_prefix",
+            "count",
+            "window",
+            "step_y",
+            "endless",
+        ] {
+            assert!(
+                rhai_script.1.iter().any(|field| field.name == field_name),
+                "rhai-script metadata missing {field_name}"
             );
         }
 
