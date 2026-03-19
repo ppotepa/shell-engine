@@ -104,7 +104,17 @@ fn blit_with_clip(src: &Buffer, dst: &mut Buffer, dx: u16, dy: u16, clip: Option
                 continue;
             }
             if let Some(cell) = src.get(sx, sy) {
-                dst.set(tx, ty, cell.symbol, cell.fg, cell.bg);
+                if cell.symbol == ' ' && cell.bg == Color::Reset {
+                    continue;
+                }
+                let bg = if cell.bg == Color::Reset {
+                    dst.get(tx, ty)
+                        .map(|under| under.bg)
+                        .unwrap_or(Color::Reset)
+                } else {
+                    cell.bg
+                };
+                dst.set(tx, ty, cell.symbol, cell.fg, bg);
             }
         }
     }
@@ -191,5 +201,44 @@ pub(super) fn dim_colour(c: Color) -> Color {
         r: (r as f32 * 0.25) as u8,
         g: (g as f32 * 0.25) as u8,
         b: (b as f32 * 0.25) as u8,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::blit_with_clip;
+    use crate::buffer::Buffer;
+    use crossterm::style::Color;
+
+    #[test]
+    fn blit_preserves_underlying_bg_for_reset_text_cells() {
+        let mut dst = Buffer::new(3, 2);
+        dst.fill(Color::DarkGrey);
+
+        let mut src = Buffer::new(1, 1);
+        src.fill(Color::Reset);
+        src.set(0, 0, 'X', Color::White, Color::Reset);
+
+        blit_with_clip(&src, &mut dst, 1, 1, None);
+        let out = dst.get(1, 1).expect("blitted cell");
+        assert_eq!(out.symbol, 'X');
+        assert_eq!(out.fg, Color::White);
+        assert_eq!(out.bg, Color::DarkGrey);
+    }
+
+    #[test]
+    fn blit_skips_transparent_blank_cells() {
+        let mut dst = Buffer::new(2, 1);
+        dst.fill(Color::DarkGrey);
+        dst.set(0, 0, 'P', Color::Yellow, Color::DarkGrey);
+
+        let mut src = Buffer::new(1, 1);
+        src.fill(Color::Reset);
+
+        blit_with_clip(&src, &mut dst, 0, 0, None);
+        let out = dst.get(0, 0).expect("destination cell");
+        assert_eq!(out.symbol, 'P');
+        assert_eq!(out.fg, Color::Yellow);
+        assert_eq!(out.bg, Color::DarkGrey);
     }
 }

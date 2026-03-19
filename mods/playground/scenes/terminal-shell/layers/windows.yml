@@ -7,6 +7,7 @@
       id: ui-terminal-input-window
       at: cb
       width-percent: 95
+      font: "generic:half"
       prompt-id: ui-terminal-prompt
       border-fg: "#3A3A3A"
       border-bg: "#1C1C1C"
@@ -22,6 +23,7 @@
       at: rt
       x: -2
       y: 1
+      font: "generic:half"
       title-bar: "HINTS"
       padding: 1
       body-content: |
