@@ -35,6 +35,7 @@ cargo run -p editor
 - `assets.md` - asset, sprite, object, and source model guide
 - `editor.md` - editor architecture and refactor direction
 - `docs/scene-centric-authoring.md` - scene/layer/object authoring model
+- `docs/carousel-menu-object.md` - SRP draft for dedicated carousel menu object
 
 ## How the project fits together
 

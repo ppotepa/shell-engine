@@ -31,15 +31,5 @@ input:
           - "21:14:09 link established"
           - "21:14:12 awaiting operator command"
     unknown_message: "command not recognized"
-stages:
-  on_enter:
-    steps:
-      - { effects: [{ name: fade-in, duration: 250 }] }
-  on_idle:
-    trigger: any-key
-    looping: true
-    steps:
-      - pause: 1200ms
-  on_leave:
-    steps:
-      - { effects: [{ name: fade-out, duration: 180 }] }
+stages-ref: /stages/anykey-loop-1200-fade-250-180.yml
+next: playground-menu

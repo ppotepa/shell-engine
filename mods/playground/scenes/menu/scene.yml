@@ -22,10 +22,11 @@ stages:
 next: playground-3d-scene
 # `to` is the concise authored alias; the compiler normalizes it to the legacy routing fields.
 menu-options:
-  - { key: "1", label: 3D SCENE, selected-effect: arrows, to: playground-3d-scene }
-  - { key: "2", label: STOP ANIMATION, selected-effect: arrows, to: playground-stop-animation }
-  - { key: "3", label: DECORATION SHOWCASE, selected-effect: arrows, to: playground-decoration-showcase }
-  - { key: "4", label: TERMINAL SIZE TEST, selected-effect: arrows, to: playground-terminal-size-test }
-  - { key: "5", label: FPS CAP SHOWCASE 2D+3D, selected-effect: arrows, to: playground-fps-showcase-2d-30 }
-  - { key: "6", label: FONT MODE SHOWCASE, selected-effect: arrows, to: playground-font-showcase }
-  - { key: "7", label: TERMINAL SHELL DEMO, selected-effect: arrows, to: playground-terminal-shell }
+  - { key: "1", label: 3D SCENE, to: playground-3d-scene }
+  - { key: "2", label: STOP ANIMATION, to: playground-stop-animation }
+  - { key: "3", label: DECORATION SHOWCASE, to: playground-decoration-showcase }
+  - { key: "4", label: TERMINAL SIZE TEST, to: playground-terminal-size-test }
+  - { key: "5", label: FPS CAP SHOWCASE 2D+3D, to: playground-fps-showcase-2d-30 }
+  - { key: "6", label: FONT MODE SHOWCASE, to: playground-font-showcase }
+  - { key: "7", label: TERMINAL SHELL DEMO, to: playground-terminal-shell }
+  - { key: "8", label: LAYOUT LAB, to: playground-layout-lab }

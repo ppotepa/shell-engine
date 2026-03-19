@@ -4,13 +4,13 @@ use crate::assets::AssetRoot;
 use crate::scene::{SceneRenderedMode, Sprite};
 use taffy::geometry::Line;
 use taffy::prelude::{
-    auto, fr, length, line, span, AvailableSpace, Display, Size, Style, TaffyTree,
-    TrackSizingFunction,
+    auto, fr, length, line, span, AlignSelf, AvailableSpace, Dimension, Display, JustifySelf,
+    Size, Style, TaffyTree, TrackSizingFunction,
 };
 
 use super::area::GridCellRect;
 use super::measure::measure_sprite_for_layout;
-use super::tracks::{parse_track_spec, resolve_track_sizes, span_size, track_start, TrackSpec};
+use super::tracks::{parse_track_spec, TrackSpec};
 
 /// Computes child rectangles for a grid container.
 pub(crate) fn compute_grid_cells(
@@ -24,43 +24,6 @@ pub(crate) fn compute_grid_cells(
     inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> Vec<(usize, GridCellRect)> {
-    if let Some(cells) = compute_grid_cells_taffy(
-        columns,
-        rows,
-        children,
-        container_w,
-        container_h,
-        gap_x,
-        gap_y,
-        inherited_mode,
-        asset_root,
-    ) {
-        return cells;
-    }
-    compute_grid_cells_fallback(
-        columns,
-        rows,
-        children,
-        container_w,
-        container_h,
-        gap_x,
-        gap_y,
-        inherited_mode,
-        asset_root,
-    )
-}
-
-fn compute_grid_cells_taffy(
-    columns: &[String],
-    rows: &[String],
-    children: &[Sprite],
-    container_w: u16,
-    container_h: u16,
-    gap_x: u16,
-    gap_y: u16,
-    inherited_mode: SceneRenderedMode,
-    asset_root: Option<&AssetRoot>,
-) -> Option<Vec<(usize, GridCellRect)>> {
     let col_specs: Vec<TrackSpec> = if columns.is_empty() {
         vec![TrackSpec::Fr(1)]
     } else {
@@ -97,6 +60,16 @@ fn compute_grid_cells_taffy(
             .max(1)
             .min(row_specs.len().saturating_sub(row_idx));
         let (pref_w, pref_h) = measure_sprite_for_layout(child, inherited_mode, asset_root);
+        let min_width = if col_span_clamped == 1 && matches!(col_specs[col_idx], TrackSpec::Auto) {
+            length(pref_w.max(1) as f32)
+        } else {
+            Dimension::Auto
+        };
+        let min_height = if row_span_clamped == 1 && matches!(row_specs[row_idx], TrackSpec::Auto) {
+            length(pref_h.max(1) as f32)
+        } else {
+            Dimension::Auto
+        };
         let node = taffy
             .new_leaf(Style {
                 size: Size {
@@ -104,9 +77,14 @@ fn compute_grid_cells_taffy(
                     height: auto(),
                 },
                 min_size: Size {
-                    width: length(pref_w.max(1) as f32),
-                    height: length(pref_h.max(1) as f32),
+                    width: min_width,
+                    height: min_height,
                 },
+                // Preserve legacy compositor semantics: every child gets the full
+                // resolved grid cell area, and sprite-local alignment (`at`) is
+                // applied inside that cell by our renderer.
+                justify_self: Some(JustifySelf::Stretch),
+                align_self: Some(AlignSelf::Stretch),
                 grid_column: Line {
                     start: line((col_idx + 1) as i16),
                     end: span(col_span_clamped as u16),
@@ -117,7 +95,7 @@ fn compute_grid_cells_taffy(
                 },
                 ..Default::default()
             })
-            .ok()?;
+            .expect("taffy: failed to allocate grid child node");
         child_nodes.push(node);
     }
 
@@ -139,7 +117,7 @@ fn compute_grid_cells_taffy(
             },
             &child_nodes,
         )
-        .ok()?;
+        .expect("taffy: failed to create grid root node");
 
     taffy
         .compute_layout(
@@ -149,15 +127,17 @@ fn compute_grid_cells_taffy(
                 height: AvailableSpace::Definite(container_h.max(1) as f32),
             },
         )
-        .ok()?;
+        .expect("taffy: failed to compute grid layout");
 
     let mut out = Vec::with_capacity(child_nodes.len());
     for (idx, node) in child_nodes.iter().enumerate() {
-        let layout = taffy.layout(*node).ok()?;
+        let layout = taffy
+            .layout(*node)
+            .expect("taffy: missing computed layout for grid child");
         let width = layout.size.width.round().max(1.0) as u16;
         let height = layout.size.height.round().max(1.0) as u16;
-        let x = layout.location.x.round().max(0.0) as u16;
-        let y = layout.location.y.round().max(0.0) as u16;
+        let x = layout.location.x.max(0.0).floor() as u16;
+        let y = layout.location.y.max(0.0).floor() as u16;
         out.push((
             idx,
             GridCellRect {
@@ -169,82 +149,7 @@ fn compute_grid_cells_taffy(
         ));
     }
 
-    Some(out)
-}
-
-fn compute_grid_cells_fallback(
-    columns: &[String],
-    rows: &[String],
-    children: &[Sprite],
-    container_w: u16,
-    container_h: u16,
-    gap_x: u16,
-    gap_y: u16,
-    inherited_mode: SceneRenderedMode,
-    asset_root: Option<&AssetRoot>,
-) -> Vec<(usize, GridCellRect)> {
-    let col_specs: Vec<TrackSpec> = if columns.is_empty() {
-        vec![TrackSpec::Fr(1)]
-    } else {
-        columns.iter().map(|c| parse_track_spec(c)).collect()
-    };
-    let row_specs: Vec<TrackSpec> = if rows.is_empty() {
-        vec![TrackSpec::Fr(1)]
-    } else {
-        rows.iter().map(|r| parse_track_spec(r)).collect()
-    };
-
-    let mut col_auto_reqs: Vec<(usize, u16)> = Vec::new();
-    let mut row_auto_reqs: Vec<(usize, u16)> = Vec::new();
-    let mut placements: Vec<(usize, usize, usize, usize, usize)> =
-        Vec::with_capacity(children.len());
-
-    for (idx, child) in children.iter().enumerate() {
-        let (row, col, row_span, col_span) = child.grid_position();
-        let col_idx = (col as usize)
-            .saturating_sub(1)
-            .min(col_specs.len().saturating_sub(1));
-        let row_idx = (row as usize)
-            .saturating_sub(1)
-            .min(row_specs.len().saturating_sub(1));
-        let col_span_clamped = (col_span as usize)
-            .max(1)
-            .min(col_specs.len().saturating_sub(col_idx));
-        let row_span_clamped = (row_span as usize)
-            .max(1)
-            .min(row_specs.len().saturating_sub(row_idx));
-
-        let (pref_w, pref_h) = measure_sprite_for_layout(child, inherited_mode, asset_root);
-        if col_span_clamped == 1 {
-            col_auto_reqs.push((col_idx, pref_w));
-        }
-        if row_span_clamped == 1 {
-            row_auto_reqs.push((row_idx, pref_h));
-        }
-        placements.push((idx, col_idx, row_idx, col_span_clamped, row_span_clamped));
-    }
-
-    let col_sizes = resolve_track_sizes(&col_specs, container_w, gap_x, &col_auto_reqs);
-    let row_sizes = resolve_track_sizes(&row_specs, container_h, gap_y, &row_auto_reqs);
-
-    placements
-        .into_iter()
-        .map(|(idx, col_idx, row_idx, col_span, row_span)| {
-            let x = track_start(&col_sizes, gap_x, col_idx);
-            let y = track_start(&row_sizes, gap_y, row_idx);
-            let width = span_size(&col_sizes, gap_x, col_idx, col_span).max(1);
-            let height = span_size(&row_sizes, gap_y, row_idx, row_span).max(1);
-            (
-                idx,
-                GridCellRect {
-                    x,
-                    y,
-                    width,
-                    height,
-                },
-            )
-        })
-        .collect()
+    out
 }
 
 #[cfg(test)]

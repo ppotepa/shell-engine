@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+# Authored YAML v2 example for layout debugging: grid + flex centering and alignment checks.
+id: playground-layout-lab
+title: Layout Lab
+bg: black
+layers:
+  - ref: main
+stages-ref: /stages/anykey-fade-250-200.yml
+next: playground-menu

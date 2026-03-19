@@ -60,13 +60,11 @@ properties:
     type: number
     minimum: 0.0
     maximum: 1.0
-    multipleOf: 0.05
     description: 'Sensitivity threshold for detecting colour boundaries. Used by: cutout.'
   edge_strength:
     type: number
     minimum: 0.0
     maximum: 1.0
-    multipleOf: 0.05
     description: 'How strongly detected edges are darkened. Used by: cutout.'
   edge_width:
     type: number
@@ -129,7 +127,6 @@ properties:
     type: number
     minimum: 0.5
     maximum: 1.5
-    multipleOf: 0.05
     description: 'Per-cell saturation multiplier after edge shaping. Used by: cutout.'
   simplify:
     type: number

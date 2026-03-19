@@ -16,6 +16,7 @@ $defs:
             - follow
             - menu-carousel
             - menu-selected
+            - menu-carousel-object
             - selected-arrows
             - stage-visibility
             - timed-visibility
@@ -227,6 +228,49 @@ $defs:
                     - done
               required:
               - index
+      - if:
+          properties:
+            behavior:
+              const: menu-carousel-object
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                target:
+                  type: string
+                  description: Container ID used as the center anchor
+                item_prefix:
+                  type: string
+                  description: Prefix for menu item aliases (supports {} placeholder)
+                  default: menu-item-
+                count:
+                  type: integer
+                  description: Total option count override (defaults to scene menu options)
+                  minimum: 1.0
+                  multipleOf: 1.0
+                window:
+                  type: integer
+                  description: Visible option window size around selected item
+                  default: 5.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                step_y:
+                  type: integer
+                  description: Minimum vertical spacing between neighboring options
+                  default: 2.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                endless:
+                  type: boolean
+                  description: Wrap list when navigating past first/last option
+                  default: 'true'
+                  enum:
+                  - 'true'
+                  - 'false'
+              required:
+              - target
       - if:
           properties:
             behavior:

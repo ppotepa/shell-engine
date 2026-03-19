@@ -189,13 +189,11 @@ items:
               type: number
               minimum: 0.0
               maximum: 1.0
-              multipleOf: 0.05000000074505806
               description: Sensitivity threshold for detecting colour boundaries.
             edge_strength:
               type: number
               minimum: 0.0
               maximum: 1.0
-              multipleOf: 0.05000000074505806
               description: How strongly detected edges are darkened.
             edge_width:
               type: number
@@ -207,7 +205,6 @@ items:
               type: number
               minimum: 0.5
               maximum: 1.5
-              multipleOf: 0.05000000074505806
               description: Per-cell saturation multiplier after edge shaping.
             blend_mode:
               type: string

@@ -18,7 +18,10 @@
                 - name: cutout
                   duration: 10750
                   params:
-                    levels: 6
-                    simplify: 2
-                    edge_fidelity: 0.7
-                    edge_strength: 0.35
+                    levels: 13
+                    simplify: 0
+                    edge_fidelity: 0.2
+                    edge_strength: 0.5
+                    edge_width: 1
+                    saturation: 1.0
+                    blend_mode: replace

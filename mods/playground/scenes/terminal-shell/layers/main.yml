@@ -1,9 +1,13 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: terminal-shell
   z_index: 0
+  sprite-defaults:
+    type: text
+    font: "generic:1"
   sprites:
-    - { type: text, content: "TERMINAL // PLAYGROUND", at: ct, y: 1, font: "generic:1", fg: white }
-    - { type: text, content: "────────────────────────────────────────────────────────────────────", at: ct, y: 3, fg: gray }
-    - { type: text, id: terminal-output, content: "", at: lt, x: 2, y: 5, fg: silver, font: "generic:1" }
-    - { type: text, content: "────────────────────────────────────────────────────────────────────", at: cb, y: -3, fg: gray }
-    - { type: text, id: terminal-prompt, content: "", at: lb, x: 2, y: -1, fg: green, font: "generic:1" }
+    - { content: "TERMINAL // PLAYGROUND", at: ct, y: 1, fg: white }
+    - { content: "────────────────────────────────────────────────────────────────────", at: ct, y: 3, fg: gray }
+    - { id: terminal-output, content: "", at: lt, x: 2, y: 5, fg: silver }
+    - { content: "────────────────────────────────────────────────────────────────────", at: cb, y: -3, fg: gray }
+    - { content: "ESC: back to menu", at: cb, y: -2, fg: gray }
+    - { id: terminal-prompt, content: "", at: lb, x: 2, y: -1, fg: green }

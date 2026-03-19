@@ -418,10 +418,12 @@ fn field_metadata_to_schema(field: &engine_core::authoring::metadata::FieldMetad
         );
     }
     if let Some(step) = field.step {
-        prop.insert(
-            Value::String("multipleOf".to_string()),
-            serde_yaml::to_value(step).unwrap(),
-        );
+        if step > 0.0 {
+            prop.insert(
+                Value::String("multipleOf".to_string()),
+                serde_yaml::to_value(step).unwrap(),
+            );
+        }
     }
 
     Value::Mapping(prop)
@@ -1245,10 +1247,12 @@ fn param_control_schema(control: &ParamControl) -> Mapping {
                 Value::String("maximum".to_string()),
                 serde_yaml::to_value(*max).expect("max value"),
             );
-            map.insert(
-                Value::String("multipleOf".to_string()),
-                serde_yaml::to_value(*step).expect("step value"),
-            );
+            if *step > 0.0 {
+                map.insert(
+                    Value::String("multipleOf".to_string()),
+                    serde_yaml::to_value(*step).expect("step value"),
+                );
+            }
         }
         ParamControl::Select { options, default } => {
             map.insert(
@@ -1317,6 +1321,10 @@ fn scene_overlay_patch() -> Mapping {
     patches.push(conditional_property_overlay(
         "behaviors",
         array_items_ref("#/$defs/behavior_overlay"),
+    ));
+    patches.push(conditional_property_overlay(
+        "logic",
+        schema_ref("#/$defs/scene_logic_overlay"),
     ));
     patches.push(conditional_property_overlay(
         "layers",
@@ -1589,6 +1597,87 @@ fn object_logic_overlay_def() -> Mapping {
     overlay
 }
 
+fn scene_logic_overlay_def() -> Mapping {
+    let mut props = Mapping::new();
+    props.insert(
+        Value::String("behavior".to_string()),
+        suggested_enum_strings(
+            behavior_catalog()
+                .into_iter()
+                .map(|(name, _)| name.to_string())
+                .collect(),
+        ),
+    );
+    props.insert(
+        Value::String("src".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/yaml_paths"]),
+    );
+
+    let conditional_blocks: Vec<Value> = behavior_catalog()
+        .into_iter()
+        .map(|(behavior_name, fields)| {
+            let mut if_props = Mapping::new();
+            if_props.insert(
+                Value::String("behavior".to_string()),
+                Value::Mapping(mapping_with(
+                    "const",
+                    Value::String(behavior_name.to_string()),
+                )),
+            );
+            let mut if_block = Mapping::new();
+            if_block.insert(
+                Value::String("properties".to_string()),
+                Value::Mapping(if_props),
+            );
+
+            let mut then_props = Mapping::new();
+            then_props.insert(
+                Value::String("params".to_string()),
+                behavior_params_schema(&fields),
+            );
+            let mut then_block = Mapping::new();
+            then_block.insert(
+                Value::String("properties".to_string()),
+                Value::Mapping(then_props),
+            );
+
+            let mut block = Mapping::new();
+            block.insert(Value::String("if".to_string()), Value::Mapping(if_block));
+            block.insert(
+                Value::String("then".to_string()),
+                Value::Mapping(then_block),
+            );
+            Value::Mapping(block)
+        })
+        .collect();
+
+    let mut patch = Mapping::new();
+    patch.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    patch.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    if !conditional_blocks.is_empty() {
+        patch.insert(
+            Value::String("allOf".to_string()),
+            Value::Sequence(conditional_blocks),
+        );
+    }
+
+    let mut overlay = Mapping::new();
+    overlay.insert(
+        Value::String("allOf".to_string()),
+        Value::Sequence(vec![
+            schema_ref("../../../schemas/scene.schema.yaml#/properties/logic"),
+            Value::Mapping(patch),
+        ]),
+    );
+    overlay
+}
+
 fn behavior_params_schema(fields: &[engine_core::authoring::metadata::FieldMetadata]) -> Value {
     use engine_core::authoring::metadata::Requirement;
 
@@ -1651,6 +1740,10 @@ fn shared_overlay_defs() -> Mapping {
     defs.insert(
         Value::String("behavior_overlay".to_string()),
         Value::Mapping(behavior_overlay_def()),
+    );
+    defs.insert(
+        Value::String("scene_logic_overlay".to_string()),
+        Value::Mapping(scene_logic_overlay_def()),
     );
     defs.insert(
         Value::String("layer_overlay".to_string()),

@@ -171,14 +171,35 @@ pub fn sugar_catalog() -> SugarCatalog {
                 from_syntax: "to: main-menu",
                 to_structure: "{scene: main-menu, next: main-menu}",
             },
+            ShorthandSpec {
+                name: "frame-sequence",
+                description: "Expand numbered image sequence into timed image sprites",
+                from_syntax: "type: frame-sequence",
+                to_structure: "Vec<image sprites> with appear_at_ms/disappear_at_ms",
+            },
+            ShorthandSpec {
+                name: "sprite-defaults",
+                description: "Sprite field defaults inherited by child sprites",
+                from_syntax: "sprite-defaults: { at: cc, font: generic:1 }",
+                to_structure: "child sprite map with missing fields filled from parent",
+            },
+            ShorthandSpec {
+                name: "menu-ui",
+                description: "Generate animated menu body sprites from menu-options",
+                from_syntax: "menu-ui: { layer: menu }",
+                to_structure: "grid + menu-carousel items + selected-arrows sprites",
+            },
         ],
         normalizers: vec![
             "normalize_stage",        // engine-authoring/src/document/scene.rs:60
             "normalize_layers",       // engine-authoring/src/document/scene.rs:93
             "normalize_sprites",      // engine-authoring/src/document/scene.rs:108
             "normalize_menu_options", // engine-authoring/src/document/scene.rs:134
+            "expand_menu_ui",         // engine-authoring/src/document/scene.rs
             "apply_alias",            // engine-authoring/src/document/scene.rs:159
             "apply_at_anchor",        // engine-authoring/src/document/scene.rs:170
+            "apply_defaults",         // engine-authoring/src/document/scene.rs
+            "expand_frame_sequence",  // engine-authoring/src/document/scene.rs
         ],
     }
 }
@@ -463,6 +484,101 @@ pub fn behavior_catalog() -> Vec<(&'static str, Vec<FieldMetadata>)> {
             ],
         ),
         (
+            "menu-carousel",
+            vec![
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "target",
+                    value_kind: ValueKind::Text,
+                    requirement: Requirement::Required,
+                    description: "Container or sprite ID used as the center anchor",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "index",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Required,
+                    description: "Menu option index represented by this sprite",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: Some(0.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "count",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Total option count override (defaults to scene menu options)",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "window",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Visible option window size around selected item",
+                    default_text: None,
+                    default_number: Some(5.0),
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: Some("items"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "step_y",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Vertical spacing between neighboring options",
+                    default_text: None,
+                    default_number: Some(2.0),
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: Some("cells"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "endless",
+                    value_kind: ValueKind::Boolean,
+                    requirement: Requirement::Optional,
+                    description: "Wrap list when navigating past first/last option",
+                    default_text: Some("true"),
+                    default_number: None,
+                    enum_options: Some(&["true", "false"]),
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+            ],
+        ),
+        (
             "menu-selected",
             vec![
                 FieldMetadata {
@@ -489,6 +605,101 @@ pub fn behavior_catalog() -> Vec<(&'static str, Vec<FieldMetadata>)> {
                     default_text: None,
                     default_number: None,
                     enum_options: Some(BEHAVIOR_STAGE_OPTIONS),
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+            ],
+        ),
+        (
+            "menu-carousel-object",
+            vec![
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "target",
+                    value_kind: ValueKind::Text,
+                    requirement: Requirement::Required,
+                    description: "Container ID used as the center anchor",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "item_prefix",
+                    value_kind: ValueKind::Text,
+                    requirement: Requirement::Optional,
+                    description: "Prefix for menu item aliases (supports {} placeholder)",
+                    default_text: Some("menu-item-"),
+                    default_number: None,
+                    enum_options: None,
+                    min: None,
+                    max: None,
+                    step: None,
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "count",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Total option count override (defaults to scene menu options)",
+                    default_text: None,
+                    default_number: None,
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: None,
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "window",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Visible option window size around selected item",
+                    default_text: None,
+                    default_number: Some(5.0),
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: Some("items"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "step_y",
+                    value_kind: ValueKind::Integer,
+                    requirement: Requirement::Optional,
+                    description: "Minimum vertical spacing between neighboring options",
+                    default_text: None,
+                    default_number: Some(2.0),
+                    enum_options: None,
+                    min: Some(1.0),
+                    max: None,
+                    step: Some(1.0),
+                    unit: Some("cells"),
+                    sources: &[ValueSource::Literal],
+                },
+                FieldMetadata {
+                    target: TargetKind::Effect,
+                    name: "endless",
+                    value_kind: ValueKind::Boolean,
+                    requirement: Requirement::Optional,
+                    description: "Wrap list when navigating past first/last option",
+                    default_text: Some("true"),
+                    default_number: None,
+                    enum_options: Some(&["true", "false"]),
                     min: None,
                     max: None,
                     step: None,
@@ -880,6 +1091,8 @@ mod tests {
         assert!(names.contains(&"blink"));
         assert!(names.contains(&"bob"));
         assert!(names.contains(&"follow"));
+        assert!(names.contains(&"menu-carousel"));
+        assert!(names.contains(&"menu-carousel-object"));
         assert!(names.contains(&"menu-selected"));
         assert!(names.contains(&"selected-arrows"));
         assert!(names.contains(&"stage-visibility"));
@@ -948,6 +1161,38 @@ mod tests {
                     .iter()
                     .any(|field| field.name == field_name),
                 "selected-arrows metadata missing {field_name}"
+            );
+        }
+
+        let menu_carousel = catalog
+            .iter()
+            .find(|(name, _)| *name == "menu-carousel")
+            .expect("menu-carousel metadata");
+        for field_name in ["target", "index", "count", "window", "step_y", "endless"] {
+            assert!(
+                menu_carousel.1.iter().any(|field| field.name == field_name),
+                "menu-carousel metadata missing {field_name}"
+            );
+        }
+
+        let menu_carousel_object = catalog
+            .iter()
+            .find(|(name, _)| *name == "menu-carousel-object")
+            .expect("menu-carousel-object metadata");
+        for field_name in [
+            "target",
+            "item_prefix",
+            "count",
+            "window",
+            "step_y",
+            "endless",
+        ] {
+            assert!(
+                menu_carousel_object
+                    .1
+                    .iter()
+                    .any(|field| field.name == field_name),
+                "menu-carousel-object metadata missing {field_name}"
             );
         }
 

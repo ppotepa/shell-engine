@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: layout-lab
+  z_index: 0
+  sprites:
+    - { type: text, content: "LAYOUT LAB", at: ct, y: 1, font: "generic:1", fg: white }
+    - { type: text, content: "Resize to check centering, edge alignment, and nested layouts.", at: ct, y: 3, font: "generic:1", fg: gray }
+
+    - type: grid
+      id: lab-shell
+      at: cc
+      width: 78
+      height: 21
+      columns: ["1fr", "1fr"]
+      rows: ["auto", "1fr", "auto", "auto"]
+      gap-x: 2
+      gap-y: 1
+      align_x: center
+      align_y: center
+      children:
+        - { type: text, content: "CENTERED CONTAINER", grid-col: 1, grid-row: 1, col-span: 2, at: cc, font: "generic:1", fg: yellow }
+
+        - type: grid
+          id: centered-case
+          grid-col: 1
+          grid-row: 2
+          width: 36
+          height: 10
+          columns: ["1fr"]
+          rows: ["auto", "1fr"]
+          gap-y: 1
+          align_x: center
+          align_y: center
+          children:
+            - { type: text, content: "CENTERED FLEX BLOCK", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
+            - type: flex
+              direction: column
+              gap: 1
+              grid-col: 1
+              grid-row: 2
+              align_x: center
+              align_y: center
+              children:
+                - { type: text, content: "[ inner box ]", font: "generic:1", fg: white }
+                - { type: text, content: "keeps itself centered", font: "generic:1", fg: silver }
+                - { type: text, content: "even when resized", font: "generic:1", fg: gray }
+
+        - type: grid
+          id: nested-flex-grid-case
+          grid-col: 2
+          grid-row: 2
+          width: 36
+          height: 10
+          columns: ["1fr"]
+          rows: ["auto", "1fr"]
+          gap-y: 1
+          children:
+            - { type: text, content: "NESTED FLEX IN GRID", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
+            - type: grid
+              grid-col: 1
+              grid-row: 2
+              width: 34
+              height: 6
+              columns: ["1fr", "1fr"]
+              rows: ["auto", "auto"]
+              gap-x: 1
+              gap-y: 1
+              children:
+                - { type: text, content: "grid cell 1", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
+                - { type: text, content: "grid cell 2", grid-col: 2, grid-row: 1, at: rc, font: "generic:1", fg: gray }
+                - type: flex
+                  direction: column
+                  grid-col: 1
+                  grid-row: 2
+                  gap: 1
+                  align_x: center
+                  align_y: center
+                  children:
+                    - { type: text, content: "flex column", font: "generic:1", fg: white }
+                    - type: flex
+                      direction: row
+                      gap: 2
+                      children:
+                        - { type: text, content: "A", font: "generic:1", fg: cyan }
+                        - { type: text, content: "B", font: "generic:1", fg: yellow }
+                        - { type: text, content: "C", font: "generic:1", fg: magenta }
+                - { type: text, content: "row + column", grid-col: 2, grid-row: 2, at: rc, font: "generic:1", fg: silver }
+
+        - type: grid
+          id: left-right-row
+          grid-col: 1
+          grid-row: 3
+          col-span: 2
+          width: 76
+          height: 3
+          columns: ["1fr", "1fr"]
+          rows: ["auto"]
+          gap-x: 2
+          children:
+            - { type: text, content: "LEFT ALIGNED", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: cyan }
+            - { type: text, content: "RIGHT ALIGNED", grid-col: 2, grid-row: 1, at: rc, font: "generic:1", fg: yellow }
+
+        - { type: text, content: "Footer hint: compare the panel edges against the terminal frame as you resize.", grid-col: 1, grid-row: 4, col-span: 2, at: cc, font: "generic:1", fg: gray }

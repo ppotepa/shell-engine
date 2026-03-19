@@ -6,10 +6,7 @@ cutscene: true
 target-fps: 30
 bg: black
 rendered-mode: halfblock
-stages:
-  on_idle:
-    trigger: timeout
-    steps: [{ pause: 5000ms }]
+stages-ref: /stages/fps-timeout-5s.yml
 layers:
   - name: fps-showcase-2d
     z_index: 0

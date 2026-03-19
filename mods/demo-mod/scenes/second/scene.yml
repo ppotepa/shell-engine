@@ -2,17 +2,5 @@
 id: demo-mod.second
 title: Second
 bg: black
-stages:
-  on_enter:
-    steps:
-      - pause: 300ms
-  on_idle:
-    trigger: any-key
-    steps:
-      - pause: 300ms
-  on_leave:
-    steps:
-      - effects:
-          - name: fade-out
-            duration: 220
+stages-ref: /stages/simple-anykey-fade.yml
 next: null

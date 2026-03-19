@@ -4,6 +4,8 @@
 use super::cutscene::{expand_scene_cutscene_ref_with_filters, CutsceneFilterRegistry};
 use crate::document::{LogicKind, ObjectDocument, SceneDocument};
 use engine_core::scene::Scene;
+use serde::de::Error as _;
+use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeMap;
 
@@ -62,6 +64,7 @@ where
 {
     let mut raw = serde_yaml::from_str::<Value>(content)?;
     expand_scene_layer_refs(&mut raw, scene_source_path, &mut object_loader);
+    expand_scene_stages_ref(&mut raw, scene_source_path, &mut object_loader)?;
     expand_scene_objects(&mut raw, scene_source_path, &mut object_loader);
     expand_layer_objects(&mut raw, scene_source_path, &mut object_loader);
     expand_scene_cutscene_ref_with_filters(
@@ -70,12 +73,187 @@ where
         &mut object_loader,
         cutscene_filters,
     )?;
+    expand_scene_logic(&mut raw, scene_source_path, &mut object_loader);
     let mut compiled_input = serde_yaml::to_string(&raw)?;
     if !compiled_input.ends_with('\n') {
         compiled_input.push('\n');
     }
     let document = serde_yaml::from_str::<SceneDocument>(&compiled_input)?;
     document.compile()
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+struct SceneLogicSpec {
+    #[serde(default, rename = "type", alias = "kind")]
+    kind: LogicKind,
+    #[serde(default)]
+    behavior: Option<String>,
+    #[serde(default)]
+    src: Option<String>,
+    #[serde(default)]
+    params: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+struct SceneScriptController {
+    #[serde(default)]
+    behavior: Option<String>,
+    #[serde(default)]
+    params: BTreeMap<String, Value>,
+}
+
+fn expand_scene_logic<F>(root: &mut Value, scene_source_path: &str, asset_loader: &mut F)
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let Some(scene_map) = root.as_mapping_mut() else {
+        return;
+    };
+    let logic_value = scene_map.get(Value::String("logic".to_string())).cloned();
+    if logic_value.is_none() {
+        // Keep legacy behavior: if no explicit `logic:` block exists, auto-detect
+        // sidecar scene logic script from scene package path.
+        let mut discovered_behavior = None;
+        let mut discovered_params = BTreeMap::new();
+        for path in infer_scene_logic_paths(scene_source_path) {
+            let Some(raw_script) = asset_loader(&path) else {
+                continue;
+            };
+            if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
+                discovered_behavior = controller.behavior;
+                discovered_params = controller.params;
+            }
+            break;
+        }
+        if let Some(behavior_name) = discovered_behavior {
+            attach_scene_behavior(scene_map, &behavior_name, &discovered_params);
+        }
+        return;
+    }
+    let logic = logic_value
+        .and_then(|value| serde_yaml::from_value::<SceneLogicSpec>(value).ok())
+        .unwrap_or_default();
+
+    match logic.kind {
+        LogicKind::Native => {
+            if let Some(behavior_name) = logic.behavior.as_deref() {
+                attach_scene_behavior(scene_map, behavior_name, &logic.params);
+            }
+        }
+        LogicKind::Script => {
+            let mut merged_params = BTreeMap::new();
+            let mut script_behavior = None;
+            let candidate_paths = if let Some(src) = logic.src.clone() {
+                vec![resolve_script_ref_path(scene_source_path, &src)]
+            } else {
+                infer_scene_logic_paths(scene_source_path)
+            };
+            for path in candidate_paths {
+                let Some(raw_script) = asset_loader(&path) else {
+                    continue;
+                };
+                if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
+                    script_behavior = controller.behavior;
+                    merged_params = controller.params;
+                }
+                break;
+            }
+            for (k, v) in logic.params {
+                merged_params.insert(k, v);
+            }
+
+            if let Some(behavior_name) = logic.behavior.or(script_behavior) {
+                attach_scene_behavior(scene_map, &behavior_name, &merged_params);
+            }
+        }
+        LogicKind::Graph => {}
+    }
+}
+
+fn expand_scene_stages_ref<F>(
+    root: &mut Value,
+    scene_source_path: &str,
+    asset_loader: &mut F,
+) -> Result<(), serde_yaml::Error>
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let Some(scene_map) = root.as_mapping_mut() else {
+        return Ok(());
+    };
+    let Some(stages_ref) = scene_map
+        .get(Value::String("stages-ref".to_string()))
+        .or_else(|| scene_map.get(Value::String("stages_ref".to_string())))
+        .and_then(Value::as_str)
+        .map(str::trim)
+    else {
+        return Ok(());
+    };
+    if stages_ref.is_empty() {
+        return Err(serde_yaml::Error::custom("stages-ref cannot be empty"));
+    }
+    let path = resolve_stages_ref_path(scene_source_path, stages_ref);
+    let Some(raw_stages) = asset_loader(&path) else {
+        return Err(serde_yaml::Error::custom(format!(
+            "stages-ref '{}' resolved to '{}', but file was not found",
+            stages_ref, path
+        )));
+    };
+    let parsed = serde_yaml::from_str::<Value>(&raw_stages).map_err(|err| {
+        serde_yaml::Error::custom(format!("failed to parse stages-ref '{}': {err}", path))
+    })?;
+    let referenced = extract_referenced_stages_map(&parsed).ok_or_else(|| {
+        serde_yaml::Error::custom(format!(
+            "stages-ref '{}' must resolve to a mapping (or mapping with top-level 'stages')",
+            path
+        ))
+    })?;
+    merge_scene_stages(scene_map, referenced);
+    scene_map.remove(Value::String("stages-ref".to_string()));
+    scene_map.remove(Value::String("stages_ref".to_string()));
+    Ok(())
+}
+
+fn extract_referenced_stages_map(value: &Value) -> Option<&Mapping> {
+    let map = value.as_mapping()?;
+    if let Some(stages) = map
+        .get(Value::String("stages".to_string()))
+        .and_then(Value::as_mapping)
+    {
+        return Some(stages);
+    }
+    Some(map)
+}
+
+fn merge_scene_stages(scene_map: &mut Mapping, referenced: &Mapping) {
+    let stages = scene_map
+        .entry(Value::String("stages".to_string()))
+        .or_insert_with(|| Value::Mapping(Mapping::new()));
+    let Some(stages_map) = stages.as_mapping_mut() else {
+        return;
+    };
+    for stage_key in ["on_enter", "on_idle", "on_leave"] {
+        let key = Value::String(stage_key.to_string());
+        let Some(referenced_stage) = referenced.get(&key) else {
+            continue;
+        };
+        if !stages_map.contains_key(&key) {
+            stages_map.insert(key, referenced_stage.clone());
+            continue;
+        }
+        let Some(existing_stage_map) = stages_map.get_mut(&key).and_then(Value::as_mapping_mut)
+        else {
+            continue;
+        };
+        let Some(referenced_stage_map) = referenced_stage.as_mapping() else {
+            continue;
+        };
+        for (k, v) in referenced_stage_map {
+            if !existing_stage_map.contains_key(k) {
+                existing_stage_map.insert(k.clone(), v.clone());
+            }
+        }
+    }
 }
 
 fn expand_scene_layer_refs<F>(root: &mut Value, scene_source_path: &str, asset_loader: &mut F)
@@ -526,6 +704,66 @@ fn resolve_layer_ref_path(scene_source_path: &str, use_name: &str) -> String {
     normalize_mod_path(&format!("{scene_dir}/layers/{trimmed}.yml"))
 }
 
+fn resolve_script_ref_path(scene_source_path: &str, script_ref: &str) -> String {
+    if script_ref.starts_with('/') {
+        return normalize_mod_path(script_ref);
+    }
+    if script_ref.starts_with("./") || script_ref.starts_with("../") {
+        let scene_dir = parent_dir(scene_source_path);
+        return normalize_mod_path(&format!("{scene_dir}/{script_ref}"));
+    }
+    normalize_mod_path(&format!("/scripts/{script_ref}"))
+}
+
+fn infer_scene_logic_paths(scene_source_path: &str) -> Vec<String> {
+    let normalized = normalize_mod_path(scene_source_path);
+    if normalized.ends_with("/scene.yml") || normalized.ends_with("/scene.yaml") {
+        let scene_dir = parent_dir(&normalized);
+        let folder_name = scene_dir
+            .rsplit('/')
+            .next()
+            .filter(|name| !name.is_empty())
+            .unwrap_or("scene");
+        return vec![
+            normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.yml")),
+            normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.yaml")),
+            normalize_mod_path(&format!("{scene_dir}/scene.logic.yml")),
+            normalize_mod_path(&format!("{scene_dir}/scene.logic.yaml")),
+        ];
+    }
+
+    let base = if normalized.ends_with(".yml") {
+        normalized.trim_end_matches(".yml").to_string()
+    } else if normalized.ends_with(".yaml") {
+        normalized.trim_end_matches(".yaml").to_string()
+    } else {
+        normalized
+    };
+    vec![
+        normalize_mod_path(&format!("{base}.logic.yml")),
+        normalize_mod_path(&format!("{base}.logic.yaml")),
+    ]
+}
+
+fn resolve_stages_ref_path(scene_source_path: &str, reference: &str) -> String {
+    if reference.starts_with('/') {
+        return normalize_mod_path(reference);
+    }
+    if reference.starts_with("./") || reference.starts_with("../") {
+        let scene_dir = parent_dir(scene_source_path);
+        return normalize_mod_path(&format!("{scene_dir}/{reference}"));
+    }
+    let trimmed = reference.trim_start_matches('/');
+    let has_yaml_ext = trimmed.ends_with(".yml") || trimmed.ends_with(".yaml");
+    if has_yaml_ext {
+        if trimmed.starts_with("stages/") {
+            return normalize_mod_path(&format!("/{trimmed}"));
+        }
+        return normalize_mod_path(&format!("/stages/{trimmed}"));
+    }
+    normalize_mod_path(&format!("/stages/{trimmed}.yml"))
+}
+
 fn parent_dir(path: &str) -> String {
     let normalized = normalize_mod_path(path);
     match normalized.rsplit_once('/') {
@@ -551,6 +789,21 @@ fn normalize_mod_path(path: &str) -> String {
     } else {
         format!("/{}", parts.join("/"))
     }
+}
+
+fn attach_scene_behavior(
+    scene_map: &mut Mapping,
+    behavior_name: &str,
+    params: &std::collections::BTreeMap<String, Value>,
+) {
+    let behavior_value = build_behavior_spec(behavior_name, params);
+    let behaviors_entry = scene_map
+        .entry(Value::String("behaviors".to_string()))
+        .or_insert_with(|| Value::Sequence(Vec::new()));
+    let Some(seq) = behaviors_entry.as_sequence_mut() else {
+        return;
+    };
+    seq.push(behavior_value);
 }
 
 fn attach_layer_behavior(
@@ -743,6 +996,96 @@ sprites:
         assert_eq!(scene.layers[0].behaviors.len(), 1);
         assert_eq!(scene.layers[0].behaviors[0].name, "bob");
         assert_eq!(scene.layers[0].behaviors[0].params.amplitude_y, Some(2));
+    }
+
+    #[test]
+    fn maps_scene_native_logic_to_scene_behaviors() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+logic:
+  type: native
+  behavior: bob
+  params:
+    amplitude_y: 3
+layers: []
+next: null
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
+        assert_eq!(scene.behaviors.len(), 1);
+        assert_eq!(scene.behaviors[0].name, "bob");
+        assert_eq!(scene.behaviors[0].params.amplitude_y, Some(3));
+    }
+
+    #[test]
+    fn maps_scene_script_logic_from_explicit_src() {
+        let scene_raw = r#"
+id: menu
+title: Menu
+logic:
+  type: script
+  src: ./menu.logic.yml
+layers: []
+next: null
+"#;
+        let script_raw = r#"
+behavior: menu-carousel-object
+params:
+  target: menu-grid
+  item_prefix: menu-item-
+  count: 3
+  window: 3
+  step_y: 2
+  endless: true
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/menu/scene.yml",
+            |path| {
+                if path == "/scenes/menu/menu.logic.yml" {
+                    Some(script_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+        assert_eq!(scene.behaviors.len(), 1);
+        assert_eq!(scene.behaviors[0].name, "menu-carousel-object");
+        assert_eq!(scene.behaviors[0].params.count, Some(3));
+        assert_eq!(scene.behaviors[0].params.window, Some(3));
+    }
+
+    #[test]
+    fn auto_detects_scene_logic_file_next_to_scene_package() {
+        let scene_raw = r#"
+id: menu
+title: Menu
+layers: []
+next: null
+"#;
+        let script_raw = r#"
+behavior: blink
+params:
+  visible_ms: 400
+  hidden_ms: 200
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/mainmenu/scene.yml",
+            |path| {
+                if path == "/scenes/mainmenu/mainmenu.logic.yml" {
+                    Some(script_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+        assert_eq!(scene.behaviors.len(), 1);
+        assert_eq!(scene.behaviors[0].name, "blink");
+        assert_eq!(scene.behaviors[0].params.visible_ms, Some(400));
+        assert_eq!(scene.behaviors[0].params.hidden_ms, Some(200));
     }
 
     #[test]
@@ -963,6 +1306,98 @@ next: null
         .expect("scene compile");
 
         assert_eq!(scene.layers.len(), 1);
+    }
+
+    #[test]
+    fn expands_stages_ref_into_scene_stages() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+stages-ref: cinematic-fade
+layers: []
+next: null
+"#;
+        let stages_raw = r#"
+on_enter:
+  steps:
+    - pause: 300ms
+on_idle:
+  trigger: any-key
+  steps:
+    - pause: 1ms
+on_leave:
+  steps:
+    - effects:
+        - name: fade-out
+          duration: 220
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| {
+                if path == "/stages/cinematic-fade.yml" {
+                    Some(stages_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+
+        assert_eq!(scene.stages.on_enter.steps.len(), 1);
+        assert_eq!(scene.stages.on_enter.steps[0].duration, Some(300));
+        assert_eq!(scene.stages.on_idle.steps.len(), 1);
+        assert_eq!(scene.stages.on_leave.steps.len(), 1);
+    }
+
+    #[test]
+    fn stages_ref_merges_with_local_stage_overrides() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+stages-ref: cinematic-fade
+stages:
+  on_idle:
+    trigger: timeout
+    steps:
+      - pause: 5s
+layers: []
+next: null
+"#;
+        let stages_raw = r#"
+on_enter:
+  steps:
+    - pause: 300ms
+on_idle:
+  trigger: any-key
+  looping: true
+  steps:
+    - pause: 1ms
+on_leave:
+  steps:
+    - effects:
+        - name: fade-out
+          duration: 220
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| {
+                if path == "/stages/cinematic-fade.yml" {
+                    Some(stages_raw.to_string())
+                } else {
+                    None
+                }
+            },
+        )
+        .expect("scene compile");
+        assert_eq!(scene.stages.on_enter.steps[0].duration, Some(300));
+        assert!(matches!(
+            scene.stages.on_idle.trigger,
+            engine_core::scene::StageTrigger::Timeout
+        ));
+        assert_eq!(scene.stages.on_idle.steps[0].duration, Some(5000));
+        assert_eq!(scene.stages.on_leave.steps.len(), 1);
     }
 
     #[test]

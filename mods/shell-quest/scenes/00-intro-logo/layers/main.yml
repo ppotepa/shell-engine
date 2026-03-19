@@ -9,21 +9,195 @@
       steps:
         - pause: 3000ms
         - pause: 720ms
-        - { duration: 420, effects: [{ name: lightning-growth, duration: 420, params: { orientation: horizontal, strikes: 2, thickness: 1.5, glow: true } }, { name: lightning-fbm, duration: 420, params: { orientation: horizontal, colour: "#84a7ff", intensity: 0.95, octave_count: 10, amp_start: 0.5, amp_coeff: 0.5, freq_coeff: 2.0, speed: 0.6 } }, { name: brighten, duration: 420, params: { intensity: 0.24 } }] }
-        - { duration: 280, effects: [{ name: lightning-growth, duration: 280, params: { orientation: horizontal, strikes: 1, thickness: 1.1, glow: true } }, { name: lightning-fbm, duration: 280, params: { orientation: horizontal, colour: "#6289ff", intensity: 0.42, octave_count: 8, amp_start: 0.46, amp_coeff: 0.5, freq_coeff: 2.0, speed: 0.55 } }] }
-        - { duration: 60, effects: [{ name: lightning-growth, duration: 60, params: { orientation: horizontal, strikes: 1, thickness: 1.0, glow: false } }] }
+        - {
+            duration: 420,
+            effects:
+              [
+                {
+                  name: lightning-growth,
+                  duration: 420,
+                  params:
+                    {
+                      orientation: horizontal,
+                      strikes: 2,
+                      thickness: 1.5,
+                      glow: true,
+                    },
+                },
+                {
+                  name: lightning-fbm,
+                  duration: 420,
+                  params:
+                    {
+                      orientation: horizontal,
+                      colour: "#84a7ff",
+                      intensity: 0.95,
+                      octave_count: 10,
+                      amp_start: 0.5,
+                      amp_coeff: 0.5,
+                      freq_coeff: 2.0,
+                      speed: 0.6,
+                    },
+                },
+                { name: brighten, duration: 420, params: { intensity: 0.24 } },
+              ],
+          }
+        - {
+            duration: 280,
+            effects:
+              [
+                {
+                  name: lightning-growth,
+                  duration: 280,
+                  params:
+                    {
+                      orientation: horizontal,
+                      strikes: 1,
+                      thickness: 1.1,
+                      glow: true,
+                    },
+                },
+                {
+                  name: lightning-fbm,
+                  duration: 280,
+                  params:
+                    {
+                      orientation: horizontal,
+                      colour: "#6289ff",
+                      intensity: 0.42,
+                      octave_count: 8,
+                      amp_start: 0.46,
+                      amp_coeff: 0.5,
+                      freq_coeff: 2.0,
+                      speed: 0.55,
+                    },
+                },
+              ],
+          }
+        - {
+            duration: 60,
+            effects:
+              [
+                {
+                  name: lightning-growth,
+                  duration: 60,
+                  params:
+                    {
+                      orientation: horizontal,
+                      strikes: 1,
+                      thickness: 1.0,
+                      glow: false,
+                    },
+                },
+              ],
+          }
         - pause: 70ms
-        - { duration: 50, effects: [{ name: lightning-growth, duration: 50, params: { orientation: horizontal, strikes: 1, thickness: 1.0, glow: false } }] }
+        - {
+            duration: 50,
+            effects:
+              [
+                {
+                  name: lightning-growth,
+                  duration: 50,
+                  params:
+                    {
+                      orientation: horizontal,
+                      strikes: 1,
+                      thickness: 1.0,
+                      glow: false,
+                    },
+                },
+              ],
+          }
         - pause: 70ms
-        - { duration: 50, effects: [{ name: lightning-growth, duration: 50, params: { orientation: horizontal, strikes: 1, thickness: 1.0, glow: false } }] }
+        - {
+            duration: 50,
+            effects:
+              [
+                {
+                  name: lightning-growth,
+                  duration: 50,
+                  params:
+                    {
+                      orientation: horizontal,
+                      strikes: 1,
+                      thickness: 1.0,
+                      glow: false,
+                    },
+                },
+              ],
+          }
     on_idle:
       looping: true
       steps:
-        - { duration: 7200, effects: [{ name: lightning-ambient, duration: 7200, params: { orientation: horizontal, colour: "#84a7ff", intensity: 0.48, thickness: 0.9, glow: true, octave_count: 6, amp_start: 0.40, amp_coeff: 0.5, freq_coeff: 2.0, speed: 0.52 } }] }
+        - {
+            duration: 7200,
+            effects:
+              [
+                {
+                  name: lightning-ambient,
+                  duration: 7200,
+                  params:
+                    {
+                      orientation: horizontal,
+                      colour: "#84a7ff",
+                      intensity: 0.48,
+                      thickness: 0.9,
+                      glow: true,
+                      octave_count: 6,
+                      amp_start: 0.40,
+                      amp_coeff: 0.5,
+                      freq_coeff: 2.0,
+                      speed: 0.52,
+                    },
+                },
+              ],
+          }
     on_leave:
       steps:
-        - { duration: 460, effects: [{ name: lightning-fbm, duration: 460, params: { orientation: horizontal, colour: "#6d95ff", intensity: 0.56, octave_count: 5, amp_start: 0.42, amp_coeff: 0.5, freq_coeff: 2.0, speed: 0.58 } }] }
-        - { duration: 440, effects: [{ name: lightning-fbm, duration: 440, params: { orientation: horizontal, colour: "#9cbcff", intensity: 0.92, octave_count: 6, amp_start: 0.52, amp_coeff: 0.5, freq_coeff: 2.0, speed: 0.64 } }, { name: brighten, duration: 440, params: { intensity: 0.30 } }] }
+        - {
+            duration: 460,
+            effects:
+              [
+                {
+                  name: lightning-fbm,
+                  duration: 460,
+                  params:
+                    {
+                      orientation: horizontal,
+                      colour: "#6d95ff",
+                      intensity: 0.56,
+                      octave_count: 5,
+                      amp_start: 0.42,
+                      amp_coeff: 0.5,
+                      freq_coeff: 2.0,
+                      speed: 0.58,
+                    },
+                },
+              ],
+          }
+        - {
+            duration: 440,
+            effects:
+              [
+                {
+                  name: lightning-fbm,
+                  duration: 440,
+                  params:
+                    {
+                      orientation: horizontal,
+                      colour: "#9cbcff",
+                      intensity: 0.92,
+                      octave_count: 6,
+                      amp_start: 0.52,
+                      amp_coeff: 0.5,
+                      freq_coeff: 2.0,
+                      speed: 0.64,
+                    },
+                },
+                { name: brighten, duration: 440, params: { intensity: 0.30 } },
+              ],
+          }
   sprites: []
 - name: title
   z_index: 1
@@ -41,7 +215,16 @@
       stages:
         on_enter:
           steps:
-            - { effects: [{ name: fade-in, duration: 3000, params: { easing: ease-in } }] }
+            - {
+                effects:
+                  [
+                    {
+                      name: fade-in,
+                      duration: 3000,
+                      params: { easing: ease-in },
+                    },
+                  ],
+              }
 
     - type: text
       id: intro-logo-raster
@@ -53,17 +236,97 @@
       stages:
         on_enter:
           steps:
-            - { duration: 180, effects: [{ name: brighten, duration: 180, params: { intensity: 0.28 } }] }
-            - { effects: [{ name: shine, duration: 520, params: { angle: 0, width: 3, falloff: 2.4, intensity: 0.8, colour: white, easing: ease-out } }] }
+            - {
+                duration: 180,
+                effects:
+                  [
+                    {
+                      name: brighten,
+                      duration: 180,
+                      params: { intensity: 0.28 },
+                    },
+                  ],
+              }
+            - {
+                effects:
+                  [
+                    {
+                      name: shine,
+                      duration: 520,
+                      params:
+                        {
+                          angle: 0,
+                          width: 3,
+                          falloff: 2.4,
+                          intensity: 0.8,
+                          colour: white,
+                          easing: ease-out,
+                        },
+                    },
+                  ],
+              }
         on_idle:
           looping: true
           steps:
             - pause: 1800ms
-            - { effects: [{ name: shine, duration: 1000, params: { angle: 20, width: 4, falloff: 2.5, intensity: 2.0, colour: white, easing: ease-in } }] }
+            - {
+                effects:
+                  [
+                    {
+                      name: shine,
+                      duration: 1000,
+                      params:
+                        {
+                          angle: 20,
+                          width: 4,
+                          falloff: 2.5,
+                          intensity: 2.0,
+                          colour: white,
+                          easing: ease-in,
+                        },
+                    },
+                  ],
+              }
         on_leave:
           steps:
-            - { effects: [{ name: brighten, duration: 320, params: { intensity: 0.16, easing: ease-out } }, { name: shine, duration: 320, params: { angle: 20, width: 2, falloff: 3.0, intensity: 1.0, colour: white, easing: ease-in } }] }
-            - { effects: [{ name: brighten, duration: 560, params: { intensity: 0.34, easing: ease-in } }, { name: fade-out, duration: 560, params: { easing: ease-out } }] }
+            - {
+                effects:
+                  [
+                    {
+                      name: brighten,
+                      duration: 320,
+                      params: { intensity: 0.16, easing: ease-out },
+                    },
+                    {
+                      name: shine,
+                      duration: 320,
+                      params:
+                        {
+                          angle: 20,
+                          width: 2,
+                          falloff: 3.0,
+                          intensity: 1.0,
+                          colour: white,
+                          easing: ease-in,
+                        },
+                    },
+                  ],
+              }
+            - {
+                effects:
+                  [
+                    {
+                      name: brighten,
+                      duration: 560,
+                      params: { intensity: 0.34, easing: ease-in },
+                    },
+                    {
+                      name: fade-out,
+                      duration: 560,
+                      params: { easing: ease-out },
+                    },
+                  ],
+              }
 
     - type: text
       id: press-any-key
@@ -75,4 +338,12 @@
       glow: { radius: 1 }
       hide_on_leave: true
       appear_at_ms: 8500
-      animations: [{ name: float, looping: true, params: { axis: y, amplitude: 1, period_ms: 2000, easing: ease-in-out } }]
+      animations:
+        [
+          {
+            name: float,
+            looping: true,
+            params:
+              { axis: y, amplitude: 1, period_ms: 2000, easing: ease-in-out },
+          },
+        ]
