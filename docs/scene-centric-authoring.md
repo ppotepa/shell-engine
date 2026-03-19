@@ -270,13 +270,14 @@ Zakres danych w scope obejmuje:
 - `stage_elapsed_ms`,
 - `params`,
 - `regions`.
-- `ui` (`focused_target`, `has_submit`, `submit_target`, `submit_text`, `has_change`, `change_target`, `change_text`)
-- aliasy flat: `ui_focused_target`, `ui_submit_target`, `ui_submit_text`, `ui_change_target`, `ui_change_text`, `ui_has_submit`, `ui_has_change`.
+- `ui` (`focused_target`, `theme`, `has_submit`, `submit_target`, `submit_text`, `has_change`, `change_target`, `change_text`)
+- aliasy flat: `ui_focused_target`, `ui_theme`, `ui_submit_target`, `ui_submit_text`, `ui_change_target`, `ui_change_text`, `ui_has_submit`, `ui_has_change`.
 
 `ui.theme`:
 
 - opcjonalny identyfikator motywu UI dla sceny (np. `terminal`, `win98`, `jrpg`),
 - aktualnie wpływa na domyślne wartości sugar `type: window` i `type: scroll-list` (kolory sekcji/listy oraz domyślny styl ramki),
+- runtime rozwiązuje `ui.theme` przez wspólny registry presetów (`engine-core`),
 - jawne pola sprite (`border-style`, `border-fg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
 
 `ui.focus-order`:

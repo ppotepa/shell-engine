@@ -2,7 +2,7 @@
 //! [`Scene`] model.
 
 use engine_core::scene::template::expand_scene_templates;
-use engine_core::scene::Scene;
+use engine_core::scene::{resolve_ui_theme, Scene, WindowFrameStyle};
 use serde::de::Error as _;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
@@ -623,7 +623,7 @@ fn expand_window_sprite(
     let footer = map_get_str(sprite_map, &["footer-content", "footer_content", "footer"])
         .unwrap_or_default();
 
-    let theme_defaults = resolve_window_theme_defaults(scene_theme);
+    let theme_defaults = resolve_ui_theme(scene_theme);
     let border_fg = map_get_str(
         sprite_map,
         &[
@@ -637,22 +637,22 @@ fn expand_window_sprite(
             "fg_colour",
         ],
     )
-    .or_else(|| theme_defaults.map(|defaults| defaults.border_fg))
+    .or_else(|| theme_defaults.map(|theme| theme.window.border_fg))
     .unwrap_or("gray");
     let title_fg = map_get_str(sprite_map, &["title-fg", "title_fg"])
-        .or_else(|| theme_defaults.map(|defaults| defaults.title_fg))
+        .or_else(|| theme_defaults.map(|theme| theme.window.title_fg))
         .unwrap_or("white");
     let body_fg = map_get_str(sprite_map, &["body-fg", "body_fg"])
-        .or_else(|| theme_defaults.map(|defaults| defaults.body_fg))
+        .or_else(|| theme_defaults.map(|theme| theme.window.body_fg))
         .unwrap_or("silver");
     let footer_fg = map_get_str(sprite_map, &["footer-fg", "footer_fg"])
-        .or_else(|| theme_defaults.map(|defaults| defaults.footer_fg))
+        .or_else(|| theme_defaults.map(|theme| theme.window.footer_fg))
         .unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
     let border_style = resolve_window_border_style(
         sprite_map,
         window_font.as_deref(),
-        theme_defaults.map(|defaults| defaults.border_style),
+        theme_defaults.map(|theme| theme.window.frame_style),
     );
     let width_cells = map_get_u64(sprite_map, &["width"])
         .unwrap_or(48)
@@ -812,105 +812,11 @@ fn expand_window_sprite(
     Ok(vec![Value::Mapping(grid)])
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum WindowBorderStyle {
-    Unicode,
-    Ascii,
-}
-
-#[derive(Clone, Copy)]
-struct WindowThemeDefaults {
-    border_fg: &'static str,
-    title_fg: &'static str,
-    body_fg: &'static str,
-    footer_fg: &'static str,
-    border_style: WindowBorderStyle,
-}
-
-#[derive(Clone, Copy)]
-struct ScrollListThemeDefaults {
-    selected_fg: &'static str,
-    alt_a_fg: &'static str,
-    alt_b_fg: &'static str,
-}
-
-fn resolve_window_theme_defaults(scene_theme: Option<&str>) -> Option<WindowThemeDefaults> {
-    let normalized = normalize_theme_key(scene_theme)?;
-    match normalized.as_str() {
-        "terminal" | "terminal-shell" | "shell" => Some(WindowThemeDefaults {
-            border_fg: "gray",
-            title_fg: "white",
-            body_fg: "silver",
-            footer_fg: "gray",
-            border_style: WindowBorderStyle::Ascii,
-        }),
-        "win98" | "windows98" | "windows-98" => Some(WindowThemeDefaults {
-            border_fg: "silver",
-            title_fg: "white",
-            body_fg: "white",
-            footer_fg: "silver",
-            border_style: WindowBorderStyle::Ascii,
-        }),
-        "xp" | "windowsxp" | "windows-xp" => Some(WindowThemeDefaults {
-            border_fg: "silver",
-            title_fg: "cyan",
-            body_fg: "white",
-            footer_fg: "gray",
-            border_style: WindowBorderStyle::Unicode,
-        }),
-        "jrpg" | "jrpg-dialog" | "jrpg-dialogue" => Some(WindowThemeDefaults {
-            border_fg: "white",
-            title_fg: "yellow",
-            body_fg: "white",
-            footer_fg: "silver",
-            border_style: WindowBorderStyle::Unicode,
-        }),
-        _ => None,
-    }
-}
-
-fn resolve_scroll_list_theme_defaults(
-    scene_theme: Option<&str>,
-) -> Option<ScrollListThemeDefaults> {
-    let normalized = normalize_theme_key(scene_theme)?;
-    match normalized.as_str() {
-        "terminal" | "terminal-shell" | "shell" => Some(ScrollListThemeDefaults {
-            selected_fg: "white",
-            alt_a_fg: "silver",
-            alt_b_fg: "gray",
-        }),
-        "win98" | "windows98" | "windows-98" => Some(ScrollListThemeDefaults {
-            selected_fg: "yellow",
-            alt_a_fg: "white",
-            alt_b_fg: "silver",
-        }),
-        "xp" | "windowsxp" | "windows-xp" => Some(ScrollListThemeDefaults {
-            selected_fg: "cyan",
-            alt_a_fg: "white",
-            alt_b_fg: "silver",
-        }),
-        "jrpg" | "jrpg-dialog" | "jrpg-dialogue" => Some(ScrollListThemeDefaults {
-            selected_fg: "yellow",
-            alt_a_fg: "white",
-            alt_b_fg: "gray",
-        }),
-        _ => None,
-    }
-}
-
-fn normalize_theme_key(scene_theme: Option<&str>) -> Option<String> {
-    let trimmed = scene_theme?.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    Some(trimmed.to_ascii_lowercase().replace('_', "-"))
-}
-
 fn resolve_window_border_style(
     sprite_map: &Mapping,
     window_font: Option<&str>,
-    themed_default: Option<WindowBorderStyle>,
-) -> WindowBorderStyle {
+    themed_default: Option<WindowFrameStyle>,
+) -> WindowFrameStyle {
     let raw_style = map_get_str(
         sprite_map,
         &["border-style", "border_style", "frame-style", "frame_style"],
@@ -920,16 +826,16 @@ fn resolve_window_border_style(
     .to_ascii_lowercase();
 
     match raw_style.as_str() {
-        "ascii" => WindowBorderStyle::Ascii,
-        "unicode" => WindowBorderStyle::Unicode,
+        "ascii" => WindowFrameStyle::Ascii,
+        "unicode" => WindowFrameStyle::Unicode,
         _ => {
             if let Some(style) = themed_default {
                 return style;
             }
             if window_font.is_some_and(|font| font.trim_start().starts_with("generic")) {
-                WindowBorderStyle::Ascii
+                WindowFrameStyle::Ascii
             } else {
-                WindowBorderStyle::Unicode
+                WindowFrameStyle::Unicode
             }
         }
     }
@@ -937,12 +843,12 @@ fn resolve_window_border_style(
 
 fn build_window_frame_lines(
     width_cells: usize,
-    style: WindowBorderStyle,
+    style: WindowFrameStyle,
 ) -> (String, String, String) {
     let width_cells = width_cells.max(4);
     let inner = width_cells.saturating_sub(2);
     match style {
-        WindowBorderStyle::Unicode => {
+        WindowFrameStyle::Unicode => {
             let line_inner = "─".repeat(inner);
             (
                 format!("┌{line_inner}┐"),
@@ -950,7 +856,7 @@ fn build_window_frame_lines(
                 format!("└{line_inner}┘"),
             )
         }
-        WindowBorderStyle::Ascii => {
+        WindowFrameStyle::Ascii => {
             let line_inner = "-".repeat(inner);
             (
                 format!("+{line_inner}+"),
@@ -982,15 +888,15 @@ fn expand_scroll_list_sprite(
         .unwrap_or(1)
         .max(1);
     let gap_y = map_get_u64(sprite_map, &["gap-y", "gap_y"]).unwrap_or(1);
-    let theme_defaults = resolve_scroll_list_theme_defaults(scene_theme);
+    let theme_defaults = resolve_ui_theme(scene_theme);
     let selected_fg = map_get_str(sprite_map, &["fg-selected", "fg_selected"])
-        .or_else(|| theme_defaults.map(|defaults| defaults.selected_fg))
+        .or_else(|| theme_defaults.map(|theme| theme.scroll_list.selected_fg))
         .unwrap_or("white");
     let fg_alt_a = map_get_str(sprite_map, &["fg-alt-a", "fg_alt_a"])
-        .or_else(|| theme_defaults.map(|defaults| defaults.alt_a_fg))
+        .or_else(|| theme_defaults.map(|theme| theme.scroll_list.alt_a_fg))
         .unwrap_or("silver");
     let fg_alt_b = map_get_str(sprite_map, &["fg-alt-b", "fg_alt_b"])
-        .or_else(|| theme_defaults.map(|defaults| defaults.alt_b_fg))
+        .or_else(|| theme_defaults.map(|theme| theme.scroll_list.alt_b_fg))
         .unwrap_or("gray");
     let list_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
 
