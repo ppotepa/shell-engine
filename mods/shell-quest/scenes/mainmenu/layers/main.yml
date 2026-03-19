@@ -1,27 +1,49 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: penguin-menu
   z_index: 0
-  # Main menu placeholder with three penguins.
+  # Main menu text-only variant: three cards shown one after another.
   sprites:
-    - { type: text, content: "SHELL QUEST I - MAIN MENU", at: ct, y: 1, font: "generic:1", fg: white }
-    - { type: text, content: "THREE PENGUINS PLACEHOLDER", at: ct, y: 7, font: "generic:half", fg: gray }
-
-    - type: grid
-      id: penguin-grid
+    - type: text
+      id: menu-status-no-money
+      content: "NO MONEY"
       at: cc
-      y: 2
-      width: 96
-      height: 30
-      columns: ["1fr", "1fr", "1fr"]
-      rows: ["auto", "1fr"]
-      gap-x: 2
-      gap-y: 1
-      children:
-        - { type: text, content: "penguin-1", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: gray }
-        - { type: image, source: "/assets/images/tux.png", grid-col: 1, grid-row: 2, at: cc, width: 22, height: 22, force-renderer-mode: cell }
-        - { type: text, content: "penguin-2", grid-col: 2, grid-row: 1, at: cc, font: "generic:half", fg: gray }
-        - { type: image, source: "/assets/images/tux.png", grid-col: 2, grid-row: 2, at: cc, width: 22, height: 22, force-renderer-mode: halfblock }
-        - { type: text, content: "penguin-3", grid-col: 3, grid-row: 1, at: cc, font: "generic:half", fg: gray }
-        - { type: image, source: "/assets/images/tux.png", grid-col: 3, grid-row: 2, at: cc, width: 22, height: 22, force-renderer-mode: braille }
+      font: "Abril Fatface:raster"
+      fg: gray
+      appear_at_ms: 0
+      disappear_at_ms: 2400
+      stages:
+        on_enter:
+          steps:
+            - { effects: [{ name: fade-in, duration: 350, params: { easing: ease-out } }] }
+            - pause: 1600ms
+            - { effects: [{ name: fade-out, duration: 450, params: { easing: ease-in } }] }
 
-    - { type: text, content: "[#808080]PRESS ANY KEY TO EXIT[/]", at: cb, y: -1, font: "generic:half", fg: white, hide_on_leave: true, animations: [{ name: float, looping: true, params: { axis: y, amplitude: 1, period_ms: 1800, easing: ease-in-out } }] }
+    - type: text
+      id: menu-status-broke
+      content: "BROKE"
+      at: cc
+      font: "Abril Fatface:raster"
+      fg: gray
+      appear_at_ms: 2500
+      disappear_at_ms: 4900
+      stages:
+        on_enter:
+          steps:
+            - { effects: [{ name: fade-in, duration: 350, params: { easing: ease-out } }] }
+            - pause: 1600ms
+            - { effects: [{ name: fade-out, duration: 450, params: { easing: ease-in } }] }
+
+    - type: text
+      id: menu-status-indebt
+      content: "INDEBT"
+      at: cc
+      font: "Abril Fatface:raster"
+      fg: gray
+      appear_at_ms: 5000
+      disappear_at_ms: 7400
+      stages:
+        on_enter:
+          steps:
+            - { effects: [{ name: fade-in, duration: 350, params: { easing: ease-out } }] }
+            - pause: 1600ms
+            - { effects: [{ name: fade-out, duration: 450, params: { easing: ease-in } }] }
