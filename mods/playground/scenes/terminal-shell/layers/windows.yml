@@ -1,17 +1,35 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: terminal-shell-windows
-  z_index: 1
+  z_index: 2
   ui: true
   objects:
     - ref: terminal-window
-      as: ui-terminal-window
+      as: ui-terminal-window-shadow
       with:
-        frame_id: ui-terminal-frame
-        title_id: ui-terminal-title
-        output_id: ui-terminal-output
-        prompt_id: ui-terminal-prompt
-        title: "TERMINAL WINDOW // FOREGROUND"
-        width: 66
-        height: 15
+        frame_id: ui-terminal-shadow-frame
+        title_id: ui-terminal-shadow-title
+        body_id: ui-terminal-shadow-body
+        footer_id: ui-terminal-shadow-footer
+        title: ""
+        width: 90
+        x: 1
+        y: 9
+        border_fg: "#2B2B2B"
+        title_fg: "#2B2B2B"
+        body_fg: "#2B2B2B"
+        footer_fg: "#2B2B2B"
+    - ref: terminal-window
+      as: ui-terminal-window-main
+      with:
+        frame_id: ui-terminal-input-frame
+        title_id: ui-terminal-input-title
+        body_id: ui-terminal-prompt
+        footer_id: ui-terminal-input-footer
+        title: "OPERATOR INPUT"
+        width: 90
         x: 0
-        y: 4
+        y: 8
+        border_fg: gray
+        title_fg: white
+        body_fg: "#B5B5B5"
+        footer_fg: gray

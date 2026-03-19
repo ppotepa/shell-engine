@@ -1,37 +1,31 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: terminal-shell-hud
-  z_index: 2
+  z_index: 3
   ui: true
   sprite-defaults:
     type: text
     font: "generic:half"
   sprites:
-    - type: grid
-      id: ui-hud-root
-      at: lt
-      columns: ["1fr"]
-      rows: ["4fr", "1fr"]
-      children:
-        - type: grid
-          id: ui-input-shadow
-          grid-row: 2
-          at: ct
-          x: 1
-          y: 1
-          columns: ["1fr"]
-          rows: ["auto", "auto", "auto"]
-          children:
-            - { type: text, grid-row: 1, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: "#2B2B2B" }
-            - { type: text, grid-row: 2, at: cc, content: "|                                                                                                          |", fg: "#2B2B2B" }
-            - { type: text, grid-row: 3, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: "#2B2B2B" }
-        - type: grid
-          id: ui-input-frame
-          grid-row: 2
-          at: ct
-          columns: ["1fr"]
-          rows: ["auto", "auto", "auto"]
-          children:
-            - { type: text, grid-row: 1, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: gray }
-            - { type: text, grid-row: 2, at: cc, content: "|                                                                                                          |", fg: gray }
-            - { type: text, grid-row: 3, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: gray }
-            - { type: text, id: ui-terminal-prompt, grid-row: 2, at: lt, x: 2, content: "", fg: "#A8A8A8" }
+    - type: text
+      id: ui-shell-status
+      at: ct
+      y: 10
+      content: "WAITING FOR OPERATOR INPUT"
+      fg: "#7B7B7B"
+    - type: text
+      id: ui-shell-status-cursor
+      at: ct
+      y: 11
+      content: "*"
+      fg: "#F39C12"
+      behaviors:
+        - name: blink
+          params:
+            visible_ms: 420
+            hidden_ms: 420
+    - type: text
+      at: cb
+      y: -1
+      content: "ESC ON EMPTY PROMPT: BACK TO MENU"
+      fg: "#8A8A8A"
+      hide_on_leave: true

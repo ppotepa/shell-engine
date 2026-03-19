@@ -4,29 +4,32 @@ name: terminal-window
 exports:
   frame_id: terminal-window-frame
   title_id: terminal-window-title
-  output_id: terminal-window-output
-  prompt_id: terminal-window-prompt
+  body_id: terminal-window-body
+  footer_id: terminal-window-footer
   title: TERMINAL WINDOW
-  width: 66
-  height: 15
+  width: 90
   x: 0
-  y: 4
+  y: 8
+  border_fg: gray
+  title_fg: white
+  body_fg: silver
+  footer_fg: gray
+  font: "generic:half"
 sprites:
   - type: window
     id: "$frame_id"
-    at: cc
+    at: ct
     x: "$x"
     y: "$y"
     width: "$width"
-    height: "$height"
     title: "$title"
     title-id: "$title_id"
-    body-id: "$output_id"
-    footer-id: "$prompt_id"
+    body-id: "$body_id"
+    footer-id: "$footer_id"
     body-content: ""
     footer-content: ""
-    border-fg: gray
-    title-fg: white
-    body-fg: silver
-    footer-fg: green
-    font: "generic:1"
+    border-fg: "$border_fg"
+    title-fg: "$title_fg"
+    body-fg: "$body_fg"
+    footer-fg: "$footer_fg"
+    font: "$font"
