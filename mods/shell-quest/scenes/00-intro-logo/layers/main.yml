@@ -208,7 +208,7 @@
       id: intro-logo-ascii
       content: "SHELL QUEST I"
       at: cc
-      font: "generic:half"
+      font: "Abril Fatface:ascii"
       fg: white
       appear_at_ms: 0
       disappear_at_ms: 3140
@@ -230,7 +230,7 @@
       id: intro-logo-raster
       content: "SHELL QUEST I"
       at: cc
-      font: "generic:half"
+      font: "Abril Fatface:raster"
       fg: gray
       appear_at_ms: 3140
       stages:
@@ -333,7 +333,7 @@
       content: "[#808080]PRESS[/] ANY [#808080]KEY[/]"
       at: cc
       y: 12
-      font: "generic:half"
+      font: "generic:1"
       fg: white
       glow: { radius: 1 }
       hide_on_leave: true

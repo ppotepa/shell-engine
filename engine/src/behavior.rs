@@ -628,7 +628,11 @@ impl Behavior for SelectedArrowsBehavior {
             self.hide_and_reset(object, commands);
             return;
         };
-        let own_region = ctx.object_region(&object.id);
+        let Some(own_region) = ctx.object_region(&object.id) else {
+            emit_visibility(commands, object.id.clone(), true);
+            // First frame after becoming visible: wait for compositor to discover own region.
+            return;
+        };
 
         let wave = rounded_sine_wave(ctx.scene_elapsed_ms, self.phase_ms, self.period_ms);
         let signed_wave = match self.side {
@@ -641,23 +645,19 @@ impl Behavior for SelectedArrowsBehavior {
             0
         };
         let effective_padding = self.padding.saturating_add(auto_pad).max(0);
+        let arrow_w = own_region.width.max(1) as i32;
+        let arrow_h = own_region.height.max(1) as i32;
+        let target_w = target_region.width.max(1) as i32;
+        let target_center_y =
+            target_region.y as i32 + (target_region.height.saturating_sub(1) as i32 / 2);
 
         let target_x = match self.side {
-            ArrowSide::Left => target_region.x as i32 - effective_padding + signed_wave,
-            ArrowSide::Right => {
-                target_region.x as i32 + target_region.width as i32 - 1
-                    + effective_padding
-                    + signed_wave
-            }
+            ArrowSide::Left => target_region.x as i32 - effective_padding - arrow_w + signed_wave,
+            ArrowSide::Right => target_region.x as i32 + target_w + effective_padding + signed_wave,
         };
-        let target_y = target_region.y as i32 + (target_region.height.saturating_sub(1) as i32 / 2);
+        let target_y = target_center_y.saturating_sub((arrow_h.saturating_sub(1)) / 2);
 
         emit_visibility(commands, object.id.clone(), true);
-
-        let Some(own_region) = own_region else {
-            // First frame after becoming visible: wait for compositor to discover own region.
-            return;
-        };
 
         let base_x = own_region.x as i32 - self.last_dx;
         let base_y = own_region.y as i32 - self.last_dy;
@@ -1640,7 +1640,7 @@ out
                 },
                 BehaviorCommand::SetOffset {
                     target: "scene:intro".to_string(),
-                    dx: 8,
+                    dx: 7,
                     dy: -1
                 }
             ]
@@ -1695,8 +1695,46 @@ out
                 },
                 BehaviorCommand::SetOffset {
                     target: "scene:intro".to_string(),
-                    dx: 8,
+                    dx: 7,
                     dy: -1
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn selected_arrows_centers_using_own_dimensions() {
+        let mut behavior = SelectedArrowsBehavior::from_params(&BehaviorParams {
+            target: Some("menu-item-0".to_string()),
+            index: Some(0),
+            side: Some("left".to_string()),
+            padding: Some(1),
+            autoscale_height: Some(false),
+            amplitude_x: Some(0),
+            period_ms: Some(1000),
+            ..BehaviorParams::default()
+        });
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("scene:intro".to_string(), region(20, 10, 3, 5));
+        object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 5));
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_regions = object_regions;
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "scene:intro".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "scene:intro".to_string(),
+                    dx: 6,
+                    dy: -2
                 }
             ]
         );
