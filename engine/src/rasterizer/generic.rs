@@ -197,7 +197,7 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
 
 /// Rasterize a string using the built-in generic pixel font into a layer buffer.
 /// `scale` = cells per pixel (1 = 1:1, 2 = 2×2 cells per pixel).
-/// Each ON pixel = cell with bg=fg_col, ch=' '.
+/// Each ON pixel = solid cell glyph with transparent background.
 /// OFF pixels = transparent (unchanged).
 pub fn rasterize_generic(
     content: &str,
@@ -230,7 +230,7 @@ pub fn rasterize_generic(
                         for sx in 0..scale {
                             let cx = cursor_x + col * scale + sx;
                             let cy = draw_y + row_idx as u16 * scale + sy;
-                            buffer.set(cx, cy, ' ', fg_col, fg_col);
+                            buffer.set(cx, cy, '█', fg_col, crossterm::style::Color::Reset);
                         }
                     }
                 }
@@ -317,7 +317,8 @@ fn shrink_5x7_to_3x5(rows_5x7: [u8; 7]) -> [u8; 5] {
 }
 
 /// Rasterize a string using the 3×5 tiny generic pixel font into a layer buffer.
-/// Each ON pixel = cell with bg=fg_col, ch=' '. OFF pixels = transparent (unchanged).
+/// Each ON pixel = solid cell glyph with transparent background.
+/// OFF pixels = transparent (unchanged).
 pub fn rasterize_generic_tiny(
     content: &str,
     fg_col: crossterm::style::Color,
@@ -344,7 +345,7 @@ pub fn rasterize_generic_tiny(
                 if bit == 1 {
                     let cx = cursor_x + col;
                     let cy = draw_y + row_idx as u16;
-                    buffer.set(cx, cy, ' ', fg_col, fg_col);
+                    buffer.set(cx, cy, '█', fg_col, crossterm::style::Color::Reset);
                 }
             }
         }
@@ -482,7 +483,6 @@ pub fn rasterize_generic_half(
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
 ) {
-    use crate::buffer::TRUE_BLACK;
     let mut cursor_x = draw_x;
     for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
         let rows = match generic_glyph_rows(ch) {
@@ -505,7 +505,13 @@ pub fn rasterize_generic_half(
                     (true, true) => Some('█'),
                 };
                 if let Some(sym) = symbol {
-                    buffer.set(cursor_x + sx, draw_y + oy, sym, fg_col, TRUE_BLACK);
+                    buffer.set(
+                        cursor_x + sx,
+                        draw_y + oy,
+                        sym,
+                        fg_col,
+                        crossterm::style::Color::Reset,
+                    );
                 }
             }
         }
@@ -520,7 +526,6 @@ pub fn rasterize_generic_quad(
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
 ) {
-    use crate::buffer::TRUE_BLACK;
     let mut cursor_x = draw_x;
     for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
         let rows = match generic_glyph_rows(ch) {
@@ -541,7 +546,13 @@ pub fn rasterize_generic_quad(
                 let br = source_bit(rows, sx + 1, sy + 1) as u8;
                 let mask = tl | (tr << 1) | (bl << 2) | (br << 3);
                 if let Some(sym) = quadrant_char(mask) {
-                    buffer.set(cursor_x + ox, draw_y + oy, sym, fg_col, TRUE_BLACK);
+                    buffer.set(
+                        cursor_x + ox,
+                        draw_y + oy,
+                        sym,
+                        fg_col,
+                        crossterm::style::Color::Reset,
+                    );
                 }
             }
         }
@@ -556,7 +567,6 @@ pub fn rasterize_generic_braille(
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
 ) {
-    use crate::buffer::TRUE_BLACK;
     let mut cursor_x = draw_x;
     for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
         let rows = match generic_glyph_rows(ch) {
@@ -597,7 +607,13 @@ pub fn rasterize_generic_braille(
                     mask |= 0b1000_0000;
                 } // dot 8
                 if let Some(sym) = braille_char(mask) {
-                    buffer.set(cursor_x + ox, draw_y + oy, sym, fg_col, TRUE_BLACK);
+                    buffer.set(
+                        cursor_x + ox,
+                        draw_y + oy,
+                        sym,
+                        fg_col,
+                        crossterm::style::Color::Reset,
+                    );
                 }
             }
         }
