@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODS_DIR="${ROOT_DIR}/mods"
+
+if [[ ! -d "${MODS_DIR}" ]]; then
+  echo "[menu] missing mods directory: ${MODS_DIR}" >&2
+  exit 1
+fi
+
+collect_mods() {
+  local -n _out_paths=$1
+  local -n _out_names=$2
+  _out_paths=()
+  _out_names=()
+
+  local dir manifest display_name
+  while IFS= read -r dir; do
+    manifest="${dir}/mod.yaml"
+    [[ -f "${manifest}" ]] || continue
+
+    display_name="$(awk '
+      /^[[:space:]]*name:[[:space:]]*/ {
+        sub(/^[[:space:]]*name:[[:space:]]*/, "", $0)
+        gsub(/^"|"$/, "", $0)
+        print $0
+        exit
+      }
+    ' "${manifest}")"
+
+    if [[ -z "${display_name}" ]]; then
+      display_name="$(basename "${dir}")"
+    fi
+
+    _out_paths+=("${dir}")
+    _out_names+=("${display_name}")
+  done < <(find "${MODS_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
+}
+
+main() {
+  local -a mod_paths=()
+  local -a mod_names=()
+  local count choice idx selected
+
+  while true; do
+    collect_mods mod_paths mod_names
+    count=${#mod_paths[@]}
+
+    if (( count == 0 )); then
+      echo "[menu] no mods found under ${MODS_DIR}" >&2
+      exit 1
+    fi
+
+    echo
+    echo "Shell Quest mod menu"
+    echo "--------------------"
+    for idx in "${!mod_paths[@]}"; do
+      printf "%2d) %s (%s)\n" "$((idx + 1))" "${mod_names[idx]}" "$(basename "${mod_paths[idx]}")"
+    done
+    echo " q) exit"
+    echo
+
+    read -r -p "Choose mod [1-${count}] or q: " choice
+
+    if [[ "${choice}" == "q" || "${choice}" == "Q" ]]; then
+      exit 0
+    fi
+
+    if ! [[ "${choice}" =~ ^[0-9]+$ ]]; then
+      echo "[menu] invalid choice: ${choice}" >&2
+      continue
+    fi
+
+    if (( choice < 1 || choice > count )); then
+      echo "[menu] choice out of range: ${choice}" >&2
+      continue
+    fi
+
+    selected="${mod_paths[choice - 1]}"
+    echo "[menu] launching: ${selected}"
+    "${ROOT_DIR}/launcher.sh" --mod-source "${selected}" --in-place --no-hold
+  done
+}
+
+main "$@"
