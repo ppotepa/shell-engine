@@ -5,6 +5,8 @@ bg: black
 ui:
   enabled: true
   persist: scene
+  focus-order:
+    - ui-terminal-prompt
 layers:
   - ref: bg
   - ref: windows

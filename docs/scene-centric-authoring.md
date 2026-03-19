@@ -34,7 +34,7 @@ Scena może być:
 - identyfikację (`id`, `title`),
 - lifecycle (`stages` lub `stages-ref`),
 - kolejność kompozycji (`layers`),
-- kontrakt UI (`ui.enabled`, `ui.persist`),
+- kontrakt UI (`ui.enabled`, `ui.persist`, `ui.focus-order`),
 - routing (`next`, `menu-options`),
 - profile wejścia (`input`).
 
@@ -72,6 +72,7 @@ title: UI Demo
 ui:
   enabled: true
   persist: scene
+  focus-order: [terminal-prompt]
 layers:
   - name: world
     z_index: 0
@@ -268,5 +269,14 @@ Zakres danych w scope obejmuje:
 - `stage_elapsed_ms`,
 - `params`,
 - `regions`.
+- `ui` (`focused_target`, `has_submit`, `submit_target`, `submit_text`, `has_change`, `change_target`, `change_text`)
+- aliasy flat: `ui_focused_target`, `ui_submit_target`, `ui_submit_text`, `ui_change_target`, `ui_change_text`, `ui_has_submit`, `ui_has_change`.
+
+`ui.focus-order`:
+
+- definiuje kolejność focusu dla targetów UI,
+- `Tab` przechodzi do następnego targetu, `Shift+Tab` do poprzedniego,
+- przy `input.terminal-shell` edycja promptu i `Esc`-back działają tylko gdy fokus jest na `prompt-sprite-id`,
+- gdy `focus-order` jest puste i scena ma `terminal-shell`, focus domyślnie trafia na prompt.
 
 Brak wsparcia dla wykonywania dowolnego kodu gameplay/API poza tym kontraktem komend i danymi scope.

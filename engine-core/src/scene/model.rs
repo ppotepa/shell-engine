@@ -353,6 +353,8 @@ pub struct SceneUi {
     pub enabled: bool,
     #[serde(default)]
     pub persist: UiPersistence,
+    #[serde(default, rename = "focus-order", alias = "focus_order")]
+    pub focus_order: Vec<String>,
 }
 
 impl Default for SceneUi {
@@ -360,6 +362,7 @@ impl Default for SceneUi {
         Self {
             enabled: true,
             persist: UiPersistence::Scene,
+            focus_order: Vec::new(),
         }
     }
 }
@@ -660,5 +663,41 @@ layers:
         assert_eq!(scene.ui.persist, UiPersistence::Global);
         assert_eq!(scene.layers.len(), 1);
         assert!(scene.layers[0].ui);
+    }
+
+    #[test]
+    fn parses_scene_ui_focus_order_with_aliases() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-focus
+title: UI Focus
+ui:
+  focus-order:
+    - prompt-a
+    - prompt-b
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        assert_eq!(
+            scene.ui.focus_order,
+            vec!["prompt-a".to_string(), "prompt-b".to_string()]
+        );
+
+        let alias_scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-focus-alias
+title: UI Focus Alias
+ui:
+  focus_order:
+    - terminal-prompt
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        assert_eq!(
+            alias_scene.ui.focus_order,
+            vec!["terminal-prompt".to_string()]
+        );
     }
 }

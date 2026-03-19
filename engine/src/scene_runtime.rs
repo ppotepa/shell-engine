@@ -27,6 +27,7 @@ pub struct SceneRuntime {
     obj_orbit_default_speed: BTreeMap<String, f32>,
     obj_camera_states: BTreeMap<String, ObjCameraState>,
     terminal_shell_state: Option<TerminalShellState>,
+    ui_state: UiRuntimeState,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -64,6 +65,20 @@ struct TerminalShellState {
     output_lines: Vec<String>,
     history: Vec<String>,
     history_cursor: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
+struct UiTextEvent {
+    target_id: String,
+    text: String,
+}
+
+#[derive(Debug, Clone, Default)]
+struct UiRuntimeState {
+    focus_order: Vec<String>,
+    focused_index: usize,
+    last_submit: Option<UiTextEvent>,
+    last_change: Option<UiTextEvent>,
 }
 
 impl Default for ObjectRuntimeState {
@@ -304,6 +319,7 @@ impl SceneRuntime {
             obj_orbit_default_speed: BTreeMap::new(),
             obj_camera_states: BTreeMap::new(),
             terminal_shell_state: None,
+            ui_state: UiRuntimeState::default(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime
@@ -312,6 +328,7 @@ impl SceneRuntime {
             .terminal_shell
             .clone()
             .map(TerminalShellState::new);
+        runtime.initialize_ui_state();
         runtime.sync_terminal_shell_sprites();
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings);
@@ -460,10 +477,51 @@ impl SceneRuntime {
         self.terminal_shell_state.is_some()
     }
 
+    pub fn focused_ui_target_id(&self) -> Option<&str> {
+        if self.ui_state.focus_order.is_empty() {
+            return None;
+        }
+        self.ui_state
+            .focus_order
+            .get(self.ui_state.focused_index)
+            .map(String::as_str)
+    }
+
+    pub fn handle_ui_focus_keys(&mut self, key_presses: &[KeyEvent]) -> bool {
+        if key_presses.is_empty() || self.ui_state.focus_order.len() <= 1 {
+            return false;
+        }
+        let mut changed = false;
+        for key in key_presses {
+            if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
+                continue;
+            }
+            match key.code {
+                KeyCode::BackTab => {
+                    self.focus_prev();
+                    changed = true;
+                }
+                KeyCode::Tab => {
+                    if key.modifiers.contains(KeyModifiers::SHIFT) {
+                        self.focus_prev();
+                    } else {
+                        self.focus_next();
+                    }
+                    changed = true;
+                }
+                _ => {}
+            }
+        }
+        changed
+    }
+
     pub fn terminal_shell_back_requested(&self, key_presses: &[KeyEvent]) -> bool {
         let Some(state) = self.terminal_shell_state.as_ref() else {
             return false;
         };
+        if !self.is_ui_target_focused(&state.controls.prompt_sprite_id) {
+            return false;
+        }
         if !state.input.value().is_empty() {
             return false;
         }
@@ -475,65 +533,117 @@ impl SceneRuntime {
     }
 
     pub fn handle_terminal_shell_keys(&mut self, key_presses: &[KeyEvent]) -> bool {
-        let Some(state) = self.terminal_shell_state.as_mut() else {
+        let Some(prompt_id) = self
+            .terminal_shell_state
+            .as_ref()
+            .map(|state| state.controls.prompt_sprite_id.clone())
+        else {
             return false;
         };
+        if !self.is_ui_target_focused(&prompt_id) {
+            return false;
+        }
         if key_presses.is_empty() {
             return false;
         }
 
-        let mut changed = false;
-        for key in key_presses {
-            match key.code {
-                KeyCode::Esc => {
-                    if !state.input.value().is_empty() {
-                        state.input = Input::default();
-                        state.history_cursor = None;
-                        changed = true;
-                    }
+        let (changed, submit_event, change_event) = {
+            let Some(state) = self.terminal_shell_state.as_mut() else {
+                return false;
+            };
+
+            let mut changed = false;
+            let mut submit_event = None;
+            let mut change_event = None;
+            for key in key_presses {
+                if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
+                    continue;
                 }
-                KeyCode::Up => {
-                    if !state.history.is_empty() {
-                        let next_cursor = state
-                            .history_cursor
-                            .unwrap_or(state.history.len())
-                            .saturating_sub(1)
-                            .min(state.history.len() - 1);
-                        state.history_cursor = Some(next_cursor);
-                        state.input = Input::new(state.history[next_cursor].clone());
-                        changed = true;
-                    }
-                }
-                KeyCode::Down => {
-                    if let Some(cursor) = state.history_cursor {
-                        let next = cursor + 1;
-                        if next < state.history.len() {
-                            state.history_cursor = Some(next);
-                            state.input = Input::new(state.history[next].clone());
-                        } else {
-                            state.history_cursor = None;
+                match key.code {
+                    KeyCode::Esc => {
+                        if !state.input.value().is_empty() {
                             state.input = Input::default();
+                            state.history_cursor = None;
+                            change_event = Some(UiTextEvent {
+                                target_id: prompt_id.clone(),
+                                text: String::new(),
+                            });
+                            changed = true;
                         }
+                    }
+                    KeyCode::Up => {
+                        if !state.history.is_empty() {
+                            let next_cursor = state
+                                .history_cursor
+                                .unwrap_or(state.history.len())
+                                .saturating_sub(1)
+                                .min(state.history.len() - 1);
+                            state.history_cursor = Some(next_cursor);
+                            state.input = Input::new(state.history[next_cursor].clone());
+                            change_event = Some(UiTextEvent {
+                                target_id: prompt_id.clone(),
+                                text: state.input.value().to_string(),
+                            });
+                            changed = true;
+                        }
+                    }
+                    KeyCode::Down => {
+                        if let Some(cursor) = state.history_cursor {
+                            let next = cursor + 1;
+                            if next < state.history.len() {
+                                state.history_cursor = Some(next);
+                                state.input = Input::new(state.history[next].clone());
+                            } else {
+                                state.history_cursor = None;
+                                state.input = Input::default();
+                            }
+                            change_event = Some(UiTextEvent {
+                                target_id: prompt_id.clone(),
+                                text: state.input.value().to_string(),
+                            });
+                            changed = true;
+                        }
+                    }
+                    KeyCode::Enter => {
+                        let command_line = state.input.value().to_string();
+                        if !command_line.trim().is_empty() {
+                            submit_event = Some(UiTextEvent {
+                                target_id: prompt_id.clone(),
+                                text: command_line.clone(),
+                            });
+                        }
+                        state.execute_command(&command_line);
+                        state.input = Input::default();
+                        change_event = Some(UiTextEvent {
+                            target_id: prompt_id.clone(),
+                            text: String::new(),
+                        });
                         changed = true;
                     }
-                }
-                KeyCode::Enter => {
-                    let command_line = state.input.value().to_string();
-                    state.execute_command(&command_line);
-                    state.input = Input::default();
-                    changed = true;
-                }
-                _ => {
-                    let before = state.input.value().to_string();
-                    if let Some(request) = terminal_input_request(key) {
-                        state.input.handle(request);
-                    }
-                    if state.input.value() != before {
-                        state.history_cursor = None;
-                        changed = true;
+                    _ => {
+                        let before = state.input.value().to_string();
+                        if let Some(request) = terminal_input_request(key) {
+                            state.input.handle(request);
+                        }
+                        if state.input.value() != before {
+                            state.history_cursor = None;
+                            change_event = Some(UiTextEvent {
+                                target_id: prompt_id.clone(),
+                                text: state.input.value().to_string(),
+                            });
+                            changed = true;
+                        }
                     }
                 }
             }
+            (changed, submit_event, change_event)
+        };
+
+        if let Some(event) = submit_event {
+            self.ui_state.last_submit = Some(event);
+        }
+        if let Some(event) = change_event {
+            self.ui_state.last_change = Some(event);
         }
 
         if changed {
@@ -659,6 +769,9 @@ impl SceneRuntime {
         // Clone once per frame — shared across all behavior ticks this frame.
         let resolver = self.resolver_cache.clone();
         let object_regions = self.object_regions.clone();
+        let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
+        let ui_last_submit = self.ui_state.last_submit.clone();
+        let ui_last_change = self.ui_state.last_change.clone();
         let mut commands = Vec::new();
         let mut current_states = self.effective_object_states_snapshot();
         for idx in 0..self.behaviors.len() {
@@ -674,6 +787,15 @@ impl SceneRuntime {
                 target_resolver: resolver.clone(),
                 object_states: current_states.clone(),
                 object_regions: object_regions.clone(),
+                ui_focused_target_id: ui_focused_target_id.clone(),
+                ui_last_submit_target_id: ui_last_submit
+                    .as_ref()
+                    .map(|event| event.target_id.clone()),
+                ui_last_submit_text: ui_last_submit.as_ref().map(|event| event.text.clone()),
+                ui_last_change_target_id: ui_last_change
+                    .as_ref()
+                    .map(|event| event.target_id.clone()),
+                ui_last_change_text: ui_last_change.as_ref().map(|event| event.text.clone()),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
@@ -685,6 +807,8 @@ impl SceneRuntime {
             }
             commands.extend(local_commands.iter().cloned());
         }
+        self.ui_state.last_submit = None;
+        self.ui_state.last_change = None;
         commands
     }
 
@@ -704,6 +828,49 @@ impl SceneRuntime {
         let output_text = state.output_text();
         let _ = self.set_text_sprite_content(&prompt_id, prompt_line);
         let _ = self.set_text_sprite_content(&output_id, output_text);
+    }
+
+    fn initialize_ui_state(&mut self) {
+        let mut focus_order = normalize_focus_order(&self.scene.ui.focus_order);
+        if focus_order.is_empty() {
+            if let Some(prompt_id) = self
+                .terminal_shell_state
+                .as_ref()
+                .map(|state| state.controls.prompt_sprite_id.clone())
+            {
+                focus_order.push(prompt_id);
+            }
+        }
+        self.ui_state.focus_order = focus_order;
+        self.ui_state.focused_index = 0;
+        self.ui_state.last_submit = None;
+        self.ui_state.last_change = None;
+    }
+
+    fn focus_next(&mut self) {
+        let total = self.ui_state.focus_order.len();
+        if total <= 1 {
+            return;
+        }
+        self.ui_state.focused_index = (self.ui_state.focused_index + 1) % total;
+    }
+
+    fn focus_prev(&mut self) {
+        let total = self.ui_state.focus_order.len();
+        if total <= 1 {
+            return;
+        }
+        self.ui_state.focused_index = if self.ui_state.focused_index == 0 {
+            total - 1
+        } else {
+            self.ui_state.focused_index - 1
+        };
+    }
+
+    fn is_ui_target_focused(&self, target_id: &str) -> bool {
+        self.focused_ui_target_id()
+            .map(|focused| focused == target_id)
+            .unwrap_or(true)
     }
 
     fn set_text_sprite_content(&mut self, sprite_id: &str, next_content: String) -> bool {
@@ -807,6 +974,20 @@ fn terminal_input_request(key: &KeyEvent) -> Option<InputRequest> {
         (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => Some(InsertChar(c)),
         _ => None,
     }
+}
+
+fn normalize_focus_order(input: &[String]) -> Vec<String> {
+    let mut out = Vec::new();
+    for value in input {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if out.iter().all(|existing| existing != trimmed) {
+            out.push(trimmed.to_string());
+        }
+    }
+    out
 }
 
 struct ObjectBehaviorRuntime {
