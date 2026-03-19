@@ -283,7 +283,9 @@ Zakres danych w scope obejmuje:
 - jawne pola sprite (`border-fg`, `border-bg`, `panel-bg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
 - `type: window` domyślnie kompiluje się do kompaktowego `panel` z lekkim `corner-radius` i cieniem; bez tekstowych ramek ASCII.
 - `type: window` zachowuje `width-percent` (nie jest nadpisywane przez fallback `width`).
+- `type: window` wspiera alias `title-bar` (`title_bar`) dla paska tytułu.
 - `type: window` ma domyślne `padding: 0`, żeby układ `title/body/footer` mieścił się w kompaktowych wysokościach (np. `height: 5`).
+- jeśli `width`/`width-percent` oraz `height` nie są podane, panel jest traktowany jako `autosize` (rozmiar wynika z zawartości i insetu zamiast rozciągania na cały obszar).
 
 `ui.focus-order`:
 
@@ -299,5 +301,6 @@ Zakres danych w scope obejmuje:
 - `prompt-wrap` włącza zawijanie linii do szerokości panelu,
 - `prompt-auto-grow` + `prompt-min-lines`/`prompt-max-lines` rozszerzają panel wraz z liczbą linii,
 - `prompt-growth-ms` ustala czas animacji wzrostu wysokości panelu.
+- `type: terminal-input` nie renderuje tytułu domyślnie; pasek tytułu pojawia się tylko po podaniu `title-bar`.
 
 Brak wsparcia dla wykonywania dowolnego kodu gameplay/API poza tym kontraktem komend i danymi scope.

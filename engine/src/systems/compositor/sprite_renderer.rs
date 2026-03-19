@@ -11,7 +11,10 @@ use crate::systems::animator::SceneStage;
 use std::collections::BTreeMap;
 
 use super::image_render::{image_sprite_dimensions, render_image_content};
-use super::layout::{compute_flex_cells, compute_grid_cells, resolve_x, resolve_y, RenderArea};
+use super::layout::{
+    compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
+    RenderArea,
+};
 use super::obj_render::{obj_sprite_dimensions, render_obj_content, ObjRenderParams};
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
@@ -319,16 +322,17 @@ fn render_sprite(
         } => {
             let resolved_mode =
                 render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let (auto_w, auto_h) = measure_sprite_for_layout(sprite, resolved_mode, ctx.asset_root);
             let container_w = if let Some(explicit) = *width {
                 explicit
             } else if let Some(percent) = *width_percent {
                 let p = percent.clamp(1, 100) as u32;
                 ((u32::from(area.width).saturating_mul(p)) / 100).max(1) as u16
             } else {
-                area.width
+                auto_w.min(area.width)
             }
             .max(3);
-            let container_h = height.unwrap_or(area.height).max(3);
+            let container_h = height.unwrap_or(auto_h.min(area.height)).max(3);
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
             let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);
             let (dx, dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
