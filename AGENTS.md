@@ -1,75 +1,124 @@
+# AGENTS.md
 
- ~/git/shell-quest │ on main !19  micro aAGENTS.md                                                                                                                 ✔ │ with ppotepa@ppotepa-dev2 │ at 21:31:05
- ~/git/shell-quest │ on main !19  micro AGENTS.md                                                                                                                  ✔ │ with ppotepa@ppotepa-dev2 │ at 21:31:05
-233 - `schemas/` (generated fragments)
-234
-235 Scenes can be:
-236 - single YAML files
-237 - packaged scene dirs (`scene.yml` + partials)
-238
-239 Asset loading supports both unpacked directories and zip-packaged mods.
-240
-241 ## 6) Editor architecture (short map)
-242
-243 `editor/src`:
-244 - `app.rs`: terminal lifecycle and main editor loop
-245 - `cli.rs`: CLI options (`--mod-source`)
-246 - `domain/`: scene/effect/asset indexes, diagnostics
-247 - `io/`: file scanning, yaml, recents
-248 - `input/`: command + key mapping
-249 - `state/`: app state
-250 - `ui/`: draw/layout/focus/filters/theme
-251
-252 Editor shares model/metadata from `engine-core` and `engine-authoring`.
-253
-254 ## 7) Tooling and schema workflow
-255
-256 Schema generation:
-257 - `cargo run -p schema-gen -- --all-mods`
-258
-259 Schema verification in CI/local checks:
-260 - `cargo run -p schema-gen -- --all-mods --check`
-261
-262 Helper script:
-263 - `./refresh-schemas.sh` (single run or loop mode)
-264
-265 ## 8) Operational commands
-266
-267 - Run game:
-268   - `cargo run -p app`
-269 - Run editor:
-270   - `cargo run -p editor`
-271 - Run with playground mod:
-272   - `SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app`
-273 - Core runtime tests:
-274   - `cargo test -p engine`
-275   - `cargo test -p engine-core`
-276
-277 ## 9) Critical invariants (must preserve)
-278
-279 - Keep system order stable unless explicit architecture change is requested.
-280 - Preserve resolver correctness against sorted layer/sprite runtime order.
-281 - Apply scene `virtual-size-override` on transitions.
-282 - Keep virtual buffer synced with terminal resize in max-available mode.
-283 - Do not reintroduce animator freeze for empty/0ms stages.
-284 - Reset per-frame behavior runtime state before behavior application.
-285 - Maintain compatibility with existing YAML mod structure.
-286
-287 ## 10) Change playbook for AI agents
-288
-289 When changing:
-290 - scene model/fields:
-291   - update `engine-core` model + runtime consumption + schema/authoring surfaces
-292 - effect params:
-293   - update effect metadata + schema generation path + editor consumption
-294 - render pipeline:
-295   - verify compositor + renderer + virtual buffer interactions
-296 - transitions/lifecycle:
-297   - verify scoped reset behavior and scene loader ref resolution
-298
-299 Bias:
-300 - prefer minimal, local, type-safe changes
-301 - avoid hidden fallback behavior
-302 - test changed surfaces with existing crate tests
-303 q
-304
+## 1) Repo shape
+
+- `app/` launcher
+- `engine/` runtime systems and render pipeline
+- `engine-core/` shared model, metadata, built-in effects
+- `engine-authoring/` YAML compile/normalize/schema pipeline
+- `editor/` TUI authoring tool
+- `mods/` content mods
+- `schemas/` shared base schemas
+
+Scenes are loaded as:
+
+- single YAML file (`scenes/*.yml`),
+- scene package (`scenes/<name>/scene.yml` + partials).
+
+Asset loading supports unpacked mod dirs and zip-packaged mods.
+
+## 2) Editor architecture (short map)
+
+`editor/src`:
+
+- `app.rs` terminal lifecycle and main editor loop
+- `cli.rs` CLI options (`--mod-source`)
+- `domain/` scene/effect/asset indexes and diagnostics
+- `io/` file scanning and YAML IO
+- `input/` key mapping and commands
+- `state/` app state
+- `ui/` draw/layout/focus/filter/theme
+
+Editor uses model and metadata from `engine-core` + `engine-authoring`.
+
+## 3) Tooling commands
+
+Schema generation:
+
+```bash
+cargo run -p schema-gen -- --all-mods
+```
+
+Schema drift check:
+
+```bash
+cargo run -p schema-gen -- --all-mods --check
+```
+
+Helper:
+
+```bash
+./refresh-schemas.sh
+```
+
+Run app:
+
+```bash
+cargo run -p app
+```
+
+Run editor:
+
+```bash
+cargo run -p editor
+```
+
+Run playground mod:
+
+```bash
+SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app
+```
+
+Run playground mod with debug helpers:
+
+```bash
+SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app -- --debug-feature
+```
+
+Core tests:
+
+```bash
+cargo test -p engine
+cargo test -p engine-core
+cargo test -p engine-authoring
+```
+
+## 4) Authoring invariants
+
+- Preserve runtime system order unless explicitly changing architecture.
+- Keep resolver correctness for layer/sprite ordering.
+- Apply scene `virtual-size-override` on transitions.
+- Keep virtual buffer in sync with terminal resize (`max-available` policy).
+- Keep stage progression stable for empty/0ms steps.
+- Reset per-frame behavior runtime state before behavior execution.
+- Keep compatibility with existing mod YAML structure.
+
+## 5) Change playbook
+
+When changing scene model or fields:
+
+- update `engine-core` model,
+- update `engine-authoring` compile/normalize path,
+- update schema surfaces,
+- update runtime consumption.
+
+When changing effect params:
+
+- update effect metadata,
+- update schema generation,
+- update editor consumption.
+
+When changing render/compositor:
+
+- verify compositor + renderer + virtual buffer interactions.
+
+When changing transitions/lifecycle:
+
+- verify scoped reset behavior,
+- verify scene loader reference resolution.
+
+## 6) Preferred working style
+
+- Keep changes minimal, local, and type-safe.
+- Avoid hidden fallback behavior.
+- Validate with existing crate tests after code changes.

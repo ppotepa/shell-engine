@@ -11,10 +11,10 @@ sprites:
   - type: grid
     id: "$grid_id"
     at: cc
-    width: 36
-    height: 15
+    width: 40
+    height: 19
     columns: ["1fr"]
-    rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+    rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
     gap-y: 1
     children:
       - { type: text, id: menu-item-0, content: "[1] 3D SCENE", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
@@ -25,6 +25,8 @@ sprites:
       - { type: text, id: menu-item-5, content: "[6] FONT MODE SHOWCASE", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: silver }
       - { type: text, id: menu-item-6, content: "[7] TERMINAL SHELL DEMO", grid-col: 1, grid-row: 7, at: cc, font: "generic:1", fg: gray }
       - { type: text, id: menu-item-7, content: "[8] LAYOUT LAB", grid-col: 1, grid-row: 8, at: cc, font: "generic:1", fg: silver }
+      - { type: text, id: menu-item-8, content: "[9] RHAI LAB", grid-col: 1, grid-row: 9, at: cc, font: "generic:1", fg: gray }
+      - { type: text, id: menu-item-9, content: "[0] EXIT", grid-col: 1, grid-row: 10, at: cc, font: "generic:1", fg: silver }
 
   - { type: text, id: sel0-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
   - { type: text, id: sel0-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
@@ -42,3 +44,7 @@ sprites:
   - { type: text, id: sel6-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-6, index: 6, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
   - { type: text, id: sel7-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-7, index: 7, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
   - { type: text, id: sel7-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-7, index: 7, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel8-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-8, index: 8, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel8-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-8, index: 8, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel9-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-9, index: 9, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel9-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-9, index: 9, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }

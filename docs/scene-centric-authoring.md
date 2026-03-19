@@ -120,6 +120,14 @@ W praktyce używane są dwa warianty:
 - behavior wbudowany (`menu-carousel-object`, `selected-arrows`),
 - behavior skryptowy Rhai (`rhai-script`) z sidecar `menu.rhai`.
 
+Praktyczna zasada layoutu:
+
+- jeśli scena ma kilka warstw UI, nie ustawiaj wszystkich root kontenerów na `at: cc` bez offsetów,
+- niezależnie centrowane rooty różnych warstw nie „wiedzą” o sobie i będą się nakładać,
+- dla czytelnego HUD najlepiej:
+  - użyć jednego root layoutu dla całej kompozycji UI, albo
+  - stosować jawne anchory (`ct`/`cb`/`lt`/`rt`) i separację `y/x` między warstwami.
+
 ## 8) Logika sceny (native/script)
 
 `scene.logic` wspiera:

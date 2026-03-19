@@ -123,13 +123,11 @@ impl Drop for MouseCaptureGuard {
 
 #[inline]
 fn is_quit_key(code: crossterm::event::KeyCode, modifiers: crossterm::event::KeyModifiers) -> bool {
-    matches!(code, crossterm::event::KeyCode::Esc)
-        || matches!(code, crossterm::event::KeyCode::Char('q'))
-        || (modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
-            && matches!(
-                code,
-                crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('C')
-            ))
+    modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+        && matches!(
+            code,
+            crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('C')
+        )
 }
 
 #[inline]
@@ -188,13 +186,13 @@ mod tests {
 
     #[test]
     fn quit_key_includes_ctrl_c() {
-        assert!(is_quit_key(KeyCode::Esc, KeyModifiers::NONE));
-        assert!(is_quit_key(KeyCode::Char('q'), KeyModifiers::NONE));
         assert!(is_quit_key(KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert!(is_quit_key(
             KeyCode::Char('C'),
             KeyModifiers::CONTROL | KeyModifiers::SHIFT
         ));
+        assert!(!is_quit_key(KeyCode::Esc, KeyModifiers::NONE));
+        assert!(!is_quit_key(KeyCode::Char('q'), KeyModifiers::NONE));
         assert!(!is_quit_key(KeyCode::Char('c'), KeyModifiers::NONE));
     }
 

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: terminal-shell-hud
+  z_index: 2
+  sprite-defaults:
+    type: text
+    font: "generic:1"
+  sprites:
+    - { content: "STATUS", at: rt, x: -8, y: 1, fg: yellow }
+    - { id: ui-shell-status-dot, content: "*", at: rt, x: -2, y: 1, fg: yellow }
+    - { content: "ESC on empty prompt: back to menu", at: cb, y: -1, fg: gray }

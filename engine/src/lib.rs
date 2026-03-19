@@ -1,5 +1,6 @@
 //! Root crate for the Shell Quest engine — initialises a mod, runs startup checks, and drives the game loop.
 
+pub mod debug_features;
 mod error;
 mod game_loop;
 mod mod_loader;
@@ -98,6 +99,7 @@ impl ShellEngine {
         world.register(buffer::Buffer::new(term_w, term_h));
         world.register(audio::AudioRuntime::null());
         world.register(runtime_settings);
+        world.register(debug_features::DebugFeatures::from_env());
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));

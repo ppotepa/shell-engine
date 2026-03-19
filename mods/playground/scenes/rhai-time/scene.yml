@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-rhai-time
+title: Rhai Time
+bg: black
+layers:
+  - ref: main
+behaviors:
+  - name: rhai-script
+    params:
+      script: |
+        let commands = [];
+        let phase = (scene_elapsed_ms / 350) % 3;
+        commands.push(#{ op: "visibility", target: "time-pulse-a", visible: phase == 0 });
+        commands.push(#{ op: "visibility", target: "time-pulse-b", visible: phase == 1 });
+        commands.push(#{ op: "visibility", target: "time-pulse-c", visible: phase == 2 });
+        commands.push(#{ op: "visibility", target: "time-flash", visible: ((scene_elapsed_ms / 250) % 2) == 0 });
+        commands
+stages-ref: /stages/anykey-fade-250-200.yml
+next: playground-rhai-lab
+menu-options:
+  - { key: "0", label: BACK TO RHAI LAB, to: playground-rhai-lab }

@@ -10,6 +10,9 @@ struct Cli {
     /// Force renderer mode globally: cell | halfblock | quadblock | braille.
     #[arg(long = "renderer-mode")]
     renderer_mode: Option<String>,
+    /// Enable generic debug helpers (F1 overlay, F3/F4 scene navigation).
+    #[arg(long = "debug-feature")]
+    debug_feature: bool,
 }
 
 fn main() {
@@ -20,6 +23,9 @@ fn main() {
 
     if let Some(mode) = cli.renderer_mode {
         std::env::set_var("SHELL_QUEST_RENDERER_MODE", mode);
+    }
+    if cli.debug_feature {
+        std::env::set_var("SHELL_QUEST_DEBUG_FEATURE", "1");
     }
 
     let engine = ShellEngine::new(&mod_source).unwrap_or_else(|error| {

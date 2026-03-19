@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-rhai-lab
+title: Rhai Lab
+bg: black
+layers:
+  - ref: main
+stages-ref: /stages/anykey-loop-1200-fade-250-180.yml
+next: playground-menu
+menu-options:
+  - { key: "1", label: "RHAI TIME + BLINK/OFFSET", to: playground-rhai-time }
+  - { key: "2", label: "RHAI MENU FOCUS POINTER", to: playground-rhai-focus }
+  - { key: "3", label: "RHAI OBJECT PULSE", to: playground-rhai-object }
+  - { key: "0", label: "BACK TO PLAYGROUND MENU", to: playground-menu }

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-rhai-focus
+title: Rhai Focus
+bg: black
+layers:
+  - ref: main
+behaviors:
+  - name: rhai-script
+    params:
+      script: |
+        let commands = [];
+        let phase = (scene_elapsed_ms / 650) % 3;
+        commands.push(#{ op: "visibility", target: "focus-tag-a", visible: phase == 0 });
+        commands.push(#{ op: "visibility", target: "focus-tag-b", visible: phase == 1 });
+        commands.push(#{ op: "visibility", target: "focus-tag-c", visible: phase == 2 });
+        let blink = (scene_elapsed_ms / 250) % 2 == 0;
+        commands.push(#{ op: "visibility", target: "focus-cursor-a", visible: phase == 0 && blink });
+        commands.push(#{ op: "visibility", target: "focus-cursor-b", visible: phase == 1 && blink });
+        commands.push(#{ op: "visibility", target: "focus-cursor-c", visible: phase == 2 && blink });
+        commands
+stages-ref: /stages/anykey-fade-250-200.yml
+next: playground-rhai-lab
+menu-options:
+  - { key: "0", label: BACK TO RHAI LAB, to: playground-rhai-lab }

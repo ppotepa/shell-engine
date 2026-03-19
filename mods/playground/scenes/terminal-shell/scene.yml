@@ -3,13 +3,23 @@ id: playground-terminal-shell
 title: Playground Terminal Shell
 bg: black
 layers:
-  - ref: main
+  - ref: bg
+  - ref: windows
+  - ref: hud
+behaviors:
+  - name: rhai-script
+    params:
+      script: |
+        let commands = [];
+        let blink_on = ((scene_elapsed_ms / 450) % 2) == 0;
+        commands.push(#{ op: "visibility", target: "ui-shell-status-dot", visible: blink_on });
+        commands
 input:
   terminal-shell:
-    prompt_sprite_id: terminal-prompt
-    output_sprite_id: terminal-output
+    prompt_sprite_id: ui-terminal-prompt
+    output_sprite_id: ui-terminal-output
     prompt_prefix: "λ "
-    max_lines: 14
+    max_lines: 7
     banner:
       - "[ shell-node online ]"
       - "try: help, ls, status, mission"

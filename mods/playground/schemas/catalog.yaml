@@ -7,6 +7,7 @@ $defs:
     enum:
     - playground-3d-scene
     - playground-decoration-showcase
+    - playground-exit
     - playground-font-showcase
     - playground-fps-showcase-10
     - playground-fps-showcase-20
@@ -16,6 +17,10 @@ $defs:
     - playground-fps-showcase-30
     - playground-layout-lab
     - playground-menu
+    - playground-rhai-focus
+    - playground-rhai-lab
+    - playground-rhai-object
+    - playground-rhai-time
     - playground-stop-animation
     - playground-terminal-shell
     - playground-terminal-size-test
@@ -23,38 +28,49 @@ $defs:
     type: string
     enum:
     - /scenes/3d-scene/scene.yml
-    - /scenes/decoration-showcase.yml
+    - /scenes/decoration-showcase/scene.yml
+    - /scenes/exit/scene.yml
     - /scenes/font-showcase/scene.yml
-    - /scenes/fps-showcase-10.yml
-    - /scenes/fps-showcase-20.yml
-    - /scenes/fps-showcase-2d-10.yml
-    - /scenes/fps-showcase-2d-20.yml
-    - /scenes/fps-showcase-2d-30.yml
-    - /scenes/fps-showcase-30.yml
+    - /scenes/fps-showcase-10/scene.yml
+    - /scenes/fps-showcase-20/scene.yml
+    - /scenes/fps-showcase-2d-10/scene.yml
+    - /scenes/fps-showcase-2d-20/scene.yml
+    - /scenes/fps-showcase-2d-30/scene.yml
+    - /scenes/fps-showcase-30/scene.yml
     - /scenes/layout-lab/scene.yml
     - /scenes/menu/scene.yml
-    - /scenes/stop-animation.yml
+    - /scenes/rhai-focus/scene.yml
+    - /scenes/rhai-lab/scene.yml
+    - /scenes/rhai-object/scene.yml
+    - /scenes/rhai-time/scene.yml
+    - /scenes/stop-animation/scene.yml
     - /scenes/terminal-shell/scene.yml
     - /scenes/terminal-size-test/scene.yml
   scene_refs:
     type: string
     enum:
     - /scenes/3d-scene/scene.yml
-    - /scenes/decoration-showcase.yml
+    - /scenes/decoration-showcase/scene.yml
+    - /scenes/exit/scene.yml
     - /scenes/font-showcase/scene.yml
-    - /scenes/fps-showcase-10.yml
-    - /scenes/fps-showcase-20.yml
-    - /scenes/fps-showcase-2d-10.yml
-    - /scenes/fps-showcase-2d-20.yml
-    - /scenes/fps-showcase-2d-30.yml
-    - /scenes/fps-showcase-30.yml
+    - /scenes/fps-showcase-10/scene.yml
+    - /scenes/fps-showcase-20/scene.yml
+    - /scenes/fps-showcase-2d-10/scene.yml
+    - /scenes/fps-showcase-2d-20/scene.yml
+    - /scenes/fps-showcase-2d-30/scene.yml
+    - /scenes/fps-showcase-30/scene.yml
     - /scenes/layout-lab/scene.yml
     - /scenes/menu/scene.yml
-    - /scenes/stop-animation.yml
+    - /scenes/rhai-focus/scene.yml
+    - /scenes/rhai-lab/scene.yml
+    - /scenes/rhai-object/scene.yml
+    - /scenes/rhai-time/scene.yml
+    - /scenes/stop-animation/scene.yml
     - /scenes/terminal-shell/scene.yml
     - /scenes/terminal-size-test/scene.yml
     - playground-3d-scene
     - playground-decoration-showcase
+    - playground-exit
     - playground-font-showcase
     - playground-fps-showcase-10
     - playground-fps-showcase-20
@@ -64,6 +80,10 @@ $defs:
     - playground-fps-showcase-30
     - playground-layout-lab
     - playground-menu
+    - playground-rhai-focus
+    - playground-rhai-lab
+    - playground-rhai-object
+    - playground-rhai-time
     - playground-stop-animation
     - playground-terminal-shell
     - playground-terminal-size-test
@@ -72,6 +92,7 @@ $defs:
     enum:
     - centered-endless-menu
     - suzan
+    - terminal-window
   effect_names:
     type: string
     enum:
@@ -106,10 +127,17 @@ $defs:
     type: string
     enum:
     - 3d-scene/layers/main.yml
+    - exit/layers/main.yml
     - font-showcase/layers/main.yml
     - layout-lab/layers/main.yml
     - menu/layers/main.yml
-    - terminal-shell/layers/main.yml
+    - rhai-focus/layers/main.yml
+    - rhai-lab/layers/main.yml
+    - rhai-object/layers/main.yml
+    - rhai-time/layers/main.yml
+    - terminal-shell/layers/bg.yml
+    - terminal-shell/layers/hud.yml
+    - terminal-shell/layers/windows.yml
     - terminal-size-test/layers/main.yml
   sprite_refs:
     type: string
@@ -122,8 +150,10 @@ $defs:
     enum:
     - /objects/centered-endless-menu.yml
     - /objects/suzan.yml
+    - /objects/terminal-window.yml
     - centered-endless-menu
     - suzan
+    - terminal-window
   effect_refs:
     type: string
     enum: []
@@ -158,16 +188,39 @@ $defs:
   sprite_ids:
     type: string
     enum:
-    - centered-case
+    - focus-card-a
+    - focus-card-b
+    - focus-card-c
+    - focus-cursor-a
+    - focus-cursor-b
+    - focus-cursor-c
+    - focus-root
+    - focus-tag-a
+    - focus-tag-b
+    - focus-tag-c
     - helsinki-uni-wireframe
     - lab-shell
+    - layout-lab-root
     - left-right-row
-    - nested-flex-grid-case
-    - terminal-output
-    - terminal-prompt
+    - object-core
+    - object-halo-a
+    - object-halo-b
+    - object-root
+    - object-shadow-a
+    - object-shadow-b
+    - object-spark
+    - rhai-lab-root
+    - terminal-shell-bg-root
+    - terminal-size-root
+    - time-flash
+    - time-pulse-a
+    - time-pulse-b
+    - time-pulse-c
+    - time-root
     - tux-10
     - tux-20
     - tux-30
+    - ui-shell-status-dot
   template_names:
     type: string
     enum: []

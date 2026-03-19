@@ -1,4 +1,5 @@
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
+use crate::debug_features::DebugFeatures;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
@@ -69,6 +70,7 @@ pub fn renderer_system(world: &mut World) {
     if should_use_virtual_buffer(world) {
         present_virtual_to_output(world);
     }
+    apply_debug_overlay(world);
 
     // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
     DIFF_SCRATCH.with(|scratch| {
@@ -95,6 +97,52 @@ pub fn renderer_system(world: &mut World) {
 
     if let Some(buf) = world.buffer_mut() {
         buf.swap();
+    }
+}
+
+fn apply_debug_overlay(world: &mut World) {
+    let Some(debug) = world.get::<DebugFeatures>().copied() else {
+        return;
+    };
+    if !debug.enabled || !debug.overlay_visible {
+        return;
+    }
+
+    let scene_id = world
+        .scene_runtime()
+        .map(|runtime| runtime.scene().id.clone())
+        .unwrap_or_else(|| "unknown".to_string());
+    let virtual_info = world
+        .virtual_buffer()
+        .map(|vbuf| format!("virtual: {}x{}", vbuf.0.width, vbuf.0.height))
+        .unwrap_or_else(|| "virtual: disabled".to_string());
+
+    let lines = vec![
+        "DEBUG FEATURE MODE  [F1 overlay] [F3 prev] [F4 next]".to_string(),
+        format!("scene: {scene_id}"),
+        virtual_info,
+    ];
+
+    let Some(buf) = world.buffer_mut() else {
+        return;
+    };
+    let fg = style::Color::White;
+    let bg = style::Color::DarkGrey;
+    for (row, line) in lines.iter().enumerate() {
+        let y = row as u16;
+        if y >= buf.height {
+            break;
+        }
+        for x in 0..buf.width {
+            buf.set(x, y, ' ', fg, bg);
+        }
+        for (x, ch) in line.chars().enumerate() {
+            let x = x as u16;
+            if x >= buf.width {
+                break;
+            }
+            buf.set(x, y, ch, fg, bg);
+        }
     }
 }
 
