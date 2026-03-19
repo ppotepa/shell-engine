@@ -5,15 +5,75 @@
 
     - type: flex
       direction: column
-      gap: 2
-      x: 2
-      y: 4
+      gap: 1
+      at: cc
+      y: 1
       children:
-        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:tiny    ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:tiny", fg: cyan }] }
-        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:1       ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:1", fg: cyan }] }
-        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:2       ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:2", fg: cyan }] }
-        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:half    ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:half", fg: yellow }] }
-        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:quad    ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:quad", fg: yellow }] }
-        - { type: flex, direction: row, gap: 4, children: [{ type: text, content: "generic:braille ", font: "generic:1", fg: gray }, { type: text, content: "THIS IS A TEXT", font: "generic:braille", fg: magenta }] }
+        - type: grid
+          width: 64
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-y: 0
+          children:
+            - { type: text, content: "generic:tiny", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKLM", grid-col: 1, grid-row: 2, at: lc, font: "generic:tiny", fg: cyan }
+            - { type: text, content: "NOPQRSTUVWXYZ0123456789", grid-col: 1, grid-row: 3, at: lc, font: "generic:tiny", fg: cyan }
+            - { type: text, content: "abcdefghijklm", grid-col: 1, grid-row: 4, at: lc, font: "generic:tiny", fg: cyan }
+            - { type: text, content: "nopqrstuvwxyz", grid-col: 1, grid-row: 5, at: lc, font: "generic:tiny", fg: cyan }
+        - type: grid
+          width: 64
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-y: 0
+          children:
+            - { type: text, content: "generic:1", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKLM", grid-col: 1, grid-row: 2, at: lc, font: "generic:1", fg: cyan }
+            - { type: text, content: "NOPQRSTUVWXYZ0123456789", grid-col: 1, grid-row: 3, at: lc, font: "generic:1", fg: cyan }
+            - { type: text, content: "abcdefghijklm", grid-col: 1, grid-row: 4, at: lc, font: "generic:1", fg: cyan }
+            - { type: text, content: "nopqrstuvwxyz", grid-col: 1, grid-row: 5, at: lc, font: "generic:1", fg: cyan }
+        - type: grid
+          width: 64
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-y: 0
+          children:
+            - { type: text, content: "generic:2", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKLM", grid-col: 1, grid-row: 2, at: lc, font: "generic:2", fg: cyan }
+            - { type: text, content: "NOPQRSTUVWXYZ0123456789", grid-col: 1, grid-row: 3, at: lc, font: "generic:2", fg: cyan }
+            - { type: text, content: "abcdefghijklm", grid-col: 1, grid-row: 4, at: lc, font: "generic:2", fg: cyan }
+            - { type: text, content: "nopqrstuvwxyz", grid-col: 1, grid-row: 5, at: lc, font: "generic:2", fg: cyan }
+        - type: grid
+          width: 64
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-y: 0
+          children:
+            - { type: text, content: "generic:half", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKLM", grid-col: 1, grid-row: 2, at: lc, font: "generic:half", fg: yellow }
+            - { type: text, content: "NOPQRSTUVWXYZ0123456789", grid-col: 1, grid-row: 3, at: lc, font: "generic:half", fg: yellow }
+            - { type: text, content: "abcdefghijklm", grid-col: 1, grid-row: 4, at: lc, font: "generic:half", fg: yellow }
+            - { type: text, content: "nopqrstuvwxyz", grid-col: 1, grid-row: 5, at: lc, font: "generic:half", fg: yellow }
+        - type: grid
+          width: 64
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-y: 0
+          children:
+            - { type: text, content: "generic:quad", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKLM", grid-col: 1, grid-row: 2, at: lc, font: "generic:quad", fg: yellow }
+            - { type: text, content: "NOPQRSTUVWXYZ0123456789", grid-col: 1, grid-row: 3, at: lc, font: "generic:quad", fg: yellow }
+            - { type: text, content: "abcdefghijklm", grid-col: 1, grid-row: 4, at: lc, font: "generic:quad", fg: yellow }
+            - { type: text, content: "nopqrstuvwxyz", grid-col: 1, grid-row: 5, at: lc, font: "generic:quad", fg: yellow }
+        - type: grid
+          width: 64
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-y: 0
+          children:
+            - { type: text, content: "generic:braille", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKLM", grid-col: 1, grid-row: 2, at: lc, font: "generic:braille", fg: magenta }
+            - { type: text, content: "NOPQRSTUVWXYZ0123456789", grid-col: 1, grid-row: 3, at: lc, font: "generic:braille", fg: magenta }
+            - { type: text, content: "abcdefghijklm", grid-col: 1, grid-row: 4, at: lc, font: "generic:braille", fg: magenta }
+            - { type: text, content: "nopqrstuvwxyz", grid-col: 1, grid-row: 5, at: lc, font: "generic:braille", fg: magenta }
 
-    - { type: text, content: "press any key to return", font: "generic:1", fg: gray, at: bc, y: -2 }
+    - { type: text, content: "Press any key to return", font: "generic:1", fg: gray, at: bc, y: -1 }
