@@ -6,6 +6,7 @@ use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use std::collections::BTreeMap;
 
 use super::super::layout::{GridCellRect, RenderArea};
+use super::super::text_render::ClipRect;
 use super::common::RenderCtx;
 
 /// Renders all container children using precomputed cell rectangles.
@@ -17,6 +18,7 @@ pub(crate) fn render_children_in_cells<F>(
     draw_x: i32,
     draw_y: i32,
     resolved_mode: SceneRenderedMode,
+    parent_clip: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut BTreeMap<String, Region>,
     object_states: &BTreeMap<String, ObjectRuntimeState>,
@@ -29,6 +31,7 @@ pub(crate) fn render_children_in_cells<F>(
         &Sprite,
         RenderArea,
         SceneRenderedMode,
+        Option<ClipRect>,
         Option<&TargetResolver>,
         &mut BTreeMap<String, Region>,
         &BTreeMap<String, ObjectRuntimeState>,
@@ -54,6 +57,7 @@ pub(crate) fn render_children_in_cells<F>(
             child,
             child_area,
             resolved_mode,
+            parent_clip,
             target_resolver,
             object_regions,
             object_states,
