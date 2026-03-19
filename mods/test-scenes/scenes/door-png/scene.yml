@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: test-scenes-door-png
+title: Lab Open PNG 640x360 (direct)
+cutscene: true
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - name: cutout
+            duration: 2200
+            params:
+              levels: 10
+              simplify: 0
+              edge_fidelity: 0.72
+              edge_strength: 0.08
+              edge_width: 1
+              saturation: 1.0
+              blend_mode: replace
+  on_idle:
+    trigger: timeout
+    steps:
+      - pause: 2200ms
+  on_leave:
+    steps:
+      - pause: 1ms
+next: test-scenes-menu

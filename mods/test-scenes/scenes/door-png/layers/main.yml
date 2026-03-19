@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: door-png
+  z_index: 0
+  sprites:
+    - { type: image, id: door-png-1, source: /assets/lab-open-640/1.png, at: cc, stretch-to-area: true, appear_at_ms: 0, disappear_at_ms: 250, force-renderer-mode: cell }
+    - { type: image, id: door-png-2, source: /assets/lab-open-640/2.png, at: cc, stretch-to-area: true, appear_at_ms: 250, disappear_at_ms: 500, force-renderer-mode: cell }
+    - { type: image, id: door-png-3, source: /assets/lab-open-640/3.png, at: cc, stretch-to-area: true, appear_at_ms: 500, disappear_at_ms: 750, force-renderer-mode: cell }
+    - { type: image, id: door-png-4, source: /assets/lab-open-640/4.png, at: cc, stretch-to-area: true, appear_at_ms: 750, disappear_at_ms: 1000, force-renderer-mode: cell }
+    - { type: image, id: door-png-5, source: /assets/lab-open-640/5.png, at: cc, stretch-to-area: true, appear_at_ms: 1000, disappear_at_ms: 1250, force-renderer-mode: cell }
+    - { type: image, id: door-png-6, source: /assets/lab-open-640/6.png, at: cc, stretch-to-area: true, appear_at_ms: 1250, disappear_at_ms: 1500, force-renderer-mode: cell }
+    - { type: image, id: door-png-7, source: /assets/lab-open-640/7.png, at: cc, stretch-to-area: true, appear_at_ms: 1500, disappear_at_ms: 1750, force-renderer-mode: cell }
+    - { type: image, id: door-png-8, source: /assets/lab-open-640/8.png, at: cc, stretch-to-area: true, appear_at_ms: 1750, disappear_at_ms: 2200, force-renderer-mode: cell }
