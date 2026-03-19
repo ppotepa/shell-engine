@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: placeholder
+  z_index: 0
+  visible: true
+  sprites:
+    - type: text
+      id: placeholder-cpu-on
+      content: "PLACEHOLDER SCENE - INTRO-CPU-ON"
+      at: cc
+      font: "generic:1"
+      fg: white
+      glow: { radius: 1, colour: "#7aa6ff" }

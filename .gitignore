@@ -12,5 +12,4 @@ Thumbs.db
 **/*.md
 !/README.md
 # Raw authored asset sources stay local
-mods/*/assets/raw/**
 !mods/*/assets/raw/.gitignore

@@ -11,17 +11,3 @@
       stretch-to-area: true
       disappear_at_ms: 10750
       force-renderer-mode: cell
-      stages:
-        on_enter:
-          steps:
-            - effects:
-                - name: cutout
-                  duration: 10750
-                  params:
-                    levels: 13
-                    simplify: 0
-                    edge_fidelity: 0.2
-                    edge_strength: 0.5
-                    edge_width: 1
-                    saturation: 1.0
-                    blend_mode: replace

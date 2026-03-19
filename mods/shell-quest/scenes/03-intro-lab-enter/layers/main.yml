@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: placeholder
+  z_index: 0
+  visible: true
+  sprites:
+    - type: text
+      id: placeholder-lab-enter
+      content: "PLACEHOLDER SCENE - INTRO-LAB-ENTER"
+      at: cc
+      font: "generic:1"
+      fg: white
+      glow: { radius: 1, colour: "#6f8bff" }

@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+usage() {
+  cat <<'USAGE'
+Usage: ./concat [--output <file>] [--stdout] [--include-generated]
+
+Concatenates tracked source-code files with metadata:
+- file path
+- git status
+- line count
+- file mtime
+- last commit date
+- content
+
+At the end, appends a list of ignored non-source files (paths only).
+Ignored non-source includes:
+- *.yml, *.yaml
+- *.blend, *.blend1
+USAGE
+}
+
+OUTPUT_FILE="concat-report.txt"
+WRITE_STDOUT=0
+INCLUDE_GENERATED=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o|--output)
+      OUTPUT_FILE="${2:-}"
+      if [[ -z "$OUTPUT_FILE" ]]; then
+        echo "[concat] --output requires a path" >&2
+        exit 2
+      fi
+      shift 2
+      ;;
+    --stdout)
+      WRITE_STDOUT=1
+      shift
+      ;;
+    --include-generated)
+      INCLUDE_GENERATED=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "[concat] unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "[concat] this script must run inside a git repository" >&2
+  exit 1
+fi
+
+mapfile -t ALL_FILES < <(git ls-files '*.rs' '*.rhai' '*.sh' '*.py' | sort)
+FILES=()
+SKIPPED_GENERATED=0
+mapfile -t IGNORED_NON_SOURCE < <(git ls-files '*.yml' '*.yaml' '*.blend' '*.blend1' | sort)
+
+if (( INCLUDE_GENERATED == 1 )); then
+  FILES=("${ALL_FILES[@]}")
+else
+  for f in "${ALL_FILES[@]}"; do
+    # Reserved for future generated-code filters.
+    FILES+=("$f")
+  done
+fi
+
+if (( ${#FILES[@]} == 0 )); then
+  echo "[concat] no tracked source-code files found (.rs/.rhai/.sh/.py)" >&2
+  exit 1
+fi
+
+render_report() {
+  local generated_at total_files total_lines
+  generated_at="$(date '+%Y-%m-%d %H:%M:%S %z')"
+  total_files="${#FILES[@]}"
+  total_lines=0
+
+  local f
+  for f in "${FILES[@]}"; do
+    total_lines=$((total_lines + $(wc -l < "$f")))
+  done
+
+  printf '# concat report\n'
+  printf 'generated_at: %s\n' "$generated_at"
+  printf 'repo: %s\n' "$ROOT_DIR"
+  printf 'files: %s\n' "$total_files"
+  printf 'lines_total: %s\n' "$total_lines"
+  printf 'include_generated: %s\n' "$INCLUDE_GENERATED"
+  printf 'skipped_generated_files: %s\n' "$SKIPPED_GENERATED"
+  printf 'ignored_non_source_files: %s\n' "${#IGNORED_NON_SOURCE[@]}"
+  printf '\n'
+
+  local status line_count mtime_epoch mtime_str last_commit
+  for f in "${FILES[@]}"; do
+    status="$(git status --porcelain -- "$f" | head -n1 | cut -c1-2)"
+    if [[ -z "$status" ]]; then
+      status="clean"
+    fi
+
+    line_count="$(wc -l < "$f")"
+    mtime_epoch="$(stat -c %Y "$f")"
+    mtime_str="$(date -d "@$mtime_epoch" '+%Y-%m-%d %H:%M:%S %z')"
+    last_commit="$(git log -1 --date=iso-strict --format='%cd' -- "$f" 2>/dev/null || true)"
+    if [[ -z "$last_commit" ]]; then
+      last_commit="n/a"
+    fi
+
+    printf '================================================================================\n'
+    printf 'file: %s\n' "$f"
+    printf 'status: %s\n' "$status"
+    printf 'lines: %s\n' "$line_count"
+    printf 'mtime: %s\n' "$mtime_str"
+    printf 'last_commit_date: %s\n' "$last_commit"
+    printf '%s\n' '--- BEGIN CONTENT ---'
+    cat "$f"
+    if [[ -s "$f" ]] && [[ "$(tail -c 1 "$f" 2>/dev/null || true)" != $'\n' ]]; then
+      printf '\n'
+    fi
+    printf '%s\n\n' '--- END CONTENT ---'
+  done
+
+  printf '%s\n' '================================================================================'
+  printf '%s\n' 'ignored_non_source_files:'
+  if (( ${#IGNORED_NON_SOURCE[@]} == 0 )); then
+    printf '%s\n' '(none)'
+  else
+    local ignored_path
+    for ignored_path in "${IGNORED_NON_SOURCE[@]}"; do
+      printf '%s\n' "$ignored_path"
+    done
+  fi
+}
+
+if (( WRITE_STDOUT == 1 )); then
+  render_report
+else
+  render_report > "$OUTPUT_FILE"
+  echo "[concat] wrote report: $OUTPUT_FILE"
+fi
