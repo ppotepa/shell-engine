@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Scene runtime</title>
+  <link rel="stylesheet" href="../../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Scene runtime</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../overview.html">Back</a></li>
+        <li><a href="game_loop.html">Game loop</a></li>
+        <li><a href="../../reference/types/SceneRuntime.html">SceneRuntime reference</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../../index.html">Home</a> / engine / scene_runtime</div>
+      <h2>Overview</h2>
+      <p><code>engine/src/scene_runtime.rs</code> contains <code>SceneRuntime</code>, the materialized runtime view of a Scene with stable object ids, behavior bindings, object_states, and optional <code>TerminalShellState</code>.</p>
+
+      <h3>Key responsibilities</h3>
+      <ul>
+        <li>Materialize authored Scene into runtime objects and ids</li>
+        <li>Track per-object runtime state and behaviors</li>
+        <li>Provide per-frame mutable runtime state (e.g., TerminalShellState)</li>
+      </ul>
+
+      <h3>TerminalShellState (confirmed)</h3>
+      <p>When a scene defines an input profile <code>terminal-shell</code>, SceneRuntime holds a <code>TerminalShellState</code> that contains:</p>
+      <ul>
+        <li><code>controls</code> — TerminalShellControls from the authored scene</li>
+        <li><code>input</code> — <code>tui_input::Input</code> buffer</li>
+        <li><code>output_lines</code>, <code>history</code>, history cursor</li>
+      </ul>
+      <div class="code-evidence">Excerpt: struct TerminalShellState { controls: TerminalShellControls, input: Input, output_lines: Vec<String>, history: Vec<String>, history_cursor: Option<usize>, }</div>
+
+      <h3>Execute command (confirmed)</h3>
+      <p>The runtime includes built-in commands (confirmed in code): clear, help, pwd, whoami, echo, and supports custom commands declared in scene YAML.</p>
+
+      <h3>Related pages</h3>
+      <ul>
+        <li><a href="../../reference/types/TerminalShellState.html">TerminalShellState reference</a></li>
+        <li><a href="../game_loop.html">Game loop</a></li>
+      </ul>
+
+      <div class="footer">Scene runtime</div>
+    </main>
+  </div>
+</body>
+</html>

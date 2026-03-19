@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Reference: EngineEvent</title>
+  <link rel="stylesheet" href="../../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Reference: EngineEvent</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../../toc.html">TOC</a></li>
+        <li><a href="../../modules/engine/game_loop.html">Game loop</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../../index.html">Home</a> / Reference / EngineEvent</div>
+      <h2>Definition</h2>
+      <p>EngineEvent is the central event enum used by the runtime. It carries input events (Key, Mouse), terminal resize, Tick, and Quit. Confirmed by inspection of <code>engine/src/game_loop.rs</code> and <code>engine/src/events.rs</code>.</p>
+
+      <h3>Common variants (confirmed)</h3>
+      <ul>
+        <li><code>KeyPressed(KeyEvent)</code></li>
+        <li><code>MouseMoved { column, row }</code></li>
+        <li><code>TerminalResized { width, height }</code></li>
+        <li><code>Tick</code></li>
+        <li><code>Quit</code></li>
+      </ul>
+
+      <h3>Used by</h3>
+      <ul>
+        <li><a href="../../modules/engine/scene_runtime.html">SceneLifecycleManager.process_events</a></li>
+      </ul>
+
+      <div class="footer">EngineEvent</div>
+    </main>
+  </div>
+</body>
+</html>

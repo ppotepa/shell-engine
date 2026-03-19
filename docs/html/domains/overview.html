@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Domains — Overview</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Domains Overview</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../toc.html">Back to TOC</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+        <li><a href="../modules/engine/overview.html">Engine module</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../index.html">Home</a> / Domains</div>
+      <h2>Key domains</h2>
+      <ul>
+        <li><strong>Launcher / app</strong> — entrypoint binaries (app/)</li>
+        <li><strong>Runtime engine</strong> — game loop, systems, renderer (engine/)</li>
+        <li><strong>Core model</strong> — authored scene model and effects (engine-core/)</li>
+        <li><strong>Authoring</strong> — compile/normalize pipeline (engine-authoring/)</li>
+        <li><strong>Editor</strong> — TUI authoring tool and preview (editor/)</li>
+        <li><strong>Mods</strong> — content and assets (mods/)</li>
+        <li><strong>Tools</strong> — schema-gen, devtool, converters (tools/)</li>
+      </ul>
+      <h3>Responsibilities</h3>
+      <p>Each domain has clear responsibilities: engine runs scenes, engine-core defines the model, authoring transforms YAML to runtime, editor provides UI for authoring, mods contain content.</p>
+      <h3>Source evidence</h3>
+      <div class="code-evidence">AGENTS.md (repo shape description), README.md (getting started)</div>
+      <div class="footer">Domains overview</div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Reference: SceneRuntime</title>
+  <link rel="stylesheet" href="../../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Reference: SceneRuntime</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../../toc.html">TOC</a></li>
+        <li><a href="../modules/engine/scene_runtime.html">Module overview</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../../index.html">Home</a> / Reference / SceneRuntime</div>
+      <h2>Signature & role</h2>
+      <p>SceneRuntime is the runtime representation of an authored <code>Scene</code>. It holds:</p>
+      <ul>
+        <li><code>scene: Scene</code> — authored model copy</li>
+        <li>maps for objects, layers, sprites</li>
+        <li>behaviors and resolver cache</li>
+        <li>optional <code>terminal_shell_state: Option<TerminalShellState></code></li>
+      </ul>
+
+      <h3>Public responsibilities</h3>
+      <ul>
+        <li>Materialization and id resolution</li>
+        <li>Provide per-frame mutable state</li>
+        <li>Expose helper APIs for runtime systems (inferred from usage)</li>
+      </ul>
+
+      <h3>Dependencies</h3>
+      <ul>
+        <li><a href="../../modules/engine-core/model.html">engine-core Scene model</a></li>
+        <li><a href="TerminalShellState.html">TerminalShellState</a> (optional)</li>
+      </ul>
+
+      <h3>Source evidence</h3>
+      <div class="code-evidence">File: engine/src/scene_runtime.rs — struct SceneRuntime { scene: Scene, root_id: String, objects: BTreeMap<String, GameObject>, ... terminal_shell_state: Option<TerminalShellState>, ... }</div>
+
+      <h3>See also</h3>
+      <ul>
+        <li><a href="../../modules/engine/game_loop.html">Game loop</a></li>
+        <li><a href="../../flows/frame_pipeline.html">Frame pipeline</a></li>
+      </ul>
+      <div class="footer">SceneRuntime reference</div>
+    </main>
+  </div>
+</body>
+</html>

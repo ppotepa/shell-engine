@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Asset pipeline</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Asset pipeline</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../toc.html">TOC</a></li>
+        <li><a href="frame_pipeline.html">Frame pipeline</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../index.html">Home</a> / Flows / Asset pipeline</div>
+      <h2>Overview</h2>
+      <p>Assets flow: mod directories or ZIP packages → asset loader (engine/src/asset_loader.rs) → image/OBJ/font loaders → rasterizer/compositor. Confirmed from code.</p>
+
+      <h3>Stages (high-level)</h3>
+      <ol>
+        <li>Load mod (mod_loader.rs)</li>
+        <li>Discover assets via directory scan or ZIP manifest</li>
+        <li>Load on-demand: images (with packing), OBJs (with loader), fonts (rasterize)</li>
+        <li>Cache in asset cache</li>
+        <li>Use in compositor during frame render</li>
+      </ol>
+
+      <h3>Related</h3>
+      <ul>
+        <li><a href="../modules/engine/rasterizer.html">Rasterizer</a></li>
+        <li><a href="../modules/engine/compositor.html">Compositor</a></li>
+      </ul>
+
+      <div class="footer">Asset pipeline</div>
+    </main>
+  </div>
+</body>
+</html>

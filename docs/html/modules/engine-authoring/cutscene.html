@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Engine-authoring — Cutscene compile</title>
+  <link rel="stylesheet" href="../../../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Engine-authoring — Cutscene compile</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../../toc.html">TOC</a></li>
+        <li><a href="../engine-core/model.html">Model</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../../../index.html">Home</a> / engine-authoring / cutscene</div>
+      <h2>Overview</h2>
+      <p><code>engine-authoring/src/compile/cutscene.rs</code> compiles authored cutscene refs into timed image sprites. The compiler supports plug-in filters (CutsceneCompileFilter) for transformations such as duration scaling.</p>
+
+      <h3>Responsibilities</h3>
+      <ul>
+        <li>Validate cutscene frame sequences (numeric chronology, no gaps)</li>
+        <li>Produce timed sprite sequences with appear_at_ms/disappear_at_ms</li>
+        <li>Expose filters for compile-time transformations</li>
+      </ul>
+
+      <h3>Evidence</h3>
+      <div class="code-evidence">engine-authoring/src/compile/cutscene.rs</div>
+
+      <h3>Related</h3>
+      <ul>
+        <li><a href="../../modules/engine/scene_runtime.html">Scene runtime</a></li>
+      </ul>
+
+      <div class="footer">Cutscene compile</div>
+    </main>
+  </div>
+</body>
+</html>
