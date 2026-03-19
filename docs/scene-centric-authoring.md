@@ -127,6 +127,7 @@ Scena może jednocześnie mieć lokalne `stages`; lokalne pola nadpisują preset
 - `sprite-defaults` (dziedziczenie pól sprite między poziomami).
 - `type: frame-sequence` (rozwinięcie do timed image sprites).
 - `type: window` (rozwinięcie do `panel` z sekcjami title/body/footer).
+- `type: terminal-input` (rozwinięcie do `window` z semantycznymi slotami hint/prompt dla terminalowego inputu).
 - `type: scroll-list` (rozwinięcie do `grid` z itemami listy, opcjonalnie z `menu-carousel`).
 - `cutscene-ref` (rozwinięcie do timed image sprites przez manifest cutsceny).
 
@@ -276,7 +277,7 @@ Zakres danych w scope obejmuje:
 `ui.theme`:
 
 - opcjonalny identyfikator motywu UI dla sceny (np. `terminal`, `win98`, `jrpg`),
-- aktualnie wpływa na domyślne wartości sugar `type: window` i `type: scroll-list` (kolory panelu, obramowania, cienia, sekcji/listy),
+- aktualnie wpływa na domyślne wartości sugar `type: window`, `type: terminal-input` i `type: scroll-list` (kolory panelu, obramowania, cienia, sekcji/listy),
 - runtime rozwiązuje `ui.theme` przez wspólny registry presetów (`engine-core`),
 - gdy `ui.theme` nie jest podany lub jest nieznany, używany jest fallback `engine-default`,
 - jawne pola sprite (`border-fg`, `border-bg`, `panel-bg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.

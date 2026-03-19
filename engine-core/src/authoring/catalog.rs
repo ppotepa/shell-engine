@@ -182,7 +182,14 @@ pub fn sugar_catalog() -> SugarCatalog {
                 description:
                     "Expand semantic window sprite into framed grid + title/body/footer text",
                 from_syntax: "type: window",
-                to_structure: "type=grid with generated border/title/body/footer children",
+                to_structure: "type=panel with generated title/body/footer children",
+            },
+            ShorthandSpec {
+                name: "terminal-input",
+                description:
+                    "Expand terminal input widget into window panel with hint + prompt slots",
+                from_syntax: "type: terminal-input",
+                to_structure: "type=window sugar with generated hint/prompt text children",
             },
             ShorthandSpec {
                 name: "scroll-list",
@@ -205,17 +212,18 @@ pub fn sugar_catalog() -> SugarCatalog {
             },
         ],
         normalizers: vec![
-            "normalize_stage",           // engine-authoring/src/document/scene.rs:60
-            "normalize_layers",          // engine-authoring/src/document/scene.rs:93
-            "normalize_sprites",         // engine-authoring/src/document/scene.rs:108
-            "normalize_menu_options",    // engine-authoring/src/document/scene.rs:134
-            "expand_menu_ui",            // engine-authoring/src/document/scene.rs
-            "apply_alias",               // engine-authoring/src/document/scene.rs:159
-            "apply_at_anchor",           // engine-authoring/src/document/scene.rs:170
-            "apply_defaults",            // engine-authoring/src/document/scene.rs
-            "expand_frame_sequence",     // engine-authoring/src/document/scene.rs
-            "expand_window_sprite",      // engine-authoring/src/document/scene.rs
-            "expand_scroll_list_sprite", // engine-authoring/src/document/scene.rs
+            "normalize_stage",              // engine-authoring/src/document/scene.rs:60
+            "normalize_layers",             // engine-authoring/src/document/scene.rs:93
+            "normalize_sprites",            // engine-authoring/src/document/scene.rs:108
+            "normalize_menu_options",       // engine-authoring/src/document/scene.rs:134
+            "expand_menu_ui",               // engine-authoring/src/document/scene.rs
+            "apply_alias",                  // engine-authoring/src/document/scene.rs:159
+            "apply_at_anchor",              // engine-authoring/src/document/scene.rs:170
+            "apply_defaults",               // engine-authoring/src/document/scene.rs
+            "expand_frame_sequence",        // engine-authoring/src/document/scene.rs
+            "expand_window_sprite",         // engine-authoring/src/document/scene.rs
+            "expand_terminal_input_sprite", // engine-authoring/src/document/scene.rs
+            "expand_scroll_list_sprite",    // engine-authoring/src/document/scene.rs
         ],
     }
 }
