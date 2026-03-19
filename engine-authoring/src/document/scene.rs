@@ -682,11 +682,9 @@ fn expand_window_sprite(
         .or_else(|| Some(theme_defaults.window.footer_fg))
         .unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
-    let title_h = text_block_height_cells(title, window_font.as_deref(), false);
-    let body_h = text_block_height_cells(body, window_font.as_deref(), false);
-    let title_y = 0i64;
-    let body_y = i64::try_from(title_h).unwrap_or(i64::MAX);
-    let footer_y = i64::try_from(title_h.saturating_add(body_h)).unwrap_or(i64::MAX);
+    let slots_id = map_get_str(sprite_map, &["slots-id", "slots_id"])
+        .map(ToString::to_string)
+        .unwrap_or_else(|| format!("{base_id}-slots"));
     let mut panel = Mapping::new();
     for (key, value) in sprite_map {
         let Some(name) = key.as_str() else {
@@ -751,14 +749,14 @@ fn expand_window_sprite(
         );
     }
 
-    let mut children = vec![
+    let slot_children = vec![
         build_window_text_child(
             Some(title_id.as_str()),
             title,
             1,
             "ct",
             0,
-            title_y,
+            0,
             title_fg,
             None,
             window_font.as_deref(),
@@ -769,7 +767,7 @@ fn expand_window_sprite(
             1,
             "lt",
             0,
-            body_y,
+            0,
             body_fg,
             None,
             window_font.as_deref(),
@@ -780,12 +778,16 @@ fn expand_window_sprite(
             1,
             "lt",
             0,
-            footer_y,
+            0,
             footer_fg,
             None,
             window_font.as_deref(),
         ),
     ];
+    let mut children = vec![build_slots_container_sprite(
+        &slots_id,
+        Value::Sequence(slot_children),
+    )];
 
     if let Some(extra_children) = sprite_map
         .get(Value::String("children".to_string()))
@@ -881,6 +883,7 @@ fn expand_terminal_input_sprite(
         ],
     )
     .is_some();
+    let slots_id = format!("{base_id}-slots");
 
     let mut window_map = Mapping::new();
     for (key, value) in sprite_map {
@@ -954,7 +957,26 @@ fn expand_terminal_input_sprite(
         return Ok(expanded);
     };
 
-    children.retain(|child| {
+    let Some(slots_map) = children.iter_mut().find_map(|child| {
+        let map = child.as_mapping_mut()?;
+        let id = map
+            .get(Value::String("id".to_string()))
+            .and_then(Value::as_str)?;
+        if id == slots_id {
+            Some(map)
+        } else {
+            None
+        }
+    }) else {
+        return Ok(expanded);
+    };
+    let Some(slot_children) = slots_map
+        .get_mut(Value::String("children".to_string()))
+        .and_then(Value::as_sequence_mut)
+    else {
+        return Ok(expanded);
+    };
+    slot_children.retain(|child| {
         let Some(child_map) = child.as_mapping() else {
             return true;
         };
@@ -972,30 +994,6 @@ fn expand_terminal_input_sprite(
         }
         true
     });
-
-    let mut slot_row = 0u64;
-    for slot_id in [&title_id, &body_id, &prompt_id] {
-        let Some(child_map) = children.iter_mut().find_map(|child| {
-            let map = child.as_mapping_mut()?;
-            let id = map
-                .get(Value::String("id".to_string()))
-                .and_then(Value::as_str)?;
-            if id == slot_id {
-                Some(map)
-            } else {
-                None
-            }
-        }) else {
-            continue;
-        };
-        let reserve_if_empty = slot_id == &prompt_id;
-        let slot_height = text_block_height_for_sprite_map(child_map, reserve_if_empty);
-        child_map.insert(
-            Value::String("y".to_string()),
-            Value::Number(Number::from(slot_row)),
-        );
-        slot_row = slot_row.saturating_add(slot_height);
-    }
 
     Ok(expanded)
 }
@@ -1218,42 +1216,38 @@ fn build_window_text_child(
     Value::Mapping(sprite)
 }
 
-fn text_block_height_for_sprite_map(sprite_map: &Mapping, reserve_if_empty: bool) -> u64 {
-    let content = map_get_str(sprite_map, &["content"]).unwrap_or_default();
-    let font = map_get_str(sprite_map, &["font"]);
-    text_block_height_cells(content, font, reserve_if_empty)
-}
-
-fn text_block_height_cells(content: &str, font: Option<&str>, reserve_if_empty: bool) -> u64 {
-    let has_text = !content.trim().is_empty();
-    if !has_text && !reserve_if_empty {
-        return 0;
-    }
-    let line_count = content.lines().count().max(1) as u64;
-    line_count
-        .saturating_mul(text_line_height_cells(font))
-        .max(1)
-}
-
-fn text_line_height_cells(font: Option<&str>) -> u64 {
-    let Some(font_name) = font.map(str::trim).filter(|v| !v.is_empty()) else {
-        return 1;
-    };
-    if !font_name.starts_with("generic") {
-        return 1;
-    }
-    let mode = font_name
-        .split_once(':')
-        .map(|(_, mode)| mode.trim().to_ascii_lowercase());
-    match mode.as_deref() {
-        Some("1") | Some("tiny") => 5,
-        Some("3") | Some("large") => 14,
-        Some("half") | Some("half-block") | Some("halfblock") => 4,
-        Some("quad") | Some("quadrant") => 4,
-        Some("braille") | Some("br") => 2,
-        Some("2") | Some("standard") | None | Some("") => 7,
-        _ => 7,
-    }
+fn build_slots_container_sprite(id: &str, children: Value) -> Value {
+    let mut slots = Mapping::new();
+    slots.insert(
+        Value::String("type".to_string()),
+        Value::String("flex".to_string()),
+    );
+    slots.insert(
+        Value::String("id".to_string()),
+        Value::String(id.to_string()),
+    );
+    slots.insert(
+        Value::String("at".to_string()),
+        Value::String("lt".to_string()),
+    );
+    slots.insert(
+        Value::String("x".to_string()),
+        Value::Number(Number::from(0)),
+    );
+    slots.insert(
+        Value::String("y".to_string()),
+        Value::Number(Number::from(0)),
+    );
+    slots.insert(
+        Value::String("direction".to_string()),
+        Value::String("column".to_string()),
+    );
+    slots.insert(
+        Value::String("gap".to_string()),
+        Value::Number(Number::from(0)),
+    );
+    slots.insert(Value::String("children".to_string()), children);
+    Value::Mapping(slots)
 }
 
 fn parse_scroll_list_item(item: &Value, idx: usize) -> (String, Option<String>, Option<String>) {
@@ -1296,6 +1290,8 @@ const WINDOW_RESERVED_KEYS: &[&str] = &[
     "title_bar",
     "title-id",
     "title_id",
+    "slots-id",
+    "slots_id",
     "body",
     "body-content",
     "body_content",
@@ -1720,6 +1716,30 @@ mod tests {
     use super::SceneDocument;
     use engine_core::scene::{HorizontalAlign, Sprite, TermColour, VerticalAlign};
 
+    fn first_flex_children(children: &[Sprite]) -> Option<&[Sprite]> {
+        children.iter().find_map(|child| match child {
+            Sprite::Flex { children, .. } => Some(children.as_slice()),
+            _ => None,
+        })
+    }
+
+    fn find_text_by_id<'a>(sprites: &'a [Sprite], target_id: &str) -> Option<&'a Sprite> {
+        for sprite in sprites {
+            match sprite {
+                Sprite::Text { id: Some(id), .. } if id == target_id => return Some(sprite),
+                Sprite::Panel { children, .. }
+                | Sprite::Grid { children, .. }
+                | Sprite::Flex { children, .. } => {
+                    if let Some(found) = find_text_by_id(children, target_id) {
+                        return Some(found);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
     #[test]
     fn compiles_scene_with_aliases_and_pause_shorthand() {
         let raw = r#"
@@ -1957,19 +1977,14 @@ layers:
         match &scene.layers[0].sprites[0] {
             Sprite::Panel { id, children, .. } => {
                 assert_eq!(id.as_deref(), Some("terminal-window"));
-                assert_eq!(children.len(), 3);
-                let title = children
-                    .iter()
-                    .find_map(|child| match child {
-                        Sprite::Text {
-                            id: Some(id),
-                            content,
-                            ..
-                        } if id == "terminal-window-title" => Some(content),
-                        _ => None,
-                    })
+                let slots = first_flex_children(children).expect("generated slots flex");
+                assert_eq!(slots.len(), 3);
+                let title = find_text_by_id(slots, "terminal-window-title")
                     .expect("generated title text child");
-                assert_eq!(title, "TERMINAL");
+                match title {
+                    Sprite::Text { content, .. } => assert_eq!(content, "TERMINAL"),
+                    _ => panic!("title should be text"),
+                }
             }
             _ => panic!("expected panel from window sugar"),
         }
@@ -2064,15 +2079,11 @@ layers:
                 assert!(matches!(align_x, Some(HorizontalAlign::Center)));
                 assert!(matches!(align_y, Some(VerticalAlign::Bottom)));
                 assert_eq!(children.len(), 1);
-                let prompt = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id),
-                        y,
-                        content,
-                        ..
-                    } if id == "term-prompt" => Some((content, y)),
-                    _ => None,
-                });
+                let prompt =
+                    find_text_by_id(children, "term-prompt").and_then(|child| match child {
+                        Sprite::Text { y, content, .. } => Some((content, y)),
+                        _ => None,
+                    });
                 assert_eq!(prompt.map(|(content, _)| content), Some(&"".to_string()));
                 assert_eq!(prompt.map(|(_, y)| *y), Some(0));
             }
@@ -2097,32 +2108,21 @@ layers:
             .expect("scene");
         match &scene.layers[0].sprites[0] {
             Sprite::Panel { children, .. } => {
-                let title = children
-                    .iter()
-                    .find_map(|child| match child {
-                        Sprite::Text {
-                            id: Some(id),
-                            content,
-                            ..
-                        } if id == "terminal-window-title" => Some(content),
-                        _ => None,
-                    })
+                let title = find_text_by_id(children, "terminal-window-title")
                     .expect("generated title text child");
-                assert_eq!(title, "TERMINAL");
-                let (align_x, align_y) = children
-                    .iter()
-                    .find_map(|child| match child {
-                        Sprite::Text {
-                            id: Some(id),
-                            align_x,
-                            align_y,
-                            ..
-                        } if id == "terminal-window-title" => Some((align_x, align_y)),
-                        _ => None,
-                    })
-                    .expect("generated title alignment");
-                assert!(matches!(align_x, Some(HorizontalAlign::Center)));
-                assert!(matches!(align_y, Some(VerticalAlign::Top)));
+                match title {
+                    Sprite::Text {
+                        content,
+                        align_x,
+                        align_y,
+                        ..
+                    } => {
+                        assert_eq!(content, "TERMINAL");
+                        assert!(matches!(align_x, Some(HorizontalAlign::Center)));
+                        assert!(matches!(align_y, Some(VerticalAlign::Top)));
+                    }
+                    _ => panic!("title should be text"),
+                }
             }
             _ => panic!("expected panel from window sugar"),
         }
@@ -2146,15 +2146,9 @@ layers:
             .expect("scene");
         match &scene.layers[0].sprites[0] {
             Sprite::Panel { children, .. } => {
-                let has_prompt = children.iter().any(|child| match child {
-                    Sprite::Text { id: Some(id), .. } => id == "ui-terminal-prompt",
-                    _ => false,
-                });
+                let has_prompt = find_text_by_id(children, "ui-terminal-prompt").is_some();
                 assert!(has_prompt, "custom prompt id should be preserved");
-                let has_hint = children.iter().any(|child| match child {
-                    Sprite::Text { id: Some(id), .. } => id == "ui-terminal-hint",
-                    _ => false,
-                });
+                let has_hint = find_text_by_id(children, "ui-terminal-hint").is_some();
                 assert!(has_hint, "custom hint id should be preserved");
             }
             _ => panic!("expected panel from terminal-input sugar"),
@@ -2181,12 +2175,12 @@ layers:
             .expect("scene");
         match &scene.layers[0].sprites[0] {
             Sprite::Panel { children, .. } => {
-                let title_font = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id), font, ..
-                    } if id == "terminal-window-title" => font.as_deref(),
-                    _ => None,
-                });
+                let title_font = find_text_by_id(children, "terminal-window-title").and_then(
+                    |child| match child {
+                        Sprite::Text { font, .. } => font.as_deref(),
+                        _ => None,
+                    },
+                );
                 assert_eq!(title_font, Some("generic:half"));
             }
             _ => panic!("expected panel from window sugar"),
@@ -2194,7 +2188,7 @@ layers:
     }
 
     #[test]
-    fn window_title_body_footer_offsets_follow_font_line_height() {
+    fn window_slots_are_grouped_under_flex_container() {
         let raw = r#"
 id: window-slot-offsets
 title: Window Slot Offsets
@@ -2213,34 +2207,26 @@ layers:
             .expect("scene");
         match &scene.layers[0].sprites[0] {
             Sprite::Panel { children, .. } => {
-                let title_y = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id), y, ..
-                    } if id == "terminal-window-title" => Some(*y),
-                    _ => None,
-                });
-                let body_y = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id), y, ..
-                    } if id == "terminal-window-body" => Some(*y),
-                    _ => None,
-                });
-                let footer_y = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id), y, ..
-                    } if id == "terminal-window-footer" => Some(*y),
-                    _ => None,
-                });
-                assert_eq!(title_y, Some(0));
-                assert_eq!(body_y, Some(4));
-                assert_eq!(footer_y, Some(8));
+                let slots = first_flex_children(children).expect("generated slots flex");
+                assert!(
+                    find_text_by_id(slots, "terminal-window-title").is_some(),
+                    "title slot missing"
+                );
+                assert!(
+                    find_text_by_id(slots, "terminal-window-body").is_some(),
+                    "body slot missing"
+                );
+                assert!(
+                    find_text_by_id(slots, "terminal-window-footer").is_some(),
+                    "footer slot missing"
+                );
             }
             _ => panic!("expected panel from window sugar"),
         }
     }
 
     #[test]
-    fn terminal_input_offsets_follow_font_line_height() {
+    fn terminal_input_slots_stack_without_manual_y_offsets() {
         let raw = r#"
 id: terminal-input-offsets
 title: Terminal Input Offsets
@@ -2259,27 +2245,25 @@ layers:
             .expect("scene");
         match &scene.layers[0].sprites[0] {
             Sprite::Panel { children, .. } => {
-                let title_y = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id), y, ..
-                    } if id == "term-title" => Some(*y),
-                    _ => None,
-                });
-                let hint_y = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id), y, ..
-                    } if id == "term-hint" => Some(*y),
-                    _ => None,
-                });
-                let prompt_y = children.iter().find_map(|child| match child {
-                    Sprite::Text {
-                        id: Some(id), y, ..
-                    } if id == "term-prompt" => Some(*y),
-                    _ => None,
-                });
-                assert_eq!(title_y, Some(0));
-                assert_eq!(hint_y, Some(4));
-                assert_eq!(prompt_y, Some(8));
+                let title = find_text_by_id(children, "term-title");
+                let hint = find_text_by_id(children, "term-hint");
+                let prompt = find_text_by_id(children, "term-prompt");
+                assert!(title.is_some(), "title slot missing");
+                assert!(hint.is_some(), "hint slot missing");
+                assert!(prompt.is_some(), "prompt slot missing");
+                let all_zero = [title, hint, prompt]
+                    .iter()
+                    .filter_map(|sprite| {
+                        sprite.and_then(|child| match child {
+                            Sprite::Text { y, .. } => Some(*y),
+                            _ => None,
+                        })
+                    })
+                    .all(|y| y == 0);
+                assert!(
+                    all_zero,
+                    "slot text should not depend on absolute y offsets when grouped in flex"
+                );
             }
             _ => panic!("expected panel from terminal-input sugar"),
         }
@@ -2317,14 +2301,9 @@ layers:
                 assert_eq!(bg_colour.as_ref(), Some(&TermColour::Silver));
                 assert_eq!(border_colour.as_ref(), Some(&TermColour::Silver));
                 assert_eq!(shadow_colour.as_ref(), Some(&TermColour::Gray));
-                let footer_fg = children
-                    .iter()
-                    .find_map(|child| match child {
-                        Sprite::Text {
-                            id: Some(id),
-                            fg_colour,
-                            ..
-                        } if id == "terminal-window-footer" => fg_colour.as_ref(),
+                let footer_fg = find_text_by_id(children, "terminal-window-footer")
+                    .and_then(|child| match child {
+                        Sprite::Text { fg_colour, .. } => fg_colour.as_ref(),
                         _ => None,
                     })
                     .expect("generated footer text child");
@@ -2363,38 +2342,23 @@ layers:
                 ..
             } => {
                 assert_eq!(border_colour.as_ref(), Some(&TermColour::Yellow));
-                let title_fg = children
-                    .iter()
-                    .find_map(|child| match child {
-                        Sprite::Text {
-                            id: Some(id),
-                            fg_colour,
-                            ..
-                        } if id == "terminal-window-title" => fg_colour.as_ref(),
+                let title_fg = find_text_by_id(children, "terminal-window-title")
+                    .and_then(|child| match child {
+                        Sprite::Text { fg_colour, .. } => fg_colour.as_ref(),
                         _ => None,
                     })
                     .expect("generated title text child");
                 assert_eq!(title_fg, &TermColour::Cyan);
-                let body_fg = children
-                    .iter()
-                    .find_map(|child| match child {
-                        Sprite::Text {
-                            id: Some(id),
-                            fg_colour,
-                            ..
-                        } if id == "terminal-window-body" => fg_colour.as_ref(),
+                let body_fg = find_text_by_id(children, "terminal-window-body")
+                    .and_then(|child| match child {
+                        Sprite::Text { fg_colour, .. } => fg_colour.as_ref(),
                         _ => None,
                     })
                     .expect("generated body text child");
                 assert_eq!(body_fg, &TermColour::Magenta);
-                let footer_fg = children
-                    .iter()
-                    .find_map(|child| match child {
-                        Sprite::Text {
-                            id: Some(id),
-                            fg_colour,
-                            ..
-                        } if id == "terminal-window-footer" => fg_colour.as_ref(),
+                let footer_fg = find_text_by_id(children, "terminal-window-footer")
+                    .and_then(|child| match child {
+                        Sprite::Text { fg_colour, .. } => fg_colour.as_ref(),
                         _ => None,
                     })
                     .expect("generated footer text child");
