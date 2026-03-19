@@ -12,20 +12,21 @@ exports:
   x: 0
   y: 4
 sprites:
-  - type: grid
+  - type: window
     id: "$frame_id"
     at: cc
     x: "$x"
     y: "$y"
     width: "$width"
     height: "$height"
-    columns: ["1fr"]
-    rows: ["auto", "auto", "auto", "1fr", "auto", "auto", "auto"]
-    children:
-      - { type: text, content: "┌────────────────────────────────────────────────────────────────┐", grid-col: 1, grid-row: 1, at: cc, fg: gray, font: "generic:1" }
-      - { type: text, id: "$title_id", content: "$title", grid-col: 1, grid-row: 2, at: cc, fg: white, font: "generic:1" }
-      - { type: text, content: "├────────────────────────────────────────────────────────────────┤", grid-col: 1, grid-row: 3, at: cc, fg: gray, font: "generic:1" }
-      - { type: text, id: "$output_id", content: "", grid-col: 1, grid-row: 4, at: lt, x: 2, y: 0, fg: silver, font: "generic:1" }
-      - { type: text, content: "├────────────────────────────────────────────────────────────────┤", grid-col: 1, grid-row: 5, at: cc, fg: gray, font: "generic:1" }
-      - { type: text, id: "$prompt_id", content: "", grid-col: 1, grid-row: 6, at: lt, x: 2, y: 0, fg: green, font: "generic:1" }
-      - { type: text, content: "└────────────────────────────────────────────────────────────────┘", grid-col: 1, grid-row: 7, at: cc, fg: gray, font: "generic:1" }
+    title: "$title"
+    title-id: "$title_id"
+    body-id: "$output_id"
+    footer-id: "$prompt_id"
+    body-content: ""
+    footer-content: ""
+    border-fg: gray
+    title-fg: white
+    body-fg: silver
+    footer-fg: green
+    font: "generic:1"

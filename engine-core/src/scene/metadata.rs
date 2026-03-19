@@ -16,7 +16,15 @@ const LIT_EXPR_BIND_ANIM: &[ValueSource] = &[
     ValueSource::Animation,
 ];
 
-const SPRITE_TYPE_OPTIONS: &[&str] = &["text", "image", "obj", "grid", "flex"];
+const SPRITE_TYPE_OPTIONS: &[&str] = &[
+    "text",
+    "image",
+    "obj",
+    "grid",
+    "flex",
+    "window",
+    "scroll-list",
+];
 const LOGIC_TYPE_OPTIONS: &[&str] = &["native", "graph", "script"];
 const RENDERED_MODE_OPTIONS: &[&str] = &["cell", "halfblock", "quadblock", "braille"];
 const ALIGN_X_OPTIONS: &[&str] = &["left", "center", "right"];
