@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buffer — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> Buffer</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine-core/buffer.html">engine-core::buffer</a> / Buffer</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-core/src/buffer.rs:Buffer</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-core/src/buffer.rs:45</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-core/src/buffer.rs" href="../../../modules/engine-core/buffer.html"><code>engine-core::buffer</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Double-buffered pixel bitmap for the terminal screen. `back` is written to by the compositor each frame. `front` mirrors what is currently visible on the terminal. Only cells that differ between back and front are flushed on each render. After flushing, `swap()` copies back → front.</p>
+          <div class="signature-block"><pre><code>pub struct Buffer {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Double-buffered pixel bitmap for the terminal screen.</p>
+<p>`back` is written to by the compositor each frame. `front` mirrors what is currently visible on the terminal. Only cells that differ between back and front are flushed on each render. After flushing, `swap()` copies back → front.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-width"><code>width</code></td><td><code>pub width: u16</code></td><td><code>u16</code></td><td></td></tr><tr><td id="field-height"><code>height</code></td><td><code>pub height: u16</code></td><td><code>u16</code></td><td></td></tr><tr><td id="field-back"><code>back</code></td><td><code>back: Vec&lt;Cell&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Cell" href="struct.Cell.html"><code>Cell</code></a></div></td><td><code>Vec&lt;Cell&gt;</code></td><td>Back buffer — written to by compositor each frame.</td></tr><tr><td id="field-front"><code>front</code></td><td><code>front: Vec&lt;Cell&gt;</code></td><td><code>Vec&lt;Cell&gt;</code></td><td>Front buffer — mirrors what the terminal currently shows.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-65"><code>new</code></td><td><code>pub fn new(width: u16, height: u16) -&gt; Self {</code></td><td></td></tr><tr><td id="method-fill-87"><code>fill</code></td><td><code>pub fn fill(&amp;mut self, bg: Color) {</code></td><td>Fill the entire back buffer with blank cells of the given background colour.</td></tr><tr><td id="method-set-94"><code>set</code></td><td><code>pub fn set(&amp;mut self, x: u16, y: u16, symbol: char, fg: Color, bg: Color) {</code></td><td>Write a single pixel to the back buffer.</td></tr><tr><td id="method-get-101"><code>get</code></td><td><code>pub fn get(&amp;self, x: u16, y: u16) -&gt; Option&lt;&amp;Cell&gt; {</code></td><td>Read a pixel from the back buffer.</td></tr><tr><td id="method-diff-110"><code>diff</code></td><td><code>pub fn diff(&amp;self) -&gt; Vec&lt;CellDiff&lt;&#x27;_&gt;&gt; {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:CellDiff" href="struct.CellDiff.html"><code>CellDiff</code></a></div></td><td>Return cells that differ between back and front — the minimal render set.</td></tr><tr><td id="method-diff-into-125"><code>diff_into</code></td><td><code>pub fn diff_into(&amp;self, out: &amp;mut Vec&lt;(u16, u16, char, Color, Color)&gt;) {</code></td><td>Fill `out` with raw (pre-resolve) diff tuples, reusing the allocation across frames.</td></tr><tr><td id="method-swap-141"><code>swap</code></td><td><code>pub fn swap(&amp;mut self) {</code></td><td>Promote back buffer to front — call after every successful flush.</td></tr><tr><td id="method-invalidate-146"><code>invalidate</code></td><td><code>pub fn invalidate(&amp;mut self) {</code></td><td>Force a full re-flush on the next render (e.g. after terminal resize).</td></tr><tr><td id="method-resize-153"><code>resize</code></td><td><code>pub fn resize(&amp;mut self, width: u16, height: u16) {</code></td><td>Resize both buffers, preserving nothing (invalidates front for full redraw).</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Cell" href="struct.Cell.html"><code>Cell</code></a> <span class="entity-meta">struct · engine-core/src/buffer.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:CellDiff" href="struct.CellDiff.html"><code>CellDiff</code></a> <span class="entity-meta">struct · engine-core/src/buffer.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

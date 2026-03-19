@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine::render_policy — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine::render_policy</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../index.html">Home</a> / <a href="../../index.html">API Reference</a> / <a href="../index.html">Modules</a> / engine::render_policy</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Renderer-mode and font-spec resolution helpers used by the compositor.</p>
+        <p><strong>Source:</strong> <code>engine/src/render_policy.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Renderer-mode and font-spec resolution helpers used by the compositor.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><em>No public types captured from this module.</em></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-resolve-renderer-mode"><code>resolve_renderer_mode</code></td><td><code>pub fn resolve_renderer_mode( scene_mode: SceneRenderedMode, force_renderer_mode: Option&lt;SceneRenderedMode&gt;, ) -&gt; SceneRenderedMode {</code></td><td>Returns the effective render mode, applying `force_renderer_mode` over `scene_mode` when set.</td></tr><tr><td id="fn-resolve-font-spec"><code>resolve_font_spec</code></td><td><code>pub fn resolve_font_spec( font: Option&lt;&amp;str&gt;, force_font_mode: Option&lt;&amp;str&gt;, scene_mode: SceneRenderedMode, force_renderer_mode: Option&lt;SceneRenderedMode&gt;, ) -&gt; Option&lt;String&gt; {</code></td><td>Resolves the final font spec string, applying force-font and generic-mode overrides.</td></tr><tr><td id="fn-resolve-text-font-spec"><code>resolve_text_font_spec</code></td><td><code>pub fn resolve_text_font_spec( font: Option&lt;&amp;str&gt;, force_font_mode: Option&lt;&amp;str&gt;, size: Option&lt;SpriteSizePreset&gt;, scene_mode: SceneRenderedMode, force_renderer_mode: Option&lt;SceneRenderedMode&gt;, ) -&gt; Option&lt;String&gt; {</code></td><td>Resolves the font spec for a text sprite, deriving a generic mode from `size` when appropriate.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../codemap.js"></script>
+  <script defer src="../../../../docref.js" data-codemap-json="../../../../codemap.json"></script>
+</body>
+</html>

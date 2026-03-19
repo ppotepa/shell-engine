@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AudioRuntime — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> AudioRuntime</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine/audio.html">engine::audio</a> / AudioRuntime</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/audio.rs:AudioRuntime</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/audio.rs:24</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/audio.rs" href="../../../modules/engine/audio.html"><code>engine::audio</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Buffers [`AudioCommand`]s each frame and flushes them to the active [`AudioBackend`].</p>
+          <div class="signature-block"><pre><code>pub struct AudioRuntime {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Buffers [`AudioCommand`]s each frame and flushes them to the active [`AudioBackend`].</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-backend"><code>backend</code></td><td><code>backend: Box&lt;dyn AudioBackend + Send + Sync&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="trait:engine/src/audio.rs:AudioBackend" href="trait.AudioBackend.html"><code>AudioBackend</code></a></div></td><td><code>Box&lt;dyn AudioBackend + Send + Sync&gt;</code></td><td></td></tr><tr><td id="field-pending"><code>pending</code></td><td><code>pending: Vec&lt;AudioCommand&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/audio.rs:AudioCommand" href="struct.AudioCommand.html"><code>AudioCommand</code></a></div></td><td><code>Vec&lt;AudioCommand&gt;</code></td><td></td></tr><tr><td id="field-played"><code>played</code></td><td><code>played: Vec&lt;AudioCommand&gt;</code></td><td><code>Vec&lt;AudioCommand&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-null-32"><code>null</code></td><td><code>pub fn null() -&gt; Self {</code></td><td>Creates an [`AudioRuntime`] backed by [`NullAudioBackend`].</td></tr><tr><td id="method-queue-41"><code>queue</code></td><td><code>pub fn queue(&amp;mut self, command: AudioCommand) {</code></td><td>Enqueues `command` for playback on the next [`flush`](Self::flush) call.</td></tr><tr><td id="method-flush-46"><code>flush</code></td><td><code>pub fn flush(&amp;mut self) {</code></td><td>Sends all pending commands to the backend and moves them to the played history.</td></tr><tr><td id="method-played-54"><code>played</code></td><td><code>pub fn played(&amp;self) -&gt; &amp;[AudioCommand] {</code></td><td>Returns the slice of commands that have already been flushed to the backend.</td></tr><tr><td id="method-pending-len-59"><code>pending_len</code></td><td><code>pub fn pending_len(&amp;self) -&gt; usize {</code></td><td>Returns the number of commands waiting to be flushed.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine/src/audio.rs:AudioCommand" href="struct.AudioCommand.html"><code>AudioCommand</code></a> <span class="entity-meta">struct · engine/src/audio.rs</span></li><li><a class="entity-ref" data-entity-id="trait:engine/src/audio.rs:AudioBackend" href="trait.AudioBackend.html"><code>AudioBackend</code></a> <span class="entity-meta">trait · engine/src/audio.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

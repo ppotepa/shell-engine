@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SourceLoader — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge trait">trait</span> SourceLoader</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine/asset_source.html">engine::asset_source</a> / SourceLoader</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>trait:engine/src/asset_source.rs:SourceLoader</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/asset_source.rs:58</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/asset_source.rs" href="../../../modules/engine/asset_source.html"><code>engine::asset_source</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Loads raw bytes for a given source reference.</p>
+          <div class="signature-block"><pre><code>pub trait SourceLoader {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Loads raw bytes for a given source reference.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-read-bytes"><code>read_bytes</code></td><td><code>fn read_bytes(&amp;self, source: &amp;SourceRef) -&gt; Result&lt;Vec&lt;u8&gt;, EngineError&gt;;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/asset_source.rs:SourceRef" href="struct.SourceRef.html"><code>SourceRef</code></a>, <a class="entity-ref" data-entity-id="enum:engine/src/error.rs:EngineError" href="../error/enum.EngineError.html"><code>EngineError</code></a></div></td><td></td></tr><tr><td id="method-has-source"><code>has_source</code></td><td><code>fn has_source(&amp;self, source: &amp;SourceRef) -&gt; Result&lt;bool, EngineError&gt;;</code></td><td></td></tr><tr><td id="method-cache-key"><code>cache_key</code></td><td><code>fn cache_key(&amp;self, source: &amp;SourceRef) -&gt; String;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implementors</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine/src/asset_source.rs:ModAssetSourceLoader" href="struct.ModAssetSourceLoader.html"><code>ModAssetSourceLoader</code></a> <span class="entity-meta">struct · engine/src/asset_source.rs</span></li></ul>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine/src/error.rs:EngineError" href="../error/enum.EngineError.html"><code>EngineError</code></a> <span class="entity-meta">enum · engine/src/error.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/asset_source.rs:SourceRef" href="struct.SourceRef.html"><code>SourceRef</code></a> <span class="entity-meta">struct · engine/src/asset_source.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

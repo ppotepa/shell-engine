@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine::systems::compositor::layout::tracks — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine::systems::compositor::layout::tracks</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../../index.html">Home</a> / <a href="../../../../../index.html">API Reference</a> / <a href="../../../../index.html">Modules</a> / engine::systems::compositor::layout::tracks</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>CSS-like track sizing primitives used by grid layout.</p>
+        <p><strong>Source:</strong> <code>engine/src/systems/compositor/layout/tracks.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>CSS-like track sizing primitives used by grid layout.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><em>No public types captured from this module.</em></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-parse-track-spec"><code>parse_track_spec</code></td><td><code>pub(crate) fn parse_track_spec(input: &amp;str) -&gt; TrackSpec {</code></td><td>Parses a track spec string (`&quot;auto&quot;`, `&quot;2fr&quot;`, `&quot;12&quot;`) into a [`TrackSpec`].</td></tr><tr><td id="fn-resolve-track-sizes"><code>resolve_track_sizes</code></td><td><code>pub(crate) fn resolve_track_sizes( specs: &amp;[TrackSpec], container: u16, gap: u16, auto_reqs: &amp;[(usize, u16)], ) -&gt; Vec&lt;u16&gt; {</code></td><td>Resolves track specs into concrete cell sizes inside the given container.</td></tr><tr><td id="fn-track-start"><code>track_start</code></td><td><code>pub(crate) fn track_start(sizes: &amp;[u16], gap: u16, track_idx: usize) -&gt; u16 {</code></td><td>Returns the start offset of a track inside the resolved sizes array.</td></tr><tr><td id="fn-span-size"><code>span_size</code></td><td><code>pub(crate) fn span_size(sizes: &amp;[u16], gap: u16, start_idx: usize, span: usize) -&gt; u16 {</code></td><td>Returns the size of a multi-track span including gaps.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../../docref.js" data-codemap-json="../../../../../../../codemap.json"></script>
+</body>
+</html>

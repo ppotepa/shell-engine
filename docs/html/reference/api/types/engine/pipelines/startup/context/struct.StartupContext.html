@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StartupContext — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> StartupContext</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../../index.html">Home</a> / <a href="../../../../../index.html">API Reference</a> / <a href="../../../../index.html">Types</a> / <a href="../../../../../modules/engine/pipelines/startup/context.html">engine::pipelines::startup::context</a> / StartupContext</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/pipelines/startup/context.rs:StartupContext</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/pipelines/startup/context.rs:20</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/pipelines/startup/context.rs" href="../../../../../modules/engine/pipelines/startup/context.html"><code>engine::pipelines::startup::context</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Read-only view of the mod under validation, with lazy-loaded scene cache.</p>
+          <div class="signature-block"><pre><code>pub struct StartupContext&lt;&#x27;a&gt; {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Read-only view of the mod under validation, with lazy-loaded scene cache.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-mod-source"><code>mod_source</code></td><td><code>mod_source: &amp;&#x27;a Path</code></td><td><code>&amp;&#x27;a Path</code></td><td></td></tr><tr><td id="field-manifest"><code>manifest</code></td><td><code>manifest: &amp;&#x27;a Value</code></td><td><code>&amp;&#x27;a Value</code></td><td></td></tr><tr><td id="field-entrypoint"><code>entrypoint</code></td><td><code>entrypoint: &amp;&#x27;a str</code></td><td><code>&amp;&#x27;a str</code></td><td></td></tr><tr><td id="field-scene-cache"><code>scene_cache</code></td><td><code>scene_cache: OnceLock&lt;Vec&lt;StartupSceneFile&gt;&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/pipelines/startup/context.rs:StartupSceneFile" href="struct.StartupSceneFile.html"><code>StartupSceneFile</code></a></div></td><td><code>OnceLock&lt;Vec&lt;StartupSceneFile&gt;&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-29"><code>new</code></td><td><code>pub fn new(mod_source: &amp;&#x27;a Path, manifest: &amp;&#x27;a Value, entrypoint: &amp;&#x27;a str) -&gt; Self {</code></td><td>Creates a new context for the given mod source, manifest, and entrypoint.</td></tr><tr><td id="method-mod-source-39"><code>mod_source</code></td><td><code>pub fn mod_source(&amp;self) -&gt; &amp;Path {</code></td><td>Returns the path to the mod source directory or archive.</td></tr><tr><td id="method-manifest-44"><code>manifest</code></td><td><code>pub fn manifest(&amp;self) -&gt; &amp;Value {</code></td><td>Returns the parsed `mod.yaml` manifest value.</td></tr><tr><td id="method-entrypoint-49"><code>entrypoint</code></td><td><code>pub fn entrypoint(&amp;self) -&gt; &amp;str {</code></td><td>Returns the entrypoint scene path declared in the manifest.</td></tr><tr><td id="method-all-scenes-54"><code>all_scenes</code></td><td><code>pub fn all_scenes(&amp;self) -&gt; Result&lt;&amp;[StartupSceneFile], EngineError&gt; {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine/src/error.rs:EngineError" href="../../../error/enum.EngineError.html"><code>EngineError</code></a></div></td><td>Returns (and caches) every parsed scene in the mod, loading them on first call.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine/src/error.rs:EngineError" href="../../../error/enum.EngineError.html"><code>EngineError</code></a> <span class="entity-meta">enum · engine/src/error.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/pipelines/startup/context.rs:StartupSceneFile" href="struct.StartupSceneFile.html"><code>StartupSceneFile</code></a> <span class="entity-meta">struct · engine/src/pipelines/startup/context.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../../docref.js" data-codemap-json="../../../../../../../codemap.json"></script>
+</body>
+</html>

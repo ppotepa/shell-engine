@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>editor::io::recent — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>editor::io::recent</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Modules</a> / editor::io::recent</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Recent project list persistence: load, save, and push with deduplication.</p>
+        <p><strong>Source:</strong> <code>editor/src/io/recent.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Recent project list persistence: load, save, and push with deduplication.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><em>No public types captured from this module.</em></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-load-recent"><code>load_recent</code></td><td><code>pub fn load_recent() -&gt; Vec&lt;String&gt; {</code></td><td>Loads and deduplicates the recent project list from `~/.config/sq-editor/recent_projects.txt`.</td></tr><tr><td id="fn-save-recent"><code>save_recent</code></td><td><code>pub fn save_recent(items: &amp;[String]) {</code></td><td>Persists up to `MAX_RECENT` project paths to disk.</td></tr><tr><td id="fn-push-recent"><code>push_recent</code></td><td><code>pub fn push_recent(items: &amp;mut Vec&lt;String&gt;, path: &amp;str) {</code></td><td>Prepends `path` to `items`, deduplicating on canonical form and capping at `MAX_RECENT`.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

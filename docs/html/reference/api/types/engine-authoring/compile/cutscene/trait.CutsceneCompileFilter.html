@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CutsceneCompileFilter — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge trait">trait</span> CutsceneCompileFilter</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine-authoring/compile/cutscene.html">engine-authoring::compile::cutscene</a> / CutsceneCompileFilter</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>trait:engine-authoring/src/compile/cutscene.rs:CutsceneCompileFilter</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-authoring/src/compile/cutscene.rs:23</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-authoring/src/compile/cutscene.rs" href="../../../../modules/engine-authoring/compile/cutscene.html"><code>engine-authoring::compile::cutscene</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Extension point for compile-time cutscene frame transforms.</p>
+          <div class="signature-block"><pre><code>pub trait CutsceneCompileFilter {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Extension point for compile-time cutscene frame transforms.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-name"><code>name</code></td><td><code>fn name(&amp;self) -&gt; &amp;&#x27;static str;</code></td><td></td></tr><tr><td id="method-apply"><code>apply</code></td><td><code>fn apply( &amp;self, frame: &amp;mut CutsceneCompileFrame, params: &amp;Mapping, ) -&gt; Result&lt;(), serde_yaml::Error&gt;;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-authoring/src/compile/cutscene.rs:CutsceneCompileFrame" href="struct.CutsceneCompileFrame.html"><code>CutsceneCompileFrame</code></a></div></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implementors</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-authoring/src/compile/cutscene.rs:DurationScaleFilter" href="struct.DurationScaleFilter.html"><code>DurationScaleFilter</code></a> <span class="entity-meta">struct · engine-authoring/src/compile/cutscene.rs</span></li></ul>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-authoring/src/compile/cutscene.rs:CutsceneCompileFrame" href="struct.CutsceneCompileFrame.html"><code>CutsceneCompileFrame</code></a> <span class="entity-meta">struct · engine-authoring/src/compile/cutscene.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

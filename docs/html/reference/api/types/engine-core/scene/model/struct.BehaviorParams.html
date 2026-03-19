@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BehaviorParams — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> BehaviorParams</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine-core/scene/model.html">engine-core::scene::model</a> / BehaviorParams</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-core/src/scene/model.rs:BehaviorParams</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-core/src/scene/model.rs:50</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-core/src/scene/model.rs" href="../../../../modules/engine-core/scene/model.html"><code>engine-core::scene::model</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Shared parameter bag for authored behavior declarations that survive into the runtime scene model.</p>
+          <div class="signature-block"><pre><code>pub struct BehaviorParams {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Shared parameter bag for authored behavior declarations that survive into the runtime scene model.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-target"><code>target</code></td><td><code>pub target: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-stages"><code>stages</code></td><td><code>pub stages: Vec&lt;String&gt;</code></td><td><code>Vec&lt;String&gt;</code></td><td></td></tr><tr><td id="field-time-scope"><code>time_scope</code></td><td><code>pub time_scope: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-start-ms"><code>start_ms</code></td><td><code>pub start_ms: Option&lt;u64&gt;</code></td><td><code>Option&lt;u64&gt;</code></td><td></td></tr><tr><td id="field-end-ms"><code>end_ms</code></td><td><code>pub end_ms: Option&lt;u64&gt;</code></td><td><code>Option&lt;u64&gt;</code></td><td></td></tr><tr><td id="field-visible-ms"><code>visible_ms</code></td><td><code>pub visible_ms: Option&lt;u64&gt;</code></td><td><code>Option&lt;u64&gt;</code></td><td></td></tr><tr><td id="field-hidden-ms"><code>hidden_ms</code></td><td><code>pub hidden_ms: Option&lt;u64&gt;</code></td><td><code>Option&lt;u64&gt;</code></td><td></td></tr><tr><td id="field-period-ms"><code>period_ms</code></td><td><code>pub period_ms: Option&lt;u64&gt;</code></td><td><code>Option&lt;u64&gt;</code></td><td></td></tr><tr><td id="field-phase-ms"><code>phase_ms</code></td><td><code>pub phase_ms: Option&lt;u64&gt;</code></td><td><code>Option&lt;u64&gt;</code></td><td></td></tr><tr><td id="field-amplitude-x"><code>amplitude_x</code></td><td><code>pub amplitude_x: Option&lt;i32&gt;</code></td><td><code>Option&lt;i32&gt;</code></td><td></td></tr><tr><td id="field-amplitude-y"><code>amplitude_y</code></td><td><code>pub amplitude_y: Option&lt;i32&gt;</code></td><td><code>Option&lt;i32&gt;</code></td><td></td></tr><tr><td id="field-index"><code>index</code></td><td><code>pub index: Option&lt;usize&gt;</code></td><td><code>Option&lt;usize&gt;</code></td><td></td></tr><tr><td id="field-side"><code>side</code></td><td><code>pub side: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-padding"><code>padding</code></td><td><code>pub padding: Option&lt;i32&gt;</code></td><td><code>Option&lt;i32&gt;</code></td><td></td></tr><tr><td id="field-autoscale-height"><code>autoscale_height</code></td><td><code>pub autoscale_height: Option&lt;bool&gt;</code></td><td><code>Option&lt;bool&gt;</code></td><td></td></tr><tr><td id="field-count"><code>count</code></td><td><code>pub count: Option&lt;usize&gt;</code></td><td><code>Option&lt;usize&gt;</code></td><td></td></tr><tr><td id="field-window"><code>window</code></td><td><code>pub window: Option&lt;usize&gt;</code></td><td><code>Option&lt;usize&gt;</code></td><td></td></tr><tr><td id="field-step-y"><code>step_y</code></td><td><code>pub step_y: Option&lt;i32&gt;</code></td><td><code>Option&lt;i32&gt;</code></td><td></td></tr><tr><td id="field-endless"><code>endless</code></td><td><code>pub endless: Option&lt;bool&gt;</code></td><td><code>Option&lt;bool&gt;</code></td><td></td></tr><tr><td id="field-item-prefix"><code>item_prefix</code></td><td><code>pub item_prefix: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-src"><code>src</code></td><td><code>pub src: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-script"><code>script</code></td><td><code>pub script: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <p><em>No methods captured from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

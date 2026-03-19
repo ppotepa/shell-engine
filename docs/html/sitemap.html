@@ -2,132 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Site Map — Shell Quest Docs</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Site Map — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="doc-page">
+<body class="doc-page api-doc-page">
+
   <header class="header">
     <h1>Site Map</h1>
-    <nav class="breadcrumb-path">
-      <a href="index.html">Home</a> / Site Map
-    </nav>
+    <nav class="breadcrumb-path"><a href="index.html">Home</a> / Site Map</nav>
   </header>
-  
   <div class="container">
     <main class="content">
       <section class="doc-section">
-        <h2>Documentation Structure</h2>
+        <h2>Generated structure</h2>
         <ul>
-          <li><strong>index.html</strong> — Home page and quick navigation</li>
-          <li><strong>toc.html</strong> — Full table of contents</li>
-          <li><strong>sitemap.html</strong> — This file</li>
-          <li><strong>glossary.html</strong> — Terminology and concepts</li>
-          <li><strong>filemap.html</strong> — Project file structure</li>
-          <li><strong>styles.css</strong> — Shared stylesheet</li>
+          <li>index.html</li>
+          <li>toc.html</li>
+          <li>codemap.json</li>
+          <li>codemap.js</li>
+          <li>docref.js</li>
+          <li>reference/api/index.html</li>
+          <li>reference/api/types/index.html</li>
+          <li>reference/api/modules/index.html</li>
         </ul>
       </section>
-      
       <section class="doc-section">
-        <h2>Architecture (5 pages)</h2>
+        <h2>Entity totals</h2>
         <ul>
-          <li>architecture/overview.html</li>
-          <li>architecture/startup_flow.html</li>
-          <li>architecture/frame_pipeline.html</li>
-          <li>architecture/input_flow.html</li>
-          <li>architecture/asset_pipeline.html</li>
+          <li>Total types: 219</li>
+          <li>Total modules: 170</li>
         </ul>
-      </section>
-      
-      <section class="doc-section">
-        <h2>Domains (8 pages)</h2>
-        <ul>
-          <li>domains/app.html</li>
-          <li>domains/engine.html</li>
-          <li>domains/engine-core.html</li>
-          <li>domains/engine-authoring.html</li>
-          <li>domains/editor.html</li>
-          <li>domains/mods.html</li>
-          <li>domains/tools.html</li>
-        </ul>
-      </section>
-      
-      <section class="doc-section">
-        <h2>Reference — Types (221 pages)</h2>
-        <ul>
-          <li>reference/types/index.html — Type catalog</li>
-          <li><strong>Structs</strong> (158 pages):
-            <ul>
-              <li>reference/types/structs/index.html</li>
-              <li>reference/types/structs/Scene.html</li>
-              <li>reference/types/structs/Sprite.html</li>
-              <li>reference/types/structs/Layer.html</li>
-              <li>reference/types/structs/Effect.html</li>
-              <li>... and 153 more struct pages</li>
-            </ul>
-          </li>
-          <li><strong>Enums</strong> (52 pages):
-            <ul>
-              <li>reference/types/enums/index.html</li>
-              <li>reference/types/enums/EngineEvent.html</li>
-              <li>reference/types/enums/BehaviorCommand.html</li>
-              <li>... and 49 more enum pages</li>
-            </ul>
-          </li>
-          <li><strong>Traits</strong> (11 pages):
-            <ul>
-              <li>reference/types/traits/index.html</li>
-              <li>reference/types/traits/AssetRepository.html</li>
-              <li>reference/types/traits/Effect.html</li>
-              <li>... and 8 more trait pages</li>
-            </ul>
-          </li>
-        </ul>
-      </section>
-      
-      <section class="doc-section">
-        <h2>Reference — Systems (10 pages)</h2>
-        <ul>
-          <li>reference/systems/index.html</li>
-          <li>reference/systems/Animator.html</li>
-          <li>reference/systems/Compositor.html</li>
-          <li>reference/systems/Renderer.html</li>
-          <li>reference/systems/BehaviorSystem.html</li>
-          <li>reference/systems/AudioSystem.html</li>
-          <li>reference/systems/SceneLifecycleManager.html</li>
-          <li>reference/systems/MenuSystem.html</li>
-          <li>reference/systems/GameLoop.html</li>
-          <li>reference/systems/AssetLoader.html</li>
-        </ul>
-      </section>
-      
-      <section class="doc-section">
-        <h2>Reference — Modules (13 pages)</h2>
-        <ul>
-          <li>reference/modules/index.html</li>
-          <li>reference/modules/engine_game_loop_rs.html</li>
-          <li>reference/modules/engine_scene_runtime_rs.html</li>
-          <li>reference/modules/engine_world_rs.html</li>
-          <li>reference/modules/engine_events_rs.html</li>
-          <li>reference/modules/engine-core_scene_model_rs.html</li>
-          <li>reference/modules/engine-core_behaviors_mod_rs.html</li>
-          <li>reference/modules/engine-core_effects_mod_rs.html</li>
-          <li>reference/modules/engine-authoring_compile_scene_rs.html</li>
-          <li>reference/modules/engine-authoring_schema_mod_rs.html</li>
-          <li>reference/modules/editor_app_rs.html</li>
-          <li>reference/modules/editor_state_mod_rs.html</li>
-          <li>reference/modules/tools_schema-gen_src_main_rs.html</li>
-        </ul>
-      </section>
-      
-      <section class="doc-section">
-        <h2>Total: 273 pages + CSS + registry</h2>
-        <p><strong>Complete coverage:</strong> 217 types (157 structs, 51 enums, 10 traits) fully documented.</p>
       </section>
     </main>
   </div>
-  
-  <footer class="footer">
-    <p>Shell Quest Engine Documentation</p>
-  </footer>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
 </body>
 </html>
