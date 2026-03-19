@@ -35,7 +35,8 @@ cargo run -p editor
 - `assets.md` - asset, sprite, object, and source model guide
 - `editor.md` - editor architecture and refactor direction
 - `docs/scene-centric-authoring.md` - scene/layer/object authoring model
-- `docs/carousel-menu-object.md` - SRP draft for dedicated carousel menu object
+- `docs/carousel-menu-object.md` - centered menu composition pattern (object + runtime behavior)
+- `docs/cutout.md` - aktualne działanie efektu cutout i diagnostyka YAML
 
 ## How the project fits together
 
@@ -71,6 +72,77 @@ layers:
 ```
 
 instead of relying only on implicit package merge order.
+
+Current scene composition also supports:
+
+- `stages-ref` for reusable lifecycle presets (`/stages/*.yml`)
+- `cutscene-ref` for frame-timed cutscene expansion
+- `menu-options` with `to` routing alias
+- `sprite-defaults` on scene/layer/sprite scopes
+- `frame-sequence` sprite expansion for PNG sequence animation
+- `logic` na scenie (`native` / `script`) oraz auto-detekcję sidecarów logiki (`*.rhai`, `*.logic.rhai`, `*.logic.yml`)
+
+## Runtime facts: menu + logic
+
+- `menu-options` są obsługiwane wyłącznie gdy scena jest w `on_idle` i `on_idle.trigger` ma wartość `any-key`.
+- Przejście menu działa przez: klawisze opcji (np. `1`, `2`), `Enter` (aktywna pozycja), strzałki (nawigacja).
+- Scena może ładować logikę skryptową Rhai przez:
+  - `logic: { type: script, src: ./plik.rhai }`,
+  - albo przez sidecar wykrywany automatycznie przy scenie (bez bloku `logic`).
+- Zakres komend emitowanych przez `rhai-script`:
+  - `visibility` (`target`, `visible`)
+  - `offset` (`target`, `dx`, `dy`)
+
+### Rhai sidecar naming
+
+Auto-detekcja sidecarów logiki:
+
+- dla scen pakietowych `scenes/<name>/scene.yml`:
+  - `<name>.rhai`
+  - `scene.rhai`
+  - `<name>.logic.rhai`
+  - `scene.logic.rhai`
+  - `<name>.logic.yml`
+  - `scene.logic.yml`
+- dla scen single-file `scenes/<name>.yml`:
+  - `<name>.rhai`
+  - `<name>.logic.rhai`
+  - `<name>.logic.yml`
+
+### YAML diagnostics cheat sheet
+
+| Komunikat walidacji | Najczęstsza przyczyna | Co poprawić |
+| --- | --- | --- |
+| `Property stretch-to-area is not allowed.` | Klucz wstawiony do węzła, który nie dopuszcza tej właściwości | Sprawdź schema dla bieżącego kontekstu (`scene`/`layer`/`sprite`/`object`) i przenieś klucz do poprawnego miejsca |
+| `Value is not divisible by 0.05000000074505806.` | Parametr ma ograniczenie `multipleOf: 0.05` | Użyj wartości w krokach `0.05` (`0.10`, `0.15`, `0.20`...) |
+| Menu nie reaguje na `Enter`/strzałki | `on_idle.trigger` nie jest `any-key` | Ustaw `stages.on_idle.trigger: any-key` lub użyj `stages-ref` z takim triggerem |
+| `next/to` nie przechodzi do sceny | Brak docelowego `id` lub literówka w referencji | Sprawdź `menu-options[].to` / `next` i istnienie sceny docelowej |
+
+### Minimal menu scene (working)
+
+```yaml
+# scenes/menu/scene.yml
+id: my-menu
+title: My Menu
+bg: black
+layers:
+  - ref: main
+stages-ref: /stages/anykey-loop-1200-fade-250-180.yml
+next: my-scene-a
+menu-options:
+  - { key: "1", label: "SCENE A", to: my-scene-a }
+  - { key: "2", label: "SCENE B", to: my-scene-b }
+```
+
+```yaml
+# scenes/menu/layers/main.yml
+- name: menu
+  z_index: 0
+  sprites:
+    - { type: text, content: "MY MENU", at: ct, y: -6, font: "generic:1", fg: white }
+    - { type: text, content: "[1] SCENE A", at: cc, y: -1, font: "generic:1", fg: silver }
+    - { type: text, content: "[2] SCENE B", at: cc, y: 1, font: "generic:1", fg: gray }
+```
 
 ## Practical engine limits to remember
 
