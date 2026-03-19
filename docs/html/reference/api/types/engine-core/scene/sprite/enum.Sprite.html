@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sprite — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge enum">enum</span> Sprite</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine-core/scene/sprite.html">engine-core::scene::sprite</a> / Sprite</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>enum:engine-core/src/scene/sprite.rs:Sprite</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-core/src/scene/sprite.rs:112</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-core/src/scene/sprite.rs" href="../../../../modules/engine-core/scene/sprite.html"><code>engine-core::scene::sprite</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>A drawable object within a layer. Has its own local bitmap position and lifecycle.</p>
+          <div class="signature-block"><pre><code>pub enum Sprite {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>A drawable object within a layer. Has its own local bitmap position and lifecycle.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Variants</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="variant-Text"><code>Text</code></td><td><code>Text {</code></td><td><code></code></td><td>Terminal-native text sprite. If `font` is None: characters written directly to buffer (fast path). If `font` is Some: text is rasterized using a bitmap font definition (rasterizer path).</td></tr><tr><td id="variant-Image"><code>Image</code></td><td><code>Image {</code></td><td><code></code></td><td>Bitmap image sprite rendered on terminal grid in selected mode.</td></tr><tr><td id="variant-Obj"><code>Obj</code></td><td><code>Obj {</code></td><td><code></code></td><td>Wavefront OBJ mesh rendered as terminal wireframe.</td></tr><tr><td id="variant-Grid"><code>Grid</code></td><td><code>Grid {</code></td><td><code></code></td><td>Grid layout container. Children are renderable sprites arranged in rows/columns.</td></tr><tr><td id="variant-Flex"><code>Flex</code></td><td><code>Flex {</code></td><td><code></code></td><td>Flex layout container. Children are auto-stacked vertically (column) or horizontally (row).</td></tr></tbody></table>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:Animation" href="../model/struct.Animation.html"><code>Animation</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:BehaviorSpec" href="../model/struct.BehaviorSpec.html"><code>BehaviorSpec</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:LayerStages" href="../model/struct.LayerStages.html"><code>LayerStages</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

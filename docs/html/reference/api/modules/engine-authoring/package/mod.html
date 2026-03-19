@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine-authoring::package::mod — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine-authoring::package::mod</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Modules</a> / engine-authoring::package::mod</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Scene-package assembly helpers. This module owns the authored scene-package merge semantics independently from filesystem or zip transport details. Callers provide the root manifest plus already-loaded partial files, and this module applies the shared merge order used by the authoring pipeline.</p>
+        <p><strong>Source:</strong> <code>engine-authoring/src/package/mod.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Scene-package assembly helpers.</p>
+<p>This module owns the authored scene-package merge semantics independently from filesystem or zip transport details. Callers provide the root manifest plus already-loaded partial files, and this module applies the shared merge order used by the authoring pipeline.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-authoring/src/package/mod.rs:PackageError" href="../../../types/engine-authoring/package/mod/struct.PackageError.html"><code>PackageError</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine-authoring/src/package/mod.rs:PackageYamlFile" href="../../../types/engine-authoring/package/mod/struct.PackageYamlFile.html"><code>PackageYamlFile</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine-authoring/src/package/mod.rs:ScenePackagePartials" href="../../../types/engine-authoring/package/mod/struct.ScenePackagePartials.html"><code>ScenePackagePartials</code></a> <span class="entity-meta">struct</span></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-assemble-scene-package"><code>assemble_scene_package</code></td><td><code>pub fn assemble_scene_package( root_content: &amp;str, root_path: &amp;str, partials: &amp;ScenePackagePartials, ) -&gt; Result&lt;String, PackageError&gt; {</code></td><td>Assembles one authored scene package into a single YAML document. Merge order is fixed and matches the current package contract: root `scene.yml` -&gt; `layers/` -&gt; `templates/` -&gt; `objects/`. Sequence partials for `layers` and `objects` are legacy fallbacks: if the root scene already defines the key explicitly, the authored root wins and package partials are not appended automatically.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BehaviorContext — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> BehaviorContext</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine/behavior.html">engine::behavior</a> / BehaviorContext</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/behavior.rs:BehaviorContext</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/behavior.rs:16</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/behavior.rs" href="../../../modules/engine/behavior.html"><code>engine::behavior</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Per-tick context passed to every [`Behavior::update`] call.</p>
+          <div class="signature-block"><pre><code>pub struct BehaviorContext {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Per-tick context passed to every [`Behavior::update`] call.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-stage"><code>stage</code></td><td><code>pub stage: SceneStage</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine/src/systems/animator.rs:SceneStage" href="../systems/animator/enum.SceneStage.html"><code>SceneStage</code></a></div></td><td><code>SceneStage</code></td><td></td></tr><tr><td id="field-scene-elapsed-ms"><code>scene_elapsed_ms</code></td><td><code>pub scene_elapsed_ms: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-stage-elapsed-ms"><code>stage_elapsed_ms</code></td><td><code>pub stage_elapsed_ms: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-menu-selected-index"><code>menu_selected_index</code></td><td><code>pub menu_selected_index: usize</code></td><td><code>usize</code></td><td></td></tr><tr><td id="field-target-resolver"><code>target_resolver</code></td><td><code>pub target_resolver: TargetResolver</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/scene_runtime.rs:TargetResolver" href="../scene_runtime/struct.TargetResolver.html"><code>TargetResolver</code></a></div></td><td><code>TargetResolver</code></td><td></td></tr><tr><td id="field-object-states"><code>object_states</code></td><td><code>pub object_states: std::collections::BTreeMap&lt;String, ObjectRuntimeState&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/scene_runtime.rs:ObjectRuntimeState" href="../scene_runtime/struct.ObjectRuntimeState.html"><code>ObjectRuntimeState</code></a></div></td><td><code>std::collections::BTreeMap&lt;String, ObjectRuntimeState&gt;</code></td><td></td></tr><tr><td id="field-object-regions"><code>object_regions</code></td><td><code>pub object_regions: std::collections::BTreeMap&lt;String, Region&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/effects/effect.rs:Region" href="../../engine-core/effects/effect/struct.Region.html"><code>Region</code></a></div></td><td><code>std::collections::BTreeMap&lt;String, Region&gt;</code></td><td></td></tr><tr><td id="field-ui-focused-target-id"><code>ui_focused_target_id</code></td><td><code>pub ui_focused_target_id: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-ui-last-submit-target-id"><code>ui_last_submit_target_id</code></td><td><code>pub ui_last_submit_target_id: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-ui-last-submit-text"><code>ui_last_submit_text</code></td><td><code>pub ui_last_submit_text: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-ui-last-change-target-id"><code>ui_last_change_target_id</code></td><td><code>pub ui_last_change_target_id: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-ui-last-change-text"><code>ui_last_change_text</code></td><td><code>pub ui_last_change_text: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-resolve-target-961"><code>resolve_target</code></td><td><code>pub fn resolve_target(&amp;self, target: &amp;str) -&gt; Option&lt;&amp;str&gt; {</code></td><td></td></tr><tr><td id="method-object-state-965"><code>object_state</code></td><td><code>pub fn object_state(&amp;self, object_id: &amp;str) -&gt; Option&lt;&amp;ObjectRuntimeState&gt; {</code></td><td></td></tr><tr><td id="method-object-region-969"><code>object_region</code></td><td><code>pub fn object_region(&amp;self, object_id: &amp;str) -&gt; Option&lt;&amp;Region&gt; {</code></td><td></td></tr><tr><td id="method-resolved-object-state-973"><code>resolved_object_state</code></td><td><code>pub fn resolved_object_state(&amp;self, target: &amp;str) -&gt; Option&lt;&amp;ObjectRuntimeState&gt; {</code></td><td></td></tr><tr><td id="method-resolved-object-region-978"><code>resolved_object_region</code></td><td><code>pub fn resolved_object_region(&amp;self, target: &amp;str) -&gt; Option&lt;&amp;Region&gt; {</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine/src/systems/animator.rs:SceneStage" href="../systems/animator/enum.SceneStage.html"><code>SceneStage</code></a> <span class="entity-meta">enum · engine/src/systems/animator.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/effects/effect.rs:Region" href="../../engine-core/effects/effect/struct.Region.html"><code>Region</code></a> <span class="entity-meta">struct · engine-core/src/effects/effect.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene_runtime.rs:ObjectRuntimeState" href="../scene_runtime/struct.ObjectRuntimeState.html"><code>ObjectRuntimeState</code></a> <span class="entity-meta">struct · engine/src/scene_runtime.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene_runtime.rs:TargetResolver" href="../scene_runtime/struct.TargetResolver.html"><code>TargetResolver</code></a> <span class="entity-meta">struct · engine/src/scene_runtime.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

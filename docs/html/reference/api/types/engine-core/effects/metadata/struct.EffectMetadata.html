@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EffectMetadata — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> EffectMetadata</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine-core/effects/metadata.html">engine-core::effects::metadata</a> / EffectMetadata</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-core/src/effects/metadata.rs:EffectMetadata</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-core/src/effects/metadata.rs:130</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-core/src/effects/metadata.rs" href="../../../../modules/engine-core/effects/metadata.html"><code>engine-core::effects::metadata</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Complete metadata for a builtin effect.</p>
+          <div class="signature-block"><pre><code>pub struct EffectMetadata {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Complete metadata for a builtin effect.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-name"><code>name</code></td><td><code>pub name: &amp;&#x27;static str</code></td><td><code>&amp;&#x27;static str</code></td><td>Internal effect name, matches registry key.</td></tr><tr><td id="field-display-name"><code>display_name</code></td><td><code>pub display_name: &amp;&#x27;static str</code></td><td><code>&amp;&#x27;static str</code></td><td>Human-readable display name.</td></tr><tr><td id="field-summary"><code>summary</code></td><td><code>pub summary: &amp;&#x27;static str</code></td><td><code>&amp;&#x27;static str</code></td><td>Short description shown in the effects browser.</td></tr><tr><td id="field-category"><code>category</code></td><td><code>pub category: &amp;&#x27;static str</code></td><td><code>&amp;&#x27;static str</code></td><td>Functional category string (fade / lightning / crt / colour / motion / distortion).</td></tr><tr><td id="field-compatible-targets"><code>compatible_targets</code></td><td><code>pub compatible_targets: EffectTargetMask</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/effects/effect.rs:EffectTargetMask" href="../effect/struct.EffectTargetMask.html"><code>EffectTargetMask</code></a></div></td><td><code>EffectTargetMask</code></td><td>Which target kinds this effect can safely operate on.</td></tr><tr><td id="field-params"><code>params</code></td><td><code>pub params: &amp;&#x27;static [ParamMetadata]</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/effects/metadata.rs:ParamMetadata" href="struct.ParamMetadata.html"><code>ParamMetadata</code></a></div></td><td><code>&amp;&#x27;static [ParamMetadata]</code></td><td>Ordered list of parameters this effect uses.</td></tr><tr><td id="field-sample"><code>sample</code></td><td><code>pub sample: &amp;&#x27;static str</code></td><td><code>&amp;&#x27;static str</code></td><td>Example YAML snippet shown in editor docs pane.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-slider-params-149"><code>slider_params</code></td><td><code>pub fn slider_params(&amp;self) -&gt; impl Iterator&lt;Item = &amp;ParamMetadata&gt; {</code></td><td>Returns only params that have a slider control — useful for live controls panel.</td></tr><tr><td id="method-all-params-154"><code>all_params</code></td><td><code>pub fn all_params(&amp;self) -&gt; &amp;[ParamMetadata] {</code></td><td>Returns all params — useful for docs pane.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/effects/effect.rs:EffectTargetMask" href="../effect/struct.EffectTargetMask.html"><code>EffectTargetMask</code></a> <span class="entity-meta">struct · engine-core/src/effects/effect.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/effects/metadata.rs:ParamMetadata" href="struct.ParamMetadata.html"><code>ParamMetadata</code></a> <span class="entity-meta">struct · engine-core/src/effects/metadata.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

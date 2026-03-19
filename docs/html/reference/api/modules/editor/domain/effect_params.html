@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>editor::domain::effect_params — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>editor::domain::effect_params</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Modules</a> / editor::domain::effect_params</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Effect parameter specifications, UI controls, and runtime value helpers.</p>
+        <p><strong>Source:</strong> <code>editor/src/domain/effect_params.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Effect parameter specifications, UI controls, and runtime value helpers.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:editor/src/domain/effect_params.rs:EffectParamControl" href="../../../types/editor/domain/effect_params/enum.EffectParamControl.html"><code>EffectParamControl</code></a> <span class="entity-meta">enum</span></li><li><a class="entity-ref" data-entity-id="struct:editor/src/domain/effect_params.rs:EffectParamSpec" href="../../../types/editor/domain/effect_params/struct.EffectParamSpec.html"><code>EffectParamSpec</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:editor/src/domain/effect_params.rs:EffectParamValue" href="../../../types/editor/domain/effect_params/struct.EffectParamValue.html"><code>EffectParamValue</code></a> <span class="entity-meta">struct</span></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-effect-param-specs"><code>effect_param_specs</code></td><td><code>pub fn effect_param_specs(effect_name: &amp;str) -&gt; &amp;&#x27;static [EffectParamSpec] {</code></td><td>Returns the parameter specifications for the named effect.</td></tr><tr><td id="fn-default-effect-params"><code>default_effect_params</code></td><td><code>pub fn default_effect_params(effect_name: &amp;str) -&gt; EffectParams {</code></td><td>Builds a default [`EffectParams`] populated with sensible values for the named effect.</td></tr><tr><td id="fn-effect-param-value"><code>effect_param_value</code></td><td><code>pub fn effect_param_value(params: &amp;EffectParams, name: &amp;str) -&gt; Option&lt;EffectParamValue&gt; {</code></td><td>Reads a named float parameter from an [`EffectParams`] instance.</td></tr><tr><td id="fn-param-label"><code>param_label</code></td><td><code>pub fn param_label(name: &amp;str) -&gt; &amp;&#x27;static str {</code></td><td>Returns a human-readable display label for the given parameter name.</td></tr><tr><td id="fn-param-text-value"><code>param_text_value</code></td><td><code>pub fn param_text_value(params: &amp;EffectParams, name: &amp;str) -&gt; Option&lt;String&gt; {</code></td><td>Formats the current value of a named parameter as a display string.</td></tr><tr><td id="fn-apply-overrides"><code>apply_overrides</code></td><td><code>pub fn apply_overrides( _effect_name: &amp;str, overrides: &amp;HashMap&lt;String, EffectParamValue&gt;, params: &amp;mut EffectParams, ) {</code></td><td>Applies a map of named float overrides to an [`EffectParams`] instance in-place.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

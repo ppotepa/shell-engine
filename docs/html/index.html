@@ -3,85 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Shell Quest Engine — Complete Documentation</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Home — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="doc-home">
+<body class="doc-page api-doc-page">
+
   <header class="header hero">
-    <h1>Shell Quest Engine</h1>
-    <p class="tagline">Complete Technical Documentation</p>
+    <h1>Shell Quest API Docs</h1>
+    <p class="tagline">Canonical type reference generated from concat-report.txt</p>
   </header>
-  
   <div class="container">
     <main class="content home-content">
-      <section class="hero-intro">
-        <h2>Welcome to Shell Quest Engine Documentation</h2>
-        <p>This is comprehensive technical documentation for the Shell Quest terminal game engine — a layered Rust-based system for authoring interactive scenes with real-time rendering, behavior scripting, and asset management.</p>
-        <p><strong>Generated from 183 source files (43,783 lines of code)</strong></p>
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>This site is rebuilt from scratch from the concat snapshot and currently focuses on canonical API pages for public types.</p>
+        <ul>
+          <li><strong>Snapshot:</strong> 2026-03-19 14:11:48 +0100</li>
+          <li><strong>Files:</strong> 183</li>
+          <li><strong>Types:</strong> 219 (158 structs, 51 enums, 10 traits)</li>
+          <li><strong>Modules indexed:</strong> 170</li>
+        </ul>
       </section>
-      
       <div class="quick-nav">
-        <div class="nav-card">
-          <h3><a href="toc.html">📋 Table of Contents</a></h3>
-          <p>Full hierarchical index of all sections.</p>
-        </div>
-        <div class="nav-card">
-          <h3><a href="architecture/overview.html">🏗️ Architecture</a></h3>
-          <p>System design, data flows, and lifecycle.</p>
-        </div>
-        <div class="nav-card">
-          <h3><a href="domains/engine.html">📦 Domains</a></h3>
-          <p>Seven top-level modules.</p>
-        </div>
-        <div class="nav-card">
-          <h3><a href="reference/types/index.html">🔍 Types</a></h3>
-          <p>Core data structures.</p>
-        </div>
-        <div class="nav-card">
-          <h3><a href="reference/systems/index.html">⚙️ Systems</a></h3>
-          <p>Runtime systems.</p>
-        </div>
-        <div class="nav-card">
-          <h3><a href="reference/modules/index.html">📄 Modules</a></h3>
-          <p>File-level reference.</p>
-        </div>
-        <div class="nav-card">
-          <h3><a href="glossary.html">📚 Glossary</a></h3>
-          <p>Terminology.</p>
-        </div>
-        <div class="nav-card">
-          <h3><a href="filemap.html">🗺️ File Map</a></h3>
-          <p>All files and structure.</p>
-        </div>
+        <div class="nav-card"><h3><a href="reference/api/index.html">API Reference</a></h3><p>Canonical API landing page.</p></div>
+        <div class="nav-card"><h3><a href="reference/api/types/index.html">Type Pages</a></h3><p>All public structs, enums, and traits.</p></div>
+        <div class="nav-card"><h3><a href="reference/api/modules/index.html">Module Pages</a></h3><p>Source modules extracted from the snapshot.</p></div>
+        <div class="nav-card"><h3><a href="codemap.json">codemap.json</a></h3><p>Machine-readable entity graph for links and hover cards.</p></div>
       </div>
-      
-      <section class="doc-section">
-        <h2>Quick Start</h2>
-        <ul>
-          <li><strong>New to engine?</strong> → <a href="architecture/overview.html">Architecture Overview</a></li>
-          <li><strong>Looking for a type?</strong> → <a href="reference/types/index.html">Types Reference</a></li>
-          <li><strong>Understanding systems?</strong> → <a href="reference/systems/index.html">Systems Reference</a></li>
-          <li><strong>Need a term?</strong> → <a href="glossary.html">Glossary</a></li>
-        </ul>
-      </section>
-      
-      <section class="doc-section">
-        <h2>Project Structure</h2>
-        <ul>
-          <li><a href="domains/app.html"><strong>app/</strong></a> — Launcher and CLI</li>
-          <li><a href="domains/engine.html"><strong>engine/</strong></a> — Runtime systems</li>
-          <li><a href="domains/engine-core.html"><strong>engine-core/</strong></a> — Core model</li>
-          <li><a href="domains/engine-authoring.html"><strong>engine-authoring/</strong></a> — YAML compilation</li>
-          <li><a href="domains/editor.html"><strong>editor/</strong></a> — TUI editor</li>
-          <li><a href="domains/mods.html"><strong>mods/</strong></a> — Content packages</li>
-          <li><a href="domains/tools.html"><strong>tools/</strong></a> — Dev tools</li>
-        </ul>
-      </section>
     </main>
   </div>
-  
-  <footer class="footer">
-    <p>Shell Quest Engine Documentation | Generated from concat-report.txt (183 files, 43,783 lines)</p>
-  </footer>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="codemap.js"></script>
+  <script defer src="docref.js" data-codemap-json="codemap.json"></script>
 </body>
 </html>

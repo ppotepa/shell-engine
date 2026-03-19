@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine::systems::compositor::render::common — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine::systems::compositor::render::common</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../../index.html">Home</a> / <a href="../../../../../index.html">API Reference</a> / <a href="../../../../index.html">Modules</a> / engine::systems::compositor::render::common</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Common render-time context and helpers shared across sprite variants.</p>
+        <p><strong>Source:</strong> <code>engine/src/systems/compositor/render/common.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Common render-time context and helpers shared across sprite variants.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><em>No public types captured from this module.</em></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-check-visibility"><code>check_visibility</code></td><td><code>pub(crate) fn check_visibility( hide_on_leave: bool, appear_at_ms: Option&lt;u64&gt;, disappear_at_ms: Option&lt;u64&gt;, current_stage: &amp;SceneStage, scene_elapsed_ms: u64, ) -&gt; Option&lt;u64&gt; {</code></td><td>Returns `Some(appear_at)` when the sprite should be rendered, `None` to skip.</td></tr><tr><td id="fn-sprite-transform-offset"><code>sprite_transform_offset</code></td><td><code>pub(crate) fn sprite_transform_offset( animations: &amp;[crate::scene::Animation], elapsed_ms: u64, ) -&gt; (i32, i32) {</code></td><td>Computes the aggregate animation offset for the current elapsed time.</td></tr><tr><td id="fn-compute-draw-pos"><code>compute_draw_pos</code></td><td><code>pub(crate) fn compute_draw_pos( base_x: i32, base_y: i32, animations: &amp;[crate::scene::Animation], sprite_elapsed: u64, object_state: &amp;ObjectRuntimeState, ) -&gt; (u16, u16) {</code></td><td>Resolves the final draw position after animation and runtime object offsets.</td></tr><tr><td id="fn-finalize-sprite"><code>finalize_sprite</code></td><td><code>pub(crate) fn finalize_sprite( object_id: Option&lt;&amp;str&gt;, sprite_region: Region, sprite_elapsed: u64, stages: &amp;LayerStages, ctx: &amp;mut RenderCtx&lt;&#x27;_&gt;, target_resolver: Option&lt;&amp;TargetResolver&gt;, object_regions: &amp;mut BTreeMap&lt;String, Region&gt;, ) {</code></td><td>Stores the object region and applies stage effects for the rendered sprite.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../../docref.js" data-codemap-json="../../../../../../../codemap.json"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scene — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> Scene</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine-core/scene/model.html">engine-core::scene::model</a> / Scene</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-core/src/scene/model.rs:Scene</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-core/src/scene/model.rs:508</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-core/src/scene/model.rs" href="../../../../modules/engine-core/scene/model.html"><code>engine-core::scene::model</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Runtime scene assembled from authored YAML, package fragments, templates, and object expansion. # YAML A scene may originate from a single `scenes/*.yml` file or from a packaged directory rooted at `scene.yml` plus `layers/`, `templates/`, and `objects/` fragments merged before deserialization.</p>
+          <div class="signature-block"><pre><code>pub struct Scene {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Runtime scene assembled from authored YAML, package fragments, templates, and object expansion.</p>
+<p># YAML</p>
+<p>A scene may originate from a single `scenes/*.yml` file or from a packaged directory rooted at `scene.yml` plus `layers/`, `templates/`, and `objects/` fragments merged before deserialization.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-id"><code>id</code></td><td><code>pub id: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-title"><code>title</code></td><td><code>pub title: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-cutscene"><code>cutscene</code></td><td><code>pub cutscene: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-target-fps"><code>target_fps</code></td><td><code>pub target_fps: Option&lt;u16&gt;</code></td><td><code>Option&lt;u16&gt;</code></td><td></td></tr><tr><td id="field-rendered-mode"><code>rendered_mode</code></td><td><code>pub rendered_mode: SceneRenderedMode</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-core/src/scene/model.rs:SceneRenderedMode" href="enum.SceneRenderedMode.html"><code>SceneRenderedMode</code></a></div></td><td><code>SceneRenderedMode</code></td><td></td></tr><tr><td id="field-virtual-size-override"><code>virtual_size_override</code></td><td><code>pub virtual_size_override: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-bg-colour"><code>bg_colour</code></td><td><code>pub bg_colour: Option&lt;TermColour&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-core/src/scene/color.rs:TermColour" href="../color/enum.TermColour.html"><code>TermColour</code></a></div></td><td><code>Option&lt;TermColour&gt;</code></td><td></td></tr><tr><td id="field-stages"><code>stages</code></td><td><code>pub stages: SceneStages</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneStages" href="struct.SceneStages.html"><code>SceneStages</code></a></div></td><td><code>SceneStages</code></td><td></td></tr><tr><td id="field-behaviors"><code>behaviors</code></td><td><code>pub behaviors: Vec&lt;BehaviorSpec&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:BehaviorSpec" href="struct.BehaviorSpec.html"><code>BehaviorSpec</code></a></div></td><td><code>Vec&lt;BehaviorSpec&gt;</code></td><td></td></tr><tr><td id="field-audio"><code>audio</code></td><td><code>pub audio: SceneAudio</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneAudio" href="struct.SceneAudio.html"><code>SceneAudio</code></a></div></td><td><code>SceneAudio</code></td><td></td></tr><tr><td id="field-ui"><code>ui</code></td><td><code>pub ui: SceneUi</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneUi" href="struct.SceneUi.html"><code>SceneUi</code></a></div></td><td><code>SceneUi</code></td><td></td></tr><tr><td id="field-layers"><code>layers</code></td><td><code>pub layers: Vec&lt;Layer&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:Layer" href="struct.Layer.html"><code>Layer</code></a></div></td><td><code>Vec&lt;Layer&gt;</code></td><td></td></tr><tr><td id="field-menu-options"><code>menu_options</code></td><td><code>pub menu_options: Vec&lt;MenuOption&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:MenuOption" href="struct.MenuOption.html"><code>MenuOption</code></a></div></td><td><code>Vec&lt;MenuOption&gt;</code></td><td></td></tr><tr><td id="field-input"><code>input</code></td><td><code>pub input: SceneInput</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneInput" href="struct.SceneInput.html"><code>SceneInput</code></a></div></td><td><code>SceneInput</code></td><td></td></tr><tr><td id="field-next"><code>next</code></td><td><code>pub next: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <p><em>No methods captured from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-core/src/scene/color.rs:TermColour" href="../color/enum.TermColour.html"><code>TermColour</code></a> <span class="entity-meta">enum · engine-core/src/scene/color.rs</span></li><li><a class="entity-ref" data-entity-id="enum:engine-core/src/scene/model.rs:SceneRenderedMode" href="enum.SceneRenderedMode.html"><code>SceneRenderedMode</code></a> <span class="entity-meta">enum · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:BehaviorSpec" href="struct.BehaviorSpec.html"><code>BehaviorSpec</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:Layer" href="struct.Layer.html"><code>Layer</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:MenuOption" href="struct.MenuOption.html"><code>MenuOption</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneAudio" href="struct.SceneAudio.html"><code>SceneAudio</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneInput" href="struct.SceneInput.html"><code>SceneInput</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneStages" href="struct.SceneStages.html"><code>SceneStages</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:SceneUi" href="struct.SceneUi.html"><code>SceneUi</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

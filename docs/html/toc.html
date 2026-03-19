@@ -2,141 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Table of Contents — Shell Quest Docs</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TOC — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="doc-page">
+<body class="doc-page api-doc-page">
+
   <header class="header">
     <h1>Table of Contents</h1>
-    <nav class="breadcrumb-path">
-      <a href="index.html">Home</a> / TOC
-    </nav>
+    <nav class="breadcrumb-path"><a href="index.html">Home</a> / TOC</nav>
   </header>
-  
   <div class="container">
     <main class="content">
-      <div class="toc-container">
-        <h2>Architecture & Flows (5 pages)</h2>
+      <section class="doc-section">
+        <h2>Core entry points</h2>
         <ul>
-          <li><a href="architecture/overview.html">Architecture Overview</a></li>
-          <li><a href="architecture/startup_flow.html">Startup Flow</a></li>
-          <li><a href="architecture/frame_pipeline.html">Frame Pipeline</a></li>
-          <li><a href="architecture/input_flow.html">Input Flow</a></li>
-          <li><a href="architecture/asset_pipeline.html">Asset Pipeline</a></li>
+          <li><a href="reference/api/index.html">API Reference Home</a></li>
+          <li><a href="reference/api/types/index.html">Canonical Type Pages</a></li>
+          <li><a href="reference/api/modules/index.html">Canonical Module Pages</a></li>
+          <li><a href="codemap.json">codemap.json</a></li>
         </ul>
-        
-        <h2>Domains (7 pages)</h2>
+      </section>
+      <section class="doc-section">
+        <h2>Current coverage</h2>
         <ul>
-          <li><a href="domains/app.html">app — Launcher</a></li>
-          <li><a href="domains/engine.html">engine — Runtime</a></li>
-          <li><a href="domains/engine-core.html">engine-core — Model</a></li>
-          <li><a href="domains/engine-authoring.html">engine-authoring — Compilation</a></li>
-          <li><a href="domains/editor.html">editor — TUI Editor</a></li>
-          <li><a href="domains/mods.html">mods — Content</a></li>
-          <li><a href="domains/tools.html">tools — Development</a></li>
+          <li>158 struct pages</li>
+          <li>51 enum pages</li>
+          <li>10 trait pages</li>
         </ul>
-        
-        <h2>Type Reference (220+ pages)</h2>
-        <ul>
-          <li><a href="reference/types/index.html">Types Index</a></li>
-          <li><strong>Structs (158 pages)</strong>
-            <ul>
-              <li><a href="reference/types/structs/index.html">All Structs Index</a></li>
-              <li><a href="reference/types/structs/Scene.html">Scene</a></li>
-              <li><a href="reference/types/structs/Sprite.html">Sprite</a></li>
-              <li><a href="reference/types/structs/Layer.html">Layer</a></li>
-              <li><a href="reference/types/structs/Effect.html">Effect (struct)</a></li>
-              <li><a href="reference/types/structs/Animation.html">Animation</a></li>
-              <li><a href="reference/types/structs/Buffer.html">Buffer</a></li>
-              <li><em>... and 151 more (see structs index)</em></li>
-            </ul>
-          </li>
-          <li><strong>Enums (52 pages)</strong>
-            <ul>
-              <li><a href="reference/types/enums/index.html">All Enums Index</a></li>
-              <li><a href="reference/types/enums/EngineEvent.html">EngineEvent</a></li>
-              <li><a href="reference/types/enums/BehaviorCommand.html">BehaviorCommand</a></li>
-              <li><a href="reference/types/enums/AnimationAxis.html">AnimationAxis</a></li>
-              <li><a href="reference/types/enums/Easing.html">Easing</a></li>
-              <li><a href="reference/types/enums/AppMode.html">AppMode</a></li>
-              <li><em>... and 46 more (see enums index)</em></li>
-            </ul>
-          </li>
-          <li><strong>Traits (11 pages)</strong>
-            <ul>
-              <li><a href="reference/types/traits/index.html">All Traits Index</a></li>
-              <li><a href="reference/types/traits/AssetRepository.html">AssetRepository</a></li>
-              <li><a href="reference/types/traits/AudioBackend.html">AudioBackend</a></li>
-              <li><a href="reference/types/traits/Behavior.html">Behavior</a></li>
-              <li><a href="reference/types/traits/Effect.html">Effect (trait)</a></li>
-              <li><a href="reference/types/traits/SpriteAnimation.html">SpriteAnimation</a></li>
-              <li><em>... and 5 more (see traits index)</em></li>
-            </ul>
-          </li>
-        </ul>
-        
-        <h2>System Reference (10 pages)</h2>
-        <ul>
-          <li><a href="reference/systems/index.html">Systems Index</a></li>
-          <li><a href="reference/systems/Animator.html">Animator System</a></li>
-          <li><a href="reference/systems/Compositor.html">Compositor</a></li>
-          <li><a href="reference/systems/Renderer.html">Renderer</a></li>
-          <li><a href="reference/systems/BehaviorSystem.html">BehaviorSystem</a></li>
-          <li><a href="reference/systems/AudioSystem.html">AudioSystem</a></li>
-          <li><a href="reference/systems/SceneLifecycleManager.html">SceneLifecycleManager</a></li>
-          <li><a href="reference/systems/MenuSystem.html">MenuSystem</a></li>
-          <li><a href="reference/systems/GameLoop.html">GameLoop</a></li>
-          <li><a href="reference/systems/AssetLoader.html">AssetLoader</a></li>
-        </ul>
-        
-        <h2>Module Reference (35+ pages)</h2>
-        <ul>
-          <li><a href="reference/modules/index.html">Modules Index</a></li>
-          <li><strong>Engine Modules:</strong>
-            <ul>
-              <li><a href="reference/modules/engine_main.html">engine/main.rs</a></li>
-              <li><a href="reference/modules/engine_game_loop.html">engine/game_loop.rs</a></li>
-              <li><a href="reference/modules/engine_scene_runtime.html">engine/scene_runtime.rs</a></li>
-              <li><a href="reference/modules/engine_world.html">engine/world.rs</a></li>
-              <li><a href="reference/modules/engine_events.html">engine/events.rs</a></li>
-            </ul>
-          </li>
-          <li><strong>Core Modules:</strong>
-            <ul>
-              <li><a href="reference/modules/engine_core_scene_model.html">engine-core/scene/model.rs</a></li>
-              <li><a href="reference/modules/engine_core_behaviors.html">engine-core/behaviors/mod.rs</a></li>
-              <li><a href="reference/modules/engine_core_effects.html">engine-core/effects/mod.rs</a></li>
-              <li><a href="reference/modules/engine_core_animations.html">engine-core/animations.rs</a></li>
-            </ul>
-          </li>
-          <li><strong>Authoring Modules:</strong>
-            <ul>
-              <li><a href="reference/modules/engine_authoring_compile_scene.html">engine-authoring/compile/scene.rs</a></li>
-              <li><a href="reference/modules/engine_authoring_compile_cutscene.html">engine-authoring/compile/cutscene.rs</a></li>
-              <li><a href="reference/modules/engine_authoring_schema.html">engine-authoring/schema/mod.rs</a></li>
-            </ul>
-          </li>
-          <li><strong>Editor Modules:</strong>
-            <ul>
-              <li><a href="reference/modules/editor_app.html">editor/app.rs</a></li>
-              <li><a href="reference/modules/editor_state.html">editor/state/mod.rs</a></li>
-              <li><a href="reference/modules/editor_ui.html">editor/ui/mod.rs</a></li>
-            </ul>
-          </li>
-        </ul>
-        
-        <h2>Supporting Pages</h2>
-        <ul>
-          <li><a href="glossary.html">Glossary</a></li>
-          <li><a href="filemap.html">File Map</a></li>
-          <li><a href="sitemap.html">Site Map</a></li>
-        </ul>
-      </div>
+      </section>
     </main>
   </div>
-  
-  <footer class="footer">
-    <p>Shell Quest Engine Documentation</p>
-  </footer>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="codemap.js"></script>
+  <script defer src="docref.js" data-codemap-json="codemap.json"></script>
 </body>
 </html>
