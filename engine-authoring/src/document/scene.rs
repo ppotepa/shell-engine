@@ -827,8 +827,15 @@ struct WindowThemeDefaults {
     border_style: WindowBorderStyle,
 }
 
+#[derive(Clone, Copy)]
+struct ScrollListThemeDefaults {
+    selected_fg: &'static str,
+    alt_a_fg: &'static str,
+    alt_b_fg: &'static str,
+}
+
 fn resolve_window_theme_defaults(scene_theme: Option<&str>) -> Option<WindowThemeDefaults> {
-    let normalized = scene_theme?.trim().to_ascii_lowercase().replace('_', "-");
+    let normalized = normalize_theme_key(scene_theme)?;
     match normalized.as_str() {
         "terminal" | "terminal-shell" | "shell" => Some(WindowThemeDefaults {
             border_fg: "gray",
@@ -860,6 +867,43 @@ fn resolve_window_theme_defaults(scene_theme: Option<&str>) -> Option<WindowThem
         }),
         _ => None,
     }
+}
+
+fn resolve_scroll_list_theme_defaults(
+    scene_theme: Option<&str>,
+) -> Option<ScrollListThemeDefaults> {
+    let normalized = normalize_theme_key(scene_theme)?;
+    match normalized.as_str() {
+        "terminal" | "terminal-shell" | "shell" => Some(ScrollListThemeDefaults {
+            selected_fg: "white",
+            alt_a_fg: "silver",
+            alt_b_fg: "gray",
+        }),
+        "win98" | "windows98" | "windows-98" => Some(ScrollListThemeDefaults {
+            selected_fg: "yellow",
+            alt_a_fg: "white",
+            alt_b_fg: "silver",
+        }),
+        "xp" | "windowsxp" | "windows-xp" => Some(ScrollListThemeDefaults {
+            selected_fg: "cyan",
+            alt_a_fg: "white",
+            alt_b_fg: "silver",
+        }),
+        "jrpg" | "jrpg-dialog" | "jrpg-dialogue" => Some(ScrollListThemeDefaults {
+            selected_fg: "yellow",
+            alt_a_fg: "white",
+            alt_b_fg: "gray",
+        }),
+        _ => None,
+    }
+}
+
+fn normalize_theme_key(scene_theme: Option<&str>) -> Option<String> {
+    let trimmed = scene_theme?.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(trimmed.to_ascii_lowercase().replace('_', "-"))
 }
 
 fn resolve_window_border_style(
@@ -938,9 +982,16 @@ fn expand_scroll_list_sprite(
         .unwrap_or(1)
         .max(1);
     let gap_y = map_get_u64(sprite_map, &["gap-y", "gap_y"]).unwrap_or(1);
-    let selected_fg = map_get_str(sprite_map, &["fg-selected", "fg_selected"]).unwrap_or("white");
-    let fg_alt_a = map_get_str(sprite_map, &["fg-alt-a", "fg_alt_a"]).unwrap_or("silver");
-    let fg_alt_b = map_get_str(sprite_map, &["fg-alt-b", "fg_alt_b"]).unwrap_or("gray");
+    let theme_defaults = resolve_scroll_list_theme_defaults(scene_theme);
+    let selected_fg = map_get_str(sprite_map, &["fg-selected", "fg_selected"])
+        .or_else(|| theme_defaults.map(|defaults| defaults.selected_fg))
+        .unwrap_or("white");
+    let fg_alt_a = map_get_str(sprite_map, &["fg-alt-a", "fg_alt_a"])
+        .or_else(|| theme_defaults.map(|defaults| defaults.alt_a_fg))
+        .unwrap_or("silver");
+    let fg_alt_b = map_get_str(sprite_map, &["fg-alt-b", "fg_alt_b"])
+        .or_else(|| theme_defaults.map(|defaults| defaults.alt_b_fg))
+        .unwrap_or("gray");
     let list_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
 
     let mut grid = Mapping::new();
@@ -1984,6 +2035,99 @@ layers:
                         assert_eq!(content, "OPEN");
                     }
                     _ => panic!("expected generated mapped list item"),
+                }
+            }
+            _ => panic!("expected grid from scroll-list sugar"),
+        }
+    }
+
+    #[test]
+    fn applies_scroll_list_theme_defaults_from_scene_ui_theme() {
+        let raw = r#"
+id: list-theme
+title: List Theme
+ui:
+  theme: xp
+layers:
+  - sprites:
+      - type: scroll-list
+        id: actions
+        items:
+          - "LOOK"
+          - "OPEN"
+          - "EXIT"
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid { children, .. } => {
+                match &children[0] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Cyan));
+                    }
+                    _ => panic!("expected generated list item text"),
+                }
+                match &children[1] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::White));
+                    }
+                    _ => panic!("expected generated list item text"),
+                }
+                match &children[2] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Silver));
+                    }
+                    _ => panic!("expected generated list item text"),
+                }
+            }
+            _ => panic!("expected grid from scroll-list sugar"),
+        }
+    }
+
+    #[test]
+    fn scroll_list_explicit_colors_override_scene_theme_defaults() {
+        let raw = r#"
+id: list-theme-override
+title: List Theme Override
+ui:
+  theme: xp
+layers:
+  - sprites:
+      - type: scroll-list
+        id: actions
+        fg-selected: red
+        fg-alt-a: green
+        fg-alt-b: magenta
+        items:
+          - "LOOK"
+          - "OPEN"
+          - "EXIT"
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid { children, .. } => {
+                match &children[0] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Red));
+                    }
+                    _ => panic!("expected generated list item text"),
+                }
+                match &children[1] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Green));
+                    }
+                    _ => panic!("expected generated list item text"),
+                }
+                match &children[2] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Magenta));
+                    }
+                    _ => panic!("expected generated list item text"),
                 }
             }
             _ => panic!("expected grid from scroll-list sugar"),
