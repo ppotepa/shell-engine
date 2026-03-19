@@ -9,9 +9,7 @@
       content: "September 17, 1991"
       at: cc
       font: "Abril Fatface:raster"
-      fg: white
-      bg: black
-      glow: { colour: "#5f7cff", radius: 1 }
+      fg: gray
       appear_at_ms: 3000
       disappear_at_ms: 6600
       stages:
@@ -28,9 +26,7 @@
       content: "HELSINKI, FINLAND"
       at: cc
       font: "Abril Fatface:raster"
-      fg: white
-      bg: black
-      glow: { colour: "#5f7cff", radius: 1 }
+      fg: gray
       appear_at_ms: 5840
       stages:
         on_enter:
