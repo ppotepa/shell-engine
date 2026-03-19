@@ -354,3 +354,28 @@ scene.set("object-status", "text.content", "READY");
 - renderer tekstu zachowuje transparentne tło (`bg=Reset`) i nie nadpisuje kompozytowego tła pustymi komórkami.
 
 Brak wsparcia dla wykonywania dowolnego kodu gameplay/API poza tym kontraktem komend i danymi scope.
+
+## 14) Intro CPU-On: paged boot logs
+
+Scena `mods/shell-quest/scenes/04-intro-cpu-on` używa skryptu `scene.rhai` do stronicowania
+logów bootowania, żeby długie sekwencje nie nakładały się na siebie i mieściły się w obszarze
+BIOS-owego panelu.
+
+Aktualny podział:
+
+- `Page 1/4`: boot sector + secondary loader
+- `Page 2/4`: kernel init + zegar
+- `Page 3/4`: storage + fs check
+- `Page 4/4`: init + login
+
+Dla statusów używany jest inline markup w `set-text`:
+
+- `[#55ff55]SUCCESS[/]`
+- `[#ff5555]WARNING[/]`
+- `[#ff5555]FAIL[/]`
+
+Sugerowany wzorzec dla podobnych cutscenek:
+
+1. Trzymać stały layout (`bios-line-*`, `bios-footer-*`) w YAML.
+2. Stronicowanie i treść robić wyłącznie w `scene.rhai`.
+3. Na każdą klatkę strony najpierw czyścić sloty, potem wpisywać aktywną stronę.
