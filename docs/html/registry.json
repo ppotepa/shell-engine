@@ -1,0 +1,96 @@
+{
+  "types": {
+    "EngineEvent": {
+      "file": "engine/src/events.rs",
+      "kind": "enum",
+      "page": "reference/types/EngineEvent.html"
+    },
+    "World": {
+      "file": "engine/src/world.rs",
+      "kind": "struct",
+      "page": "reference/types/World.html"
+    },
+    "SceneRuntime": {
+      "file": "engine/src/scene_runtime.rs",
+      "kind": "struct",
+      "page": "reference/types/SceneRuntime.html"
+    },
+    "Scene": {
+      "file": "engine-core/src/scene/model.rs",
+      "kind": "struct",
+      "page": "reference/types/Scene.html"
+    },
+    "Sprite": {
+      "file": "engine-core/src/scene/model.rs",
+      "kind": "struct",
+      "page": "reference/types/Sprite.html"
+    },
+    "Layer": {
+      "file": "engine-core/src/scene/model.rs",
+      "kind": "struct",
+      "page": "reference/types/Layer.html"
+    },
+    "BehaviorSpec": {
+      "file": "engine-core/src/behaviors/mod.rs",
+      "kind": "struct",
+      "page": "reference/types/BehaviorSpec.html"
+    },
+    "Effect": {
+      "file": "engine-core/src/effects/mod.rs",
+      "kind": "struct",
+      "page": "reference/types/Effect.html"
+    },
+    "Animator": {
+      "file": "engine/src/systems/animator.rs",
+      "kind": "struct",
+      "page": "reference/types/Animator.html"
+    },
+    "TerminalShellState": {
+      "file": "engine/src/scene_runtime.rs",
+      "kind": "struct",
+      "page": "reference/types/TerminalShellState.html"
+    },
+    "BehaviorCommand": {
+      "file": "engine-core/src/behaviors/mod.rs",
+      "kind": "enum",
+      "page": "reference/types/BehaviorCommand.html"
+    }
+  },
+  "systems": {
+    "Animator": {
+      "page": "reference/systems/Animator.html"
+    },
+    "Compositor": {
+      "page": "reference/systems/Compositor.html"
+    },
+    "Renderer": {
+      "page": "reference/systems/Renderer.html"
+    },
+    "BehaviorSystem": {
+      "page": "reference/systems/BehaviorSystem.html"
+    },
+    "AudioSystem": {
+      "page": "reference/systems/AudioSystem.html"
+    },
+    "SceneLifecycleManager": {
+      "page": "reference/systems/SceneLifecycleManager.html"
+    },
+    "MenuSystem": {
+      "page": "reference/systems/MenuSystem.html"
+    },
+    "GameLoop": {
+      "page": "reference/systems/GameLoop.html"
+    }
+  },
+  "modules": {
+    "app::main": {
+      "page": "reference/modules/app_main.html"
+    },
+    "engine::game_loop": {
+      "page": "reference/modules/engine_game_loop.html"
+    },
+    "engine::scene_runtime": {
+      "page": "reference/modules/engine_scene_runtime.html"
+    }
+  }
+}

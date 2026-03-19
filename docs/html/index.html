@@ -1,50 +1,87 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Shell Quest — Documentation</title>
-  <link rel="stylesheet" href="./styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shell Quest Engine — Complete Documentation</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="header"><h1>Shell Quest — Documentation</h1></div>
+<body class="doc-home">
+  <header class="header hero">
+    <h1>Shell Quest Engine</h1>
+    <p class="tagline">Complete Technical Documentation</p>
+  </header>
+  
   <div class="container">
-    <nav class="sidebar">
-      <h3>Contents</h3>
-      <ul>
-        <li><a href="toc.html">Table of Contents</a></li>
-        <li><a href="domains/overview.html">Domains Overview</a></li>
-        <li><a href="modules/engine/overview.html">Engine</a></li>
-        <li><a href="reference/types/SceneRuntime.html">Reference: SceneRuntime</a></li>
-        <li><a href="glossary.html">Glossary</a></li>
-        <li><a href="filemap.html">File map</a></li>
-      </ul>
-    </nav>
-    <main class="main">
-      <div class="breadcrumbs">Home</div>
-      <h2>Project snapshot</h2>
-      <p>This documentation set is generated from the repository source. It is structured by domain (engine, engine-core, authoring, editor, mods, tools) and provides reference pages for key runtime types and flows.</p>
-
-      <div class="card">
-        <h3>Quick links</h3>
-        <ul class="link-list">
-          <li><a href="toc.html">Full Table of Contents</a></li>
-          <li><a href="domains/architecture.html">Architecture</a></li>
-          <li><a href="modules/engine/overview.html">Engine overview</a></li>
-          <li><a href="modules/engine/scene_runtime.html">Scene runtime</a></li>
-          <li><a href="flows/frame_pipeline.html">Frame pipeline</a></li>
-          <li><a href="flows/startup_flow.html">Startup flow</a></li>
-          <li><a href="reference/types/SceneRuntime.html">Reference: SceneRuntime</a></li>
-          <li><a href="modules/mods/shell-quest.html">Shell-quest mod</a></li>
-          <li><a href="glossary.html">Glossary</a></li>
-          <li><a href="filemap.html">File map</a></li>
-        </ul>
+    <main class="content home-content">
+      <section class="hero-intro">
+        <h2>Welcome to Shell Quest Engine Documentation</h2>
+        <p>This is comprehensive technical documentation for the Shell Quest terminal game engine — a layered Rust-based system for authoring interactive scenes with real-time rendering, behavior scripting, and asset management.</p>
+        <p><strong>Generated from 183 source files (43,783 lines of code)</strong></p>
+      </section>
+      
+      <div class="quick-nav">
+        <div class="nav-card">
+          <h3><a href="toc.html">📋 Table of Contents</a></h3>
+          <p>Full hierarchical index of all sections.</p>
+        </div>
+        <div class="nav-card">
+          <h3><a href="architecture/overview.html">🏗️ Architecture</a></h3>
+          <p>System design, data flows, and lifecycle.</p>
+        </div>
+        <div class="nav-card">
+          <h3><a href="domains/engine.html">📦 Domains</a></h3>
+          <p>Seven top-level modules.</p>
+        </div>
+        <div class="nav-card">
+          <h3><a href="reference/types/index.html">🔍 Types</a></h3>
+          <p>Core data structures.</p>
+        </div>
+        <div class="nav-card">
+          <h3><a href="reference/systems/index.html">⚙️ Systems</a></h3>
+          <p>Runtime systems.</p>
+        </div>
+        <div class="nav-card">
+          <h3><a href="reference/modules/index.html">📄 Modules</a></h3>
+          <p>File-level reference.</p>
+        </div>
+        <div class="nav-card">
+          <h3><a href="glossary.html">📚 Glossary</a></h3>
+          <p>Terminology.</p>
+        </div>
+        <div class="nav-card">
+          <h3><a href="filemap.html">🗺️ File Map</a></h3>
+          <p>All files and structure.</p>
+        </div>
       </div>
-
-      <h3>Design note</h3>
-      <p class="small">All information is extracted from code and repository documents. Where interpretation is required it is marked as "Inference" or "Not fully confirmed from code". No behaviour is assumed beyond what the code shows.</p>
-
-      <div class="footer">Generated: 2026-03-19 — Shell Quest docs</div>
+      
+      <section class="doc-section">
+        <h2>Quick Start</h2>
+        <ul>
+          <li><strong>New to engine?</strong> → <a href="architecture/overview.html">Architecture Overview</a></li>
+          <li><strong>Looking for a type?</strong> → <a href="reference/types/index.html">Types Reference</a></li>
+          <li><strong>Understanding systems?</strong> → <a href="reference/systems/index.html">Systems Reference</a></li>
+          <li><strong>Need a term?</strong> → <a href="glossary.html">Glossary</a></li>
+        </ul>
+      </section>
+      
+      <section class="doc-section">
+        <h2>Project Structure</h2>
+        <ul>
+          <li><a href="domains/app.html"><strong>app/</strong></a> — Launcher and CLI</li>
+          <li><a href="domains/engine.html"><strong>engine/</strong></a> — Runtime systems</li>
+          <li><a href="domains/engine-core.html"><strong>engine-core/</strong></a> — Core model</li>
+          <li><a href="domains/engine-authoring.html"><strong>engine-authoring/</strong></a> — YAML compilation</li>
+          <li><a href="domains/editor.html"><strong>editor/</strong></a> — TUI editor</li>
+          <li><a href="domains/mods.html"><strong>mods/</strong></a> — Content packages</li>
+          <li><a href="domains/tools.html"><strong>tools/</strong></a> — Dev tools</li>
+        </ul>
+      </section>
     </main>
   </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation | Generated from concat-report.txt (183 files, 43,783 lines)</p>
+  </footer>
 </body>
 </html>

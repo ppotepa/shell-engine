@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Renderer System — Shell Quest Docs</title>
+  <link rel="stylesheet" href="../../../styles.css">
+</head>
+<body class="doc-page">
+  <header class="header">
+    <h1>Renderer System</h1>
+    <nav class="breadcrumb-path">
+      <a href="../../../index.html">Home</a> / <a href="../">Systems</a> / Renderer System
+    </nav>
+  </header>
+  
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-block">
+        <h3>System Info</h3>
+        <p><strong>Purpose:</strong><br/>Converts composite layer structure into terminal raster buffer (character grid + colors)</p>
+      </div>
+    </aside>
+    
+    <main class="content">
+      <section id="overview" class="doc-section">
+        <h2>Overview</h2>
+        <p>Converts composite layer structure into terminal raster buffer (character grid + colors)</p>
+      </section>
+      
+      <section id="lifecycle" class="doc-section">
+        <h2>Lifecycle</h2>
+        <p>Runs after compositor. Generates frame buffer.</p>
+      </section>
+      
+      <section id='resp' class='doc-section'><h2>Responsibilities</h2><ul><li>Rasterize sprites to character grid</li><li>Apply image rendering modes</li><li>Output to display</li></ul></section>
+
+      
+      <section id="see-also" class="doc-section">
+        <h2>See Also</h2>
+        <ul>
+          <li><a href="index.html">Systems Index</a></li>
+          <li><a href="../../../architecture/frame_pipeline.html">Frame Pipeline</a></li>
+          <li><a href="../../../reference/types/World.html">World Type</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation</p>
+  </footer>
+</body>
+</html>

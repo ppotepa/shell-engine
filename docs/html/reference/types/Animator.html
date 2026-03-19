@@ -1,32 +1,49 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Reference: Animator</title>
-  <link rel="stylesheet" href="../../styles.css">
+  <title>Animator — Shell Quest Docs</title>
+  <link rel="stylesheet" href="../../../styles.css">
 </head>
-<body>
-  <div class="header"><h1>Reference: Animator</h1></div>
-  <div class="container">
-    <nav class="sidebar">
-      <ul>
-        <li><a href="../../toc.html">TOC</a></li>
-        <li><a href="../../modules/engine/systems_animator.html">Animator system</a></li>
-      </ul>
+<body class="doc-page">
+  <header class="header">
+    <h1>Animator</h1>
+    <p class="page-subtitle">struct — Animation State Tracker</p>
+    <nav class="breadcrumb-path">
+      <a href="../../../index.html">Home</a> / <a href="../">Types</a> / Animator
     </nav>
-    <main class="main">
-      <div class="breadcrumbs"><a href="../../index.html">Home</a> / Reference / Animator</div>
-      <h2>Role</h2>
-      <p>The animator system advances animation timelines and emits scene transition events when steps complete. It interacts with SceneRuntime state and may schedule visual changes.</p>
+  </header>
+  
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-block">
+        <h3>Source</h3>
+        <p><code>engine/src/systems/animator.rs</code></p>
+      </div>
+    </aside>
+    
+    <main class="content">
+      <section id="overview" class="doc-section">
+        <h2>Overview</h2>
+        <p>System that tracks animation timing, sprite visibility transitions, and emits scene transitions.</p>
+      </section>
+      
+      <section id='resp' class='doc-section'><h2>Responsibilities</h2><p>Update animation counters, manage sprite appear/disappear timing, emit SceneTransition events</p></section>
 
-      <h3>Observed behaviour</h3>
-      <ul>
-        <li>Executed before behavior/audio/compositor/renderer</li>
-        <li>May trigger transitions that SceneLifecycleManager must process immediately</li>
-      </ul>
-
-      <div class="footer">Animator reference</div>
+      
+      <section id="see-also" class="doc-section">
+        <h2>See Also</h2>
+        <ul>
+          <li><a href="index.html">Types Index</a></li>
+          <li><a href="../../../reference/systems/index.html">Systems Reference</a></li>
+          <li><a href="../../../toc.html">Table of Contents</a></li>
+        </ul>
+      </section>
     </main>
   </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation</p>
+  </footer>
 </body>
 </html>
