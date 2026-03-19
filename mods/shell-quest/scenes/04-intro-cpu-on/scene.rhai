@@ -1,10 +1,3 @@
-fn pad4(v) {
-    if v < 10 { return `000${v}`; }
-    if v < 100 { return `00${v}`; }
-    if v < 1000 { return `0${v}`; }
-    `${v}`
-}
-
 fn clear_bios_lines(commands) {
     commands.push(#{ op: "set-text", target: "bios-line-1", text: " " });
     commands.push(#{ op: "set-text", target: "bios-line-2", text: " " });
@@ -24,55 +17,62 @@ fn clear_bios_lines(commands) {
 let commands = [];
 let t = scene_elapsed_ms;
 
-if t >= 1800 && t < 7600 {
+if t >= 1800 && t < 18800 {
     clear_bios_lines(commands);
 }
 
-if t >= 2200 && t < 3200 {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "Award Modular BIOS v4.50PG, An Energy Star Ally" });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Copyright (C) 1984-95, Tux Software, Inc." });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "486API0, Rev 1.0" });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "80486DX2 CPU at 66MHz" });
-} else if t >= 3200 && t < 5000 {
-    let start = 3200;
-    let end = 5000;
-    let total_k = 16384;
-    let elapsed = t - start;
-    let duration = end - start;
-    let raw_k = if duration > 0 {
-        (elapsed * total_k) / duration
-    } else {
-        total_k
-    };
-    let quantized_k = (raw_k / 64) * 64;
-    let value_k = if quantized_k > total_k { total_k } else { quantized_k };
-
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "TUX Modular BIOS v4.50PG, An Energy Star Ally" });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Copyright (C) 1984-95, Tux Inc." });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "486API0, Rev 1.0" });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "80486DX2 CPU at 66MHz" });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: `Memory Test : ${pad4(value_k)}K` });
-} else if t >= 5000 && t < 6200 {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "TUX Modular BIOS v4.50PG, An Energy Star Ally" });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Copyright (C) 1984-95, Tux Inc." });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "486API0, Rev 1.0" });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "80486DX2 CPU at 66MHz" });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Memory Test : 16384K OK" });
-    commands.push(#{ op: "set-text", target: "bios-line-8", text: "Award Plug and Play BIOS Extension v1.0A" });
-    commands.push(#{ op: "set-text", target: "bios-line-9", text: "Copyright (C) 1995, Award Software, Inc." });
-    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Detecting HDD Primary Master   ... None" });
-} else if t >= 6200 && t < 7600 {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "TUX Modular BIOS v4.50PG, An Energy Star Ally" });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Copyright (C) 1984-95, Tux Inc." });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "486API0, Rev 1.0" });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "80486DX2 CPU at 66MHz" });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Memory Test : 16384K OK" });
-    commands.push(#{ op: "set-text", target: "bios-line-8", text: "Award Plug and Play BIOS Extension v1.0A" });
-    commands.push(#{ op: "set-text", target: "bios-line-9", text: "Copyright (C) 1995, Award Software, Inc." });
-    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Detecting HDD Primary Master   ... None" });
-    commands.push(#{ op: "set-text", target: "bios-line-11", text: "Keyboard error or no keyboard present" });
-    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "Press F1 to continue, DEL to enter SETUP" });
-    commands.push(#{ op: "set-text", target: "bios-footer-2", text: "08/16/95-TUX-486DX2-66-00" });
+if t >= 2200 && t < 5600 {
+    commands.push(#{ op: "set-text", target: "bios-line-1", text: "Reading boot sector..." });
+    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Boot sector loaded" });
+    commands.push(#{ op: "set-text", target: "bios-line-3", text: "MINIX boot block" });
+    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Loading secondary boot..." });
+    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Secondary boot loaded" });
+    commands.push(#{ op: "set-text", target: "bios-line-6", text: "MINIX boot monitor 1.3" });
+    commands.push(#{ op: "set-text", target: "bios-line-7", text: "Root device: hd1a" });
+    commands.push(#{ op: "set-text", target: "bios-line-8", text: "RAM disk: disabled" });
+    commands.push(#{ op: "set-text", target: "bios-line-9", text: "Press ESC for monitor" });
+    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Booting MINIX..." });
+    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 1/4: Boot loader[/]" });
+} else if t >= 5600 && t < 9000 {
+    commands.push(#{ op: "set-text", target: "bios-line-1", text: "286/386 protected mode enabled" });
+    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Kernel size: 109 KB" });
+    commands.push(#{ op: "set-text", target: "bios-line-3", text: "Initializing interrupt vectors" });
+    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Initializing trap handlers" });
+    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Initializing memory manager" });
+    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Memory available to system: 3712 KB" });
+    commands.push(#{ op: "set-text", target: "bios-line-7", text: "Buffer cache: 128 KB" });
+    commands.push(#{ op: "set-text", target: "bios-line-8", text: "Detecting clock..." });
+    commands.push(#{ op: "set-text", target: "bios-line-9", text: "[#ff5555]WARNING[/] CMOS time appears invalid" });
+    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Initializing tty drivers" });
+    commands.push(#{ op: "set-text", target: "bios-line-11", text: "tty0 initialized, tty1 initialized" });
+    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 2/4: Kernel init[/]" });
+} else if t >= 9000 && t < 12400 {
+    commands.push(#{ op: "set-text", target: "bios-line-1", text: "Initializing floppy driver (fd0 present)" });
+    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Initializing hard disk driver" });
+    commands.push(#{ op: "set-text", target: "bios-line-3", text: "hd0: 977 cylinders, 5 heads, 17 sectors" });
+    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Partition table read successfully" });
+    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Root file system on /dev/hd1a" });
+    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Mounting root file system..." });
+    commands.push(#{ op: "set-text", target: "bios-line-7", text: "/dev/hd1a mounted read-write [#55ff55]SUCCESS[/]" });
+    commands.push(#{ op: "set-text", target: "bios-line-8", text: "Checking file system state..." });
+    commands.push(#{ op: "set-text", target: "bios-line-9", text: "[#ff5555]WARNING[/] free block count incorrect" });
+    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Rebuilding free block map..." });
+    commands.push(#{ op: "set-text", target: "bios-line-11", text: "File system check complete [#55ff55]SUCCESS[/]" });
+    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 3/4: File system[/]" });
+} else if t >= 12400 && t < 18800 {
+    commands.push(#{ op: "set-text", target: "bios-line-1", text: "Mounting /usr from /dev/hd1d" });
+    commands.push(#{ op: "set-text", target: "bios-line-2", text: "/dev/hd1d mounted read-only [#55ff55]SUCCESS[/]" });
+    commands.push(#{ op: "set-text", target: "bios-line-3", text: "Starting init process" });
+    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Executing /etc/rc" });
+    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Setting system name: minix" });
+    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Starting update daemon / clock task sync" });
+    commands.push(#{ op: "set-text", target: "bios-line-7", text: "Starting printer daemon / login processes" });
+    commands.push(#{ op: "set-text", target: "bios-line-8", text: "IRQ 06  FLOPPY DISK  [#ff5555]FAIL[/]" });
+    commands.push(#{ op: "set-text", target: "bios-line-9", text: "Minix 1.3  Copyright 1987, Prentice-Hall" });
+    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Console ready [#55ff55]SUCCESS[/]" });
+    commands.push(#{ op: "set-text", target: "bios-line-11", text: "login:" });
+    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 4/4: Init and login[/]" });
+    commands.push(#{ op: "set-text", target: "bios-footer-2", text: "[#808080]Press ESC for monitor[/]" });
 }
 
 commands

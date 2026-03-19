@@ -26,7 +26,7 @@
       gap-x: 2
       gap-y: 0
       appear_at_ms: 1800
-      disappear_at_ms: 7600
+      disappear_at_ms: 18800
       children:
         - type: grid
           id: bios-main
@@ -174,7 +174,7 @@
                 - name: blink
                   params: { visible_ms: 220, hidden_ms: 220 }
                 - name: timed-visibility
-                  params: { start_ms: 6200, end_ms: 7600, time_scope: scene }
+                  params: { start_ms: 16600, end_ms: 18800, time_scope: scene }
 
         - type: image
           id: tuxbios-screen
@@ -212,58 +212,3 @@
             font: "generic:half",
             fg: gray,
           }
-
-    - type: text
-      id: disk-detect-screen
-      content: |-
-        Detecting storage devices...
-        FLOPPY DRIVE A: 1.44MB
-      at: lt
-      x: 2
-      y: 1
-      font: "generic:half"
-      fg: gray
-      appear_at_ms: 7800
-      disappear_at_ms: 9000
-
-    - type: text
-      id: disk-not-found-screen
-      content: |-
-        Detecting storage devices...
-        FLOPPY DRIVE A: 1.44MB ... NOT FOUND
-      at: lt
-      x: 2
-      y: 1
-      font: "generic:half"
-      fg: gray
-      appear_at_ms: 9000
-      disappear_at_ms: 10100
-
-    - type: text
-      id: irq-table-screen
-      content: |-
-        IRQ 00  SYSTEM TIMER        OK
-        IRQ 01  KEYBOARD CONTROLLER OK
-        IRQ 02  CASCADE             OK
-        IRQ 03  SERIAL COM2         OK
-        IRQ 04  SERIAL COM1         OK
-        IRQ 06  FLOPPY DISK         FAIL
-        IRQ 14  PRIMARY ATA         OK
-      at: lt
-      x: 2
-      y: 1
-      font: "generic:half"
-      fg: gray
-      appear_at_ms: 10600
-      disappear_at_ms: 13000
-
-    - type: text
-      id: booting-line
-      content: "BOOTING HARD DRIVE..."
-      at: lt
-      x: 2
-      y: 56
-      font: "generic:half"
-      fg: gray
-      appear_at_ms: 11600
-      disappear_at_ms: 13000
