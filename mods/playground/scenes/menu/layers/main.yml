@@ -4,6 +4,6 @@
   objects:
     - ref: centered-endless-menu
   sprites:
-    - { type: text, content: "PLAYGROUND", at: ct, y: -9, font: "generic:1", fg: white }
-    - { type: text, content: "MENU", at: ct, y: -7, font: "generic:1", fg: gray }
-    - { type: text, content: "Arrows: navigate, Enter: select, [0]-[9]: shortcut", at: cb, y: -1, font: "generic:1", fg: gray, hide_on_leave: true, behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }
+    - { type: text, content: "PLAYGROUND", at: ct, y: -9, font: "generic:half", fg: white }
+    - { type: text, content: "MENU", at: ct, y: -7, font: "generic:half", fg: gray }
+    - { type: text, content: "Arrows: navigate, Enter: select, [0]-[9]: shortcut", at: cb, y: -1, font: "generic:half", fg: gray, hide_on_leave: true, behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }

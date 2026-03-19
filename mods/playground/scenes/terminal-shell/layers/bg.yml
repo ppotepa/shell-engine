@@ -3,7 +3,7 @@
   z_index: 0
   sprite-defaults:
     type: text
-    font: "generic:1"
+    font: "generic:half"
   sprites:
     - type: grid
       id: terminal-shell-bg-root
