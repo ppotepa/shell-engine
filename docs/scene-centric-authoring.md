@@ -281,6 +281,8 @@ Zakres danych w scope obejmuje:
 - gdy `ui.theme` nie jest podany lub jest nieznany, używany jest fallback `engine-default`,
 - jawne pola sprite (`border-fg`, `border-bg`, `panel-bg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
 - `type: window` domyślnie kompiluje się do kompaktowego `panel` z lekkim `corner-radius` i cieniem; bez tekstowych ramek ASCII.
+- `type: window` zachowuje `width-percent` (nie jest nadpisywane przez fallback `width`).
+- `type: window` ma domyślne `padding: 0`, żeby układ `title/body/footer` mieścił się w kompaktowych wysokościach (np. `height: 5`).
 
 `ui.focus-order`:
 
