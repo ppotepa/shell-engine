@@ -60,6 +60,13 @@ Skrypt Rhai emituje komendy runtime:
 - `visibility`,
 - `offset`.
 
+Wspierane są też mutacje path-based:
+
+- `set` (`target`, `path`, `value`),
+- API obiektowe `scene.get(...).set(...)` oraz `scene.set(...)`.
+- Dla tekstu: `text.content`, `text.font`, `style.fg`, `style.bg`.
+- Dla obiektów 3D: `obj.scale`, `obj.yaw`, `obj.pitch`, `obj.roll`, `obj.orbit_speed`, `obj.surface_mode`.
+
 Dostępne wartości w scope:
 
 - `selected_index`,
@@ -68,6 +75,8 @@ Dostępne wartości w scope:
 - `stage_elapsed_ms`,
 - `params`,
 - `regions`.
+- `objects`,
+- `state`.
 
 Ten wariant jest używany m.in. przez:
 

@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, HashSet};
 use std::f32::consts::TAU;
+use std::sync::{Arc, Mutex};
 
 use crate::effects::Region;
 use crate::game_object::GameObject;
@@ -10,6 +11,7 @@ use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use engine_core::authoring::metadata::FieldMetadata;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
+use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 
 /// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
@@ -20,7 +22,10 @@ pub struct BehaviorContext {
     pub menu_selected_index: usize,
     pub target_resolver: TargetResolver,
     pub object_states: std::collections::BTreeMap<String, ObjectRuntimeState>,
+    pub object_kinds: std::collections::BTreeMap<String, String>,
+    pub object_props: std::collections::BTreeMap<String, JsonValue>,
     pub object_regions: std::collections::BTreeMap<String, Region>,
+    pub object_text: std::collections::BTreeMap<String, String>,
     pub ui_focused_target_id: Option<String>,
     pub ui_theme_id: Option<String>,
     pub ui_last_submit_target_id: Option<String>,
@@ -32,10 +37,35 @@ pub struct BehaviorContext {
 /// A side-effect produced by a behavior and consumed by the engine systems.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BehaviorCommand {
-    PlayAudioCue { cue: String, volume: Option<f32> },
-    SetVisibility { target: String, visible: bool },
-    SetOffset { target: String, dx: i32, dy: i32 },
-    SetText { target: String, text: String },
+    PlayAudioCue {
+        cue: String,
+        volume: Option<f32>,
+    },
+    SetVisibility {
+        target: String,
+        visible: bool,
+    },
+    SetOffset {
+        target: String,
+        dx: i32,
+        dy: i32,
+    },
+    SetText {
+        target: String,
+        text: String,
+    },
+    SetProps {
+        target: String,
+        visible: Option<bool>,
+        dx: Option<i32>,
+        dy: Option<i32>,
+        text: Option<String>,
+    },
+    SetProperty {
+        target: String,
+        path: String,
+        value: JsonValue,
+    },
 }
 
 /// Defines the per-tick update logic for a scene object behavior.
@@ -472,17 +502,95 @@ impl Behavior for MenuCarouselObjectBehavior {
 /// Evaluates per-frame behavior commands from a Rhai script.
 pub struct RhaiScriptBehavior {
     params: BehaviorParams,
+    state: JsonValue,
+}
+
+#[derive(Clone)]
+struct ScriptSceneApi {
+    objects: RhaiMap,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
+#[derive(Clone)]
+struct ScriptObjectApi {
+    target: String,
+    snapshot: RhaiMap,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
+impl ScriptSceneApi {
+    fn new(objects: RhaiMap, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+        Self { objects, queue }
+    }
+
+    fn get(&mut self, target: &str) -> ScriptObjectApi {
+        let snapshot = self
+            .objects
+            .get(target)
+            .and_then(|value| value.clone().try_cast::<RhaiMap>())
+            .unwrap_or_default();
+        ScriptObjectApi {
+            target: target.to_string(),
+            snapshot,
+            queue: Arc::clone(&self.queue),
+        }
+    }
+
+    fn set(&mut self, target: &str, path: &str, value: RhaiDynamic) {
+        let normalized_path = normalize_set_path(path);
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return;
+        };
+        let Ok(mut queue) = self.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::SetProperty {
+            target: target.to_string(),
+            path: normalized_path,
+            value,
+        });
+    }
+}
+
+impl ScriptObjectApi {
+    fn get(&mut self, path: &str) -> RhaiDynamic {
+        map_get_path_dynamic(&self.snapshot, path)
+            .or_else(|| map_get_path_dynamic(&self.snapshot, &format!("props.{path}")))
+            .unwrap_or_else(|| ().into())
+    }
+
+    fn set(&mut self, path: &str, value: RhaiDynamic) {
+        let normalized_path = normalize_set_path(path);
+        if !map_set_path_dynamic(&mut self.snapshot, &normalized_path, value.clone()) {
+            return;
+        }
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return;
+        };
+        let Ok(mut queue) = self.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::SetProperty {
+            target: self.target.clone(),
+            path: normalized_path,
+            value,
+        });
+    }
 }
 
 impl RhaiScriptBehavior {
     fn from_params(params: &BehaviorParams) -> Self {
         Self {
             params: params.clone(),
+            state: JsonValue::Object(JsonMap::new()),
         }
     }
 
     fn build_regions_map(&self, ctx: &BehaviorContext, scene: &Scene) -> RhaiMap {
         let mut regions = RhaiMap::new();
+        for (object_id, region) in &ctx.object_regions {
+            regions.insert(object_id.clone().into(), region_to_rhai_map(region).into());
+        }
         if let Some(target) = self.params.target.as_deref() {
             if let Some(region) = ctx.resolved_object_region(target) {
                 regions.insert(target.into(), region_to_rhai_map(region).into());
@@ -507,6 +615,85 @@ impl RhaiScriptBehavior {
         }
         regions
     }
+
+    fn build_objects_map(&self, ctx: &BehaviorContext, scene: &Scene) -> RhaiMap {
+        let mut objects = RhaiMap::new();
+        for (object_id, state) in &ctx.object_states {
+            let mut entry = RhaiMap::new();
+            let kind = ctx
+                .object_kinds
+                .get(object_id)
+                .cloned()
+                .unwrap_or_else(|| "unknown".to_string());
+            entry.insert("id".into(), object_id.clone().into());
+            entry.insert("kind".into(), kind.clone().into());
+            entry.insert("state".into(), object_state_to_rhai_map(state).into());
+            if let Some(region) = ctx.object_regions.get(object_id) {
+                entry.insert("region".into(), region_to_rhai_map(region).into());
+            }
+            if let Some(text) = ctx.object_text.get(object_id) {
+                let mut text_map = RhaiMap::new();
+                text_map.insert("content".into(), text.clone().into());
+                entry.insert("text".into(), text_map.into());
+            }
+            let mut props = RhaiMap::new();
+            props.insert("visible".into(), state.visible.into());
+            let mut offset = RhaiMap::new();
+            offset.insert("x".into(), (state.offset_x as rhai::INT).into());
+            offset.insert("y".into(), (state.offset_y as rhai::INT).into());
+            props.insert("offset".into(), offset.into());
+            if let Some(text) = ctx.object_text.get(object_id) {
+                let mut text_props = RhaiMap::new();
+                text_props.insert("content".into(), text.clone().into());
+                props.insert("text".into(), text_props.into());
+            }
+            if let Some(extra_props) = ctx.object_props.get(object_id) {
+                if let Some(extra_map) = json_to_rhai_dynamic(extra_props).try_cast::<RhaiMap>() {
+                    merge_rhai_maps(&mut props, &extra_map);
+                }
+            }
+            entry.insert("props".into(), props.into());
+            entry.insert(
+                "capabilities".into(),
+                kind_capabilities(Some(kind.as_str())).into(),
+            );
+            objects.insert(object_id.clone().into(), entry.into());
+        }
+
+        let mut aliases = Vec::new();
+        if let Some(target) = self.params.target.as_deref() {
+            aliases.push(target.to_string());
+        }
+        let total = self.params.count.unwrap_or(scene.menu_options.len());
+        let prefix = self
+            .params
+            .item_prefix
+            .as_deref()
+            .unwrap_or("menu-item-")
+            .to_string();
+        for idx in 0..total {
+            aliases.push(if prefix.contains("{}") {
+                prefix.replace("{}", &idx.to_string())
+            } else {
+                format!("{prefix}{idx}")
+            });
+        }
+        for (alias, _) in ctx.target_resolver.aliases_snapshot() {
+            aliases.push(alias);
+        }
+
+        for alias in aliases {
+            let Some(object_id) = ctx.resolve_target(&alias) else {
+                continue;
+            };
+            let Some(existing) = objects.get(object_id).cloned() else {
+                continue;
+            };
+            objects.insert(alias.into(), existing);
+        }
+
+        objects
+    }
 }
 
 impl Behavior for RhaiScriptBehavior {
@@ -527,7 +714,11 @@ impl Behavior for RhaiScriptBehavior {
         scope.push("stage_elapsed_ms", ctx.stage_elapsed_ms as rhai::INT);
         scope.push("menu_count", scene.menu_options.len() as rhai::INT);
         scope.push_dynamic("params", behavior_params_to_rhai_map(&self.params).into());
-        scope.push_dynamic("regions", self.build_regions_map(ctx, scene).into());
+        let regions_map = self.build_regions_map(ctx, scene);
+        scope.push_dynamic("regions", regions_map.into());
+        let objects_map = self.build_objects_map(ctx, scene);
+        scope.push_dynamic("objects", objects_map.clone().into());
+        scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
         scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
         scope.push(
             "ui_focused_target",
@@ -553,12 +744,204 @@ impl Behavior for RhaiScriptBehavior {
         scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
         scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
 
-        let engine = RhaiEngine::new();
+        let mut engine = RhaiEngine::new();
+        let helper_commands = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+
+        engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
+        engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
+        engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
+            scene.get(target)
+        });
+        engine.register_fn(
+            "set",
+            |scene: &mut ScriptSceneApi, target: &str, path: &str, value: RhaiDynamic| {
+                scene.set(target, path, value);
+            },
+        );
+        engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
+            object.get(path)
+        });
+        engine.register_fn(
+            "set",
+            |object: &mut ScriptObjectApi, path: &str, value: RhaiDynamic| {
+                object.set(path, value);
+            },
+        );
+        scope.push(
+            "scene",
+            ScriptSceneApi::new(objects_map.clone(), Arc::clone(&helper_commands)),
+        );
+
+        {
+            let objects_map = objects_map.clone();
+            engine.register_fn("scene_get", move |target: &str| -> RhaiDynamic {
+                objects_map
+                    .get(target)
+                    .cloned()
+                    .unwrap_or_else(|| RhaiMap::new().into())
+            });
+        }
+        {
+            let helper_commands = Arc::clone(&helper_commands);
+            engine.register_fn(
+                "scene_set",
+                move |target: &str, path: &str, value: RhaiDynamic| {
+                    let normalized_path = normalize_set_path(path);
+                    let Some(value) = rhai_dynamic_to_json(&value) else {
+                        return;
+                    };
+                    let Ok(mut queue) = helper_commands.lock() else {
+                        return;
+                    };
+                    queue.push(BehaviorCommand::SetProperty {
+                        target: target.to_string(),
+                        path: normalized_path,
+                        value,
+                    });
+                },
+            );
+        }
         let Ok(result) = engine.eval_with_scope::<RhaiDynamic>(&mut scope, script) else {
             return;
         };
+        if let Some(map) = result.clone().try_cast::<RhaiMap>() {
+            if let Some(next_state) = map.get("state").and_then(rhai_dynamic_to_json) {
+                self.state = next_state;
+            }
+        }
         apply_rhai_commands(result, commands);
+        if let Ok(mut queue) = helper_commands.lock() {
+            commands.extend(queue.drain(..));
+        };
     }
+}
+
+fn json_to_rhai_dynamic(value: &JsonValue) -> RhaiDynamic {
+    match value {
+        JsonValue::Null => ().into(),
+        JsonValue::Bool(value) => (*value).into(),
+        JsonValue::Number(value) => {
+            if let Some(int) = value.as_i64() {
+                (int as rhai::INT).into()
+            } else if let Some(float) = value.as_f64() {
+                float.into()
+            } else {
+                ().into()
+            }
+        }
+        JsonValue::String(value) => value.clone().into(),
+        JsonValue::Array(values) => {
+            let mut out = RhaiArray::new();
+            for item in values {
+                out.push(json_to_rhai_dynamic(item));
+            }
+            out.into()
+        }
+        JsonValue::Object(map) => {
+            let mut out = RhaiMap::new();
+            for (key, value) in map {
+                out.insert(key.into(), json_to_rhai_dynamic(value));
+            }
+            out.into()
+        }
+    }
+}
+
+fn rhai_dynamic_to_json(value: &RhaiDynamic) -> Option<JsonValue> {
+    if value.is_unit() {
+        return Some(JsonValue::Null);
+    }
+    if let Some(value) = value.clone().try_cast::<bool>() {
+        return Some(JsonValue::Bool(value));
+    }
+    if let Some(value) = value.clone().try_cast::<rhai::INT>() {
+        return Some(JsonValue::Number(JsonNumber::from(value)));
+    }
+    if let Some(value) = value.clone().try_cast::<rhai::FLOAT>() {
+        if let Some(number) = JsonNumber::from_f64(value) {
+            return Some(JsonValue::Number(number));
+        }
+        return None;
+    }
+    if let Some(value) = value.clone().try_cast::<String>() {
+        return Some(JsonValue::String(value));
+    }
+    if let Some(values) = value.clone().try_cast::<RhaiArray>() {
+        let mut out = Vec::with_capacity(values.len());
+        for item in values {
+            out.push(rhai_dynamic_to_json(&item)?);
+        }
+        return Some(JsonValue::Array(out));
+    }
+    if let Some(map) = value.clone().try_cast::<RhaiMap>() {
+        let mut out = JsonMap::new();
+        for (key, item) in map {
+            out.insert(key.into(), rhai_dynamic_to_json(&item)?);
+        }
+        return Some(JsonValue::Object(out));
+    }
+    None
+}
+
+fn map_get_path_dynamic(map: &RhaiMap, path: &str) -> Option<RhaiDynamic> {
+    let mut segments = path.split('.').filter(|segment| !segment.is_empty());
+    let first = segments.next()?;
+    let mut current = map.get(first)?.clone();
+    for segment in segments {
+        let next_map = current.clone().try_cast::<RhaiMap>()?;
+        current = next_map.get(segment)?.clone();
+    }
+    Some(current)
+}
+
+fn map_set_path_dynamic(map: &mut RhaiMap, path: &str, value: RhaiDynamic) -> bool {
+    let segments = path
+        .split('.')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+    if segments.is_empty() {
+        return false;
+    }
+    map_set_path_recursive(map, &segments, value);
+    true
+}
+
+fn map_set_path_recursive(map: &mut RhaiMap, segments: &[&str], value: RhaiDynamic) {
+    let key = segments[0];
+    if segments.len() == 1 {
+        map.insert(key.into(), value);
+        return;
+    }
+    let mut child = map
+        .get(key)
+        .and_then(|current| current.clone().try_cast::<RhaiMap>())
+        .unwrap_or_default();
+    map_set_path_recursive(&mut child, &segments[1..], value);
+    map.insert(key.into(), child.into());
+}
+
+fn merge_rhai_maps(base: &mut RhaiMap, patch: &RhaiMap) {
+    for (key, value) in patch {
+        if let Some(existing) = base.get_mut(key.as_str()) {
+            if let (Some(existing_map), Some(patch_map)) = (
+                existing.clone().try_cast::<RhaiMap>(),
+                value.clone().try_cast::<RhaiMap>(),
+            ) {
+                let mut merged = existing_map;
+                merge_rhai_maps(&mut merged, &patch_map);
+                *existing = merged.into();
+                continue;
+            }
+        }
+        base.insert(key.clone(), value.clone());
+    }
+}
+
+fn normalize_set_path(path: &str) -> String {
+    path.trim()
+        .strip_prefix("props.")
+        .unwrap_or(path.trim())
+        .to_string()
 }
 
 /// Shows directional arrow sprites flanking the selected menu option.
@@ -823,6 +1206,39 @@ fn region_to_rhai_map(region: &Region) -> RhaiMap {
     out
 }
 
+fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
+    let mut out = RhaiMap::new();
+    out.insert("visible".into(), state.visible.into());
+    out.insert("offset_x".into(), (state.offset_x as rhai::INT).into());
+    out.insert("offset_y".into(), (state.offset_y as rhai::INT).into());
+    out
+}
+
+fn kind_capabilities(kind: Option<&str>) -> RhaiArray {
+    let mut caps = vec![
+        "visible".to_string(),
+        "offset.x".to_string(),
+        "offset.y".to_string(),
+        "position.x".to_string(),
+        "position.y".to_string(),
+    ];
+    if kind.is_some_and(|value| value == "text") {
+        caps.push("text.content".to_string());
+        caps.push("text.font".to_string());
+        caps.push("style.fg".to_string());
+        caps.push("style.bg".to_string());
+    }
+    if kind.is_some_and(|value| value == "obj") {
+        caps.push("obj.scale".to_string());
+        caps.push("obj.yaw".to_string());
+        caps.push("obj.pitch".to_string());
+        caps.push("obj.roll".to_string());
+        caps.push("obj.orbit_speed".to_string());
+        caps.push("obj.surface_mode".to_string());
+    }
+    caps.into_iter().map(Into::into).collect()
+}
+
 fn ui_context_to_rhai_map(ctx: &BehaviorContext) -> RhaiMap {
     let mut out = RhaiMap::new();
     if let Some(value) = ctx.ui_focused_target_id.as_ref() {
@@ -924,6 +1340,60 @@ fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>)
                 };
                 emit_text(commands, target, text);
             }
+            "set-props" => {
+                let Some(target) = map
+                    .get("target")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                else {
+                    continue;
+                };
+                let visible = map
+                    .get("visible")
+                    .and_then(|value| value.clone().try_cast::<bool>());
+                let dx = map
+                    .get("dx")
+                    .and_then(|value| value.clone().try_cast::<rhai::INT>())
+                    .map(|value| value as i32);
+                let dy = map
+                    .get("dy")
+                    .and_then(|value| value.clone().try_cast::<rhai::INT>())
+                    .map(|value| value as i32);
+                let text = map
+                    .get("text")
+                    .and_then(|value| value.clone().try_cast::<String>());
+                if visible.is_none() && dx.is_none() && dy.is_none() && text.is_none() {
+                    continue;
+                }
+                commands.push(BehaviorCommand::SetProps {
+                    target,
+                    visible,
+                    dx,
+                    dy,
+                    text,
+                });
+            }
+            "set" => {
+                let Some(target) = map
+                    .get("target")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                else {
+                    continue;
+                };
+                let Some(path) = map
+                    .get("path")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                else {
+                    continue;
+                };
+                let Some(value) = map.get("value").and_then(rhai_dynamic_to_json) else {
+                    continue;
+                };
+                commands.push(BehaviorCommand::SetProperty {
+                    target,
+                    path: normalize_set_path(&path),
+                    value,
+                });
+            }
             _ => {}
         }
     }
@@ -1022,6 +1492,7 @@ mod tests {
     };
     use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
     use crate::systems::animator::SceneStage;
+    use serde_json::Value as JsonValue;
     use std::collections::BTreeMap;
 
     fn scene_object() -> GameObject {
@@ -1084,7 +1555,10 @@ mod tests {
             menu_selected_index: 0,
             target_resolver: TargetResolver::default(),
             object_states: BTreeMap::new(),
+            object_kinds: BTreeMap::new(),
+            object_props: BTreeMap::new(),
             object_regions: BTreeMap::new(),
+            object_text: BTreeMap::new(),
             ui_focused_target_id: None,
             ui_theme_id: None,
             ui_last_submit_target_id: None,
@@ -1648,6 +2122,460 @@ out
             vec![BehaviorCommand::SetText {
                 target: "ram-counter-line".to_string(),
                 text: "Memory Check: 0640K".to_string()
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_emits_set_props_command() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+out.push(#{ op: "set-props", target: "menu-item-0", visible: true, dx: 2, dy: -1, text: "HELLO" });
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetProps {
+                target: "menu-item-0".to_string(),
+                visible: Some(true),
+                dx: Some(2),
+                dy: Some(-1),
+                text: Some("HELLO".to_string())
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_emits_set_property_command() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+out.push(#{ op: "set", target: "menu-item-0", path: "position.y", value: 3 });
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetProperty {
+                target: "menu-item-0".to_string(),
+                path: "position.y".to_string(),
+                value: JsonValue::Number(3.into())
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_scene_set_helper_emits_set_property() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+scene_set("menu-item-0", "position.y", 6);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetProperty {
+                target: "menu-item-0".to_string(),
+                path: "position.y".to_string(),
+                value: JsonValue::Number(6.into())
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_scene_set_helper_normalizes_props_prefix() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+scene_set("menu-item-0", "props.position.y", 6);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetProperty {
+                target: "menu-item-0".to_string(),
+                path: "position.y".to_string(),
+                value: JsonValue::Number(6.into())
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_persists_state_between_updates() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let count = if state.contains("count") { state["count"] } else { 0 };
+let next = count + 1;
+let out = [];
+out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: next });
+#{ commands: out, state: #{ count: next } }
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+
+        let first = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        let second = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 16, 16),
+        );
+
+        assert_eq!(
+            first,
+            vec![BehaviorCommand::SetOffset {
+                target: "menu-item-0".to_string(),
+                dx: 0,
+                dy: 1
+            }]
+        );
+        assert_eq!(
+            second,
+            vec![BehaviorCommand::SetOffset {
+                target: "menu-item-0".to_string(),
+                dx: 0,
+                dy: 2
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_exposes_objects_snapshot_by_alias_and_id() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+if objects.contains("obj:menu-item-0") && objects.contains("menu-item-0") {
+  let r = objects["menu-item-0"]["region"];
+  let kind = objects["obj:menu-item-0"]["kind"];
+  let dy = objects["obj:menu-item-0"]["state"]["offset_y"];
+  if kind == "text" {
+    out.push(#{ op: "offset", target: "menu-item-0", dx: r["x"], dy: dy });
+  }
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_states = BTreeMap::new();
+        object_states.insert(
+            "obj:menu-item-0".to_string(),
+            ObjectRuntimeState {
+                visible: true,
+                offset_x: 0,
+                offset_y: 7,
+            },
+        );
+        let mut object_kinds = BTreeMap::new();
+        object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
+        let mut object_regions = BTreeMap::new();
+        object_regions.insert("obj:menu-item-0".to_string(), region(12, 5, 10, 1));
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_states = object_states;
+        test_ctx.object_kinds = object_kinds;
+        test_ctx.object_regions = object_regions;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetOffset {
+                target: "menu-item-0".to_string(),
+                dx: 12,
+                dy: 7
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_scene_get_helper_reads_object_snapshot() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+let obj = scene_get("menu-item-0");
+if obj["kind"] == "text" {
+  let dy = obj["state"]["offset_y"];
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: dy });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_states = BTreeMap::new();
+        object_states.insert(
+            "obj:menu-item-0".to_string(),
+            ObjectRuntimeState {
+                visible: true,
+                offset_x: 0,
+                offset_y: 4,
+            },
+        );
+        let mut object_kinds = BTreeMap::new();
+        object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_states = object_states;
+        test_ctx.object_kinds = object_kinds;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetOffset {
+                target: "menu-item-0".to_string(),
+                dx: 0,
+                dy: 4
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_scene_object_api_get_and_set() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let obj = scene.get("menu-item-0");
+let dy = obj.get("state.offset_y");
+obj.set("position.y", dy + 2);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_states = BTreeMap::new();
+        object_states.insert(
+            "obj:menu-item-0".to_string(),
+            ObjectRuntimeState {
+                visible: true,
+                offset_x: 0,
+                offset_y: 5,
+            },
+        );
+        let mut object_kinds = BTreeMap::new();
+        object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_states = object_states;
+        test_ctx.object_kinds = object_kinds;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetProperty {
+                target: "menu-item-0".to_string(),
+                path: "position.y".to_string(),
+                value: JsonValue::Number(7.into())
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_scene_object_api_reads_props_snapshot() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+let obj = scene.get("menu-item-0");
+if obj.get("props.text.font") == "generic:half" {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 1, dy: 0 });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_states = BTreeMap::new();
+        object_states.insert(
+            "obj:menu-item-0".to_string(),
+            ObjectRuntimeState {
+                visible: true,
+                offset_x: 0,
+                offset_y: 0,
+            },
+        );
+        let mut object_kinds = BTreeMap::new();
+        object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
+        let mut object_props = BTreeMap::new();
+        object_props.insert(
+            "obj:menu-item-0".to_string(),
+            serde_json::json!({ "text": { "font": "generic:half" } }),
+        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_states = object_states;
+        test_ctx.object_kinds = object_kinds;
+        test_ctx.object_props = object_props;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetOffset {
+                target: "menu-item-0".to_string(),
+                dx: 1,
+                dy: 0
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_scene_object_api_get_falls_back_to_props_prefix() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+let obj = scene.get("menu-item-0");
+if obj.get("text.font") == "generic:half" {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 2, dy: 0 });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_states = BTreeMap::new();
+        object_states.insert(
+            "obj:menu-item-0".to_string(),
+            ObjectRuntimeState {
+                visible: true,
+                offset_x: 0,
+                offset_y: 0,
+            },
+        );
+        let mut object_kinds = BTreeMap::new();
+        object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
+        let mut object_props = BTreeMap::new();
+        object_props.insert(
+            "obj:menu-item-0".to_string(),
+            serde_json::json!({ "text": { "font": "generic:half" } }),
+        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_states = object_states;
+        test_ctx.object_kinds = object_kinds;
+        test_ctx.object_props = object_props;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetOffset {
+                target: "menu-item-0".to_string(),
+                dx: 2,
+                dy: 0
+            }]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_merges_text_content_and_text_props() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+let obj = scene.get("menu-item-0");
+if obj.get("props.text.content") == "HELLO" && obj.get("props.text.font") == "generic:half" {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 3, dy: 0 });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut resolver = TargetResolver::default();
+        resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
+        let mut object_states = BTreeMap::new();
+        object_states.insert(
+            "obj:menu-item-0".to_string(),
+            ObjectRuntimeState {
+                visible: true,
+                offset_x: 0,
+                offset_y: 0,
+            },
+        );
+        let mut object_kinds = BTreeMap::new();
+        object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
+        let mut object_props = BTreeMap::new();
+        object_props.insert(
+            "obj:menu-item-0".to_string(),
+            serde_json::json!({ "text": { "font": "generic:half" } }),
+        );
+        let mut object_text = BTreeMap::new();
+        object_text.insert("obj:menu-item-0".to_string(), "HELLO".to_string());
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.target_resolver = resolver;
+        test_ctx.object_states = object_states;
+        test_ctx.object_kinds = object_kinds;
+        test_ctx.object_props = object_props;
+        test_ctx.object_text = object_text;
+
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![BehaviorCommand::SetOffset {
+                target: "menu-item-0".to_string(),
+                dx: 3,
+                dy: 0
             }]
         );
     }

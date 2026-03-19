@@ -18,8 +18,10 @@ $defs:
     - playground-layout-lab
     - playground-menu
     - playground-rhai-focus
+    - playground-rhai-image-lab
     - playground-rhai-lab
     - playground-rhai-object
+    - playground-rhai-text-lab
     - playground-rhai-time
     - playground-stop-animation
     - playground-terminal-shell
@@ -40,8 +42,10 @@ $defs:
     - /scenes/layout-lab/scene.yml
     - /scenes/menu/scene.yml
     - /scenes/rhai-focus/scene.yml
+    - /scenes/rhai-image-lab/scene.yml
     - /scenes/rhai-lab/scene.yml
     - /scenes/rhai-object/scene.yml
+    - /scenes/rhai-text-lab/scene.yml
     - /scenes/rhai-time/scene.yml
     - /scenes/stop-animation/scene.yml
     - /scenes/terminal-shell/scene.yml
@@ -62,8 +66,10 @@ $defs:
     - /scenes/layout-lab/scene.yml
     - /scenes/menu/scene.yml
     - /scenes/rhai-focus/scene.yml
+    - /scenes/rhai-image-lab/scene.yml
     - /scenes/rhai-lab/scene.yml
     - /scenes/rhai-object/scene.yml
+    - /scenes/rhai-text-lab/scene.yml
     - /scenes/rhai-time/scene.yml
     - /scenes/stop-animation/scene.yml
     - /scenes/terminal-shell/scene.yml
@@ -81,8 +87,10 @@ $defs:
     - playground-layout-lab
     - playground-menu
     - playground-rhai-focus
+    - playground-rhai-image-lab
     - playground-rhai-lab
     - playground-rhai-object
+    - playground-rhai-text-lab
     - playground-rhai-time
     - playground-stop-animation
     - playground-terminal-shell
@@ -92,7 +100,6 @@ $defs:
     enum:
     - centered-endless-menu
     - suzan
-    - terminal-window
   effect_names:
     type: string
     enum:
@@ -132,8 +139,10 @@ $defs:
     - layout-lab/layers/main.yml
     - menu/layers/main.yml
     - rhai-focus/layers/main.yml
+    - rhai-image-lab/layers/main.yml
     - rhai-lab/layers/main.yml
     - rhai-object/layers/main.yml
+    - rhai-text-lab/layers/main.yml
     - rhai-time/layers/main.yml
     - terminal-shell/layers/bg.yml
     - terminal-shell/layers/hud.yml
@@ -150,10 +159,8 @@ $defs:
     enum:
     - /objects/centered-endless-menu.yml
     - /objects/suzan.yml
-    - /objects/terminal-window.yml
     - centered-endless-menu
     - suzan
-    - terminal-window
   effect_refs:
     type: string
     enum: []
@@ -199,6 +206,8 @@ $defs:
     - focus-tag-b
     - focus-tag-c
     - helsinki-uni-wireframe
+    - image-lab-root
+    - image-status
     - lab-shell
     - layout-lab-root
     - left-right-row
@@ -209,9 +218,13 @@ $defs:
     - object-shadow-a
     - object-shadow-b
     - object-spark
+    - object-status
     - rhai-lab-root
-    - terminal-shell-bg-root
     - terminal-size-root
+    - text-lab-root
+    - text-main
+    - text-status
+    - text-sub
     - time-flash
     - time-pulse-a
     - time-pulse-b
@@ -220,7 +233,13 @@ $defs:
     - tux-10
     - tux-20
     - tux-30
-    - ui-shell-status-dot
+    - tux-image
+    - ui-shell-header
+    - ui-shell-status
+    - ui-shell-status-cursor
+    - ui-terminal-help-tooltip
+    - ui-terminal-input-window
+    - ui-terminal-output
   template_names:
     type: string
     enum: []

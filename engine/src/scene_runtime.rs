@@ -8,11 +8,12 @@ use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
 use crate::rasterizer::generic::GenericMode;
 use crate::scene::{
-    resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite,
+    resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite, TermColour,
     TerminalShellControls, UiThemeStyle,
 };
 use crate::systems::animator::SceneStage;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::BTreeMap;
 use tui_input::{Input, InputRequest};
 
@@ -86,6 +87,16 @@ struct PanelLayoutSpec {
 struct TextLayoutSpec {
     y: i32,
     font: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ObjSpritePropertySnapshot {
+    scale: Option<f32>,
+    yaw: Option<f32>,
+    pitch: Option<f32>,
+    roll: Option<f32>,
+    orbit_speed: Option<f32>,
+    surface_mode: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -729,6 +740,98 @@ impl SceneRuntime {
         self.object_states.clone()
     }
 
+    pub fn object_kind_snapshot(&self) -> BTreeMap<String, String> {
+        self.objects
+            .iter()
+            .map(|(id, object)| (id.clone(), object_kind_name(&object.kind).to_string()))
+            .collect()
+    }
+
+    pub fn object_text_snapshot(&self) -> BTreeMap<String, String> {
+        let mut out = BTreeMap::new();
+        for (object_id, object) in &self.objects {
+            let Some(sprite_id) = object.aliases.first() else {
+                continue;
+            };
+            let Some(content) = self.text_sprite_content(sprite_id) else {
+                continue;
+            };
+            out.insert(object_id.clone(), content.to_string());
+        }
+        out
+    }
+
+    pub fn object_props_snapshot(&self) -> BTreeMap<String, JsonValue> {
+        let mut out = BTreeMap::new();
+        for (object_id, object) in &self.objects {
+            let Some(sprite_id) = object.aliases.first() else {
+                continue;
+            };
+            let mut props = JsonMap::new();
+            if let Some((font, fg, bg)) = self.text_sprite_style(sprite_id) {
+                let mut text = JsonMap::new();
+                if let Some(value) = font {
+                    text.insert("font".to_string(), JsonValue::String(value));
+                }
+                if let Some(value) = fg {
+                    text.insert("fg".to_string(), term_colour_to_json(&value));
+                }
+                if let Some(value) = bg {
+                    text.insert("bg".to_string(), term_colour_to_json(&value));
+                }
+                if !text.is_empty() {
+                    props.insert("text".to_string(), JsonValue::Object(text.clone()));
+                    props.insert("style".to_string(), JsonValue::Object(text));
+                }
+            }
+            if let Some(obj) = self.obj_sprite_properties(sprite_id) {
+                let mut obj_props = JsonMap::new();
+                if let Some(value) = obj.scale {
+                    obj_props.insert("scale".to_string(), JsonValue::from(value));
+                }
+                if let Some(value) = obj.yaw {
+                    obj_props.insert("yaw".to_string(), JsonValue::from(value));
+                }
+                if let Some(value) = obj.pitch {
+                    obj_props.insert("pitch".to_string(), JsonValue::from(value));
+                }
+                if let Some(value) = obj.roll {
+                    obj_props.insert("roll".to_string(), JsonValue::from(value));
+                }
+                if let Some(value) = obj.orbit_speed {
+                    obj_props.insert("orbit_speed".to_string(), JsonValue::from(value));
+                }
+                if let Some(value) = obj.surface_mode {
+                    obj_props.insert("surface_mode".to_string(), JsonValue::String(value));
+                }
+                if !obj_props.is_empty() {
+                    props.insert("obj".to_string(), JsonValue::Object(obj_props));
+                }
+            }
+            if !props.is_empty() {
+                out.insert(object_id.clone(), JsonValue::Object(props));
+            }
+        }
+        out
+    }
+
+    fn text_sprite_style(
+        &self,
+        sprite_id: &str,
+    ) -> Option<(Option<String>, Option<TermColour>, Option<TermColour>)> {
+        self.scene
+            .layers
+            .iter()
+            .find_map(|layer| find_text_style_recursive(&layer.sprites, sprite_id))
+    }
+
+    fn obj_sprite_properties(&self, sprite_id: &str) -> Option<ObjSpritePropertySnapshot> {
+        self.scene
+            .layers
+            .iter()
+            .find_map(|layer| find_obj_properties_recursive(&layer.sprites, sprite_id))
+    }
+
     pub fn obj_camera_states_snapshot(&self) -> BTreeMap<String, ObjCameraState> {
         self.obj_camera_states.clone()
     }
@@ -811,6 +914,9 @@ impl SceneRuntime {
         // Clone once per frame — shared across all behavior ticks this frame.
         let resolver = self.resolver_cache.clone();
         let object_regions = self.object_regions.clone();
+        let object_kinds = self.object_kind_snapshot();
+        let object_props = self.object_props_snapshot();
+        let object_text = self.object_text_snapshot();
         let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
         let ui_last_submit = self.ui_state.last_submit.clone();
         let ui_last_change = self.ui_state.last_change.clone();
@@ -829,7 +935,10 @@ impl SceneRuntime {
                 menu_selected_index,
                 target_resolver: resolver.clone(),
                 object_states: current_states.clone(),
+                object_kinds: object_kinds.clone(),
+                object_props: object_props.clone(),
                 object_regions: object_regions.clone(),
+                object_text: object_text.clone(),
                 ui_focused_target_id: ui_focused_target_id.clone(),
                 ui_theme_id: ui_theme_id.clone(),
                 ui_last_submit_target_id: ui_last_submit
@@ -1043,6 +1152,65 @@ impl SceneRuntime {
         updated
     }
 
+    fn set_text_sprite_font(&mut self, sprite_id: &str, next_font: String) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_text_font_recursive(&mut layer.sprites, sprite_id, &next_font, &mut updated);
+        }
+        updated
+    }
+
+    fn set_text_sprite_fg_colour(&mut self, sprite_id: &str, next_colour: TermColour) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_text_fg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
+        }
+        updated
+    }
+
+    fn set_text_sprite_bg_colour(&mut self, sprite_id: &str, next_colour: TermColour) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_text_bg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
+        }
+        updated
+    }
+
+    fn set_obj_sprite_property(&mut self, sprite_id: &str, path: &str, value: &JsonValue) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_obj_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+        }
+        updated
+    }
+
+    fn object_alias_candidates(&self, object_id: &str, target: &str) -> Vec<String> {
+        let mut out = vec![target.to_string()];
+        if let Some(object) = self.objects.get(object_id) {
+            for alias in &object.aliases {
+                if alias.trim().is_empty() || out.iter().any(|current| current == alias) {
+                    continue;
+                }
+                out.push(alias.clone());
+            }
+        }
+        out
+    }
+
+    fn apply_text_property_for_target(
+        &mut self,
+        object_id: &str,
+        target: &str,
+        mut apply: impl FnMut(&mut Self, &str) -> bool,
+    ) -> bool {
+        for alias in self.object_alias_candidates(object_id, target) {
+            if apply(self, &alias) {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn set_object_regions(&mut self, object_regions: BTreeMap<String, Region>) {
         self.object_regions = object_regions;
     }
@@ -1075,21 +1243,145 @@ impl SceneRuntime {
                     }
                 }
                 BehaviorCommand::SetText { target, text } => {
-                    if self.set_text_sprite_content(target, text.clone()) {
-                        continue;
-                    }
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         continue;
                     };
-                    let aliases = self
-                        .objects
-                        .get(object_id)
-                        .map(|object| object.aliases.clone())
-                        .unwrap_or_default();
-                    for alias in aliases {
-                        if self.set_text_sprite_content(&alias, text.clone()) {
-                            break;
+                    let _ =
+                        self.apply_text_property_for_target(object_id, target, |runtime, alias| {
+                            runtime.set_text_sprite_content(alias, text.clone())
+                        });
+                }
+                BehaviorCommand::SetProps {
+                    target,
+                    visible,
+                    dx,
+                    dy,
+                    text,
+                } => {
+                    let resolved_object_id = resolver.resolve_alias(target).map(str::to_string);
+                    if let Some(object_id) = resolved_object_id.as_deref() {
+                        if let Some(state) = self.object_states.get_mut(object_id) {
+                            if let Some(next_visible) = visible {
+                                state.visible = *next_visible;
+                            }
+                            if let Some(delta_x) = dx {
+                                state.offset_x = state.offset_x.saturating_add(*delta_x);
+                            }
+                            if let Some(delta_y) = dy {
+                                state.offset_y = state.offset_y.saturating_add(*delta_y);
+                            }
                         }
+                    }
+                    if let Some(next_text) = text {
+                        let Some(object_id) = resolved_object_id.as_deref() else {
+                            continue;
+                        };
+                        let _ = self.apply_text_property_for_target(
+                            object_id,
+                            target,
+                            |runtime, alias| {
+                                runtime.set_text_sprite_content(alias, next_text.clone())
+                            },
+                        );
+                    }
+                }
+                BehaviorCommand::SetProperty {
+                    target,
+                    path,
+                    value,
+                } => {
+                    let Some(object_id) = resolver.resolve_alias(target) else {
+                        continue;
+                    };
+                    match path.as_str() {
+                        "visible" => {
+                            let Some(next_visible) = value.as_bool() else {
+                                continue;
+                            };
+                            if let Some(state) = self.object_states.get_mut(object_id) {
+                                state.visible = next_visible;
+                            }
+                        }
+                        "offset.x" | "position.x" => {
+                            let Some(next_x) = value.as_i64() else {
+                                continue;
+                            };
+                            if let Some(state) = self.object_states.get_mut(object_id) {
+                                state.offset_x = next_x as i32;
+                            }
+                        }
+                        "offset.y" | "position.y" => {
+                            let Some(next_y) = value.as_i64() else {
+                                continue;
+                            };
+                            if let Some(state) = self.object_states.get_mut(object_id) {
+                                state.offset_y = next_y as i32;
+                            }
+                        }
+                        "text.content" => {
+                            let Some(next_text) = value.as_str() else {
+                                continue;
+                            };
+                            let _ = self.apply_text_property_for_target(
+                                object_id,
+                                target,
+                                |runtime, alias| {
+                                    runtime.set_text_sprite_content(alias, next_text.to_string())
+                                },
+                            );
+                        }
+                        "text.font" => {
+                            let Some(next_font) = value.as_str() else {
+                                continue;
+                            };
+                            let _ = self.apply_text_property_for_target(
+                                object_id,
+                                target,
+                                |runtime, alias| {
+                                    runtime.set_text_sprite_font(alias, next_font.to_string())
+                                },
+                            );
+                        }
+                        "style.fg" | "text.fg" => {
+                            let Some(next_colour) = parse_term_colour(value) else {
+                                continue;
+                            };
+                            let _ = self.apply_text_property_for_target(
+                                object_id,
+                                target,
+                                |runtime, alias| {
+                                    runtime.set_text_sprite_fg_colour(alias, next_colour.clone())
+                                },
+                            );
+                        }
+                        "style.bg" | "text.bg" => {
+                            let Some(next_colour) = parse_term_colour(value) else {
+                                continue;
+                            };
+                            let _ = self.apply_text_property_for_target(
+                                object_id,
+                                target,
+                                |runtime, alias| {
+                                    runtime.set_text_sprite_bg_colour(alias, next_colour.clone())
+                                },
+                            );
+                        }
+                        "obj.scale" | "obj.yaw" | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
+                        | "obj.surface_mode" => {
+                            let mut applied = self.set_obj_sprite_property(target, path, value);
+                            if !applied {
+                                for alias in self.object_alias_candidates(object_id, target) {
+                                    if self.set_obj_sprite_property(&alias, path, value) {
+                                        applied = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !applied {
+                                continue;
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -1199,6 +1491,11 @@ impl TargetResolver {
 
     pub fn register_alias(&mut self, alias: String, object_id: String) {
         self.aliases.insert(alias, object_id);
+    }
+
+    /// Returns a snapshot of all alias -> runtime object id bindings.
+    pub fn aliases_snapshot(&self) -> BTreeMap<String, String> {
+        self.aliases.clone()
     }
 
     /// Resolves a compositor layer index to its runtime layer object id.
@@ -1388,6 +1685,19 @@ fn sanitize_fragment(input: &str) -> String {
     }
 }
 
+fn object_kind_name(kind: &GameObjectKind) -> &'static str {
+    match kind {
+        GameObjectKind::Scene => "scene",
+        GameObjectKind::Layer => "layer",
+        GameObjectKind::TextSprite => "text",
+        GameObjectKind::ImageSprite => "image",
+        GameObjectKind::ObjSprite => "obj",
+        GameObjectKind::PanelSprite => "panel",
+        GameObjectKind::GridSprite => "grid",
+        GameObjectKind::FlexSprite => "flex",
+    }
+}
+
 fn collect_obj_orbit_defaults(scene: &Scene) -> BTreeMap<String, f32> {
     let mut out = BTreeMap::new();
     for layer in &scene.layers {
@@ -1478,6 +1788,72 @@ fn find_text_layout_recursive(sprites: &[Sprite], sprite_id: &str) -> Option<Tex
     None
 }
 
+fn find_text_style_recursive(
+    sprites: &[Sprite],
+    sprite_id: &str,
+) -> Option<(Option<String>, Option<TermColour>, Option<TermColour>)> {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Text {
+                id: Some(id),
+                font,
+                fg_colour,
+                bg_colour,
+                ..
+            } if id == sprite_id => {
+                return Some((font.clone(), fg_colour.clone(), bg_colour.clone()));
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if let Some(style) = find_text_style_recursive(children, sprite_id) {
+                    return Some(style);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn find_obj_properties_recursive(
+    sprites: &[Sprite],
+    sprite_id: &str,
+) -> Option<ObjSpritePropertySnapshot> {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                scale,
+                yaw_deg,
+                pitch_deg,
+                roll_deg,
+                rotate_y_deg_per_sec,
+                surface_mode,
+                ..
+            } if id == sprite_id => {
+                return Some(ObjSpritePropertySnapshot {
+                    scale: *scale,
+                    yaw: *yaw_deg,
+                    pitch: *pitch_deg,
+                    roll: *roll_deg,
+                    orbit_speed: *rotate_y_deg_per_sec,
+                    surface_mode: surface_mode.clone(),
+                });
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if let Some(props) = find_obj_properties_recursive(children, sprite_id) {
+                    return Some(props);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn text_line_height_for_font(font: Option<&str>) -> u16 {
     let Some(font_name) = font else {
         return 1;
@@ -1508,8 +1884,10 @@ fn set_text_content_recursive(
                 content,
                 ..
             } if id == sprite_id => {
-                *content = next_content.to_string();
-                *updated = true;
+                if content.as_str() != next_content {
+                    *content = next_content.to_string();
+                    *updated = true;
+                }
             }
             Sprite::Grid { children, .. }
             | Sprite::Flex { children, .. }
@@ -1519,6 +1897,230 @@ fn set_text_content_recursive(
             _ => {}
         }
     }
+}
+
+fn set_text_font_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    next_font: &str,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Text {
+                id: Some(id), font, ..
+            } if id == sprite_id => {
+                if font.as_deref() != Some(next_font) {
+                    *font = Some(next_font.to_string());
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_text_font_recursive(children, sprite_id, next_font, updated)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn set_text_fg_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    next_colour: &TermColour,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Text {
+                id: Some(id),
+                fg_colour,
+                ..
+            } if id == sprite_id => {
+                if fg_colour.as_ref() != Some(next_colour) {
+                    *fg_colour = Some(next_colour.clone());
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_text_fg_recursive(children, sprite_id, next_colour, updated)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn set_text_bg_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    next_colour: &TermColour,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Text {
+                id: Some(id),
+                bg_colour,
+                ..
+            } if id == sprite_id => {
+                if bg_colour.as_ref() != Some(next_colour) {
+                    *bg_colour = Some(next_colour.clone());
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_text_bg_recursive(children, sprite_id, next_colour, updated)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn set_obj_property_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    path: &str,
+    value: &JsonValue,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                scale,
+                yaw_deg,
+                pitch_deg,
+                roll_deg,
+                rotate_y_deg_per_sec,
+                surface_mode,
+                ..
+            } if id == sprite_id => match path {
+                "obj.scale" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    let next = next.clamp(0.1, 8.0);
+                    if (scale.unwrap_or(1.0) - next).abs() > f32::EPSILON {
+                        *scale = Some(next);
+                        *updated = true;
+                    }
+                }
+                "obj.yaw" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (yaw_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *yaw_deg = Some(next);
+                        *updated = true;
+                    }
+                }
+                "obj.pitch" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (pitch_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *pitch_deg = Some(next);
+                        *updated = true;
+                    }
+                }
+                "obj.roll" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (roll_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *roll_deg = Some(next);
+                        *updated = true;
+                    }
+                }
+                "obj.orbit_speed" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (rotate_y_deg_per_sec.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *rotate_y_deg_per_sec = Some(next);
+                        *updated = true;
+                    }
+                }
+                "obj.surface_mode" => {
+                    let Some(next) = value.as_str() else {
+                        continue;
+                    };
+                    if surface_mode.as_deref() != Some(next) {
+                        *surface_mode = Some(next.to_string());
+                        *updated = true;
+                    }
+                }
+                _ => {}
+            },
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_obj_property_recursive(children, sprite_id, path, value, updated);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn parse_term_colour(value: &JsonValue) -> Option<TermColour> {
+    let raw = value.as_str()?;
+    let normalized = raw.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "black" => Some(TermColour::Black),
+        "white" => Some(TermColour::White),
+        "gray" | "grey" => Some(TermColour::Gray),
+        "silver" => Some(TermColour::Silver),
+        "red" => Some(TermColour::Red),
+        "green" => Some(TermColour::Green),
+        "blue" => Some(TermColour::Blue),
+        "yellow" => Some(TermColour::Yellow),
+        "cyan" => Some(TermColour::Cyan),
+        "magenta" => Some(TermColour::Magenta),
+        _ => {
+            let hex = normalized.strip_prefix('#')?;
+            if hex.len() != 6 {
+                return None;
+            }
+            let Ok(r) = u8::from_str_radix(&hex[0..2], 16) else {
+                return None;
+            };
+            let Ok(g) = u8::from_str_radix(&hex[2..4], 16) else {
+                return None;
+            };
+            let Ok(b) = u8::from_str_radix(&hex[4..6], 16) else {
+                return None;
+            };
+            Some(TermColour::Rgb(r, g, b))
+        }
+    }
+}
+
+fn term_colour_to_json(colour: &TermColour) -> JsonValue {
+    match colour {
+        TermColour::Black => JsonValue::String("black".to_string()),
+        TermColour::White => JsonValue::String("white".to_string()),
+        TermColour::Gray => JsonValue::String("gray".to_string()),
+        TermColour::Silver => JsonValue::String("silver".to_string()),
+        TermColour::Red => JsonValue::String("red".to_string()),
+        TermColour::Green => JsonValue::String("green".to_string()),
+        TermColour::Blue => JsonValue::String("blue".to_string()),
+        TermColour::Yellow => JsonValue::String("yellow".to_string()),
+        TermColour::Cyan => JsonValue::String("cyan".to_string()),
+        TermColour::Magenta => JsonValue::String("magenta".to_string()),
+        TermColour::Rgb(r, g, b) => JsonValue::String(format!("#{r:02x}{g:02x}{b:02x}")),
+    }
+}
+
+fn json_value_to_f32(value: &JsonValue) -> Option<f32> {
+    value
+        .as_f64()
+        .map(|number| number as f32)
+        .or_else(|| value.as_i64().map(|number| number as f32))
 }
 
 fn wrap_text_to_width(input: &str, width: usize) -> Vec<String> {
@@ -1655,7 +2257,7 @@ mod tests {
     use super::SceneRuntime;
     use crate::behavior::BehaviorCommand;
     use crate::game_object::GameObjectKind;
-    use crate::scene::{Scene, SceneRenderedMode, Sprite};
+    use crate::scene::{Scene, SceneRenderedMode, Sprite, TermColour};
 
     fn intro_scene() -> Scene {
         serde_yaml::from_str(
@@ -1859,6 +2461,181 @@ layers: []
             }],
         );
         assert_eq!(runtime.text_sprite_content("title"), Some("UPDATED"));
+    }
+
+    #[test]
+    fn apply_behavior_commands_set_props_updates_state_and_text() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetProps {
+                target: "title".to_string(),
+                visible: Some(false),
+                dx: Some(3),
+                dy: Some(-1),
+                text: Some("PROPS".to_string()),
+            }],
+        );
+        assert_eq!(runtime.text_sprite_content("title"), Some("PROPS"));
+        let title_id = resolver.resolve_alias("title").expect("title id");
+        let state = runtime
+            .object_state(title_id)
+            .expect("object runtime state");
+        assert!(!state.visible);
+        assert_eq!(state.offset_x, 3);
+        assert_eq!(state.offset_y, -1);
+    }
+
+    #[test]
+    fn apply_behavior_commands_set_property_updates_runtime_object_paths() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "visible".to_string(),
+                    value: serde_json::json!(false),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "position.x".to_string(),
+                    value: serde_json::json!(9),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "position.y".to_string(),
+                    value: serde_json::json!(-2),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "text.content".to_string(),
+                    value: serde_json::json!("PATH-SET"),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "text.font".to_string(),
+                    value: serde_json::json!("generic:half"),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "style.fg".to_string(),
+                    value: serde_json::json!("yellow"),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "style.bg".to_string(),
+                    value: serde_json::json!("#112233"),
+                },
+            ],
+        );
+        assert_eq!(runtime.text_sprite_content("title"), Some("PATH-SET"));
+        let title_id = resolver.resolve_alias("title").expect("title id");
+        let state = runtime
+            .object_state(title_id)
+            .expect("object runtime state");
+        assert!(!state.visible);
+        assert_eq!(state.offset_x, 9);
+        assert_eq!(state.offset_y, -2);
+        let text_style = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Grid { children, .. } => children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id,
+                        font,
+                        fg_colour,
+                        bg_colour,
+                        ..
+                    } if id.as_deref() == Some("title") => {
+                        Some((font.clone(), fg_colour.clone(), bg_colour.clone()))
+                    }
+                    _ => None,
+                }),
+                _ => None,
+            })
+            .expect("text style");
+        assert_eq!(text_style.0.as_deref(), Some("generic:half"));
+        assert_eq!(text_style.1, Some(TermColour::Yellow));
+        assert_eq!(text_style.2, Some(TermColour::Rgb(0x11, 0x22, 0x33)));
+    }
+
+    #[test]
+    fn apply_behavior_commands_set_property_updates_obj_paths() {
+        let mut runtime = SceneRuntime::new(obj_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.scale".to_string(),
+                    value: serde_json::json!(1.5),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.yaw".to_string(),
+                    value: serde_json::json!(15),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.pitch".to_string(),
+                    value: serde_json::json!(-10),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.roll".to_string(),
+                    value: serde_json::json!(2),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.orbit_speed".to_string(),
+                    value: serde_json::json!(22),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "helsinki-uni-wireframe".to_string(),
+                    path: "obj.surface_mode".to_string(),
+                    value: serde_json::json!("wireframe"),
+                },
+            ],
+        );
+        let obj_props = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Obj {
+                    id,
+                    scale,
+                    yaw_deg,
+                    pitch_deg,
+                    roll_deg,
+                    rotate_y_deg_per_sec,
+                    surface_mode,
+                    ..
+                } if id.as_deref() == Some("helsinki-uni-wireframe") => Some((
+                    *scale,
+                    *yaw_deg,
+                    *pitch_deg,
+                    *roll_deg,
+                    *rotate_y_deg_per_sec,
+                    surface_mode.clone(),
+                )),
+                _ => None,
+            })
+            .expect("obj properties");
+        assert_eq!(obj_props.0, Some(1.5));
+        assert_eq!(obj_props.1, Some(15.0));
+        assert_eq!(obj_props.2, Some(-10.0));
+        assert_eq!(obj_props.3, Some(2.0));
+        assert_eq!(obj_props.4, Some(22.0));
+        assert_eq!(obj_props.5.as_deref(), Some("wireframe"));
     }
 
     #[test]
