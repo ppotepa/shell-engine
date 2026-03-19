@@ -5,12 +5,12 @@ bg: "#202020"
 ui:
   enabled: true
   persist: scene
+  theme: terminal
   focus-order:
     - ui-terminal-prompt
 layers:
   - ref: bg
   - ref: windows
-  - ref: hud
 input:
   terminal-shell:
     prompt_sprite_id: ui-terminal-prompt

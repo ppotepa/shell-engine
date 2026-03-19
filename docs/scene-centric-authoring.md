@@ -279,8 +279,9 @@ Zakres danych w scope obejmuje:
 - aktualnie wpływa na domyślne wartości sugar `type: window` i `type: scroll-list` (kolory sekcji/listy oraz domyślny styl ramki),
 - runtime rozwiązuje `ui.theme` przez wspólny registry presetów (`engine-core`),
 - gdy `ui.theme` nie jest podany lub jest nieznany, używany jest fallback `engine-default`,
-- jawne pola sprite (`border-style`, `border-fg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
+- jawne pola sprite (`border-style`, `border-fg`, `border-bg`, `panel-bg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
 - `window.border-style` wspiera: `auto`, `ascii`, `soft-ascii`, `single`, `rounded`, `double` (`auto` z `generic:*` fallbackuje do bezpiecznego ASCII).
+- `type: window` domyślnie kompiluje się do kompaktowego framed-grid (`rows: auto...`); brak rozciągania `1fr` dopóki nie ustawisz go jawnie.
 
 `ui.focus-order`:
 
