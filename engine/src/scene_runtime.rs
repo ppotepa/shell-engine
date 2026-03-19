@@ -6,7 +6,10 @@ use crate::behavior::{
 };
 use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
-use crate::scene::{BehaviorSpec, Scene, SceneRenderedMode, Sprite, TerminalShellControls};
+use crate::scene::{
+    normalize_theme_key, resolve_ui_theme, BehaviorSpec, Scene, SceneRenderedMode, Sprite,
+    TerminalShellControls, UiThemeStyle,
+};
 use crate::systems::animator::SceneStage;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use std::collections::BTreeMap;
@@ -78,6 +81,8 @@ struct UiTextEvent {
 struct UiRuntimeState {
     focus_order: Vec<String>,
     focused_index: usize,
+    theme_id: Option<String>,
+    theme_style: Option<UiThemeStyle>,
     last_submit: Option<UiTextEvent>,
     last_change: Option<UiTextEvent>,
 }
@@ -356,6 +361,14 @@ impl SceneRuntime {
 
     pub fn set_scene_rendered_mode(&mut self, mode: SceneRenderedMode) {
         self.scene.rendered_mode = mode;
+    }
+
+    pub fn ui_theme_id(&self) -> Option<&str> {
+        self.ui_state.theme_id.as_deref()
+    }
+
+    pub fn ui_theme_style(&self) -> Option<UiThemeStyle> {
+        self.ui_state.theme_style
     }
 
     pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
@@ -787,6 +800,7 @@ impl SceneRuntime {
         let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
         let ui_last_submit = self.ui_state.last_submit.clone();
         let ui_last_change = self.ui_state.last_change.clone();
+        let ui_theme_id = self.ui_state.theme_id.clone();
         let mut commands = Vec::new();
         let mut current_states = self.effective_object_states_snapshot();
         for idx in 0..self.behaviors.len() {
@@ -803,6 +817,7 @@ impl SceneRuntime {
                 object_states: current_states.clone(),
                 object_regions: object_regions.clone(),
                 ui_focused_target_id: ui_focused_target_id.clone(),
+                ui_theme_id: ui_theme_id.clone(),
                 ui_last_submit_target_id: ui_last_submit
                     .as_ref()
                     .map(|event| event.target_id.clone()),
@@ -858,6 +873,8 @@ impl SceneRuntime {
         }
         self.ui_state.focus_order = focus_order;
         self.ui_state.focused_index = 0;
+        self.ui_state.theme_id = normalize_theme_key(self.scene.ui.theme.as_deref());
+        self.ui_state.theme_style = resolve_ui_theme(self.scene.ui.theme.as_deref());
         self.ui_state.last_submit = None;
         self.ui_state.last_change = None;
     }
@@ -1422,6 +1439,24 @@ layers:
         let title_id = resolver.resolve_alias("title").expect("title alias");
         assert_eq!(resolver.resolve_alias("HUD"), resolver.layer_object_id(0));
         assert_eq!(resolver.sprite_object_id(0, &[0, 0]), Some(title_id));
+    }
+
+    #[test]
+    fn resolves_ui_theme_in_runtime_state() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: ui-theme-runtime
+title: UI Theme Runtime
+ui:
+  theme: windows_98
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+        let runtime = SceneRuntime::new(scene);
+        assert_eq!(runtime.ui_theme_id(), Some("windows-98"));
+        let style = runtime.ui_theme_style().expect("theme style");
+        assert_eq!(style.id, "win98");
     }
 
     #[test]

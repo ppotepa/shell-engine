@@ -22,6 +22,7 @@ pub struct BehaviorContext {
     pub object_states: std::collections::BTreeMap<String, ObjectRuntimeState>,
     pub object_regions: std::collections::BTreeMap<String, Region>,
     pub ui_focused_target_id: Option<String>,
+    pub ui_theme_id: Option<String>,
     pub ui_last_submit_target_id: Option<String>,
     pub ui_last_submit_text: Option<String>,
     pub ui_last_change_target_id: Option<String>,
@@ -531,6 +532,7 @@ impl Behavior for RhaiScriptBehavior {
             "ui_focused_target",
             ctx.ui_focused_target_id.clone().unwrap_or_default(),
         );
+        scope.push("ui_theme", ctx.ui_theme_id.clone().unwrap_or_default());
         scope.push(
             "ui_submit_target",
             ctx.ui_last_submit_target_id.clone().unwrap_or_default(),
@@ -821,6 +823,9 @@ fn ui_context_to_rhai_map(ctx: &BehaviorContext) -> RhaiMap {
     if let Some(value) = ctx.ui_focused_target_id.as_ref() {
         out.insert("focused_target".into(), value.clone().into());
     }
+    if let Some(value) = ctx.ui_theme_id.as_ref() {
+        out.insert("theme".into(), value.clone().into());
+    }
     out.insert(
         "has_submit".into(),
         ctx.ui_last_submit_target_id.is_some().into(),
@@ -1061,6 +1066,7 @@ mod tests {
             object_states: BTreeMap::new(),
             object_regions: BTreeMap::new(),
             ui_focused_target_id: None,
+            ui_theme_id: None,
             ui_last_submit_target_id: None,
             ui_last_submit_text: None,
             ui_last_change_target_id: None,
@@ -1558,6 +1564,9 @@ let out = [];
 if ui.has_submit && ui_submit_text == "status" && ui_focused_target == "terminal-prompt" {
   out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
 }
+if ui.theme == "terminal" && ui_theme == "terminal" {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: 1 });
+}
 if ui_has_change && ui_change_target == "terminal-prompt" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 2, dy: 0 });
 }
@@ -1569,6 +1578,7 @@ out
         });
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.ui_focused_target_id = Some("terminal-prompt".to_string());
+        test_ctx.ui_theme_id = Some("terminal".to_string());
         test_ctx.ui_last_submit_target_id = Some("terminal-prompt".to_string());
         test_ctx.ui_last_submit_text = Some("status".to_string());
         test_ctx.ui_last_change_target_id = Some("terminal-prompt".to_string());
@@ -1580,6 +1590,11 @@ out
                 BehaviorCommand::SetVisibility {
                     target: "menu-item-0".to_string(),
                     visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 0,
+                    dy: 1
                 },
                 BehaviorCommand::SetOffset {
                     target: "menu-item-0".to_string(),

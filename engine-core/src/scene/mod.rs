@@ -15,6 +15,8 @@ pub mod model;
 pub mod sprite;
 /// Template substitution helpers.
 pub mod template;
+/// UI theme registry and preset styles.
+pub mod ui_theme;
 
 pub use crate::animations::AnimationParams;
 pub use color::TermColour;
@@ -27,3 +29,7 @@ pub use model::{
     TerminalShellControls, TerminalShellOutput, TerminalSizeTesterControls, UiPersistence,
 };
 pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
+pub use ui_theme::{
+    normalize_theme_key, resolve_ui_theme, ScrollListThemeStyle, UiThemeStyle, WindowFrameStyle,
+    WindowThemeStyle,
+};
