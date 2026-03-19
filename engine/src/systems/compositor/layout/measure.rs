@@ -8,6 +8,7 @@ use crate::scene::{FlexDirection, SceneRenderedMode, Sprite};
 use crate::systems::compositor::image_render::image_sprite_dimensions;
 use crate::systems::compositor::obj_render::obj_sprite_dimensions;
 use crate::systems::compositor::text_render::text_sprite_dimensions;
+use super::tracks::{parse_track_spec, TrackSpec};
 
 /// Measures the approximate render size of a sprite for layout purposes.
 pub(crate) fn measure_sprite_for_layout(
@@ -54,8 +55,101 @@ pub(crate) fn measure_sprite_for_layout(
             let mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             image_sprite_dimensions(source, *width, *height, *size, mode, asset_root)
         }
-        Sprite::Grid { width, height, .. } => {
-            (width.unwrap_or(1).max(1), height.unwrap_or(1).max(1))
+        Sprite::Grid {
+            width,
+            height,
+            columns,
+            rows,
+            gap_x,
+            gap_y,
+            children,
+            ..
+        } => {
+            if let (Some(w), Some(h)) = (width.as_ref().copied(), height.as_ref().copied()) {
+                return (w.max(1), h.max(1));
+            }
+
+            let col_specs: Vec<TrackSpec> = if columns.is_empty() {
+                vec![TrackSpec::Fr(1)]
+            } else {
+                columns.iter().map(|c| parse_track_spec(c)).collect()
+            };
+            let row_specs: Vec<TrackSpec> = if rows.is_empty() {
+                vec![TrackSpec::Fr(1)]
+            } else {
+                rows.iter().map(|r| parse_track_spec(r)).collect()
+            };
+
+            let mut col_auto_reqs = vec![1u16; col_specs.len().max(1)];
+            let mut row_auto_reqs = vec![1u16; row_specs.len().max(1)];
+
+            for child in children {
+                let (pref_w, pref_h) = measure_sprite_for_layout(child, inherited_mode, asset_root);
+                let (row, col, row_span, col_span) = child.grid_position();
+
+                let col_idx = (col as usize)
+                    .saturating_sub(1)
+                    .min(col_auto_reqs.len().saturating_sub(1));
+                let row_idx = (row as usize)
+                    .saturating_sub(1)
+                    .min(row_auto_reqs.len().saturating_sub(1));
+                let col_span_clamped = (col_span as usize)
+                    .max(1)
+                    .min(col_auto_reqs.len().saturating_sub(col_idx));
+                let row_span_clamped = (row_span as usize)
+                    .max(1)
+                    .min(row_auto_reqs.len().saturating_sub(row_idx));
+
+                let col_gaps = gap_x.saturating_mul((col_span_clamped.saturating_sub(1)) as u16);
+                let row_gaps = gap_y.saturating_mul((row_span_clamped.saturating_sub(1)) as u16);
+                let col_share = pref_w
+                    .saturating_sub(col_gaps)
+                    .saturating_div(col_span_clamped as u16)
+                    .max(1);
+                let row_share = pref_h
+                    .saturating_sub(row_gaps)
+                    .saturating_div(row_span_clamped as u16)
+                    .max(1);
+
+                for idx in col_idx..(col_idx + col_span_clamped) {
+                    col_auto_reqs[idx] = col_auto_reqs[idx].max(col_share);
+                }
+                for idx in row_idx..(row_idx + row_span_clamped) {
+                    row_auto_reqs[idx] = row_auto_reqs[idx].max(row_share);
+                }
+            }
+
+            let measured_w = width.unwrap_or_else(|| {
+                let tracks_sum = col_specs
+                    .iter()
+                    .enumerate()
+                    .fold(0u16, |acc, (idx, spec)| {
+                        let size = match spec {
+                            TrackSpec::Fixed(px) => *px,
+                            TrackSpec::Auto | TrackSpec::Fr(_) => col_auto_reqs[idx].max(1),
+                        };
+                        acc.saturating_add(size)
+                    });
+                let gaps = gap_x.saturating_mul(col_specs.len().saturating_sub(1) as u16);
+                tracks_sum.saturating_add(gaps).max(1)
+            });
+
+            let measured_h = height.unwrap_or_else(|| {
+                let tracks_sum = row_specs
+                    .iter()
+                    .enumerate()
+                    .fold(0u16, |acc, (idx, spec)| {
+                        let size = match spec {
+                            TrackSpec::Fixed(px) => *px,
+                            TrackSpec::Auto | TrackSpec::Fr(_) => row_auto_reqs[idx].max(1),
+                        };
+                        acc.saturating_add(size)
+                    });
+                let gaps = gap_y.saturating_mul(row_specs.len().saturating_sub(1) as u16);
+                tracks_sum.saturating_add(gaps).max(1)
+            });
+
+            (measured_w.max(1), measured_h.max(1))
         }
         Sprite::Obj {
             width,
