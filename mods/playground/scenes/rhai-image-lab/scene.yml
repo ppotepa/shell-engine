@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-rhai-image-lab
+title: Rhai Image Lab
+bg: black
+layers:
+  - ref: main
+behaviors:
+  - name: rhai-script
+    params:
+      script: |
+        let tick = if state.contains("tick") { state["tick"] } else { 0 };
+        let next_tick = tick + 1;
+
+        let x = ((next_tick % 32) - 16) / 2;
+        let y = ((next_tick % 24) - 12) / 6;
+        let visible = ((next_tick / 12) % 2) == 0;
+
+        scene.set("tux-image", "position.x", x);
+        scene.set("tux-image", "position.y", y);
+        scene.set("tux-image", "visible", visible);
+
+        scene.set("image-status", "text.content", `tux x=${x} y=${y} visible=${visible}`);
+        scene.set("image-status", "style.fg", if visible { "yellow" } else { "gray" });
+
+        #{ state: #{ tick: next_tick } }
+stages-ref: /stages/anykey-fade-250-200.yml
+next: playground-rhai-lab
+menu-options:
+  - { key: "0", label: BACK TO RHAI LAB, to: playground-rhai-lab }

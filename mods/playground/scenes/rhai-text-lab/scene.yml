@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-rhai-text-lab
+title: Rhai Text Lab
+bg: black
+layers:
+  - ref: main
+behaviors:
+  - name: rhai-script
+    params:
+      script: |
+        let tick = if state.contains("tick") { state["tick"] } else { 0 };
+        let next_tick = tick + 1;
+        let phase = (next_tick / 18) % 4;
+
+        let title = scene.get("text-main");
+        let phase_label = "PHASE 0";
+
+        if phase == 0 {
+          title.set("text.font", "generic:half");
+          title.set("style.fg", "white");
+          title.set("position.x", -2);
+          phase_label = "PHASE 0";
+        } else if phase == 1 {
+          title.set("text.font", "generic:1");
+          title.set("style.fg", "yellow");
+          title.set("position.x", 2);
+          phase_label = "PHASE 1";
+        } else if phase == 2 {
+          title.set("text.font", "generic:half");
+          title.set("style.fg", "cyan");
+          title.set("position.x", -1);
+          phase_label = "PHASE 2";
+        } else {
+          title.set("text.font", "generic:1");
+          title.set("style.fg", "magenta");
+          title.set("position.x", 1);
+          phase_label = "PHASE 3";
+        }
+
+        scene.set("text-sub", "text.content", `OBJECT API: scene.get/set + obj.get/set`);
+        scene.set("text-status", "text.content", `tick=${next_tick}  ${phase_label}`);
+
+        #{ state: #{ tick: next_tick } }
+stages-ref: /stages/anykey-fade-250-200.yml
+next: playground-rhai-lab
+menu-options:
+  - { key: "0", label: BACK TO RHAI LAB, to: playground-rhai-lab }

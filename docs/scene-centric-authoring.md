@@ -184,7 +184,9 @@ Przykład działających scen demonstracyjnych:
 - `mods/playground/scenes/rhai-lab/scene.yml`,
 - `mods/playground/scenes/rhai-time/scene.yml`,
 - `mods/playground/scenes/rhai-focus/scene.yml`,
-- `mods/playground/scenes/rhai-object/scene.yml`.
+- `mods/playground/scenes/rhai-object/scene.yml`,
+- `mods/playground/scenes/rhai-text-lab/scene.yml`,
+- `mods/playground/scenes/rhai-image-lab/scene.yml`.
 
 ## 9) Ścieżka kompilacji
 
@@ -260,12 +262,7 @@ Jeśli menu nie reaguje na `Enter`, strzałki lub `menu-options[].key`, sprawdź
 5. Docelowe sceny istnieją i mają poprawne `id`.
 6. Po zmianach został odświeżony schemat (`./refresh-schemas.sh`) i walidacja jest zielona.
 
-## 13) Known Limits: `rhai-script`
-
-Aktualnie behavior `rhai-script` obsługuje tylko komendy:
-
-- `visibility` (`target`, `visible`)
-- `offset` (`target`, `dx`, `dy`)
+## 13) Rhai Scope (skrót)
 
 Zakres danych w scope obejmuje:
 
@@ -275,8 +272,53 @@ Zakres danych w scope obejmuje:
 - `stage_elapsed_ms`,
 - `params`,
 - `regions`.
+- `objects` (snapshot obiektów po runtime `id` i aliasach target resolvera):
+  - `id`, `kind`,
+  - `state.visible`, `state.offset_x`, `state.offset_y`,
+  - `props.visible`, `props.offset.x`, `props.offset.y`,
+  - `props.text.content`, `props.text.font`, `props.text.fg`, `props.text.bg` (dla text sprite),
+  - `props.style.fg`, `props.style.bg`,
+  - `props.obj.scale`, `props.obj.yaw`, `props.obj.pitch`, `props.obj.roll`, `props.obj.orbit_speed`, `props.obj.surface_mode` (dla obj sprite),
+  - `region` (jeśli dostępny),
+  - `text.content`/`props.text.content` dla text sprite.
+- `state` (persistowany między tickami, gdy skrypt zwróci `#{ state: ... }`)
 - `ui` (`focused_target`, `theme`, `has_submit`, `submit_target`, `submit_text`, `has_change`, `change_target`, `change_text`)
 - aliasy flat: `ui_focused_target`, `ui_theme`, `ui_submit_target`, `ui_submit_text`, `ui_change_target`, `ui_change_text`, `ui_has_submit`, `ui_has_change`.
+
+Pełny kontrakt komend, `scene.get/set`, `obj.get/set` i path-based mutacji:
+- `scene.get(target)` -> uchwyt obiektu,
+- `scene.set(target, path, value)` -> zapis property,
+- `obj.get(path)` / `obj.set(path, value)` na uchwycie obiektu.
+
+Wspierane ścieżki `set(path, value)`:
+
+- `visible` (`bool`),
+- `position.x` / `offset.x` (`int`),
+- `position.y` / `offset.y` (`int`),
+- `text.content` (`string`),
+- `text.font` (`string`),
+- `style.fg` / `text.fg` (`string`, kolor nazwany lub `#rrggbb`),
+- `style.bg` / `text.bg` (`string`, kolor nazwany lub `#rrggbb`),
+- `obj.scale` (`number`),
+- `obj.yaw` (`number`),
+- `obj.pitch` (`number`),
+- `obj.roll` (`number`),
+- `obj.orbit_speed` (`number`),
+- `obj.surface_mode` (`string`).
+
+Kompatybilność:
+
+- helpery `scene_get(target)` i `scene_set(target, path, value)` nadal działają,
+- mapy komend `#{ op: "...", ... }` nadal działają.
+
+Przykład obiektowego API:
+
+```rhai
+let core = scene.get("object-core");
+let y = core.get("state.offset_y");
+core.set("position.y", y + 1);
+scene.set("object-status", "text.content", "READY");
+```
 
 `ui.theme`:
 

@@ -12,6 +12,7 @@ taffy = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "gif"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
+serde_json = "1"
 thiserror = "2.0"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 rhai = { version = "1.19", default-features = false, features = ["std"] }

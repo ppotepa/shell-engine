@@ -6,13 +6,15 @@
       id: rhai-lab-root
       at: cc
       columns: ["1fr"]
-      rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+      rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "RHAI LAB", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
-        - { type: text, content: "SCENE-SIDECAR SCRIPT EXAMPLES", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
-        - { type: text, content: "[1] TIME + BLINK/OFFSET", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: white }
-        - { type: text, content: "[2] MENU FOCUS POINTER", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: silver }
-        - { type: text, content: "[3] OBJECT PULSE", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray }
-        - { type: text, content: "[0] BACK TO PLAYGROUND MENU", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: gray }
-        - { type: text, content: "Use number keys. Enter also confirms current item.", grid-col: 1, grid-row: 7, at: cc, font: "generic:1", fg: gray, behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }
+        - { type: text, content: "RHAI LAB", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
+        - { type: text, content: "SCENE-SIDECAR SCRIPT EXAMPLES", grid-col: 1, grid-row: 2, at: cc, font: "generic:half", fg: gray }
+        - { type: text, content: "[1] TIME + BLINK/OFFSET", grid-col: 1, grid-row: 3, at: cc, font: "generic:half", fg: white }
+        - { type: text, content: "[2] MENU FOCUS POINTER", grid-col: 1, grid-row: 4, at: cc, font: "generic:half", fg: silver }
+        - { type: text, content: "[3] OBJECT PULSE", grid-col: 1, grid-row: 5, at: cc, font: "generic:half", fg: gray }
+        - { type: text, content: "[4] TEXT LAB (OBJECT API + STYLE)", grid-col: 1, grid-row: 6, at: cc, font: "generic:half", fg: gray }
+        - { type: text, content: "[5] IMAGE LAB (TUX)", grid-col: 1, grid-row: 7, at: cc, font: "generic:half", fg: gray }
+        - { type: text, content: "[0] BACK TO PLAYGROUND MENU", grid-col: 1, grid-row: 8, at: cc, font: "generic:half", fg: gray }
+        - { type: text, content: "Use number keys. Enter also confirms current item.", grid-col: 1, grid-row: 9, at: cc, font: "generic:half", fg: gray, behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }

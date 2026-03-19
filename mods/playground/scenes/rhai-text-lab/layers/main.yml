@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: rhai-text-lab
+  z_index: 0
+  sprites:
+    - type: grid
+      id: text-lab-root
+      at: cc
+      columns: ["1fr"]
+      rows: ["auto", "auto", "auto", "auto", "auto", "auto"]
+      gap-y: 1
+      children:
+        - { type: text, content: "RHAI TEXT LAB", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
+        - { type: text, id: text-main, content: "TEXT PROPERTY MATRIX", grid-col: 1, grid-row: 2, at: cc, font: "generic:half", fg: white }
+        - { type: text, id: text-sub, content: "OBJECT API", grid-col: 1, grid-row: 3, at: cc, font: "generic:half", fg: gray }
+        - { type: text, id: text-status, content: "tick=0", grid-col: 1, grid-row: 4, at: cc, font: "generic:half", fg: silver }
+        - { type: text, content: "Mutated: text.font, style.fg, position.x, text.content", grid-col: 1, grid-row: 5, at: cc, font: "generic:half", fg: gray }
+    - { type: text, content: "0: return to Rhai Lab", at: cb, y: -1, font: "generic:half", fg: gray, hide_on_leave: true }

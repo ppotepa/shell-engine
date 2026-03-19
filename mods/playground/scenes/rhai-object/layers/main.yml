@@ -6,12 +6,12 @@
       id: object-root
       at: cc
       columns: ["1fr"]
-      rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+      rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
       gap-y: 1
       children:
         - { type: text, content: "RHAI OBJECT", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
-        - { type: text, content: "SCRIPT CONTROLS COMPOSITE VISIBILITY", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
-        - { type: text, content: "halo + spark + shadow variants", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
+        - { type: text, content: "SCRIPT CONTROLS VISIBILITY + STATE + OBJECT SNAPSHOT", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
+        - { type: text, content: "halo + spark + shadow + status text", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
 
         - { type: text, id: object-halo-a, content: "( halo A )", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: yellow }
         - { type: text, id: object-halo-b, content: "( halo B )", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: yellow }
@@ -19,5 +19,6 @@
         - { type: text, id: object-spark, content: "*", grid-col: 1, grid-row: 5, at: rc, x: -8, font: "generic:1", fg: white }
         - { type: text, id: object-shadow-a, content: "( shadow A )", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: gray }
         - { type: text, id: object-shadow-b, content: "( shadow B )", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: gray }
+        - { type: text, id: object-status, content: "CORE y=0 tick=0", grid-col: 1, grid-row: 7, at: cc, font: "generic:1", fg: gray }
 
     - { type: text, content: "0: return to Rhai Lab", at: cb, y: -1, font: "generic:1", fg: gray, hide_on_leave: true }
