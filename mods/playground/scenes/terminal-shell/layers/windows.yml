@@ -17,7 +17,6 @@
       corner-radius: 1
       shadow-x: 1
       shadow-y: 1
-      font: "generic:half"
     - type: window
       id: ui-terminal-help-tooltip
       at: rt
@@ -26,11 +25,9 @@
       title-bar: "HINTS"
       padding: 1
       body-content: |
-        LS - LIST
-        STATUS - STATE
-        MISSION - OBJECTIVE
-        LOGS - EVENTS
-      footer-content: "ESC ON EMPTY PROMPT -> MENU"
+        TYPE LS
+        TYPE STATUS
+        TYPE LOGS
       border-fg: "#3B3B3B"
       border-bg: "#181818"
       panel-bg: "#4A4A4A"
@@ -40,4 +37,3 @@
       corner-radius: 1
       shadow-x: 1
       shadow-y: 1
-      font: "generic:half"
