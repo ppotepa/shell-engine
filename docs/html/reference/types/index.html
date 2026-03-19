@@ -8,6 +8,7 @@
 <body class="doc-page">
   <header class="header">
     <h1>Type Reference Index</h1>
+    <p class="page-subtitle">Complete documentation for all 217 public types</p>
     <nav class="breadcrumb-path">
       <a href="../../../index.html">Home</a> / <a href="../">Reference</a> / Types
     </nav>
@@ -15,37 +16,64 @@
   
   <div class="container">
     <main class="content">
-      <section id="types-list" class="doc-section">
-        <h2>Core Types (12 pages)</h2>
+      <section id="overview" class="doc-section">
+        <h2>Overview</h2>
+        <p>This section documents all public types in the Shell Quest Engine codebase:</p>
         <ul>
-          <li><a href="EngineEvent.html"><strong>EngineEvent</strong></a> — Top-level event enum</li>
-          <li><a href="World.html"><strong>World</strong></a> — Entity and system container</li>
-          <li><a href="SceneRuntime.html"><strong>SceneRuntime</strong></a> — Materialized scene with live state</li>
-          <li><a href="Scene.html"><strong>Scene</strong></a> — Static scene definition</li>
-          <li><a href="Sprite.html"><strong>Sprite</strong></a> — Visual element (image or text)</li>
-          <li><a href="Layer.html"><strong>Layer</strong></a> — Container for sprites</li>
-          <li><a href="BehaviorSpec.html"><strong>BehaviorSpec</strong></a> — Behavior script definition</li>
-          <li><a href="BehaviorCommand.html"><strong>BehaviorCommand</strong></a> — Behavior execution commands</li>
-          <li><a href="Effect.html"><strong>Effect</strong></a> — Visual effect</li>
-          <li><a href="Animator.html"><strong>Animator</strong></a> — Animation state tracker</li>
-          <li><a href="TerminalShellState.html"><strong>TerminalShellState</strong></a> — Interactive shell state</li>
-          <li><a href="TerminalShellControls.html"><strong>TerminalShellControls</strong></a> — Shell input handler</li>
+          <li><strong>157 structs</strong> — Data structures and state containers</li>
+          <li><strong>51 enums</strong> — Variants and discriminated unions</li>
+          <li><strong>10 traits</strong> — Shared behavior definitions</li>
+        </ul>
+        <p><strong>Total: 218 types with complete field/variant documentation.</strong></p>
+      </section>
+      
+      <section id="categories" class="doc-section">
+        <h2>Browse by Category</h2>
+        
+        <div class="nav-card">
+          <h3><a href="structs/">📦 Structs (157 types)</a></h3>
+          <p>Data structures: Scene, Sprite, Layer, Effects, Animations, Buffers, and more.</p>
+          <p><a href="structs/index.html">→ Browse all structs</a></p>
+        </div>
+        
+        <div class="nav-card">
+          <h3><a href="enums/">🔀 Enums (51 types)</a></h3>
+          <p>Variants: EngineEvent, BehaviorCommand, AnimationAxis, Easing, AppMode, and more.</p>
+          <p><a href="enums/index.html">→ Browse all enums</a></p>
+        </div>
+        
+        <div class="nav-card">
+          <h3><a href="traits/">⚙️ Traits (10 types)</a></h3>
+          <p>Interfaces: AssetRepository, AudioBackend, Behavior, Effect, SpriteAnimation, and more.</p>
+          <p><a href="traits/index.html">→ Browse all traits</a></p>
+        </div>
+      </section>
+      
+      <section id="by-domain" class="doc-section">
+        <h2>Browse by Domain</h2>
+        <ul>
+          <li><strong>engine-core</strong> (87 types) — Core model, effects, animations</li>
+          <li><strong>engine</strong> (76 types) — Runtime systems, loaders, repositories</li>
+          <li><strong>editor</strong> (28 types) — UI components, state, indexes</li>
+          <li><strong>engine-authoring</strong> (14 types) — YAML compilation, schema</li>
+          <li><strong>tools</strong> (12 types) — DevTool, schema-gen</li>
         </ul>
       </section>
       
       <section id="see-also" class="doc-section">
         <h2>See Also</h2>
         <ul>
-          <li><a href="../../../reference/systems/index.html">Systems Reference</a></li>
-          <li><a href="../../../reference/modules/index.html">Module Reference</a></li>
-          <li><a href="../../../toc.html">Table of Contents</a></li>
+          <li><a href="../systems/index.html">Systems Reference</a> — Runtime systems documentation</li>
+          <li><a href="../modules/index.html">Module Reference</a> — File-level organization</li>
+          <li><a href="../../../architecture/overview.html">Architecture Overview</a> — System design</li>
+          <li><a href="../../../toc.html">Table of Contents</a> — Full documentation index</li>
         </ul>
       </section>
     </main>
   </div>
   
   <footer class="footer">
-    <p>Shell Quest Engine Documentation</p>
+    <p>Shell Quest Engine Documentation — 273 pages total</p>
   </footer>
 </body>
 </html>
