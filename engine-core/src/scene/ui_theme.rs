@@ -3,7 +3,9 @@
 /// Frame style used by semantic window decorations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowFrameStyle {
-    Unicode,
+    Single,
+    Rounded,
+    Double,
     Ascii,
 }
 
@@ -83,7 +85,7 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
                 title_fg: "cyan",
                 body_fg: "white",
                 footer_fg: "gray",
-                frame_style: WindowFrameStyle::Unicode,
+                frame_style: WindowFrameStyle::Double,
             },
             scroll_list: ScrollListThemeStyle {
                 selected_fg: "cyan",
@@ -98,7 +100,7 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
                 title_fg: "yellow",
                 body_fg: "white",
                 footer_fg: "silver",
-                frame_style: WindowFrameStyle::Unicode,
+                frame_style: WindowFrameStyle::Rounded,
             },
             scroll_list: ScrollListThemeStyle {
                 selected_fg: "yellow",
@@ -141,7 +143,7 @@ mod tests {
         assert_eq!(win98.id, "win98");
         let xp = resolve_ui_theme(Some("windows-xp")).expect("xp alias");
         assert_eq!(xp.id, "xp");
-        assert_eq!(xp.window.frame_style, WindowFrameStyle::Unicode);
+        assert_eq!(xp.window.frame_style, WindowFrameStyle::Double);
     }
 
     #[test]
