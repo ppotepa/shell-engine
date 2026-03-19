@@ -27,6 +27,7 @@ pub struct SceneRuntime {
     obj_orbit_default_speed: BTreeMap<String, f32>,
     obj_camera_states: BTreeMap<String, ObjCameraState>,
     terminal_shell_state: Option<TerminalShellState>,
+    terminal_shell_scene_elapsed_ms: u64,
     ui_state: UiRuntimeState,
 }
 
@@ -104,7 +105,18 @@ impl TerminalShellState {
         state
     }
 
-    fn prompt_line(&self) -> String {
+    fn prompt_line(&self, scene_elapsed_ms: u64) -> String {
+        // Default shell prompt (`>`) uses a blinking marker.
+        if self.controls.prompt_prefix.trim() == ">" {
+            let marker_len = self.controls.prompt_prefix.chars().count().max(1);
+            let blink_on = ((scene_elapsed_ms / 450) % 2) == 0;
+            let prefix = if blink_on {
+                format!("[white]{}[/]", self.controls.prompt_prefix)
+            } else {
+                " ".repeat(marker_len)
+            };
+            return format!("{prefix}{}", self.input.value());
+        }
         format!("{}{}", self.controls.prompt_prefix, self.input.value())
     }
 
@@ -319,6 +331,7 @@ impl SceneRuntime {
             obj_orbit_default_speed: BTreeMap::new(),
             obj_camera_states: BTreeMap::new(),
             terminal_shell_state: None,
+            terminal_shell_scene_elapsed_ms: 0,
             ui_state: UiRuntimeState::default(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
@@ -766,6 +779,8 @@ impl SceneRuntime {
         stage_elapsed_ms: u64,
         menu_selected_index: usize,
     ) -> Vec<BehaviorCommand> {
+        self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
+        self.sync_terminal_shell_sprites();
         // Clone once per frame — shared across all behavior ticks this frame.
         let resolver = self.resolver_cache.clone();
         let object_regions = self.object_regions.clone();
@@ -824,7 +839,7 @@ impl SceneRuntime {
         };
         let prompt_id = state.controls.prompt_sprite_id.clone();
         let output_id = state.controls.output_sprite_id.clone();
-        let prompt_line = state.prompt_line();
+        let prompt_line = state.prompt_line(self.terminal_shell_scene_elapsed_ms);
         let output_text = state.output_text();
         let _ = self.set_text_sprite_content(&prompt_id, prompt_line);
         let _ = self.set_text_sprite_content(&output_id, output_text);
