@@ -2,36 +2,40 @@
 - name: terminal-shell-windows
   z_index: 2
   ui: true
-  objects:
-    - ref: terminal-window
-      as: ui-terminal-window-shadow
-      with:
-        frame_id: ui-terminal-shadow-frame
-        title_id: ui-terminal-shadow-title
-        body_id: ui-terminal-shadow-body
-        footer_id: ui-terminal-shadow-footer
-        title: ""
-        width: 90
-        x: 1
-        y: -2
-        border_fg: "#2B2B2B"
-        title_fg: "#2B2B2B"
-        body_fg: "#2B2B2B"
-        footer_fg: "#2B2B2B"
-        border_style: soft-ascii
-    - ref: terminal-window
-      as: ui-terminal-window-main
-      with:
-        frame_id: ui-terminal-input-frame
-        title_id: ui-terminal-input-title
-        body_id: ui-terminal-input-body
-        footer_id: ui-terminal-prompt
-        title: ""
-        width: 90
-        x: 0
-        y: -3
-        border_fg: gray
-        title_fg: gray
-        body_fg: "#6D6D6D"
-        footer_fg: "#B5B5B5"
-        border_style: soft-ascii
+  sprites:
+    - type: window
+      id: ui-terminal-input-shadow
+      at: cb
+      x: 1
+      y: -1
+      width: 106
+      title: ""
+      title-id: ui-terminal-shadow-title
+      body-id: ui-terminal-shadow-body
+      footer-id: ui-terminal-shadow-footer
+      body-content: ""
+      footer-content: ""
+      border-fg: "#2F2F2F"
+      title-fg: "#2F2F2F"
+      body-fg: "#2F2F2F"
+      footer-fg: "#2F2F2F"
+      border-style: soft-ascii
+      font: "generic:half"
+    - type: window
+      id: ui-terminal-input-window
+      at: cb
+      x: 0
+      y: -2
+      width: 106
+      title: ""
+      title-id: ui-terminal-input-title
+      body-id: ui-terminal-input-body
+      footer-id: ui-terminal-prompt
+      body-content: "type: help, ls, status, mission, logs"
+      footer-content: ""
+      border-fg: gray
+      title-fg: gray
+      body-fg: "#7E7E7E"
+      footer-fg: "#C4C4C4"
+      border-style: soft-ascii
+      font: "generic:half"
