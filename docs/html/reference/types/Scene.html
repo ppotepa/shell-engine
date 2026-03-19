@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>TerminalShellState — Shell Quest Docs</title>
+  <title>Scene — Shell Quest Docs</title>
   <link rel="stylesheet" href="../../../styles.css">
 </head>
 <body class="doc-page">
   <header class="header">
-    <h1>TerminalShellState</h1>
-    <p class="page-subtitle">struct — Interactive Shell Runtime</p>
+    <h1>Scene</h1>
+    <p class="page-subtitle">struct — Static Scene Definition</p>
     <nav class="breadcrumb-path">
-      <a href="../../../index.html">Home</a> / <a href="../">Types</a> / TerminalShellState
+      <a href="../../../index.html">Home</a> / <a href="../">Types</a> / Scene
     </nav>
   </header>
   
@@ -18,17 +18,17 @@
     <aside class="sidebar">
       <div class="sidebar-block">
         <h3>Source</h3>
-        <p><code>engine/src/scene_runtime.rs</code></p>
+        <p><code>engine-core/src/scene/model.rs</code></p>
       </div>
     </aside>
     
     <main class="content">
       <section id="overview" class="doc-section">
         <h2>Overview</h2>
-        <p>State for terminal-shell input profile: line buffer, cursor position, command history.</p>
+        <p>Scene is the canonical scene model: static definition of stages, layers, sprites, behaviors, and effects. Result of YAML compilation.</p>
       </section>
       
-      <section id='provides' class='doc-section'><h2>Provides</h2><p>Line editing with Ctrl+A/E/K/U/W, built-in commands (help, clear, ls, pwd, echo, whoami)</p></section>
+      <section id='fields' class='doc-section'><h2>Key Fields</h2><p><code>['id', 'title', 'stages[]', 'layers[]', 'behaviors[]', 'effects[]']</code></p></section>
 
       
       <section id="see-also" class="doc-section">

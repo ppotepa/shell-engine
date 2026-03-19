@@ -1,103 +1,119 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>TOC — Shell Quest Docs</title>
-  <link rel="stylesheet" href="./styles.css">
+  <title>Table of Contents — Shell Quest Docs</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="header"><h1>Table of Contents</h1></div>
-  <div class="container">
-    <nav class="sidebar">
-      <ul>
-        <li><a href="index.html">Home</a></li>
-        <li><a href="domains/overview.html">Domains Overview</a></li>
-        <li>Domains
-          <ul>
-            <li><a href="domains/overview.html">Overview</a></li>
-            <li><a href="domains/architecture.html">Architecture</a></li>
-          </ul>
-        </li>
-        <li>Modules
-          <ul>
-            <li>engine
-              <ul>
-                <li><a href="modules/engine/overview.html">Overview</a></li>
-                <li><a href="modules/engine/game_loop.html">Game loop</a></li>
-                <li><a href="modules/engine/scene_runtime.html">Scene runtime</a></li>
-                <li><a href="modules/engine/input.html">Input</a></li>
-                <li><a href="modules/engine/events.html">Events</a></li>
-                <li><a href="modules/engine/systems_animator.html">Animator</a></li>
-                <li><a href="modules/engine/behavior.html">Behavior</a></li>
-                <li><a href="modules/engine/audio.html">Audio</a></li>
-                <li><a href="modules/engine/compositor.html">Compositor</a></li>
-                <li><a href="modules/engine/renderer.html">Renderer</a></li>
-                <li><a href="modules/engine/rasterizer.html">Rasterizer</a></li>
-              </ul>
-            </li>
-            <li>engine-core
-              <ul>
-                <li><a href="modules/engine-core/model.html">Model</a></li>
-                <li><a href="modules/engine-core/effects.html">Effects</a></li>
-              </ul>
-            </li>
-            <li>engine-authoring
-              <ul>
-                <li><a href="modules/engine-authoring/overview.html">Overview</a></li>
-                <li><a href="modules/engine-authoring/cutscene.html">Cutscene</a></li>
-              </ul>
-            </li>
-            <li>editor
-              <ul>
-                <li><a href="modules/editor/overview.html">Overview</a></li>
-                <li><a href="modules/editor/ui_components.html">UI components</a></li>
-                <li><a href="modules/editor/cutscene_maker.html">Cutscene maker</a></li>
-              </ul>
-            </li>
-            <li>Mods
-              <ul>
-                <li><a href="modules/mods/shell-quest.html">shell-quest</a></li>
-                <li><a href="modules/mods/playground.html">playground</a></li>
-              </ul>
-            </li>
-            <li>Tools
-              <ul>
-                <li><a href="modules/tools/schema-gen.html">schema-gen</a></li>
-                <li><a href="modules/tools/devtool.html">devtool</a></li>
-              </ul>
-            </li>
-          </ul>
-        </li>
-        <li>Reference types
-          <ul>
-            <li><a href="reference/types/SceneRuntime.html">SceneRuntime</a></li>
-            <li><a href="reference/types/TerminalShellState.html">TerminalShellState</a></li>
-            <li><a href="reference/types/EngineEvent.html">EngineEvent</a></li>
-            <li><a href="reference/types/GameLoop.html">GameLoop</a></li>
-            <li><a href="reference/types/Animator.html">Animator</a></li>
-            <li><a href="reference/types/Compositor.html">Compositor</a></li>
-            <li><a href="reference/types/Renderer.html">Renderer</a></li>
-            <li><a href="reference/types/Schema.html">Schema system</a></li>
-          </ul>
-        </li>
-        <li>Flows
-          <ul>
-            <li><a href="flows/frame_pipeline.html">Frame pipeline</a></li>
-            <li><a href="flows/startup_flow.html">Startup flow</a></li>
-            <li><a href="flows/input_flow.html">Input flow</a></li>
-            <li><a href="flows/asset_pipeline.html">Asset pipeline</a></li>
-          </ul>
-        </li>
-        <li><a href="glossary.html">Glossary</a></li>
-        <li><a href="filemap.html">File map</a></li>
-      </ul>
+<body class="doc-page">
+  <header class="header">
+    <h1>Table of Contents</h1>
+    <nav class="breadcrumb-path">
+      <a href="index.html">Home</a> / TOC
     </nav>
-    <main class="main">
-      <div class="breadcrumbs"><a href="index.html">Home</a> / TOC</div>
-      <h2>Top-level</h2>
-      <p>Use the sidebar to explore modules, reference types and flows. This TOC mirrors the planned documentation tree and links to the first-priority pages.</p>
-      <div class="footer">Docs TOC — Shell Quest</div>
+  </header>
+  
+  <div class="container">
+    <main class="content">
+      <div class="toc-container">
+        <h2>Architecture & Flows (5 pages)</h2>
+        <ul>
+          <li><a href="architecture/overview.html">Architecture Overview</a></li>
+          <li><a href="architecture/startup_flow.html">Startup Flow</a></li>
+          <li><a href="architecture/frame_pipeline.html">Frame Pipeline</a></li>
+          <li><a href="architecture/input_flow.html">Input Flow</a></li>
+          <li><a href="architecture/asset_pipeline.html">Asset Pipeline</a></li>
+        </ul>
+        
+        <h2>Domains (7 pages)</h2>
+        <ul>
+          <li><a href="domains/app.html">app — Launcher</a></li>
+          <li><a href="domains/engine.html">engine — Runtime</a></li>
+          <li><a href="domains/engine-core.html">engine-core — Model</a></li>
+          <li><a href="domains/engine-authoring.html">engine-authoring — Compilation</a></li>
+          <li><a href="domains/editor.html">editor — TUI Editor</a></li>
+          <li><a href="domains/mods.html">mods — Content</a></li>
+          <li><a href="domains/tools.html">tools — Development</a></li>
+        </ul>
+        
+        <h2>Type Reference (30+ pages)</h2>
+        <ul>
+          <li><a href="reference/types/index.html">Types Index</a></li>
+          <li><a href="reference/types/EngineEvent.html">EngineEvent</a></li>
+          <li><a href="reference/types/World.html">World</a></li>
+          <li><a href="reference/types/SceneRuntime.html">SceneRuntime</a></li>
+          <li><a href="reference/types/Scene.html">Scene</a></li>
+          <li><a href="reference/types/Sprite.html">Sprite</a></li>
+          <li><a href="reference/types/Layer.html">Layer</a></li>
+          <li><a href="reference/types/BehaviorSpec.html">BehaviorSpec</a></li>
+          <li><a href="reference/types/BehaviorCommand.html">BehaviorCommand</a></li>
+          <li><a href="reference/types/Effect.html">Effect</a></li>
+          <li><a href="reference/types/Animator.html">Animator</a></li>
+          <li><a href="reference/types/TerminalShellState.html">TerminalShellState</a></li>
+        </ul>
+        
+        <h2>System Reference (10 pages)</h2>
+        <ul>
+          <li><a href="reference/systems/index.html">Systems Index</a></li>
+          <li><a href="reference/systems/Animator.html">Animator System</a></li>
+          <li><a href="reference/systems/Compositor.html">Compositor</a></li>
+          <li><a href="reference/systems/Renderer.html">Renderer</a></li>
+          <li><a href="reference/systems/BehaviorSystem.html">BehaviorSystem</a></li>
+          <li><a href="reference/systems/AudioSystem.html">AudioSystem</a></li>
+          <li><a href="reference/systems/SceneLifecycleManager.html">SceneLifecycleManager</a></li>
+          <li><a href="reference/systems/MenuSystem.html">MenuSystem</a></li>
+          <li><a href="reference/systems/GameLoop.html">GameLoop</a></li>
+          <li><a href="reference/systems/AssetLoader.html">AssetLoader</a></li>
+        </ul>
+        
+        <h2>Module Reference (35+ pages)</h2>
+        <ul>
+          <li><a href="reference/modules/index.html">Modules Index</a></li>
+          <li><strong>Engine Modules:</strong>
+            <ul>
+              <li><a href="reference/modules/engine_main.html">engine/main.rs</a></li>
+              <li><a href="reference/modules/engine_game_loop.html">engine/game_loop.rs</a></li>
+              <li><a href="reference/modules/engine_scene_runtime.html">engine/scene_runtime.rs</a></li>
+              <li><a href="reference/modules/engine_world.html">engine/world.rs</a></li>
+              <li><a href="reference/modules/engine_events.html">engine/events.rs</a></li>
+            </ul>
+          </li>
+          <li><strong>Core Modules:</strong>
+            <ul>
+              <li><a href="reference/modules/engine_core_scene_model.html">engine-core/scene/model.rs</a></li>
+              <li><a href="reference/modules/engine_core_behaviors.html">engine-core/behaviors/mod.rs</a></li>
+              <li><a href="reference/modules/engine_core_effects.html">engine-core/effects/mod.rs</a></li>
+              <li><a href="reference/modules/engine_core_animations.html">engine-core/animations.rs</a></li>
+            </ul>
+          </li>
+          <li><strong>Authoring Modules:</strong>
+            <ul>
+              <li><a href="reference/modules/engine_authoring_compile_scene.html">engine-authoring/compile/scene.rs</a></li>
+              <li><a href="reference/modules/engine_authoring_compile_cutscene.html">engine-authoring/compile/cutscene.rs</a></li>
+              <li><a href="reference/modules/engine_authoring_schema.html">engine-authoring/schema/mod.rs</a></li>
+            </ul>
+          </li>
+          <li><strong>Editor Modules:</strong>
+            <ul>
+              <li><a href="reference/modules/editor_app.html">editor/app.rs</a></li>
+              <li><a href="reference/modules/editor_state.html">editor/state/mod.rs</a></li>
+              <li><a href="reference/modules/editor_ui.html">editor/ui/mod.rs</a></li>
+            </ul>
+          </li>
+        </ul>
+        
+        <h2>Supporting Pages</h2>
+        <ul>
+          <li><a href="glossary.html">Glossary</a></li>
+          <li><a href="filemap.html">File Map</a></li>
+          <li><a href="sitemap.html">Site Map</a></li>
+        </ul>
+      </div>
     </main>
   </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation</p>
+  </footer>
 </body>
 </html>

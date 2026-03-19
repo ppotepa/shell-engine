@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Systems Reference — Shell Quest Docs</title>
+  <link rel="stylesheet" href="../../../styles.css">
+</head>
+<body class="doc-page">
+  <header class="header">
+    <h1>Systems Reference Index</h1>
+    <nav class="breadcrumb-path">
+      <a href="../../../index.html">Home</a> / <a href="../">Reference</a> / Systems
+    </nav>
+  </header>
+  
+  <div class="container">
+    <main class="content">
+      <section id="systems-list" class="doc-section">
+        <h2>Engine Systems (9 pages)</h2>
+        <p>Runtime systems that orchestrate the frame pipeline. Listed in typical execution order within a frame.</p>
+        <ul>
+          <li><a href="Animator.html"><strong>Animator</strong></a> — Animation timing and sprite visibility</li>
+          <li><a href="Compositor.html"><strong>Compositor</strong></a> — Layout and z-order calculation</li>
+          <li><a href="Renderer.html"><strong>Renderer</strong></a> — Terminal buffer rendering</li>
+          <li><a href="BehaviorSystem.html"><strong>BehaviorSystem</strong></a> — Behavior execution</li>
+          <li><a href="AudioSystem.html"><strong>AudioSystem</strong></a> — Audio playback</li>
+          <li><a href="SceneLifecycleManager.html"><strong>SceneLifecycleManager</strong></a> — Scene transitions and lifecycle</li>
+          <li><a href="MenuSystem.html"><strong>MenuSystem</strong></a> — Menu navigation and selection</li>
+          <li><a href="GameLoop.html"><strong>GameLoop</strong></a> — Fixed-timestep main loop</li>
+          <li><a href="AssetLoader.html"><strong>AssetLoader</strong></a> — Asset loading and caching</li>
+        </ul>
+      </section>
+      
+      <section id="pipeline-order" class="doc-section">
+        <h2>Frame Pipeline Order</h2>
+        <ol>
+          <li>Poll events (input, timing)</li>
+          <li>Scene Lifecycle (transitions, terminal-shell)</li>
+          <li>Menu System (if active)</li>
+          <li>Behavior System (execute commands)</li>
+          <li>Animator (update timing, emit transitions)</li>
+          <li>Compositor (calculate layout)</li>
+          <li>Renderer (output frame)</li>
+        </ol>
+      </section>
+      
+      <section id="see-also" class="doc-section">
+        <h2>See Also</h2>
+        <ul>
+          <li><a href="../../../architecture/frame_pipeline.html">Frame Pipeline Detail</a></li>
+          <li><a href="../../../reference/types/index.html">Types Reference</a></li>
+          <li><a href="../../../reference/modules/index.html">Module Reference</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation</p>
+  </footer>
+</body>
+</html>

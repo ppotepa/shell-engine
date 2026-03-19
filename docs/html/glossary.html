@@ -1,35 +1,102 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Glossary</title>
-  <link rel="stylesheet" href="./styles.css">
+  <title>Glossary — Shell Quest Docs</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="header"><h1>Glossary</h1></div>
-  <div class="container">
-    <nav class="sidebar">
-      <ul>
-        <li><a href="toc.html">TOC</a></li>
-      </ul>
+<body class="doc-page">
+  <header class="header">
+    <h1>Glossary</h1>
+    <nav class="breadcrumb-path">
+      <a href="index.html">Home</a> / Glossary
     </nav>
-    <main class="main">
-      <div class="breadcrumbs"><a href="index.html">Home</a> / Glossary</div>
-      <h2>Terms</h2>
-      <dl>
-        <dt>Scene</dt>
-        <dd>Authored YAML description of a screen / interaction. (Confirmed: schemas/scene.schema.yaml)</dd>
-        <dt>SceneRuntime</dt>
-        <dd>Runtime materialization of a Scene with per-frame state. (Confirmed: engine/src/scene_runtime.rs)</dd>
-        <dt>Terminal-shell</dt>
-        <dd>Input profile providing a REPL-style prompt and output buffer. (Confirmed)</dd>
-        <dt>Animator</dt>
-        <dd>System that progresses animations and may emit transitions. (Confirmed)</dd>
-        <dt>Compositor</dt>
-        <dd>System composing layers/sprites into the final buffer. (Confirmed)</dd>
-      </dl>
-      <div class="footer">Glossary</div>
+  </header>
+  
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Core Concepts</h2>
+        <ul>
+          <li><strong>Scene:</strong> A static scene definition in the core model. Compiled from YAML, contains layers, sprites, behaviors, effects.</li>
+          <li><strong>SceneRuntime:</strong> The live runtime representation of a Scene in the World. Tracks sprite visibility, animation state, behavior variables.</li>
+          <li><strong>Sprite:</strong> A visual element (image or text). Properties: position, size, animation, effects.</li>
+          <li><strong>Layer:</strong> Z-ordered container for sprites. Scenes have multiple layers for depth organization.</li>
+          <li><strong>BehaviorSpec:</strong> A behavior script definition, compiled from YAML. Defines conditions and commands.</li>
+          <li><strong>BehaviorCommand:</strong> Execution primitive: Move, SetVisibility, Animate, Transition, etc.</li>
+          <li><strong>Effect:</strong> Visual transformation: fade, crt-reflection, glow, contrast, color-remap.</li>
+          <li><strong>Animation:</strong> Timed state change of a sprite or layer (appearance, position, effects).</li>
+          <li><strong>World:</strong> The runtime container for active scene, sprites, layers, systems, and asset cache.</li>
+          <li><strong>EngineEvent:</strong> Top-level event enum: KeyPressed, MouseMoved, Tick, Quit, SceneTransition, ObjectCommand.</li>
+        </ul>
+      </section>
+      
+      <section class="doc-section">
+        <h2>Systems & Pipeline</h2>
+        <ul>
+          <li><strong>Game Loop:</strong> Fixed-timestep main loop (~60 FPS). Polls events, updates systems, handles display.</li>
+          <li><strong>Animator:</strong> System that tracks animation timing, manages sprite visibility transitions.</li>
+          <li><strong>Compositor:</strong> Calculates final layout: layer z-order, sprite positioning, culling.</li>
+          <li><strong>Renderer:</strong> Converts composite into terminal raster buffer (character grid + colors).</li>
+          <li><strong>BehaviorSystem:</strong> Executes behavior scripts: condition checks, command execution.</li>
+          <li><strong>SceneLifecycleManager:</strong> Manages scene transitions, stage progression, terminal-shell input.</li>
+          <li><strong>MenuSystem:</strong> Handles menu navigation and selection.</li>
+          <li><strong>AudioSystem:</strong> Manages audio playback.</li>
+          <li><strong>AssetLoader:</strong> Loads and caches assets: images, fonts, objects.</li>
+        </ul>
+      </section>
+      
+      <section class="doc-section">
+        <h2>Authoring & Compilation</h2>
+        <ul>
+          <li><strong>YAML:</strong> Scene authoring format (scenes/*.yml). Defines layers, sprites, behaviors, effects, transitions.</li>
+          <li><strong>Compilation:</strong> Transform YAML scene into runtime Scene. Handles object references, template expansion, normalization.</li>
+          <li><strong>Cutscene:</strong> Timed image sequence. Compiled into sprite visibility keyframes.</li>
+          <li><strong>Object Reference:</strong> Scene-level reusable object template (scenes/objects/*.yml). Can be included with `ref:` + `with:` overrides.</li>
+          <li><strong>Input Profile:</strong> Scene-level input handling mode: 'menu', 'terminal-shell', 'obj-viewer', etc.</li>
+          <li><strong>Terminal Shell:</strong> Interactive line-editing interface within a scene. Provides `help`, `clear`, `ls`, `pwd`, `echo`, `whoami` commands.</li>
+        </ul>
+      </section>
+      
+      <section class="doc-section">
+        <h2>Tools & Formats</h2>
+        <ul>
+          <li><strong>schema-gen:</strong> Tool that generates YAML schemas for all mods. Validates schema drift.</li>
+          <li><strong>devtool:</strong> CLI for scene/asset creation: `create mod`, `create scene`, `create sprite`, `edit sprite`.</li>
+          <li><strong>Manifest:</strong> YAML file describing a mod: scenes, assets, global settings.</li>
+          <li><strong>PNG:</strong> Image format (indexed-color). Supported bit depths: 1, 2, 4-bit.</li>
+          <li><strong>TTF:</strong> Font format. Rasterized on-demand to bitmap glyphs.</li>
+          <li><strong>OBJ:</strong> 3D geometry format. Converted to ASCII art for terminal rendering.</li>
+          <li><strong>Dithering:</strong> Floyd-Steinberg optional algorithm for smooth color reduction.</li>
+        </ul>
+      </section>
+      
+      <section class="doc-section">
+        <h2>Development Concepts</h2>
+        <ul>
+          <li><strong>Hot Reload:</strong> Editor automatically refreshes when files change on disk.</li>
+          <li><strong>Virtual Buffer:</strong> Off-screen rendering target. Scaled to terminal size on output.</li>
+          <li><strong>Halfblock Mode:</strong> Character rendering using ▄ and ▀ for 2x vertical resolution.</li>
+          <li><strong>Braille Mode:</strong> Character rendering using braille patterns ⠿ for fine-grained pixel control.</li>
+          <li><strong>Cell Mode:</strong> Character-level rendering (one color per cell).</li>
+          <li><strong>RAII:</strong> Resource Acquisition Is Initialization. Used for mouse capture guard cleanup.</li>
+          <li><strong>Inference:</strong> Information deduced from code analysis (not explicitly confirmed).</li>
+        </ul>
+      </section>
+      
+      <section class="doc-section">
+        <h2>See Also</h2>
+        <ul>
+          <li><a href="filemap.html">File Map</a></li>
+          <li><a href="toc.html">Table of Contents</a></li>
+          <li><a href="reference/types/index.html">Types Reference</a></li>
+        </ul>
+      </section>
     </main>
   </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation</p>
+  </footer>
 </body>
 </html>

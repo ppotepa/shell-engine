@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Startup Flow — Shell Quest Docs</title>
+  <link rel="stylesheet" href="../../styles.css">
+</head>
+<body class="doc-page">
+  <header class="header">
+    <h1>Startup Flow</h1>
+    <nav class="breadcrumb-path">
+      <a href="../../index.html">Home</a> / <a href="../../architecture/overview.html">Architecture</a> / startup_flow
+    </nav>
+  </header>
+  
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-block">
+        <h3>Architecture Pages</h3>
+        <ul>
+          <li><a href="overview.html">Overview</a></li>
+          <li><a href="startup_flow.html">Startup Flow</a></li>
+          <li><a href="frame_pipeline.html">Frame Pipeline</a></li>
+          <li><a href="input_flow.html">Input Flow</a></li>
+          <li><a href="asset_pipeline.html">Asset Pipeline</a></li>
+        </ul>
+      </div>
+    </aside>
+    
+    <main class="content">
+      <section id="content" class="doc-section">
+        <h2>Phases</h2>
+<ol>
+  <li><strong>CLI Parse:</strong> app::main() → Cli::parse() → mod selection</li>
+  <li><strong>Mod Load:</strong> Load manifest.yaml from selected mod</li>
+  <li><strong>Scene Compilation:</strong> For each scene YAML, compile to Scene (engine-authoring)</li>
+  <li><strong>Engine Init:</strong> Create World, initialize all systems</li>
+  <li><strong>Frame Loop:</strong> Begin game_loop()</li>
+</ol>
+
+<h2>Manifest Loading</h2>
+<p>ModManifest describes scenes, assets, and global settings. Scene paths are resolved relative to mod root.</p>
+
+<h2>Scene Compilation</h2>
+<p>YAML → SceneDocument → normalize → compile with filters → Scene (runtime)</p>
+
+<h2>System Initialization</h2>
+<p>Animator, Compositor, Renderer, BehaviorSystem, AudioSystem, MenuSystem all initialized from config.</p>
+      </section>
+      
+      <section id="see-also" class="doc-section">
+        <h2>See Also</h2>
+        <ul>
+          <li><a href="../../reference/systems/GameLoop.html">GameLoop System</a></li>
+          <li><a href="../../reference/systems/Animator.html">Animator System</a></li>
+          <li><a href="../../reference/types/World.html">World Type</a></li>
+          <li><a href="../../toc.html">Table of Contents</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Input Flow — Shell Quest Docs</title>
+  <link rel="stylesheet" href="../../styles.css">
+</head>
+<body class="doc-page">
+  <header class="header">
+    <h1>Input Flow</h1>
+    <nav class="breadcrumb-path">
+      <a href="../../index.html">Home</a> / <a href="../../architecture/overview.html">Architecture</a> / input_flow
+    </nav>
+  </header>
+  
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-block">
+        <h3>Architecture Pages</h3>
+        <ul>
+          <li><a href="overview.html">Overview</a></li>
+          <li><a href="startup_flow.html">Startup Flow</a></li>
+          <li><a href="frame_pipeline.html">Frame Pipeline</a></li>
+          <li><a href="input_flow.html">Input Flow</a></li>
+          <li><a href="asset_pipeline.html">Asset Pipeline</a></li>
+        </ul>
+      </div>
+    </aside>
+    
+    <main class="content">
+      <section id="content" class="doc-section">
+        <h2>Input Sources</h2>
+<ul>
+  <li><strong>Terminal:</strong> Raw keyboard input (KeyCode → KeyEvent with modifiers)</li>
+  <li><strong>Mouse:</strong> Terminal mouse events (if supported)</li>
+</ul>
+
+<h2>Processing Pipeline</h2>
+<ol>
+  <li><strong>Terminal Poll:</strong> Read raw bytes, convert to KeyEvent (crossterm)</li>
+  <li><strong>Engine Event Queue:</strong> KeyPressed(KeyEvent) → EngineEvent</li>
+  <li><strong>Scene Lifecycle:</strong> Check input profile (terminal-shell, menu, obj-viewer, etc)</li>
+  <li><strong>Terminal Shell:</strong> If active, consume keystrokes for command editing</li>
+  <li><strong>Menu System:</strong> Process menu navigation/selection</li>
+  <li><strong>Behavior System:</strong> Dispatch to scene behaviors (if any)</li>
+</ol>
+
+<h2>Terminal Shell Input Profile</h2>
+<p>Provides line editing: Ctrl+A/E/K/U/W, arrow keys, delete/backspace, word motion. Consumes keys before menu transitions.</p>
+
+<h2>Key Event Modifiers</h2>
+<p>KeyEvent preserves Shift/Ctrl/Alt/Meta. Allows modifier-aware behavior scripting.</p>
+      </section>
+      
+      <section id="see-also" class="doc-section">
+        <h2>See Also</h2>
+        <ul>
+          <li><a href="../../reference/systems/GameLoop.html">GameLoop System</a></li>
+          <li><a href="../../reference/systems/Animator.html">Animator System</a></li>
+          <li><a href="../../reference/types/World.html">World Type</a></li>
+          <li><a href="../../toc.html">Table of Contents</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  
+  <footer class="footer">
+    <p>Shell Quest Engine Documentation</p>
+  </footer>
+</body>
+</html>

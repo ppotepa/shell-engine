@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>TerminalShellState — Shell Quest Docs</title>
+  <title>Effect — Shell Quest Docs</title>
   <link rel="stylesheet" href="../../../styles.css">
 </head>
 <body class="doc-page">
   <header class="header">
-    <h1>TerminalShellState</h1>
-    <p class="page-subtitle">struct — Interactive Shell Runtime</p>
+    <h1>Effect</h1>
+    <p class="page-subtitle">struct — Visual Effect</p>
     <nav class="breadcrumb-path">
-      <a href="../../../index.html">Home</a> / <a href="../">Types</a> / TerminalShellState
+      <a href="../../../index.html">Home</a> / <a href="../">Types</a> / Effect
     </nav>
   </header>
   
@@ -18,17 +18,17 @@
     <aside class="sidebar">
       <div class="sidebar-block">
         <h3>Source</h3>
-        <p><code>engine/src/scene_runtime.rs</code></p>
+        <p><code>engine-core/src/effects/mod.rs</code></p>
       </div>
     </aside>
     
     <main class="content">
       <section id="overview" class="doc-section">
         <h2>Overview</h2>
-        <p>State for terminal-shell input profile: line buffer, cursor position, command history.</p>
+        <p>Effect applies visual transformations: fade, crt-reflection, glow, contrast, etc.</p>
       </section>
       
-      <section id='provides' class='doc-section'><h2>Provides</h2><p>Line editing with Ctrl+A/E/K/U/W, built-in commands (help, clear, ls, pwd, echo, whoami)</p></section>
+      <section id='builtin' class='doc-section'><h2>Built-in Effects</h2><p><code>crt-reflection</code>, <code>fade</code>, <code>glow</code>, <code>contrast</code>, <code>color-remap</code></p></section>
 
       
       <section id="see-also" class="doc-section">
