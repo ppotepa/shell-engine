@@ -289,4 +289,11 @@ Zakres danych w scope obejmuje:
 - przy `input.terminal-shell` edycja promptu i `Esc`-back działają tylko gdy fokus jest na `prompt-sprite-id`,
 - gdy `focus-order` jest puste i scena ma `terminal-shell`, focus domyślnie trafia na prompt.
 
+`input.terminal-shell` (prompt widget):
+
+- `prompt-panel-id` wiąże prompt z panelem UI i aktywuje layout-aware wrapping,
+- `prompt-wrap` włącza zawijanie linii do szerokości panelu,
+- `prompt-auto-grow` + `prompt-min-lines`/`prompt-max-lines` rozszerzają panel wraz z liczbą linii,
+- `prompt-growth-ms` ustala czas animacji wzrostu wysokości panelu.
+
 Brak wsparcia dla wykonywania dowolnego kodu gameplay/API poza tym kontraktem komend i danymi scope.

@@ -15,7 +15,13 @@ input:
   terminal-shell:
     prompt_sprite_id: ui-terminal-prompt
     output_sprite_id: ui-terminal-output
+    prompt_panel_id: ui-terminal-input-window
     prompt_prefix: ">"
+    prompt_wrap: true
+    prompt_auto_grow: true
+    prompt_min_lines: 1
+    prompt_max_lines: 3
+    prompt_growth_ms: 140
     max_lines: 260
     commands:
       - name: status

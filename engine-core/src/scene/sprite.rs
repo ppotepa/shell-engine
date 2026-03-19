@@ -326,6 +326,8 @@ pub enum Sprite {
         col_span: u16,
         #[serde(default)]
         width: Option<u16>,
+        #[serde(default, rename = "width-percent")]
+        width_percent: Option<u16>,
         #[serde(default)]
         height: Option<u16>,
         #[serde(default = "default_panel_padding")]
