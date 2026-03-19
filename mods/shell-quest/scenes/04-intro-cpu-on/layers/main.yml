@@ -35,20 +35,133 @@
           x: 2
           y: 1
           columns: ["1fr"]
-          rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+          rows:
+            [
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+              "auto",
+            ]
           gap-y: 0
           children:
-            - { type: text, id: bios-line-1, content: " ", grid-col: 1, grid-row: 1, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-2, content: " ", grid-col: 1, grid-row: 2, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-3, content: " ", grid-col: 1, grid-row: 3, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-4, content: " ", grid-col: 1, grid-row: 4, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-5, content: " ", grid-col: 1, grid-row: 5, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-6, content: " ", grid-col: 1, grid-row: 6, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-7, content: " ", grid-col: 1, grid-row: 7, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-8, content: " ", grid-col: 1, grid-row: 8, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-9, content: " ", grid-col: 1, grid-row: 9, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-10, content: " ", grid-col: 1, grid-row: 10, at: lt, font: "generic:half", fg: gray }
-            - { type: text, id: bios-line-11, content: " ", grid-col: 1, grid-row: 11, at: lt, font: "generic:half", fg: gray }
+            - {
+                type: text,
+                id: bios-line-1,
+                content: " ",
+                grid-col: 1,
+                grid-row: 1,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-2,
+                content: " ",
+                grid-col: 1,
+                grid-row: 2,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-3,
+                content: " ",
+                grid-col: 1,
+                grid-row: 3,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-4,
+                content: " ",
+                grid-col: 1,
+                grid-row: 4,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-5,
+                content: " ",
+                grid-col: 1,
+                grid-row: 5,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-6,
+                content: " ",
+                grid-col: 1,
+                grid-row: 6,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-7,
+                content: " ",
+                grid-col: 1,
+                grid-row: 7,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-8,
+                content: " ",
+                grid-col: 1,
+                grid-row: 8,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-9,
+                content: " ",
+                grid-col: 1,
+                grid-row: 9,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-10,
+                content: " ",
+                grid-col: 1,
+                grid-row: 10,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
+            - {
+                type: text,
+                id: bios-line-11,
+                content: " ",
+                grid-col: 1,
+                grid-row: 11,
+                at: lt,
+                font: "generic:half",
+                fg: gray,
+              }
             - type: text
               id: bios-cursor
               content: "_"
@@ -71,12 +184,34 @@
           at: lt
           x: 0
           y: 0
-          width: 56
-          height: 22
+          width: 112
+          height: 44
           force-renderer-mode: cell
 
-        - { type: text, id: bios-footer-1, content: " ", grid-col: 1, grid-row: 2, col-span: 2, at: lc, x: 2, font: "generic:half", fg: gray }
-        - { type: text, id: bios-footer-2, content: " ", grid-col: 1, grid-row: 3, col-span: 2, at: lc, x: 2, font: "generic:half", fg: gray }
+        - {
+            type: text,
+            id: bios-footer-1,
+            content: " ",
+            grid-col: 1,
+            grid-row: 2,
+            col-span: 2,
+            at: lc,
+            x: 2,
+            font: "generic:half",
+            fg: gray,
+          }
+        - {
+            type: text,
+            id: bios-footer-2,
+            content: " ",
+            grid-col: 1,
+            grid-row: 3,
+            col-span: 2,
+            at: lc,
+            x: 2,
+            font: "generic:half",
+            fg: gray,
+          }
 
     - type: text
       id: disk-detect-screen
