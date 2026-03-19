@@ -131,6 +131,10 @@ Scena może jednocześnie mieć lokalne `stages`; lokalne pola nadpisują preset
 - `type: scroll-list` (rozwinięcie do `grid` z itemami listy, opcjonalnie z `menu-carousel`).
 - `cutscene-ref` (rozwinięcie do timed image sprites przez manifest cutsceny).
 
+Szczegółowy opis kontraktu `window`/`terminal-input` i terminalowego HUD:
+
+- `docs/terminal-hud-authoring.md`
+
 ## 7) Menu i kompozycja UI
 
 Menu jest opisane przez:
@@ -284,6 +288,8 @@ Zakres danych w scope obejmuje:
 - `type: window` domyślnie kompiluje się do kompaktowego `panel` z lekkim `corner-radius` i cieniem; bez tekstowych ramek ASCII.
 - `type: window` zachowuje `width-percent` (nie jest nadpisywane przez fallback `width`).
 - `type: window` wspiera alias `title-bar` (`title_bar`) dla paska tytułu.
+- `type: window` renderuje `title` w nagłówku (`top-center`), a `body/footer` poniżej.
+- pionowe offsety slotów `title/body/footer` są liczone wg wysokości tekstu i fontu (np. `generic:half`), więc sloty nie powinny się nakładać.
 - `type: window` ma domyślne `padding: 0`, żeby układ `title/body/footer` mieścił się w kompaktowych wysokościach (np. `height: 5`).
 - jeśli `width`/`width-percent` oraz `height` nie są podane, panel jest traktowany jako `autosize` (rozmiar wynika z zawartości i insetu zamiast rozciągania na cały obszar).
 
@@ -302,5 +308,7 @@ Zakres danych w scope obejmuje:
 - `prompt-auto-grow` + `prompt-min-lines`/`prompt-max-lines` rozszerzają panel wraz z liczbą linii,
 - `prompt-growth-ms` ustala czas animacji wzrostu wysokości panelu.
 - `type: terminal-input` nie renderuje tytułu domyślnie; pasek tytułu pojawia się tylko po podaniu `title-bar`.
+- `type: terminal-input` układa sloty sekwencyjnie wg wysokości fontu; prompt rezerwuje minimum jedną linię nawet gdy jest pusty.
+- renderer tekstu zachowuje transparentne tło (`bg=Reset`) i nie nadpisuje kompozytowego tła pustymi komórkami.
 
 Brak wsparcia dla wykonywania dowolnego kodu gameplay/API poza tym kontraktem komend i danymi scope.
