@@ -270,6 +270,21 @@ pub static LAYER_FIELDS: &[FieldMetadata] = &[
         unit: None,
         sources: LIT_ONLY,
     },
+    FieldMetadata {
+        target: TargetKind::Layer,
+        name: "ui",
+        value_kind: ValueKind::Boolean,
+        requirement: Requirement::Optional,
+        description: "Marks the layer as UI so scene.ui.enabled can toggle it.",
+        default_text: Some("false"),
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
 ];
 
 /// Field metadata for sprite-level properties.

@@ -388,6 +388,7 @@ fn apply_layer_ref_overrides(layer_entry: &mut Value, layer_ref_instance: &Mappi
     for key in [
         "z_index",
         "visible",
+        "ui",
         "stages",
         "behaviors",
         "sprites",
@@ -1033,7 +1034,8 @@ logic:
 layers: []
 next: null
 "#;
-        let scene = compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
+        let scene =
+            compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
         assert_eq!(scene.behaviors.len(), 1);
         assert_eq!(scene.behaviors[0].name, "bob");
         assert_eq!(scene.behaviors[0].params.amplitude_y, Some(3));
@@ -1261,6 +1263,7 @@ layers:
   - ref: background
     as: bg-main
     z_index: 7
+    ui: true
     with:
       label: HELLO
 next: null
@@ -1288,6 +1291,7 @@ next: null
         assert_eq!(scene.layers.len(), 1);
         assert_eq!(scene.layers[0].name, "bg-main");
         assert_eq!(scene.layers[0].z_index, 7);
+        assert!(scene.layers[0].ui);
         match &scene.layers[0].sprites[0] {
             Sprite::Text { content, .. } => assert_eq!(content, "HELLO"),
             _ => panic!("expected text sprite"),

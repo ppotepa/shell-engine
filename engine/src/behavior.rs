@@ -966,6 +966,7 @@ mod tests {
             stages: SceneStages::default(),
             behaviors: Vec::new(),
             audio: SceneAudio::default(),
+            ui: Default::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
             input: Default::default(),
@@ -1466,7 +1467,11 @@ out
             ),
             ..BehaviorParams::default()
         });
-        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), ctx(SceneStage::OnIdle, 0, 0));
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
         assert_eq!(
             commands,
             vec![

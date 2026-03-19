@@ -259,6 +259,7 @@ mod tests {
             },
             behaviors: Vec::new(),
             audio: SceneAudio::default(),
+            ui: Default::default(),
             layers: Vec::new(),
             menu_options: Vec::new(),
             input: Default::default(),
