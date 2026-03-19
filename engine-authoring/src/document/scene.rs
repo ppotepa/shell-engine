@@ -598,14 +598,6 @@ fn expand_window_sprite(
         .map(ToString::to_string)
         .unwrap_or_else(|| format!("{base_id}-footer"));
 
-    let width_cells = map_get_u64(sprite_map, &["width"])
-        .unwrap_or(48)
-        .clamp(4, 512) as usize;
-    let line_inner = "─".repeat(width_cells.saturating_sub(2));
-    let top_line = format!("┌{line_inner}┐");
-    let mid_line = format!("├{line_inner}┤");
-    let bottom_line = format!("└{line_inner}┘");
-
     let title = map_get_str(sprite_map, &["title"]).unwrap_or_default();
     let body = map_get_str(
         sprite_map,
@@ -633,6 +625,11 @@ fn expand_window_sprite(
     let body_fg = map_get_str(sprite_map, &["body-fg", "body_fg"]).unwrap_or("silver");
     let footer_fg = map_get_str(sprite_map, &["footer-fg", "footer_fg"]).unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
+    let border_style = resolve_window_border_style(sprite_map, window_font.as_deref());
+    let width_cells = map_get_u64(sprite_map, &["width"])
+        .unwrap_or(48)
+        .clamp(4, 512) as usize;
+    let (top_line, mid_line, bottom_line) = build_window_frame_lines(width_cells, border_style);
 
     let mut grid = Mapping::new();
     for (key, value) in sprite_map {
@@ -785,6 +782,63 @@ fn expand_window_sprite(
     }
 
     Ok(vec![Value::Mapping(grid)])
+}
+
+#[derive(Clone, Copy)]
+enum WindowBorderStyle {
+    Unicode,
+    Ascii,
+}
+
+fn resolve_window_border_style(
+    sprite_map: &Mapping,
+    window_font: Option<&str>,
+) -> WindowBorderStyle {
+    let raw_style = map_get_str(
+        sprite_map,
+        &["border-style", "border_style", "frame-style", "frame_style"],
+    )
+    .unwrap_or("auto")
+    .trim()
+    .to_ascii_lowercase();
+
+    match raw_style.as_str() {
+        "ascii" => WindowBorderStyle::Ascii,
+        "unicode" => WindowBorderStyle::Unicode,
+        _ => {
+            if window_font.is_some_and(|font| font.trim_start().starts_with("generic")) {
+                WindowBorderStyle::Ascii
+            } else {
+                WindowBorderStyle::Unicode
+            }
+        }
+    }
+}
+
+fn build_window_frame_lines(
+    width_cells: usize,
+    style: WindowBorderStyle,
+) -> (String, String, String) {
+    let width_cells = width_cells.max(4);
+    let inner = width_cells.saturating_sub(2);
+    match style {
+        WindowBorderStyle::Unicode => {
+            let line_inner = "─".repeat(inner);
+            (
+                format!("┌{line_inner}┐"),
+                format!("├{line_inner}┤"),
+                format!("└{line_inner}┘"),
+            )
+        }
+        WindowBorderStyle::Ascii => {
+            let line_inner = "-".repeat(inner);
+            (
+                format!("+{line_inner}+"),
+                format!("+{line_inner}+"),
+                format!("+{line_inner}+"),
+            )
+        }
+    }
 }
 
 fn expand_scroll_list_sprite(
@@ -1046,6 +1100,10 @@ const WINDOW_RESERVED_KEYS: &[&str] = &[
     "border_colour",
     "frame-fg",
     "frame_fg",
+    "border-style",
+    "border_style",
+    "frame-style",
+    "frame_style",
     "children",
     "font",
 ];
@@ -1677,6 +1735,33 @@ layers:
                     _ => panic!("expected generated title text child"),
                 }
             }
+            _ => panic!("expected grid from window sugar"),
+        }
+    }
+
+    #[test]
+    fn expands_window_sprite_with_generic_font_using_ascii_frame() {
+        let raw = r#"
+id: window-ascii
+title: Window Ascii
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        at: cc
+        width: 20
+        font: "generic:half"
+        title: TERMINAL
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid { children, .. } => match &children[0] {
+                Sprite::Text { content, .. } => assert!(content.starts_with('+')),
+                _ => panic!("expected generated top border text child"),
+            },
             _ => panic!("expected grid from window sugar"),
         }
     }

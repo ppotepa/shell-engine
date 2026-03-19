@@ -15,7 +15,7 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
     const FAST_FORWARD_TICKS: u8 = 8;
     let mut debug_fast_forward = false;
 
-    let _mouse_capture_guard = MouseCaptureGuard::new()?;
+    let _mouse_capture_guard = MouseCaptureGuard::new(should_capture_mouse(world))?;
 
     loop {
         let frame_start = Instant::now();
@@ -106,19 +106,33 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
     Ok(())
 }
 
-struct MouseCaptureGuard;
+struct MouseCaptureGuard {
+    enabled: bool,
+}
 
 impl MouseCaptureGuard {
-    fn new() -> std::io::Result<Self> {
-        crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
-        Ok(Self)
+    fn new(enabled: bool) -> std::io::Result<Self> {
+        if enabled {
+            crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
+        }
+        Ok(Self { enabled })
     }
 }
 
 impl Drop for MouseCaptureGuard {
     fn drop(&mut self) {
-        let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
+        if self.enabled {
+            let _ = crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture);
+        }
     }
+}
+
+#[inline]
+fn should_capture_mouse(world: &World) -> bool {
+    world
+        .get::<crate::debug_features::DebugFeatures>()
+        .map(|debug| !debug.enabled)
+        .unwrap_or(true)
 }
 
 #[inline]
@@ -152,7 +166,11 @@ fn resolve_target_fps(default_target_fps: u16, scene_target_fps: Option<u16>) ->
 
 #[cfg(test)]
 mod tests {
-    use super::{is_debug_fast_forward_toggle, is_quit_key, resolve_target_fps};
+    use super::{
+        is_debug_fast_forward_toggle, is_quit_key, resolve_target_fps, should_capture_mouse,
+    };
+    use crate::debug_features::DebugFeatures;
+    use crate::world::World;
     use crossterm::event::{KeyCode, KeyModifiers};
 
     #[test]
@@ -212,5 +230,24 @@ mod tests {
             resolve_target_fps(60, Some(crate::terminal_caps::MAX_TARGET_FPS + 1)),
             crate::terminal_caps::MAX_TARGET_FPS
         );
+    }
+
+    #[test]
+    fn mouse_capture_is_disabled_when_debug_features_are_enabled() {
+        let mut world = World::new();
+        assert!(should_capture_mouse(&world));
+
+        world.register(DebugFeatures {
+            enabled: false,
+            overlay_visible: false,
+        });
+        assert!(should_capture_mouse(&world));
+
+        let mut world_debug = World::new();
+        world_debug.register(DebugFeatures {
+            enabled: true,
+            overlay_visible: true,
+        });
+        assert!(!should_capture_mouse(&world_debug));
     }
 }
