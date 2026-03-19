@@ -939,6 +939,9 @@ impl SceneRuntime {
         state.last_layout_sync_ms = self.terminal_shell_scene_elapsed_ms;
         let next_height = animated.round().max(3.0) as u16;
         let _ = self.set_panel_sprite_height(panel_id, next_height);
+        if let Some(shadow_panel_id) = controls.prompt_shadow_panel_id.as_deref() {
+            let _ = self.set_panel_sprite_height(shadow_panel_id, next_height);
+        }
     }
 
     fn resolve_panel_layout(&self, panel_id: &str) -> Option<PanelLayoutSpec> {

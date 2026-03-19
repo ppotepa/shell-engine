@@ -445,6 +445,13 @@ pub struct TerminalShellControls {
     /// Optional panel widget id that hosts the prompt sprite.
     #[serde(default, rename = "prompt-panel-id", alias = "prompt_panel_id")]
     pub prompt_panel_id: Option<String>,
+    /// Optional panel widget id used as visual shadow for prompt panel auto-grow sync.
+    #[serde(
+        default,
+        rename = "prompt-shadow-panel-id",
+        alias = "prompt_shadow_panel_id"
+    )]
+    pub prompt_shadow_panel_id: Option<String>,
     /// Prompt prefix rendered before the current command line.
     #[serde(
         default = "default_terminal_prompt_prefix",
@@ -649,6 +656,7 @@ input:
     prompt-sprite-id: terminal-prompt
     output-sprite-id: terminal-output
     prompt-panel-id: prompt-panel
+    prompt-shadow-panel-id: prompt-panel-shadow
     prompt-prefix: "$ "
     prompt-wrap: true
     prompt-auto-grow: true
@@ -674,6 +682,10 @@ layers: []
         assert_eq!(controls.prompt_sprite_id, "terminal-prompt");
         assert_eq!(controls.output_sprite_id, "terminal-output");
         assert_eq!(controls.prompt_panel_id.as_deref(), Some("prompt-panel"));
+        assert_eq!(
+            controls.prompt_shadow_panel_id.as_deref(),
+            Some("prompt-panel-shadow")
+        );
         assert_eq!(controls.prompt_prefix, "$ ");
         assert!(controls.prompt_wrap);
         assert!(controls.prompt_auto_grow);
