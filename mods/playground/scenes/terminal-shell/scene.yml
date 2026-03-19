@@ -16,7 +16,6 @@ input:
     prompt_sprite_id: ui-terminal-prompt
     output_sprite_id: ui-terminal-output
     prompt_panel_id: ui-terminal-input-window
-    prompt_shadow_panel_id: ui-terminal-input-shadow
     prompt_prefix: ">"
     prompt_wrap: true
     prompt_auto_grow: true
