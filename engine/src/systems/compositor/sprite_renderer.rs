@@ -292,6 +292,116 @@ fn render_sprite(
             );
         }
 
+        Sprite::Panel {
+            x,
+            y,
+            width,
+            height,
+            padding,
+            border_width,
+            corner_radius,
+            shadow_x,
+            shadow_y,
+            force_renderer_mode,
+            align_x,
+            align_y,
+            bg_colour,
+            border_colour,
+            shadow_colour,
+            children,
+            ..
+        } => {
+            let resolved_mode =
+                render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let container_w = width.unwrap_or(area.width).max(3);
+            let container_h = height.unwrap_or(area.height).max(3);
+            let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
+            let base_y = area.origin_y + resolve_y(*y, align_y, area.height, container_h);
+            let (dx, dy) = sprite_transform_offset(sprite.animations(), sprite_elapsed);
+            let draw_x = base_x
+                .saturating_add(dx)
+                .saturating_add(object_state.offset_x);
+            let draw_y = base_y
+                .saturating_add(dy)
+                .saturating_add(object_state.offset_y);
+
+            let panel_bg = bg_colour
+                .as_ref()
+                .map(Color::from)
+                .unwrap_or(Color::DarkGrey);
+            let panel_border = border_colour
+                .as_ref()
+                .map(Color::from)
+                .unwrap_or(Color::Rgb {
+                    r: 38,
+                    g: 38,
+                    b: 38,
+                });
+            let panel_shadow = shadow_colour
+                .as_ref()
+                .map(Color::from)
+                .unwrap_or(Color::Rgb {
+                    r: 20,
+                    g: 20,
+                    b: 20,
+                });
+            render_panel_box(
+                ctx.layer_buf,
+                draw_x,
+                draw_y,
+                container_w,
+                container_h,
+                *border_width,
+                *corner_radius,
+                panel_bg,
+                panel_border,
+                panel_shadow,
+                *shadow_x,
+                *shadow_y,
+            );
+
+            let inset = (border_width.saturating_add(*padding)) as i32;
+            let inner_w = container_w.saturating_sub((inset.saturating_mul(2)).max(0) as u16);
+            let inner_h = container_h.saturating_sub((inset.saturating_mul(2)).max(0) as u16);
+            let inner_area = RenderArea {
+                origin_x: draw_x.saturating_add(inset),
+                origin_y: draw_y.saturating_add(inset),
+                width: inner_w.max(1),
+                height: inner_h.max(1),
+            };
+            for (child_idx, child) in children.iter().enumerate() {
+                sprite_path.push(child_idx);
+                render_sprite(
+                    layer_idx,
+                    sprite_path,
+                    child,
+                    inner_area,
+                    resolved_mode,
+                    target_resolver,
+                    object_regions,
+                    object_states,
+                    ctx,
+                );
+                sprite_path.pop();
+            }
+
+            let sprite_region = Region {
+                x: draw_x.max(0) as u16,
+                y: draw_y.max(0) as u16,
+                width: container_w,
+                height: container_h,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
+        }
+
         Sprite::Grid {
             x,
             y,
@@ -545,4 +655,72 @@ fn render_sprite(
             );
         }
     }
+}
+
+fn render_panel_box(
+    buffer: &mut Buffer,
+    draw_x: i32,
+    draw_y: i32,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    corner_radius: u16,
+    panel_bg: Color,
+    border_color: Color,
+    shadow_color: Color,
+    shadow_x: i32,
+    shadow_y: i32,
+) {
+    let rounded = corner_radius > 0 && width >= 4 && height >= 4;
+    for py in 0..height {
+        for px in 0..width {
+            if !panel_cell_visible(px, py, width, height, rounded) {
+                continue;
+            }
+            set_panel_cell(
+                buffer,
+                draw_x.saturating_add(px as i32).saturating_add(shadow_x),
+                draw_y.saturating_add(py as i32).saturating_add(shadow_y),
+                shadow_color,
+            );
+        }
+    }
+
+    for py in 0..height {
+        for px in 0..width {
+            if !panel_cell_visible(px, py, width, height, rounded) {
+                continue;
+            }
+            let bw = border_width.min(width / 2).min(height / 2);
+            let border = bw > 0
+                && (px < bw
+                    || py < bw
+                    || px >= width.saturating_sub(bw)
+                    || py >= height.saturating_sub(bw));
+            let color = if border { border_color } else { panel_bg };
+            set_panel_cell(
+                buffer,
+                draw_x.saturating_add(px as i32),
+                draw_y.saturating_add(py as i32),
+                color,
+            );
+        }
+    }
+}
+
+fn panel_cell_visible(x: u16, y: u16, width: u16, height: u16, rounded: bool) -> bool {
+    if !rounded {
+        return true;
+    }
+    !(x == 0 && y == 0
+        || x == width.saturating_sub(1) && y == 0
+        || x == 0 && y == height.saturating_sub(1)
+        || x == width.saturating_sub(1) && y == height.saturating_sub(1))
+}
+
+fn set_panel_cell(buffer: &mut Buffer, x: i32, y: i32, bg: Color) {
+    if x < 0 || y < 0 {
+        return;
+    }
+    buffer.set(x as u16, y as u16, ' ', Color::Reset, bg);
 }

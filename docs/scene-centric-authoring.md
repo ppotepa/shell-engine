@@ -126,7 +126,7 @@ Scena może jednocześnie mieć lokalne `stages`; lokalne pola nadpisują preset
 - `menu-options[].to` jako alias routingu.
 - `sprite-defaults` (dziedziczenie pól sprite między poziomami).
 - `type: frame-sequence` (rozwinięcie do timed image sprites).
-- `type: window` (rozwinięcie do framed `grid` z sekcjami title/body/footer).
+- `type: window` (rozwinięcie do `panel` z sekcjami title/body/footer).
 - `type: scroll-list` (rozwinięcie do `grid` z itemami listy, opcjonalnie z `menu-carousel`).
 - `cutscene-ref` (rozwinięcie do timed image sprites przez manifest cutsceny).
 
@@ -276,12 +276,11 @@ Zakres danych w scope obejmuje:
 `ui.theme`:
 
 - opcjonalny identyfikator motywu UI dla sceny (np. `terminal`, `win98`, `jrpg`),
-- aktualnie wpływa na domyślne wartości sugar `type: window` i `type: scroll-list` (kolory sekcji/listy oraz domyślny styl ramki),
+- aktualnie wpływa na domyślne wartości sugar `type: window` i `type: scroll-list` (kolory panelu, obramowania, cienia, sekcji/listy),
 - runtime rozwiązuje `ui.theme` przez wspólny registry presetów (`engine-core`),
 - gdy `ui.theme` nie jest podany lub jest nieznany, używany jest fallback `engine-default`,
-- jawne pola sprite (`border-style`, `border-fg`, `border-bg`, `panel-bg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
-- `window.border-style` wspiera: `auto`, `ascii`, `soft-ascii`, `single`, `rounded`, `double` (`auto` z `generic:*` fallbackuje do bezpiecznego ASCII).
-- `type: window` domyślnie kompiluje się do kompaktowego framed-grid (`rows: auto...`); brak rozciągania `1fr` dopóki nie ustawisz go jawnie.
+- jawne pola sprite (`border-fg`, `border-bg`, `panel-bg`, `title-fg`, `body-fg`, `footer-fg`, `fg-selected`, `fg-alt-a`, `fg-alt-b`) zawsze mają priorytet nad theme defaults.
+- `type: window` domyślnie kompiluje się do kompaktowego `panel` z lekkim `corner-radius` i cieniem; bez tekstowych ramek ASCII.
 
 `ui.focus-order`:
 

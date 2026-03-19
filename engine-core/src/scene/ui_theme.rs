@@ -1,15 +1,5 @@
 //! UI theme registry shared between authoring sugar and runtime systems.
 
-/// Frame style used by semantic window decorations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WindowFrameStyle {
-    Single,
-    Rounded,
-    Double,
-    SoftAscii,
-    Ascii,
-}
-
 /// Default style set for `type: window` sugar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WindowThemeStyle {
@@ -19,7 +9,6 @@ pub struct WindowThemeStyle {
     pub title_fg: &'static str,
     pub body_fg: &'static str,
     pub footer_fg: &'static str,
-    pub frame_style: WindowFrameStyle,
 }
 
 /// Default style set for `type: scroll-list` sugar.
@@ -47,7 +36,6 @@ const DEFAULT_UI_THEME: UiThemeStyle = UiThemeStyle {
         title_fg: "#F3F3F3",
         body_fg: "#ECECEC",
         footer_fg: "#ECECEC",
-        frame_style: WindowFrameStyle::Ascii,
     },
     scroll_list: ScrollListThemeStyle {
         selected_fg: "white",
@@ -79,7 +67,6 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
                 title_fg: "#F5F5F5",
                 body_fg: "#EEEEEE",
                 footer_fg: "#EEEEEE",
-                frame_style: WindowFrameStyle::Ascii,
             },
             scroll_list: ScrollListThemeStyle {
                 selected_fg: "white",
@@ -96,7 +83,6 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
                 title_fg: "white",
                 body_fg: "white",
                 footer_fg: "silver",
-                frame_style: WindowFrameStyle::Ascii,
             },
             scroll_list: ScrollListThemeStyle {
                 selected_fg: "yellow",
@@ -113,7 +99,6 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
                 title_fg: "cyan",
                 body_fg: "white",
                 footer_fg: "gray",
-                frame_style: WindowFrameStyle::Double,
             },
             scroll_list: ScrollListThemeStyle {
                 selected_fg: "cyan",
@@ -130,7 +115,6 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
                 title_fg: "yellow",
                 body_fg: "white",
                 footer_fg: "silver",
-                frame_style: WindowFrameStyle::Rounded,
             },
             scroll_list: ScrollListThemeStyle {
                 selected_fg: "yellow",
@@ -149,9 +133,7 @@ pub fn resolve_ui_theme_or_default(theme_id: Option<&str>) -> UiThemeStyle {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        normalize_theme_key, resolve_ui_theme, resolve_ui_theme_or_default, WindowFrameStyle,
-    };
+    use super::{normalize_theme_key, resolve_ui_theme, resolve_ui_theme_or_default};
 
     #[test]
     fn normalizes_theme_key() {
@@ -171,7 +153,6 @@ mod tests {
         assert_eq!(terminal.id, "terminal");
         assert_eq!(terminal, shell);
         assert_eq!(terminal, terminal_shell);
-        assert_eq!(terminal.window.frame_style, WindowFrameStyle::Ascii);
     }
 
     #[test]
@@ -180,7 +161,6 @@ mod tests {
         assert_eq!(win98.id, "win98");
         let xp = resolve_ui_theme(Some("windows-xp")).expect("xp alias");
         assert_eq!(xp.id, "xp");
-        assert_eq!(xp.window.frame_style, WindowFrameStyle::Double);
     }
 
     #[test]
