@@ -6,6 +6,7 @@ use crate::behavior::{
 };
 use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
+use crate::rasterizer::generic::GenericMode;
 use crate::scene::{
     resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite,
     TerminalShellControls, UiThemeStyle,
@@ -79,6 +80,12 @@ struct PanelLayoutSpec {
     border_width: u16,
     padding: u16,
     height: u16,
+}
+
+#[derive(Debug, Clone)]
+struct TextLayoutSpec {
+    y: i32,
+    font: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -910,7 +917,18 @@ impl SceneRuntime {
             lines.push(String::new());
         }
         if controls.prompt_auto_grow {
-            let target_height = (target_lines as u16)
+            let prompt_layout = self.resolve_text_layout(&controls.prompt_sprite_id);
+            let slot_offset = prompt_layout
+                .as_ref()
+                .map(|layout| layout.y.max(0) as u16)
+                .unwrap_or(0);
+            let line_height = prompt_layout
+                .as_ref()
+                .map(|layout| text_line_height_for_font(layout.font.as_deref()))
+                .unwrap_or(1);
+            let prompt_inner_height = slot_offset
+                .saturating_add((target_lines as u16).saturating_mul(line_height.max(1)));
+            let target_height = prompt_inner_height
                 .saturating_add(inset.saturating_mul(2))
                 .max(layout.height.max(3));
             self.animate_prompt_panel_height(panel_id, target_height, controls, state);
@@ -962,6 +980,13 @@ impl SceneRuntime {
             set_panel_height_recursive(&mut layer.sprites, panel_id, next_height, &mut updated);
         }
         updated
+    }
+
+    fn resolve_text_layout(&self, sprite_id: &str) -> Option<TextLayoutSpec> {
+        self.scene
+            .layers
+            .iter()
+            .find_map(|layer| find_text_layout_recursive(&layer.sprites, sprite_id))
     }
 
     fn initialize_ui_state(&mut self) {
@@ -1406,6 +1431,50 @@ fn find_text_content<'a>(sprites: &'a [Sprite], sprite_id: &str) -> Option<&'a s
         }
     }
     None
+}
+
+fn find_text_layout_recursive(sprites: &[Sprite], sprite_id: &str) -> Option<TextLayoutSpec> {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Text {
+                id: Some(id),
+                y,
+                font,
+                ..
+            } if id == sprite_id => {
+                return Some(TextLayoutSpec {
+                    y: *y,
+                    font: font.clone(),
+                });
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                if let Some(layout) = find_text_layout_recursive(children, sprite_id) {
+                    return Some(layout);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn text_line_height_for_font(font: Option<&str>) -> u16 {
+    let Some(font_name) = font else {
+        return 1;
+    };
+    if !font_name.starts_with("generic") {
+        return 1;
+    }
+    match GenericMode::from_font_name(font_name) {
+        GenericMode::Tiny => 5,
+        GenericMode::Standard => 7,
+        GenericMode::Large => 14,
+        GenericMode::Half => 4,
+        GenericMode::Quad => 4,
+        GenericMode::Braille => 2,
+    }
 }
 
 fn set_text_content_recursive(
