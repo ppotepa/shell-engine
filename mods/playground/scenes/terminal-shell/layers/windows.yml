@@ -17,6 +17,7 @@
       corner-radius: 1
       shadow-x: 1
       shadow-y: 1
+      font: "generic:half"
     - type: window
       id: ui-terminal-help-tooltip
       at: rt
@@ -39,3 +40,4 @@
       corner-radius: 1
       shadow-x: 1
       shadow-y: 1
+      font: "generic:half"
