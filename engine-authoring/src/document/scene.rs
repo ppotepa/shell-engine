@@ -682,6 +682,11 @@ fn expand_window_sprite(
         .or_else(|| Some(theme_defaults.window.footer_fg))
         .unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
+    let title_h = text_block_height_cells(title, window_font.as_deref(), false);
+    let body_h = text_block_height_cells(body, window_font.as_deref(), false);
+    let title_y = 0i64;
+    let body_y = i64::try_from(title_h).unwrap_or(i64::MAX);
+    let footer_y = i64::try_from(title_h.saturating_add(body_h)).unwrap_or(i64::MAX);
     let mut panel = Mapping::new();
     for (key, value) in sprite_map {
         let Some(name) = key.as_str() else {
@@ -753,7 +758,7 @@ fn expand_window_sprite(
             1,
             "ct",
             0,
-            0,
+            title_y,
             title_fg,
             None,
             window_font.as_deref(),
@@ -764,7 +769,7 @@ fn expand_window_sprite(
             1,
             "lt",
             0,
-            1,
+            body_y,
             body_fg,
             None,
             window_font.as_deref(),
@@ -775,7 +780,7 @@ fn expand_window_sprite(
             1,
             "lt",
             0,
-            2,
+            footer_y,
             footer_fg,
             None,
             window_font.as_deref(),
@@ -983,11 +988,13 @@ fn expand_terminal_input_sprite(
         }) else {
             continue;
         };
+        let reserve_if_empty = slot_id == &prompt_id;
+        let slot_height = text_block_height_for_sprite_map(child_map, reserve_if_empty);
         child_map.insert(
             Value::String("y".to_string()),
             Value::Number(Number::from(slot_row)),
         );
-        slot_row = slot_row.saturating_add(1);
+        slot_row = slot_row.saturating_add(slot_height);
     }
 
     Ok(expanded)
@@ -1209,6 +1216,44 @@ fn build_window_text_child(
         );
     }
     Value::Mapping(sprite)
+}
+
+fn text_block_height_for_sprite_map(sprite_map: &Mapping, reserve_if_empty: bool) -> u64 {
+    let content = map_get_str(sprite_map, &["content"]).unwrap_or_default();
+    let font = map_get_str(sprite_map, &["font"]);
+    text_block_height_cells(content, font, reserve_if_empty)
+}
+
+fn text_block_height_cells(content: &str, font: Option<&str>, reserve_if_empty: bool) -> u64 {
+    let has_text = !content.trim().is_empty();
+    if !has_text && !reserve_if_empty {
+        return 0;
+    }
+    let line_count = content.lines().count().max(1) as u64;
+    line_count
+        .saturating_mul(text_line_height_cells(font))
+        .max(1)
+}
+
+fn text_line_height_cells(font: Option<&str>) -> u64 {
+    let Some(font_name) = font.map(str::trim).filter(|v| !v.is_empty()) else {
+        return 1;
+    };
+    if !font_name.starts_with("generic") {
+        return 1;
+    }
+    let mode = font_name
+        .split_once(':')
+        .map(|(_, mode)| mode.trim().to_ascii_lowercase());
+    match mode.as_deref() {
+        Some("1") | Some("tiny") => 5,
+        Some("3") | Some("large") => 14,
+        Some("half") | Some("half-block") | Some("halfblock") => 4,
+        Some("quad") | Some("quadrant") => 4,
+        Some("braille") | Some("br") => 2,
+        Some("2") | Some("standard") | None | Some("") => 7,
+        _ => 7,
+    }
 }
 
 fn parse_scroll_list_item(item: &Value, idx: usize) -> (String, Option<String>, Option<String>) {
@@ -2022,12 +2067,14 @@ layers:
                 let prompt = children.iter().find_map(|child| match child {
                     Sprite::Text {
                         id: Some(id),
+                        y,
                         content,
                         ..
-                    } if id == "term-prompt" => Some(content),
+                    } if id == "term-prompt" => Some((content, y)),
                     _ => None,
                 });
-                assert_eq!(prompt, Some(&"".to_string()));
+                assert_eq!(prompt.map(|(content, _)| content), Some(&"".to_string()));
+                assert_eq!(prompt.map(|(_, y)| *y), Some(0));
             }
             _ => panic!("expected panel from terminal-input sugar"),
         }
@@ -2143,6 +2190,98 @@ layers:
                 assert_eq!(title_font, Some("generic:half"));
             }
             _ => panic!("expected panel from window sugar"),
+        }
+    }
+
+    #[test]
+    fn window_title_body_footer_offsets_follow_font_line_height() {
+        let raw = r#"
+id: window-slot-offsets
+title: Window Slot Offsets
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        font: "generic:half"
+        title-bar: HINTS
+        body-content: TYPE LS
+        footer-content: READY
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Panel { children, .. } => {
+                let title_y = children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id: Some(id), y, ..
+                    } if id == "terminal-window-title" => Some(*y),
+                    _ => None,
+                });
+                let body_y = children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id: Some(id), y, ..
+                    } if id == "terminal-window-body" => Some(*y),
+                    _ => None,
+                });
+                let footer_y = children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id: Some(id), y, ..
+                    } if id == "terminal-window-footer" => Some(*y),
+                    _ => None,
+                });
+                assert_eq!(title_y, Some(0));
+                assert_eq!(body_y, Some(4));
+                assert_eq!(footer_y, Some(8));
+            }
+            _ => panic!("expected panel from window sugar"),
+        }
+    }
+
+    #[test]
+    fn terminal_input_offsets_follow_font_line_height() {
+        let raw = r#"
+id: terminal-input-offsets
+title: Terminal Input Offsets
+layers:
+  - sprites:
+      - type: terminal-input
+        id: term
+        font: "generic:half"
+        title-bar: HINTS
+        hint-content: TYPE LS
+        prompt-content: "> "
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Panel { children, .. } => {
+                let title_y = children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id: Some(id), y, ..
+                    } if id == "term-title" => Some(*y),
+                    _ => None,
+                });
+                let hint_y = children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id: Some(id), y, ..
+                    } if id == "term-hint" => Some(*y),
+                    _ => None,
+                });
+                let prompt_y = children.iter().find_map(|child| match child {
+                    Sprite::Text {
+                        id: Some(id), y, ..
+                    } if id == "term-prompt" => Some(*y),
+                    _ => None,
+                });
+                assert_eq!(title_y, Some(0));
+                assert_eq!(hint_y, Some(4));
+                assert_eq!(prompt_y, Some(8));
+            }
+            _ => panic!("expected panel from terminal-input sugar"),
         }
     }
 
