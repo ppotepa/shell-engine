@@ -7,10 +7,7 @@
       id: ui-terminal-input-window
       at: cb
       width-percent: 95
-      title: "OPERATOR INPUT"
       prompt-id: ui-terminal-prompt
-      hint-id: ui-terminal-input-hint
-      hint-content: ""
       border-fg: "#3A3A3A"
       border-bg: "#1C1C1C"
       panel-bg: "#5E5E5E"
@@ -26,10 +23,13 @@
       at: rt
       x: -2
       y: 1
-      width: 44
-      height: 5
-      title: "COMMANDS"
-      body-content: "HELP  LS  STATUS  MISSION  LOGS"
+      title-bar: "HINTS"
+      padding: 1
+      body-content: |
+        LS TO LOOK AROUND
+        STATUS TO CHECK SHIP STATE
+        MISSION TO VIEW OBJECTIVE
+        LOGS TO READ RECENT EVENTS
       footer-content: "ESC ON EMPTY PROMPT -> MENU"
       border-fg: "#3B3B3B"
       border-bg: "#181818"
