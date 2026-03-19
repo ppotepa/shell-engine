@@ -276,7 +276,8 @@ Zakres danych w scope obejmuje:
 `ui.theme`:
 
 - opcjonalny identyfikator motywu UI dla sceny (np. `terminal`, `win98`, `jrpg`),
-- w kolejnych etapach będzie rozwiązywany przez rejestr motywów runtime.
+- aktualnie wpływa na domyślne wartości sugar `type: window` (kolory sekcji i domyślny styl ramki),
+- jawne pola sprite (`border-style`, `border-fg`, `title-fg`, `body-fg`, `footer-fg`) zawsze mają priorytet nad theme defaults.
 
 `ui.focus-order`:
 

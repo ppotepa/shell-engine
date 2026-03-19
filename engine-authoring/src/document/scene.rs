@@ -43,12 +43,23 @@ fn normalize_scene_value(root: &mut Value) -> Result<(), serde_yaml::Error> {
     }
     normalize_menu_options(scene);
     expand_menu_ui(scene);
+    let scene_ui_theme = scene
+        .get(Value::String("ui".to_string()))
+        .and_then(Value::as_mapping)
+        .and_then(|ui| map_get_str(ui, &["theme"]))
+        .map(str::trim)
+        .filter(|theme| !theme.is_empty())
+        .map(ToString::to_string);
     let scene_sprite_defaults = scene
         .get(Value::String("sprite-defaults".to_string()))
         .and_then(Value::as_mapping)
         .cloned();
     if let Some(layers) = scene.get_mut(Value::String("layers".to_string())) {
-        normalize_layers(layers, scene_sprite_defaults.as_ref())?;
+        normalize_layers(
+            layers,
+            scene_sprite_defaults.as_ref(),
+            scene_ui_theme.as_deref(),
+        )?;
     }
     scene.remove(Value::String("sprite-defaults".to_string()));
     Ok(())
@@ -107,6 +118,7 @@ fn normalize_stage(stage: &mut Value) {
 fn normalize_layers(
     layers: &mut Value,
     inherited_defaults: Option<&Mapping>,
+    scene_theme: Option<&str>,
 ) -> Result<(), serde_yaml::Error> {
     let Some(layer_seq) = layers.as_sequence_mut() else {
         return Ok(());
@@ -124,7 +136,7 @@ fn normalize_layers(
         let Some(sprites) = layer_map.get_mut(Value::String("sprites".to_string())) else {
             continue;
         };
-        normalize_sprites(sprites, layer_defaults.as_ref())?;
+        normalize_sprites(sprites, layer_defaults.as_ref(), scene_theme)?;
         layer_map.remove(Value::String("sprite-defaults".to_string()));
     }
     Ok(())
@@ -136,6 +148,7 @@ fn normalize_layers(
 fn normalize_sprites(
     sprites: &mut Value,
     inherited_defaults: Option<&Mapping>,
+    scene_theme: Option<&str>,
 ) -> Result<(), serde_yaml::Error> {
     let Some(sprite_seq) = sprites.as_sequence_mut() else {
         return Ok(());
@@ -159,13 +172,15 @@ fn normalize_sprites(
         }
         if is_sprite_type(sprite_map, "window") {
             let window_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
-            let mut expanded = expand_window_sprite(sprite_map, window_defaults.as_ref())?;
+            let mut expanded =
+                expand_window_sprite(sprite_map, window_defaults.as_ref(), scene_theme)?;
             out.append(&mut expanded);
             continue;
         }
         if is_sprite_type(sprite_map, "scroll-list") {
             let list_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
-            let mut expanded = expand_scroll_list_sprite(sprite_map, list_defaults.as_ref())?;
+            let mut expanded =
+                expand_scroll_list_sprite(sprite_map, list_defaults.as_ref(), scene_theme)?;
             out.append(&mut expanded);
             continue;
         }
@@ -183,7 +198,7 @@ fn normalize_sprites(
         ) {
             if let Some(children) = sprite_map.get_mut(Value::String("children".to_string())) {
                 let child_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
-                normalize_sprites(children, child_defaults.as_ref())?;
+                normalize_sprites(children, child_defaults.as_ref(), scene_theme)?;
             }
         }
 
@@ -586,6 +601,7 @@ fn cfg_bool(cfg: &Mapping, keys: &[&str]) -> Option<bool> {
 fn expand_window_sprite(
     sprite_map: &Mapping,
     inherited_defaults: Option<&Mapping>,
+    scene_theme: Option<&str>,
 ) -> Result<Vec<Value>, serde_yaml::Error> {
     let base_id = map_get_str(sprite_map, &["id"]).unwrap_or("window");
     let title_id = map_get_str(sprite_map, &["title-id", "title_id"])
@@ -607,6 +623,7 @@ fn expand_window_sprite(
     let footer = map_get_str(sprite_map, &["footer-content", "footer_content", "footer"])
         .unwrap_or_default();
 
+    let theme_defaults = resolve_window_theme_defaults(scene_theme);
     let border_fg = map_get_str(
         sprite_map,
         &[
@@ -620,12 +637,23 @@ fn expand_window_sprite(
             "fg_colour",
         ],
     )
+    .or_else(|| theme_defaults.map(|defaults| defaults.border_fg))
     .unwrap_or("gray");
-    let title_fg = map_get_str(sprite_map, &["title-fg", "title_fg"]).unwrap_or("white");
-    let body_fg = map_get_str(sprite_map, &["body-fg", "body_fg"]).unwrap_or("silver");
-    let footer_fg = map_get_str(sprite_map, &["footer-fg", "footer_fg"]).unwrap_or("gray");
+    let title_fg = map_get_str(sprite_map, &["title-fg", "title_fg"])
+        .or_else(|| theme_defaults.map(|defaults| defaults.title_fg))
+        .unwrap_or("white");
+    let body_fg = map_get_str(sprite_map, &["body-fg", "body_fg"])
+        .or_else(|| theme_defaults.map(|defaults| defaults.body_fg))
+        .unwrap_or("silver");
+    let footer_fg = map_get_str(sprite_map, &["footer-fg", "footer_fg"])
+        .or_else(|| theme_defaults.map(|defaults| defaults.footer_fg))
+        .unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
-    let border_style = resolve_window_border_style(sprite_map, window_font.as_deref());
+    let border_style = resolve_window_border_style(
+        sprite_map,
+        window_font.as_deref(),
+        theme_defaults.map(|defaults| defaults.border_style),
+    );
     let width_cells = map_get_u64(sprite_map, &["width"])
         .unwrap_or(48)
         .clamp(4, 512) as usize;
@@ -778,21 +806,66 @@ fn expand_window_sprite(
     apply_at_anchor(&mut grid);
     normalize_expression_fields(&mut grid);
     if let Some(children) = grid.get_mut(Value::String("children".to_string())) {
-        normalize_sprites(children, inherited_defaults)?;
+        normalize_sprites(children, inherited_defaults, scene_theme)?;
     }
 
     Ok(vec![Value::Mapping(grid)])
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum WindowBorderStyle {
     Unicode,
     Ascii,
 }
 
+#[derive(Clone, Copy)]
+struct WindowThemeDefaults {
+    border_fg: &'static str,
+    title_fg: &'static str,
+    body_fg: &'static str,
+    footer_fg: &'static str,
+    border_style: WindowBorderStyle,
+}
+
+fn resolve_window_theme_defaults(scene_theme: Option<&str>) -> Option<WindowThemeDefaults> {
+    let normalized = scene_theme?.trim().to_ascii_lowercase().replace('_', "-");
+    match normalized.as_str() {
+        "terminal" | "terminal-shell" | "shell" => Some(WindowThemeDefaults {
+            border_fg: "gray",
+            title_fg: "white",
+            body_fg: "silver",
+            footer_fg: "gray",
+            border_style: WindowBorderStyle::Ascii,
+        }),
+        "win98" | "windows98" | "windows-98" => Some(WindowThemeDefaults {
+            border_fg: "silver",
+            title_fg: "white",
+            body_fg: "white",
+            footer_fg: "silver",
+            border_style: WindowBorderStyle::Ascii,
+        }),
+        "xp" | "windowsxp" | "windows-xp" => Some(WindowThemeDefaults {
+            border_fg: "silver",
+            title_fg: "cyan",
+            body_fg: "white",
+            footer_fg: "gray",
+            border_style: WindowBorderStyle::Unicode,
+        }),
+        "jrpg" | "jrpg-dialog" | "jrpg-dialogue" => Some(WindowThemeDefaults {
+            border_fg: "white",
+            title_fg: "yellow",
+            body_fg: "white",
+            footer_fg: "silver",
+            border_style: WindowBorderStyle::Unicode,
+        }),
+        _ => None,
+    }
+}
+
 fn resolve_window_border_style(
     sprite_map: &Mapping,
     window_font: Option<&str>,
+    themed_default: Option<WindowBorderStyle>,
 ) -> WindowBorderStyle {
     let raw_style = map_get_str(
         sprite_map,
@@ -806,6 +879,9 @@ fn resolve_window_border_style(
         "ascii" => WindowBorderStyle::Ascii,
         "unicode" => WindowBorderStyle::Unicode,
         _ => {
+            if let Some(style) = themed_default {
+                return style;
+            }
             if window_font.is_some_and(|font| font.trim_start().starts_with("generic")) {
                 WindowBorderStyle::Ascii
             } else {
@@ -844,6 +920,7 @@ fn build_window_frame_lines(
 fn expand_scroll_list_sprite(
     sprite_map: &Mapping,
     inherited_defaults: Option<&Mapping>,
+    scene_theme: Option<&str>,
 ) -> Result<Vec<Value>, serde_yaml::Error> {
     let items = sprite_map
         .get(Value::String("items".to_string()))
@@ -980,7 +1057,7 @@ fn expand_scroll_list_sprite(
     apply_at_anchor(&mut grid);
     normalize_expression_fields(&mut grid);
     if let Some(children) = grid.get_mut(Value::String("children".to_string())) {
-        normalize_sprites(children, inherited_defaults)?;
+        normalize_sprites(children, inherited_defaults, scene_theme)?;
     }
 
     Ok(vec![Value::Mapping(grid)])
@@ -1482,7 +1559,7 @@ fn parse_duration_token(token: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::SceneDocument;
-    use engine_core::scene::{HorizontalAlign, Sprite, VerticalAlign};
+    use engine_core::scene::{HorizontalAlign, Sprite, TermColour, VerticalAlign};
 
     #[test]
     fn compiles_scene_with_aliases_and_pause_shorthand() {
@@ -1762,6 +1839,105 @@ layers:
                 Sprite::Text { content, .. } => assert!(content.starts_with('+')),
                 _ => panic!("expected generated top border text child"),
             },
+            _ => panic!("expected grid from window sugar"),
+        }
+    }
+
+    #[test]
+    fn applies_window_theme_defaults_from_scene_ui_theme() {
+        let raw = r#"
+id: window-theme
+title: Window Theme
+ui:
+  theme: win98
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        at: cc
+        width: 20
+        title: STATUS
+        body-content: BOOTING
+        footer-content: READY
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid { children, .. } => {
+                match &children[0] {
+                    Sprite::Text {
+                        content, fg_colour, ..
+                    } => {
+                        assert!(content.starts_with('+'));
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Silver));
+                    }
+                    _ => panic!("expected generated top border text child"),
+                }
+                match &children[5] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Silver));
+                    }
+                    _ => panic!("expected generated footer text child"),
+                }
+            }
+            _ => panic!("expected grid from window sugar"),
+        }
+    }
+
+    #[test]
+    fn window_sprite_explicit_style_overrides_scene_theme_defaults() {
+        let raw = r#"
+id: window-theme-override
+title: Window Theme Override
+ui:
+  theme: win98
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        width: 20
+        border-style: unicode
+        border-fg: yellow
+        title-fg: cyan
+        body-fg: magenta
+        footer-fg: green
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid { children, .. } => {
+                match &children[0] {
+                    Sprite::Text {
+                        content, fg_colour, ..
+                    } => {
+                        assert!(content.starts_with('┌'));
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Yellow));
+                    }
+                    _ => panic!("expected generated top border text child"),
+                }
+                match &children[1] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Cyan));
+                    }
+                    _ => panic!("expected generated title text child"),
+                }
+                match &children[3] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Magenta));
+                    }
+                    _ => panic!("expected generated body text child"),
+                }
+                match &children[5] {
+                    Sprite::Text { fg_colour, .. } => {
+                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Green));
+                    }
+                    _ => panic!("expected generated footer text child"),
+                }
+            }
             _ => panic!("expected grid from window sugar"),
         }
     }
