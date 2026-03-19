@@ -74,7 +74,13 @@ pub fn compositor_system(world: &mut World) {
             .as_ref()
             .map(Color::from)
             .unwrap_or(TRUE_BLACK);
-        let layers = scene.layers.clone();
+        let ui_enabled = scene.ui.enabled;
+        let layers = scene
+            .layers
+            .iter()
+            .filter(|layer| !layer.ui || ui_enabled)
+            .cloned()
+            .collect::<Vec<_>>();
 
         let (scene_effects, scene_step_dur) = match &stage {
             SceneStage::OnEnter => {
@@ -497,5 +503,52 @@ layers:
             buffer.get(1, 0).expect("background neighbour").bg,
             Color::Blue
         );
+    }
+
+    #[test]
+    fn scene_ui_disabled_hides_ui_layers() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: ui-toggle
+title: UI Toggle
+bg_colour: black
+ui:
+  enabled: false
+layers:
+  - name: world
+    z_index: 0
+    sprites:
+      - type: text
+        id: world-text
+        content: W
+  - name: hud
+    z_index: 1
+    ui: true
+    sprites:
+      - type: text
+        id: hud-text
+        content: H
+"#,
+        )
+        .expect("scene should parse");
+
+        let mut world = World::new();
+        world.register(Buffer::new(2, 1));
+        world.register(RuntimeSettings::default());
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 1,
+            stage_elapsed_ms: 1,
+            scene_elapsed_ms: 1,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        compositor_system(&mut world);
+
+        let buffer = world.get::<Buffer>().expect("buffer");
+        assert_eq!(buffer.get(0, 0).expect("world text").symbol, 'W');
     }
 }

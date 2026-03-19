@@ -2,13 +2,13 @@
 
 use crossterm::style::Color;
 
+use super::tracks::{parse_track_spec, TrackSpec};
 use crate::assets::AssetRoot;
 use crate::render_policy;
 use crate::scene::{FlexDirection, SceneRenderedMode, Sprite};
 use crate::systems::compositor::image_render::image_sprite_dimensions;
 use crate::systems::compositor::obj_render::obj_sprite_dimensions;
 use crate::systems::compositor::text_render::text_sprite_dimensions;
-use super::tracks::{parse_track_spec, TrackSpec};
 
 /// Measures the approximate render size of a sprite for layout purposes.
 pub(crate) fn measure_sprite_for_layout(
@@ -120,31 +120,25 @@ pub(crate) fn measure_sprite_for_layout(
             }
 
             let measured_w = width.unwrap_or_else(|| {
-                let tracks_sum = col_specs
-                    .iter()
-                    .enumerate()
-                    .fold(0u16, |acc, (idx, spec)| {
-                        let size = match spec {
-                            TrackSpec::Fixed(px) => *px,
-                            TrackSpec::Auto | TrackSpec::Fr(_) => col_auto_reqs[idx].max(1),
-                        };
-                        acc.saturating_add(size)
-                    });
+                let tracks_sum = col_specs.iter().enumerate().fold(0u16, |acc, (idx, spec)| {
+                    let size = match spec {
+                        TrackSpec::Fixed(px) => *px,
+                        TrackSpec::Auto | TrackSpec::Fr(_) => col_auto_reqs[idx].max(1),
+                    };
+                    acc.saturating_add(size)
+                });
                 let gaps = gap_x.saturating_mul(col_specs.len().saturating_sub(1) as u16);
                 tracks_sum.saturating_add(gaps).max(1)
             });
 
             let measured_h = height.unwrap_or_else(|| {
-                let tracks_sum = row_specs
-                    .iter()
-                    .enumerate()
-                    .fold(0u16, |acc, (idx, spec)| {
-                        let size = match spec {
-                            TrackSpec::Fixed(px) => *px,
-                            TrackSpec::Auto | TrackSpec::Fr(_) => row_auto_reqs[idx].max(1),
-                        };
-                        acc.saturating_add(size)
-                    });
+                let tracks_sum = row_specs.iter().enumerate().fold(0u16, |acc, (idx, spec)| {
+                    let size = match spec {
+                        TrackSpec::Fixed(px) => *px,
+                        TrackSpec::Auto | TrackSpec::Fr(_) => row_auto_reqs[idx].max(1),
+                    };
+                    acc.saturating_add(size)
+                });
                 let gaps = gap_y.saturating_mul(row_specs.len().saturating_sub(1) as u16);
                 tracks_sum.saturating_add(gaps).max(1)
             });

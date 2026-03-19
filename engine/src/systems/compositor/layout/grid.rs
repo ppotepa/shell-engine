@@ -4,8 +4,8 @@ use crate::assets::AssetRoot;
 use crate::scene::{SceneRenderedMode, Sprite};
 use taffy::geometry::Line;
 use taffy::prelude::{
-    auto, fr, length, line, span, AlignSelf, AvailableSpace, Dimension, Display, JustifySelf,
-    Size, Style, TaffyTree, TrackSizingFunction,
+    auto, fr, length, line, span, AlignSelf, AvailableSpace, Dimension, Display, JustifySelf, Size,
+    Style, TaffyTree, TrackSizingFunction,
 };
 
 use super::area::GridCellRect;

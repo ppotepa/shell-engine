@@ -218,6 +218,7 @@ layers:
             name: "UI".to_string(),
             z_index: 0,
             visible: true,
+            ui: false,
             stages: LayerStages {
                 on_enter: Stage::default(),
                 on_idle: Stage {
@@ -267,6 +268,7 @@ layers:
             name: "fx".to_string(),
             z_index: 0,
             visible: true,
+            ui: false,
             stages: LayerStages {
                 on_enter: Stage::default(),
                 on_idle: Stage::default(),

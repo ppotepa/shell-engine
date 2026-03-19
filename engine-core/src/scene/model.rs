@@ -333,6 +333,37 @@ impl SceneInput {
     }
 }
 
+/// Whether authored UI should reset with scene lifecycle or persist globally.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiPersistence {
+    #[default]
+    Scene,
+    Global,
+}
+
+fn default_ui_enabled() -> bool {
+    true
+}
+
+/// Scene-level UI runtime contract.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct SceneUi {
+    #[serde(default = "default_ui_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub persist: UiPersistence,
+}
+
+impl Default for SceneUi {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            persist: UiPersistence::Scene,
+        }
+    }
+}
+
 /// Declarative OBJ viewer controls target.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ObjViewerControls {
@@ -446,6 +477,8 @@ pub struct Layer {
     #[serde(default = "default_visible")]
     pub visible: bool,
     #[serde(default)]
+    pub ui: bool,
+    #[serde(default)]
     pub stages: LayerStages,
     #[serde(default)]
     pub behaviors: Vec<BehaviorSpec>,
@@ -485,6 +518,8 @@ pub struct Scene {
     #[serde(default)]
     pub audio: SceneAudio,
     #[serde(default)]
+    pub ui: SceneUi,
+    #[serde(default)]
     pub layers: Vec<Layer>,
     #[serde(default, alias = "menu_options", rename = "menu-options")]
     pub menu_options: Vec<MenuOption>,
@@ -495,7 +530,7 @@ pub struct Scene {
 
 #[cfg(test)]
 mod tests {
-    use super::{Scene, TerminalShellOutput};
+    use super::{Scene, TerminalShellOutput, UiPersistence};
     use crate::scene::Stage;
 
     #[test]
@@ -587,5 +622,43 @@ layers: []
         let multiple: TerminalShellOutput =
             serde_yaml::from_str("[a, b]").expect("array output should parse");
         assert_eq!(multiple.lines(), vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn scene_ui_defaults_to_enabled_scene_persistence() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-default
+title: UI Default
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert!(scene.ui.enabled);
+        assert_eq!(scene.ui.persist, UiPersistence::Scene);
+    }
+
+    #[test]
+    fn parses_scene_and_layer_ui_flags() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: ui-explicit
+title: UI Explicit
+ui:
+  enabled: false
+  persist: global
+layers:
+  - name: hud
+    ui: true
+    sprites: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert!(!scene.ui.enabled);
+        assert_eq!(scene.ui.persist, UiPersistence::Global);
+        assert_eq!(scene.layers.len(), 1);
+        assert!(scene.layers[0].ui);
     }
 }

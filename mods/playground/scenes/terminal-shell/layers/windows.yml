@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=../../../schemas/layers.yaml
 - name: terminal-shell-windows
   z_index: 1
+  ui: true
   objects:
     - ref: terminal-window
       as: ui-terminal-window

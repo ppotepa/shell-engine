@@ -2,6 +2,9 @@
 id: playground-terminal-shell
 title: Playground Terminal Shell
 bg: black
+ui:
+  enabled: true
+  persist: scene
 layers:
   - ref: bg
   - ref: windows

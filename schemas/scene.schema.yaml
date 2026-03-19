@@ -72,6 +72,9 @@ properties:
     description: >
       Optional audio cue hooks bound to scene lifecycle stages.
       Design hook only — runtime emits AudioCue events, playback is handled externally.
+  ui:
+    $ref: "#/$defs/ui_config"
+    description: Scene-level UI toggles and lifecycle hints.
   layers:
     type: array
     description: Compositing layers rendered onto the scene buffer, each containing sprites.
@@ -183,6 +186,23 @@ $defs:
         $ref: "#/$defs/terminal_size_tester_controls"
       "^terminal_shell$":
         $ref: "#/$defs/terminal_shell_controls"
+
+  ui_persist_mode:
+    type: string
+    enum: [scene, global]
+    default: scene
+    description: Whether UI state resets with scene transitions or persists globally.
+
+  ui_config:
+    type: object
+    additionalProperties: false
+    properties:
+      enabled:
+        type: boolean
+        default: true
+        description: Enables or disables rendering of layers marked with ui=true.
+      persist:
+        $ref: "#/$defs/ui_persist_mode"
 
   obj_viewer_controls:
     type: object
@@ -494,6 +514,9 @@ $defs:
       visible:
         type: boolean
         description: Optional visibility override for the referenced layer instance.
+      ui:
+        type: boolean
+        description: Optional UI-layer flag override for the referenced layer instance.
       stages:
         $ref: "#/$defs/layer_stages"
       behaviors:
@@ -525,6 +548,10 @@ $defs:
         type: boolean
         default: true
         description: Whether this layer is composited onto the scene framebuffer.
+      ui:
+        type: boolean
+        default: false
+        description: Marks this layer as UI; scene.ui.enabled controls its visibility.
       stages:
         $ref: "#/$defs/layer_stages"
       behaviors:

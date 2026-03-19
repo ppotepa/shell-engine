@@ -34,6 +34,7 @@ Scena może być:
 - identyfikację (`id`, `title`),
 - lifecycle (`stages` lub `stages-ref`),
 - kolejność kompozycji (`layers`),
+- kontrakt UI (`ui.enabled`, `ui.persist`),
 - routing (`next`, `menu-options`),
 - profile wejścia (`input`).
 
@@ -57,10 +58,29 @@ menu-options:
 Warstwa opisuje render:
 
 - `name`, `z_index`, `visible`,
+- `ui` (oznacza warstwę jako interfejs użytkownika),
 - `sprites`,
 - opcjonalnie `behaviors`, `stages`, `objects`.
 
 W partialu `layers/*.yml` plik jest tablicą warstw.
+
+Przykład minimalnego kontraktu UI:
+
+```yaml
+id: ui-demo
+title: UI Demo
+ui:
+  enabled: true
+  persist: scene
+layers:
+  - name: world
+    z_index: 0
+    sprites: []
+  - name: hud
+    z_index: 10
+    ui: true
+    sprites: []
+```
 
 ## 4) Kontrakt obiektu
 

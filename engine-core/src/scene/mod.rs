@@ -23,7 +23,7 @@ pub use metadata::{LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
 pub use model::{
     Animation, AudioCue, BehaviorParams, BehaviorSpec, Effect, EffectParams, EffectTargetKind,
     Layer, LayerStages, MenuOption, ObjViewerControls, Scene, SceneAudio, SceneInput,
-    SceneRenderedMode, SceneStages, Stage, StageTrigger, Step, TerminalShellCommand,
-    TerminalShellControls, TerminalShellOutput, TerminalSizeTesterControls,
+    SceneRenderedMode, SceneStages, SceneUi, Stage, StageTrigger, Step, TerminalShellCommand,
+    TerminalShellControls, TerminalShellOutput, TerminalSizeTesterControls, UiPersistence,
 };
 pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
