@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>File map</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="header"><h1>File map</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="toc.html">TOC</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="index.html">Home</a> / File map</div>
+      <h2>Top-level files (selected)</h2>
+      <ul>
+        <li><strong>engine/</strong>
+          <ul>
+            <li>engine/src/game_loop.rs — game loop and MouseCaptureGuard</li>
+            <li>engine/src/scene_runtime.rs — SceneRuntime and TerminalShellState</li>
+            <li>engine/src/systems/* — animator/compositor/renderer</li>
+          </ul>
+        </li>
+        <li><strong>engine-core/</strong>
+          <ul>
+            <li>engine-core/src/scene/model.rs — Scene model types and schema mapping</li>
+            <li>engine-core/src/effects — builtin effects</li>
+          </ul>
+        </li>
+        <li><strong>engine-authoring/</strong>
+          <ul>
+            <li>engine-authoring/src/compile/cutscene.rs — cutscene compile</li>
+          </ul>
+        </li>
+        <li><strong>editor/</strong>
+          <ul>
+            <li>editor/src/ui/components/cutscene_preview.rs — editor cutscene preview</li>
+          </ul>
+        </li>
+        <li><strong>schemas/</strong>
+          <ul>
+            <li>schemas/scene.schema.yaml — canonical scene schema</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>How this map links to reference pages</h3>
+      <p>Files above are referenced by canonical pages: SceneRuntime, TerminalShellState, Game loop, Module overviews.</p>
+
+      <div class="footer">File map</div>
+    </main>
+  </div>
+</body>
+</html>

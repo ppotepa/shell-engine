@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Input flow</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Input flow</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../toc.html">TOC</a></li>
+        <li><a href="frame_pipeline.html">Frame pipeline</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../index.html">Home</a> / Flows / Input flow</div>
+      <h2>Key input processing (confirmed)</h2>
+      <ol>
+        <li>crossterm event poll in game_loop</li>
+        <li>Key/Mouse/Resize → EngineEvent (KeyPressed(KeyEvent) preserves modifiers)</li>
+        <li>Push events to world queue</li>
+        <li>SceneLifecycleManager.process_events routes to:
+          <ul>
+            <li>Terminal-shell handler (if active input profile)</li>
+            <li>Menu handler</li>
+            <li>Obj-viewer handler</li>
+          </ul>
+        </li>
+        <li>Terminal-shell maps KeyEvent → tui_input::InputRequest</li>
+        <li>tui_input edits prompt buffer and emits commands on Return</li>
+      </ol>
+
+      <h3>Related</h3>
+      <ul>
+        <li><a href="../modules/engine/input.html">Input module</a></li>
+        <li><a href="../reference/types/TerminalShellState.html">TerminalShellState</a></li>
+      </ul>
+
+      <div class="footer">Input flow</div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,14 @@
+/* Minimal shared styles for generated docs */
+body{font-family:Inter,Arial,Helvetica,sans-serif;margin:0;color:#111;background:#fff}
+.header{background:#0b1220;color:#fff;padding:12px 20px}
+.container{display:flex;min-height:100vh}
+.sidebar{width:260px;background:#f4f6f8;padding:18px;border-right:1px solid #e6e9ee}
+.main{flex:1;padding:24px}
+h1{margin-top:0}
+.breadcrumbs{font-size:13px;color:#555;margin-bottom:12px}
+.card{background:#fff;border:1px solid #e6e9ee;padding:14px;margin-bottom:12px}
+.pre{background:#f7f8fa;padding:12px;border-radius:6px;overflow:auto}
+.link-list{padding-left:18px}
+.footer{padding:12px;color:#666;font-size:13px;border-top:1px solid #eee;margin-top:24px}
+.code-evidence{background:#0f1720;color:#cbd5e1;padding:10px;border-radius:6px;overflow:auto}
+.small{font-size:13px;color:#666}

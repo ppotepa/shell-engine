@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Reference: TerminalShellState</title>
+  <link rel="stylesheet" href="../../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Reference: TerminalShellState</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../../toc.html">TOC</a></li>
+        <li><a href="../SceneRuntime.html">SceneRuntime</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../../index.html">Home</a> / Reference / TerminalShellState</div>
+      <h2>Type summary</h2>
+      <p>Confirmed from engine/src/scene_runtime.rs. TerminalShellState stores terminal input and output buffer for the interactive terminal-shell input profile.</p>
+
+      <h3>Fields</h3>
+      <ul>
+        <li><code>controls: TerminalShellControls</code> — authored controls (prompt_prefix, banner, commands)</li>
+        <li><code>input: tui_input::Input</code> — text input buffer used to render prompt and edit text</li>
+        <li><code>output_lines: Vec<String></code> — current output history (bounded by max_lines)</li>
+        <li><code>history: Vec<String></code>, <code>history_cursor: Option<usize></code></li>
+      </ul>
+
+      <h3>Behaviour & built-ins</h3>
+      <p>The runtime exposes built-in commands: <code>clear, help, pwd, whoami, echo</code>. The <code>execute_command</code> implementation is in scene_runtime.rs and pushes the command into the output_lines, updates history, and handles the built-ins. Custom commands may be provided by the scene via controls.commands.</p>
+
+      <h3>Source evidence</h3>
+      <div class="code-evidence">Excerpt: fn execute_command(&mut self, raw_command: &str) { ... if command.eq_ignore_ascii_case("clear") { self.clear_output(); return; } ... }</div>
+
+      <h3>Related</h3>
+      <ul>
+        <li><a href="../../modules/engine/scene_runtime.html">Scene runtime overview</a></li>
+        <li><a href="../../modules/engine/input.html">Input mapping (planned)</a> — Not yet generated</li>
+      </ul>
+
+      <div class="footer">TerminalShellState</div>
+    </main>
+  </div>
+</body>
+</html>

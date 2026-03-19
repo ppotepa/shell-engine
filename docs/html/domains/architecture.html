@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Architecture</title>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Architecture</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../toc.html">TOC</a></li>
+        <li><a href="overview.html">Domains overview</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../index.html">Home</a> / Architecture</div>
+      <h2>Layered architecture (high-level)</h2>
+      <ol>
+        <li>Launcher / App (binaries)</li>
+        <li>Runtime Engine (engine/) — game loop -> event queue -> scene lifecycle -> systems</li>
+        <li>Core Model (engine-core/) — scene model, effects metadata</li>
+        <li>Authoring (engine-authoring/) — compilation/normalization & schema generation</li>
+        <li>Editor (editor/) — UI & authoring tools</li>
+        <li>Mods & assets (mods/)</li>
+      </ol>
+
+      <h3>Event / frame pipeline</h3>
+      <p>Confirmed from code (engine/src/game_loop.rs): input poll -> EngineEvent enqueue -> Tick -> drain -> SceneLifecycleManager.process_events -> systems (animator -> drain post-animator events -> behavior -> audio -> compositor -> renderer).</p>
+
+      <h3>Authoring invariants</h3>
+      <div class="pre">(excerpt) Preserve runtime system order; resolver correctness; apply virtual-size-override on transitions; keep compatibility with mod YAML structure. (AGENTS.md)</div>
+
+      <h3>Inference notes</h3>
+      <p>Public API surface is inferred from crate root exports and CLI entrypoints; deeper API boundaries should be verified by inspecting crate lib.rs files.</p>
+
+      <div class="footer">Architecture section</div>
+    </main>
+  </div>
+</body>
+</html>

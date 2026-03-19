@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Reference: Animator</title>
+  <link rel="stylesheet" href="../../styles.css">
+</head>
+<body>
+  <div class="header"><h1>Reference: Animator</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="../../toc.html">TOC</a></li>
+        <li><a href="../../modules/engine/systems_animator.html">Animator system</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="../../index.html">Home</a> / Reference / Animator</div>
+      <h2>Role</h2>
+      <p>The animator system advances animation timelines and emits scene transition events when steps complete. It interacts with SceneRuntime state and may schedule visual changes.</p>
+
+      <h3>Observed behaviour</h3>
+      <ul>
+        <li>Executed before behavior/audio/compositor/renderer</li>
+        <li>May trigger transitions that SceneLifecycleManager must process immediately</li>
+      </ul>
+
+      <div class="footer">Animator reference</div>
+    </main>
+  </div>
+</body>
+</html>

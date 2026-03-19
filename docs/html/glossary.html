@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Glossary</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="header"><h1>Glossary</h1></div>
+  <div class="container">
+    <nav class="sidebar">
+      <ul>
+        <li><a href="toc.html">TOC</a></li>
+      </ul>
+    </nav>
+    <main class="main">
+      <div class="breadcrumbs"><a href="index.html">Home</a> / Glossary</div>
+      <h2>Terms</h2>
+      <dl>
+        <dt>Scene</dt>
+        <dd>Authored YAML description of a screen / interaction. (Confirmed: schemas/scene.schema.yaml)</dd>
+        <dt>SceneRuntime</dt>
+        <dd>Runtime materialization of a Scene with per-frame state. (Confirmed: engine/src/scene_runtime.rs)</dd>
+        <dt>Terminal-shell</dt>
+        <dd>Input profile providing a REPL-style prompt and output buffer. (Confirmed)</dd>
+        <dt>Animator</dt>
+        <dd>System that progresses animations and may emit transitions. (Confirmed)</dd>
+        <dt>Compositor</dt>
+        <dd>System composing layers/sprites into the final buffer. (Confirmed)</dd>
+      </dl>
+      <div class="footer">Glossary</div>
+    </main>
+  </div>
+</body>
+</html>
