@@ -157,6 +157,18 @@ fn normalize_sprites(
             out.append(&mut expanded);
             continue;
         }
+        if is_sprite_type(sprite_map, "window") {
+            let window_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
+            let mut expanded = expand_window_sprite(sprite_map, window_defaults.as_ref())?;
+            out.append(&mut expanded);
+            continue;
+        }
+        if is_sprite_type(sprite_map, "scroll-list") {
+            let list_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
+            let mut expanded = expand_scroll_list_sprite(sprite_map, list_defaults.as_ref())?;
+            out.append(&mut expanded);
+            continue;
+        }
 
         apply_alias(sprite_map, "fg", "fg_colour");
         apply_alias(sprite_map, "bg", "bg_colour");
@@ -570,6 +582,496 @@ fn cfg_bool(cfg: &Mapping, keys: &[&str]) -> Option<bool> {
             .and_then(Value::as_bool)
     })
 }
+
+fn expand_window_sprite(
+    sprite_map: &Mapping,
+    inherited_defaults: Option<&Mapping>,
+) -> Result<Vec<Value>, serde_yaml::Error> {
+    let base_id = map_get_str(sprite_map, &["id"]).unwrap_or("window");
+    let title_id = map_get_str(sprite_map, &["title-id", "title_id"])
+        .map(ToString::to_string)
+        .unwrap_or_else(|| format!("{base_id}-title"));
+    let body_id = map_get_str(sprite_map, &["body-id", "body_id"])
+        .map(ToString::to_string)
+        .unwrap_or_else(|| format!("{base_id}-body"));
+    let footer_id = map_get_str(sprite_map, &["footer-id", "footer_id"])
+        .map(ToString::to_string)
+        .unwrap_or_else(|| format!("{base_id}-footer"));
+
+    let width_cells = map_get_u64(sprite_map, &["width"])
+        .unwrap_or(48)
+        .clamp(4, 512) as usize;
+    let line_inner = "─".repeat(width_cells.saturating_sub(2));
+    let top_line = format!("┌{line_inner}┐");
+    let mid_line = format!("├{line_inner}┤");
+    let bottom_line = format!("└{line_inner}┘");
+
+    let title = map_get_str(sprite_map, &["title"]).unwrap_or_default();
+    let body = map_get_str(
+        sprite_map,
+        &["body-content", "body_content", "body", "content"],
+    )
+    .unwrap_or_default();
+    let footer = map_get_str(sprite_map, &["footer-content", "footer_content", "footer"])
+        .unwrap_or_default();
+
+    let border_fg = map_get_str(
+        sprite_map,
+        &[
+            "border-fg",
+            "border_fg",
+            "border-colour",
+            "border_colour",
+            "frame-fg",
+            "frame_fg",
+            "fg",
+            "fg_colour",
+        ],
+    )
+    .unwrap_or("gray");
+    let title_fg = map_get_str(sprite_map, &["title-fg", "title_fg"]).unwrap_or("white");
+    let body_fg = map_get_str(sprite_map, &["body-fg", "body_fg"]).unwrap_or("silver");
+    let footer_fg = map_get_str(sprite_map, &["footer-fg", "footer_fg"]).unwrap_or("gray");
+    let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
+
+    let mut grid = Mapping::new();
+    for (key, value) in sprite_map {
+        let Some(name) = key.as_str() else {
+            grid.insert(key.clone(), value.clone());
+            continue;
+        };
+        if WINDOW_RESERVED_KEYS.contains(&name) {
+            continue;
+        }
+        grid.insert(key.clone(), value.clone());
+    }
+    grid.insert(
+        Value::String("type".to_string()),
+        Value::String("grid".to_string()),
+    );
+    if !grid.contains_key(Value::String("columns".to_string())) {
+        grid.insert(
+            Value::String("columns".to_string()),
+            Value::Sequence(vec![Value::String("1fr".to_string())]),
+        );
+    }
+    if !grid.contains_key(Value::String("rows".to_string())) {
+        grid.insert(
+            Value::String("rows".to_string()),
+            Value::Sequence(vec![
+                Value::String("auto".to_string()),
+                Value::String("auto".to_string()),
+                Value::String("auto".to_string()),
+                Value::String("1fr".to_string()),
+                Value::String("auto".to_string()),
+                Value::String("auto".to_string()),
+                Value::String("auto".to_string()),
+            ]),
+        );
+    }
+
+    let mut children = vec![
+        build_window_text_child(
+            None,
+            &top_line,
+            1,
+            "cc",
+            0,
+            0,
+            border_fg,
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            Some(title_id.as_str()),
+            title,
+            2,
+            "cc",
+            0,
+            0,
+            title_fg,
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            None,
+            &mid_line,
+            3,
+            "cc",
+            0,
+            0,
+            border_fg,
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            Some(body_id.as_str()),
+            body,
+            4,
+            "lt",
+            2,
+            0,
+            body_fg,
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            None,
+            &mid_line,
+            5,
+            "cc",
+            0,
+            0,
+            border_fg,
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            Some(footer_id.as_str()),
+            footer,
+            6,
+            "lt",
+            2,
+            0,
+            footer_fg,
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            None,
+            &bottom_line,
+            7,
+            "cc",
+            0,
+            0,
+            border_fg,
+            window_font.as_deref(),
+        ),
+    ];
+
+    if let Some(extra_children) = sprite_map
+        .get(Value::String("children".to_string()))
+        .and_then(Value::as_sequence)
+    {
+        for child in extra_children {
+            let mut child_value = child.clone();
+            if let Some(child_map) = child_value.as_mapping_mut() {
+                child_map
+                    .entry(Value::String("grid-col".to_string()))
+                    .or_insert_with(|| Value::Number(Number::from(1)));
+                child_map
+                    .entry(Value::String("grid-row".to_string()))
+                    .or_insert_with(|| Value::Number(Number::from(4)));
+                child_map
+                    .entry(Value::String("at".to_string()))
+                    .or_insert_with(|| Value::String("lt".to_string()));
+                child_map
+                    .entry(Value::String("x".to_string()))
+                    .or_insert_with(|| Value::Number(Number::from(2)));
+                if let Some(font) = window_font.as_deref() {
+                    child_map
+                        .entry(Value::String("font".to_string()))
+                        .or_insert_with(|| Value::String(font.to_string()));
+                }
+            }
+            children.push(child_value);
+        }
+    }
+
+    grid.insert(
+        Value::String("children".to_string()),
+        Value::Sequence(children),
+    );
+    apply_alias(&mut grid, "fg", "fg_colour");
+    apply_alias(&mut grid, "bg", "bg_colour");
+    apply_at_anchor(&mut grid);
+    normalize_expression_fields(&mut grid);
+    if let Some(children) = grid.get_mut(Value::String("children".to_string())) {
+        normalize_sprites(children, inherited_defaults)?;
+    }
+
+    Ok(vec![Value::Mapping(grid)])
+}
+
+fn expand_scroll_list_sprite(
+    sprite_map: &Mapping,
+    inherited_defaults: Option<&Mapping>,
+) -> Result<Vec<Value>, serde_yaml::Error> {
+    let items = sprite_map
+        .get(Value::String("items".to_string()))
+        .and_then(Value::as_sequence)
+        .ok_or_else(|| serde_yaml::Error::custom("scroll-list requires `items` array"))?;
+
+    let list_id = map_get_str(sprite_map, &["id"]).unwrap_or("scroll-list");
+    let default_prefix = format!("{list_id}-item-");
+    let item_prefix =
+        map_get_str(sprite_map, &["item-prefix", "item_prefix"]).unwrap_or(default_prefix.as_str());
+    let bind_menu = map_get_bool(sprite_map, &["bind-menu", "bind_menu"]).unwrap_or(false);
+    let endless = map_get_bool(sprite_map, &["endless"]).unwrap_or(true);
+    let window = map_get_u64(sprite_map, &["window"]).unwrap_or(5).max(1);
+    let step_y = map_get_u64(sprite_map, &["step-y", "step_y"])
+        .unwrap_or(1)
+        .max(1);
+    let gap_y = map_get_u64(sprite_map, &["gap-y", "gap_y"]).unwrap_or(1);
+    let selected_fg = map_get_str(sprite_map, &["fg-selected", "fg_selected"]).unwrap_or("white");
+    let fg_alt_a = map_get_str(sprite_map, &["fg-alt-a", "fg_alt_a"]).unwrap_or("silver");
+    let fg_alt_b = map_get_str(sprite_map, &["fg-alt-b", "fg_alt_b"]).unwrap_or("gray");
+    let list_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
+
+    let mut grid = Mapping::new();
+    for (key, value) in sprite_map {
+        let Some(name) = key.as_str() else {
+            grid.insert(key.clone(), value.clone());
+            continue;
+        };
+        if SCROLL_LIST_RESERVED_KEYS.contains(&name) {
+            continue;
+        }
+        grid.insert(key.clone(), value.clone());
+    }
+    grid.insert(
+        Value::String("type".to_string()),
+        Value::String("grid".to_string()),
+    );
+    if !grid.contains_key(Value::String("columns".to_string())) {
+        grid.insert(
+            Value::String("columns".to_string()),
+            Value::Sequence(vec![Value::String("1fr".to_string())]),
+        );
+    }
+    if !grid.contains_key(Value::String("gap-y".to_string())) {
+        grid.insert(
+            Value::String("gap-y".to_string()),
+            Value::Number(Number::from(gap_y)),
+        );
+    }
+
+    let mut rows = Vec::with_capacity(items.len());
+    let mut children = Vec::with_capacity(items.len());
+    for (idx, item) in items.iter().enumerate() {
+        rows.push(Value::String("auto".to_string()));
+        let (label, explicit_id, explicit_fg) = parse_scroll_list_item(item, idx);
+        let item_id = explicit_id.unwrap_or_else(|| format!("{item_prefix}{idx}"));
+        let fg = explicit_fg.unwrap_or_else(|| {
+            if idx == 0 {
+                selected_fg.to_string()
+            } else if idx % 2 == 0 {
+                fg_alt_b.to_string()
+            } else {
+                fg_alt_a.to_string()
+            }
+        });
+
+        let mut sprite = Mapping::new();
+        sprite.insert(
+            Value::String("type".to_string()),
+            Value::String("text".to_string()),
+        );
+        sprite.insert(Value::String("id".to_string()), Value::String(item_id));
+        sprite.insert(Value::String("content".to_string()), Value::String(label));
+        sprite.insert(
+            Value::String("grid-col".to_string()),
+            Value::Number(Number::from(1)),
+        );
+        sprite.insert(
+            Value::String("grid-row".to_string()),
+            Value::Number(Number::from(idx + 1)),
+        );
+        sprite.insert(
+            Value::String("at".to_string()),
+            Value::String("cc".to_string()),
+        );
+        sprite.insert(Value::String("fg".to_string()), Value::String(fg));
+        if let Some(font) = list_font.as_deref() {
+            sprite.insert(
+                Value::String("font".to_string()),
+                Value::String(font.to_string()),
+            );
+        }
+        if bind_menu {
+            let mut params = Mapping::new();
+            params.insert(
+                Value::String("target".to_string()),
+                Value::String(list_id.to_string()),
+            );
+            params.insert(
+                Value::String("index".to_string()),
+                Value::Number(Number::from(idx)),
+            );
+            params.insert(
+                Value::String("window".to_string()),
+                Value::Number(Number::from(window)),
+            );
+            params.insert(
+                Value::String("step_y".to_string()),
+                Value::Number(Number::from(step_y)),
+            );
+            params.insert(Value::String("endless".to_string()), Value::Bool(endless));
+
+            let mut behavior = Mapping::new();
+            behavior.insert(
+                Value::String("name".to_string()),
+                Value::String("menu-carousel".to_string()),
+            );
+            behavior.insert(Value::String("params".to_string()), Value::Mapping(params));
+            sprite.insert(
+                Value::String("behaviors".to_string()),
+                Value::Sequence(vec![Value::Mapping(behavior)]),
+            );
+        }
+        children.push(Value::Mapping(sprite));
+    }
+
+    grid.insert(Value::String("rows".to_string()), Value::Sequence(rows));
+    grid.insert(
+        Value::String("children".to_string()),
+        Value::Sequence(children),
+    );
+    apply_alias(&mut grid, "fg", "fg_colour");
+    apply_alias(&mut grid, "bg", "bg_colour");
+    apply_at_anchor(&mut grid);
+    normalize_expression_fields(&mut grid);
+    if let Some(children) = grid.get_mut(Value::String("children".to_string())) {
+        normalize_sprites(children, inherited_defaults)?;
+    }
+
+    Ok(vec![Value::Mapping(grid)])
+}
+
+fn build_window_text_child(
+    id: Option<&str>,
+    content: &str,
+    row: u64,
+    at: &str,
+    x: i64,
+    y: i64,
+    fg: &str,
+    font: Option<&str>,
+) -> Value {
+    let mut sprite = Mapping::new();
+    sprite.insert(
+        Value::String("type".to_string()),
+        Value::String("text".to_string()),
+    );
+    if let Some(id) = id {
+        sprite.insert(
+            Value::String("id".to_string()),
+            Value::String(id.to_string()),
+        );
+    }
+    sprite.insert(
+        Value::String("content".to_string()),
+        Value::String(content.to_string()),
+    );
+    sprite.insert(
+        Value::String("grid-col".to_string()),
+        Value::Number(Number::from(1)),
+    );
+    sprite.insert(
+        Value::String("grid-row".to_string()),
+        Value::Number(Number::from(row)),
+    );
+    sprite.insert(
+        Value::String("at".to_string()),
+        Value::String(at.to_string()),
+    );
+    sprite.insert(
+        Value::String("x".to_string()),
+        Value::Number(Number::from(x)),
+    );
+    sprite.insert(
+        Value::String("y".to_string()),
+        Value::Number(Number::from(y)),
+    );
+    sprite.insert(
+        Value::String("fg".to_string()),
+        Value::String(fg.to_string()),
+    );
+    if let Some(font) = font {
+        sprite.insert(
+            Value::String("font".to_string()),
+            Value::String(font.to_string()),
+        );
+    }
+    Value::Mapping(sprite)
+}
+
+fn parse_scroll_list_item(item: &Value, idx: usize) -> (String, Option<String>, Option<String>) {
+    match item {
+        Value::String(text) => (text.clone(), None, None),
+        Value::Mapping(map) => {
+            let label = map
+                .get(Value::String("label".to_string()))
+                .or_else(|| map.get(Value::String("content".to_string())))
+                .and_then(Value::as_str)
+                .map(ToString::to_string)
+                .unwrap_or_else(|| format!("ITEM {}", idx + 1));
+            let id = map
+                .get(Value::String("id".to_string()))
+                .and_then(Value::as_str)
+                .map(ToString::to_string);
+            let fg = map
+                .get(Value::String("fg".to_string()))
+                .or_else(|| map.get(Value::String("fg_colour".to_string())))
+                .and_then(Value::as_str)
+                .map(ToString::to_string);
+            (label, id, fg)
+        }
+        _ => (format!("ITEM {}", idx + 1), None, None),
+    }
+}
+
+fn map_get_bool(map: &Mapping, keys: &[&str]) -> Option<bool> {
+    keys.iter().find_map(|key| {
+        map.get(Value::String((*key).to_string()))
+            .and_then(Value::as_bool)
+    })
+}
+
+const WINDOW_RESERVED_KEYS: &[&str] = &[
+    "type",
+    "sprite-defaults",
+    "title",
+    "title-id",
+    "title_id",
+    "body",
+    "body-content",
+    "body_content",
+    "footer",
+    "footer-content",
+    "footer_content",
+    "title-fg",
+    "title_fg",
+    "body-fg",
+    "body_fg",
+    "footer-fg",
+    "footer_fg",
+    "border-fg",
+    "border_fg",
+    "border-colour",
+    "border_colour",
+    "frame-fg",
+    "frame_fg",
+    "children",
+    "font",
+];
+
+const SCROLL_LIST_RESERVED_KEYS: &[&str] = &[
+    "type",
+    "sprite-defaults",
+    "items",
+    "item-prefix",
+    "item_prefix",
+    "bind-menu",
+    "bind_menu",
+    "window",
+    "step-y",
+    "step_y",
+    "gap-y",
+    "gap_y",
+    "endless",
+    "fg-selected",
+    "fg_selected",
+    "fg-alt-a",
+    "fg_alt_a",
+    "fg-alt-b",
+    "fg_alt_b",
+    "font",
+];
 
 fn is_sprite_type(map: &Mapping, expected: &str) -> bool {
     map.get(Value::String("type".to_string()))
@@ -1134,6 +1636,96 @@ layers:
                 assert_eq!(*disappear_at_ms, Some(440));
             }
             _ => panic!("expected image"),
+        }
+    }
+
+    #[test]
+    fn expands_window_sprite_to_grid_with_frame_children() {
+        let raw = r#"
+id: window-scene
+title: Window
+layers:
+  - sprites:
+      - type: window
+        id: terminal-window
+        at: cc
+        width: 32
+        height: 10
+        title: TERMINAL
+        body-content: output line
+        footer-content: "> ready"
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        assert_eq!(scene.layers[0].sprites.len(), 1);
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid {
+                id,
+                columns,
+                rows,
+                children,
+                ..
+            } => {
+                assert_eq!(id.as_deref(), Some("terminal-window"));
+                assert_eq!(columns, &vec!["1fr".to_string()]);
+                assert_eq!(rows.len(), 7);
+                assert!(children.len() >= 7);
+                match &children[1] {
+                    Sprite::Text { content, .. } => assert_eq!(content, "TERMINAL"),
+                    _ => panic!("expected generated title text child"),
+                }
+            }
+            _ => panic!("expected grid from window sugar"),
+        }
+    }
+
+    #[test]
+    fn expands_scroll_list_sprite_to_grid_items_with_menu_binding() {
+        let raw = r#"
+id: list-scene
+title: List
+layers:
+  - sprites:
+      - type: scroll-list
+        id: actions
+        bind-menu: true
+        endless: true
+        window: 3
+        step-y: 2
+        items:
+          - "LOOK"
+          - { id: item-open, label: OPEN, fg: yellow }
+"#;
+        let scene = serde_yaml::from_str::<SceneDocument>(raw)
+            .expect("document")
+            .compile()
+            .expect("scene");
+        assert_eq!(scene.layers[0].sprites.len(), 1);
+        match &scene.layers[0].sprites[0] {
+            Sprite::Grid { children, rows, .. } => {
+                assert_eq!(rows.len(), 2);
+                assert_eq!(children.len(), 2);
+                match &children[0] {
+                    Sprite::Text {
+                        content, behaviors, ..
+                    } => {
+                        assert_eq!(content, "LOOK");
+                        assert_eq!(behaviors.len(), 1);
+                        assert_eq!(behaviors[0].name, "menu-carousel");
+                    }
+                    _ => panic!("expected generated list item text"),
+                }
+                match &children[1] {
+                    Sprite::Text { id, content, .. } => {
+                        assert_eq!(id.as_deref(), Some("item-open"));
+                        assert_eq!(content, "OPEN");
+                    }
+                    _ => panic!("expected generated mapped list item"),
+                }
+            }
+            _ => panic!("expected grid from scroll-list sugar"),
         }
     }
 

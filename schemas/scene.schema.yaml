@@ -587,8 +587,10 @@ $defs:
     properties:
       type:
         type: string
-        enum: [text, image, obj, grid, flex]
-        description: "Sprite type. Supported: text, image, obj, grid, flex."
+        enum: [text, image, obj, grid, flex, window, scroll-list]
+        description: >
+          Sprite type. Runtime-native: text, image, obj, grid, flex.
+          Authoring sugar: window, scroll-list (expanded to grid/text by compiler).
       use:
         type: string
         minLength: 1

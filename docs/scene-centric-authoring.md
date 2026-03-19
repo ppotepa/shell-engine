@@ -124,6 +124,8 @@ Scena może jednocześnie mieć lokalne `stages`; lokalne pola nadpisują preset
 - `menu-options[].to` jako alias routingu.
 - `sprite-defaults` (dziedziczenie pól sprite między poziomami).
 - `type: frame-sequence` (rozwinięcie do timed image sprites).
+- `type: window` (rozwinięcie do framed `grid` z sekcjami title/body/footer).
+- `type: scroll-list` (rozwinięcie do `grid` z itemami listy, opcjonalnie z `menu-carousel`).
 - `cutscene-ref` (rozwinięcie do timed image sprites przez manifest cutsceny).
 
 ## 7) Menu i kompozycja UI
