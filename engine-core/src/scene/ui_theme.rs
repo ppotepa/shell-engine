@@ -14,6 +14,8 @@ pub enum WindowFrameStyle {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WindowThemeStyle {
     pub border_fg: &'static str,
+    pub border_bg: &'static str,
+    pub panel_bg: &'static str,
     pub title_fg: &'static str,
     pub body_fg: &'static str,
     pub footer_fg: &'static str,
@@ -39,10 +41,12 @@ pub struct UiThemeStyle {
 const DEFAULT_UI_THEME: UiThemeStyle = UiThemeStyle {
     id: "engine-default",
     window: WindowThemeStyle {
-        border_fg: "gray",
-        title_fg: "white",
-        body_fg: "silver",
-        footer_fg: "gray",
+        border_fg: "#303030",
+        border_bg: "#202020",
+        panel_bg: "#5A5A5A",
+        title_fg: "#F3F3F3",
+        body_fg: "#ECECEC",
+        footer_fg: "#ECECEC",
         frame_style: WindowFrameStyle::Ascii,
     },
     scroll_list: ScrollListThemeStyle {
@@ -69,10 +73,12 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
         "terminal" | "terminal-shell" | "shell" => Some(UiThemeStyle {
             id: "terminal",
             window: WindowThemeStyle {
-                border_fg: "gray",
-                title_fg: "white",
-                body_fg: "silver",
-                footer_fg: "gray",
+                border_fg: "#353535",
+                border_bg: "#252525",
+                panel_bg: "#626262",
+                title_fg: "#F5F5F5",
+                body_fg: "#EEEEEE",
+                footer_fg: "#EEEEEE",
                 frame_style: WindowFrameStyle::Ascii,
             },
             scroll_list: ScrollListThemeStyle {
@@ -85,6 +91,8 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
             id: "win98",
             window: WindowThemeStyle {
                 border_fg: "silver",
+                border_bg: "gray",
+                panel_bg: "silver",
                 title_fg: "white",
                 body_fg: "white",
                 footer_fg: "silver",
@@ -100,6 +108,8 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
             id: "xp",
             window: WindowThemeStyle {
                 border_fg: "silver",
+                border_bg: "gray",
+                panel_bg: "silver",
                 title_fg: "cyan",
                 body_fg: "white",
                 footer_fg: "gray",
@@ -115,6 +125,8 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
             id: "jrpg",
             window: WindowThemeStyle {
                 border_fg: "white",
+                border_bg: "black",
+                panel_bg: "gray",
                 title_fg: "yellow",
                 body_fg: "white",
                 footer_fg: "silver",

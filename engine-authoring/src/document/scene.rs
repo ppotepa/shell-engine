@@ -639,6 +639,32 @@ fn expand_window_sprite(
     )
     .or_else(|| Some(theme_defaults.window.border_fg))
     .unwrap_or("gray");
+    let border_bg = map_get_str(
+        sprite_map,
+        &[
+            "border-bg",
+            "border_bg",
+            "frame-bg",
+            "frame_bg",
+            "border-background",
+            "border_background",
+        ],
+    )
+    .or_else(|| Some(theme_defaults.window.border_bg))
+    .unwrap_or("black");
+    let panel_bg = map_get_str(
+        sprite_map,
+        &[
+            "panel-bg",
+            "panel_bg",
+            "window-bg",
+            "window_bg",
+            "bg",
+            "bg_colour",
+        ],
+    )
+    .or_else(|| Some(theme_defaults.window.panel_bg))
+    .unwrap_or("gray");
     let title_fg = map_get_str(sprite_map, &["title-fg", "title_fg"])
         .or_else(|| Some(theme_defaults.window.title_fg))
         .unwrap_or("white");
@@ -657,7 +683,8 @@ fn expand_window_sprite(
     let width_cells = map_get_u64(sprite_map, &["width"])
         .unwrap_or(48)
         .clamp(4, 512) as usize;
-    let (top_line, mid_line, bottom_line) = build_window_frame_lines(width_cells, border_style);
+    let (top_line, mid_line, bottom_line, inner_line) =
+        build_window_frame_lines(width_cells, border_style);
 
     let mut grid = Mapping::new();
     for (key, value) in sprite_map {
@@ -687,7 +714,7 @@ fn expand_window_sprite(
                 Value::String("auto".to_string()),
                 Value::String("auto".to_string()),
                 Value::String("auto".to_string()),
-                Value::String("1fr".to_string()),
+                Value::String("auto".to_string()),
                 Value::String("auto".to_string()),
                 Value::String("auto".to_string()),
                 Value::String("auto".to_string()),
@@ -704,16 +731,18 @@ fn expand_window_sprite(
             0,
             0,
             border_fg,
+            Some(border_bg),
             window_font.as_deref(),
         ),
         build_window_text_child(
-            Some(title_id.as_str()),
-            title,
+            None,
+            &inner_line,
             2,
             "cc",
             0,
             0,
-            title_fg,
+            border_fg,
+            Some(panel_bg),
             window_font.as_deref(),
         ),
         build_window_text_child(
@@ -724,16 +753,18 @@ fn expand_window_sprite(
             0,
             0,
             border_fg,
+            Some(border_bg),
             window_font.as_deref(),
         ),
         build_window_text_child(
-            Some(body_id.as_str()),
-            body,
+            None,
+            &inner_line,
             4,
-            "lt",
-            2,
+            "cc",
             0,
-            body_fg,
+            0,
+            border_fg,
+            Some(panel_bg),
             window_font.as_deref(),
         ),
         build_window_text_child(
@@ -744,16 +775,18 @@ fn expand_window_sprite(
             0,
             0,
             border_fg,
+            Some(border_bg),
             window_font.as_deref(),
         ),
         build_window_text_child(
-            Some(footer_id.as_str()),
-            footer,
+            None,
+            &inner_line,
             6,
-            "lt",
-            2,
+            "cc",
             0,
-            footer_fg,
+            0,
+            border_fg,
+            Some(panel_bg),
             window_font.as_deref(),
         ),
         build_window_text_child(
@@ -764,6 +797,40 @@ fn expand_window_sprite(
             0,
             0,
             border_fg,
+            Some(border_bg),
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            Some(title_id.as_str()),
+            title,
+            2,
+            "cc",
+            0,
+            0,
+            title_fg,
+            Some(panel_bg),
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            Some(body_id.as_str()),
+            body,
+            4,
+            "lt",
+            2,
+            0,
+            body_fg,
+            Some(panel_bg),
+            window_font.as_deref(),
+        ),
+        build_window_text_child(
+            Some(footer_id.as_str()),
+            footer,
+            6,
+            "lt",
+            2,
+            0,
+            footer_fg,
+            Some(panel_bg),
             window_font.as_deref(),
         ),
     ];
@@ -853,7 +920,7 @@ fn resolve_window_border_style(
 fn build_window_frame_lines(
     width_cells: usize,
     style: WindowFrameStyle,
-) -> (String, String, String) {
+) -> (String, String, String, String) {
     let width_cells = width_cells.max(4);
     let inner = width_cells.saturating_sub(2);
     match style {
@@ -863,6 +930,7 @@ fn build_window_frame_lines(
                 format!("┌{line_inner}┐"),
                 format!("├{line_inner}┤"),
                 format!("└{line_inner}┘"),
+                format!("│{}│", " ".repeat(inner)),
             )
         }
         WindowFrameStyle::Rounded => {
@@ -871,6 +939,7 @@ fn build_window_frame_lines(
                 format!("╭{line_inner}╮"),
                 format!("├{line_inner}┤"),
                 format!("╰{line_inner}╯"),
+                format!("│{}│", " ".repeat(inner)),
             )
         }
         WindowFrameStyle::Double => {
@@ -879,6 +948,7 @@ fn build_window_frame_lines(
                 format!("╔{line_inner}╗"),
                 format!("╠{line_inner}╣"),
                 format!("╚{line_inner}╝"),
+                format!("║{}║", " ".repeat(inner)),
             )
         }
         WindowFrameStyle::SoftAscii => {
@@ -887,6 +957,7 @@ fn build_window_frame_lines(
                 format!("/{line_inner}\\"),
                 format!("|{line_inner}|"),
                 format!("\\{line_inner}/"),
+                format!("|{}|", " ".repeat(inner)),
             )
         }
         WindowFrameStyle::Ascii => {
@@ -895,6 +966,7 @@ fn build_window_frame_lines(
                 format!("+{line_inner}+"),
                 format!("+{line_inner}+"),
                 format!("+{line_inner}+"),
+                format!("|{}|", " ".repeat(inner)),
             )
         }
     }
@@ -1061,6 +1133,7 @@ fn build_window_text_child(
     x: i64,
     y: i64,
     fg: &str,
+    bg: Option<&str>,
     font: Option<&str>,
 ) -> Value {
     let mut sprite = Mapping::new();
@@ -1102,6 +1175,12 @@ fn build_window_text_child(
         Value::String("fg".to_string()),
         Value::String(fg.to_string()),
     );
+    if let Some(bg) = bg {
+        sprite.insert(
+            Value::String("bg".to_string()),
+            Value::String(bg.to_string()),
+        );
+    }
     if let Some(font) = font {
         sprite.insert(
             Value::String("font".to_string()),
@@ -1163,10 +1242,20 @@ const WINDOW_RESERVED_KEYS: &[&str] = &[
     "footer_fg",
     "border-fg",
     "border_fg",
+    "border-bg",
+    "border_bg",
+    "border-background",
+    "border_background",
     "border-colour",
     "border_colour",
     "frame-fg",
     "frame_fg",
+    "frame-bg",
+    "frame_bg",
+    "panel-bg",
+    "panel_bg",
+    "window-bg",
+    "window_bg",
     "border-style",
     "border_style",
     "frame-style",
@@ -1796,11 +1885,19 @@ layers:
                 assert_eq!(id.as_deref(), Some("terminal-window"));
                 assert_eq!(columns, &vec!["1fr".to_string()]);
                 assert_eq!(rows.len(), 7);
-                assert!(children.len() >= 7);
-                match &children[1] {
-                    Sprite::Text { content, .. } => assert_eq!(content, "TERMINAL"),
-                    _ => panic!("expected generated title text child"),
-                }
+                assert!(children.len() >= 10);
+                let title = children
+                    .iter()
+                    .find_map(|child| match child {
+                        Sprite::Text {
+                            id: Some(id),
+                            content,
+                            ..
+                        } if id == "terminal-window-title" => Some(content),
+                        _ => None,
+                    })
+                    .expect("generated title text child");
+                assert_eq!(title, "TERMINAL");
             }
             _ => panic!("expected grid from window sugar"),
         }
@@ -1865,12 +1962,18 @@ layers:
                     }
                     _ => panic!("expected generated top border text child"),
                 }
-                match &children[5] {
-                    Sprite::Text { fg_colour, .. } => {
-                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Silver));
-                    }
-                    _ => panic!("expected generated footer text child"),
-                }
+                let footer_fg = children
+                    .iter()
+                    .find_map(|child| match child {
+                        Sprite::Text {
+                            id: Some(id),
+                            fg_colour,
+                            ..
+                        } if id == "terminal-window-footer" => fg_colour.as_ref(),
+                        _ => None,
+                    })
+                    .expect("generated footer text child");
+                assert_eq!(footer_fg, &TermColour::Silver);
             }
             _ => panic!("expected grid from window sugar"),
         }
@@ -1910,23 +2013,45 @@ layers:
                     _ => panic!("expected generated top border text child"),
                 }
                 match &children[1] {
-                    Sprite::Text { fg_colour, .. } => {
-                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Cyan));
-                    }
-                    _ => panic!("expected generated title text child"),
-                }
-                match &children[3] {
-                    Sprite::Text { fg_colour, .. } => {
-                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Magenta));
-                    }
-                    _ => panic!("expected generated body text child"),
-                }
-                match &children[5] {
-                    Sprite::Text { fg_colour, .. } => {
-                        assert_eq!(fg_colour.as_ref(), Some(&TermColour::Green));
-                    }
-                    _ => panic!("expected generated footer text child"),
-                }
+                    Sprite::Text { .. } => {}
+                    _ => panic!("expected generated frame child"),
+                };
+                let title_fg = children
+                    .iter()
+                    .find_map(|child| match child {
+                        Sprite::Text {
+                            id: Some(id),
+                            fg_colour,
+                            ..
+                        } if id == "terminal-window-title" => fg_colour.as_ref(),
+                        _ => None,
+                    })
+                    .expect("generated title text child");
+                assert_eq!(title_fg, &TermColour::Cyan);
+                let body_fg = children
+                    .iter()
+                    .find_map(|child| match child {
+                        Sprite::Text {
+                            id: Some(id),
+                            fg_colour,
+                            ..
+                        } if id == "terminal-window-body" => fg_colour.as_ref(),
+                        _ => None,
+                    })
+                    .expect("generated body text child");
+                assert_eq!(body_fg, &TermColour::Magenta);
+                let footer_fg = children
+                    .iter()
+                    .find_map(|child| match child {
+                        Sprite::Text {
+                            id: Some(id),
+                            fg_colour,
+                            ..
+                        } if id == "terminal-window-footer" => fg_colour.as_ref(),
+                        _ => None,
+                    })
+                    .expect("generated footer text child");
+                assert_eq!(footer_fg, &TermColour::Green);
             }
             _ => panic!("expected grid from window sugar"),
         }
