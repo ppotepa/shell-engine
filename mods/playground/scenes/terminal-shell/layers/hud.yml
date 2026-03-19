@@ -15,23 +15,23 @@
         - type: grid
           id: ui-input-shadow
           grid-row: 2
-          at: cc
+          at: ct
           x: 1
           y: 1
           columns: ["1fr"]
           rows: ["auto", "auto", "auto"]
           children:
-            - { type: text, grid-row: 1, at: cc, content: "┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐", fg: "#2B2B2B" }
-            - { type: text, grid-row: 2, at: cc, content: "│                                                                                                          │", fg: "#2B2B2B" }
-            - { type: text, grid-row: 3, at: cc, content: "└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘", fg: "#2B2B2B" }
+            - { type: text, grid-row: 1, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: "#2B2B2B" }
+            - { type: text, grid-row: 2, at: cc, content: "|                                                                                                          |", fg: "#2B2B2B" }
+            - { type: text, grid-row: 3, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: "#2B2B2B" }
         - type: grid
           id: ui-input-frame
           grid-row: 2
-          at: cc
+          at: ct
           columns: ["1fr"]
           rows: ["auto", "auto", "auto"]
           children:
-            - { type: text, grid-row: 1, at: cc, content: "┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐", fg: gray }
-            - { type: text, grid-row: 2, at: cc, content: "│                                                                                                          │", fg: gray }
-            - { type: text, grid-row: 3, at: cc, content: "└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘", fg: gray }
+            - { type: text, grid-row: 1, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: gray }
+            - { type: text, grid-row: 2, at: cc, content: "|                                                                                                          |", fg: gray }
+            - { type: text, grid-row: 3, at: cc, content: "+----------------------------------------------------------------------------------------------------------+", fg: gray }
             - { type: text, id: ui-terminal-prompt, grid-row: 2, at: lt, x: 2, content: "", fg: "#A8A8A8" }
