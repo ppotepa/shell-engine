@@ -17,6 +17,7 @@ $defs:
             - menu-carousel
             - menu-selected
             - menu-carousel-object
+            - rhai-script
             - selected-arrows
             - stage-visibility
             - timed-visibility
@@ -271,6 +272,55 @@ $defs:
                   - 'false'
               required:
               - target
+      - if:
+          properties:
+            behavior:
+              const: rhai-script
+        then:
+          properties:
+            params:
+              type: object
+              additionalProperties: false
+              properties:
+                src:
+                  type: string
+                  description: Script source path (for diagnostics/introspection).
+                script:
+                  type: string
+                  description: Embedded Rhai script body.
+                target:
+                  type: string
+                  description: Primary target alias (script-defined semantics).
+                item_prefix:
+                  type: string
+                  description: Optional item alias prefix used by scripts.
+                  default: menu-item-
+                count:
+                  type: integer
+                  description: Optional item count hint for scripts.
+                  minimum: 1.0
+                  multipleOf: 1.0
+                window:
+                  type: integer
+                  description: Optional visible window hint for scripts.
+                  default: 5.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                step_y:
+                  type: integer
+                  description: Optional spacing hint for scripts.
+                  default: 2.0
+                  minimum: 1.0
+                  multipleOf: 1.0
+                endless:
+                  type: boolean
+                  description: Optional endless-wrap hint for scripts.
+                  default: 'true'
+                  enum:
+                  - 'true'
+                  - 'false'
+              required:
+              - script
       - if:
           properties:
             behavior:

@@ -9,6 +9,7 @@ use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use engine_core::authoring::metadata::FieldMetadata;
+use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 
 /// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
@@ -58,6 +59,8 @@ pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send 
         Some(Box::new(MenuCarouselObjectBehavior::from_params(
             &spec.params,
         )))
+    } else if name.eq_ignore_ascii_case("rhai-script") {
+        Some(Box::new(RhaiScriptBehavior::from_params(&spec.params)))
     } else if name.eq_ignore_ascii_case("menu-selected") {
         Some(Box::new(MenuSelectedBehavior::from_params(&spec.params)))
     } else if name.eq_ignore_ascii_case("selected-arrows") {
@@ -79,6 +82,7 @@ pub fn builtin_behavior_names() -> Vec<&'static str> {
         "follow",
         "menu-carousel",
         "menu-carousel-object",
+        "rhai-script",
         "menu-selected",
         "selected-arrows",
         "stage-visibility",
@@ -458,6 +462,74 @@ impl Behavior for MenuCarouselObjectBehavior {
     }
 }
 
+/// Evaluates per-frame behavior commands from a Rhai script.
+pub struct RhaiScriptBehavior {
+    params: BehaviorParams,
+}
+
+impl RhaiScriptBehavior {
+    fn from_params(params: &BehaviorParams) -> Self {
+        Self {
+            params: params.clone(),
+        }
+    }
+
+    fn build_regions_map(&self, ctx: &BehaviorContext, scene: &Scene) -> RhaiMap {
+        let mut regions = RhaiMap::new();
+        if let Some(target) = self.params.target.as_deref() {
+            if let Some(region) = ctx.resolved_object_region(target) {
+                regions.insert(target.into(), region_to_rhai_map(region).into());
+            }
+        }
+        let total = self.params.count.unwrap_or(scene.menu_options.len());
+        let prefix = self
+            .params
+            .item_prefix
+            .as_deref()
+            .unwrap_or("menu-item-")
+            .to_string();
+        for idx in 0..total {
+            let alias = if prefix.contains("{}") {
+                prefix.replace("{}", &idx.to_string())
+            } else {
+                format!("{prefix}{idx}")
+            };
+            if let Some(region) = ctx.resolved_object_region(&alias) {
+                regions.insert(alias.into(), region_to_rhai_map(region).into());
+            }
+        }
+        regions
+    }
+}
+
+impl Behavior for RhaiScriptBehavior {
+    fn update(
+        &mut self,
+        _object: &GameObject,
+        scene: &Scene,
+        ctx: &BehaviorContext,
+        commands: &mut Vec<BehaviorCommand>,
+    ) {
+        let Some(script) = self.params.script.as_deref() else {
+            return;
+        };
+
+        let mut scope = rhai::Scope::new();
+        scope.push("selected_index", ctx.menu_selected_index as rhai::INT);
+        scope.push("scene_elapsed_ms", ctx.scene_elapsed_ms as rhai::INT);
+        scope.push("stage_elapsed_ms", ctx.stage_elapsed_ms as rhai::INT);
+        scope.push("menu_count", scene.menu_options.len() as rhai::INT);
+        scope.push_dynamic("params", behavior_params_to_rhai_map(&self.params).into());
+        scope.push_dynamic("regions", self.build_regions_map(ctx, scene).into());
+
+        let engine = RhaiEngine::new();
+        let Ok(result) = engine.eval_with_scope::<RhaiDynamic>(&mut scope, script) else {
+            return;
+        };
+        apply_rhai_commands(result, commands);
+    }
+}
+
 /// Shows directional arrow sprites flanking the selected menu option.
 pub struct SelectedArrowsBehavior {
     target: Option<String>,
@@ -678,6 +750,104 @@ fn wrapped_menu_distance(index: usize, selected: usize, total: usize) -> i32 {
         .unwrap_or(raw)
 }
 
+fn behavior_params_to_rhai_map(params: &BehaviorParams) -> RhaiMap {
+    let mut out = RhaiMap::new();
+    if let Some(value) = params.target.as_ref() {
+        out.insert("target".into(), value.clone().into());
+    }
+    if let Some(value) = params.index {
+        out.insert("index".into(), (value as rhai::INT).into());
+    }
+    if let Some(value) = params.count {
+        out.insert("count".into(), (value as rhai::INT).into());
+    }
+    if let Some(value) = params.window {
+        out.insert("window".into(), (value as rhai::INT).into());
+    }
+    if let Some(value) = params.step_y {
+        out.insert("step_y".into(), (value as rhai::INT).into());
+    }
+    if let Some(value) = params.endless {
+        out.insert("endless".into(), value.into());
+    }
+    if let Some(value) = params.item_prefix.as_ref() {
+        out.insert("item_prefix".into(), value.clone().into());
+    }
+    if let Some(value) = params.src.as_ref() {
+        out.insert("src".into(), value.clone().into());
+    }
+    out
+}
+
+fn region_to_rhai_map(region: &Region) -> RhaiMap {
+    let mut out = RhaiMap::new();
+    out.insert("x".into(), (region.x as rhai::INT).into());
+    out.insert("y".into(), (region.y as rhai::INT).into());
+    out.insert("w".into(), (region.width as rhai::INT).into());
+    out.insert("h".into(), (region.height as rhai::INT).into());
+    out
+}
+
+fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>) {
+    let commands_dynamic = if result.is::<RhaiArray>() {
+        result
+    } else if result.is::<RhaiMap>() {
+        let map = result.cast::<RhaiMap>();
+        map.get("commands")
+            .cloned()
+            .unwrap_or_else(|| RhaiArray::new().into())
+    } else {
+        return;
+    };
+    let Some(array) = commands_dynamic.try_cast::<RhaiArray>() else {
+        return;
+    };
+    for command in array {
+        let Some(map) = command.try_cast::<RhaiMap>() else {
+            continue;
+        };
+        let op = map
+            .get("op")
+            .and_then(|value| value.clone().try_cast::<String>())
+            .unwrap_or_default();
+        match op.as_str() {
+            "visibility" => {
+                let Some(target) = map
+                    .get("target")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                else {
+                    continue;
+                };
+                let Some(visible) = map
+                    .get("visible")
+                    .and_then(|value| value.clone().try_cast::<bool>())
+                else {
+                    continue;
+                };
+                emit_visibility(commands, target, visible);
+            }
+            "offset" => {
+                let Some(target) = map
+                    .get("target")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                else {
+                    continue;
+                };
+                let dx = map
+                    .get("dx")
+                    .and_then(|value| value.clone().try_cast::<rhai::INT>())
+                    .unwrap_or(0);
+                let dy = map
+                    .get("dy")
+                    .and_then(|value| value.clone().try_cast::<rhai::INT>())
+                    .unwrap_or(0);
+                emit_offset(commands, target, dx as i32, dy as i32);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn is_within_time_window(elapsed_ms: u64, start_ms: Option<u64>, end_ms: Option<u64>) -> bool {
     start_ms.map(|start| elapsed_ms >= start).unwrap_or(true)
         && end_ms.map(|end| elapsed_ms < end).unwrap_or(true)
@@ -760,7 +930,7 @@ mod tests {
     use super::{
         built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, BlinkBehavior, BobBehavior,
         FollowBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior, MenuSelectedBehavior,
-        SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
+        RhaiScriptBehavior, SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
         TimedVisibilityBehavior,
     };
     use crate::effects::Region;
@@ -1283,6 +1453,37 @@ mod tests {
     }
 
     #[test]
+    fn rhai_script_behavior_emits_visibility_and_offset_commands() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
+out.push(#{ op: "offset", target: "menu-item-0", dx: 1, dy: -2 });
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), ctx(SceneStage::OnIdle, 0, 0));
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "menu-item-0".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 1,
+                    dy: -2
+                }
+            ]
+        );
+    }
+
+    #[test]
     fn selected_arrows_hides_when_target_region_missing() {
         let mut behavior = SelectedArrowsBehavior::from_params(&BehaviorParams {
             target: Some("menu-item-0".to_string()),
@@ -1405,6 +1606,7 @@ mod tests {
             "follow",
             "menu-carousel",
             "menu-carousel-object",
+            "rhai-script",
             "menu-selected",
             "selected-arrows",
             "stage-visibility",

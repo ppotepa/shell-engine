@@ -88,6 +88,10 @@ pub struct BehaviorParams {
     pub endless: Option<bool>,
     #[serde(default)]
     pub item_prefix: Option<String>,
+    #[serde(default)]
+    pub src: Option<String>,
+    #[serde(default)]
+    pub script: Option<String>,
 }
 
 /// Named visual effect with duration, loop flag, and arbitrary params.

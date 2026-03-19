@@ -1,8 +1,0 @@
-behavior: menu-carousel-object
-params:
-  target: menu-grid
-  item_prefix: menu-item-
-  count: 3
-  window: 3
-  step_y: 2
-  endless: true
