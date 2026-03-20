@@ -13,6 +13,7 @@
       y: 1
       font: "generic:half"
       fg: gray
+      text-transform: uppercase
       appear_at_ms: 400
       disappear_at_ms: 1100
 
@@ -36,6 +37,7 @@
       y: 1
       font: "generic:half"
       fg: "#A3A3A3"
+      text-transform: uppercase
       appear_at_ms: 1800
       disappear_at_ms: 17000
 
@@ -47,5 +49,6 @@
       y: -1
       font: "generic:half"
       fg: gray
+      text-transform: uppercase
       appear_at_ms: 1800
       disappear_at_ms: 6200

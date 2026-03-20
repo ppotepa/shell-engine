@@ -1,6 +1,7 @@
 //! Text sprite rendering — writes terminal-cell or rasterized glyph text into the compositor buffer.
 
 use crossterm::style::Color;
+use engine_core::scene::sprite::TextTransform;
 use std::path::Path;
 
 use crate::buffer::Buffer;
@@ -36,6 +37,7 @@ pub(super) fn render_text_content(
     y: u16,
     clip: Option<ClipRect>,
     buf: &mut Buffer,
+    transform: &TextTransform,
 ) {
     match font {
         None => {
@@ -79,7 +81,7 @@ pub(super) fn render_text_content(
                     .max(1);
                 let mut line_buf = Buffer::new(line_width, line_h.max(1));
                 line_buf.fill(Color::Reset);
-                generic::rasterize_spans_mode(&colored_spans, mode, 0, 0, &mut line_buf);
+                generic::rasterize_spans_mode(&colored_spans, mode, 0, 0, &mut line_buf, transform);
                 blit_with_clip(&line_buf, buf, x, line_y, clip);
             }
         }

@@ -1,3 +1,12 @@
+use engine_core::scene::sprite::TextTransform;
+
+fn apply_transform(c: char, transform: &TextTransform) -> char {
+    match transform {
+        TextTransform::Uppercase => c.to_ascii_uppercase(),
+        TextTransform::None => c,
+    }
+}
+
 /// 5×7 bitmapped glyphs for the built-in "generic" pixel font.
 /// Each entry: character → array of 7 rows, each row is a 5-bit mask (bit 4 = leftmost).
 pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
@@ -188,6 +197,7 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
         ' ' => Some([
             0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000,
         ]),
+        'a'..='z' => generic_glyph_rows(ch.to_ascii_uppercase()),
         c if c.is_ascii_control() => None,
         _ => Some([
             0b01110, 0b00001, 0b00110, 0b00100, 0b00000, 0b00100, 0b00000,
@@ -206,6 +216,7 @@ pub fn rasterize_generic(
     draw_x: u16,
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
+    transform: &TextTransform,
 ) {
     let scale = scale.max(1);
     let glyph_w = 5u16;
@@ -213,7 +224,7 @@ pub fn rasterize_generic(
     let gap = 1u16;
 
     let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+    for ch in content.chars().map(|c| apply_transform(c, transform)) {
         let rows = match generic_glyph_rows(ch) {
             Some(r) => r,
             None => continue,
@@ -250,10 +261,8 @@ pub fn generic_dimensions(content: &str, scale: u16) -> (u16, u16) {
 
     let char_count = content
         .chars()
-        .map(|c| c.to_ascii_uppercase())
         .filter(|&c| generic_glyph_rows(c).is_some())
         .count() as u16;
-
     if char_count == 0 {
         return (1, glyph_h * scale);
     }
@@ -325,12 +334,13 @@ pub fn rasterize_generic_tiny(
     draw_x: u16,
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
+    transform: &TextTransform,
 ) {
     let glyph_w = 3u16;
     let gap = 1u16;
 
     let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+    for ch in content.chars().map(|c| apply_transform(c, transform)) {
         let rows = match generic_glyph_rows_tiny(ch) {
             Some(r) => r,
             None => continue,
@@ -362,7 +372,6 @@ pub fn generic_dimensions_tiny(content: &str) -> (u16, u16) {
 
     let char_count = content
         .chars()
-        .map(|c| c.to_ascii_uppercase())
         .filter(|&c| generic_glyph_rows_tiny(c).is_some())
         .count() as u16;
 
@@ -415,7 +424,6 @@ impl GenericMode {
 pub fn generic_dimensions_mode(content: &str, mode: GenericMode) -> (u16, u16) {
     let char_count = content
         .chars()
-        .map(|c| c.to_ascii_uppercase())
         .filter(|&c| generic_glyph_rows(c).is_some())
         .count() as u16;
 
@@ -482,9 +490,10 @@ pub fn rasterize_generic_half(
     draw_x: u16,
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
+    transform: &TextTransform,
 ) {
     let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+    for ch in content.chars().map(|c| apply_transform(c, transform)) {
         let rows = match generic_glyph_rows(ch) {
             Some(r) => r,
             None => continue,
@@ -525,9 +534,10 @@ pub fn rasterize_generic_quad(
     draw_x: u16,
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
+    transform: &TextTransform,
 ) {
     let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+    for ch in content.chars().map(|c| apply_transform(c, transform)) {
         let rows = match generic_glyph_rows(ch) {
             Some(r) => r,
             None => continue,
@@ -566,9 +576,10 @@ pub fn rasterize_generic_braille(
     draw_x: u16,
     draw_y: u16,
     buffer: &mut crate::buffer::Buffer,
+    transform: &TextTransform,
 ) {
     let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| c.to_ascii_uppercase()) {
+    for ch in content.chars().map(|c| apply_transform(c, transform)) {
         let rows = match generic_glyph_rows(ch) {
             Some(r) => r,
             None => continue,
@@ -627,17 +638,18 @@ pub fn rasterize_spans_mode(
     draw_x: u16,
     draw_y: u16,
     buf: &mut crate::buffer::Buffer,
+    transform: &TextTransform,
 ) {
     let mut x = draw_x;
     for (text, colour) in spans {
         let w = generic_dimensions_mode(text, mode).0;
         match mode {
-            GenericMode::Tiny => rasterize_generic_tiny(text, *colour, x, draw_y, buf),
-            GenericMode::Standard => rasterize_generic(text, 1, *colour, x, draw_y, buf),
-            GenericMode::Large => rasterize_generic(text, 2, *colour, x, draw_y, buf),
-            GenericMode::Half => rasterize_generic_half(text, *colour, x, draw_y, buf),
-            GenericMode::Quad => rasterize_generic_quad(text, *colour, x, draw_y, buf),
-            GenericMode::Braille => rasterize_generic_braille(text, *colour, x, draw_y, buf),
+            GenericMode::Tiny => rasterize_generic_tiny(text, *colour, x, draw_y, buf, transform),
+            GenericMode::Standard => rasterize_generic(text, 1, *colour, x, draw_y, buf, transform),
+            GenericMode::Large => rasterize_generic(text, 2, *colour, x, draw_y, buf, transform),
+            GenericMode::Half => rasterize_generic_half(text, *colour, x, draw_y, buf, transform),
+            GenericMode::Quad => rasterize_generic_quad(text, *colour, x, draw_y, buf, transform),
+            GenericMode::Braille => rasterize_generic_braille(text, *colour, x, draw_y, buf, transform),
         }
         x += w;
     }
@@ -651,13 +663,14 @@ pub fn rasterize_spans(
     draw_x: u16,
     draw_y: u16,
     buf: &mut crate::buffer::Buffer,
+    transform: &TextTransform,
 ) {
     let mode = match preset {
         1 => GenericMode::Tiny,
         3 => GenericMode::Large,
         _ => GenericMode::Standard,
     };
-    rasterize_spans_mode(spans, mode, draw_x, draw_y, buf);
+    rasterize_spans_mode(spans, mode, draw_x, draw_y, buf, transform);
 }
 
 #[cfg(test)]
@@ -701,5 +714,51 @@ mod tests {
         assert_eq!(generic_dimensions_mode("AB", GenericMode::Half), (12, 4));
         assert_eq!(generic_dimensions_mode("AB", GenericMode::Quad), (6, 4));
         assert_eq!(generic_dimensions_mode("AB", GenericMode::Braille), (6, 2));
+    }
+
+    #[test]
+    fn text_transform_none_preserves_lowercase_glyph_lookup() {
+        use super::{generic_glyph_rows, apply_transform, TextTransform};
+        // With None transform, 'h' stays 'h' and its glyph matches 'H'.
+        let c = apply_transform('h', &TextTransform::None);
+        assert_eq!(c, 'h');
+        assert!(generic_glyph_rows('h').is_some());
+        assert_eq!(generic_glyph_rows('h'), generic_glyph_rows('H'));
+    }
+
+    #[test]
+    fn text_transform_uppercase_converts_to_uppercase() {
+        use super::{apply_transform, TextTransform};
+        assert_eq!(apply_transform('h', &TextTransform::Uppercase), 'H');
+        assert_eq!(apply_transform('z', &TextTransform::Uppercase), 'Z');
+        assert_eq!(apply_transform('A', &TextTransform::Uppercase), 'A');
+    }
+
+    #[test]
+    fn rasterize_generic_none_transform_renders_lowercase() {
+        use super::{rasterize_generic, TextTransform};
+        use crate::buffer::Buffer;
+        use crossterm::style::Color;
+
+        let mut buf_lower = Buffer::new(100, 10);
+        buf_lower.fill(Color::Reset);
+        rasterize_generic("hello", 1, Color::White, 0, 0, &mut buf_lower, &TextTransform::None);
+
+        let mut buf_upper = Buffer::new(100, 10);
+        buf_upper.fill(Color::Reset);
+        rasterize_generic("hello", 1, Color::White, 0, 0, &mut buf_upper, &TextTransform::Uppercase);
+
+        // Both should produce identical pixels since lowercase glyphs map to same data as uppercase.
+        for y in 0..7u16 {
+            for x in 0..30u16 {
+                let lower_cell = buf_lower.get(x, y);
+                let upper_cell = buf_upper.get(x, y);
+                assert_eq!(
+                    lower_cell.map(|c| c.symbol),
+                    upper_cell.map(|c| c.symbol),
+                    "mismatch at ({x},{y})"
+                );
+            }
+        }
     }
 }
