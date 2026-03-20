@@ -168,6 +168,24 @@ pub struct StartScreenState {
     pub cursor: usize,
 }
 
+/// State owned by start-screen project/schema pickers.
+#[derive(Debug, Clone)]
+pub struct StartPickerState {
+    pub schema_candidates: Vec<String>,
+    pub schema_cursor: usize,
+    pub dir_browser_path: String,
+    pub dir_browser_items: Vec<DirBrowserItem>,
+    pub dir_cursor: usize,
+    pub dir_can_open: bool,
+    pub dir_validation_code: String,
+    pub dir_validation_message: String,
+    pub dir_preview_path: String,
+    pub dir_preview_index: Option<AssetIndex>,
+    pub dir_preview_popup: bool,
+    pub dir_preview_speed_mult: u8,
+    pub dir_preview_started_at_ms: u64,
+}
+
 /// State owned by the Scenes Browser feature.
 #[derive(Debug, Clone)]
 pub struct SceneBrowserState {
@@ -234,19 +252,7 @@ pub struct AppState {
     pub status: String,
     pub recent_projects: Vec<String>,
     pub start: StartScreenState,
-    pub schema_candidates: Vec<String>,
-    pub schema_cursor: usize,
-    pub dir_browser_path: String,
-    pub dir_browser_items: Vec<DirBrowserItem>,
-    pub dir_cursor: usize,
-    pub dir_can_open: bool,
-    pub dir_validation_code: String,
-    pub dir_validation_message: String,
-    pub dir_preview_path: String,
-    pub dir_preview_index: Option<AssetIndex>,
-    pub dir_preview_popup: bool,
-    pub dir_preview_speed_mult: u8,
-    pub dir_preview_started_at_ms: u64,
+    pub picker: StartPickerState,
     pub explorer: ProjectExplorerState,
     pub editor: EditorPaneState,
     pub sidebar: SidebarState,
@@ -284,19 +290,21 @@ impl AppState {
                 action_cursor: 0,
                 cursor: 0,
             },
-            schema_candidates: Vec::new(),
-            schema_cursor: 0,
-            dir_browser_path: ".".to_string(),
-            dir_browser_items: Vec::new(),
-            dir_cursor: 0,
-            dir_can_open: false,
-            dir_validation_code: "E_MOD_MISSING".to_string(),
-            dir_validation_message: "mod.yaml not found".to_string(),
-            dir_preview_path: String::new(),
-            dir_preview_index: None,
-            dir_preview_popup: false,
-            dir_preview_speed_mult: 5,
-            dir_preview_started_at_ms: 0,
+            picker: StartPickerState {
+                schema_candidates: Vec::new(),
+                schema_cursor: 0,
+                dir_browser_path: ".".to_string(),
+                dir_browser_items: Vec::new(),
+                dir_cursor: 0,
+                dir_can_open: false,
+                dir_validation_code: "E_MOD_MISSING".to_string(),
+                dir_validation_message: "mod.yaml not found".to_string(),
+                dir_preview_path: String::new(),
+                dir_preview_index: None,
+                dir_preview_popup: false,
+                dir_preview_speed_mult: 5,
+                dir_preview_started_at_ms: 0,
+            },
             explorer: ProjectExplorerState {
                 cursor: 0,
                 items: Vec::new(),
@@ -1242,12 +1250,12 @@ impl AppState {
         self.mod_source.clear();
         self.index = AssetIndex::default();
         self.start.cursor = 0;
-        self.schema_cursor = 0;
-        self.dir_cursor = 0;
-        self.dir_preview_path.clear();
-        self.dir_preview_index = None;
-        self.dir_preview_popup = false;
-        self.dir_preview_started_at_ms = 0;
+        self.picker.schema_cursor = 0;
+        self.picker.dir_cursor = 0;
+        self.picker.dir_preview_path.clear();
+        self.picker.dir_preview_index = None;
+        self.picker.dir_preview_popup = false;
+        self.picker.dir_preview_started_at_ms = 0;
         self.scenes.scene_cursor = 0;
         self.scenes.scene_display_names.clear();
         self.scenes.scene_layer_cursor = 0;
@@ -1267,10 +1275,10 @@ impl AppState {
     }
 
     fn open_schema_picker(&mut self) {
-        self.schema_candidates = collect_schema_project_yml_files(Path::new("."));
-        self.schema_cursor = 0;
+        self.picker.schema_candidates = collect_schema_project_yml_files(Path::new("."));
+        self.picker.schema_cursor = 0;
         self.start_dialog = StartDialog::SchemaPicker;
-        if self.schema_candidates.is_empty() {
+        if self.picker.schema_candidates.is_empty() {
             self.status = "No schema-tagged .yml files found in current workspace".to_string();
         } else {
             self.status = "Select schema .yml and Enter to open project".to_string();
@@ -1279,25 +1287,25 @@ impl AppState {
 
     fn open_directory_browser(&mut self, initial: &str) {
         self.start_dialog = StartDialog::DirectoryBrowser;
-        self.dir_cursor = 0;
-        self.dir_preview_popup = false;
-        self.dir_preview_started_at_ms = 0;
+        self.picker.dir_cursor = 0;
+        self.picker.dir_preview_popup = false;
+        self.picker.dir_preview_started_at_ms = 0;
         self.refresh_directory_items(initial);
         self.status = "Directory browser: Enter open, F5 preview, Esc back, j/k move".to_string();
     }
 
     fn refresh_directory_items(&mut self, base: &str) {
         let canonical = fs::canonicalize(base).unwrap_or_else(|_| PathBuf::from(base));
-        self.dir_browser_path = canonical.display().to_string();
+        self.picker.dir_browser_path = canonical.display().to_string();
         let root_validation = validate_project_dir(&canonical);
-        self.dir_can_open = root_validation.valid;
-        self.dir_validation_code = root_validation.code.to_string();
-        self.dir_validation_message = root_validation.message;
-        self.dir_browser_items.clear();
+        self.picker.dir_can_open = root_validation.valid;
+        self.picker.dir_validation_code = root_validation.code.to_string();
+        self.picker.dir_validation_message = root_validation.message;
+        self.picker.dir_browser_items.clear();
 
-        self.dir_browser_items.push(DirBrowserItem::OpenHere);
+        self.picker.dir_browser_items.push(DirBrowserItem::OpenHere);
         if canonical.parent().is_some() {
-            self.dir_browser_items.push(DirBrowserItem::Parent);
+            self.picker.dir_browser_items.push(DirBrowserItem::Parent);
         }
 
         let mut dirs = Vec::new();
@@ -1311,7 +1319,7 @@ impl AppState {
             }
         }
         dirs.sort_by(|a, b| a.0.cmp(&b.0));
-        self.dir_browser_items
+        self.picker.dir_browser_items
             .extend(dirs.into_iter().map(|(path, valid_project, code)| {
                 DirBrowserItem::Directory {
                     path,
@@ -1319,16 +1327,17 @@ impl AppState {
                     code,
                 }
             }));
-        self.dir_cursor = self
+        self.picker.dir_cursor = self
+            .picker
             .dir_cursor
-            .min(self.dir_browser_items.len().saturating_sub(1));
+            .min(self.picker.dir_browser_items.len().saturating_sub(1));
         self.refresh_dir_preview();
     }
 
     fn selected_directory_path(&self) -> Option<String> {
-        match self.dir_browser_items.get(self.dir_cursor)? {
-            DirBrowserItem::OpenHere => Some(self.dir_browser_path.clone()),
-            DirBrowserItem::Parent => Path::new(&self.dir_browser_path)
+        match self.picker.dir_browser_items.get(self.picker.dir_cursor)? {
+            DirBrowserItem::OpenHere => Some(self.picker.dir_browser_path.clone()),
+            DirBrowserItem::Parent => Path::new(&self.picker.dir_browser_path)
                 .parent()
                 .map(|p| p.display().to_string()),
             DirBrowserItem::Directory { path, .. } => Some(path.clone()),
@@ -1337,58 +1346,58 @@ impl AppState {
 
     fn refresh_dir_preview(&mut self) {
         let Some(path) = self.selected_directory_path() else {
-            self.dir_preview_path.clear();
-            self.dir_preview_index = None;
+            self.picker.dir_preview_path.clear();
+            self.picker.dir_preview_index = None;
             return;
         };
-        self.dir_preview_path = path.clone();
+        self.picker.dir_preview_path = path.clone();
         let validation = validate_project_dir(Path::new(&path));
-        self.dir_preview_index = if validation.valid {
+        self.picker.dir_preview_index = if validation.valid {
             Some(build_project_index(&path))
         } else {
             None
         };
-        if self.dir_preview_index.is_none() {
-            self.dir_preview_popup = false;
-            self.dir_preview_started_at_ms = 0;
+        if self.picker.dir_preview_index.is_none() {
+            self.picker.dir_preview_popup = false;
+            self.picker.dir_preview_started_at_ms = 0;
         }
     }
 
     fn toggle_dir_preview_popup(&mut self) {
-        if self.dir_preview_index.is_some() {
-            self.dir_preview_popup = !self.dir_preview_popup;
-            self.status = if self.dir_preview_popup {
-                self.dir_preview_started_at_ms = now_millis();
-                format!("Live preview x{} running", self.dir_preview_speed_mult)
+        if self.picker.dir_preview_index.is_some() {
+            self.picker.dir_preview_popup = !self.picker.dir_preview_popup;
+            self.status = if self.picker.dir_preview_popup {
+                self.picker.dir_preview_started_at_ms = now_millis();
+                format!("Live preview x{} running", self.picker.dir_preview_speed_mult)
             } else {
-                self.dir_preview_started_at_ms = 0;
+                self.picker.dir_preview_started_at_ms = 0;
                 "Preview closed".to_string()
             };
         } else {
-            self.dir_preview_popup = false;
-            self.dir_preview_started_at_ms = 0;
+            self.picker.dir_preview_popup = false;
+            self.picker.dir_preview_started_at_ms = 0;
             self.status = "Preview unavailable for this folder".to_string();
         }
     }
 
     fn enter_directory_item(&mut self) {
-        let Some(item) = self.dir_browser_items.get(self.dir_cursor).cloned() else {
+        let Some(item) = self.picker.dir_browser_items.get(self.picker.dir_cursor).cloned() else {
             return;
         };
         match item {
             DirBrowserItem::OpenHere => {
-                if self.dir_can_open {
-                    let path = self.dir_browser_path.clone();
+                if self.picker.dir_can_open {
+                    let path = self.picker.dir_browser_path.clone();
                     self.open_project(&path);
                 } else {
                     self.status = "Cannot open this directory".to_string();
                 }
             }
             DirBrowserItem::Parent => {
-                let parent = Path::new(&self.dir_browser_path)
+                let parent = Path::new(&self.picker.dir_browser_path)
                     .parent()
                     .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| self.dir_browser_path.clone());
+                    .unwrap_or_else(|| self.picker.dir_browser_path.clone());
                 self.refresh_directory_items(&parent);
             }
             DirBrowserItem::Directory { path, .. } => self.refresh_directory_items(&path),
@@ -1504,7 +1513,7 @@ impl AppState {
     }
 
     fn apply_start_schema_picker(&mut self, cmd: Command) -> bool {
-        let max = self.schema_candidates.len().saturating_sub(1);
+        let max = self.picker.schema_candidates.len().saturating_sub(1);
         match cmd {
             Command::Quit => return true,
             Command::Back => {
@@ -1513,10 +1522,10 @@ impl AppState {
                     "Start: j/k move | Enter select | f schema scan | x prune stale | q quit"
                         .to_string();
             }
-            Command::Up => self.schema_cursor = self.schema_cursor.saturating_sub(1),
-            Command::Down => self.schema_cursor = (self.schema_cursor + 1).min(max),
+            Command::Up => self.picker.schema_cursor = self.picker.schema_cursor.saturating_sub(1),
+            Command::Down => self.picker.schema_cursor = (self.picker.schema_cursor + 1).min(max),
             Command::Enter => {
-                if let Some(path) = self.schema_candidates.get(self.schema_cursor).cloned() {
+                if let Some(path) = self.picker.schema_candidates.get(self.picker.schema_cursor).cloned() {
                     if let Some(mod_root) = infer_mod_root_from_project_yml(Path::new(&path)) {
                         self.open_project(&mod_root);
                     } else {
@@ -1558,13 +1567,13 @@ impl AppState {
     }
 
     fn apply_start_directory_browser(&mut self, cmd: Command) -> bool {
-        let max = self.dir_browser_items.len().saturating_sub(1);
-        if self.dir_preview_popup {
+        let max = self.picker.dir_browser_items.len().saturating_sub(1);
+        if self.picker.dir_preview_popup {
             match cmd {
                 Command::Quit => return true,
                 Command::Back | Command::TogglePreview => {
-                    self.dir_preview_popup = false;
-                    self.dir_preview_started_at_ms = 0;
+                    self.picker.dir_preview_popup = false;
+                    self.picker.dir_preview_started_at_ms = 0;
                     self.status = "Preview closed".to_string();
                 }
                 Command::Up
@@ -1605,11 +1614,11 @@ impl AppState {
                     "Start: j/k move | Enter select | f schema scan | x prune stale | q quit"
                         .to_string();
             }
-            Command::Up => self.dir_cursor = self.dir_cursor.saturating_sub(1),
-            Command::Down => self.dir_cursor = (self.dir_cursor + 1).min(max),
+            Command::Up => self.picker.dir_cursor = self.picker.dir_cursor.saturating_sub(1),
+            Command::Down => self.picker.dir_cursor = (self.picker.dir_cursor + 1).min(max),
             Command::Enter => self.enter_directory_item(),
             Command::OpenProject => {
-                let path = self.dir_browser_path.clone();
+                let path = self.picker.dir_browser_path.clone();
                 self.refresh_directory_items(&path);
             }
             Command::PruneRecents => {}
