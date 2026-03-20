@@ -25,6 +25,7 @@ $defs:
     - playground-rhai-time
     - playground-stop-animation
     - playground-terminal-shell
+    - playground-terminal-shell-scripted
     - playground-terminal-size-test
   scene_paths:
     type: string
@@ -48,6 +49,7 @@ $defs:
     - /scenes/rhai-text-lab/scene.yml
     - /scenes/rhai-time/scene.yml
     - /scenes/stop-animation/scene.yml
+    - /scenes/terminal-shell-scripted/scene.yml
     - /scenes/terminal-shell/scene.yml
     - /scenes/terminal-size-test/scene.yml
   scene_refs:
@@ -72,6 +74,7 @@ $defs:
     - /scenes/rhai-text-lab/scene.yml
     - /scenes/rhai-time/scene.yml
     - /scenes/stop-animation/scene.yml
+    - /scenes/terminal-shell-scripted/scene.yml
     - /scenes/terminal-shell/scene.yml
     - /scenes/terminal-size-test/scene.yml
     - playground-3d-scene
@@ -94,6 +97,7 @@ $defs:
     - playground-rhai-time
     - playground-stop-animation
     - playground-terminal-shell
+    - playground-terminal-shell-scripted
     - playground-terminal-size-test
   object_names:
     type: string
@@ -149,6 +153,8 @@ $defs:
     - rhai-object/layers/main.yml
     - rhai-text-lab/layers/main.yml
     - rhai-time/layers/main.yml
+    - terminal-shell-scripted/layers/bg.yml
+    - terminal-shell-scripted/layers/windows.yml
     - terminal-shell/layers/bg.yml
     - terminal-shell/layers/hud.yml
     - terminal-shell/layers/windows.yml
@@ -200,6 +206,7 @@ $defs:
   sprite_ids:
     type: string
     enum:
+    - bg-grid
     - focus-card-a
     - focus-card-b
     - focus-card-c

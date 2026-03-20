@@ -456,6 +456,16 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
     },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "text-transform",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Text case transformation. Default: none (preserve authored case). Use 'uppercase' for retro/block-title rendering.",
+        default_text: Some("none"), default_number: None, enum_options: Some(&["none", "uppercase"]),
+        min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
     // ── Colour ──────────────────────────────────────────────────────────────
     FieldMetadata {
         target: TargetKind::Sprite,

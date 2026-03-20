@@ -17,6 +17,18 @@ pub enum VerticalAlign {
     Bottom,
 }
 
+/// Controls uppercase conversion of text sprite content before glyph lookup.
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TextTransform {
+    /// Preserve authored case (default). Glyphs are looked up as written.
+    #[default]
+    None,
+    /// Force all characters to uppercase before glyph lookup.
+    /// Use for retro/block-title rendering with the generic bitmap font.
+    Uppercase,
+}
+
 /// Glow halo effect for a text sprite.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Glow {
@@ -186,6 +198,10 @@ pub enum Sprite {
         /// Optional glow halo rendered behind the sprite.
         #[serde(default)]
         glow: Option<Glow>,
+        /// Text case transformation applied before glyph lookup.
+        /// Default: `none` (preserve authored case).
+        #[serde(default)]
+        text_transform: TextTransform,
     },
     /// Bitmap image sprite rendered on terminal grid in selected mode.
     Image {

@@ -126,6 +126,7 @@ fn render_sprite(
             bg_colour,
             reveal_ms,
             glow,
+            text_transform,
             ..
         } => {
             let total_chars = content.chars().count();
@@ -196,6 +197,7 @@ fn render_sprite(
                             gy,
                             clip,
                             ctx.layer_buf,
+                            text_transform,
                         );
                     }
                 }
@@ -210,6 +212,7 @@ fn render_sprite(
                 draw_y,
                 clip,
                 ctx.layer_buf,
+                text_transform,
             );
             let sprite_region = Region {
                 x: draw_x,

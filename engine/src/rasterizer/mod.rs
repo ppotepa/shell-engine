@@ -3,6 +3,7 @@ pub mod generic;
 mod types;
 
 use crate::buffer::Buffer;
+use engine_core::scene::sprite::TextTransform;
 use crossterm::style::Color;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -85,21 +86,21 @@ pub fn rasterize(
                 let (width, height) = generic::generic_dimensions_tiny(text);
                 let mut out = Buffer::new(width.max(1), height.max(1));
                 out.fill(Color::Reset);
-                generic::rasterize_generic_tiny(text, fg, 0, 0, &mut out);
+                generic::rasterize_generic_tiny(text, fg, 0, 0, &mut out, &TextTransform::Uppercase);
                 return out;
             }
             3 => {
                 let (width, height) = generic::generic_dimensions(text, 2);
                 let mut out = Buffer::new(width.max(1), height.max(1));
                 out.fill(Color::Reset);
-                generic::rasterize_generic(text, 2, fg, 0, 0, &mut out);
+                generic::rasterize_generic(text, 2, fg, 0, 0, &mut out, &TextTransform::Uppercase);
                 return out;
             }
             _ => {
                 let (width, height) = generic::generic_dimensions(text, 1);
                 let mut out = Buffer::new(width.max(1), height.max(1));
                 out.fill(Color::Reset);
-                generic::rasterize_generic(text, 1, fg, 0, 0, &mut out);
+                generic::rasterize_generic(text, 1, fg, 0, 0, &mut out, &TextTransform::Uppercase);
                 return out;
             }
         }

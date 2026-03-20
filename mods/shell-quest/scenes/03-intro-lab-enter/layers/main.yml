@@ -9,4 +9,5 @@
       at: cc
       font: "generic:1"
       fg: white
+      text-transform: uppercase
       glow: { radius: 1, colour: "#6f8bff" }
