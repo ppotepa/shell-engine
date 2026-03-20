@@ -129,13 +129,35 @@ fn apply_debug_overlay(world: &mut World) {
         return;
     }
 
+    let stats_data = if matches!(debug.overlay_mode, DebugOverlayMode::Stats) {
+        let scene_id = world
+            .scene_runtime()
+            .map(|runtime| runtime.scene().id.clone())
+            .unwrap_or_else(|| "unknown".to_string());
+        let virtual_info = format_virtual_info(world);
+        let script_errors: Vec<String> = world
+            .get::<DebugLogBuffer>()
+            .map(|log| log.recent(usize::MAX).iter().map(|entry| entry.display_line()).collect())
+            .unwrap_or_default();
+        Some((scene_id, virtual_info, script_errors))
+    } else {
+        None
+    };
+
     let Some(buf) = world.buffer_mut() else {
         return;
     };
 
     match debug.overlay_mode {
         DebugOverlayMode::Stats => {
-            apply_stats_overlay(buf);
+            let Some((scene_id, virtual_info, mut script_errors)) = stats_data else {
+                return;
+            };
+            let max_errors = buf.height.saturating_sub(3) as usize;
+            if script_errors.len() > max_errors {
+                script_errors = script_errors.split_off(script_errors.len() - max_errors);
+            }
+            apply_stats_overlay(buf, &scene_id, &virtual_info, &script_errors);
         }
         DebugOverlayMode::Logs => {
             apply_logs_overlay(buf);
@@ -143,15 +165,18 @@ fn apply_debug_overlay(world: &mut World) {
     }
 }
 
-fn apply_stats_overlay(buf: &mut Buffer) {
-    let scene_id = "unknown".to_string(); // Placeholder
-    let virtual_info = "virtual: disabled".to_string(); // Placeholder
-    
-    let lines = vec![
+fn apply_stats_overlay(
+    buf: &mut Buffer,
+    scene_id: &str,
+    virtual_info: &str,
+    script_errors: &[String],
+) {
+    let mut lines = vec![
         "DEBUG FEATURE MODE  [F1 overlay] [F3 prev] [F4 next]".to_string(),
         format!("scene: {scene_id}"),
-        virtual_info,
+        virtual_info.to_string(),
     ];
+    lines.extend(script_errors.iter().cloned());
 
     let fg = style::Color::White;
     let bg = style::Color::DarkGrey;
@@ -176,6 +201,33 @@ fn apply_stats_overlay(buf: &mut Buffer) {
             }
             buf.set(x, y, ch, fg, line_bg);
         }
+    }
+}
+
+fn format_virtual_info(world: &World) -> String {
+    let Some(settings) = world.runtime_settings() else {
+        return "virtual: unavailable".to_string();
+    };
+    if !settings.use_virtual_buffer {
+        return "virtual: disabled".to_string();
+    }
+
+    let policy = match settings.virtual_policy {
+        VirtualPolicy::Strict => "strict",
+        VirtualPolicy::Fit => "fit",
+    };
+
+    if let Some(vbuf) = world.virtual_buffer() {
+        return format!("virtual: {}x{} ({policy})", vbuf.0.width, vbuf.0.height);
+    }
+
+    if settings.virtual_size_max_available {
+        "virtual: max-available".to_string()
+    } else {
+        format!(
+            "virtual: {}x{} ({policy})",
+            settings.virtual_width, settings.virtual_height
+        )
     }
 }
 

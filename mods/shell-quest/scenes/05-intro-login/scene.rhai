@@ -27,9 +27,94 @@ fn quest_hint(quest_done) {
     }
 }
 
+fn first_message_done(g) {
+    if !g.has("/quests/first_message/completed") {
+        return false;
+    }
+    g.get("/quests/first_message/completed")
+}
+
+fn is_mail_target(value) {
+    if value == "mail" {
+        return true;
+    }
+    value == "mail/welcome.txt"
+}
+
+fn is_notes_target(value) {
+    if value == "notes" {
+        return true;
+    }
+    value == "notes/starter.txt"
+}
+
+fn login_success(user, password) {
+    if user != "linus" {
+        return false;
+    }
+    password == "tux"
+}
+
+fn seed_session(g) {
+    if g.has("/session/user") {
+        return;
+    }
+    g.set("/session/user", "linus");
+    g.set("/session/host", "kruuna");
+    g.set("/quests/first_message/completed", false);
+    g.set("/vfs/files", []);
+    g.push("/vfs/files", "mail/welcome.txt");
+    g.push("/vfs/files", "notes/starter.txt");
+}
+
+fn is_blank_text(value) {
+    for c in value.chars() {
+        if c != " " && c != "\t" {
+            return false;
+        }
+    }
+    true
+}
+
+fn handle_cat(parts, transcript, g) {
+    if parts.len() < 2 {
+        transcript += `usage: cat <file>
+`;
+        return transcript;
+    }
+
+    let target = parts[1];
+    if is_mail_target(target) {
+        // First-message quest: mark completed when mail is read.
+        if !first_message_done(g) {
+            g.set("/quests/first_message/completed", true);
+        }
+        transcript += `From: Operator <op@kruuna>
+Subject: Welcome
+
+You made it in. Good.
+Read the notes when you get a chance.
+
+`;
+        return transcript;
+    }
+
+    if is_notes_target(target) {
+        transcript += `- type ls to look around
+- type cat mail/welcome.txt to read your mail
+- more coming soon
+`;
+        return transcript;
+    }
+
+    transcript += `cat: ${target}: No such file or directory
+`;
+    transcript
+}
+
 fn handle_shell_command(command_line, transcript, g) {
-    let submitted = sanitize_input(command_line).trim();
-    if submitted.is_empty() {
+    let submitted = sanitize_input(command_line);
+    if is_blank_text(submitted) {
         return transcript;
     }
 
@@ -41,44 +126,29 @@ fn handle_shell_command(command_line, transcript, g) {
 `;
 
     let parts = submitted.split();
-    let command = if parts.len() > 0 { parts[0] } else { "" };
+    if parts.len() == 0 {
+        return transcript;
+    }
+    let command = parts[0];
 
     if command == "help" {
         transcript += `Commands: ls  cat <file>  clear
 `;
-    } else if command == "ls" {
-        transcript += `mail/  notes/
-`;
-    } else if command == "cat" {
-        if parts.len() < 2 {
-            transcript += `usage: cat <file>
-`;
-        } else if parts[1] == "mail" || parts[1] == "mail/welcome.txt" {
-            // First-message quest: mark completed when mail is read.
-            if !g.has("/quests/first_message/completed") || !g.get("/quests/first_message/completed") {
-                g.set("/quests/first_message/completed", true);
-            }
-            transcript += `From: Operator <op@kruuna>
-Subject: Welcome
-
-You made it in. Good.
-Read the notes when you get a chance.
-
-`;
-        } else if parts[1] == "notes" || parts[1] == "notes/starter.txt" {
-            transcript += `- type ls to look around
-- type cat mail/welcome.txt to read your mail
-- more coming soon
-`;
-        } else {
-            transcript += `cat: ${parts[1]}: No such file or directory
-`;
-        }
-    } else {
-        transcript += `${command}: command not found
-`;
+        return transcript;
     }
 
+    if command == "ls" {
+        transcript += `mail/  notes/
+`;
+        return transcript;
+    }
+
+    if command == "cat" {
+        return handle_cat(parts, transcript, g);
+    }
+
+    transcript += `${command}: command not found
+`;
     transcript
 }
 
@@ -98,12 +168,14 @@ let shake_until = if state.contains("shake_until") { state["shake_until"] } else
 let now = time.scene_elapsed_ms;
 
 // Transition from done → shell after brief pause (login success messages appear).
-if mode == "done" && now - success_at >= 300 {
-    transcript += `Last login: Tue Sep 17 21:12
+if mode == "done" {
+    if now - success_at >= 300 {
+        transcript += `Last login: Tue Sep 17 21:12
 [white]You have 1 new message.[/]
 
 `;
-    mode = "shell";
+        mode = "shell";
+    }
 }
 
 if ui.has_change {
@@ -129,19 +201,14 @@ if ui.has_submit {
     } else if mode == "password" {
         transcript += `Password: ${stars(submitted)}
 `;
-        if login_buf == "linus" && submitted == "tux" {
+        if login_success(login_buf, submitted) {
             mode = "done";
             success_at = now;
             transcript += `
 `;
             scene.set("login-hidden-prompt", "text.content", "");
             // Seed prologue GameState on first successful login.
-            if !game.has("/session/user") {
-                game.set("/session/user", "linus");
-                game.set("/session/host", "kruuna");
-                game.set("/vfs/files", ["mail/welcome.txt", "notes/starter.txt"]);
-                game.set("/quests/first_message/completed", false);
-            }
+            seed_session(game);
         } else {
             transcript += `Login incorrect
 
@@ -164,7 +231,7 @@ if ui.has_submit {
     }
 }
 
-let quest_done = game.has("/quests/first_message/completed") && game.get("/quests/first_message/completed");
+let quest_done = first_message_done(game);
 let cursor = if ((now / 320) % 2) == 0 { "_" } else { " " };
 let view = transcript;
 
