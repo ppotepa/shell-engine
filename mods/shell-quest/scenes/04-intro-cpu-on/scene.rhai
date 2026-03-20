@@ -1,78 +1,127 @@
-fn clear_bios_lines(commands) {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-3", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-7", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-8", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-9", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-10", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-line-11", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-footer-1", text: " " });
-    commands.push(#{ op: "set-text", target: "bios-footer-2", text: " " });
-}
-
-let commands = [];
 let t = scene_elapsed_ms;
+let text = " ";
 
-if t >= 1800 && t < 18800 {
-    clear_bios_lines(commands);
+// 1) BIOS + TUX screen
+if t >= 1800 && t < 6200 {
+    text = `TUX Modular BIOS v1.90, 1990 Edition
+Copyright (C) 1990, TUX Software, Inc.
+* TUX AWARDS BIOS Extension v1.0A
+
+`;
+
+    if t >= 2500 {
+        text += `CPU: 386SX Compatible @ 20MHz
+`;
+    }
+
+    if t >= 3000 && t < 4300 {
+        let step = ((t - 3000) * 16) / 1300;
+        let s = if step > 16 { 16 } else { step };
+        text += `CHECKING RAM: ${s * 128}KB
+`;
+    } else if t >= 4300 && t < 5000 {
+        let blink = ((t - 4300) / 175) % 4;
+        if blink == 0 || blink == 2 {
+            text += `[white]CHECKING RAM: 2048KB OK[/]
+`;
+        } else {
+            text += `CHECKING RAM: 2048KB OK
+`;
+        }
+    } else if t >= 5000 {
+        text += `[white]CHECKING RAM: 2048KB OK[/]
+`;
+    }
+
+    if t >= 4800 {
+        text += `CD-ROM DRIVE A:        .......... NOT FOUND
+`;
+    }
+    if t >= 5200 {
+        text += `FLOPPY DRIVE A: 1.44MB .......... NOT FOUND
+`;
+    }
+    if t >= 5600 {
+        text += `HARD DRIVE 0: SEAGATE ST225 20MB
+`;
+    }
+
+// 2) Separate device screen (1.5s)
+} else if t >= 6200 && t < 7700 {
+    text = `+------------------------------------------------------------------+
+| TUX HYPERBIOS DEVICE LISTING                     19/09/90 04:12 |
++------------------------------------------------------------------+
+
+ CPU              : 386SX Compatible @ 20MHz
+ Extended Memory  : 2048KB
+ Cache Size       : 64KB
+ Display Type     : VGA
+ Serial Port(s)   : 3F8 2F8
+ Parallel Port(s) : 378
+ DRAM Type        : FPM
+ Data Integrity   : ECC
+
+ Diskette Drive A : 1.44MB 3.5in
+ Pri. Master Disk : SEAGATE ST225 20MB
+ Sec. Master Disk : CD-ROM (none)
+
+ PCI/ISA device listing...
+ 00:00.0  Host bridge            IRQ 14/15
+ 00:02.0  VGA compatible         IRQ 11
+ 00:03.0  IDE controller         IRQ 14
+ 00:04.0  Floppy controller      IRQ 06`;
+
+// 3) Blank gap (0.5s)
+} else if t >= 7700 && t < 8200 {
+    text = " ";
+
+// 4) Fast boot sequence (8s), no clear — scroll up
+} else if t >= 8200 && t < 16200 {
+    let p = t - 8200;
+    let lines = [];
+
+    if p >= 0    { lines.push("Starting from hard disk"); }
+    if p >= 1000 { lines.push("Reading boot sector..."); }
+    if p >= 1200 { lines.push("Boot sector loaded"); }
+    if p >= 1450 { lines.push("MINIX boot block"); }
+    if p >= 1700 { lines.push("Loading secondary boot..."); }
+    if p >= 2000 { lines.push("Secondary boot loaded"); }
+    if p >= 2250 { lines.push("MINIX boot monitor 1.3"); }
+    if p >= 2500 { lines.push("Root device: hd1a"); }
+    if p >= 2700 { lines.push("RAM disk: disabled"); }
+    if p >= 3000 { lines.push("Booting MINIX..."); }
+    if p >= 3250 { lines.push("286/386 protected mode enabled"); }
+    if p >= 3450 { lines.push("Kernel size: 109 KB"); }
+    if p >= 3700 { lines.push("Initializing kernel subsystems"); }
+    if p >= 3750 { lines.push("... interrupt vectors: OK"); }
+    if p >= 3800 { lines.push("... trap handlers: OK"); }
+    if p >= 3850 { lines.push("... memory manager: OK"); }
+    if p >= 4000 { lines.push("... tty drivers: OK"); }
+    if p >= 4200 { lines.push("... block devices: OK"); }
+    if p >= 5200 { lines.push("Mounting root file system... OK"); }
+    if p >= 5600 { lines.push("[yellow]Warning: CMOS time appears invalid[/]"); }
+    if p >= 6200 { lines.push("Starting init process"); }
+    if p >= 6400 { lines.push("... /etc/rc"); }
+    if p >= 6600 { lines.push("... update daemon"); }
+    if p >= 6900 { lines.push("... clock task sync"); }
+    if p >= 7200 { lines.push("Console ready"); }
+    if p >= 7600 { lines.push("[white]login: _[/]"); }
+
+    let max_lines = 14;
+    let total = 0;
+    for _line in lines {
+        total += 1;
+    }
+    let start = if total > max_lines { total - max_lines } else { 0 };
+    text = "";
+    let idx = 0;
+    for line in lines {
+        if idx >= start {
+            text += `${line}
+`;
+        }
+        idx += 1;
+    }
 }
 
-if t >= 2200 && t < 5600 {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "Reading boot sector..." });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Boot sector loaded" });
-    commands.push(#{ op: "set-text", target: "bios-line-3", text: "MINIX boot block" });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Loading secondary boot..." });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Secondary boot loaded" });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: "MINIX boot monitor 1.3" });
-    commands.push(#{ op: "set-text", target: "bios-line-7", text: "Root device: hd1a" });
-    commands.push(#{ op: "set-text", target: "bios-line-8", text: "RAM disk: disabled" });
-    commands.push(#{ op: "set-text", target: "bios-line-9", text: "Press ESC for monitor" });
-    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Booting MINIX..." });
-    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 1/4: Boot loader[/]" });
-} else if t >= 5600 && t < 9000 {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "286/386 protected mode enabled" });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Kernel size: 109 KB" });
-    commands.push(#{ op: "set-text", target: "bios-line-3", text: "Initializing interrupt vectors" });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Initializing trap handlers" });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Initializing memory manager" });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Memory available to system: 3712 KB" });
-    commands.push(#{ op: "set-text", target: "bios-line-7", text: "Buffer cache: 128 KB" });
-    commands.push(#{ op: "set-text", target: "bios-line-8", text: "Detecting clock..." });
-    commands.push(#{ op: "set-text", target: "bios-line-9", text: "[#ff5555]WARNING[/] CMOS time appears invalid" });
-    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Initializing tty drivers" });
-    commands.push(#{ op: "set-text", target: "bios-line-11", text: "tty0 initialized, tty1 initialized" });
-    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 2/4: Kernel init[/]" });
-} else if t >= 9000 && t < 12400 {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "Initializing floppy driver (fd0 present)" });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "Initializing hard disk driver" });
-    commands.push(#{ op: "set-text", target: "bios-line-3", text: "hd0: 977 cylinders, 5 heads, 17 sectors" });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Partition table read successfully" });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Root file system on /dev/hd1a" });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Mounting root file system..." });
-    commands.push(#{ op: "set-text", target: "bios-line-7", text: "/dev/hd1a mounted read-write [#55ff55]SUCCESS[/]" });
-    commands.push(#{ op: "set-text", target: "bios-line-8", text: "Checking file system state..." });
-    commands.push(#{ op: "set-text", target: "bios-line-9", text: "[#ff5555]WARNING[/] free block count incorrect" });
-    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Rebuilding free block map..." });
-    commands.push(#{ op: "set-text", target: "bios-line-11", text: "File system check complete [#55ff55]SUCCESS[/]" });
-    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 3/4: File system[/]" });
-} else if t >= 12400 && t < 18800 {
-    commands.push(#{ op: "set-text", target: "bios-line-1", text: "Mounting /usr from /dev/hd1d" });
-    commands.push(#{ op: "set-text", target: "bios-line-2", text: "/dev/hd1d mounted read-only [#55ff55]SUCCESS[/]" });
-    commands.push(#{ op: "set-text", target: "bios-line-3", text: "Starting init process" });
-    commands.push(#{ op: "set-text", target: "bios-line-4", text: "Executing /etc/rc" });
-    commands.push(#{ op: "set-text", target: "bios-line-5", text: "Setting system name: minix" });
-    commands.push(#{ op: "set-text", target: "bios-line-6", text: "Starting update daemon / clock task sync" });
-    commands.push(#{ op: "set-text", target: "bios-line-7", text: "Starting printer daemon / login processes" });
-    commands.push(#{ op: "set-text", target: "bios-line-8", text: "IRQ 06  FLOPPY DISK  [#ff5555]FAIL[/]" });
-    commands.push(#{ op: "set-text", target: "bios-line-9", text: "Minix 1.3  Copyright 1987, Prentice-Hall" });
-    commands.push(#{ op: "set-text", target: "bios-line-10", text: "Console ready [#55ff55]SUCCESS[/]" });
-    commands.push(#{ op: "set-text", target: "bios-line-11", text: "login:" });
-    commands.push(#{ op: "set-text", target: "bios-footer-1", text: "[gray]Page 4/4: Init and login[/]" });
-    commands.push(#{ op: "set-text", target: "bios-footer-2", text: "[#808080]Press ESC for monitor[/]" });
-}
-
-commands
+scene.set("bios-block", "text.content", text);
