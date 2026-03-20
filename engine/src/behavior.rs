@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::effects::Region;
 use crate::game_object::GameObject;
+use crate::game_state::GameState;
 use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
@@ -32,6 +33,7 @@ pub struct BehaviorContext {
     pub ui_last_submit_text: Option<String>,
     pub ui_last_change_target_id: Option<String>,
     pub ui_last_change_text: Option<String>,
+    pub game_state: Option<crate::game_state::GameState>,
 }
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -65,6 +67,16 @@ pub enum BehaviorCommand {
         target: String,
         path: String,
         value: JsonValue,
+    },
+    TerminalPushOutput {
+        line: String,
+    },
+    TerminalClearOutput,
+    /// Rhai script error — consumed by the behavior system to push to DebugLogBuffer.
+    ScriptError {
+        scene_id: String,
+        source: Option<String>,
+        message: String,
     },
 }
 
@@ -518,6 +530,16 @@ struct ScriptObjectApi {
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
+#[derive(Clone)]
+struct ScriptGameApi {
+    state: Option<GameState>,
+}
+
+#[derive(Clone)]
+struct ScriptTerminalApi {
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
 impl ScriptSceneApi {
     fn new(objects: RhaiMap, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
         Self { objects, queue }
@@ -575,6 +597,76 @@ impl ScriptObjectApi {
             path: normalized_path,
             value,
         });
+    }
+}
+
+impl ScriptGameApi {
+    fn new(state: Option<GameState>) -> Self {
+        Self { state }
+    }
+
+    fn get(&mut self, path: &str) -> RhaiDynamic {
+        self.state
+            .as_ref()
+            .and_then(|state| state.get(path))
+            .map(|value| json_to_rhai_dynamic(&value))
+            .unwrap_or_else(|| ().into())
+    }
+
+    fn set(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(state) = self.state.as_ref() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        state.set(path, value)
+    }
+
+    fn has(&mut self, path: &str) -> bool {
+        self.state
+            .as_ref()
+            .map(|state| state.has(path))
+            .unwrap_or(false)
+    }
+
+    fn remove(&mut self, path: &str) -> bool {
+        self.state
+            .as_ref()
+            .map(|state| state.remove(path))
+            .unwrap_or(false)
+    }
+
+    fn push(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(state) = self.state.as_ref() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        state.push(path, value)
+    }
+}
+
+impl ScriptTerminalApi {
+    fn new(queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+        Self { queue }
+    }
+
+    fn push(&mut self, line: &str) {
+        let Ok(mut queue) = self.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::TerminalPushOutput {
+            line: line.to_string(),
+        });
+    }
+
+    fn clear(&mut self) {
+        let Ok(mut queue) = self.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::TerminalClearOutput);
     }
 }
 
@@ -709,6 +801,29 @@ impl Behavior for RhaiScriptBehavior {
         };
 
         let mut scope = rhai::Scope::new();
+        let mut menu_map = RhaiMap::new();
+        menu_map.insert(
+            "selected_index".into(),
+            (ctx.menu_selected_index as rhai::INT).into(),
+        );
+        menu_map.insert(
+            "count".into(),
+            (scene.menu_options.len() as rhai::INT).into(),
+        );
+        scope.push_dynamic("menu", menu_map.into());
+
+        let mut time_map = RhaiMap::new();
+        time_map.insert(
+            "scene_elapsed_ms".into(),
+            (ctx.scene_elapsed_ms as rhai::INT).into(),
+        );
+        time_map.insert(
+            "stage_elapsed_ms".into(),
+            (ctx.stage_elapsed_ms as rhai::INT).into(),
+        );
+        scope.push_dynamic("time", time_map.into());
+
+        // Compatibility layer for existing scripts; prefer `menu.*` and `time.*`.
         scope.push("selected_index", ctx.menu_selected_index as rhai::INT);
         scope.push("scene_elapsed_ms", ctx.scene_elapsed_ms as rhai::INT);
         scope.push("stage_elapsed_ms", ctx.stage_elapsed_ms as rhai::INT);
@@ -749,6 +864,8 @@ impl Behavior for RhaiScriptBehavior {
 
         engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
         engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
+        engine.register_type_with_name::<ScriptGameApi>("GameApi");
+        engine.register_type_with_name::<ScriptTerminalApi>("TerminalApi");
         engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
             scene.get(target)
         });
@@ -767,9 +884,73 @@ impl Behavior for RhaiScriptBehavior {
                 object.set(path, value);
             },
         );
+        engine.register_fn("push", |terminal: &mut ScriptTerminalApi, line: &str| {
+            terminal.push(line);
+        });
+        engine.register_fn("clear", |terminal: &mut ScriptTerminalApi| {
+            terminal.clear();
+        });
         scope.push(
             "scene",
             ScriptSceneApi::new(objects_map.clone(), Arc::clone(&helper_commands)),
+        );
+        scope.push("game", ScriptGameApi::new(ctx.game_state.clone()));
+        scope.push(
+            "terminal",
+            ScriptTerminalApi::new(Arc::clone(&helper_commands)),
+        );
+
+        // Compatibility layer for existing scripts; prefer `game.get/set/has/remove/push`.
+        if let Some(game_state) = &ctx.game_state {
+            let game_clone = game_state.clone();
+            engine.register_fn("game_get", move |path: &str| -> RhaiDynamic {
+                game_clone
+                    .get(path)
+                    .map(|v| json_to_rhai_dynamic(&v))
+                    .unwrap_or(().into())
+            });
+
+            let game_clone = game_state.clone();
+            engine.register_fn("game_set", move |path: &str, value: RhaiDynamic| -> bool {
+                if let Some(json_value) = rhai_dynamic_to_json(&value) {
+                    game_clone.set(path, json_value)
+                } else {
+                    false
+                }
+            });
+
+            let game_clone = game_state.clone();
+            engine.register_fn("game_has", move |path: &str| -> bool {
+                game_clone.has(path)
+            });
+
+            let game_clone = game_state.clone();
+            engine.register_fn("game_remove", move |path: &str| -> bool {
+                game_clone.remove(path)
+            });
+
+            let game_clone = game_state.clone();
+            engine.register_fn("game_push", move |path: &str, value: RhaiDynamic| -> bool {
+                if let Some(json_value) = rhai_dynamic_to_json(&value) {
+                    game_clone.push(path, json_value)
+                } else {
+                    false
+                }
+            });
+        }
+
+        engine.register_fn("get", |game: &mut ScriptGameApi, path: &str| game.get(path));
+        engine.register_fn(
+            "set",
+            |game: &mut ScriptGameApi, path: &str, value: RhaiDynamic| game.set(path, value),
+        );
+        engine.register_fn("has", |game: &mut ScriptGameApi, path: &str| game.has(path));
+        engine.register_fn("remove", |game: &mut ScriptGameApi, path: &str| {
+            game.remove(path)
+        });
+        engine.register_fn(
+            "push",
+            |game: &mut ScriptGameApi, path: &str, value: RhaiDynamic| game.push(path, value),
         );
 
         {
@@ -801,8 +982,20 @@ impl Behavior for RhaiScriptBehavior {
                 },
             );
         }
-        let Ok(result) = engine.eval_with_scope::<RhaiDynamic>(&mut scope, script) else {
-            return;
+        let eval_result = engine.eval_with_scope::<RhaiDynamic>(&mut scope, script);
+        let result = match eval_result {
+            Ok(r) => r,
+            Err(err) => {
+                let src = self.params.src.as_deref().unwrap_or("<inline>");
+                let msg = format!("{}", err);
+                eprintln!("Rhai script error in scene '{}' (src: {}): {}", scene.id, src, msg);
+                commands.push(BehaviorCommand::ScriptError {
+                    scene_id: scene.id.clone(),
+                    source: self.params.src.clone(),
+                    message: msg,
+                });
+                return;
+            }
         };
         if let Some(map) = result.clone().try_cast::<RhaiMap>() {
             if let Some(next_state) = map.get("state").and_then(rhai_dynamic_to_json) {
@@ -1486,6 +1679,7 @@ mod tests {
     };
     use crate::effects::Region;
     use crate::game_object::{GameObject, GameObjectKind};
+    use crate::game_state::GameState;
     use crate::scene::{
         AudioCue, BehaviorParams, BehaviorSpec, MenuOption, Scene, SceneAudio, SceneRenderedMode,
         SceneStages, TermColour,
@@ -1566,6 +1760,7 @@ mod tests {
             ui_last_submit_text: None,
             ui_last_change_target_id: None,
             ui_last_change_text: None,
+            game_state: None,
         }
     }
 
@@ -2056,13 +2251,13 @@ out
             script: Some(
                 r#"
 let out = [];
-if ui.has_submit && ui_submit_text == "status" && ui_focused_target == "terminal-prompt" {
+if ui.has_submit && ui.submit_text == "status" && ui.focused_target == "terminal-prompt" {
   out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
 }
-if ui.theme == "terminal" && ui_theme == "terminal" {
+if ui.theme == "terminal" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: 1 });
 }
-if ui_has_change && ui_change_target == "terminal-prompt" {
+if ui.has_change && ui.change_target == "terminal-prompt" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 2, dy: 0 });
 }
 out
@@ -2095,6 +2290,47 @@ out
                     target: "menu-item-0".to_string(),
                     dx: 2,
                     dy: 0
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_reads_time_menu_and_game_objects() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+game.set("/session/user", "linus");
+game.push("/events", "booted");
+
+let out = [];
+if time.scene_elapsed_ms == 480 && time.stage_elapsed_ms == 120 {
+  out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
+}
+if menu.count == 3 && menu.selected_index == 1 && game.get("/session/user") == "linus" && game.has("/events") {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 1, dy: 2 });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut test_ctx = ctx(SceneStage::OnIdle, 480, 120);
+        test_ctx.menu_selected_index = 1;
+        test_ctx.game_state = Some(GameState::new());
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(3), test_ctx);
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "menu-item-0".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 1,
+                    dy: 2
                 }
             ]
         );
@@ -2186,11 +2422,11 @@ out
     }
 
     #[test]
-    fn rhai_script_behavior_scene_set_helper_emits_set_property() {
+    fn rhai_script_behavior_scene_object_set_emits_set_property() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-scene_set("menu-item-0", "position.y", 6);
+scene.set("menu-item-0", "position.y", 6);
 []
 "#
                 .to_string(),
@@ -2213,11 +2449,11 @@ scene_set("menu-item-0", "position.y", 6);
     }
 
     #[test]
-    fn rhai_script_behavior_scene_set_helper_normalizes_props_prefix() {
+    fn rhai_script_behavior_scene_object_set_normalizes_props_prefix() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-scene_set("menu-item-0", "props.position.y", 6);
+scene.set("menu-item-0", "props.position.y", 6);
 []
 "#
                 .to_string(),
@@ -2337,14 +2573,14 @@ out
     }
 
     #[test]
-    fn rhai_script_behavior_scene_get_helper_reads_object_snapshot() {
+    fn rhai_script_behavior_scene_object_get_reads_object_snapshot() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
 let out = [];
-let obj = scene_get("menu-item-0");
-if obj["kind"] == "text" {
-  let dy = obj["state"]["offset_y"];
+let obj = scene.get("menu-item-0");
+if obj.get("kind") == "text" {
+  let dy = obj.get("state.offset_y");
   out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: dy });
 }
 out

@@ -172,6 +172,8 @@ impl TerminalShellState {
     }
 
     fn execute_command(&mut self, raw_command: &str) {
+        use crate::scene::TerminalShellMode;
+
         let command_line = raw_command.trim();
         if command_line.is_empty() {
             return;
@@ -180,6 +182,12 @@ impl TerminalShellState {
         self.push_output_line(format!("{}{}", self.controls.prompt_prefix, command_line));
         self.history.push(command_line.to_string());
         self.history_cursor = None;
+
+        // In scripted mode, skip all built-in command execution.
+        // Scripts should handle commands via ui.has_submit and ui.submit_text.
+        if self.controls.mode == TerminalShellMode::Scripted {
+            return;
+        }
 
         let mut parts = command_line.split_whitespace();
         let command = parts.next().unwrap_or_default();
@@ -526,6 +534,24 @@ impl SceneRuntime {
 
     pub fn has_terminal_shell(&self) -> bool {
         self.terminal_shell_state.is_some()
+    }
+
+    /// Pushes a line to the terminal shell output transcript.
+    /// Does nothing if no terminal shell is active.
+    pub fn terminal_push_output(&mut self, line: String) {
+        if let Some(state) = self.terminal_shell_state.as_mut() {
+            state.push_output_line(line);
+            self.sync_terminal_shell_sprites();
+        }
+    }
+
+    /// Clears the terminal shell output transcript.
+    /// Does nothing if no terminal shell is active.
+    pub fn terminal_clear_output(&mut self) {
+        if let Some(state) = self.terminal_shell_state.as_mut() {
+            state.clear_output();
+            self.sync_terminal_shell_sprites();
+        }
     }
 
     pub fn focused_ui_target_id(&self) -> Option<&str> {
@@ -908,6 +934,7 @@ impl SceneRuntime {
         scene_elapsed_ms: u64,
         stage_elapsed_ms: u64,
         menu_selected_index: usize,
+        game_state: Option<crate::game_state::GameState>,
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
@@ -949,6 +976,7 @@ impl SceneRuntime {
                     .as_ref()
                     .map(|event| event.target_id.clone()),
                 ui_last_change_text: ui_last_change.as_ref().map(|event| event.text.clone()),
+                game_state: game_state.clone(),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
@@ -1384,6 +1412,14 @@ impl SceneRuntime {
                         _ => {}
                     }
                 }
+                BehaviorCommand::TerminalPushOutput { line } => {
+                    self.terminal_push_output(line.clone());
+                }
+                BehaviorCommand::TerminalClearOutput => {
+                    self.terminal_clear_output();
+                }
+                // ScriptError is consumed at the behavior system level (world access needed).
+                BehaviorCommand::ScriptError { .. } => {}
             }
         }
     }
