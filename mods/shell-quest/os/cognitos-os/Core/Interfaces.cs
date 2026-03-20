@@ -6,7 +6,7 @@ internal interface ICommand
 {
     string Name { get; }
     IReadOnlyList<string> Aliases { get; }
-    CommandResult Execute(CommandContext ctx, IReadOnlyList<string> args);
+    CommandResult Execute(CommandContext ctx);
 }
 
 internal interface IOperatingSystem
@@ -17,6 +17,10 @@ internal interface IOperatingSystem
     void Tick(ulong dtMs);
     DateTime SimulatedNow();
     (double CpuPercent, double MemoryPercent) UsageSnapshot();
+    IReadOnlyList<ProcessEntry> ProcessSnapshot();
+    IReadOnlyList<ServiceEntry> ServiceSnapshot();
+    int UnreadMailCount();
+    void MarkMailRead(string targetPath);
 }
 
 internal interface IMachineStart
@@ -32,6 +36,12 @@ internal interface IBootSequence
 
 internal sealed record BootStep(string Text, ulong DelayMs);
 
-internal sealed record CommandContext(IOperatingSystem Os, string User, string Cwd);
+internal sealed record CommandContext(
+    IOperatingSystem Os,
+    string User,
+    string Cwd,
+    string CommandName,
+    IReadOnlyList<string> Argv
+);
 
-internal sealed record CommandResult(IReadOnlyList<string> Lines, bool ClearScreen = false);
+internal sealed record CommandResult(IReadOnlyList<string> Lines, int ExitCode = 0, bool ClearScreen = false);

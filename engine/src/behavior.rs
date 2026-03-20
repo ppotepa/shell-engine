@@ -36,6 +36,8 @@ pub struct BehaviorContext {
     pub game_state: Option<crate::game_state::GameState>,
     /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
     pub last_raw_key: Option<RawKeyEvent>,
+    /// Sidecar IO frame snapshot (output lines / clear / fullscreen / custom events).
+    pub sidecar_io: crate::scene_runtime::SidecarIoFrameState,
 }
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -904,6 +906,44 @@ impl Behavior for RhaiScriptBehavior {
             scope.push_dynamic("key", key_map.into());
         }
 
+        // External sidecar bridge exposed as object-shaped `ipc.*`.
+        {
+            let mut ipc_map = RhaiMap::new();
+            ipc_map.insert(
+                "has_output".into(),
+                (!ctx.sidecar_io.output_lines.is_empty()).into(),
+            );
+            let output_array: RhaiArray = ctx
+                .sidecar_io
+                .output_lines
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .collect();
+            ipc_map.insert("output_lines".into(), output_array.into());
+            ipc_map.insert("clear_count".into(), (ctx.sidecar_io.clear_count as rhai::INT).into());
+            ipc_map.insert(
+                "has_screen_full".into(),
+                ctx.sidecar_io.screen_full_lines.is_some().into(),
+            );
+            let screen_full_lines: RhaiArray = ctx
+                .sidecar_io
+                .screen_full_lines
+                .as_ref()
+                .map(|lines| lines.iter().cloned().map(Into::into).collect())
+                .unwrap_or_default();
+            ipc_map.insert("screen_full_lines".into(), screen_full_lines.into());
+            let custom_events: RhaiArray = ctx
+                .sidecar_io
+                .custom_events
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .collect();
+            ipc_map.insert("custom_events".into(), custom_events.into());
+            scope.push_dynamic("ipc", ipc_map.into());
+        }
+
         let mut engine = RhaiEngine::new();
         let helper_commands = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
         engine.register_fn("is_blank", |value: &str| -> bool {
@@ -1125,6 +1165,7 @@ fn smoke_probe_context(
         ui_last_change_text: None,
         game_state: Some(game_state),
         last_raw_key: None,
+        sidecar_io: crate::scene_runtime::SidecarIoFrameState::default(),
     }
 }
 
@@ -1881,6 +1922,7 @@ mod tests {
             ui_last_change_text: None,
             game_state: None,
             last_raw_key: None,
+            sidecar_io: crate::scene_runtime::SidecarIoFrameState::default(),
         }
     }
 
@@ -1891,6 +1933,62 @@ mod tests {
             stage_elapsed_ms,
             ..base_ctx()
         }
+    }
+
+    #[test]
+    fn rhai_script_behavior_reads_ipc_scope_values() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let out = [];
+if ipc.has_output {
+  out.push(#{ op: "visibility", target: "menu-item-0", visible: true });
+}
+if ipc.clear_count > 0 {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 1, dy: 0 });
+}
+if ipc.has_screen_full {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: 1 });
+}
+if ipc.custom_events.len > 0 {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: 2, dy: 0 });
+}
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.sidecar_io.output_lines = vec!["line".to_string()];
+        test_ctx.sidecar_io.clear_count = 1;
+        test_ctx.sidecar_io.screen_full_lines = Some(vec!["full".to_string()]);
+        test_ctx.sidecar_io.custom_events = vec!["{}".to_string()];
+        let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetVisibility {
+                    target: "menu-item-0".to_string(),
+                    visible: true
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 1,
+                    dy: 0
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 0,
+                    dy: 1
+                },
+                BehaviorCommand::SetOffset {
+                    target: "menu-item-0".to_string(),
+                    dx: 2,
+                    dy: 0
+                }
+            ]
+        );
     }
 
     fn region(x: u16, y: u16, width: u16, height: u16) -> Region {

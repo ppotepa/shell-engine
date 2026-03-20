@@ -17,6 +17,56 @@ internal sealed class MachineState
     public string Cwd { get; set; } = "~";
     public SessionMode Mode { get; set; } = SessionMode.Booting;
     public string PendingLoginUser { get; set; } = "";
+    public List<ProcessEntry> Processes { get; set; } = new();
+    public List<ServiceEntry> Services { get; set; } = new();
+    public List<MailMessage> MailMessages { get; set; } = new();
+    public int UnreadMailCount { get; set; } = 1;
 
     public bool HasAccount => !string.IsNullOrWhiteSpace(UserName) && !string.IsNullOrWhiteSpace(Password);
+}
+
+internal sealed class ServiceEntry
+{
+    public string Name { get; set; } = "";
+    public string Status { get; set; } = "active";
+    public DateTime LastTickUtc { get; set; } = DateTime.UtcNow;
+}
+
+internal sealed class MailMessage
+{
+    public string FileName { get; set; } = "";
+    public string Content { get; set; } = "";
+    public bool IsRead { get; set; }
+}
+
+internal sealed class StateManifest
+{
+    public int SchemaVersion { get; set; } = 1;
+    public string OperatingSystem { get; set; } = "minix";
+    public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedUtc { get; set; } = DateTime.UtcNow;
+}
+
+internal sealed class UserProfile
+{
+    public string UserName { get; set; } = "linus";
+    public string Password { get; set; } = "";
+    public DateTime? LastLogin { get; set; }
+    public string HomeDirectory { get; set; } = "/home/linus";
+    public string Shell { get; set; } = "/bin/sh";
+}
+
+internal sealed class ClockState
+{
+    public ulong UptimeMs { get; set; }
+}
+
+internal sealed class ProcessEntry
+{
+    public int Pid { get; set; }
+    public string Name { get; set; } = "";
+    public string User { get; set; } = "root";
+    public string State { get; set; } = "sleeping";
+    public double CpuPercent { get; set; }
+    public double MemoryPercent { get; set; }
 }

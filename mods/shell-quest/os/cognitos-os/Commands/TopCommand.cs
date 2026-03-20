@@ -7,22 +7,23 @@ internal sealed class TopCommand : ICommand
     public string Name => "top";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx, IReadOnlyList<string> args)
+    public CommandResult Execute(CommandContext ctx)
     {
         var now = ctx.Os.SimulatedNow();
         var (cpu, mem) = ctx.Os.UsageSnapshot();
-        var lines = new[]
+        var processes = ctx.Os.ProcessSnapshot();
+        var lines = new List<string>
         {
             "minix top - simulated",
             $"time: {now:ddd MMM dd HH:mm:ss yyyy}",
             $"cpu: {cpu,5:0.0}%   mem: {mem,5:0.0}%",
-            "tasks: 8 total, 1 running, 7 sleeping",
+            $"tasks: {processes.Count} total, {processes.Count(p => p.State == "running")} running, {processes.Count(p => p.State != "running")} sleeping",
             "pid  user   cpu%   mem%   command",
-            "1    root    0.5    2.1   init",
-            "17   root    1.1    1.8   netd",
-            "21   root    0.6    1.4   maild",
-            "42   linus  " + $"{Math.Max(1.0, cpu - 1.8),5:0.0}" + "    3.2   shell",
         };
-        return new CommandResult(lines);
+        foreach (var process in processes.OrderBy(p => p.Pid))
+        {
+            lines.Add($"{process.Pid,-4} {process.User,-6} {process.CpuPercent,5:0.0}   {process.MemoryPercent,5:0.0}   {process.Name}");
+        }
+        return new CommandResult(lines, ExitCode: 0);
     }
 }

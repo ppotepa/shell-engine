@@ -27,4 +27,9 @@ internal static class Protocol
         => root.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String
             ? p.GetString()
             : null;
+
+    public static int? GetInt(JsonElement root, string name)
+        => root.TryGetProperty(name, out var p) && p.TryGetInt32(out var value)
+            ? value
+            : null;
 }
