@@ -517,8 +517,9 @@ impl Behavior for MenuCarouselObjectBehavior {
 pub struct RhaiScriptBehavior {
     params: BehaviorParams,
     state: JsonValue,
-    /// Compile-time error text stored here and emitted as ScriptError on first tick.
+    /// Compile-time error text stored here and emitted as ScriptError once.
     compile_error: Option<String>,
+    compile_error_reported: bool,
 }
 
 #[derive(Clone)]
@@ -677,7 +678,7 @@ impl ScriptTerminalApi {
 impl RhaiScriptBehavior {
     fn from_params(params: &BehaviorParams) -> Self {
         let compile_error = match params.script.as_deref() {
-            Some(src) => rhai::Engine::new()
+            Some(src) => RhaiEngine::new()
                 .compile(src)
                 .err()
                 .map(|err| format!("{}", err)),
@@ -687,6 +688,7 @@ impl RhaiScriptBehavior {
             params: params.clone(),
             state: JsonValue::Object(JsonMap::new()),
             compile_error,
+            compile_error_reported: false,
         }
     }
 
@@ -808,13 +810,15 @@ impl Behavior for RhaiScriptBehavior {
         ctx: &BehaviorContext,
         commands: &mut Vec<BehaviorCommand>,
     ) {
-        // Emit compile error every tick so it stays visible in the debug overlay.
         if let Some(err) = &self.compile_error {
-            commands.push(BehaviorCommand::ScriptError {
-                scene_id: scene.id.clone(),
-                source: self.params.src.clone(),
-                message: format!("compile error: {}", err),
-            });
+            if !self.compile_error_reported {
+                commands.push(BehaviorCommand::ScriptError {
+                    scene_id: scene.id.clone(),
+                    source: self.params.src.clone(),
+                    message: format!("compile error: {}", err),
+                });
+                self.compile_error_reported = true;
+            }
             return;
         }
 
@@ -902,6 +906,9 @@ impl Behavior for RhaiScriptBehavior {
 
         let mut engine = RhaiEngine::new();
         let helper_commands = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        engine.register_fn("is_blank", |value: &str| -> bool {
+            value.chars().all(char::is_whitespace)
+        });
 
         engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
         engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
@@ -3082,6 +3089,24 @@ out
     }
 
     #[test]
+    fn intro_login_scene_rhai_compiles_without_complexity_error() {
+        let script = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../mods/shell-quest/scenes/05-intro-login/scene.rhai"
+        ));
+        let behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(script.to_string()),
+            src: Some("/scenes/05-intro-login/scene.rhai".to_string()),
+            ..BehaviorParams::default()
+        });
+        assert!(
+            behavior.compile_error.is_none(),
+            "intro-login Rhai script should compile, got: {:?}",
+            behavior.compile_error
+        );
+    }
+
+    #[test]
     fn rhai_script_behavior_emits_script_error_command_on_compile_failure() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some("let x = @@invalid@@;".to_string()),
@@ -3094,6 +3119,29 @@ out
         assert!(
             has_script_error,
             "should emit ScriptError command when compile_error is set"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_emits_compile_error_only_once_per_instance() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some("let x = @@invalid@@;".to_string()),
+            ..BehaviorParams::default()
+        });
+        let first = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 0, 0));
+        let second = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 16, 16));
+        let first_errors = first
+            .iter()
+            .filter(|c| matches!(c, BehaviorCommand::ScriptError { .. }))
+            .count();
+        let second_errors = second
+            .iter()
+            .filter(|c| matches!(c, BehaviorCommand::ScriptError { .. }))
+            .count();
+        assert_eq!(first_errors, 1, "first tick should emit exactly one ScriptError");
+        assert_eq!(
+            second_errors, 0,
+            "subsequent ticks should not spam compile ScriptError"
         );
     }
 
@@ -3174,4 +3222,3 @@ let ok = game.has("/quests/first_message/completed");
         );
     }
 }
-

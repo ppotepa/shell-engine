@@ -5,6 +5,7 @@ use crate::behavior::BehaviorCommand;
 use crate::debug_log::{DebugLogBuffer, DebugSeverity, DebugLogEntry};
 use crate::services::EngineWorldAccess;
 use crate::world::World;
+use engine_core::logging;
 
 /// Runs all registered behaviors against the current scene runtime state and dispatches their commands.
 pub fn behavior_system(world: &mut World) {
@@ -47,6 +48,14 @@ pub fn behavior_system(world: &mut World) {
                 source,
                 message,
             } => {
+                let source_label = source.as_deref().unwrap_or("<inline>");
+                logging::error(
+                    "engine.debug.overlay",
+                    format!(
+                        "script error: scene={} src={} message={}",
+                        scene_id, source_label, message
+                    ),
+                );
                 if let Some(log) = world.get_mut::<DebugLogBuffer>() {
                     log.push(DebugLogEntry {
                         severity: DebugSeverity::Error,
