@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: intro-login
+title: Intro Login
+cutscene: true
+bg: black
+ui:
+  enabled: true
+  persist: scene
+  focus-order:
+    - login-hidden-prompt
+layers:
+  - ref: main
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./scene.rhai
+input:
+  terminal-shell:
+    prompt_sprite_id: login-hidden-prompt
+    output_sprite_id: login-hidden-output
+    prompt_prefix: ""
+    prompt_wrap: false
+    prompt_auto_grow: false
+    prompt_min_lines: 1
+    prompt_max_lines: 1
+    max_lines: 8
+    unknown_message: ""
+stages:
+  on_enter:
+    steps:
+      - { pause: 80ms }
+  on_idle:
+    trigger: timeout
+    steps: [{ pause: 3600000ms }]
+  on_leave:
+    steps: [{ pause: 80ms }]
+next: mainmenu

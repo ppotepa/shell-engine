@@ -35,7 +35,7 @@
       x: 2
       y: 1
       font: "generic:half"
-      fg: silver
+      fg: "#A3A3A3"
       appear_at_ms: 1800
       disappear_at_ms: 17000
 

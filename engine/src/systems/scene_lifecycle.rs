@@ -212,6 +212,33 @@ fn begin_leave(a: &mut crate::systems::animator::Animator) {
     a.elapsed_ms = 0;
 }
 
+fn reset_timeout_idle_clock(world: &mut World) {
+    let should_reset = {
+        let Some(animator) = world.animator() else {
+            return;
+        };
+        if animator.stage != SceneStage::OnIdle {
+            return;
+        }
+        world
+            .scene_runtime()
+            .map(|runtime| {
+                matches!(
+                    runtime.scene().stages.on_idle.trigger,
+                    scene::StageTrigger::Timeout
+                )
+            })
+            .unwrap_or(false)
+    };
+    if !should_reset {
+        return;
+    }
+    if let Some(animator) = world.animator_mut() {
+        animator.elapsed_ms = 0;
+        animator.stage_elapsed_ms = 0;
+    }
+}
+
 fn handle_playground_escape_to_menu(world: &mut World, key_presses: &[KeyEvent]) -> bool {
     if !is_scene_idle(world) {
         return false;
@@ -373,6 +400,7 @@ fn handle_terminal_shell_controls(world: &mut World, key_presses: &[KeyEvent]) -
     if !is_scene_idle(world) {
         return false;
     }
+    let mut consumed_input = false;
     let back_next_scene = {
         let Some(runtime) = world.scene_runtime_mut() else {
             return false;
@@ -384,10 +412,13 @@ fn handle_terminal_shell_controls(world: &mut World, key_presses: &[KeyEvent]) -
             Some(runtime.scene().next.clone())
         } else {
             // Scene-local terminal shell takes ownership of regular key input.
-            let _ = runtime.handle_terminal_shell_keys(key_presses);
+            consumed_input = runtime.handle_terminal_shell_keys(key_presses);
             None
         }
     };
+    if consumed_input {
+        reset_timeout_idle_clock(world);
+    }
     if let Some(next_scene) = back_next_scene {
         if let Some(animator) = world.animator_mut() {
             animator.next_scene_override = next_scene;
@@ -532,6 +563,7 @@ mod tests {
     use super::{classify_events, SceneLifecycleManager};
     use crate::debug_features::DebugFeatures;
     use crate::events::EngineEvent;
+    use crate::services::EngineWorldAccess;
     use crate::scene::{
         MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage, StageTrigger,
         TermColour,
@@ -703,6 +735,38 @@ stages:
     trigger: any-key
     looping: true
     steps: []
+next: terminal-next
+layers:
+  - name: ui
+    sprites:
+      - type: text
+        id: terminal-output
+        at: lt
+        content: ""
+      - type: text
+        id: terminal-prompt
+        at: lb
+        content: ""
+"#;
+
+    const TERMINAL_SHELL_TIMEOUT_SCENE_YAML: &str = r#"
+id: terminal-shell-timeout
+title: Terminal Shell Timeout
+bg_colour: black
+ui:
+  enabled: true
+  focus-order:
+    - terminal-prompt
+input:
+  terminal-shell:
+    prompt_sprite_id: terminal-prompt
+    output_sprite_id: terminal-output
+    prompt_prefix: ""
+stages:
+  on_idle:
+    trigger: timeout
+    steps:
+      - { pause: 1000ms }
 next: terminal-next
 layers:
   - name: ui
@@ -972,6 +1036,29 @@ layers:
             animator.next_scene_override.as_deref(),
             Some("terminal-next")
         );
+    }
+
+    #[test]
+    fn terminal_shell_input_resets_timeout_idle_clock() {
+        let scene: Scene =
+            serde_yaml::from_str(TERMINAL_SHELL_TIMEOUT_SCENE_YAML).expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+        if let Some(animator) = world.animator_mut() {
+            animator.elapsed_ms = 900;
+            animator.stage_elapsed_ms = 900;
+        }
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed(KeyCode::Char('x'))],
+        );
+
+        let animator = world.get::<Animator>().expect("animator present");
+        assert_eq!(animator.stage, SceneStage::OnIdle);
+        assert_eq!(animator.elapsed_ms, 0);
+        assert_eq!(animator.stage_elapsed_ms, 0);
     }
 
     #[test]
