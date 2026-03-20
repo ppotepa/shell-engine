@@ -3,15 +3,87 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::domain::asset_index::AssetIndex;
 use crate::input::commands::Command;
 use crate::io::fs_scan::{
     collect_schema_project_yml_files, infer_mod_root_from_project_yml, validate_project_dir,
 };
 use crate::io::indexer::build_project_index;
+use crate::io::recent::push_recent;
 
-use super::{now_millis, AppState, DirBrowserItem, StartDialog};
+use super::{now_millis, AppMode, AppState, DirBrowserItem, StartDialog};
 
 impl AppState {
+    pub(super) fn open_project(&mut self, path: &str) {
+        self.reset_scene_fullscreen_state();
+        let validation = validate_project_dir(Path::new(path));
+        if !validation.valid {
+            self.mode = AppMode::Start;
+            self.start_dialog = StartDialog::RecentMenu;
+            self.status = format!("Cannot open project: {path}");
+            return;
+        }
+        let index = build_project_index(path);
+        self.mode = AppMode::Browser;
+        self.mod_source = path.to_string();
+        self.index = index;
+        self.watch.stamp = Self::compute_project_watch_stamp(&self.mod_source);
+        self.watch.last_scan_ms = now_millis();
+        self.explorer.items = self.build_tree_items();
+        self.explorer.cursor = 0;
+        self.scenes.scene_cursor = 0;
+        self.scenes.scene_display_names =
+            Self::build_scene_display_names(&self.mod_source, &self.index.scenes.scene_paths);
+        self.scenes.scene_layer_cursor = 0;
+        self.scenes.scene_layer_visibility.clear();
+        self.scenes.scene_preview_started_at_ms = now_millis();
+        self.sync_scene_preview_selection();
+        self.refresh_cutscene_source_folder();
+        push_recent(&mut self.recent_projects, path);
+        self.status = format!("Opened: {path} | Ctrl+W close project");
+    }
+
+    pub(super) fn prune_stale_recents(&mut self) {
+        let before = self.recent_projects.len();
+        self.recent_projects.retain(|path| Path::new(path).exists());
+        let removed = before.saturating_sub(self.recent_projects.len());
+        self.start.cursor = self
+            .start
+            .cursor
+            .min(self.start_items().len().saturating_sub(1));
+        self.status = format!("Removed {removed} stale recent entrie(s)");
+    }
+
+    pub(super) fn close_project(&mut self) {
+        self.mode = AppMode::Start;
+        self.start_dialog = StartDialog::RecentMenu;
+        self.mod_source.clear();
+        self.index = AssetIndex::default();
+        self.start.cursor = 0;
+        self.picker.schema_cursor = 0;
+        self.picker.dir_cursor = 0;
+        self.picker.dir_preview_path.clear();
+        self.picker.dir_preview_index = None;
+        self.picker.dir_preview_popup = false;
+        self.picker.dir_preview_started_at_ms = 0;
+        self.scenes.scene_cursor = 0;
+        self.scenes.scene_display_names.clear();
+        self.scenes.scene_layer_cursor = 0;
+        self.scenes.scene_layer_visibility.clear();
+        self.scenes.scene_preview_layers.clear();
+        self.scenes.scene_preview_scene = None;
+        self.scenes.scene_preview_started_at_ms = 0;
+        self.cutscene.source_dir = "assets/raw".to_string();
+        self.cutscene.frames.clear();
+        self.cutscene.missing_frames.clear();
+        self.cutscene.validation_error = None;
+        self.reset_scene_fullscreen_state();
+        self.watch.last_scan_ms = 0;
+        self.watch.stamp = 0;
+        self.status =
+            "Start: j/k move | Enter select | f schema scan | x prune stale | q quit".to_string();
+    }
+
     fn open_schema_picker(&mut self) {
         self.picker.schema_candidates = collect_schema_project_yml_files(Path::new("."));
         self.picker.schema_cursor = 0;

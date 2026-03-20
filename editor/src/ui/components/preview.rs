@@ -14,9 +14,9 @@ use crate::ui::theme;
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let content = match app.selected_tree_item() {
         Some(TreeItem::ModYaml) => render_mod_yaml(app),
-        Some(TreeItem::Scene(path)) => render_scene(app, path),
-        Some(TreeItem::Image(path)) => render_image(app, path),
-        Some(TreeItem::Font(path)) => render_font(app, path),
+        Some(TreeItem::Scene(path)) => render_scene(app, &path),
+        Some(TreeItem::Image(path)) => render_image(app, &path),
+        Some(TreeItem::Font(path)) => render_font(app, &path),
         Some(TreeItem::ScenesFolder) => vec![
             Line::from("📁 Scenes Folder"),
             Line::from(""),

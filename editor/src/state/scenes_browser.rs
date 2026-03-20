@@ -8,6 +8,33 @@ use crate::input::commands::Command;
 use super::{focus::FocusPane, now_millis, AppState, SidebarItem};
 
 impl AppState {
+    pub(super) fn build_scene_display_names(
+        mod_source: &str,
+        scene_paths: &[String],
+    ) -> Vec<String> {
+        let repo = create_scene_repository(Path::new(mod_source)).ok();
+        scene_paths
+            .iter()
+            .map(|scene_path| {
+                let scene_ref = Self::normalize_scene_ref_path_static(mod_source, scene_path);
+                if let Some(scene) = repo.as_ref().and_then(|r| r.load_scene(&scene_ref).ok()) {
+                    if !scene.title.trim().is_empty() {
+                        return scene.title;
+                    }
+                    if !scene.id.trim().is_empty() {
+                        return scene.id;
+                    }
+                }
+
+                Path::new(scene_path)
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or(scene_path)
+                    .to_string()
+            })
+            .collect()
+    }
+
     pub(super) fn activate_scenes_browser(&mut self) {
         self.reset_scene_fullscreen_state();
         self.sidebar.active = SidebarItem::Scenes;
