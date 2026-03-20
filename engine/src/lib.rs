@@ -1,13 +1,14 @@
 //! Root crate for the Shell Quest engine — initialises a mod, runs startup checks, and drives the game loop.
 
 pub mod debug_features;
+pub mod debug_log;
 mod error;
 mod game_loop;
 mod mod_loader;
 pub use error::EngineError;
 
 // Re-export core modules from engine-core for compatibility
-pub use engine_core::{animations, buffer, effects, markup, scene};
+pub use engine_core::{animations, buffer, effects, logging, markup, scene};
 
 pub mod asset_cache;
 pub mod asset_source;
@@ -16,6 +17,7 @@ pub mod audio;
 pub mod behavior;
 pub mod events;
 pub mod game_object;
+pub mod game_state;
 pub mod image_loader;
 pub mod pipelines;
 pub mod rasterizer;
@@ -97,16 +99,33 @@ impl ShellEngine {
         let entrypoint = self.mod_manifest["entrypoint"]
             .as_str()
             .expect("entrypoint already validated");
+        logging::info(
+            "engine.run",
+            format!(
+                "starting engine run: mod_source={} entrypoint={} dev={} sound_server={}",
+                self.mod_source.display(),
+                entrypoint,
+                self.config.debug_feature,
+                self.config.sound_server
+            ),
+        );
 
         let startup_ctx = StartupContext::new(&self.mod_source, &self.mod_manifest, entrypoint);
         let startup_report = StartupRunner::default().run(&startup_ctx)?;
         for issue in startup_report.issues() {
             if matches!(issue.level, StartupIssueLevel::Warning) {
-                eprintln!("[startup:{}] warning: {}", issue.check, issue.message);
+                logging::warn(
+                    "engine.startup",
+                    format!("check={} warning={}", issue.check, issue.message),
+                );
             }
         }
 
         let scene = scene_loader::load_scene(&self.mod_source, entrypoint)?;
+        logging::info(
+            "engine.scene",
+            format!("loaded entry scene: id={} title={}", scene.id, scene.title),
+        );
         let target_fps = target_fps_from_manifest(&self.mod_manifest);
         let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
         if let Some(mode) = self
@@ -132,7 +151,9 @@ impl ShellEngine {
         world.register(debug_features::DebugFeatures::from_enabled(
             self.config.debug_feature,
         ));
+        world.register(debug_log::DebugLogBuffer::new(64));
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
+        world.register(game_state::GameState::new());
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
         }
@@ -152,6 +173,11 @@ impl ShellEngine {
 
         if let Some(renderer) = world.renderer_mut() {
             let _ = renderer.shutdown();
+        }
+
+        match &result {
+            Ok(()) => logging::info("engine.run", "engine loop exited cleanly"),
+            Err(error) => logging::error("engine.run", format!("engine loop failed: {error}")),
         }
 
         result

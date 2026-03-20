@@ -2,6 +2,7 @@
 
 use crate::audio::AudioCommand;
 use crate::behavior::BehaviorCommand;
+use crate::debug_log::{DebugLogBuffer, DebugSeverity, DebugLogEntry};
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 
@@ -15,6 +16,8 @@ pub fn behavior_system(world: &mut World) {
     let stage_elapsed_ms = animator.stage_elapsed_ms;
     let menu_selected_index = animator.menu_selected_index;
 
+    let game_state = world.get::<crate::game_state::GameState>().cloned();
+
     let commands = {
         let Some(runtime) = world.scene_runtime_mut() else {
             return;
@@ -25,14 +28,36 @@ pub fn behavior_system(world: &mut World) {
             scene_elapsed_ms,
             stage_elapsed_ms,
             menu_selected_index,
+            game_state,
         )
     };
 
-    if let Some(audio_runtime) = world.audio_runtime_mut() {
-        for command in commands {
-            if let BehaviorCommand::PlayAudioCue { cue, volume } = command {
-                audio_runtime.queue(AudioCommand { cue, volume });
+    for command in &commands {
+        match command {
+            BehaviorCommand::PlayAudioCue { cue, volume } => {
+                if let Some(audio_runtime) = world.audio_runtime_mut() {
+                    audio_runtime.queue(AudioCommand {
+                        cue: cue.clone(),
+                        volume: *volume,
+                    });
+                }
             }
+            BehaviorCommand::ScriptError {
+                scene_id,
+                source,
+                message,
+            } => {
+                if let Some(log) = world.get_mut::<DebugLogBuffer>() {
+                    log.push(DebugLogEntry {
+                        severity: DebugSeverity::Error,
+                        subsystem: "rhai",
+                        scene_id: Some(scene_id.clone()),
+                        source: source.clone(),
+                        message: message.clone(),
+                    });
+                }
+            }
+            _ => {}
         }
     }
 }

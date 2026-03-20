@@ -1,5 +1,6 @@
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::debug_features::DebugFeatures;
+use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
@@ -117,11 +118,25 @@ fn apply_debug_overlay(world: &mut World) {
         .map(|vbuf| format!("virtual: {}x{}", vbuf.0.width, vbuf.0.height))
         .unwrap_or_else(|| "virtual: disabled".to_string());
 
-    let lines = vec![
+    let recent_logs: Vec<String> = world
+        .get::<DebugLogBuffer>()
+        .map(|log| {
+            log.recent(5)
+                .iter()
+                .map(|e| e.display_line())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let mut lines = vec![
         "DEBUG FEATURE MODE  [F1 overlay] [F3 prev] [F4 next]".to_string(),
         format!("scene: {scene_id}"),
         virtual_info,
     ];
+    if !recent_logs.is_empty() {
+        lines.push("--- diagnostics ---".to_string());
+        lines.extend(recent_logs);
+    }
 
     let Some(buf) = world.buffer_mut() else {
         return;
@@ -133,15 +148,21 @@ fn apply_debug_overlay(world: &mut World) {
         if y >= buf.height {
             break;
         }
+        // Error lines get a distinct background.
+        let line_bg = if line.starts_with("[ERR") {
+            style::Color::DarkRed
+        } else {
+            bg
+        };
         for x in 0..buf.width {
-            buf.set(x, y, ' ', fg, bg);
+            buf.set(x, y, ' ', fg, line_bg);
         }
         for (x, ch) in line.chars().enumerate() {
             let x = x as u16;
             if x >= buf.width {
                 break;
             }
-            buf.set(x, y, ch, fg, bg);
+            buf.set(x, y, ch, fg, line_bg);
         }
     }
 }
