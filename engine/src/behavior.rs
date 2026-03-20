@@ -3032,4 +3032,124 @@ out
             catalog_names.len()
         );
     }
+
+    // ── debug hardening regression tests ──────────────────────────────────────
+
+    #[test]
+    fn rhai_script_behavior_captures_compile_error_on_invalid_syntax() {
+        let behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some("fn broken( { }".to_string()),
+            ..BehaviorParams::default()
+        });
+        assert!(
+            behavior.compile_error.is_some(),
+            "compile_error should be set for invalid Rhai syntax"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_no_compile_error_for_valid_script() {
+        let behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(r#"let x = 1 + 2; #{}"#.to_string()),
+            ..BehaviorParams::default()
+        });
+        assert!(
+            behavior.compile_error.is_none(),
+            "compile_error should be None for valid Rhai script"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_emits_script_error_command_on_compile_failure() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some("let x = @@invalid@@;".to_string()),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 0, 0));
+        let has_script_error = commands
+            .iter()
+            .any(|c| matches!(c, BehaviorCommand::ScriptError { .. }));
+        assert!(
+            has_script_error,
+            "should emit ScriptError command when compile_error is set"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_no_script_error_command_for_valid_script() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(r#"#{ state: #{ mode: "ok" } }"#.to_string()),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 0, 0));
+        let has_script_error = commands
+            .iter()
+            .any(|c| matches!(c, BehaviorCommand::ScriptError { .. }));
+        assert!(!has_script_error, "should not emit ScriptError for valid script");
+    }
+
+    #[test]
+    fn rhai_script_behavior_script_error_carries_scene_id_and_source() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some("let = ;".to_string()),
+            src: Some("./scene.rhai".to_string()),
+            ..BehaviorParams::default()
+        });
+        let mut scene = base_scene();
+        scene.id = "intro-login".to_string();
+        let commands = run_behavior(&mut behavior, &scene, ctx(SceneStage::OnIdle, 0, 0));
+        let error_cmd = commands
+            .iter()
+            .find(|c| matches!(c, BehaviorCommand::ScriptError { .. }));
+        assert!(error_cmd.is_some(), "expected ScriptError command");
+        if let Some(BehaviorCommand::ScriptError { scene_id, source, .. }) = error_cmd {
+            assert_eq!(scene_id, "intro-login");
+            assert_eq!(source.as_deref(), Some("./scene.rhai"));
+        }
+    }
+
+    // ── terminal quest flow regression tests ──────────────────────────────────
+
+    #[test]
+    fn rhai_script_behavior_game_state_set_persists_to_game_state() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"game.set("/session/user", "linus"); #{}"#.to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.game_state = Some(game_state.clone());
+        run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert_eq!(
+            game_state.get("/session/user"),
+            Some(serde_json::json!("linus")),
+            "game.set should persist to GameState"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_game_state_has_returns_true_after_set() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+game.set("/quests/first_message/completed", false);
+let ok = game.has("/quests/first_message/completed");
+#{}
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.game_state = Some(game_state);
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands.iter().any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "game.has after game.set should not produce a ScriptError"
+        );
+    }
 }
+
