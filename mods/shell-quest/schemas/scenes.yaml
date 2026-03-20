@@ -1243,3 +1243,12 @@ allOf:
       properties:
         stages:
           $ref: '#/$defs/scene_stages_overlay'
+  - if:
+      required:
+      - postfx
+    then:
+      properties:
+        postfx:
+          type: array
+          items:
+            $ref: ./effects.yaml#/items

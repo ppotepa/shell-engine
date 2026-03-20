@@ -10,6 +10,14 @@ ui:
     - login-hidden-prompt
 layers:
   - ref: main
+postfx:
+  - name: terminal-crt
+    params:
+      intensity: 0.5
+      sphericality: 0.1
+      transparency: 0.08
+      brightness: 0.95
+      speed: 0.35
 logic:
   kind: script
   behavior: rhai-script

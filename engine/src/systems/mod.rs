@@ -5,5 +5,6 @@ pub mod audio;
 pub mod behavior;
 pub mod compositor;
 pub mod menu;
+pub mod postfx;
 pub mod renderer;
 pub mod scene_lifecycle;

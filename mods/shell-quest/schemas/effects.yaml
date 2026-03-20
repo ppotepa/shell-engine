@@ -841,6 +841,56 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: terminal-crt
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall CRT strength (scanlines + vignette).
+            sphericality:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Glass curvature warp strength.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Phosphor noise/grain amount.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Final brightness multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Temporal speed of subtle CRT flicker/noise.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: terminal-crt effect variant
+    - description: terminal-crt overlay from shell-quest generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: tesla-orb
         params:
           type: object

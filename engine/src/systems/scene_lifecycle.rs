@@ -563,13 +563,13 @@ mod tests {
     use super::{classify_events, SceneLifecycleManager};
     use crate::debug_features::DebugFeatures;
     use crate::events::EngineEvent;
-    use crate::services::EngineWorldAccess;
     use crate::scene::{
         MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage, StageTrigger,
         TermColour,
     };
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
+    use crate::services::EngineWorldAccess;
     use crate::systems::animator::{Animator, SceneStage};
     use crate::world::World;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -629,6 +629,7 @@ mod tests {
             layers: Vec::new(),
             menu_options,
             input: Default::default(),
+            postfx: Vec::new(),
             next: Some("playground-3d-scene".into()),
         }
     }
@@ -649,6 +650,7 @@ mod tests {
             layers: Vec::new(),
             menu_options: Vec::new(),
             input: Default::default(),
+            postfx: Vec::new(),
             next: next.map(Into::into),
         }
     }

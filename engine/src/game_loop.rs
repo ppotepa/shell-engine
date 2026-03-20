@@ -96,6 +96,7 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         systems::behavior::behavior_system(world);
         systems::audio::audio_system(world);
         systems::compositor::compositor_system(world);
+        systems::postfx::postfx_system(world);
         systems::renderer::renderer_system(world);
 
         let elapsed = frame_start.elapsed();

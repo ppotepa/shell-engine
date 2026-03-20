@@ -5,6 +5,14 @@ cutscene: true
 bg: black
 layers:
   - ref: main
+postfx:
+  - name: terminal-crt
+    params:
+      intensity: 0.6
+      sphericality: 0.12
+      transparency: 0.1
+      brightness: 0.95
+      speed: 0.45
 logic:
   kind: script
   behavior: rhai-script
@@ -21,4 +29,4 @@ stages:
     steps: [{ pause: 1ms }]
   on_leave:
     steps: [{ pause: 80ms }]
-next: mainmenu
+next: intro-login
