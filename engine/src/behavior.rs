@@ -515,6 +515,8 @@ impl Behavior for MenuCarouselObjectBehavior {
 pub struct RhaiScriptBehavior {
     params: BehaviorParams,
     state: JsonValue,
+    /// Compile-time error text stored here and emitted as ScriptError on first tick.
+    compile_error: Option<String>,
 }
 
 #[derive(Clone)]
@@ -672,9 +674,17 @@ impl ScriptTerminalApi {
 
 impl RhaiScriptBehavior {
     fn from_params(params: &BehaviorParams) -> Self {
+        let compile_error = match params.script.as_deref() {
+            Some(src) => rhai::Engine::new()
+                .compile(src)
+                .err()
+                .map(|err| format!("{}", err)),
+            None => None,
+        };
         Self {
             params: params.clone(),
             state: JsonValue::Object(JsonMap::new()),
+            compile_error,
         }
     }
 
@@ -796,6 +806,16 @@ impl Behavior for RhaiScriptBehavior {
         ctx: &BehaviorContext,
         commands: &mut Vec<BehaviorCommand>,
     ) {
+        // Emit compile error every tick so it stays visible in the debug overlay.
+        if let Some(err) = &self.compile_error {
+            commands.push(BehaviorCommand::ScriptError {
+                scene_id: scene.id.clone(),
+                source: self.params.src.clone(),
+                message: format!("compile error: {}", err),
+            });
+            return;
+        }
+
         let Some(script) = self.params.script.as_deref() else {
             return;
         };
