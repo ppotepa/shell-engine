@@ -1,12 +1,12 @@
 use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::events::EngineEvent;
 use crate::scene::{self, SceneRenderedMode};
-use crate::scene_runtime::SceneRuntime;
+use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
 use crate::services::EngineWorldAccess;
 use crate::systems::animator::{Animator, SceneStage};
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::SetSize;
 use engine_core::logging;
 use std::io::stdout;
@@ -68,6 +68,12 @@ impl SceneLifecycleManager {
     }
 
     fn advance_on_any_key(world: &mut World, key_presses: &[KeyEvent]) {
+        // Bridge the first key press into SceneRuntime so Rhai scripts can read `key.*`.
+        if let Some(first_key) = key_presses.first() {
+            if let Some(runtime) = world.scene_runtime_mut() {
+                runtime.set_last_raw_key(key_event_to_raw(first_key));
+            }
+        }
         if handle_debug_controls(world, key_presses) {
             return;
         }
@@ -601,6 +607,35 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
         if total_dyaw != 0.0 || total_dpitch != 0.0 {
             runtime.apply_obj_camera_look(&sprite_id, total_dyaw, total_dpitch);
         }
+    }
+}
+
+/// Convert a crossterm `KeyEvent` into a domain-agnostic `RawKeyEvent` for Rhai scripts.
+fn key_event_to_raw(key: &KeyEvent) -> RawKeyEvent {
+    let code = match key.code {
+        KeyCode::Char(c) => c.to_string(),
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Backspace => "Backspace".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        KeyCode::Esc => "Esc".to_string(),
+        KeyCode::Up => "Up".to_string(),
+        KeyCode::Down => "Down".to_string(),
+        KeyCode::Left => "Left".to_string(),
+        KeyCode::Right => "Right".to_string(),
+        KeyCode::Home => "Home".to_string(),
+        KeyCode::End => "End".to_string(),
+        KeyCode::PageUp => "PageUp".to_string(),
+        KeyCode::PageDown => "PageDown".to_string(),
+        KeyCode::Delete => "Delete".to_string(),
+        KeyCode::Insert => "Insert".to_string(),
+        KeyCode::F(n) => format!("F{n}"),
+        _ => "".to_string(),
+    };
+    RawKeyEvent {
+        code,
+        ctrl: key.modifiers.contains(KeyModifiers::CONTROL),
+        alt: key.modifiers.contains(KeyModifiers::ALT),
+        shift: key.modifiers.contains(KeyModifiers::SHIFT),
     }
 }
 

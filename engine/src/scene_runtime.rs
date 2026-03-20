@@ -113,6 +113,19 @@ struct UiRuntimeState {
     theme_style: Option<UiThemeStyle>,
     last_submit: Option<UiTextEvent>,
     last_change: Option<UiTextEvent>,
+    /// Last raw key press this frame — exposed to Rhai as `key { code, ctrl, alt, shift }`.
+    pub last_raw_key: Option<RawKeyEvent>,
+}
+
+/// Domain-agnostic key event exposed to Rhai scripts.
+#[derive(Debug, Clone, Default)]
+pub struct RawKeyEvent {
+    /// Key code as string: "a".."z", "0".."9", "Enter", "Backspace", "Tab",
+    /// "Up", "Down", "Left", "Right", "Esc", "F1".."F12", etc.
+    pub code: String,
+    pub ctrl: bool,
+    pub alt: bool,
+    pub shift: bool,
 }
 
 impl Default for ObjectRuntimeState {
@@ -402,6 +415,16 @@ impl SceneRuntime {
 
     pub fn ui_theme_style(&self) -> Option<UiThemeStyle> {
         self.ui_state.theme_style
+    }
+
+    /// Store the raw key event for the current frame so scripts can read it via `key.*`.
+    pub fn set_last_raw_key(&mut self, key: RawKeyEvent) {
+        self.ui_state.last_raw_key = Some(key);
+    }
+
+    /// Clear raw key state at the start of each frame.
+    pub fn clear_last_raw_key(&mut self) {
+        self.ui_state.last_raw_key = None;
     }
 
     pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
@@ -977,6 +1000,7 @@ impl SceneRuntime {
                     .map(|event| event.target_id.clone()),
                 ui_last_change_text: ui_last_change.as_ref().map(|event| event.text.clone()),
                 game_state: game_state.clone(),
+                last_raw_key: self.ui_state.last_raw_key.clone(),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
@@ -997,6 +1021,7 @@ impl SceneRuntime {
         for state in self.object_states.values_mut() {
             *state = ObjectRuntimeState::default();
         }
+        self.ui_state.last_raw_key = None;
     }
 
     fn sync_terminal_shell_sprites(&mut self) {
