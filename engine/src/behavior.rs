@@ -5,7 +5,7 @@ use std::f32::consts::TAU;
 use std::sync::{Arc, Mutex};
 
 use crate::effects::Region;
-use crate::game_object::GameObject;
+use crate::game_object::{GameObject, GameObjectKind};
 use crate::game_state::GameState;
 use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, RawKeyEvent, TargetResolver};
@@ -1054,6 +1054,77 @@ impl Behavior for RhaiScriptBehavior {
         if let Ok(mut queue) = helper_commands.lock() {
             commands.extend(queue.drain(..));
         };
+    }
+}
+
+/// Executes a tiny multi-step runtime probe against a Rhai script using the same
+/// behavior runtime path as the game loop.
+pub(crate) fn smoke_validate_rhai_script(script: &str, src: Option<&str>, scene: &Scene) -> Result<(), String> {
+    let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+        src: src.map(ToString::to_string),
+        script: Some(script.to_string()),
+        ..BehaviorParams::default()
+    });
+    if let Some(err) = behavior.compile_error.as_ref() {
+        return Err(format!("compile error: {err}"));
+    }
+
+    let probe_object = GameObject {
+        id: "__rhai_probe__".to_string(),
+        name: "__rhai_probe__".to_string(),
+        kind: GameObjectKind::Scene,
+        aliases: Vec::new(),
+        parent_id: None,
+        children: Vec::new(),
+    };
+    let game_state = GameState::new();
+
+    let frames = [
+        (0_u64, None),
+        (16_u64, Some("linus")),
+        (32_u64, Some("tux")),
+        (420_u64, None),
+        (470_u64, Some("help")),
+    ];
+
+    for (elapsed_ms, submit_text) in frames {
+        let ctx = smoke_probe_context(elapsed_ms, submit_text, game_state.clone());
+        let mut commands = Vec::new();
+        behavior.update(&probe_object, scene, &ctx, &mut commands);
+        if let Some(message) = commands.into_iter().find_map(|command| match command {
+            BehaviorCommand::ScriptError { message, .. } => Some(message),
+            _ => None,
+        }) {
+            return Err(message);
+        }
+    }
+    Ok(())
+}
+
+fn smoke_probe_context(
+    elapsed_ms: u64,
+    submit_text: Option<&str>,
+    game_state: GameState,
+) -> BehaviorContext {
+    BehaviorContext {
+        stage: SceneStage::OnIdle,
+        scene_elapsed_ms: elapsed_ms,
+        stage_elapsed_ms: elapsed_ms,
+        menu_selected_index: 0,
+        target_resolver: TargetResolver::default(),
+        object_states: BTreeMap::new(),
+        object_kinds: BTreeMap::new(),
+        object_props: BTreeMap::new(),
+        object_regions: BTreeMap::new(),
+        object_text: BTreeMap::new(),
+        ui_focused_target_id: Some("login-hidden-prompt".to_string()),
+        ui_theme_id: None,
+        ui_last_submit_target_id: submit_text.map(|_| "login-hidden-prompt".to_string()),
+        ui_last_submit_text: submit_text.map(ToString::to_string),
+        ui_last_change_target_id: None,
+        ui_last_change_text: None,
+        game_state: Some(game_state),
+        last_raw_key: None,
     }
 }
 
