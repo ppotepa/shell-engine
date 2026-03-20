@@ -592,6 +592,9 @@ pub struct Scene {
     pub menu_options: Vec<MenuOption>,
     #[serde(default)]
     pub input: SceneInput,
+    /// Shader-like software post-process passes applied after compositing.
+    #[serde(default)]
+    pub postfx: Vec<Effect>,
     pub next: Option<String>,
 }
 
@@ -628,6 +631,26 @@ layers: []
         .expect("scene should parse");
 
         assert_eq!(scene.target_fps, Some(24));
+    }
+
+    #[test]
+    fn parses_scene_postfx_list() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: postfx-scene
+title: PostFX
+postfx:
+  - name: terminal-crt
+    params:
+      intensity: 0.6
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.postfx.len(), 1);
+        assert_eq!(scene.postfx[0].name, "terminal-crt");
+        assert_eq!(scene.postfx[0].params.intensity, Some(0.6));
     }
 
     #[test]

@@ -263,6 +263,7 @@ mod tests {
             layers: Vec::new(),
             menu_options: Vec::new(),
             input: Default::default(),
+            postfx: Vec::new(),
             next: next.map(str::to_string),
         }
     }

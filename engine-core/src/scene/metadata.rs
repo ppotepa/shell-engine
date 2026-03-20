@@ -230,6 +230,21 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
         unit: None,
         sources: LIT_ONLY,
     },
+    FieldMetadata {
+        target: TargetKind::Scene,
+        name: "postfx",
+        value_kind: ValueKind::SelectList,
+        requirement: Requirement::Optional,
+        description: "Optional shader-like post-process pass list (runs after compositing, before terminal output).",
+        default_text: None,
+        default_number: None,
+        enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
 ];
 
 /// Field metadata for layer-level properties.

@@ -38,6 +38,7 @@ properties:
       - shatter-glitch: Frame shatters and scatters across the buffer.
       - shine: Moving highlight beam crossing the whole frame.
       - tesla-orb: Orbital electric arcs around a plasma core.
+      - terminal-crt: Subtle CRT post-process with safe curvature, scanlines, vignette and phosphor noise.
       - whiteout: Flash all pixels toward white.
     enum:
     - artifact-out
@@ -66,6 +67,7 @@ properties:
     - shatter-glitch
     - shine
     - tesla-orb
+    - terminal-crt
     - whiteout
   duration:
     type: integer

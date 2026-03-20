@@ -10,6 +10,7 @@ $defs:
     - 02.intro.boot
     - intro-cpu-on
     - intro-lab-enter
+    - intro-login
     - mainmenu
   scene_paths:
     type: string
@@ -19,6 +20,7 @@ $defs:
     - /scenes/02-intro-boot/scene.yml
     - /scenes/03-intro-lab-enter/scene.yml
     - /scenes/04-intro-cpu-on/scene.yml
+    - /scenes/05-intro-login/scene.yml
     - /scenes/mainmenu/scene.yml
   scene_refs:
     type: string
@@ -28,12 +30,14 @@ $defs:
     - /scenes/02-intro-boot/scene.yml
     - /scenes/03-intro-lab-enter/scene.yml
     - /scenes/04-intro-cpu-on/scene.yml
+    - /scenes/05-intro-login/scene.yml
     - /scenes/mainmenu/scene.yml
     - 00.intro.logo
     - 01.intro.date
     - 02.intro.boot
     - intro-cpu-on
     - intro-lab-enter
+    - intro-login
     - mainmenu
   object_names:
     type: string
@@ -67,6 +71,7 @@ $defs:
     - screen-shake
     - shatter-glitch
     - shine
+    - terminal-crt
     - tesla-orb
     - whiteout
   layer_refs:
@@ -77,6 +82,7 @@ $defs:
     - 02-intro-boot/layers/main.yml
     - 03-intro-lab-enter/layers/main.yml
     - 04-intro-cpu-on/layers/main.yml
+    - 05-intro-login/layers/main.yml
     - mainmenu/layers/main.yml
   sprite_refs:
     type: string
@@ -130,32 +136,19 @@ $defs:
   sprite_ids:
     type: string
     enum:
-    - bios-cursor
-    - bios-footer-1
-    - bios-footer-2
-    - bios-layout
-    - bios-line-1
-    - bios-line-10
-    - bios-line-11
-    - bios-line-2
-    - bios-line-3
-    - bios-line-4
-    - bios-line-5
-    - bios-line-6
-    - bios-line-7
-    - bios-line-8
-    - bios-line-9
-    - bios-main
-    - booting-line
+    - bios-block
+    - bios-footer
     - date-text
-    - disk-detect-screen
-    - disk-not-found-screen
     - intro-linus-cutscene
     - intro-logo-ascii
     - intro-logo-raster
-    - irq-table-screen
     - location-text
-    - penguin-grid
+    - login-block
+    - login-hidden-output
+    - login-hidden-prompt
+    - menu-status-broke
+    - menu-status-indebt
+    - menu-status-no-money
     - placeholder-lab-enter
     - press-any-key
     - tuxbios-screen

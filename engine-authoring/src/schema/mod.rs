@@ -1338,6 +1338,10 @@ fn scene_overlay_patch() -> Mapping {
         "stages",
         schema_ref("#/$defs/scene_stages_overlay"),
     ));
+    patches.push(conditional_property_overlay(
+        "postfx",
+        array_items_ref("./effects.yaml#/items"),
+    ));
 
     let mut root = Mapping::new();
     root.insert(
