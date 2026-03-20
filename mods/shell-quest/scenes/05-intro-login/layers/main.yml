@@ -4,34 +4,21 @@
   visible: true
   sprites:
     - type: text
-      id: login-block
-      content: " "
+      id: login-output
+      content: ""
       at: lt
       x: 2
       y: 2
       font: "generic:half"
       fg: silver
       appear_at_ms: 0
-      disappear_at_ms: 30000
 
     - type: text
-      id: login-hidden-prompt
+      id: login-prompt
       content: ""
       at: lt
-      x: 0
-      y: -200
+      x: 2
+      y: 22
       font: "generic:half"
-      fg: black
+      fg: silver
       appear_at_ms: 0
-      disappear_at_ms: 30000
-
-    - type: text
-      id: login-hidden-output
-      content: ""
-      at: lt
-      x: 0
-      y: -204
-      font: "generic:half"
-      fg: black
-      appear_at_ms: 0
-      disappear_at_ms: 30000

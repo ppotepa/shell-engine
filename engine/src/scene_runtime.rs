@@ -68,6 +68,7 @@ pub struct ObjectRuntimeState {
 struct TerminalShellState {
     controls: TerminalShellControls,
     input: Input,
+    input_masked: bool,
     output_lines: Vec<String>,
     history: Vec<String>,
     history_cursor: Option<usize>,
@@ -113,6 +114,8 @@ struct UiRuntimeState {
     theme_style: Option<UiThemeStyle>,
     last_submit: Option<UiTextEvent>,
     last_change: Option<UiTextEvent>,
+    submit_seq: u64,
+    change_seq: u64,
     /// Last raw key press this frame — exposed to Rhai as `key { code, ctrl, alt, shift }`.
     pub last_raw_key: Option<RawKeyEvent>,
 }
@@ -144,6 +147,7 @@ impl TerminalShellState {
             output_lines: controls.banner.clone(),
             controls,
             input: Input::default(),
+            input_masked: false,
             history: Vec::new(),
             history_cursor: None,
             prompt_panel_height: None,
@@ -154,13 +158,19 @@ impl TerminalShellState {
     }
 
     fn prompt_line(&self, scene_elapsed_ms: u64) -> String {
+        let input_value = if self.input_masked {
+            "*".repeat(self.input.value().chars().count())
+        } else {
+            self.input.value().to_string()
+        };
+
         // Default shell prompt (`>`) uses a blinking marker.
         if self.controls.prompt_prefix.trim() == ">" {
             let blink_on = ((scene_elapsed_ms / 450) % 2) == 0;
             let prefix = if blink_on { ">" } else { " " };
-            return format!("{prefix}{}", self.input.value());
+            return format!("{prefix}{input_value}");
         }
-        format!("{}{}", self.controls.prompt_prefix, self.input.value())
+        format!("{}{}", self.controls.prompt_prefix, input_value)
     }
 
     fn trim_output(&mut self) {
@@ -192,14 +202,23 @@ impl TerminalShellState {
             return;
         }
 
-        self.push_output_line(format!("{}{}", self.controls.prompt_prefix, command_line));
+        // Track history for Up/Down even when command execution is external.
         self.history.push(command_line.to_string());
         self.history_cursor = None;
 
-        // In scripted mode, skip all built-in command execution.
-        // Scripts should handle commands via ui.has_submit and ui.submit_text.
-        if self.controls.mode == TerminalShellMode::Scripted {
-            return;
+        match self.controls.mode {
+            TerminalShellMode::Sidecar => {
+                // External process owns transcript + semantics.
+                return;
+            }
+            TerminalShellMode::Scripted => {
+                // Scripts own semantics but we still echo the submitted line into the transcript.
+                self.push_output_line(format!("{}{}", self.controls.prompt_prefix, command_line));
+                return;
+            }
+            TerminalShellMode::Builtin => {
+                self.push_output_line(format!("{}{}", self.controls.prompt_prefix, command_line));
+            }
         }
 
         let mut parts = command_line.split_whitespace();
@@ -559,6 +578,12 @@ impl SceneRuntime {
         self.terminal_shell_state.is_some()
     }
 
+    pub fn terminal_shell_controls_snapshot(&self) -> Option<TerminalShellControls> {
+        self.terminal_shell_state
+            .as_ref()
+            .map(|state| state.controls.clone())
+    }
+
     /// Pushes a line to the terminal shell output transcript.
     /// Does nothing if no terminal shell is active.
     pub fn terminal_push_output(&mut self, line: String) {
@@ -573,6 +598,20 @@ impl SceneRuntime {
     pub fn terminal_clear_output(&mut self) {
         if let Some(state) = self.terminal_shell_state.as_mut() {
             state.clear_output();
+            self.sync_terminal_shell_sprites();
+        }
+    }
+
+    pub fn terminal_set_prompt_prefix(&mut self, prefix: String) {
+        if let Some(state) = self.terminal_shell_state.as_mut() {
+            state.controls.prompt_prefix = prefix;
+            self.sync_terminal_shell_sprites();
+        }
+    }
+
+    pub fn terminal_set_prompt_masked(&mut self, masked: bool) {
+        if let Some(state) = self.terminal_shell_state.as_mut() {
+            state.input_masked = masked;
             self.sync_terminal_shell_sprites();
         }
     }
@@ -740,9 +779,11 @@ impl SceneRuntime {
         };
 
         if let Some(event) = submit_event {
+            self.ui_state.submit_seq = self.ui_state.submit_seq.saturating_add(1);
             self.ui_state.last_submit = Some(event);
         }
         if let Some(event) = change_event {
+            self.ui_state.change_seq = self.ui_state.change_seq.saturating_add(1);
             self.ui_state.last_change = Some(event);
         }
 
@@ -1015,6 +1056,30 @@ impl SceneRuntime {
         self.ui_state.last_submit = None;
         self.ui_state.last_change = None;
         commands
+    }
+
+    pub fn ui_last_submit_snapshot(&self) -> Option<(u64, String, String)> {
+        self.ui_state.last_submit.as_ref().map(|ev| {
+            (
+                self.ui_state.submit_seq,
+                ev.target_id.clone(),
+                ev.text.clone(),
+            )
+        })
+    }
+
+    pub fn ui_last_change_snapshot(&self) -> Option<(u64, String, String)> {
+        self.ui_state.last_change.as_ref().map(|ev| {
+            (
+                self.ui_state.change_seq,
+                ev.target_id.clone(),
+                ev.text.clone(),
+            )
+        })
+    }
+
+    pub fn last_raw_key_snapshot(&self) -> Option<RawKeyEvent> {
+        self.ui_state.last_raw_key.clone()
     }
 
     pub fn reset_frame_state(&mut self) {

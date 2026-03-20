@@ -280,12 +280,29 @@ $defs:
           $ref: "#/$defs/terminal_shell_command"
       mode:
         type: string
-        enum: [builtin, scripted]
+        enum: [builtin, scripted, sidecar]
         default: builtin
         description: >
-          Terminal shell interaction mode. 
+          Terminal shell interaction mode.
           `builtin`: Engine executes built-in commands (help, clear, ls, pwd, echo, whoami).
           `scripted`: Commands are not executed; only UI submit/change events are emitted for script handling.
+          `sidecar`: Commands are forwarded to an external process configured in `sidecar`; engine does not execute built-ins.
+      sidecar:
+        type: object
+        additionalProperties: false
+        required: [command]
+        description: External sidecar process configuration used when `mode: sidecar`.
+        properties:
+          command:
+            type: string
+            minLength: 1
+            description: Executable name/path to spawn (e.g. `dotnet`).
+          args:
+            type: array
+            default: []
+            items:
+              type: string
+            description: Arguments passed to the sidecar process.
     patternProperties:
       "^prompt_sprite_id$":
         $ref: "#/$defs/terminal_shell_controls/properties/prompt-sprite-id"
