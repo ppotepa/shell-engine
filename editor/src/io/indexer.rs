@@ -4,24 +4,22 @@ use std::path::Path;
 
 use crate::domain::asset_index::AssetIndex;
 use crate::domain::diagnostics::Diagnostics;
-use crate::domain::mod_manifest::ModManifestSummary;
 use crate::domain::scene_index::SceneIndex;
 
 use super::fs_scan::{
-    collect_files, collect_game_yaml_files, collect_scene_entry_files, validate_project_dir,
+    collect_files, collect_game_yaml_files, collect_scene_entry_files,
+    validate_project_dir_with_manifest,
 };
-use super::yaml::load_yaml;
 
 /// Scans `mod_source` and returns a fully populated [`AssetIndex`] for the project.
 pub fn build_project_index(mod_source: &str) -> AssetIndex {
     let root = Path::new(mod_source);
-    let manifest = load_yaml::<ModManifestSummary>(&root.join("mod.yaml"));
+    let (manifest, validation) = validate_project_dir_with_manifest(root);
 
     let scenes = collect_scene_entry_files(root);
     let images = collect_files(root, "assets/images", "png");
     let fonts = collect_files(root, "assets/fonts", "yaml");
     let project_yamls = collect_game_yaml_files(root);
-    let validation = validate_project_dir(root);
     let is_valid_project = validation.valid;
 
     let mut diagnostics = Diagnostics::default();
@@ -54,15 +52,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_effects_from_catalog() {
-        // Build index for a minimal test project
+    fn test_index_uses_typed_manifest_and_effect_catalog() {
         let temp_dir = std::env::temp_dir().join("editor-test-indexer");
         std::fs::create_dir_all(&temp_dir).unwrap();
-        std::fs::write(temp_dir.join("mod.yaml"), "name: test\n").unwrap();
+        std::fs::write(
+            temp_dir.join("mod.yaml"),
+            "name: test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n",
+        )
+        .unwrap();
+        std::fs::create_dir_all(temp_dir.join("scenes")).unwrap();
+        std::fs::write(temp_dir.join("scenes/main.yml"), "id: main\ntitle: Main\n").unwrap();
 
         let index = build_project_index(temp_dir.to_str().unwrap());
 
-        // Verify effects come from catalog, not hardcoded
         let catalog_effects: Vec<String> = engine_core::authoring::catalog::static_catalog()
             .effect_names
             .iter()
@@ -74,8 +76,13 @@ mod tests {
             "Effects should match catalog"
         );
         assert!(!index.effects.is_empty(), "Effects should not be empty");
+        assert!(index.is_valid_project);
+        let manifest = index.manifest.expect("typed manifest");
+        assert_eq!(manifest.name.as_deref(), Some("test"));
+        assert_eq!(manifest.version.as_deref(), Some("0.1.0"));
+        assert_eq!(manifest.entrypoint.as_deref(), Some("/scenes/main.yml"));
+        assert!(index.diagnostics.warnings.is_empty());
 
-        // Cleanup
         std::fs::remove_dir_all(&temp_dir).ok();
     }
 }

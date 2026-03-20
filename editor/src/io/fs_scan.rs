@@ -1,5 +1,6 @@
 //! File-system scanning helpers for discovering project assets and validating mod layouts.
 
+use crate::domain::mod_manifest::ModManifestSummary;
 use engine_authoring::repository::is_discoverable_scene_path;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -31,71 +32,107 @@ pub fn collect_project_files(root: &Path) -> Vec<String> {
 
 /// Validates the given directory as a Shell Quest mod project, checking `mod.yaml` and entrypoint.
 pub fn validate_project_dir(dir: &Path) -> ProjectValidation {
+    validate_project_dir_with_manifest(dir).1
+}
+
+/// Parses `mod.yaml` into typed manifest summary and validates required project constraints.
+///
+/// Returns the parsed manifest (if available) and validation diagnostics.
+pub fn validate_project_dir_with_manifest(
+    dir: &Path,
+) -> (Option<ModManifestSummary>, ProjectValidation) {
     let mod_path = dir.join("mod.yaml");
     if !mod_path.exists() {
-        return ProjectValidation {
-            valid: false,
-            code: "E_MOD_MISSING",
-            message: "mod.yaml not found".to_string(),
-        };
+        return (
+            None,
+            ProjectValidation {
+                valid: false,
+                code: "E_MOD_MISSING",
+                message: "mod.yaml not found".to_string(),
+            },
+        );
     }
 
     let Ok(raw) = fs::read_to_string(&mod_path) else {
-        return ProjectValidation {
-            valid: false,
-            code: "E_MOD_READ",
-            message: "mod.yaml cannot be read".to_string(),
-        };
+        return (
+            None,
+            ProjectValidation {
+                valid: false,
+                code: "E_MOD_READ",
+                message: "mod.yaml cannot be read".to_string(),
+            },
+        );
     };
 
-    let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&raw) else {
-        return ProjectValidation {
-            valid: false,
-            code: "E_MOD_PARSE",
-            message: "mod.yaml is not valid YAML".to_string(),
-        };
+    let Ok(manifest) = serde_yaml::from_str::<ModManifestSummary>(&raw) else {
+        return (
+            None,
+            ProjectValidation {
+                valid: false,
+                code: "E_MOD_PARSE",
+                message: "mod.yaml is not valid YAML".to_string(),
+            },
+        );
     };
 
-    let name_ok = yaml
-        .get("name")
-        .and_then(serde_yaml::Value::as_str)
-        .is_some();
-    let version_ok = yaml
-        .get("version")
-        .and_then(serde_yaml::Value::as_str)
-        .is_some();
-    let entrypoint = yaml.get("entrypoint").and_then(serde_yaml::Value::as_str);
-    if !name_ok || !version_ok || entrypoint.is_none() {
-        return ProjectValidation {
-            valid: false,
-            code: "E_MOD_FIELDS",
-            message: "required fields missing: name/version/entrypoint".to_string(),
-        };
+    let name_ok = manifest
+        .name
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|name| !name.is_empty());
+    let version_ok = manifest
+        .version
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|version| !version.is_empty());
+    let entrypoint = manifest
+        .entrypoint
+        .clone()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if !name_ok || !version_ok || entrypoint.is_empty() {
+        return (
+            Some(manifest),
+            ProjectValidation {
+                valid: false,
+                code: "E_MOD_FIELDS",
+                message: "required fields missing: name/version/entrypoint".to_string(),
+            },
+        );
     }
 
-    let entrypoint = entrypoint.unwrap_or_default();
     if !entrypoint.starts_with('/') || !entrypoint.ends_with(".yml") {
-        return ProjectValidation {
-            valid: false,
-            code: "E_ENTRYPOINT_FORMAT",
-            message: "entrypoint must start with '/' and end with '.yml'".to_string(),
-        };
+        return (
+            Some(manifest),
+            ProjectValidation {
+                valid: false,
+                code: "E_ENTRYPOINT_FORMAT",
+                message: "entrypoint must start with '/' and end with '.yml'".to_string(),
+            },
+        );
     }
 
     let entrypoint_rel = entrypoint.trim_start_matches('/');
     if !dir.join(entrypoint_rel).exists() {
-        return ProjectValidation {
-            valid: false,
-            code: "E_ENTRYPOINT_MISSING",
-            message: format!("entrypoint file does not exist: {entrypoint}"),
-        };
+        return (
+            Some(manifest),
+            ProjectValidation {
+                valid: false,
+                code: "E_ENTRYPOINT_MISSING",
+                message: format!("entrypoint file does not exist: {entrypoint}"),
+            },
+        );
     }
 
-    ProjectValidation {
-        valid: true,
-        code: "OK",
-        message: "project manifest is valid".to_string(),
-    }
+    (
+        Some(manifest),
+        ProjectValidation {
+            valid: true,
+            code: "OK",
+            message: "project manifest is valid".to_string(),
+        },
+    )
 }
 
 fn walk(path: &Path, ext: &str, out: &mut Vec<String>) {
@@ -327,6 +364,7 @@ mod tests {
     use super::{
         collect_game_yaml_files, collect_project_files, collect_scene_entry_files,
         collect_schema_project_yml_files, extract_schema_ref, resolve_schema_ref_path,
+        validate_project_dir,
     };
     use serde_yaml::Value;
     use std::fs;
@@ -459,6 +497,46 @@ mod tests {
     }
 
     #[test]
+    fn validate_project_dir_uses_typed_manifest_and_rejects_blank_fields() {
+        let temp = tempdir().expect("temp dir");
+        fs::write(
+            temp.path().join("mod.yaml"),
+            "name: \"\"\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n",
+        )
+        .expect("write mod");
+        fs::create_dir_all(temp.path().join("scenes")).expect("create scenes");
+        fs::write(
+            temp.path().join("scenes/main.yml"),
+            "id: main\ntitle: Main\n",
+        )
+        .expect("write scene");
+
+        let validation = validate_project_dir(temp.path());
+        assert!(!validation.valid);
+        assert_eq!(validation.code, "E_MOD_FIELDS");
+    }
+
+    #[test]
+    fn validate_project_dir_accepts_typed_manifest_with_required_fields() {
+        let temp = tempdir().expect("temp dir");
+        fs::write(
+            temp.path().join("mod.yaml"),
+            "name: demo\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n",
+        )
+        .expect("write mod");
+        fs::create_dir_all(temp.path().join("scenes")).expect("create scenes");
+        fs::write(
+            temp.path().join("scenes/main.yml"),
+            "id: main\ntitle: Main\n",
+        )
+        .expect("write scene");
+
+        let validation = validate_project_dir(temp.path());
+        assert!(validation.valid);
+        assert_eq!(validation.code, "OK");
+    }
+
+    #[test]
     fn project_file_scanner_includes_non_indexed_runtime_assets() {
         let temp = tempdir().expect("temp dir");
         fs::create_dir_all(temp.path().join("scenes/intro")).expect("create scene dir");
@@ -512,7 +590,7 @@ mod tests {
     #[test]
     fn repo_schema_headers_resolve_to_existing_files() {
         let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
+            .join("..")
             .canonicalize()
             .expect("repo root");
         let yaml_files = collect_game_yaml_files(&repo_root);

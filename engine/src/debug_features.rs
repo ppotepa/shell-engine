@@ -10,6 +10,14 @@ pub struct DebugFeatures {
 }
 
 impl DebugFeatures {
+    /// Builds debug feature state directly from a boolean flag.
+    pub fn from_enabled(enabled: bool) -> Self {
+        Self {
+            enabled,
+            overlay_visible: enabled,
+        }
+    }
+
     /// Builds debug feature state from environment.
     ///
     /// Recognized truthy values:
@@ -19,10 +27,7 @@ impl DebugFeatures {
     /// - `on`
     pub fn from_env() -> Self {
         let enabled = env_flag_enabled("SHELL_QUEST_DEBUG_FEATURE");
-        Self {
-            enabled,
-            overlay_visible: enabled,
-        }
+        Self::from_enabled(enabled)
     }
 }
 

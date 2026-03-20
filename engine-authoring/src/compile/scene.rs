@@ -33,7 +33,8 @@ where
 /// final authored-to-runtime conversion.
 ///
 /// `scene_source_path` is used to resolve relative object references inside a
-/// scene package.
+/// scene package. Scene logic wiring is explicit: `logic.kind: script` requires
+/// `logic.src`, and effect preset reuse resolves only from declared presets.
 pub fn compile_scene_document_with_loader_and_source<F>(
     content: &str,
     scene_source_path: &str,
@@ -73,7 +74,8 @@ where
         &mut object_loader,
         cutscene_filters,
     )?;
-    expand_scene_logic(&mut raw, scene_source_path, &mut object_loader);
+    expand_scene_effect_presets(&mut raw)?;
+    expand_scene_logic(&mut raw, scene_source_path, &mut object_loader)?;
     let mut compiled_input = serde_yaml::to_string(&raw)?;
     if !compiled_input.ends_with('\n') {
         compiled_input.push('\n');
@@ -102,40 +104,26 @@ struct SceneScriptController {
     params: BTreeMap<String, Value>,
 }
 
-fn expand_scene_logic<F>(root: &mut Value, scene_source_path: &str, asset_loader: &mut F)
+fn expand_scene_logic<F>(
+    root: &mut Value,
+    scene_source_path: &str,
+    asset_loader: &mut F,
+) -> Result<(), serde_yaml::Error>
 where
     F: FnMut(&str) -> Option<String>,
 {
     let Some(scene_map) = root.as_mapping_mut() else {
-        return;
+        return Ok(());
     };
     let logic_value = scene_map.get(Value::String("logic".to_string())).cloned();
     if logic_value.is_none() {
-        // Keep legacy behavior: if no explicit `logic:` block exists, auto-detect
-        // sidecar scene logic script from scene package path.
-        for path in infer_scene_logic_paths(scene_source_path) {
-            let Some(raw_script) = asset_loader(&path) else {
-                continue;
-            };
-            if is_rhai_path(&path) {
-                let mut params = BTreeMap::new();
-                params.insert("src".to_string(), Value::String(path.clone()));
-                params.insert("script".to_string(), Value::String(raw_script));
-                attach_scene_behavior(scene_map, "rhai-script", &params);
-                return;
-            }
-            if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
-                if let Some(behavior_name) = controller.behavior {
-                    attach_scene_behavior(scene_map, &behavior_name, &controller.params);
-                }
-                return;
-            }
-        }
-        return;
+        // Explicit `logic:` block is required for scene logic wiring.
+        return Ok(());
     }
-    let logic = logic_value
-        .and_then(|value| serde_yaml::from_value::<SceneLogicSpec>(value).ok())
-        .unwrap_or_default();
+    let logic = serde_yaml::from_value::<SceneLogicSpec>(
+        logic_value.expect("logic_value checked above"),
+    )
+    .map_err(|err| serde_yaml::Error::custom(format!("failed to parse logic block: {err}")))?;
 
     match logic.kind {
         LogicKind::Native => {
@@ -144,42 +132,59 @@ where
             }
         }
         LogicKind::Script => {
-            let candidate_paths = if let Some(src) = logic.src.clone() {
-                vec![resolve_script_ref_path(scene_source_path, &src)]
-            } else {
-                infer_scene_logic_paths(scene_source_path)
+            let Some(src) = logic
+                .src
+                .as_deref()
+                .map(str::trim)
+                .filter(|src| !src.is_empty())
+            else {
+                return Err(serde_yaml::Error::custom(
+                    "logic.kind=script requires explicit logic.src",
+                ));
             };
-            for path in candidate_paths {
-                let Some(raw_script) = asset_loader(&path) else {
-                    continue;
-                };
-                let mut merged_params = logic.params.clone();
-                if is_rhai_path(&path) {
-                    merged_params.insert("src".to_string(), Value::String(path));
-                    merged_params.insert("script".to_string(), Value::String(raw_script));
-                    let behavior_name = logic
-                        .behavior
-                        .clone()
-                        .unwrap_or_else(|| "rhai-script".to_string());
-                    attach_scene_behavior(scene_map, &behavior_name, &merged_params);
-                    return;
-                }
-                if let Ok(controller) = serde_yaml::from_str::<SceneScriptController>(&raw_script) {
-                    for (k, v) in controller.params {
-                        merged_params.insert(k, v);
-                    }
-                    if let Some(behavior_name) = logic.behavior.clone().or(controller.behavior) {
-                        attach_scene_behavior(scene_map, &behavior_name, &merged_params);
-                    }
-                    return;
-                }
+            let path = resolve_script_ref_path(scene_source_path, src);
+            let Some(raw_script) = asset_loader(&path) else {
+                return Err(serde_yaml::Error::custom(format!(
+                    "logic.src '{}' resolved to '{}', but file was not found",
+                    src, path
+                )));
+            };
+            let mut merged_params = logic.params.clone();
+            if is_rhai_path(&path) {
+                merged_params.insert("src".to_string(), Value::String(path));
+                merged_params.insert("script".to_string(), Value::String(raw_script));
+                let behavior_name = logic
+                    .behavior
+                    .clone()
+                    .unwrap_or_else(|| "rhai-script".to_string());
+                attach_scene_behavior(scene_map, &behavior_name, &merged_params);
+                return Ok(());
             }
-            if let Some(behavior_name) = logic.behavior {
-                attach_scene_behavior(scene_map, &behavior_name, &logic.params);
+            let controller = serde_yaml::from_str::<SceneScriptController>(&raw_script)
+                .map_err(|err| {
+                    serde_yaml::Error::custom(format!(
+                        "failed to parse logic.src '{}': {err}",
+                        path
+                    ))
+                })?;
+            for (k, v) in controller.params {
+                merged_params.insert(k, v);
             }
+            let Some(behavior_name) = logic.behavior.clone().or(controller.behavior) else {
+                return Err(serde_yaml::Error::custom(format!(
+                    "logic.src '{}' must declare a behavior or be paired with logic.behavior",
+                    path
+                )));
+            };
+            attach_scene_behavior(scene_map, &behavior_name, &merged_params);
         }
-        LogicKind::Graph => {}
+        LogicKind::Graph => {
+            return Err(serde_yaml::Error::custom(
+                "logic.kind=graph is experimental and not supported by runtime compiler",
+            ));
+        }
     }
+    Ok(())
 }
 
 fn expand_scene_stages_ref<F>(
@@ -263,6 +268,160 @@ fn merge_scene_stages(scene_map: &mut Mapping, referenced: &Mapping) {
         for (k, v) in referenced_stage_map {
             if !existing_stage_map.contains_key(k) {
                 existing_stage_map.insert(k.clone(), v.clone());
+            }
+        }
+    }
+}
+
+fn expand_scene_effect_presets(root: &mut Value) -> Result<(), serde_yaml::Error> {
+    let presets = {
+        let Some(scene_map) = root.as_mapping() else {
+            return Ok(());
+        };
+        resolve_scene_effect_presets(scene_map)?
+    };
+    let Some(presets) = presets else {
+        return Ok(());
+    };
+    expand_effect_presets_in_value(root, &presets)?;
+    if let Some(scene_map) = root.as_mapping_mut() {
+        scene_map.remove(Value::String("effect-presets".to_string()));
+        scene_map.remove(Value::String("effect_presets".to_string()));
+    }
+    Ok(())
+}
+
+fn resolve_scene_effect_presets(scene_map: &Mapping) -> Result<Option<Mapping>, serde_yaml::Error> {
+    let has_canonical = scene_map.contains_key(Value::String("effect-presets".to_string()));
+    let has_legacy = scene_map.contains_key(Value::String("effect_presets".to_string()));
+    if has_canonical && has_legacy {
+        return Err(serde_yaml::Error::custom(
+            "scene defines both 'effect-presets' and 'effect_presets'; use only one",
+        ));
+    }
+    let Some(raw_presets) = scene_map
+        .get(Value::String("effect-presets".to_string()))
+        .or_else(|| scene_map.get(Value::String("effect_presets".to_string())))
+    else {
+        return Ok(None);
+    };
+    let Some(presets) = raw_presets.as_mapping() else {
+        return Err(serde_yaml::Error::custom(
+            "scene effect presets must be a mapping",
+        ));
+    };
+    Ok(Some(presets.clone()))
+}
+
+fn expand_effect_presets_in_value(
+    value: &mut Value,
+    presets: &Mapping,
+) -> Result<(), serde_yaml::Error> {
+    match value {
+        Value::Mapping(map) => {
+            if let Some(effects) = map
+                .get_mut(Value::String("effects".to_string()))
+                .and_then(Value::as_sequence_mut)
+            {
+                for effect in effects {
+                    expand_single_effect_entry(effect, presets)?;
+                }
+            }
+            for child in map.values_mut() {
+                expand_effect_presets_in_value(child, presets)?;
+            }
+        }
+        Value::Sequence(seq) => {
+            for child in seq {
+                expand_effect_presets_in_value(child, presets)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn expand_single_effect_entry(
+    effect: &mut Value,
+    presets: &Mapping,
+) -> Result<(), serde_yaml::Error> {
+    let Some(effect_map) = effect.as_mapping() else {
+        return Ok(());
+    };
+    let Some((_, preset_name)) = resolve_effect_preset_name(effect_map)? else {
+        return Ok(());
+    };
+    let Some(base) = presets
+        .get(Value::String(preset_name.clone()))
+        .and_then(Value::as_mapping)
+        .cloned()
+    else {
+        return Err(serde_yaml::Error::custom(format!(
+            "effect preset '{}' was not found",
+            preset_name
+        )));
+    };
+
+    let mut merged = base;
+    if let Some(overrides) = effect_map
+        .get(Value::String("overrides".to_string()))
+        .and_then(Value::as_mapping)
+    {
+        merge_mapping_deep(&mut merged, overrides);
+    }
+    for (k, v) in effect_map {
+        let key = k.as_str().unwrap_or_default();
+        if key == "use" || key == "preset" || key == "ref" || key == "overrides" {
+            continue;
+        }
+        merged.insert(k.clone(), v.clone());
+    }
+    *effect = Value::Mapping(merged);
+    Ok(())
+}
+
+fn resolve_effect_preset_name(
+    effect_map: &Mapping,
+) -> Result<Option<(&'static str, String)>, serde_yaml::Error> {
+    let mut selected: Option<(&'static str, String)> = None;
+    for alias in ["use", "preset", "ref"] {
+        let Some(raw_value) = effect_map.get(Value::String(alias.to_string())) else {
+            continue;
+        };
+        let Some(raw_name) = raw_value.as_str().map(str::trim) else {
+            return Err(serde_yaml::Error::custom(format!(
+                "effect preset alias '{}' must be a string",
+                alias
+            )));
+        };
+        if raw_name.is_empty() {
+            return Err(serde_yaml::Error::custom(format!(
+                "effect preset alias '{}' cannot be empty",
+                alias
+            )));
+        }
+        match selected.as_ref() {
+            Some((selected_alias, selected_name)) if selected_name != raw_name => {
+                return Err(serde_yaml::Error::custom(format!(
+                    "conflicting effect preset aliases: '{}: {}' and '{}: {}'",
+                    selected_alias, selected_name, alias, raw_name
+                )));
+            }
+            None => selected = Some((alias, raw_name.to_string())),
+            _ => {}
+        }
+    }
+    Ok(selected)
+}
+
+fn merge_mapping_deep(dst: &mut Mapping, src: &Mapping) {
+    for (k, v) in src {
+        match (dst.get_mut(k), v) {
+            (Some(Value::Mapping(dst_map)), Value::Mapping(src_map)) => {
+                merge_mapping_deep(dst_map, src_map);
+            }
+            _ => {
+                dst.insert(k.clone(), v.clone());
             }
         }
     }
@@ -728,42 +887,6 @@ fn resolve_script_ref_path(scene_source_path: &str, script_ref: &str) -> String 
     normalize_mod_path(&format!("/scripts/{script_ref}"))
 }
 
-fn infer_scene_logic_paths(scene_source_path: &str) -> Vec<String> {
-    let normalized = normalize_mod_path(scene_source_path);
-    if normalized.ends_with("/scene.yml") || normalized.ends_with("/scene.yaml") {
-        let scene_dir = parent_dir(&normalized);
-        let folder_name = scene_dir
-            .rsplit('/')
-            .next()
-            .filter(|name| !name.is_empty())
-            .unwrap_or("scene");
-        return vec![
-            normalize_mod_path(&format!("{scene_dir}/{folder_name}.rhai")),
-            normalize_mod_path(&format!("{scene_dir}/scene.rhai")),
-            normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.rhai")),
-            normalize_mod_path(&format!("{scene_dir}/scene.logic.rhai")),
-            normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.yml")),
-            normalize_mod_path(&format!("{scene_dir}/{folder_name}.logic.yaml")),
-            normalize_mod_path(&format!("{scene_dir}/scene.logic.yml")),
-            normalize_mod_path(&format!("{scene_dir}/scene.logic.yaml")),
-        ];
-    }
-
-    let base = if normalized.ends_with(".yml") {
-        normalized.trim_end_matches(".yml").to_string()
-    } else if normalized.ends_with(".yaml") {
-        normalized.trim_end_matches(".yaml").to_string()
-    } else {
-        normalized
-    };
-    vec![
-        normalize_mod_path(&format!("{base}.rhai")),
-        normalize_mod_path(&format!("{base}.logic.rhai")),
-        normalize_mod_path(&format!("{base}.logic.yml")),
-        normalize_mod_path(&format!("{base}.logic.yaml")),
-    ]
-}
-
 fn is_rhai_path(path: &str) -> bool {
     path.ends_with(".rhai")
 }
@@ -1042,6 +1165,41 @@ next: null
     }
 
     #[test]
+    fn rejects_graph_logic_kind_as_experimental() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+logic:
+  type: graph
+layers: []
+next: null
+"#;
+        let err = compile_scene_document_with_loader(scene_raw, |_path| None)
+            .expect_err("graph logic should be rejected");
+        assert!(
+            err.to_string().contains("logic.kind=graph"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_logic_block_with_direct_error() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+logic: 1
+layers: []
+next: null
+"#;
+        let err = compile_scene_document_with_loader(scene_raw, |_path| None)
+            .expect_err("malformed logic block should be rejected");
+        assert!(
+            err.to_string().contains("failed to parse logic block"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
     fn maps_scene_script_logic_from_explicit_src() {
         let scene_raw = r#"
 id: menu
@@ -1081,7 +1239,42 @@ params:
     }
 
     #[test]
-    fn auto_detects_scene_logic_file_next_to_scene_package() {
+    fn rejects_script_logic_without_explicit_src() {
+        let scene_raw = r#"
+id: menu
+title: Menu
+logic:
+  type: script
+layers: []
+next: null
+"#;
+        let err = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/menu/scene.yml",
+            |path| {
+                if path == "/scenes/menu/menu.logic.yml" {
+                    Some(
+                        r#"
+behavior: blink
+params:
+  visible_ms: 400
+"#
+                        .to_string(),
+                    )
+                } else {
+                    None
+                }
+            },
+        )
+        .expect_err("script logic without src should be rejected");
+        assert!(
+            err.to_string().contains("logic.kind=script requires explicit logic.src"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn does_not_auto_detect_scene_logic_file_without_explicit_logic_block() {
         let scene_raw = r#"
 id: menu
 title: Menu
@@ -1106,10 +1299,7 @@ params:
             },
         )
         .expect("scene compile");
-        assert_eq!(scene.behaviors.len(), 1);
-        assert_eq!(scene.behaviors[0].name, "blink");
-        assert_eq!(scene.behaviors[0].params.visible_ms, Some(400));
-        assert_eq!(scene.behaviors[0].params.hidden_ms, Some(200));
+        assert_eq!(scene.behaviors.len(), 0);
     }
 
     #[test]
@@ -1150,7 +1340,7 @@ out
     }
 
     #[test]
-    fn auto_detects_rhai_logic_file_next_to_scene_package() {
+    fn does_not_auto_detect_rhai_logic_file_without_explicit_logic_block() {
         let scene_raw = r#"
 id: menu
 title: Menu
@@ -1174,12 +1364,7 @@ out
             },
         )
         .expect("scene compile");
-        assert_eq!(scene.behaviors.len(), 1);
-        assert_eq!(scene.behaviors[0].name, "rhai-script");
-        assert_eq!(
-            scene.behaviors[0].params.src.as_deref(),
-            Some("/scenes/mainmenu/mainmenu.rhai")
-        );
+        assert_eq!(scene.behaviors.len(), 0);
     }
 
     #[test]
@@ -1211,6 +1396,144 @@ sprites:
         )
         .expect("scene compile");
         assert_eq!(scene.layers.len(), 1);
+    }
+
+    #[test]
+    fn expands_effect_preset_use_in_scene_stages() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+effect-presets:
+  fx.flash:
+    name: whiteout
+    duration: 120
+    target_kind: scene
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - use: fx.flash
+layers: []
+next: null
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |_path| None)
+            .expect("scene compile");
+        let effects = &scene.stages.on_enter.steps[0].effects;
+        assert_eq!(effects.len(), 1);
+        assert_eq!(effects[0].name, "whiteout");
+        assert_eq!(effects[0].duration, 120);
+    }
+
+    #[test]
+    fn rejects_conflicting_effect_preset_root_aliases() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+effect-presets:
+  fx.flash:
+    name: whiteout
+effect_presets:
+  fx.flash:
+    name: whiteout
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - use: fx.flash
+layers: []
+next: null
+"#;
+        let err = compile_scene_document_with_loader(scene_raw, |_path| None)
+            .expect_err("conflicting effect preset roots should be rejected");
+        assert!(
+            err.to_string()
+                .contains("defines both 'effect-presets' and 'effect_presets'"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_conflicting_effect_preset_aliases() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+effect-presets:
+  fx.flash:
+    name: whiteout
+    duration: 120
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - use: fx.flash
+            preset: fx.other
+layers: []
+next: null
+"#;
+        let err = compile_scene_document_with_loader(scene_raw, |_path| None)
+            .expect_err("conflicting effect preset aliases should be rejected");
+        assert!(
+            err.to_string()
+                .contains("conflicting effect preset aliases"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_missing_effect_preset_reference() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+effect-presets:
+  fx.flash:
+    name: whiteout
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - use: fx.missing
+layers: []
+next: null
+"#;
+        let err = compile_scene_document_with_loader(scene_raw, |_path| None)
+            .expect_err("missing effect preset should be rejected");
+        assert!(
+            err.to_string().contains("effect preset 'fx.missing' was not found"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn effect_preset_overrides_merge_nested_params() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+effect-presets:
+  fx.light:
+    name: shine
+    duration: 300
+    target_kind: sprite_bitmap
+    params:
+      intensity: 1.0
+      width: 2.0
+stages:
+  on_enter:
+    steps:
+      - effects:
+          - use: fx.light
+            overrides:
+              params:
+                intensity: 1.4
+layers: []
+next: null
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |_path| None)
+            .expect("scene compile");
+        let effect = &scene.stages.on_enter.steps[0].effects[0];
+        assert_eq!(effect.name, "shine");
+        assert_eq!(effect.duration, 300);
+        assert_eq!(effect.params.intensity, Some(1.4));
+        assert_eq!(effect.params.width, Some(2.0));
     }
 
     #[test]

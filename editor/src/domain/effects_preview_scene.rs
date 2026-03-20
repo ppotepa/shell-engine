@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
+use serde::Serialize;
+
 use engine_core::effects::shared_dispatcher;
 use engine_core::scene::{Easing, EffectParams, EffectTargetKind};
 
-const PREVIEW_TEMPLATE_SPRITE: &str = include_str!("../../assets/effects-preview.scene.yml");
-const PREVIEW_TEMPLATE_SCENE: &str = include_str!("../../assets/effects-preview-scene.scene.yml");
 pub const PREVIEW_DURATION_MS: u64 = 1_600;
 const DEFAULT_VIEWPORT_W: u16 = 32;
 const DEFAULT_VIEWPORT_H: u16 = 18;
@@ -24,73 +24,151 @@ impl PreviewPlacement {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct PreviewSceneDoc {
+    id: String,
+    title: String,
+    cutscene: bool,
+    #[serde(rename = "rendered-mode")]
+    rendered_mode: String,
+    bg_colour: String,
+    stages: PreviewStages,
+    layers: Vec<PreviewLayer>,
+    next: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreviewStages {
+    on_idle: PreviewStage,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreviewStage {
+    looping: bool,
+    steps: Vec<PreviewStep>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreviewStep {
+    duration: u64,
+    effects: Vec<PreviewEffect>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreviewEffect {
+    name: String,
+    duration: u64,
+    target_kind: PreviewEffectTargetKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    params: Option<PreviewEffectParams>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum PreviewEffectTargetKind {
+    Any,
+    Scene,
+    Layer,
+    Sprite,
+    SpriteText,
+    SpriteBitmap,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreviewEffectParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    angle: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    width: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    falloff: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intensity: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sphericality: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    transparency: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    brightness: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    amplitude_x: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    amplitude_y: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    frequency: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thickness: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    amp_start: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    amp_coeff: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    freq_coeff: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    speed: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    strikes: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    octave_count: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    glow: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    orientation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    start_x: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    end_x: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    easing: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    colour: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PreviewLayer {
+    name: String,
+    z_index: i32,
+    visible: bool,
+    stages: PreviewStages,
+    sprites: Vec<PreviewSprite>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum PreviewSprite {
+    Image {
+        id: String,
+        source: String,
+        width: u16,
+        height: u16,
+        align_x: String,
+        align_y: String,
+        y: i32,
+        stages: PreviewStages,
+    },
+    Text {
+        id: String,
+        content: String,
+        align_x: String,
+        align_y: String,
+        y: i32,
+        fg_colour: String,
+        stages: PreviewStages,
+    },
+}
+
 pub fn build_preview_scene_yaml(
     effect_name: &str,
     params: &EffectParams,
     viewport_w: u16,
     viewport_h: u16,
 ) -> String {
-    let placement = choose_preview_placement(effect_name);
-    let effect_yaml = render_effect_yaml(effect_name, params, placement.target_kind());
-
-    if placement.is_ambient() {
-        // Scene-level or layer-level effects: full-screen template, no sprite subject.
-        PREVIEW_TEMPLATE_SCENE
-            .replace(
-                "__SCENE_STAGES__",
-                &render_stages_block("  ", placement == PreviewPlacement::Scene, &effect_yaml),
-            )
-            .replace(
-                "__LAYER_STAGES__",
-                &render_stages_block("      ", placement == PreviewPlacement::Layer, &effect_yaml),
-            )
-    } else {
-        // Sprite-level effects: show penguin as the subject.
-        // The scene uses rendered-mode: halfblock. In halfblock mode, composite_scene_halfblock
-        // renders into a scratch buffer of height*2 then packs 2 virtual rows into 1 terminal
-        // cell. So YAML `height: H` results in H/2 terminal rows after packing, and `y: Y` is
-        // in virtual pixel units (2× terminal cells). We multiply heights and y-offsets by 2
-        // here to produce the correct terminal-cell coverage from the cell-unit layout values.
-        let layout = PreviewLayout::for_viewport(viewport_w, viewport_h);
-        PREVIEW_TEMPLATE_SPRITE
-            .replace("__PENGUIN_WIDTH__", &layout.penguin_width.to_string())
-            .replace(
-                "__PENGUIN_HEIGHT__",
-                &(layout.penguin_height * 2).to_string(),
-            )
-            .replace(
-                "__PENGUIN_OFFSET_Y__",
-                &(layout.penguin_offset_y * 2).to_string(),
-            )
-            .replace(
-                "__CAPTION_OFFSET_Y__",
-                &(layout.caption_offset_y * 2).to_string(),
-            )
-            .replace(
-                "__SCENE_STAGES__",
-                &render_stages_block("  ", false, &effect_yaml),
-            )
-            .replace(
-                "__LAYER_STAGES__",
-                &render_stages_block("      ", false, &effect_yaml),
-            )
-            .replace(
-                "__PENGUIN_STAGES__",
-                &render_stages_block(
-                    "          ",
-                    placement == PreviewPlacement::PenguinSprite,
-                    &effect_yaml,
-                ),
-            )
-            .replace(
-                "__CAPTION_STAGES__",
-                &render_stages_block(
-                    "          ",
-                    placement == PreviewPlacement::CaptionSprite,
-                    &effect_yaml,
-                ),
-            )
-    }
+    let doc = build_preview_scene_doc(effect_name, params, viewport_w, viewport_h);
+    serde_yaml::to_string(&doc).expect("serializing generated effect preview scene should succeed")
 }
 
 pub fn build_preview_scene_yaml_default(effect_name: &str, params: &EffectParams) -> String {
@@ -135,6 +213,30 @@ impl PreviewPlacement {
     }
 }
 
+fn build_preview_scene_doc(
+    effect_name: &str,
+    params: &EffectParams,
+    viewport_w: u16,
+    viewport_h: u16,
+) -> PreviewSceneDoc {
+    let placement = choose_preview_placement(effect_name);
+    let effect = build_effect_value(effect_name, params, placement.target_kind());
+    PreviewSceneDoc {
+        id: "effect_preview".to_string(),
+        title: "Effect Preview".to_string(),
+        cutscene: false,
+        rendered_mode: "halfblock".to_string(),
+        bg_colour: "black".to_string(),
+        stages: PreviewStages {
+            on_idle: build_stage(placement == PreviewPlacement::Scene, &effect),
+        },
+        layers: vec![build_preview_layer(
+            placement, viewport_w, viewport_h, effect,
+        )],
+        next: None,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct PreviewLayout {
     penguin_width: u16,
@@ -174,136 +276,163 @@ impl PreviewLayout {
     }
 }
 
-fn render_stages_block(indent: &str, include_effect: bool, effect_yaml: &str) -> String {
-    let next = format!("{indent}  ");
-    if include_effect {
-        let effect_indent = format!("{next}      ");
-        let effect_block = indent_block(effect_yaml, &effect_indent);
-        format!(
-            "{indent}on_idle:\n{next}looping: true\n{next}steps:\n{next}  - duration: {PREVIEW_DURATION_MS}\n{next}    effects:\n{effect_block}"
-        )
+fn build_preview_layer(
+    placement: PreviewPlacement,
+    viewport_w: u16,
+    viewport_h: u16,
+    effect: PreviewEffect,
+) -> PreviewLayer {
+    let sprites = if placement.is_ambient() {
+        Vec::new()
     } else {
-        format!("{indent}on_idle:\n{next}looping: true\n{next}steps: []")
+        // Sprite-level effects: show penguin as subject.
+        // In halfblock mode height and y-offset are in virtual row units (2x terminal rows).
+        let layout = PreviewLayout::for_viewport(viewport_w, viewport_h);
+        vec![
+            PreviewSprite::Image {
+                id: "penguin".to_string(),
+                source: "/assets/images/tux.png".to_string(),
+                width: layout.penguin_width,
+                height: layout.penguin_height * 2,
+                align_x: "center".to_string(),
+                align_y: "center".to_string(),
+                y: (layout.penguin_offset_y * 2) as i32,
+                stages: PreviewStages {
+                    on_idle: build_stage(placement == PreviewPlacement::PenguinSprite, &effect),
+                },
+            },
+            PreviewSprite::Text {
+                id: "caption".to_string(),
+                content: "SHELL QUEST".to_string(),
+                align_x: "center".to_string(),
+                align_y: "center".to_string(),
+                y: (layout.caption_offset_y * 2) as i32,
+                fg_colour: "white".to_string(),
+                stages: PreviewStages {
+                    on_idle: build_stage(placement == PreviewPlacement::CaptionSprite, &effect),
+                },
+            },
+        ]
+    };
+
+    PreviewLayer {
+        name: "preview".to_string(),
+        z_index: 0,
+        visible: true,
+        stages: PreviewStages {
+            on_idle: build_stage(placement == PreviewPlacement::Layer, &effect),
+        },
+        sprites,
     }
 }
 
-fn render_effect_yaml(
+fn build_stage(include_effect: bool, effect: &PreviewEffect) -> PreviewStage {
+    let steps = if include_effect {
+        vec![PreviewStep {
+            duration: PREVIEW_DURATION_MS,
+            effects: vec![effect.clone()],
+        }]
+    } else {
+        Vec::new()
+    };
+
+    PreviewStage {
+        looping: true,
+        steps,
+    }
+}
+
+fn build_effect_value(
     effect_name: &str,
     params: &EffectParams,
     target_kind: EffectTargetKind,
-) -> String {
-    let mut lines = vec![
-        format!("- name: {effect_name}"),
-        format!("  duration: {PREVIEW_DURATION_MS}"),
-        format!("  target_kind: {}", target_kind_name(target_kind)),
-    ];
-
-    let param_lines = render_params_yaml(params);
-    if !param_lines.is_empty() {
-        lines.push("  params:".to_string());
-        for line in param_lines {
-            lines.push(format!("    {line}"));
-        }
-    }
-
-    lines.join("\n")
-}
-
-fn render_params_yaml(params: &EffectParams) -> Vec<String> {
-    let mut lines = Vec::new();
-
-    push_number(&mut lines, "angle", params.angle);
-    push_number(&mut lines, "width", params.width);
-    push_number(&mut lines, "falloff", params.falloff);
-    push_number(&mut lines, "intensity", params.intensity);
-    push_number(&mut lines, "sphericality", params.sphericality);
-    push_number(&mut lines, "transparency", params.transparency);
-    push_number(&mut lines, "brightness", params.brightness);
-    push_number(&mut lines, "amplitude_x", params.amplitude_x);
-    push_number(&mut lines, "amplitude_y", params.amplitude_y);
-    push_number(&mut lines, "frequency", params.frequency);
-    push_number(&mut lines, "thickness", params.thickness);
-    push_number(&mut lines, "amp_start", params.amp_start);
-    push_number(&mut lines, "amp_coeff", params.amp_coeff);
-    push_number(&mut lines, "freq_coeff", params.freq_coeff);
-    push_number(&mut lines, "speed", params.speed);
-    push_u16(&mut lines, "strikes", params.strikes);
-    push_u8(&mut lines, "octave_count", params.octave_count);
-    push_bool(&mut lines, "glow", params.glow);
-    push_string(&mut lines, "coverage", params.coverage.as_deref());
-    push_string(&mut lines, "orientation", params.orientation.as_deref());
-    push_string(&mut lines, "target", params.target.as_deref());
-    push_string(&mut lines, "start_x", params.start_x.as_deref());
-    push_string(&mut lines, "end_x", params.end_x.as_deref());
-
-    if !matches!(params.easing, Easing::Linear) {
-        lines.push(format!("easing: {}", easing_name(&params.easing)));
-    }
-
-    if let Some(colour) = params.colour.as_ref() {
-        lines.push(format!("colour: {}", colour_name(colour)));
-    }
-
-    lines
-}
-
-fn push_number(lines: &mut Vec<String>, key: &str, value: Option<f32>) {
-    if let Some(value) = value {
-        lines.push(format!("{key}: {}", trim_float(value)));
+) -> PreviewEffect {
+    PreviewEffect {
+        name: effect_name.to_string(),
+        duration: PREVIEW_DURATION_MS,
+        target_kind: preview_target_kind(target_kind),
+        params: render_params_yaml(params),
     }
 }
 
-fn push_u16(lines: &mut Vec<String>, key: &str, value: Option<u16>) {
-    if let Some(value) = value {
-        lines.push(format!("{key}: {value}"));
-    }
-}
-
-fn push_u8(lines: &mut Vec<String>, key: &str, value: Option<u8>) {
-    if let Some(value) = value {
-        lines.push(format!("{key}: {value}"));
-    }
-}
-
-fn push_bool(lines: &mut Vec<String>, key: &str, value: Option<bool>) {
-    if let Some(value) = value {
-        lines.push(format!("{key}: {value}"));
-    }
-}
-
-fn push_string(lines: &mut Vec<String>, key: &str, value: Option<&str>) {
-    if let Some(value) = value {
-        lines.push(format!("{key}: {value:?}"));
-    }
-}
-
-fn indent_block(block: &str, indent: &str) -> String {
-    block
-        .lines()
-        .map(|line| format!("{indent}{line}"))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn trim_float(value: f32) -> String {
-    let mut rendered = format!("{value:.3}");
-    while rendered.contains('.') && rendered.ends_with('0') {
-        rendered.pop();
-    }
-    if rendered.ends_with('.') {
-        rendered.pop();
-    }
-    rendered
-}
-
-fn target_kind_name(target_kind: EffectTargetKind) -> &'static str {
+fn preview_target_kind(target_kind: EffectTargetKind) -> PreviewEffectTargetKind {
     match target_kind {
-        EffectTargetKind::Any => "any",
-        EffectTargetKind::Scene => "scene",
-        EffectTargetKind::Layer => "layer",
-        EffectTargetKind::Sprite => "sprite",
-        EffectTargetKind::SpriteText => "sprite_text",
-        EffectTargetKind::SpriteBitmap => "sprite_bitmap",
+        EffectTargetKind::Any => PreviewEffectTargetKind::Any,
+        EffectTargetKind::Scene => PreviewEffectTargetKind::Scene,
+        EffectTargetKind::Layer => PreviewEffectTargetKind::Layer,
+        EffectTargetKind::Sprite => PreviewEffectTargetKind::Sprite,
+        EffectTargetKind::SpriteText => PreviewEffectTargetKind::SpriteText,
+        EffectTargetKind::SpriteBitmap => PreviewEffectTargetKind::SpriteBitmap,
+    }
+}
+
+fn render_params_yaml(params: &EffectParams) -> Option<PreviewEffectParams> {
+    let rendered = PreviewEffectParams {
+        angle: params.angle,
+        width: params.width,
+        falloff: params.falloff,
+        intensity: params.intensity,
+        sphericality: params.sphericality,
+        transparency: params.transparency,
+        brightness: params.brightness,
+        amplitude_x: params.amplitude_x,
+        amplitude_y: params.amplitude_y,
+        frequency: params.frequency,
+        thickness: params.thickness,
+        amp_start: params.amp_start,
+        amp_coeff: params.amp_coeff,
+        freq_coeff: params.freq_coeff,
+        speed: params.speed,
+        strikes: params.strikes,
+        octave_count: params.octave_count,
+        glow: params.glow,
+        coverage: params.coverage.clone(),
+        orientation: params.orientation.clone(),
+        target: params.target.clone(),
+        start_x: params.start_x.clone(),
+        end_x: params.end_x.clone(),
+        easing: if matches!(params.easing, Easing::Linear) {
+            None
+        } else {
+            Some(easing_name(&params.easing).to_string())
+        },
+        colour: params.colour.as_ref().map(colour_name),
+    };
+
+    if rendered.is_empty() {
+        None
+    } else {
+        Some(rendered)
+    }
+}
+
+impl PreviewEffectParams {
+    fn is_empty(&self) -> bool {
+        self.angle.is_none()
+            && self.width.is_none()
+            && self.falloff.is_none()
+            && self.intensity.is_none()
+            && self.sphericality.is_none()
+            && self.transparency.is_none()
+            && self.brightness.is_none()
+            && self.amplitude_x.is_none()
+            && self.amplitude_y.is_none()
+            && self.frequency.is_none()
+            && self.thickness.is_none()
+            && self.amp_start.is_none()
+            && self.amp_coeff.is_none()
+            && self.freq_coeff.is_none()
+            && self.speed.is_none()
+            && self.strikes.is_none()
+            && self.octave_count.is_none()
+            && self.glow.is_none()
+            && self.coverage.is_none()
+            && self.orientation.is_none()
+            && self.target.is_none()
+            && self.start_x.is_none()
+            && self.end_x.is_none()
+            && self.easing.is_none()
+            && self.colour.is_none()
     }
 }
 
@@ -336,8 +465,10 @@ fn colour_name(colour: &engine_core::scene::TermColour) -> String {
 mod tests {
     use super::{
         build_preview_scene_yaml, choose_preview_placement, PreviewLayout, PreviewPlacement,
+        PREVIEW_DURATION_MS,
     };
     use crate::domain::effect_params;
+    use engine::scene::Sprite;
 
     #[test]
     fn generated_preview_yaml_parses_into_scene() {
@@ -346,6 +477,27 @@ mod tests {
         let scene: engine::scene::Scene = serde_yaml::from_str(&yaml).expect("preview scene");
         assert_eq!(scene.id, "effect_preview");
         assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.stages.on_idle.steps.len(), 0);
+
+        let layer = &scene.layers[0];
+        assert_eq!(layer.sprites.len(), 2);
+
+        let effect = match &layer.sprites[0] {
+            Sprite::Image { stages, .. } => {
+                assert_eq!(stages.on_idle.steps.len(), 1);
+                &stages.on_idle.steps[0].effects[0]
+            }
+            other => panic!("expected image sprite, got {other:?}"),
+        };
+        assert_eq!(effect.name, "shine");
+        assert_eq!(effect.duration, PREVIEW_DURATION_MS);
+        assert_eq!(
+            effect.target_kind,
+            engine::scene::EffectTargetKind::SpriteBitmap
+        );
+        assert_eq!(effect.params.angle, Some(22.0));
+        assert_eq!(effect.params.width, Some(5.0));
+        assert_eq!(effect.params.falloff, Some(1.2));
     }
 
     #[test]

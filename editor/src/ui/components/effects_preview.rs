@@ -1,15 +1,6 @@
-use engine::assets::AssetRoot;
-use engine::audio::AudioRuntime;
-use engine::buffer::Buffer;
-use engine::runtime_settings::RuntimeSettings;
 use engine::scene::Scene;
-use engine::scene_runtime::SceneRuntime;
-use engine::systems::animator::{Animator, SceneStage};
-use engine::systems::compositor::compositor_system;
-use engine::world::World;
 use engine_core::effects::{shared_dispatcher, ParamControl};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Frame;
@@ -17,11 +8,12 @@ use ratatui::Frame;
 use crate::domain::effect_params;
 use crate::domain::effects_catalog;
 use crate::domain::effects_preview_scene;
+use crate::domain::preview_renderer::{self, PreviewRenderRequest};
 use crate::state::{focus::FocusPane, AppState, EffectsCodeTab};
 use crate::ui::theme;
 
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
-    if app.effects_live_preview {
+    if app.effects.effects_live_preview {
         // Horizontal split: left = code+params | right = live preview
         let h_split = Layout::default()
             .direction(Direction::Horizontal)
@@ -51,7 +43,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
 /// Renders the code pane with tab bar (Info / Schema / YAML / Rust).
 fn render_code(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
     let effect_name = app.selected_builtin_effect();
-    let tab = app.effects_code_tab;
+    let tab = app.effects.effects_code_tab;
 
     // Build tab bar title: "[ Info ]  Schema   YAML   Rust"
     let tab_bar: String = EffectsCodeTab::ALL
@@ -85,7 +77,7 @@ fn render_code(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
     // Clamp scroll
     let visible = area.height.saturating_sub(2) as usize;
     let max_scroll = lines.len().saturating_sub(visible.max(1)) as u16;
-    let scroll = app.effects_code_scroll.min(max_scroll);
+    let scroll = app.effects.effects_code_scroll.min(max_scroll);
 
     let hint = if focused {
         "↑/↓ scroll  [/] tabs  Tab pane"
@@ -318,7 +310,7 @@ fn render_live(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
 
     let lines = match render_preview_scene(&preview_yaml, inner_w, inner_h, progress) {
         Ok(buffer) => {
-            let mut lines = buffer_to_lines(&buffer);
+            let mut lines = preview_renderer::buffer_to_lines(&buffer);
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 format!("progress: {:.2}", progress),
@@ -350,11 +342,11 @@ fn render_live(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
 
 fn build_responsive_preview_yaml(app: &AppState, inner_w: u16, inner_h: u16) -> String {
     let Some(effect_name) = app.selected_builtin_effect() else {
-        return app.effects_preview_scene_yaml.clone();
+        return app.effects.effects_preview_scene_yaml.clone();
     };
 
     let mut params = effect_params::default_effect_params(effect_name);
-    effect_params::apply_overrides(effect_name, &app.effect_param_overrides, &mut params);
+    effect_params::apply_overrides(effect_name, &app.effects.effect_param_overrides, &mut params);
     effects_preview_scene::build_preview_scene_yaml(effect_name, &params, inner_w, inner_h)
 }
 
@@ -362,7 +354,7 @@ fn render_controls(frame: &mut Frame, area: Rect, app: &AppState, focused: bool)
     let effect_name = app.selected_builtin_effect().unwrap_or("shine");
     let specs = app.effect_param_specs();
     let mut params = effect_params::default_effect_params(effect_name);
-    effect_params::apply_overrides(effect_name, &app.effect_param_overrides, &mut params);
+    effect_params::apply_overrides(effect_name, &app.effects.effect_param_overrides, &mut params);
 
     let mut lines: Vec<Line> = vec![
         Line::from(Span::styled(
@@ -383,15 +375,15 @@ fn render_controls(frame: &mut Frame, area: Rect, app: &AppState, focused: bool)
         )));
         for (idx, spec) in specs.iter().enumerate() {
             let value = app.effect_param_value(spec).as_float();
-            let prefix = if idx == app.effect_param_cursor {
+            let prefix = if idx == app.effects.effect_param_cursor {
                 "▶"
             } else {
                 " "
             };
             let rendered = format!("{prefix} {:<12} {}", spec.label, spec.render_value(value));
-            let style = if idx == app.effect_param_cursor && focused {
+            let style = if idx == app.effects.effect_param_cursor && focused {
                 theme::sidebar_active_entry()
-            } else if idx == app.effect_param_cursor {
+            } else if idx == app.effects.effect_param_cursor {
                 theme::accent()
             } else {
                 theme::fg_normal()
@@ -448,76 +440,17 @@ fn render_preview_scene(
     width: u16,
     height: u16,
     progress: f32,
-) -> Result<Buffer, String> {
+) -> Result<engine::buffer::Buffer, String> {
     let scene: Scene =
         serde_yaml::from_str(yaml).map_err(|err| format!("YAML parse error: {err}"))?;
     let asset_root = effects_preview_scene::preview_asset_root()
         .ok_or_else(|| "Preview asset root not found (expected mods/shell-quest)".to_string())?;
-
-    let mut world = World::new();
-    world.register(Buffer::new(width, height));
-    world.register(AudioRuntime::null());
-    world.register(RuntimeSettings::default());
-    world.register(AssetRoot::new(asset_root));
-    world.register_scoped(SceneRuntime::new(scene));
-
-    let mut animator = Animator::new();
-    animator.stage = SceneStage::OnIdle;
-    animator.elapsed_ms = (progress * effects_preview_scene::PREVIEW_DURATION_MS as f32) as u64;
-    animator.stage_elapsed_ms = animator.elapsed_ms;
-    animator.scene_elapsed_ms = animator.elapsed_ms;
-    world.register_scoped(animator);
-
-    compositor_system(&mut world);
-
-    world
-        .get::<Buffer>()
-        .cloned()
-        .ok_or_else(|| "Preview render did not produce a buffer".to_string())
-}
-
-fn buffer_to_lines(buffer: &Buffer) -> Vec<Line<'static>> {
-    let mut out = Vec::with_capacity(buffer.height as usize);
-    for y in 0..buffer.height {
-        let mut spans = Vec::with_capacity(buffer.width as usize);
-        for x in 0..buffer.width {
-            if let Some(cell) = buffer.get(x, y) {
-                let symbol = if cell.symbol == '\0' {
-                    ' '
-                } else {
-                    cell.symbol
-                };
-                let style = Style::default()
-                    .fg(to_ratatui_color(cell.fg))
-                    .bg(to_ratatui_color(cell.bg));
-                spans.push(Span::styled(symbol.to_string(), style));
-            }
-        }
-        out.push(Line::from(spans));
-    }
-    out
-}
-
-fn to_ratatui_color(color: crossterm::style::Color) -> Color {
-    match color {
-        crossterm::style::Color::Reset => Color::Reset,
-        crossterm::style::Color::Black => Color::Black,
-        crossterm::style::Color::DarkGrey => Color::DarkGray,
-        crossterm::style::Color::Red => Color::Red,
-        crossterm::style::Color::DarkRed => Color::LightRed,
-        crossterm::style::Color::Green => Color::Green,
-        crossterm::style::Color::DarkGreen => Color::LightGreen,
-        crossterm::style::Color::Yellow => Color::Yellow,
-        crossterm::style::Color::DarkYellow => Color::LightYellow,
-        crossterm::style::Color::Blue => Color::Blue,
-        crossterm::style::Color::DarkBlue => Color::LightBlue,
-        crossterm::style::Color::Magenta => Color::Magenta,
-        crossterm::style::Color::DarkMagenta => Color::LightMagenta,
-        crossterm::style::Color::Cyan => Color::Cyan,
-        crossterm::style::Color::DarkCyan => Color::LightCyan,
-        crossterm::style::Color::White => Color::White,
-        crossterm::style::Color::Grey => Color::Gray,
-        crossterm::style::Color::Rgb { r, g, b } => Color::Rgb(r, g, b),
-        crossterm::style::Color::AnsiValue(v) => Color::Indexed(v),
-    }
+    preview_renderer::render_scene_buffer(PreviewRenderRequest {
+        scene: &scene,
+        width,
+        height,
+        asset_root: asset_root.as_path(),
+        progress,
+        duration_ms: effects_preview_scene::PREVIEW_DURATION_MS,
+    })
 }

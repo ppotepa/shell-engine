@@ -50,17 +50,36 @@ use services::EngineWorldAccess;
 pub struct ShellEngine {
     mod_source: PathBuf,
     mod_manifest: Value,
+    config: EngineConfig,
+}
+
+/// Runtime launch options passed explicitly from the launcher.
+#[derive(Debug, Clone, Default)]
+pub struct EngineConfig {
+    pub renderer_mode: Option<String>,
+    pub debug_feature: bool,
+    pub sound_server: bool,
+    pub sound_server_cmd: Option<String>,
 }
 
 impl ShellEngine {
     /// Loads and validates a mod from `mod_source` (directory or `.zip`).
     pub fn new(mod_source: impl Into<PathBuf>) -> Result<Self, EngineError> {
+        Self::new_with_config(mod_source, EngineConfig::default())
+    }
+
+    /// Loads and validates a mod from `mod_source` with explicit runtime config.
+    pub fn new_with_config(
+        mod_source: impl Into<PathBuf>,
+        config: EngineConfig,
+    ) -> Result<Self, EngineError> {
         let mod_source = mod_source.into();
         let mod_manifest = load_mod_manifest(&mod_source)?;
 
         Ok(Self {
             mod_source,
             mod_manifest,
+            config,
         })
     }
 
@@ -89,7 +108,15 @@ impl ShellEngine {
 
         let scene = scene_loader::load_scene(&self.mod_source, entrypoint)?;
         let target_fps = target_fps_from_manifest(&self.mod_manifest);
-        let runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
+        let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
+        if let Some(mode) = self
+            .config
+            .renderer_mode
+            .as_deref()
+            .and_then(parse_renderer_mode)
+        {
+            runtime_settings.renderer_mode_override = Some(mode);
+        }
 
         let (term_w, term_h) = crossterm::terminal::size()?;
         let (virtual_w, virtual_h) = runtime_settings.resolved_virtual_size(term_w, term_h);
@@ -97,9 +124,14 @@ impl ShellEngine {
         let mut world = world::World::new();
         world.register(EventQueue::new());
         world.register(buffer::Buffer::new(term_w, term_h));
-        world.register(audio::AudioRuntime::null());
+        world.register(audio::AudioRuntime::from_options(
+            self.config.sound_server,
+            self.config.sound_server_cmd.clone(),
+        ));
         world.register(runtime_settings);
-        world.register(debug_features::DebugFeatures::from_env());
+        world.register(debug_features::DebugFeatures::from_enabled(
+            self.config.debug_feature,
+        ));
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
@@ -133,6 +165,16 @@ impl ShellEngine {
     /// Returns the parsed `mod.yaml` manifest value.
     pub fn mod_manifest(&self) -> &Value {
         &self.mod_manifest
+    }
+}
+
+fn parse_renderer_mode(raw: &str) -> Option<scene::SceneRenderedMode> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "cell" => Some(scene::SceneRenderedMode::Cell),
+        "halfblock" | "half-block" => Some(scene::SceneRenderedMode::HalfBlock),
+        "quadblock" | "quad-block" => Some(scene::SceneRenderedMode::QuadBlock),
+        "braille" => Some(scene::SceneRenderedMode::Braille),
+        _ => None,
     }
 }
 
