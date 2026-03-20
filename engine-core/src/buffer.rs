@@ -142,6 +142,15 @@ impl Buffer {
         self.front.clone_from(&self.back);
     }
 
+    /// Restore the front buffer (last flushed frame) into the back buffer.
+    ///
+    /// Used by the last-good-frame fallback: when a script error is detected,
+    /// calling this before the diff preserves the last visible frame on screen
+    /// instead of showing a compositor-cleared blank.
+    pub fn restore_front_to_back(&mut self) {
+        self.back.clone_from(&self.front);
+    }
+
     /// Force a full re-flush on the next render (e.g. after terminal resize).
     pub fn invalidate(&mut self) {
         for cell in &mut self.front {
