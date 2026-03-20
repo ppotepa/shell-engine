@@ -12,10 +12,8 @@ pub mod start_screen;
 pub mod watch;
 
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
 
-use engine::repositories::{create_scene_repository, SceneRepository};
 use engine::scene::Scene;
 
 use crate::domain::asset_index::AssetIndex;
@@ -25,8 +23,6 @@ use crate::domain::effects_catalog;
 use crate::domain::effects_preview_scene;
 use crate::input::commands::Command;
 use crate::io::fs_scan::validate_project_dir;
-use crate::io::indexer::build_project_index;
-use crate::io::recent::push_recent;
 use focus::FocusPane;
 
 /// Available tabs in the effects browser code pane.
@@ -360,45 +356,6 @@ impl AppState {
         }
     }
 
-    /// Builds the flat ordered list of tree items from the current project index.
-    pub fn build_tree_items(&self) -> Vec<TreeItem> {
-        let mut items = Vec::new();
-
-        // mod.yaml always first
-        items.push(TreeItem::ModYaml);
-
-        // Scenes folder + scenes
-        if !self.index.scenes.scene_paths.is_empty() {
-            items.push(TreeItem::ScenesFolder);
-            for scene in &self.index.scenes.scene_paths {
-                items.push(TreeItem::Scene(scene.clone()));
-            }
-        }
-
-        // Images folder + images
-        if !self.index.images.is_empty() {
-            items.push(TreeItem::ImagesFolder);
-            for image in &self.index.images {
-                items.push(TreeItem::Image(image.clone()));
-            }
-        }
-
-        // Fonts folder + fonts
-        if !self.index.fonts.is_empty() {
-            items.push(TreeItem::FontsFolder);
-            for font in &self.index.fonts {
-                items.push(TreeItem::Font(font.clone()));
-            }
-        }
-
-        items
-    }
-
-    /// Returns the tree item at the current cursor position, if any.
-    pub fn selected_tree_item(&self) -> Option<&TreeItem> {
-        self.explorer.items.get(self.explorer.cursor)
-    }
-
     /// Returns the name of the currently selected built-in effect, if any.
     pub fn selected_builtin_effect(&self) -> Option<&str> {
         self.effects.builtin_effects
@@ -666,30 +623,6 @@ impl AppState {
         lines
     }
 
-    fn build_scene_display_names(mod_source: &str, scene_paths: &[String]) -> Vec<String> {
-        let repo = create_scene_repository(Path::new(mod_source)).ok();
-        scene_paths
-            .iter()
-            .map(|scene_path| {
-                let scene_ref = Self::normalize_scene_ref_path_static(mod_source, scene_path);
-                if let Some(scene) = repo.as_ref().and_then(|r| r.load_scene(&scene_ref).ok()) {
-                    if !scene.title.trim().is_empty() {
-                        return scene.title;
-                    }
-                    if !scene.id.trim().is_empty() {
-                        return scene.id;
-                    }
-                }
-
-                Path::new(scene_path)
-                    .file_stem()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or(scene_path)
-                    .to_string()
-            })
-            .collect()
-    }
-
     /// Returns the flat ordered list of start screen items (recents then actions).
     pub fn start_items(&self) -> Vec<StartItem> {
         let mut items = (0..self.recent_projects.len())
@@ -704,35 +637,6 @@ impl AppState {
         items
     }
 
-    fn open_project(&mut self, path: &str) {
-        self.reset_scene_fullscreen_state();
-        let validation = validate_project_dir(Path::new(path));
-        if !validation.valid {
-            self.mode = AppMode::Start;
-            self.start_dialog = StartDialog::RecentMenu;
-            self.status = format!("Cannot open project: {path}");
-            return;
-        }
-        let index = build_project_index(path);
-        self.mode = AppMode::Browser;
-        self.mod_source = path.to_string();
-        self.index = index;
-        self.watch.stamp = Self::compute_project_watch_stamp(&self.mod_source);
-        self.watch.last_scan_ms = now_millis();
-        self.explorer.items = self.build_tree_items();
-        self.explorer.cursor = 0;
-        self.scenes.scene_cursor = 0;
-        self.scenes.scene_display_names =
-            Self::build_scene_display_names(&self.mod_source, &self.index.scenes.scene_paths);
-        self.scenes.scene_layer_cursor = 0;
-        self.scenes.scene_layer_visibility.clear();
-        self.scenes.scene_preview_started_at_ms = now_millis();
-        self.sync_scene_preview_selection();
-        self.refresh_cutscene_source_folder();
-        push_recent(&mut self.recent_projects, path);
-        self.status = format!("Opened: {path} | Ctrl+W close project");
-    }
-
     /// Returns the validation status label and valid flag for a recent project by index.
     pub fn recent_project_status(&self, idx: usize) -> (String, bool) {
         let Some(path) = self.recent_projects.get(idx) else {
@@ -743,47 +647,6 @@ impl AppState {
         }
         let v = validate_project_dir(Path::new(path));
         (v.code.to_string(), v.valid)
-    }
-
-    fn prune_stale_recents(&mut self) {
-        let before = self.recent_projects.len();
-        self.recent_projects.retain(|path| Path::new(path).exists());
-        let removed = before.saturating_sub(self.recent_projects.len());
-        self.start.cursor = self
-            .start
-            .cursor
-            .min(self.start_items().len().saturating_sub(1));
-        self.status = format!("Removed {removed} stale recent entrie(s)");
-    }
-
-    fn close_project(&mut self) {
-        self.mode = AppMode::Start;
-        self.start_dialog = StartDialog::RecentMenu;
-        self.mod_source.clear();
-        self.index = AssetIndex::default();
-        self.start.cursor = 0;
-        self.picker.schema_cursor = 0;
-        self.picker.dir_cursor = 0;
-        self.picker.dir_preview_path.clear();
-        self.picker.dir_preview_index = None;
-        self.picker.dir_preview_popup = false;
-        self.picker.dir_preview_started_at_ms = 0;
-        self.scenes.scene_cursor = 0;
-        self.scenes.scene_display_names.clear();
-        self.scenes.scene_layer_cursor = 0;
-        self.scenes.scene_layer_visibility.clear();
-        self.scenes.scene_preview_layers.clear();
-        self.scenes.scene_preview_scene = None;
-        self.scenes.scene_preview_started_at_ms = 0;
-        self.cutscene.source_dir = "assets/raw".to_string();
-        self.cutscene.frames.clear();
-        self.cutscene.missing_frames.clear();
-        self.cutscene.validation_error = None;
-        self.reset_scene_fullscreen_state();
-        self.watch.last_scan_ms = 0;
-        self.watch.stamp = 0;
-        self.status =
-            "Start: j/k move | Enter select | f schema scan | x prune stale | q quit".to_string();
     }
 
     /// Applies the given command for the current mode; returns `true` if the app should quit.
@@ -922,42 +785,6 @@ impl AppState {
             | Command::ToggleHelp => {}
         }
         false
-    }
-
-    fn enter_edit_mode(&mut self) {
-        if let Some(item) = self.selected_tree_item() {
-            let file_path = match item {
-                TreeItem::ModYaml => Some("mod.yaml".to_string()),
-                TreeItem::Scene(path) => Some(path.clone()),
-                TreeItem::Image(path) => Some(path.clone()),
-                TreeItem::Font(path) => Some(path.clone()),
-                _ => None,
-            };
-
-            if let Some(path) = file_path {
-                let full_path = Path::new(&self.mod_source).join(&path);
-                match fs::read_to_string(&full_path) {
-                    Ok(content) => {
-                        self.editor.file = Some(path.clone());
-                        self.editor.content = content;
-                        self.mode = AppMode::EditMode;
-                        self.status = format!("Editing: {} | ESC to exit", path);
-                    }
-                    Err(e) => {
-                        self.status = format!("Cannot open file: {}", e);
-                    }
-                }
-            }
-        }
-    }
-
-    fn exit_edit_mode(&mut self) {
-        self.mode = AppMode::Browser;
-        self.editor.file = None;
-        self.editor.content.clear();
-        self.status =
-            "Browser: j/k navigate | Enter edit | Tab switch pane | Ctrl+W close | q quit"
-                .to_string();
     }
 
     /// Advances any in-progress transition animations by `dt_secs` seconds.

@@ -123,6 +123,13 @@ Scena może jednocześnie mieć lokalne `stages`; lokalne pola nadpisują preset
 `effect-presets` (alias: `effect_presets`) pozwala definiować reusable konfiguracje efektów
 na poziomie sceny i używać ich w `effects` przez `use`/`preset`/`ref`.
 
+Aktualne reguły walidacji presetów:
+
+- nie można jednocześnie użyć `effect-presets` i `effect_presets` w jednym dokumencie,
+- wpis efektu nie może mieszać aliasów `use`/`preset`/`ref` jednocześnie,
+- brakująca referencja presetu zwraca błąd kompilacji sceny,
+- tabela presetów musi być mapą, a alias presetu musi być stringiem.
+
 Przykład:
 
 ```yaml
@@ -194,6 +201,8 @@ jeśli `logic:` nie jest zdefiniowane.
 
 `logic.kind: graph` jest obecnie traktowane jako tryb eksperymentalny i jest
 odrzucane przez compiler.
+
+`logic.kind: script` wymaga jawnego `src` (brak fallbacku do auto-odkrywania plików skryptu).
 
 Przykład działających scen demonstracyjnych:
 
