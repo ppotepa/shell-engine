@@ -18,16 +18,16 @@ impl AppState {
         }
 
         let now = super::now_millis();
-        if now.saturating_sub(self.project_watch_last_scan_ms) < self.project_watch_interval_ms {
+        if now.saturating_sub(self.watch.last_scan_ms) < self.watch.interval_ms {
             return;
         }
-        self.project_watch_last_scan_ms = now;
+        self.watch.last_scan_ms = now;
 
         let new_stamp = Self::compute_project_watch_stamp(&self.mod_source);
-        if new_stamp == self.project_watch_stamp {
+        if new_stamp == self.watch.stamp {
             return;
         }
-        self.project_watch_stamp = new_stamp;
+        self.watch.stamp = new_stamp;
         self.reload_project_index_after_fs_change();
     }
 
