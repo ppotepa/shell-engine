@@ -31,6 +31,7 @@ mod services;
 pub mod systems;
 pub mod terminal_caps;
 pub mod world;
+mod splash;
 
 /// Returns (behavior_name, fields) tuples for all built-in behaviors.
 /// Re-exported from engine crate to make available in authoring catalog.
@@ -163,6 +164,7 @@ impl ShellEngine {
         let mut renderer = TerminalRenderer::new()?;
         renderer.reset_console()?;
         renderer.clear_black()?;
+        splash::show_splash();
         world.register(renderer);
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
