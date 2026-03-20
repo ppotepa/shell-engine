@@ -173,6 +173,25 @@ pub struct SceneBrowserState {
     pub scene_preview_fullscreen_toggle: bool,
 }
 
+/// State owned by the Cutscene Maker feature.
+#[derive(Debug, Clone)]
+pub struct CutsceneMakerState {
+    pub source_dir: String,
+    pub output_gif: String,
+    pub default_frame_ms: u32,
+    pub frames: Vec<String>,
+    pub missing_frames: Vec<u32>,
+    pub validation_error: Option<String>,
+}
+
+/// State owned by the project filesystem watcher.
+#[derive(Debug, Clone)]
+pub struct ProjectWatchState {
+    pub interval_ms: u64,
+    pub last_scan_ms: u64,
+    pub stamp: u64,
+}
+
 /// Complete runtime state for the editor application.
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -209,15 +228,8 @@ pub struct AppState {
     pub sidebar_visible: bool,
     pub effects: EffectsBrowserState,
     pub scenes: SceneBrowserState,
-    pub cutscene_source_dir: String,
-    pub cutscene_output_gif: String,
-    pub cutscene_default_frame_ms: u32,
-    pub cutscene_frames: Vec<String>,
-    pub cutscene_missing_frames: Vec<u32>,
-    pub cutscene_validation_error: Option<String>,
-    pub project_watch_interval_ms: u64,
-    pub project_watch_last_scan_ms: u64,
-    pub project_watch_stamp: u64,
+    pub cutscene: CutsceneMakerState,
+    pub watch: ProjectWatchState,
     /// Whether the current-screen help overlay is visible.
     pub help_overlay_active: bool,
 }
@@ -290,15 +302,19 @@ impl AppState {
                 scene_preview_fullscreen_hold: false,
                 scene_preview_fullscreen_toggle: false,
             },
-            cutscene_source_dir: "assets/raw".to_string(),
-            cutscene_output_gif: "assets/images/intro/cutscene.gif".to_string(),
-            cutscene_default_frame_ms: 250,
-            cutscene_frames: Vec::new(),
-            cutscene_missing_frames: Vec::new(),
-            cutscene_validation_error: None,
-            project_watch_interval_ms: 1200,
-            project_watch_last_scan_ms: 0,
-            project_watch_stamp: 0,
+            cutscene: CutsceneMakerState {
+                source_dir: "assets/raw".to_string(),
+                output_gif: "assets/images/intro/cutscene.gif".to_string(),
+                default_frame_ms: 250,
+                frames: Vec::new(),
+                missing_frames: Vec::new(),
+                validation_error: None,
+            },
+            watch: ProjectWatchState {
+                interval_ms: 1200,
+                last_scan_ms: 0,
+                stamp: 0,
+            },
             help_overlay_active: false,
         }
     }
@@ -933,24 +949,24 @@ impl AppState {
     }
 
     fn refresh_cutscene_source_folder(&mut self) {
-        self.cutscene_frames.clear();
-        self.cutscene_missing_frames.clear();
-        self.cutscene_validation_error = None;
+        self.cutscene.frames.clear();
+        self.cutscene.missing_frames.clear();
+        self.cutscene.validation_error = None;
 
         if self.mod_source.is_empty() {
-            self.cutscene_source_dir = "assets/raw".to_string();
-            self.cutscene_validation_error = Some("Open a mod project first.".to_string());
+            self.cutscene.source_dir = "assets/raw".to_string();
+            self.cutscene.validation_error = Some("Open a mod project first.".to_string());
             return;
         }
 
         let source_dir = Path::new(&self.mod_source).join("assets/raw");
-        self.cutscene_source_dir = source_dir.display().to_string();
+        self.cutscene.source_dir = source_dir.display().to_string();
         if !source_dir.exists() {
-            self.cutscene_validation_error = Some("Missing folder: assets/raw".to_string());
+            self.cutscene.validation_error = Some("Missing folder: assets/raw".to_string());
             return;
         }
         if !source_dir.is_dir() {
-            self.cutscene_validation_error =
+            self.cutscene.validation_error =
                 Some("assets/raw exists but is not a directory".to_string());
             return;
         }
@@ -999,21 +1015,21 @@ impl AppState {
                 }
             }
             Err(err) => {
-                self.cutscene_validation_error =
+                self.cutscene.validation_error =
                     Some(format!("Cannot read assets/raw folder: {err}"));
                 return;
             }
         }
 
         if read_failed {
-            self.cutscene_validation_error =
+            self.cutscene.validation_error =
                 Some("Could not read some files from assets/raw".to_string());
             return;
         }
 
         if !invalid_named_frames.is_empty() {
             invalid_named_frames.sort();
-            self.cutscene_validation_error = Some(format!(
+            self.cutscene.validation_error = Some(format!(
                 "Invalid frame names (must be numeric): {}",
                 invalid_named_frames.join(", ")
             ));
@@ -1021,7 +1037,7 @@ impl AppState {
         }
 
         if numbered_frames.is_empty() {
-            self.cutscene_validation_error = Some(
+            self.cutscene.validation_error = Some(
                 "No numbered image frames found in assets/raw (expected 1.png, 2.png, ...)"
                     .to_string(),
             );
@@ -1035,7 +1051,7 @@ impl AppState {
             }
         }
         if !duplicate_numbers.is_empty() {
-            self.cutscene_validation_error = Some(format!(
+            self.cutscene.validation_error = Some(format!(
                 "Duplicate frame numbers detected: {}",
                 duplicate_numbers.join(", ")
             ));
@@ -1045,7 +1061,7 @@ impl AppState {
         if let Some(max_number) = numbered_frames.keys().copied().max() {
             for expected in 1..=max_number {
                 if !numbered_frames.contains_key(&expected) {
-                    self.cutscene_missing_frames.push(expected);
+                    self.cutscene.missing_frames.push(expected);
                 }
             }
         }
@@ -1053,40 +1069,41 @@ impl AppState {
         for names in numbered_frames.values_mut() {
             names.sort();
         }
-        self.cutscene_frames = numbered_frames
+        self.cutscene.frames = numbered_frames
             .values()
             .filter_map(|names| names.first().cloned())
             .collect();
 
-        if !self.cutscene_missing_frames.is_empty() {
+        if !self.cutscene.missing_frames.is_empty() {
             let preview = self
-                .cutscene_missing_frames
+                .cutscene
+                .missing_frames
                 .iter()
                 .take(12)
                 .map(u32::to_string)
                 .collect::<Vec<_>>()
                 .join(", ");
-            let suffix = if self.cutscene_missing_frames.len() > 12 {
+            let suffix = if self.cutscene.missing_frames.len() > 12 {
                 ", ..."
             } else {
                 ""
             };
-            self.cutscene_validation_error =
+            self.cutscene.validation_error =
                 Some(format!("Missing frame numbers: {preview}{suffix}"));
         }
     }
 
     fn cutscene_status_message(&self) -> String {
-        if let Some(err) = &self.cutscene_validation_error {
+        if let Some(err) = &self.cutscene.validation_error {
             return format!("Cutscene Maker: invalid source ({err})");
         }
-        if self.cutscene_frames.is_empty() {
+        if self.cutscene.frames.is_empty() {
             "Cutscene Maker: no frames detected in assets/raw".to_string()
         } else {
             format!(
                 "Cutscene Maker: {} frame(s) ready | default {}ms/frame",
-                self.cutscene_frames.len(),
-                self.cutscene_default_frame_ms
+                self.cutscene.frames.len(),
+                self.cutscene.default_frame_ms
             )
         }
     }
@@ -1147,8 +1164,8 @@ impl AppState {
         self.mode = AppMode::Browser;
         self.mod_source = path.to_string();
         self.index = index;
-        self.project_watch_stamp = Self::compute_project_watch_stamp(&self.mod_source);
-        self.project_watch_last_scan_ms = now_millis();
+        self.watch.stamp = Self::compute_project_watch_stamp(&self.mod_source);
+        self.watch.last_scan_ms = now_millis();
         self.tree_items = self.build_tree_items();
         self.tree_cursor = 0;
         self.scenes.scene_cursor = 0;
@@ -1204,13 +1221,13 @@ impl AppState {
         self.scenes.scene_preview_layers.clear();
         self.scenes.scene_preview_scene = None;
         self.scenes.scene_preview_started_at_ms = 0;
-        self.cutscene_source_dir = "assets/raw".to_string();
-        self.cutscene_frames.clear();
-        self.cutscene_missing_frames.clear();
-        self.cutscene_validation_error = None;
+        self.cutscene.source_dir = "assets/raw".to_string();
+        self.cutscene.frames.clear();
+        self.cutscene.missing_frames.clear();
+        self.cutscene.validation_error = None;
         self.reset_scene_fullscreen_state();
-        self.project_watch_last_scan_ms = 0;
-        self.project_watch_stamp = 0;
+        self.watch.last_scan_ms = 0;
+        self.watch.stamp = 0;
         self.status =
             "Start: j/k move | Enter select | f schema scan | x prune stale | q quit".to_string();
     }

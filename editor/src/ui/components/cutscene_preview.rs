@@ -13,35 +13,36 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let mut lines = vec![
         Line::from("🎥 Cutscene Maker"),
         Line::from(""),
-        Line::from(format!("Source folder: {}", app.cutscene_source_dir)),
-        Line::from(format!("Output GIF: {}", app.cutscene_output_gif)),
+        Line::from(format!("Source folder: {}", app.cutscene.source_dir)),
+        Line::from(format!("Output GIF: {}", app.cutscene.output_gif)),
         Line::from(format!(
             "Default frame duration: {} ms",
-            app.cutscene_default_frame_ms
+            app.cutscene.default_frame_ms
         )),
         Line::from(""),
     ];
 
-    if let Some(err) = &app.cutscene_validation_error {
+    if let Some(err) = &app.cutscene.validation_error {
         lines.push(Line::from("Validation: INVALID"));
         lines.push(Line::from(format!("Reason: {err}")));
     } else {
         lines.push(Line::from("Validation: OK"));
         lines.push(Line::from(format!(
             "Detected chronological frames: {}",
-            app.cutscene_frames.len()
+            app.cutscene.frames.len()
         )));
     }
 
-    if !app.cutscene_missing_frames.is_empty() {
+    if !app.cutscene.missing_frames.is_empty() {
         let missing = app
-            .cutscene_missing_frames
+            .cutscene
+            .missing_frames
             .iter()
             .take(14)
             .map(u32::to_string)
             .collect::<Vec<_>>()
             .join(", ");
-        let suffix = if app.cutscene_missing_frames.len() > 14 {
+        let suffix = if app.cutscene.missing_frames.len() > 14 {
             ", ..."
         } else {
             ""
@@ -51,13 +52,13 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
 
     lines.push(Line::from(""));
     lines.push(Line::from("First frames:"));
-    if app.cutscene_frames.is_empty() {
+    if app.cutscene.frames.is_empty() {
         lines.push(Line::from("-"));
     } else {
-        for name in app.cutscene_frames.iter().take(12) {
+        for name in app.cutscene.frames.iter().take(12) {
             lines.push(Line::from(format!("  - {name}")));
         }
-        if app.cutscene_frames.len() > 12 {
+        if app.cutscene.frames.len() > 12 {
             lines.push(Line::from("  - ..."));
         }
     }
