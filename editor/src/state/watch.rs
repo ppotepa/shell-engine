@@ -39,25 +39,28 @@ impl AppState {
         self.index = build_project_index(&self.mod_source);
         self.scenes.scene_display_names =
             Self::build_scene_display_names(&self.mod_source, &self.index.scenes.scene_paths);
-        self.tree_items = self.build_tree_items();
+        self.explorer.items = self.build_tree_items();
         self.refresh_cutscene_source_folder();
 
         if let Some(item) = previous_tree_item {
             if let Some(pos) = self
-                .tree_items
+                .explorer
+                .items
                 .iter()
                 .position(|candidate| candidate == &item)
             {
-                self.tree_cursor = pos;
+                self.explorer.cursor = pos;
             } else {
-                self.tree_cursor = self
-                    .tree_cursor
-                    .min(self.tree_items.len().saturating_sub(1));
+                self.explorer.cursor = self
+                    .explorer
+                    .cursor
+                    .min(self.explorer.items.len().saturating_sub(1));
             }
         } else {
-            self.tree_cursor = self
-                .tree_cursor
-                .min(self.tree_items.len().saturating_sub(1));
+            self.explorer.cursor = self
+                .explorer
+                .cursor
+                .min(self.explorer.items.len().saturating_sub(1));
         }
 
         if let Some(scene_path) = previous_scene_path {

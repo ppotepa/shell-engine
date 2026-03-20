@@ -12,7 +12,8 @@ use crate::ui::theme;
 /// Renders the project tree as a navigable list with folder and file icons.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let items: Vec<ListItem> = app
-        .tree_items
+        .explorer
+        .items
         .iter()
         .enumerate()
         .map(|(idx, item)| {
@@ -50,7 +51,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
                 }
             };
 
-            if idx == app.tree_cursor {
+            if idx == app.explorer.cursor {
                 ListItem::new(format!("> {}", label)).style(theme::accent())
             } else {
                 ListItem::new(format!("  {}", label)).style(style)
