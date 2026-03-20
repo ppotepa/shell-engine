@@ -75,6 +75,17 @@ Run playground mod with debug helpers:
 SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app -- --debug-feature
 ```
 
+Run shell-quest with debug helpers:
+
+```bash
+cargo run -p app -- --debug-feature
+```
+
+Debug overlay keys (when `--debug-feature` is active):
+- **F1** — toggle Stats overlay (scene id, virtual size, last Rhai errors)
+- **~** / **`** — toggle Logs overlay (last N runtime log entries)
+- **F3 / F4** — prev/next scene
+
 Core tests:
 
 ```bash
@@ -92,6 +103,8 @@ cargo test -p engine-authoring
 - Keep stage progression stable for empty/0ms steps.
 - Reset per-frame behavior runtime state before behavior execution.
 - Keep compatibility with existing mod YAML structure.
+- **Rhai multiline strings: always use backtick templates** (`` `...` ``), never `"...\n..."`.
+- **ScriptError command** is emitted on Rhai compile/runtime failure — consumed by `behavior_system` into `DebugLogBuffer`.
 
 ## 5) Change playbook
 
@@ -116,6 +129,19 @@ When changing transitions/lifecycle:
 
 - verify scoped reset behavior,
 - verify scene loader reference resolution.
+
+When changing Rhai script API (scope variables, commands):
+
+- update `BehaviorContext` in `engine/src/behavior.rs`,
+- update scope push block in `RhaiScriptBehavior::update`,
+- update `scene-centric-authoring.md` section 13,
+- add regression test in `behavior::tests`.
+
+When adding new debug/diagnostic features:
+
+- push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut::<DebugLogBuffer>()`,
+- keep overlay render O(rows × cols),
+- do not read `run.log` from disk per frame.
 
 ## 6) Preferred working style
 

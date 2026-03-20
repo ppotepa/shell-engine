@@ -110,3 +110,43 @@ Scena używa `font: "generic:half"` i `ui.theme: terminal`; gdy motyw nie jest z
 Szczegółowy kontrakt YAML i renderingu:
 
 - `docs/terminal-hud-authoring.md`
+
+## 4) Raw key bridge (Rhai)
+
+Każdy tick przekazuje do Rhai scope zmienną `key` z domenowo-agnostycznym opisem ostatniego naciśnięcia klawisza:
+
+```rhai
+// key.pressed — bool, czy klawisz był wciśnięty w tej klatce
+// key.code    — string: "a".."z", "Enter", "Backspace", "Tab",
+//               "Esc", "Up", "Down", "Left", "Right",
+//               "Home", "End", "PageUp", "PageDown", "Delete",
+//               "F1".."F12"
+// key.ctrl    — bool
+// key.alt     — bool
+// key.shift   — bool
+
+if key.pressed && key.code == "Esc" {
+    // ...
+}
+if key.pressed && key.code == "j" && !key.ctrl {
+    // vim-style navigation
+}
+```
+
+Klucz jest czyszczony na początku każdego ticku (`reset_frame_state`). Tylko pierwsze naciśnięcie z ramki jest bridgowane.
+
+`terminal-shell` z `mode: scripted` może ignorować standardowe komendy powłoki i używać wyłącznie `ui.has_submit` + `key.*` do własnej obsługi wejścia.
+
+## 5) `terminal-shell` — tryb scripted
+
+Gdy `mode: scripted` jest ustawiony w `scene.yml`:
+
+```yaml
+input:
+  terminal-shell:
+    mode: scripted
+    prompt_sprite_id: hidden-prompt
+    ...
+```
+
+Silnik **nie** wykonuje wbudowanych komend. Skrypt Rhai jest jedynym procesorem inputu. Wzorzec użycia: dual-prompt (ukryty prawdziwy prompt + rysowany fake) jak w `05-intro-login`.
