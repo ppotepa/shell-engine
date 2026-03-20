@@ -3,6 +3,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use engine_core::logging;
+
 use crate::domain::asset_index::AssetIndex;
 use crate::input::commands::Command;
 use crate::io::fs_scan::{
@@ -15,6 +17,7 @@ use super::{now_millis, AppMode, AppState, DirBrowserItem, StartDialog};
 
 impl AppState {
     pub(super) fn open_project(&mut self, path: &str) {
+        logging::info("editor.project", format!("open requested: path={path}"));
         self.scene_run.world = None;
         self.scene_run.scene_path.clear();
         self.scene_run.scene_name.clear();
@@ -22,6 +25,13 @@ impl AppState {
         self.reset_scene_fullscreen_state();
         let validation = validate_project_dir(Path::new(path));
         if !validation.valid {
+            logging::warn(
+                "editor.project",
+                format!(
+                    "open rejected: path={} code={} message={}",
+                    path, validation.code, validation.message
+                ),
+            );
             self.mode = AppMode::Start;
             self.start_dialog = StartDialog::RecentMenu;
             self.status = format!("Cannot open project: {path}");
@@ -45,6 +55,16 @@ impl AppState {
         self.refresh_cutscene_source_folder();
         push_recent(&mut self.recent_projects, path);
         self.status = format!("Opened: {path} | Ctrl+W close project");
+        logging::info(
+            "editor.project",
+            format!(
+                "opened: path={} scenes={} images={} fonts={}",
+                path,
+                self.index.scenes.scene_paths.len(),
+                self.index.images.len(),
+                self.index.fonts.len()
+            ),
+        );
     }
 
     pub(super) fn prune_stale_recents(&mut self) {
@@ -56,9 +76,19 @@ impl AppState {
             .cursor
             .min(self.start_items().len().saturating_sub(1));
         self.status = format!("Removed {removed} stale recent entrie(s)");
+        logging::info(
+            "editor.project",
+            format!("pruned stale recents: removed={removed}"),
+        );
     }
 
     pub(super) fn close_project(&mut self) {
+        if !self.mod_source.is_empty() {
+            logging::info(
+                "editor.project",
+                format!("closing project: path={}", self.mod_source),
+            );
+        }
         self.mode = AppMode::Start;
         self.start_dialog = StartDialog::RecentMenu;
         self.mod_source.clear();
@@ -90,6 +120,7 @@ impl AppState {
         self.watch.stamp = 0;
         self.status =
             "Start: j/k move | Enter select | f schema scan | x prune stale | q quit".to_string();
+        logging::info("editor.project", "project closed");
     }
 
     fn open_schema_picker(&mut self) {

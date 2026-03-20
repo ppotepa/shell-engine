@@ -415,6 +415,21 @@ fn default_terminal_prompt_growth_ms() -> u64 {
     120
 }
 
+fn default_terminal_shell_mode() -> TerminalShellMode {
+    TerminalShellMode::Builtin
+}
+
+/// Terminal shell interaction mode.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum TerminalShellMode {
+    /// Built-in shell commands (help, clear, ls, pwd, echo, whoami) are executed by the engine.
+    #[default]
+    Builtin,
+    /// Shell commands are not executed; only UI events (submit/change) are emitted for script handling.
+    Scripted,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum TerminalShellOutput {
@@ -516,6 +531,9 @@ pub struct TerminalShellControls {
     /// Optional message shown for unknown commands.
     #[serde(default, rename = "unknown-message", alias = "unknown_message")]
     pub unknown_message: Option<String>,
+    /// Terminal shell interaction mode (builtin or scripted).
+    #[serde(default = "default_terminal_shell_mode")]
+    pub mode: TerminalShellMode,
 }
 
 /// Audio cue descriptor (design hook only; playback is external).

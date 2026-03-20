@@ -241,6 +241,7 @@ mod tests {
         world.register(DebugFeatures {
             enabled: false,
             overlay_visible: false,
+            overlay_mode: Default::default(),
         });
         assert!(should_capture_mouse(&world));
 
@@ -248,6 +249,7 @@ mod tests {
         world_debug.register(DebugFeatures {
             enabled: true,
             overlay_visible: true,
+            overlay_mode: Default::default(),
         });
         assert!(!should_capture_mouse(&world_debug));
     }

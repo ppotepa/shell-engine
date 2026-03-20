@@ -4,6 +4,7 @@ use std::path::Path;
 
 use crate::input::commands::Command;
 use engine::repositories::{create_scene_repository, SceneRepository};
+use engine_core::logging;
 
 use super::{focus::FocusPane, now_millis, AppState, SidebarItem};
 
@@ -44,6 +45,14 @@ impl AppState {
         self.sync_scene_preview_selection();
         self.scenes.scene_preview_started_at_ms = now_millis();
         self.status = self.scene_browser_status_message();
+        logging::info(
+            "editor.scenes",
+            format!(
+                "scenes browser active: scenes={} mod={}",
+                self.index.scenes.scene_paths.len(),
+                self.mod_source
+            ),
+        );
     }
 
     pub(super) fn scene_browser_status_message(&self) -> String {
@@ -108,6 +117,17 @@ impl AppState {
         self.sync_scene_preview_selection();
         self.scenes.scene_preview_started_at_ms = now_millis();
         self.status = self.scene_browser_status_message();
+        if let Some(name) = self.selected_scene_display_name() {
+            logging::debug(
+                "editor.scenes",
+                format!(
+                    "scene selection changed: index={} name={} path={}",
+                    self.scenes.scene_cursor,
+                    name,
+                    self.selected_scene_path().unwrap_or("<none>")
+                ),
+            );
+        }
     }
 
     pub(super) fn move_scene_layer_cursor(&mut self, delta: isize) {

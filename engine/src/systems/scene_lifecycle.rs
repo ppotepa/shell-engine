@@ -1,4 +1,4 @@
-use crate::debug_features::DebugFeatures;
+use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::events::EngineEvent;
 use crate::scene::{self, SceneRenderedMode};
 use crate::scene_runtime::SceneRuntime;
@@ -8,6 +8,7 @@ use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
 use crossterm::event::{KeyCode, KeyEvent};
 use crossterm::terminal::SetSize;
+use engine_core::logging;
 use std::io::stdout;
 
 pub struct SceneLifecycleManager;
@@ -129,19 +130,38 @@ impl SceneLifecycleManager {
 
     fn apply_transitions(world: &mut World, transitions: Vec<String>) -> bool {
         for to_scene_ref in transitions {
+            logging::info(
+                "engine.scene",
+                format!("transition requested: to={to_scene_ref}"),
+            );
             let Some(new_scene) = world
                 .scene_loader()
                 .and_then(|loader| loader.load_by_ref(&to_scene_ref).ok())
             else {
+                logging::warn(
+                    "engine.scene",
+                    format!("transition target could not be resolved: to={to_scene_ref}"),
+                );
                 continue;
             };
             if new_scene.id == PLAYGROUND_EXIT_ID {
+                logging::info("engine.scene", "received playground-exit transition");
                 return true;
             }
             Self::apply_virtual_size_override(world, &new_scene);
             world.clear_scoped();
             world.register_scoped(SceneRuntime::new(new_scene));
             world.register_scoped(Animator::new());
+            if let Some(runtime) = world.scene_runtime() {
+                logging::info(
+                    "engine.scene",
+                    format!(
+                        "transition applied: active_scene={} title={}",
+                        runtime.scene().id,
+                        runtime.scene().title
+                    ),
+                );
+            }
         }
         false
     }
@@ -285,7 +305,33 @@ fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
             KeyCode::F(1) => {
                 if let Some(debug) = world.get_mut::<DebugFeatures>() {
                     debug.overlay_visible = !debug.overlay_visible;
+                    debug.overlay_mode = DebugOverlayMode::Stats;
                     handled = true;
+                }
+            }
+            KeyCode::Char('~') | KeyCode::Char('`') => {
+                if let Some(debug) = world.get_mut::<DebugFeatures>() {
+                    match (debug.overlay_visible, debug.overlay_mode) {
+                        // Hidden → show Logs
+                        (false, _) => {
+                            debug.overlay_visible = true;
+                            debug.overlay_mode = DebugOverlayMode::Logs;
+                            logging::debug("engine.debug.input", "overlay toggled: hidden → Logs");
+                            handled = true;
+                        }
+                        // Visible + Logs → hide
+                        (true, DebugOverlayMode::Logs) => {
+                            debug.overlay_visible = false;
+                            logging::debug("engine.debug.input", "overlay toggled: Logs → hidden");
+                            handled = true;
+                        }
+                        // Visible + Stats → switch to Logs
+                        (true, DebugOverlayMode::Stats) => {
+                            debug.overlay_mode = DebugOverlayMode::Logs;
+                            logging::debug("engine.debug.input", "overlay mode switched: Stats → Logs");
+                            handled = true;
+                        }
+                    }
                 }
             }
             KeyCode::F(3) | KeyCode::F(4) => {
@@ -1101,6 +1147,7 @@ layers:
         world.register(DebugFeatures {
             enabled: true,
             overlay_visible: true,
+            overlay_mode: Default::default(),
         });
         world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", Some("scene-b"))));
         world.register_scoped(make_idle_animator());
@@ -1118,6 +1165,7 @@ layers:
         world.register(DebugFeatures {
             enabled: true,
             overlay_visible: true,
+            overlay_mode: Default::default(),
         });
         world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", None)));
         world.register_scoped(make_idle_animator());

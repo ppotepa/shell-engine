@@ -6,13 +6,34 @@ bg: black
 layers:
   - ref: main
 postfx:
-  - name: terminal-crt
+  - name: crt-underlay
     params:
-      intensity: 0.6
-      sphericality: 0.12
-      transparency: 0.1
-      brightness: 0.95
-      speed: 0.45
+      intensity: 2.30
+      alpha: 0.30
+      sphericality: 0.22
+      transparency: 0.58
+      brightness: 1.25
+      speed: 0.48
+  - name: crt-distort
+    params:
+      intensity: 0.20
+      distortion: 0.10
+      sphericality: 0.20
+      transparency: 0.20
+      brightness: 1.00
+      speed: 0.32
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.28
+      transparency: 0.28
+      brightness: 1.00
+      speed: 0.85
+  - name: crt-ruby
+    params:
+      intensity: 0.24
+      transparency: 0.22
+      brightness: 0.98
+      speed: 0.60
 logic:
   kind: script
   behavior: rhai-script

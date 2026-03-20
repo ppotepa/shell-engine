@@ -1,9 +1,9 @@
 let tick = if state.contains("tick") { state["tick"] } else { 0 };
 let next_tick = (tick + 1) % 120;
-let phase = (scene_elapsed_ms / 300) % 2;
+let phase = (time.scene_elapsed_ms / 300) % 2;
 scene.set("object-halo-a", "visible", phase == 0);
 scene.set("object-halo-b", "visible", phase == 1);
-scene.set("object-spark", "visible", (scene_elapsed_ms / 120) % 2 == 0);
+scene.set("object-spark", "visible", (time.scene_elapsed_ms / 120) % 2 == 0);
 scene.set("object-shadow-a", "visible", phase == 0);
 scene.set("object-shadow-b", "visible", phase == 1);
 

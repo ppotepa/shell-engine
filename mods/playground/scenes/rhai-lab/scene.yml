@@ -7,9 +7,13 @@ layers:
 stages-ref: /stages/anykey-loop-1200-fade-250-180.yml
 next: playground-menu
 menu-options:
-  - { key: "1", label: "RHAI TIME + BLINK/OFFSET", to: playground-rhai-time }
-  - { key: "2", label: "RHAI MENU FOCUS POINTER", to: playground-rhai-focus }
-  - { key: "3", label: "RHAI OBJECT PULSE", to: playground-rhai-object }
-  - { key: "4", label: "RHAI TEXT LAB", to: playground-rhai-text-lab }
-  - { key: "5", label: "RHAI IMAGE LAB (TUX)", to: playground-rhai-image-lab }
-  - { key: "0", label: "BACK TO PLAYGROUND MENU", to: playground-menu }
+  - { key: "1", label: "[1]RHAI TIME + BLINK/OFFSET", to: playground-rhai-time }
+  - { key: "2", label: "[2]RHAI MENU FOCUS POINTER", to: playground-rhai-focus }
+  - { key: "3", label: "[3]RHAI OBJECT PULSE", to: playground-rhai-object }
+  - { key: "4", label: "[4]RHAI TEXT LAB", to: playground-rhai-text-lab }
+  - {
+      key: "5",
+      label: "[5]RHAI IMAGE LAB (TUX)",
+      to: playground-rhai-image-lab,
+    }
+  - { key: "0", label: "[0]BACK TO PLAYGROUND MENU", to: playground-menu }

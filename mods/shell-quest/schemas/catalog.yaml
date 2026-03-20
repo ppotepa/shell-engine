@@ -50,8 +50,12 @@ $defs:
     - blur
     - brighten
     - clear-to-colour
+    - crt-distort
     - crt-on
     - crt-reflection
+    - crt-ruby
+    - crt-scan-glitch
+    - crt-underlay
     - cutout
     - devour-out
     - fade-in

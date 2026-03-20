@@ -16,16 +16,15 @@ fn wrapped_distance(index, selected, total) {
     best
 }
 
-let commands = [];
 let target = "menu-grid";
 let item_prefix = "menu-item-";
 let window = 5;
 let step_y = 2;
 let endless = true;
-let count = menu_count;
+let count = menu.count;
 
 if !regions.contains(target) {
-    return commands;
+    return ();
 }
 
 let target_region = regions[target];
@@ -35,15 +34,15 @@ let half_window = (window - 1) / 2;
 for idx in 0..count {
     let alias = `${item_prefix}${idx}`;
     let relative = if endless {
-        wrapped_distance(idx, selected_index, count)
+        wrapped_distance(idx, menu.selected_index, count)
     } else {
-        idx - selected_index
+        idx - menu.selected_index
     };
     if abs_i(relative) > half_window {
-        commands.push(#{ op: "visibility", target: alias, visible: false });
+        scene.set(alias, "visible", false);
         continue;
     }
-    commands.push(#{ op: "visibility", target: alias, visible: true });
+    scene.set(alias, "visible", true);
     if !regions.contains(alias) {
         continue;
     }
@@ -53,7 +52,6 @@ for idx in 0..count {
     let effective_step = if step_y > min_step { step_y } else { min_step };
     let desired_y = center_y + relative * effective_step;
     let dy = desired_y - item_region["y"];
-    commands.push(#{ op: "offset", target: alias, dx: 0, dy: dy });
+    scene.set(alias, "offset.x", 0);
+    scene.set(alias, "offset.y", dy);
 }
-
-commands

@@ -110,6 +110,62 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: crt-distort
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Global warp intensity.
+            distortion:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Primary UV distortion strength.
+            sphericality:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Cylindrical curve amount.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: CRT bezel margin size.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Post-warp brightness multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Geometry wobble speed.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-distort effect variant
+    - description: crt-distort overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: crt-on
         params:
           type: object
@@ -164,6 +220,150 @@ items:
               description: Progress curve applied to the effect.
       title: crt-reflection effect variant
     - description: crt-reflection overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: crt-ruby
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Ruby tint and reveal strength.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Reveal band width.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall brightness multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Reveal sweep tempo.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-ruby effect variant
+    - description: crt-ruby overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: crt-scan-glitch
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Shift and chroma strength.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Scanline band thickness.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Active band brightness boost.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Band trigger frequency.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-scan-glitch effect variant
+    - description: crt-scan-glitch overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: crt-underlay
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall glow strength.
+            alpha:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Underlay blend opacity.
+            sphericality:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Glow offset bias.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Glow spread / blur amount.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Glow luminance multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Temporal shimmer speed.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-underlay effect variant
+    - description: crt-underlay overlay from playground generated metadata
   - allOf:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
@@ -837,6 +1037,56 @@ items:
               description: Progress curve applied to the effect.
       title: shine effect variant
     - description: shine overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: terminal-crt
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall CRT strength (scanlines + vignette).
+            sphericality:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Glass curvature warp strength.
+            transparency:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Phosphor noise/grain amount.
+            brightness:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Final brightness multiplier.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Temporal speed of subtle CRT flicker/noise.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: terminal-crt effect variant
+    - description: terminal-crt overlay from playground generated metadata
   - allOf:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:

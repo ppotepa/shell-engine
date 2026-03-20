@@ -17,6 +17,10 @@ properties:
       - brighten: Brightens pixels toward white by intensity over duration.
       - clear-to-colour: Clears region to a target terminal colour.
       - crt-on: CRT startup sweep with phosphor-like reveal.
+      - crt-underlay: PostFX: soft phosphor underlay glow beneath scene content.
+      - crt-distort: PostFX: tube-like cylindrical distortion with CRT margins.
+      - crt-scan-glitch: PostFX: sporadic scanline sweep with right-shift chromatic glitch.
+      - crt-ruby: PostFX: ruby tint, edge reveal sweep and center darkening.
       - cutout: Post-raster cutout look with smoothing, posterization, edge accents, and saturation shaping.
       - crt-reflection: Curved CRT glass reflection warp for bitmap sprites.
       - devour-out: Pixel dropout and corruption spreading across the frame.
@@ -46,6 +50,10 @@ properties:
     - brighten
     - clear-to-colour
     - crt-on
+    - crt-underlay
+    - crt-distort
+    - crt-scan-glitch
+    - crt-ruby
     - cutout
     - crt-reflection
     - devour-out

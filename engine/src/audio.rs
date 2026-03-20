@@ -1,5 +1,6 @@
 //! Audio command queue and backend abstraction used by the engine's audio system.
 
+use engine_core::logging;
 use serde::Serialize;
 use std::env;
 use std::io::{self, BufWriter, Write};
@@ -46,7 +47,10 @@ impl StdIoSoundBackend {
 
     fn log_once(&self, message: &str) {
         if !self.failed.swap(true, Ordering::Relaxed) {
-            eprintln!("[audio] {message}");
+            logging::warn("engine.audio", message);
+            if !logging::is_enabled() {
+                eprintln!("[audio] {message}");
+            }
         }
     }
 }
@@ -168,8 +172,8 @@ impl AudioRuntime {
     ///   If command is present, backend is considered enabled even when `SHELL_QUEST_SOUND_SERVER`
     ///   is missing.
     pub fn from_env() -> Self {
-        let enabled =
-            env_flag("SHELL_QUEST_SOUND_SERVER") || env::var("SHELL_QUEST_SOUND_SERVER_CMD").is_ok();
+        let enabled = env_flag("SHELL_QUEST_SOUND_SERVER")
+            || env::var("SHELL_QUEST_SOUND_SERVER_CMD").is_ok();
         let command = env::var("SHELL_QUEST_SOUND_SERVER_CMD").ok();
         Self::from_options(enabled, command)
     }
@@ -181,11 +185,25 @@ impl AudioRuntime {
         }
         let command = command.unwrap_or_else(|| "cargo run -p sound-server --quiet --".to_string());
         match StdIoSoundBackend::spawn(command.clone()) {
-            Ok(backend) => Self::with_backend(Box::new(backend)),
-            Err(error) => {
-                eprintln!(
-                    "[audio] failed to spawn sound-server with command '{command}': {error}; continuing with null audio"
+            Ok(backend) => {
+                logging::info(
+                    "engine.audio",
+                    format!("external sound-server backend enabled: command='{command}'"),
                 );
+                Self::with_backend(Box::new(backend))
+            }
+            Err(error) => {
+                logging::warn(
+                    "engine.audio",
+                    format!(
+                        "failed to spawn sound-server with command '{command}': {error}; using null audio backend"
+                    ),
+                );
+                if !logging::is_enabled() {
+                    eprintln!(
+                        "[audio] failed to spawn sound-server with command '{command}': {error}; continuing with null audio"
+                    );
+                }
                 Self::null()
             }
         }
