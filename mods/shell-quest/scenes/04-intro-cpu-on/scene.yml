@@ -5,13 +5,17 @@ cutscene: true
 bg: black
 layers:
   - ref: main
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./scene.rhai
 audio:
   on_enter:
-    - { at_ms: 4600, cue: beep, volume: 1.0 }
+    - { at_ms: 3100, cue: beep, volume: 0.9 }
 stages:
   on_enter:
     steps:
-      - { pause: 19000ms }
+      - { pause: 17000ms }
   on_idle:
     trigger: timeout
     steps: [{ pause: 1ms }]
