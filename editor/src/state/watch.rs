@@ -96,15 +96,15 @@ impl AppState {
     }
 
     fn reload_open_file_after_fs_change(&mut self) -> bool {
-        let Some(path) = self.editing_file.clone() else {
+        let Some(path) = self.editor.file.clone() else {
             return false;
         };
 
         let full_path = Path::new(&self.mod_source).join(&path);
         match fs::read_to_string(&full_path) {
             Ok(content) => {
-                let changed = self.edit_content != content;
-                self.edit_content = content;
+                let changed = self.editor.content != content;
+                self.editor.content = content;
                 changed
             }
             Err(_) => {
@@ -112,8 +112,8 @@ impl AppState {
                     "File is no longer available on disk:\n{}\n\nClose the editor pane or restore the file.",
                     full_path.display()
                 );
-                let changed = self.edit_content != missing_notice;
-                self.edit_content = missing_notice;
+                let changed = self.editor.content != missing_notice;
+                self.editor.content = missing_notice;
                 changed
             }
         }

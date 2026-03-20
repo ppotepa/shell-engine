@@ -159,6 +159,15 @@ pub struct EffectsBrowserState {
     pub effects_code_tab: EffectsCodeTab,
 }
 
+/// State owned by the start screen.
+#[derive(Debug, Clone)]
+pub struct StartScreenState {
+    pub focus: StartFocus,
+    pub recent_cursor: usize,
+    pub action_cursor: usize,
+    pub cursor: usize,
+}
+
 /// State owned by the Scenes Browser feature.
 #[derive(Debug, Clone)]
 pub struct SceneBrowserState {
@@ -192,6 +201,13 @@ pub struct ProjectWatchState {
     pub stamp: u64,
 }
 
+/// State owned by the edit pane.
+#[derive(Debug, Clone)]
+pub struct EditorPaneState {
+    pub file: Option<String>,
+    pub content: String,
+}
+
 /// Complete runtime state for the editor application.
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -203,10 +219,7 @@ pub struct AppState {
     pub index: AssetIndex,
     pub status: String,
     pub recent_projects: Vec<String>,
-    pub start_focus: StartFocus,
-    pub recent_cursor: usize,
-    pub action_cursor: usize,
-    pub start_cursor: usize,
+    pub start: StartScreenState,
     pub schema_candidates: Vec<String>,
     pub schema_cursor: usize,
     pub dir_browser_path: String,
@@ -222,8 +235,7 @@ pub struct AppState {
     pub dir_preview_started_at_ms: u64,
     pub tree_cursor: usize,
     pub tree_items: Vec<TreeItem>,
-    pub editing_file: Option<String>,
-    pub edit_content: String,
+    pub editor: EditorPaneState,
     pub sidebar_active: SidebarItem,
     pub sidebar_visible: bool,
     pub effects: EffectsBrowserState,
@@ -254,10 +266,12 @@ impl AppState {
             status: "Start: j/k move | Enter select | f schema scan | x prune stale | q quit"
                 .to_string(),
             recent_projects,
-            start_focus: StartFocus::Recents,
-            recent_cursor: 0,
-            action_cursor: 0,
-            start_cursor: 0,
+            start: StartScreenState {
+                focus: StartFocus::Recents,
+                recent_cursor: 0,
+                action_cursor: 0,
+                cursor: 0,
+            },
             schema_candidates: Vec::new(),
             schema_cursor: 0,
             dir_browser_path: ".".to_string(),
@@ -273,8 +287,10 @@ impl AppState {
             dir_preview_started_at_ms: 0,
             tree_cursor: 0,
             tree_items: Vec::new(),
-            editing_file: None,
-            edit_content: String::new(),
+            editor: EditorPaneState {
+                file: None,
+                content: String::new(),
+            },
             sidebar_active: SidebarItem::Explorer,
             sidebar_visible: true,
             effects: EffectsBrowserState {
@@ -464,7 +480,8 @@ impl AppState {
                 },
             },
             AppMode::EditMode => self
-                .editing_file
+                .editor
+                .file
                 .as_ref()
                 .map(|path| format!("Edit Mode / {path}"))
                 .unwrap_or_else(|| "Edit Mode / File Editor".to_string()),
@@ -1196,8 +1213,9 @@ impl AppState {
         let before = self.recent_projects.len();
         self.recent_projects.retain(|path| Path::new(path).exists());
         let removed = before.saturating_sub(self.recent_projects.len());
-        self.start_cursor = self
-            .start_cursor
+        self.start.cursor = self
+            .start
+            .cursor
             .min(self.start_items().len().saturating_sub(1));
         self.status = format!("Removed {removed} stale recent entrie(s)");
     }
@@ -1207,7 +1225,7 @@ impl AppState {
         self.start_dialog = StartDialog::RecentMenu;
         self.mod_source.clear();
         self.index = AssetIndex::default();
-        self.start_cursor = 0;
+        self.start.cursor = 0;
         self.schema_cursor = 0;
         self.dir_cursor = 0;
         self.dir_preview_path.clear();
@@ -1383,32 +1401,32 @@ impl AppState {
         match cmd {
             Command::Quit => return true,
             Command::NextPane => {
-                self.start_focus = match self.start_focus {
+                self.start.focus = match self.start.focus {
                     StartFocus::Recents => StartFocus::Actions,
                     StartFocus::Actions => StartFocus::Recents,
                 };
             }
             Command::PrevPane => {
-                self.start_focus = match self.start_focus {
+                self.start.focus = match self.start.focus {
                     StartFocus::Recents => StartFocus::Actions,
                     StartFocus::Actions => StartFocus::Recents,
                 };
             }
-            Command::Up => match self.start_focus {
+            Command::Up => match self.start.focus {
                 StartFocus::Recents => {
-                    self.recent_cursor = self.recent_cursor.saturating_sub(1);
+                    self.start.recent_cursor = self.start.recent_cursor.saturating_sub(1);
                 }
                 StartFocus::Actions => {
-                    self.action_cursor = self.action_cursor.saturating_sub(1);
+                    self.start.action_cursor = self.start.action_cursor.saturating_sub(1);
                 }
             },
-            Command::Down => match self.start_focus {
+            Command::Down => match self.start.focus {
                 StartFocus::Recents => {
                     let max = self.recent_projects.len().saturating_sub(1);
-                    self.recent_cursor = (self.recent_cursor + 1).min(max);
+                    self.start.recent_cursor = (self.start.recent_cursor + 1).min(max);
                 }
                 StartFocus::Actions => {
-                    self.action_cursor = (self.action_cursor + 1).min(3); // 4 actions (0-3)
+                    self.start.action_cursor = (self.start.action_cursor + 1).min(3); // 4 actions (0-3)
                 }
             },
             Command::OpenProject => {
@@ -1417,13 +1435,13 @@ impl AppState {
             }
             Command::PruneRecents => self.prune_stale_recents(),
             Command::OpenSchemaPicker => self.open_schema_picker(),
-            Command::Enter => match self.start_focus {
+            Command::Enter => match self.start.focus {
                 StartFocus::Recents => {
-                    if let Some(path) = self.recent_projects.get(self.recent_cursor).cloned() {
+                    if let Some(path) = self.recent_projects.get(self.start.recent_cursor).cloned() {
                         self.open_project(&path);
                     }
                 }
-                StartFocus::Actions => match self.action_cursor {
+                StartFocus::Actions => match self.start.action_cursor {
                     0 => {
                         // Open Project
                         let path = self.launch_mod_source.clone();
@@ -1869,8 +1887,8 @@ impl AppState {
                 let full_path = Path::new(&self.mod_source).join(&path);
                 match fs::read_to_string(&full_path) {
                     Ok(content) => {
-                        self.editing_file = Some(path.clone());
-                        self.edit_content = content;
+                        self.editor.file = Some(path.clone());
+                        self.editor.content = content;
                         self.mode = AppMode::EditMode;
                         self.status = format!("Editing: {} | ESC to exit", path);
                     }
@@ -1884,8 +1902,8 @@ impl AppState {
 
     fn exit_edit_mode(&mut self) {
         self.mode = AppMode::Browser;
-        self.editing_file = None;
-        self.edit_content.clear();
+        self.editor.file = None;
+        self.editor.content.clear();
         self.status =
             "Browser: j/k navigate | Enter edit | Tab switch pane | Ctrl+W close | q quit"
                 .to_string();

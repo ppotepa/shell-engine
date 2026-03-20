@@ -72,7 +72,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
         .split(body);
 
     // Left column: Recents
-    let recents_focused = matches!(app.start_focus, StartFocus::Recents);
+    let recents_focused = matches!(app.start.focus, StartFocus::Recents);
     let recents_items: Vec<ListItem> = if app.recent_projects.is_empty() {
         vec![ListItem::new("  No recent projects").style(theme::fg_disabled())]
     } else {
@@ -81,7 +81,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
             .enumerate()
             .map(|(idx, path)| {
                 let (_, valid) = app.recent_project_status(idx);
-                let selected = recents_focused && idx == app.recent_cursor;
+                let selected = recents_focused && idx == app.start.recent_cursor;
                 if selected && valid {
                     ListItem::new(format!("> {}", path)).style(theme::accent())
                 } else if !valid {
@@ -114,7 +114,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
     );
 
     // Right column: Actions
-    let actions_focused = matches!(app.start_focus, StartFocus::Actions);
+    let actions_focused = matches!(app.start.focus, StartFocus::Actions);
     let actions = [
         ("Open Project…", true),
         ("Find Schema YML…", true),
@@ -125,7 +125,7 @@ fn render_recent_menu(frame: &mut Frame, header: Rect, body: Rect, footer: Rect,
         .iter()
         .enumerate()
         .map(|(idx, (label, enabled))| {
-            let selected = actions_focused && idx == app.action_cursor;
+            let selected = actions_focused && idx == app.start.action_cursor;
             if selected && *enabled {
                 ListItem::new(format!("> {}", label)).style(theme::accent())
             } else if !enabled {
