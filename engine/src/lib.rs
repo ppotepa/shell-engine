@@ -164,7 +164,12 @@ impl ShellEngine {
         let mut renderer = TerminalRenderer::new()?;
         renderer.reset_console()?;
         renderer.clear_black()?;
-        splash::show_splash();
+        let splash_bg = scene
+            .bg_colour
+            .as_ref()
+            .map(crossterm::style::Color::from)
+            .unwrap_or(crossterm::style::Color::Black);
+        splash::show_splash(splash_bg);
         world.register(renderer);
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
