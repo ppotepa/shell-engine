@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-terminal-shell-scripted
+title: Playground Terminal Shell (Scripted Mode)
+bg: "#202020"
+ui:
+  enabled: true
+  persist: scene
+  theme: terminal
+  focus-order:
+    - ui-terminal-prompt
+layers:
+  - ref: bg
+  - ref: windows
+input:
+  terminal-shell:
+    mode: scripted
+    prompt_sprite_id: ui-terminal-prompt
+    output_sprite_id: ui-terminal-output
+    prompt_panel_id: ui-terminal-input-window
+    prompt_prefix: ">"
+    prompt_wrap: true
+    prompt_auto_grow: true
+    prompt_min_lines: 1
+    prompt_max_lines: 3
+    prompt_growth_ms: 140
+    max_lines: 260
+    banner:
+      - "ShellQuest OS v0.1.0 — Scripted Mode Demo"
+      - "Type 'help' for available commands"
+      - ""
+stages-ref: /stages/anykey-loop-1200-fade-250-180.yml
+behaviors:
+  - name: rhai
+    script: ./terminal-shell-scripted.rhai
+next: playground-menu

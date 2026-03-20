@@ -1,5 +1,13 @@
 //! Runtime debug feature toggles that can be enabled independently from build profile.
 
+/// Debug overlay display mode.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DebugOverlayMode {
+    #[default]
+    Stats,
+    Logs,
+}
+
 /// Debug feature flags and transient UI state.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DebugFeatures {
@@ -7,6 +15,8 @@ pub struct DebugFeatures {
     pub enabled: bool,
     /// Whether the debug overlay is currently visible.
     pub overlay_visible: bool,
+    /// Current overlay display mode.
+    pub overlay_mode: DebugOverlayMode,
 }
 
 impl DebugFeatures {
@@ -15,6 +25,7 @@ impl DebugFeatures {
         Self {
             enabled,
             overlay_visible: enabled,
+            overlay_mode: DebugOverlayMode::default(),
         }
     }
 

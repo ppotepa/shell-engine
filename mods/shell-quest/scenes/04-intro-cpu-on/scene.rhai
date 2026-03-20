@@ -1,4 +1,4 @@
-let t = scene_elapsed_ms;
+let t = time.scene_elapsed_ms;
 let text = " ";
 
 // 1) BIOS + TUX screen
@@ -10,7 +10,7 @@ Copyright (C) 1990, TUX Software, Inc.
 `;
 
     if t >= 2500 {
-        text += `CPU: 386SX Compatible @ 20MHz
+        text += `CPU: 386QX Compatible @ 20MHz
 `;
     }
 
@@ -42,7 +42,7 @@ Copyright (C) 1990, TUX Software, Inc.
 `;
     }
     if t >= 5600 {
-        text += `HARD DRIVE 0: SEAGATE ST225 20MB
+        text += `HARD DRIVE 0: SETAGE ST225 20MB
 `;
     }
 
@@ -62,7 +62,7 @@ Copyright (C) 1990, TUX Software, Inc.
  Data Integrity   : ECC
 
  Diskette Drive A : 1.44MB 3.5in
- Pri. Master Disk : SEAGATE ST225 20MB
+ Pri. Master Disk : SETAGE ST225 20MB
  Sec. Master Disk : CD-ROM (none)
 
  PCI/ISA device listing...
@@ -77,7 +77,8 @@ Copyright (C) 1990, TUX Software, Inc.
 
 // 4) Fast boot sequence (8s), no clear — scroll up
 } else if t >= 8200 && t < 16200 {
-    let p = t - 8200;
+    // Freeze last visible frame for 0.5s (15700..16200)
+    let p = if t < 15700 { t - 8200 } else { 7500 };
     let lines = [];
 
     if p >= 0    { lines.push("Starting from hard disk"); }
@@ -91,21 +92,25 @@ Copyright (C) 1990, TUX Software, Inc.
     if p >= 2700 { lines.push("RAM disk: disabled"); }
     if p >= 3000 { lines.push("Booting MINIX..."); }
     if p >= 3250 { lines.push("286/386 protected mode enabled"); }
-    if p >= 3450 { lines.push("Kernel size: 109 KB"); }
+    if p >= 3450 { lines.push("Kernel size: [white]109 KB[/]"); }
     if p >= 3700 { lines.push("Initializing kernel subsystems"); }
     if p >= 3750 { lines.push("... interrupt vectors: OK"); }
     if p >= 3800 { lines.push("... trap handlers: OK"); }
     if p >= 3850 { lines.push("... memory manager: OK"); }
-    if p >= 4000 { lines.push("... tty drivers: OK"); }
-    if p >= 4200 { lines.push("... block devices: OK"); }
+    if p >= 3850 { lines.push(""); }
+    if p >= 4000 { lines.push("[white]... tty drivers: OK[/]"); }
+    if p >= 4050 { lines.push("[white]... tty0 initialized[/]"); }
+    if p >= 4150 { lines.push("[white]... tty1 initialized[/]"); }
+    if p >= 4150 { lines.push(""); }
+    if p >= 4250 { lines.push("... block devices: OK"); }
     if p >= 5200 { lines.push("Mounting root file system... OK"); }
     if p >= 5600 { lines.push("[yellow]Warning: CMOS time appears invalid[/]"); }
     if p >= 6200 { lines.push("Starting init process"); }
     if p >= 6400 { lines.push("... /etc/rc"); }
     if p >= 6600 { lines.push("... update daemon"); }
     if p >= 6900 { lines.push("... clock task sync"); }
-    if p >= 7200 { lines.push("Console ready"); }
-    if p >= 7600 { lines.push("[white]login: _[/]"); }
+    if p >= 6900 { lines.push(""); }
+    if p >= 7200 { lines.push("... starting login processes"); }
 
     let max_lines = 14;
     let total = 0;
@@ -122,6 +127,9 @@ Copyright (C) 1990, TUX Software, Inc.
         }
         idx += 1;
     }
+} else if t >= 16200 && t < 16700 {
+    // Short black gap before intro-login scene.
+    text = " ";
 }
 
 scene.set("bios-block", "text.content", text);

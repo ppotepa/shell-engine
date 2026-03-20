@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use engine::scene::Scene;
+use engine_core::logging;
 
 use crate::domain::asset_index::AssetIndex;
 use crate::domain::effect_params;
@@ -729,17 +730,62 @@ impl AppState {
 
     /// Applies the given command for the current mode; returns `true` if the app should quit.
     pub fn apply_command(&mut self, cmd: Command) -> bool {
+        let mode_before = self.mode;
+        let sidebar_before = self.sidebar.active;
+        let focus_before = self.focus;
+        logging::debug(
+            "editor.command",
+            format!(
+                "dispatch: mode={:?} sidebar={:?} focus={:?} cmd={:?}",
+                mode_before, sidebar_before, focus_before, cmd
+            ),
+        );
+
         if matches!(cmd, Command::ToggleHelp) {
             self.help_overlay_active = !self.help_overlay_active;
+            logging::info(
+                "editor.state",
+                format!("help overlay toggled: active={}", self.help_overlay_active),
+            );
             return false;
         }
 
-        match self.mode {
+        let should_quit = match self.mode {
             AppMode::Start => self.apply_start_command(cmd),
             AppMode::Browser => self.apply_browser_command(cmd),
             AppMode::EditMode => self.apply_edit_command(cmd),
             AppMode::SceneRun => self.handle_scene_run_command(cmd),
+        };
+
+        if should_quit {
+            logging::info(
+                "editor.state",
+                format!("quit requested by command={cmd:?} in mode={mode_before:?}"),
+            );
         }
+        if self.mode != mode_before {
+            logging::info(
+                "editor.state",
+                format!("mode changed: {:?} -> {:?}", mode_before, self.mode),
+            );
+        }
+        if self.sidebar.active != sidebar_before {
+            logging::info(
+                "editor.state",
+                format!(
+                    "sidebar changed: {:?} -> {:?}",
+                    sidebar_before, self.sidebar.active
+                ),
+            );
+        }
+        if self.focus != focus_before {
+            logging::debug(
+                "editor.state",
+                format!("focus changed: {:?} -> {:?}", focus_before, self.focus),
+            );
+        }
+
+        should_quit
     }
 
     fn apply_start_command(&mut self, cmd: Command) -> bool {

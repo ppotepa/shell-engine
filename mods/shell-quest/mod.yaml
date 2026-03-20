@@ -6,8 +6,8 @@ terminal:
   # Hard minimum terminal capabilities required before startup.
   # These values gate startup only; they do not scale or stretch the scene.
   min_colours: 256
-  min_width: 237
-  min_height: 65
+  min_width: 120
+  min_height: 30
 
   # Active runtime profile (STANDARD):
   # - scenes run in default rendered-mode "cell"

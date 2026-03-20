@@ -12,6 +12,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
+use engine_core::logging;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
@@ -23,6 +24,10 @@ use crate::ui;
 
 /// Initialises the terminal, runs the editor event loop, and restores the terminal on exit.
 pub fn run(cli: Cli) -> Result<()> {
+    logging::info(
+        "editor.app",
+        format!("starting editor loop: launch_mod_source={}", cli.mod_source),
+    );
     let mut stdout = io::stdout();
     enable_raw_mode()?;
     stdout.execute(EnterAlternateScreen)?;
@@ -36,6 +41,10 @@ pub fn run(cli: Cli) -> Result<()> {
 
     let recent = load_recent();
     let mut app = AppState::new(cli.mod_source, recent);
+    logging::debug(
+        "editor.app",
+        format!("recent projects loaded: {}", app.recent_projects.len()),
+    );
     let mut last_tick = std::time::Instant::now();
 
     loop {
@@ -94,6 +103,7 @@ pub fn run(cli: Cli) -> Result<()> {
             }
         }
         if should_quit {
+            logging::info("editor.app", "quit requested from event loop");
             break;
         }
 
@@ -111,5 +121,12 @@ pub fn run(cli: Cli) -> Result<()> {
     terminal.backend_mut().execute(LeaveAlternateScreen)?;
     terminal.show_cursor()?;
     save_recent(&app.recent_projects);
+    logging::info(
+        "editor.app",
+        format!(
+            "editor loop stopped; recent projects saved: {}",
+            app.recent_projects.len()
+        ),
+    );
     Ok(())
 }

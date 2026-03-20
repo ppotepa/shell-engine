@@ -19,6 +19,7 @@ use engine::systems::compositor::compositor_system;
 use engine::systems::postfx::postfx_system;
 use engine::systems::scene_lifecycle::SceneLifecycleManager;
 use engine::world::World;
+use engine_core::logging;
 
 use crate::input::commands::Command;
 
@@ -37,13 +38,22 @@ impl AppState {
         if self.sidebar.active != SidebarItem::Scenes {
             return;
         }
+        logging::info(
+            "editor.scene-run",
+            format!(
+                "start requested: kind={:?} mod={} cursor={}",
+                kind, self.mod_source, self.scenes.scene_cursor
+            ),
+        );
         if self.mod_source.is_empty() {
             self.status = "Scene Run: open a mod project first".to_string();
+            logging::warn("editor.scene-run", "start rejected: no open mod project");
             return;
         }
 
         let Some(scene_path) = self.selected_scene_path().map(str::to_string) else {
             self.status = "Scene Run: no scene selected".to_string();
+            logging::warn("editor.scene-run", "start rejected: no selected scene");
             return;
         };
         let scene_ref = self.normalize_scene_ref_path(&scene_path);
@@ -57,6 +67,10 @@ impl AppState {
             Ok(scene) => scene,
             Err(err) => {
                 self.status = format!("Scene Run: cannot load scene ({err})");
+                logging::error(
+                    "editor.scene-run",
+                    format!("failed to load scene for run: ref={scene_ref} error={err}"),
+                );
                 return;
             }
         };
@@ -90,9 +104,23 @@ impl AppState {
             "{mode_label}: {} | mod={} | path={} | Esc back",
             self.scene_run.scene_name, self.mod_source, self.scene_run.scene_path
         );
+        logging::info(
+            "editor.scene-run",
+            format!(
+                "started: kind={:?} scene={} path={} mod={}",
+                kind, self.scene_run.scene_name, self.scene_run.scene_path, self.mod_source
+            ),
+        );
     }
 
     pub(super) fn stop_scene_run(&mut self) {
+        logging::info(
+            "editor.scene-run",
+            format!(
+                "stopping run: kind={:?} scene={} path={}",
+                self.scene_run.kind, self.scene_run.scene_name, self.scene_run.scene_path
+            ),
+        );
         self.scene_run.world = None;
         self.scene_run.last_tick_ms = 0;
         self.scene_run.kind = SceneRunKind::Soft;
@@ -216,9 +244,17 @@ impl AppState {
 
     fn apply_scene_run_transitions(&mut self, world: &mut World, transitions: Vec<String>) {
         for to_scene_ref in transitions {
+            logging::debug(
+                "editor.scene-run",
+                format!("hard-run transition requested: to={to_scene_ref}"),
+            );
             let Some((scene, scene_ref, scene_name, scene_index)) =
                 self.resolve_scene_transition(&to_scene_ref)
             else {
+                logging::warn(
+                    "editor.scene-run",
+                    format!("hard-run transition unresolved: to={to_scene_ref}"),
+                );
                 continue;
             };
             world.clear_scoped();
@@ -231,6 +267,13 @@ impl AppState {
             }
             self.scene_run.scene_path = scene_ref;
             self.scene_run.scene_name = scene_name;
+            logging::info(
+                "editor.scene-run",
+                format!(
+                    "hard-run transition applied: scene={} path={}",
+                    self.scene_run.scene_name, self.scene_run.scene_path
+                ),
+            );
         }
     }
 

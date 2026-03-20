@@ -1,8 +1,5 @@
-let commands = [];
-let phase = (scene_elapsed_ms / 350) % 3;
-commands.push(#{ op: "visibility", target: "time-pulse-a", visible: phase == 0 });
-commands.push(#{ op: "visibility", target: "time-pulse-b", visible: phase == 1 });
-commands.push(#{ op: "visibility", target: "time-pulse-c", visible: phase == 2 });
-commands.push(#{ op: "visibility", target: "time-flash", visible: ((scene_elapsed_ms / 250) % 2) == 0 });
-
-commands
+let phase = (time.scene_elapsed_ms / 350) % 3;
+scene.set("time-pulse-a", "visible", phase == 0);
+scene.set("time-pulse-b", "visible", phase == 1);
+scene.set("time-pulse-c", "visible", phase == 2);
+scene.set("time-flash", "visible", ((time.scene_elapsed_ms / 250) % 2) == 0);

@@ -11,19 +11,41 @@ ui:
 layers:
   - ref: main
 postfx:
-  - name: terminal-crt
+  - name: crt-underlay
     params:
-      intensity: 0.5
-      sphericality: 0.1
-      transparency: 0.08
-      brightness: 0.95
-      speed: 0.35
+      intensity: 1.15
+      alpha: 0.30
+      sphericality: 0.18
+      transparency: 0.52
+      brightness: 1.18
+      speed: 0.45
+  - name: crt-distort
+    params:
+      intensity: 0.18
+      distortion: 0.10
+      sphericality: 0.18
+      transparency: 0.18
+      brightness: 1.00
+      speed: 0.30
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.22
+      transparency: 0.24
+      brightness: 1.00
+      speed: 0.75
+  - name: crt-ruby
+    params:
+      intensity: 0.20
+      transparency: 0.20
+      brightness: 0.98
+      speed: 0.55
 logic:
   kind: script
   behavior: rhai-script
   src: ./scene.rhai
 input:
   terminal-shell:
+    mode: scripted
     prompt_sprite_id: login-hidden-prompt
     output_sprite_id: login-hidden-output
     prompt_prefix: ""

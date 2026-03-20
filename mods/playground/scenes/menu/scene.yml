@@ -26,9 +26,18 @@ menu-options:
   - { key: "2", label: STOP ANIMATION, to: playground-stop-animation }
   - { key: "3", label: DECORATION SHOWCASE, to: playground-decoration-showcase }
   - { key: "4", label: TERMINAL SIZE TEST, to: playground-terminal-size-test }
-  - { key: "5", label: FPS CAP SHOWCASE 2D+3D, to: playground-fps-showcase-2d-30 }
+  - {
+      key: "5",
+      label: FPS CAP SHOWCASE 2D+3D,
+      to: playground-fps-showcase-2d-30,
+    }
   - { key: "6", label: FONT MODE SHOWCASE, to: playground-font-showcase }
   - { key: "7", label: TERMINAL SHELL DEMO, to: playground-terminal-shell }
+  - {
+      key: "shift+7",
+      label: TERMINAL SHELL (SCRIPTED),
+      to: playground-terminal-shell-scripted,
+    }
   - { key: "8", label: LAYOUT LAB, to: playground-layout-lab }
   - { key: "9", label: RHAI LAB, to: playground-rhai-lab }
   - { key: "0", label: EXIT, to: playground-exit }

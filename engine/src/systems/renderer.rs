@@ -1,10 +1,11 @@
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
-use crate::debug_features::DebugFeatures;
+use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
+use engine_core::logging;
 use std::cell::RefCell;
 use std::io::{self, Write};
 
@@ -128,38 +129,30 @@ fn apply_debug_overlay(world: &mut World) {
         return;
     }
 
-    let scene_id = world
-        .scene_runtime()
-        .map(|runtime| runtime.scene().id.clone())
-        .unwrap_or_else(|| "unknown".to_string());
-    let virtual_info = world
-        .virtual_buffer()
-        .map(|vbuf| format!("virtual: {}x{}", vbuf.0.width, vbuf.0.height))
-        .unwrap_or_else(|| "virtual: disabled".to_string());
+    let Some(buf) = world.buffer_mut() else {
+        return;
+    };
 
-    let recent_logs: Vec<String> = world
-        .get::<DebugLogBuffer>()
-        .map(|log| {
-            log.recent(5)
-                .iter()
-                .map(|e| e.display_line())
-                .collect()
-        })
-        .unwrap_or_default();
+    match debug.overlay_mode {
+        DebugOverlayMode::Stats => {
+            apply_stats_overlay(buf);
+        }
+        DebugOverlayMode::Logs => {
+            apply_logs_overlay(buf);
+        }
+    }
+}
 
-    let mut lines = vec![
+fn apply_stats_overlay(buf: &mut Buffer) {
+    let scene_id = "unknown".to_string(); // Placeholder
+    let virtual_info = "virtual: disabled".to_string(); // Placeholder
+    
+    let lines = vec![
         "DEBUG FEATURE MODE  [F1 overlay] [F3 prev] [F4 next]".to_string(),
         format!("scene: {scene_id}"),
         virtual_info,
     ];
-    if !recent_logs.is_empty() {
-        lines.push("--- diagnostics ---".to_string());
-        lines.extend(recent_logs);
-    }
 
-    let Some(buf) = world.buffer_mut() else {
-        return;
-    };
     let fg = style::Color::White;
     let bg = style::Color::DarkGrey;
     for (row, line) in lines.iter().enumerate() {
@@ -182,6 +175,85 @@ fn apply_debug_overlay(world: &mut World) {
                 break;
             }
             buf.set(x, y, ch, fg, line_bg);
+        }
+    }
+}
+
+fn apply_logs_overlay(buf: &mut Buffer) {
+    let header = "LOG OVERLAY  [~ close] [F1 stats]";
+    let height = buf.height as usize;
+    
+    // Get recent log entries
+    let logs = if height > 1 {
+        logging::tail_recent(height.saturating_sub(1))
+    } else {
+        Vec::new()
+    };
+
+    // Render header
+    let fg = style::Color::White;
+    let bg = style::Color::DarkGrey;
+    
+    for x in 0..buf.width {
+        buf.set(x, 0, ' ', fg, bg);
+    }
+    for (x, ch) in header.chars().enumerate() {
+        let x = x as u16;
+        if x >= buf.width {
+            break;
+        }
+        buf.set(x, 0, ch, fg, bg);
+    }
+
+    // Render log lines
+    if logs.is_empty() {
+        let empty_msg = "  (no log entries)";
+        let y = 1u16;
+        if y < buf.height {
+            for x in 0..buf.width {
+                buf.set(x, y, ' ', fg, bg);
+            }
+            for (x, ch) in empty_msg.chars().enumerate() {
+                let x = x as u16;
+                if x >= buf.width {
+                    break;
+                }
+                buf.set(x, y, ch, fg, bg);
+            }
+        }
+    } else {
+        for (row, log_line) in logs.iter().enumerate() {
+            let y = (row + 1) as u16;
+            if y >= buf.height {
+                break;
+            }
+
+            // Determine color based on level
+            let line_fg = match log_line.level {
+                "WARN " => style::Color::Yellow,
+                "ERROR" => style::Color::Red,
+                _ => style::Color::White,
+            };
+
+            // Format the line
+            let formatted = format!(
+                "[{}] {} | {}",
+                log_line.level, log_line.target, log_line.message
+            );
+
+            // Clear row
+            for x in 0..buf.width {
+                buf.set(x, y, ' ', line_fg, bg);
+            }
+
+            // Write the formatted line, clipping to width
+            for (x, ch) in formatted.chars().enumerate() {
+                let x = x as u16;
+                if x >= buf.width {
+                    break;
+                }
+                buf.set(x, y, ch, line_fg, bg);
+            }
         }
     }
 }

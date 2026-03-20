@@ -160,8 +160,8 @@ where
                 attach_scene_behavior(scene_map, &behavior_name, &merged_params);
                 return Ok(());
             }
-            let controller = serde_yaml::from_str::<SceneScriptController>(&raw_script)
-                .map_err(|err| {
+            let controller =
+                serde_yaml::from_str::<SceneScriptController>(&raw_script).map_err(|err| {
                     serde_yaml::Error::custom(format!(
                         "failed to parse logic.src '{}': {err}",
                         path
@@ -1268,7 +1268,8 @@ params:
         )
         .expect_err("script logic without src should be rejected");
         assert!(
-            err.to_string().contains("logic.kind=script requires explicit logic.src"),
+            err.to_string()
+                .contains("logic.kind=script requires explicit logic.src"),
             "unexpected error: {err}"
         );
     }
@@ -1416,8 +1417,8 @@ stages:
 layers: []
 next: null
 "#;
-        let scene = compile_scene_document_with_loader(scene_raw, |_path| None)
-            .expect("scene compile");
+        let scene =
+            compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
         let effects = &scene.stages.on_enter.steps[0].effects;
         assert_eq!(effects.len(), 1);
         assert_eq!(effects[0].name, "whiteout");
@@ -1498,7 +1499,8 @@ next: null
         let err = compile_scene_document_with_loader(scene_raw, |_path| None)
             .expect_err("missing effect preset should be rejected");
         assert!(
-            err.to_string().contains("effect preset 'fx.missing' was not found"),
+            err.to_string()
+                .contains("effect preset 'fx.missing' was not found"),
             "unexpected error: {err}"
         );
     }
@@ -1527,8 +1529,8 @@ stages:
 layers: []
 next: null
 "#;
-        let scene = compile_scene_document_with_loader(scene_raw, |_path| None)
-            .expect("scene compile");
+        let scene =
+            compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
         let effect = &scene.stages.on_enter.steps[0].effects[0];
         assert_eq!(effect.name, "shine");
         assert_eq!(effect.duration, 300);

@@ -9,6 +9,8 @@ pub mod authoring;
 pub mod buffer;
 /// Visual effects system and built-in effect implementations.
 pub mod effects;
+/// Run-scoped file logging for launchers, runtime, and editor.
+pub mod logging;
 /// Markup parsing and rendering utilities.
 pub mod markup;
 /// Scene data model, authoring types, and runtime model.

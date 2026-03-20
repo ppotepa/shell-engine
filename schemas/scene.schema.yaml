@@ -278,6 +278,14 @@ $defs:
         description: Optional command table handled by the terminal-shell input profile.
         items:
           $ref: "#/$defs/terminal_shell_command"
+      mode:
+        type: string
+        enum: [builtin, scripted]
+        default: builtin
+        description: >
+          Terminal shell interaction mode. 
+          `builtin`: Engine executes built-in commands (help, clear, ls, pwd, echo, whoami).
+          `scripted`: Commands are not executed; only UI submit/change events are emitted for script handling.
     patternProperties:
       "^prompt_sprite_id$":
         $ref: "#/$defs/terminal_shell_controls/properties/prompt-sprite-id"
