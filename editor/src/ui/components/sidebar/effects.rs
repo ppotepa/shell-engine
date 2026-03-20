@@ -13,11 +13,12 @@ use engine_core::scene::EffectTargetKind;
 /// Renders the effects browser list with type badges and cursor/focus highlighting.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let items: Vec<ListItem> = app
+        .effects
         .builtin_effects
         .iter()
         .enumerate()
         .map(|(idx, name)| {
-            let is_active = idx == app.effect_cursor;
+            let is_active = idx == app.effects.effect_cursor;
             let is_focused = app.focus == FocusPane::ProjectTree;
 
             let meta = shared_dispatcher().metadata(name);

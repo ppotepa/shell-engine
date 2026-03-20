@@ -1,5 +1,5 @@
 use clap::Parser;
-use engine::ShellEngine;
+use engine::{EngineConfig, ShellEngine};
 
 #[derive(Parser, Debug)]
 #[command(name = "shell-quest", about = "Shell Quest terminal engine launcher")]
@@ -13,6 +13,12 @@ struct Cli {
     /// Enable generic debug helpers (F1 overlay, F3/F4 scene navigation).
     #[arg(long = "debug-feature")]
     debug_feature: bool,
+    /// Enable external sound server integration (audio commands over stdin/stdout JSONL).
+    #[arg(long = "sound-server")]
+    sound_server: bool,
+    /// Override shell command used to spawn the sound server process.
+    #[arg(long = "sound-server-cmd")]
+    sound_server_cmd: Option<String>,
 }
 
 fn main() {
@@ -21,14 +27,14 @@ fn main() {
         .mod_source
         .unwrap_or_else(|| "mods/shell-quest/".to_string());
 
-    if let Some(mode) = cli.renderer_mode {
-        std::env::set_var("SHELL_QUEST_RENDERER_MODE", mode);
-    }
-    if cli.debug_feature {
-        std::env::set_var("SHELL_QUEST_DEBUG_FEATURE", "1");
-    }
+    let config = EngineConfig {
+        renderer_mode: cli.renderer_mode,
+        debug_feature: cli.debug_feature,
+        sound_server: cli.sound_server,
+        sound_server_cmd: cli.sound_server_cmd,
+    };
 
-    let engine = ShellEngine::new(&mod_source).unwrap_or_else(|error| {
+    let engine = ShellEngine::new_with_config(&mod_source, config).unwrap_or_else(|error| {
         eprintln!("Failed to initialize ShellEngine: {error}");
         std::process::exit(1);
     });

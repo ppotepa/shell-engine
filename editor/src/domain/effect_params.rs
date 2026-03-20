@@ -111,6 +111,18 @@ impl EffectParamValue {
     }
 }
 
+type ParamReader = fn(&EffectParams) -> Option<f32>;
+type ParamWriter = fn(&mut EffectParams, f32);
+
+/// Central descriptor for a numeric effect parameter used by UI and override application.
+#[derive(Debug, Clone, Copy)]
+pub struct EffectParamDescriptor {
+    pub name: &'static str,
+    pub label: &'static str,
+    pub read: ParamReader,
+    pub write: ParamWriter,
+}
+
 macro_rules! spec {
     ($name:expr, $label:expr, $min:expr, $max:expr, $step:expr, $unit:expr) => {
         EffectParamSpec::slider($name, $label, $min, $max, $step, $unit)
@@ -147,6 +159,158 @@ const LIGHTNING_SPECS: &[EffectParamSpec] = &[
     SPEC_GLOW,
     SPEC_OCTAVE_COUNT,
 ];
+
+fn read_intensity(p: &EffectParams) -> Option<f32> {
+    p.intensity
+}
+fn write_intensity(p: &mut EffectParams, v: f32) {
+    p.intensity = Some(v);
+}
+fn read_angle(p: &EffectParams) -> Option<f32> {
+    p.angle
+}
+fn write_angle(p: &mut EffectParams, v: f32) {
+    p.angle = Some(v);
+}
+fn read_width(p: &EffectParams) -> Option<f32> {
+    p.width
+}
+fn write_width(p: &mut EffectParams, v: f32) {
+    p.width = Some(v);
+}
+fn read_falloff(p: &EffectParams) -> Option<f32> {
+    p.falloff
+}
+fn write_falloff(p: &mut EffectParams, v: f32) {
+    p.falloff = Some(v);
+}
+fn read_amplitude_x(p: &EffectParams) -> Option<f32> {
+    p.amplitude_x
+}
+fn write_amplitude_x(p: &mut EffectParams, v: f32) {
+    p.amplitude_x = Some(v);
+}
+fn read_amplitude_y(p: &EffectParams) -> Option<f32> {
+    p.amplitude_y
+}
+fn write_amplitude_y(p: &mut EffectParams, v: f32) {
+    p.amplitude_y = Some(v);
+}
+fn read_frequency(p: &EffectParams) -> Option<f32> {
+    p.frequency
+}
+fn write_frequency(p: &mut EffectParams, v: f32) {
+    p.frequency = Some(v);
+}
+fn read_strikes(p: &EffectParams) -> Option<f32> {
+    p.strikes.map(|v| v as f32)
+}
+fn write_strikes(p: &mut EffectParams, v: f32) {
+    p.strikes = Some(v.round() as u16);
+}
+fn read_thickness(p: &EffectParams) -> Option<f32> {
+    p.thickness
+}
+fn write_thickness(p: &mut EffectParams, v: f32) {
+    p.thickness = Some(v);
+}
+fn read_speed(p: &EffectParams) -> Option<f32> {
+    p.speed
+}
+fn write_speed(p: &mut EffectParams, v: f32) {
+    p.speed = Some(v);
+}
+fn read_glow(p: &EffectParams) -> Option<f32> {
+    p.glow.map(|v| if v { 1.0 } else { 0.0 })
+}
+fn write_glow(p: &mut EffectParams, v: f32) {
+    p.glow = Some(v >= 0.5);
+}
+fn read_octave_count(p: &EffectParams) -> Option<f32> {
+    p.octave_count.map(|v| v as f32)
+}
+fn write_octave_count(p: &mut EffectParams, v: f32) {
+    p.octave_count = Some(v.round() as u8);
+}
+
+const PARAM_DESCRIPTORS: &[EffectParamDescriptor] = &[
+    EffectParamDescriptor {
+        name: "intensity",
+        label: "Intensity",
+        read: read_intensity,
+        write: write_intensity,
+    },
+    EffectParamDescriptor {
+        name: "angle",
+        label: "Angle",
+        read: read_angle,
+        write: write_angle,
+    },
+    EffectParamDescriptor {
+        name: "width",
+        label: "Width",
+        read: read_width,
+        write: write_width,
+    },
+    EffectParamDescriptor {
+        name: "falloff",
+        label: "Falloff",
+        read: read_falloff,
+        write: write_falloff,
+    },
+    EffectParamDescriptor {
+        name: "amplitude_x",
+        label: "X Amplitude",
+        read: read_amplitude_x,
+        write: write_amplitude_x,
+    },
+    EffectParamDescriptor {
+        name: "amplitude_y",
+        label: "Y Amplitude",
+        read: read_amplitude_y,
+        write: write_amplitude_y,
+    },
+    EffectParamDescriptor {
+        name: "frequency",
+        label: "Frequency",
+        read: read_frequency,
+        write: write_frequency,
+    },
+    EffectParamDescriptor {
+        name: "strikes",
+        label: "Strikes",
+        read: read_strikes,
+        write: write_strikes,
+    },
+    EffectParamDescriptor {
+        name: "thickness",
+        label: "Thickness",
+        read: read_thickness,
+        write: write_thickness,
+    },
+    EffectParamDescriptor {
+        name: "speed",
+        label: "Speed",
+        read: read_speed,
+        write: write_speed,
+    },
+    EffectParamDescriptor {
+        name: "glow",
+        label: "Glow",
+        read: read_glow,
+        write: write_glow,
+    },
+    EffectParamDescriptor {
+        name: "octave_count",
+        label: "Octaves",
+        read: read_octave_count,
+        write: write_octave_count,
+    },
+];
+
+fn descriptor(name: &str) -> Option<&'static EffectParamDescriptor> {
+    PARAM_DESCRIPTORS.iter().find(|d| d.name == name)
+}
 
 /// Returns the parameter specifications for the named effect.
 pub fn effect_param_specs(effect_name: &str) -> &'static [EffectParamSpec] {
@@ -201,49 +365,26 @@ pub fn default_effect_params(effect_name: &str) -> EffectParams {
 
 /// Reads a named float parameter from an [`EffectParams`] instance.
 pub fn effect_param_value(params: &EffectParams, name: &str) -> Option<EffectParamValue> {
-    let value = match name {
-        "intensity" => params.intensity,
-        "angle" => params.angle,
-        "width" => params.width,
-        "falloff" => params.falloff,
-        "amplitude_x" => params.amplitude_x,
-        "amplitude_y" => params.amplitude_y,
-        "frequency" => params.frequency,
-        "strikes" => params.strikes.map(|v| v as f32),
-        "thickness" => params.thickness,
-        "speed" => params.speed,
-        "glow" => params.glow.map(|v| if v { 1.0 } else { 0.0 }),
-        "octave_count" => params.octave_count.map(|v| v as f32),
-        _ => None,
-    }?;
+    let value = descriptor(name).and_then(|d| (d.read)(params))?;
     Some(EffectParamValue(value))
 }
 
 /// Returns a human-readable display label for the given parameter name.
 pub fn param_label(name: &str) -> &'static str {
+    if let Some(d) = descriptor(name) {
+        return d.label;
+    }
     match name {
         "colour" => "Colour",
         "easing" => "Easing",
-        "angle" => "Angle",
-        "width" => "Width",
-        "falloff" => "Falloff",
-        "intensity" => "Intensity",
-        "amplitude_x" => "X Amplitude",
-        "amplitude_y" => "Y Amplitude",
-        "frequency" => "Frequency",
         "coverage" => "Coverage",
         "orientation" => "Orientation",
         "target" => "Target",
-        "strikes" => "Strikes",
-        "thickness" => "Thickness",
-        "glow" => "Glow",
         "start_x" => "Start X",
         "end_x" => "End X",
-        "octave_count" => "Octaves",
         "amp_start" => "Amp Start",
         "amp_coeff" => "Amp Coeff",
         "freq_coeff" => "Freq Coeff",
-        "speed" => "Speed",
         _ => "Param",
     }
 }
@@ -297,21 +438,8 @@ pub fn apply_overrides(
     params: &mut EffectParams,
 ) {
     for (key, value) in overrides {
-        let v = value.as_float();
-        match key.as_str() {
-            "intensity" => params.intensity = Some(v),
-            "angle" => params.angle = Some(v),
-            "width" => params.width = Some(v),
-            "falloff" => params.falloff = Some(v),
-            "amplitude_x" => params.amplitude_x = Some(v),
-            "amplitude_y" => params.amplitude_y = Some(v),
-            "frequency" => params.frequency = Some(v),
-            "strikes" => params.strikes = Some(v.round() as u16),
-            "thickness" => params.thickness = Some(v),
-            "speed" => params.speed = Some(v),
-            "glow" => params.glow = Some(v >= 0.5),
-            "octave_count" => params.octave_count = Some(v.round() as u8),
-            _ => {}
+        if let Some(d) = descriptor(key) {
+            (d.write)(params, value.as_float());
         }
     }
 }

@@ -2,21 +2,13 @@
 
 use std::path::PathBuf;
 
-use engine::assets::AssetRoot;
-use engine::audio::AudioRuntime;
-use engine::buffer::Buffer;
-use engine::runtime_settings::RuntimeSettings;
 use engine::scene::{Scene, SceneRenderedMode};
-use engine::scene_runtime::SceneRuntime;
-use engine::systems::animator::{Animator, SceneStage};
-use engine::systems::compositor::compositor_system;
-use engine::world::World;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 use ratatui::Frame;
 
+use crate::domain::preview_renderer::{self, PreviewRenderRequest};
 use crate::state::{focus::FocusPane, AppState};
 use crate::ui::theme;
 
@@ -67,7 +59,7 @@ fn render_scenes_list(frame: &mut Frame, area: Rect, app: &AppState, focused: bo
             .enumerate()
             .map(|(idx, _path)| {
                 let label = app.scene_display_name(idx);
-                let is_selected = idx == app.scene_cursor;
+                let is_selected = idx == app.scenes.scene_cursor;
                 let style = if is_selected && focused {
                     theme::sidebar_active_entry()
                 } else if is_selected {
@@ -99,17 +91,17 @@ fn render_scenes_list(frame: &mut Frame, area: Rect, app: &AppState, focused: bo
 }
 
 fn render_layers_list(frame: &mut Frame, area: Rect, app: &AppState, focused: bool) {
-    let items: Vec<ListItem> = if app.scene_preview_layers.is_empty() {
+    let items: Vec<ListItem> = if app.scenes.scene_preview_layers.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             "No layers in selected scene",
             theme::fg_disabled(),
         )))]
     } else {
-        app.scene_preview_layers
+        app.scenes.scene_preview_layers
             .iter()
             .enumerate()
             .map(|(idx, name)| {
-                let is_selected = idx == app.scene_layer_cursor;
+                let is_selected = idx == app.scenes.scene_layer_cursor;
                 let is_enabled = app.scene_layer_enabled(idx);
                 let style = if is_selected && focused {
                     theme::sidebar_active_entry()
@@ -190,13 +182,13 @@ fn render_live_preview(
     };
 
     let progress = app.scene_preview_progress();
-    let lines = match app.scene_preview_scene.as_ref() {
+    let lines = match app.scenes.scene_preview_scene.as_ref() {
         Some(scene) => {
             let (inner_w, inner_h) =
                 adjusted_preview_size(scene.rendered_mode, content_w, content_h);
             let mut filtered_scene = scene.clone();
-            if !app.scene_layer_visibility.is_empty()
-                && app.scene_layer_visibility.len() == filtered_scene.layers.len()
+            if !app.scenes.scene_layer_visibility.is_empty()
+                && app.scenes.scene_layer_visibility.len() == filtered_scene.layers.len()
             {
                 filtered_scene.layers = filtered_scene
                     .layers
@@ -208,7 +200,7 @@ fn render_live_preview(
             match render_scene_preview(&filtered_scene, inner_w, inner_h, &app.mod_source, progress)
             {
                 Ok(buffer) => {
-                    let mut lines = buffer_to_lines(&buffer);
+                    let mut lines = preview_renderer::buffer_to_lines(&buffer);
                     if !fullscreen {
                         lines.push(Line::from(""));
                         lines.push(Line::from(Span::styled(
@@ -296,79 +288,17 @@ fn render_scene_preview(
     height: u16,
     mod_source: &str,
     progress: f32,
-) -> Result<Buffer, String> {
+) -> Result<engine::buffer::Buffer, String> {
     if mod_source.is_empty() {
         return Err("mod source is not set".to_string());
     }
     let asset_root = PathBuf::from(mod_source);
-    if !asset_root.exists() {
-        return Err(format!("asset root not found: {mod_source}"));
-    }
-
-    let mut world = World::new();
-    world.register(Buffer::new(width, height));
-    world.register(AudioRuntime::null());
-    world.register(RuntimeSettings::default());
-    world.register(AssetRoot::new(asset_root));
-    world.register_scoped(SceneRuntime::new(scene.clone()));
-
-    let mut animator = Animator::new();
-    animator.stage = SceneStage::OnIdle;
-    animator.elapsed_ms = (progress * 3000.0) as u64;
-    animator.stage_elapsed_ms = animator.elapsed_ms;
-    animator.scene_elapsed_ms = animator.elapsed_ms;
-    world.register_scoped(animator);
-
-    compositor_system(&mut world);
-
-    world
-        .get::<Buffer>()
-        .cloned()
-        .ok_or_else(|| "Preview render did not produce a buffer".to_string())
-}
-
-fn buffer_to_lines(buffer: &Buffer) -> Vec<Line<'static>> {
-    let mut out = Vec::with_capacity(buffer.height as usize);
-    for y in 0..buffer.height {
-        let mut spans = Vec::with_capacity(buffer.width as usize);
-        for x in 0..buffer.width {
-            if let Some(cell) = buffer.get(x, y) {
-                let symbol = if cell.symbol == '\0' {
-                    ' '
-                } else {
-                    cell.symbol
-                };
-                let style = Style::default()
-                    .fg(to_ratatui_color(cell.fg))
-                    .bg(to_ratatui_color(cell.bg));
-                spans.push(Span::styled(symbol.to_string(), style));
-            }
-        }
-        out.push(Line::from(spans));
-    }
-    out
-}
-
-fn to_ratatui_color(color: crossterm::style::Color) -> Color {
-    match color {
-        crossterm::style::Color::Reset => Color::Reset,
-        crossterm::style::Color::Black => Color::Black,
-        crossterm::style::Color::DarkGrey => Color::DarkGray,
-        crossterm::style::Color::Red => Color::Red,
-        crossterm::style::Color::DarkRed => Color::LightRed,
-        crossterm::style::Color::Green => Color::Green,
-        crossterm::style::Color::DarkGreen => Color::LightGreen,
-        crossterm::style::Color::Yellow => Color::Yellow,
-        crossterm::style::Color::DarkYellow => Color::LightYellow,
-        crossterm::style::Color::Blue => Color::Blue,
-        crossterm::style::Color::DarkBlue => Color::LightBlue,
-        crossterm::style::Color::Magenta => Color::Magenta,
-        crossterm::style::Color::DarkMagenta => Color::LightMagenta,
-        crossterm::style::Color::Cyan => Color::Cyan,
-        crossterm::style::Color::DarkCyan => Color::LightCyan,
-        crossterm::style::Color::White => Color::White,
-        crossterm::style::Color::Grey => Color::Gray,
-        crossterm::style::Color::Rgb { r, g, b } => Color::Rgb(r, g, b),
-        crossterm::style::Color::AnsiValue(v) => Color::Indexed(v),
-    }
+    preview_renderer::render_scene_buffer(PreviewRenderRequest {
+        scene,
+        width,
+        height,
+        asset_root: asset_root.as_path(),
+        progress,
+        duration_ms: preview_renderer::DEFAULT_SCENE_PREVIEW_DURATION_MS,
+    })
 }

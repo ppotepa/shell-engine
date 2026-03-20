@@ -120,6 +120,30 @@ Rozwiązywanie ścieżek:
 
 Scena może jednocześnie mieć lokalne `stages`; lokalne pola nadpisują preset.
 
+`effect-presets` (alias: `effect_presets`) pozwala definiować reusable konfiguracje efektów
+na poziomie sceny i używać ich w `effects` przez `use`/`preset`/`ref`.
+
+Przykład:
+
+```yaml
+effect-presets:
+  lightning-soft:
+    name: lightning-natural
+    duration: 800ms
+    params:
+      intensity: 0.8
+      strikes: 2
+
+stages:
+  on_idle:
+    steps:
+      - effects:
+          - use: lightning-soft
+            overrides:
+              params:
+                intensity: 1.1
+```
+
 ## 6) Skróty authoringu wspierane przez compiler
 
 - `pause: 1200ms` w `steps`.
@@ -164,20 +188,12 @@ Praktyczna zasada layoutu:
 - `type: native` z `behavior`,
 - `type: script` z `src`.
 
-Dla skryptów wykrywane są sidecary przy scenie:
+Logika sceny jest ładowana tylko przez jawny blok `logic:`. Compiler nie wykonuje
+automatycznego wykrywania sidecarów `*.rhai` / `*.logic.rhai` / `*.logic.yml`
+jeśli `logic:` nie jest zdefiniowane.
 
-- `*.rhai`,
-- `*.logic.rhai`,
-- `*.logic.yml`.
-
-Dla scen pakietowych (`scenes/<name>/scene.yml`) wykrywanie sprawdza kolejno:
-
-- `<name>.rhai`,
-- `scene.rhai`,
-- `<name>.logic.rhai`,
-- `scene.logic.rhai`,
-- `<name>.logic.yml`,
-- `scene.logic.yml`.
+`logic.kind: graph` jest obecnie traktowane jako tryb eksperymentalny i jest
+odrzucane przez compiler.
 
 Przykład działających scen demonstracyjnych:
 

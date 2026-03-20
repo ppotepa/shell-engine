@@ -2,14 +2,16 @@
 
 pub mod filters;
 pub mod focus;
+pub mod cutscene;
+pub mod editor_pane;
+pub mod project_explorer;
 pub mod selection;
+pub mod start_screen;
+pub mod watch;
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
 
 use engine::repositories::{create_scene_repository, SceneRepository};
 use engine::scene::Scene;
@@ -20,8 +22,7 @@ use crate::domain::effects_catalog;
 use crate::domain::effects_preview_scene;
 use crate::input::commands::Command;
 use crate::io::fs_scan::{
-    collect_project_files, collect_schema_project_yml_files, infer_mod_root_from_project_yml,
-    validate_project_dir,
+    collect_schema_project_yml_files, infer_mod_root_from_project_yml, validate_project_dir,
 };
 use crate::io::indexer::build_project_index;
 use crate::io::recent::push_recent;
@@ -142,6 +143,36 @@ pub enum SidebarItem {
     Cutscene,
 }
 
+/// State owned by the Effects Browser feature.
+#[derive(Debug, Clone)]
+pub struct EffectsBrowserState {
+    pub builtin_effects: Vec<String>,
+    pub effect_cursor: usize,
+    pub effect_param_cursor: usize,
+    pub effect_param_overrides: HashMap<String, EffectParamValue>,
+    pub effects_live_preview: bool,
+    pub effects_preview_started_at_ms: u64,
+    pub effects_preview_scene_yaml: String,
+    /// Scroll offset for the YAML/code pane in the effects browser.
+    pub effects_code_scroll: u16,
+    /// Active tab in the effects code pane.
+    pub effects_code_tab: EffectsCodeTab,
+}
+
+/// State owned by the Scenes Browser feature.
+#[derive(Debug, Clone)]
+pub struct SceneBrowserState {
+    pub scene_cursor: usize,
+    pub scene_display_names: Vec<String>,
+    pub scene_layer_cursor: usize,
+    pub scene_layer_visibility: Vec<bool>,
+    pub scene_preview_layers: Vec<String>,
+    pub scene_preview_scene: Option<Scene>,
+    pub scene_preview_started_at_ms: u64,
+    pub scene_preview_fullscreen_hold: bool,
+    pub scene_preview_fullscreen_toggle: bool,
+}
+
 /// Complete runtime state for the editor application.
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -176,22 +207,8 @@ pub struct AppState {
     pub edit_content: String,
     pub sidebar_active: SidebarItem,
     pub sidebar_visible: bool,
-    pub builtin_effects: Vec<String>,
-    pub effect_cursor: usize,
-    pub effect_param_cursor: usize,
-    pub effect_param_overrides: HashMap<String, EffectParamValue>,
-    pub effects_live_preview: bool,
-    pub effects_preview_started_at_ms: u64,
-    pub effects_preview_scene_yaml: String,
-    pub scene_cursor: usize,
-    pub scene_display_names: Vec<String>,
-    pub scene_layer_cursor: usize,
-    pub scene_layer_visibility: Vec<bool>,
-    pub scene_preview_layers: Vec<String>,
-    pub scene_preview_scene: Option<Scene>,
-    pub scene_preview_started_at_ms: u64,
-    pub scene_preview_fullscreen_hold: bool,
-    pub scene_preview_fullscreen_toggle: bool,
+    pub effects: EffectsBrowserState,
+    pub scenes: SceneBrowserState,
     pub cutscene_source_dir: String,
     pub cutscene_output_gif: String,
     pub cutscene_default_frame_ms: u32,
@@ -201,10 +218,6 @@ pub struct AppState {
     pub project_watch_interval_ms: u64,
     pub project_watch_last_scan_ms: u64,
     pub project_watch_stamp: u64,
-    /// Scroll offset for the YAML code pane in the effects browser.
-    pub effects_code_scroll: u16,
-    /// Active tab in the code pane.
-    pub effects_code_tab: EffectsCodeTab,
     /// Whether the current-screen help overlay is visible.
     pub help_overlay_active: bool,
 }
@@ -252,25 +265,31 @@ impl AppState {
             edit_content: String::new(),
             sidebar_active: SidebarItem::Explorer,
             sidebar_visible: true,
-            builtin_effects,
-            effect_cursor: 0,
-            effect_param_cursor: 0,
-            effect_param_overrides: HashMap::new(),
-            effects_live_preview: false,
-            effects_preview_started_at_ms: 0,
-            effects_preview_scene_yaml: effects_preview_scene::build_preview_scene_yaml_default(
-                &initial_effect,
-                &initial_params,
-            ),
-            scene_cursor: 0,
-            scene_display_names: Vec::new(),
-            scene_layer_cursor: 0,
-            scene_layer_visibility: Vec::new(),
-            scene_preview_layers: Vec::new(),
-            scene_preview_scene: None,
-            scene_preview_started_at_ms: 0,
-            scene_preview_fullscreen_hold: false,
-            scene_preview_fullscreen_toggle: false,
+            effects: EffectsBrowserState {
+                builtin_effects,
+                effect_cursor: 0,
+                effect_param_cursor: 0,
+                effect_param_overrides: HashMap::new(),
+                effects_live_preview: false,
+                effects_preview_started_at_ms: 0,
+                effects_preview_scene_yaml: effects_preview_scene::build_preview_scene_yaml_default(
+                    &initial_effect,
+                    &initial_params,
+                ),
+                effects_code_scroll: 0,
+                effects_code_tab: EffectsCodeTab::Info,
+            },
+            scenes: SceneBrowserState {
+                scene_cursor: 0,
+                scene_display_names: Vec::new(),
+                scene_layer_cursor: 0,
+                scene_layer_visibility: Vec::new(),
+                scene_preview_layers: Vec::new(),
+                scene_preview_scene: None,
+                scene_preview_started_at_ms: 0,
+                scene_preview_fullscreen_hold: false,
+                scene_preview_fullscreen_toggle: false,
+            },
             cutscene_source_dir: "assets/raw".to_string(),
             cutscene_output_gif: "assets/images/intro/cutscene.gif".to_string(),
             cutscene_default_frame_ms: 250,
@@ -280,8 +299,6 @@ impl AppState {
             project_watch_interval_ms: 1200,
             project_watch_last_scan_ms: 0,
             project_watch_stamp: 0,
-            effects_code_scroll: 0,
-            effects_code_tab: EffectsCodeTab::Info,
             help_overlay_active: false,
         }
     }
@@ -327,8 +344,8 @@ impl AppState {
 
     /// Returns the name of the currently selected built-in effect, if any.
     pub fn selected_builtin_effect(&self) -> Option<&str> {
-        self.builtin_effects
-            .get(self.effect_cursor)
+        self.effects.builtin_effects
+            .get(self.effects.effect_cursor)
             .map(String::as_str)
     }
 
@@ -337,13 +354,13 @@ impl AppState {
         self.index
             .scenes
             .scene_paths
-            .get(self.scene_cursor)
+            .get(self.scenes.scene_cursor)
             .map(String::as_str)
     }
 
     /// Returns display label for scene index based on authored YAML metadata.
     pub fn scene_display_name(&self, idx: usize) -> String {
-        self.scene_display_names
+        self.scenes.scene_display_names
             .get(idx)
             .cloned()
             .or_else(|| self.index.scenes.scene_paths.get(idx).cloned())
@@ -355,13 +372,13 @@ impl AppState {
         if self.index.scenes.scene_paths.is_empty() {
             None
         } else {
-            Some(self.scene_display_name(self.scene_cursor))
+            Some(self.scene_display_name(self.scenes.scene_cursor))
         }
     }
 
     /// Returns whether the given layer index is enabled for preview.
     pub fn scene_layer_enabled(&self, idx: usize) -> bool {
-        self.scene_layer_visibility
+        self.scenes.scene_layer_visibility
             .get(idx)
             .copied()
             .unwrap_or(true)
@@ -369,10 +386,10 @@ impl AppState {
 
     /// Returns the normalised playback progress (0.0–1.0) of the live effects preview.
     pub fn effect_preview_progress(&self) -> f32 {
-        if !self.effects_live_preview {
+        if !self.effects.effects_live_preview {
             return 0.0;
         }
-        let start = self.effects_preview_started_at_ms;
+        let start = self.effects.effects_preview_started_at_ms;
         if start == 0 {
             return 0.0;
         }
@@ -382,7 +399,7 @@ impl AppState {
 
     /// Returns the normalised playback progress (0.0–1.0) of the scene live preview.
     pub fn scene_preview_progress(&self) -> f32 {
-        let start = self.scene_preview_started_at_ms;
+        let start = self.scenes.scene_preview_started_at_ms;
         if start == 0 {
             return 0.0;
         }
@@ -392,7 +409,7 @@ impl AppState {
 
     /// Returns whether scene preview should be shown as fullscreen in browser mode.
     pub fn scene_preview_fullscreen_active(&self) -> bool {
-        self.scene_preview_fullscreen_hold || self.scene_preview_fullscreen_toggle
+        self.scenes.scene_preview_fullscreen_hold || self.scenes.scene_preview_fullscreen_toggle
     }
 
     /// Returns the top-level application mode label for the header and status bar.
@@ -591,36 +608,6 @@ impl AppState {
         lines
     }
 
-    fn compute_project_watch_stamp(mod_source: &str) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        mod_source.hash(&mut hasher);
-        let root = Path::new(mod_source);
-
-        let watched_files = collect_project_files(root);
-        watched_files.len().hash(&mut hasher);
-
-        for path in watched_files {
-            path.hash(&mut hasher);
-            match fs::metadata(&path) {
-                Ok(meta) => {
-                    meta.len().hash(&mut hasher);
-                    match meta.modified() {
-                        Ok(modified) => {
-                            if let Ok(delta) = modified.duration_since(UNIX_EPOCH) {
-                                delta.as_secs().hash(&mut hasher);
-                                delta.subsec_nanos().hash(&mut hasher);
-                            }
-                        }
-                        Err(_) => 0_u8.hash(&mut hasher),
-                    }
-                }
-                Err(_) => 255_u8.hash(&mut hasher),
-            }
-        }
-
-        hasher.finish()
-    }
-
     fn build_scene_display_names(mod_source: &str, scene_paths: &[String]) -> Vec<String> {
         let repo = create_scene_repository(Path::new(mod_source)).ok();
         scene_paths
@@ -645,113 +632,8 @@ impl AppState {
             .collect()
     }
 
-    fn poll_project_refresh(&mut self) {
-        if self.mode == AppMode::Start || self.mod_source.is_empty() {
-            return;
-        }
-
-        let now = now_millis();
-        if now.saturating_sub(self.project_watch_last_scan_ms) < self.project_watch_interval_ms {
-            return;
-        }
-        self.project_watch_last_scan_ms = now;
-
-        let new_stamp = Self::compute_project_watch_stamp(&self.mod_source);
-        if new_stamp == self.project_watch_stamp {
-            return;
-        }
-        self.project_watch_stamp = new_stamp;
-        self.reload_project_index_after_fs_change();
-    }
-
-    fn reload_project_index_after_fs_change(&mut self) {
-        let previous_tree_item = self.selected_tree_item().cloned();
-        let previous_scene_path = self.selected_scene_path().map(str::to_string);
-        let refreshed_editor = self.reload_open_file_after_fs_change();
-
-        self.index = build_project_index(&self.mod_source);
-        self.scene_display_names =
-            Self::build_scene_display_names(&self.mod_source, &self.index.scenes.scene_paths);
-        self.tree_items = self.build_tree_items();
-        self.refresh_cutscene_source_folder();
-
-        if let Some(item) = previous_tree_item {
-            if let Some(pos) = self
-                .tree_items
-                .iter()
-                .position(|candidate| candidate == &item)
-            {
-                self.tree_cursor = pos;
-            } else {
-                self.tree_cursor = self
-                    .tree_cursor
-                    .min(self.tree_items.len().saturating_sub(1));
-            }
-        } else {
-            self.tree_cursor = self
-                .tree_cursor
-                .min(self.tree_items.len().saturating_sub(1));
-        }
-
-        if let Some(scene_path) = previous_scene_path {
-            if let Some(pos) = self
-                .index
-                .scenes
-                .scene_paths
-                .iter()
-                .position(|path| path == &scene_path)
-            {
-                self.scene_cursor = pos;
-            } else {
-                self.scene_cursor = self
-                    .scene_cursor
-                    .min(self.index.scenes.scene_paths.len().saturating_sub(1));
-            }
-        } else {
-            self.scene_cursor = self
-                .scene_cursor
-                .min(self.index.scenes.scene_paths.len().saturating_sub(1));
-        }
-
-        self.sync_scene_preview_selection();
-        self.scene_preview_started_at_ms = now_millis();
-        self.status = if refreshed_editor {
-            "Detected file changes: project lists, previews, and editor buffer refreshed"
-                .to_string()
-        } else {
-            "Detected file changes: project lists and previews refreshed".to_string()
-        };
-        if self.sidebar_active == SidebarItem::Cutscene {
-            self.status = self.cutscene_status_message();
-        }
-    }
-
-    fn reload_open_file_after_fs_change(&mut self) -> bool {
-        let Some(path) = self.editing_file.clone() else {
-            return false;
-        };
-
-        let full_path = Path::new(&self.mod_source).join(&path);
-        match fs::read_to_string(&full_path) {
-            Ok(content) => {
-                let changed = self.edit_content != content;
-                self.edit_content = content;
-                changed
-            }
-            Err(_) => {
-                let missing_notice = format!(
-                    "File is no longer available on disk:\n{}\n\nClose the editor pane or restore the file.",
-                    full_path.display()
-                );
-                let changed = self.edit_content != missing_notice;
-                self.edit_content = missing_notice;
-                changed
-            }
-        }
-    }
-
     fn restart_effect_preview_clock(&mut self) {
-        self.effects_preview_started_at_ms = now_millis();
+        self.effects.effects_preview_started_at_ms = now_millis();
     }
 
     /// Returns the parameter specifications for the currently selected effect.
@@ -763,12 +645,12 @@ impl AppState {
 
     /// Returns the spec for the currently focused effect parameter, if any.
     pub fn selected_effect_param_spec(&self) -> Option<&'static EffectParamSpec> {
-        self.effect_param_specs().get(self.effect_param_cursor)
+        self.effect_param_specs().get(self.effects.effect_param_cursor)
     }
 
     /// Returns the current value for the given parameter, preferring user overrides.
     pub fn effect_param_value(&self, spec: &EffectParamSpec) -> EffectParamValue {
-        if let Some(value) = self.effect_param_overrides.get(spec.name) {
+        if let Some(value) = self.effects.effect_param_overrides.get(spec.name) {
             return *value;
         }
 
@@ -781,24 +663,24 @@ impl AppState {
     fn sync_effect_param_cursor(&mut self) {
         let len = self.effect_param_specs().len();
         if len == 0 {
-            self.effect_param_cursor = 0;
+            self.effects.effect_param_cursor = 0;
         } else {
-            self.effect_param_cursor = self.effect_param_cursor.min(len - 1);
+            self.effects.effect_param_cursor = self.effects.effect_param_cursor.min(len - 1);
         }
     }
 
     fn reset_selected_effect_preview(&mut self) {
-        self.effect_param_cursor = 0;
-        self.effect_param_overrides.clear();
-        self.effects_code_scroll = 0;
-        self.effects_code_tab = EffectsCodeTab::Info;
+        self.effects.effect_param_cursor = 0;
+        self.effects.effect_param_overrides.clear();
+        self.effects.effects_code_scroll = 0;
+        self.effects.effects_code_tab = EffectsCodeTab::Info;
         self.sync_effect_preview_scene_yaml();
         self.restart_effect_preview_clock();
     }
 
     fn move_effect_selection(&mut self, next_cursor: usize) {
-        if next_cursor != self.effect_cursor {
-            self.effect_cursor = next_cursor;
+        if next_cursor != self.effects.effect_cursor {
+            self.effects.effect_cursor = next_cursor;
             self.reset_selected_effect_preview();
         } else {
             self.restart_effect_preview_clock();
@@ -808,12 +690,12 @@ impl AppState {
     fn move_effect_param_cursor(&mut self, delta: isize) {
         let len = self.effect_param_specs().len();
         if len == 0 {
-            self.effect_param_cursor = 0;
+            self.effects.effect_param_cursor = 0;
             return;
         }
 
-        let next = (self.effect_param_cursor as isize + delta).clamp(0, (len - 1) as isize);
-        self.effect_param_cursor = next as usize;
+        let next = (self.effects.effect_param_cursor as isize + delta).clamp(0, (len - 1) as isize);
+        self.effects.effect_param_cursor = next as usize;
     }
 
     fn adjust_selected_effect_param(&mut self, delta_dir: f32) {
@@ -823,7 +705,7 @@ impl AppState {
 
         let current = self.effect_param_value(&spec).as_float();
         let next = spec.adjust(current, delta_dir);
-        self.effect_param_overrides
+        self.effects.effect_param_overrides
             .insert(spec.name.to_string(), next);
         self.sync_effect_preview_scene_yaml();
         self.restart_effect_preview_clock();
@@ -834,7 +716,7 @@ impl AppState {
         self.reset_scene_fullscreen_state();
         self.sidebar_active = SidebarItem::Search;
         self.sidebar_visible = true;
-        self.effects_live_preview = true;
+        self.effects.effects_live_preview = true;
         self.sync_effect_preview_scene_yaml();
         self.restart_effect_preview_clock();
         self.sync_effect_param_cursor();
@@ -848,7 +730,7 @@ impl AppState {
         self.sidebar_visible = false;
         self.focus = FocusPane::ProjectTree;
         self.sync_scene_preview_selection();
-        self.scene_preview_started_at_ms = now_millis();
+        self.scenes.scene_preview_started_at_ms = now_millis();
         self.status = if self.index.scenes.scene_paths.is_empty() {
             "Scenes Browser: no discoverable scenes found".to_string()
         } else {
@@ -867,18 +749,18 @@ impl AppState {
     }
 
     fn reset_scene_fullscreen_state(&mut self) {
-        self.scene_preview_fullscreen_hold = false;
-        self.scene_preview_fullscreen_toggle = false;
+        self.scenes.scene_preview_fullscreen_hold = false;
+        self.scenes.scene_preview_fullscreen_toggle = false;
     }
 
     fn set_scene_fullscreen_hold(&mut self, enabled: bool) {
         if self.sidebar_active != SidebarItem::Scenes {
             return;
         }
-        self.scene_preview_fullscreen_hold = enabled;
+        self.scenes.scene_preview_fullscreen_hold = enabled;
         if enabled {
             self.status = "Scenes Browser: fullscreen hold (release F to exit)".to_string();
-        } else if self.scene_preview_fullscreen_toggle {
+        } else if self.scenes.scene_preview_fullscreen_toggle {
             self.status = "Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)".to_string();
         } else {
             self.status =
@@ -890,9 +772,9 @@ impl AppState {
         if self.sidebar_active != SidebarItem::Scenes {
             return;
         }
-        self.scene_preview_fullscreen_toggle = !self.scene_preview_fullscreen_toggle;
-        self.scene_preview_fullscreen_hold = false;
-        self.status = if self.scene_preview_fullscreen_toggle {
+        self.scenes.scene_preview_fullscreen_toggle = !self.scenes.scene_preview_fullscreen_toggle;
+        self.scenes.scene_preview_fullscreen_hold = false;
+        self.status = if self.scenes.scene_preview_fullscreen_toggle {
             "Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)".to_string()
         } else {
             "Scenes Browser: fullscreen toggle OFF".to_string()
@@ -901,75 +783,78 @@ impl AppState {
 
     fn move_scene_selection(&mut self, next_cursor: usize) {
         if self.index.scenes.scene_paths.is_empty() {
-            self.scene_cursor = 0;
-            self.scene_layer_cursor = 0;
-            self.scene_preview_layers.clear();
-            self.scene_preview_scene = None;
+            self.scenes.scene_cursor = 0;
+            self.scenes.scene_layer_cursor = 0;
+            self.scenes.scene_preview_layers.clear();
+            self.scenes.scene_preview_scene = None;
             return;
         }
-        self.scene_cursor = next_cursor.min(self.index.scenes.scene_paths.len().saturating_sub(1));
+        self.scenes.scene_cursor = next_cursor.min(self.index.scenes.scene_paths.len().saturating_sub(1));
         self.sync_scene_preview_selection();
-        self.scene_preview_started_at_ms = now_millis();
+        self.scenes.scene_preview_started_at_ms = now_millis();
     }
 
     fn move_scene_layer_cursor(&mut self, delta: isize) {
-        let len = self.scene_preview_layers.len();
+        let len = self.scenes.scene_preview_layers.len();
         if len == 0 {
-            self.scene_layer_cursor = 0;
+            self.scenes.scene_layer_cursor = 0;
             return;
         }
-        let next = (self.scene_layer_cursor as isize + delta).clamp(0, (len - 1) as isize);
-        self.scene_layer_cursor = next as usize;
+        let next = (self.scenes.scene_layer_cursor as isize + delta).clamp(0, (len - 1) as isize);
+        self.scenes.scene_layer_cursor = next as usize;
     }
 
     fn toggle_selected_scene_layer(&mut self) {
-        if self.scene_preview_layers.is_empty() {
+        if self.scenes.scene_preview_layers.is_empty() {
             return;
         }
-        if self.scene_layer_visibility.len() != self.scene_preview_layers.len() {
-            self.scene_layer_visibility = vec![true; self.scene_preview_layers.len()];
+        if self.scenes.scene_layer_visibility.len() != self.scenes.scene_preview_layers.len() {
+            self.scenes.scene_layer_visibility = vec![true; self.scenes.scene_preview_layers.len()];
         }
         let idx = self
+            .scenes
             .scene_layer_cursor
-            .min(self.scene_layer_visibility.len().saturating_sub(1));
-        self.scene_layer_visibility[idx] = !self.scene_layer_visibility[idx];
+            .min(self.scenes.scene_layer_visibility.len().saturating_sub(1));
+        self.scenes.scene_layer_visibility[idx] = !self.scenes.scene_layer_visibility[idx];
         let enabled = self
+            .scenes
             .scene_layer_visibility
             .iter()
             .filter(|enabled| **enabled)
             .count();
         self.status = format!(
             "Scenes Browser: layer '{}' {} (visible: {enabled}/{})",
-            self.scene_preview_layers
+            self.scenes.scene_preview_layers
                 .get(idx)
                 .map(String::as_str)
                 .unwrap_or("-"),
-            if self.scene_layer_visibility[idx] {
+            if self.scenes.scene_layer_visibility[idx] {
                 "enabled"
             } else {
                 "disabled"
             },
-            self.scene_preview_layers.len()
+            self.scenes.scene_preview_layers.len()
         );
     }
 
     fn isolate_selected_scene_layer(&mut self) {
-        if self.scene_preview_layers.is_empty() {
+        if self.scenes.scene_preview_layers.is_empty() {
             return;
         }
-        if self.scene_layer_visibility.len() != self.scene_preview_layers.len() {
-            self.scene_layer_visibility = vec![true; self.scene_preview_layers.len()];
+        if self.scenes.scene_layer_visibility.len() != self.scenes.scene_preview_layers.len() {
+            self.scenes.scene_layer_visibility = vec![true; self.scenes.scene_preview_layers.len()];
         }
         let idx = self
+            .scenes
             .scene_layer_cursor
-            .min(self.scene_layer_visibility.len().saturating_sub(1));
-        for visible in &mut self.scene_layer_visibility {
+            .min(self.scenes.scene_layer_visibility.len().saturating_sub(1));
+        for visible in &mut self.scenes.scene_layer_visibility {
             *visible = false;
         }
-        self.scene_layer_visibility[idx] = true;
+        self.scenes.scene_layer_visibility[idx] = true;
         self.status = format!(
             "Scenes Browser: solo layer '{}'",
-            self.scene_preview_layers
+            self.scenes.scene_preview_layers
                 .get(idx)
                 .map(String::as_str)
                 .unwrap_or("-")
@@ -998,18 +883,18 @@ impl AppState {
 
     fn sync_scene_preview_selection(&mut self) {
         let Some(scene_path) = self.selected_scene_path().map(str::to_string) else {
-            self.scene_preview_layers.clear();
-            self.scene_layer_visibility.clear();
-            self.scene_layer_cursor = 0;
-            self.scene_preview_scene = None;
+            self.scenes.scene_preview_layers.clear();
+            self.scenes.scene_layer_visibility.clear();
+            self.scenes.scene_layer_cursor = 0;
+            self.scenes.scene_preview_scene = None;
             return;
         };
 
         if self.mod_source.is_empty() {
-            self.scene_preview_layers.clear();
-            self.scene_layer_visibility.clear();
-            self.scene_layer_cursor = 0;
-            self.scene_preview_scene = None;
+            self.scenes.scene_preview_layers.clear();
+            self.scenes.scene_layer_visibility.clear();
+            self.scenes.scene_layer_cursor = 0;
+            self.scenes.scene_preview_scene = None;
             return;
         }
 
@@ -1018,7 +903,7 @@ impl AppState {
             .and_then(|repo| repo.load_scene(&scene_ref))
         {
             Ok(scene) => {
-                self.scene_preview_layers = scene
+                self.scenes.scene_preview_layers = scene
                     .layers
                     .iter()
                     .enumerate()
@@ -1030,17 +915,18 @@ impl AppState {
                         }
                     })
                     .collect();
-                self.scene_layer_visibility = vec![true; scene.layers.len()];
-                self.scene_layer_cursor = self
+                self.scenes.scene_layer_visibility = vec![true; scene.layers.len()];
+                self.scenes.scene_layer_cursor = self
+                    .scenes
                     .scene_layer_cursor
-                    .min(self.scene_preview_layers.len().saturating_sub(1));
-                self.scene_preview_scene = Some(scene);
+                    .min(self.scenes.scene_preview_layers.len().saturating_sub(1));
+                self.scenes.scene_preview_scene = Some(scene);
             }
             Err(err) => {
-                self.scene_preview_layers.clear();
-                self.scene_layer_visibility.clear();
-                self.scene_layer_cursor = 0;
-                self.scene_preview_scene = None;
+                self.scenes.scene_preview_layers.clear();
+                self.scenes.scene_layer_visibility.clear();
+                self.scenes.scene_layer_cursor = 0;
+                self.scenes.scene_preview_scene = None;
                 self.status = format!("Scenes Browser: failed to compile scene ({err})");
             }
         }
@@ -1210,12 +1096,12 @@ impl AppState {
             return;
         }
 
-        self.effects_live_preview = !self.effects_live_preview;
+        self.effects.effects_live_preview = !self.effects.effects_live_preview;
         self.sync_effect_preview_scene_yaml();
         self.restart_effect_preview_clock();
         self.sync_effect_param_cursor();
 
-        self.status = if self.effects_live_preview {
+        self.status = if self.effects.effects_live_preview {
             "Effects Browser: LIVE preview ON | Tab focus | ↑/↓ param | ←/→ adjust".to_string()
         } else {
             "Effects Browser: LIVE preview OFF | F enables live buffer preview".to_string()
@@ -1224,13 +1110,13 @@ impl AppState {
 
     fn sync_effect_preview_scene_yaml(&mut self) {
         let Some(effect_name) = self.selected_builtin_effect() else {
-            self.effects_preview_scene_yaml.clear();
+            self.effects.effects_preview_scene_yaml.clear();
             return;
         };
 
         let mut params = effect_params::default_effect_params(effect_name);
-        effect_params::apply_overrides(effect_name, &self.effect_param_overrides, &mut params);
-        self.effects_preview_scene_yaml =
+        effect_params::apply_overrides(effect_name, &self.effects.effect_param_overrides, &mut params);
+        self.effects.effects_preview_scene_yaml =
             effects_preview_scene::build_preview_scene_yaml_default(effect_name, &params);
     }
 
@@ -1265,12 +1151,12 @@ impl AppState {
         self.project_watch_last_scan_ms = now_millis();
         self.tree_items = self.build_tree_items();
         self.tree_cursor = 0;
-        self.scene_cursor = 0;
-        self.scene_display_names =
+        self.scenes.scene_cursor = 0;
+        self.scenes.scene_display_names =
             Self::build_scene_display_names(&self.mod_source, &self.index.scenes.scene_paths);
-        self.scene_layer_cursor = 0;
-        self.scene_layer_visibility.clear();
-        self.scene_preview_started_at_ms = now_millis();
+        self.scenes.scene_layer_cursor = 0;
+        self.scenes.scene_layer_visibility.clear();
+        self.scenes.scene_preview_started_at_ms = now_millis();
         self.sync_scene_preview_selection();
         self.refresh_cutscene_source_folder();
         push_recent(&mut self.recent_projects, path);
@@ -1311,13 +1197,13 @@ impl AppState {
         self.dir_preview_index = None;
         self.dir_preview_popup = false;
         self.dir_preview_started_at_ms = 0;
-        self.scene_cursor = 0;
-        self.scene_display_names.clear();
-        self.scene_layer_cursor = 0;
-        self.scene_layer_visibility.clear();
-        self.scene_preview_layers.clear();
-        self.scene_preview_scene = None;
-        self.scene_preview_started_at_ms = 0;
+        self.scenes.scene_cursor = 0;
+        self.scenes.scene_display_names.clear();
+        self.scenes.scene_layer_cursor = 0;
+        self.scenes.scene_layer_visibility.clear();
+        self.scenes.scene_preview_layers.clear();
+        self.scenes.scene_preview_scene = None;
+        self.scenes.scene_preview_started_at_ms = 0;
         self.cutscene_source_dir = "assets/raw".to_string();
         self.cutscene_frames.clear();
         self.cutscene_missing_frames.clear();
@@ -1473,11 +1359,7 @@ impl AppState {
     }
 
     fn apply_start_command(&mut self, cmd: Command) -> bool {
-        match self.start_dialog {
-            StartDialog::RecentMenu => self.apply_start_recent_menu(cmd),
-            StartDialog::SchemaPicker => self.apply_start_schema_picker(cmd),
-            StartDialog::DirectoryBrowser => self.apply_start_directory_browser(cmd),
-        }
+        self.handle_start_screen_command(cmd)
     }
 
     fn apply_start_recent_menu(&mut self, cmd: Command) -> bool {
@@ -1710,86 +1592,167 @@ impl AppState {
         false
     }
 
+    fn handle_effects_browser_command(&mut self, cmd: Command) -> bool {
+        if self.sidebar_active != SidebarItem::Search {
+            return false;
+        }
+        match cmd {
+            Command::Up => {
+                if self.effects.effects_live_preview && self.focus == FocusPane::Inspector {
+                    self.move_effect_param_cursor(-1);
+                } else if self.effects.effects_live_preview && self.focus == FocusPane::Browser {
+                    self.effects.effects_code_scroll =
+                        self.effects.effects_code_scroll.saturating_sub(1);
+                } else {
+                    self.move_effect_selection(self.effects.effect_cursor.saturating_sub(1));
+                }
+                true
+            }
+            Command::Down => {
+                if self.effects.effects_live_preview && self.focus == FocusPane::Inspector {
+                    self.move_effect_param_cursor(1);
+                } else if self.effects.effects_live_preview && self.focus == FocusPane::Browser {
+                    self.effects.effects_code_scroll =
+                        self.effects.effects_code_scroll.saturating_add(1);
+                } else {
+                    let max = self.effects.builtin_effects.len().saturating_sub(1);
+                    self.move_effect_selection((self.effects.effect_cursor + 1).min(max));
+                }
+                true
+            }
+            Command::Left => {
+                if self.effects.effects_live_preview && self.focus == FocusPane::Inspector {
+                    self.adjust_selected_effect_param(-1.0);
+                }
+                true
+            }
+            Command::Right => {
+                if self.effects.effects_live_preview && self.focus == FocusPane::Inspector {
+                    self.adjust_selected_effect_param(1.0);
+                }
+                true
+            }
+            Command::EnterFile => {
+                if !self.effects.effects_live_preview {
+                    self.effects.effects_live_preview = true;
+                }
+                self.focus = FocusPane::Inspector;
+                self.sync_effect_param_cursor();
+                self.restart_effect_preview_clock();
+                self.status =
+                    "Effects Browser: controls focused | ↑/↓ param | ←/→ adjust | F toggle"
+                        .to_string();
+                true
+            }
+            Command::ToggleEffectsPreview | Command::SceneFullscreenHoldStart => {
+                self.toggle_effects_preview();
+                true
+            }
+            Command::NextCodeTab => {
+                self.effects.effects_code_scroll = 0;
+                self.effects.effects_code_tab = self.effects.effects_code_tab.next();
+                true
+            }
+            Command::PrevCodeTab => {
+                self.effects.effects_code_scroll = 0;
+                self.effects.effects_code_tab = self.effects.effects_code_tab.prev();
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn handle_scenes_browser_command(&mut self, cmd: Command) -> bool {
+        if self.sidebar_active != SidebarItem::Scenes {
+            return false;
+        }
+        match cmd {
+            Command::Up => {
+                if self.focus == FocusPane::ProjectTree {
+                    self.move_scene_selection(self.scenes.scene_cursor.saturating_sub(1));
+                } else if self.focus == FocusPane::Browser {
+                    self.move_scene_layer_cursor(-1);
+                }
+                true
+            }
+            Command::Down => {
+                if self.focus == FocusPane::ProjectTree {
+                    let max = self.index.scenes.scene_paths.len().saturating_sub(1);
+                    self.move_scene_selection((self.scenes.scene_cursor + 1).min(max));
+                } else if self.focus == FocusPane::Browser {
+                    self.move_scene_layer_cursor(1);
+                }
+                true
+            }
+            Command::EnterFile => {
+                if self.focus == FocusPane::Browser {
+                    self.isolate_selected_scene_layer();
+                }
+                true
+            }
+            Command::ToggleEffectsPreview => {
+                self.set_scene_fullscreen_hold(true);
+                true
+            }
+            Command::SceneFullscreenHoldStart => {
+                if self.scenes.scene_preview_fullscreen_hold
+                    && !self.scenes.scene_preview_fullscreen_toggle
+                {
+                    self.set_scene_fullscreen_hold(false);
+                } else {
+                    self.set_scene_fullscreen_hold(true);
+                }
+                true
+            }
+            Command::SceneFullscreenHoldEnd => {
+                self.set_scene_fullscreen_hold(false);
+                true
+            }
+            Command::ToggleSceneLayer => {
+                if self.focus == FocusPane::Browser {
+                    self.toggle_selected_scene_layer();
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
     fn apply_browser_command(&mut self, cmd: Command) -> bool {
         match cmd {
             Command::Quit => return true,
             Command::CloseProject => self.close_project(),
             Command::Up => {
-                if self.sidebar_active == SidebarItem::Search {
-                    if self.effects_live_preview && self.focus == FocusPane::Inspector {
-                        self.move_effect_param_cursor(-1);
-                    } else if self.effects_live_preview && self.focus == FocusPane::Browser {
-                        self.effects_code_scroll = self.effects_code_scroll.saturating_sub(1);
-                    } else {
-                        self.move_effect_selection(self.effect_cursor.saturating_sub(1));
-                    }
-                } else if self.sidebar_active == SidebarItem::Scenes {
-                    if self.focus == FocusPane::ProjectTree {
-                        self.move_scene_selection(self.scene_cursor.saturating_sub(1));
-                    } else if self.focus == FocusPane::Browser {
-                        self.move_scene_layer_cursor(-1);
-                    }
-                } else if self.focus == FocusPane::ProjectTree {
+                if !self.handle_project_explorer_command(cmd)
+                    && !self.handle_effects_browser_command(cmd)
+                    && !self.handle_scenes_browser_command(cmd)
+                    && self.focus == FocusPane::ProjectTree
+                {
                     self.tree_cursor = self.tree_cursor.saturating_sub(1);
                 }
             }
             Command::Down => {
-                if self.sidebar_active == SidebarItem::Search {
-                    if self.effects_live_preview && self.focus == FocusPane::Inspector {
-                        self.move_effect_param_cursor(1);
-                    } else if self.effects_live_preview && self.focus == FocusPane::Browser {
-                        self.effects_code_scroll = self.effects_code_scroll.saturating_add(1);
-                    } else {
-                        let max = self.builtin_effects.len().saturating_sub(1);
-                        self.move_effect_selection((self.effect_cursor + 1).min(max));
-                    }
-                } else if self.sidebar_active == SidebarItem::Scenes {
-                    if self.focus == FocusPane::ProjectTree {
-                        let max = self.index.scenes.scene_paths.len().saturating_sub(1);
-                        self.move_scene_selection((self.scene_cursor + 1).min(max));
-                    } else if self.focus == FocusPane::Browser {
-                        self.move_scene_layer_cursor(1);
-                    }
-                } else if self.focus == FocusPane::ProjectTree {
+                if !self.handle_project_explorer_command(cmd)
+                    && !self.handle_effects_browser_command(cmd)
+                    && !self.handle_scenes_browser_command(cmd)
+                    && self.focus == FocusPane::ProjectTree
+                {
                     let max = self.tree_items.len().saturating_sub(1);
                     self.tree_cursor = (self.tree_cursor + 1).min(max);
                 }
             }
             Command::Left => {
-                if self.sidebar_active == SidebarItem::Search
-                    && self.effects_live_preview
-                    && self.focus == FocusPane::Inspector
-                {
-                    self.adjust_selected_effect_param(-1.0);
-                }
+                let _ = self.handle_effects_browser_command(cmd);
             }
             Command::Right => {
-                if self.sidebar_active == SidebarItem::Search
-                    && self.effects_live_preview
-                    && self.focus == FocusPane::Inspector
-                {
-                    self.adjust_selected_effect_param(1.0);
-                }
+                let _ = self.handle_effects_browser_command(cmd);
             }
             Command::NextPane => self.focus = self.focus.next(),
             Command::PrevPane => self.focus = self.focus.prev(),
             Command::EnterFile => {
-                if self.sidebar_active == SidebarItem::Explorer {
-                    self.enter_edit_mode();
-                } else if self.sidebar_active == SidebarItem::Search {
-                    if !self.effects_live_preview {
-                        self.effects_live_preview = true;
-                    }
-                    self.focus = FocusPane::Inspector;
-                    self.sync_effect_param_cursor();
-                    self.restart_effect_preview_clock();
-                    self.status =
-                        "Effects Browser: controls focused | ↑/↓ param | ←/→ adjust | F toggle"
-                            .to_string();
-                } else if self.sidebar_active == SidebarItem::Scenes
-                    && self.focus == FocusPane::Browser
-                {
-                    self.isolate_selected_scene_layer();
+                if !self.handle_project_explorer_command(cmd) {
+                    let _ = self.handle_effects_browser_command(cmd);
+                    let _ = self.handle_scenes_browser_command(cmd);
                 }
             }
             Command::ToggleSidebar => self.sidebar_visible = !self.sidebar_visible,
@@ -1803,51 +1766,28 @@ impl AppState {
             Command::SelectPanel4 => self.activate_cutscene_maker(),
             Command::PruneRecents => {}
             Command::TogglePreview => {
-                if self.sidebar_active == SidebarItem::Cutscene {
-                    self.refresh_cutscene_source_folder();
-                    self.status = self.cutscene_status_message();
-                }
+                let _ = self.handle_cutscene_command(cmd);
             }
             Command::ToggleEffectsPreview => {
-                if self.sidebar_active == SidebarItem::Scenes {
-                    self.set_scene_fullscreen_hold(true);
-                } else {
-                    self.toggle_effects_preview();
-                }
+                let _ = self.handle_scenes_browser_command(cmd)
+                    || self.handle_effects_browser_command(cmd);
             }
             Command::SceneFullscreenHoldStart => {
-                if self.sidebar_active == SidebarItem::Scenes {
-                    if self.scene_preview_fullscreen_hold && !self.scene_preview_fullscreen_toggle {
-                        self.set_scene_fullscreen_hold(false);
-                    } else {
-                        self.set_scene_fullscreen_hold(true);
-                    }
-                } else if self.sidebar_active == SidebarItem::Search {
-                    self.toggle_effects_preview();
-                }
+                let _ = self.handle_scenes_browser_command(cmd)
+                    || self.handle_effects_browser_command(cmd);
             }
             Command::SceneFullscreenHoldEnd => {
-                if self.sidebar_active == SidebarItem::Scenes {
-                    self.set_scene_fullscreen_hold(false);
-                }
+                let _ = self.handle_scenes_browser_command(cmd);
             }
             Command::ToggleSceneFullscreen => self.toggle_scene_fullscreen(),
             Command::ToggleSceneLayer => {
-                if self.sidebar_active == SidebarItem::Scenes && self.focus == FocusPane::Browser {
-                    self.toggle_selected_scene_layer();
-                }
+                let _ = self.handle_scenes_browser_command(cmd);
             }
             Command::NextCodeTab => {
-                if self.sidebar_active == SidebarItem::Search {
-                    self.effects_code_scroll = 0;
-                    self.effects_code_tab = self.effects_code_tab.next();
-                }
+                let _ = self.handle_effects_browser_command(cmd);
             }
             Command::PrevCodeTab => {
-                if self.sidebar_active == SidebarItem::Search {
-                    self.effects_code_scroll = 0;
-                    self.effects_code_tab = self.effects_code_tab.prev();
-                }
+                let _ = self.handle_effects_browser_command(cmd);
             }
             Command::Back
             | Command::Noop
@@ -1863,25 +1803,14 @@ impl AppState {
     fn apply_edit_command(&mut self, cmd: Command) -> bool {
         match cmd {
             Command::Quit => return true,
-            Command::ExitEditor => self.exit_edit_mode(),
-            Command::ToggleSidebar => self.sidebar_visible = !self.sidebar_visible,
-            Command::ToggleEffectsPreview => self.toggle_effects_preview(),
-            Command::SelectPanel1 => {
-                self.reset_scene_fullscreen_state();
-                self.sidebar_active = SidebarItem::Explorer;
-                self.sidebar_visible = true;
-            }
-            Command::SelectPanel2 => self.activate_effects_browser(),
-            Command::SelectPanel3 => {
-                self.reset_scene_fullscreen_state();
-                self.sidebar_active = SidebarItem::Scenes;
-                self.sidebar_visible = true;
-            }
-            Command::SelectPanel4 => {
-                self.reset_scene_fullscreen_state();
-                self.sidebar_active = SidebarItem::Cutscene;
-                self.sidebar_visible = true;
-                self.refresh_cutscene_source_folder();
+            Command::ExitEditor
+            | Command::ToggleSidebar
+            | Command::ToggleEffectsPreview
+            | Command::SelectPanel1
+            | Command::SelectPanel2
+            | Command::SelectPanel3
+            | Command::SelectPanel4 => {
+                let _ = self.handle_editor_pane_command(cmd);
             }
             Command::Left
             | Command::Right
