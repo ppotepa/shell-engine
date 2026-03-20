@@ -181,14 +181,14 @@ fn render_schema_picker(frame: &mut Frame, header: Rect, body: Rect, footer: Rec
         header,
     );
 
-    let list_items: Vec<ListItem> = if app.schema_candidates.is_empty() {
+    let list_items: Vec<ListItem> = if app.picker.schema_candidates.is_empty() {
         vec![ListItem::new("  (no matching files found)").style(theme::fg_disabled())]
     } else {
-        app.schema_candidates
+        app.picker.schema_candidates
             .iter()
             .enumerate()
             .map(|(idx, path)| {
-                if idx == app.schema_cursor {
+                if idx == app.picker.schema_cursor {
                     ListItem::new(format!("> {path}")).style(theme::accent())
                 } else {
                     ListItem::new(format!("  {path}")).style(theme::fg_normal())
@@ -231,8 +231,8 @@ fn render_directory_browser(
     frame.render_widget(
         Paragraph::new(Line::from(format!(
             "Directory: {}  | depth: {}",
-            app.dir_browser_path,
-            path_depth(&app.dir_browser_path)
+            app.picker.dir_browser_path,
+            path_depth(&app.picker.dir_browser_path)
         )))
         .style(theme::accent())
         .block(
@@ -253,6 +253,7 @@ fn render_directory_browser(
         .split(split[1]);
 
     let list_items: Vec<ListItem> = app
+        .picker
         .dir_browser_items
         .iter()
         .enumerate()
@@ -265,11 +266,11 @@ fn render_directory_browser(
                 }
             };
             let item_enabled = match item {
-                DirBrowserItem::OpenHere => app.dir_can_open,
+                DirBrowserItem::OpenHere => app.picker.dir_can_open,
                 DirBrowserItem::Directory { .. } => true,
                 DirBrowserItem::Parent => true,
             };
-            if idx == app.dir_cursor && item_enabled {
+            if idx == app.picker.dir_cursor && item_enabled {
                 ListItem::new(format!("> {label}")).style(theme::accent())
             } else if !item_enabled {
                 ListItem::new(format!("  {label}")).style(theme::fg_disabled())
@@ -299,9 +300,9 @@ fn render_directory_browser(
     );
 
     let mut preview_items: Vec<ListItem> = Vec::new();
-    if let Some(index) = &app.dir_preview_index {
+    if let Some(index) = &app.picker.dir_preview_index {
         preview_items.push(
-            ListItem::new(format!("{}/", basename_only(&app.dir_preview_path)))
+            ListItem::new(format!("{}/", basename_only(&app.picker.dir_preview_path)))
                 .style(theme::fg_active()),
         );
         preview_items.push(ListItem::new("├─ mod.yaml").style(theme::fg_normal()));
@@ -348,12 +349,12 @@ fn render_directory_browser(
         right[0],
     );
 
-    let summary = if let Some(index) = &app.dir_preview_index {
+    let summary = if let Some(index) = &app.picker.dir_preview_index {
         let (name, version, entrypoint) = if let Some(m) = &index.manifest {
             (
                 m.name
                     .clone()
-                    .unwrap_or_else(|| basename_only(&app.dir_preview_path)),
+                    .unwrap_or_else(|| basename_only(&app.picker.dir_preview_path)),
                 m.version.clone().unwrap_or_else(|| "-".to_string()),
                 m.entrypoint.clone().unwrap_or_else(|| "-".to_string()),
             )
@@ -395,7 +396,7 @@ fn render_directory_browser(
         footer,
     );
 
-    if app.dir_preview_popup {
+    if app.picker.dir_preview_popup {
         render_live_preview_popup(frame, split[1], app);
     }
 }
@@ -443,8 +444,8 @@ fn render_live_preview_popup(frame: &mut Frame, area: Rect, app: &AppState) {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
     let now_ms = millis;
-    let elapsed_ms = now_ms.saturating_sub(app.dir_preview_started_at_ms);
-    let simulated_ms = elapsed_ms.saturating_mul(u64::from(app.dir_preview_speed_mult));
+    let elapsed_ms = now_ms.saturating_sub(app.picker.dir_preview_started_at_ms);
+    let simulated_ms = elapsed_ms.saturating_mul(u64::from(app.picker.dir_preview_speed_mult));
     let text = render_engine_emulation_text(app, simulated_ms);
 
     frame.render_widget(
@@ -513,7 +514,7 @@ struct SceneDoc {
 }
 
 fn render_engine_emulation_text(app: &AppState, simulated_ms: u64) -> String {
-    let Some(index) = &app.dir_preview_index else {
+    let Some(index) = &app.picker.dir_preview_index else {
         return "LIVE PREVIEW\n\nNO ENGINE DATA".to_string();
     };
     let entrypoint = index
@@ -524,12 +525,12 @@ fn render_engine_emulation_text(app: &AppState, simulated_ms: u64) -> String {
     if entrypoint.is_empty() {
         return "LIVE PREVIEW\n\nNO ENTRYPOINT".to_string();
     }
-    let scene_path = Path::new(&app.dir_preview_path).join(entrypoint.trim_start_matches('/'));
+    let scene_path = Path::new(&app.picker.dir_preview_path).join(entrypoint.trim_start_matches('/'));
     let Some(scene) = load_yaml::<SceneDoc>(&scene_path) else {
         return format!(
             "LIVE PREVIEW x{}\n\nproject: {}\nscene: {}\n\nCould not load entrypoint scene",
-            app.dir_preview_speed_mult,
-            basename_only(&app.dir_preview_path),
+            app.picker.dir_preview_speed_mult,
+            basename_only(&app.picker.dir_preview_path),
             entrypoint
         );
     };
@@ -549,7 +550,7 @@ fn render_engine_emulation_text(app: &AppState, simulated_ms: u64) -> String {
     if steps.is_empty() {
         return format!(
             "LIVE PREVIEW x{}\n\nscene: {}\n\nNo on_enter steps",
-            app.dir_preview_speed_mult, scene_id
+            app.picker.dir_preview_speed_mult, scene_id
         );
     }
 
@@ -599,8 +600,8 @@ fn render_engine_emulation_text(app: &AppState, simulated_ms: u64) -> String {
 
     format!(
         "LIVE PREVIEW x{}\nproject: {}\nscene: {} ({})\n\nengine_time: {}ms\nstep: {}/{}\nprogress: {}\nactive_effects: {}\n\n(ESC or F5 to close)",
-        app.dir_preview_speed_mult,
-        basename_only(&app.dir_preview_path),
+        app.picker.dir_preview_speed_mult,
+        basename_only(&app.picker.dir_preview_path),
         scene_title,
         scene_id,
         t,
