@@ -197,7 +197,33 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
         ' ' => Some([
             0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000,
         ]),
-        'a'..='z' => generic_glyph_rows(ch.to_ascii_uppercase()),
+        // ── Lowercase a–z (distinct designs, 5×7 px) ────────────────────────
+        'a' => Some([0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b10011, 0b01101]),
+        'b' => Some([0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b11001, 0b10110]),
+        'c' => Some([0b00000, 0b01110, 0b10001, 0b10000, 0b10000, 0b10001, 0b01110]),
+        'd' => Some([0b00001, 0b00001, 0b01101, 0b10011, 0b10001, 0b10011, 0b01101]),
+        'e' => Some([0b00000, 0b01110, 0b10001, 0b11111, 0b10000, 0b10001, 0b01110]),
+        'f' => Some([0b00110, 0b01001, 0b01000, 0b11110, 0b01000, 0b01000, 0b01000]),
+        'g' => Some([0b00000, 0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110]),
+        'h' => Some([0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001]),
+        'i' => Some([0b00100, 0b00000, 0b01100, 0b00100, 0b00100, 0b00100, 0b01110]),
+        'j' => Some([0b00010, 0b00000, 0b00110, 0b00010, 0b00010, 0b10010, 0b01100]),
+        'k' => Some([0b10000, 0b10000, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010]),
+        'l' => Some([0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110]),
+        'm' => Some([0b00000, 0b00000, 0b11010, 0b10101, 0b10101, 0b10001, 0b10001]),
+        'n' => Some([0b00000, 0b00000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001]),
+        'o' => Some([0b00000, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01110]),
+        'p' => Some([0b00000, 0b00000, 0b11110, 0b10001, 0b11110, 0b10000, 0b10000]),
+        'q' => Some([0b00000, 0b00000, 0b01111, 0b10001, 0b01111, 0b00001, 0b00001]),
+        'r' => Some([0b00000, 0b00000, 0b10110, 0b11001, 0b10000, 0b10000, 0b10000]),
+        's' => Some([0b00000, 0b00000, 0b01110, 0b10000, 0b01110, 0b00001, 0b11110]),
+        't' => Some([0b00100, 0b00100, 0b01110, 0b00100, 0b00100, 0b00101, 0b00010]),
+        'u' => Some([0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101]),
+        'v' => Some([0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100]),
+        'w' => Some([0b00000, 0b00000, 0b10001, 0b10101, 0b10101, 0b11011, 0b01010]),
+        'x' => Some([0b00000, 0b00000, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001]),
+        'y' => Some([0b00000, 0b00000, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110]),
+        'z' => Some([0b00000, 0b00000, 0b11111, 0b00010, 0b00100, 0b01000, 0b11111]),
         c if c.is_ascii_control() => None,
         _ => Some([
             0b01110, 0b00001, 0b00110, 0b00100, 0b00000, 0b00100, 0b00000,
@@ -719,11 +745,12 @@ mod tests {
     #[test]
     fn text_transform_none_preserves_lowercase_glyph_lookup() {
         use super::{generic_glyph_rows, apply_transform, TextTransform};
-        // With None transform, 'h' stays 'h' and its glyph matches 'H'.
+        // With None transform, 'h' stays 'h' and has its own distinct glyph.
         let c = apply_transform('h', &TextTransform::None);
         assert_eq!(c, 'h');
         assert!(generic_glyph_rows('h').is_some());
-        assert_eq!(generic_glyph_rows('h'), generic_glyph_rows('H'));
+        // Lowercase 'h' should have a DIFFERENT glyph than uppercase 'H'.
+        assert_ne!(generic_glyph_rows('h'), generic_glyph_rows('H'));
     }
 
     #[test]
@@ -735,7 +762,7 @@ mod tests {
     }
 
     #[test]
-    fn rasterize_generic_none_transform_renders_lowercase() {
+    fn rasterize_generic_lowercase_differs_from_uppercase() {
         use super::{rasterize_generic, TextTransform};
         use crate::buffer::Buffer;
         use crossterm::style::Color;
@@ -746,19 +773,17 @@ mod tests {
 
         let mut buf_upper = Buffer::new(100, 10);
         buf_upper.fill(Color::Reset);
-        rasterize_generic("hello", 1, Color::White, 0, 0, &mut buf_upper, &TextTransform::Uppercase);
+        rasterize_generic("HELLO", 1, Color::White, 0, 0, &mut buf_upper, &TextTransform::None);
 
-        // Both should produce identical pixels since lowercase glyphs map to same data as uppercase.
+        // Lowercase and uppercase should render differently now that we have distinct glyphs.
+        let mut any_diff = false;
         for y in 0..7u16 {
             for x in 0..30u16 {
-                let lower_cell = buf_lower.get(x, y);
-                let upper_cell = buf_upper.get(x, y);
-                assert_eq!(
-                    lower_cell.map(|c| c.symbol),
-                    upper_cell.map(|c| c.symbol),
-                    "mismatch at ({x},{y})"
-                );
+                if buf_lower.get(x, y).map(|c| c.symbol) != buf_upper.get(x, y).map(|c| c.symbol) {
+                    any_diff = true;
+                }
             }
         }
+        assert!(any_diff, "lowercase and uppercase glyphs should look different");
     }
 }
