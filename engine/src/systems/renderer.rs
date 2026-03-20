@@ -71,6 +71,25 @@ pub fn renderer_system(world: &mut World) {
     if should_use_virtual_buffer(world) {
         present_virtual_to_output(world);
     }
+
+    // Last-good-frame fallback: when script errors are present in debug mode,
+    // restore the last flushed frame (front) into the back buffer so the
+    // compositor-cleared blank is replaced with the last visible content.
+    // The debug overlay will render on top immediately after.
+    let has_script_errors = world
+        .get::<DebugLogBuffer>()
+        .map(|log| log.has_errors)
+        .unwrap_or(false);
+    let debug_enabled = world
+        .get::<DebugFeatures>()
+        .map(|d| d.enabled)
+        .unwrap_or(false);
+    if has_script_errors && debug_enabled {
+        if let Some(buf) = world.buffer_mut() {
+            buf.restore_front_to_back();
+        }
+    }
+
     apply_debug_overlay(world);
 
     // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
