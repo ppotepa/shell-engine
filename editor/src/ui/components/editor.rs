@@ -11,13 +11,15 @@ use crate::ui::theme;
 /// Renders the editor pane with line numbers and the current file content.
 pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let title = app
-        .editing_file
+        .editor
+        .file
         .as_ref()
         .map(|f| format!("Editing: {}", f))
         .unwrap_or_else(|| "Editor".to_string());
 
     let lines: Vec<Line> = app
-        .edit_content
+        .editor
+        .content
         .lines()
         .enumerate()
         .map(|(i, line)| {
