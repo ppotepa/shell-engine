@@ -8,8 +8,8 @@ internal static class Program
 {
     public static void Main()
     {
-        var statePath = Path.Combine(Environment.CurrentDirectory, ".cognitos-state.json");
-        IMachineStart machineStart = new JsonStateStore(statePath);
+        var statePath = Path.Combine(Environment.CurrentDirectory, "state.obj");
+        IMachineStart machineStart = new ZipStateStore(statePath);
         var state = machineStart.LoadOrCreate();
 
         var commands = new ICommand[]
@@ -18,10 +18,13 @@ internal static class Program
             new LsCommand(),
             new CatCommand(),
             new TopCommand(),
+            new PsCommand(),
+            new ServicesCommand(),
             new ClearCommand(),
         };
 
-        IOperatingSystem os = new MinixOperatingSystem(state, new VirtualFileSystem(), commands);
+        var fileSystem = new ZipVirtualFileSystem(statePath);
+        IOperatingSystem os = new MinixOperatingSystem(state, fileSystem, commands);
         IBootSequence boot = new MinixBootSequence();
         var host = new AppHost(os, machineStart);
 
@@ -48,7 +51,20 @@ internal static class Program
                     continue;
                 }
 
-                if (type is "hello" or "resize" or "key")
+                if (type == "resize")
+                {
+                    var rows = Protocol.GetInt(root, "rows") ?? 40;
+                    host.HandleResize(rows);
+                    continue;
+                }
+
+                if (type == "hello")
+                {
+                    host.HandleResize(Protocol.GetInt(root, "rows") ?? 40);
+                    continue;
+                }
+
+                if (type == "key")
                 {
                     continue;
                 }

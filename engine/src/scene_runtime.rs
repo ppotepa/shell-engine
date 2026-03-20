@@ -108,6 +108,14 @@ struct UiTextEvent {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct SidecarIoFrameState {
+    pub output_lines: Vec<String>,
+    pub clear_count: u64,
+    pub screen_full_lines: Option<Vec<String>>,
+    pub custom_events: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
 struct UiRuntimeState {
     focus_order: Vec<String>,
     focused_index: usize,
@@ -119,6 +127,7 @@ struct UiRuntimeState {
     change_seq: u64,
     /// Last raw key press this frame — exposed to Rhai as `key { code, ctrl, alt, shift }`.
     pub last_raw_key: Option<RawKeyEvent>,
+    pub sidecar_io: SidecarIoFrameState,
 }
 
 /// Domain-agnostic key event exposed to Rhai scripts.
@@ -597,6 +606,7 @@ impl SceneRuntime {
     /// Pushes a line to the terminal shell output transcript.
     /// Does nothing if no terminal shell is active.
     pub fn terminal_push_output(&mut self, line: String) {
+        self.ui_state.sidecar_io.output_lines.push(line.clone());
         if let Some(state) = self.terminal_shell_state.as_mut() {
             state.push_output_line(line);
             self.sync_terminal_shell_sprites();
@@ -610,6 +620,7 @@ impl SceneRuntime {
             state.clear_output();
             self.sync_terminal_shell_sprites();
         }
+        self.ui_state.sidecar_io.clear_count = self.ui_state.sidecar_io.clear_count.saturating_add(1);
     }
 
     pub fn terminal_set_prompt_prefix(&mut self, prefix: String) {
@@ -1052,6 +1063,7 @@ impl SceneRuntime {
                 ui_last_change_text: ui_last_change.as_ref().map(|event| event.text.clone()),
                 game_state: game_state.clone(),
                 last_raw_key: self.ui_state.last_raw_key.clone(),
+                sidecar_io: self.ui_state.sidecar_io.clone(),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
@@ -1097,6 +1109,15 @@ impl SceneRuntime {
             *state = ObjectRuntimeState::default();
         }
         self.ui_state.last_raw_key = None;
+        self.ui_state.sidecar_io = SidecarIoFrameState::default();
+    }
+
+    pub fn sidecar_mark_screen_full(&mut self, lines: Vec<String>) {
+        self.ui_state.sidecar_io.screen_full_lines = Some(lines);
+    }
+
+    pub fn sidecar_push_custom_event(&mut self, payload: String) {
+        self.ui_state.sidecar_io.custom_events.push(payload);
     }
 
     fn sync_terminal_shell_sprites(&mut self) {

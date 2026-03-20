@@ -27,6 +27,8 @@ pub enum IoEvent {
     Clear,
     SetPromptPrefix { text: String },
     SetPromptMasked { masked: bool },
+    // Incremental buffer update for sidecars that prefer diff-style terminal output.
+    ScreenDiff { clear: bool, lines: Vec<String> },
     // Reserved for fullscreen apps (vi-like) — engine can map this to a sprite or compositor layer.
     ScreenFull { lines: Vec<String>, cursor_x: u16, cursor_y: u16 },
     Custom { payload: JsonValue },
@@ -153,4 +155,30 @@ fn spawn_stdout_reader(stdout: impl std::io::Read + Send + 'static, tx: Sender<I
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{IoEvent, IoRequest};
+
+    #[test]
+    fn serializes_hello_request_tag() {
+        let json = serde_json::to_string(&IoRequest::Hello { cols: 120, rows: 42 }).unwrap();
+        assert!(json.contains(r#""type":"hello""#));
+        assert!(json.contains(r#""cols":120"#));
+        assert!(json.contains(r#""rows":42"#));
+    }
+
+    #[test]
+    fn deserializes_screen_diff_event() {
+        let raw = r#"{"type":"screen-diff","clear":true,"lines":["a","b"]}"#;
+        let event: IoEvent = serde_json::from_str(raw).unwrap();
+        match event {
+            IoEvent::ScreenDiff { clear, lines } => {
+                assert!(clear);
+                assert_eq!(lines, vec!["a".to_string(), "b".to_string()]);
+            }
+            _ => panic!("expected screen-diff"),
+        }
+    }
 }

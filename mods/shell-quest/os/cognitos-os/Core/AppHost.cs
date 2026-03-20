@@ -6,14 +6,18 @@ internal sealed class AppHost
 {
     private readonly IOperatingSystem _os;
     private readonly IMachineStart _store;
+    private readonly ScreenBuffer _screen;
     private readonly Queue<BootStep> _bootQueue = new();
     private ulong _bootCountdownMs;
     private bool _bootFinished;
+    private int _lastExitCode;
+    private bool _bootPromptInitialized;
 
     public AppHost(IOperatingSystem os, IMachineStart store)
     {
         _os = os;
         _store = store;
+        _screen = new ScreenBuffer();
     }
 
     public void EmitBoot(IBootSequence boot)
@@ -25,6 +29,7 @@ internal sealed class AppHost
         }
         _bootCountdownMs = 0;
         _bootFinished = false;
+        _bootPromptInitialized = false;
         _os.State.Mode = SessionMode.Booting;
         Protocol.Send(new { type = "set-prompt-prefix", text = "" });
         Protocol.Send(new { type = "set-prompt-masked", masked = false });
@@ -34,6 +39,11 @@ internal sealed class AppHost
     {
         _os.Tick(dtMs);
         DriveBoot(dtMs);
+    }
+
+    public void HandleResize(int rows)
+    {
+        _screen.SetViewport(rows);
     }
 
     public void HandleSubmit(string raw)
@@ -66,7 +76,7 @@ internal sealed class AppHost
     {
         if (!_os.State.HasAccount && !user.Equals("linus", StringComparison.Ordinal))
         {
-            Protocol.Send(new { type = "out", lines = new[] { Style.Fg(Style.Warn, "first boot: login as linus"), "" } });
+            _screen.Append(Style.Fg(Style.Warn, "first boot: login as linus"), "");
             return;
         }
 
@@ -81,11 +91,7 @@ internal sealed class AppHost
         {
             if (password.Length > 5)
             {
-                Protocol.Send(new
-                {
-                    type = "out",
-                    lines = new[] { Style.Fg(Style.Error, "password is too long (max 5)"), "" }
-                });
+                _screen.Append(Style.Fg(Style.Error, "password is too long (max 5)"), "");
                 return;
             }
 
@@ -93,6 +99,10 @@ internal sealed class AppHost
             _os.State.Password = password;
             _os.State.LastLogin = _os.SimulatedNow();
             _store.Persist(_os.State);
+            if (_os.FileSystem is ZipVirtualFileSystem zipFs)
+            {
+                zipFs.ReloadFromStateArchive();
+            }
             EnterShell(firstLogin: true);
             return;
         }
@@ -100,7 +110,7 @@ internal sealed class AppHost
         var passOk = _os.State.PendingLoginUser == _os.State.UserName && password == _os.State.Password;
         if (!passOk)
         {
-            Protocol.Send(new { type = "out", lines = new[] { Style.Fg(Style.Error, "login incorrect"), "" } });
+            _screen.Append(Style.Fg(Style.Error, "login incorrect"), "");
             _os.State.PendingLoginUser = "";
             _os.State.Mode = SessionMode.LoginUser;
             ApplyPrompt();
@@ -118,30 +128,30 @@ internal sealed class AppHost
         _os.State.Mode = SessionMode.Shell;
         _os.State.Cwd = "~";
         _store.Persist(_os.State);
-
-        Protocol.Send(new { type = "clear" });
-        Protocol.Send(new
+        if (_os.FileSystem is ZipVirtualFileSystem zipFs)
         {
-            type = "out",
-            lines = firstLogin
-                ? new[]
-                {
-                    Style.Fg(Style.Info, "account created."),
-                    $"last login: {now:ddd MMM dd HH:mm}",
-                    "you have 1 new message.",
-                    "type ls to look around.",
-                    "type cat <file> to read notes.",
-                    ""
-                }
-                : new[]
-                {
-                    $"last login: {last:ddd MMM dd HH:mm}",
-                    "you have 1 new message.",
-                    "type ls to look around.",
-                    "type cat <file> to read notes.",
-                    ""
-                }
-        });
+            zipFs.ReloadFromStateArchive();
+        }
+
+        _screen.ClearViewport();
+        _screen.Append(firstLogin
+            ? new[]
+            {
+                Style.Fg(Style.Info, "account created."),
+                $"last login: {now:ddd MMM dd HH:mm}",
+                $"you have {_os.UnreadMailCount()} new message{(_os.UnreadMailCount() == 1 ? "" : "s")}.",
+                "type ls to look around.",
+                "type cat <file> to read notes.",
+                ""
+            }
+            : new[]
+            {
+                $"last login: {last:ddd MMM dd HH:mm}",
+                $"you have {_os.UnreadMailCount()} new message{(_os.UnreadMailCount() == 1 ? "" : "s")}.",
+                "type ls to look around.",
+                "type cat <file> to read notes.",
+                ""
+            });
 
         ApplyPrompt();
     }
@@ -154,20 +164,28 @@ internal sealed class AppHost
 
         if (!_os.CommandIndex.TryGetValue(cmd, out var command))
         {
-            Protocol.Send(new { type = "out", lines = new[] { Style.Fg(Style.Error, $"{cmd}: command not found"), "" } });
+            _lastExitCode = 127;
+            _screen.Append(Style.Fg(Style.Error, $"{cmd}: command not found"), "");
             return;
         }
 
-        var result = command.Execute(new CommandContext(_os, _os.State.UserName ?? "linus", _os.State.Cwd), args);
+        var context = new CommandContext(
+            _os,
+            _os.State.UserName ?? "linus",
+            _os.State.Cwd,
+            cmd,
+            args
+        );
+        var result = command.Execute(context);
+        _lastExitCode = result.ExitCode;
 
         if (result.ClearScreen)
         {
-            Protocol.Send(new { type = "clear" });
+            _screen.ClearViewport();
             return;
         }
 
-        var lines = result.Lines.Count == 0 ? new[] { "" } : result.Lines.Concat(new[] { "" }).ToArray();
-        Protocol.Send(new { type = "out", lines });
+        _screen.Append(result.Lines.Count == 0 ? new[] { "" } : result.Lines.Concat(new[] { "" }).ToArray());
     }
 
     public void ApplyPrompt()
@@ -198,7 +216,7 @@ internal sealed class AppHost
                 Protocol.Send(new
                 {
                     type = "set-prompt-prefix",
-                    text = $"{Style.Fg(Style.PromptUser, user)}@{Style.Fg(Style.PromptHost, "kruuna")}:{Style.Fg(Style.PromptPath, cwd)}$ "
+                    text = $"{Style.Fg(Style.PromptUser, user)}@{Style.Fg(Style.PromptHost, "kruuna")}:{Style.Fg(Style.PromptPath, cwd)} [{_lastExitCode}]$ "
                 });
                 Protocol.Send(new { type = "set-prompt-masked", masked = false });
                 break;
@@ -212,6 +230,12 @@ internal sealed class AppHost
             return;
         }
 
+        if (!_bootPromptInitialized)
+        {
+            _screen.ClearViewport();
+            _bootPromptInitialized = true;
+        }
+
         if (_bootCountdownMs > dtMs)
         {
             _bootCountdownMs -= dtMs;
@@ -222,7 +246,7 @@ internal sealed class AppHost
         while (_bootQueue.Count > 0 && _bootCountdownMs == 0)
         {
             var next = _bootQueue.Dequeue();
-            Protocol.Send(new { type = "out", lines = new[] { next.Text } });
+            _screen.Append(next.Text);
             _bootCountdownMs = next.DelayMs;
         }
 

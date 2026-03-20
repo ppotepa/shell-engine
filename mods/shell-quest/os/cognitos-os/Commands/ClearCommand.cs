@@ -7,6 +7,6 @@ internal sealed class ClearCommand : ICommand
     public string Name => "clear";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx, IReadOnlyList<string> args)
-        => new(Array.Empty<string>(), ClearScreen: true);
+    public CommandResult Execute(CommandContext ctx)
+        => new(Array.Empty<string>(), ExitCode: 0, ClearScreen: true);
 }

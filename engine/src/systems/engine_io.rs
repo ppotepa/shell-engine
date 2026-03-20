@@ -80,6 +80,12 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                             runtime.last_submit_seq = 0;
                             runtime.last_key_sent = None;
                             runtime.last_size = None;
+                            if let Some(sidecar) = runtime.sidecar.as_ref() {
+                                if let Some((cols, rows)) = buf_size {
+                                    let _ = sidecar.send(IoRequest::Hello { cols, rows });
+                                    runtime.last_size = Some((cols, rows));
+                                }
+                            }
                         }
                         Err(err) => {
                             pending_lines
@@ -159,14 +165,24 @@ fn apply_event(scene_runtime: &mut crate::scene_runtime::SceneRuntime, ev: IoEve
         IoEvent::SetPromptMasked { masked } => {
             scene_runtime.terminal_set_prompt_masked(masked);
         }
+        IoEvent::ScreenDiff { clear, lines } => {
+            if clear {
+                scene_runtime.terminal_clear_output();
+            }
+            for line in lines {
+                scene_runtime.terminal_push_output(line);
+            }
+        }
         IoEvent::ScreenFull { lines, .. } => {
             // MVP: just dump to transcript so it’s visible even before a proper fullscreen compositor.
+            scene_runtime.sidecar_mark_screen_full(lines.clone());
             scene_runtime.terminal_push_output("[fullscreen]".to_string());
             for line in lines {
                 scene_runtime.terminal_push_output(line);
             }
         }
         IoEvent::Custom { payload } => {
+            scene_runtime.sidecar_push_custom_event(payload.to_string());
             scene_runtime.terminal_push_output(format!("[sidecar-event] {payload}"));
         }
     }
