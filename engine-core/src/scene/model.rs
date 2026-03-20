@@ -164,6 +164,12 @@ pub struct EffectParams {
     /// CRT reflection: brightness multiplier applied to the reflected sample.
     #[serde(default)]
     pub brightness: Option<f32>,
+    /// Generic postfx alpha / blend amount (0..1).
+    #[serde(default)]
+    pub alpha: Option<f32>,
+    /// Generic postfx distortion strength (0..1).
+    #[serde(default)]
+    pub distortion: Option<f32>,
     /// Screen shake horizontal amplitude in cells.
     #[serde(default)]
     pub amplitude_x: Option<f32>,

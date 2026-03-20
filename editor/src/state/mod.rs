@@ -1,11 +1,12 @@
 //! Application state: mode, cursor positions, project index, and all UI-level state.
 
-pub mod filters;
-pub mod focus;
 pub mod cutscene;
 pub mod editor_pane;
 pub mod effects_browser;
+pub mod filters;
+pub mod focus;
 pub mod project_explorer;
+pub mod scene_run;
 pub mod scenes_browser;
 pub mod selection;
 pub mod start_screen;
@@ -74,6 +75,7 @@ pub enum AppMode {
     Start,
     Browser,
     EditMode,
+    SceneRun,
 }
 
 /// Which overlay dialog is active on the start screen.
@@ -211,6 +213,34 @@ pub struct SidebarState {
     pub visible: bool,
 }
 
+/// Scene run flavor selected from Scenes Browser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SceneRunKind {
+    Soft,
+    Hard,
+}
+
+/// State owned by the scene-run player (F5 from Scenes Browser).
+pub struct SceneRunState {
+    pub kind: SceneRunKind,
+    pub scene_path: String,
+    pub scene_name: String,
+    pub world: Option<engine::world::World>,
+    pub last_tick_ms: u64,
+}
+
+impl std::fmt::Debug for SceneRunState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SceneRunState")
+            .field("kind", &self.kind)
+            .field("scene_path", &self.scene_path)
+            .field("scene_name", &self.scene_name)
+            .field("world_active", &self.world.is_some())
+            .field("last_tick_ms", &self.last_tick_ms)
+            .finish()
+    }
+}
+
 /// State owned by the Cutscene Maker feature.
 #[derive(Debug, Clone)]
 pub struct CutsceneMakerState {
@@ -238,7 +268,7 @@ pub struct EditorPaneState {
 }
 
 /// Complete runtime state for the editor application.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AppState {
     pub launch_mod_source: String,
     pub mode: AppMode,
@@ -255,6 +285,7 @@ pub struct AppState {
     pub sidebar: SidebarState,
     pub effects: EffectsBrowserState,
     pub scenes: SceneBrowserState,
+    pub scene_run: SceneRunState,
     pub cutscene: CutsceneMakerState,
     pub watch: ProjectWatchState,
     /// Whether the current-screen help overlay is visible.
@@ -339,6 +370,13 @@ impl AppState {
                 scene_preview_fullscreen_hold: false,
                 scene_preview_fullscreen_toggle: false,
             },
+            scene_run: SceneRunState {
+                kind: SceneRunKind::Soft,
+                scene_path: String::new(),
+                scene_name: String::new(),
+                world: None,
+                last_tick_ms: 0,
+            },
             cutscene: CutsceneMakerState {
                 source_dir: "assets/raw".to_string(),
                 output_gif: "assets/images/intro/cutscene.gif".to_string(),
@@ -358,7 +396,8 @@ impl AppState {
 
     /// Returns the name of the currently selected built-in effect, if any.
     pub fn selected_builtin_effect(&self) -> Option<&str> {
-        self.effects.builtin_effects
+        self.effects
+            .builtin_effects
             .get(self.effects.effect_cursor)
             .map(String::as_str)
     }
@@ -372,9 +411,16 @@ impl AppState {
             .map(String::as_str)
     }
 
+    /// Returns selected scene path normalized to a scene reference (`/scenes/...`).
+    pub fn selected_scene_ref_path(&self) -> Option<String> {
+        self.selected_scene_path()
+            .map(|scene_path| self.normalize_scene_ref_path(scene_path))
+    }
+
     /// Returns display label for scene index based on authored YAML metadata.
     pub fn scene_display_name(&self, idx: usize) -> String {
-        self.scenes.scene_display_names
+        self.scenes
+            .scene_display_names
             .get(idx)
             .cloned()
             .or_else(|| self.index.scenes.scene_paths.get(idx).cloned())
@@ -392,7 +438,8 @@ impl AppState {
 
     /// Returns whether the given layer index is enabled for preview.
     pub fn scene_layer_enabled(&self, idx: usize) -> bool {
-        self.scenes.scene_layer_visibility
+        self.scenes
+            .scene_layer_visibility
             .get(idx)
             .copied()
             .unwrap_or(true)
@@ -432,6 +479,10 @@ impl AppState {
             AppMode::Start => "START",
             AppMode::Browser => "NORMAL",
             AppMode::EditMode => "EDIT",
+            AppMode::SceneRun => match self.scene_run.kind {
+                SceneRunKind::Soft => "SOFT",
+                SceneRunKind::Hard => "RUN",
+            },
         }
     }
 
@@ -467,6 +518,13 @@ impl AppState {
                 .as_ref()
                 .map(|path| format!("Edit Mode / {path}"))
                 .unwrap_or_else(|| "Edit Mode / File Editor".to_string()),
+            AppMode::SceneRun => {
+                if self.scene_run.scene_name.is_empty() {
+                    "Scene Run / Active Scene".to_string()
+                } else {
+                    format!("Scene Run / {}", self.scene_run.scene_name)
+                }
+            }
         }
     }
 
@@ -495,7 +553,7 @@ impl AppState {
             },
             AppMode::Browser => match self.sidebar.active {
                 SidebarItem::Explorer => {
-                    format!("1-4 screens | Tab pane | Enter edit | T sidebar | {help}")
+                    format!("1 scenes | 2 explorer | 3 effects | 4 cutscene | Enter edit | {help}")
                 }
                 SidebarItem::Search => match self.focus {
                     FocusPane::ProjectTree => {
@@ -510,26 +568,29 @@ impl AppState {
                 },
                 SidebarItem::Scenes => match self.focus {
                     FocusPane::ProjectTree => {
-                        format!("j/k scenes | Tab pane | F/Ctrl+F fullscreen | {help}")
+                        format!(
+                            "j/k scenes | F5 soft-run | F6 run | Tab pane | F/Ctrl+F fullscreen | {help}"
+                        )
                     }
                     FocusPane::Browser => {
-                        format!("j/k layers | Space toggle | Enter solo | Tab pane | {help}")
+                        format!("j/k layers | Space toggle | Enter solo | F5 soft-run | F6 run | {help}")
                     }
                     FocusPane::Inspector => {
-                        format!("F/Ctrl+F fullscreen | Tab pane | T sidebar | {help}")
+                        format!("F5 soft-run | F6 run | F/Ctrl+F fullscreen | Tab pane | {help}")
                     }
                 },
                 SidebarItem::Cutscene => {
-                    format!("F5 rescan | 1-4 screens | Tab pane | T sidebar | {help}")
+                    format!("F5 rescan | 1 scenes | 2 explorer | 3 effects | 4 cutscene | {help}")
                 }
             },
             AppMode::EditMode => {
                 if self.sidebar.active == SidebarItem::Search {
                     format!("Esc editor | F live | T sidebar | {help} | Ctrl+Q quit")
                 } else {
-                    format!("Esc editor | T sidebar | 1-4 screens | {help} | Ctrl+Q quit")
+                    format!("Esc editor | 1 scenes | 2 explorer | 3 effects | 4 cutscene | {help}")
                 }
             }
+            AppMode::SceneRun => format!("Esc back to editor | Ctrl+Q quit | {help}"),
         }
     }
 
@@ -562,7 +623,8 @@ impl AppState {
                 SidebarItem::Explorer => vec![
                     "Project Explorer shows the project tree on the left and a content preview in the center."
                         .to_string(),
-                    "Use 1-4 to switch screens and Tab to cycle focus.".to_string(),
+                    "Use 1/2/3/4 to switch screens (1 Scenes, 2 Explorer, 3 Effects, 4 Cutscene)."
+                        .to_string(),
                     "Press Enter on a file to open it in Edit Mode.".to_string(),
                     "Press T to hide or show the sidebar.".to_string(),
                 ],
@@ -588,12 +650,16 @@ impl AppState {
                     FocusPane::ProjectTree => vec![
                         "Scene List: choose which authored scene to preview.".to_string(),
                         "Use j/k to move through scenes.".to_string(),
+                        "Press F5 for SOFT RUN (single-scene loop, no scene transitions)."
+                            .to_string(),
+                        "Press F6 for RUN (hard run with scene transitions).".to_string(),
                         "Press Tab to move into Layers Explorer or Live Preview.".to_string(),
                     ],
                     FocusPane::Browser => vec![
                         "Layers Explorer: enable, disable, or isolate layers of the selected scene."
                             .to_string(),
                         "Use j/k to move through layers.".to_string(),
+                        "Press F5 for SOFT RUN; press F6 for RUN.".to_string(),
                         "Press Space to toggle a layer and Enter to solo it.".to_string(),
                     ],
                     FocusPane::Inspector => vec![
@@ -613,9 +679,21 @@ impl AppState {
                 "File Editor shows the selected file in the center pane.".to_string(),
                 "Edit Mode is visually marked with green borders.".to_string(),
                 "Press Esc to return to Browser mode.".to_string(),
-                "Use 1-4 and T to switch helper side panels without leaving the editor."
+                "Use 1/2/3/4 to switch helper screens without leaving the editor."
                     .to_string(),
             ],
+            AppMode::SceneRun => match self.scene_run.kind {
+                SceneRunKind::Soft => vec![
+                    "SOFT RUN plays only the selected scene.".to_string(),
+                    "Scene transitions are ignored in this mode.".to_string(),
+                    "Press Esc to stop playback and return to the editor.".to_string(),
+                ],
+                SceneRunKind::Hard => vec![
+                    "RUN plays the selected scene with normal scene transitions.".to_string(),
+                    "Use this for realistic end-to-end flow checks.".to_string(),
+                    "Press Esc to stop playback and return to the editor.".to_string(),
+                ],
+            },
         };
 
         lines.push(String::new());
@@ -660,6 +738,7 @@ impl AppState {
             AppMode::Start => self.apply_start_command(cmd),
             AppMode::Browser => self.apply_browser_command(cmd),
             AppMode::EditMode => self.apply_edit_command(cmd),
+            AppMode::SceneRun => self.handle_scene_run_command(cmd),
         }
     }
 
@@ -707,15 +786,22 @@ impl AppState {
             Command::ToggleSidebar => self.sidebar.visible = !self.sidebar.visible,
             Command::SelectPanel1 => {
                 self.reset_scene_fullscreen_state();
+                self.activate_scenes_browser();
+            }
+            Command::SelectPanel2 => {
+                self.reset_scene_fullscreen_state();
                 self.sidebar.active = SidebarItem::Explorer;
                 self.sidebar.visible = true;
             }
-            Command::SelectPanel2 => self.activate_effects_browser(),
-            Command::SelectPanel3 => self.activate_scenes_browser(),
+            Command::SelectPanel3 => self.activate_effects_browser(),
             Command::SelectPanel4 => self.activate_cutscene_maker(),
             Command::PruneRecents => {}
             Command::TogglePreview => {
-                let _ = self.handle_cutscene_command(cmd);
+                let _ =
+                    self.handle_scenes_browser_command(cmd) || self.handle_cutscene_command(cmd);
+            }
+            Command::RunHard => {
+                let _ = self.handle_scenes_browser_command(cmd);
             }
             Command::ToggleEffectsPreview => {
                 let _ = self.handle_scenes_browser_command(cmd)
@@ -773,6 +859,7 @@ impl AppState {
             | Command::OpenSchemaPicker
             | Command::PruneRecents
             | Command::TogglePreview
+            | Command::RunHard
             | Command::NextCodeTab
             | Command::PrevCodeTab
             | Command::CloseProject
@@ -788,8 +875,11 @@ impl AppState {
     }
 
     /// Advances any in-progress transition animations by `dt_secs` seconds.
-    pub fn update_transition(&mut self, _dt_secs: f32) {
-        self.poll_project_refresh();
+    pub fn update_transition(&mut self, dt_secs: f32) {
+        self.tick_scene_run(dt_secs);
+        if self.mode != AppMode::SceneRun {
+            self.poll_project_refresh();
+        }
     }
 }
 

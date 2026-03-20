@@ -138,7 +138,7 @@ pub fn pane_title(is_focused: bool) -> Style {
 pub fn pane_border(mode: AppMode, is_focused: bool) -> Style {
     let color = match mode {
         AppMode::EditMode => Color::Green,
-        AppMode::Start | AppMode::Browser => Color::White,
+        AppMode::Start | AppMode::Browser | AppMode::SceneRun => Color::White,
     };
 
     let mut style = Style::default().fg(color);

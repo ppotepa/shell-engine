@@ -53,9 +53,9 @@ fn pick(nerd: &'static str, emoji: &'static str, ascii: &'static str) -> &'stati
 /// Returns the sidebar icon glyph for the given [`SidebarItem`] using the active theme.
 pub fn sidebar_glyph(item: SidebarItem) -> &'static str {
     match item {
-        SidebarItem::Explorer => pick("\u{f115}", "\u{1f4c1}", "[F]"),
-        SidebarItem::Search => pick("\u{f002}", "\u{1f50d}", "[S]"),
-        SidebarItem::Scenes => pick("\u{f008}", "\u{1f3ac}", "[3]"),
+        SidebarItem::Scenes => pick("\u{f008}", "\u{1f3ac}", "[1]"),
+        SidebarItem::Explorer => pick("\u{f115}", "\u{1f4c1}", "[2]"),
+        SidebarItem::Search => pick("\u{f002}", "\u{1f50d}", "[3]"),
         SidebarItem::Cutscene => pick("\u{f03d}", "\u{1f4f7}", "[C]"),
     }
 }

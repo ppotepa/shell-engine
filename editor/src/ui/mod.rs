@@ -11,7 +11,13 @@ use crate::state::{AppMode, AppState, SidebarItem};
 
 /// Renders the complete application frame based on the current [`AppState`].
 pub fn draw(frame: &mut Frame, app: &AppState) {
-    let sidebar_visible = app.mode != AppMode::Start && app.sidebar.visible;
+    if app.mode == AppMode::SceneRun {
+        components::scene_run::render(frame, frame.area(), app);
+        return;
+    }
+
+    let sidebar_visible =
+        matches!(app.mode, AppMode::Browser | AppMode::EditMode) && app.sidebar.visible;
     let chunks = layout::main_chunks(frame, sidebar_visible);
     components::header::render(frame, chunks.header, app);
 

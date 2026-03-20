@@ -2,8 +2,8 @@
 
 use std::path::Path;
 
-use engine::repositories::{create_scene_repository, SceneRepository};
 use crate::input::commands::Command;
+use engine::repositories::{create_scene_repository, SceneRepository};
 
 use super::{focus::FocusPane, now_millis, AppState, SidebarItem};
 
@@ -37,17 +37,30 @@ impl AppState {
 
     pub(super) fn activate_scenes_browser(&mut self) {
         self.reset_scene_fullscreen_state();
+        self.refresh_project_index_now();
         self.sidebar.active = SidebarItem::Scenes;
         self.sidebar.visible = false;
         self.focus = FocusPane::ProjectTree;
         self.sync_scene_preview_selection();
         self.scenes.scene_preview_started_at_ms = now_millis();
-        self.status = if self.index.scenes.scene_paths.is_empty() {
-            "Scenes Browser: no discoverable scenes found".to_string()
-        } else {
-            "Scenes Browser: j/k scenes | Tab focus | Space toggle | Enter solo | Ctrl+F fullscreen"
-                .to_string()
-        };
+        self.status = self.scene_browser_status_message();
+    }
+
+    pub(super) fn scene_browser_status_message(&self) -> String {
+        if self.index.scenes.scene_paths.is_empty() {
+            return "Scenes Browser: no discoverable scenes found".to_string();
+        }
+        let scene_name = self
+            .selected_scene_display_name()
+            .unwrap_or_else(|| "<unknown-scene>".to_string());
+        let scene_path = self
+            .selected_scene_path()
+            .map(|path| self.normalize_scene_ref_path(path))
+            .unwrap_or_else(|| "<none>".to_string());
+        format!(
+            "Scenes Browser: F5 soft-run | F6 run | scene={} | path={} | mod={}",
+            scene_name, scene_path, self.mod_source
+        )
     }
 
     pub(super) fn reset_scene_fullscreen_state(&mut self) {
@@ -65,8 +78,7 @@ impl AppState {
         } else if self.scenes.scene_preview_fullscreen_toggle {
             self.status = "Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)".to_string();
         } else {
-            self.status =
-                "Scenes Browser: j/k scenes | Tab focus | Space toggle | Enter solo".to_string();
+            self.status = self.scene_browser_status_message();
         }
     }
 
@@ -91,9 +103,11 @@ impl AppState {
             self.scenes.scene_preview_scene = None;
             return;
         }
-        self.scenes.scene_cursor = next_cursor.min(self.index.scenes.scene_paths.len().saturating_sub(1));
+        self.scenes.scene_cursor =
+            next_cursor.min(self.index.scenes.scene_paths.len().saturating_sub(1));
         self.sync_scene_preview_selection();
         self.scenes.scene_preview_started_at_ms = now_millis();
+        self.status = self.scene_browser_status_message();
     }
 
     pub(super) fn move_scene_layer_cursor(&mut self, delta: isize) {
@@ -268,8 +282,17 @@ impl AppState {
                 self.set_scene_fullscreen_hold(true);
                 true
             }
+            Command::TogglePreview => {
+                self.start_scene_soft_run();
+                true
+            }
+            Command::RunHard => {
+                self.start_scene_hard_run();
+                true
+            }
             Command::SceneFullscreenHoldStart => {
-                if self.scenes.scene_preview_fullscreen_hold && !self.scenes.scene_preview_fullscreen_toggle
+                if self.scenes.scene_preview_fullscreen_hold
+                    && !self.scenes.scene_preview_fullscreen_toggle
                 {
                     self.set_scene_fullscreen_hold(false);
                 } else {
