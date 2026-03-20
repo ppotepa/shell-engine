@@ -182,6 +182,13 @@ pub struct SceneBrowserState {
     pub scene_preview_fullscreen_toggle: bool,
 }
 
+/// State owned by the project explorer tree.
+#[derive(Debug, Clone)]
+pub struct ProjectExplorerState {
+    pub cursor: usize,
+    pub items: Vec<TreeItem>,
+}
+
 /// State owned by the Cutscene Maker feature.
 #[derive(Debug, Clone)]
 pub struct CutsceneMakerState {
@@ -233,8 +240,7 @@ pub struct AppState {
     pub dir_preview_popup: bool,
     pub dir_preview_speed_mult: u8,
     pub dir_preview_started_at_ms: u64,
-    pub tree_cursor: usize,
-    pub tree_items: Vec<TreeItem>,
+    pub explorer: ProjectExplorerState,
     pub editor: EditorPaneState,
     pub sidebar_active: SidebarItem,
     pub sidebar_visible: bool,
@@ -285,8 +291,10 @@ impl AppState {
             dir_preview_popup: false,
             dir_preview_speed_mult: 5,
             dir_preview_started_at_ms: 0,
-            tree_cursor: 0,
-            tree_items: Vec::new(),
+            explorer: ProjectExplorerState {
+                cursor: 0,
+                items: Vec::new(),
+            },
             editor: EditorPaneState {
                 file: None,
                 content: String::new(),
@@ -371,7 +379,7 @@ impl AppState {
 
     /// Returns the tree item at the current cursor position, if any.
     pub fn selected_tree_item(&self) -> Option<&TreeItem> {
-        self.tree_items.get(self.tree_cursor)
+        self.explorer.items.get(self.explorer.cursor)
     }
 
     /// Returns the name of the currently selected built-in effect, if any.
@@ -1183,8 +1191,8 @@ impl AppState {
         self.index = index;
         self.watch.stamp = Self::compute_project_watch_stamp(&self.mod_source);
         self.watch.last_scan_ms = now_millis();
-        self.tree_items = self.build_tree_items();
-        self.tree_cursor = 0;
+        self.explorer.items = self.build_tree_items();
+        self.explorer.cursor = 0;
         self.scenes.scene_cursor = 0;
         self.scenes.scene_display_names =
             Self::build_scene_display_names(&self.mod_source, &self.index.scenes.scene_paths);
@@ -1763,7 +1771,7 @@ impl AppState {
                     && !self.handle_scenes_browser_command(cmd)
                     && self.focus == FocusPane::ProjectTree
                 {
-                    self.tree_cursor = self.tree_cursor.saturating_sub(1);
+                    self.explorer.cursor = self.explorer.cursor.saturating_sub(1);
                 }
             }
             Command::Down => {
@@ -1772,8 +1780,8 @@ impl AppState {
                     && !self.handle_scenes_browser_command(cmd)
                     && self.focus == FocusPane::ProjectTree
                 {
-                    let max = self.tree_items.len().saturating_sub(1);
-                    self.tree_cursor = (self.tree_cursor + 1).min(max);
+                    let max = self.explorer.items.len().saturating_sub(1);
+                    self.explorer.cursor = (self.explorer.cursor + 1).min(max);
                 }
             }
             Command::Left => {
