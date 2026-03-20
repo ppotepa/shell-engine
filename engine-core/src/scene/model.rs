@@ -428,6 +428,8 @@ pub enum TerminalShellMode {
     Builtin,
     /// Shell commands are not executed; only UI events (submit/change) are emitted for script handling.
     Scripted,
+    /// Shell commands and key events are bridged to an external sidecar process (structured IPC).
+    Sidecar,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -453,6 +455,15 @@ pub struct TerminalShellCommand {
     pub description: Option<String>,
     #[serde(default)]
     pub output: Option<TerminalShellOutput>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct TerminalShellSidecarControls {
+    /// Executable name/path (resolved by the host OS PATH).
+    pub command: String,
+    /// Arguments passed to the sidecar process.
+    #[serde(default)]
+    pub args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -531,9 +542,13 @@ pub struct TerminalShellControls {
     /// Optional message shown for unknown commands.
     #[serde(default, rename = "unknown-message", alias = "unknown_message")]
     pub unknown_message: Option<String>,
-    /// Terminal shell interaction mode (builtin or scripted).
+    /// Terminal shell interaction mode (builtin, scripted, or sidecar).
     #[serde(default = "default_terminal_shell_mode")]
     pub mode: TerminalShellMode,
+
+    /// Sidecar process configuration (used when `mode: sidecar`).
+    #[serde(default)]
+    pub sidecar: Option<TerminalShellSidecarControls>,
 }
 
 /// Audio cue descriptor (design hook only; playback is external).
@@ -625,7 +640,7 @@ pub struct Scene {
 #[cfg(test)]
 mod tests {
     use super::{Scene, TerminalShellOutput, UiPersistence};
-    use crate::scene::Stage;
+    use crate::scene::{Stage, TerminalShellMode};
 
     #[test]
     fn parses_scene_target_fps_kebab_case() {
@@ -742,6 +757,35 @@ layers: []
         assert_eq!(controls.max_lines, 80);
         assert_eq!(controls.banner, vec!["boot ok".to_string()]);
         assert_eq!(controls.commands.len(), 1);
+    }
+
+    #[test]
+    fn parses_terminal_shell_sidecar_mode() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: terminal-shell
+title: Terminal
+input:
+  terminal-shell:
+    prompt-sprite-id: terminal-prompt
+    output-sprite-id: terminal-output
+    mode: sidecar
+    sidecar:
+      command: dotnet
+      args: [run, --project, tools/virtual-os-proto/VirtualOs.Proto.csproj]
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        let controls = scene
+            .input
+            .terminal_shell
+            .expect("terminal-shell controls should parse");
+        assert_eq!(controls.mode, TerminalShellMode::Sidecar);
+        let sidecar = controls.sidecar.expect("sidecar config should parse");
+        assert_eq!(sidecar.command, "dotnet");
+        assert_eq!(sidecar.args.len(), 3);
     }
 
     #[test]

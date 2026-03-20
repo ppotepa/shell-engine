@@ -85,6 +85,8 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         for _ in 0..ticks_this_frame {
             systems::animator::animator_system(world, tick_ms);
         }
+        // Bridge external sidecar IO before behaviors run (behaviors clear UI submit/change each frame).
+        systems::engine_io::engine_io_system(world, tick_ms);
         // Process transitions emitted by animator in the same frame to avoid
         // rendering one extra "done" frame that can briefly re-show sprites.
         let post_animator_events = world.events_mut().unwrap().drain();

@@ -542,6 +542,7 @@ dependencies = [
  "crossterm 0.29.0",
  "engine-authoring",
  "engine-core",
+ "engine-io",
  "image",
  "rhai",
  "serde",
@@ -573,6 +574,15 @@ dependencies = [
  "serde",
  "serde_yaml",
  "tempfile",
+]
+
+[[package]]
+name = "engine-io"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

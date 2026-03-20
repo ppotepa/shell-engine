@@ -1,5 +1,5 @@
 [workspace]
-members = ["app", "engine", "engine-core", "engine-authoring", "editor", "tools/ttf-rasterizer", "tools/schema-gen", "tools/devtool", "tools/sound-server"]
+members = ["app", "engine", "engine-core", "engine-authoring", "editor", "tools/ttf-rasterizer", "tools/schema-gen", "tools/devtool", "tools/sound-server", "engine-io"]
 resolver = "2"
 
 [workspace.package]
@@ -12,4 +12,5 @@ license = "MIT"
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 serde_yaml = "0.9"
