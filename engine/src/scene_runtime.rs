@@ -86,6 +86,7 @@ struct PanelLayoutSpec {
 
 #[derive(Debug, Clone)]
 struct TextLayoutSpec {
+    x: i32,
     y: i32,
     font: Option<String>,
 }
@@ -209,6 +210,15 @@ impl TerminalShellState {
         match self.controls.mode {
             TerminalShellMode::Sidecar => {
                 // External process owns transcript + semantics.
+                let rendered_command = if self.input_masked {
+                    "*".repeat(command_line.chars().count())
+                } else {
+                    command_line.to_string()
+                };
+                self.push_output_line(format!(
+                    "{}{}",
+                    self.controls.prompt_prefix, rendered_command
+                ));
                 return;
             }
             TerminalShellMode::Scripted => {
@@ -1098,7 +1108,12 @@ impl SceneRuntime {
         let prompt_line = state.prompt_line(self.terminal_shell_scene_elapsed_ms);
         let controls = state.controls.clone();
         let prompt_rendered = self.render_prompt_for_panel(&prompt_line, &controls, &mut state);
-        let output_text = state.output_text();
+        let output_text = if matches!(state.controls.mode, crate::scene::TerminalShellMode::Sidecar)
+        {
+            self.render_terminal_output_text(&state)
+        } else {
+            state.output_text()
+        };
         let _ = self.set_text_sprite_content(&prompt_id, prompt_rendered);
         let _ = self.set_text_sprite_content(&output_id, output_text);
         self.terminal_shell_state = Some(state);
@@ -1111,7 +1126,7 @@ impl SceneRuntime {
         state: &mut TerminalShellState,
     ) -> String {
         let Some(panel_id) = controls.prompt_panel_id.as_deref() else {
-            return prompt_line.to_string();
+            return self.render_prompt_tail_in_viewport(prompt_line, &controls.prompt_sprite_id);
         };
         let Some(layout) = self.resolve_panel_layout(panel_id) else {
             return prompt_line.to_string();
@@ -1161,6 +1176,46 @@ impl SceneRuntime {
             self.animate_prompt_panel_height(panel_id, target_height, controls, state);
         }
         lines.join("\n")
+    }
+
+    fn render_prompt_tail_in_viewport(&self, prompt_line: &str, prompt_sprite_id: &str) -> String {
+        let Some(layout) = self.resolve_text_layout(prompt_sprite_id) else {
+            return prompt_line.to_string();
+        };
+        let scene_width = self
+            .object_regions
+            .get(self.resolver_cache.scene_object_id())
+            .map(|region| region.width)
+            .unwrap_or(120);
+        let cell_width = text_cell_width_for_font(layout.font.as_deref()) as usize;
+        let start_x = layout.x.max(0) as u16;
+        let usable_cells = scene_width.saturating_sub(start_x).max(1) as usize;
+        let max_chars = (usable_cells / cell_width.max(1)).max(1);
+        let total_chars = prompt_line.chars().count();
+        if total_chars <= max_chars {
+            return prompt_line.to_string();
+        }
+        prompt_line
+            .chars()
+            .skip(total_chars - max_chars)
+            .collect::<String>()
+    }
+
+    fn render_terminal_output_text(&self, state: &TerminalShellState) -> String {
+        let Some(output_layout) = self.resolve_text_layout(&state.controls.output_sprite_id) else {
+            return state.output_text();
+        };
+        let Some(prompt_layout) = self.resolve_text_layout(&state.controls.prompt_sprite_id) else {
+            return state.output_text();
+        };
+        let line_height = text_line_height_for_font(output_layout.font.as_deref()).max(1);
+        let vertical_space = prompt_layout.y.saturating_sub(output_layout.y).max(1) as u16;
+        let viewport_lines = (vertical_space / line_height).max(1) as usize;
+        let target_lines = viewport_lines.min(state.controls.max_lines.max(1) as usize);
+        if state.output_lines.len() <= target_lines {
+            return state.output_text();
+        }
+        state.output_lines[state.output_lines.len() - target_lines..].join("\n")
     }
 
     fn animate_prompt_panel_height(
@@ -1892,11 +1947,13 @@ fn find_text_layout_recursive(sprites: &[Sprite], sprite_id: &str) -> Option<Tex
         match sprite {
             Sprite::Text {
                 id: Some(id),
+                x,
                 y,
                 font,
                 ..
             } if id == sprite_id => {
                 return Some(TextLayoutSpec {
+                    x: *x,
                     y: *y,
                     font: font.clone(),
                 });
@@ -1994,6 +2051,23 @@ fn text_line_height_for_font(font: Option<&str>) -> u16 {
         GenericMode::Half => 4,
         GenericMode::Quad => 4,
         GenericMode::Braille => 2,
+    }
+}
+
+fn text_cell_width_for_font(font: Option<&str>) -> u16 {
+    let Some(font_name) = font else {
+        return 1;
+    };
+    if !font_name.starts_with("generic") {
+        return 1;
+    }
+    match GenericMode::from_font_name(font_name) {
+        GenericMode::Tiny => 4,
+        GenericMode::Standard => 6,
+        GenericMode::Large => 12,
+        GenericMode::Half => 6,
+        GenericMode::Quad => 3,
+        GenericMode::Braille => 3,
     }
 }
 

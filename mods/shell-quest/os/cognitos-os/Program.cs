@@ -31,6 +31,8 @@ static class Proto
             return p.GetString();
         return null;
     }
+
+    public static string Fg(string colour, string text) => $"[{colour}]{text}[/]";
 }
 
 sealed class VirtualFs
@@ -117,7 +119,6 @@ internal static class Program
                 if (mode == Mode.LoginUser)
                 {
                     user = submitted;
-                    Proto.Send(new { type = "out", lines = new[] { $"kruuna login: {user}" } });
                     mode = Mode.LoginPass;
                     Proto.Send(new { type = "set-prompt-prefix", text = "password: " });
                     Proto.Send(new { type = "set-prompt-masked", masked = true });
@@ -131,10 +132,18 @@ internal static class Program
 
                     if (!passOk)
                     {
-                        Proto.Send(new { type = "out", lines = new[] { "login incorrect", "" } });
+                        Proto.Send(new
+                        {
+                            type = "out",
+                            lines = new[] { Proto.Fg("red", "login incorrect"), "" }
+                        });
                         user = "";
                         mode = Mode.LoginUser;
-                        Proto.Send(new { type = "set-prompt-prefix", text = "kruuna login: " });
+                        Proto.Send(new
+                        {
+                            type = "set-prompt-prefix",
+                            text = $"{Proto.Fg("green", "kruuna")} login: "
+                        });
                         Proto.Send(new { type = "set-prompt-masked", masked = false });
                         continue;
                     }
@@ -155,7 +164,11 @@ internal static class Program
                         }
                     });
 
-                    Proto.Send(new { type = "set-prompt-prefix", text = $"{user}@kruuna:~$ " });
+                    Proto.Send(new
+                    {
+                        type = "set-prompt-prefix",
+                        text = $"{Proto.Fg("green", user)}@{Proto.Fg("cyan", "kruuna")}:{Proto.Fg("blue", "~")}$ "
+                    });
                     Proto.Send(new { type = "set-prompt-masked", masked = false });
                     continue;
                 }
@@ -181,7 +194,11 @@ internal static class Program
                     var arg = parts.Length > 1 ? parts[1] : null;
                     var entries = fs.Ls(arg).ToArray();
                     if (entries.Length == 0)
-                        Proto.Send(new { type = "out", lines = new[] { "ls: no such file or directory" } });
+                        Proto.Send(new
+                        {
+                            type = "out",
+                            lines = new[] { Proto.Fg("red", "ls: no such file or directory") }
+                        });
                     else
                         Proto.Send(new { type = "out", lines = new[] { string.Join("  ", entries) } });
                     continue;
@@ -191,14 +208,22 @@ internal static class Program
                 {
                     if (parts.Length < 2)
                     {
-                        Proto.Send(new { type = "out", lines = new[] { "usage: cat <file>" } });
+                        Proto.Send(new
+                        {
+                            type = "out",
+                            lines = new[] { Proto.Fg("yellow", "usage: cat <file>") }
+                        });
                         continue;
                     }
 
                     var target = parts[1];
                     if (target == "mail" || target == "notes")
                     {
-                        Proto.Send(new { type = "out", lines = new[] { $"cat: {target}: is a directory" } });
+                        Proto.Send(new
+                        {
+                            type = "out",
+                            lines = new[] { Proto.Fg("red", $"cat: {target}: is a directory") }
+                        });
                         continue;
                     }
 
@@ -209,13 +234,21 @@ internal static class Program
                     }
                     else
                     {
-                        Proto.Send(new { type = "out", lines = new[] { $"cat: {target}: no such file or directory" } });
+                        Proto.Send(new
+                        {
+                            type = "out",
+                            lines = new[] { Proto.Fg("red", $"cat: {target}: no such file or directory") }
+                        });
                     }
 
                     continue;
                 }
 
-                Proto.Send(new { type = "out", lines = new[] { $"{cmd}: command not found" } });
+                Proto.Send(new
+                {
+                    type = "out",
+                    lines = new[] { Proto.Fg("red", $"{cmd}: command not found") }
+                });
             }
             catch (Exception ex)
             {
@@ -224,4 +257,3 @@ internal static class Program
         }
     }
 }
-
