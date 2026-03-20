@@ -20,7 +20,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
     let mut lines = Vec::new();
 
     for (item, key, glyph) in entries.into_iter() {
-        let is_active = item == app.sidebar_active;
+        let is_active = item == app.sidebar.active;
 
         let style = if is_active {
             theme::sidebar_active_entry()

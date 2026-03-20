@@ -189,6 +189,13 @@ pub struct ProjectExplorerState {
     pub items: Vec<TreeItem>,
 }
 
+/// State owned by browser sidebar shell.
+#[derive(Debug, Clone)]
+pub struct SidebarState {
+    pub active: SidebarItem,
+    pub visible: bool,
+}
+
 /// State owned by the Cutscene Maker feature.
 #[derive(Debug, Clone)]
 pub struct CutsceneMakerState {
@@ -242,8 +249,7 @@ pub struct AppState {
     pub dir_preview_started_at_ms: u64,
     pub explorer: ProjectExplorerState,
     pub editor: EditorPaneState,
-    pub sidebar_active: SidebarItem,
-    pub sidebar_visible: bool,
+    pub sidebar: SidebarState,
     pub effects: EffectsBrowserState,
     pub scenes: SceneBrowserState,
     pub cutscene: CutsceneMakerState,
@@ -299,8 +305,10 @@ impl AppState {
                 file: None,
                 content: String::new(),
             },
-            sidebar_active: SidebarItem::Explorer,
-            sidebar_visible: true,
+            sidebar: SidebarState {
+                active: SidebarItem::Explorer,
+                visible: true,
+            },
             effects: EffectsBrowserState {
                 builtin_effects,
                 effect_cursor: 0,
@@ -469,7 +477,7 @@ impl AppState {
                 StartDialog::SchemaPicker => "Start / Schema Picker".to_string(),
                 StartDialog::DirectoryBrowser => "Start / Directory Browser".to_string(),
             },
-            AppMode::Browser => match self.sidebar_active {
+            AppMode::Browser => match self.sidebar.active {
                 SidebarItem::Explorer => "Project Explorer".to_string(),
                 SidebarItem::Search => match self.focus {
                     FocusPane::ProjectTree => "Effects Browser / Effect List".to_string(),
@@ -519,7 +527,7 @@ impl AppState {
                     format!("j/k move | Enter open | F5 preview | Esc back | {help}")
                 }
             },
-            AppMode::Browser => match self.sidebar_active {
+            AppMode::Browser => match self.sidebar.active {
                 SidebarItem::Explorer => {
                     format!("1-4 screens | Tab pane | Enter edit | T sidebar | {help}")
                 }
@@ -550,7 +558,7 @@ impl AppState {
                 }
             },
             AppMode::EditMode => {
-                if self.sidebar_active == SidebarItem::Search {
+                if self.sidebar.active == SidebarItem::Search {
                     format!("Esc editor | F live | T sidebar | {help} | Ctrl+Q quit")
                 } else {
                     format!("Esc editor | T sidebar | 1-4 screens | {help} | Ctrl+Q quit")
@@ -584,7 +592,7 @@ impl AppState {
                         .to_string(),
                 ],
             },
-            AppMode::Browser => match self.sidebar_active {
+            AppMode::Browser => match self.sidebar.active {
                 SidebarItem::Explorer => vec![
                     "Project Explorer shows the project tree on the left and a content preview in the center."
                         .to_string(),
@@ -755,8 +763,8 @@ impl AppState {
 
     fn activate_effects_browser(&mut self) {
         self.reset_scene_fullscreen_state();
-        self.sidebar_active = SidebarItem::Search;
-        self.sidebar_visible = true;
+        self.sidebar.active = SidebarItem::Search;
+        self.sidebar.visible = true;
         self.effects.effects_live_preview = true;
         self.sync_effect_preview_scene_yaml();
         self.restart_effect_preview_clock();
@@ -767,8 +775,8 @@ impl AppState {
 
     fn activate_scenes_browser(&mut self) {
         self.reset_scene_fullscreen_state();
-        self.sidebar_active = SidebarItem::Scenes;
-        self.sidebar_visible = false;
+        self.sidebar.active = SidebarItem::Scenes;
+        self.sidebar.visible = false;
         self.focus = FocusPane::ProjectTree;
         self.sync_scene_preview_selection();
         self.scenes.scene_preview_started_at_ms = now_millis();
@@ -782,8 +790,8 @@ impl AppState {
 
     fn activate_cutscene_maker(&mut self) {
         self.reset_scene_fullscreen_state();
-        self.sidebar_active = SidebarItem::Cutscene;
-        self.sidebar_visible = true;
+        self.sidebar.active = SidebarItem::Cutscene;
+        self.sidebar.visible = true;
         self.focus = FocusPane::ProjectTree;
         self.refresh_cutscene_source_folder();
         self.status = self.cutscene_status_message();
@@ -795,7 +803,7 @@ impl AppState {
     }
 
     fn set_scene_fullscreen_hold(&mut self, enabled: bool) {
-        if self.sidebar_active != SidebarItem::Scenes {
+        if self.sidebar.active != SidebarItem::Scenes {
             return;
         }
         self.scenes.scene_preview_fullscreen_hold = enabled;
@@ -810,7 +818,7 @@ impl AppState {
     }
 
     fn toggle_scene_fullscreen(&mut self) {
-        if self.sidebar_active != SidebarItem::Scenes {
+        if self.sidebar.active != SidebarItem::Scenes {
             return;
         }
         self.scenes.scene_preview_fullscreen_toggle = !self.scenes.scene_preview_fullscreen_toggle;
@@ -1134,7 +1142,7 @@ impl AppState {
     }
 
     fn toggle_effects_preview(&mut self) {
-        if self.sidebar_active != SidebarItem::Search {
+        if self.sidebar.active != SidebarItem::Search {
             return;
         }
 
@@ -1636,7 +1644,7 @@ impl AppState {
     }
 
     fn handle_effects_browser_command(&mut self, cmd: Command) -> bool {
-        if self.sidebar_active != SidebarItem::Search {
+        if self.sidebar.active != SidebarItem::Search {
             return false;
         }
         match cmd {
@@ -1706,7 +1714,7 @@ impl AppState {
     }
 
     fn handle_scenes_browser_command(&mut self, cmd: Command) -> bool {
-        if self.sidebar_active != SidebarItem::Scenes {
+        if self.sidebar.active != SidebarItem::Scenes {
             return false;
         }
         match cmd {
@@ -1798,11 +1806,11 @@ impl AppState {
                     let _ = self.handle_scenes_browser_command(cmd);
                 }
             }
-            Command::ToggleSidebar => self.sidebar_visible = !self.sidebar_visible,
+            Command::ToggleSidebar => self.sidebar.visible = !self.sidebar.visible,
             Command::SelectPanel1 => {
                 self.reset_scene_fullscreen_state();
-                self.sidebar_active = SidebarItem::Explorer;
-                self.sidebar_visible = true;
+                self.sidebar.active = SidebarItem::Explorer;
+                self.sidebar.visible = true;
             }
             Command::SelectPanel2 => self.activate_effects_browser(),
             Command::SelectPanel3 => self.activate_scenes_browser(),
