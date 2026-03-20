@@ -14,6 +14,7 @@ pub enum Command {
     OpenSchemaPicker,
     PruneRecents,
     TogglePreview,
+    RunHard,
     CloseProject,
     NextPane,
     PrevPane,

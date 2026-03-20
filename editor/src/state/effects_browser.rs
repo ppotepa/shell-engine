@@ -20,7 +20,8 @@ impl AppState {
 
     /// Returns the spec for the currently focused effect parameter, if any.
     pub fn selected_effect_param_spec(&self) -> Option<&'static EffectParamSpec> {
-        self.effect_param_specs().get(self.effects.effect_param_cursor)
+        self.effect_param_specs()
+            .get(self.effects.effect_param_cursor)
     }
 
     /// Returns the current value for the given parameter, preferring user overrides.
@@ -124,7 +125,11 @@ impl AppState {
         };
 
         let mut params = effect_params::default_effect_params(effect_name);
-        effect_params::apply_overrides(effect_name, &self.effects.effect_param_overrides, &mut params);
+        effect_params::apply_overrides(
+            effect_name,
+            &self.effects.effect_param_overrides,
+            &mut params,
+        );
         self.effects.effects_preview_scene_yaml =
             effects_preview_scene::build_preview_scene_yaml_default(effect_name, &params);
     }

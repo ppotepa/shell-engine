@@ -12,6 +12,15 @@ use crate::io::indexer::build_project_index;
 use super::{AppState, SidebarItem};
 
 impl AppState {
+    pub(super) fn refresh_project_index_now(&mut self) {
+        if self.mod_source.is_empty() {
+            return;
+        }
+        self.watch.last_scan_ms = super::now_millis();
+        self.watch.stamp = Self::compute_project_watch_stamp(&self.mod_source);
+        self.reload_project_index_after_fs_change();
+    }
+
     pub(super) fn poll_project_refresh(&mut self) {
         if self.mode == super::AppMode::Start || self.mod_source.is_empty() {
             return;

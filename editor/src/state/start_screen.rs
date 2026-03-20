@@ -15,6 +15,10 @@ use super::{now_millis, AppMode, AppState, DirBrowserItem, StartDialog};
 
 impl AppState {
     pub(super) fn open_project(&mut self, path: &str) {
+        self.scene_run.world = None;
+        self.scene_run.scene_path.clear();
+        self.scene_run.scene_name.clear();
+        self.scene_run.last_tick_ms = 0;
         self.reset_scene_fullscreen_state();
         let validation = validate_project_dir(Path::new(path));
         if !validation.valid {
@@ -78,6 +82,10 @@ impl AppState {
         self.cutscene.missing_frames.clear();
         self.cutscene.validation_error = None;
         self.reset_scene_fullscreen_state();
+        self.scene_run.world = None;
+        self.scene_run.scene_path.clear();
+        self.scene_run.scene_name.clear();
+        self.scene_run.last_tick_ms = 0;
         self.watch.last_scan_ms = 0;
         self.watch.stamp = 0;
         self.status =
@@ -129,15 +137,13 @@ impl AppState {
             }
         }
         dirs.sort_by(|a, b| a.0.cmp(&b.0));
-        self.picker
-            .dir_browser_items
-            .extend(dirs.into_iter().map(|(path, valid_project, code)| {
-                DirBrowserItem::Directory {
-                    path,
-                    valid_project,
-                    code,
-                }
-            }));
+        self.picker.dir_browser_items.extend(dirs.into_iter().map(
+            |(path, valid_project, code)| DirBrowserItem::Directory {
+                path,
+                valid_project,
+                code,
+            },
+        ));
         self.picker.dir_cursor = self
             .picker
             .dir_cursor
@@ -179,7 +185,10 @@ impl AppState {
             self.picker.dir_preview_popup = !self.picker.dir_preview_popup;
             self.status = if self.picker.dir_preview_popup {
                 self.picker.dir_preview_started_at_ms = now_millis();
-                format!("Live preview x{} running", self.picker.dir_preview_speed_mult)
+                format!(
+                    "Live preview x{} running",
+                    self.picker.dir_preview_speed_mult
+                )
             } else {
                 self.picker.dir_preview_started_at_ms = 0;
                 "Preview closed".to_string()
@@ -257,7 +266,8 @@ impl AppState {
                     self.start.recent_cursor = (self.start.recent_cursor + 1).min(max);
                 }
                 super::StartFocus::Actions => {
-                    self.start.action_cursor = (self.start.action_cursor + 1).min(3); // 4 actions (0-3)
+                    self.start.action_cursor = (self.start.action_cursor + 1).min(3);
+                    // 4 actions (0-3)
                 }
             },
             Command::OpenProject => {
@@ -268,10 +278,7 @@ impl AppState {
             Command::OpenSchemaPicker => self.open_schema_picker(),
             Command::Enter => match self.start.focus {
                 super::StartFocus::Recents => {
-                    if let Some(path) = self
-                        .recent_projects
-                        .get(self.start.recent_cursor)
-                        .cloned()
+                    if let Some(path) = self.recent_projects.get(self.start.recent_cursor).cloned()
                     {
                         self.open_project(&path);
                     }
@@ -296,6 +303,7 @@ impl AppState {
             Command::Back
             | Command::CloseProject
             | Command::TogglePreview
+            | Command::RunHard
             | Command::ToggleEffectsPreview
             | Command::EnterFile
             | Command::ExitEditor
@@ -329,9 +337,7 @@ impl AppState {
                         .to_string();
             }
             Command::Up => self.picker.schema_cursor = self.picker.schema_cursor.saturating_sub(1),
-            Command::Down => {
-                self.picker.schema_cursor = (self.picker.schema_cursor + 1).min(max)
-            }
+            Command::Down => self.picker.schema_cursor = (self.picker.schema_cursor + 1).min(max),
             Command::Enter => {
                 if let Some(path) = self
                     .picker
@@ -359,6 +365,7 @@ impl AppState {
             | Command::NextPane
             | Command::PrevPane
             | Command::TogglePreview
+            | Command::RunHard
             | Command::ToggleEffectsPreview
             | Command::EnterFile
             | Command::ExitEditor
@@ -404,6 +411,7 @@ impl AppState {
                 | Command::ExitEditor
                 | Command::ToggleSidebar
                 | Command::ToggleEffectsPreview
+                | Command::RunHard
                 | Command::SelectPanel1
                 | Command::SelectPanel2
                 | Command::SelectPanel3
@@ -446,6 +454,7 @@ impl AppState {
             | Command::ExitEditor
             | Command::ToggleSidebar
             | Command::ToggleEffectsPreview
+            | Command::RunHard
             | Command::SelectPanel1
             | Command::SelectPanel2
             | Command::SelectPanel3

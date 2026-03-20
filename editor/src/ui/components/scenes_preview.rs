@@ -83,7 +83,7 @@ fn render_scenes_list(frame: &mut Frame, area: Rect, app: &AppState, focused: bo
                 .borders(Borders::ALL)
                 .style(theme::pane_background(focused))
                 .title_bottom(Span::styled(
-                    " j/k move scenes  Tab pane ",
+                    " j/k move scenes | F5 soft-run | F6 run | Tab pane ",
                     theme::fg_disabled(),
                 )),
         );
@@ -97,7 +97,8 @@ fn render_layers_list(frame: &mut Frame, area: Rect, app: &AppState, focused: bo
             theme::fg_disabled(),
         )))]
     } else {
-        app.scenes.scene_preview_layers
+        app.scenes
+            .scene_preview_layers
             .iter()
             .enumerate()
             .map(|(idx, name)| {
@@ -202,11 +203,16 @@ fn render_live_preview(
                 Ok(buffer) => {
                     let mut lines = preview_renderer::buffer_to_lines(&buffer);
                     if !fullscreen {
+                        let scene_path = app
+                            .selected_scene_ref_path()
+                            .unwrap_or_else(|| "-".to_string());
                         lines.push(Line::from(""));
                         lines.push(Line::from(Span::styled(
                             format!(
-                                "scene: {} | visible layers: {} | progress: {:.2}",
+                                "mod: {} | scene: {} | path: {} | visible layers: {} | progress: {:.2}",
+                                app.mod_source,
                                 scene.id,
+                                scene_path,
                                 filtered_scene.layers.len(),
                                 progress
                             ),
@@ -242,7 +248,7 @@ fn render_live_preview(
                     .borders(Borders::ALL)
                     .style(theme::preview_background())
                     .title_bottom(Span::styled(
-                        " Tab to focus right pane | F hold fullscreen | Ctrl+F toggle ",
+                        " F5 soft-run | F6 run | Tab pane | F hold fullscreen | Ctrl+F toggle ",
                         theme::fg_disabled(),
                     )),
             )

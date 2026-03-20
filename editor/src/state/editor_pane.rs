@@ -60,18 +60,18 @@ impl AppState {
             }
             Command::SelectPanel1 => {
                 self.reset_scene_fullscreen_state();
+                self.sidebar.active = SidebarItem::Scenes;
+                self.sidebar.visible = false;
+                true
+            }
+            Command::SelectPanel2 => {
+                self.reset_scene_fullscreen_state();
                 self.sidebar.active = SidebarItem::Explorer;
                 self.sidebar.visible = true;
                 true
             }
-            Command::SelectPanel2 => {
-                self.activate_effects_browser();
-                true
-            }
             Command::SelectPanel3 => {
-                self.reset_scene_fullscreen_state();
-                self.sidebar.active = SidebarItem::Scenes;
-                self.sidebar.visible = true;
+                self.activate_effects_browser();
                 true
             }
             Command::SelectPanel4 => {

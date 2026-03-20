@@ -346,7 +346,11 @@ fn build_responsive_preview_yaml(app: &AppState, inner_w: u16, inner_h: u16) -> 
     };
 
     let mut params = effect_params::default_effect_params(effect_name);
-    effect_params::apply_overrides(effect_name, &app.effects.effect_param_overrides, &mut params);
+    effect_params::apply_overrides(
+        effect_name,
+        &app.effects.effect_param_overrides,
+        &mut params,
+    );
     effects_preview_scene::build_preview_scene_yaml(effect_name, &params, inner_w, inner_h)
 }
 
@@ -354,7 +358,11 @@ fn render_controls(frame: &mut Frame, area: Rect, app: &AppState, focused: bool)
     let effect_name = app.selected_builtin_effect().unwrap_or("shine");
     let specs = app.effect_param_specs();
     let mut params = effect_params::default_effect_params(effect_name);
-    effect_params::apply_overrides(effect_name, &app.effects.effect_param_overrides, &mut params);
+    effect_params::apply_overrides(
+        effect_name,
+        &app.effects.effect_param_overrides,
+        &mut params,
+    );
 
     let mut lines: Vec<Line> = vec![
         Line::from(Span::styled(

@@ -184,7 +184,8 @@ fn render_schema_picker(frame: &mut Frame, header: Rect, body: Rect, footer: Rec
     let list_items: Vec<ListItem> = if app.picker.schema_candidates.is_empty() {
         vec![ListItem::new("  (no matching files found)").style(theme::fg_disabled())]
     } else {
-        app.picker.schema_candidates
+        app.picker
+            .schema_candidates
             .iter()
             .enumerate()
             .map(|(idx, path)| {
@@ -525,7 +526,8 @@ fn render_engine_emulation_text(app: &AppState, simulated_ms: u64) -> String {
     if entrypoint.is_empty() {
         return "LIVE PREVIEW\n\nNO ENTRYPOINT".to_string();
     }
-    let scene_path = Path::new(&app.picker.dir_preview_path).join(entrypoint.trim_start_matches('/'));
+    let scene_path =
+        Path::new(&app.picker.dir_preview_path).join(entrypoint.trim_start_matches('/'));
     let Some(scene) = load_yaml::<SceneDoc>(&scene_path) else {
         return format!(
             "LIVE PREVIEW x{}\n\nproject: {}\nscene: {}\n\nCould not load entrypoint scene",

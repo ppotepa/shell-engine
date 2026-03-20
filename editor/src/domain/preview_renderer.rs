@@ -102,4 +102,3 @@ fn to_ratatui_color(color: crossterm::style::Color) -> Color {
         crossterm::style::Color::AnsiValue(v) => Color::Indexed(v),
     }
 }
-

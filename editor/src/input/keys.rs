@@ -26,6 +26,14 @@ pub fn map_key_event(key: KeyEvent, mode: AppMode) -> Command {
         };
     }
 
+    if mode == AppMode::SceneRun {
+        return match key.code {
+            KeyCode::Esc => Command::Back,
+            KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::Quit,
+            _ => Command::Noop,
+        };
+    }
+
     // Browser mode: Enter opens file, T toggles sidebar, 1-4 select panels
     if mode == AppMode::Browser {
         match key.code {
@@ -55,6 +63,7 @@ pub fn map_key_event(key: KeyEvent, mode: AppMode) -> Command {
             KeyCode::Char('4') => return Command::SelectPanel4,
             KeyCode::Char(']') => return Command::NextCodeTab,
             KeyCode::Char('[') => return Command::PrevCodeTab,
+            KeyCode::F(6) => return Command::RunHard,
             _ => {}
         }
     }
@@ -72,6 +81,7 @@ pub fn map_key_event(key: KeyEvent, mode: AppMode) -> Command {
         (KeyCode::Char('f'), _) | (KeyCode::Char('/'), _) => Command::OpenSchemaPicker,
         (KeyCode::Char('x'), _) => Command::PruneRecents,
         (KeyCode::F(5), _) => Command::TogglePreview,
+        (KeyCode::F(6), _) => Command::RunHard,
         (KeyCode::Char('w'), KeyModifiers::CONTROL) => Command::CloseProject,
         (KeyCode::Tab, KeyModifiers::NONE) => Command::NextPane,
         (KeyCode::BackTab, _) => Command::PrevPane,
