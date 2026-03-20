@@ -1,7 +1,5 @@
 //! Validates that all `rhai-script` behavior payloads compile before runtime starts.
 
-use rhai::Engine as RhaiEngine;
-
 use crate::scene::{BehaviorSpec, Scene, Sprite};
 use crate::EngineError;
 
@@ -49,6 +47,7 @@ impl StartupCheck for RhaiScriptsCheck {
 fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failures: &mut Vec<String>) {
     for (idx, behavior) in scene.behaviors.iter().enumerate() {
         collect_behavior_failure(
+            scene,
             behavior,
             path,
             &scene.id,
@@ -61,6 +60,7 @@ fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failur
     for (layer_idx, layer) in scene.layers.iter().enumerate() {
         for (behavior_idx, behavior) in layer.behaviors.iter().enumerate() {
             collect_behavior_failure(
+                scene,
                 behavior,
                 path,
                 &scene.id,
@@ -72,6 +72,7 @@ fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failur
 
         for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
             collect_sprite_failures(
+                scene,
                 sprite,
                 path,
                 &scene.id,
@@ -84,6 +85,7 @@ fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failur
 }
 
 fn collect_sprite_failures(
+    scene: &Scene,
     sprite: &Sprite,
     path: &str,
     scene_id: &str,
@@ -93,6 +95,7 @@ fn collect_sprite_failures(
 ) {
     for (behavior_idx, behavior) in sprite.behaviors().iter().enumerate() {
         collect_behavior_failure(
+            scene,
             behavior,
             path,
             scene_id,
@@ -106,6 +109,7 @@ fn collect_sprite_failures(
         Sprite::Panel { children, .. } | Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
             for (child_idx, child) in children.iter().enumerate() {
                 collect_sprite_failures(
+                    scene,
                     child,
                     path,
                     scene_id,
@@ -120,6 +124,7 @@ fn collect_sprite_failures(
 }
 
 fn collect_behavior_failure(
+    scene: &Scene,
     behavior: &BehaviorSpec,
     path: &str,
     scene_id: &str,
@@ -141,9 +146,13 @@ fn collect_behavior_failure(
         return;
     };
 
-    if let Err(error) = RhaiEngine::new().compile(script) {
+    if let Err(error) = crate::behavior::smoke_validate_rhai_script(
+        script,
+        behavior.params.src.as_deref(),
+        scene,
+    ) {
         failures.push(format!(
-            "{path} (scene `{scene_id}`, {scope}): src `{src}` compile error: {error}"
+            "{path} (scene `{scene_id}`, {scope}): src `{src}` preflight failed: {error}"
         ));
     }
 }
@@ -231,5 +240,47 @@ layers: []
             other => panic!("unexpected error variant: {other}"),
         }
     }
-}
 
+    #[test]
+    fn rejects_runtime_api_errors_during_smoke_probe() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
+        fs::write(
+            mod_dir.join("scenes/main.yml"),
+            r#"
+id: main
+title: Main
+behaviors:
+  - name: rhai-script
+    params:
+      src: ./scene.rhai
+      script: |
+        let submitted = ();
+        if submitted.is_empty() {
+            terminal.push("never");
+        }
+        #{}
+layers: []
+"#,
+        )
+        .expect("write scene");
+
+        let manifest: Value =
+            serde_yaml::from_str("name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n")
+                .expect("manifest");
+        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml");
+        let mut report = StartupReport::default();
+        let error = RhaiScriptsCheck
+            .run(&ctx, &mut report)
+            .expect_err("runtime API error should fail startup preflight");
+
+        match error {
+            EngineError::StartupCheckFailed { check, details } => {
+                assert_eq!(check, "rhai-scripts");
+                assert!(details.contains("is_empty"));
+            }
+            other => panic!("unexpected error variant: {other}"),
+        }
+    }
+}
