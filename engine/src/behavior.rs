@@ -8,7 +8,7 @@ use crate::effects::Region;
 use crate::game_object::GameObject;
 use crate::game_state::GameState;
 use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
-use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
+use crate::scene_runtime::{ObjectRuntimeState, RawKeyEvent, TargetResolver};
 use crate::systems::animator::SceneStage;
 use engine_core::authoring::metadata::FieldMetadata;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
@@ -34,6 +34,8 @@ pub struct BehaviorContext {
     pub ui_last_change_target_id: Option<String>,
     pub ui_last_change_text: Option<String>,
     pub game_state: Option<crate::game_state::GameState>,
+    /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
+    pub last_raw_key: Option<RawKeyEvent>,
 }
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -878,6 +880,25 @@ impl Behavior for RhaiScriptBehavior {
         );
         scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
         scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
+
+        // Raw key bridge: expose `key` map with code + modifier booleans.
+        {
+            let mut key_map = RhaiMap::new();
+            if let Some(k) = &ctx.last_raw_key {
+                key_map.insert("code".into(), k.code.clone().into());
+                key_map.insert("ctrl".into(), k.ctrl.into());
+                key_map.insert("alt".into(), k.alt.into());
+                key_map.insert("shift".into(), k.shift.into());
+                key_map.insert("pressed".into(), true.into());
+            } else {
+                key_map.insert("code".into(), "".into());
+                key_map.insert("ctrl".into(), false.into());
+                key_map.insert("alt".into(), false.into());
+                key_map.insert("shift".into(), false.into());
+                key_map.insert("pressed".into(), false.into());
+            }
+            scope.push_dynamic("key", key_map.into());
+        }
 
         let mut engine = RhaiEngine::new();
         let helper_commands = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
@@ -1781,6 +1802,7 @@ mod tests {
             ui_last_change_target_id: None,
             ui_last_change_text: None,
             game_state: None,
+            last_raw_key: None,
         }
     }
 
