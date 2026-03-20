@@ -6,18 +6,18 @@ use super::{AppState, SidebarItem};
 
 impl AppState {
     pub(super) fn handle_project_explorer_command(&mut self, cmd: Command) -> bool {
-        if self.sidebar_active != SidebarItem::Explorer {
+        if self.sidebar.active != SidebarItem::Explorer {
             return false;
         }
 
         match cmd {
             Command::Up => {
-                self.tree_cursor = self.tree_cursor.saturating_sub(1);
+                self.explorer.cursor = self.explorer.cursor.saturating_sub(1);
                 true
             }
             Command::Down => {
-                let max = self.tree_items.len().saturating_sub(1);
-                self.tree_cursor = (self.tree_cursor + 1).min(max);
+                let max = self.explorer.items.len().saturating_sub(1);
+                self.explorer.cursor = (self.explorer.cursor + 1).min(max);
                 true
             }
             Command::EnterFile => {

@@ -11,7 +11,7 @@ use crate::state::{AppMode, AppState, SidebarItem};
 
 /// Renders the complete application frame based on the current [`AppState`].
 pub fn draw(frame: &mut Frame, app: &AppState) {
-    let sidebar_visible = app.mode != AppMode::Start && app.sidebar_visible;
+    let sidebar_visible = app.mode != AppMode::Start && app.sidebar.visible;
     let chunks = layout::main_chunks(frame, sidebar_visible);
     components::header::render(frame, chunks.header, app);
 
@@ -25,7 +25,7 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
     }
 
     if app.mode == AppMode::Browser
-        && app.sidebar_active == SidebarItem::Scenes
+        && app.sidebar.active == SidebarItem::Scenes
         && app.scene_preview_fullscreen_active()
     {
         components::scenes_preview::render_fullscreen(frame, chunks.body, app);
@@ -42,7 +42,7 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
     // EditMode: render editor + sidebar
     if app.mode == AppMode::EditMode {
         if let Some(panel_rect) = chunks.sidebar_panel {
-            match app.sidebar_active {
+            match app.sidebar.active {
                 SidebarItem::Explorer => {
                     components::sidebar::explorer::render(frame, panel_rect, app)
                 }
@@ -82,7 +82,7 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
 
     // Browser mode: render explorer panel + preview
     if let Some(panel_rect) = chunks.sidebar_panel {
-        match app.sidebar_active {
+        match app.sidebar.active {
             SidebarItem::Explorer => components::sidebar::explorer::render(frame, panel_rect, app),
             SidebarItem::Search => components::sidebar::effects::render(frame, panel_rect, app),
             SidebarItem::Scenes => components::sidebar::placeholder::render(
@@ -110,11 +110,11 @@ pub fn draw(frame: &mut Frame, app: &AppState) {
             ),
         }
     }
-    if app.sidebar_active == SidebarItem::Search {
+    if app.sidebar.active == SidebarItem::Search {
         components::effects_preview::render(frame, chunks.center, app);
-    } else if app.sidebar_active == SidebarItem::Scenes {
+    } else if app.sidebar.active == SidebarItem::Scenes {
         components::scenes_preview::render(frame, chunks.center, app);
-    } else if app.sidebar_active == SidebarItem::Cutscene {
+    } else if app.sidebar.active == SidebarItem::Cutscene {
         components::cutscene_preview::render(frame, chunks.center, app);
     } else {
         components::preview::render(frame, chunks.center, app);

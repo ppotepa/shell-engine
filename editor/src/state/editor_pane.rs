@@ -12,7 +12,7 @@ impl AppState {
                 true
             }
             Command::ToggleSidebar => {
-                self.sidebar_visible = !self.sidebar_visible;
+                self.sidebar.visible = !self.sidebar.visible;
                 true
             }
             Command::ToggleEffectsPreview => {
@@ -21,8 +21,8 @@ impl AppState {
             }
             Command::SelectPanel1 => {
                 self.reset_scene_fullscreen_state();
-                self.sidebar_active = SidebarItem::Explorer;
-                self.sidebar_visible = true;
+                self.sidebar.active = SidebarItem::Explorer;
+                self.sidebar.visible = true;
                 true
             }
             Command::SelectPanel2 => {
@@ -31,14 +31,14 @@ impl AppState {
             }
             Command::SelectPanel3 => {
                 self.reset_scene_fullscreen_state();
-                self.sidebar_active = SidebarItem::Scenes;
-                self.sidebar_visible = true;
+                self.sidebar.active = SidebarItem::Scenes;
+                self.sidebar.visible = true;
                 true
             }
             Command::SelectPanel4 => {
                 self.reset_scene_fullscreen_state();
-                self.sidebar_active = SidebarItem::Cutscene;
-                self.sidebar_visible = true;
+                self.sidebar.active = SidebarItem::Cutscene;
+                self.sidebar.visible = true;
                 self.refresh_cutscene_source_folder();
                 true
             }

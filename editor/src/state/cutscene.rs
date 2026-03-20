@@ -6,7 +6,7 @@ use super::{AppState, SidebarItem};
 
 impl AppState {
     pub(super) fn handle_cutscene_command(&mut self, cmd: Command) -> bool {
-        if self.sidebar_active != SidebarItem::Cutscene {
+        if self.sidebar.active != SidebarItem::Cutscene {
             return false;
         }
 

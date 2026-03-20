@@ -93,7 +93,7 @@ impl AppState {
         } else {
             "Detected file changes: project lists and previews refreshed".to_string()
         };
-        if self.sidebar_active == SidebarItem::Cutscene {
+        if self.sidebar.active == SidebarItem::Cutscene {
             self.status = self.cutscene_status_message();
         }
     }
