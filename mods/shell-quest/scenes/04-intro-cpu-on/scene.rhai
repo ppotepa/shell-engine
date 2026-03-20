@@ -3,67 +3,67 @@ let text = " ";
 
 // 1) BIOS + TUX screen
 if t >= 1800 && t < 6200 {
-    text = `TUX Modular BIOS v1.90, 1990 Edition
+    text = `TUX Modular BIOS v1.90, 1990 edition
 Copyright (C) 1990, TUX Software, Inc.
 * TUX AWARDS BIOS Extension v1.0A
 
 `;
 
     if t >= 2500 {
-        text += `CPU: 386QX Compatible @ 20MHz
+        text += `CPU: 386QX compatible @ 20MHz
 `;
     }
 
     if t >= 3000 && t < 4300 {
         let step = ((t - 3000) * 16) / 1300;
         let s = if step > 16 { 16 } else { step };
-        text += `CHECKING RAM: ${s * 128}KB
+        text += `Checking RAM: ${s * 128}KB
 `;
     } else if t >= 4300 && t < 5000 {
         let blink = ((t - 4300) / 175) % 4;
         if blink == 0 || blink == 2 {
-            text += `[white]CHECKING RAM: 2048KB OK[/]
+            text += `[white]Checking RAM: 2048KB OK[/]
 `;
         } else {
-            text += `CHECKING RAM: 2048KB OK
+            text += `Checking RAM: 2048KB OK
 `;
         }
     } else if t >= 5000 {
-        text += `[white]CHECKING RAM: 2048KB OK[/]
+        text += `[white]Checking RAM: 2048KB OK[/]
 `;
     }
 
     if t >= 4800 {
-        text += `CD-ROM DRIVE A:        .......... NOT FOUND
+        text += `CD-ROM drive A:        .......... not found
 `;
     }
     if t >= 5200 {
-        text += `FLOPPY DRIVE A: 1.44MB .......... NOT FOUND
+        text += `Floppy drive A: 1.44MB .......... not found
 `;
     }
     if t >= 5600 {
-        text += `HARD DRIVE 0: SETAGE ST225 20MB
+        text += `Hard drive 0: SETAGE ST225 20MB
 `;
     }
 
 // 2) Separate device screen (1.5s)
 } else if t >= 6200 && t < 7700 {
     text = `+------------------------------------------------------------------+
-| TUX HYPERBIOS DEVICE LISTING                     19/09/90 04:12 |
+| TUX HyperBIOS device listing                     19/09/90 04:12 |
 +------------------------------------------------------------------+
 
- CPU              : 386SX Compatible @ 20MHz
- Extended Memory  : 2048KB
- Cache Size       : 64KB
- Display Type     : VGA
- Serial Port(s)   : 3F8 2F8
- Parallel Port(s) : 378
- DRAM Type        : FPM
- Data Integrity   : ECC
+ CPU              : 386SX compatible @ 20MHz
+ Extended memory  : 2048KB
+ Cache size       : 64KB
+ Display type     : VGA
+ Serial port(s)   : 3F8 2F8
+ Parallel port(s) : 378
+ DRAM type        : FPM
+ Data integrity   : ECC
 
- Diskette Drive A : 1.44MB 3.5in
- Pri. Master Disk : SETAGE ST225 20MB
- Sec. Master Disk : CD-ROM (none)
+ Diskette drive A : 1.44MB 3.5in
+ Pri. master disk : SETAGE ST225 20MB
+ Sec. master disk : CD-ROM (none)
 
  PCI/ISA device listing...
  00:00.0  Host bridge            IRQ 14/15
