@@ -1,12 +1,10 @@
-//! Background bake pass: pre-renders static OBJ sprites at every yaw step into `ObjFrameCache`.
-
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+//! Synchronous pre-render pass: renders all static OBJ sprites in a scene at every yaw step
+//! into `ObjFrameCache` before the scene is activated.  Called during scene transition.
 
 use crossterm::style::Color;
 
 use crate::obj_frame_cache::{BakeCacheKey, ObjBakeStatus, ObjFrameCache, YAW_STEP_DEG};
-use crate::scene::{Layer, Scene, SceneRenderedMode, Sprite};
+use crate::scene::{Layer, SceneRenderedMode, Sprite};
 use crate::services::EngineWorldAccess;
 use crate::systems::compositor::obj_render::{render_obj_to_canvas, ObjRenderParams};
 use crate::world::World;
@@ -194,207 +192,80 @@ fn collect_from_sprites(
     }
 }
 
-/// Collect bake targets from a list of scene refs (from `scene.prerender`).
+/// Synchronously pre-render all static OBJ sprites from the given scene layers.
 ///
-/// If `prerender_refs` is non-empty, each entry is treated as a scene ref string and
-/// loaded to extract its OBJ sprite params.  Falls back to scanning `current_layers`
-/// when `prerender_refs` is empty.
-fn collect_targets_for_prerender(
-    prerender_refs: &[String],
-    current_layers: &[Layer],
-    current_mode: SceneRenderedMode,
-    world: &World,
-) -> Vec<BakeTarget> {
-    if prerender_refs.is_empty() {
-        return collect_bake_targets(current_layers, current_mode);
-    }
-
-    let mut all_targets = Vec::new();
-    for scene_ref in prerender_refs {
-        let loaded: Option<Scene> = world
-            .scene_loader()
-            .and_then(|loader| loader.load_by_ref(scene_ref).ok());
-        if let Some(scene) = loaded {
-            let mode = scene.rendered_mode;
-            all_targets.extend(collect_bake_targets(&scene.layers, mode));
-        } else {
-            engine_core::logging::warn(
-                "engine.bake",
-                format!("prerender: could not load scene ref `{scene_ref}`"),
-            );
-        }
-    }
-    all_targets
-}
-
-/// Check if bake is needed and start the background thread if so.
-/// Registers `ObjBakeStatus` and a shared `ObjFrameCache` (via `Arc<Mutex<>>`) into world.
-pub fn start_bake_if_needed(world: &mut World) {
+/// Called during scene transition (before the scene is activated) when `scene.prerender == true`.
+/// Blocks until every target × 72 yaw steps × 2 modes (wireframe + solid) is rendered.
+/// Registers `ObjFrameCache` and `ObjBakeStatus::Ready` into the world.
+pub fn prerender_scene_sprites(
+    layers: &[Layer],
+    scene_mode: SceneRenderedMode,
+    scene_id: &str,
+    world: &mut World,
+) {
     let Some(asset_root) = world.asset_root().cloned() else {
         return;
     };
 
-    let scene_mode = world
-        .scene_runtime()
-        .map(|r| r.scene().rendered_mode)
-        .unwrap_or(SceneRenderedMode::HalfBlock);
-
-    let (layers, prerender_refs, scene_id) = world
-        .scene_runtime()
-        .map(|r| {
-            (
-                r.scene().layers.clone(),
-                r.scene().prerender.clone(),
-                r.scene().id.clone(),
-            )
-        })
-        .unwrap_or_default();
-
-    let targets = collect_targets_for_prerender(&prerender_refs, &layers, scene_mode, world);
+    let targets = collect_bake_targets(layers, scene_mode);
     if targets.is_empty() {
         engine_core::logging::info(
             "engine.bake",
-            format!("scene={scene_id}: no bakeable OBJ sprites found, skipping"),
+            format!("scene={scene_id}: no bakeable OBJ sprites, skipping prerender"),
         );
-        world.register(ObjBakeStatus::Idle);
         return;
     }
 
-    // Compute total frames: per target × 2 (wireframe + solid) × 72 yaw steps.
     let yaw_steps = 360u16 / YAW_STEP_DEG;
     let total = targets.len() * 2 * yaw_steps as usize;
     engine_core::logging::info(
         "engine.bake",
         format!(
-            "scene={scene_id}: baking {} OBJ sprites × {} yaw steps × 2 = {} frames",
+            "scene={scene_id}: prerendering {} OBJ sprites × {} yaw × 2 = {} frames (sync)",
             targets.len(),
             yaw_steps,
-            total
+            total,
         ),
     );
 
-    let done = Arc::new(AtomicUsize::new(0));
-    let pending = Arc::new(Mutex::new(ObjFrameCache::new()));
+    let mut cache = ObjFrameCache::new();
 
-    let done_clone = Arc::clone(&done);
-    let pending_clone = Arc::clone(&pending);
+    for target in &targets {
+        for wireframe in [false, true] {
+            for step_idx in 0..yaw_steps {
+                let yaw_step = step_idx * YAW_STEP_DEG;
+                let mut params = target.params_base.clone();
+                params.yaw_deg = yaw_step as f32;
 
-    std::thread::spawn(move || {
-        for target in &targets {
-            for wireframe in [false, true] {
-                for step_idx in 0..yaw_steps {
-                    let yaw_step = step_idx * YAW_STEP_DEG;
-                    let mut params = target.params_base.clone();
-                    params.yaw_deg = yaw_step as f32;
-
-                    if let Some((canvas, _vw, _vh)) = render_obj_to_canvas(
-                        &target.source,
-                        target.width,
-                        target.height,
-                        target.size,
-                        target.mode,
-                        params,
+                if let Some((canvas, _vw, _vh)) = render_obj_to_canvas(
+                    &target.source,
+                    target.width,
+                    target.height,
+                    target.size,
+                    target.mode,
+                    params,
+                    wireframe,
+                    target.backface_cull,
+                    target.fg,
+                    Some(&asset_root),
+                ) {
+                    let total_yaw = target.params_base.rotation_y + yaw_step as f32;
+                    let key = BakeCacheKey {
+                        source: target.source.clone(),
                         wireframe,
-                        target.backface_cull,
-                        target.fg,
-                        Some(&asset_root),
-                    ) {
-                        // Key uses total yaw (rotation_y + sweep) so the render-time
-                        // lookup (snap_yaw(rotation_y + yaw_deg)) finds the right frame.
-                        let total_yaw = target.params_base.rotation_y + yaw_step as f32;
-                        let key = BakeCacheKey {
-                            source: target.source.clone(),
-                            wireframe,
-                            yaw_step: ObjFrameCache::snap_yaw(total_yaw),
-                        };
-                        if let Ok(mut cache) = pending_clone.lock() {
-                            cache.insert(key, canvas);
-                        }
-                    }
-
-                    done_clone.fetch_add(1, Ordering::Relaxed);
+                        yaw_step: ObjFrameCache::snap_yaw(total_yaw),
+                    };
+                    cache.insert(key, canvas);
                 }
             }
         }
-    });
-
-    world.register(ObjBakeStatus::Baking {
-        total,
-        done,
-        pending,
-    });
-}
-
-/// Called each frame from the game loop: checks bake progress and finalises when done.
-/// Returns `true` if currently baking (caller should paint loading overlay).
-pub fn tick_bake(world: &mut World) -> bool {
-    let status = match world.get::<ObjBakeStatus>() {
-        Some(ObjBakeStatus::Baking { total, done, .. }) => {
-            let d = done.load(Ordering::Relaxed);
-            let t = *total;
-            (d, t)
-        }
-        _ => return false,
-    };
-
-    let (done_count, total) = status;
-
-    if done_count >= total {
-        // Swap baked cache into world as a plain (non-Arc) resource.
-        let maybe_pending = world
-            .get::<ObjBakeStatus>()
-            .and_then(|s| {
-                if let ObjBakeStatus::Baking { pending, .. } = s {
-                    Some(Arc::clone(pending))
-                } else {
-                    None
-                }
-            });
-
-        if let Some(pending) = maybe_pending {
-            if let Ok(mut guard) = pending.lock() {
-                let cache = std::mem::replace(&mut *guard, ObjFrameCache::new());
-                world.register(cache);
-            }
-            world.register(ObjBakeStatus::Ready);
-        }
-        return false;
     }
 
-    true
-}
+    engine_core::logging::info(
+        "engine.bake",
+        format!("scene={scene_id}: prerender complete ({total} frames cached)"),
+    );
 
-/// Paint a simple ASCII progress bar over the current buffer.
-pub fn paint_loading_overlay(world: &mut World, progress: f32) {
-    use crate::services::EngineWorldAccess;
-
-    let Some(buf) = world.buffer_mut() else {
-        return;
-    };
-    let w = buf.width;
-    let h = buf.height;
-    if w < 20 || h < 3 {
-        return;
-    }
-
-    let bar_width: usize = 20;
-    let filled = (progress.clamp(0.0, 1.0) * bar_width as f32).round() as usize;
-    let empty = bar_width.saturating_sub(filled);
-
-    let bar: String = std::iter::repeat('█').take(filled)
-        .chain(std::iter::repeat('░').take(empty))
-        .collect();
-
-    let pct = (progress * 100.0) as u8;
-    let label = format!("BAKING [{bar}] {pct}%");
-
-    let lx = ((w as usize).saturating_sub(label.len()) / 2) as u16;
-    let ly = h.saturating_sub(2);
-
-    for (i, ch) in label.chars().enumerate() {
-        let cx = lx + i as u16;
-        if cx < w {
-            buf.set(cx, ly, ch, Color::White, Color::Black);
-        }
-    }
+    world.register(cache);
+    world.register(ObjBakeStatus::Ready);
 }

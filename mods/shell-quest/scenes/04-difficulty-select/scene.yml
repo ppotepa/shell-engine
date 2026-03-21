@@ -2,6 +2,7 @@
 id: 04.intro.difficulty-select
 title: 04 Intro Difficulty Select
 bg: black
+prerender: true
 layers:
   - ref: main
 stages:

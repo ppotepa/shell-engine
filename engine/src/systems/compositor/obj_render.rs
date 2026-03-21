@@ -463,6 +463,12 @@ pub(super) fn render_obj_content(
             }
             return;
         }
+        // Cache exists but key not found — prerender scene should never fall through to live 3D.
+        engine_core::logging::warn(
+            "engine.obj_render",
+            format!("cache miss for {source} wire={wireframe} yaw={yaw_step} — skipping live render"),
+        );
+        return;
     }
 
     // Fallback: live render.
