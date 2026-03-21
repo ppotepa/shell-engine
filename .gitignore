@@ -7,10 +7,29 @@
 .DS_Store
 Thumbs.db
 
-# Local notes: ignore all markdown except the root README.md
-*.md
-**/*.md
+# Local notes: ignore session markdown, but allow project documentation
+/session*.md
+*-session.md
+*.session.md
+# Allow project docs in root and subdirs
 !/README.md
+!/CHANGELOG.md
+!/AGENTS.md
+!/docs/**/*.md
+!/authoring.md
+!/editor-architecture.md
+!/editor.md
+!/logging.md
+!/inputs.md
+!/terminal-hud-authoring.md
+!/timeline-architecture.md
+!/scene-centric-authoring.md
+!/audio-ipc-prototype.md
+!/carousel-menu-object.md
+!/cutout.md
+!/obj-lighting.md
+!/agents.yaml.md
+!/assets.md
 
 # Build artifacts and reports
 *-report.txt
