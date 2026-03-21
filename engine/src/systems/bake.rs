@@ -2,6 +2,7 @@
 //! into `ObjFrameCache` before the scene is activated.  Called during scene transition.
 
 use crossterm::style::Color;
+use rayon::prelude::*;
 
 use crate::obj_frame_cache::{BakeCacheKey, ObjBakeStatus, ObjFrameCache, YAW_STEP_DEG};
 use crate::scene::{Layer, SceneRenderedMode, Sprite};
@@ -228,37 +229,50 @@ pub fn prerender_scene_sprites(
         ),
     );
 
-    let mut cache = ObjFrameCache::new();
-
-    for target in &targets {
+    // Build a flat list of all (target_idx, wireframe, yaw_step) work items.
+    let mut work_items: Vec<(usize, bool, u16)> = Vec::with_capacity(total);
+    for (ti, _) in targets.iter().enumerate() {
         for wireframe in [false, true] {
             for step_idx in 0..yaw_steps {
-                let yaw_step = step_idx * YAW_STEP_DEG;
-                let mut params = target.params_base.clone();
-                params.yaw_deg = yaw_step as f32;
-
-                if let Some((canvas, _vw, _vh)) = render_obj_to_canvas(
-                    &target.source,
-                    target.width,
-                    target.height,
-                    target.size,
-                    target.mode,
-                    params,
-                    wireframe,
-                    target.backface_cull,
-                    target.fg,
-                    Some(&asset_root),
-                ) {
-                    let total_yaw = target.params_base.rotation_y + yaw_step as f32;
-                    let key = BakeCacheKey {
-                        source: target.source.clone(),
-                        wireframe,
-                        yaw_step: ObjFrameCache::snap_yaw(total_yaw),
-                    };
-                    cache.insert(key, canvas);
-                }
+                work_items.push((ti, wireframe, step_idx * YAW_STEP_DEG));
             }
         }
+    }
+
+    // Render all frames in parallel — each is fully independent.
+    let results: Vec<(BakeCacheKey, Vec<Option<[u8; 3]>>)> = work_items
+        .par_iter()
+        .filter_map(|&(ti, wireframe, yaw_step)| {
+            let target = &targets[ti];
+            let mut params = target.params_base.clone();
+            params.yaw_deg = yaw_step as f32;
+
+            let (canvas, _vw, _vh) = render_obj_to_canvas(
+                &target.source,
+                target.width,
+                target.height,
+                target.size,
+                target.mode,
+                params,
+                wireframe,
+                target.backface_cull,
+                target.fg,
+                Some(&asset_root),
+            )?;
+
+            let total_yaw = target.params_base.rotation_y + yaw_step as f32;
+            let key = BakeCacheKey {
+                source: target.source.clone(),
+                wireframe,
+                yaw_step: ObjFrameCache::snap_yaw(total_yaw),
+            };
+            Some((key, canvas))
+        })
+        .collect();
+
+    let mut cache = ObjFrameCache::new();
+    for (key, canvas) in results {
+        cache.insert(key, canvas);
     }
 
     engine_core::logging::info(
