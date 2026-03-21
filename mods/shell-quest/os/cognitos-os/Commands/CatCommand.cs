@@ -16,17 +16,21 @@ internal sealed class CatCommand : ICommand
         }
 
         var target = args[0];
-        if (target is "mail" or "notes")
+        var resolved = ctx.ResolvePath(target);
+
+        // directory guard — check if path is a known directory
+        var listing = ctx.Os.FileSystem.Ls(resolved);
+        if (listing.Any() && !ctx.Os.FileSystem.TryCat(resolved, out _))
         {
             return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {target}: is a directory") }, ExitCode: 1);
         }
 
-        if (!ctx.Os.FileSystem.TryCat(target, out var content))
+        if (!ctx.Os.FileSystem.TryCat(resolved, out var content))
         {
             return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {target}: no such file or directory") }, ExitCode: 1);
         }
 
-        ctx.Os.MarkMailRead(target);
+        ctx.Os.MarkMailRead(resolved);
         var lines = content.Replace("\r\n", "\n").Split('\n');
         return new CommandResult(lines, ExitCode: 0);
     }

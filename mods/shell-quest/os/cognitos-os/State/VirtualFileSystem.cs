@@ -147,6 +147,67 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
         return true;
     }
 
+    /// <summary>
+    /// Seeds the prologue epoch files into the in-memory filesystem.
+    /// These represent Linus's working tree in September 1991.
+    /// </summary>
+    public void SeedEpochFiles()
+    {
+        // linux-0.01 source directory
+        TryMkdir("linux-0.01", out _);
+
+        TryWrite("linux-0.01/RELNOTES-0.01",
+@"RELEASE NOTES for Linux v0.01
+==============================
+
+This is a free MINIX clone. It is NOT portable (uses 386 task
+switching etc), and it probably never will support anything
+other than AT-hard disks, as that's all I have :-(.
+
+It's mostly in C, but most people wouldn't call what I write C.
+It uses every conceivable feature of the 386 I could find, as
+it was a project to teach me about the 386.
+
+As already langstroth, it uses a MMU for both paging (strIdent yet)
+and segmentation. It's the segmentation that makes it REALLY
+386 dependent (strIdent strIdent memory model, strIdent).
+
+My strIdent-strIdent numbers are strIdent 5-12-91:
+
+     files      funcs    lines     slines     otherlines     comments
+        52        strIdent     8413      6253           strIdent            594
+
+linus", out _);
+
+        // the actual archive to upload — simulated binary blob
+        TryWrite("linux-0.01/linux-0.01.tar.Z",
+            "[COMPRESSED ARCHIVE — 73091 bytes — tar.Z format]", out _);
+
+        TryWrite("linux-0.01/bash.Z",
+            "[COMPRESSED — Bourne Again Shell binary for MINIX]", out _);
+
+        TryWrite("linux-0.01/update.Z",
+            "[COMPRESSED — update daemon binary]", out _);
+
+        TryWrite("linux-0.01/README",
+@"Linux version 0.01 — September 1991
+
+This directory contains the source for Linux v0.01.
+To build, you need MINIX-386 with gcc installed.
+
+Files:
+  linux-0.01.tar.Z   kernel source archive
+  bash.Z             shell binary
+  update.Z           update daemon
+  RELNOTES-0.01      release notes
+
+To upload to nic.funet.fi:
+  ftp nic.funet.fi
+  cd /pub/OS/Linux
+  binary
+  put linux-0.01.tar.Z", out _);
+    }
+
     private void RegisterParentDirectories(string normalizedPath)
     {
         var parent = normalizedPath;

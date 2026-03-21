@@ -27,6 +27,7 @@ internal static class Program
         };
 
         var fileSystem = new ZipVirtualFileSystem(statePath);
+        fileSystem.SeedEpochFiles();
         IOperatingSystem os = new MinixOperatingSystem(state, fileSystem, commands);
         IBootSequence boot = new MinixBootSequence();
         var host = new AppHost(os, machineStart);
