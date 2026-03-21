@@ -101,6 +101,21 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         systems::compositor::compositor_system(world);
         systems::postfx::postfx_system(world);
         systems::renderer::renderer_system(world);
+        // Check bake progress; paint overlay when baking is in progress.
+        if systems::bake::tick_bake(world) {
+            let progress = {
+                use crate::obj_frame_cache::ObjBakeStatus;
+                use std::sync::atomic::Ordering;
+                world.get::<ObjBakeStatus>().and_then(|s| {
+                    if let ObjBakeStatus::Baking { total, done, .. } = s {
+                        Some(done.load(Ordering::Relaxed) as f32 / *total as f32)
+                    } else {
+                        None
+                    }
+                }).unwrap_or(0.0)
+            };
+            systems::bake::paint_loading_overlay(world, progress);
+        }
 
         let elapsed = frame_start.elapsed();
         if elapsed < frame_budget {
