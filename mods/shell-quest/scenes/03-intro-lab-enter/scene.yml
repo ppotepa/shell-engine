@@ -16,4 +16,4 @@ stages:
     steps: [{ pause: 1ms }]
   on_leave:
     steps: [{ pause: 80ms }]
-next: 04.intro.difficulty-select
+next: 04a.loading.difficulty

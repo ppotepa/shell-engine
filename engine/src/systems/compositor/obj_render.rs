@@ -434,10 +434,33 @@ pub(super) fn render_obj_content(
             yaw_step,
         };
         if let Some(canvas) = cache.get(&key) {
-            blit_color_canvas(
-                buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y,
-                wireframe, draw_char, fg, bg,
-            );
+            let clip_min = params.clip_y_min;
+            let clip_max = params.clip_y_max;
+            if clip_min <= 0.0 && clip_max >= 1.0 {
+                blit_color_canvas(
+                    buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y,
+                    wireframe, draw_char, fg, bg,
+                );
+            } else {
+                let clip_min_row = (clip_min.clamp(0.0, 1.0) * virtual_h as f32) as usize;
+                let clip_max_row =
+                    (clip_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
+                let vw = virtual_w as usize;
+                let mut masked: Vec<Option<[u8; 3]>> = (**canvas).clone();
+                for vy in 0..virtual_h as usize {
+                    if vy < clip_min_row || vy >= clip_max_row {
+                        let row_start = vy * vw;
+                        let row_end = (row_start + vw).min(masked.len());
+                        for px in &mut masked[row_start..row_end] {
+                            *px = None;
+                        }
+                    }
+                }
+                blit_color_canvas(
+                    buf, mode, &masked, virtual_w, virtual_h, target_w, target_h, x, y,
+                    wireframe, draw_char, fg, bg,
+                );
+            }
             return;
         }
     }
@@ -452,6 +475,73 @@ pub(super) fn render_obj_content(
         buf, mode, &canvas, virtual_w, virtual_h, target_w, target_h, x, y, wireframe, draw_char,
         fg, bg,
     );
+}
+
+/// Render a pre-baked OBJ sprite from the frame cache.
+///
+/// Looks up `(source, wireframe, snap_yaw(rotation_y + yaw_deg))` in the thread-local cache.
+/// Applies `clip_y_min / clip_y_max` row masking (used for the scanline materialize effect).
+/// Silently does nothing if the cache is absent or the key is missing.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn render_baked_obj_content(
+    source: &str,
+    wireframe: bool,
+    width: Option<u16>,
+    height: Option<u16>,
+    mode: SceneRenderedMode,
+    yaw_deg: f32,
+    rotation_y: f32,
+    clip_y_min: f32,
+    clip_y_max: f32,
+    draw_char: char,
+    fg: Color,
+    bg: Color,
+    x: u16,
+    y: u16,
+    buf: &mut Buffer,
+) {
+    let Some(cache) = current_frame_cache() else {
+        return;
+    };
+    let total_yaw = rotation_y + yaw_deg;
+    let yaw_step = ObjFrameCache::snap_yaw(total_yaw);
+    let key = BakeCacheKey {
+        source: source.to_string(),
+        wireframe,
+        yaw_step,
+    };
+    let Some(canvas) = cache.get(&key) else {
+        return;
+    };
+
+    let (target_w, target_h) = obj_sprite_dimensions(width, height, None);
+    let (virtual_w, virtual_h) = virtual_dimensions(mode, target_w, target_h);
+
+    let clip_min_row = (clip_y_min.clamp(0.0, 1.0) * virtual_h as f32) as usize;
+    let clip_max_row = (clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
+
+    if clip_min_row == 0 && clip_max_row >= virtual_h as usize {
+        blit_color_canvas(
+            buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y, wireframe,
+            draw_char, fg, bg,
+        );
+    } else {
+        let mut masked: Vec<Option<[u8; 3]>> = (**canvas).clone();
+        let vw = virtual_w as usize;
+        for vy in 0..virtual_h as usize {
+            if vy < clip_min_row || vy >= clip_max_row {
+                let row_start = vy * vw;
+                let row_end = (row_start + vw).min(masked.len());
+                for px in &mut masked[row_start..row_end] {
+                    *px = None;
+                }
+            }
+        }
+        blit_color_canvas(
+            buf, mode, &masked, virtual_w, virtual_h, target_w, target_h, x, y, wireframe,
+            draw_char, fg, bg,
+        );
+    }
 }
 
 #[derive(Clone, Copy)]

@@ -47,7 +47,8 @@ pub fn validate_sprite_timeline(scene: &Scene) -> Vec<TimelineDiagnostic> {
                 Sprite::Text { appear_at_ms, disappear_at_ms, .. } => (*appear_at_ms, *disappear_at_ms),
                 Sprite::Image { appear_at_ms, disappear_at_ms, .. } => (*appear_at_ms, *disappear_at_ms),
                 Sprite::Obj { appear_at_ms, disappear_at_ms, .. } => (*appear_at_ms, *disappear_at_ms),
-                // Panel, Grid, Flex don't have appear_at_ms/disappear_at_ms (layout containers)
+                // ObjBaked, Panel, Grid, Flex don't have disappear_at_ms timeline validation
+                Sprite::ObjBaked { appear_at_ms, .. } => (*appear_at_ms, None),
                 Sprite::Panel { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } => continue,
             };
 

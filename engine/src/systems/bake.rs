@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use crossterm::style::Color;
 
 use crate::obj_frame_cache::{BakeCacheKey, ObjBakeStatus, ObjFrameCache, YAW_STEP_DEG};
-use crate::scene::{Layer, SceneRenderedMode, Sprite};
+use crate::scene::{Layer, Scene, SceneRenderedMode, Sprite};
 use crate::services::EngineWorldAccess;
 use crate::systems::compositor::obj_render::{render_obj_to_canvas, ObjRenderParams};
 use crate::world::World;
@@ -194,6 +194,39 @@ fn collect_from_sprites(
     }
 }
 
+/// Collect bake targets from a list of scene refs (from `scene.prerender`).
+///
+/// If `prerender_refs` is non-empty, each entry is treated as a scene ref string and
+/// loaded to extract its OBJ sprite params.  Falls back to scanning `current_layers`
+/// when `prerender_refs` is empty.
+fn collect_targets_for_prerender(
+    prerender_refs: &[String],
+    current_layers: &[Layer],
+    current_mode: SceneRenderedMode,
+    world: &World,
+) -> Vec<BakeTarget> {
+    if prerender_refs.is_empty() {
+        return collect_bake_targets(current_layers, current_mode);
+    }
+
+    let mut all_targets = Vec::new();
+    for scene_ref in prerender_refs {
+        let loaded: Option<Scene> = world
+            .scene_loader()
+            .and_then(|loader| loader.load_by_ref(scene_ref).ok());
+        if let Some(scene) = loaded {
+            let mode = scene.rendered_mode;
+            all_targets.extend(collect_bake_targets(&scene.layers, mode));
+        } else {
+            engine_core::logging::warn(
+                "engine.bake",
+                format!("prerender: could not load scene ref `{scene_ref}`"),
+            );
+        }
+    }
+    all_targets
+}
+
 /// Check if bake is needed and start the background thread if so.
 /// Registers `ObjBakeStatus` and a shared `ObjFrameCache` (via `Arc<Mutex<>>`) into world.
 pub fn start_bake_if_needed(world: &mut World) {
@@ -206,16 +239,18 @@ pub fn start_bake_if_needed(world: &mut World) {
         .map(|r| r.scene().rendered_mode)
         .unwrap_or(SceneRenderedMode::HalfBlock);
 
-    let layers = world
+    let (layers, prerender_refs, scene_id) = world
         .scene_runtime()
-        .map(|r| r.scene().layers.clone())
+        .map(|r| {
+            (
+                r.scene().layers.clone(),
+                r.scene().prerender.clone(),
+                r.scene().id.clone(),
+            )
+        })
         .unwrap_or_default();
 
-    let targets = collect_bake_targets(&layers, scene_mode);
-    let scene_id = world
-        .scene_runtime()
-        .map(|r| r.scene().id.clone())
-        .unwrap_or_default();
+    let targets = collect_targets_for_prerender(&prerender_refs, &layers, scene_mode, world);
     if targets.is_empty() {
         engine_core::logging::info(
             "engine.bake",
@@ -264,10 +299,13 @@ pub fn start_bake_if_needed(world: &mut World) {
                         target.fg,
                         Some(&asset_root),
                     ) {
+                        // Key uses total yaw (rotation_y + sweep) so the render-time
+                        // lookup (snap_yaw(rotation_y + yaw_deg)) finds the right frame.
+                        let total_yaw = target.params_base.rotation_y + yaw_step as f32;
                         let key = BakeCacheKey {
                             source: target.source.clone(),
                             wireframe,
-                            yaw_step,
+                            yaw_step: ObjFrameCache::snap_yaw(total_yaw),
                         };
                         if let Ok(mut cache) = pending_clone.lock() {
                             cache.insert(key, canvas);

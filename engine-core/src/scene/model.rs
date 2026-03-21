@@ -650,6 +650,11 @@ pub struct Scene {
     #[serde(default)]
     pub postfx: Vec<Effect>,
     pub next: Option<String>,
+    /// OBJ asset paths to prerender into ObjFrameCache before this scene proceeds.
+    /// When non-empty the scene acts as a loading screen: it starts prerendering
+    /// in a background thread and transitions to `next` when done.
+    #[serde(default)]
+    pub prerender: Vec<String>,
 }
 
 impl Scene {

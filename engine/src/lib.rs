@@ -189,9 +189,12 @@ impl ShellEngine {
         world.register(renderer);
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
+        let is_prerender_scene = !scene.prerender.is_empty();
         world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(Animator::new());
-        systems::bake::start_bake_if_needed(&mut world);
+        if is_prerender_scene {
+            systems::bake::start_bake_if_needed(&mut world);
+        }
 
         let result = game_loop::game_loop(&mut world, target_fps);
 

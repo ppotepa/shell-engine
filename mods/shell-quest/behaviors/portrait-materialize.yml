@@ -13,10 +13,11 @@ script: |
   if is_active && was_active != true { t0 = now; }
   if is_active {
     let elapsed = now - t0;
-    let dur = if params.type_of() == "map" && params.keys().contains("dur") { params.dur } else { 500 };
-    let glitch_dur = 180;
+    let dur = if params.type_of() == "map" && params.keys().contains("dur") { params.dur } else { 250 };
+    let glitch_dur = 90;
     if elapsed < dur {
-      let yaw = (elapsed * 0.4) % 360.0;
+      let progress = (elapsed * 1.0) / (dur * 1.0);
+      let yaw = 180.0 - (180.0 * progress);
       scene.set(wire_id, "obj.yaw", yaw);
       scene.set(solid_id, "obj.yaw", yaw);
 
@@ -43,8 +44,8 @@ script: |
         scene.set(solid_id, "obj.clip_y_min", 0.0);
       }
     } else {
-      scene.set(wire_id, "obj.yaw", 20.0);
-      scene.set(solid_id, "obj.yaw", 20.0);
+      scene.set(wire_id, "obj.yaw", 0.0);
+      scene.set(solid_id, "obj.yaw", 0.0);
       scene.set(wire_id, "obj.surface_mode", "wireframe");
       scene.set(solid_id, "obj.surface_mode", "material");
       scene.set(wire_id, "obj.clip_y_min", 0.0);
