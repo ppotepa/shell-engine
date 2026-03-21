@@ -191,7 +191,7 @@ fn delay_to_ms(delay: Delay) -> u64 {
 }
 
 /// Loads the decoded image asset at `asset_path` from `mod_source`, returning a cached result on repeated calls.
-pub fn load_image_asset(mod_source: &Path, asset_path: &str) -> Option<LoadedImageAsset> {
+pub fn load_image_asset(mod_source: &Path, asset_path: &str) -> Option<std::sync::Arc<LoadedImageAsset>> {
     let loader = ModAssetSourceLoader::new(mod_source).ok()?;
     let source = SourceRef::mod_asset(asset_path);
     load_decoded_source(&IMAGE_CACHE, &loader, &source, &ImageAssetAdapter)
@@ -294,7 +294,7 @@ mod tests {
         fs::write(mod_dir.join("assets/images/tiny.gif"), tiny_gif_bytes()).expect("write gif");
 
         let loaded = load_image_asset(&mod_dir, "/assets/images/tiny.gif").expect("load gif");
-        match loaded {
+        match loaded.as_ref() {
             LoadedImageAsset::Animated(animation) => {
                 assert_eq!(animation.width, 1);
                 assert_eq!(animation.height, 1);
@@ -304,7 +304,7 @@ mod tests {
                 assert_eq!(animation.frame_at(299).pixel(0, 0), Some([0, 0, 255, 255]));
                 assert_eq!(animation.frame_at(300).pixel(0, 0), Some([255, 0, 0, 255]));
             }
-            LoadedImageAsset::Static(_) => panic!("expected animated gif asset"),
+            LoadedImageAsset::Static(_) => panic!("expected animated gif asset, got static"),
         }
     }
 

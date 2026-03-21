@@ -802,6 +802,7 @@ y: -8
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::ObjBaked { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {
@@ -833,6 +834,7 @@ force-font-mode: braille
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::ObjBaked { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {
@@ -876,6 +878,7 @@ stretch-to-area: true
             }
             Sprite::Text { .. }
             | Sprite::Obj { .. }
+            | Sprite::ObjBaked { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {
@@ -954,6 +957,7 @@ children:
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::ObjBaked { .. }
             | Sprite::Panel { .. }
             | Sprite::Flex { .. } => {
                 panic!("expected grid sprite")
@@ -986,6 +990,7 @@ behaviors:
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::ObjBaked { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. } => {

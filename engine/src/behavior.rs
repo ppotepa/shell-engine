@@ -1881,6 +1881,7 @@ mod tests {
             input: Default::default(),
             postfx: Vec::new(),
             next: None,
+            prerender: false,
         }
     }
 

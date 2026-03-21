@@ -265,6 +265,7 @@ mod tests {
             input: Default::default(),
             postfx: Vec::new(),
             next: next.map(str::to_string),
+            prerender: false,
         }
     }
 

@@ -76,7 +76,7 @@ impl Default for MaterialProps {
     }
 }
 
-pub(super) fn load_obj_mesh(asset_root: &AssetRoot, source: &str) -> Option<ObjMesh> {
+pub(super) fn load_obj_mesh(asset_root: &AssetRoot, source: &str) -> Option<std::sync::Arc<ObjMesh>> {
     let loader = ModAssetSourceLoader::new(asset_root.mod_source()).ok()?;
     let source = SourceRef::mod_asset(source);
     load_decoded_source(&OBJ_CACHE, &loader, &source, &ObjMeshAdapter)

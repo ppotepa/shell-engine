@@ -281,6 +281,9 @@ pub(crate) fn render_obj_to_canvas(
     } else {
         let mut depth = vec![f32::INFINITY; canvas.len()];
         let mut drawn_faces = 0usize;
+        // Pre-compute normalized light directions once per render (not per face).
+        let light_dir_norm = normalize3([params.light_direction_x, params.light_direction_y, params.light_direction_z]);
+        let light_2_dir_norm = normalize3([params.light_2_direction_x, params.light_2_direction_y, params.light_2_direction_z]);
         // Sort faces back-to-front for correct painter's-algorithm blending when
         // depth-buffering alone isn't enough (avoids most z-fighting glitches).
         // Pre-compute depth keys to avoid redundant work inside the comparator.
@@ -322,12 +325,8 @@ pub(crate) fn render_obj_to_canvas(
                 face.ka,
                 face.ks,
                 face.ns,
-                [params.light_direction_x, params.light_direction_y, params.light_direction_z],
-                [
-                    params.light_2_direction_x,
-                    params.light_2_direction_y,
-                    params.light_2_direction_z,
-                ],
+                light_dir_norm,
+                light_2_dir_norm,
                 params.light_2_intensity,
                 [light_1_x, params.light_point_y, light_1_z],
                 params.light_point_intensity * point_1_flicker,
@@ -680,8 +679,8 @@ fn face_shading_with_specular(
     ka: [f32; 3],
     ks: f32,
     ns: f32,
-    light_direction: [f32; 3],
-    light_2_direction: [f32; 3],
+    light_dir: [f32; 3],
+    light_2_dir: [f32; 3],
     light_2_intensity: f32,
     light_point: [f32; 3],
     light_point_intensity: f32,
@@ -693,8 +692,7 @@ fn face_shading_with_specular(
     let e1 = sub3(v1, v0);
     let e2 = sub3(v2, v0);
     let normal = normalize3(cross3(e1, e2));
-    let light_dir = normalize3(light_direction);
-    let light_2_dir = normalize3(light_2_direction);
+    // light_dir and light_2_dir arrive pre-normalized from the caller.
     let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
     let point_strength = light_point_intensity.clamp(0.0, 4.0);
     let point_2_strength = light_point_2_intensity.clamp(0.0, 4.0);
@@ -728,27 +726,27 @@ fn face_shading_with_specular(
     let material_influence = (1.0 - tone_mix.clamp(0.0, 1.0)).clamp(0.0, 1.0);
     let ka_lum_material = (ka[0] * 0.299 + ka[1] * 0.587 + ka[2] * 0.114).clamp(0.03, 0.25);
     let ka_lum = 0.06 + (ka_lum_material - 0.06) * material_influence;
-    // Per-material Blinn-Phong specular using MTL Ks and Ns.
-    let view_dir = normalize3([0.0, 0.0, -1.0]);
+    // view_dir is constant [0, 0, -1] — already unit length, skip normalize.
+    const VIEW_DIR: [f32; 3] = [0.0, 0.0, -1.0];
     let half_dir_1 = normalize3([
-        light_dir[0] + view_dir[0],
-        light_dir[1] + view_dir[1],
-        light_dir[2] + view_dir[2],
+        light_dir[0] + VIEW_DIR[0],
+        light_dir[1] + VIEW_DIR[1],
+        light_dir[2] + VIEW_DIR[2],
     ]);
     let half_dir_2 = normalize3([
-        light_2_dir[0] + view_dir[0],
-        light_2_dir[1] + view_dir[1],
-        light_2_dir[2] + view_dir[2],
+        light_2_dir[0] + VIEW_DIR[0],
+        light_2_dir[1] + VIEW_DIR[1],
+        light_2_dir[2] + VIEW_DIR[2],
     ]);
     let half_dir_point = normalize3([
-        point_dir[0] + view_dir[0],
-        point_dir[1] + view_dir[1],
-        point_dir[2] + view_dir[2],
+        point_dir[0] + VIEW_DIR[0],
+        point_dir[1] + VIEW_DIR[1],
+        point_dir[2] + VIEW_DIR[2],
     ]);
     let half_dir_point_2 = normalize3([
-        point_2_dir[0] + view_dir[0],
-        point_2_dir[1] + view_dir[1],
-        point_2_dir[2] + view_dir[2],
+        point_2_dir[0] + VIEW_DIR[0],
+        point_2_dir[1] + VIEW_DIR[1],
+        point_2_dir[2] + VIEW_DIR[2],
     ]);
     let shininess = 24.0 + (ns.clamp(2.0, 200.0) - 24.0) * material_influence;
     let spec_1 = dot3(normal, half_dir_1).abs().powf(shininess);

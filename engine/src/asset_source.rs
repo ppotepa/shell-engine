@@ -112,7 +112,7 @@ impl SourceLoader for ModAssetSourceLoader {
 static SOURCE_BYTES_CACHE: AssetCache<Vec<u8>> = AssetCache::new();
 
 /// Loads raw bytes with a shared source cache.
-pub fn load_source_bytes(loader: &impl SourceLoader, source: &SourceRef) -> Option<Vec<u8>> {
+pub fn load_source_bytes(loader: &impl SourceLoader, source: &SourceRef) -> Option<std::sync::Arc<Vec<u8>>> {
     let key = loader.cache_key(source);
     SOURCE_BYTES_CACHE.get_or_load(key, || loader.read_bytes(source).ok())
 }
@@ -123,12 +123,12 @@ pub fn has_source(loader: &impl SourceLoader, source: &SourceRef) -> bool {
 }
 
 /// Loads and decodes a typed asset with a caller-owned typed cache.
-pub fn load_decoded_source<T: Clone>(
+pub fn load_decoded_source<T>(
     cache: &AssetCache<T>,
     loader: &impl SourceLoader,
     source: &SourceRef,
     adapter: &impl SourceAdapter<T>,
-) -> Option<T> {
+) -> Option<std::sync::Arc<T>> {
     let key = loader.cache_key(source);
     cache.get_or_load(key, || {
         let bytes = load_source_bytes(loader, source)?;
@@ -161,7 +161,7 @@ mod tests {
         let loader = ModAssetSourceLoader::new(&mod_dir).expect("loader");
         let source = SourceRef::mod_asset("/assets/images/tiny.bin");
         assert!(has_source(&loader, &source));
-        assert_eq!(load_source_bytes(&loader, &source), Some(b"abc".to_vec()));
+        assert_eq!(load_source_bytes(&loader, &source).as_deref(), Some(&b"abc".to_vec()));
     }
 
     #[test]
@@ -179,6 +179,6 @@ mod tests {
         let loader = ModAssetSourceLoader::new(&zip_path).expect("loader");
         let source = SourceRef::mod_asset("/assets/images/tiny.bin");
         assert!(has_source(&loader, &source));
-        assert_eq!(load_source_bytes(&loader, &source), Some(b"abc".to_vec()));
+        assert_eq!(load_source_bytes(&loader, &source).as_deref(), Some(&b"abc".to_vec()));
     }
 }
