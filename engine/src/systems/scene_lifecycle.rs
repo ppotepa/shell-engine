@@ -1,4 +1,5 @@
 use crate::debug_features::{DebugFeatures, DebugOverlayMode};
+use crate::debug_log::DebugLogBuffer;
 use crate::events::EngineEvent;
 use crate::scene::{self, SceneRenderedMode};
 use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
@@ -144,10 +145,11 @@ impl SceneLifecycleManager {
                 .scene_loader()
                 .and_then(|loader| loader.load_by_ref(&to_scene_ref).ok())
             else {
-                logging::warn(
-                    "engine.scene",
-                    format!("transition target could not be resolved: to={to_scene_ref}"),
-                );
+                let msg = format!("transition target could not be resolved: to={to_scene_ref}");
+                logging::warn("engine.scene", &msg);
+                if let Some(log) = world.get_mut::<DebugLogBuffer>() {
+                    log.push_warn("scene", None, None, msg);
+                }
                 continue;
             };
             if new_scene.id == PLAYGROUND_EXIT_ID {
@@ -155,10 +157,13 @@ impl SceneLifecycleManager {
                 return true;
             }
             Self::apply_virtual_size_override(world, &new_scene);
+            let is_prerender_scene = !new_scene.prerender.is_empty();
             world.clear_scoped();
             world.register_scoped(SceneRuntime::new(new_scene));
             world.register_scoped(Animator::new());
-            crate::systems::bake::start_bake_if_needed(world);
+            if is_prerender_scene {
+                crate::systems::bake::start_bake_if_needed(world);
+            }
             if let Some(runtime) = world.scene_runtime() {
                 logging::info(
                     "engine.scene",

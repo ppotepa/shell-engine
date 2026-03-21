@@ -127,6 +127,23 @@ impl DebugLogBuffer {
         });
     }
 
+    /// Push a warning entry.
+    pub fn push_warn(
+        &mut self,
+        subsystem: &'static str,
+        scene_id: Option<String>,
+        source: Option<String>,
+        message: String,
+    ) {
+        self.push(DebugLogEntry {
+            severity: DebugSeverity::Warn,
+            subsystem,
+            scene_id,
+            source,
+            message,
+        });
+    }
+
     /// Returns the N most recent entries, newest last.
     pub fn recent(&self, n: usize) -> &[DebugLogEntry] {
         let len = self.entries.len();

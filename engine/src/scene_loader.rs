@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::repositories::{create_scene_repository, AnySceneRepository, SceneRepository};
 use crate::{scene::Scene, EngineError};
+use engine_core::logging;
 
 /// Loads a scene from the active mod source without constructing a long-lived
 /// loader.
@@ -97,6 +98,10 @@ fn build_scene_id_index(
     let mut scene_ids_in_order = Vec::new();
     for path in repo.discover_scene_paths()? {
         let Ok(scene) = repo.load_scene(&path) else {
+            logging::warn(
+                "engine.scene_loader",
+                format!("failed to load scene at path: {path}"),
+            );
             continue;
         };
         if !scene_path_by_id.contains_key(&scene.id) {
