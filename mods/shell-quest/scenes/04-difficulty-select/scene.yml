@@ -3,6 +3,16 @@ id: 04.intro.difficulty-select
 title: 04 Intro Difficulty Select
 bg: black
 prerender: true
+postfx:
+  - name: scanlines
+    params:
+      intensity: 0.12
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.08
+      transparency: 0.15
+      brightness: 1.0
+      speed: 0.4
 layers:
   - ref: main
 stages:
@@ -18,7 +28,7 @@ stages:
           - name: neon-edge-glow
             duration: 1800
             params:
-              colour: "#00ccff"
+              colour: "#00ffcc"
               intensity: 0.5
               alpha: 0.35
               speed: 1.0
@@ -26,7 +36,7 @@ stages:
           - name: neon-edge-glow
             duration: 800
             params:
-              colour: "#00ccff"
+              colour: "#00ffcc"
               intensity: 0.6
               alpha: 0.4
               speed: 1.5
@@ -37,7 +47,7 @@ stages:
               width: 6
               falloff: 1.5
               intensity: 1.0
-              colour: "#ccddff"
+              colour: "#00ffcc"
               easing: ease-in
   on_leave:
     steps:
@@ -45,7 +55,7 @@ stages:
           - name: neon-edge-glow
             duration: 500
             params:
-              colour: "#00ccff"
+              colour: "#00ffcc"
               intensity: 1.4
               alpha: 0.7
               speed: 3.0

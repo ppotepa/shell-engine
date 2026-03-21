@@ -5,4 +5,4 @@
   objects:
     - ref: difficulty-menu
   sprites:
-    - { type: text, id: diff-help, content: "Arrows: navigate, Enter: select, [1]-[5]: shortcut", at: cb, y: -1, font: "generic:half", fg: "#5f82c6", hide_on_leave: true, behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }
+    - { type: text, id: diff-help, content: "Arrows: navigate, Enter: select, [1]-[5]: shortcut", at: cb, y: -1, font: "generic:half", fg: "#1a3344", hide_on_leave: true, behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }
