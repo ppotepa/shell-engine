@@ -65,6 +65,9 @@ pub(super) struct ObjRenderParams {
     /// Additional camera look rotation (accumulated from mouse). Yaw = horizontal, pitch = vertical.
     pub camera_look_yaw: f32,
     pub camera_look_pitch: f32,
+    /// Vertical clip region (normalised 0.0–1.0). Rows outside [min, max) are skipped.
+    pub clip_y_min: f32,
+    pub clip_y_max: f32,
 }
 
 pub(super) fn obj_sprite_dimensions(
@@ -176,6 +179,15 @@ pub(super) fn render_obj_content(
         max_x: virtual_w as i32 - 1,
         max_y: virtual_h as i32 - 1,
     };
+    // Vertical clip region (normalised 0.0–1.0 → pixel rows).
+    let clip_row_min = (params.clip_y_min.clamp(0.0, 1.0) * virtual_h as f32).floor() as i32;
+    let clip_row_max = (params.clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as i32 - 1;
+    let clipped_viewport = Viewport {
+        min_x: viewport.min_x,
+        min_y: viewport.min_y.max(clip_row_min),
+        max_x: viewport.max_x,
+        max_y: viewport.max_y.min(clip_row_max),
+    };
     let projected: Vec<Option<ProjectedVertex>> = mesh
         .vertices
         .iter()
@@ -228,7 +240,7 @@ pub(super) fn render_obj_content(
             let y0 = pa.y.round() as i32;
             let x1 = pb.x.round() as i32;
             let y1 = pb.y.round() as i32;
-            if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, viewport) {
+            if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport) {
                 draw_line_color(
                     &mut canvas,
                     virtual_w,
@@ -326,6 +338,8 @@ pub(super) fn render_obj_content(
                 v1,
                 v2,
                 shaded_color,
+                clipped_viewport.min_y,
+                clipped_viewport.max_y,
             );
             drawn_faces += 1;
         }
@@ -344,7 +358,7 @@ pub(super) fn render_obj_content(
                 let y0 = pa.y.round() as i32;
                 let x1 = pb.x.round() as i32;
                 let y1 = pb.y.round() as i32;
-                if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, viewport)
+                if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
                 {
                     draw_line_color(
                         &mut canvas,
@@ -432,6 +446,8 @@ fn rasterize_triangle(
     v1: ProjectedVertex,
     v2: ProjectedVertex,
     color: [u8; 3],
+    clip_min_y: i32,
+    clip_max_y: i32,
 ) {
     let area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
     if area.abs() < 1e-5 {
@@ -442,6 +458,8 @@ fn rasterize_triangle(
     let max_x = v0.x.max(v1.x).max(v2.x).ceil().min((w - 1) as f32) as i32;
     let min_y = v0.y.min(v1.y).min(v2.y).floor().max(0.0) as i32;
     let max_y = v0.y.max(v1.y).max(v2.y).ceil().min((h - 1) as f32) as i32;
+    let min_y = min_y.max(clip_min_y);
+    let max_y = max_y.min(clip_max_y);
 
     for py in min_y..=max_y {
         for px in min_x..=max_x {

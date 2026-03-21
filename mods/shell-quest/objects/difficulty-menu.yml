@@ -19,20 +19,18 @@ sprites:
         rows: ["1fr"]
         children:
           - type: obj
-            id: difficulty-face-0
-            source: "/assets/3d/sculpts/mouse-enjoyer.obj"
+            id: difficulty-face-0-wire
+            source: "/assets/3d/sculpts/mouse-enjoyer-wire.obj"
+            at: 0
             grid-col: 1
             grid-row: 1
-            at: 0
             x: -90
             y: -5
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: wireframe
             backface-cull: true
             force-renderer-mode: halfblock
-            rotation-y: 270
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
             camera-distance: 6.15
@@ -67,6 +65,8 @@ sprites:
             midtone-colour: "#224487"
             highlight-colour: "#ffffff"
             fg: "#224487"
+            surface-mode: wireframe
+            rotation-y: 270
             behaviors:
               - name: menu-selected
                 params:
@@ -76,7 +76,8 @@ sprites:
                   index: 0
                   script: |
                     let idx = params.index;
-                    let my_id = `difficulty-face-${idx}`;
+                    let wire_id = `difficulty-face-${idx}-wire`;
+                    let solid_id = `difficulty-face-${idx}`;
                     let sel = menu.selected_index;
                     let now = time.scene_elapsed_ms;
                     let is_first = state.type_of() != "map";
@@ -86,36 +87,177 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      if elapsed < 800 {
-                        let steps = elapsed / 65;
+                      let dur = 1200;
+                      if elapsed < dur {
+                        let steps = elapsed / 100;
                         let yaw = (steps * 30) % 360;
-                        scene.set(my_id, "obj.yaw", yaw);
-                        if elapsed < 400 {
-                          scene.set(my_id, "obj.surface_mode", "wireframe");
-                        } else {
-                          scene.set(my_id, "obj.surface_mode", "material");
-                        }
+                        scene.set(wire_id, "obj.yaw", yaw);
+                        scene.set(solid_id, "obj.yaw", yaw);
+                        let progress = (elapsed * 1.0) / 1200.0;
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
+                        scene.set(solid_id, "obj.clip_y_max", progress);
                       } else {
-                        scene.set(my_id, "obj.yaw", 0);
-                        scene.set(my_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.yaw", 0);
+                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.clip_y_max", 0.0);
+                        scene.set(solid_id, "obj.clip_y_max", 1.0);
+                      }
+                    }
+                    #{ state: #{ active: is_active, t0: t0 } }
+          - type: obj
+            id: difficulty-face-0
+            source: "/assets/3d/sculpts/mouse-enjoyer.obj"
+            at: 0
+            grid-col: 1
+            grid-row: 1
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            backface-cull: true
+            force-renderer-mode: halfblock
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
+            light-point-x: 0.0
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-snap-hz: 0.0
+            light-point-2-x: 0.0
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
+            light-point-2-colour: "#224487"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-snap-hz: 0.0
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#224487"
+            highlight-colour: "#ffffff"
+            fg: "#224487"
+            surface-mode: material
+            clip-y-max: 0.0
+            rotation-y: 270
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 0
+          - type: obj
+            id: difficulty-face-1-wire
+            source: "/assets/3d/sculpts/script-kiddie-wire.obj"
+            at: lt
+            grid-col: 1
+            grid-row: 1
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            backface-cull: true
+            force-renderer-mode: halfblock
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
+            light-point-x: 0.0
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-snap-hz: 0.0
+            light-point-2-x: 0.0
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
+            light-point-2-colour: "#224487"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-snap-hz: 0.0
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#224487"
+            highlight-colour: "#ffffff"
+            fg: "#224487"
+            surface-mode: wireframe
+            rotation-y: 220
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 1
+              - name: rhai-script
+                params:
+                  index: 1
+                  script: |
+                    let idx = params.index;
+                    let wire_id = `difficulty-face-${idx}-wire`;
+                    let solid_id = `difficulty-face-${idx}`;
+                    let sel = menu.selected_index;
+                    let now = time.scene_elapsed_ms;
+                    let is_first = state.type_of() != "map";
+                    let was_active = if is_first { false } else { state.active };
+                    let t0 = if is_first { 0 } else { state.t0 };
+                    let is_active = sel == idx;
+                    if is_active && was_active != true { t0 = now; }
+                    if is_active {
+                      let elapsed = now - t0;
+                      let dur = 1200;
+                      if elapsed < dur {
+                        let steps = elapsed / 100;
+                        let yaw = (steps * 30) % 360;
+                        scene.set(wire_id, "obj.yaw", yaw);
+                        scene.set(solid_id, "obj.yaw", yaw);
+                        let progress = (elapsed * 1.0) / 1200.0;
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
+                        scene.set(solid_id, "obj.clip_y_max", progress);
+                      } else {
+                        scene.set(wire_id, "obj.yaw", 0);
+                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.clip_y_max", 0.0);
+                        scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
                     }
                     #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-1
             source: "/assets/3d/sculpts/script-kiddie.obj"
+            at: lt
             grid-col: 1
             grid-row: 1
-            at: lt
             x: -90
             y: -5
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: wireframe
             backface-cull: true
             force-renderer-mode: halfblock
-            rotation-y: 220
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
             camera-distance: 6.15
@@ -150,17 +292,75 @@ sprites:
             midtone-colour: "#224487"
             highlight-colour: "#ffffff"
             fg: "#224487"
+            surface-mode: material
+            clip-y-max: 0.0
+            rotation-y: 220
             visible: false
             behaviors:
               - name: menu-selected
                 params:
                   index: 1
+          - type: obj
+            id: difficulty-face-2-wire
+            source: "/assets/3d/sculpts/can-exit-vim-wire.obj"
+            at: lt
+            grid-col: 1
+            grid-row: 1
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            backface-cull: true
+            force-renderer-mode: halfblock
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
+            light-point-x: 0.0
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-snap-hz: 0.0
+            light-point-2-x: 0.0
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
+            light-point-2-colour: "#224487"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-snap-hz: 0.0
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#224487"
+            highlight-colour: "#ffffff"
+            fg: "#224487"
+            surface-mode: wireframe
+            rotation-y: 270
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 2
               - name: rhai-script
                 params:
-                  index: 1
+                  index: 2
                   script: |
                     let idx = params.index;
-                    let my_id = `difficulty-face-${idx}`;
+                    let wire_id = `difficulty-face-${idx}-wire`;
+                    let solid_id = `difficulty-face-${idx}`;
                     let sel = menu.selected_index;
                     let now = time.scene_elapsed_ms;
                     let is_first = state.type_of() != "map";
@@ -170,36 +370,36 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      if elapsed < 800 {
-                        let steps = elapsed / 65;
+                      let dur = 1200;
+                      if elapsed < dur {
+                        let steps = elapsed / 100;
                         let yaw = (steps * 30) % 360;
-                        scene.set(my_id, "obj.yaw", yaw);
-                        if elapsed < 400 {
-                          scene.set(my_id, "obj.surface_mode", "wireframe");
-                        } else {
-                          scene.set(my_id, "obj.surface_mode", "material");
-                        }
+                        scene.set(wire_id, "obj.yaw", yaw);
+                        scene.set(solid_id, "obj.yaw", yaw);
+                        let progress = (elapsed * 1.0) / 1200.0;
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
+                        scene.set(solid_id, "obj.clip_y_max", progress);
                       } else {
-                        scene.set(my_id, "obj.yaw", 0);
-                        scene.set(my_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.yaw", 0);
+                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.clip_y_max", 0.0);
+                        scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
                     }
                     #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-2
             source: "/assets/3d/sculpts/can-exit-vim.obj"
+            at: lt
             grid-col: 1
             grid-row: 1
-            at: lt
             x: -90
             y: -5
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: wireframe
             backface-cull: true
             force-renderer-mode: halfblock
-            rotation-y: 120
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
             camera-distance: 6.15
@@ -234,17 +434,75 @@ sprites:
             midtone-colour: "#224487"
             highlight-colour: "#ffffff"
             fg: "#224487"
+            surface-mode: material
+            clip-y-max: 0.0
+            rotation-y: 270
             visible: false
             behaviors:
               - name: menu-selected
                 params:
                   index: 2
+          - type: obj
+            id: difficulty-face-3-wire
+            source: "/assets/3d/sculpts/dvorak-wire.obj"
+            at: lt
+            grid-col: 1
+            grid-row: 1
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            backface-cull: true
+            force-renderer-mode: halfblock
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
+            light-point-x: 0.0
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-snap-hz: 0.0
+            light-point-2-x: 0.0
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
+            light-point-2-colour: "#224487"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-snap-hz: 0.0
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#224487"
+            highlight-colour: "#ffffff"
+            fg: "#224487"
+            surface-mode: wireframe
+            rotation-y: 270
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 3
               - name: rhai-script
                 params:
-                  index: 2
+                  index: 3
                   script: |
                     let idx = params.index;
-                    let my_id = `difficulty-face-${idx}`;
+                    let wire_id = `difficulty-face-${idx}-wire`;
+                    let solid_id = `difficulty-face-${idx}`;
                     let sel = menu.selected_index;
                     let now = time.scene_elapsed_ms;
                     let is_first = state.type_of() != "map";
@@ -254,36 +512,36 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      if elapsed < 800 {
-                        let steps = elapsed / 65;
+                      let dur = 1200;
+                      if elapsed < dur {
+                        let steps = elapsed / 100;
                         let yaw = (steps * 30) % 360;
-                        scene.set(my_id, "obj.yaw", yaw);
-                        if elapsed < 400 {
-                          scene.set(my_id, "obj.surface_mode", "wireframe");
-                        } else {
-                          scene.set(my_id, "obj.surface_mode", "material");
-                        }
+                        scene.set(wire_id, "obj.yaw", yaw);
+                        scene.set(solid_id, "obj.yaw", yaw);
+                        let progress = (elapsed * 1.0) / 1200.0;
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
+                        scene.set(solid_id, "obj.clip_y_max", progress);
                       } else {
-                        scene.set(my_id, "obj.yaw", 0);
-                        scene.set(my_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.yaw", 0);
+                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.clip_y_max", 0.0);
+                        scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
                     }
                     #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-3
             source: "/assets/3d/sculpts/dvorak.obj"
+            at: lt
             grid-col: 1
             grid-row: 1
-            at: lt
             x: -90
             y: -5
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: wireframe
             backface-cull: true
             force-renderer-mode: halfblock
-            rotation-y: 140
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
             camera-distance: 6.15
@@ -318,17 +576,75 @@ sprites:
             midtone-colour: "#224487"
             highlight-colour: "#ffffff"
             fg: "#224487"
+            surface-mode: material
+            clip-y-max: 0.0
+            rotation-y: 270
             visible: false
             behaviors:
               - name: menu-selected
                 params:
                   index: 3
+          - type: obj
+            id: difficulty-face-4-wire
+            source: "/assets/3d/sculpts/su-wire.obj"
+            at: lt
+            grid-col: 1
+            grid-row: 1
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            backface-cull: true
+            force-renderer-mode: halfblock
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
+            light-point-x: 0.0
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-snap-hz: 0.0
+            light-point-2-x: 0.0
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
+            light-point-2-colour: "#224487"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-snap-hz: 0.0
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#224487"
+            highlight-colour: "#ffffff"
+            fg: "#224487"
+            surface-mode: wireframe
+            rotation-y: 270
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 4
               - name: rhai-script
                 params:
-                  index: 3
+                  index: 4
                   script: |
                     let idx = params.index;
-                    let my_id = `difficulty-face-${idx}`;
+                    let wire_id = `difficulty-face-${idx}-wire`;
+                    let solid_id = `difficulty-face-${idx}`;
                     let sel = menu.selected_index;
                     let now = time.scene_elapsed_ms;
                     let is_first = state.type_of() != "map";
@@ -338,36 +654,36 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      if elapsed < 800 {
-                        let steps = elapsed / 65;
+                      let dur = 1200;
+                      if elapsed < dur {
+                        let steps = elapsed / 100;
                         let yaw = (steps * 30) % 360;
-                        scene.set(my_id, "obj.yaw", yaw);
-                        if elapsed < 400 {
-                          scene.set(my_id, "obj.surface_mode", "wireframe");
-                        } else {
-                          scene.set(my_id, "obj.surface_mode", "material");
-                        }
+                        scene.set(wire_id, "obj.yaw", yaw);
+                        scene.set(solid_id, "obj.yaw", yaw);
+                        let progress = (elapsed * 1.0) / 1200.0;
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
+                        scene.set(solid_id, "obj.clip_y_max", progress);
                       } else {
-                        scene.set(my_id, "obj.yaw", 0);
-                        scene.set(my_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.yaw", 0);
+                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.clip_y_max", 0.0);
+                        scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
                     }
                     #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-4
             source: "/assets/3d/sculpts/su.obj"
+            at: lt
             grid-col: 1
             grid-row: 1
-            at: lt
             x: -90
             y: -5
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: wireframe
             backface-cull: true
             force-renderer-mode: halfblock
-            rotation-y: 200
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
             camera-distance: 6.15
@@ -402,41 +718,14 @@ sprites:
             midtone-colour: "#224487"
             highlight-colour: "#ffffff"
             fg: "#224487"
+            surface-mode: material
+            clip-y-max: 0.0
+            rotation-y: 270
             visible: false
             behaviors:
               - name: menu-selected
                 params:
                   index: 4
-              - name: rhai-script
-                params:
-                  index: 4
-                  script: |
-                    let idx = params.index;
-                    let my_id = `difficulty-face-${idx}`;
-                    let sel = menu.selected_index;
-                    let now = time.scene_elapsed_ms;
-                    let is_first = state.type_of() != "map";
-                    let was_active = if is_first { false } else { state.active };
-                    let t0 = if is_first { 0 } else { state.t0 };
-                    let is_active = sel == idx;
-                    if is_active && was_active != true { t0 = now; }
-                    if is_active {
-                      let elapsed = now - t0;
-                      if elapsed < 800 {
-                        let steps = elapsed / 65;
-                        let yaw = (steps * 30) % 360;
-                        scene.set(my_id, "obj.yaw", yaw);
-                        if elapsed < 400 {
-                          scene.set(my_id, "obj.surface_mode", "wireframe");
-                        } else {
-                          scene.set(my_id, "obj.surface_mode", "material");
-                        }
-                      } else {
-                        scene.set(my_id, "obj.yaw", 0);
-                        scene.set(my_id, "obj.surface_mode", "material");
-                      }
-                    }
-                    #{ state: #{ active: is_active, t0: t0 } }
 
       - type: grid
         id: difficulty-right-panel
