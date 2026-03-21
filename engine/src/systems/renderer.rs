@@ -487,13 +487,16 @@ fn flush_batched(stdout: &mut io::Stdout, diffs: &[(u16, u16, char, style::Color
     let (mut rx, mut ry, _, raw_fg0, raw_bg0) = diffs[0];
     let (mut rfg, mut rbg) = (resolve_color(raw_fg0), resolve_color(raw_bg0));
     run.push(diffs[0].2);
+    let mut run_len: u16 = 1;
 
     for &(x, y, ch, raw_fg, raw_bg) in &diffs[1..] {
         let fg = resolve_color(raw_fg);
         let bg = resolve_color(raw_bg);
-        let continues = y == ry && x == rx + run.chars().count() as u16 && fg == rfg && bg == rbg;
+        // O(1): compare cached length instead of scanning the string.
+        let continues = y == ry && x == rx + run_len && fg == rfg && bg == rbg;
         if continues {
             run.push(ch);
+            run_len += 1;
         } else {
             let _ = queue!(
                 stdout,
@@ -504,6 +507,7 @@ fn flush_batched(stdout: &mut io::Stdout, diffs: &[(u16, u16, char, style::Color
             );
             run.clear();
             run.push(ch);
+            run_len = 1;
             rx = x;
             ry = y;
             rfg = fg;

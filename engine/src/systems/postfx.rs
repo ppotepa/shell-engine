@@ -95,7 +95,6 @@ impl PostFxRuntime {
         }
 
         if self.compiled_passes.is_empty() {
-            self.previous_output = Some(buffer.clone());
             self.frame_count = self.frame_count.saturating_add(1);
             return;
         }
@@ -149,10 +148,8 @@ impl PostFxRuntime {
 
         if last_written_is_a {
             buffer.clone_from(a);
-            self.previous_output = Some(a.clone());
         } else {
             buffer.clone_from(b);
-            self.previous_output = Some(b.clone());
         }
         self.frame_count = self.frame_count.saturating_add(1);
     }
@@ -175,8 +172,24 @@ fn passes_fingerprint(passes: &[Effect]) -> u64 {
         pass.name.hash(&mut hasher);
         pass.duration.hash(&mut hasher);
         pass.looping.hash(&mut hasher);
-        format!("{:?}", pass.target_kind).hash(&mut hasher);
-        format!("{:?}", pass.params).hash(&mut hasher);
+        // Hash discriminant as u8 — avoids a String allocation per pass per frame.
+        std::mem::discriminant(&pass.target_kind).hash(&mut hasher);
+        // Hash each EffectParams field as bits — no heap allocation.
+        let p = &pass.params;
+        p.intensity.map(f32::to_bits).hash(&mut hasher);
+        p.speed.map(f32::to_bits).hash(&mut hasher);
+        p.alpha.map(f32::to_bits).hash(&mut hasher);
+        p.sphericality.map(f32::to_bits).hash(&mut hasher);
+        p.transparency.map(f32::to_bits).hash(&mut hasher);
+        p.brightness.map(f32::to_bits).hash(&mut hasher);
+        p.distortion.map(f32::to_bits).hash(&mut hasher);
+        p.angle.map(f32::to_bits).hash(&mut hasher);
+        p.width.map(f32::to_bits).hash(&mut hasher);
+        p.amplitude_x.map(f32::to_bits).hash(&mut hasher);
+        p.amplitude_y.map(f32::to_bits).hash(&mut hasher);
+        // String/bool params that don't change mid-scene are still worth hashing.
+        p.coverage.hash(&mut hasher);
+        p.orientation.hash(&mut hasher);
     }
     hasher.finish()
 }

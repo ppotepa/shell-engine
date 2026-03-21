@@ -1028,12 +1028,14 @@ impl SceneRuntime {
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
-        // Clone once per frame — shared across all behavior ticks this frame.
-        let resolver = self.resolver_cache.clone();
-        let object_regions = self.object_regions.clone();
-        let object_kinds = self.object_kind_snapshot();
-        let object_props = self.object_props_snapshot();
-        let object_text = self.object_text_snapshot();
+        // Wrap read-only per-frame data in Arc once — each behavior gets a
+        // cheap O(1) refcount clone instead of a deep BTreeMap copy.
+        let resolver = std::sync::Arc::new(self.resolver_cache.clone());
+        let object_regions = std::sync::Arc::new(self.object_regions.clone());
+        let object_kinds = std::sync::Arc::new(self.object_kind_snapshot());
+        let object_props = std::sync::Arc::new(self.object_props_snapshot());
+        let object_text = std::sync::Arc::new(self.object_text_snapshot());
+        let sidecar_io = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
         let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
         let ui_last_submit = self.ui_state.last_submit.clone();
         let ui_last_change = self.ui_state.last_change.clone();
@@ -1050,12 +1052,12 @@ impl SceneRuntime {
                 scene_elapsed_ms,
                 stage_elapsed_ms,
                 menu_selected_index,
-                target_resolver: resolver.clone(),
+                target_resolver: std::sync::Arc::clone(&resolver),
                 object_states: current_states.clone(),
-                object_kinds: object_kinds.clone(),
-                object_props: object_props.clone(),
-                object_regions: object_regions.clone(),
-                object_text: object_text.clone(),
+                object_kinds: std::sync::Arc::clone(&object_kinds),
+                object_props: std::sync::Arc::clone(&object_props),
+                object_regions: std::sync::Arc::clone(&object_regions),
+                object_text: std::sync::Arc::clone(&object_text),
                 ui_focused_target_id: ui_focused_target_id.clone(),
                 ui_theme_id: ui_theme_id.clone(),
                 ui_last_submit_target_id: ui_last_submit
@@ -1068,14 +1070,16 @@ impl SceneRuntime {
                 ui_last_change_text: ui_last_change.as_ref().map(|event| event.text.clone()),
                 game_state: game_state.clone(),
                 last_raw_key: self.ui_state.last_raw_key.clone(),
-                sidecar_io: self.ui_state.sidecar_io.clone(),
+                sidecar_io: std::sync::Arc::clone(&sidecar_io),
             };
             let mut local_commands = Vec::new();
             self.behaviors[idx]
                 .behavior
                 .update(&object, &self.scene, &ctx, &mut local_commands);
             self.apply_behavior_commands(&resolver, &local_commands);
-            if idx + 1 < self.behaviors.len() {
+            // Only rescan effective states when a behavior actually emitted
+            // commands that could have mutated scene state.
+            if !local_commands.is_empty() && idx + 1 < self.behaviors.len() {
                 current_states = self.effective_object_states_snapshot();
             }
             commands.extend(local_commands.iter().cloned());
@@ -1175,6 +1179,18 @@ impl SceneRuntime {
         let Some(prompt_layout) = self.resolve_text_layout(&state.controls.prompt_sprite_id) else {
             return (state.output_text(), prompt_line.to_string());
         };
+
+        // Compute available character width for word-wrapping.
+        let scene_width = self
+            .object_regions
+            .get(self.resolver_cache.scene_object_id())
+            .map(|r| r.width)
+            .unwrap_or(120);
+        let cell_w = text_cell_width_for_font(output_layout.font.as_deref()).max(1) as usize;
+        let start_x = output_layout.x.max(0) as u16;
+        let usable = scene_width.saturating_sub(start_x).max(1) as usize;
+        let wrap_width = (usable / cell_w).max(1);
+
         let line_height = 1u16;
         let vertical_space = prompt_layout.y.saturating_sub(output_layout.y).max(1) as u16;
         let viewport_lines = (vertical_space / line_height).max(1) as usize;
@@ -1185,10 +1201,15 @@ impl SceneRuntime {
 
         // Reserve last row for prompt, render transcript top-to-bottom above it.
         let transcript_rows = target_rows - 1;
-        let lines: Vec<String> = if state.output_lines.len() <= transcript_rows {
-            state.output_lines.clone()
+        let wrapped: Vec<String> = state
+            .output_lines
+            .iter()
+            .flat_map(|line| wrap_text_to_width(line, wrap_width))
+            .collect();
+        let lines: Vec<String> = if wrapped.len() <= transcript_rows {
+            wrapped
         } else {
-            state.output_lines[state.output_lines.len() - transcript_rows..].to_vec()
+            wrapped[wrapped.len() - transcript_rows..].to_vec()
         };
         (lines.join("\n"), prompt_line.to_string())
     }
@@ -1197,9 +1218,13 @@ impl SceneRuntime {
     /// Uses the vertical distance between the output and prompt sprites (the
     /// same area the non-fullscreen path calculates), falling back to
     /// `max_lines` when layout info is unavailable.
+    ///
+    /// Long lines are word-wrapped to the available character width so they
+    /// never overflow the panel boundary.
     fn viewport_clipped_output(&self, state: &TerminalShellState) -> String {
-        let viewport_rows = self
-            .resolve_text_layout(&state.controls.output_sprite_id)
+        let output_layout = self.resolve_text_layout(&state.controls.output_sprite_id);
+        let viewport_rows = output_layout
+            .as_ref()
             .and_then(|out_layout| {
                 self.resolve_text_layout(&state.controls.prompt_sprite_id)
                     .map(|prm_layout| {
@@ -1207,12 +1232,35 @@ impl SceneRuntime {
                     })
             })
             .unwrap_or(state.controls.max_lines.max(1));
+
+        // Determine available character width for word-wrapping.
+        let scene_width = self
+            .object_regions
+            .get(self.resolver_cache.scene_object_id())
+            .map(|r| r.width)
+            .unwrap_or(120);
+        let wrap_width = output_layout
+            .as_ref()
+            .map(|layout| {
+                let cell_w = text_cell_width_for_font(layout.font.as_deref()).max(1) as usize;
+                let start_x = layout.x.max(0) as u16;
+                let usable = scene_width.saturating_sub(start_x).max(1) as usize;
+                (usable / cell_w).max(1)
+            })
+            .unwrap_or(scene_width as usize);
+
+        // Word-wrap each line, then take the last N rows.
+        let wrapped: Vec<String> = state
+            .output_lines
+            .iter()
+            .flat_map(|line| wrap_text_to_width(line, wrap_width))
+            .collect();
+
         let rows = viewport_rows.min(state.controls.max_lines.max(1));
-        if state.output_lines.len() <= rows {
-            state.output_lines.join("\n")
+        if wrapped.len() <= rows {
+            wrapped.join("\n")
         } else {
-            state.output_lines[state.output_lines.len() - rows..]
-                .join("\n")
+            wrapped[wrapped.len() - rows..].join("\n")
         }
     }
 
@@ -2611,6 +2659,14 @@ fn json_value_to_f32(value: &JsonValue) -> Option<f32> {
         .or_else(|| value.as_i64().map(|number| number as f32))
 }
 
+/// Word-wrap a string to `width` **visible** characters per line.
+///
+/// Breaks prefer word boundaries (spaces).  A word that exceeds `width` on its
+/// own is hard-broken at the column limit.
+///
+/// Markup tags of the form `[colour]…[/]` are treated as zero-width so they
+/// do not count toward the column limit.  Open colour spans are closed at the
+/// wrap boundary and re-opened on the next line so colour is preserved.
 fn wrap_text_to_width(input: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
     let mut out = Vec::new();
@@ -2619,20 +2675,152 @@ fn wrap_text_to_width(input: &str, width: usize) -> Vec<String> {
             out.push(String::new());
             continue;
         }
-        let mut current = String::new();
-        let mut count = 0usize;
-        for ch in raw_line.chars() {
-            if count >= width {
-                out.push(current);
-                current = String::new();
-                count = 0;
-            }
-            current.push(ch);
-            count += 1;
+        let visible_len = crate::markup::strip_markup(raw_line).chars().count();
+        if visible_len <= width {
+            out.push(raw_line.to_string());
+            continue;
         }
-        out.push(current);
+        let tokens = tokenize_markup_words(raw_line);
+        let mut line_buf = String::new();
+        let mut line_vis = 0usize;
+        let mut open_tag: Option<String> = None;
+
+        for token in &tokens {
+            match token {
+                WrapToken::Tag { raw, is_close } => {
+                    if *is_close {
+                        open_tag = None;
+                    } else {
+                        open_tag = Some(raw.clone());
+                    }
+                    line_buf.push('[');
+                    line_buf.push_str(raw);
+                    line_buf.push(']');
+                }
+                WrapToken::Word(word) => {
+                    let wlen = word.chars().count();
+                    if wlen == 0 {
+                        continue;
+                    }
+                    if line_vis + wlen <= width {
+                        line_buf.push_str(word);
+                        line_vis += wlen;
+                        continue;
+                    }
+                    if wlen <= width && line_vis > 0 {
+                        emit_wrapped_line(&mut out, &mut line_buf, &open_tag);
+                        reopen_tag(&mut line_buf, &open_tag);
+                        line_vis = 0;
+                        line_buf.push_str(word);
+                        line_vis += wlen;
+                        continue;
+                    }
+                    // Word too long — hard-break character by character.
+                    for ch in word.chars() {
+                        if line_vis >= width {
+                            emit_wrapped_line(&mut out, &mut line_buf, &open_tag);
+                            reopen_tag(&mut line_buf, &open_tag);
+                            line_vis = 0;
+                        }
+                        line_buf.push(ch);
+                        line_vis += 1;
+                    }
+                }
+                WrapToken::Space(sp) => {
+                    let slen = sp.chars().count();
+                    if line_vis + slen > width {
+                        continue;
+                    }
+                    line_buf.push_str(sp);
+                    line_vis += slen;
+                }
+            }
+        }
+        if !line_buf.is_empty() {
+            out.push(line_buf);
+        }
     }
     out
+}
+
+fn emit_wrapped_line(out: &mut Vec<String>, line_buf: &mut String, open_tag: &Option<String>) {
+    if open_tag.is_some() {
+        line_buf.push_str("[/]");
+    }
+    let line = std::mem::take(line_buf);
+    out.push(line.trim_end().to_string());
+}
+
+fn reopen_tag(line_buf: &mut String, open_tag: &Option<String>) {
+    if let Some(ref t) = open_tag {
+        line_buf.push('[');
+        line_buf.push_str(t);
+        line_buf.push(']');
+    }
+}
+
+#[derive(Debug)]
+enum WrapToken {
+    Tag { raw: String, is_close: bool },
+    Word(String),
+    Space(String),
+}
+
+fn tokenize_markup_words(input: &str) -> Vec<WrapToken> {
+    let mut tokens = Vec::new();
+    let mut buf = String::new();
+    let mut in_space = false;
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '[' {
+            let mut tag = String::new();
+            let mut closed = false;
+            for tc in chars.by_ref() {
+                if tc == ']' {
+                    closed = true;
+                    break;
+                }
+                tag.push(tc);
+            }
+            if closed {
+                if !buf.is_empty() {
+                    tokens.push(if in_space {
+                        WrapToken::Space(std::mem::take(&mut buf))
+                    } else {
+                        WrapToken::Word(std::mem::take(&mut buf))
+                    });
+                }
+                in_space = false;
+                tokens.push(WrapToken::Tag {
+                    is_close: tag.starts_with('/'),
+                    raw: tag,
+                });
+            } else {
+                buf.push('[');
+                buf.push_str(&tag);
+            }
+            continue;
+        }
+        let is_ws = ch == ' ' || ch == '\t';
+        if is_ws != in_space && !buf.is_empty() {
+            tokens.push(if in_space {
+                WrapToken::Space(std::mem::take(&mut buf))
+            } else {
+                WrapToken::Word(std::mem::take(&mut buf))
+            });
+        }
+        in_space = is_ws;
+        buf.push(ch);
+    }
+    if !buf.is_empty() {
+        tokens.push(if in_space {
+            WrapToken::Space(buf)
+        } else {
+            WrapToken::Word(buf)
+        });
+    }
+    tokens
 }
 
 fn find_panel_layout_recursive(
@@ -3204,5 +3392,70 @@ layers: []
             })
             .expect("orbit speed");
         assert!((speed_on - 14.0).abs() < f32::EPSILON);
+    }
+
+    // ── wrap_text_to_width tests ─────────────────────────────────────
+
+    #[test]
+    fn wrap_plain_text_fits() {
+        let result = super::wrap_text_to_width("hello", 10);
+        assert_eq!(result, vec!["hello"]);
+    }
+
+    #[test]
+    fn wrap_plain_text_exact() {
+        let result = super::wrap_text_to_width("abcde", 5);
+        assert_eq!(result, vec!["abcde"]);
+    }
+
+    #[test]
+    fn wrap_word_boundary() {
+        let result = super::wrap_text_to_width("hello world foo", 11);
+        assert_eq!(result, vec!["hello world", "foo"]);
+    }
+
+    #[test]
+    fn wrap_does_not_break_mid_word() {
+        let result = super::wrap_text_to_width("the available memory", 10);
+        assert_eq!(result, vec!["the", "available", "memory"]);
+    }
+
+    #[test]
+    fn wrap_long_word_hard_break() {
+        let result = super::wrap_text_to_width("abcdefghij", 4);
+        assert_eq!(result, vec!["abcd", "efgh", "ij"]);
+    }
+
+    #[test]
+    fn wrap_preserves_newlines() {
+        let result = super::wrap_text_to_width("abc\ndefgh ij", 6);
+        assert_eq!(result, vec!["abc", "defgh", "ij"]);
+    }
+
+    #[test]
+    fn wrap_empty_line() {
+        let result = super::wrap_text_to_width("", 10);
+        assert_eq!(result, vec![""]);
+    }
+
+    #[test]
+    fn wrap_markup_zero_width() {
+        let result = super::wrap_text_to_width("[red]abcde[/]", 5);
+        assert_eq!(result, vec!["[red]abcde[/]"]);
+    }
+
+    #[test]
+    fn wrap_markup_overflow_carries_colour() {
+        let result = super::wrap_text_to_width("[red]hello world[/]", 5);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], "[red]hello[/]");
+        assert_eq!(result[1], "[red]world[/]");
+    }
+
+    #[test]
+    fn wrap_mixed_markup_and_plain() {
+        // "xx " = 3 visible + "[green]yy[/]" = 2 visible = 5 total → fits on one line
+        let result = super::wrap_text_to_width("xx [green]yy[/] zz", 5);
+        assert_eq!(result, vec!["xx [green]yy[/]", "zz"]);
     }
 }
