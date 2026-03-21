@@ -27,7 +27,9 @@ script: |
       } else {
         ((elapsed - glitch_dur) * 1.0) / ((dur - glitch_dur) * 1.0)
       };
-      scene.set(wire_id, "obj.clip_y_max", 1.0 - scan);
+      scene.set(wire_id, "obj.clip_y_min", scan);
+      scene.set(wire_id, "obj.clip_y_max", 1.0);
+      scene.set(solid_id, "obj.clip_y_min", 0.0);
       scene.set(solid_id, "obj.clip_y_max", scan);
 
       // Retro CRT-like blink/glow jitter during the first frames.
@@ -40,8 +42,6 @@ script: |
       } else {
         scene.set(wire_id, "obj.surface_mode", "wireframe");
         scene.set(solid_id, "obj.surface_mode", "material");
-        scene.set(wire_id, "obj.clip_y_min", 0.0);
-        scene.set(solid_id, "obj.clip_y_min", 0.0);
       }
     } else {
       scene.set(wire_id, "obj.yaw", 0.0);
