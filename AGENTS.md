@@ -6,8 +6,10 @@
 - `engine/` runtime systems and render pipeline
 - `engine-core/` shared model, metadata, built-in effects
 - `engine-authoring/` YAML compile/normalize/schema pipeline
+- `engine-io/` transport-agnostic IPC bridge (sidecar communication)
 - `editor/` TUI authoring tool
 - `mods/` content mods
+  - `mods/shell-quest/os/cognitos-os/` C# sidecar (simulated MinixOS)
 - `schemas/` shared base schemas
 
 Scenes are loaded as:
@@ -94,6 +96,13 @@ cargo test -p engine-core
 cargo test -p engine-authoring
 ```
 
+Build C# sidecar:
+
+```bash
+cd mods/shell-quest/os/cognitos-os
+dotnet build -c Release
+```
+
 ## 4) Authoring invariants
 
 - Preserve runtime system order unless explicitly changing architecture.
@@ -159,7 +168,36 @@ When adding new debug/diagnostic features:
 4. Check scene transition cleanup (already working via `world.clear_scoped()`)
 5. Review `timeline-architecture.md` for architecture constraints
 
-## 6) Preferred working style
+## 6) Sidecar & gameplay changes
+
+When adding new shell commands:
+
+- add `Commands/<Name>Command.cs` implementing `ICommand`,
+- register in `Program.cs` commands array,
+- if command changes `SessionMode`, handle in `AppHost.HandleSubmit` switch,
+- update `mods/shell-quest/docs/scripts.md` if gameplay-relevant.
+
+When changing difficulty levels:
+
+- update `Difficulty` enum in `Core/Difficulty.cs`,
+- update `MachineSpec.FromDifficulty()` switch,
+- update difficulty table in `docs/scripts.md`,
+- verify boot sequence reads spec (`BootSequence.cs`).
+
+When changing sidecar IPC protocol:
+
+- update `IoRequest`/`IoEvent` enums in `engine-io/src/lib.rs`,
+- update engine consumption in `engine/src/systems/engine_io.rs`,
+- update C# parsing in `Program.cs` / `Protocol.cs`,
+- update `engine-io/README.md`.
+
+When changing virtual filesystem:
+
+- update `IVirtualFileSystem` or `IMutableFileSystem` in `State/VirtualFileSystem.cs`,
+- update `SeedEpochFiles()` if adding new game files,
+- verify path resolution in `CommandContext.ResolvePath()`.
+
+## 7) Preferred working style
 
 - Keep changes minimal, local, and type-safe.
 - Avoid hidden fallback behavior.

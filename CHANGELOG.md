@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **Prologue architecture** (March 2026)
+  - `Difficulty` enum: 5 levels (MouseEnjoyer → Su) with `MachineSpec` hardware config
+  - `MachineSpec.FromDifficulty()` single source of truth for CPU/RAM/NIC/disk per difficulty
+  - Engine passes difficulty from `GameState` to sidecar via `IoRequest::Hello`
+
+- **Shell commands** (March 2026)
+  - `cd` — change directory with relative/absolute/~ path support
+  - `pwd` — print working directory (shows /home/linus equivalent)
+  - `cp` — copy files via `IMutableFileSystem`, checks disk space from MachineSpec
+  - `ftp` — enter FTP client mode, switches `SessionMode` to FtpSession
+  - `CommandContext.ResolvePath()` — cwd-aware path resolution for all commands
+
+- **FTP client session** (March 2026)
+  - Full FTP simulation: open, binary, ascii, put, ls, cd, pwd, status, bye
+  - Default mode is ASCII (historically accurate — corrupts binary archives)
+  - Simulated DNS table, anonymous login, transfer delays from NIC speed
+  - Core prologue puzzle: player must discover `binary` command
+
+- **Mutable filesystem** (March 2026)
+  - `IMutableFileSystem` interface: TryCopy, TryWrite, TryMkdir
+  - `ZipVirtualFileSystem` implements mutable ops as in-memory overlay
+  - `SeedEpochFiles()` populates linux-0.01/ working tree at boot
+
+- **Quest state tracking** (March 2026)
+  - `QuestState` in Models.cs: FtpTransferMode, UploadAttempted, BackupMade, UploadSuccess
+  - `AppHost` routes input between Shell and FtpSession modes
+  - Boot sequence hardware lines driven by MachineSpec
+
 - **Timeline validation system** (March 2026)
   - Compile-time sprite timeline validation in `engine-authoring`
   - Warns when sprite `appear_at_ms >= scene_duration` (will never be visible)
