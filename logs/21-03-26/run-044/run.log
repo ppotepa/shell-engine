@@ -109,3 +109,6 @@
 2026-03-21 12:15:52.170 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
 2026-03-21 12:15:52.536 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
 2026-03-21 12:19:34.034 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
+2026-03-21 12:27:03.537 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
+2026-03-21 12:27:03.894 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
+2026-03-21 12:27:04.258 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu

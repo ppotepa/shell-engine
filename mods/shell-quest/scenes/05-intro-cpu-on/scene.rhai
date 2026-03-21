@@ -1,41 +1,41 @@
 let t = time.scene_elapsed_ms;
 let text = " ";
 
-if t >= 3000 && t < 7400 {
+if t >= 300 && t < 5800 {
     text = `TUX Modular BIOS v1.90, 1990 edition
 Copyright (C) 1990, TUX Software, Inc.
 * TUX AWARDS BIOS Extension v1.0A
 
 `;
 
-    if t >= 3700 {
-        text += `CPU: 386QX compatible @ 20MHz
+    if t >= 800 {
+        text += `[white]CPU: 386QX compatible @ 20MHz[/]
 `;
     }
 
-    if t >= 4200 && t < 5500 {
-        let step = ((t - 4200) * 16) / 1300;
+    if t >= 1400 && t < 3200 {
+        let step = ((t - 1400) * 16) / 1800;
         let s = if step > 16 { 16 } else { step };
         text += `Checking RAM: ${s * 128}KB
 `;
-    } else if t >= 5500 {
+    } else if t >= 3200 {
         text += `[white]Checking RAM: 2048KB OK[/]
 `;
     }
 
-    if t >= 6000 {
+    if t >= 3800 {
         text += `CD-ROM drive A:        .......... not found
 `;
     }
-    if t >= 6400 {
+    if t >= 4200 {
         text += `Floppy drive A: 1.44MB .......... not found
 `;
     }
-    if t >= 6800 {
+    if t >= 4600 {
         text += `Hard drive 0: SETAGE ST225 20MB
 `;
     }
-} else if t >= 7400 && t < 10000 {
+} else if t >= 5800 && t < 6000 {
     text = `+------------------------------------------------------------------+
 | TUX HyperBIOS device listing                     19/09/90 04:12 |
 +------------------------------------------------------------------+

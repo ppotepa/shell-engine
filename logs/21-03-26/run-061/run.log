@@ -18,3 +18,6 @@
 2026-03-21 12:18:02.839 [2827749] [app] [INFO ] [engine.scene] transition requested: to=intro-login
 2026-03-21 12:18:02.842 [2827749] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-login title=Intro Login
 2026-03-21 12:19:33.935 [2827749] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
+2026-03-21 12:27:03.390 [2827749] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
+2026-03-21 12:27:03.759 [2827749] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
+2026-03-21 12:27:04.130 [2827749] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
