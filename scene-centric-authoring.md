@@ -37,7 +37,8 @@ Scena może być:
 - post-process pipeline (`postfx`),
 - kontrakt UI (`ui.enabled`, `ui.persist`, `ui.theme`, `ui.focus-order`),
 - routing (`next`, `menu-options`),
-- profile wejścia (`input`).
+- profile wejścia (`input`),
+- prerender (`prerender: true`).
 
 Przykład:
 
@@ -53,6 +54,38 @@ menu-options:
   - { key: "1", label: "3D SCENE", to: playground-3d-scene }
   - { key: "2", label: "TERMINAL", to: playground-terminal-shell }
 ```
+
+## 2.0.1) Prerender (synchroniczny bake OBJ)
+
+Scena deklaruje `prerender: true` aby wskazać, że jej sprite'y `type: obj`
+mają być wyrenderowane do cache'u **przed** aktywacją sceny.
+
+```yaml
+id: 04.intro.difficulty-select
+prerender: true
+layers:
+  - ref: main
+```
+
+Pipeline:
+
+1. Transition ładuje scenę (`load_by_ref`).
+2. `prerender_scene_sprites()` renderuje synchronicznie każdy statyczny sprite
+   OBJ × 72 kątów yaw × 2 tryby (wireframe + solid) — z użyciem rayon.
+3. Wynik trafia do `ObjFrameCache` (klucz: `source + wireframe + yaw_step`).
+4. Scena jest aktywowana dopiero gdy cache jest pełny.
+
+Zasady:
+
+- Bake **zawsze** renderuje pełny model (`clip_y_min=0, clip_y_max=1`).
+  Parametry clip z YAML są ignorowane — clipping jest stosowany dopiero
+  w momencie wyświetlania z cache'u.
+- Sprite'y dynamiczne (`rotate-y-deg-per-sec`, `light-point-orbit-hz`, itp.)
+  są pomijane — nie da się ich prebakować.
+- Po prerender, cache-miss w rendererze loguje warning i pomija sprite
+  (brak fallbacku na live 3D).
+
+Plik implementacji: `engine/src/systems/bake.rs`.
 
 ## 2.1) PostFX (screen-space passy)
 
