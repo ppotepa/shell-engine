@@ -249,6 +249,23 @@ pub(crate) fn render_obj_to_canvas(
     let mut canvas: Vec<Option<[u8; 3]>> = vec![None; virtual_w as usize * virtual_h as usize];
     if wireframe {
         let line_color = color_to_rgb(fg);
+        let mut depth_buf = vec![f32::INFINITY; canvas.len()];
+
+        // Depth range from all projected vertices for brightness mapping.
+        let (depth_near, depth_far) = {
+            let mut near = f32::INFINITY;
+            let mut far = f32::NEG_INFINITY;
+            for pv in projected.iter().flatten() {
+                near = near.min(pv.depth);
+                far = far.max(pv.depth);
+            }
+            if (far - near).abs() < f32::EPSILON {
+                (near, near + 1.0)
+            } else {
+                (near, far)
+            }
+        };
+
         let mut drawn_edges = 0usize;
         for (a, b) in &mesh.edges {
             if drawn_edges > 12_000 {
@@ -265,15 +282,16 @@ pub(crate) fn render_obj_to_canvas(
             let x1 = pb.x.round() as i32;
             let y1 = pb.y.round() as i32;
             if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport) {
-                draw_line_color(
+                let (cz0, cz1) = clipped_depths(x0, y0, x1, y1, cx0, cy0, cx1, cy1, pa.depth, pb.depth);
+                draw_line_depth(
                     &mut canvas,
+                    &mut depth_buf,
                     virtual_w,
                     virtual_h,
-                    cx0,
-                    cy0,
-                    cx1,
-                    cy1,
+                    cx0, cy0, cx1, cy1,
                     line_color,
+                    cz0, cz1,
+                    depth_near, depth_far,
                 );
                 drawn_edges += 1;
             }
@@ -386,14 +404,11 @@ pub(crate) fn render_obj_to_canvas(
                 let y1 = pb.y.round() as i32;
                 if let Some((cx0, cy0, cx1, cy1)) = clip_line_to_viewport(x0, y0, x1, y1, clipped_viewport)
                 {
-                    draw_line_color(
+                    draw_line_flat(
                         &mut canvas,
                         virtual_w,
                         virtual_h,
-                        cx0,
-                        cy0,
-                        cx1,
-                        cy1,
+                        cx0, cy0, cx1, cy1,
                         line_color,
                     );
                 }
@@ -569,7 +584,28 @@ fn virtual_dimensions(mode: SceneRenderedMode, target_w: u16, target_h: u16) -> 
     }
 }
 
-fn draw_line_color(
+/// Interpolate depths at clipped line endpoints using parametric projection.
+fn clipped_depths(
+    x0: i32, y0: i32, x1: i32, y1: i32,
+    cx0: i32, cy0: i32, cx1: i32, cy1: i32,
+    z0: f32, z1: f32,
+) -> (f32, f32) {
+    let ldx = (x1 - x0) as f32;
+    let ldy = (y1 - y0) as f32;
+    let len_sq = ldx * ldx + ldy * ldy;
+    if len_sq < 1.0 {
+        return (z0, z1);
+    }
+    let t0 = ((cx0 - x0) as f32 * ldx + (cy0 - y0) as f32 * ldy) / len_sq;
+    let t1 = ((cx1 - x0) as f32 * ldx + (cy1 - y0) as f32 * ldy) / len_sq;
+    (
+        z0 + (z1 - z0) * t0.clamp(0.0, 1.0),
+        z0 + (z1 - z0) * t1.clamp(0.0, 1.0),
+    )
+}
+
+/// Simple Bresenham line — flat color, no depth test (fallback for face-less models).
+fn draw_line_flat(
     canvas: &mut [Option<[u8; 3]>],
     w: u16,
     h: u16,
@@ -584,7 +620,6 @@ fn draw_line_color(
     let dy = -(y1 - y0).abs();
     let sy = if y0 < y1 { 1 } else { -1 };
     let mut err = dx + dy;
-
     loop {
         if x0 >= 0 && y0 >= 0 && (x0 as u16) < w && (y0 as u16) < h {
             let idx = y0 as usize * w as usize + x0 as usize;
@@ -604,6 +639,68 @@ fn draw_line_color(
             err += dx;
             y0 += sy;
         }
+    }
+}
+
+/// Bresenham line with z-buffer and depth-based brightness falloff.
+#[allow(clippy::too_many_arguments)]
+fn draw_line_depth(
+    canvas: &mut [Option<[u8; 3]>],
+    depth_buf: &mut [f32],
+    w: u16,
+    h: u16,
+    mut x0: i32,
+    mut y0: i32,
+    x1: i32,
+    y1: i32,
+    base_color: [u8; 3],
+    z0: f32,
+    z1: f32,
+    depth_near: f32,
+    depth_far: f32,
+) {
+    let dx = (x1 - x0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let dy = -(y1 - y0).abs();
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+    let total_steps = dx.max(-dy) as f32;
+    let depth_range = depth_far - depth_near;
+    let mut step = 0f32;
+
+    loop {
+        if x0 >= 0 && y0 >= 0 && (x0 as u16) < w && (y0 as u16) < h {
+            let idx = y0 as usize * w as usize + x0 as usize;
+            let t = if total_steps > 0.0 { step / total_steps } else { 0.0 };
+            let z = z0 + (z1 - z0) * t;
+            if z < depth_buf[idx] {
+                depth_buf[idx] = z;
+                let norm = if depth_range > f32::EPSILON {
+                    ((z - depth_near) / depth_range).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                // Brightness: 1.0 at nearest, fades to 0.15 at farthest.
+                let brightness = 1.0 - 0.85 * norm;
+                let r = (base_color[0] as f32 * brightness) as u8;
+                let g = (base_color[1] as f32 * brightness) as u8;
+                let b = (base_color[2] as f32 * brightness) as u8;
+                canvas[idx] = Some([r, g, b]);
+            }
+        }
+        if x0 == x1 && y0 == y1 {
+            break;
+        }
+        let e2 = err.saturating_mul(2);
+        if e2 >= dy {
+            err += dy;
+            x0 += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y0 += sy;
+        }
+        step += 1.0;
     }
 }
 
@@ -955,7 +1052,7 @@ fn blit_color_canvas(
                         continue;
                     };
                     let symbol = if wireframe { draw_char } else { '█' };
-                    let fg_out = if wireframe { fg } else { rgb_to_color(rgb) };
+                    let fg_out = rgb_to_color(rgb);
                     buf.set(x + ox, y + oy, symbol, fg_out, bg_color);
                 }
             }
