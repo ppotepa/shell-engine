@@ -6,6 +6,14 @@ internal interface IVirtualFileSystem
 {
     IEnumerable<string> Ls(string? path);
     bool TryCat(string target, out string content);
+    bool DirectoryExists(string path);
+
+    /// <summary>
+    /// Converts an absolute path (e.g. /home/linus/linux-0.01) to a VFS-relative
+    /// key (e.g. linux-0.01). Paths outside /home/linus pass through stripped of
+    /// the leading slash.
+    /// </summary>
+    string ToVfsPath(string absolutePath);
 }
 
 /// <summary>
@@ -20,6 +28,8 @@ internal interface IMutableFileSystem : IVirtualFileSystem
 
 internal sealed class ZipVirtualFileSystem : IMutableFileSystem
 {
+    private const string HomeAbsolute = "/home/linus";
+
     private readonly string _statePath;
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
     private readonly HashSet<string> _directories = new(StringComparer.Ordinal);
@@ -36,69 +46,66 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
         _directories.Clear();
         _directories.Add("");
 
-        if (!File.Exists(_statePath))
+        if (File.Exists(_statePath))
         {
-            return;
-        }
-
-        try
-        {
-            using var archive = ZipFile.OpenRead(_statePath);
-            foreach (var entry in archive.Entries)
+            try
             {
-                if (!entry.FullName.StartsWith("users/linus/home/", StringComparison.Ordinal))
+                using var archive = ZipFile.OpenRead(_statePath);
+                foreach (var entry in archive.Entries)
                 {
-                    continue;
-                }
+                    if (!entry.FullName.StartsWith("users/linus/home/", StringComparison.Ordinal))
+                        continue;
 
-                var relative = entry.FullName["users/linus/home/".Length..].Trim('/');
-                if (relative.Length == 0)
-                {
-                    continue;
-                }
+                    var relative = entry.FullName["users/linus/home/".Length..].Trim('/');
+                    if (relative.Length == 0) continue;
 
-                if (entry.FullName.EndsWith("/", StringComparison.Ordinal))
-                {
-                    RegisterDirectory(relative);
-                    continue;
+                    if (entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                        RegisterDirectory(relative);
+                    else
+                        RegisterFile(relative, entry);
                 }
-
-                RegisterFile(relative, entry);
+            }
+            catch
+            {
+                _files.Clear();
+                _directories.Clear();
+                _directories.Add("");
             }
         }
-        catch
-        {
-            _files.Clear();
-            _directories.Clear();
-            _directories.Add("");
-        }
+
+        // Always re-seed epoch files after loading — they are not persisted
+        // to the ZIP so they would otherwise vanish after the first Persist/Reload cycle.
+        SeedEpochFiles();
     }
+
+    public string ToVfsPath(string absolutePath)
+    {
+        var trimmed = absolutePath.TrimEnd('/');
+        if (trimmed == HomeAbsolute) return "";
+        if (trimmed.StartsWith(HomeAbsolute + "/"))
+            return trimmed[(HomeAbsolute.Length + 1)..];
+        return trimmed.TrimStart('/');
+    }
+
+    public bool DirectoryExists(string path)
+        => _directories.Contains(Normalize(path));
 
     public IEnumerable<string> Ls(string? path)
     {
         var normalized = Normalize(path);
         if (!_directories.Contains(normalized))
-        {
             return Array.Empty<string>();
-        }
 
         var items = new List<string>();
         foreach (var dir in _directories)
         {
-            if (dir.Length == 0 || !IsDirectChildOf(dir, normalized))
-            {
-                continue;
-            }
-
+            if (dir.Length == 0 || !IsDirectChildOf(dir, normalized)) continue;
             items.Add($"{SegmentName(dir)}/");
         }
-
         foreach (var file in _files.Keys)
         {
             if (IsDirectChildOf(file, normalized))
-            {
                 items.Add(SegmentName(file));
-            }
         }
 
         items.Sort(StringComparer.Ordinal);
@@ -106,9 +113,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     }
 
     public bool TryCat(string target, out string content)
-    {
-        return _files.TryGetValue(Normalize(target), out content!);
-    }
+        => _files.TryGetValue(Normalize(target), out content!);
 
     public bool TryCopy(string source, string dest, out string error)
     {
@@ -137,11 +142,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     public bool TryMkdir(string path, out string error)
     {
         var normalized = Normalize(path);
-        if (normalized.Length == 0)
-        {
-            error = "invalid path";
-            return false;
-        }
+        if (normalized.Length == 0) { error = "invalid path"; return false; }
         RegisterDirectory(normalized);
         error = "";
         return true;
@@ -150,10 +151,10 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     /// <summary>
     /// Seeds the prologue epoch files into the in-memory filesystem.
     /// These represent Linus's working tree in September 1991.
+    /// Called after every ReloadFromStateArchive so they are never lost.
     /// </summary>
     public void SeedEpochFiles()
     {
-        // linux-0.01 source directory
         TryMkdir("linux-0.01", out _);
 
         TryWrite("linux-0.01/RELNOTES-0.01",
@@ -168,18 +169,8 @@ It's mostly in C, but most people wouldn't call what I write C.
 It uses every conceivable feature of the 386 I could find, as
 it was a project to teach me about the 386.
 
-As already langstroth, it uses a MMU for both paging (strIdent yet)
-and segmentation. It's the segmentation that makes it REALLY
-386 dependent (strIdent strIdent memory model, strIdent).
-
-My strIdent-strIdent numbers are strIdent 5-12-91:
-
-     files      funcs    lines     slines     otherlines     comments
-        52        strIdent     8413      6253           strIdent            594
-
 linus", out _);
 
-        // the actual archive to upload — simulated binary blob
         TryWrite("linux-0.01/linux-0.01.tar.Z",
             "[COMPRESSED ARCHIVE — 73091 bytes — tar.Z format]", out _);
 
@@ -223,19 +214,7 @@ To upload to nic.funet.fi:
     private void RegisterFile(string relativePath, ZipArchiveEntry entry)
     {
         var normalized = Normalize(relativePath);
-        var parent = normalized;
-        while (true)
-        {
-            var slash = parent.LastIndexOf('/');
-            if (slash < 0)
-            {
-                break;
-            }
-
-            parent = parent[..slash];
-            _directories.Add(parent);
-        }
-
+        RegisterParentDirectories(normalized);
         using var stream = entry.Open();
         using var reader = new StreamReader(stream);
         _files[normalized] = reader.ReadToEnd();
@@ -244,10 +223,7 @@ To upload to nic.funet.fi:
     private void RegisterDirectory(string relativePath)
     {
         var normalized = Normalize(relativePath);
-        if (normalized.Length == 0)
-        {
-            return;
-        }
+        if (normalized.Length == 0) return;
 
         var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var current = "";
@@ -261,30 +237,18 @@ To upload to nic.funet.fi:
     private static string Normalize(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw) || raw is "." or "~" or "/" or "./")
-        {
             return "";
-        }
-
         return raw.Trim().TrimStart('/').TrimEnd('/');
     }
 
     private static bool IsDirectChildOf(string candidate, string parent)
     {
         if (parent.Length == 0)
-        {
             return !candidate.Contains('/');
-        }
-
         if (!candidate.StartsWith(parent, StringComparison.Ordinal))
-        {
             return false;
-        }
-
         if (candidate.Length <= parent.Length + 1 || candidate[parent.Length] != '/')
-        {
             return false;
-        }
-
         return candidate[(parent.Length + 1)..].IndexOf('/') < 0;
     }
 

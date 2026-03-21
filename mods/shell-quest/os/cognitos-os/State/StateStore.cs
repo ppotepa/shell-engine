@@ -46,7 +46,6 @@ internal sealed class ZipStateStore : CognitosOs.Core.IMachineStart
                 Password = profile?.Password,
                 LastLogin = profile?.LastLogin,
                 UptimeMs = clock?.UptimeMs ?? 0,
-                Cwd = "~",
                 Mode = SessionMode.Booting,
                 Processes = processes,
                 Services = services,
@@ -142,7 +141,6 @@ internal sealed class ZipStateStore : CognitosOs.Core.IMachineStart
                 Password = ReadString(root, "Password"),
                 LastLogin = ReadDateTime(root, "LastLogin"),
                 UptimeMs = ReadUInt64(root, "UptimeMs"),
-                Cwd = "~",
                 Mode = SessionMode.Booting,
             };
 

@@ -8,7 +8,6 @@ internal enum SessionMode
     LoginUser,
     LoginPassword,
     Shell,
-    FtpSession,
 }
 
 internal sealed class MachineState
@@ -17,7 +16,6 @@ internal sealed class MachineState
     public string? Password { get; set; }
     public DateTime? LastLogin { get; set; }
     public ulong UptimeMs { get; set; }
-    public string Cwd { get; set; } = "~";
     public SessionMode Mode { get; set; } = SessionMode.Booting;
     public string PendingLoginUser { get; set; } = "";
     public List<ProcessEntry> Processes { get; set; } = new();

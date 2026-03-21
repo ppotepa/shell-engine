@@ -8,9 +8,5 @@ internal sealed class PwdCommand : ICommand
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
     public CommandResult Execute(CommandContext ctx)
-    {
-        var cwd = ctx.Os.State.Cwd;
-        var display = cwd == "~" ? "/home/linus" : cwd.Replace("~", "/home/linus");
-        return new CommandResult(new[] { display });
-    }
+        => new CommandResult(new[] { ctx.Session.Cwd });
 }
