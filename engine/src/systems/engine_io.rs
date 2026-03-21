@@ -43,7 +43,10 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
         let submit_snapshot = scene_runtime.ui_last_submit_snapshot();
         let change_snapshot = scene_runtime.ui_last_change_snapshot();
         let key_snapshot = scene_runtime.last_raw_key_snapshot();
-        let is_boot_scene = scene_runtime.scene().id == "intro-cpu-on";
+        let is_boot_scene = scene_runtime
+            .terminal_shell_controls_snapshot()
+            .map(|c| c.boot_scene)
+            .unwrap_or(false);
         (
             scene_id,
             controls,

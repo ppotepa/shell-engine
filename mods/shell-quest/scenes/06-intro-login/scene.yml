@@ -42,6 +42,7 @@ postfx:
 input:
   terminal-shell:
     mode: sidecar
+    boot-scene: true
     sidecar:
       command: dotnet
       args:
