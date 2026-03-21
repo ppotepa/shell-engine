@@ -13,19 +13,20 @@ script: |
   if is_active && was_active != true { t0 = now; }
 
   // ── on_leave: confirm animation (rotate to face camera + forward lean) ──
+  // 10 frames @ 60 fps = 167 ms.  Pitch starts from 0 (idle) → 12° (lean in),
+  // no initial snap.  Yaw sweeps 0 → 320° (total 540° = facing camera).
   if time.stage == "on_leave" && is_active {
     let elapsed = time.stage_elapsed_ms;
-    let confirm_dur = 500;
+    let confirm_dur = 167;
     if elapsed < confirm_dur {
       let progress = (elapsed * 1.0) / (confirm_dur * 1.0);
       // ease-out: fast start, gentle stop
       let ep = 1.0 - (1.0 - progress) * (1.0 - progress);
-      // rotate from yaw=0 (total 220°) to yaw=320 (total 540°=180°=facing camera)
       let yaw = 320.0 * ep;
       scene.set(solid_id, "obj.yaw", yaw);
       scene.set(wire_id, "obj.yaw", yaw);
-      // forward lean: 20° tilt toward camera (pitch -8 → +12)
-      let pitch = -8.0 + 20.0 * ep;
+      // pitch: idle 0° → lean-in 12°, no snap on frame 0
+      let pitch = 12.0 * ep;
       scene.set(solid_id, "obj.pitch", pitch);
       scene.set(wire_id, "obj.pitch", pitch);
     } else {
