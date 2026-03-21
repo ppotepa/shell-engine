@@ -16,6 +16,7 @@ pub mod fade;
 pub mod fade_to_black;
 pub mod glitch;
 pub mod lightning;
+pub mod neon_edge_glow;
 pub mod posterize;
 pub mod power_off;
 pub mod scanlines;
@@ -44,6 +45,7 @@ pub use lightning::{
     LightningAmbientEffect, LightningBranchEffect, LightningFbmEffect, LightningFlashEffect,
     LightningGrowthEffect, LightningNaturalEffect, LightningOptical80sEffect, TeslaOrbEffect,
 };
+pub use neon_edge_glow::NeonEdgeGlowEffect;
 pub use posterize::PosterizeEffect;
 pub use power_off::PowerOffEffect;
 pub use scanlines::ScanlinesEffect;
@@ -154,6 +156,10 @@ pub static BUILTIN_EFFECTS: &[BuiltinEffectDefinition] = &[
     BuiltinEffectDefinition {
         name: "lightning-optical-80s",
         constructor: || Box::new(LightningOptical80sEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "neon-edge-glow",
+        constructor: || Box::new(NeonEdgeGlowEffect),
     },
     BuiltinEffectDefinition {
         name: "posterize",
