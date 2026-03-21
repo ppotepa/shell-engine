@@ -5,8 +5,8 @@ script: |
   let sel = menu.selected_index;
   let is_selected = sel == params.index;
   if is_selected {
-    scene.set(id, "style.fg", "#00ffcc");
+    scene.set(id, "style.fg", "#88ccff");
   } else {
-    scene.set(id, "style.fg", "#0d1520");
+    scene.set(id, "style.fg", "#0a1225");
   }
   #{}
