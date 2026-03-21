@@ -678,7 +678,7 @@ impl ScriptTerminalApi {
 }
 
 impl RhaiScriptBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         let compile_error = match params.script.as_deref() {
             Some(src) => RhaiEngine::new()
                 .compile(src)
@@ -1546,6 +1546,9 @@ fn behavior_params_to_rhai_map(params: &BehaviorParams) -> RhaiMap {
     }
     if let Some(value) = params.src.as_ref() {
         out.insert("src".into(), value.clone().into());
+    }
+    if let Some(value) = params.dur {
+        out.insert("dur".into(), (value as rhai::INT).into());
     }
     out
 }
