@@ -42,14 +42,25 @@ pub(super) struct PostFxContext<'a> {
 }
 
 pub fn postfx_system(world: &mut World) {
-    let (scene_id, passes, scene_elapsed_ms) = {
+    let (scene_id, fingerprint, passes, scene_elapsed_ms) = {
         let Some(runtime) = world.scene_runtime() else {
             return;
         };
-        let scene_id = runtime.scene().id.clone();
-        let passes = runtime.scene().postfx.clone();
+        let scene = runtime.scene();
+        let scene_id = scene.id.clone();
+        let fingerprint = passes_fingerprint(&scene.postfx);
         let scene_elapsed_ms = world.animator().map(|a| a.scene_elapsed_ms).unwrap_or(0);
-        (scene_id, passes, scene_elapsed_ms)
+        // Only clone the pass list when the scene or pass config has changed.
+        let needs_recompile = POSTFX_RUNTIME.with(|rt| {
+            let rt = rt.borrow();
+            rt.last_scene_id.as_deref() != Some(&scene_id) || rt.last_pass_fingerprint != fingerprint
+        });
+        let passes = if needs_recompile {
+            scene.postfx.clone()
+        } else {
+            Vec::new()
+        };
+        (scene_id, fingerprint, passes, scene_elapsed_ms)
     };
 
     let use_virtual = world
@@ -71,7 +82,7 @@ pub fn postfx_system(world: &mut World) {
     POSTFX_RUNTIME.with(|runtime| {
         runtime
             .borrow_mut()
-            .apply(&scene_id, &passes, scene_elapsed_ms, buffer);
+            .apply(&scene_id, fingerprint, &passes, scene_elapsed_ms, buffer);
     });
 }
 
@@ -79,19 +90,19 @@ impl PostFxRuntime {
     fn apply(
         &mut self,
         scene_id: &str,
+        fingerprint: u64,
         passes: &[Effect],
         scene_elapsed_ms: u64,
         buffer: &mut Buffer,
     ) {
-        let pass_fingerprint = passes_fingerprint(passes);
         if self.last_scene_id.as_deref() != Some(scene_id)
-            || self.last_pass_fingerprint != pass_fingerprint
+            || self.last_pass_fingerprint != fingerprint
         {
             self.previous_output = None;
             self.frame_count = 0;
             self.last_scene_id = Some(scene_id.to_string());
             self.compiled_passes = compile_passes(passes);
-            self.last_pass_fingerprint = pass_fingerprint;
+            self.last_pass_fingerprint = fingerprint;
         }
 
         if self.compiled_passes.is_empty() {

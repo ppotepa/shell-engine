@@ -83,30 +83,14 @@ pub fn compositor_system(world: &mut World) {
             .cloned()
             .collect::<Vec<_>>();
 
-        let (scene_effects, scene_step_dur) = match &stage {
-            SceneStage::OnEnter => {
-                let st = scene.stages.on_enter.steps.get(step);
-                (
-                    st.map(|s| s.effects.clone()).unwrap_or_default(),
-                    st.map(|s| s.duration_ms()).unwrap_or(0),
-                )
-            }
-            SceneStage::OnIdle => {
-                let st = scene.stages.on_idle.steps.get(step);
-                (
-                    st.map(|s| s.effects.clone()).unwrap_or_default(),
-                    st.map(|s| s.duration_ms()).unwrap_or(0),
-                )
-            }
-            SceneStage::OnLeave => {
-                let st = scene.stages.on_leave.steps.get(step);
-                (
-                    st.map(|s| s.effects.clone()).unwrap_or_default(),
-                    st.map(|s| s.duration_ms()).unwrap_or(0),
-                )
-            }
-            SceneStage::Done => (Vec::new(), 0),
+        let current_step = match &stage {
+            SceneStage::OnEnter => scene.stages.on_enter.steps.get(step),
+            SceneStage::OnIdle => scene.stages.on_idle.steps.get(step),
+            SceneStage::OnLeave => scene.stages.on_leave.steps.get(step),
+            SceneStage::Done => None,
         };
+        let scene_effects = current_step.map(|s| s.effects.clone()).unwrap_or_default();
+        let scene_step_dur = current_step.map(|s| s.duration_ms()).unwrap_or(0);
 
         (
             bg,
