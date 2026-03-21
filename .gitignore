@@ -11,5 +11,14 @@ Thumbs.db
 *.md
 **/*.md
 !/README.md
+
+# Build artifacts and reports
+*-report.txt
+concat-report.txt
+
+# Runtime logs (keep logs/ directory structure)
+*.log
+!logs/
+
 # Raw authored asset sources stay local
 !mods/*/assets/raw/.gitignore
