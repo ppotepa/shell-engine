@@ -143,6 +143,22 @@ When adding new debug/diagnostic features:
 - keep overlay render O(rows × cols),
 - do not read `run.log` from disk per frame.
 
+**When adding sprite timing fields** (March 2026):
+
+- Add fields to `Sprite` variants in `engine-core/src/scene/sprite.rs`,
+- Add metadata in `engine-core/src/scene/metadata.rs`,
+- Update schema in `schemas/scene.schema.yaml`,
+- Update validation in `engine-authoring/src/validate/mod.rs` (if timing-related),
+- Update `timeline-architecture.md` documentation.
+
+**When debugging sprite visibility issues** (March 2026):
+
+1. Check sprite `appear_at_ms` vs scene `on_enter` duration
+2. Run debug build to see validation warnings: `cargo build`
+3. Verify layer `visible` flag and runtime `layer_state.visible`
+4. Check scene transition cleanup (already working via `world.clear_scoped()`)
+5. Review `timeline-architecture.md` for architecture constraints
+
 ## 6) Preferred working style
 
 - Keep changes minimal, local, and type-safe.
