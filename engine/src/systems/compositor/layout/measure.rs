@@ -49,11 +49,24 @@ pub(crate) fn measure_sprite_for_layout(
             size,
             width,
             height,
+            spritesheet_columns,
+            spritesheet_rows,
+            frame_index,
             force_renderer_mode,
             ..
         } => {
             let mode = render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-            image_sprite_dimensions(source, *width, *height, *size, mode, asset_root)
+            image_sprite_dimensions(
+                source,
+                *width,
+                *height,
+                *size,
+                *spritesheet_columns,
+                *spritesheet_rows,
+                *frame_index,
+                mode,
+                asset_root,
+            )
         }
         Sprite::Grid {
             width,

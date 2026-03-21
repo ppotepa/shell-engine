@@ -1,0 +1,11 @@
+2026-03-21 00:27:29.870 [2694917] [app] [INFO ] [logging.init] run logger initialized: file=logs/21-03-26/run-004/run.log run=4 day=logs/21-03-26
+2026-03-21 00:27:29.870 [2694917] [app] [INFO ] [app.main] launcher init: run=4 log_file=logs/21-03-26/run-004/run.log
+2026-03-21 00:27:29.870 [2694917] [app] [INFO ] [app.main] resolved mod_source=mods/shell-quest/
+2026-03-21 00:27:29.870 [2694917] [app] [DEBUG] [app.main] engine config: dev=true sound_server=false sound_server_cmd=<default>
+2026-03-21 00:27:29.870 [2694917] [app] [INFO ] [app.main] engine initialized: mod_source=mods/shell-quest/
+2026-03-21 00:27:29.870 [2694917] [app] [INFO ] [engine.run] starting engine run: mod_source=mods/shell-quest/ entrypoint=/scenes/00-intro-logo/scene.yml dev=true sound_server=false
+2026-03-21 00:27:29.899 [2694917] [app] [ERROR] [app.main] engine run failed: startup check `rhai-scripts` failed: rhai script preflight failed:
+/scenes/04-difficulty-select/scene.yml (scene `intro-difficulty-select`, layer[0].sprite[3].behaviors[0]): src ``let idx = menu.selected_index;
+if idx < 0 { idx = 0; }
+if idx > 4 { idx = 4; }
+out.push(#{ op: 'set', target: 'difficulty-avatar', path: 'image.frame_index', value: idx });`` missing params.script payload

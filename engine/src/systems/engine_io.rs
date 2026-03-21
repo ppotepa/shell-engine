@@ -12,8 +12,10 @@ use engine_io::{IoEvent, IoRequest, SidecarProcess};
 pub struct EngineIoRuntime {
     sidecar: Option<SidecarProcess>,
     last_submit_seq: u64,
+    last_change_seq: u64,
     last_key_sent: Option<String>,
     last_size: Option<(u16, u16)>,
+    scene_id: Option<String>,
 }
 
 pub fn engine_io_system(world: &mut World, dt_ms: u64) {
@@ -23,16 +25,33 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
     }
 
     // Snapshot data we need without holding long-lived borrows.
-    let (controls, submit_snapshot, key_snapshot) = {
+    let (
+        scene_id,
+        controls,
+        submit_snapshot,
+        change_snapshot,
+        key_snapshot,
+        is_boot_scene,
+    ) = {
         let Some(scene_runtime) = world.scene_runtime() else {
             return;
         };
+        let scene_id = scene_runtime.scene().id.clone();
         let Some(controls) = scene_runtime.terminal_shell_controls_snapshot() else {
             return;
         };
         let submit_snapshot = scene_runtime.ui_last_submit_snapshot();
+        let change_snapshot = scene_runtime.ui_last_change_snapshot();
         let key_snapshot = scene_runtime.last_raw_key_snapshot();
-        (controls, submit_snapshot, key_snapshot)
+        let is_boot_scene = scene_runtime.scene().id == "intro-cpu-on";
+        (
+            scene_id,
+            controls,
+            submit_snapshot,
+            change_snapshot,
+            key_snapshot,
+            is_boot_scene,
+        )
     };
 
     if controls.mode != TerminalShellMode::Sidecar {
@@ -54,9 +73,21 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
             return;
         };
 
+        if runtime.scene_id.as_deref() != Some(scene_id.as_str()) {
+            if let Some(sidecar) = runtime.sidecar.take() {
+                sidecar.kill();
+            }
+            runtime.last_submit_seq = 0;
+            runtime.last_change_seq = 0;
+            runtime.last_key_sent = None;
+            runtime.last_size = None;
+            runtime.scene_id = Some(scene_id.clone());
+        }
+
         if runtime.sidecar.as_ref().is_some_and(|p| !p.is_alive()) {
             runtime.sidecar = None;
             runtime.last_submit_seq = 0;
+            runtime.last_change_seq = 0;
             runtime.last_key_sent = None;
             runtime.last_size = None;
             pending_lines.push("[engine-io] sidecar exited".to_string());
@@ -78,14 +109,19 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                         Ok(proc) => {
                             runtime.sidecar = Some(proc);
                             runtime.last_submit_seq = 0;
+                            runtime.last_change_seq = 0;
                             runtime.last_key_sent = None;
                             runtime.last_size = None;
-                            if let Some(sidecar) = runtime.sidecar.as_ref() {
-                                if let Some((cols, rows)) = buf_size {
-                                    let _ = sidecar.send(IoRequest::Hello { cols, rows });
-                                    runtime.last_size = Some((cols, rows));
-                                }
-                            }
+                             if let Some(sidecar) = runtime.sidecar.as_ref() {
+                                 if let Some((cols, rows)) = buf_size {
+                                     let _ = sidecar.send(IoRequest::Hello {
+                                         cols,
+                                         rows,
+                                         boot_scene: is_boot_scene,
+                                     });
+                                     runtime.last_size = Some((cols, rows));
+                                 }
+                             }
                         }
                         Err(err) => {
                             pending_lines
@@ -110,6 +146,12 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                 if seq != 0 && seq != runtime.last_submit_seq {
                     runtime.last_submit_seq = seq;
                     let _ = sidecar.send(IoRequest::Submit { line: text });
+                }
+            }
+            if let Some((seq, _target, text)) = change_snapshot {
+                if seq != 0 && seq != runtime.last_change_seq {
+                    runtime.last_change_seq = seq;
+                    let _ = sidecar.send(IoRequest::SetInput { text });
                 }
             }
 
@@ -174,12 +216,7 @@ fn apply_event(scene_runtime: &mut crate::scene_runtime::SceneRuntime, ev: IoEve
             }
         }
         IoEvent::ScreenFull { lines, .. } => {
-            // MVP: just dump to transcript so it’s visible even before a proper fullscreen compositor.
-            scene_runtime.sidecar_mark_screen_full(lines.clone());
-            scene_runtime.terminal_push_output("[fullscreen]".to_string());
-            for line in lines {
-                scene_runtime.terminal_push_output(line);
-            }
+            scene_runtime.sidecar_mark_screen_full(lines);
         }
         IoEvent::Custom { payload } => {
             scene_runtime.sidecar_push_custom_event(payload.to_string());

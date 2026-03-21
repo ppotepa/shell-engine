@@ -9,6 +9,7 @@ $defs:
     - 01.intro.date
     - 02.intro.boot
     - intro-cpu-on
+    - intro-difficulty-select
     - intro-lab-enter
     - intro-login
     - mainmenu
@@ -19,8 +20,9 @@ $defs:
     - /scenes/01-intro-date/scene.yml
     - /scenes/02-intro-boot/scene.yml
     - /scenes/03-intro-lab-enter/scene.yml
-    - /scenes/04-intro-cpu-on/scene.yml
-    - /scenes/05-intro-login/scene.yml
+    - /scenes/04-difficulty-select/scene.yml
+    - /scenes/05-intro-cpu-on/scene.yml
+    - /scenes/06-intro-login/scene.yml
     - /scenes/mainmenu/scene.yml
   scene_refs:
     type: string
@@ -29,20 +31,24 @@ $defs:
     - /scenes/01-intro-date/scene.yml
     - /scenes/02-intro-boot/scene.yml
     - /scenes/03-intro-lab-enter/scene.yml
-    - /scenes/04-intro-cpu-on/scene.yml
-    - /scenes/05-intro-login/scene.yml
+    - /scenes/04-difficulty-select/scene.yml
+    - /scenes/05-intro-cpu-on/scene.yml
+    - /scenes/06-intro-login/scene.yml
     - /scenes/mainmenu/scene.yml
     - 00.intro.logo
     - 01.intro.date
     - 02.intro.boot
     - intro-cpu-on
+    - intro-difficulty-select
     - intro-lab-enter
     - intro-login
     - mainmenu
   object_names:
     type: string
     enum:
+    - difficulty-menu
     - prologue-monitor
+    - terminal-monitor
   effect_names:
     type: string
     enum:
@@ -85,8 +91,9 @@ $defs:
     - 01-intro-date/layers/main.yml
     - 02-intro-boot/layers/main.yml
     - 03-intro-lab-enter/layers/main.yml
-    - 04-intro-cpu-on/layers/main.yml
-    - 05-intro-login/layers/main.yml
+    - 04-difficulty-select/layers/main.yml
+    - 05-intro-cpu-on/layers/main.yml
+    - 06-intro-login/layers/main.yml
     - mainmenu/layers/main.yml
   sprite_refs:
     type: string
@@ -97,8 +104,12 @@ $defs:
   object_refs:
     type: string
     enum:
+    - /objects/difficulty-menu.yml
     - /objects/prologue-monitor.yml
+    - /objects/terminal-monitor.yml
+    - difficulty-menu
     - prologue-monitor
+    - terminal-monitor
   effect_refs:
     type: string
     enum: []
@@ -126,10 +137,18 @@ $defs:
     - /assets/images/campaign/legacy-shell-quest/logos/fedora.png
     - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest-terminal.png
     - /assets/images/campaign/legacy-shell-quest/screenshots/shell-quest.png
+    - /assets/images/difficulty-light/1.png
+    - /assets/images/difficulty-light/2.png
+    - /assets/images/difficulty-light/3.png
+    - /assets/images/difficulty-light/4.png
+    - /assets/images/difficulty-light/5.png
+    - /assets/images/difficulty.png
+    - /assets/images/difficulty2.png
     - /assets/images/linux-1.png
     - /assets/images/tux.png
     - /assets/images/tuxbios.png
     - /assets/images/tuxbios_2.png
+    - /assets/images/vga.png
   model_paths:
     type: string
     enum:
@@ -143,19 +162,18 @@ $defs:
     - bios-block
     - bios-footer
     - date-text
+    - diff-help
     - intro-linus-cutscene
     - intro-logo-ascii
     - intro-logo-raster
     - location-text
-    - login-block
-    - login-hidden-output
-    - login-hidden-prompt
     - menu-status-broke
     - menu-status-indebt
     - menu-status-no-money
     - placeholder-lab-enter
     - press-any-key
     - tuxbios-screen
+    - vga-logo
     - vga-screen
   template_names:
     type: string

@@ -14,6 +14,9 @@ pub(super) fn render_image_content(
     req_width: Option<u16>,
     req_height: Option<u16>,
     size: Option<SpriteSizePreset>,
+    sheet_columns: Option<u16>,
+    sheet_rows: Option<u16>,
+    frame_index: Option<u16>,
     mode: SceneRenderedMode,
     elapsed_ms: u64,
     asset_root: Option<&AssetRoot>,
@@ -27,7 +30,13 @@ pub(super) fn render_image_content(
     let Some(image_asset) = image_loader::load_image_asset(root.mod_source(), source) else {
         return;
     };
-    let image = image_asset.frame_at(elapsed_ms);
+    let base_image = image_asset.frame_at(elapsed_ms);
+    let image = select_spritesheet_frame(
+        base_image,
+        sheet_columns,
+        sheet_rows,
+        frame_index,
+    );
     let (target_w, target_h) = resolve_image_dimensions(&image, mode, req_width, req_height, size);
     if target_w == 0 || target_h == 0 {
         return;
@@ -52,6 +61,9 @@ pub(super) fn image_sprite_dimensions(
     req_width: Option<u16>,
     req_height: Option<u16>,
     size: Option<SpriteSizePreset>,
+    sheet_columns: Option<u16>,
+    sheet_rows: Option<u16>,
+    frame_index: Option<u16>,
     mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> (u16, u16) {
@@ -61,8 +73,54 @@ pub(super) fn image_sprite_dimensions(
     let Some(image_asset) = image_loader::load_image_asset(root.mod_source(), source) else {
         return (req_width.unwrap_or(1), req_height.unwrap_or(1));
     };
-    let image = image_asset.first_frame();
+    let image = select_spritesheet_frame(
+        image_asset.first_frame(),
+        sheet_columns,
+        sheet_rows,
+        frame_index,
+    );
     resolve_image_dimensions(&image, mode, req_width, req_height, size)
+}
+
+fn select_spritesheet_frame(
+    image: &LoadedRgbaImage,
+    sheet_columns: Option<u16>,
+    sheet_rows: Option<u16>,
+    frame_index: Option<u16>,
+) -> LoadedRgbaImage {
+    let cols = sheet_columns.unwrap_or(1).max(1) as u32;
+    let rows = sheet_rows.unwrap_or(1).max(1) as u32;
+    if cols == 1 && rows == 1 {
+        return image.clone();
+    }
+    let cell_w = (image.width / cols).max(1);
+    let cell_h = (image.height / rows).max(1);
+    let total = cols.saturating_mul(rows).max(1);
+    let index = (frame_index.unwrap_or(0) as u32).min(total.saturating_sub(1));
+    let col = index % cols;
+    let row = index / cols;
+    let start_x = col.saturating_mul(cell_w);
+    let start_y = row.saturating_mul(cell_h);
+    let end_x = if col + 1 == cols {
+        image.width
+    } else {
+        (start_x + cell_w).min(image.width)
+    };
+    let end_y = if row + 1 == rows {
+        image.height
+    } else {
+        (start_y + cell_h).min(image.height)
+    };
+
+    let out_w = end_x.saturating_sub(start_x).max(1);
+    let out_h = end_y.saturating_sub(start_y).max(1);
+    let mut pixels = Vec::with_capacity((out_w as usize).saturating_mul(out_h as usize));
+    for y in start_y..end_y {
+        for x in start_x..end_x {
+            pixels.push(image.pixel(x, y).unwrap_or([0, 0, 0, 0]));
+        }
+    }
+    LoadedRgbaImage::from_pixels(out_w, out_h, pixels)
 }
 
 fn resolve_image_dimensions(

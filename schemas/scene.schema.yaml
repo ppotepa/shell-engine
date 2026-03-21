@@ -647,6 +647,18 @@ $defs:
         type: string
         minLength: 1
         description: Asset path (required for type=image/obj), e.g. /assets/images/tux.png or /scenes/3d/model.obj.
+      spritesheet-columns:
+        type: integer
+        minimum: 1
+        description: Image sprite only. Number of columns in a spritesheet.
+      spritesheet-rows:
+        type: integer
+        minimum: 1
+        description: Image sprite only. Number of rows in a spritesheet.
+      frame-index:
+        type: integer
+        minimum: 0
+        description: Image sprite only. 0-based selected frame index in spritesheet cells (row-major).
       id:
         type: string
         minLength: 1
@@ -782,6 +794,112 @@ $defs:
         type: number
         minimum: 0.000001
         description: Near clipping plane distance in camera space for type=obj (smaller renders closer geometry).
+      light-direction-x:
+        type: number
+        description: Directional light X component for type=obj shading vector.
+      light-direction-y:
+        type: number
+        description: Directional light Y component for type=obj shading vector.
+      light-direction-z:
+        type: number
+        description: Directional light Z component for type=obj shading vector.
+      light-2-direction-x:
+        type: number
+        description: Secondary directional light X component for type=obj shading vector.
+      light-2-direction-y:
+        type: number
+        description: Secondary directional light Y component for type=obj shading vector.
+      light-2-direction-z:
+        type: number
+        description: Secondary directional light Z component for type=obj shading vector.
+      light-2-intensity:
+        type: number
+        minimum: 0
+        maximum: 2
+        description: Secondary directional light intensity for type=obj shading mix.
+      light-point-x:
+        type: number
+        description: Point light X position in object view space for type=obj shading.
+      light-point-y:
+        type: number
+        description: Point light Y position in object view space for type=obj shading.
+      light-point-z:
+        type: number
+        description: Point light Z position in object view space for type=obj shading.
+      light-point-intensity:
+        type: number
+        minimum: 0
+        maximum: 4
+        description: Point light intensity for type=obj shading mix.
+      light-point-colour:
+        $ref: "#/$defs/colour"
+        description: Point light tint colour for type=obj shading.
+      light-point-flicker-depth:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: Point light 1 flicker depth (0=steady, 1=full flicker) for type=obj.
+      light-point-flicker-hz:
+        type: number
+        minimum: 0
+        maximum: 40
+        description: Point light 1 flicker rate in Hz for type=obj.
+      light-point-orbit-hz:
+        type: number
+        minimum: 0
+        maximum: 2
+        description: Point light 1 orbit speed around Y axis in Hz for type=obj (0=static).
+      light-point-2-x:
+        type: number
+        description: Point light 2 X position in object view space for type=obj shading.
+      light-point-2-y:
+        type: number
+        description: Point light 2 Y position in object view space for type=obj shading.
+      light-point-2-z:
+        type: number
+        description: Point light 2 Z position in object view space for type=obj shading.
+      light-point-2-intensity:
+        type: number
+        minimum: 0
+        maximum: 4
+        description: Point light 2 intensity for type=obj shading mix.
+      light-point-2-colour:
+        $ref: "#/$defs/colour"
+        description: Point light 2 tint colour for type=obj shading.
+      light-point-2-flicker-depth:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: Point light 2 flicker depth (0=steady, 1=full flicker) for type=obj.
+      light-point-2-flicker-hz:
+        type: number
+        minimum: 0
+        maximum: 40
+        description: Point light 2 flicker rate in Hz for type=obj.
+      light-point-2-orbit-hz:
+        type: number
+        minimum: 0
+        maximum: 2
+        description: Point light 2 orbit speed around Y axis in Hz for type=obj (0=static).
+      cel-levels:
+        type: integer
+        minimum: 0
+        maximum: 8
+        description: Cel-shading band count for type=obj material mode (0-1 disables quantization).
+      shadow-colour:
+        $ref: "#/$defs/colour"
+        description: Shadow tint for type=obj cel-shading (dark band).
+      midtone-colour:
+        $ref: "#/$defs/colour"
+        description: Midtone tint for type=obj cel-shading (middle band).
+      highlight-colour:
+        $ref: "#/$defs/colour"
+        description: Highlight tint for type=obj cel-shading (bright band).
+      tone-mix:
+        type: number
+        minimum: 0
+        maximum: 1
+        description: Blend amount between material color and toon tint palette for type=obj.
       draw-char:
         type: string
         minLength: 1

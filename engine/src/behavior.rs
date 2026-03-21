@@ -3261,11 +3261,11 @@ out
     fn intro_login_scene_rhai_compiles_without_complexity_error() {
         let script = include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../mods/shell-quest/scenes/05-intro-login/scene.rhai"
+            "/../mods/shell-quest/scenes/06-intro-login/scene.rhai"
         ));
         let behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(script.to_string()),
-            src: Some("/scenes/05-intro-login/scene.rhai".to_string()),
+            src: Some("/scenes/06-intro-login/scene.rhai".to_string()),
             ..BehaviorParams::default()
         });
         assert!(

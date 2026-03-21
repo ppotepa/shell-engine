@@ -1,0 +1,16 @@
+2026-03-20 23:04:09.734 [2666548] [app] [INFO ] [logging.init] run logger initialized: file=logs/20-03-26/run-013/run.log run=13 day=logs/20-03-26
+2026-03-20 23:04:09.734 [2666548] [app] [INFO ] [app.main] launcher init: run=13 log_file=logs/20-03-26/run-013/run.log
+2026-03-20 23:04:09.734 [2666548] [app] [INFO ] [app.main] resolved mod_source=mods/shell-quest/
+2026-03-20 23:04:09.734 [2666548] [app] [DEBUG] [app.main] engine config: dev=true sound_server=false sound_server_cmd=<default>
+2026-03-20 23:04:09.735 [2666548] [app] [INFO ] [app.main] engine initialized: mod_source=mods/shell-quest/
+2026-03-20 23:04:09.735 [2666548] [app] [INFO ] [engine.run] starting engine run: mod_source=mods/shell-quest/ entrypoint=/scenes/00-intro-logo/scene.yml dev=true sound_server=false
+2026-03-20 23:04:10.408 [2666548] [app] [INFO ] [engine.scene] loaded entry scene: id=00.intro.logo title=00 Intro Logo
+2026-03-20 23:04:25.603 [2666548] [app] [INFO ] [engine.scene] transition requested: to=01.intro.date
+2026-03-20 23:04:25.604 [2666548] [app] [INFO ] [engine.scene] transition applied: active_scene=01.intro.date title=01 Intro Date
+2026-03-20 23:04:34.473 [2666548] [app] [INFO ] [engine.scene] transition requested: to=02.intro.boot
+2026-03-20 23:04:34.474 [2666548] [app] [INFO ] [engine.scene] transition applied: active_scene=02.intro.boot title=02 Intro Boot
+2026-03-20 23:04:47.238 [2666548] [app] [INFO ] [engine.scene] transition requested: to=intro-lab-enter
+2026-03-20 23:04:47.239 [2666548] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-lab-enter title=Intro Lab Enter
+2026-03-20 23:04:49.443 [2666548] [app] [INFO ] [engine.scene] transition requested: to=intro-difficulty-select
+2026-03-20 23:04:49.448 [2666548] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-difficulty-select title=Intro Difficulty Select
+2026-03-20 23:10:13.632 [2666548] [app] [DEBUG] [engine.debug.input] overlay toggled: hidden → Logs

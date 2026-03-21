@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: terminal-monitor
+exports:
+  output_id: terminal-output
+  prompt_id: terminal-prompt
+  x: 2
+  output_y: 2
+  prompt_y: 3
+  font: "generic:half"
+  fg: silver
+  output_appear_at_ms: 0
+  prompt_appear_at_ms: 0
+sprites:
+  - type: text
+    id: "$output_id"
+    content: ""
+    at: lt
+    x: "$x"
+    y: "$output_y"
+    font: "$font"
+    fg: "$fg"
+    appear_at_ms: "$output_appear_at_ms"
+
+  - type: text
+    id: "$prompt_id"
+    content: ""
+    at: lt
+    x: "$x"
+    y: "$prompt_y"
+    font: "$font"
+    fg: "$fg"
+    appear_at_ms: "$prompt_appear_at_ms"

@@ -1,0 +1,607 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: difficulty-menu
+sprites:
+  - type: grid
+    id: difficulty-layout
+    at: cc
+    width: 180
+    height: 92
+    columns: ["1fr", "1fr"]
+    rows: ["1fr"]
+    gap-x: 4
+    children:
+      - type: grid
+        id: difficulty-portrait-panel
+        grid-col: 1
+        grid-row: 1
+        columns: ["1fr"]
+        rows: ["1fr"]
+        children:
+          - type: obj
+            id: difficulty-face-0
+            source: "/assets/3d/sculpts/1.obj"
+            grid-col: 1
+            grid-row: 1
+            at: 0
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            surface-mode: material
+            force-renderer-mode: halfblock
+            rotation-y: 270
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.15
+            light-direction-z: -1.0
+            light-2-direction-x: 0.2
+            light-2-direction-y: 0.1
+            light-2-direction-z: -0.9
+            light-2-intensity: 0.0
+            light-point-x: -2.5
+            light-point-y: 0.2
+            light-point-z: 2.5
+            light-point-intensity: 9.5
+            light-point-colour: "#ff1500"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-orbit-hz: 0.09
+            light-point-2-x: 2.5
+            light-point-2-y: 0.2
+            light-point-2-z: 2.5
+            light-point-2-intensity: 5.5
+            light-point-2-colour: "#00c8ff"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-orbit-hz: 0.14
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#010305"
+            highlight-colour: "#ff2200"
+            fg: white
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 0
+          - type: obj
+            id: difficulty-face-1
+            source: "/assets/3d/sculpts/2.obj"
+            grid-col: 1
+            grid-row: 1
+            at: lt
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            surface-mode: material
+            force-renderer-mode: halfblock
+            rotation-y: 220
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.15
+            light-direction-z: -1.0
+            light-2-direction-x: 0.2
+            light-2-direction-y: 0.1
+            light-2-direction-z: -0.9
+            light-2-intensity: 0.0
+            light-point-x: -2.5
+            light-point-y: 0.2
+            light-point-z: 2.5
+            light-point-intensity: 9.5
+            light-point-colour: "#ff1500"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-orbit-hz: 0.09
+            light-point-2-x: 2.5
+            light-point-2-y: 0.2
+            light-point-2-z: 2.5
+            light-point-2-intensity: 5.5
+            light-point-2-colour: "#00c8ff"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-orbit-hz: 0.14
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#010305"
+            highlight-colour: "#ff2200"
+            fg: white
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 1
+          - type: obj
+            id: difficulty-face-2
+            source: "/assets/3d/sculpts/3.obj"
+            grid-col: 1
+            grid-row: 1
+            at: lt
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            surface-mode: material
+            force-renderer-mode: halfblock
+            rotation-y: 220
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.15
+            light-direction-z: -1.0
+            light-2-direction-x: 0.2
+            light-2-direction-y: 0.1
+            light-2-direction-z: -0.9
+            light-2-intensity: 0.0
+            light-point-x: -2.5
+            light-point-y: 0.2
+            light-point-z: 2.5
+            light-point-intensity: 9.5
+            light-point-colour: "#ff1500"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-orbit-hz: 0.09
+            light-point-2-x: 2.5
+            light-point-2-y: 0.2
+            light-point-2-z: 2.5
+            light-point-2-intensity: 5.5
+            light-point-2-colour: "#00c8ff"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-orbit-hz: 0.14
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#010305"
+            highlight-colour: "#ff2200"
+            fg: white
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 2
+          - type: obj
+            id: difficulty-face-3
+            source: "/assets/3d/sculpts/4.obj"
+            grid-col: 1
+            grid-row: 1
+            at: lt
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            surface-mode: material
+            force-renderer-mode: halfblock
+            rotation-y: 140
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.15
+            light-direction-z: -1.0
+            light-2-direction-x: 0.2
+            light-2-direction-y: 0.1
+            light-2-direction-z: -0.9
+            light-2-intensity: 0.0
+            light-point-x: -2.5
+            light-point-y: 0.2
+            light-point-z: 2.5
+            light-point-intensity: 9.5
+            light-point-colour: "#ff1500"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-orbit-hz: 0.09
+            light-point-2-x: 2.5
+            light-point-2-y: 0.2
+            light-point-2-z: 2.5
+            light-point-2-intensity: 5.5
+            light-point-2-colour: "#00c8ff"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-orbit-hz: 0.14
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#010305"
+            highlight-colour: "#ff2200"
+            fg: white
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 3
+          - type: obj
+            id: difficulty-face-4
+            source: "/assets/3d/sculpts/5.gb"
+            grid-col: 1
+            grid-row: 1
+            at: lt
+            x: -90
+            y: -5
+            width: 150
+            height: 100
+            scale: 4.65
+            surface-mode: material
+            force-renderer-mode: halfblock
+            rotation-y: 220
+            pitch-deg: -8
+            rotate-y-deg-per-sec: 0
+            camera-distance: 6.15
+            fov-degrees: 58
+            near-clip: 0.0005
+            light-direction-x: 0.0
+            light-direction-y: 0.15
+            light-direction-z: -1.0
+            light-2-direction-x: 0.2
+            light-2-direction-y: 0.1
+            light-2-direction-z: -0.9
+            light-2-intensity: 0.0
+            light-point-x: -2.5
+            light-point-y: 0.2
+            light-point-z: 2.5
+            light-point-intensity: 9.5
+            light-point-colour: "#ff1500"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
+            light-point-orbit-hz: 0.09
+            light-point-2-x: 2.5
+            light-point-2-y: 0.2
+            light-point-2-z: 2.5
+            light-point-2-intensity: 5.5
+            light-point-2-colour: "#00c8ff"
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
+            light-point-2-orbit-hz: 0.14
+            cel-levels: 3
+            tone-mix: 1.0
+            shadow-colour: "#000000"
+            midtone-colour: "#010305"
+            highlight-colour: "#ff2200"
+            fg: white
+            visible: false
+            behaviors:
+              - name: menu-selected
+                params:
+                  index: 4
+
+      - type: grid
+        id: difficulty-right-panel
+        grid-col: 2
+        grid-row: 1
+        at: cc
+        width: 48
+        height: 30
+        columns: ["1fr"]
+        rows: ["auto", "auto"]
+        gap-y: 2
+        children:
+          - type: text
+            id: difficulty-title
+            content: "DIFFICULTY"
+            grid-col: 1
+            grid-row: 1
+            at: cc
+            font: "dejavusans-boldoblique:terminal-pixels"
+            fg: "#8fb4ff"
+
+          - type: grid
+            id: difficulty-grid
+            grid-col: 1
+            grid-row: 2
+            at: cc
+            width: 44
+            height: 22
+            columns: ["1fr"]
+            rows: ["auto", "auto", "auto", "auto", "auto"]
+            gap-y: 1
+            children:
+              - {
+                  type: text,
+                  id: menu-item-0,
+                  content: "[1] MOUSE ENJOYER",
+                  grid-col: 1,
+                  grid-row: 1,
+                  at: cc,
+                  font: "dejavusans-boldoblique-small:terminal-pixels",
+                  fg: white,
+                }
+              - {
+                  type: text,
+                  id: menu-item-1,
+                  content: "[2] SCRIPT KIDDIE",
+                  grid-col: 1,
+                  grid-row: 2,
+                  at: cc,
+                  font: "dejavusans-boldoblique-small:terminal-pixels",
+                  fg: silver,
+                }
+              - {
+                  type: text,
+                  id: menu-item-2,
+                  content: "[3] I CAN EXIT VIM",
+                  grid-col: 1,
+                  grid-row: 3,
+                  at: cc,
+                  font: "dejavusans-boldoblique-small:terminal-pixels",
+                  fg: gray,
+                }
+              - {
+                  type: text,
+                  id: menu-item-3,
+                  content: "[4] DVORAK",
+                  grid-col: 1,
+                  grid-row: 4,
+                  at: cc,
+                  font: "dejavusans-boldoblique-small:terminal-pixels",
+                  fg: silver,
+                }
+              - {
+                  type: text,
+                  id: menu-item-4,
+                  content: "[5] SU",
+                  grid-col: 1,
+                  grid-row: 5,
+                  at: cc,
+                  font: "dejavusans-boldoblique-small:terminal-pixels",
+                  fg: gray,
+                }
+
+  - {
+      type: text,
+      id: sel0-left,
+      content: ">",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-0,
+                index: 0,
+                side: left,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel0-right,
+      content: "<",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-0,
+                index: 0,
+                side: right,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel1-left,
+      content: ">",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-1,
+                index: 1,
+                side: left,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel1-right,
+      content: "<",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-1,
+                index: 1,
+                side: right,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel2-left,
+      content: ">",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-2,
+                index: 2,
+                side: left,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel2-right,
+      content: "<",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-2,
+                index: 2,
+                side: right,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel3-left,
+      content: ">",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-3,
+                index: 3,
+                side: left,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel3-right,
+      content: "<",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-3,
+                index: 3,
+                side: right,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel4-left,
+      content: ">",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-4,
+                index: 4,
+                side: left,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }
+  - {
+      type: text,
+      id: sel4-right,
+      content: "<",
+      at: cc,
+      font: "generic:half",
+      fg: "#6aa3ff",
+      behaviors:
+        [
+          {
+            name: selected-arrows,
+            params:
+              {
+                target: menu-item-4,
+                index: 4,
+                side: right,
+                padding: 1,
+                amplitude_x: 1,
+                period_ms: 900,
+                autoscale_height: true,
+              },
+          },
+        ],
+    }

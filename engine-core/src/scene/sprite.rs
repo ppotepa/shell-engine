@@ -208,6 +208,15 @@ pub enum Sprite {
         #[serde(default)]
         id: Option<String>,
         source: String,
+        /// Optional spritesheet column count. When >1, image is treated as a sheet.
+        #[serde(default, rename = "spritesheet-columns")]
+        spritesheet_columns: Option<u16>,
+        /// Optional spritesheet row count. When >1, image is treated as a sheet.
+        #[serde(default, rename = "spritesheet-rows")]
+        spritesheet_rows: Option<u16>,
+        /// Optional 0-based frame index selected from spritesheet cells.
+        #[serde(default, rename = "frame-index")]
+        frame_index: Option<u16>,
         #[serde(default)]
         x: i32,
         #[serde(default)]
@@ -248,7 +257,7 @@ pub enum Sprite {
         #[serde(default)]
         behaviors: Vec<BehaviorSpec>,
     },
-    /// Wavefront OBJ mesh rendered as terminal wireframe.
+    /// Wavefront OBJ mesh rendered as terminal wireframe/material.
     Obj {
         #[serde(default)]
         id: Option<String>,
@@ -302,6 +311,64 @@ pub enum Sprite {
         fov_degrees: Option<f32>,
         #[serde(default, rename = "near-clip")]
         near_clip: Option<f32>,
+        #[serde(default, rename = "light-direction-x")]
+        light_direction_x: Option<f32>,
+        #[serde(default, rename = "light-direction-y")]
+        light_direction_y: Option<f32>,
+        #[serde(default, rename = "light-direction-z")]
+        light_direction_z: Option<f32>,
+        #[serde(default, rename = "light-2-direction-x")]
+        light_2_direction_x: Option<f32>,
+        #[serde(default, rename = "light-2-direction-y")]
+        light_2_direction_y: Option<f32>,
+        #[serde(default, rename = "light-2-direction-z")]
+        light_2_direction_z: Option<f32>,
+        #[serde(default, rename = "light-2-intensity")]
+        light_2_intensity: Option<f32>,
+        #[serde(default, rename = "light-point-x")]
+        light_point_x: Option<f32>,
+        #[serde(default, rename = "light-point-y")]
+        light_point_y: Option<f32>,
+        #[serde(default, rename = "light-point-z")]
+        light_point_z: Option<f32>,
+        #[serde(default, rename = "light-point-intensity")]
+        light_point_intensity: Option<f32>,
+        #[serde(default, rename = "light-point-colour")]
+        light_point_colour: Option<TermColour>,
+        #[serde(default, rename = "light-point-flicker-depth")]
+        light_point_flicker_depth: Option<f32>,
+        #[serde(default, rename = "light-point-flicker-hz")]
+        light_point_flicker_hz: Option<f32>,
+        /// Orbit angular speed (Hz) for point light 1 around the Y axis.
+        #[serde(default, rename = "light-point-orbit-hz")]
+        light_point_orbit_hz: Option<f32>,
+        #[serde(default, rename = "light-point-2-x")]
+        light_point_2_x: Option<f32>,
+        #[serde(default, rename = "light-point-2-y")]
+        light_point_2_y: Option<f32>,
+        #[serde(default, rename = "light-point-2-z")]
+        light_point_2_z: Option<f32>,
+        #[serde(default, rename = "light-point-2-intensity")]
+        light_point_2_intensity: Option<f32>,
+        #[serde(default, rename = "light-point-2-colour")]
+        light_point_2_colour: Option<TermColour>,
+        #[serde(default, rename = "light-point-2-flicker-depth")]
+        light_point_2_flicker_depth: Option<f32>,
+        #[serde(default, rename = "light-point-2-flicker-hz")]
+        light_point_2_flicker_hz: Option<f32>,
+        /// Orbit angular speed (Hz) for point light 2 around the Y axis.
+        #[serde(default, rename = "light-point-2-orbit-hz")]
+        light_point_2_orbit_hz: Option<f32>,
+        #[serde(default, rename = "cel-levels")]
+        cel_levels: Option<u8>,
+        #[serde(default, rename = "shadow-colour")]
+        shadow_colour: Option<TermColour>,
+        #[serde(default, rename = "midtone-colour")]
+        midtone_colour: Option<TermColour>,
+        #[serde(default, rename = "highlight-colour")]
+        highlight_colour: Option<TermColour>,
+        #[serde(default, rename = "tone-mix")]
+        tone_mix: Option<f32>,
         #[serde(default, rename = "draw-char")]
         draw_char: Option<String>,
         align_x: Option<HorizontalAlign>,
@@ -716,6 +783,9 @@ stretch-to-area: true
         match sprite {
             Sprite::Image {
                 source,
+                spritesheet_columns,
+                spritesheet_rows,
+                frame_index,
                 size,
                 width,
                 height,
@@ -724,6 +794,9 @@ stretch-to-area: true
                 ..
             } => {
                 assert_eq!(source, "/assets/images/tux.png");
+                assert_eq!(spritesheet_columns, None);
+                assert_eq!(spritesheet_rows, None);
+                assert_eq!(frame_index, None);
                 assert_eq!(size, Some(SpriteSizePreset::Large));
                 assert_eq!(width, None);
                 assert_eq!(height, None);
@@ -737,6 +810,31 @@ stretch-to-area: true
             | Sprite::Flex { .. } => {
                 panic!("expected image sprite")
             }
+        }
+    }
+
+    #[test]
+    fn parses_image_spritesheet_fields() {
+        let raw = r#"
+type: image
+source: "/assets/images/difficulty1.png"
+spritesheet-columns: 5
+spritesheet-rows: 1
+frame-index: 3
+"#;
+        let sprite: Sprite = serde_yaml::from_str(raw).expect("image sprite should parse");
+        match sprite {
+            Sprite::Image {
+                spritesheet_columns,
+                spritesheet_rows,
+                frame_index,
+                ..
+            } => {
+                assert_eq!(spritesheet_columns, Some(5));
+                assert_eq!(spritesheet_rows, Some(1));
+                assert_eq!(frame_index, Some(3));
+            }
+            _ => panic!("expected image sprite"),
         }
     }
 

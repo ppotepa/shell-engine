@@ -1,0 +1,21 @@
+2026-03-21 03:48:38.104 [2766031] [app] [INFO ] [logging.init] run logger initialized: file=logs/21-03-26/run-028/run.log run=28 day=logs/21-03-26
+2026-03-21 03:48:38.104 [2766031] [app] [INFO ] [app.main] launcher init: run=28 log_file=logs/21-03-26/run-028/run.log
+2026-03-21 03:48:38.104 [2766031] [app] [INFO ] [app.main] resolved mod_source=mods/shell-quest/
+2026-03-21 03:48:38.104 [2766031] [app] [DEBUG] [app.main] engine config: dev=true sound_server=false sound_server_cmd=<default>
+2026-03-21 03:48:38.104 [2766031] [app] [INFO ] [app.main] engine initialized: mod_source=mods/shell-quest/
+2026-03-21 03:48:38.104 [2766031] [app] [INFO ] [engine.run] starting engine run: mod_source=mods/shell-quest/ entrypoint=/scenes/00-intro-logo/scene.yml dev=true sound_server=false
+2026-03-21 03:48:38.799 [2766031] [app] [INFO ] [engine.scene] loaded entry scene: id=00.intro.logo title=00 Intro Logo
+2026-03-21 03:48:54.092 [2766031] [app] [INFO ] [engine.scene] transition requested: to=01.intro.date
+2026-03-21 03:48:54.094 [2766031] [app] [INFO ] [engine.scene] transition applied: active_scene=01.intro.date title=01 Intro Date
+2026-03-21 03:49:02.955 [2766031] [app] [INFO ] [engine.scene] transition requested: to=02.intro.boot
+2026-03-21 03:49:02.956 [2766031] [app] [INFO ] [engine.scene] transition applied: active_scene=02.intro.boot title=02 Intro Boot
+2026-03-21 03:49:16.297 [2766031] [app] [INFO ] [engine.scene] transition requested: to=intro-lab-enter
+2026-03-21 03:49:16.298 [2766031] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-lab-enter title=Intro Lab Enter
+2026-03-21 03:49:18.502 [2766031] [app] [INFO ] [engine.scene] transition requested: to=intro-difficulty-select
+2026-03-21 03:49:18.509 [2766031] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-difficulty-select title=Intro Difficulty Select
+2026-03-21 03:51:33.095 [2766031] [app] [INFO ] [engine.scene] transition requested: to=intro-cpu-on
+2026-03-21 03:51:33.101 [2766031] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-cpu-on title=Intro CPU On
+2026-03-21 03:52:51.737 [2766031] [app] [INFO ] [engine.scene] transition requested: to=intro-login
+2026-03-21 03:52:51.740 [2766031] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-login title=Intro Login
+2026-03-21 03:53:27.464 [2766031] [app] [INFO ] [engine.run] engine loop exited cleanly
+2026-03-21 03:53:27.464 [2766031] [app] [INFO ] [app.main] engine run finished successfully

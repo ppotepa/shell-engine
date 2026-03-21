@@ -28,6 +28,14 @@ impl LoadedRgbaImage {
             .saturating_add(x as usize);
         self.pixels.get(idx).copied()
     }
+
+    pub(crate) fn from_pixels(width: u32, height: u32, pixels: Vec<[u8; 4]>) -> Self {
+        Self {
+            width,
+            height,
+            pixels,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -83,8 +83,9 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
             1
         };
         for _ in 0..ticks_this_frame {
-            systems::animator::animator_system(world, tick_ms);
+        systems::animator::animator_system(world, tick_ms);
         }
+        systems::hot_reload::debug_scene_hot_reload_system(world);
         // Bridge external sidecar IO before behaviors run (behaviors clear UI submit/change each frame).
         systems::engine_io::engine_io_system(world, tick_ms);
         // Process transitions emitted by animator in the same frame to avoid

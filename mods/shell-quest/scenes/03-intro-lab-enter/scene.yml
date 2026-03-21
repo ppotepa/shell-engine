@@ -16,4 +16,4 @@ stages:
     steps: [{ pause: 1ms }]
   on_leave:
     steps: [{ pause: 80ms }]
-next: intro-cpu-on
+next: intro-difficulty-select

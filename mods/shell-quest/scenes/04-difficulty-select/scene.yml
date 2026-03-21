@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: intro-difficulty-select
+title: Intro Difficulty Select
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 280, params: { easing: ease-out } }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - { pause: 1200ms }
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 220, params: { easing: ease-in } }] }
+next: intro-cpu-on
+menu-options:
+  - { key: "1", label: "MOUSE ENJOYER", to: intro-cpu-on }
+  - { key: "2", label: "SCRIPT KIDDIE", to: intro-cpu-on }
+  - { key: "3", label: "I CAN EXIT VIM", to: intro-cpu-on }
+  - { key: "4", label: "DVORAK", to: intro-cpu-on }
+  - { key: "5", label: "SU", to: intro-cpu-on }
