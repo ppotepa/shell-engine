@@ -1,0 +1,78 @@
+schema_version: 1
+font_family: DejaVuSans-BoldOblique
+font_variant: regular
+font_label: DejaVuSans-BoldOblique
+size_px: 18.0
+profile: classic
+mode: terminal-pixels
+glyphs:
+- character: S
+  codepoint: U+0053
+  file: glyphs/S.txt
+  width: 14
+  height: 15
+- character: E
+  codepoint: U+0045
+  file: glyphs/E.txt
+  width: 14
+  height: 15
+- character: L
+  codepoint: U+004C
+  file: glyphs/L.txt
+  width: 13
+  height: 15
+- character: C
+  codepoint: U+0043
+  file: glyphs/C.txt
+  width: 15
+  height: 15
+- character: T
+  codepoint: U+0054
+  file: glyphs/T.txt
+  width: 14
+  height: 15
+- character: D
+  codepoint: U+0044
+  file: glyphs/D.txt
+  width: 16
+  height: 15
+- character: I
+  codepoint: U+0049
+  file: glyphs/I.txt
+  width: 8
+  height: 15
+- character: F
+  codepoint: U+0046
+  file: glyphs/F.txt
+  width: 14
+  height: 15
+- character: U
+  codepoint: U+0055
+  file: glyphs/U.txt
+  width: 16
+  height: 15
+- character: Y
+  codepoint: U+0059
+  file: glyphs/Y.txt
+  width: 15
+  height: 15
+- character: N
+  codepoint: U+004E
+  file: glyphs/N.txt
+  width: 17
+  height: 15
+- character: A
+  codepoint: U+0041
+  file: glyphs/A.txt
+  width: 15
+  height: 15
+- character: P
+  codepoint: U+0050
+  file: glyphs/P.txt
+  width: 15
+  height: 15
+- character: H
+  codepoint: U+0048
+  file: glyphs/H.txt
+  width: 17
+  height: 15

@@ -69,6 +69,7 @@ struct TerminalShellState {
     controls: TerminalShellControls,
     input: Input,
     input_masked: bool,
+    sidecar_fullscreen_mode: bool,
     output_lines: Vec<String>,
     history: Vec<String>,
     history_cursor: Option<usize>,
@@ -158,6 +159,7 @@ impl TerminalShellState {
             controls,
             input: Input::default(),
             input_masked: false,
+            sidecar_fullscreen_mode: false,
             history: Vec::new(),
             history_cursor: None,
             prompt_panel_height: None,
@@ -219,15 +221,6 @@ impl TerminalShellState {
         match self.controls.mode {
             TerminalShellMode::Sidecar => {
                 // External process owns transcript + semantics.
-                let rendered_command = if self.input_masked {
-                    "*".repeat(command_line.chars().count())
-                } else {
-                    command_line.to_string()
-                };
-                self.push_output_line(format!(
-                    "{}{}",
-                    self.controls.prompt_prefix, rendered_command
-                ));
                 return;
             }
             TerminalShellMode::Scripted => {
@@ -606,8 +599,10 @@ impl SceneRuntime {
     /// Pushes a line to the terminal shell output transcript.
     /// Does nothing if no terminal shell is active.
     pub fn terminal_push_output(&mut self, line: String) {
+        self.ui_state.sidecar_io.screen_full_lines = None;
         self.ui_state.sidecar_io.output_lines.push(line.clone());
         if let Some(state) = self.terminal_shell_state.as_mut() {
+            state.sidecar_fullscreen_mode = false;
             state.push_output_line(line);
             self.sync_terminal_shell_sprites();
         }
@@ -617,9 +612,11 @@ impl SceneRuntime {
     /// Does nothing if no terminal shell is active.
     pub fn terminal_clear_output(&mut self) {
         if let Some(state) = self.terminal_shell_state.as_mut() {
+            state.sidecar_fullscreen_mode = false;
             state.clear_output();
             self.sync_terminal_shell_sprites();
         }
+        self.ui_state.sidecar_io.screen_full_lines = None;
         self.ui_state.sidecar_io.clear_count = self.ui_state.sidecar_io.clear_count.saturating_add(1);
     }
 
@@ -1114,6 +1111,16 @@ impl SceneRuntime {
 
     pub fn sidecar_mark_screen_full(&mut self, lines: Vec<String>) {
         self.ui_state.sidecar_io.screen_full_lines = Some(lines);
+        if let Some(state) = self.terminal_shell_state.as_mut() {
+            state.sidecar_fullscreen_mode = true;
+            state.output_lines = self
+                .ui_state
+                .sidecar_io
+                .screen_full_lines
+                .clone()
+                .unwrap_or_default();
+            self.sync_terminal_shell_sprites();
+        }
     }
 
     pub fn sidecar_push_custom_event(&mut self, payload: String) {
@@ -1128,16 +1135,54 @@ impl SceneRuntime {
         let output_id = state.controls.output_sprite_id.clone();
         let prompt_line = state.prompt_line(self.terminal_shell_scene_elapsed_ms);
         let controls = state.controls.clone();
-        let prompt_rendered = self.render_prompt_for_panel(&prompt_line, &controls, &mut state);
-        let output_text = if matches!(state.controls.mode, crate::scene::TerminalShellMode::Sidecar)
-        {
-            self.render_terminal_output_text(&state)
+        if matches!(state.controls.mode, crate::scene::TerminalShellMode::Sidecar) {
+            if state.sidecar_fullscreen_mode {
+                let output_text = state.output_text();
+                let _ = self.set_text_sprite_content(&output_id, output_text);
+                let _ = self.set_text_sprite_content(&prompt_id, String::new());
+                self.terminal_shell_state = Some(state);
+                return;
+            }
+            let (output_text, prompt_rendered) =
+                self.render_terminal_stacked_output_and_prompt(&state, &prompt_line);
+            let _ = self.set_text_sprite_content(&output_id, output_text);
+            let _ = self.set_text_sprite_content(&prompt_id, prompt_rendered);
         } else {
-            state.output_text()
-        };
-        let _ = self.set_text_sprite_content(&prompt_id, prompt_rendered);
-        let _ = self.set_text_sprite_content(&output_id, output_text);
+            let prompt_rendered = self.render_prompt_for_panel(&prompt_line, &controls, &mut state);
+            let output_text = state.output_text();
+            let _ = self.set_text_sprite_content(&prompt_id, prompt_rendered);
+            let _ = self.set_text_sprite_content(&output_id, output_text);
+        }
         self.terminal_shell_state = Some(state);
+    }
+
+    fn render_terminal_stacked_output_and_prompt(
+        &self,
+        state: &TerminalShellState,
+        prompt_line: &str,
+    ) -> (String, String) {
+        let Some(output_layout) = self.resolve_text_layout(&state.controls.output_sprite_id) else {
+            return (state.output_text(), prompt_line.to_string());
+        };
+        let Some(prompt_layout) = self.resolve_text_layout(&state.controls.prompt_sprite_id) else {
+            return (state.output_text(), prompt_line.to_string());
+        };
+        let line_height = 1u16;
+        let vertical_space = prompt_layout.y.saturating_sub(output_layout.y).max(1) as u16;
+        let viewport_lines = (vertical_space / line_height).max(1) as usize;
+        let target_rows = viewport_lines.min(state.controls.max_lines.max(1) as usize);
+        if target_rows <= 1 {
+            return (state.output_text(), String::new());
+        }
+
+        // Reserve last row for prompt, render transcript top-to-bottom above it.
+        let transcript_rows = target_rows - 1;
+        let lines: Vec<String> = if state.output_lines.len() <= transcript_rows {
+            state.output_lines.clone()
+        } else {
+            state.output_lines[state.output_lines.len() - transcript_rows..].to_vec()
+        };
+        (lines.join("\n"), prompt_line.to_string())
     }
 
     fn render_prompt_for_panel(
@@ -1220,23 +1265,6 @@ impl SceneRuntime {
             .chars()
             .skip(total_chars - max_chars)
             .collect::<String>()
-    }
-
-    fn render_terminal_output_text(&self, state: &TerminalShellState) -> String {
-        let Some(output_layout) = self.resolve_text_layout(&state.controls.output_sprite_id) else {
-            return state.output_text();
-        };
-        let Some(prompt_layout) = self.resolve_text_layout(&state.controls.prompt_sprite_id) else {
-            return state.output_text();
-        };
-        let line_height = text_line_height_for_font(output_layout.font.as_deref()).max(1);
-        let vertical_space = prompt_layout.y.saturating_sub(output_layout.y).max(1) as u16;
-        let viewport_lines = (vertical_space / line_height).max(1) as usize;
-        let target_lines = viewport_lines.min(state.controls.max_lines.max(1) as usize);
-        if state.output_lines.len() <= target_lines {
-            return state.output_text();
-        }
-        state.output_lines[state.output_lines.len() - target_lines..].join("\n")
     }
 
     fn animate_prompt_panel_height(
@@ -1374,6 +1402,19 @@ impl SceneRuntime {
         let mut updated = false;
         for layer in &mut self.scene.layers {
             set_obj_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+        }
+        updated
+    }
+
+    fn set_image_sprite_frame_index(&mut self, sprite_id: &str, next_frame: u16) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_image_frame_index_recursive(
+                &mut layer.sprites,
+                sprite_id,
+                next_frame,
+                &mut updated,
+            );
         }
         updated
     }
@@ -1566,6 +1607,27 @@ impl SceneRuntime {
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
                                     if self.set_obj_sprite_property(&alias, path, value) {
+                                        applied = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !applied {
+                                continue;
+                            }
+                        }
+                        "image.frame_index" => {
+                            let Some(next_frame) = value.as_u64() else {
+                                continue;
+                            };
+                            let mut applied =
+                                self.set_image_sprite_frame_index(target, next_frame as u16);
+                            if !applied {
+                                for alias in self.object_alias_candidates(object_id, target) {
+                                    if self.set_image_sprite_frame_index(
+                                        &alias,
+                                        next_frame as u16,
+                                    ) {
                                         applied = true;
                                         break;
                                     }
@@ -2196,6 +2258,34 @@ fn set_text_bg_recursive(
             | Sprite::Flex { children, .. }
             | Sprite::Panel { children, .. } => {
                 set_text_bg_recursive(children, sprite_id, next_colour, updated)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn set_image_frame_index_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    next_frame: u16,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Image {
+                id: Some(id),
+                frame_index,
+                ..
+            } if id == sprite_id => {
+                if frame_index.unwrap_or(0) != next_frame {
+                    *frame_index = Some(next_frame);
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_image_frame_index_recursive(children, sprite_id, next_frame, updated)
             }
             _ => {}
         }

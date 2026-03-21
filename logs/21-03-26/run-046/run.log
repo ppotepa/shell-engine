@@ -1,0 +1,10 @@
+2026-03-21 05:30:35.366 [2795842] [editor] [INFO ] [logging.init] run logger initialized: file=logs/21-03-26/run-046/run.log run=46 day=logs/21-03-26
+2026-03-21 05:30:35.366 [2795842] [editor] [INFO ] [editor.main] run logger initialized: run=46 file=logs/21-03-26/run-046/run.log
+2026-03-21 05:30:35.366 [2795842] [editor] [INFO ] [editor.main] editor startup: mod_source=mods/shell-quest
+2026-03-21 05:30:35.366 [2795842] [editor] [INFO ] [editor.app] starting editor loop: launch_mod_source=mods/shell-quest
+2026-03-21 05:30:35.368 [2795842] [editor] [DEBUG] [editor.app] recent projects loaded: 2
+2026-03-21 05:30:37.016 [2795842] [editor] [DEBUG] [editor.command] dispatch: mode=Start sidebar=Explorer focus=ProjectTree cmd=Back
+2026-03-21 05:30:37.770 [2795842] [editor] [DEBUG] [editor.command] dispatch: mode=Start sidebar=Explorer focus=ProjectTree cmd=Enter
+2026-03-21 05:30:37.770 [2795842] [editor] [INFO ] [editor.project] open requested: path=/home/ppotepa/git/shell-quest/mods/shell-quest
+2026-03-21 05:30:37.822 [2795842] [editor] [INFO ] [editor.project] opened: path=/home/ppotepa/git/shell-quest/mods/shell-quest scenes=8 images=17 fonts=4
+2026-03-21 05:30:37.822 [2795842] [editor] [INFO ] [editor.state] mode changed: Start -> Browser

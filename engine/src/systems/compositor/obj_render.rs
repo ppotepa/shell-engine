@@ -28,6 +28,34 @@ pub(super) struct ObjRenderParams {
     pub camera_distance: f32,
     pub fov_degrees: f32,
     pub near_clip: f32,
+    pub light_direction_x: f32,
+    pub light_direction_y: f32,
+    pub light_direction_z: f32,
+    pub light_2_direction_x: f32,
+    pub light_2_direction_y: f32,
+    pub light_2_direction_z: f32,
+    pub light_2_intensity: f32,
+    pub light_point_x: f32,
+    pub light_point_y: f32,
+    pub light_point_z: f32,
+    pub light_point_intensity: f32,
+    pub light_point_colour: Option<Color>,
+    pub light_point_flicker_depth: f32,
+    pub light_point_flicker_hz: f32,
+    pub light_point_orbit_hz: f32,
+    pub light_point_2_x: f32,
+    pub light_point_2_y: f32,
+    pub light_point_2_z: f32,
+    pub light_point_2_intensity: f32,
+    pub light_point_2_colour: Option<Color>,
+    pub light_point_2_flicker_depth: f32,
+    pub light_point_2_flicker_hz: f32,
+    pub light_point_2_orbit_hz: f32,
+    pub cel_levels: u8,
+    pub shadow_colour: Option<Color>,
+    pub midtone_colour: Option<Color>,
+    pub highlight_colour: Option<Color>,
+    pub tone_mix: f32,
     pub scene_elapsed_ms: u64,
     /// Camera pan offset in view-space units (applied before projection).
     pub camera_pan_x: f32,
@@ -83,6 +111,33 @@ pub(super) fn render_obj_content(
     }
 
     let elapsed_s = params.scene_elapsed_ms as f32 / 1000.0;
+    let point_1_flicker = flicker_multiplier(
+        elapsed_s,
+        params.light_point_flicker_hz,
+        params.light_point_flicker_depth,
+        0.37,
+    );
+    let point_2_flicker = flicker_multiplier(
+        elapsed_s,
+        params.light_point_2_flicker_hz,
+        params.light_point_2_flicker_depth,
+        1.91,
+    );
+    // Orbit: rotate each point light around Y axis over time.
+    let orbit_angle_1 = elapsed_s * params.light_point_orbit_hz * std::f32::consts::TAU;
+    let orbit_radius_1 = (params.light_point_x.powi(2) + params.light_point_z.powi(2)).sqrt().max(0.0001);
+    let (light_1_x, light_1_z) = if params.light_point_orbit_hz.abs() > f32::EPSILON {
+        (orbit_radius_1 * orbit_angle_1.sin(), orbit_radius_1 * orbit_angle_1.cos())
+    } else {
+        (params.light_point_x, params.light_point_z)
+    };
+    let orbit_angle_2 = elapsed_s * params.light_point_2_orbit_hz * std::f32::consts::TAU;
+    let orbit_radius_2 = (params.light_point_2_x.powi(2) + params.light_point_2_z.powi(2)).sqrt().max(0.0001);
+    let (light_2_x, light_2_z) = if params.light_point_2_orbit_hz.abs() > f32::EPSILON {
+        (orbit_radius_2 * orbit_angle_2.sin(), orbit_radius_2 * orbit_angle_2.cos())
+    } else {
+        (params.light_point_2_x, params.light_point_2_z)
+    };
     // Combine static rotation-y/x/z offsets with yaw-deg/pitch-deg/roll-deg + orbit + camera look.
     let yaw = (params.yaw_deg
         + params.rotation_y
@@ -198,9 +253,47 @@ pub(super) fn render_obj_content(
             // No back-face culling: OBJ files from public sources often have
             // inconsistent face winding, so we render both sides with two-sided
             // Lambert to avoid holes and reversed-material artifacts.
-            let shading =
-                face_shading_with_specular(v0.view, v1.view, v2.view, face.ka, face.ks, face.ns);
-            let shaded_color = apply_shading(face.color, shading);
+            let shading = face_shading_with_specular(
+                v0.view,
+                v1.view,
+                v2.view,
+                face.ka,
+                face.ks,
+                face.ns,
+                [params.light_direction_x, params.light_direction_y, params.light_direction_z],
+                [
+                    params.light_2_direction_x,
+                    params.light_2_direction_y,
+                    params.light_2_direction_z,
+                ],
+                params.light_2_intensity,
+                [light_1_x, params.light_point_y, light_1_z],
+                params.light_point_intensity * point_1_flicker,
+                [
+                    light_2_x,
+                    params.light_point_2_y,
+                    light_2_z,
+                ],
+                params.light_point_2_intensity * point_2_flicker,
+                params.cel_levels,
+                params.tone_mix,
+            );
+            let shaded_base = apply_shading(face.color, shading.0);
+            let toned_color = apply_tone_palette(
+                shaded_base,
+                shading.1,
+                params.shadow_colour,
+                params.midtone_colour,
+                params.highlight_colour,
+                params.tone_mix,
+            );
+            let shaded_color = apply_point_light_tint(
+                toned_color,
+                params.light_point_colour,
+                shading.2,
+                params.light_point_2_colour,
+                shading.3,
+            );
             rasterize_triangle(
                 &mut canvas,
                 &mut depth,
@@ -371,25 +464,105 @@ fn face_shading_with_specular(
     ka: [f32; 3],
     ks: f32,
     ns: f32,
-) -> f32 {
+    light_direction: [f32; 3],
+    light_2_direction: [f32; 3],
+    light_2_intensity: f32,
+    light_point: [f32; 3],
+    light_point_intensity: f32,
+    light_point_2: [f32; 3],
+    light_point_2_intensity: f32,
+    cel_levels: u8,
+    tone_mix: f32,
+) -> (f32, f32, f32, f32) {
     let e1 = sub3(v1, v0);
     let e2 = sub3(v2, v0);
     let normal = normalize3(cross3(e1, e2));
-    let light_dir = normalize3([-0.45, 0.70, -0.85]);
+    let light_dir = normalize3(light_direction);
+    let light_2_dir = normalize3(light_2_direction);
+    let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
+    let point_strength = light_point_intensity.clamp(0.0, 4.0);
+    let point_2_strength = light_point_2_intensity.clamp(0.0, 4.0);
+    let centroid = [
+        (v0[0] + v1[0] + v2[0]) / 3.0,
+        (v0[1] + v1[1] + v2[1]) / 3.0,
+        (v0[2] + v1[2] + v2[2]) / 3.0,
+    ];
+    let to_point = sub3(light_point, centroid);
+    let point_dir = normalize3(to_point);
+    let point_dist = (to_point[0] * to_point[0] + to_point[1] * to_point[1] + to_point[2] * to_point[2])
+        .sqrt()
+        .max(0.0001);
+    let point_atten = 1.0 / (1.0 + 0.7 * point_dist * point_dist);
+    let to_point_2 = sub3(light_point_2, centroid);
+    let point_2_dir = normalize3(to_point_2);
+    let point_2_dist = (to_point_2[0] * to_point_2[0]
+        + to_point_2[1] * to_point_2[1]
+        + to_point_2[2] * to_point_2[2])
+        .sqrt()
+        .max(0.0001);
+    let point_2_atten = 1.0 / (1.0 + 0.7 * point_2_dist * point_2_dist);
     // Two-sided Lambert: abs() keeps shading stable for OBJ files with inconsistent winding.
-    let lambert = dot3(normal, light_dir).abs();
-    // Per-material ambient: use Ka luminance as ambient floor (min 0.15 to avoid black).
-    let ka_lum = (ka[0] * 0.299 + ka[1] * 0.587 + ka[2] * 0.114).clamp(0.15, 0.55);
+    let lambert_1 = dot3(normal, light_dir).abs();
+    let lambert_2 = dot3(normal, light_2_dir).abs() * light_2_strength;
+    let lambert_point = dot3(normal, point_dir).abs() * point_strength * point_atten;
+    let lambert_point_2 = dot3(normal, point_2_dir).abs() * point_2_strength * point_2_atten;
+    let lambert = (lambert_1 + lambert_2 + lambert_point + lambert_point_2).clamp(0.0, 1.0);
+    // When tone_mix is high we intentionally reduce material influence so different OBJ
+    // material packs still produce consistent silhouette lighting.
+    let material_influence = (1.0 - tone_mix.clamp(0.0, 1.0)).clamp(0.0, 1.0);
+    let ka_lum_material = (ka[0] * 0.299 + ka[1] * 0.587 + ka[2] * 0.114).clamp(0.03, 0.25);
+    let ka_lum = 0.06 + (ka_lum_material - 0.06) * material_influence;
     // Per-material Blinn-Phong specular using MTL Ks and Ns.
     let view_dir = normalize3([0.0, 0.0, -1.0]);
-    let half_dir = normalize3([
+    let half_dir_1 = normalize3([
         light_dir[0] + view_dir[0],
         light_dir[1] + view_dir[1],
         light_dir[2] + view_dir[2],
     ]);
-    let shininess = ns.clamp(2.0, 200.0);
-    let spec = dot3(normal, half_dir).abs().powf(shininess) * ks.clamp(0.0, 0.6);
-    (ka_lum + (1.0 - ka_lum) * lambert * 0.9 + spec).clamp(0.0, 1.0)
+    let half_dir_2 = normalize3([
+        light_2_dir[0] + view_dir[0],
+        light_2_dir[1] + view_dir[1],
+        light_2_dir[2] + view_dir[2],
+    ]);
+    let half_dir_point = normalize3([
+        point_dir[0] + view_dir[0],
+        point_dir[1] + view_dir[1],
+        point_dir[2] + view_dir[2],
+    ]);
+    let half_dir_point_2 = normalize3([
+        point_2_dir[0] + view_dir[0],
+        point_2_dir[1] + view_dir[1],
+        point_2_dir[2] + view_dir[2],
+    ]);
+    let shininess = 24.0 + (ns.clamp(2.0, 200.0) - 24.0) * material_influence;
+    let spec_1 = dot3(normal, half_dir_1).abs().powf(shininess);
+    let spec_2 = dot3(normal, half_dir_2).abs().powf(shininess) * light_2_strength * 0.7;
+    let spec_point =
+        dot3(normal, half_dir_point).abs().powf(shininess) * point_strength * point_atten * 0.9;
+    let spec_point_2 = dot3(normal, half_dir_point_2).abs().powf(shininess)
+        * point_2_strength
+        * point_2_atten
+        * 0.9;
+    let ks_strength = 0.08 + (ks.clamp(0.0, 0.6) - 0.08) * material_influence;
+    let spec = (spec_1 + spec_2 + spec_point + spec_point_2) * ks_strength;
+    let diffuse = ka_lum + (1.0 - ka_lum) * lambert * 0.9;
+    let cel_diffuse = quantize_shade(diffuse, cel_levels);
+    (
+        (cel_diffuse + spec).clamp(0.0, 1.0),
+        cel_diffuse,
+        lambert_point.clamp(0.0, 1.0),
+        lambert_point_2.clamp(0.0, 1.0),
+    )
+}
+
+fn quantize_shade(value: f32, levels: u8) -> f32 {
+    if levels <= 1 {
+        return value.clamp(0.0, 1.0);
+    }
+    let levels = levels.clamp(2, 8) as f32;
+    let steps = levels - 1.0;
+    let v = value.clamp(0.0, 1.0);
+    (v * steps).round() / steps
 }
 
 fn apply_shading(rgb: [u8; 3], shade: f32) -> [u8; 3] {
@@ -405,6 +578,75 @@ fn apply_shading(rgb: [u8; 3], shade: f32) -> [u8; 3] {
         linear_to_srgb((sat_lin[0] * shade).clamp(0.0, 1.0)),
         linear_to_srgb((sat_lin[1] * shade).clamp(0.0, 1.0)),
         linear_to_srgb((sat_lin[2] * shade).clamp(0.0, 1.0)),
+    ]
+}
+
+fn apply_tone_palette(
+    base_rgb: [u8; 3],
+    tone: f32,
+    shadow: Option<Color>,
+    midtone: Option<Color>,
+    highlight: Option<Color>,
+    tone_mix: f32,
+) -> [u8; 3] {
+    let mix = tone_mix.clamp(0.0, 1.0);
+    if mix <= 0.0 {
+        return base_rgb;
+    }
+    let shadow_rgb = shadow.map(color_to_rgb).unwrap_or([0, 0, 0]);
+    let midtone_rgb = midtone
+        .map(color_to_rgb)
+        .unwrap_or(mix_rgb(shadow_rgb, base_rgb, 0.45));
+    let highlight_rgb = highlight.map(color_to_rgb).unwrap_or(base_rgb);
+    let t = tone.clamp(0.0, 1.0);
+    let toon_rgb = if t <= 0.5 {
+        mix_rgb(shadow_rgb, midtone_rgb, t * 2.0)
+    } else {
+        mix_rgb(midtone_rgb, highlight_rgb, (t - 0.5) * 2.0)
+    };
+    mix_rgb(base_rgb, toon_rgb, mix)
+}
+
+fn apply_point_light_tint(
+    base_rgb: [u8; 3],
+    light_1_colour: Option<Color>,
+    light_1_strength: f32,
+    light_2_colour: Option<Color>,
+    light_2_strength: f32,
+) -> [u8; 3] {
+    let mut out = base_rgb;
+    if let Some(colour) = light_1_colour {
+        let tint = color_to_rgb(colour);
+        let blend = (light_1_strength * 0.45).clamp(0.0, 0.65);
+        out = mix_rgb(out, tint, blend);
+    }
+    if let Some(colour) = light_2_colour {
+        let tint = color_to_rgb(colour);
+        let blend = (light_2_strength * 0.45).clamp(0.0, 0.65);
+        out = mix_rgb(out, tint, blend);
+    }
+    out
+}
+
+fn flicker_multiplier(elapsed_s: f32, hz: f32, depth: f32, phase: f32) -> f32 {
+    let d = depth.clamp(0.0, 1.0);
+    if d <= f32::EPSILON {
+        return 1.0;
+    }
+    let rate = hz.clamp(0.1, 40.0);
+    let base = ((elapsed_s * std::f32::consts::TAU * rate + phase).sin() * 0.5 + 0.5).powf(1.5);
+    let chatter =
+        ((elapsed_s * std::f32::consts::TAU * (rate * 2.31) + phase * 1.7).sin().abs()).powf(2.3);
+    let pulse = (base * 0.65 + chatter * 0.35).clamp(0.0, 1.0);
+    ((1.0 - d) + d * pulse).clamp(0.0, 1.0)
+}
+
+fn mix_rgb(a: [u8; 3], b: [u8; 3], t: f32) -> [u8; 3] {
+    let t = t.clamp(0.0, 1.0);
+    [
+        (a[0] as f32 + (b[0] as f32 - a[0] as f32) * t).round() as u8,
+        (a[1] as f32 + (b[1] as f32 - a[1] as f32) * t).round() as u8,
+        (a[2] as f32 + (b[2] as f32 - a[2] as f32) * t).round() as u8,
     ]
 }
 

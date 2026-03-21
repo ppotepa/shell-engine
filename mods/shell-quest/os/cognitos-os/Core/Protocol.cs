@@ -32,4 +32,9 @@ internal static class Protocol
         => root.TryGetProperty(name, out var p) && p.TryGetInt32(out var value)
             ? value
             : null;
+
+    public static bool? GetBool(JsonElement root, string name)
+        => root.TryGetProperty(name, out var p) && (p.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            ? p.GetBoolean()
+            : null;
 }

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: login-screen
+  z_index: 0
+  visible: true
+  objects:
+    - ref: terminal-monitor
+      with:
+        output_id: login-output
+        prompt_id: login-prompt
+        x: 2
+        output_y: 2
+        prompt_y: 26
+        fg: silver

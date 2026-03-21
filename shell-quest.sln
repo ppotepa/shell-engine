@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "mods", "mods", "{ED7DE66D-1FF1-BCCD-393E-2D4AFCA661A0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shell-quest", "shell-quest", "{D6ECC226-7842-902E-F9A3-170E43BABED6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "os", "os", "{695D21D3-999B-4E67-B70E-C78E17E44C6A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cognitos-os", "mods\shell-quest\os\cognitos-os\cognitos-os.csproj", "{5A95C926-F37F-45C6-3DD6-8100899D789E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5A95C926-F37F-45C6-3DD6-8100899D789E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A95C926-F37F-45C6-3DD6-8100899D789E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A95C926-F37F-45C6-3DD6-8100899D789E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A95C926-F37F-45C6-3DD6-8100899D789E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D6ECC226-7842-902E-F9A3-170E43BABED6} = {ED7DE66D-1FF1-BCCD-393E-2D4AFCA661A0}
+		{695D21D3-999B-4E67-B70E-C78E17E44C6A} = {D6ECC226-7842-902E-F9A3-170E43BABED6}
+		{5A95C926-F37F-45C6-3DD6-8100899D789E} = {695D21D3-999B-4E67-B70E-C78E17E44C6A}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7418AE9B-E699-4A3F-B67F-457C01652CA8}
+	EndGlobalSection
+EndGlobal

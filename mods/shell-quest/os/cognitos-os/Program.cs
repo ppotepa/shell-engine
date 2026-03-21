@@ -27,8 +27,7 @@ internal static class Program
         IOperatingSystem os = new MinixOperatingSystem(state, fileSystem, commands);
         IBootSequence boot = new MinixBootSequence();
         var host = new AppHost(os, machineStart);
-
-        host.EmitBoot(boot);
+        var initialized = false;
 
         string? line;
         while ((line = Console.ReadLine()) != null)
@@ -47,20 +46,42 @@ internal static class Program
 
                 if (type == "tick")
                 {
+                    if (!initialized)
+                    {
+                        continue;
+                    }
                     host.HandleTick((ulong)(root.TryGetProperty("dt_ms", out var dt) && dt.TryGetUInt64(out var ms) ? ms : 0));
                     continue;
                 }
 
                 if (type == "resize")
                 {
+                    if (!initialized)
+                    {
+                        continue;
+                    }
+                    var cols = Protocol.GetInt(root, "cols") ?? 120;
                     var rows = Protocol.GetInt(root, "rows") ?? 40;
-                    host.HandleResize(rows);
+                    host.HandleResize(cols, rows);
                     continue;
                 }
 
                 if (type == "hello")
                 {
-                    host.HandleResize(Protocol.GetInt(root, "rows") ?? 40);
+                    host.HandleResize(
+                        Protocol.GetInt(root, "cols") ?? 120,
+                        Protocol.GetInt(root, "rows") ?? 40
+                    );
+                    var bootScene = Protocol.GetBool(root, "boot_scene") ?? false;
+                    if (bootScene)
+                    {
+                        host.EmitBoot(boot);
+                    }
+                    else
+                    {
+                        host.StartAtLogin();
+                    }
+                    initialized = true;
                     continue;
                 }
 
@@ -69,13 +90,26 @@ internal static class Program
                     continue;
                 }
 
+                if (type == "set-input")
+                {
+                    if (!initialized)
+                    {
+                        continue;
+                    }
+                    host.HandleInputChange(Protocol.GetString(root, "text") ?? string.Empty);
+                    continue;
+                }
+
                 if (type != "submit")
+                {
+                    continue;
+                }
+                if (!initialized)
                 {
                     continue;
                 }
 
                 host.HandleSubmit(Protocol.GetString(root, "line") ?? string.Empty);
-                host.ApplyPrompt();
             }
             catch (Exception ex)
             {

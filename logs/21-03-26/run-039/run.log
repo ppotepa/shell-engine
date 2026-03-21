@@ -1,0 +1,25 @@
+2026-03-21 05:00:07.462 [2791014] [app] [INFO ] [logging.init] run logger initialized: file=logs/21-03-26/run-039/run.log run=39 day=logs/21-03-26
+2026-03-21 05:00:07.462 [2791014] [app] [INFO ] [app.main] launcher init: run=39 log_file=logs/21-03-26/run-039/run.log
+2026-03-21 05:00:07.462 [2791014] [app] [INFO ] [app.main] resolved mod_source=mods/shell-quest/
+2026-03-21 05:00:07.462 [2791014] [app] [DEBUG] [app.main] engine config: dev=true sound_server=false sound_server_cmd=<default>
+2026-03-21 05:00:07.462 [2791014] [app] [INFO ] [app.main] engine initialized: mod_source=mods/shell-quest/
+2026-03-21 05:00:07.462 [2791014] [app] [INFO ] [engine.run] starting engine run: mod_source=mods/shell-quest/ entrypoint=/scenes/00-intro-logo/scene.yml dev=true sound_server=false
+2026-03-21 05:00:08.180 [2791014] [app] [INFO ] [engine.scene] loaded entry scene: id=00.intro.logo title=00 Intro Logo
+2026-03-21 05:00:23.070 [2791014] [app] [INFO ] [engine.scene] transition requested: to=01.intro.date
+2026-03-21 05:00:23.072 [2791014] [app] [INFO ] [engine.scene] transition applied: active_scene=01.intro.date title=01 Intro Date
+2026-03-21 05:00:31.934 [2791014] [app] [INFO ] [engine.scene] transition requested: to=02.intro.boot
+2026-03-21 05:00:31.936 [2791014] [app] [INFO ] [engine.scene] transition applied: active_scene=02.intro.boot title=02 Intro Boot
+2026-03-21 05:00:35.677 [2791014] [app] [INFO ] [engine.scene] transition requested: to=intro-lab-enter
+2026-03-21 05:00:35.679 [2791014] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-lab-enter title=Intro Lab Enter
+2026-03-21 05:00:35.967 [2791014] [app] [INFO ] [engine.scene] transition requested: to=intro-difficulty-select
+2026-03-21 05:00:35.975 [2791014] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-difficulty-select title=Intro Difficulty Select
+2026-03-21 05:05:30.916 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:05:41.870 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:05:52.475 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:06:01.494 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:06:13.047 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:06:19.747 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:06:26.248 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:06:33.473 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:06:58.031 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 05:06:58.389 [2791014] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select

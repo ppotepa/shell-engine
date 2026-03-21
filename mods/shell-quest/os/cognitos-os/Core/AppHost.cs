@@ -11,7 +11,6 @@ internal sealed class AppHost
     private ulong _bootCountdownMs;
     private bool _bootFinished;
     private int _lastExitCode;
-    private bool _bootPromptInitialized;
 
     public AppHost(IOperatingSystem os, IMachineStart store)
     {
@@ -29,10 +28,23 @@ internal sealed class AppHost
         }
         _bootCountdownMs = 0;
         _bootFinished = false;
-        _bootPromptInitialized = false;
         _os.State.Mode = SessionMode.Booting;
+        _screen.ClearViewport();
+        _screen.SetPrompt("");
+        _screen.SetInputLine("");
         Protocol.Send(new { type = "set-prompt-prefix", text = "" });
         Protocol.Send(new { type = "set-prompt-masked", masked = false });
+    }
+
+    public void StartAtLogin()
+    {
+        _bootQueue.Clear();
+        _bootCountdownMs = 0;
+        _bootFinished = true;
+        _os.State.Mode = SessionMode.LoginUser;
+        _screen.ClearViewport();
+        _screen.Append("Minix 1.3  Copyright 1987, Prentice-Hall", "Console ready", "");
+        ApplyPrompt();
     }
 
     public void HandleTick(ulong dtMs)
@@ -43,7 +55,23 @@ internal sealed class AppHost
 
     public void HandleResize(int rows)
     {
-        _screen.SetViewport(rows);
+        _screen.SetViewport(120, rows);
+    }
+
+    public void HandleResize(int cols, int rows)
+    {
+        _screen.SetViewport(cols, rows);
+    }
+
+    public void HandleInputChange(string text)
+    {
+        var input = text ?? string.Empty;
+        if (_os.State.Mode == SessionMode.LoginPassword)
+        {
+            _screen.SetInputLine(new string('*', input.Length));
+            return;
+        }
+        _screen.SetInputLine(input);
     }
 
     public void HandleSubmit(string raw)
@@ -57,6 +85,7 @@ internal sealed class AppHost
         {
             return;
         }
+        _screen.CommitInputLine();
 
         switch (_os.State.Mode)
         {
@@ -199,6 +228,7 @@ internal sealed class AppHost
         switch (_os.State.Mode)
         {
             case SessionMode.LoginUser:
+                _screen.SetPrompt("kruuna login: ");
                 Protocol.Send(new
                 {
                     type = "set-prompt-prefix",
@@ -207,12 +237,14 @@ internal sealed class AppHost
                 Protocol.Send(new { type = "set-prompt-masked", masked = false });
                 break;
             case SessionMode.LoginPassword:
+                _screen.SetPrompt("password: ");
                 Protocol.Send(new { type = "set-prompt-prefix", text = "password: " });
                 Protocol.Send(new { type = "set-prompt-masked", masked = true });
                 break;
             case SessionMode.Shell:
                 var user = _os.State.UserName ?? "linus";
                 var cwd = _os.State.Cwd;
+                _screen.SetPrompt($"{user}@kruuna:{cwd} [{_lastExitCode}]$ ");
                 Protocol.Send(new
                 {
                     type = "set-prompt-prefix",
@@ -228,12 +260,6 @@ internal sealed class AppHost
         if (_bootFinished || _os.State.Mode != SessionMode.Booting)
         {
             return;
-        }
-
-        if (!_bootPromptInitialized)
-        {
-            _screen.ClearViewport();
-            _bootPromptInitialized = true;
         }
 
         if (_bootCountdownMs > dtMs)

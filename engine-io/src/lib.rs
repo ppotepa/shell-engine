@@ -13,7 +13,12 @@ use std::thread;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum IoRequest {
-    Hello { cols: u16, rows: u16 },
+    Hello {
+        cols: u16,
+        rows: u16,
+        boot_scene: bool,
+    },
+    SetInput { text: String },
     Submit { line: String },
     Key { code: String, ctrl: bool, alt: bool, shift: bool },
     Resize { cols: u16, rows: u16 },
@@ -163,10 +168,16 @@ mod tests {
 
     #[test]
     fn serializes_hello_request_tag() {
-        let json = serde_json::to_string(&IoRequest::Hello { cols: 120, rows: 42 }).unwrap();
+        let json = serde_json::to_string(&IoRequest::Hello {
+            cols: 120,
+            rows: 42,
+            boot_scene: true,
+        })
+        .unwrap();
         assert!(json.contains(r#""type":"hello""#));
         assert!(json.contains(r#""cols":120"#));
         assert!(json.contains(r#""rows":42"#));
+        assert!(json.contains(r#""boot_scene":true"#));
     }
 
     #[test]
