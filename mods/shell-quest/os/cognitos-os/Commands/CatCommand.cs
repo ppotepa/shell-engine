@@ -9,29 +9,21 @@ internal sealed class CatCommand : ICommand
 
     public CommandResult Execute(CommandContext ctx)
     {
-        var args = ctx.Argv;
-        if (args.Count < 1)
-        {
-            return new CommandResult(new[] { Style.Fg(Style.Warn, "usage: cat <file>") }, ExitCode: 2);
-        }
+        if (ctx.Argv.Count < 1)
+            return new CommandResult(new[] { Style.Fg(Style.Warn, "usage: cat <file>") }, 2);
 
-        var target = args[0];
-        var resolved = ctx.ResolvePath(target);
+        var absolute = ctx.Session.ResolvePath(ctx.Argv[0]);
+        var vfsPath = ctx.Os.FileSystem.ToVfsPath(absolute);
 
-        // directory guard — check if path is a known directory
-        var listing = ctx.Os.FileSystem.Ls(resolved);
-        if (listing.Any() && !ctx.Os.FileSystem.TryCat(resolved, out _))
-        {
-            return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {target}: is a directory") }, ExitCode: 1);
-        }
+        // directory guard
+        if (ctx.Os.FileSystem.DirectoryExists(vfsPath) && !ctx.Os.FileSystem.TryCat(vfsPath, out _))
+            return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {ctx.Argv[0]}: is a directory") }, 1);
 
-        if (!ctx.Os.FileSystem.TryCat(resolved, out var content))
-        {
-            return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {target}: no such file or directory") }, ExitCode: 1);
-        }
+        if (!ctx.Os.FileSystem.TryCat(vfsPath, out var content))
+            return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {ctx.Argv[0]}: no such file or directory") }, 1);
 
-        ctx.Os.MarkMailRead(resolved);
+        ctx.Os.MarkMailRead(vfsPath);
         var lines = content.Replace("\r\n", "\n").Split('\n');
-        return new CommandResult(lines, ExitCode: 0);
+        return new CommandResult(lines);
     }
 }

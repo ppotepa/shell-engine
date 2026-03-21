@@ -1,4 +1,4 @@
-using CognitosOs.Network;
+using CognitosOs.Applications;
 using CognitosOs.State;
 
 namespace CognitosOs.Core;
@@ -12,8 +12,10 @@ internal sealed class AppHost
     private ulong _bootCountdownMs;
     private ulong _bootPostDelayMs;
     private bool _bootFinished;
-    private int _lastExitCode;
-    private FtpSession? _ftpSession;
+
+    // Active after login
+    private UserSession? _session;
+    private ApplicationStack? _appStack;
 
     public AppHost(IOperatingSystem os, IMachineStart store)
     {
@@ -26,9 +28,8 @@ internal sealed class AppHost
     {
         _bootQueue.Clear();
         foreach (var step in boot.BuildBootSteps(_os))
-        {
             _bootQueue.Enqueue(step);
-        }
+
         _bootCountdownMs = 0;
         _bootPostDelayMs = 0;
         _bootFinished = false;
@@ -58,15 +59,8 @@ internal sealed class AppHost
         DriveBootPostDelay(dtMs);
     }
 
-    public void HandleResize(int rows)
-    {
-        _screen.SetViewport(120, rows);
-    }
-
     public void HandleResize(int cols, int rows)
-    {
-        _screen.SetViewport(cols, rows);
-    }
+        => _screen.SetViewport(cols, rows);
 
     public void HandleInputChange(string text)
     {
@@ -81,15 +75,11 @@ internal sealed class AppHost
 
     public void HandleSubmit(string raw)
     {
-        if (_os.State.Mode == SessionMode.Booting)
-        {
-            return;
-        }
+        if (_os.State.Mode == SessionMode.Booting) return;
+
         var submitted = raw.Trim();
-        if (string.IsNullOrWhiteSpace(submitted))
-        {
-            return;
-        }
+        if (string.IsNullOrWhiteSpace(submitted)) return;
+
         _screen.CommitInputLine();
 
         switch (_os.State.Mode)
@@ -101,10 +91,8 @@ internal sealed class AppHost
                 HandleLoginPassword(submitted);
                 break;
             case SessionMode.Shell:
-                HandleShell(submitted);
-                break;
-            case SessionMode.FtpSession:
-                HandleFtpInput(submitted);
+                _appStack!.HandleInput(submitted, _session!);
+                ApplyPrompt();
                 break;
         }
     }
@@ -137,14 +125,14 @@ internal sealed class AppHost
             _os.State.LastLogin = _os.SimulatedNow();
             _store.Persist(_os.State);
             if (_os.FileSystem is ZipVirtualFileSystem zipFs)
-            {
                 zipFs.ReloadFromStateArchive();
-            }
+
             EnterShell(firstLogin: true);
             return;
         }
 
-        var passOk = _os.State.PendingLoginUser == _os.State.UserName && password == _os.State.Password;
+        var passOk = _os.State.PendingLoginUser == _os.State.UserName
+                     && password == _os.State.Password;
         if (!passOk)
         {
             _screen.Append(Style.Fg(Style.Error, "login incorrect"), "");
@@ -163,12 +151,13 @@ internal sealed class AppHost
         var last = _os.State.LastLogin ?? now;
         _os.State.LastLogin = now;
         _os.State.Mode = SessionMode.Shell;
-        _os.State.Cwd = "~";
         _store.Persist(_os.State);
         if (_os.FileSystem is ZipVirtualFileSystem zipFs)
-        {
             zipFs.ReloadFromStateArchive();
-        }
+
+        _session = new UserSession(_os.State.UserName ?? "linus", "kruuna");
+        _appStack = new ApplicationStack();
+        _appStack.Push(new ShellApplication(_os, _screen, _appStack), _session);
 
         _screen.ClearViewport();
         _screen.Append(firstLogin
@@ -193,81 +182,15 @@ internal sealed class AppHost
         ApplyPrompt();
     }
 
-    private void HandleShell(string submitted)
-    {
-        var parts = submitted.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var cmd = parts.Length > 0 ? parts[0] : string.Empty;
-        var args = parts.Skip(1).ToArray();
-
-        if (!_os.CommandIndex.TryGetValue(cmd, out var command))
-        {
-            _lastExitCode = 127;
-            _screen.Append(Style.Fg(Style.Error, $"{cmd}: command not found"), "");
-            return;
-        }
-
-        var context = new CommandContext(
-            _os,
-            _os.State.UserName ?? "linus",
-            _os.State.Cwd,
-            cmd,
-            args
-        );
-        var result = command.Execute(context);
-        _lastExitCode = result.ExitCode;
-
-        if (result.ClearScreen)
-        {
-            _screen.ClearViewport();
-        }
-        else
-        {
-            _screen.Append(result.Lines.Count == 0 ? new[] { "" } : result.Lines.Concat(new[] { "" }).ToArray());
-        }
-
-        // Command may have switched mode (e.g. ftp command)
-        if (_os.State.Mode == SessionMode.FtpSession)
-        {
-            _ftpSession = new FtpSession(_os, _screen);
-            _ftpSession.Enter();
-            return;
-        }
-
-        ApplyPrompt();
-    }
-
-    private void HandleFtpInput(string input)
-    {
-        if (_ftpSession == null)
-        {
-            _os.State.Mode = SessionMode.Shell;
-            ApplyPrompt();
-            return;
-        }
-
-        var keepSession = _ftpSession.HandleInput(input);
-        if (!keepSession)
-        {
-            _ftpSession = null;
-            _os.State.Mode = SessionMode.Shell;
-            _screen.Append("");
-            ApplyPrompt();
-            return;
-        }
-
-        _ftpSession.RefreshPrompt();
-    }
-
     public void ApplyPrompt()
     {
-        if (_os.State.Mode == SessionMode.Booting)
-        {
-            Protocol.Send(new { type = "set-prompt-prefix", text = "" });
-            Protocol.Send(new { type = "set-prompt-masked", masked = false });
-            return;
-        }
         switch (_os.State.Mode)
         {
+            case SessionMode.Booting:
+                Protocol.Send(new { type = "set-prompt-prefix", text = "" });
+                Protocol.Send(new { type = "set-prompt-masked", masked = false });
+                break;
+
             case SessionMode.LoginUser:
                 _screen.SetPrompt("kruuna login: ");
                 Protocol.Send(new
@@ -277,34 +200,25 @@ internal sealed class AppHost
                 });
                 Protocol.Send(new { type = "set-prompt-masked", masked = false });
                 break;
+
             case SessionMode.LoginPassword:
                 _screen.SetPrompt("password: ");
                 Protocol.Send(new { type = "set-prompt-prefix", text = "password: " });
                 Protocol.Send(new { type = "set-prompt-masked", masked = true });
                 break;
-            case SessionMode.Shell:
-                var user = _os.State.UserName ?? "linus";
-                var cwd = _os.State.Cwd;
-                _screen.SetPrompt($"{user}@kruuna:{cwd} [{_lastExitCode}]$ ");
-                Protocol.Send(new
-                {
-                    type = "set-prompt-prefix",
-                    text = $"{Style.Fg(Style.PromptUser, user)}@{Style.Fg(Style.PromptHost, "kruuna")}:{Style.Fg(Style.PromptPath, cwd)} [{_lastExitCode}]$ "
-                });
+
+            case SessionMode.Shell when _appStack is not null && _session is not null:
+                var promptText = _appStack.CurrentPrompt(_session);
+                _screen.SetPrompt(promptText);
+                Protocol.Send(new { type = "set-prompt-prefix", text = promptText });
                 Protocol.Send(new { type = "set-prompt-masked", masked = false });
-                break;
-            case SessionMode.FtpSession:
-                // FTP session manages its own prompt via FtpSession.RefreshPrompt()
                 break;
         }
     }
 
     private void DriveBoot(ulong dtMs)
     {
-        if (_bootFinished || _os.State.Mode != SessionMode.Booting)
-        {
-            return;
-        }
+        if (_bootFinished || _os.State.Mode != SessionMode.Booting) return;
 
         if (_bootCountdownMs > dtMs)
         {
@@ -329,10 +243,8 @@ internal sealed class AppHost
 
     private void DriveBootPostDelay(ulong dtMs)
     {
-        if (_bootPostDelayMs == 0)
-        {
-            return;
-        }
+        if (_bootPostDelayMs == 0) return;
+
         if (dtMs >= _bootPostDelayMs)
         {
             _bootPostDelayMs = 0;

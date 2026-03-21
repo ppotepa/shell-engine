@@ -3,6 +3,7 @@ using CognitosOs.Boot;
 using CognitosOs.Commands;
 using CognitosOs.Core;
 using CognitosOs.State;
+
 internal static class Program
 {
     public static void Main()
@@ -27,7 +28,9 @@ internal static class Program
         };
 
         var fileSystem = new ZipVirtualFileSystem(statePath);
-        fileSystem.SeedEpochFiles();
+        // SeedEpochFiles is called automatically inside ReloadFromStateArchive,
+        // so epoch files are always present without a separate call here.
+
         IOperatingSystem os = new MinixOperatingSystem(state, fileSystem, commands);
         IBootSequence boot = new MinixBootSequence();
         var host = new AppHost(os, machineStart);
@@ -37,10 +40,7 @@ internal static class Program
         while ((line = Console.ReadLine()) != null)
         {
             line = line.TrimEnd('\r', '\n');
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                continue;
-            }
+            if (string.IsNullOrWhiteSpace(line)) continue;
 
             try
             {
@@ -50,20 +50,14 @@ internal static class Program
 
                 if (type == "tick")
                 {
-                    if (!initialized)
-                    {
-                        continue;
-                    }
+                    if (!initialized) continue;
                     host.HandleTick((ulong)(root.TryGetProperty("dt_ms", out var dt) && dt.TryGetUInt64(out var ms) ? ms : 0));
                     continue;
                 }
 
                 if (type == "resize")
                 {
-                    if (!initialized)
-                    {
-                        continue;
-                    }
+                    if (!initialized) continue;
                     var cols = Protocol.GetInt(root, "cols") ?? 120;
                     var rows = Protocol.GetInt(root, "rows") ?? 40;
                     host.HandleResize(cols, rows);
@@ -81,40 +75,24 @@ internal static class Program
                     state.Spec = MachineSpec.FromDifficulty(difficulty);
                     var bootScene = Protocol.GetBool(root, "boot_scene") ?? false;
                     if (bootScene)
-                    {
                         host.EmitBoot(boot);
-                    }
                     else
-                    {
                         host.StartAtLogin();
-                    }
                     initialized = true;
                     continue;
                 }
 
-                if (type == "key")
-                {
-                    continue;
-                }
+                if (type == "key") continue;
 
                 if (type == "set-input")
                 {
-                    if (!initialized)
-                    {
-                        continue;
-                    }
+                    if (!initialized) continue;
                     host.HandleInputChange(Protocol.GetString(root, "text") ?? string.Empty);
                     continue;
                 }
 
-                if (type != "submit")
-                {
-                    continue;
-                }
-                if (!initialized)
-                {
-                    continue;
-                }
+                if (type != "submit") continue;
+                if (!initialized) continue;
 
                 host.HandleSubmit(Protocol.GetString(root, "line") ?? string.Empty);
             }

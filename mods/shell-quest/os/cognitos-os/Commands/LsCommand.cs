@@ -9,14 +9,16 @@ internal sealed class LsCommand : ICommand
 
     public CommandResult Execute(CommandContext ctx)
     {
-        var args = ctx.Argv;
-        var resolved = args.Count > 0 ? ctx.ResolvePath(args[0]) : ctx.ResolvePath(null);
-        var entries = ctx.Os.FileSystem.Ls(resolved).ToArray();
-        if (entries.Length == 0)
-        {
-            return new CommandResult(new[] { Style.Fg(Style.Error, "ls: no such file or directory") }, ExitCode: 2);
-        }
+        var absolute = ctx.Argv.Count > 0
+            ? ctx.Session.ResolvePath(ctx.Argv[0])
+            : ctx.Session.Cwd;
 
-        return new CommandResult(new[] { string.Join("  ", entries) }, ExitCode: 0);
+        var vfsPath = ctx.Os.FileSystem.ToVfsPath(absolute);
+        var entries = ctx.Os.FileSystem.Ls(vfsPath).ToArray();
+
+        if (entries.Length == 0)
+            return new CommandResult(new[] { Style.Fg(Style.Error, "ls: no such file or directory") }, 2);
+
+        return new CommandResult(new[] { string.Join("  ", entries) });
     }
 }
