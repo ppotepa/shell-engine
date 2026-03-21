@@ -848,7 +848,12 @@ $defs:
         type: number
         minimum: 0
         maximum: 2
-        description: Point light 1 orbit speed around Y axis in Hz for type=obj (0=static).
+        description: Point light 1 smooth orbit speed around Y axis in Hz for type=obj (0=static).
+      light-point-snap-hz:
+        type: number
+        minimum: 0
+        maximum: 2
+        description: Point light 1 teleport snap rate in Hz for type=obj — instant jump to pseudo-random position, overrides orbit-hz.
       light-point-2-x:
         type: number
         description: Point light 2 X position in object view space for type=obj shading.
@@ -880,7 +885,12 @@ $defs:
         type: number
         minimum: 0
         maximum: 2
-        description: Point light 2 orbit speed around Y axis in Hz for type=obj (0=static).
+        description: Point light 2 smooth orbit speed around Y axis in Hz for type=obj (0=static).
+      light-point-2-snap-hz:
+        type: number
+        minimum: 0
+        maximum: 2
+        description: Point light 2 teleport snap rate in Hz for type=obj — instant jump to pseudo-random position, overrides orbit-hz.
       cel-levels:
         type: integer
         minimum: 0

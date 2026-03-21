@@ -14,3 +14,8 @@
 2026-03-21 06:07:56.894 [2804180] [app] [INFO ] [engine.scene] transition requested: to=intro-difficulty-select
 2026-03-21 06:07:56.906 [2804180] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-difficulty-select title=Intro Difficulty Select
 2026-03-21 06:08:45.707 [2804180] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 06:09:31.447 [2804180] [app] [INFO ] [engine.scene] transition requested: to=intro-cpu-on
+2026-03-21 06:09:31.453 [2804180] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-cpu-on title=Intro CPU On
+2026-03-21 06:09:42.732 [2804180] [app] [INFO ] [engine.scene] transition requested: to=intro-login
+2026-03-21 06:09:42.734 [2804180] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-login title=Intro Login
+2026-03-21 06:12:43.161 [2804180] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login

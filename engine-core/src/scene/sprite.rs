@@ -339,9 +339,12 @@ pub enum Sprite {
         light_point_flicker_depth: Option<f32>,
         #[serde(default, rename = "light-point-flicker-hz")]
         light_point_flicker_hz: Option<f32>,
-        /// Orbit angular speed (Hz) for point light 1 around the Y axis.
+        /// Orbit angular speed (Hz) for point light 1 around the Y axis (smooth).
         #[serde(default, rename = "light-point-orbit-hz")]
         light_point_orbit_hz: Option<f32>,
+        /// Teleport snap rate (Hz) for point light 1: instant jump to pseudo-random position at this frequency.
+        #[serde(default, rename = "light-point-snap-hz")]
+        light_point_snap_hz: Option<f32>,
         #[serde(default, rename = "light-point-2-x")]
         light_point_2_x: Option<f32>,
         #[serde(default, rename = "light-point-2-y")]
@@ -356,9 +359,12 @@ pub enum Sprite {
         light_point_2_flicker_depth: Option<f32>,
         #[serde(default, rename = "light-point-2-flicker-hz")]
         light_point_2_flicker_hz: Option<f32>,
-        /// Orbit angular speed (Hz) for point light 2 around the Y axis.
+        /// Orbit angular speed (Hz) for point light 2 around the Y axis (smooth).
         #[serde(default, rename = "light-point-2-orbit-hz")]
         light_point_2_orbit_hz: Option<f32>,
+        /// Teleport snap rate (Hz) for point light 2: instant jump to pseudo-random position at this frequency.
+        #[serde(default, rename = "light-point-2-snap-hz")]
+        light_point_2_snap_hz: Option<f32>,
         #[serde(default, rename = "cel-levels")]
         cel_levels: Option<u8>,
         #[serde(default, rename = "shadow-colour")]
