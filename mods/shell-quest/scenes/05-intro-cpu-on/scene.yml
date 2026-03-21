@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../schemas/scenes.yaml
-id: intro-cpu-on
-title: Intro CPU On
+id: 05.intro.cpu-on
+title: 05 Intro CPU On
 cutscene: true
 bg: black
 layers:
@@ -50,4 +50,4 @@ stages:
     steps: [{ pause: 1ms }]
   on_leave:
     steps: [{ pause: 80ms }]
-next: intro-login
+next: 06.intro.login

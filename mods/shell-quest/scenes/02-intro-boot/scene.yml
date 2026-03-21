@@ -23,4 +23,4 @@ stages:
     steps: [{ pause: 1ms }]
   on_leave:
     steps: [{ pause: 120ms }]
-next: intro-lab-enter
+next: 03.intro.lab-enter

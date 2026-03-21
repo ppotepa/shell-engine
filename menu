@@ -259,8 +259,7 @@ main() {
           printf '\e[?25h\e[?1049l'
           trap - EXIT
           echo "[menu] launching scene: ${rel_scene} from $(basename "${mod_dir}")"
-          SHELL_QUEST_START_SCENE="/${rel_scene}" \
-            "${ROOT_DIR}/launcher.sh" --mod-source "${mod_dir}" --in-place --no-hold
+          "${ROOT_DIR}/launcher.sh" --mod-source "${mod_dir}" --start-scene "/${rel_scene}" --in-place --no-hold
           printf '\e[?25l\e[?1049h'
           trap 'printf "\e[?25h\e[?1049l"' EXIT
         fi

@@ -242,10 +242,10 @@ sprites:
             scale: 4.65
             surface-mode: material
             force-renderer-mode: halfblock
-            rotation-y: 220
+            rotation-y: 180
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
+            camera-distance: 2.15
             fov-degrees: 58
             near-clip: 0.0005
             light-direction-x: 0.0

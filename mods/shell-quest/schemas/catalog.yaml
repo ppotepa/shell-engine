@@ -8,10 +8,10 @@ $defs:
     - 00.intro.logo
     - 01.intro.date
     - 02.intro.boot
-    - intro-cpu-on
-    - intro-difficulty-select
-    - intro-lab-enter
-    - intro-login
+    - 03.intro.lab-enter
+    - 04.intro.difficulty-select
+    - 05.intro.cpu-on
+    - 06.intro.login
     - mainmenu
   scene_paths:
     type: string
@@ -38,10 +38,10 @@ $defs:
     - 00.intro.logo
     - 01.intro.date
     - 02.intro.boot
-    - intro-cpu-on
-    - intro-difficulty-select
-    - intro-lab-enter
-    - intro-login
+    - 03.intro.lab-enter
+    - 04.intro.difficulty-select
+    - 05.intro.cpu-on
+    - 06.intro.login
     - mainmenu
   object_names:
     type: string
