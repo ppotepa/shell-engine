@@ -66,7 +66,7 @@ sprites:
             highlight-colour: "#ffffff"
             fg: "#224487"
             surface-mode: wireframe
-            rotation-y: 270
+            rotation-y: 220
             behaviors:
               - name: menu-selected
                 params:
@@ -124,7 +124,7 @@ sprites:
             fg: "#224487"
             surface-mode: material
             clip-y-max: 0.0
-            rotation-y: 270
+            rotation-y: 220
             behaviors:
               - name: menu-selected
                 params:
@@ -290,7 +290,7 @@ sprites:
             highlight-colour: "#ffffff"
             fg: "#224487"
             surface-mode: wireframe
-            rotation-y: 270
+            rotation-y: 220
             visible: false
             behaviors:
               - name: menu-selected
@@ -299,7 +299,7 @@ sprites:
               - name: portrait-materialize
                 params:
                   index: 2
-                  dur: 600
+                  dur: 250
           - type: obj
             id: difficulty-face-2
             source: "/assets/3d/sculpts/can-exit-vim.obj"
@@ -349,7 +349,7 @@ sprites:
             fg: "#224487"
             surface-mode: material
             clip-y-max: 0.0
-            rotation-y: 270
+            rotation-y: 220
             visible: false
             behaviors:
               - name: menu-selected
@@ -403,7 +403,7 @@ sprites:
             highlight-colour: "#ffffff"
             fg: "#224487"
             surface-mode: wireframe
-            rotation-y: 270
+            rotation-y: 220
             visible: false
             behaviors:
               - name: menu-selected
@@ -462,7 +462,7 @@ sprites:
             fg: "#224487"
             surface-mode: material
             clip-y-max: 0.0
-            rotation-y: 270
+            rotation-y: 220
             visible: false
             behaviors:
               - name: menu-selected
@@ -516,7 +516,7 @@ sprites:
             highlight-colour: "#ffffff"
             fg: "#224487"
             surface-mode: wireframe
-            rotation-y: 270
+            rotation-y: 220
             visible: false
             behaviors:
               - name: menu-selected
@@ -575,7 +575,7 @@ sprites:
             fg: "#224487"
             surface-mode: material
             clip-y-max: 0.0
-            rotation-y: 270
+            rotation-y: 220
             visible: false
             behaviors:
               - name: menu-selected
