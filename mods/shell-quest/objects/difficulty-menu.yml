@@ -52,24 +52,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: wireframe
             behaviors:
@@ -106,24 +106,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: material
             clip-y-max: 0.0
@@ -161,24 +161,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: wireframe
             visible: false
@@ -216,24 +216,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: material
             clip-y-max: 0.0
@@ -272,24 +272,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: wireframe
             visible: false
@@ -327,24 +327,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: material
             clip-y-max: 0.0
@@ -383,24 +383,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: wireframe
             visible: false
@@ -438,24 +438,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: material
             clip-y-max: 0.0
@@ -494,24 +494,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: wireframe
             visible: false
@@ -549,24 +549,24 @@ sprites:
             light-point-y: 0.0
             light-point-z: 0.0
             light-point-intensity: 0.6
-            light-point-colour: "#00ccff"
+            light-point-colour: "#4488ff"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
             light-point-snap-hz: 2.0
             light-point-2-x: 0.0
             light-point-2-y: 0.0
             light-point-2-z: 0.0
-            light-point-2-intensity: 0.3
-            light-point-2-colour: "#ff0088"
+            light-point-2-intensity: 0.25
+            light-point-2-colour: "#aaddff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 3.0
             cel-levels: 5
             tone-mix: 0.85
-            shadow-colour: "#050510"
-            midtone-colour: "#0a1e2e"
-            highlight-colour: "#00ffcc"
-            fg: "#00ccff"
+            shadow-colour: "#020410"
+            midtone-colour: "#0a1533"
+            highlight-colour: "#88bbff"
+            fg: "#4488ff"
             rotation-y: 220
             surface-mode: material
             clip-y-max: 0.0
@@ -593,7 +593,7 @@ sprites:
             grid-row: 1
             at: cc
             font: "dejavusans-boldoblique:terminal-pixels"
-            fg: "#00ccff"
+            fg: "#4488ff"
 
           - type: grid
             id: difficulty-grid
@@ -612,13 +612,13 @@ sprites:
               - { type: text, id: menu-item-3, content: "[4] DVORAK", grid-col: 1, grid-row: 4, at: cc, font: "dejavusans-boldoblique-small:terminal-pixels", fg: silver, behaviors: [{ name: menu-highlight, params: { index: 3 } }] }
               - { type: text, id: menu-item-4, content: "[5] SU", grid-col: 1, grid-row: 5, at: cc, font: "dejavusans-boldoblique-small:terminal-pixels", fg: gray, behaviors: [{ name: menu-highlight, params: { index: 4 } }] }
 
-  - { type: text, id: sel0-left, content: ">", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel0-right, content: "<", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel1-left, content: ">", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel1-right, content: "<", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel2-left, content: ">", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel2-right, content: "<", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel3-left, content: ">", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-3, index: 3, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel3-right, content: "<", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-3, index: 3, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel4-left, content: ">", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-4, index: 4, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
-  - { type: text, id: sel4-right, content: "<", at: cc, font: "generic:half", fg: "#ff00aa", behaviors: [{ name: selected-arrows, params: { target: menu-item-4, index: 4, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel0-left, content: ">", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel0-right, content: "<", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel1-left, content: ">", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel1-right, content: "<", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel2-left, content: ">", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel2-right, content: "<", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel3-left, content: ">", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-3, index: 3, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel3-right, content: "<", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-3, index: 3, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel4-left, content: ">", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-4, index: 4, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel4-right, content: "<", at: cc, font: "generic:half", fg: "#6699ff", behaviors: [{ name: selected-arrows, params: { target: menu-item-4, index: 4, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
