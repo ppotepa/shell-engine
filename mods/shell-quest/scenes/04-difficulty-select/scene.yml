@@ -13,10 +13,25 @@ stages:
     trigger: any-key
     looping: true
     steps:
-      - { pause: 1200ms }
+      - pause: 2500ms
+        effects:
+          - name: neon-edge-glow
+            duration: 2500
+            params:
+              colour: "#00ccff"
+              intensity: 0.5
+              alpha: 0.35
+              speed: 1.0
   on_leave:
     steps:
-      - { effects: [{ name: brighten, duration: 500, params: { intensity: 0.6, easing: ease-out } }] }
+      - effects:
+          - name: neon-edge-glow
+            duration: 500
+            params:
+              colour: "#00ccff"
+              intensity: 1.4
+              alpha: 0.7
+              speed: 3.0
       - { effects: [{ name: fade-out, duration: 220, params: { easing: ease-in } }] }
 next: 05.intro.cpu-on
 menu-options:
