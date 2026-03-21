@@ -22,8 +22,8 @@ script: |
       let progress = (elapsed * 1.0) / (confirm_dur * 1.0);
       // ease-out: fast start, gentle stop
       let ep = 1.0 - (1.0 - progress) * (1.0 - progress);
-      // rotate from yaw=0 (total 220°) to yaw=140 (total 360°=facing camera)
-      let yaw = 140.0 * ep;
+      // rotate from yaw=0 (total 220°) to yaw=320 (total 540°=180°=facing camera)
+      let yaw = 320.0 * ep;
       scene.set(solid_id, "obj.yaw", yaw);
       scene.set(wire_id, "obj.yaw", yaw);
       // cocky nod: chin up then back (base pitch is -8)
@@ -36,8 +36,8 @@ script: |
         scene.set(wire_id, "obj.pitch", -8.0 + nod);
       }
     } else {
-      scene.set(solid_id, "obj.yaw", 140.0);
-      scene.set(wire_id, "obj.yaw", 140.0);
+      scene.set(solid_id, "obj.yaw", 320.0);
+      scene.set(wire_id, "obj.yaw", 320.0);
       scene.set(solid_id, "obj.pitch", -8.0);
       scene.set(wire_id, "obj.pitch", -8.0);
     }
