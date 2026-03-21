@@ -37,14 +37,31 @@ cargo run -p app
 cargo run -p editor
 ```
 
+## Architecture
+
+shell quest is a two-process system:
+- **engine (rust)** — renderer, scene runtime, systems, compositor
+- **sidecar (c#)** — simulated os (cognitos-os) with shell, filesystem, ftp
+
+the engine spawns the sidecar when entering a terminal scene. they talk via json lines on stdin/stdout through the `engine-io` crate. the sidecar manages all gameplay state: login, shell commands, ftp transfers, quest progress.
+
+difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidth, disk space. everything reads from `MachineSpec`, nothing is hardcoded.
+
 ## Repo map
 
-- `app/` - launcher
-- `engine/` - runtime loop, systems, renderer
-- `engine-core/` - shared effects and core logic
-- `editor/` - TUI editor
-- `mods/` - game data (`mods/shell-quest` is the main one)
-- `docs/` - docs + static docs site
+- `app/` — launcher
+- `engine/` — runtime loop, systems, renderer
+- `engine-core/` — shared model, metadata, built-in effects
+- `engine-authoring/` — yaml compile/normalize/schema pipeline
+- `engine-io/` — ipc bridge between engine and sidecar processes
+- `editor/` — tui authoring editor
+- `mods/shell-quest/` — main game mod
+  - `os/cognitos-os/` — c# simulated minix sidecar
+  - `docs/` — quest scripts, design docs
+- `mods/` — other content mods
+- `schemas/` — shared base schemas
+- `docs/` — static docs site + api generation
+- `tools/` — asset pipeline, devtool cli, schema-gen
 
 ## Documentation
 
@@ -63,6 +80,11 @@ cargo run -p editor
 - **[AGENTS.md](AGENTS.md)** — Build commands, schema generation, devtool CLI
 - **[editor.md](editor.md)** — TUI editor architecture and usage
 - **[logging.md](logging.md)** — Debug logging and overlay system
+
+### Sidecar & Gameplay
+- **[engine-io/README.md](engine-io/README.md)** — IPC protocol between engine and sidecar
+- **[cognitos-os README](mods/shell-quest/os/cognitos-os/README.md)** — Simulated OS sidecar architecture
+- **[quest scripts](mods/shell-quest/docs/scripts.md)** — Prologue design doc (ftp upload puzzle, 1991)
 
 ### Advanced
 - **[audio-ipc-prototype.md](audio-ipc-prototype.md)** — Audio IPC design notes
