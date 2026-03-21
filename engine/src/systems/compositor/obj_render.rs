@@ -464,10 +464,14 @@ pub(super) fn render_obj_content(
                     (clip_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
                 let vw = virtual_w as usize;
                 let mut masked: Vec<Option<[u8; 3]>> = (**canvas).clone();
+                let canvas_len = masked.len();
                 for vy in 0..virtual_h as usize {
                     if vy < clip_min_row || vy >= clip_max_row {
                         let row_start = vy * vw;
-                        let row_end = (row_start + vw).min(masked.len());
+                        if row_start >= canvas_len {
+                            break;
+                        }
+                        let row_end = (row_start + vw).min(canvas_len);
                         for px in &mut masked[row_start..row_end] {
                             *px = None;
                         }
@@ -551,10 +555,14 @@ pub(super) fn render_baked_obj_content(
     } else {
         let mut masked: Vec<Option<[u8; 3]>> = (**canvas).clone();
         let vw = virtual_w as usize;
+        let canvas_len = masked.len();
         for vy in 0..virtual_h as usize {
             if vy < clip_min_row || vy >= clip_max_row {
                 let row_start = vy * vw;
-                let row_end = (row_start + vw).min(masked.len());
+                if row_start >= canvas_len {
+                    break;
+                }
+                let row_end = (row_start + vw).min(canvas_len);
                 for px in &mut masked[row_start..row_end] {
                     *px = None;
                 }
