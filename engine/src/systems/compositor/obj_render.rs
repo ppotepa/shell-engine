@@ -283,14 +283,17 @@ pub(crate) fn render_obj_to_canvas(
         let mut drawn_faces = 0usize;
         // Sort faces back-to-front for correct painter's-algorithm blending when
         // depth-buffering alone isn't enough (avoids most z-fighting glitches).
-        let mut sorted_faces: Vec<&ObjFace> = mesh.faces.iter().collect();
+        // Pre-compute depth keys to avoid redundant work inside the comparator.
+        let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
+            .faces
+            .iter()
+            .map(|f| (face_avg_depth(&projected, f), f))
+            .collect();
         sorted_faces.sort_unstable_by(|a, b| {
-            let za = face_avg_depth(&projected, a);
-            let zb = face_avg_depth(&projected, b);
-            zb.partial_cmp(&za).unwrap_or(std::cmp::Ordering::Equal)
+            b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        for face in &sorted_faces {
+        for &(_, face) in &sorted_faces {
             if drawn_faces > 20_000 {
                 break;
             }
@@ -655,15 +658,18 @@ fn edge(ax: f32, ay: f32, bx: f32, by: f32, px: f32, py: f32) -> f32 {
 }
 
 fn face_avg_depth(projected: &[Option<ProjectedVertex>], face: &ObjFace) -> f32 {
-    let depths: Vec<f32> = face
-        .indices
-        .iter()
-        .filter_map(|&i| projected.get(i).and_then(|p| p.map(|v| v.depth)))
-        .collect();
-    if depths.is_empty() {
+    let mut sum = 0.0f32;
+    let mut count = 0u32;
+    for &i in &face.indices {
+        if let Some(Some(v)) = projected.get(i) {
+            sum += v.depth;
+            count += 1;
+        }
+    }
+    if count == 0 {
         f32::INFINITY
     } else {
-        depths.iter().sum::<f32>() / depths.len() as f32
+        sum / count as f32
     }
 }
 

@@ -1,6 +1,8 @@
 //! Synchronous pre-render pass: renders all static OBJ sprites in a scene at every yaw step
 //! into `ObjFrameCache` before the scene is activated.  Called during scene transition.
 
+use std::sync::Arc;
+
 use crossterm::style::Color;
 use rayon::prelude::*;
 
@@ -229,6 +231,9 @@ pub fn prerender_scene_sprites(
         ),
     );
 
+    // Pre-compute Arc<str> per target to avoid String clone per work item.
+    let target_sources: Vec<Arc<str>> = targets.iter().map(|t| Arc::from(t.source.as_str())).collect();
+
     // Build a flat list of all (target_idx, wireframe, yaw_step) work items.
     let mut work_items: Vec<(usize, bool, u16)> = Vec::with_capacity(total);
     for (ti, _) in targets.iter().enumerate() {
@@ -262,7 +267,7 @@ pub fn prerender_scene_sprites(
 
             let total_yaw = target.params_base.rotation_y + yaw_step as f32;
             let key = BakeCacheKey {
-                source: target.source.clone(),
+                source: (*target_sources[ti]).to_owned(),
                 wireframe,
                 yaw_step: ObjFrameCache::snap_yaw(total_yaw),
             };
