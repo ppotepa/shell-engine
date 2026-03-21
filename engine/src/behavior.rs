@@ -849,6 +849,13 @@ impl Behavior for RhaiScriptBehavior {
             "stage_elapsed_ms".into(),
             (ctx.stage_elapsed_ms as rhai::INT).into(),
         );
+        let stage_str: &str = match ctx.stage {
+            SceneStage::OnEnter => "on_enter",
+            SceneStage::OnIdle => "on_idle",
+            SceneStage::OnLeave => "on_leave",
+            SceneStage::Done => "done",
+        };
+        time_map.insert("stage".into(), stage_str.into());
         scope.push_dynamic("time", time_map.into());
 
         // Compatibility layer for existing scripts; prefer `menu.*` and `time.*`.

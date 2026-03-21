@@ -16,6 +16,7 @@ stages:
       - { pause: 1200ms }
   on_leave:
     steps:
+      - { pause: 600ms }
       - { effects: [{ name: fade-out, duration: 220, params: { easing: ease-in } }] }
 next: 05.intro.cpu-on
 menu-options:

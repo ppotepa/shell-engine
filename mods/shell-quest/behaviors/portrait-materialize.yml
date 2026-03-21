@@ -11,6 +11,40 @@ script: |
   let t0 = if is_first { 0 } else { state.t0 };
   let is_active = sel == idx;
   if is_active && was_active != true { t0 = now; }
+
+  // ── on_leave: confirm animation (rotate to face camera + nod) ──
+  if time.stage == "on_leave" && is_active {
+    let elapsed = time.stage_elapsed_ms;
+    let confirm_dur = 500;
+    let nod_start = 120;
+    let nod_dur = 280;
+    if elapsed < confirm_dur {
+      let progress = (elapsed * 1.0) / (confirm_dur * 1.0);
+      // ease-out: fast start, gentle stop
+      let ep = 1.0 - (1.0 - progress) * (1.0 - progress);
+      // rotate from yaw=0 (total 220°) to yaw=140 (total 360°=facing camera)
+      let yaw = 140.0 * ep;
+      scene.set(solid_id, "obj.yaw", yaw);
+      scene.set(wire_id, "obj.yaw", yaw);
+      // cocky nod: chin up then back (base pitch is -8)
+      if elapsed >= nod_start && elapsed < nod_start + nod_dur {
+        let np = ((elapsed - nod_start) * 1.0) / (nod_dur * 1.0);
+        // sine pulse: 0 → peak → 0
+        let nod_angle = 12.0;
+        let nod = nod_angle * (np * 3.14159).sin();
+        scene.set(solid_id, "obj.pitch", -8.0 + nod);
+        scene.set(wire_id, "obj.pitch", -8.0 + nod);
+      }
+    } else {
+      scene.set(solid_id, "obj.yaw", 140.0);
+      scene.set(wire_id, "obj.yaw", 140.0);
+      scene.set(solid_id, "obj.pitch", -8.0);
+      scene.set(wire_id, "obj.pitch", -8.0);
+    }
+    return #{ state: #{ active: is_active, t0: t0 } };
+  }
+
+  // ── on_idle: materialize animation (wireframe → solid reveal) ──
   if is_active {
     let elapsed = now - t0;
     let dur = if params.type_of() == "map" && params.keys().contains("dur") { params.dur } else { 250 };
