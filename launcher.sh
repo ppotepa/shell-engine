@@ -6,6 +6,7 @@ MOD_SOURCE="${SHELL_QUEST_MOD_SOURCE:-$ROOT_DIR/mods/shell-quest}"
 MOD_MANIFEST="$MOD_SOURCE/mod.yaml"
 WINDOW_MODE="${SHELL_QUEST_WINDOW_MODE:-game}" # game | normal
 FORCED_TERMINAL="${SHELL_QUEST_TERMINAL:-}"
+START_SCENE="${SHELL_QUEST_START_SCENE:-}"
 HOLD_ON_EXIT=1
 
 print_usage() {
@@ -14,6 +15,7 @@ Usage: ./launcher.sh [options]
 
 Options:
   --mod-source <path>      Explicit mod source (directory or .zip)
+  --start-scene <path>    Jump directly to a specific scene (overrides entrypoint)
   --in-place              Run in current terminal (no new window)
   --terminal <name>       Force terminal binary (e.g. konsole, gnome-terminal)
   --game-window           Try fullscreen / minimal chrome game-like window
@@ -37,6 +39,14 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       MOD_MANIFEST="$MOD_SOURCE/mod.yaml"
+      shift 2
+      ;;
+    --start-scene)
+      START_SCENE="${2:-}"
+      if [[ -z "$START_SCENE" ]]; then
+        echo "[launcher] --start-scene requires a value" >&2
+        exit 2
+      fi
       shift 2
       ;;
     --terminal)
@@ -119,7 +129,7 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
   esac
 fi
 stty cols "$MIN_WIDTH" rows "$MIN_HEIGHT" 2>/dev/null || true
-cargo run -q -p app -- --mod-source $shell_mod
+cargo run -q -p app -- --mod-source $shell_mod${START_SCENE:+ --start-scene "$START_SCENE"}
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
 $hold_line

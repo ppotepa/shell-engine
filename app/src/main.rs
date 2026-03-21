@@ -39,6 +39,9 @@ struct Cli {
     /// Override run log root directory (default: ./logs).
     #[arg(long = "log-root")]
     log_root: Option<String>,
+    /// Jump directly to a specific scene (overrides mod entrypoint).
+    #[arg(long = "start-scene")]
+    start_scene: Option<String>,
 }
 
 fn main() {
@@ -76,6 +79,7 @@ fn main() {
         debug_feature,
         sound_server: cli.sound_server,
         sound_server_cmd: cli.sound_server_cmd,
+        start_scene: cli.start_scene,
     };
     logging::debug(
         "app.main",

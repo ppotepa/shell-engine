@@ -63,6 +63,8 @@ pub struct EngineConfig {
     pub debug_feature: bool,
     pub sound_server: bool,
     pub sound_server_cmd: Option<String>,
+    /// Override the mod's entrypoint — jump straight to this scene path.
+    pub start_scene: Option<String>,
 }
 
 impl ShellEngine {
@@ -97,9 +99,14 @@ impl ShellEngine {
         use systems::renderer::TerminalRenderer;
         use terminal_caps::target_fps_from_manifest;
 
-        let entrypoint = self.mod_manifest["entrypoint"]
+        let manifest_entrypoint = self.mod_manifest["entrypoint"]
             .as_str()
             .expect("entrypoint already validated");
+        let entrypoint = self
+            .config
+            .start_scene
+            .as_deref()
+            .unwrap_or(manifest_entrypoint);
         logging::info(
             "engine.run",
             format!(
