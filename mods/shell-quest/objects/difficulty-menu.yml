@@ -82,7 +82,7 @@ sprites:
                     let was_active = if is_first { false } else { state.active };
                     let t0 = if is_first { 0 } else { state.t0 };
                     let is_active = sel == idx;
-                    if is_active && !was_active { t0 = now; }
+                    if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
                       if elapsed < 800 {
@@ -165,7 +165,7 @@ sprites:
                     let was_active = if is_first { false } else { state.active };
                     let t0 = if is_first { 0 } else { state.t0 };
                     let is_active = sel == idx;
-                    if is_active && !was_active { t0 = now; }
+                    if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
                       if elapsed < 800 {
@@ -248,7 +248,7 @@ sprites:
                     let was_active = if is_first { false } else { state.active };
                     let t0 = if is_first { 0 } else { state.t0 };
                     let is_active = sel == idx;
-                    if is_active && !was_active { t0 = now; }
+                    if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
                       if elapsed < 800 {
@@ -331,7 +331,7 @@ sprites:
                     let was_active = if is_first { false } else { state.active };
                     let t0 = if is_first { 0 } else { state.t0 };
                     let is_active = sel == idx;
-                    if is_active && !was_active { t0 = now; }
+                    if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
                       if elapsed < 800 {
@@ -414,7 +414,7 @@ sprites:
                     let was_active = if is_first { false } else { state.active };
                     let t0 = if is_first { 0 } else { state.t0 };
                     let is_active = sel == idx;
-                    if is_active && !was_active { t0 = now; }
+                    if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
                       if elapsed < 800 {
