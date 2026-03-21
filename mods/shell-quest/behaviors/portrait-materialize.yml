@@ -24,15 +24,15 @@ script: |
       let yaw = 320.0 * ep;
       scene.set(solid_id, "obj.yaw", yaw);
       scene.set(wire_id, "obj.yaw", yaw);
-      // forward lean: tilt toward camera and hold (base pitch is -8)
-      let pitch = -8.0 + 12.0 * ep;
+      // forward lean: 20° tilt toward camera (pitch -8 → +12)
+      let pitch = -8.0 + 20.0 * ep;
       scene.set(solid_id, "obj.pitch", pitch);
       scene.set(wire_id, "obj.pitch", pitch);
     } else {
       scene.set(solid_id, "obj.yaw", 320.0);
       scene.set(wire_id, "obj.yaw", 320.0);
-      scene.set(solid_id, "obj.pitch", 4.0);
-      scene.set(wire_id, "obj.pitch", 4.0);
+      scene.set(solid_id, "obj.pitch", 12.0);
+      scene.set(wire_id, "obj.pitch", 12.0);
     }
     return #{ state: #{ active: is_active, t0: t0 } };
   }
@@ -79,6 +79,16 @@ script: |
       scene.set(solid_id, "obj.clip_y_min", 0.0);
       scene.set(wire_id, "obj.clip_y_max", 0.0);
       scene.set(solid_id, "obj.clip_y_max", 1.0);
+
+      // periodic glitch flash: brief wireframe overlay every ~2.5s
+      let idle_elapsed = elapsed - dur;
+      let pulse_period = 2500;
+      let pulse_dur = 80;
+      let pulse_phase = idle_elapsed % pulse_period;
+      if pulse_phase < pulse_dur {
+        let blink = ((pulse_phase / 20) % 2) == 0;
+        scene.set(wire_id, "obj.clip_y_max", if blink { 0.12 } else { 0.0 });
+      }
     }
   }
   #{ state: #{ active: is_active, t0: t0 } }
