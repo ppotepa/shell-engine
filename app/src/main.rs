@@ -42,6 +42,9 @@ struct Cli {
     /// Jump directly to a specific scene (overrides mod entrypoint).
     #[arg(long = "start-scene")]
     start_scene: Option<String>,
+    /// Skip the engine splash screen on startup.
+    #[arg(long = "skip-splash")]
+    skip_splash: bool,
 }
 
 fn main() {
@@ -80,6 +83,7 @@ fn main() {
         sound_server: cli.sound_server,
         sound_server_cmd: cli.sound_server_cmd,
         start_scene: cli.start_scene,
+        skip_splash: cli.skip_splash,
     };
     logging::debug(
         "app.main",

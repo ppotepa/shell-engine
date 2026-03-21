@@ -7,6 +7,7 @@ MOD_MANIFEST="$MOD_SOURCE/mod.yaml"
 WINDOW_MODE="${SHELL_QUEST_WINDOW_MODE:-game}" # game | normal
 FORCED_TERMINAL="${SHELL_QUEST_TERMINAL:-}"
 START_SCENE="${SHELL_QUEST_START_SCENE:-}"
+SKIP_SPLASH=0
 HOLD_ON_EXIT=1
 
 print_usage() {
@@ -21,6 +22,7 @@ Options:
   --game-window           Try fullscreen / minimal chrome game-like window
   --normal-window         Open regular terminal window
   --no-hold               Do not wait for Enter after process exit
+  --skip-splash           Skip the engine splash screen
   -h, --help              Show this help
 EOF
 }
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-hold)
       HOLD_ON_EXIT=0
+      shift
+      ;;
+    --skip-splash)
+      SKIP_SPLASH=1
       shift
       ;;
     -h|--help)
@@ -129,7 +135,7 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
   esac
 fi
 stty cols "$MIN_WIDTH" rows "$MIN_HEIGHT" 2>/dev/null || true
-cargo run -q -p app -- --mod-source $shell_mod${START_SCENE:+ --start-scene "$START_SCENE"}
+cargo run -q -p app -- --mod-source $shell_mod${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
 $hold_line
