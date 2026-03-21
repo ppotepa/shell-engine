@@ -92,6 +92,9 @@ pub struct BehaviorParams {
     pub src: Option<String>,
     #[serde(default)]
     pub script: Option<String>,
+    /// Generic duration in milliseconds — exposed to Rhai scripts as `params.dur`.
+    #[serde(default)]
+    pub dur: Option<u64>,
 }
 
 /// Named visual effect with duration, loop flag, and arbitrary params.

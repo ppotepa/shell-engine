@@ -2,8 +2,10 @@
 //! authored scene model.
 
 use crate::behavior::{
-    built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, SceneAudioBehavior,
+    built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, RhaiScriptBehavior,
+    SceneAudioBehavior,
 };
+use crate::mod_behaviors::ModBehaviorRegistry;
 use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
 use crate::rasterizer::generic::GenericMode;
@@ -34,6 +36,9 @@ pub struct SceneRuntime {
     terminal_shell_state: Option<TerminalShellState>,
     terminal_shell_scene_elapsed_ms: u64,
     ui_state: UiRuntimeState,
+    /// Behavior bindings that were not resolved by `built_in_behavior` — held so that
+    /// `apply_mod_behavior_registry` can resolve them against mod-defined behaviors.
+    pending_bindings: Vec<BehaviorBinding>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -417,6 +422,7 @@ impl SceneRuntime {
             terminal_shell_state: None,
             terminal_shell_scene_elapsed_ms: 0,
             ui_state: UiRuntimeState::default(),
+            pending_bindings: Vec::new(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime
@@ -428,7 +434,7 @@ impl SceneRuntime {
         runtime.initialize_ui_state();
         runtime.sync_terminal_shell_sprites();
         runtime.attach_default_behaviors();
-        runtime.attach_declared_behaviors(behavior_bindings);
+        runtime.attach_declared_behaviors(behavior_bindings, None);
         runtime.resolver_cache = runtime.build_target_resolver();
         runtime
     }
@@ -1663,17 +1669,76 @@ impl SceneRuntime {
         }
     }
 
-    fn attach_declared_behaviors(&mut self, bindings: Vec<BehaviorBinding>) {
+    fn attach_declared_behaviors(
+        &mut self,
+        bindings: Vec<BehaviorBinding>,
+        mod_registry: Option<&ModBehaviorRegistry>,
+    ) {
+        let mut unresolved: Vec<BehaviorBinding> = Vec::new();
         for binding in bindings {
+            let mut pending_specs = Vec::new();
             for spec in binding.specs {
                 if let Some(behavior) = built_in_behavior(&spec) {
                     self.behaviors.push(ObjectBehaviorRuntime {
                         object_id: binding.object_id.clone(),
                         behavior,
                     });
+                } else {
+                    let resolved = if let Some(registry) = mod_registry {
+                        // Mod-defined behavior: look up script in registry, create a
+                        // RhaiScriptBehavior with the spec params and the mod script injected.
+                        if let Some(mod_behavior) = registry.get(spec.name.trim()) {
+                            let mut params = spec.params.clone();
+                            params.script = Some(mod_behavior.script.clone());
+                            params.src = Some(format!("mod:{}", mod_behavior.name));
+                            let behavior = Box::new(RhaiScriptBehavior::from_params(&params));
+                            self.behaviors.push(ObjectBehaviorRuntime {
+                                object_id: binding.object_id.clone(),
+                                behavior,
+                            });
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+                    if !resolved {
+                        pending_specs.push(spec);
+                    }
                 }
             }
+            if !pending_specs.is_empty() {
+                unresolved.push(BehaviorBinding {
+                    object_id: binding.object_id.clone(),
+                    specs: pending_specs,
+                });
+            }
         }
+        self.pending_bindings = unresolved;
+    }
+
+    /// Returns `true` if there are unresolved behavior bindings waiting for the mod registry.
+    pub fn has_pending_bindings(&self) -> bool {
+        !self.pending_bindings.is_empty()
+    }
+
+    /// Resolves any behaviors that were not matched by built-in behaviors against
+    /// `registry`. Call this once after scene construction, passing the world's
+    /// [`ModBehaviorRegistry`].
+    ///
+    /// After this call, `pending_bindings` is always cleared — any names not found in the
+    /// registry are silently dropped (they are genuinely unknown) and will not be retried.
+    pub fn apply_mod_behavior_registry(&mut self, registry: &ModBehaviorRegistry) {
+        if self.pending_bindings.is_empty() {
+            return;
+        }
+        let bindings = std::mem::take(&mut self.pending_bindings);
+        // Pass the registry; remaining unknowns are stored back in pending_bindings by
+        // attach_declared_behaviors, but we clear it afterwards to prevent per-frame retries.
+        self.attach_declared_behaviors(bindings, Some(registry));
+        // Clear any leftover unknowns — they are unresolvable.
+        self.pending_bindings.clear();
     }
 }
 

@@ -19,6 +19,21 @@ pub fn behavior_system(world: &mut World) {
 
     let game_state = world.get::<crate::game_state::GameState>().cloned();
 
+    // Resolve any pending mod-behavior bindings on the first frame this scene is active.
+    // The check for pending bindings avoids cloning the registry on every subsequent frame.
+    let has_pending = world
+        .scene_runtime()
+        .map(|rt| rt.has_pending_bindings())
+        .unwrap_or(false);
+    if has_pending {
+        let mod_registry = world.get::<crate::mod_behaviors::ModBehaviorRegistry>().cloned();
+        if let Some(registry) = mod_registry {
+            if let Some(runtime) = world.scene_runtime_mut() {
+                runtime.apply_mod_behavior_registry(&registry);
+            }
+        }
+    }
+
     let commands = {
         let Some(runtime) = world.scene_runtime_mut() else {
             return;

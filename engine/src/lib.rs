@@ -16,6 +16,7 @@ pub mod assets;
 pub mod audio;
 pub mod behavior;
 pub mod events;
+pub mod mod_behaviors;
 pub mod game_object;
 pub mod game_state;
 pub mod image_loader;
@@ -163,6 +164,9 @@ impl ShellEngine {
         ));
         world.register(debug_log::DebugLogBuffer::new(64));
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
+        // Load mod-defined behaviors from behaviors/*.yml
+        let mod_behavior_registry = mod_behaviors::load_mod_behaviors(&self.mod_source);
+        world.register(mod_behavior_registry);
         world.register(game_state::GameState::new());
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));

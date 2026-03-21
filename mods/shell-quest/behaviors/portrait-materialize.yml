@@ -1,0 +1,56 @@
+kind: behavior
+name: portrait-materialize
+script: |
+  let idx = params.index;
+  let wire_id = `difficulty-face-${idx}-wire`;
+  let solid_id = `difficulty-face-${idx}`;
+  let sel = menu.selected_index;
+  let now = time.scene_elapsed_ms;
+  let is_first = state.type_of() != "map";
+  let was_active = if is_first { false } else { state.active };
+  let t0 = if is_first { 0 } else { state.t0 };
+  let is_active = sel == idx;
+  if is_active && was_active != true { t0 = now; }
+  if is_active {
+    let elapsed = now - t0;
+    let dur = if params.type_of() == "map" && params.keys().contains("dur") { params.dur } else { 500 };
+    let glitch_dur = 180;
+    if elapsed < dur {
+      let yaw = (elapsed * 0.4) % 360.0;
+      scene.set(wire_id, "obj.yaw", yaw);
+      scene.set(solid_id, "obj.yaw", yaw);
+
+      // Keep face towards camera at animation start, then run scanline reveal.
+      let scan = if elapsed < glitch_dur {
+        0.0
+      } else {
+        ((elapsed - glitch_dur) * 1.0) / ((dur - glitch_dur) * 1.0)
+      };
+      scene.set(wire_id, "obj.clip_y_max", 1.0 - scan);
+      scene.set(solid_id, "obj.clip_y_max", scan);
+
+      // Retro CRT-like blink/glow jitter during the first frames.
+      if elapsed < glitch_dur {
+        let blink = ((elapsed / 25) % 2) == 0;
+        scene.set(wire_id, "obj.surface_mode", "wireframe");
+        scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
+        scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
+        scene.set(solid_id, "obj.clip_y_min", if blink { 0.0 } else { 0.01 });
+      } else {
+        scene.set(wire_id, "obj.surface_mode", "wireframe");
+        scene.set(solid_id, "obj.surface_mode", "material");
+        scene.set(wire_id, "obj.clip_y_min", 0.0);
+        scene.set(solid_id, "obj.clip_y_min", 0.0);
+      }
+    } else {
+      scene.set(wire_id, "obj.yaw", 20.0);
+      scene.set(solid_id, "obj.yaw", 20.0);
+      scene.set(wire_id, "obj.surface_mode", "wireframe");
+      scene.set(solid_id, "obj.surface_mode", "material");
+      scene.set(wire_id, "obj.clip_y_min", 0.0);
+      scene.set(solid_id, "obj.clip_y_min", 0.0);
+      scene.set(wire_id, "obj.clip_y_max", 0.0);
+      scene.set(solid_id, "obj.clip_y_max", 1.0);
+    }
+  }
+  #{ state: #{ active: is_active, t0: t0 } }
