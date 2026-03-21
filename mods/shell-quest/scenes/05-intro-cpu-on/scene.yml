@@ -38,26 +38,6 @@ logic:
   kind: script
   behavior: rhai-script
   src: ./scene.rhai
-input:
-  terminal-shell:
-    mode: sidecar
-    sidecar:
-      command: dotnet
-      args:
-        - run
-        - -c
-        - Release
-        - --project
-        - os/cognitos-os
-    prompt_sprite_id: boot-hidden-prompt
-    output_sprite_id: boot-output
-    prompt_prefix: ""
-    prompt_wrap: false
-    prompt_auto_grow: false
-    prompt_min_lines: 1
-    prompt_max_lines: 1
-    max_lines: 14
-    unknown_message: ""
 audio:
   on_enter:
     - { at_ms: 4300, cue: beep, volume: 0.9 }

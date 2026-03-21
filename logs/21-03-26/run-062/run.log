@@ -19,3 +19,5 @@
 2026-03-21 12:24:47.321 [2828605] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-login title=Intro Login
 2026-03-21 12:27:03.560 [2828605] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
 2026-03-21 12:27:03.936 [2828605] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
+2026-03-21 12:28:06.635 [2828605] [app] [INFO ] [engine.run] engine loop exited cleanly
+2026-03-21 12:28:06.636 [2828605] [app] [INFO ] [app.main] engine run finished successfully
