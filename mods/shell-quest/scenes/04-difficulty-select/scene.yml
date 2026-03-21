@@ -13,15 +13,32 @@ stages:
     trigger: any-key
     looping: true
     steps:
-      - pause: 2500ms
+      - pause: 1800ms
         effects:
           - name: neon-edge-glow
-            duration: 2500
+            duration: 1800
             params:
               colour: "#00ccff"
               intensity: 0.5
               alpha: 0.35
               speed: 1.0
+      - effects:
+          - name: neon-edge-glow
+            duration: 800
+            params:
+              colour: "#00ccff"
+              intensity: 0.6
+              alpha: 0.4
+              speed: 1.5
+          - name: shine
+            duration: 800
+            params:
+              angle: 20
+              width: 6
+              falloff: 1.5
+              intensity: 1.0
+              colour: "#ccddff"
+              easing: ease-in
   on_leave:
     steps:
       - effects:

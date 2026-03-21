@@ -1,0 +1,12 @@
+kind: behavior
+name: menu-highlight
+script: |
+  let id = `menu-item-${params.index}`;
+  let sel = menu.selected_index;
+  let is_selected = sel == params.index;
+  if is_selected {
+    scene.set(id, "style.fg", "#88ccff");
+  } else {
+    scene.set(id, "style.fg", "#1a2244");
+  }
+  #{}
