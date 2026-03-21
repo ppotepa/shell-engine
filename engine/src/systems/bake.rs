@@ -212,7 +212,15 @@ pub fn start_bake_if_needed(world: &mut World) {
         .unwrap_or_default();
 
     let targets = collect_bake_targets(&layers, scene_mode);
+    let scene_id = world
+        .scene_runtime()
+        .map(|r| r.scene().id.clone())
+        .unwrap_or_default();
     if targets.is_empty() {
+        engine_core::logging::info(
+            "engine.bake",
+            format!("scene={scene_id}: no bakeable OBJ sprites found, skipping"),
+        );
         world.register(ObjBakeStatus::Idle);
         return;
     }
@@ -220,6 +228,15 @@ pub fn start_bake_if_needed(world: &mut World) {
     // Compute total frames: per target × 2 (wireframe + solid) × 72 yaw steps.
     let yaw_steps = 360u16 / YAW_STEP_DEG;
     let total = targets.len() * 2 * yaw_steps as usize;
+    engine_core::logging::info(
+        "engine.bake",
+        format!(
+            "scene={scene_id}: baking {} OBJ sprites × {} yaw steps × 2 = {} frames",
+            targets.len(),
+            yaw_steps,
+            total
+        ),
+    );
 
     let done = Arc::new(AtomicUsize::new(0));
     let pending = Arc::new(Mutex::new(ObjFrameCache::new()));
