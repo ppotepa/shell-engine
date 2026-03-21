@@ -4,50 +4,87 @@ namespace CognitosOs.Boot;
 
 internal sealed class MinixBootSequence : IBootSequence
 {
+    // Kernel footprint in KB — fixed for Minix 1.1
+    private const int MinixKb = 109;
+
     public IReadOnlyList<BootStep> BuildBootSteps(IOperatingSystem os)
     {
         var spec = os.Spec;
-        var cpuLine = $"{spec.CpuModel} @ {spec.CpuMhz} MHz";
-        var ramLine = $"{spec.RamKb} KB OK";
-        var diskLine = $"hd0: {spec.DiskKb} KB";
 
-        return new[]
-        {
-            new BootStep("Starting from hard disk", 800),
-            new BootStep("Reading boot sector...", 350),
-            new BootStep("Boot sector loaded", 200),
-            new BootStep("MINIX boot block", 150),
-            new BootStep("Loading secondary boot...", 550),
-            new BootStep("Secondary boot loaded", 250),
-            new BootStep("MINIX boot monitor 1.3", 150),
-            new BootStep($"CPU: [white]{cpuLine}[/]", 180),
-            new BootStep($"Memory: [white]{ramLine}[/]", 200),
-            new BootStep($"Disk: [white]{diskLine}[/]", 150),
-            new BootStep($"NIC: [white]{spec.NicModel}[/]", 120),
-            new BootStep("Root device: hd1a", 120),
-            new BootStep(spec.RamKb >= 4096 ? "RAM disk: disabled" : "[yellow]RAM disk: limited[/]", 120),
-            new BootStep("Booting MINIX...", 450),
-            new BootStep(spec.CpuMhz >= 33 ? "286/386 protected mode enabled" : "real mode only", 200),
-            new BootStep($"Kernel size: [white]109 KB[/]", 180),
-            new BootStep("Initializing kernel subsystems", 100),
-            new BootStep("... interrupt vectors: OK", 80),
-            new BootStep("... trap handlers: OK", 80),
-            new BootStep("... memory manager: OK", 250),
-            new BootStep(string.Empty, 100),
-            new BootStep("[white]... tty drivers: OK[/]", 120),
-            new BootStep("[white]... tty0 initialized[/]", 180),
-            new BootStep("[white]... tty1 initialized[/]", 180),
-            new BootStep(string.Empty, 150),
-            new BootStep("... block devices: OK", 1200),
-            new BootStep("Mounting root file system... OK", 650),
-            new BootStep("[yellow]Warning: CMOS time appears invalid[/]", 800),
-            new BootStep("Starting init process", 350),
-            new BootStep("... /etc/rc", 280),
-            new BootStep("... update daemon", 420),
-            new BootStep("... clock task sync", 380),
-            new BootStep(string.Empty, 350),
-            new BootStep("... starting login processes", 450),
-            new BootStep(string.Empty, 200),
-        };
+        // Speed factor: slower CPU = longer delays. Baseline is 33 MHz.
+        var f = 33.0 / Math.Max(spec.CpuMhz, 1);
+
+        var ramKb = spec.RamKb;
+        var availKb = ramKb - MinixKb;
+
+        var memoryLine =
+            $"Memory size = {ramKb}K" +
+            $"     MINIX = {MinixKb}K" +
+            $"     RAM disk = 0K" +
+            $"     Available = {availKb}K";
+
+        var steps = new List<BootStep>();
+
+        // ── Phase 1: Boot monitor ──────────────────────────────────────────────
+        // On hard disk boot the monitor prints a single line then boots immediately.
+        steps.Add(S("=MINIX boot", 120, f));
+        steps.Add(S(string.Empty, 80, f));
+
+        // ── Phase 2: Kernel banner + memory line ──────────────────────────────
+        // These two lines are the very first things the Minix kernel prints.
+        steps.Add(S("MINIX 1.1  Copyright 1987, Prentice-Hall, Inc.", 300, f));
+        steps.Add(S(memoryLine, 400, f));
+        steps.Add(S(string.Empty, 200, f));
+
+        // ── Phase 3: Kernel task startup ──────────────────────────────────────
+        // Minix starts numbered tasks in order. On a PC-AT the order is:
+        //   CLOCK, MEM, FLOPPY, WINCHESTER, TTY, ETHERNET, PRINTER
+        // We skip floppy (no removable media) and printer (not present).
+        steps.Add(S("clock task", 120, f));
+        steps.Add(S("memory task", 80, f));
+        steps.Add(S("winchester task", 600, f));   // HDD seek takes time
+
+        // TTY task — initialises consoles
+        steps.Add(S("tty task", 80, f));
+
+        // Ethernet only if NIC speed implies a real card is present
+        if (spec.NicSpeedKbps > 0)
+            steps.Add(S("ethernet task", 160, f));
+
+        steps.Add(S(string.Empty, 100, f));
+
+        // ── Phase 4: File system mount ────────────────────────────────────────
+        // Minix 1.1 on hard disk uses hd1 (root) and hd2 (/usr).
+        // The FS prints one line per mounted device.
+        steps.Add(S("root file system on /dev/hd1  OK", 350, f));
+        steps.Add(S("/usr file system on /dev/hd2  OK", 500, f));
+        steps.Add(S(string.Empty, 120, f));
+
+        // ── Phase 5: init + /etc/rc ───────────────────────────────────────────
+        // init reads /etc/rc and starts background daemons.
+        steps.Add(S("Init: Starting system.", 200, f));
+        steps.Add(S(string.Empty, 80, f));
+        steps.Add(S("/etc/rc", 180, f));
+        steps.Add(S(string.Empty, 280, f));
+
+        // update daemon (syncs file system every 30s — always present in Minix)
+        steps.Add(S("update", 150, f));
+
+        // cron only on better-specced machines (enough RAM)
+        if (spec.RamKb >= 2048)
+            steps.Add(S("cron", 130, f));
+
+        steps.Add(S(string.Empty, 200, f));
+
+        // ── Phase 6: getty ────────────────────────────────────────────────────
+        // getty on the console — next thing printed would be the login prompt,
+        // but AppHost clears the screen and shows it separately.
+        steps.Add(S("/etc/getty tty0 &", 180, f));
+        steps.Add(S(string.Empty, 100, f));
+
+        return steps;
     }
+
+    private static BootStep S(string text, double baseMs, double factor)
+        => new(text, (ulong)Math.Max(30, baseMs * factor));
 }
