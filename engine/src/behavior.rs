@@ -21,12 +21,14 @@ pub struct BehaviorContext {
     pub scene_elapsed_ms: u64,
     pub stage_elapsed_ms: u64,
     pub menu_selected_index: usize,
-    pub target_resolver: TargetResolver,
+    // Arc-wrapped: identical for every behavior in a frame, clone is O(1).
+    pub target_resolver: Arc<TargetResolver>,
+    // Per-behavior mutable state (behaviours can write to this).
     pub object_states: std::collections::BTreeMap<String, ObjectRuntimeState>,
-    pub object_kinds: std::collections::BTreeMap<String, String>,
-    pub object_props: std::collections::BTreeMap<String, JsonValue>,
-    pub object_regions: std::collections::BTreeMap<String, Region>,
-    pub object_text: std::collections::BTreeMap<String, String>,
+    pub object_kinds: Arc<std::collections::BTreeMap<String, String>>,
+    pub object_props: Arc<std::collections::BTreeMap<String, JsonValue>>,
+    pub object_regions: Arc<std::collections::BTreeMap<String, Region>>,
+    pub object_text: Arc<std::collections::BTreeMap<String, String>>,
     pub ui_focused_target_id: Option<String>,
     pub ui_theme_id: Option<String>,
     pub ui_last_submit_target_id: Option<String>,
@@ -37,7 +39,7 @@ pub struct BehaviorContext {
     /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
     pub last_raw_key: Option<RawKeyEvent>,
     /// Sidecar IO frame snapshot (output lines / clear / fullscreen / custom events).
-    pub sidecar_io: crate::scene_runtime::SidecarIoFrameState,
+    pub sidecar_io: Arc<crate::scene_runtime::SidecarIoFrameState>,
 }
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -696,7 +698,7 @@ impl RhaiScriptBehavior {
 
     fn build_regions_map(&self, ctx: &BehaviorContext, scene: &Scene) -> RhaiMap {
         let mut regions = RhaiMap::new();
-        for (object_id, region) in &ctx.object_regions {
+        for (object_id, region) in ctx.object_regions.iter() {
             regions.insert(object_id.clone().into(), region_to_rhai_map(region).into());
         }
         if let Some(target) = self.params.target.as_deref() {
@@ -1158,12 +1160,12 @@ fn smoke_probe_context(
         scene_elapsed_ms: elapsed_ms,
         stage_elapsed_ms: elapsed_ms,
         menu_selected_index: 0,
-        target_resolver: TargetResolver::default(),
+        target_resolver: Arc::new(TargetResolver::default()),
         object_states: BTreeMap::new(),
-        object_kinds: BTreeMap::new(),
-        object_props: BTreeMap::new(),
-        object_regions: BTreeMap::new(),
-        object_text: BTreeMap::new(),
+        object_kinds: Arc::new(BTreeMap::new()),
+        object_props: Arc::new(BTreeMap::new()),
+        object_regions: Arc::new(BTreeMap::new()),
+        object_text: Arc::new(BTreeMap::new()),
         ui_focused_target_id: Some("login-hidden-prompt".to_string()),
         ui_theme_id: None,
         ui_last_submit_target_id: submit_text.map(|_| "login-hidden-prompt".to_string()),
@@ -1172,7 +1174,7 @@ fn smoke_probe_context(
         ui_last_change_text: None,
         game_state: Some(game_state),
         last_raw_key: None,
-        sidecar_io: crate::scene_runtime::SidecarIoFrameState::default(),
+        sidecar_io: Arc::new(crate::scene_runtime::SidecarIoFrameState::default()),
     }
 }
 
@@ -1857,6 +1859,7 @@ mod tests {
     use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
     use crate::systems::animator::SceneStage;
     use serde_json::Value as JsonValue;
+    use std::sync::Arc;
     use std::collections::BTreeMap;
 
     fn scene_object() -> GameObject {
@@ -1919,12 +1922,12 @@ mod tests {
             scene_elapsed_ms: 0,
             stage_elapsed_ms: 0,
             menu_selected_index: 0,
-            target_resolver: TargetResolver::default(),
+            target_resolver: Arc::new(TargetResolver::default()),
             object_states: BTreeMap::new(),
-            object_kinds: BTreeMap::new(),
-            object_props: BTreeMap::new(),
-            object_regions: BTreeMap::new(),
-            object_text: BTreeMap::new(),
+            object_kinds: Arc::new(BTreeMap::new()),
+            object_props: Arc::new(BTreeMap::new()),
+            object_regions: Arc::new(BTreeMap::new()),
+            object_text: Arc::new(BTreeMap::new()),
             ui_focused_target_id: None,
             ui_theme_id: None,
             ui_last_submit_target_id: None,
@@ -1933,7 +1936,7 @@ mod tests {
             ui_last_change_text: None,
             game_state: None,
             last_raw_key: None,
-            sidecar_io: crate::scene_runtime::SidecarIoFrameState::default(),
+            sidecar_io: Arc::new(crate::scene_runtime::SidecarIoFrameState::default()),
         }
     }
 
@@ -1971,10 +1974,12 @@ out
             ..BehaviorParams::default()
         });
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.sidecar_io.output_lines = vec!["line".to_string()];
-        test_ctx.sidecar_io.clear_count = 1;
-        test_ctx.sidecar_io.screen_full_lines = Some(vec!["full".to_string()]);
-        test_ctx.sidecar_io.custom_events = vec!["{}".to_string()];
+        test_ctx.sidecar_io = Arc::new(crate::scene_runtime::SidecarIoFrameState {
+            output_lines: vec!["line".to_string()],
+            clear_count: 1,
+            screen_full_lines: Some(vec!["full".to_string()]),
+            custom_events: vec!["{}".to_string()],
+        });
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
             commands,
@@ -2186,7 +2191,7 @@ out
             },
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
+        test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = object_states;
         let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
 
@@ -2243,8 +2248,8 @@ out
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
 
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
-        test_ctx.object_regions = object_regions;
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_regions = Arc::new(object_regions);
         test_ctx.menu_selected_index = 2;
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(7), test_ctx);
@@ -2282,8 +2287,8 @@ out
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
 
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
-        test_ctx.object_regions = object_regions;
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_regions = Arc::new(object_regions);
         test_ctx.menu_selected_index = 6;
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(7), test_ctx);
@@ -2321,8 +2326,8 @@ out
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
 
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
-        test_ctx.object_regions = object_regions;
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_regions = Arc::new(object_regions);
         test_ctx.menu_selected_index = 0;
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(7), test_ctx);
@@ -2354,8 +2359,8 @@ out
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
 
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
-        test_ctx.object_regions = object_regions;
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_regions = Arc::new(object_regions);
         test_ctx.menu_selected_index = 2;
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(3), test_ctx);
@@ -2400,8 +2405,8 @@ out
         object_regions.insert("obj:menu-item-2".to_string(), region(10, 14, 20, 1));
 
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
-        test_ctx.object_regions = object_regions;
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_regions = Arc::new(object_regions);
         test_ctx.menu_selected_index = 1;
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(3), test_ctx);
@@ -2785,10 +2790,10 @@ out
         let mut object_regions = BTreeMap::new();
         object_regions.insert("obj:menu-item-0".to_string(), region(12, 5, 10, 1));
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
+        test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = object_states;
-        test_ctx.object_kinds = object_kinds;
-        test_ctx.object_regions = object_regions;
+        test_ctx.object_kinds = Arc::new(object_kinds);
+        test_ctx.object_regions = Arc::new(object_regions);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
@@ -2832,9 +2837,9 @@ out
         let mut object_kinds = BTreeMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
+        test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = object_states;
-        test_ctx.object_kinds = object_kinds;
+        test_ctx.object_kinds = Arc::new(object_kinds);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
@@ -2875,9 +2880,9 @@ obj.set("position.y", dy + 2);
         let mut object_kinds = BTreeMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
+        test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = object_states;
-        test_ctx.object_kinds = object_kinds;
+        test_ctx.object_kinds = Arc::new(object_kinds);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
@@ -2925,10 +2930,10 @@ out
             serde_json::json!({ "text": { "font": "generic:half" } }),
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
+        test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = object_states;
-        test_ctx.object_kinds = object_kinds;
-        test_ctx.object_props = object_props;
+        test_ctx.object_kinds = Arc::new(object_kinds);
+        test_ctx.object_props = Arc::new(object_props);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
@@ -2976,10 +2981,10 @@ out
             serde_json::json!({ "text": { "font": "generic:half" } }),
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
+        test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = object_states;
-        test_ctx.object_kinds = object_kinds;
-        test_ctx.object_props = object_props;
+        test_ctx.object_kinds = Arc::new(object_kinds);
+        test_ctx.object_props = Arc::new(object_props);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
@@ -3029,11 +3034,11 @@ out
         let mut object_text = BTreeMap::new();
         object_text.insert("obj:menu-item-0".to_string(), "HELLO".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
+        test_ctx.target_resolver = Arc::new(resolver);
         test_ctx.object_states = object_states;
-        test_ctx.object_kinds = object_kinds;
-        test_ctx.object_props = object_props;
-        test_ctx.object_text = object_text;
+        test_ctx.object_kinds = Arc::new(object_kinds);
+        test_ctx.object_props = Arc::new(object_props);
+        test_ctx.object_text = Arc::new(object_text);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
@@ -3083,8 +3088,8 @@ out
         object_regions.insert("scene:intro".to_string(), region(20, 10, 1, 1));
         object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 3));
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
-        test_ctx.object_regions = object_regions;
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_regions = Arc::new(object_regions);
         let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
 
         assert_eq!(
@@ -3138,8 +3143,8 @@ out
         object_regions.insert("scene:intro".to_string(), region(20, 10, 1, 1));
         object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 3));
         let mut selected_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        selected_ctx.target_resolver = resolver;
-        selected_ctx.object_regions = object_regions;
+        selected_ctx.target_resolver = Arc::new(resolver);
+        selected_ctx.object_regions = Arc::new(object_regions);
         let commands = run_behavior(&mut behavior, &base_scene(), selected_ctx);
 
         assert_eq!(
@@ -3176,8 +3181,8 @@ out
         object_regions.insert("scene:intro".to_string(), region(20, 10, 3, 5));
         object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 5));
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.target_resolver = resolver;
-        test_ctx.object_regions = object_regions;
+        test_ctx.target_resolver = Arc::new(resolver);
+        test_ctx.object_regions = Arc::new(object_regions);
         let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
 
         assert_eq!(
