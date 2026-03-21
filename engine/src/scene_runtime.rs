@@ -1145,7 +1145,7 @@ impl SceneRuntime {
         let controls = state.controls.clone();
         if matches!(state.controls.mode, crate::scene::TerminalShellMode::Sidecar) {
             if state.sidecar_fullscreen_mode {
-                let output_text = state.output_text();
+                let output_text = self.viewport_clipped_output(&state);
                 let _ = self.set_text_sprite_content(&output_id, output_text);
                 let _ = self.set_text_sprite_content(&prompt_id, String::new());
                 self.terminal_shell_state = Some(state);
@@ -1191,6 +1191,29 @@ impl SceneRuntime {
             state.output_lines[state.output_lines.len() - transcript_rows..].to_vec()
         };
         (lines.join("\n"), prompt_line.to_string())
+    }
+
+    /// Clip output lines to the available viewport for fullscreen sidecar mode.
+    /// Uses the vertical distance between the output and prompt sprites (the
+    /// same area the non-fullscreen path calculates), falling back to
+    /// `max_lines` when layout info is unavailable.
+    fn viewport_clipped_output(&self, state: &TerminalShellState) -> String {
+        let viewport_rows = self
+            .resolve_text_layout(&state.controls.output_sprite_id)
+            .and_then(|out_layout| {
+                self.resolve_text_layout(&state.controls.prompt_sprite_id)
+                    .map(|prm_layout| {
+                        prm_layout.y.saturating_sub(out_layout.y).max(1) as usize
+                    })
+            })
+            .unwrap_or(state.controls.max_lines.max(1));
+        let rows = viewport_rows.min(state.controls.max_lines.max(1));
+        if state.output_lines.len() <= rows {
+            state.output_lines.join("\n")
+        } else {
+            state.output_lines[state.output_lines.len() - rows..]
+                .join("\n")
+        }
     }
 
     fn render_prompt_for_panel(
@@ -1952,6 +1975,11 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
             sprite_name("obj", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
+        Sprite::ObjBaked { id, .. } => (
+            GameObjectKind::ObjSprite,
+            sprite_name("obj-baked", id.as_deref(), sprite_idx),
+            sprite_aliases(id.as_deref()),
+        ),
         Sprite::Panel { id, .. } => (
             GameObjectKind::PanelSprite,
             sprite_name("panel", id.as_deref(), sprite_idx),
@@ -2595,7 +2623,7 @@ fn find_panel_layout_recursive(
                     return Some(layout);
                 }
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::ObjBaked { .. } => {}
         }
     }
     None
@@ -2626,7 +2654,7 @@ fn set_panel_height_recursive(
             | Sprite::Flex { children, .. } => {
                 set_panel_height_recursive(children, panel_id, next_height, updated)
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::ObjBaked { .. } => {}
         }
     }
 }
@@ -2650,7 +2678,7 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
                     return Some(result);
                 }
             }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::ObjBaked { .. } => {}
         }
     }
     None

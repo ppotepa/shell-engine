@@ -65,7 +65,10 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
         .asset_root()
         .map(|root| root.mod_source().to_path_buf());
 
-    let buf_size = world.buffer().map(|buf| (buf.width, buf.height));
+    let buf_size = world.buffer().map(|buf| {
+        let rows = (controls.max_lines.max(1) as u16).min(buf.height);
+        (buf.width, rows)
+    });
 
     // Drive sidecar and collect events to apply.
     let mut pending_events: Vec<IoEvent> = Vec::new();
