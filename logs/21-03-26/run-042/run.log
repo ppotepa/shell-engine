@@ -166,3 +166,11 @@
 2026-03-21 06:03:21.463 [2792408] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
 2026-03-21 06:08:45.838 [2792408] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
 2026-03-21 06:12:43.106 [2792408] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 06:15:34.552 [2792408] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 06:19:05.158 [2792408] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 11:52:12.878 [2792408] [app] [INFO ] [engine.scene] transition requested: to=intro-cpu-on
+2026-03-21 11:52:12.883 [2792408] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-cpu-on title=Intro CPU On
+2026-03-21 11:52:14.812 [2792408] [app] [INFO ] [engine.scene] transition requested: to=intro-login
+2026-03-21 11:52:14.815 [2792408] [app] [INFO ] [engine.scene] transition applied: active_scene=intro-login title=Intro Login
+2026-03-21 12:01:40.580 [2792408] [app] [INFO ] [engine.run] engine loop exited cleanly
+2026-03-21 12:01:40.580 [2792408] [app] [INFO ] [app.main] engine run finished successfully

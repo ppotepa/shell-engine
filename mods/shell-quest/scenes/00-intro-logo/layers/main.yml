@@ -211,7 +211,7 @@
       font: "Abril Fatface:ascii"
       fg: white
       appear_at_ms: 0
-      disappear_at_ms: 3140
+      disappear_at_ms: 800
       stages:
         on_enter:
           steps:
@@ -220,7 +220,7 @@
                   [
                     {
                       name: fade-in,
-                      duration: 3000,
+                      duration: 600,
                       params: { easing: ease-in },
                     },
                   ],
@@ -232,7 +232,7 @@
       at: cc
       font: "Abril Fatface:raster"
       fg: gray
-      appear_at_ms: 3140
+      appear_at_ms: 800
       stages:
         on_enter:
           steps:
@@ -338,7 +338,7 @@
       glow: { radius: 1 }
       text-transform: uppercase
       hide_on_leave: true
-      appear_at_ms: 8500
+      appear_at_ms: 2000
       animations:
         [
           {

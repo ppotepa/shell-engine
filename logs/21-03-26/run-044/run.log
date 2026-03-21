@@ -102,3 +102,9 @@
 2026-03-21 06:03:21.331 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
 2026-03-21 06:08:45.836 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
 2026-03-21 06:12:42.884 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
+2026-03-21 06:15:34.381 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
+2026-03-21 06:19:05.292 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-login
+2026-03-21 06:50:26.592 [2793861] [app] [INFO ] [engine.scene] transition requested: to=mainmenu
+2026-03-21 06:50:26.594 [2793861] [app] [INFO ] [engine.scene] transition applied: active_scene=mainmenu title=Main Menu
+2026-03-21 12:15:52.170 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
+2026-03-21 12:15:52.536 [2793861] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
