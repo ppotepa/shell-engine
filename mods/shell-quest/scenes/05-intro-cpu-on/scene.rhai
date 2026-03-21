@@ -1,37 +1,37 @@
 let t = time.scene_elapsed_ms;
 let text = " ";
 
-if t >= 300 && t < 5800 {
+if t >= 2000 && t < 5800 {
     text = `TUX Modular BIOS v1.90, 1990 edition
 Copyright (C) 1990, TUX Software, Inc.
 * TUX AWARDS BIOS Extension v1.0A
 
 `;
 
-    if t >= 800 {
+    if t >= 2500 {
         text += `[white]CPU: 386QX compatible @ 20MHz[/]
 `;
     }
 
-    if t >= 1400 && t < 3200 {
-        let step = ((t - 1400) * 16) / 1800;
+    if t >= 3000 && t < 4400 {
+        let step = ((t - 3000) * 16) / 1400;
         let s = if step > 16 { 16 } else { step };
         text += `Checking RAM: ${s * 128}KB
 `;
-    } else if t >= 3200 {
+    } else if t >= 4400 {
         text += `[white]Checking RAM: 2048KB OK[/]
 `;
     }
 
-    if t >= 3800 {
+    if t >= 4800 {
         text += `CD-ROM drive A:        .......... not found
 `;
     }
-    if t >= 4200 {
+    if t >= 5100 {
         text += `Floppy drive A: 1.44MB .......... not found
 `;
     }
-    if t >= 4600 {
+    if t >= 5400 {
         text += `Hard drive 0: SETAGE ST225 20MB
 `;
     }

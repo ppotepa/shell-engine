@@ -40,7 +40,7 @@ logic:
   src: ./scene.rhai
 audio:
   on_enter:
-    - { at_ms: 4300, cue: beep, volume: 0.9 }
+    - { at_ms: 5500, cue: beep, volume: 0.9 }
 stages:
   on_enter:
     steps:
