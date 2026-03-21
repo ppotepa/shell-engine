@@ -157,13 +157,19 @@ impl SceneLifecycleManager {
                 return true;
             }
             Self::apply_virtual_size_override(world, &new_scene);
-            let is_prerender_scene = !new_scene.prerender.is_empty();
+            let should_prerender = new_scene.prerender;
+            let prerender_layers = if should_prerender {
+                Some((new_scene.layers.clone(), new_scene.rendered_mode, new_scene.id.clone()))
+            } else {
+                None
+            };
+            // Prerender BEFORE activating the scene — blocks until cache is ready.
+            if let Some((ref layers, mode, ref sid)) = prerender_layers {
+                crate::systems::bake::prerender_scene_sprites(layers, mode, sid, world);
+            }
             world.clear_scoped();
             world.register_scoped(SceneRuntime::new(new_scene));
             world.register_scoped(Animator::new());
-            if is_prerender_scene {
-                crate::systems::bake::start_bake_if_needed(world);
-            }
             if let Some(runtime) = world.scene_runtime() {
                 logging::info(
                     "engine.scene",

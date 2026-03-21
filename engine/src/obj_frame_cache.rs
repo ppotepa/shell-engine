@@ -1,8 +1,6 @@
 //! Pre-baked OBJ frame cache: stores rendered canvases keyed by (source, wireframe, yaw_step).
 
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
-use std::sync::Arc;
 
 /// Yaw quantisation step in degrees. 72 steps per full rotation.
 pub const YAW_STEP_DEG: u16 = 5;
@@ -53,17 +51,12 @@ impl Default for ObjFrameCache {
     }
 }
 
-/// World resource tracking progress of the background bake pass.
+use std::sync::Arc;
+
+/// World resource tracking status of the prerender pass.
 pub enum ObjBakeStatus {
-    /// No bake scheduled for the current scene.
+    /// No prerender scheduled.
     Idle,
-    /// Bake in progress: `done` counts finished frames out of `total`.
-    Baking {
-        total: usize,
-        done: Arc<AtomicUsize>,
-        /// Shared cache written by the bake thread.
-        pending: Arc<std::sync::Mutex<ObjFrameCache>>,
-    },
-    /// Bake complete; caller should swap `ObjFrameCache` into world.
+    /// Prerender complete — cache is populated and ready.
     Ready,
 }

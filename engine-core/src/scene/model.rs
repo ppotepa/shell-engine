@@ -650,11 +650,11 @@ pub struct Scene {
     #[serde(default)]
     pub postfx: Vec<Effect>,
     pub next: Option<String>,
-    /// OBJ asset paths to prerender into ObjFrameCache before this scene proceeds.
-    /// When non-empty the scene acts as a loading screen: it starts prerendering
-    /// in a background thread and transitions to `next` when done.
+    /// When `true`, all static OBJ sprites in this scene are pre-rendered into
+    /// `ObjFrameCache` synchronously during scene load (before the scene is activated).
+    /// The compositor then uses cached frames instead of live 3D rendering.
     #[serde(default)]
-    pub prerender: Vec<String>,
+    pub prerender: bool,
 }
 
 impl Scene {

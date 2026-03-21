@@ -100,47 +100,6 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         systems::audio::audio_system(world);
         systems::compositor::compositor_system(world);
         systems::postfx::postfx_system(world);
-        // Paint loading overlay on top of composed scene, before renderer flushes to terminal.
-        let is_baking = systems::bake::tick_bake(world);
-        if is_baking {
-            let progress = {
-                use crate::obj_frame_cache::ObjBakeStatus;
-                use std::sync::atomic::Ordering;
-                world.get::<ObjBakeStatus>().and_then(|s| {
-                    if let ObjBakeStatus::Baking { total, done, .. } = s {
-                        Some(done.load(Ordering::Relaxed) as f32 / *total as f32)
-                    } else {
-                        None
-                    }
-                }).unwrap_or(0.0)
-            };
-            systems::bake::paint_loading_overlay(world, progress);
-        } else {
-            // When bake just finished on a prerender scene, auto-transition to `next`.
-            use crate::obj_frame_cache::ObjBakeStatus;
-            let auto_next: Option<String> = {
-                let is_ready = world
-                    .get::<ObjBakeStatus>()
-                    .map(|s| matches!(s, ObjBakeStatus::Ready))
-                    .unwrap_or(false);
-                if is_ready {
-                    world
-                        .scene_runtime()
-                        .filter(|r| !r.scene().prerender.is_empty())
-                        .and_then(|r| r.scene().next.clone())
-                } else {
-                    None
-                }
-            };
-            if let Some(next_id) = auto_next {
-                // Keep ObjBakeStatus::Ready so the compositor uses the cache on the next scene.
-                // The transition only fires once because the target scene has no `prerender` field.
-                world
-                    .events_mut()
-                    .unwrap()
-                    .push(EngineEvent::SceneTransition { to_scene_id: next_id });
-            }
-        }
         systems::renderer::renderer_system(world);
 
         let elapsed = frame_start.elapsed();
