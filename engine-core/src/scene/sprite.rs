@@ -288,6 +288,12 @@ pub enum Sprite {
         surface_mode: Option<String>,
         #[serde(default, rename = "backface-cull")]
         backface_cull: Option<bool>,
+        /// Vertical clip region top edge (0.0 = top of sprite, 1.0 = bottom). Default 0.0.
+        #[serde(default, rename = "clip-y-min")]
+        clip_y_min: Option<f32>,
+        /// Vertical clip region bottom edge (0.0 = top of sprite, 1.0 = bottom). Default 1.0.
+        #[serde(default, rename = "clip-y-max")]
+        clip_y_max: Option<f32>,
         #[serde(default)]
         scale: Option<f32>,
         #[serde(default, rename = "yaw-deg")]

@@ -100,6 +100,8 @@ struct ObjSpritePropertySnapshot {
     roll: Option<f32>,
     orbit_speed: Option<f32>,
     surface_mode: Option<String>,
+    clip_y_min: Option<f32>,
+    clip_y_max: Option<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -1602,7 +1604,7 @@ impl SceneRuntime {
                             );
                         }
                         "obj.scale" | "obj.yaw" | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
-                        | "obj.surface_mode" => {
+                        | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max" => {
                             let mut applied = self.set_obj_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
@@ -2096,6 +2098,8 @@ fn find_obj_properties_recursive(
                 roll_deg,
                 rotate_y_deg_per_sec,
                 surface_mode,
+                clip_y_min,
+                clip_y_max,
                 ..
             } if id == sprite_id => {
                 return Some(ObjSpritePropertySnapshot {
@@ -2105,6 +2109,8 @@ fn find_obj_properties_recursive(
                     roll: *roll_deg,
                     orbit_speed: *rotate_y_deg_per_sec,
                     surface_mode: surface_mode.clone(),
+                    clip_y_min: *clip_y_min,
+                    clip_y_max: *clip_y_max,
                 });
             }
             Sprite::Grid { children, .. }
@@ -2309,6 +2315,8 @@ fn set_obj_property_recursive(
                 roll_deg,
                 rotate_y_deg_per_sec,
                 surface_mode,
+                clip_y_min,
+                clip_y_max,
                 ..
             } if id == sprite_id => match path {
                 "obj.scale" => {
@@ -2363,6 +2371,26 @@ fn set_obj_property_recursive(
                     };
                     if surface_mode.as_deref() != Some(next) {
                         *surface_mode = Some(next.to_string());
+                        *updated = true;
+                    }
+                }
+                "obj.clip_y_min" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    let next = next.clamp(0.0, 1.0);
+                    if (clip_y_min.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *clip_y_min = Some(next);
+                        *updated = true;
+                    }
+                }
+                "obj.clip_y_max" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    let next = next.clamp(0.0, 1.0);
+                    if (clip_y_max.unwrap_or(1.0) - next).abs() > f32::EPSILON {
+                        *clip_y_max = Some(next);
                         *updated = true;
                     }
                 }

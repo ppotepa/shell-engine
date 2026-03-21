@@ -1133,6 +1133,26 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
     },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "clip-y-min",
+        value_kind: ValueKind::Number,
+        requirement: Requirement::Optional,
+        description: "Vertical clip top edge for type=obj (0.0=top, 1.0=bottom). Default 0.0.",
+        default_text: None, default_number: Some(0.0), enum_options: None,
+        min: Some(0.0), max: Some(1.0), step: Some(0.01), unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "clip-y-max",
+        value_kind: ValueKind::Number,
+        requirement: Requirement::Optional,
+        description: "Vertical clip bottom edge for type=obj (0.0=top, 1.0=bottom). Default 1.0.",
+        default_text: None, default_number: Some(1.0), enum_options: None,
+        min: Some(0.0), max: Some(1.0), step: Some(0.01), unit: None,
+        sources: LIT_ONLY,
+    },
     // ── Grid required fields ─────────────────────────────────────────────────
     FieldMetadata {
         target: TargetKind::Sprite,
