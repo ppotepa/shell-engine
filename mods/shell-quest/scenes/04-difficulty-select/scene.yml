@@ -4,15 +4,34 @@ title: 04 Intro Difficulty Select
 bg: black
 prerender: true
 postfx:
-  - name: scanlines
+  - name: crt-underlay
     params:
-      intensity: 0.12
+      intensity: 1.80
+      alpha: 0.22
+      sphericality: 0.18
+      transparency: 0.62
+      brightness: 1.15
+      speed: 0.42
+  - name: crt-distort
+    params:
+      intensity: 0.14
+      distortion: 0.08
+      sphericality: 0.15
+      transparency: 0.25
+      brightness: 1.00
+      speed: 0.28
   - name: crt-scan-glitch
     params:
-      intensity: 0.08
-      transparency: 0.15
-      brightness: 1.0
-      speed: 0.4
+      intensity: 0.20
+      transparency: 0.22
+      brightness: 1.00
+      speed: 0.75
+  - name: crt-ruby
+    params:
+      intensity: 0.18
+      transparency: 0.26
+      brightness: 0.97
+      speed: 0.55
 layers:
   - ref: main
 stages:
