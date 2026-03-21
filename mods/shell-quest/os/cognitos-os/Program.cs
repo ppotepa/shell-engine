@@ -3,7 +3,6 @@ using CognitosOs.Boot;
 using CognitosOs.Commands;
 using CognitosOs.Core;
 using CognitosOs.State;
-
 internal static class Program
 {
     public static void Main()
@@ -21,6 +20,10 @@ internal static class Program
             new PsCommand(),
             new ServicesCommand(),
             new ClearCommand(),
+            new CdCommand(),
+            new PwdCommand(),
+            new CpCommand(),
+            new FtpCommand(),
         };
 
         var fileSystem = new ZipVirtualFileSystem(statePath);
@@ -72,6 +75,9 @@ internal static class Program
                         Protocol.GetInt(root, "cols") ?? 120,
                         Protocol.GetInt(root, "rows") ?? 40
                     );
+                    var difficultyLabel = Protocol.GetString(root, "difficulty");
+                    var difficulty = MachineSpec.ParseLabel(difficultyLabel);
+                    state.Spec = MachineSpec.FromDifficulty(difficulty);
                     var bootScene = Protocol.GetBool(root, "boot_scene") ?? false;
                     if (bootScene)
                     {

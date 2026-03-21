@@ -7,6 +7,7 @@ internal sealed class MinixOperatingSystem : IOperatingSystem
     private static readonly DateTime Epoch = new(1991, 9, 17, 21, 12, 0, DateTimeKind.Utc);
 
     public MachineState State { get; }
+    public MachineSpec Spec => State.Spec;
     public IReadOnlyDictionary<string, ICommand> CommandIndex { get; }
     public IVirtualFileSystem FileSystem { get; }
 

@@ -34,6 +34,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
         change_snapshot,
         key_snapshot,
         is_boot_scene,
+        difficulty_label,
     ) = {
         let Some(scene_runtime) = world.scene_runtime() else {
             return;
@@ -49,6 +50,10 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
             .terminal_shell_controls_snapshot()
             .map(|c| c.boot_scene)
             .unwrap_or(false);
+        let difficulty_label = world
+            .get::<crate::game_state::GameState>()
+            .and_then(|gs| gs.get("/game/difficulty"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
         (
             scene_id,
             controls,
@@ -56,6 +61,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
             change_snapshot,
             key_snapshot,
             is_boot_scene,
+            difficulty_label,
         )
     };
 
@@ -127,6 +133,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                                          cols,
                                          rows,
                                          boot_scene: is_boot_scene,
+                                         difficulty: difficulty_label.clone(),
                                      }) {
                                          ipc_errors.push(format!("[engine-io] hello send failed: {e}"));
                                      }

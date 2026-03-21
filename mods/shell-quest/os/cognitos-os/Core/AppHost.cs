@@ -1,3 +1,4 @@
+using CognitosOs.Network;
 using CognitosOs.State;
 
 namespace CognitosOs.Core;
@@ -12,6 +13,7 @@ internal sealed class AppHost
     private ulong _bootPostDelayMs;
     private bool _bootFinished;
     private int _lastExitCode;
+    private FtpSession? _ftpSession;
 
     public AppHost(IOperatingSystem os, IMachineStart store)
     {
@@ -100,6 +102,9 @@ internal sealed class AppHost
                 break;
             case SessionMode.Shell:
                 HandleShell(submitted);
+                break;
+            case SessionMode.FtpSession:
+                HandleFtpInput(submitted);
                 break;
         }
     }
@@ -214,10 +219,43 @@ internal sealed class AppHost
         if (result.ClearScreen)
         {
             _screen.ClearViewport();
+        }
+        else
+        {
+            _screen.Append(result.Lines.Count == 0 ? new[] { "" } : result.Lines.Concat(new[] { "" }).ToArray());
+        }
+
+        // Command may have switched mode (e.g. ftp command)
+        if (_os.State.Mode == SessionMode.FtpSession)
+        {
+            _ftpSession = new FtpSession(_os, _screen);
+            _ftpSession.Enter();
             return;
         }
 
-        _screen.Append(result.Lines.Count == 0 ? new[] { "" } : result.Lines.Concat(new[] { "" }).ToArray());
+        ApplyPrompt();
+    }
+
+    private void HandleFtpInput(string input)
+    {
+        if (_ftpSession == null)
+        {
+            _os.State.Mode = SessionMode.Shell;
+            ApplyPrompt();
+            return;
+        }
+
+        var keepSession = _ftpSession.HandleInput(input);
+        if (!keepSession)
+        {
+            _ftpSession = null;
+            _os.State.Mode = SessionMode.Shell;
+            _screen.Append("");
+            ApplyPrompt();
+            return;
+        }
+
+        _ftpSession.RefreshPrompt();
     }
 
     public void ApplyPrompt()
@@ -254,6 +292,9 @@ internal sealed class AppHost
                     text = $"{Style.Fg(Style.PromptUser, user)}@{Style.Fg(Style.PromptHost, "kruuna")}:{Style.Fg(Style.PromptPath, cwd)} [{_lastExitCode}]$ "
                 });
                 Protocol.Send(new { type = "set-prompt-masked", masked = false });
+                break;
+            case SessionMode.FtpSession:
+                // FTP session manages its own prompt via FtpSession.RefreshPrompt()
                 break;
         }
     }

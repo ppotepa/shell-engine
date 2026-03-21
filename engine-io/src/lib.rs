@@ -17,6 +17,8 @@ pub enum IoRequest {
         cols: u16,
         rows: u16,
         boot_scene: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        difficulty: Option<String>,
     },
     SetInput { text: String },
     Submit { line: String },
@@ -172,12 +174,14 @@ mod tests {
             cols: 120,
             rows: 42,
             boot_scene: true,
+            difficulty: Some("I CAN EXIT VIM".to_string()),
         })
         .unwrap();
         assert!(json.contains(r#""type":"hello""#));
         assert!(json.contains(r#""cols":120"#));
         assert!(json.contains(r#""rows":42"#));
         assert!(json.contains(r#""boot_scene":true"#));
+        assert!(json.contains(r#""difficulty":"I CAN EXIT VIM""#));
     }
 
     #[test]

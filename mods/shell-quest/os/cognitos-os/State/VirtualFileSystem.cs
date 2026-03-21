@@ -8,7 +8,17 @@ internal interface IVirtualFileSystem
     bool TryCat(string target, out string content);
 }
 
-internal sealed class ZipVirtualFileSystem : IVirtualFileSystem
+/// <summary>
+/// Extends <see cref="IVirtualFileSystem"/> with write operations.
+/// </summary>
+internal interface IMutableFileSystem : IVirtualFileSystem
+{
+    bool TryCopy(string source, string dest, out string error);
+    bool TryWrite(string path, string content, out string error);
+    bool TryMkdir(string path, out string error);
+}
+
+internal sealed class ZipVirtualFileSystem : IMutableFileSystem
 {
     private readonly string _statePath;
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
@@ -98,6 +108,55 @@ internal sealed class ZipVirtualFileSystem : IVirtualFileSystem
     public bool TryCat(string target, out string content)
     {
         return _files.TryGetValue(Normalize(target), out content!);
+    }
+
+    public bool TryCopy(string source, string dest, out string error)
+    {
+        var src = Normalize(source);
+        if (!_files.TryGetValue(src, out var content))
+        {
+            error = $"{source}: No such file or directory";
+            return false;
+        }
+        var dst = Normalize(dest);
+        _files[dst] = content;
+        RegisterParentDirectories(dst);
+        error = "";
+        return true;
+    }
+
+    public bool TryWrite(string path, string content, out string error)
+    {
+        var normalized = Normalize(path);
+        _files[normalized] = content;
+        RegisterParentDirectories(normalized);
+        error = "";
+        return true;
+    }
+
+    public bool TryMkdir(string path, out string error)
+    {
+        var normalized = Normalize(path);
+        if (normalized.Length == 0)
+        {
+            error = "invalid path";
+            return false;
+        }
+        RegisterDirectory(normalized);
+        error = "";
+        return true;
+    }
+
+    private void RegisterParentDirectories(string normalizedPath)
+    {
+        var parent = normalizedPath;
+        while (true)
+        {
+            var slash = parent.LastIndexOf('/');
+            if (slash < 0) break;
+            parent = parent[..slash];
+            _directories.Add(parent);
+        }
     }
 
     private void RegisterFile(string relativePath, ZipArchiveEntry entry)

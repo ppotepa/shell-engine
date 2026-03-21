@@ -1,3 +1,5 @@
+using CognitosOs.Core;
+
 namespace CognitosOs.State;
 
 internal enum SessionMode
@@ -6,6 +8,7 @@ internal enum SessionMode
     LoginUser,
     LoginPassword,
     Shell,
+    FtpSession,
 }
 
 internal sealed class MachineState
@@ -22,7 +25,26 @@ internal sealed class MachineState
     public List<MailMessage> MailMessages { get; set; } = new();
     public int UnreadMailCount { get; set; } = 1;
 
+    /// <summary>Hardware spec derived from difficulty. Set once at hello.</summary>
+    public MachineSpec Spec { get; set; } = MachineSpec.FromDifficulty(Difficulty.ICanExitVim);
+
+    /// <summary>Prologue quest tracking.</summary>
+    public QuestState Quest { get; set; } = new();
+
     public bool HasAccount => !string.IsNullOrWhiteSpace(UserName) && !string.IsNullOrWhiteSpace(Password);
+}
+
+/// <summary>
+/// Tracks prologue quest progress. Extensible for future quests.
+/// </summary>
+internal sealed class QuestState
+{
+    public string FtpTransferMode { get; set; } = "ascii";
+    public bool UploadAttempted { get; set; }
+    public bool BackupMade { get; set; }
+    public bool UploadSuccess { get; set; }
+    public string? FtpRemoteHost { get; set; }
+    public bool FtpConnected { get; set; }
 }
 
 internal sealed class ServiceEntry
