@@ -65,7 +65,7 @@ Wspierane są też mutacje path-based:
 - `set` (`target`, `path`, `value`),
 - API obiektowe `scene.get(...).set(...)` oraz `scene.set(...)`.
 - Dla tekstu: `text.content`, `text.font`, `style.fg`, `style.bg`.
-- Dla obiektów 3D: `obj.scale`, `obj.yaw`, `obj.pitch`, `obj.roll`, `obj.orbit_speed`, `obj.surface_mode`.
+- Dla obiektów 3D: `obj.scale`, `obj.yaw`, `obj.pitch`, `obj.roll`, `obj.orbit_speed`, `obj.surface_mode`, `obj.clip_y_min`, `obj.clip_y_max`.
 
 Dostępne wartości w scope:
 
@@ -82,6 +82,26 @@ Ten wariant jest używany m.in. przez:
 
 - `mods/playground/scenes/menu/menu.rhai`,
 - `mods/test-scenes/scenes/menu/menu.rhai`.
+- `mods/shell-quest/behaviors/portrait-materialize.yml` — scanline materialize.
+
+### portrait-materialize
+
+Behavior `portrait-materialize` kontroluje efekt przejścia wireframe→solid
+na portretach menu difficulty. Parametry: `index` (pozycja menu), `dur` (czas
+animacji w ms, domyślnie 250).
+
+Pipeline animacji:
+
+1. **Glitch phase** (0–90ms): oba sprite'y (wire + solid) migają między
+   wireframe a material z 25ms interwałem.
+2. **Scanline phase** (90ms–dur): scanline zjeżdża w dół — wire `clip_y_min`
+   rośnie, solid `clip_y_max` rośnie. Nad linią = solid, pod = wireframe.
+3. **Done** (elapsed ≥ dur): wire ukryty (`clip_y_max=0`), solid widoczny
+   (`clip_y_max=1`), oba na `yaw=0`.
+
+Oba obroty (wire + solid) są synchronizowane: `yaw = 180 - (180 * progress)`.
+
+Referencja: `mods/shell-quest/objects/difficulty-menu.yml`.
 
 Uwagi praktyczne:
 

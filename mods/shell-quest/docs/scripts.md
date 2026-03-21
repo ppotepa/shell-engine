@@ -5,6 +5,42 @@ all text here is draft / wip. simple language on purpose.
 
 ---
 
+## difficulty select (04-difficulty-select)
+
+### what it is
+
+player picks difficulty. five options shown as 3d portraits with labels.
+scene has `prerender: true` — all OBJ frames are baked synchronously before
+scene activates (no loading screen needed).
+
+### portraits
+
+each difficulty has a wire + solid sprite pair. on selection the
+`portrait-materialize` behavior runs a wireframe→solid scanline reveal:
+
+- both spin from 180° to 0° in 250ms
+- first 90ms: glitch phase (blink between wireframe and material)
+- then scanline sweeps top→bottom: solid appears above, wire below
+- ends with solid facing camera at rotation-y 220°
+
+all 5 portraits use identical animation params (`dur: 250`, `rotation-y: 220`)
+so every selection looks and feels the same.
+
+### difficulty options
+
+| key | label | codename |
+|-----|-------|----------|
+| 1 | MOUSE ENJOYER | easy |
+| 2 | SCRIPT KIDDIE | normal-easy |
+| 3 | I CAN EXIT VIM | normal |
+| 4 | DVORAK | hard |
+| 5 | SU | nightmare |
+
+all route to `05.intro.cpu-on` (boot sequence). difficulty affects
+MachineSpec (cpu, ram, nic speed) — see prologue section below.
+
+---
+
 ## prologue — the upload (september 1991)
 
 ### setting

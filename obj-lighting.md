@@ -168,6 +168,20 @@ sprites:
 
 ## Performance Notes
 
+### Render Pipeline Optimizations
+
+**Asset cache** uses `Arc<T>` — OBJ meshes are loaded once and shared via
+`Arc<ObjMesh>`, eliminating deep clones on every cache hit.
+
+**Light precomputation**: directional light normals are computed once per
+render call (2 normalize3 ops) instead of per-face (~20K per frame).
+
+**Sort optimization**: face depth keys are pre-computed in O(N) before sort,
+replacing O(N log N) redundant depth calculations in the comparator.
+
+**Prerender bake** uses `rayon::par_iter` — all (sprite × yaw × mode) frames
+are rendered across all CPU cores in parallel. See `engine/src/systems/bake.rs`.
+
 ### Snap vs Orbit
 
 **Snap teleport** (instant jumps):
@@ -250,6 +264,19 @@ let angle = if snap_hz > 0.0 {
 - Uses deterministic hash for pseudo-random positions
 - Different seeds prevent synchronized jumps
 - Applied to difficulty menu 3D portraits
+
+**March 2026**: Synchronous prerender pipeline & render optimizations
+- Scene `prerender: true` triggers blocking bake before scene activation
+- Rayon parallel bake: all frames across CPU cores
+- Arc<T> asset cache: zero-copy mesh sharing
+- Light direction precomputation, sort key precomputation
+- Bake ignores sprite clip values (always full model); clipping at display time
+
+**March 2026**: Portrait materialize effect
+- `portrait-materialize` behavior: wireframe→solid scanline reveal
+- Complementary clipping: wire `clip_y_min=scan`, solid `clip_y_max=scan`
+- CRT-like blink/jitter during first 90ms, then smooth scanline
+- All 5 difficulty portraits: unified `rotation-y: 220`, `dur: 250ms`
 
 **Commits**:
 - Snap lighting implementation and difficulty portraits
