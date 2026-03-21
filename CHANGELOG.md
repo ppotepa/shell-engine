@@ -52,6 +52,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Priority: snap > orbit > static lighting modes
   - Applied to difficulty menu 3D portraits for dramatic neon effect
 
+- **Neon edge glow effect** (March 2026)
+  - New builtin effect `neon-edge-glow`: cyberpunk-style coloured edge glow
+  - 3-ring volumetric spillover (100% → 45% → 15% falloff) from content edges
+  - Breathing pulse animation driven by `progress × speed`
+  - Params: `colour` (#rrggbb), `intensity`, `alpha` (spillover opacity), `speed`, `easing`
+  - Applied to difficulty select scene for cyberpunk Tokyo-at-night aesthetic
+
+- **Menu highlight behavior** (March 2026)
+  - New custom behavior `menu-highlight`: dynamically sets `style.fg` per menu item
+  - Selected item bright (`#88ccff`), non-selected items dim (`#1a2244`)
+  - Works with scene-level `shine` sweep — sweep only visually hits the bright selected item
+  - Attached to difficulty menu text sprites via behavior params
+
+- **Difficulty select confirm animation** (March 2026)
+  - On Enter: portrait rotates to face camera (yaw 0→320° ease-out, 500ms)
+  - Forward lean: 20° pitch tilt toward camera, held at final position
+  - Post-materialize periodic glitch: 80ms wireframe overlay flash every 2.5s
+  - Scene on_idle: looping neon-edge-glow + shine sweep cycle
+  - Scene on_leave: intense neon flash + fade-out
+
 - **Documentation expansion** (March 2026)
   - New `timeline-architecture.md` — complete timeline system documentation
   - New `obj-lighting.md` — 3D lighting features (directional, point, orbit, snap, cel)
