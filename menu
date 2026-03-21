@@ -19,21 +19,28 @@ WHITE=$'\e[97m'
 RESET=$'\e[0m'
 REVERSE=$'\e[7m'
 BLUE=$'\e[34m'
+MAGENTA=$'\e[35m'
 
 # ── data collection ─────────────────────────────────────────────────
 declare -a ITEMS=()       # display labels
 declare -a ITEM_TYPES=()  # "mod" | "scene"
 declare -a ITEM_PATHS=()  # mod dir for mod rows, scene path for scene rows
 declare -a ITEM_MOD=()    # mod dir that owns this item
+declare -a ITEM_SEARCH=() # plain-text searchable label (lowercase)
 declare -a MOD_EXPANDED=()
 declare -a MOD_INDICES=()
 declare -a MOD_NAMES_LIST=()
+
+# Search state
+SEARCH_QUERY=""
+declare -a FILTERED_IDX=()  # indices into ITEMS[] that match current query
 
 build_tree() {
   ITEMS=()
   ITEM_TYPES=()
   ITEM_PATHS=()
   ITEM_MOD=()
+  ITEM_SEARCH=()
 
   local mod_idx=0
   local dir manifest display_name
@@ -68,6 +75,7 @@ build_tree() {
     ITEM_TYPES+=("mod")
     ITEM_PATHS+=("${dir}")
     ITEM_MOD+=("${dir}")
+    ITEM_SEARCH+=("${display_name,,}")
 
     if (( MOD_EXPANDED[mod_idx] )); then
       local scenes_dir="${dir}/scenes"
@@ -102,12 +110,15 @@ build_tree() {
           ' "${scene_yml}")"
 
           local label="${scene_id:-$(basename "${scene_dir}")}"
+          local search_text="${label,,}"
+          [[ -n "${scene_title}" ]] && search_text="${search_text} ${scene_title,,}"
           [[ -n "${scene_title}" ]] && label="${label} ${DIM}— ${scene_title}${RESET}"
 
           ITEMS+=("    ${label}")
           ITEM_TYPES+=("scene")
           ITEM_PATHS+=("${scene_yml}")
           ITEM_MOD+=("${dir}")
+          ITEM_SEARCH+=("${search_text}")
         done < <(find "${scenes_dir}" -mindepth 1 -maxdepth 1 -type d | sort)
       fi
     fi
@@ -116,25 +127,57 @@ build_tree() {
   done < <(find "${MODS_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
 }
 
+# ── apply search filter ─────────────────────────────────────────────
+apply_filter() {
+  FILTERED_IDX=()
+  if [[ -z "${SEARCH_QUERY}" ]]; then
+    local i
+    for (( i = 0; i < ${#ITEMS[@]}; i++ )); do
+      FILTERED_IDX+=("$i")
+    done
+  else
+    local query="${SEARCH_QUERY,,}"
+    local i
+    for (( i = 0; i < ${#ITEMS[@]}; i++ )); do
+      # always include mods (to keep tree structure)
+      if [[ "${ITEM_TYPES[$i]}" == "mod" ]]; then
+        # include mod if any of its scenes match
+        local mod_dir="${ITEM_PATHS[$i]}"
+        local has_match=0
+        local j
+        for (( j = 0; j < ${#ITEMS[@]}; j++ )); do
+          if [[ "${ITEM_TYPES[$j]}" == "scene" && "${ITEM_MOD[$j]}" == "${mod_dir}" ]]; then
+            if [[ "${ITEM_SEARCH[$j]}" == *"${query}"* ]]; then
+              has_match=1
+              break
+            fi
+          fi
+        done
+        if (( has_match )); then
+          FILTERED_IDX+=("$i")
+        fi
+      else
+        if [[ "${ITEM_SEARCH[$i]}" == *"${query}"* ]]; then
+          FILTERED_IDX+=("$i")
+        fi
+      fi
+    done
+  fi
+}
+
 # ── find mod index for a tree row ───────────────────────────────────
 get_mod_index_for_row() {
   local row=$1
   local mod_dir="${ITEM_MOD[$row]}"
-  local i
-  for i in "${!ITEM_PATHS[@]}"; do
-    if [[ "${ITEM_TYPES[$i]}" == "mod" && "${ITEM_PATHS[$i]}" == "${mod_dir}" ]]; then
-      # find which mod_idx this is
-      local mi=0
-      local j
-      for j in "${!ITEM_PATHS[@]}"; do
-        if [[ "${ITEM_TYPES[$j]}" == "mod" ]]; then
-          if [[ "${ITEM_PATHS[$j]}" == "${mod_dir}" ]]; then
-            echo "${mi}"
-            return
-          fi
-          (( mi++ )) || true
-        fi
-      done
+  local mi=0
+  local j
+  for j in "${!ITEM_PATHS[@]}"; do
+    if [[ "${ITEM_TYPES[$j]}" == "mod" ]]; then
+      if [[ "${ITEM_PATHS[$j]}" == "${mod_dir}" ]]; then
+        echo "${mi}"
+        return
+      fi
+      (( mi++ )) || true
     fi
   done
   echo 0
@@ -142,41 +185,60 @@ get_mod_index_for_row() {
 
 # ── drawing ─────────────────────────────────────────────────────────
 draw_menu() {
-  local cur=$1
-  local total=${#ITEMS[@]}
+  local cur=$1  # cursor into FILTERED_IDX
+  local total=${#FILTERED_IDX[@]}
 
-  # move cursor to top of menu area
   printf '\e[H\e[J'
 
   echo "${BOLD}${CYAN}  Shell Quest — Mod & Scene Launcher${RESET}"
-  echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  q quit${RESET}"
-  echo ""
-
-  local i
-  for (( i = 0; i < total; i++ )); do
-    local prefix="  "
-    local line="${ITEMS[$i]}"
-
-    if (( i == cur )); then
-      if [[ "${ITEM_TYPES[$i]}" == "mod" ]]; then
-        printf "  ${REVERSE}${BOLD}${YELLOW}${line}${RESET}\n"
-      else
-        printf "  ${REVERSE}${GREEN}${line}${RESET}\n"
-      fi
-    else
-      if [[ "${ITEM_TYPES[$i]}" == "mod" ]]; then
-        printf "  ${BOLD}${WHITE}${line}${RESET}\n"
-      else
-        printf "  ${BLUE}${line}${RESET}\n"
-      fi
-    fi
-  done
-
-  echo ""
-  if [[ "${ITEM_TYPES[$cur]}" == "mod" ]]; then
-    echo "  ${DIM}mod: $(basename "${ITEM_PATHS[$cur]}")${RESET}"
+  if [[ -n "${SEARCH_QUERY}" ]]; then
+    echo "${DIM}  ↑↓ navigate  Enter launch  Esc clear search  Backspace delete${RESET}"
   else
-    echo "  ${DIM}scene: ${ITEM_PATHS[$cur]}${RESET}"
+    echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  / search  q quit${RESET}"
+  fi
+  echo ""
+
+  if (( total == 0 )); then
+    echo "  ${DIM}no matches${RESET}"
+  else
+    local i real_idx
+    for (( i = 0; i < total; i++ )); do
+      real_idx="${FILTERED_IDX[$i]}"
+      local line="${ITEMS[$real_idx]}"
+
+      if (( i == cur )); then
+        if [[ "${ITEM_TYPES[$real_idx]}" == "mod" ]]; then
+          printf "  ${REVERSE}${BOLD}${YELLOW}${line}${RESET}\n"
+        else
+          printf "  ${REVERSE}${GREEN}${line}${RESET}\n"
+        fi
+      else
+        if [[ "${ITEM_TYPES[$real_idx]}" == "mod" ]]; then
+          printf "  ${BOLD}${WHITE}${line}${RESET}\n"
+        else
+          printf "  ${BLUE}${line}${RESET}\n"
+        fi
+      fi
+    done
+  fi
+
+  echo ""
+  if [[ -n "${SEARCH_QUERY}" ]]; then
+    local scene_count=0
+    local i
+    for (( i = 0; i < total; i++ )); do
+      if [[ "${ITEM_TYPES[${FILTERED_IDX[$i]}]}" == "scene" ]]; then
+        (( scene_count++ )) || true
+      fi
+    done
+    echo "  ${MAGENTA}/${SEARCH_QUERY}${RESET}  ${DIM}(${scene_count} scene$(if (( scene_count != 1 )); then echo s; fi))${RESET}"
+  elif (( total > 0 )); then
+    local real_idx="${FILTERED_IDX[$cur]}"
+    if [[ "${ITEM_TYPES[$real_idx]}" == "mod" ]]; then
+      echo "  ${DIM}mod: $(basename "${ITEM_PATHS[$real_idx]}")${RESET}"
+    else
+      echo "  ${DIM}scene: ${ITEM_PATHS[$real_idx]}${RESET}"
+    fi
   fi
 }
 
@@ -192,11 +254,35 @@ read_key() {
   echo "${key}"
 }
 
+# ── launch a scene ──────────────────────────────────────────────────
+launch_scene() {
+  local real_idx=$1
+  local mod_dir="${ITEM_MOD[$real_idx]}"
+  local scene_yml="${ITEM_PATHS[$real_idx]}"
+  local rel_scene="${scene_yml#"${mod_dir}"/}"
+
+  printf '\e[?25h\e[?1049l'
+  trap - EXIT
+  echo "[menu] launching scene: ${rel_scene} from $(basename "${mod_dir}")"
+  "${ROOT_DIR}/launcher.sh" --mod-source "${mod_dir}" --start-scene "/${rel_scene}" --skip-splash --in-place --no-hold
+  printf '\e[?25l\e[?1049h'
+  trap 'printf "\e[?25h\e[?1049l"' EXIT
+}
+
+launch_mod() {
+  local real_idx=$1
+  printf '\e[?25h\e[?1049l'
+  trap - EXIT
+  echo "[menu] launching mod: ${ITEM_PATHS[$real_idx]}"
+  "${ROOT_DIR}/launcher.sh" --mod-source "${ITEM_PATHS[$real_idx]}" --in-place --no-hold
+  printf '\e[?25l\e[?1049h'
+  trap 'printf "\e[?25h\e[?1049l"' EXIT
+}
+
 # ── main loop ───────────────────────────────────────────────────────
 main() {
   local cursor=0
 
-  # hide cursor, enable alt screen
   printf '\e[?25l\e[?1049h'
   trap 'printf "\e[?25h\e[?1049l"' EXIT
 
@@ -208,90 +294,174 @@ main() {
     exit 1
   fi
 
+  apply_filter
+
   while true; do
+    # auto-select: if search active and exactly one scene matches, snap cursor to it
+    if [[ -n "${SEARCH_QUERY}" ]]; then
+      local scene_matches=0 last_scene_fi=-1 fi_idx
+      for (( fi_idx = 0; fi_idx < ${#FILTERED_IDX[@]}; fi_idx++ )); do
+        if [[ "${ITEM_TYPES[${FILTERED_IDX[$fi_idx]}]}" == "scene" ]]; then
+          (( scene_matches++ )) || true
+          last_scene_fi=$fi_idx
+        fi
+      done
+      if (( scene_matches == 1 && last_scene_fi >= 0 )); then
+        cursor=$last_scene_fi
+      fi
+    fi
+
     draw_menu "${cursor}"
 
     local key
     key="$(read_key)"
 
-    case "${key}" in
-      # UP arrow
-      $'\e[A')
-        if (( cursor > 0 )); then cursor=$((cursor - 1)); fi
-        ;;
-      # DOWN arrow
-      $'\e[B')
-        if (( cursor < ${#ITEMS[@]} - 1 )); then cursor=$((cursor + 1)); fi
-        ;;
-      # RIGHT arrow or Enter — expand mod / launch scene
-      $'\e[C'|'')
-        if [[ "${ITEM_TYPES[$cursor]}" == "mod" ]]; then
+    # ── search mode: typing characters ──────────────────────────────
+    if [[ -n "${SEARCH_QUERY}" ]]; then
+      case "${key}" in
+        $'\e[A') # UP
+          if (( cursor > 0 )); then cursor=$((cursor - 1)); fi
+          ;;
+        $'\e[B') # DOWN
+          if (( cursor < ${#FILTERED_IDX[@]} - 1 )); then cursor=$((cursor + 1)); fi
+          ;;
+        ''|$'\e[C') # Enter or RIGHT — launch
+          if (( ${#FILTERED_IDX[@]} > 0 )); then
+            local real_idx="${FILTERED_IDX[$cursor]}"
+            if [[ "${ITEM_TYPES[$real_idx]}" == "scene" ]]; then
+              launch_scene "$real_idx"
+              SEARCH_QUERY=""
+              apply_filter
+              cursor=0
+            fi
+          fi
+          ;;
+        $'\e') # Esc — clear search
+          SEARCH_QUERY=""
+          apply_filter
+          cursor=0
+          ;;
+        $'\x7f'|$'\b') # Backspace
+          if [[ ${#SEARCH_QUERY} -gt 0 ]]; then
+            SEARCH_QUERY="${SEARCH_QUERY%?}"
+            apply_filter
+            cursor=0
+          fi
+          if [[ -z "${SEARCH_QUERY}" ]]; then
+            apply_filter
+            cursor=0
+          fi
+          ;;
+        [[:print:]]) # any printable char → append to query
+          SEARCH_QUERY+="${key}"
+          # expand all mods so scenes are searchable
           local mi
-          mi="$(get_mod_index_for_row "${cursor}")"
-          if (( MOD_EXPANDED[mi] )); then
-            # already expanded → launch mod from entrypoint
-            printf '\e[?25h\e[?1049l'
-            trap - EXIT
-            echo "[menu] launching mod: ${ITEM_PATHS[$cursor]}"
-            "${ROOT_DIR}/launcher.sh" --mod-source "${ITEM_PATHS[$cursor]}" --in-place --no-hold
-            printf '\e[?25l\e[?1049h'
-            trap 'printf "\e[?25h\e[?1049l"' EXIT
+          for (( mi = 0; mi < ${#MOD_EXPANDED[@]}; mi++ )); do
+            MOD_EXPANDED[$mi]=1
+          done
+          MOD_INDICES=()
+          MOD_NAMES_LIST=()
+          build_tree
+          apply_filter
+          cursor=0
+          ;;
+      esac
+    else
+      # ── normal tree mode ──────────────────────────────────────────
+      case "${key}" in
+        $'\e[A') # UP
+          if (( cursor > 0 )); then cursor=$((cursor - 1)); fi
+          ;;
+        $'\e[B') # DOWN
+          if (( cursor < ${#FILTERED_IDX[@]} - 1 )); then cursor=$((cursor + 1)); fi
+          ;;
+        $'\e[C'|'') # RIGHT or Enter — expand/launch
+          if (( ${#FILTERED_IDX[@]} == 0 )); then continue; fi
+          local real_idx="${FILTERED_IDX[$cursor]}"
+          if [[ "${ITEM_TYPES[$real_idx]}" == "mod" ]]; then
+            local mi
+            mi="$(get_mod_index_for_row "$real_idx")"
+            if (( MOD_EXPANDED[mi] )); then
+              launch_mod "$real_idx"
+            else
+              MOD_EXPANDED[$mi]=1
+              local old_path="${ITEM_PATHS[$real_idx]}"
+              MOD_INDICES=()
+              MOD_NAMES_LIST=()
+              build_tree
+              apply_filter
+              local i
+              for i in "${!FILTERED_IDX[@]}"; do
+                if [[ "${ITEM_TYPES[${FILTERED_IDX[$i]}]}" == "mod" && "${ITEM_PATHS[${FILTERED_IDX[$i]}]}" == "${old_path}" ]]; then
+                  cursor=$i
+                  break
+                fi
+              done
+            fi
           else
-            MOD_EXPANDED[mi]=1
-            local old_path="${ITEM_PATHS[$cursor]}"
+            launch_scene "$real_idx"
+          fi
+          ;;
+        $'\e[D'|$'\e') # LEFT or Esc — collapse
+          if (( ${#FILTERED_IDX[@]} == 0 )); then continue; fi
+          local real_idx="${FILTERED_IDX[$cursor]}"
+          local mi
+          mi="$(get_mod_index_for_row "$real_idx")"
+          if (( MOD_EXPANDED[mi] )); then
+            MOD_EXPANDED[$mi]=0
+            local mod_dir="${ITEM_MOD[$real_idx]}"
             MOD_INDICES=()
             MOD_NAMES_LIST=()
             build_tree
-            # find cursor position after rebuild
-            for i in "${!ITEM_PATHS[@]}"; do
-              if [[ "${ITEM_TYPES[$i]}" == "mod" && "${ITEM_PATHS[$i]}" == "${old_path}" ]]; then
+            apply_filter
+            local i
+            for i in "${!FILTERED_IDX[@]}"; do
+              if [[ "${ITEM_TYPES[${FILTERED_IDX[$i]}]}" == "mod" && "${ITEM_PATHS[${FILTERED_IDX[$i]}]}" == "${mod_dir}" ]]; then
                 cursor=$i
                 break
               fi
             done
           fi
-        else
-          # scene selected — extract scene path relative to mod
-          local mod_dir="${ITEM_MOD[$cursor]}"
-          local scene_yml="${ITEM_PATHS[$cursor]}"
-          local rel_scene="${scene_yml#"${mod_dir}"/}"
-
-          printf '\e[?25h\e[?1049l'
-          trap - EXIT
-          echo "[menu] launching scene: ${rel_scene} from $(basename "${mod_dir}")"
-          "${ROOT_DIR}/launcher.sh" --mod-source "${mod_dir}" --start-scene "/${rel_scene}" --skip-splash --in-place --no-hold
-          printf '\e[?25l\e[?1049h'
-          trap 'printf "\e[?25h\e[?1049l"' EXIT
-        fi
-        ;;
-      # LEFT arrow or Esc — collapse mod
-      $'\e[D'|$'\e')
-        local mi
-        mi="$(get_mod_index_for_row "${cursor}")"
-        if (( MOD_EXPANDED[mi] )); then
-          MOD_EXPANDED[mi]=0
-          local mod_dir="${ITEM_MOD[$cursor]}"
+          ;;
+        '/') # start search
+          SEARCH_QUERY=""
+          # expand all mods
+          local mi
+          for (( mi = 0; mi < ${#MOD_EXPANDED[@]}; mi++ )); do
+            MOD_EXPANDED[$mi]=1
+          done
           MOD_INDICES=()
           MOD_NAMES_LIST=()
           build_tree
-          # find mod row after rebuild
-          for i in "${!ITEM_PATHS[@]}"; do
-            if [[ "${ITEM_TYPES[$i]}" == "mod" && "${ITEM_PATHS[$i]}" == "${mod_dir}" ]]; then
-              cursor=$i
-              break
-            fi
+          apply_filter
+          cursor=0
+          ;;
+        [[:print:]]) # direct typing also starts search
+          SEARCH_QUERY="${key}"
+          local mi
+          for (( mi = 0; mi < ${#MOD_EXPANDED[@]}; mi++ )); do
+            MOD_EXPANDED[$mi]=1
           done
-        fi
-        ;;
-      q|Q)
-        exit 0
-        ;;
-    esac
+          MOD_INDICES=()
+          MOD_NAMES_LIST=()
+          build_tree
+          apply_filter
+          cursor=0
+          ;;
+        q|Q)
+          exit 0
+          ;;
+      esac
+    fi
 
     # clamp cursor
-    local total=${#ITEMS[@]}
-    if (( cursor >= total )); then cursor=$(( total - 1 )); fi
-    if (( cursor < 0 )); then cursor=0; fi
+    local total=${#FILTERED_IDX[@]}
+    if (( total == 0 )); then
+      cursor=0
+    else
+      if (( cursor >= total )); then cursor=$(( total - 1 )); fi
+      if (( cursor < 0 )); then cursor=0; fi
+    fi
   done
 }
 
