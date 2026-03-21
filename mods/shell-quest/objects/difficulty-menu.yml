@@ -37,28 +37,28 @@ sprites:
             camera-distance: 6.15
             fov-degrees: 58
             near-clip: 0.0005
-            light-direction-x: 1.0
-            light-direction-y: 0.15
-            light-direction-z: 0.0
-            light-2-direction-x: -0.8
-            light-2-direction-y: -0.1
-            light-2-direction-z: 0.2
-            light-2-intensity: 0.7
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
             light-point-x: 0.0
-            light-point-y: 3.0
-            light-point-z: 1.0
-            light-point-intensity: 5.0
-            light-point-colour: "#254b95"
-            light-point-flicker-depth: 0.12
-            light-point-flicker-hz: 0.6
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
             light-point-snap-hz: 0.0
             light-point-2-x: 0.0
-            light-point-2-y: -2.5
-            light-point-2-z: 1.0
-            light-point-2-intensity: 3.5
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
             light-point-2-colour: "#224487"
-            light-point-2-flicker-depth: 0.08
-            light-point-2-flicker-hz: 0.9
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 0.0
             cel-levels: 3
             tone-mix: 1.0
@@ -89,28 +89,28 @@ sprites:
             camera-distance: 6.15
             fov-degrees: 58
             near-clip: 0.0005
-            light-direction-x: 1.0
-            light-direction-y: 0.15
-            light-direction-z: 0.0
-            light-2-direction-x: -0.8
-            light-2-direction-y: -0.1
-            light-2-direction-z: 0.2
-            light-2-intensity: 0.7
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
             light-point-x: 0.0
-            light-point-y: 3.0
-            light-point-z: 1.0
-            light-point-intensity: 5.0
-            light-point-colour: "#254b95"
-            light-point-flicker-depth: 0.12
-            light-point-flicker-hz: 0.6
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
             light-point-snap-hz: 0.0
             light-point-2-x: 0.0
-            light-point-2-y: -2.5
-            light-point-2-z: 1.0
-            light-point-2-intensity: 3.5
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
             light-point-2-colour: "#224487"
-            light-point-2-flicker-depth: 0.08
-            light-point-2-flicker-hz: 0.9
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 0.0
             cel-levels: 3
             tone-mix: 1.0
@@ -142,28 +142,28 @@ sprites:
             camera-distance: 6.15
             fov-degrees: 58
             near-clip: 0.0005
-            light-direction-x: 1.0
-            light-direction-y: 0.15
-            light-direction-z: 0.0
-            light-2-direction-x: -0.8
-            light-2-direction-y: -0.1
-            light-2-direction-z: 0.2
-            light-2-intensity: 0.7
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
             light-point-x: 0.0
-            light-point-y: 3.0
-            light-point-z: 1.0
-            light-point-intensity: 5.0
-            light-point-colour: "#254b95"
-            light-point-flicker-depth: 0.12
-            light-point-flicker-hz: 0.6
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
             light-point-snap-hz: 0.0
             light-point-2-x: 0.0
-            light-point-2-y: -2.5
-            light-point-2-z: 1.0
-            light-point-2-intensity: 3.5
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
             light-point-2-colour: "#224487"
-            light-point-2-flicker-depth: 0.08
-            light-point-2-flicker-hz: 0.9
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 0.0
             cel-levels: 3
             tone-mix: 1.0
@@ -195,28 +195,28 @@ sprites:
             camera-distance: 6.15
             fov-degrees: 58
             near-clip: 0.0005
-            light-direction-x: 1.0
-            light-direction-y: 0.15
-            light-direction-z: 0.0
-            light-2-direction-x: -0.8
-            light-2-direction-y: -0.1
-            light-2-direction-z: 0.2
-            light-2-intensity: 0.7
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
             light-point-x: 0.0
-            light-point-y: 3.0
-            light-point-z: 1.0
-            light-point-intensity: 5.0
-            light-point-colour: "#254b95"
-            light-point-flicker-depth: 0.12
-            light-point-flicker-hz: 0.6
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
             light-point-snap-hz: 0.0
             light-point-2-x: 0.0
-            light-point-2-y: -2.5
-            light-point-2-z: 1.0
-            light-point-2-intensity: 3.5
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
             light-point-2-colour: "#224487"
-            light-point-2-flicker-depth: 0.08
-            light-point-2-flicker-hz: 0.9
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 0.0
             cel-levels: 3
             tone-mix: 1.0
@@ -248,28 +248,28 @@ sprites:
             camera-distance: 2.15
             fov-degrees: 58
             near-clip: 0.0005
-            light-direction-x: 1.0
-            light-direction-y: 0.15
-            light-direction-z: 0.0
-            light-2-direction-x: -0.8
-            light-2-direction-y: -0.1
-            light-2-direction-z: 0.2
-            light-2-intensity: 0.7
+            light-direction-x: 0.0
+            light-direction-y: 0.4
+            light-direction-z: -0.9
+            light-2-direction-x: 0.0
+            light-2-direction-y: 0.0
+            light-2-direction-z: 0.0
+            light-2-intensity: 0.0
             light-point-x: 0.0
-            light-point-y: 3.0
-            light-point-z: 1.0
-            light-point-intensity: 5.0
-            light-point-colour: "#254b95"
-            light-point-flicker-depth: 0.12
-            light-point-flicker-hz: 0.6
+            light-point-y: 0.0
+            light-point-z: 0.0
+            light-point-intensity: 0.0
+            light-point-colour: "#224487"
+            light-point-flicker-depth: 0.0
+            light-point-flicker-hz: 0.0
             light-point-snap-hz: 0.0
             light-point-2-x: 0.0
-            light-point-2-y: -2.5
-            light-point-2-z: 1.0
-            light-point-2-intensity: 3.5
+            light-point-2-y: 0.0
+            light-point-2-z: 0.0
+            light-point-2-intensity: 0.0
             light-point-2-colour: "#224487"
-            light-point-2-flicker-depth: 0.08
-            light-point-2-flicker-hz: 0.9
+            light-point-2-flicker-depth: 0.0
+            light-point-2-flicker-hz: 0.0
             light-point-2-snap-hz: 0.0
             cel-levels: 3
             tone-mix: 1.0
