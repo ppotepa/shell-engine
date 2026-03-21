@@ -724,6 +724,7 @@ mod tests {
             input: Default::default(),
             postfx: Vec::new(),
             next: Some("playground-3d-scene".into()),
+            prerender: false,
         }
     }
 
@@ -745,6 +746,7 @@ mod tests {
             input: Default::default(),
             postfx: Vec::new(),
             next: next.map(Into::into),
+            prerender: false,
         }
     }
 

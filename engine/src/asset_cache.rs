@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 /// Shared lazy cache for optional assets loaded by key.
 pub struct AssetCache<T> {
-    inner: OnceLock<Mutex<HashMap<String, Option<T>>>>,
+    inner: OnceLock<Mutex<HashMap<String, Option<Arc<T>>>>>,
 }
 
 impl<T> AssetCache<T> {
@@ -14,8 +14,8 @@ impl<T> AssetCache<T> {
     }
 }
 
-impl<T: Clone> AssetCache<T> {
-    pub fn get_or_load<F>(&self, key: String, loader: F) -> Option<T>
+impl<T> AssetCache<T> {
+    pub fn get_or_load<F>(&self, key: String, loader: F) -> Option<Arc<T>>
     where
         F: FnOnce() -> Option<T>,
     {
@@ -26,7 +26,7 @@ impl<T: Clone> AssetCache<T> {
             }
         }
 
-        let loaded = loader();
+        let loaded = loader().map(Arc::new);
         if let Ok(mut guard) = cache.lock() {
             guard.insert(key, loaded.clone());
         }

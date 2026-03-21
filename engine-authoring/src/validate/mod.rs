@@ -115,6 +115,7 @@ mod tests {
             input: Default::default(),
             postfx: vec![],
             next: None,
+            prerender: false,
         }
     }
 
