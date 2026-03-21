@@ -144,7 +144,10 @@ fn is_quit_key(code: crossterm::event::KeyCode, modifiers: crossterm::event::Key
     modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
         && matches!(
             code,
-            crossterm::event::KeyCode::Char('c') | crossterm::event::KeyCode::Char('C')
+            crossterm::event::KeyCode::Char('c')
+                | crossterm::event::KeyCode::Char('C')
+                | crossterm::event::KeyCode::Char('q')
+                | crossterm::event::KeyCode::Char('Q')
         )
 }
 
@@ -207,10 +210,15 @@ mod tests {
     }
 
     #[test]
-    fn quit_key_includes_ctrl_c() {
+    fn quit_key_includes_ctrl_c_and_ctrl_q() {
         assert!(is_quit_key(KeyCode::Char('c'), KeyModifiers::CONTROL));
         assert!(is_quit_key(
             KeyCode::Char('C'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT
+        ));
+        assert!(is_quit_key(KeyCode::Char('q'), KeyModifiers::CONTROL));
+        assert!(is_quit_key(
+            KeyCode::Char('Q'),
             KeyModifiers::CONTROL | KeyModifiers::SHIFT
         ));
         assert!(!is_quit_key(KeyCode::Esc, KeyModifiers::NONE));
