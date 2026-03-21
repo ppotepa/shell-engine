@@ -3,6 +3,7 @@ use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
+use crate::systems::animator::{Animator, SceneStage};
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
 use engine_core::logging;
@@ -134,12 +135,24 @@ fn apply_debug_overlay(world: &mut World) {
             .scene_runtime()
             .map(|runtime| runtime.scene().id.clone())
             .unwrap_or_else(|| "unknown".to_string());
+        let stage_info = world
+            .get::<Animator>()
+            .map(|anim| {
+                let stage = match anim.stage {
+                    SceneStage::OnEnter => "on_enter",
+                    SceneStage::OnIdle => "on_idle",
+                    SceneStage::OnLeave => "on_leave",
+                    SceneStage::Done => "done",
+                };
+                format!("stage: {} ({:.1}s)", stage, anim.elapsed_ms as f64 / 1000.0)
+            })
+            .unwrap_or_else(|| "stage: -".to_string());
         let virtual_info = format_virtual_info(world);
         let script_errors: Vec<String> = world
             .get::<DebugLogBuffer>()
             .map(|log| log.recent(usize::MAX).iter().map(|entry| entry.display_line()).collect())
             .unwrap_or_default();
-        Some((scene_id, virtual_info, script_errors))
+        Some((scene_id, stage_info, virtual_info, script_errors))
     } else {
         None
     };
@@ -150,14 +163,14 @@ fn apply_debug_overlay(world: &mut World) {
 
     match debug.overlay_mode {
         DebugOverlayMode::Stats => {
-            let Some((scene_id, virtual_info, mut script_errors)) = stats_data else {
+            let Some((scene_id, stage_info, virtual_info, mut script_errors)) = stats_data else {
                 return;
             };
-            let max_errors = buf.height.saturating_sub(3) as usize;
+            let max_errors = buf.height.saturating_sub(4) as usize;
             if script_errors.len() > max_errors {
                 script_errors = script_errors.split_off(script_errors.len() - max_errors);
             }
-            apply_stats_overlay(buf, &scene_id, &virtual_info, &script_errors);
+            apply_stats_overlay(buf, &scene_id, &stage_info, &virtual_info, &script_errors);
         }
         DebugOverlayMode::Logs => {
             apply_logs_overlay(buf);
@@ -168,12 +181,14 @@ fn apply_debug_overlay(world: &mut World) {
 fn apply_stats_overlay(
     buf: &mut Buffer,
     scene_id: &str,
+    stage_info: &str,
     virtual_info: &str,
     script_errors: &[String],
 ) {
     let mut lines = vec![
         "DEBUG FEATURE MODE  [F1 overlay] [F3 prev] [F4 next]".to_string(),
         format!("scene: {scene_id}"),
+        stage_info.to_string(),
         virtual_info.to_string(),
     ];
     lines.extend(script_errors.iter().cloned());
@@ -185,9 +200,11 @@ fn apply_stats_overlay(
         if y >= buf.height {
             break;
         }
-        // Error lines get a distinct background.
+        // Error/warn lines get a distinct background.
         let line_bg = if line.starts_with("[ERR") {
             style::Color::DarkRed
+        } else if line.starts_with("[WARN") {
+            style::Color::Rgb { r: 100, g: 80, b: 0 }
         } else {
             bg
         };

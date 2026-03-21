@@ -3,8 +3,10 @@
 //! This system is intentionally thin: it forwards terminal input events to an external sidecar
 //! process and applies sidecar events back onto the scene runtime (terminal transcript + prompt).
 
+use crate::debug_log::DebugLogBuffer;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
+use engine_core::logging;
 use engine_core::scene::TerminalShellMode;
 use engine_io::{IoEvent, IoRequest, SidecarProcess};
 
@@ -73,6 +75,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
     // Drive sidecar and collect events to apply.
     let mut pending_events: Vec<IoEvent> = Vec::new();
     let mut pending_lines: Vec<String> = Vec::new();
+    let mut ipc_errors: Vec<String> = Vec::new();
 
     {
         let Some(runtime) = world.get_mut::<EngineIoRuntime>() else {
@@ -120,11 +123,13 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                             runtime.last_size = None;
                              if let Some(sidecar) = runtime.sidecar.as_ref() {
                                  if let Some((cols, rows)) = buf_size {
-                                     let _ = sidecar.send(IoRequest::Hello {
+                                     if let Err(e) = sidecar.send(IoRequest::Hello {
                                          cols,
                                          rows,
                                          boot_scene: is_boot_scene,
-                                     });
+                                     }) {
+                                         ipc_errors.push(format!("[engine-io] hello send failed: {e}"));
+                                     }
                                      runtime.last_size = Some((cols, rows));
                                  }
                              }
@@ -141,23 +146,31 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
         if let Some(sidecar) = runtime.sidecar.as_ref() {
             if let Some((cols, rows)) = buf_size {
                 if runtime.last_size != Some((cols, rows)) {
-                    let _ = sidecar.send(IoRequest::Resize { cols, rows });
+                    if let Err(e) = sidecar.send(IoRequest::Resize { cols, rows }) {
+                        ipc_errors.push(format!("[engine-io] resize send failed: {e}"));
+                    }
                     runtime.last_size = Some((cols, rows));
                 }
             }
 
-            let _ = sidecar.send(IoRequest::Tick { dt_ms });
+            if let Err(e) = sidecar.send(IoRequest::Tick { dt_ms }) {
+                ipc_errors.push(format!("[engine-io] tick send failed: {e}"));
+            }
 
             if let Some((seq, _target, text)) = submit_snapshot {
                 if seq != 0 && seq != runtime.last_submit_seq {
                     runtime.last_submit_seq = seq;
-                    let _ = sidecar.send(IoRequest::Submit { line: text });
+                    if let Err(e) = sidecar.send(IoRequest::Submit { line: text }) {
+                        ipc_errors.push(format!("[engine-io] submit send failed: {e}"));
+                    }
                 }
             }
             if let Some((seq, _target, text)) = change_snapshot {
                 if seq != 0 && seq != runtime.last_change_seq {
                     runtime.last_change_seq = seq;
-                    let _ = sidecar.send(IoRequest::SetInput { text });
+                    if let Err(e) = sidecar.send(IoRequest::SetInput { text }) {
+                        ipc_errors.push(format!("[engine-io] set-input send failed: {e}"));
+                    }
                 }
             }
 
@@ -165,18 +178,32 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                 let key_id = format!("{}:{}:{}:{}", key.code, key.ctrl, key.alt, key.shift);
                 if runtime.last_key_sent.as_deref() != Some(&key_id) {
                     runtime.last_key_sent = Some(key_id);
-                    let _ = sidecar.send(IoRequest::Key {
+                    if let Err(e) = sidecar.send(IoRequest::Key {
                         code: key.code,
                         ctrl: key.ctrl,
                         alt: key.alt,
                         shift: key.shift,
-                    });
+                    }) {
+                        ipc_errors.push(format!("[engine-io] key send failed: {e}"));
+                    }
                 }
             } else {
                 runtime.last_key_sent = None;
             }
 
             pending_events.extend(sidecar.try_drain_events(64));
+        }
+    }
+
+    // Log IPC errors to both file log and debug overlay buffer.
+    if !ipc_errors.is_empty() {
+        for msg in &ipc_errors {
+            logging::warn("engine.io", msg);
+        }
+        if let Some(log) = world.get_mut::<DebugLogBuffer>() {
+            for msg in ipc_errors {
+                log.push_warn("io", None, None, msg);
+            }
         }
     }
 
