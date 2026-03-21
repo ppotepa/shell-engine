@@ -16,7 +16,7 @@ stages:
   on_enter:
     steps:
       - { duration: 220, effects: [{ name: fade-in, duration: 220, params: { easing: ease-out } }] }
-      - { duration: 10110, effects: [{ name: scanlines, duration: 10110 }] }
+      - { duration: 2360, effects: [{ name: scanlines, duration: 2360 }] }
       - { duration: 420, effects: [{ name: fade-out, duration: 420, params: { easing: ease-in } }] }
   on_idle:
     trigger: timeout
