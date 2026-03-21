@@ -88,17 +88,44 @@ sprites:
                     if is_active {
                       let elapsed = now - t0;
                       let dur = 1200;
+                      let glitch_dur = 180;
+                      let frame_ms = 33;
                       if elapsed < dur {
-                        let steps = elapsed / 100;
-                        let yaw = (steps * 30) % 360;
+                        // 30 FPS stop-motion feel, full 360 over 1.2s
+                        let frame = elapsed / frame_ms;
+                        let yaw = (frame * 10) % 360;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
-                        let progress = (elapsed * 1.0) / 1200.0;
-                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
-                        scene.set(solid_id, "obj.clip_y_max", progress);
+
+                        // Keep face towards camera at animation start, then run scanline reveal.
+                        let scan = if elapsed < glitch_dur {
+                          0.0
+                        } else {
+                          ((elapsed - glitch_dur) * 1.0) / ((dur - glitch_dur) * 1.0)
+                        };
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - scan);
+                        scene.set(solid_id, "obj.clip_y_max", scan);
+
+                        // Retro CRT-like blink/glow jitter during the first frames.
+                        if elapsed < glitch_dur {
+                          let blink = (frame % 2) == 0;
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
+                          scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
+                          scene.set(solid_id, "obj.clip_y_min", if blink { 0.0 } else { 0.01 });
+                        } else {
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", "material");
+                          scene.set(wire_id, "obj.clip_y_min", 0.0);
+                          scene.set(solid_id, "obj.clip_y_min", 0.0);
+                        }
                       } else {
                         scene.set(wire_id, "obj.yaw", 0);
                         scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.surface_mode", "wireframe");
+                        scene.set(solid_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.clip_y_min", 0.0);
+                        scene.set(solid_id, "obj.clip_y_min", 0.0);
                         scene.set(wire_id, "obj.clip_y_max", 0.0);
                         scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
@@ -229,17 +256,44 @@ sprites:
                     if is_active {
                       let elapsed = now - t0;
                       let dur = 1200;
+                      let glitch_dur = 180;
+                      let frame_ms = 33;
                       if elapsed < dur {
-                        let steps = elapsed / 100;
-                        let yaw = (steps * 30) % 360;
+                        // 30 FPS stop-motion feel, full 360 over 1.2s
+                        let frame = elapsed / frame_ms;
+                        let yaw = (frame * 10) % 360;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
-                        let progress = (elapsed * 1.0) / 1200.0;
-                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
-                        scene.set(solid_id, "obj.clip_y_max", progress);
+
+                        // Keep face towards camera at animation start, then run scanline reveal.
+                        let scan = if elapsed < glitch_dur {
+                          0.0
+                        } else {
+                          ((elapsed - glitch_dur) * 1.0) / ((dur - glitch_dur) * 1.0)
+                        };
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - scan);
+                        scene.set(solid_id, "obj.clip_y_max", scan);
+
+                        // Retro CRT-like blink/glow jitter during the first frames.
+                        if elapsed < glitch_dur {
+                          let blink = (frame % 2) == 0;
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
+                          scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
+                          scene.set(solid_id, "obj.clip_y_min", if blink { 0.0 } else { 0.01 });
+                        } else {
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", "material");
+                          scene.set(wire_id, "obj.clip_y_min", 0.0);
+                          scene.set(solid_id, "obj.clip_y_min", 0.0);
+                        }
                       } else {
                         scene.set(wire_id, "obj.yaw", 0);
                         scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.surface_mode", "wireframe");
+                        scene.set(solid_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.clip_y_min", 0.0);
+                        scene.set(solid_id, "obj.clip_y_min", 0.0);
                         scene.set(wire_id, "obj.clip_y_max", 0.0);
                         scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
@@ -371,17 +425,44 @@ sprites:
                     if is_active {
                       let elapsed = now - t0;
                       let dur = 1200;
+                      let glitch_dur = 180;
+                      let frame_ms = 33;
                       if elapsed < dur {
-                        let steps = elapsed / 100;
-                        let yaw = (steps * 30) % 360;
+                        // 30 FPS stop-motion feel, full 360 over 1.2s
+                        let frame = elapsed / frame_ms;
+                        let yaw = (frame * 10) % 360;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
-                        let progress = (elapsed * 1.0) / 1200.0;
-                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
-                        scene.set(solid_id, "obj.clip_y_max", progress);
+
+                        // Keep face towards camera at animation start, then run scanline reveal.
+                        let scan = if elapsed < glitch_dur {
+                          0.0
+                        } else {
+                          ((elapsed - glitch_dur) * 1.0) / ((dur - glitch_dur) * 1.0)
+                        };
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - scan);
+                        scene.set(solid_id, "obj.clip_y_max", scan);
+
+                        // Retro CRT-like blink/glow jitter during the first frames.
+                        if elapsed < glitch_dur {
+                          let blink = (frame % 2) == 0;
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
+                          scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
+                          scene.set(solid_id, "obj.clip_y_min", if blink { 0.0 } else { 0.01 });
+                        } else {
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", "material");
+                          scene.set(wire_id, "obj.clip_y_min", 0.0);
+                          scene.set(solid_id, "obj.clip_y_min", 0.0);
+                        }
                       } else {
                         scene.set(wire_id, "obj.yaw", 0);
                         scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.surface_mode", "wireframe");
+                        scene.set(solid_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.clip_y_min", 0.0);
+                        scene.set(solid_id, "obj.clip_y_min", 0.0);
                         scene.set(wire_id, "obj.clip_y_max", 0.0);
                         scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
@@ -513,17 +594,44 @@ sprites:
                     if is_active {
                       let elapsed = now - t0;
                       let dur = 1200;
+                      let glitch_dur = 180;
+                      let frame_ms = 33;
                       if elapsed < dur {
-                        let steps = elapsed / 100;
-                        let yaw = (steps * 30) % 360;
+                        // 30 FPS stop-motion feel, full 360 over 1.2s
+                        let frame = elapsed / frame_ms;
+                        let yaw = (frame * 10) % 360;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
-                        let progress = (elapsed * 1.0) / 1200.0;
-                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
-                        scene.set(solid_id, "obj.clip_y_max", progress);
+
+                        // Keep face towards camera at animation start, then run scanline reveal.
+                        let scan = if elapsed < glitch_dur {
+                          0.0
+                        } else {
+                          ((elapsed - glitch_dur) * 1.0) / ((dur - glitch_dur) * 1.0)
+                        };
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - scan);
+                        scene.set(solid_id, "obj.clip_y_max", scan);
+
+                        // Retro CRT-like blink/glow jitter during the first frames.
+                        if elapsed < glitch_dur {
+                          let blink = (frame % 2) == 0;
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
+                          scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
+                          scene.set(solid_id, "obj.clip_y_min", if blink { 0.0 } else { 0.01 });
+                        } else {
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", "material");
+                          scene.set(wire_id, "obj.clip_y_min", 0.0);
+                          scene.set(solid_id, "obj.clip_y_min", 0.0);
+                        }
                       } else {
                         scene.set(wire_id, "obj.yaw", 0);
                         scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.surface_mode", "wireframe");
+                        scene.set(solid_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.clip_y_min", 0.0);
+                        scene.set(solid_id, "obj.clip_y_min", 0.0);
                         scene.set(wire_id, "obj.clip_y_max", 0.0);
                         scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
@@ -655,17 +763,44 @@ sprites:
                     if is_active {
                       let elapsed = now - t0;
                       let dur = 1200;
+                      let glitch_dur = 180;
+                      let frame_ms = 33;
                       if elapsed < dur {
-                        let steps = elapsed / 100;
-                        let yaw = (steps * 30) % 360;
+                        // 30 FPS stop-motion feel, full 360 over 1.2s
+                        let frame = elapsed / frame_ms;
+                        let yaw = (frame * 10) % 360;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
-                        let progress = (elapsed * 1.0) / 1200.0;
-                        scene.set(wire_id, "obj.clip_y_max", 1.0 - progress);
-                        scene.set(solid_id, "obj.clip_y_max", progress);
+
+                        // Keep face towards camera at animation start, then run scanline reveal.
+                        let scan = if elapsed < glitch_dur {
+                          0.0
+                        } else {
+                          ((elapsed - glitch_dur) * 1.0) / ((dur - glitch_dur) * 1.0)
+                        };
+                        scene.set(wire_id, "obj.clip_y_max", 1.0 - scan);
+                        scene.set(solid_id, "obj.clip_y_max", scan);
+
+                        // Retro CRT-like blink/glow jitter during the first frames.
+                        if elapsed < glitch_dur {
+                          let blink = (frame % 2) == 0;
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
+                          scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
+                          scene.set(solid_id, "obj.clip_y_min", if blink { 0.0 } else { 0.01 });
+                        } else {
+                          scene.set(wire_id, "obj.surface_mode", "wireframe");
+                          scene.set(solid_id, "obj.surface_mode", "material");
+                          scene.set(wire_id, "obj.clip_y_min", 0.0);
+                          scene.set(solid_id, "obj.clip_y_min", 0.0);
+                        }
                       } else {
                         scene.set(wire_id, "obj.yaw", 0);
                         scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.surface_mode", "wireframe");
+                        scene.set(solid_id, "obj.surface_mode", "material");
+                        scene.set(wire_id, "obj.clip_y_min", 0.0);
+                        scene.set(solid_id, "obj.clip_y_min", 0.0);
                         scene.set(wire_id, "obj.clip_y_max", 0.0);
                         scene.set(solid_id, "obj.clip_y_max", 1.0);
                       }
