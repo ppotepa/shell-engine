@@ -23,10 +23,47 @@ pub struct SceneDocument {
 
 impl SceneDocument {
     /// Normalizes authored YAML and materializes the runtime [`Scene`] model.
+    /// 
+    /// In debug mode, validates sprite timeline and logs warnings for sprites
+    /// that will never be visible.
     pub fn compile(self) -> Result<Scene, serde_yaml::Error> {
         let mut normalized = self.raw;
         normalize_scene_value(&mut normalized)?;
-        serde_yaml::from_value(normalized)
+        let scene: Scene = serde_yaml::from_value(normalized)?;
+        
+        #[cfg(debug_assertions)]
+        {
+            use crate::validate::validate_sprite_timeline;
+            let diagnostics = validate_sprite_timeline(&scene);
+            for diag in diagnostics {
+                match diag {
+                    crate::validate::TimelineDiagnostic::SpriteAppearsAfterSceneEnd {
+                        layer_name,
+                        sprite_index,
+                        appear_at_ms,
+                        scene_duration_ms,
+                    } => {
+                        eprintln!(
+                            "⚠️  Scene '{}': sprite #{} in layer '{}' has appear_at_ms={} but on_enter ends at {}ms (sprite will never be visible)",
+                            scene.id, sprite_index, layer_name, appear_at_ms, scene_duration_ms
+                        );
+                    }
+                    crate::validate::TimelineDiagnostic::SpriteDisappearsBeforeAppear {
+                        layer_name,
+                        sprite_index,
+                        appear_at_ms,
+                        disappear_at_ms,
+                    } => {
+                        eprintln!(
+                            "⚠️  Scene '{}': sprite #{} in layer '{}' disappears at {}ms before appearing at {}ms (always hidden)",
+                            scene.id, sprite_index, layer_name, disappear_at_ms, appear_at_ms
+                        );
+                    }
+                }
+            }
+        }
+        
+        Ok(scene)
     }
 }
 

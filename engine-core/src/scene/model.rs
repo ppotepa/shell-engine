@@ -285,6 +285,13 @@ pub struct Stage {
     pub looping: bool,
 }
 
+impl Stage {
+    /// Total duration of this stage = sum of all step durations.
+    pub fn duration_ms(&self) -> u64 {
+        self.steps.iter().map(|step| step.duration_ms()).sum()
+    }
+}
+
 /// Scene-level lifecycle stages materialized from authored stage YAML.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct SceneStages {
@@ -635,6 +642,14 @@ pub struct Scene {
     #[serde(default)]
     pub postfx: Vec<Effect>,
     pub next: Option<String>,
+}
+
+impl Scene {
+    /// Total duration of the on_enter stage in milliseconds.
+    /// This is the primary cutscene/intro duration for most scenes.
+    pub fn on_enter_duration_ms(&self) -> u64 {
+        self.stages.on_enter.duration_ms()
+    }
 }
 
 #[cfg(test)]
