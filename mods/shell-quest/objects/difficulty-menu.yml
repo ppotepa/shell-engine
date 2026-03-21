@@ -29,7 +29,7 @@ sprites:
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: material
+            surface-mode: wireframe
             force-renderer-mode: halfblock
             rotation-y: 270
             pitch-deg: -8
@@ -70,6 +70,36 @@ sprites:
               - name: menu-selected
                 params:
                   index: 0
+              - name: rhai-script
+                params:
+                  index: 0
+                  script: |
+                    let idx = params.index;
+                    let my_id = `difficulty-face-${idx}`;
+                    let sel = menu.selected_index;
+                    let now = time.scene_elapsed_ms;
+                    let is_first = state.type_of() != "map";
+                    let was_active = if is_first { false } else { state.active };
+                    let t0 = if is_first { 0 } else { state.t0 };
+                    let is_active = sel == idx;
+                    if is_active && !was_active { t0 = now; }
+                    if is_active {
+                      let elapsed = now - t0;
+                      if elapsed < 800 {
+                        let steps = elapsed / 65;
+                        let yaw = (steps * 30) % 360;
+                        scene.set(my_id, "obj.yaw", yaw);
+                        if elapsed < 400 {
+                          scene.set(my_id, "obj.surface_mode", "wireframe");
+                        } else {
+                          scene.set(my_id, "obj.surface_mode", "material");
+                        }
+                      } else {
+                        scene.set(my_id, "obj.yaw", 0);
+                        scene.set(my_id, "obj.surface_mode", "material");
+                      }
+                    }
+                    #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-1
             source: "/assets/3d/sculpts/script-kiddie.obj"
@@ -81,7 +111,7 @@ sprites:
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: material
+            surface-mode: wireframe
             force-renderer-mode: halfblock
             rotation-y: 220
             pitch-deg: -8
@@ -123,6 +153,36 @@ sprites:
               - name: menu-selected
                 params:
                   index: 1
+              - name: rhai-script
+                params:
+                  index: 1
+                  script: |
+                    let idx = params.index;
+                    let my_id = `difficulty-face-${idx}`;
+                    let sel = menu.selected_index;
+                    let now = time.scene_elapsed_ms;
+                    let is_first = state.type_of() != "map";
+                    let was_active = if is_first { false } else { state.active };
+                    let t0 = if is_first { 0 } else { state.t0 };
+                    let is_active = sel == idx;
+                    if is_active && !was_active { t0 = now; }
+                    if is_active {
+                      let elapsed = now - t0;
+                      if elapsed < 800 {
+                        let steps = elapsed / 65;
+                        let yaw = (steps * 30) % 360;
+                        scene.set(my_id, "obj.yaw", yaw);
+                        if elapsed < 400 {
+                          scene.set(my_id, "obj.surface_mode", "wireframe");
+                        } else {
+                          scene.set(my_id, "obj.surface_mode", "material");
+                        }
+                      } else {
+                        scene.set(my_id, "obj.yaw", 0);
+                        scene.set(my_id, "obj.surface_mode", "material");
+                      }
+                    }
+                    #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-2
             source: "/assets/3d/sculpts/can-exit-vim.obj"
@@ -134,9 +194,9 @@ sprites:
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: material
+            surface-mode: wireframe
             force-renderer-mode: halfblock
-            rotation-y: 0
+            rotation-y: 120
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
             camera-distance: 6.15
@@ -176,6 +236,36 @@ sprites:
               - name: menu-selected
                 params:
                   index: 2
+              - name: rhai-script
+                params:
+                  index: 2
+                  script: |
+                    let idx = params.index;
+                    let my_id = `difficulty-face-${idx}`;
+                    let sel = menu.selected_index;
+                    let now = time.scene_elapsed_ms;
+                    let is_first = state.type_of() != "map";
+                    let was_active = if is_first { false } else { state.active };
+                    let t0 = if is_first { 0 } else { state.t0 };
+                    let is_active = sel == idx;
+                    if is_active && !was_active { t0 = now; }
+                    if is_active {
+                      let elapsed = now - t0;
+                      if elapsed < 800 {
+                        let steps = elapsed / 65;
+                        let yaw = (steps * 30) % 360;
+                        scene.set(my_id, "obj.yaw", yaw);
+                        if elapsed < 400 {
+                          scene.set(my_id, "obj.surface_mode", "wireframe");
+                        } else {
+                          scene.set(my_id, "obj.surface_mode", "material");
+                        }
+                      } else {
+                        scene.set(my_id, "obj.yaw", 0);
+                        scene.set(my_id, "obj.surface_mode", "material");
+                      }
+                    }
+                    #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-3
             source: "/assets/3d/sculpts/dvorak.obj"
@@ -187,7 +277,7 @@ sprites:
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: material
+            surface-mode: wireframe
             force-renderer-mode: halfblock
             rotation-y: 140
             pitch-deg: -8
@@ -229,6 +319,36 @@ sprites:
               - name: menu-selected
                 params:
                   index: 3
+              - name: rhai-script
+                params:
+                  index: 3
+                  script: |
+                    let idx = params.index;
+                    let my_id = `difficulty-face-${idx}`;
+                    let sel = menu.selected_index;
+                    let now = time.scene_elapsed_ms;
+                    let is_first = state.type_of() != "map";
+                    let was_active = if is_first { false } else { state.active };
+                    let t0 = if is_first { 0 } else { state.t0 };
+                    let is_active = sel == idx;
+                    if is_active && !was_active { t0 = now; }
+                    if is_active {
+                      let elapsed = now - t0;
+                      if elapsed < 800 {
+                        let steps = elapsed / 65;
+                        let yaw = (steps * 30) % 360;
+                        scene.set(my_id, "obj.yaw", yaw);
+                        if elapsed < 400 {
+                          scene.set(my_id, "obj.surface_mode", "wireframe");
+                        } else {
+                          scene.set(my_id, "obj.surface_mode", "material");
+                        }
+                      } else {
+                        scene.set(my_id, "obj.yaw", 0);
+                        scene.set(my_id, "obj.surface_mode", "material");
+                      }
+                    }
+                    #{ state: #{ active: is_active, t0: t0 } }
           - type: obj
             id: difficulty-face-4
             source: "/assets/3d/sculpts/su.obj"
@@ -240,9 +360,9 @@ sprites:
             width: 150
             height: 100
             scale: 4.65
-            surface-mode: material
+            surface-mode: wireframe
             force-renderer-mode: halfblock
-            rotation-y: 270
+            rotation-y: 200
             pitch-deg: -8
             rotate-y-deg-per-sec: 0
             camera-distance: 6.15
@@ -282,6 +402,36 @@ sprites:
               - name: menu-selected
                 params:
                   index: 4
+              - name: rhai-script
+                params:
+                  index: 4
+                  script: |
+                    let idx = params.index;
+                    let my_id = `difficulty-face-${idx}`;
+                    let sel = menu.selected_index;
+                    let now = time.scene_elapsed_ms;
+                    let is_first = state.type_of() != "map";
+                    let was_active = if is_first { false } else { state.active };
+                    let t0 = if is_first { 0 } else { state.t0 };
+                    let is_active = sel == idx;
+                    if is_active && !was_active { t0 = now; }
+                    if is_active {
+                      let elapsed = now - t0;
+                      if elapsed < 800 {
+                        let steps = elapsed / 65;
+                        let yaw = (steps * 30) % 360;
+                        scene.set(my_id, "obj.yaw", yaw);
+                        if elapsed < 400 {
+                          scene.set(my_id, "obj.surface_mode", "wireframe");
+                        } else {
+                          scene.set(my_id, "obj.surface_mode", "material");
+                        }
+                      } else {
+                        scene.set(my_id, "obj.yaw", 0);
+                        scene.set(my_id, "obj.surface_mode", "material");
+                      }
+                    }
+                    #{ state: #{ active: is_active, t0: t0 } }
 
       - type: grid
         id: difficulty-right-panel
