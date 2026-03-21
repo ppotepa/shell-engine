@@ -9,13 +9,35 @@ if [[ ! -d "${MODS_DIR}" ]]; then
   exit 1
 fi
 
-collect_mods() {
-  local -n _out_paths=$1
-  local -n _out_names=$2
-  _out_paths=()
-  _out_names=()
+# ── colours ──────────────────────────────────────────────────────────
+BOLD=$'\e[1m'
+DIM=$'\e[2m'
+CYAN=$'\e[36m'
+YELLOW=$'\e[33m'
+GREEN=$'\e[32m'
+WHITE=$'\e[97m'
+RESET=$'\e[0m'
+REVERSE=$'\e[7m'
+BLUE=$'\e[34m'
 
+# ── data collection ─────────────────────────────────────────────────
+declare -a ITEMS=()       # display labels
+declare -a ITEM_TYPES=()  # "mod" | "scene"
+declare -a ITEM_PATHS=()  # mod dir for mod rows, scene path for scene rows
+declare -a ITEM_MOD=()    # mod dir that owns this item
+declare -a MOD_EXPANDED=()
+declare -a MOD_INDICES=()
+declare -a MOD_NAMES_LIST=()
+
+build_tree() {
+  ITEMS=()
+  ITEM_TYPES=()
+  ITEM_PATHS=()
+  ITEM_MOD=()
+
+  local mod_idx=0
   local dir manifest display_name
+
   while IFS= read -r dir; do
     manifest="${dir}/mod.yaml"
     [[ -f "${manifest}" ]] || continue
@@ -28,58 +50,249 @@ collect_mods() {
         exit
       }
     ' "${manifest}")"
+    [[ -z "${display_name}" ]] && display_name="$(basename "${dir}")"
 
-    if [[ -z "${display_name}" ]]; then
-      display_name="$(basename "${dir}")"
+    # store mod index mapping
+    MOD_INDICES+=("${#ITEMS[@]}")
+    MOD_NAMES_LIST+=("${display_name}")
+
+    # default expand state
+    if [[ -z "${MOD_EXPANDED[mod_idx]+x}" ]]; then
+      MOD_EXPANDED[mod_idx]=0
     fi
 
-    _out_paths+=("${dir}")
-    _out_names+=("${display_name}")
+    local arrow="▶"
+    (( MOD_EXPANDED[mod_idx] )) && arrow="▼"
+
+    ITEMS+=("${arrow} ${display_name}")
+    ITEM_TYPES+=("mod")
+    ITEM_PATHS+=("${dir}")
+    ITEM_MOD+=("${dir}")
+
+    if (( MOD_EXPANDED[mod_idx] )); then
+      local scenes_dir="${dir}/scenes"
+      if [[ -d "${scenes_dir}" ]]; then
+        local scene_dir scene_yml scene_id scene_title
+        while IFS= read -r scene_dir; do
+          scene_yml=""
+          if [[ -f "${scene_dir}/scene.yml" ]]; then
+            scene_yml="${scene_dir}/scene.yml"
+          elif [[ -f "${scene_dir}.yml" ]]; then
+            scene_yml="${scene_dir}.yml"
+          else
+            continue
+          fi
+
+          scene_id="$(awk '
+            /^[[:space:]]*id:[[:space:]]*/ {
+              sub(/^[[:space:]]*id:[[:space:]]*/, "", $0)
+              gsub(/^"|"$/, "", $0)
+              print $0
+              exit
+            }
+          ' "${scene_yml}")"
+
+          scene_title="$(awk '
+            /^[[:space:]]*title:[[:space:]]*/ {
+              sub(/^[[:space:]]*title:[[:space:]]*/, "", $0)
+              gsub(/^"|"$/, "", $0)
+              print $0
+              exit
+            }
+          ' "${scene_yml}")"
+
+          local label="${scene_id:-$(basename "${scene_dir}")}"
+          [[ -n "${scene_title}" ]] && label="${label} ${DIM}— ${scene_title}${RESET}"
+
+          ITEMS+=("    ${label}")
+          ITEM_TYPES+=("scene")
+          ITEM_PATHS+=("${scene_yml}")
+          ITEM_MOD+=("${dir}")
+        done < <(find "${scenes_dir}" -mindepth 1 -maxdepth 1 -type d | sort)
+      fi
+    fi
+
+    (( mod_idx++ )) || true
   done < <(find "${MODS_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
 }
 
+# ── find mod index for a tree row ───────────────────────────────────
+get_mod_index_for_row() {
+  local row=$1
+  local mod_dir="${ITEM_MOD[$row]}"
+  local i
+  for i in "${!ITEM_PATHS[@]}"; do
+    if [[ "${ITEM_TYPES[$i]}" == "mod" && "${ITEM_PATHS[$i]}" == "${mod_dir}" ]]; then
+      # find which mod_idx this is
+      local mi=0
+      local j
+      for j in "${!ITEM_PATHS[@]}"; do
+        if [[ "${ITEM_TYPES[$j]}" == "mod" ]]; then
+          if [[ "${ITEM_PATHS[$j]}" == "${mod_dir}" ]]; then
+            echo "${mi}"
+            return
+          fi
+          (( mi++ )) || true
+        fi
+      done
+    fi
+  done
+  echo 0
+}
+
+# ── drawing ─────────────────────────────────────────────────────────
+draw_menu() {
+  local cur=$1
+  local total=${#ITEMS[@]}
+
+  # move cursor to top of menu area
+  printf '\e[H\e[J'
+
+  echo "${BOLD}${CYAN}  Shell Quest — Mod & Scene Launcher${RESET}"
+  echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  q quit${RESET}"
+  echo ""
+
+  local i
+  for (( i = 0; i < total; i++ )); do
+    local prefix="  "
+    local line="${ITEMS[$i]}"
+
+    if (( i == cur )); then
+      if [[ "${ITEM_TYPES[$i]}" == "mod" ]]; then
+        printf "  ${REVERSE}${BOLD}${YELLOW}${line}${RESET}\n"
+      else
+        printf "  ${REVERSE}${GREEN}${line}${RESET}\n"
+      fi
+    else
+      if [[ "${ITEM_TYPES[$i]}" == "mod" ]]; then
+        printf "  ${BOLD}${WHITE}${line}${RESET}\n"
+      else
+        printf "  ${BLUE}${line}${RESET}\n"
+      fi
+    fi
+  done
+
+  echo ""
+  if [[ "${ITEM_TYPES[$cur]}" == "mod" ]]; then
+    echo "  ${DIM}mod: $(basename "${ITEM_PATHS[$cur]}")${RESET}"
+  else
+    echo "  ${DIM}scene: ${ITEM_PATHS[$cur]}${RESET}"
+  fi
+}
+
+# ── read single keypress ────────────────────────────────────────────
+read_key() {
+  local key
+  IFS= read -rsn1 key
+  if [[ "${key}" == $'\e' ]]; then
+    local seq
+    IFS= read -rsn2 -t 0.05 seq || true
+    key="${key}${seq}"
+  fi
+  echo "${key}"
+}
+
+# ── main loop ───────────────────────────────────────────────────────
 main() {
-  local -a mod_paths=()
-  local -a mod_names=()
-  local count choice idx selected
+  local cursor=0
+
+  # hide cursor, enable alt screen
+  printf '\e[?25l\e[?1049h'
+  trap 'printf "\e[?25h\e[?1049l"' EXIT
+
+  build_tree
+
+  if (( ${#ITEMS[@]} == 0 )); then
+    printf '\e[?25h\e[?1049l'
+    echo "[menu] no mods found under ${MODS_DIR}" >&2
+    exit 1
+  fi
 
   while true; do
-    collect_mods mod_paths mod_names
-    count=${#mod_paths[@]}
+    draw_menu "${cursor}"
 
-    if (( count == 0 )); then
-      echo "[menu] no mods found under ${MODS_DIR}" >&2
-      exit 1
-    fi
+    local key
+    key="$(read_key)"
 
-    echo
-    echo "Shell Quest mod menu"
-    echo "--------------------"
-    for idx in "${!mod_paths[@]}"; do
-      printf "%2d) %s (%s)\n" "$((idx + 1))" "${mod_names[idx]}" "$(basename "${mod_paths[idx]}")"
-    done
-    echo " q) exit"
-    echo
+    case "${key}" in
+      # UP arrow
+      $'\e[A')
+        (( cursor > 0 )) && (( cursor-- ))
+        ;;
+      # DOWN arrow
+      $'\e[B')
+        (( cursor < ${#ITEMS[@]} - 1 )) && (( cursor++ ))
+        ;;
+      # RIGHT arrow or Enter — expand mod / launch scene
+      $'\e[C'|'')
+        if [[ "${ITEM_TYPES[$cursor]}" == "mod" ]]; then
+          local mi
+          mi="$(get_mod_index_for_row "${cursor}")"
+          if (( MOD_EXPANDED[mi] )); then
+            # already expanded → launch mod from entrypoint
+            printf '\e[?25h\e[?1049l'
+            trap - EXIT
+            echo "[menu] launching mod: ${ITEM_PATHS[$cursor]}"
+            "${ROOT_DIR}/launcher.sh" --mod-source "${ITEM_PATHS[$cursor]}" --in-place --no-hold
+            printf '\e[?25l\e[?1049h'
+            trap 'printf "\e[?25h\e[?1049l"' EXIT
+          else
+            MOD_EXPANDED[mi]=1
+            local old_path="${ITEM_PATHS[$cursor]}"
+            MOD_INDICES=()
+            MOD_NAMES_LIST=()
+            build_tree
+            # find cursor position after rebuild
+            for i in "${!ITEM_PATHS[@]}"; do
+              if [[ "${ITEM_TYPES[$i]}" == "mod" && "${ITEM_PATHS[$i]}" == "${old_path}" ]]; then
+                cursor=$i
+                break
+              fi
+            done
+          fi
+        else
+          # scene selected — extract scene path relative to mod
+          local mod_dir="${ITEM_MOD[$cursor]}"
+          local scene_yml="${ITEM_PATHS[$cursor]}"
+          local rel_scene="${scene_yml#"${mod_dir}"/}"
 
-    read -r -p "Choose mod [1-${count}] or q: " choice
+          printf '\e[?25h\e[?1049l'
+          trap - EXIT
+          echo "[menu] launching scene: ${rel_scene} from $(basename "${mod_dir}")"
+          SHELL_QUEST_START_SCENE="/${rel_scene}" \
+            "${ROOT_DIR}/launcher.sh" --mod-source "${mod_dir}" --in-place --no-hold
+          printf '\e[?25l\e[?1049h'
+          trap 'printf "\e[?25h\e[?1049l"' EXIT
+        fi
+        ;;
+      # LEFT arrow or Esc — collapse mod
+      $'\e[D'|$'\e')
+        local mi
+        mi="$(get_mod_index_for_row "${cursor}")"
+        if (( MOD_EXPANDED[mi] )); then
+          MOD_EXPANDED[mi]=0
+          local mod_dir="${ITEM_MOD[$cursor]}"
+          MOD_INDICES=()
+          MOD_NAMES_LIST=()
+          build_tree
+          # find mod row after rebuild
+          for i in "${!ITEM_PATHS[@]}"; do
+            if [[ "${ITEM_TYPES[$i]}" == "mod" && "${ITEM_PATHS[$i]}" == "${mod_dir}" ]]; then
+              cursor=$i
+              break
+            fi
+          done
+        fi
+        ;;
+      q|Q)
+        exit 0
+        ;;
+    esac
 
-    if [[ "${choice}" == "q" || "${choice}" == "Q" ]]; then
-      exit 0
-    fi
-
-    if ! [[ "${choice}" =~ ^[0-9]+$ ]]; then
-      echo "[menu] invalid choice: ${choice}" >&2
-      continue
-    fi
-
-    if (( choice < 1 || choice > count )); then
-      echo "[menu] choice out of range: ${choice}" >&2
-      continue
-    fi
-
-    selected="${mod_paths[choice - 1]}"
-    echo "[menu] launching: ${selected}"
-    "${ROOT_DIR}/launcher.sh" --mod-source "${selected}" --in-place --no-hold
+    # clamp cursor
+    local total=${#ITEMS[@]}
+    (( cursor >= total )) && cursor=$(( total - 1 ))
+    (( cursor < 0 )) && cursor=0
   done
 }
 
