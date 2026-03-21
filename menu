@@ -62,7 +62,7 @@ build_tree() {
     fi
 
     local arrow="▶"
-    (( MOD_EXPANDED[mod_idx] )) && arrow="▼"
+    if (( MOD_EXPANDED[mod_idx] )); then arrow="▼"; fi
 
     ITEMS+=("${arrow} ${display_name}")
     ITEM_TYPES+=("mod")
@@ -217,11 +217,11 @@ main() {
     case "${key}" in
       # UP arrow
       $'\e[A')
-        (( cursor > 0 )) && (( cursor-- ))
+        if (( cursor > 0 )); then cursor=$((cursor - 1)); fi
         ;;
       # DOWN arrow
       $'\e[B')
-        (( cursor < ${#ITEMS[@]} - 1 )) && (( cursor++ ))
+        if (( cursor < ${#ITEMS[@]} - 1 )); then cursor=$((cursor + 1)); fi
         ;;
       # RIGHT arrow or Enter — expand mod / launch scene
       $'\e[C'|'')
@@ -291,8 +291,8 @@ main() {
 
     # clamp cursor
     local total=${#ITEMS[@]}
-    (( cursor >= total )) && cursor=$(( total - 1 ))
-    (( cursor < 0 )) && cursor=0
+    if (( cursor >= total )); then cursor=$(( total - 1 )); fi
+    if (( cursor < 0 )); then cursor=0; fi
   done
 }
 
