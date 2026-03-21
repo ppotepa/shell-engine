@@ -7,3 +7,4 @@
 2026-03-21 12:01:42.736 [2825916] [app] [INFO ] [engine.scene] loaded entry scene: id=00.intro.logo title=00 Intro Logo
 2026-03-21 12:15:52.060 [2825916] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=00.intro.logo
 2026-03-21 12:15:52.429 [2825916] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=00.intro.logo
+2026-03-21 12:19:34.051 [2825916] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=00.intro.logo

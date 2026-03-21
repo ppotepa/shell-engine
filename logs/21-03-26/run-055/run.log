@@ -22,3 +22,4 @@
 2026-03-21 10:40:52.928 [2810400] [app] [INFO ] [engine.scene] transition applied: active_scene=mainmenu title=Main Menu
 2026-03-21 12:15:52.123 [2810400] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
 2026-03-21 12:15:52.496 [2810400] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu
+2026-03-21 12:19:34.008 [2810400] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=mainmenu

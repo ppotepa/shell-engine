@@ -1,7 +1,7 @@
 let t = time.scene_elapsed_ms;
 let text = " ";
 
-if t >= 3000 && t < 6200 {
+if t >= 3000 && t < 7400 {
     text = `TUX Modular BIOS v1.90, 1990 edition
 Copyright (C) 1990, TUX Software, Inc.
 * TUX AWARDS BIOS Extension v1.0A
@@ -18,16 +18,7 @@ Copyright (C) 1990, TUX Software, Inc.
         let s = if step > 16 { 16 } else { step };
         text += `Checking RAM: ${s * 128}KB
 `;
-    } else if t >= 5500 && t < 6200 {
-        let blink = ((t - 5500) / 175) % 4;
-        if blink == 0 || blink == 2 {
-            text += `[white]Checking RAM: 2048KB OK[/]
-`;
-        } else {
-            text += `Checking RAM: 2048KB OK
-`;
-        }
-    } else if t >= 6200 {
+    } else if t >= 5500 {
         text += `[white]Checking RAM: 2048KB OK[/]
 `;
     }
@@ -44,7 +35,7 @@ Copyright (C) 1990, TUX Software, Inc.
         text += `Hard drive 0: SETAGE ST225 20MB
 `;
     }
-} else if t >= 7400 && t < 8900 {
+} else if t >= 7400 && t < 10000 {
     text = `+------------------------------------------------------------------+
 | TUX HyperBIOS device listing                     19/09/90 04:12 |
 +------------------------------------------------------------------+
