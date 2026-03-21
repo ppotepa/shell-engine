@@ -48,8 +48,8 @@ fn collect_from_sprites(
                 force_renderer_mode,
                 surface_mode: _,
                 backface_cull,
-                clip_y_min,
-                clip_y_max,
+                clip_y_min: _,
+                clip_y_max: _,
                 scale,
                 yaw_deg: _,
                 pitch_deg,
@@ -165,8 +165,8 @@ fn collect_from_sprites(
                     camera_pan_y: 0.0,
                     camera_look_yaw: 0.0,
                     camera_look_pitch: 0.0,
-                    clip_y_min: clip_y_min.unwrap_or(0.0),
-                    clip_y_max: clip_y_max.unwrap_or(1.0),
+                    clip_y_min: 0.0, // always bake full model; clipping applied at render time
+                    clip_y_max: 1.0,
                 };
 
                 targets.push(BakeTarget {
