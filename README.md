@@ -7,7 +7,7 @@ after ~20 years of coding, regular programming lost its appeal — but building 
 shell quest runs entirely in the terminal with inherent limitations. the aesthetic is **lo-fi by design** due to budget constraints, paired with **cyber-noire cutscene graphics**. gameplay is terminal-native, where bash commands become your spells and powers. difficulty levels affect simulated machine resources (ram, cpu). the world is open-ended using real state machines under the hood, styled as retro dos text-adventure.
 
 core philosophy: lean on **freedom** in design. no closed ecosystems. awkward in small talk, comfortable in building systems.
-
+decided to remove **RED** colour from the intro cutscenee, as RED was bad
 this is a work-in-progress playground.
 
 ---
