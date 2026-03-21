@@ -12,6 +12,7 @@ internal interface ICommand
 internal interface IOperatingSystem
 {
     MachineState State { get; }
+    MachineSpec Spec { get; }
     IReadOnlyDictionary<string, ICommand> CommandIndex { get; }
     IVirtualFileSystem FileSystem { get; }
     void Tick(ulong dtMs);
