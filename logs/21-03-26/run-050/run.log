@@ -18,3 +18,5 @@
 2026-03-21 06:03:21.588 [2802537] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
 2026-03-21 06:08:45.547 [2802537] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
 2026-03-21 06:12:43.237 [2802537] [app] [INFO ] [engine.hot-reload] reloaded active scene in debug mode: id=intro-difficulty-select
+2026-03-21 06:13:24.493 [2802537] [app] [INFO ] [engine.run] engine loop exited cleanly
+2026-03-21 06:13:24.494 [2802537] [app] [INFO ] [app.main] engine run finished successfully

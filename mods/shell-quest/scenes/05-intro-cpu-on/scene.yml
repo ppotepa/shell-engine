@@ -64,7 +64,7 @@ audio:
 stages:
   on_enter:
     steps:
-      - { pause: 3000ms }
+      - { pause: 9500ms }
   on_idle:
     trigger: timeout
     steps: [{ pause: 1ms }]

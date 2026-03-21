@@ -15,14 +15,14 @@ layers:
 stages:
   on_enter:
     steps:
-      - pause: 3000ms
+      - pause: 200ms
       - {
-          duration: 720,
+          duration: 400,
           effects:
-            [{ name: crt-on, duration: 720, params: { easing: ease-out } }],
+            [{ name: crt-on, duration: 400, params: { easing: ease-out } }],
         }
-      # Align enter duration with prompt visibility (appear_at_ms: 8500) so the first key press works immediately.
-      - pause: 4780ms
+      # Align enter duration with prompt visibility (appear_at_ms: 2000) so the first key press works immediately.
+      - pause: 1400ms
 
   on_idle:
     trigger: any-key
