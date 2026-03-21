@@ -193,8 +193,9 @@ internal sealed class FtpSession
             return;
         }
 
-        // Resolve from local filesystem
-        if (!_os.FileSystem.TryCat(fileName, out var content))
+        // Resolve from local filesystem relative to shell cwd
+        var resolved = ResolveLocalPath(fileName);
+        if (!_os.FileSystem.TryCat(resolved, out var content))
         {
             _screen.Append($"local: {fileName}: No such file or directory");
             return;
@@ -208,17 +209,13 @@ internal sealed class FtpSession
 
         _os.State.Quest.UploadAttempted = true;
 
-        // Simulate transfer time based on NIC speed
         var transferTimeMs = (sizeBytes * 8) / Math.Max(spec.NicSpeedKbps, 1);
         _screen.Append($"226 Transfer complete.");
         _screen.Append($"{sizeBytes} bytes sent in {transferTimeMs / 1000.0:F1} seconds.");
 
         if (_transferMode == "ascii")
         {
-            // ASCII mode corrupts binary archives — this is THE prologue puzzle
             _os.State.Quest.UploadSuccess = false;
-
-            // Delayed remote response — file is corrupt
             _screen.Append("");
             _screen.Append(Style.Fg(Style.Warn,
                 $"remote: warning: {fileName} - uncompress failed, archive may be damaged"));
@@ -227,7 +224,6 @@ internal sealed class FtpSession
         }
         else
         {
-            // Binary mode — correct transfer
             _os.State.Quest.UploadSuccess = true;
             _screen.Append("");
             _screen.Append(Style.Fg(Style.Info,
@@ -330,5 +326,15 @@ internal sealed class FtpSession
     public void RefreshPrompt()
     {
         UpdatePrompt();
+    }
+
+    private string ResolveLocalPath(string fileName)
+    {
+        if (fileName.StartsWith('/') || fileName.StartsWith("~/"))
+            return fileName.TrimStart('/').Replace("~/", "");
+
+        var cwd = _os.State.Cwd;
+        var cwdNorm = cwd is "~" or "/" or "." or "" ? "" : cwd.Replace("~/", "").TrimStart('/');
+        return cwdNorm.Length == 0 ? fileName : $"{cwdNorm}/{fileName}";
     }
 }

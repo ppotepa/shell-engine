@@ -10,8 +10,8 @@ internal sealed class LsCommand : ICommand
     public CommandResult Execute(CommandContext ctx)
     {
         var args = ctx.Argv;
-        var path = args.Count > 0 ? args[0] : null;
-        var entries = ctx.Os.FileSystem.Ls(path).ToArray();
+        var resolved = args.Count > 0 ? ctx.ResolvePath(args[0]) : ctx.ResolvePath(null);
+        var entries = ctx.Os.FileSystem.Ls(resolved).ToArray();
         if (entries.Length == 0)
         {
             return new CommandResult(new[] { Style.Fg(Style.Error, "ls: no such file or directory") }, ExitCode: 2);

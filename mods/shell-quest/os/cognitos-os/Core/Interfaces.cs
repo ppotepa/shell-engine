@@ -43,6 +43,43 @@ internal sealed record CommandContext(
     string Cwd,
     string CommandName,
     IReadOnlyList<string> Argv
-);
+)
+{
+    /// <summary>
+    /// Resolves a user-supplied path relative to the current working directory.
+    /// ~ and absolute paths pass through. Relative paths get cwd prepended.
+    /// Returns a normalized path suitable for VirtualFileSystem lookups.
+    /// </summary>
+    public string ResolvePath(string? target)
+    {
+        if (string.IsNullOrWhiteSpace(target) || target is "." or "~" or "/" or "./")
+        {
+            // bare cwd
+            return NormalizeCwd(Cwd);
+        }
+
+        if (target.StartsWith("~/"))
+        {
+            return target[2..].TrimStart('/');
+        }
+
+        if (target.StartsWith('/'))
+        {
+            return target.TrimStart('/');
+        }
+
+        var cwdNorm = NormalizeCwd(Cwd);
+        return cwdNorm.Length == 0 ? target : $"{cwdNorm}/{target}";
+    }
+
+    private static string NormalizeCwd(string cwd)
+    {
+        if (cwd is "~" or "/" or "." or "")
+            return "";
+        if (cwd.StartsWith("~/"))
+            return cwd[2..].TrimStart('/');
+        return cwd.TrimStart('/');
+    }
+}
 
 internal sealed record CommandResult(IReadOnlyList<string> Lines, int ExitCode = 0, bool ClearScreen = false);
