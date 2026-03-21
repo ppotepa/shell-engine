@@ -9,6 +9,7 @@ internal sealed class AppHost
     private readonly ScreenBuffer _screen;
     private readonly Queue<BootStep> _bootQueue = new();
     private ulong _bootCountdownMs;
+    private ulong _bootPostDelayMs;
     private bool _bootFinished;
     private int _lastExitCode;
 
@@ -27,6 +28,7 @@ internal sealed class AppHost
             _bootQueue.Enqueue(step);
         }
         _bootCountdownMs = 0;
+        _bootPostDelayMs = 0;
         _bootFinished = false;
         _os.State.Mode = SessionMode.Booting;
         _screen.ClearViewport();
@@ -51,6 +53,7 @@ internal sealed class AppHost
     {
         _os.Tick(dtMs);
         DriveBoot(dtMs);
+        DriveBootPostDelay(dtMs);
     }
 
     public void HandleResize(int rows)
@@ -279,8 +282,27 @@ internal sealed class AppHost
         if (_bootQueue.Count == 0)
         {
             _bootFinished = true;
+            _bootPostDelayMs = 500;
+        }
+    }
+
+    private void DriveBootPostDelay(ulong dtMs)
+    {
+        if (_bootPostDelayMs == 0)
+        {
+            return;
+        }
+        if (dtMs >= _bootPostDelayMs)
+        {
+            _bootPostDelayMs = 0;
             _os.State.Mode = SessionMode.LoginUser;
+            _screen.ClearViewport();
+            _screen.Append("Minix 1.3  Copyright 1987, Prentice-Hall", "Console ready", "");
             ApplyPrompt();
+        }
+        else
+        {
+            _bootPostDelayMs -= dtMs;
         }
     }
 }
