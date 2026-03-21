@@ -1,10 +1,41 @@
+use std::cell::Cell;
+
 use crossterm::style::Color;
 
 use crate::assets::AssetRoot;
 use crate::buffer::Buffer;
+use crate::obj_frame_cache::{BakeCacheKey, ObjFrameCache};
 use crate::scene::{SceneRenderedMode, SpriteSizePreset};
 
 use super::obj_loader::{load_obj_mesh, ObjFace};
+
+// Thread-local pointer to the current frame's ObjFrameCache (set by compositor, cleared after).
+// SAFETY: only set during `with_frame_cache` and never accessed across threads.
+thread_local! {
+    static FRAME_CACHE_PTR: Cell<*const ObjFrameCache> = Cell::new(std::ptr::null());
+}
+
+/// Set the thread-local frame cache pointer for the duration of `f`.
+pub(super) fn with_frame_cache<R>(cache: Option<&ObjFrameCache>, f: impl FnOnce() -> R) -> R {
+    let ptr = cache.map(|c| c as *const _).unwrap_or(std::ptr::null());
+    FRAME_CACHE_PTR.with(|cell| cell.set(ptr));
+    let result = f();
+    FRAME_CACHE_PTR.with(|cell| cell.set(std::ptr::null()));
+    result
+}
+
+/// Borrow the current frame's `ObjFrameCache` if one was set.
+fn current_frame_cache<'a>() -> Option<&'a ObjFrameCache> {
+    FRAME_CACHE_PTR.with(|cell| {
+        let ptr = cell.get();
+        if ptr.is_null() {
+            None
+        } else {
+            // SAFETY: ptr was set from a reference valid for the duration of `with_frame_cache`.
+            Some(unsafe { &*ptr })
+        }
+    })
+}
 
 #[derive(Debug, Clone, Copy)]
 struct ProjectedVertex {
@@ -15,7 +46,7 @@ struct ProjectedVertex {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct ObjRenderParams {
+pub(crate) struct ObjRenderParams {
     pub scale: f32,
     pub yaw_deg: f32,
     pub pitch_deg: f32,
@@ -83,8 +114,10 @@ pub(super) fn obj_sprite_dimensions(
     }
 }
 
+/// Render an OBJ mesh into a flat pixel canvas without writing to a terminal buffer.
+/// Returns `(canvas, virtual_w, virtual_h)` on success, or `None` if assets are missing.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn render_obj_content(
+pub(crate) fn render_obj_to_canvas(
     source: &str,
     width: Option<u16>,
     height: Option<u16>,
@@ -93,27 +126,18 @@ pub(super) fn render_obj_content(
     params: ObjRenderParams,
     wireframe: bool,
     backface_cull: bool,
-    draw_char: char,
     fg: Color,
-    bg: Color,
     asset_root: Option<&AssetRoot>,
-    x: u16,
-    y: u16,
-    buf: &mut Buffer,
-) {
-    let Some(root) = asset_root else {
-        return;
-    };
-    let Some(mesh) = load_obj_mesh(root, source) else {
-        return;
-    };
+) -> Option<(Vec<Option<[u8; 3]>>, u16, u16)> {
+    let root = asset_root?;
+    let mesh = load_obj_mesh(root, source)?;
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
     if target_w < 2 || target_h < 2 {
-        return;
+        return None;
     }
     let (virtual_w, virtual_h) = virtual_dimensions(mode, target_w, target_h);
     if virtual_w < 2 || virtual_h < 2 {
-        return;
+        return None;
     }
 
     let elapsed_s = params.scene_elapsed_ms as f32 / 1000.0;
@@ -375,6 +399,55 @@ pub(super) fn render_obj_content(
         }
     }
 
+    Some((canvas, virtual_w, virtual_h))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn render_obj_content(
+    source: &str,
+    width: Option<u16>,
+    height: Option<u16>,
+    size: Option<SpriteSizePreset>,
+    mode: SceneRenderedMode,
+    params: ObjRenderParams,
+    wireframe: bool,
+    backface_cull: bool,
+    draw_char: char,
+    fg: Color,
+    bg: Color,
+    asset_root: Option<&AssetRoot>,
+    x: u16,
+    y: u16,
+    buf: &mut Buffer,
+) {
+    let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
+    let (virtual_w, virtual_h) = virtual_dimensions(mode, target_w, target_h);
+
+    // Fast path: try the pre-baked frame cache first.
+    if let Some(cache) = current_frame_cache() {
+        // Total yaw = rotation_y (static offset) + yaw_deg (from animation/YAML)
+        let total_yaw = params.rotation_y + params.yaw_deg;
+        let yaw_step = ObjFrameCache::snap_yaw(total_yaw);
+        let key = BakeCacheKey {
+            source: source.to_string(),
+            wireframe,
+            yaw_step,
+        };
+        if let Some(canvas) = cache.get(&key) {
+            blit_color_canvas(
+                buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y,
+                wireframe, draw_char, fg, bg,
+            );
+            return;
+        }
+    }
+
+    // Fallback: live render.
+    let Some((canvas, virtual_w, virtual_h)) = render_obj_to_canvas(
+        source, width, height, size, mode, params, wireframe, backface_cull, fg, asset_root,
+    ) else {
+        return;
+    };
     blit_color_canvas(
         buf, mode, &canvas, virtual_w, virtual_h, target_w, target_h, x, y, wireframe, draw_char,
         fg, bg,

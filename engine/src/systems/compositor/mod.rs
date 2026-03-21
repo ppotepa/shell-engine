@@ -5,7 +5,7 @@ mod image_render;
 mod layer_compositor;
 mod layout;
 mod obj_loader;
-mod obj_render;
+pub(crate) mod obj_render;
 mod render;
 mod sprite_renderer;
 mod text_render;
@@ -13,6 +13,7 @@ mod text_render;
 use crate::assets::AssetRoot;
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::{apply_effect, Region};
+use crate::obj_frame_cache::{ObjBakeStatus, ObjFrameCache};
 use crate::scene::SceneRenderedMode;
 use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
 use crate::services::EngineWorldAccess;
@@ -128,12 +129,81 @@ pub fn compositor_system(world: &mut World) {
         .map(|s| s.use_virtual_buffer)
         .unwrap_or(false);
 
+    // Determine if baking is complete and we can use the frame cache.
+    // We extract a raw pointer to avoid holding a borrow while also needing mut access to world.
+    let bake_ready = matches!(world.get::<ObjBakeStatus>(), Some(ObjBakeStatus::Ready));
+    let frame_cache_ptr: *const ObjFrameCache = if bake_ready {
+        world
+            .get::<ObjFrameCache>()
+            .map(|c| c as *const _)
+            .unwrap_or(std::ptr::null())
+    } else {
+        std::ptr::null()
+    };
+    // SAFETY: ObjFrameCache is a singleton world resource (Send+Sync) that lives for the
+    // duration of this function. The mutable borrows below (buffer_mut / virtual_buffer_mut)
+    // do not alias the ObjFrameCache resource since World stores each type separately.
+    let frame_cache: Option<&ObjFrameCache> = if frame_cache_ptr.is_null() {
+        None
+    } else {
+        Some(unsafe { &*frame_cache_ptr })
+    };
+
     if use_virtual {
         let buffer = match world.virtual_buffer_mut() {
             Some(v) => &mut v.0,
             None => return,
         };
-        let object_regions = match rendered_mode {
+        let object_regions = obj_render::with_frame_cache(frame_cache, || {
+            match rendered_mode {
+                SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
+                    composite_scene(
+                        bg,
+                        &layers,
+                        rendered_mode,
+                        asset_root.as_ref(),
+                        &target_resolver,
+                        &object_states,
+                        &obj_camera_states,
+                        &current_stage,
+                        step_idx,
+                        elapsed_ms,
+                        scene_elapsed_ms,
+                        &scene_effects,
+                        scene_step_dur,
+                        buffer,
+                    )
+                }
+                SceneRenderedMode::HalfBlock => composite_scene_halfblock(
+                    bg,
+                    &layers,
+                    rendered_mode,
+                    asset_root.as_ref(),
+                    &target_resolver,
+                    &object_states,
+                    &obj_camera_states,
+                    &current_stage,
+                    step_idx,
+                    elapsed_ms,
+                    scene_elapsed_ms,
+                    &scene_effects,
+                    scene_step_dur,
+                    buffer,
+                ),
+            }
+        });
+        if let Some(runtime) = world.scene_runtime_mut() {
+            runtime.set_object_regions(object_regions);
+        }
+        return;
+    }
+
+    let buffer = match world.buffer_mut() {
+        Some(b) => b,
+        None => return,
+    };
+    let object_regions = obj_render::with_frame_cache(frame_cache, || {
+        match rendered_mode {
             SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
                 composite_scene(
                     bg,
@@ -168,53 +238,8 @@ pub fn compositor_system(world: &mut World) {
                 scene_step_dur,
                 buffer,
             ),
-        };
-        if let Some(runtime) = world.scene_runtime_mut() {
-            runtime.set_object_regions(object_regions);
         }
-        return;
-    }
-
-    let buffer = match world.buffer_mut() {
-        Some(b) => b,
-        None => return,
-    };
-    let object_regions = match rendered_mode {
-        SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
-            composite_scene(
-                bg,
-                &layers,
-                rendered_mode,
-                asset_root.as_ref(),
-                &target_resolver,
-                &object_states,
-                &obj_camera_states,
-                &current_stage,
-                step_idx,
-                elapsed_ms,
-                scene_elapsed_ms,
-                &scene_effects,
-                scene_step_dur,
-                buffer,
-            )
-        }
-        SceneRenderedMode::HalfBlock => composite_scene_halfblock(
-            bg,
-            &layers,
-            rendered_mode,
-            asset_root.as_ref(),
-            &target_resolver,
-            &object_states,
-            &obj_camera_states,
-            &current_stage,
-            step_idx,
-            elapsed_ms,
-            scene_elapsed_ms,
-            &scene_effects,
-            scene_step_dur,
-            buffer,
-        ),
-    };
+    });
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.set_object_regions(object_regions);
     }

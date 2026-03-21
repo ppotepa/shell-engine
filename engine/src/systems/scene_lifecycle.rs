@@ -158,6 +158,7 @@ impl SceneLifecycleManager {
             world.clear_scoped();
             world.register_scoped(SceneRuntime::new(new_scene));
             world.register_scoped(Animator::new());
+            crate::systems::bake::start_bake_if_needed(world);
             if let Some(runtime) = world.scene_runtime() {
                 logging::info(
                     "engine.scene",
