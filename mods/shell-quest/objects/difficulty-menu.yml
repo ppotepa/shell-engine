@@ -20,7 +20,7 @@ sprites:
         children:
           - type: obj
             id: difficulty-face-0
-            source: "/assets/3d/sculpts/mouse-enjoyer.glb"
+            source: "/assets/3d/sculpts/1.obj"
             grid-col: 1
             grid-row: 1
             at: 0
@@ -72,7 +72,7 @@ sprites:
                   index: 0
           - type: obj
             id: difficulty-face-1
-            source: "/assets/3d/sculpts/script-kiddie.glb"
+            source: "/assets/3d/sculpts/2.obj"
             grid-col: 1
             grid-row: 1
             at: lt
@@ -125,7 +125,7 @@ sprites:
                   index: 1
           - type: obj
             id: difficulty-face-2
-            source: "/assets/3d/sculpts/can-exit-vim.glb"
+            source: "/assets/3d/sculpts/3.obj"
             grid-col: 1
             grid-row: 1
             at: lt
@@ -178,7 +178,7 @@ sprites:
                   index: 2
           - type: obj
             id: difficulty-face-3
-            source: "/assets/3d/sculpts/dvorak.glb"
+            source: "/assets/3d/sculpts/4.obj"
             grid-col: 1
             grid-row: 1
             at: lt
@@ -231,7 +231,7 @@ sprites:
                   index: 3
           - type: obj
             id: difficulty-face-4
-            source: "/assets/3d/sculpts/su.glb"
+            source: "/assets/3d/sculpts/5.obj"
             grid-col: 1
             grid-row: 1
             at: lt
