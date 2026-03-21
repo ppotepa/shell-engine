@@ -65,6 +65,8 @@ pub struct EngineConfig {
     pub sound_server_cmd: Option<String>,
     /// Override the mod's entrypoint — jump straight to this scene path.
     pub start_scene: Option<String>,
+    /// Skip the engine splash screen on startup.
+    pub skip_splash: bool,
 }
 
 impl ShellEngine {
@@ -176,7 +178,9 @@ impl ShellEngine {
             .as_ref()
             .map(crossterm::style::Color::from)
             .unwrap_or(crossterm::style::Color::Black);
-        splash::show_splash(splash_bg);
+        if !self.config.skip_splash {
+            splash::show_splash(splash_bg);
+        }
         world.register(renderer);
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
