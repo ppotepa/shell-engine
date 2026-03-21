@@ -2206,6 +2206,24 @@ fn find_obj_properties_recursive(
                     clip_y_max: *clip_y_max,
                 });
             }
+            Sprite::ObjBaked {
+                id: Some(id),
+                yaw_deg,
+                clip_y_min,
+                clip_y_max,
+                ..
+            } if id == sprite_id => {
+                return Some(ObjSpritePropertySnapshot {
+                    scale: None,
+                    yaw: *yaw_deg,
+                    pitch: None,
+                    roll: None,
+                    orbit_speed: None,
+                    surface_mode: None,
+                    clip_y_min: *clip_y_min,
+                    clip_y_max: *clip_y_max,
+                });
+            }
             Sprite::Grid { children, .. }
             | Sprite::Flex { children, .. }
             | Sprite::Panel { children, .. } => {
@@ -2464,6 +2482,44 @@ fn set_obj_property_recursive(
                     };
                     if surface_mode.as_deref() != Some(next) {
                         *surface_mode = Some(next.to_string());
+                        *updated = true;
+                    }
+                }
+                "obj.clip_y_min" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    let next = next.clamp(0.0, 1.0);
+                    if (clip_y_min.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *clip_y_min = Some(next);
+                        *updated = true;
+                    }
+                }
+                "obj.clip_y_max" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    let next = next.clamp(0.0, 1.0);
+                    if (clip_y_max.unwrap_or(1.0) - next).abs() > f32::EPSILON {
+                        *clip_y_max = Some(next);
+                        *updated = true;
+                    }
+                }
+                _ => {}
+            },
+            Sprite::ObjBaked {
+                id: Some(id),
+                yaw_deg,
+                clip_y_min,
+                clip_y_max,
+                ..
+            } if id == sprite_id => match path {
+                "obj.yaw" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (yaw_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *yaw_deg = Some(next);
                         *updated = true;
                     }
                 }

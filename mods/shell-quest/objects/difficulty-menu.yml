@@ -74,7 +74,7 @@ sprites:
               - name: portrait-materialize
                 params:
                   index: 0
-                  dur: 500
+                  dur: 250
           - type: obj
             id: difficulty-face-0
             source: "/assets/3d/sculpts/mouse-enjoyer.obj"
@@ -186,7 +186,7 @@ sprites:
               - name: portrait-materialize
                 params:
                   index: 1
-                  dur: 500
+                  dur: 250
           - type: obj
             id: difficulty-face-1
             source: "/assets/3d/sculpts/script-kiddie.obj"
@@ -299,7 +299,7 @@ sprites:
               - name: portrait-materialize
                 params:
                   index: 2
-                  dur: 1200
+                  dur: 600
           - type: obj
             id: difficulty-face-2
             source: "/assets/3d/sculpts/can-exit-vim.obj"
@@ -412,7 +412,7 @@ sprites:
               - name: portrait-materialize
                 params:
                   index: 3
-                  dur: 500
+                  dur: 250
           - type: obj
             id: difficulty-face-3
             source: "/assets/3d/sculpts/dvorak.obj"
@@ -525,7 +525,7 @@ sprites:
               - name: portrait-materialize
                 params:
                   index: 4
-                  dur: 500
+                  dur: 250
           - type: obj
             id: difficulty-face-4
             source: "/assets/3d/sculpts/su.obj"

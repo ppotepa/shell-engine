@@ -15,7 +15,7 @@ use super::layout::{
     compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
     RenderArea,
 };
-use super::obj_render::{obj_sprite_dimensions, render_obj_content, ObjRenderParams};
+use super::obj_render::{obj_sprite_dimensions, render_baked_obj_content, render_obj_content, ObjRenderParams};
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
     sprite_transform_offset, RenderCtx,
@@ -740,6 +740,64 @@ fn render_sprite(
                 fg,
                 bg,
                 ctx.asset_root,
+                draw_x,
+                draw_y,
+                ctx.layer_buf,
+            );
+            let sprite_region = Region {
+                x: draw_x,
+                y: draw_y,
+                width: sprite_width,
+                height: sprite_height,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
+        }
+
+        Sprite::ObjBaked {
+            source,
+            wireframe,
+            x,
+            y,
+            width,
+            height,
+            force_renderer_mode,
+            yaw_deg,
+            rotation_y,
+            clip_y_min,
+            clip_y_max,
+            fg_colour,
+            ..
+        } => {
+            let resolved_mode =
+                render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let (sprite_width, sprite_height) = obj_sprite_dimensions(*width, *height, None);
+            let base_x = area.origin_x + *x;
+            let base_y = area.origin_y + *y;
+            let draw_x = (base_x + object_state.offset_x).max(0) as u16;
+            let draw_y = (base_y + object_state.offset_y).max(0) as u16;
+
+            let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
+            render_baked_obj_content(
+                source,
+                *wireframe,
+                *width,
+                *height,
+                resolved_mode,
+                yaw_deg.unwrap_or(0.0),
+                rotation_y.unwrap_or(0.0),
+                clip_y_min.unwrap_or(0.0),
+                clip_y_max.unwrap_or(1.0),
+                '#',
+                fg,
+                Color::Reset,
                 draw_x,
                 draw_y,
                 ctx.layer_buf,
