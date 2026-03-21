@@ -559,6 +559,11 @@ pub struct TerminalShellControls {
     /// Sidecar process configuration (used when `mode: sidecar`).
     #[serde(default)]
     pub sidecar: Option<TerminalShellSidecarControls>,
+
+    /// When true, the sidecar hello message includes `boot_scene: true`,
+    /// causing the external process to run its boot sequence before login.
+    #[serde(default, rename = "boot-scene", alias = "boot_scene")]
+    pub boot_scene: bool,
 }
 
 /// Audio cue descriptor (design hook only; playback is external).
