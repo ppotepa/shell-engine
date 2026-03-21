@@ -51,7 +51,7 @@ sprites:
             light-point-colour: "#ff1500"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
-            light-point-orbit-hz: 0.09
+            light-point-snap-hz: 0.2
             light-point-2-x: 2.5
             light-point-2-y: 0.2
             light-point-2-z: 2.5
@@ -59,7 +59,7 @@ sprites:
             light-point-2-colour: "#00c8ff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
-            light-point-2-orbit-hz: 0.14
+            light-point-2-snap-hz: 0.25
             cel-levels: 3
             tone-mix: 1.0
             shadow-colour: "#000000"
@@ -103,7 +103,7 @@ sprites:
             light-point-colour: "#ff1500"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
-            light-point-orbit-hz: 0.09
+            light-point-snap-hz: 0.2
             light-point-2-x: 2.5
             light-point-2-y: 0.2
             light-point-2-z: 2.5
@@ -111,7 +111,7 @@ sprites:
             light-point-2-colour: "#00c8ff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
-            light-point-2-orbit-hz: 0.14
+            light-point-2-snap-hz: 0.25
             cel-levels: 3
             tone-mix: 1.0
             shadow-colour: "#000000"
@@ -156,7 +156,7 @@ sprites:
             light-point-colour: "#ff1500"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
-            light-point-orbit-hz: 0.09
+            light-point-snap-hz: 0.2
             light-point-2-x: 2.5
             light-point-2-y: 0.2
             light-point-2-z: 2.5
@@ -164,7 +164,7 @@ sprites:
             light-point-2-colour: "#00c8ff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
-            light-point-2-orbit-hz: 0.14
+            light-point-2-snap-hz: 0.25
             cel-levels: 3
             tone-mix: 1.0
             shadow-colour: "#000000"
@@ -209,7 +209,7 @@ sprites:
             light-point-colour: "#ff1500"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
-            light-point-orbit-hz: 0.09
+            light-point-snap-hz: 0.2
             light-point-2-x: 2.5
             light-point-2-y: 0.2
             light-point-2-z: 2.5
@@ -217,7 +217,7 @@ sprites:
             light-point-2-colour: "#00c8ff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
-            light-point-2-orbit-hz: 0.14
+            light-point-2-snap-hz: 0.25
             cel-levels: 3
             tone-mix: 1.0
             shadow-colour: "#000000"
@@ -262,7 +262,7 @@ sprites:
             light-point-colour: "#ff1500"
             light-point-flicker-depth: 0.0
             light-point-flicker-hz: 0.0
-            light-point-orbit-hz: 0.09
+            light-point-snap-hz: 0.2
             light-point-2-x: 2.5
             light-point-2-y: 0.2
             light-point-2-z: 2.5
@@ -270,7 +270,7 @@ sprites:
             light-point-2-colour: "#00c8ff"
             light-point-2-flicker-depth: 0.0
             light-point-2-flicker-hz: 0.0
-            light-point-2-orbit-hz: 0.14
+            light-point-2-snap-hz: 0.25
             cel-levels: 3
             tone-mix: 1.0
             shadow-colour: "#000000"

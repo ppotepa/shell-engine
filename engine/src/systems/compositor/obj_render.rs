@@ -43,6 +43,7 @@ pub(super) struct ObjRenderParams {
     pub light_point_flicker_depth: f32,
     pub light_point_flicker_hz: f32,
     pub light_point_orbit_hz: f32,
+    pub light_point_snap_hz: f32,
     pub light_point_2_x: f32,
     pub light_point_2_y: f32,
     pub light_point_2_z: f32,
@@ -51,6 +52,7 @@ pub(super) struct ObjRenderParams {
     pub light_point_2_flicker_depth: f32,
     pub light_point_2_flicker_hz: f32,
     pub light_point_2_orbit_hz: f32,
+    pub light_point_2_snap_hz: f32,
     pub cel_levels: u8,
     pub shadow_colour: Option<Color>,
     pub midtone_colour: Option<Color>,
@@ -123,18 +125,32 @@ pub(super) fn render_obj_content(
         params.light_point_2_flicker_depth,
         1.91,
     );
-    // Orbit: rotate each point light around Y axis over time.
-    let orbit_angle_1 = elapsed_s * params.light_point_orbit_hz * std::f32::consts::TAU;
+    // Light position: snap (teleport) wins over smooth orbit when snap_hz > 0.
+    // Snap: uses deterministic hash of (snap_index, seed) to pick a pseudo-random angle instantly.
+    fn snap_angle(elapsed_s: f32, snap_hz: f32, seed: u32) -> f32 {
+        let snap_index = (elapsed_s * snap_hz) as u32;
+        let h = snap_index.wrapping_mul(2654435761u32).wrapping_add(seed);
+        (h as f32 / u32::MAX as f32) * std::f32::consts::TAU
+    }
+
     let orbit_radius_1 = (params.light_point_x.powi(2) + params.light_point_z.powi(2)).sqrt().max(0.0001);
-    let (light_1_x, light_1_z) = if params.light_point_orbit_hz.abs() > f32::EPSILON {
-        (orbit_radius_1 * orbit_angle_1.sin(), orbit_radius_1 * orbit_angle_1.cos())
+    let (light_1_x, light_1_z) = if params.light_point_snap_hz > f32::EPSILON {
+        let angle = snap_angle(elapsed_s, params.light_point_snap_hz, 0x9e37_79b9);
+        (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())
+    } else if params.light_point_orbit_hz > f32::EPSILON {
+        let angle = elapsed_s * params.light_point_orbit_hz * std::f32::consts::TAU;
+        (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())
     } else {
         (params.light_point_x, params.light_point_z)
     };
-    let orbit_angle_2 = elapsed_s * params.light_point_2_orbit_hz * std::f32::consts::TAU;
+
     let orbit_radius_2 = (params.light_point_2_x.powi(2) + params.light_point_2_z.powi(2)).sqrt().max(0.0001);
-    let (light_2_x, light_2_z) = if params.light_point_2_orbit_hz.abs() > f32::EPSILON {
-        (orbit_radius_2 * orbit_angle_2.sin(), orbit_radius_2 * orbit_angle_2.cos())
+    let (light_2_x, light_2_z) = if params.light_point_2_snap_hz > f32::EPSILON {
+        let angle = snap_angle(elapsed_s, params.light_point_2_snap_hz, 0x6c62_272d);
+        (orbit_radius_2 * angle.sin(), orbit_radius_2 * angle.cos())
+    } else if params.light_point_2_orbit_hz > f32::EPSILON {
+        let angle = elapsed_s * params.light_point_2_orbit_hz * std::f32::consts::TAU;
+        (orbit_radius_2 * angle.sin(), orbit_radius_2 * angle.cos())
     } else {
         (params.light_point_2_x, params.light_point_2_z)
     };
