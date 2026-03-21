@@ -1123,6 +1123,16 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
     },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "backface-cull",
+        value_kind: ValueKind::Boolean,
+        requirement: Requirement::Optional,
+        description: "When true, skip back-facing polygons for type=obj. Requires consistent face winding.",
+        default_text: None, default_number: None, enum_options: None,
+        min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
     // ── Grid required fields ─────────────────────────────────────────────────
     FieldMetadata {
         target: TargetKind::Sprite,
