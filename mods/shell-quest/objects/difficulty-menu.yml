@@ -87,13 +87,10 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      let dur = 1200;
+                      let dur = 500;
                       let glitch_dur = 180;
-                      let frame_ms = 33;
                       if elapsed < dur {
-                        // 30 FPS stop-motion feel, full 360 over 1.2s
-                        let frame = elapsed / frame_ms;
-                        let yaw = (frame * 10) % 360;
+                        let yaw = (elapsed * 0.4) % 360.0;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
 
@@ -108,7 +105,7 @@ sprites:
 
                         // Retro CRT-like blink/glow jitter during the first frames.
                         if elapsed < glitch_dur {
-                          let blink = (frame % 2) == 0;
+                          let blink = ((elapsed / 25) % 2) == 0;
                           scene.set(wire_id, "obj.surface_mode", "wireframe");
                           scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
                           scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
@@ -120,8 +117,8 @@ sprites:
                           scene.set(solid_id, "obj.clip_y_min", 0.0);
                         }
                       } else {
-                        scene.set(wire_id, "obj.yaw", 0);
-                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.yaw", 20.0);
+                        scene.set(solid_id, "obj.yaw", 20.0);
                         scene.set(wire_id, "obj.surface_mode", "wireframe");
                         scene.set(solid_id, "obj.surface_mode", "material");
                         scene.set(wire_id, "obj.clip_y_min", 0.0);
@@ -255,13 +252,10 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      let dur = 1200;
+                      let dur = 500;
                       let glitch_dur = 180;
-                      let frame_ms = 33;
                       if elapsed < dur {
-                        // 30 FPS stop-motion feel, full 360 over 1.2s
-                        let frame = elapsed / frame_ms;
-                        let yaw = (frame * 10) % 360;
+                        let yaw = (elapsed * 0.4) % 360.0;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
 
@@ -276,7 +270,7 @@ sprites:
 
                         // Retro CRT-like blink/glow jitter during the first frames.
                         if elapsed < glitch_dur {
-                          let blink = (frame % 2) == 0;
+                          let blink = ((elapsed / 25) % 2) == 0;
                           scene.set(wire_id, "obj.surface_mode", "wireframe");
                           scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
                           scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
@@ -288,8 +282,8 @@ sprites:
                           scene.set(solid_id, "obj.clip_y_min", 0.0);
                         }
                       } else {
-                        scene.set(wire_id, "obj.yaw", 0);
-                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.yaw", 20.0);
+                        scene.set(solid_id, "obj.yaw", 20.0);
                         scene.set(wire_id, "obj.surface_mode", "wireframe");
                         scene.set(solid_id, "obj.surface_mode", "material");
                         scene.set(wire_id, "obj.clip_y_min", 0.0);
@@ -426,11 +420,8 @@ sprites:
                       let elapsed = now - t0;
                       let dur = 1200;
                       let glitch_dur = 180;
-                      let frame_ms = 33;
                       if elapsed < dur {
-                        // 30 FPS stop-motion feel, full 360 over 1.2s
-                        let frame = elapsed / frame_ms;
-                        let yaw = (frame * 10) % 360;
+                        let yaw = (elapsed * 0.4) % 360.0;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
 
@@ -445,7 +436,7 @@ sprites:
 
                         // Retro CRT-like blink/glow jitter during the first frames.
                         if elapsed < glitch_dur {
-                          let blink = (frame % 2) == 0;
+                          let blink = ((elapsed / 25) % 2) == 0;
                           scene.set(wire_id, "obj.surface_mode", "wireframe");
                           scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
                           scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
@@ -457,8 +448,8 @@ sprites:
                           scene.set(solid_id, "obj.clip_y_min", 0.0);
                         }
                       } else {
-                        scene.set(wire_id, "obj.yaw", 0);
-                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.yaw", 20.0);
+                        scene.set(solid_id, "obj.yaw", 20.0);
                         scene.set(wire_id, "obj.surface_mode", "wireframe");
                         scene.set(solid_id, "obj.surface_mode", "material");
                         scene.set(wire_id, "obj.clip_y_min", 0.0);
@@ -593,13 +584,10 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      let dur = 1200;
+                      let dur = 500;
                       let glitch_dur = 180;
-                      let frame_ms = 33;
                       if elapsed < dur {
-                        // 30 FPS stop-motion feel, full 360 over 1.2s
-                        let frame = elapsed / frame_ms;
-                        let yaw = (frame * 10) % 360;
+                        let yaw = (elapsed * 0.4) % 360.0;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
 
@@ -614,7 +602,7 @@ sprites:
 
                         // Retro CRT-like blink/glow jitter during the first frames.
                         if elapsed < glitch_dur {
-                          let blink = (frame % 2) == 0;
+                          let blink = ((elapsed / 25) % 2) == 0;
                           scene.set(wire_id, "obj.surface_mode", "wireframe");
                           scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
                           scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
@@ -626,8 +614,8 @@ sprites:
                           scene.set(solid_id, "obj.clip_y_min", 0.0);
                         }
                       } else {
-                        scene.set(wire_id, "obj.yaw", 0);
-                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.yaw", 20.0);
+                        scene.set(solid_id, "obj.yaw", 20.0);
                         scene.set(wire_id, "obj.surface_mode", "wireframe");
                         scene.set(solid_id, "obj.surface_mode", "material");
                         scene.set(wire_id, "obj.clip_y_min", 0.0);
@@ -762,13 +750,10 @@ sprites:
                     if is_active && was_active != true { t0 = now; }
                     if is_active {
                       let elapsed = now - t0;
-                      let dur = 1200;
+                      let dur = 500;
                       let glitch_dur = 180;
-                      let frame_ms = 33;
                       if elapsed < dur {
-                        // 30 FPS stop-motion feel, full 360 over 1.2s
-                        let frame = elapsed / frame_ms;
-                        let yaw = (frame * 10) % 360;
+                        let yaw = (elapsed * 0.4) % 360.0;
                         scene.set(wire_id, "obj.yaw", yaw);
                         scene.set(solid_id, "obj.yaw", yaw);
 
@@ -783,7 +768,7 @@ sprites:
 
                         // Retro CRT-like blink/glow jitter during the first frames.
                         if elapsed < glitch_dur {
-                          let blink = (frame % 2) == 0;
+                          let blink = ((elapsed / 25) % 2) == 0;
                           scene.set(wire_id, "obj.surface_mode", "wireframe");
                           scene.set(solid_id, "obj.surface_mode", if blink { "wireframe" } else { "material" });
                           scene.set(wire_id, "obj.clip_y_min", if blink { 0.0 } else { 0.02 });
@@ -795,8 +780,8 @@ sprites:
                           scene.set(solid_id, "obj.clip_y_min", 0.0);
                         }
                       } else {
-                        scene.set(wire_id, "obj.yaw", 0);
-                        scene.set(solid_id, "obj.yaw", 0);
+                        scene.set(wire_id, "obj.yaw", 20.0);
+                        scene.set(solid_id, "obj.yaw", 20.0);
                         scene.set(wire_id, "obj.surface_mode", "wireframe");
                         scene.set(solid_id, "obj.surface_mode", "material");
                         scene.set(wire_id, "obj.clip_y_min", 0.0);
