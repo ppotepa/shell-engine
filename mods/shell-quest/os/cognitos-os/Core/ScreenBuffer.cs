@@ -70,14 +70,63 @@ internal sealed class ScreenBuffer
     private List<string> BuildVisibleFrameLines()
     {
         var allLines = new List<string>(_visible.Count + 1);
-        allLines.AddRange(_visible);
+        foreach (var line in _visible)
+            allLines.AddRange(WrapLine(line));
         allLines.Add(_promptPrefix + _inputLine);
 
         if (allLines.Count > _viewportRows)
-        {
             allLines = allLines.Skip(allLines.Count - _viewportRows).ToList();
-        }
         return allLines;
+    }
+
+    /// <summary>
+    /// Hard-wraps a single line to <see cref="_viewportCols"/> visible characters.
+    /// Markup tags of the form [colour]…[/] are treated as zero-width so they
+    /// do not count toward the column limit.
+    /// </summary>
+    private IEnumerable<string> WrapLine(string line)
+    {
+        if (VisibleLength(line) <= _viewportCols)
+        {
+            yield return line;
+            yield break;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        var visible = 0;
+        var inTag = false;
+
+        foreach (var ch in line)
+        {
+            if (ch == '[') { inTag = true;  sb.Append(ch); continue; }
+            if (ch == ']') { inTag = false; sb.Append(ch); continue; }
+            if (inTag)     { sb.Append(ch); continue; }
+
+            if (visible == _viewportCols)
+            {
+                yield return sb.ToString();
+                sb.Clear();
+                visible = 0;
+            }
+            sb.Append(ch);
+            visible++;
+        }
+
+        if (sb.Length > 0)
+            yield return sb.ToString();
+    }
+
+    private static int VisibleLength(string line)
+    {
+        var count = 0;
+        var inTag = false;
+        foreach (var ch in line)
+        {
+            if (ch == '[') { inTag = true;  continue; }
+            if (ch == ']') { inTag = false; continue; }
+            if (!inTag) count++;
+        }
+        return count;
     }
 
     private void SendFrame()
