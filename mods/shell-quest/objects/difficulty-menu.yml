@@ -30,6 +30,7 @@ sprites:
             height: 100
             scale: 4.65
             surface-mode: wireframe
+            backface-cull: true
             force-renderer-mode: halfblock
             rotation-y: 270
             pitch-deg: -8
@@ -112,6 +113,7 @@ sprites:
             height: 100
             scale: 4.65
             surface-mode: wireframe
+            backface-cull: true
             force-renderer-mode: halfblock
             rotation-y: 220
             pitch-deg: -8
@@ -195,6 +197,7 @@ sprites:
             height: 100
             scale: 4.65
             surface-mode: wireframe
+            backface-cull: true
             force-renderer-mode: halfblock
             rotation-y: 120
             pitch-deg: -8
@@ -278,6 +281,7 @@ sprites:
             height: 100
             scale: 4.65
             surface-mode: wireframe
+            backface-cull: true
             force-renderer-mode: halfblock
             rotation-y: 140
             pitch-deg: -8
@@ -361,6 +365,7 @@ sprites:
             height: 100
             scale: 4.65
             surface-mode: wireframe
+            backface-cull: true
             force-renderer-mode: halfblock
             rotation-y: 200
             pitch-deg: -8

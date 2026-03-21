@@ -286,6 +286,8 @@ pub enum Sprite {
         force_renderer_mode: Option<SceneRenderedMode>,
         #[serde(default, rename = "surface-mode")]
         surface_mode: Option<String>,
+        #[serde(default, rename = "backface-cull")]
+        backface_cull: Option<bool>,
         #[serde(default)]
         scale: Option<f32>,
         #[serde(default, rename = "yaw-deg")]

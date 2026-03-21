@@ -89,6 +89,7 @@ pub(super) fn render_obj_content(
     mode: SceneRenderedMode,
     params: ObjRenderParams,
     wireframe: bool,
+    backface_cull: bool,
     draw_char: char,
     fg: Color,
     bg: Color,
@@ -266,9 +267,15 @@ pub(super) fn render_obj_content(
             let Some(v2) = projected.get(face.indices[2]).and_then(|p| *p) else {
                 continue;
             };
-            // No back-face culling: OBJ files from public sources often have
-            // inconsistent face winding, so we render both sides with two-sided
-            // Lambert to avoid holes and reversed-material artifacts.
+            // Back-face culling: skip faces whose screen-space winding is clockwise.
+            // Opt-in via `backface-cull: true` in YAML; disabled by default for OBJ
+            // files with inconsistent winding.
+            if backface_cull {
+                let screen_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+                if screen_area < 0.0 {
+                    continue;
+                }
+            }
             let shading = face_shading_with_specular(
                 v0.view,
                 v1.view,
