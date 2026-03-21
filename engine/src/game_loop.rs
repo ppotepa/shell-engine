@@ -100,8 +100,7 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         systems::audio::audio_system(world);
         systems::compositor::compositor_system(world);
         systems::postfx::postfx_system(world);
-        systems::renderer::renderer_system(world);
-        // Check bake progress; paint overlay when baking is in progress.
+        // Paint loading overlay on top of composed scene, before renderer flushes to terminal.
         if systems::bake::tick_bake(world) {
             let progress = {
                 use crate::obj_frame_cache::ObjBakeStatus;
@@ -116,6 +115,7 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
             };
             systems::bake::paint_loading_overlay(world, progress);
         }
+        systems::renderer::renderer_system(world);
 
         let elapsed = frame_start.elapsed();
         if elapsed < frame_budget {
