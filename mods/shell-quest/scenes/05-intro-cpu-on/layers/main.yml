@@ -58,14 +58,3 @@
       fg: gray
       appear_at_ms: 300
       disappear_at_ms: 5000
-  objects:
-    - ref: terminal-monitor
-      with:
-        output_id: boot-output
-        prompt_id: boot-hidden-prompt
-        x: 2
-        output_y: 1
-        prompt_y: 2
-        fg: "#A3A3A3"
-        output_appear_at_ms: 8200
-        prompt_appear_at_ms: 0
