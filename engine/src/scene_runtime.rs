@@ -2031,11 +2031,6 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
             sprite_name("obj", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
-        Sprite::ObjBaked { id, .. } => (
-            GameObjectKind::ObjSprite,
-            sprite_name("obj-baked", id.as_deref(), sprite_idx),
-            sprite_aliases(id.as_deref()),
-        ),
         Sprite::Panel { id, .. } => (
             GameObjectKind::PanelSprite,
             sprite_name("panel", id.as_deref(), sprite_idx),
@@ -2258,24 +2253,6 @@ fn find_obj_properties_recursive(
                     roll: *roll_deg,
                     orbit_speed: *rotate_y_deg_per_sec,
                     surface_mode: surface_mode.clone(),
-                    clip_y_min: *clip_y_min,
-                    clip_y_max: *clip_y_max,
-                });
-            }
-            Sprite::ObjBaked {
-                id: Some(id),
-                yaw_deg,
-                clip_y_min,
-                clip_y_max,
-                ..
-            } if id == sprite_id => {
-                return Some(ObjSpritePropertySnapshot {
-                    scale: None,
-                    yaw: *yaw_deg,
-                    pitch: None,
-                    roll: None,
-                    orbit_speed: None,
-                    surface_mode: None,
                     clip_y_min: *clip_y_min,
                     clip_y_max: *clip_y_max,
                 });
@@ -2538,44 +2515,6 @@ fn set_obj_property_recursive(
                     };
                     if surface_mode.as_deref() != Some(next) {
                         *surface_mode = Some(next.to_string());
-                        *updated = true;
-                    }
-                }
-                "obj.clip_y_min" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    let next = next.clamp(0.0, 1.0);
-                    if (clip_y_min.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *clip_y_min = Some(next);
-                        *updated = true;
-                    }
-                }
-                "obj.clip_y_max" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    let next = next.clamp(0.0, 1.0);
-                    if (clip_y_max.unwrap_or(1.0) - next).abs() > f32::EPSILON {
-                        *clip_y_max = Some(next);
-                        *updated = true;
-                    }
-                }
-                _ => {}
-            },
-            Sprite::ObjBaked {
-                id: Some(id),
-                yaw_deg,
-                clip_y_min,
-                clip_y_max,
-                ..
-            } if id == sprite_id => match path {
-                "obj.yaw" => {
-                    let Some(next) = json_value_to_f32(value) else {
-                        continue;
-                    };
-                    if (yaw_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
-                        *yaw_deg = Some(next);
                         *updated = true;
                     }
                 }
@@ -2875,7 +2814,7 @@ fn find_panel_layout_recursive(
                     return Some(layout);
                 }
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::ObjBaked { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
         }
     }
     None
@@ -2906,7 +2845,7 @@ fn set_panel_height_recursive(
             | Sprite::Flex { children, .. } => {
                 set_panel_height_recursive(children, panel_id, next_height, updated)
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::ObjBaked { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
         }
     }
 }
@@ -2930,7 +2869,7 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
                     return Some(result);
                 }
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::ObjBaked { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } => {}
         }
     }
     None

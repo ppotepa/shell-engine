@@ -11,7 +11,7 @@ pub use error::EngineError;
 pub use engine_core::{animations, buffer, effects, logging, markup, scene};
 
 pub mod asset_cache;
-pub mod obj_frame_cache;
+pub mod obj_prerender;
 pub mod asset_source;
 pub mod assets;
 pub mod audio;
@@ -190,7 +190,7 @@ impl ShellEngine {
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
         if scene.prerender {
-            systems::bake::prerender_scene_sprites(
+            systems::prerender::prerender_scene_sprites(
                 &scene.layers,
                 scene.rendered_mode,
                 &scene.id,

@@ -13,7 +13,7 @@ mod text_render;
 use crate::assets::AssetRoot;
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::{apply_effect, Region};
-use crate::obj_frame_cache::{ObjBakeStatus, ObjFrameCache};
+use crate::obj_prerender::{ObjPrerenderedFrames, ObjPrerenderStatus};
 use crate::scene::SceneRenderedMode;
 use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
 use crate::services::EngineWorldAccess;
@@ -113,24 +113,24 @@ pub fn compositor_system(world: &mut World) {
         .map(|s| s.use_virtual_buffer)
         .unwrap_or(false);
 
-    // Determine if baking is complete and we can use the frame cache.
+    // Determine if prerendering is complete and we can use the prerendered frame store.
     // We extract a raw pointer to avoid holding a borrow while also needing mut access to world.
-    let bake_ready = matches!(world.get::<ObjBakeStatus>(), Some(ObjBakeStatus::Ready));
-    let frame_cache_ptr: *const ObjFrameCache = if bake_ready {
+    let prerender_ready = matches!(world.get::<ObjPrerenderStatus>(), Some(ObjPrerenderStatus::Ready));
+    let prerender_frames_ptr: *const ObjPrerenderedFrames = if prerender_ready {
         world
-            .get::<ObjFrameCache>()
+            .get::<ObjPrerenderedFrames>()
             .map(|c| c as *const _)
             .unwrap_or(std::ptr::null())
     } else {
         std::ptr::null()
     };
-    // SAFETY: ObjFrameCache is a singleton world resource (Send+Sync) that lives for the
+    // SAFETY: ObjPrerenderedFrames is a singleton world resource (Send+Sync) that lives for the
     // duration of this function. The mutable borrows below (buffer_mut / virtual_buffer_mut)
-    // do not alias the ObjFrameCache resource since World stores each type separately.
-    let frame_cache: Option<&ObjFrameCache> = if frame_cache_ptr.is_null() {
+    // do not alias the ObjPrerenderedFrames resource since World stores each type separately.
+    let prerender_frames: Option<&ObjPrerenderedFrames> = if prerender_frames_ptr.is_null() {
         None
     } else {
-        Some(unsafe { &*frame_cache_ptr })
+        Some(unsafe { &*prerender_frames_ptr })
     };
 
     if use_virtual {
@@ -138,7 +138,7 @@ pub fn compositor_system(world: &mut World) {
             Some(v) => &mut v.0,
             None => return,
         };
-        let object_regions = obj_render::with_frame_cache(frame_cache, || {
+        let object_regions = obj_render::with_prerender_frames(prerender_frames, || {
             match rendered_mode {
                 SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
                     composite_scene(
@@ -186,7 +186,7 @@ pub fn compositor_system(world: &mut World) {
         Some(b) => b,
         None => return,
     };
-    let object_regions = obj_render::with_frame_cache(frame_cache, || {
+    let object_regions = obj_render::with_prerender_frames(prerender_frames, || {
         match rendered_mode {
             SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
                 composite_scene(
