@@ -39,5 +39,6 @@ menu-options:
       to: playground-terminal-shell-scripted,
     }
   - { key: "8", label: LAYOUT LAB, to: playground-layout-lab }
+  - { key: "shift+8", label: CRT-TEST, to: playground-crt-test }
   - { key: "9", label: RHAI LAB, to: playground-rhai-lab }
   - { key: "0", label: EXIT, to: playground-exit }

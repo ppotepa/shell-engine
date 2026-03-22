@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: crt-test
+  z_index: 0
+  sprites:
+    - type: grid
+      id: crt01-root
+      at: cc
+      columns: ["1fr"]
+      rows: ["auto", "auto", "auto", "1fr", "auto", "auto"]
+      gap-y: 1
+      children:
+        - { type: text, content: "CRT-TEST / SCREEN 01", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
+        - { type: text, content: "TAFFY LAYOUT BASICS: SINGLE GRID + CENTERED FLEX", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
+        - { type: text, content: "Start simple: one root grid, one centered column, no absolute positioning.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
+        - type: flex
+          id: crt01-stack
+          direction: column
+          grid-col: 1
+          grid-row: 4
+          gap: 1
+          align_x: center
+          align_y: center
+          children:
+            - { type: text, content: "[ root grid ]", font: "generic:1", fg: green }
+            - { type: text, content: "[ centered flex column ]", font: "generic:1", fg: cyan }
+            - { type: text, content: "[ text blocks keep alignment on resize ]", font: "generic:1", fg: yellow }
+            - { type: text, content: "This is the smallest useful authored layout.", font: "generic:1", fg: white }
+        - { type: text, content: "Screen 1/5", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
+        - { type: text, content: "ENTER: next screen  |  0: back to menu", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }

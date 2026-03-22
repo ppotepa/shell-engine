@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: crt-test-04
+  z_index: 0
+  sprites:
+    - type: grid
+      id: crt04-root
+      at: cc
+      columns: ["1fr", "2fr", "1fr"]
+      rows: ["auto", "1fr", "auto"]
+      gap-x: 2
+      gap-y: 1
+      children:
+        - { type: text, content: "CRT-TEST / SCREEN 04", grid-col: 1, grid-row: 1, col-span: 3, at: cc, font: "generic:half", fg: white }
+        - type: flex
+          direction: column
+          grid-col: 1
+          grid-row: 2
+          gap: 1
+          align_x: center
+          align_y: center
+          children:
+            - { type: text, content: "SIDEBAR", font: "generic:1", fg: cyan }
+            - { type: text, content: "scene graph", font: "generic:1", fg: white }
+            - { type: text, content: "layout tree", font: "generic:1", fg: silver }
+            - { type: text, content: "focus order", font: "generic:1", fg: gray }
+        - type: grid
+          id: crt04-main
+          grid-col: 2
+          grid-row: 2
+          columns: ["1fr", "1fr"]
+          rows: ["auto", "auto", "auto"]
+          gap-x: 2
+          gap-y: 1
+          children:
+            - { type: text, content: "MAIN WORKSPACE", grid-col: 1, grid-row: 1, col-span: 2, at: cc, font: "generic:1", fg: yellow }
+            - { type: text, content: "timeline", grid-col: 1, grid-row: 2, at: lc, font: "generic:1", fg: white }
+            - { type: text, content: "effect stack", grid-col: 2, grid-row: 2, at: rc, font: "generic:1", fg: white }
+            - type: flex
+              direction: column
+              grid-col: 1
+              grid-row: 3
+              gap: 1
+              align_x: center
+              align_y: center
+              children:
+                - { type: text, content: "intro", font: "generic:1", fg: green }
+                - { type: text, content: "hold", font: "generic:1", fg: cyan }
+                - { type: text, content: "leave", font: "generic:1", fg: magenta }
+            - type: grid
+              grid-col: 2
+              grid-row: 3
+              columns: ["1fr"]
+              rows: ["auto", "auto", "auto"]
+              gap-y: 1
+              children:
+                - { type: text, content: "crt-underlay", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: silver }
+                - { type: text, content: "crt-distort", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: silver }
+                - { type: text, content: "crt-scan-glitch", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
+        - type: grid
+          grid-col: 3
+          grid-row: 2
+          columns: ["1fr"]
+          rows: ["auto", "auto", "auto", "auto"]
+          gap-y: 1
+          children:
+            - { type: text, content: "TELEMETRY", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
+            - { type: text, content: "fps  60", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: white }
+            - { type: text, content: "cpu  14%", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
+            - { type: text, content: "mem  32M", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: gray }
+        - { type: text, content: "Screen 4/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 3, col-span: 3, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }

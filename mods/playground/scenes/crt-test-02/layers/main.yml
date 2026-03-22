@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: crt-test-02
+  z_index: 0
+  sprites:
+    - type: grid
+      id: crt02-root
+      at: cc
+      columns: ["1fr"]
+      rows: ["auto", "auto", "1fr", "auto"]
+      gap-y: 1
+      children:
+        - { type: text, content: "CRT-TEST / SCREEN 02", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
+        - { type: text, content: "TWO-COLUMN DASHBOARD: GRID OUTSIDE, CONTENT INSIDE", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
+        - type: grid
+          id: crt02-shell
+          grid-col: 1
+          grid-row: 3
+          columns: ["1fr", "1fr"]
+          rows: ["auto", "auto", "auto"]
+          gap-x: 2
+          gap-y: 1
+          children:
+            - { type: text, content: "LEFT PANEL / SIGNAL", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
+            - { type: text, content: "RIGHT PANEL / PREVIEW", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: yellow }
+            - type: flex
+              direction: column
+              grid-col: 1
+              grid-row: 2
+              gap: 1
+              align_x: center
+              align_y: center
+              children:
+                - { type: text, content: "sync: locked", font: "generic:1", fg: white }
+                - { type: text, content: "phase: stable", font: "generic:1", fg: silver }
+                - { type: text, content: "mask: triad", font: "generic:1", fg: green }
+                - { type: text, content: "bloom: 0.32", font: "generic:1", fg: cyan }
+            - type: grid
+              grid-col: 2
+              grid-row: 2
+              columns: ["1fr"]
+              rows: ["auto", "auto", "auto"]
+              gap-y: 1
+              children:
+                - { type: image, source: "/assets/images/tux.png", grid-col: 1, grid-row: 1, at: cc, size: 3 }
+                - { type: text, content: "image is layout-managed too", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: white }
+                - { type: text, content: "no manual x/y offsets required", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: gray }
+            - { type: text, content: "The outer grid owns structure; inner containers own alignment.", grid-col: 1, grid-row: 3, col-span: 2, at: cc, font: "generic:1", fg: silver }
+        - { type: text, content: "Screen 2/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }

@@ -1,0 +1,50 @@
+effect-presets:
+  fx.mrmo.tube:
+    name: terminal-crt
+    duration: 0
+    params:
+      intensity: 0.82
+      sphericality: 0.16
+      transparency: 0.18
+      brightness: 0.96
+      speed: 0.58
+
+  fx.mrmo.phosphor:
+    name: crt-underlay
+    duration: 0
+    params:
+      intensity: 1.45
+      alpha: 0.34
+      sphericality: 0.12
+      transparency: 0.60
+      brightness: 1.18
+      speed: 0.58
+
+  fx.mrmo.curve:
+    name: crt-distort
+    duration: 0
+    params:
+      intensity: 0.34
+      distortion: 0.18
+      sphericality: 0.24
+      transparency: 0.18
+      brightness: 1.04
+      speed: 0.52
+
+  fx.mrmo.sync:
+    name: crt-scan-glitch
+    duration: 0
+    params:
+      intensity: 0.28
+      transparency: 0.22
+      brightness: 1.08
+      speed: 0.92
+
+  fx.mrmo.tone:
+    name: crt-ruby
+    duration: 0
+    params:
+      intensity: 0.14
+      transparency: 0.24
+      brightness: 0.96
+      speed: 0.50

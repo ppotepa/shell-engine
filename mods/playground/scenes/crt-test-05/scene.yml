@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-crt-test-05
+title: CRT-TEST 05
+bg: black
+prerender: true
+effect-presets-ref: /effects/mrmo-crt-basic.yml
+postfx:
+  - { use: fx.mrmo.tube, overrides: { params: { intensity: 1.02, sphericality: 0.18, speed: 0.72 } } }
+  - { use: fx.mrmo.phosphor, overrides: { params: { intensity: 1.64, alpha: 0.38, transparency: 0.68 } } }
+  - { use: fx.mrmo.curve, overrides: { params: { intensity: 0.44, distortion: 0.24, sphericality: 0.32 } } }
+  - { use: fx.mrmo.sync, overrides: { params: { intensity: 0.38, transparency: 0.28, brightness: 1.18 } } }
+  - { use: fx.mrmo.tone, overrides: { params: { intensity: 0.18, transparency: 0.28, brightness: 0.94 } } }
+layers:
+  - ref: crt-test-05/layers/main.yml
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 250 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1200ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 180 }] }
+menu-options:
+  - { key: "1", label: "ENTER / RETURN TO MENU", to: playground-menu }
+  - { key: "2", label: "RESTART TOUR", to: playground-crt-test }
+  - { key: "0", label: BACK TO MENU, to: playground-menu }
