@@ -1,5 +1,8 @@
 namespace CognitosOs.Core;
 
+using CognitosOs.Framework.Kernel;
+using CognitosOs.State;
+
 /// <summary>
 /// Manages the stack of open applications.
 /// Input always routes to the topmost app. When an app exits it is popped
@@ -7,24 +10,30 @@ namespace CognitosOs.Core;
 /// </summary>
 internal sealed class ApplicationStack
 {
-    private readonly Stack<IApplication> _stack = new();
+    private readonly IKernel _kernel;
+    private readonly MachineState _machineState;
+    private readonly Stack<IKernelApplication> _stack = new();
     private readonly ScreenBuffer _screen;
 
-    public ApplicationStack(ScreenBuffer screen)
+    public ApplicationStack(IKernel kernel, MachineState machineState, ScreenBuffer screen)
     {
+        _kernel = kernel;
+        _machineState = machineState;
         _screen = screen;
     }
 
     public bool IsEmpty => _stack.Count == 0;
 
-    public IApplication? Current => _stack.Count > 0 ? _stack.Peek() : null;
+    public IKernelApplication? Current => _stack.Count > 0 ? _stack.Peek() : null;
 
     /// <summary>Pushes a new application and calls its OnEnter.</summary>
-    public void Push(IApplication app, UserSession session)
+    public void Push(IKernelApplication app, UserSession session)
     {
         _screen.Append("");
         _stack.Push(app);
-        app.OnEnter(session);
+        using var uow = CreateScope(session);
+        app.OnEnter(uow);
+        FlushOutput(uow);
     }
 
     /// <summary>
@@ -35,10 +44,14 @@ internal sealed class ApplicationStack
     {
         if (_stack.Count == 0) return;
 
-        var result = _stack.Peek().HandleInput(input, session);
+        using var uow = CreateScope(session);
+        var result = _stack.Peek().HandleInput(uow, input);
+        FlushOutput(uow);
         if (result == ApplicationResult.Exit)
         {
-            _stack.Peek().OnExit(session);
+            using var exitUow = CreateScope(session);
+            _stack.Peek().OnExit(exitUow);
+            FlushOutput(exitUow);
             _stack.Pop();
             _screen.Append("");
         }
@@ -47,4 +60,18 @@ internal sealed class ApplicationStack
     /// <summary>Returns the prompt prefix of the topmost app.</summary>
     public string CurrentPrompt(UserSession session)
         => _stack.Count > 0 ? _stack.Peek().PromptPrefix(session) : "";
+
+    private CognitosOs.Kernel.IUnitOfWork CreateScope(UserSession session)
+        => (CognitosOs.Kernel.IUnitOfWork)_kernel.CreateScope(session, new StringWriter(), _machineState.Quest);
+
+    private void FlushOutput(CognitosOs.Kernel.IUnitOfWork uow)
+    {
+        uow.Out.Flush();
+        var text = uow.Out.ToString();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var lines = text.TrimEnd('\r', '\n').Split('\n');
+        _screen.Append(lines.Concat(new[] { "" }).ToArray());
+    }
 }
