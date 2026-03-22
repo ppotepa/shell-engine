@@ -5,12 +5,12 @@ bg: black
 prerender: true
 effect-presets-ref: /effects/mrmo-crt-basic.yml
 postfx:
+  - { use: fx.mrmo.burn }
   - { use: fx.mrmo.tube, overrides: { params: { intensity: 0.88, transparency: 0.22 } } }
   - { use: fx.mrmo.phosphor, overrides: { params: { intensity: 1.42, transparency: 0.66 } } }
   - { use: fx.mrmo.curve, overrides: { params: { intensity: 0.40, distortion: 0.22, sphericality: 0.30 } } }
   - { use: fx.mrmo.sync, overrides: { params: { intensity: 0.26, transparency: 0.24 } } }
   - { use: fx.mrmo.tone, overrides: { params: { intensity: 0.12 } } }
-  - { use: fx.mrmo.burn }
 layers:
   - ref: crt-test-03/layers/main.yml
 stages:
