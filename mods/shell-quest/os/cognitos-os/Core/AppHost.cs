@@ -1,6 +1,8 @@
 using CognitosOs.Applications;
 using CognitosOs.Commands;
 using CognitosOs.Framework.Kernel;
+using CognitosOs.Framework.Execution;
+using CognitosOs.Minix.Shell;
 using CognitosOs.Network;
 using CognitosOs.State;
 
@@ -176,8 +178,11 @@ internal sealed class AppHost
 
         _session = new UserSession(_machineState.UserName ?? "linus", "kruuna");
         _appStack = new ApplicationStack(_kernel, _machineState, _screen);
+        var builtins = new MinixBuiltins();
+        var scripts = new MinixScriptInterpreter();
+        var pipeline = new MinixExecutionPipeline(_machineState, _appStack, builtins, scripts, _commandIndex, _eggs, _historyCmd);
         _appStack.Push(
-            new ShellApplication(_machineState, _commandIndex, _appStack, _eggs, _historyCmd),
+            new ShellApplication(pipeline),
             _session);
 
         var bi = Style.BrightenHex(Style.Info, 1.15);
