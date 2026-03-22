@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("echo", OsTag = "universal")]
 internal sealed class EchoCommand : IKernelCommand
 {
     public string Name => "echo";

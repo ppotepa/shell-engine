@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("netstat", OsTag = "minix")]
 internal sealed class NetstatCommand : IKernelCommand
 {
     public string Name => "netstat";

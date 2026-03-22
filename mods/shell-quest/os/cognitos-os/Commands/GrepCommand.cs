@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("grep", OsTag = "universal")]
 internal sealed class GrepCommand : IKernelCommand
 {
     public string Name => "grep";

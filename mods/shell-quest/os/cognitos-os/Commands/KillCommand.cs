@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("kill", OsTag = "minix")]
 internal sealed class KillCommand : IKernelCommand
 {
     public string Name => "kill";

@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("who", OsTag = "minix")]
 internal sealed class WhoCommand : IKernelCommand
 {
     public string Name => "who";

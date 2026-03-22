@@ -4,6 +4,7 @@ using CognitosOs.Network;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("ping", OsTag = "minix")]
 internal sealed class PingCommand : IKernelCommand
 {
     private readonly NetworkRegistry _network;

@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("ifconfig", OsTag = "minix")]
 internal sealed class IfconfigCommand : IKernelCommand
 {
     public string Name => "ifconfig";

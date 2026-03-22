@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("mount", OsTag = "minix")]
 internal sealed class MountCommand : IKernelCommand
 {
     public string Name => "mount";

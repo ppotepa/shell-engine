@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("ftp", OsTag = "minix")]
 internal sealed class FtpCommand : IKernelCommand
 {
     public string Name => "ftp";

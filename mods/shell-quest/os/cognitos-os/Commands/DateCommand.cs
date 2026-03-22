@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("date", OsTag = "minix")]
 internal sealed class DateCommand : IKernelCommand
 {
     public string Name => "date";

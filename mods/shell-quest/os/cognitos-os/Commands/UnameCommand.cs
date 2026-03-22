@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("uname", OsTag = "minix")]
 internal sealed class UnameCommand : IKernelCommand
 {
     public string Name => "uname";

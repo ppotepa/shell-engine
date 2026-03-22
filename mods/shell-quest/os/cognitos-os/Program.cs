@@ -17,70 +17,17 @@ internal static class Program
         IMachineStart machineStart = new ZipStateStore(statePath);
         var state = machineStart.LoadOrCreate();
 
+        var container = new ServiceContainer();
         var network = new NetworkRegistry();
-        var historyCmd = new HistoryCommand();
+        container.RegisterInstance(network);
 
-        var commands = new IKernelCommand[]
-        {
-            // Strict-1991 MINIX visible commands
-            new HelpCommand(),
-            new LsCommand(),
-            new CatCommand(),
-            new ClearCommand(),
-            new CdCommand(),
-            new PwdCommand(),
-            new CpCommand(),
-            new PsCommand(),
-            new WhoCommand(),
-            new WhoamiCommand(),
-            new UnameCommand(),
-            new DateCommand(),
-            new ManCommand(),
-            new FtpCommand(),
-            historyCmd,
-            // Classic Unix utilities (present on system, not in help)
-            new GrepCommand(),
-            new HeadTailCommand(isHead: true),
-            new HeadTailCommand(isHead: false),
-            new WcCommand(),
-            new EchoCommand(),
-            new DfCommand(),
-            new KillCommand(),
-            new SyncCommand(),
-            new MountCommand(),
-            new FingerCommand(),
-            new FileCommand(),
-            new IdCommand(),
-            new EnvCommand(),
-            new HostnameCommand(),
-            new FortuneCommand(),
-            new FreeCommand(),
-            new TopCommand(),
-            new UptimeCommand(),
-            new DmesgCommand(),
-            new IfconfigCommand(),
-            new NetstatCommand(),
-            new ServicesCommand(),
-            // Network (conscious prologue extension for FTP/anomaly quest)
-            new PingCommand(network),
-            new NslookupCommand(network),
-        };
+        var historyCmd = new HistoryCommand();
+        container.RegisterInstance(historyCmd);
 
         var eggs = new EasterEggRegistry();
         eggs.Register(new MinixEgg());
         eggs.Register(new LinuxEgg());
         eggs.Register(new OneLiners());
-
-        // Build command index: name -> command, alias -> command
-        var commandIndex = new Dictionary<string, IKernelCommand>(StringComparer.Ordinal);
-        foreach (var c in commands)
-        {
-            commandIndex[c.Name] = c;
-            foreach (var alias in c.Aliases)
-                commandIndex[alias] = c;
-        }
-
-        var container = new ServiceContainer();
         IBootSequence boot = new MinixBootSequence();
         AppHost? host = null;
         var initialized = false;
@@ -126,6 +73,7 @@ internal static class Program
                     var module = new MinixModule(state.Spec, fileSystem, network);
                     var osScope = container.LoadModule(module);
                     var kernel = osScope.Resolve<IKernel>();
+                    var commandIndex = CommandScanner.BuildCommandIndex(osScope, "minix");
 
                     host = new AppHost(
                         kernel, state, machineStart, eggs, historyCmd, commandIndex,
@@ -168,4 +116,3 @@ internal static class Program
         }
     }
 }
-

@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("finger", OsTag = "minix")]
 internal sealed class FingerCommand : IKernelCommand
 {
     public string Name => "finger";

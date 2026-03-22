@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("help", OsTag = "minix")]
 internal sealed class HelpCommand : IKernelCommand
 {
     public string Name => "help";
