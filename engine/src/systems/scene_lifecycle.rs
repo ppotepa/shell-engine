@@ -165,7 +165,7 @@ impl SceneLifecycleManager {
             };
             // Prerender BEFORE activating the scene — blocks until cache is ready.
             if let Some((ref layers, mode, ref sid)) = prerender_layers {
-                crate::systems::bake::prerender_scene_sprites(layers, mode, sid, world);
+                crate::systems::prerender::prerender_scene_sprites(layers, mode, sid, world);
             }
             world.clear_scoped();
             world.register_scoped(SceneRuntime::new(new_scene));

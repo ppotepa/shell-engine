@@ -4,34 +4,34 @@ use crossterm::style::Color;
 
 use crate::assets::AssetRoot;
 use crate::buffer::Buffer;
-use crate::obj_frame_cache::{BakeCacheKey, ObjFrameCache};
+use crate::obj_prerender::ObjPrerenderedFrames;
 use crate::scene::{SceneRenderedMode, SpriteSizePreset};
 
 use super::obj_loader::{load_obj_mesh, ObjFace};
 
-// Thread-local pointer to the current frame's ObjFrameCache (set by compositor, cleared after).
-// SAFETY: only set during `with_frame_cache` and never accessed across threads.
+// Thread-local pointer to the current frame's ObjPrerenderedFrames (set by compositor, cleared after).
+// SAFETY: only set during `with_prerender_frames` and never accessed across threads.
 thread_local! {
-    static FRAME_CACHE_PTR: Cell<*const ObjFrameCache> = Cell::new(std::ptr::null());
+    static PRERENDER_FRAMES_PTR: Cell<*const ObjPrerenderedFrames> = Cell::new(std::ptr::null());
 }
 
-/// Set the thread-local frame cache pointer for the duration of `f`.
-pub(super) fn with_frame_cache<R>(cache: Option<&ObjFrameCache>, f: impl FnOnce() -> R) -> R {
-    let ptr = cache.map(|c| c as *const _).unwrap_or(std::ptr::null());
-    FRAME_CACHE_PTR.with(|cell| cell.set(ptr));
+/// Set the thread-local prerendered frames pointer for the duration of `f`.
+pub(super) fn with_prerender_frames<R>(frames: Option<&ObjPrerenderedFrames>, f: impl FnOnce() -> R) -> R {
+    let ptr = frames.map(|c| c as *const _).unwrap_or(std::ptr::null());
+    PRERENDER_FRAMES_PTR.with(|cell| cell.set(ptr));
     let result = f();
-    FRAME_CACHE_PTR.with(|cell| cell.set(std::ptr::null()));
+    PRERENDER_FRAMES_PTR.with(|cell| cell.set(std::ptr::null()));
     result
 }
 
-/// Borrow the current frame's `ObjFrameCache` if one was set.
-fn current_frame_cache<'a>() -> Option<&'a ObjFrameCache> {
-    FRAME_CACHE_PTR.with(|cell| {
+/// Borrow the current frame's `ObjPrerenderedFrames` if one was set.
+fn current_prerender_frames<'a>() -> Option<&'a ObjPrerenderedFrames> {
+    PRERENDER_FRAMES_PTR.with(|cell| {
         let ptr = cell.get();
         if ptr.is_null() {
             None
         } else {
-            // SAFETY: ptr was set from a reference valid for the duration of `with_frame_cache`.
+            // SAFETY: ptr was set from a reference valid for the duration of `with_prerender_frames`.
             Some(unsafe { &*ptr })
         }
     })
@@ -101,7 +101,7 @@ pub(crate) struct ObjRenderParams {
     pub clip_y_max: f32,
 }
 
-pub(super) fn obj_sprite_dimensions(
+pub(crate) fn obj_sprite_dimensions(
     width: Option<u16>,
     height: Option<u16>,
     size: Option<SpriteSizePreset>,
@@ -438,61 +438,7 @@ pub(super) fn render_obj_content(
     buf: &mut Buffer,
 ) {
     let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
-    let (virtual_w, virtual_h) = virtual_dimensions(mode, target_w, target_h);
-
-    // Fast path: try the pre-baked frame cache first.
-    if let Some(cache) = current_frame_cache() {
-        // Total yaw = rotation_y (static offset) + yaw_deg (from animation/YAML)
-        let total_yaw = params.rotation_y + params.yaw_deg;
-        let yaw_step = ObjFrameCache::snap_yaw(total_yaw);
-        let key = BakeCacheKey {
-            source: source.to_string(),
-            wireframe,
-            yaw_step,
-        };
-        if let Some(canvas) = cache.get(&key) {
-            let clip_min = params.clip_y_min;
-            let clip_max = params.clip_y_max;
-            if clip_min <= 0.0 && clip_max >= 1.0 {
-                blit_color_canvas(
-                    buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y,
-                    wireframe, draw_char, fg, bg,
-                );
-            } else {
-                let clip_min_row = (clip_min.clamp(0.0, 1.0) * virtual_h as f32) as usize;
-                let clip_max_row =
-                    (clip_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
-                let vw = virtual_w as usize;
-                let mut masked: Vec<Option<[u8; 3]>> = (**canvas).clone();
-                let canvas_len = masked.len();
-                for vy in 0..virtual_h as usize {
-                    if vy < clip_min_row || vy >= clip_max_row {
-                        let row_start = vy * vw;
-                        if row_start >= canvas_len {
-                            break;
-                        }
-                        let row_end = (row_start + vw).min(canvas_len);
-                        for px in &mut masked[row_start..row_end] {
-                            *px = None;
-                        }
-                    }
-                }
-                blit_color_canvas(
-                    buf, mode, &masked, virtual_w, virtual_h, target_w, target_h, x, y,
-                    wireframe, draw_char, fg, bg,
-                );
-            }
-            return;
-        }
-        // Cache exists but key not found — prerender scene should never fall through to live 3D.
-        engine_core::logging::warn(
-            "engine.obj_render",
-            format!("cache miss for {source} wire={wireframe} yaw={yaw_step} — skipping live render"),
-        );
-        return;
-    }
-
-    // Fallback: live render.
+    // Live render path — cache-hit is checked in sprite_renderer.rs BEFORE calling this fn.
     let Some((canvas, virtual_w, virtual_h)) = render_obj_to_canvas(
         source, width, height, size, mode, params, wireframe, backface_cull, fg, asset_root,
     ) else {
@@ -504,53 +450,51 @@ pub(super) fn render_obj_content(
     );
 }
 
-/// Render a pre-baked OBJ sprite from the frame cache.
+/// Try to blit a pre-rendered OBJ sprite from the thread-local `ObjPrerenderedFrames`.
 ///
-/// Looks up `(source, wireframe, snap_yaw(rotation_y + yaw_deg))` in the thread-local cache.
-/// Applies `clip_y_min / clip_y_max` row masking (used for the scanline materialize effect).
-/// Silently does nothing if the cache is absent or the key is missing.
+/// Checks pose tolerance: yaw within 1° and pitch within 0.5°.
+/// If matched: applies clip masking and blits the canvas, returns `true`.
+/// If no frames registered or pose mismatch: returns `false` → caller does live render.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn render_baked_obj_content(
-    source: &str,
-    wireframe: bool,
-    width: Option<u16>,
-    height: Option<u16>,
-    mode: SceneRenderedMode,
-    yaw_deg: f32,
-    rotation_y: f32,
+pub(super) fn try_blit_prerendered(
+    sprite_id: &str,
+    current_total_yaw: f32,
+    current_pitch: f32,
     clip_y_min: f32,
     clip_y_max: f32,
-    draw_char: char,
-    fg: Color,
-    bg: Color,
+    mode: SceneRenderedMode,
     x: u16,
     y: u16,
     buf: &mut Buffer,
-) {
-    let Some(cache) = current_frame_cache() else {
-        return;
+) -> bool {
+    let Some(frames) = current_prerender_frames() else {
+        return false;
     };
-    let total_yaw = rotation_y + yaw_deg;
-    let yaw_step = ObjFrameCache::snap_yaw(total_yaw);
-    let key = BakeCacheKey {
-        source: source.to_string(),
-        wireframe,
-        yaw_step,
-    };
-    let Some(canvas) = cache.get(&key) else {
-        return;
+    let Some(frame) = frames.get(sprite_id) else {
+        return false;
     };
 
-    let (target_w, target_h) = obj_sprite_dimensions(width, height, None);
-    let (virtual_w, virtual_h) = virtual_dimensions(mode, target_w, target_h);
+    // Pose tolerance check.
+    if (current_total_yaw - frame.rendered_yaw).abs() >= 1.0 {
+        return false;
+    }
+    if (current_pitch - frame.rendered_pitch).abs() >= 0.5 {
+        return false;
+    }
+
+    let virtual_w = frame.virtual_w;
+    let virtual_h = frame.virtual_h;
+    let target_w = frame.target_w;
+    let target_h = frame.target_h;
+    let canvas = &frame.canvas;
 
     let clip_min_row = (clip_y_min.clamp(0.0, 1.0) * virtual_h as f32) as usize;
     let clip_max_row = (clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
 
     if clip_min_row == 0 && clip_max_row >= virtual_h as usize {
         blit_color_canvas(
-            buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y, wireframe,
-            draw_char, fg, bg,
+            buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y,
+            false, '#', Color::White, Color::Reset,
         );
     } else {
         let mut masked: Vec<Option<[u8; 3]>> = (**canvas).clone();
@@ -569,10 +513,11 @@ pub(super) fn render_baked_obj_content(
             }
         }
         blit_color_canvas(
-            buf, mode, &masked, virtual_w, virtual_h, target_w, target_h, x, y, wireframe,
-            draw_char, fg, bg,
+            buf, mode, &masked, virtual_w, virtual_h, target_w, target_h, x, y,
+            false, '#', Color::White, Color::Reset,
         );
     }
+    true
 }
 
 #[derive(Clone, Copy)]
@@ -583,7 +528,7 @@ struct Viewport {
     max_y: i32,
 }
 
-fn virtual_dimensions(mode: SceneRenderedMode, target_w: u16, target_h: u16) -> (u16, u16) {
+pub(crate) fn virtual_dimensions(mode: SceneRenderedMode, target_w: u16, target_h: u16) -> (u16, u16) {
     match mode {
         SceneRenderedMode::Cell => (target_w, target_h),
         SceneRenderedMode::HalfBlock => (target_w, target_h.saturating_mul(2)),

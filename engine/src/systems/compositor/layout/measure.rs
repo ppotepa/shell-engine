@@ -164,7 +164,6 @@ pub(crate) fn measure_sprite_for_layout(
             size,
             ..
         } => obj_sprite_dimensions(*width, *height, *size),
-        Sprite::ObjBaked { width, height, .. } => obj_sprite_dimensions(*width, *height, None),
         Sprite::Panel {
             width,
             width_percent,
