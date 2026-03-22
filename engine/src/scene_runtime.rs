@@ -1049,7 +1049,7 @@ impl SceneRuntime {
         let ui_last_change = self.ui_state.last_change.clone();
         let ui_theme_id = self.ui_state.theme_id.clone();
         let mut commands = Vec::new();
-        let mut current_states = self.effective_object_states_snapshot();
+        let mut current_states = std::sync::Arc::new(self.effective_object_states_snapshot());
         for idx in 0..self.behaviors.len() {
             let object_id = self.behaviors[idx].object_id.clone();
             let Some(object) = self.objects.get(&object_id).cloned() else {
@@ -1061,7 +1061,7 @@ impl SceneRuntime {
                 stage_elapsed_ms,
                 menu_selected_index,
                 target_resolver: std::sync::Arc::clone(&resolver),
-                object_states: current_states.clone(),
+                object_states: std::sync::Arc::clone(&current_states),
                 object_kinds: std::sync::Arc::clone(&object_kinds),
                 object_props: std::sync::Arc::clone(&object_props),
                 object_regions: std::sync::Arc::clone(&object_regions),
@@ -1088,7 +1088,7 @@ impl SceneRuntime {
             // Only rescan effective states when a behavior actually emitted
             // commands that could have mutated scene state.
             if !local_commands.is_empty() && idx + 1 < self.behaviors.len() {
-                current_states = self.effective_object_states_snapshot();
+                current_states = std::sync::Arc::new(self.effective_object_states_snapshot());
             }
             commands.extend(local_commands.iter().cloned());
         }
