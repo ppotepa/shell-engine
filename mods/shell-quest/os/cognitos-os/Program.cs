@@ -2,6 +2,8 @@ using System.Text.Json;
 using CognitosOs.Boot;
 using CognitosOs.Commands;
 using CognitosOs.Core;
+using CognitosOs.EasterEggs;
+using CognitosOs.Network;
 using CognitosOs.State;
 
 internal static class Program
@@ -11,6 +13,9 @@ internal static class Program
         var statePath = Path.Combine(Environment.CurrentDirectory, "state.obj");
         IMachineStart machineStart = new ZipStateStore(statePath);
         var state = machineStart.LoadOrCreate();
+
+        var network = new NetworkRegistry();
+        var historyCmd = new HistoryCommand();
 
         var commands = new ICommand[]
         {
@@ -25,15 +30,49 @@ internal static class Program
             new PwdCommand(),
             new CpCommand(),
             new FtpCommand(),
+            // Environment
+            new DateCommand(),
+            new UptimeCommand(),
+            new WhoamiCommand(),
+            new WhoCommand(),
+            new UnameCommand(),
+            new HostnameCommand(),
+            new FortuneCommand(),
+            new EchoCommand(),
+            new EnvCommand(),
+            historyCmd,
+            new IdCommand(),
+            // Filesystem
+            new DfCommand(),
+            new GrepCommand(),
+            new HeadTailCommand(isHead: true),
+            new HeadTailCommand(isHead: false),
+            new WcCommand(),
+            new FileCommand(),
+            new ManCommand(),
+            new FingerCommand(),
+            new MountCommand(),
+            new FreeCommand(),
+            new SyncCommand(),
+            new KillCommand(),
+            // Network
+            new PingCommand(network),
+            new NslookupCommand(network),
+            new NetstatCommand(),
+            new IfconfigCommand(),
+            new DmesgCommand(),
         };
 
+        var eggs = new EasterEggRegistry();
+        eggs.Register(new MinixEgg());
+        eggs.Register(new LinuxEgg());
+        eggs.Register(new OneLiners());
+
         var fileSystem = new ZipVirtualFileSystem(statePath);
-        // SeedEpochFiles is called automatically inside ReloadFromStateArchive,
-        // so epoch files are always present without a separate call here.
 
         IOperatingSystem os = new MinixOperatingSystem(state, fileSystem, commands);
         IBootSequence boot = new MinixBootSequence();
-        var host = new AppHost(os, machineStart);
+        var host = new AppHost(os, machineStart, eggs, historyCmd);
         var initialized = false;
 
         string? line;
