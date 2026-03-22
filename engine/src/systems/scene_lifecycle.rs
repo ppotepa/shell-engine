@@ -1002,7 +1002,7 @@ layers:
         let prompt = runtime
             .text_sprite_content("terminal-prompt")
             .expect("terminal prompt sprite");
-        assert_eq!(prompt, "λ 1");
+        assert_eq!(prompt, "λ [#adadad]1[/]");
     }
 
     #[test]
@@ -1032,7 +1032,7 @@ layers:
         let prompt = runtime
             .text_sprite_content("terminal-prompt")
             .expect("terminal prompt sprite");
-        assert_eq!(prompt, "λ x");
+        assert_eq!(prompt, "λ [#adadad]x[/]");
 
         let output = runtime
             .text_sprite_content("terminal-output")

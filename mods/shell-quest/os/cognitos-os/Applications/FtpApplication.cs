@@ -47,10 +47,7 @@ internal sealed class FtpApplication : IApplication
         Protocol.Send(new { type = "set-prompt-masked", masked = false });
     }
 
-    public void OnExit(UserSession session)
-    {
-        _screen.Append("");
-    }
+    public void OnExit(UserSession session) { }
 
     public ApplicationResult HandleInput(string input, UserSession session)
     {

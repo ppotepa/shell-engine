@@ -48,7 +48,8 @@ internal sealed class AppHost
         _bootFinished = true;
         _os.State.Mode = SessionMode.LoginUser;
         _screen.ClearViewport();
-        _screen.Append("Minix 1.3  Copyright 1987, Prentice-Hall", "Console ready", "");
+        var brightInfo = Style.BrightenHex(Style.Info, 1.15);
+        _screen.Append("Minix 1.3  Copyright 1987, Prentice-Hall", Style.Fg(brightInfo, "Console ready"), "");
         ApplyPrompt();
     }
 
@@ -156,24 +157,25 @@ internal sealed class AppHost
             zipFs.ReloadFromStateArchive();
 
         _session = new UserSession(_os.State.UserName ?? "linus", "kruuna");
-        _appStack = new ApplicationStack();
+        _appStack = new ApplicationStack(_screen);
         _appStack.Push(new ShellApplication(_os, _screen, _appStack), _session);
 
+        var bi = Style.BrightenHex(Style.Info, 1.15);
         _screen.ClearViewport();
         _screen.Append(firstLogin
             ? new[]
             {
-                Style.Fg(Style.Info, "account created."),
-                $"last login: {now:ddd MMM dd HH:mm}",
-                $"you have {_os.UnreadMailCount()} new message{(_os.UnreadMailCount() == 1 ? "" : "s")}.",
+                Style.Fg(bi, "account created."),
+                Style.Fg(bi, $"last login: {now:ddd MMM dd HH:mm}"),
+                Style.Fg(bi, $"you have {_os.UnreadMailCount()} new message{(_os.UnreadMailCount() == 1 ? "" : "s")}."),
                 "type ls to look around.",
                 "type cat <file> to read notes.",
                 ""
             }
             : new[]
             {
-                $"last login: {last:ddd MMM dd HH:mm}",
-                $"you have {_os.UnreadMailCount()} new message{(_os.UnreadMailCount() == 1 ? "" : "s")}.",
+                Style.Fg(bi, $"last login: {last:ddd MMM dd HH:mm}"),
+                Style.Fg(bi, $"you have {_os.UnreadMailCount()} new message{(_os.UnreadMailCount() == 1 ? "" : "s")}."),
                 "type ls to look around.",
                 "type cat <file> to read notes.",
                 ""
@@ -250,7 +252,8 @@ internal sealed class AppHost
             _bootPostDelayMs = 0;
             _os.State.Mode = SessionMode.LoginUser;
             _screen.ClearViewport();
-            _screen.Append("Minix 1.3  Copyright 1987, Prentice-Hall", "Console ready", "");
+            var brightInfo = Style.BrightenHex(Style.Info, 1.15);
+            _screen.Append("Minix 1.3  Copyright 1987, Prentice-Hall", Style.Fg(brightInfo, "Console ready"), "");
             ApplyPrompt();
         }
         else

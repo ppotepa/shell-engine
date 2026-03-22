@@ -177,10 +177,18 @@ impl TerminalShellState {
     }
 
     fn prompt_line(&self, scene_elapsed_ms: u64) -> String {
-        let input_value = if self.input_masked {
+        let raw_input = if self.input_masked {
             "*".repeat(self.input.value().chars().count())
         } else {
             self.input.value().to_string()
+        };
+
+        // Dim user input by 10% relative to the sprite base fg to give it
+        // a subtle CRT-styled feel.
+        let input_value = if raw_input.is_empty() {
+            raw_input
+        } else {
+            format!("[#adadad]{}[/]", raw_input)
         };
 
         // Default shell prompt (`>`) uses a blinking marker.
