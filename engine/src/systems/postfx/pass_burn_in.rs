@@ -137,11 +137,15 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         }
 
         // ── 3. f(t) = alpha × exp(−k × t) ────────────────────────────
-        //   k = 4.6 / speed  →  at t = speed, f ≈ 1% of alpha.
-        let k = 4.6 / speed;
+        //   k = 6.0 / speed  →  faster falloff, ghost fades by ~speed seconds.
+        let k = 6.0 / speed;
         let decay = (-k * elapsed_s).exp();
 
         let f = (alpha * intensity * brightness * decay).clamp(0.0, 1.0);
+
+        // Desaturation: ghost loses colour as it fades.
+        // sat = 1 at full brightness, → 0 (greyscale) as ghost disappears.
+        let desat = f.sqrt().clamp(0.0, 1.0);
 
         // ── 3b. Phosphor bloom: new scene overshoots then settles ─────
         //   g(t) = 1.0 + (pump - 1) × exp(−t / 0.05)
@@ -177,9 +181,14 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                 let (blur_r, blur_g, blur_b) = blur_sample(ghost, gw, s.ghost_h as usize, gx, gy);
 
                 // Glow contribution (0–255 range).
-                let glow_r = blur_r * fr * 255.0;
-                let glow_g = blur_g * fg_ch * 255.0;
-                let glow_b = blur_b * fb * 255.0;
+                // Desaturate: as ghost fades, shift RGB toward greyscale luma.
+                let raw_r = blur_r * fr * 255.0;
+                let raw_g = blur_g * fg_ch * 255.0;
+                let raw_b = blur_b * fb * 255.0;
+                let luma = 0.299 * raw_r + 0.587 * raw_g + 0.114 * raw_b;
+                let glow_r = luma + desat * (raw_r - luma);
+                let glow_g = luma + desat * (raw_g - luma);
+                let glow_b = luma + desat * (raw_b - luma);
 
                 // Add glow to fg and bg SEPARATELY — preserves text contrast.
                 // Bloom multiplies src brightness, glow adds ghost on top.
