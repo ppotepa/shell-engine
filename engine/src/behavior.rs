@@ -30,7 +30,7 @@ pub struct BehaviorContext {
     pub object_props: Arc<std::collections::BTreeMap<String, JsonValue>>,
     pub object_regions: Arc<std::collections::BTreeMap<String, Region>>,
     pub object_text: Arc<std::collections::BTreeMap<String, String>>,
-    // Arc-wrapped: cloned once per frame, shared across all behaviors via O(1) refcount.
+    // Arc<str>: built once per frame, each behavior pays only an atomic refcount increment.
     pub ui_focused_target_id: Option<Arc<str>>,
     pub ui_theme_id: Option<Arc<str>>,
     pub ui_last_submit_target_id: Option<Arc<str>>,
@@ -1015,24 +1015,24 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
                 scope.push(
                     "ui_focused_target",
-                    ctx.ui_focused_target_id.as_deref().unwrap_or("").to_string(),
+                    ctx.ui_focused_target_id.as_deref().unwrap_or_default().to_string(),
                 );
-                scope.push("ui_theme", ctx.ui_theme_id.as_deref().unwrap_or("").to_string());
+                scope.push("ui_theme", ctx.ui_theme_id.as_deref().unwrap_or_default().to_string());
                 scope.push(
                     "ui_submit_target",
-                    ctx.ui_last_submit_target_id.as_deref().unwrap_or("").to_string(),
+                    ctx.ui_last_submit_target_id.as_deref().unwrap_or_default().to_string(),
                 );
                 scope.push(
                     "ui_submit_text",
-                    ctx.ui_last_submit_text.as_deref().unwrap_or("").to_string(),
+                    ctx.ui_last_submit_text.as_deref().unwrap_or_default().to_string(),
                 );
                 scope.push(
                     "ui_change_target",
-                    ctx.ui_last_change_target_id.as_deref().unwrap_or("").to_string(),
+                    ctx.ui_last_change_target_id.as_deref().unwrap_or_default().to_string(),
                 );
                 scope.push(
                     "ui_change_text",
-                    ctx.ui_last_change_text.as_deref().unwrap_or("").to_string(),
+                    ctx.ui_last_change_text.as_deref().unwrap_or_default().to_string(),
                 );
                 scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
                 scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
