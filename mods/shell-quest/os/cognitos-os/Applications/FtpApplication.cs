@@ -1,5 +1,4 @@
 using CognitosOs.Core;
-using CognitosOs.Framework.Kernel;
 using CognitosOs.State;
 
 namespace CognitosOs.Applications;
@@ -9,11 +8,9 @@ namespace CognitosOs.Applications;
 /// the user runs the ftp command. Popped when the user types bye/quit/exit.
 /// Transfer mode defaults to ASCII (historically accurate — the prologue bug).
 /// </summary>
-internal sealed class FtpApplication : IApplication
+internal sealed class FtpApplication : IKernelApplication
 {
-    private readonly CognitosOs.Framework.Kernel.IKernel _kernel;
     private readonly MachineState _machineState;
-    private readonly ScreenBuffer _screen;
 
     private bool _connected;
     private string _remoteHost = "";
@@ -27,39 +24,31 @@ internal sealed class FtpApplication : IApplication
             ["ftp.funet.fi"] = "128.214.6.100",
         };
 
-    public FtpApplication(CognitosOs.Framework.Kernel.IKernel kernel, MachineState machineState, ScreenBuffer screen)
+    public FtpApplication(MachineState machineState)
     {
-        _kernel = kernel;
         _machineState = machineState;
-        _screen = screen;
     }
 
     public string PromptPrefix(UserSession session)
         => _connected ? $"ftp {_remoteHost}> " : "ftp> ";
 
-    public void OnEnter(UserSession session)
+    public void OnEnter(CognitosOs.Kernel.IUnitOfWork uow)
     {
         var pendingHost = _machineState.Quest.FtpRemoteHost;
         if (!string.IsNullOrWhiteSpace(pendingHost))
         {
             _machineState.Quest.FtpRemoteHost = null;
-            HandleOpen(pendingHost);
+            HandleOpen(uow, pendingHost);
         }
-
-        Protocol.Send(new { type = "set-prompt-prefix", text = PromptPrefix(session) });
-        Protocol.Send(new { type = "set-prompt-masked", masked = false });
     }
 
-    public void OnExit(UserSession session) { }
+    public void OnExit(CognitosOs.Kernel.IUnitOfWork uow) { }
 
-    public ApplicationResult HandleInput(string input, UserSession session)
+    public ApplicationResult HandleInput(CognitosOs.Kernel.IUnitOfWork uow, string input)
     {
         var parts = input.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0)
-        {
-            Protocol.Send(new { type = "set-prompt-prefix", text = PromptPrefix(session) });
             return ApplicationResult.Continue;
-        }
 
         var cmd = parts[0].ToLowerInvariant();
         var args = parts.Length > 1 ? parts[1..] : Array.Empty<string>();
@@ -67,204 +56,239 @@ internal sealed class FtpApplication : IApplication
         switch (cmd)
         {
             case "open":
-                HandleOpen(args.Length > 0 ? args[0] : "");
+                HandleOpen(uow, args.Length > 0 ? args[0] : "");
                 break;
             case "close":
-                HandleClose();
+                HandleClose(uow);
                 break;
             case "binary" or "bin":
-                HandleBinary();
+                HandleBinary(uow);
                 break;
             case "ascii":
-                HandleAscii();
+                HandleAscii(uow);
                 break;
             case "type" when args.Length > 0 && args[0].Equals("i", StringComparison.OrdinalIgnoreCase):
-                HandleBinary();
+                HandleBinary(uow);
                 break;
             case "type" when args.Length > 0 && args[0].Equals("a", StringComparison.OrdinalIgnoreCase):
-                HandleAscii();
+                HandleAscii(uow);
                 break;
             case "put":
-                HandlePut(args.Length > 0 ? args[0] : "", session);
+                HandlePut(uow, args.Length > 0 ? args[0] : "");
                 break;
             case "ls" or "dir":
-                HandleLs();
+                HandleLs(uow);
                 break;
             case "pwd":
-                HandlePwd();
+                HandlePwd(uow);
                 break;
             case "cd":
-                HandleCd(args.Length > 0 ? args[0] : "");
+                HandleCd(uow, args.Length > 0 ? args[0] : "");
                 break;
             case "status":
-                HandleStatus();
+                HandleStatus(uow);
                 break;
             case "help" or "?":
-                HandleHelp();
+                HandleHelp(uow);
                 break;
             case "bye" or "quit" or "exit":
-                HandleClose();
-                _screen.Append("221 Goodbye.");
+                HandleClose(uow);
+                uow.Out.WriteLine("221 Goodbye.");
                 return ApplicationResult.Exit;
             default:
-                _screen.Append($"?Invalid command: {cmd}");
+                uow.Out.WriteLine($"?Invalid command: {cmd}");
                 break;
         }
 
-        Protocol.Send(new { type = "set-prompt-prefix", text = PromptPrefix(session) });
         return ApplicationResult.Continue;
     }
 
-    private void HandleOpen(string host)
+    private void HandleOpen(CognitosOs.Kernel.IUnitOfWork uow, string host)
     {
-        if (_connected) { _screen.Append("Already connected. Use close first."); return; }
-        if (string.IsNullOrWhiteSpace(host)) { _screen.Append("(to) "); return; }
+        if (_connected)
+        {
+            uow.Out.WriteLine("Already connected. Use close first.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            uow.Out.WriteLine("(to) ");
+            return;
+        }
         if (!DnsTable.TryGetValue(host, out var ip))
         {
-            _screen.Append($"ftp: {host}: Name or service not known");
+            uow.Out.WriteLine($"ftp: {host}: Name or service not known");
             return;
         }
 
         _remoteHost = host;
-        _screen.Append($"Connected to {host} ({ip}).");
-        _screen.Append("220 nic.funet.fi FTP server ready.");
-        _screen.Append($"Name ({host}:anonymous): anonymous");
-        _screen.Append("331 Guest login ok, send strIdent as password.");
-        _screen.Append("230 Guest login ok, access restrictions apply.");
-        _screen.Append("Remote system type is UNIX.");
-        _screen.Append($"Using {_transferMode} mode to transfer files.");
+        uow.Out.WriteLine($"Connected to {host} ({ip}).");
+        uow.Out.WriteLine("220 nic.funet.fi FTP server ready.");
+        uow.Out.WriteLine($"Name ({host}:anonymous): anonymous");
+        uow.Out.WriteLine("331 Guest login ok, send strIdent as password.");
+        uow.Out.WriteLine("230 Guest login ok, access restrictions apply.");
+        uow.Out.WriteLine("Remote system type is UNIX.");
+        uow.Out.WriteLine($"Using {_transferMode} mode to transfer files.");
         _connected = true;
         _machineState.Quest.FtpConnected = true;
     }
 
-    private void HandleClose()
+    private void HandleClose(CognitosOs.Kernel.IUnitOfWork uow)
     {
-        if (!_connected) { _screen.Append("Not connected."); return; }
-        _screen.Append($"221 Goodbye from {_remoteHost}.");
+        if (!_connected)
+        {
+            uow.Out.WriteLine("Not connected.");
+            return;
+        }
+        uow.Out.WriteLine($"221 Goodbye from {_remoteHost}.");
         _connected = false;
         _remoteHost = "";
         _machineState.Quest.FtpConnected = false;
     }
 
-    private void HandleBinary()
+    private void HandleBinary(CognitosOs.Kernel.IUnitOfWork uow)
     {
         _transferMode = "binary";
         _machineState.Quest.FtpTransferMode = "binary";
-        _screen.Append("200 Type set to I (binary).");
+        uow.Out.WriteLine("200 Type set to I (binary).");
     }
 
-    private void HandleAscii()
+    private void HandleAscii(CognitosOs.Kernel.IUnitOfWork uow)
     {
         _transferMode = "ascii";
         _machineState.Quest.FtpTransferMode = "ascii";
-        _screen.Append("200 Type set to A (ascii).");
+        uow.Out.WriteLine("200 Type set to A (ascii).");
     }
 
-    private void HandlePut(string fileName, UserSession session)
+    private void HandlePut(CognitosOs.Kernel.IUnitOfWork uow, string fileName)
     {
-        if (!_connected) { _screen.Append("Not connected."); return; }
-        if (string.IsNullOrWhiteSpace(fileName)) { _screen.Append("(local-file) "); return; }
+        if (!_connected)
+        {
+            uow.Out.WriteLine("Not connected.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            uow.Out.WriteLine("(local-file) ");
+            return;
+        }
 
-        var absolute = session.ResolvePath(fileName);
-        var content = _kernel.Disk.RawRead(absolute);
+        var absolute = uow.Session.ResolvePath(fileName);
+        var content = uow.Disk.RawRead(absolute);
         if (content == null)
         {
-            _screen.Append($"local: {fileName}: No such file or directory");
+            uow.Out.WriteLine($"local: {fileName}: No such file or directory");
             return;
         }
 
         var sizeBytes = content.Length;
-        _screen.Append("200 PORT command successful.");
-        _screen.Append($"150 Opening {_transferMode.ToUpperInvariant()} mode data connection for {fileName}.");
+        uow.Out.WriteLine("200 PORT command successful.");
+        uow.Out.WriteLine($"150 Opening {_transferMode.ToUpperInvariant()} mode data connection for {fileName}.");
         _machineState.Quest.UploadAttempted = true;
 
-        var transferTimeMs = (sizeBytes * 8) / Math.Max(_kernel.Spec.NicSpeedKbps, 1);
-        _screen.Append("226 Transfer complete.");
-        _screen.Append($"{sizeBytes} bytes sent in {transferTimeMs / 1000.0:F1} seconds.");
+        var transferTimeMs = (sizeBytes * 8) / Math.Max(uow.Spec.NicSpeedKbps, 1);
+        uow.Out.WriteLine("226 Transfer complete.");
+        uow.Out.WriteLine($"{sizeBytes} bytes sent in {transferTimeMs / 1000.0:F1} seconds.");
 
         if (_transferMode == "ascii")
         {
             _machineState.Quest.UploadSuccess = false;
-            _screen.Append("");
-            _screen.Append(Style.Fg(Style.Warn,
+            uow.Out.WriteLine();
+            uow.Out.WriteLine(Style.Fg(Style.Warn,
                 $"remote: warning: {fileName} - uncompress failed, archive may be damaged"));
-            _screen.Append(Style.Fg(Style.Warn,
+            uow.Out.WriteLine(Style.Fg(Style.Warn,
                 "remote: hint: check transfer mode (ascii vs binary)"));
         }
         else
         {
             _machineState.Quest.UploadSuccess = true;
-            _screen.Append("");
-            _screen.Append(Style.Fg(Style.Info,
+            uow.Out.WriteLine();
+            uow.Out.WriteLine(Style.Fg(Style.Info,
                 $"remote: {fileName} received OK, archive integrity verified."));
         }
     }
 
-    private void HandleLs()
+    private void HandleLs(CognitosOs.Kernel.IUnitOfWork uow)
     {
-        if (!_connected) { _screen.Append("Not connected."); return; }
-        _screen.Append("200 PORT command successful.");
-        _screen.Append("150 Opening ASCII mode data connection for /bin/ls.");
+        if (!_connected)
+        {
+            uow.Out.WriteLine("Not connected.");
+            return;
+        }
+        uow.Out.WriteLine("200 PORT command successful.");
+        uow.Out.WriteLine("150 Opening ASCII mode data connection for /bin/ls.");
 
         if (_machineState.Quest.UploadSuccess)
         {
-            _screen.Append("total 234");
-            _screen.Append("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:12 .");
-            _screen.Append("-rw-r--r--  1 ftp  ftp  73091 Sep 17 21:12 linux-0.01.tar.Z");
+            uow.Out.WriteLine("total 234");
+            uow.Out.WriteLine("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:12 .");
+            uow.Out.WriteLine("-rw-r--r--  1 ftp  ftp  73091 Sep 17 21:12 linux-0.01.tar.Z");
         }
         else if (_machineState.Quest.UploadAttempted)
         {
-            _screen.Append("total 234");
-            _screen.Append("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:12 .");
-            _screen.Append("-rw-r--r--  1 ftp  ftp  73091 Sep 17 21:12 linux-0.01.tar.Z  [CORRUPT]");
+            uow.Out.WriteLine("total 234");
+            uow.Out.WriteLine("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:12 .");
+            uow.Out.WriteLine("-rw-r--r--  1 ftp  ftp  73091 Sep 17 21:12 linux-0.01.tar.Z  [CORRUPT]");
         }
         else
         {
-            _screen.Append("total 0");
-            _screen.Append("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:00 .");
+            uow.Out.WriteLine("total 0");
+            uow.Out.WriteLine("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:00 .");
         }
 
-        _screen.Append("226 Transfer complete.");
+        uow.Out.WriteLine("226 Transfer complete.");
     }
 
-    private void HandlePwd()
+    private void HandlePwd(CognitosOs.Kernel.IUnitOfWork uow)
     {
-        if (!_connected) { _screen.Append("Not connected."); return; }
-        _screen.Append($"257 \"{_remoteCwd}\" is current directory.");
+        if (!_connected)
+        {
+            uow.Out.WriteLine("Not connected.");
+            return;
+        }
+        uow.Out.WriteLine($"257 \"{_remoteCwd}\" is current directory.");
     }
 
-    private void HandleCd(string dir)
+    private void HandleCd(CognitosOs.Kernel.IUnitOfWork uow, string dir)
     {
-        if (!_connected) { _screen.Append("Not connected."); return; }
-        if (string.IsNullOrWhiteSpace(dir)) { _screen.Append("(remote-directory) "); return; }
+        if (!_connected)
+        {
+            uow.Out.WriteLine("Not connected.");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            uow.Out.WriteLine("(remote-directory) ");
+            return;
+        }
 
         if (dir is "/pub/OS/Linux" or "/pub/OS" or "/pub" or "/")
         {
             _remoteCwd = dir;
-            _screen.Append("250 CWD command successful.");
+            uow.Out.WriteLine("250 CWD command successful.");
         }
         else if (dir == "..")
         {
             _remoteCwd = "/pub/OS";
-            _screen.Append("250 CWD command successful.");
+            uow.Out.WriteLine("250 CWD command successful.");
         }
         else
         {
-            _screen.Append($"550 {dir}: No such file or directory.");
+            uow.Out.WriteLine($"550 {dir}: No such file or directory.");
         }
     }
 
-    private void HandleStatus()
+    private void HandleStatus(CognitosOs.Kernel.IUnitOfWork uow)
     {
-        _screen.Append($"Connected to: {(_connected ? _remoteHost : "(not connected)")}");
-        _screen.Append($"Transfer mode: {_transferMode}");
-        _screen.Append($"Remote cwd: {_remoteCwd}");
-        _screen.Append($"NIC: {_kernel.Spec.NicModel} ({_kernel.Spec.NicSpeedKbps} Kbps)");
+        uow.Out.WriteLine($"Connected to: {(_connected ? _remoteHost : "(not connected)")}");
+        uow.Out.WriteLine($"Transfer mode: {_transferMode}");
+        uow.Out.WriteLine($"Remote cwd: {_remoteCwd}");
+        uow.Out.WriteLine($"NIC: {uow.Spec.NicModel} ({uow.Spec.NicSpeedKbps} Kbps)");
     }
 
-    private void HandleHelp()
+    private void HandleHelp(CognitosOs.Kernel.IUnitOfWork uow)
     {
-        _screen.Append("Commands: open <host>  close  binary  ascii  put <file>");
-        _screen.Append("          ls  cd <dir>  pwd  status  help  bye");
+        uow.Out.WriteLine("Commands: open <host>  close  binary  ascii  put <file>");
+        uow.Out.WriteLine("          ls  cd <dir>  pwd  status  help  bye");
     }
 }

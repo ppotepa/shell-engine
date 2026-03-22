@@ -10,27 +10,22 @@ namespace CognitosOs.Applications;
 /// The base shell application. Always sits at the bottom of the application stack.
 /// Handles command dispatch including builtins, easter eggs, and launching child applications.
 /// </summary>
-internal sealed class ShellApplication : IApplication
+internal sealed class ShellApplication : IKernelApplication
 {
-    private readonly CognitosOs.Framework.Kernel.IKernel _kernel;
     private readonly MachineState _machineState;
     private readonly IReadOnlyDictionary<string, IKernelCommand> _commandIndex;
-    private readonly ScreenBuffer _screen;
     private readonly ApplicationStack _stack;
     private readonly EasterEggRegistry _eggs;
     private readonly HistoryCommand _historyCmd;
 
     public ShellApplication(
-        CognitosOs.Framework.Kernel.IKernel kernel,
         MachineState machineState,
         IReadOnlyDictionary<string, IKernelCommand> commandIndex,
-        ScreenBuffer screen, ApplicationStack stack,
+        ApplicationStack stack,
         EasterEggRegistry eggs, HistoryCommand historyCmd)
     {
-        _kernel = kernel;
         _machineState = machineState;
         _commandIndex = commandIndex;
-        _screen = screen;
         _stack = stack;
         _eggs = eggs;
         _historyCmd = historyCmd;
@@ -44,10 +39,10 @@ internal sealed class ShellApplication : IApplication
         return $"{Style.Fg(Style.PromptUser, user)}@{Style.Fg(Style.PromptHost, host)}:{Style.Fg(Style.PromptPath, cwd)} [{session.LastExitCode}]$ ";
     }
 
-    public void OnEnter(UserSession session) { }
-    public void OnExit(UserSession session) { }
+    public void OnEnter(CognitosOs.Kernel.IUnitOfWork uow) { }
+    public void OnExit(CognitosOs.Kernel.IUnitOfWork uow) { }
 
-    public ApplicationResult HandleInput(string input, UserSession session)
+    public ApplicationResult HandleInput(CognitosOs.Kernel.IUnitOfWork uow, string input)
     {
         var submitted = input.Trim();
         if (string.IsNullOrWhiteSpace(submitted))
@@ -61,63 +56,40 @@ internal sealed class ShellApplication : IApplication
         // Strict-1991: no GNU-style --help. MINIX used man pages.
         if (parts.Skip(1).Any(a => a == "--help"))
         {
-            session.LastExitCode = 1;
-            _screen.Append($"{cmd}: illegal option -- -", $"Try: man {cmd}", "");
+            uow.Session.LastExitCode = 1;
+            uow.Out.WriteLine($"{cmd}: illegal option -- -");
+            uow.Out.WriteLine($"Try: man {cmd}");
+            uow.Out.WriteLine();
             return ApplicationResult.Continue;
         }
 
         if (!_commandIndex.TryGetValue(cmd, out var command))
         {
-            // Try easter eggs before "command not found"
-            var writer = new StringWriter();
-            using var eggUow = (CognitosOs.Kernel.IUnitOfWork)_kernel.CreateScope(session, writer, _machineState.Quest);
-            var exitCode = _eggs.TryHandle(eggUow, cmd, parts);
+            var exitCode = _eggs.TryHandle(uow, cmd, parts);
             if (exitCode.HasValue)
             {
-                session.LastExitCode = exitCode.Value;
-                FlushOutput(writer);
+                uow.Session.LastExitCode = exitCode.Value;
                 return ApplicationResult.Continue;
             }
 
-            session.LastExitCode = 127;
-            _screen.Append(Style.Fg(Style.Error, $"{cmd}: command not found"), "");
+            uow.Session.LastExitCode = 127;
+            uow.Out.WriteLine(Style.Fg(Style.Error, $"{cmd}: command not found"));
+            uow.Out.WriteLine();
             return ApplicationResult.Continue;
         }
 
-        var cmdWriter = new StringWriter();
-        using var uow = (CognitosOs.Kernel.IUnitOfWork)_kernel.CreateScope(session, cmdWriter, _machineState.Quest);
         var result = command.Run(uow, parts);
-        session.LastExitCode = result;
+        uow.Session.LastExitCode = result;
 
         switch (result)
         {
             case 901: // clear screen
-                _screen.ClearViewport();
                 break;
             case 900: // launch FTP app
-                FlushOutput(cmdWriter);
-                _stack.Push(new FtpApplication(_kernel, _machineState, _screen), session);
-                break;
-            default:
-                FlushOutput(cmdWriter);
+                _stack.Push(new FtpApplication(_machineState), uow.Session);
                 break;
         }
 
         return ApplicationResult.Continue;
-    }
-
-    private void FlushOutput(StringWriter writer)
-    {
-        writer.Flush();
-        var text = writer.ToString();
-        if (text.Length > 0)
-        {
-            var lines = text.TrimEnd('\r', '\n').Split('\n');
-            _screen.Append(lines.Concat(new[] { "" }).ToArray());
-        }
-        else
-        {
-            _screen.Append("");
-        }
     }
 }

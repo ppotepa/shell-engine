@@ -175,9 +175,9 @@ internal sealed class AppHost
         _reloadVfs?.Invoke();
 
         _session = new UserSession(_machineState.UserName ?? "linus", "kruuna");
-        _appStack = new ApplicationStack(_screen);
+        _appStack = new ApplicationStack(_kernel, _machineState, _screen);
         _appStack.Push(
-            new ShellApplication(_kernel, _machineState, _commandIndex, _screen, _appStack, _eggs, _historyCmd),
+            new ShellApplication(_machineState, _commandIndex, _appStack, _eggs, _historyCmd),
             _session);
 
         var bi = Style.BrightenHex(Style.Info, 1.15);
