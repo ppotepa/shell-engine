@@ -57,7 +57,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         ISyscallGate gate = new MinixSyscallGate(Resources, Hardware);
 
         // Layer 4: Subsystems (each wraps storage with timing via gate)
-        Disk = new SimulatedDisk(vfs, Resources, Hardware, gate);
+        Disk = new SimulatedDisk(vfs, Resources, Hardware, gate, Clock);
         var processTable = new SimulatedProcessTable(Resources, Hardware, Clock, gate);
         Process = processTable;
         Net = new SimulatedNetwork(netReg, Resources, Hardware, Disk, gate);

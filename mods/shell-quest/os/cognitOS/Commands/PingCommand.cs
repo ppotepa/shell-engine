@@ -104,7 +104,7 @@ internal sealed class PingCommand : IKernelCommand
             lines.Add("[    ] ...this shouldn't happen.");
         }
 
-        try { uow.Disk.WriteFile("/var/log/net.trace", string.Join("\n", lines)); }
+        try { uow.Disk.WriteFile("/usr/adm/net.trace", string.Join("\n", lines)); }
         catch { /* disk full — silently fail */ }
     }
 }

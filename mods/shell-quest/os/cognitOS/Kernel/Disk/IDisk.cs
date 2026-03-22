@@ -37,4 +37,7 @@ internal interface IDisk
 
     /// <summary>Raw directory list — no timing.</summary>
     IReadOnlyList<string>? RawReadDir(string path);
+
+    /// <summary>Change file mode. Persists to inode table.</summary>
+    void Chmod(string path, string mode);
 }

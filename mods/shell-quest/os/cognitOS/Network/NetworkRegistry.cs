@@ -69,7 +69,7 @@ internal sealed class NetworkRegistry
                 "net: retrying via alternate root",
                 "... no route to host",
                 "ping: transmit failed (unreachable) [0xFE]",
-                Style.Fg(Style.Warn, "note: unexpected partial route trace logged to /var/log/net.trace"),
+                Style.Fg(Style.Warn, "note: unexpected partial route trace logged to /usr/adm/net.trace"),
             },
         });
         Register(new AnomalyServer
@@ -82,7 +82,7 @@ internal sealed class NetworkRegistry
                 "net: authority record points to unallocated block",
                 "... request timed out",
                 "ping: host not found, but 3 hops responded (unexpected)",
-                Style.Fg(Style.Warn, "note: see /var/log/net.trace"),
+                Style.Fg(Style.Warn, "note: see /usr/adm/net.trace"),
             },
         });
         Register(new AnomalyServer
@@ -95,7 +95,7 @@ internal sealed class NetworkRegistry
                 "net: anomaly: received partial ICMP echo from unregistered AS",
                 "... connection interrupted",
                 "ping: unknown network error [0xFF]",
-                Style.Fg(Style.Warn, "note: logged to /var/log/net.trace"),
+                Style.Fg(Style.Warn, "note: logged to /usr/adm/net.trace"),
             },
         });
     }

@@ -14,7 +14,7 @@ internal interface IJournal
     /// <summary>Read a log file. Incurs disk read delay.</summary>
     string Read(string logFile);
 
-    /// <summary>Read the last N entries from /var/log/messages (in-memory, no extra disk cost).</summary>
+    /// <summary>Read the last N entries from /usr/adm/messages (in-memory, no extra disk cost).</summary>
     IReadOnlyList<string> Recent(int count);
 }
 
@@ -27,7 +27,7 @@ internal sealed class SimulatedJournal : IJournal
     private readonly IDisk _disk;
     private readonly IClock _clock;
     private readonly List<string> _entries = new();
-    private const string LogPath = "/var/log/messages";
+    private const string LogPath = "/usr/adm/messages";
 
     public SimulatedJournal(IDisk disk, IClock clock)
     {

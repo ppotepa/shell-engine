@@ -157,7 +157,7 @@ internal sealed class SimulatedServiceManager : IServiceManager
     private void TickUpdate(ServiceEntry svc, ulong now)
     {
         // sync — flush buffers to disk
-        try { _disk.WriteFile("/var/log/.sync", ""); }
+        try { _disk.WriteFile("/usr/adm/.sync", ""); }
         catch { /* ignore ENOSPC for sync marker */ }
         svc.LastActionMs = now;
         svc.LastAction = "sync";
