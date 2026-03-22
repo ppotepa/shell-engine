@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("ls", OsTag = "minix")]
 internal sealed class LsCommand : IKernelCommand
 {
     public string Name => "ls";

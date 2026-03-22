@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("free", OsTag = "minix")]
 internal sealed class FreeCommand : IKernelCommand
 {
     public string Name => "free";

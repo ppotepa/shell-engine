@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("uptime", OsTag = "minix")]
 internal sealed class UptimeCommand : IKernelCommand
 {
     public string Name => "uptime";

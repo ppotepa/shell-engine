@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("file", OsTag = "minix")]
 internal sealed class FileCommand : IKernelCommand
 {
     public string Name => "file";

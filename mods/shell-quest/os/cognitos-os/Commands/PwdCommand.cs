@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("pwd", OsTag = "universal")]
 internal sealed class PwdCommand : IKernelCommand
 {
     public string Name => "pwd";

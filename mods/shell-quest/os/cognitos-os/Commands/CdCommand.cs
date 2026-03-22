@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("cd", OsTag = "minix")]
 internal sealed class CdCommand : IKernelCommand
 {
     public string Name => "cd";

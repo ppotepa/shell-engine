@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("env", OsTag = "minix")]
 internal sealed class EnvCommand : IKernelCommand
 {
     public string Name => "env";

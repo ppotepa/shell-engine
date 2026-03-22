@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("clear", OsTag = "universal")]
 internal sealed class ClearCommand : IKernelCommand
 {
     public string Name => "clear";

@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("df", OsTag = "minix")]
 internal sealed class DfCommand : IKernelCommand
 {
     public string Name => "df";

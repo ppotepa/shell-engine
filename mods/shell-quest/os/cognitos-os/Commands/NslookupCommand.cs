@@ -4,6 +4,7 @@ using CognitosOs.Network;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("nslookup", OsTag = "minix")]
 internal sealed class NslookupCommand : IKernelCommand
 {
     private readonly NetworkRegistry _network;

@@ -3,6 +3,7 @@ using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
+[CognitosOs.Framework.Ioc.Command("wc", OsTag = "universal")]
 internal sealed class WcCommand : IKernelCommand
 {
     public string Name => "wc";
