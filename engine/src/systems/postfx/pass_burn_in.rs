@@ -119,7 +119,10 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         s.prev_scene_elapsed_ms = elapsed;
 
         // ── 2. Ghost active? ──────────────────────────────────────────────
-        let has_ghost = s.ghost.is_some() && elapsed < fade_ms;
+        //   No hard cutoff — ghost persists until opacity drops below
+        //   perceptual threshold.  Safety cap at 5× fade duration.
+        let max_ghost_ms = fade_ms * 5;
+        let has_ghost = s.ghost.is_some() && elapsed < max_ghost_ms;
 
         if !has_ghost {
             if s.ghost.is_some() {
@@ -131,7 +134,9 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         }
 
         // ── 3. Compute ghost envelope ─────────────────────────────────────
-        let t = (elapsed as f32 / fade_ms as f32).clamp(0.0, 1.0);
+        //   t is NOT clamped to 1.0 — it runs past 1.0 so the exponential
+        //   tail extends beyond fade_ms, giving a natural logarithmic fade.
+        let t = elapsed as f32 / fade_ms as f32;
 
         // Exponential decay: fast drop, long tail.
         let decay = (-2.5 * t).exp();
@@ -142,6 +147,14 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
 
         let ghost_opacity = (alpha * intensity * brightness * decay).clamp(0.0, 1.0);
         let pumped_opacity = (ghost_opacity * pump_mul).clamp(0.0, 1.0);
+
+        // Below perceptual threshold → clear ghost, pass through.
+        if pumped_opacity < 0.003 {
+            s.clear_ghost();
+            dst.clone_from(src);
+            s.capture_live(src);
+            return;
+        }
 
         // Phosphor colour decay channels (P31 green phosphor model):
         // Blue dies fastest, red medium, green lingers.
