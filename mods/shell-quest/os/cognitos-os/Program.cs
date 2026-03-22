@@ -19,48 +19,34 @@ internal static class Program
 
         var commands = new ICommand[]
         {
+            // Strict-1991 MINIX visible commands
             new HelpCommand(),
             new LsCommand(),
             new CatCommand(),
-            new TopCommand(),
-            new PsCommand(),
-            new ServicesCommand(),
             new ClearCommand(),
             new CdCommand(),
             new PwdCommand(),
             new CpCommand(),
-            new FtpCommand(),
-            // Environment
-            new DateCommand(),
-            new UptimeCommand(),
-            new WhoamiCommand(),
+            new PsCommand(),
             new WhoCommand(),
+            new WhoamiCommand(),
             new UnameCommand(),
-            new HostnameCommand(),
-            new FortuneCommand(),
-            new EchoCommand(),
-            new EnvCommand(),
-            historyCmd,
-            new IdCommand(),
-            // Filesystem
-            new DfCommand(),
+            new DateCommand(),
+            new ManCommand(),
+            new FtpCommand(),
+            // Classic Unix utilities (present on system, not in help)
             new GrepCommand(),
             new HeadTailCommand(isHead: true),
             new HeadTailCommand(isHead: false),
             new WcCommand(),
-            new FileCommand(),
-            new ManCommand(),
-            new FingerCommand(),
-            new MountCommand(),
-            new FreeCommand(),
-            new SyncCommand(),
+            new EchoCommand(),
+            new DfCommand(),
             new KillCommand(),
-            // Network
+            new SyncCommand(),
+            new MountCommand(),
+            new FingerCommand(),
+            // Network (conscious prologue extension for FTP/anomaly quest)
             new PingCommand(network),
-            new NslookupCommand(network),
-            new NetstatCommand(),
-            new IfconfigCommand(),
-            new DmesgCommand(),
         };
 
         var eggs = new EasterEggRegistry();

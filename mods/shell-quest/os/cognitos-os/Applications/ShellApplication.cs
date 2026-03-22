@@ -52,6 +52,14 @@ internal sealed class ShellApplication : IApplication
         var cmd = parts[0];
         var argv = (IReadOnlyList<string>)parts.Skip(1).ToArray();
 
+        // Strict-1991: no GNU-style --help. MINIX used man pages.
+        if (argv.Any(a => a == "--help"))
+        {
+            session.LastExitCode = 1;
+            _screen.Append($"{cmd}: illegal option -- -", $"Try: man {cmd}", "");
+            return ApplicationResult.Continue;
+        }
+
         if (!_os.CommandIndex.TryGetValue(cmd, out var command))
         {
             // Try easter eggs before "command not found"

@@ -17,7 +17,7 @@ internal sealed class UserSession
     {
         User = user;
         Hostname = hostname;
-        Home = $"/home/{user}";
+        Home = $"/usr/{user}";
         Cwd = Home;
     }
 

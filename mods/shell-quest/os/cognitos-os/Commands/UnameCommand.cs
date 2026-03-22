@@ -9,15 +9,33 @@ internal sealed class UnameCommand : ICommand
 
     public CommandResult Execute(CommandContext ctx)
     {
-        if (ctx.Argv.Any(a => a is "-a" or "--all"))
-            return new CommandResult(new[] { $"MINIX 1.1 kruuna {ctx.Os.Spec.CpuModel.Split(' ').Last()} i386 Sep 17 1991" });
+        // Parse single-char flags: -s, -n, -r, -v, -m, -p, -a
+        var flags = new HashSet<char>();
+        foreach (var arg in ctx.Argv)
+        {
+            if (arg.StartsWith('-') && arg.Length > 1)
+            {
+                foreach (var c in arg[1..])
+                    flags.Add(c);
+            }
+        }
 
-        if (ctx.Argv.Any(a => a is "-r" or "--release"))
-            return new CommandResult(new[] { "1.1" });
+        if (flags.Contains('a'))
+        {
+            flags.UnionWith(new[] { 's', 'n', 'r', 'v', 'm' });
+        }
 
-        if (ctx.Argv.Any(a => a is "-n" or "--nodename"))
-            return new CommandResult(new[] { "kruuna" });
+        if (flags.Count == 0)
+            return new CommandResult(new[] { "MINIX" });
 
-        return new CommandResult(new[] { "MINIX" });
+        var parts = new List<string>();
+        if (flags.Contains('s')) parts.Add("MINIX");
+        if (flags.Contains('n')) parts.Add("kruuna");
+        if (flags.Contains('r')) parts.Add("1.1");
+        if (flags.Contains('v')) parts.Add("#1 Sep 17 1991");
+        if (flags.Contains('m')) parts.Add("i386");
+        if (flags.Contains('p')) parts.Add(ctx.Os.Spec.CpuModel);
+
+        return new CommandResult(new[] { string.Join(" ", parts) });
     }
 }

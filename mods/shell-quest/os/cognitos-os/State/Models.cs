@@ -75,7 +75,7 @@ internal sealed class UserProfile
     public string UserName { get; set; } = "linus";
     public string Password { get; set; } = "";
     public DateTime? LastLogin { get; set; }
-    public string HomeDirectory { get; set; } = "/home/linus";
+    public string HomeDirectory { get; set; } = "/usr/linus";
     public string Shell { get; set; } = "/bin/sh";
 }
 
@@ -84,12 +84,31 @@ internal sealed class ClockState
     public ulong UptimeMs { get; set; }
 }
 
+internal sealed record FileStat(
+    string Permissions,
+    int Links,
+    string Owner,
+    string Group,
+    int Size,
+    DateTime Modified);
+
 internal sealed class ProcessEntry
 {
     public int Pid { get; set; }
+    public int Ppid { get; set; }
+    public int Uid { get; set; }
     public string Name { get; set; } = "";
     public string User { get; set; } = "root";
-    public string State { get; set; } = "sleeping";
+    public char StateCh { get; set; } = 'S';   // S=sleep R=run W=wait Z=zombie
+    public string Tty { get; set; } = "?";
+    public int Sz { get; set; }                 // size in clicks
     public double CpuPercent { get; set; }
     public double MemoryPercent { get; set; }
+
+    // Legacy compat
+    public string State
+    {
+        get => StateCh switch { 'R' => "running", 'W' => "waiting", 'Z' => "zombie", _ => "sleeping" };
+        set => StateCh = value switch { "running" => 'R', "waiting" => 'W', "zombie" => 'Z', _ => 'S' };
+    }
 }

@@ -105,10 +105,15 @@ internal sealed class MinixOperatingSystem : IOperatingSystem
     private static List<ProcessEntry> BuildDefaultProcesses()
         => new()
         {
-            new ProcessEntry { Pid = 1, Name = "init", User = "root", State = "running", CpuPercent = 0.5, MemoryPercent = 2.1 },
-            new ProcessEntry { Pid = 17, Name = "netd", User = "root", State = "sleeping", CpuPercent = 1.1, MemoryPercent = 1.8 },
-            new ProcessEntry { Pid = 21, Name = "maild", User = "root", State = "sleeping", CpuPercent = 0.6, MemoryPercent = 1.4 },
-            new ProcessEntry { Pid = 42, Name = "shell", User = "linus", State = "running", CpuPercent = 2.4, MemoryPercent = 3.2 },
+            new ProcessEntry { Pid = 0,  Ppid = 0, Uid = 0,   Name = "kernel",  User = "root",  StateCh = 'W', Tty = "?",    Sz = 32 },
+            new ProcessEntry { Pid = 1,  Ppid = 0, Uid = 0,   Name = "init",    User = "root",  StateCh = 'S', Tty = "?",    Sz = 16 },
+            new ProcessEntry { Pid = 2,  Ppid = 1, Uid = 0,   Name = "mm",      User = "root",  StateCh = 'S', Tty = "?",    Sz = 24 },
+            new ProcessEntry { Pid = 3,  Ppid = 1, Uid = 0,   Name = "fs",      User = "root",  StateCh = 'S', Tty = "?",    Sz = 48 },
+            new ProcessEntry { Pid = 5,  Ppid = 1, Uid = 0,   Name = "update",  User = "root",  StateCh = 'S', Tty = "?",    Sz = 4  },
+            new ProcessEntry { Pid = 7,  Ppid = 1, Uid = 0,   Name = "cron",    User = "root",  StateCh = 'S', Tty = "?",    Sz = 8  },
+            new ProcessEntry { Pid = 10, Ppid = 1, Uid = 0,   Name = "getty",   User = "root",  StateCh = 'S', Tty = "tty2", Sz = 8  },
+            new ProcessEntry { Pid = 15, Ppid = 1, Uid = 100, Name = "-sh",     User = "ast",   StateCh = 'S', Tty = "tty1", Sz = 12 },
+            new ProcessEntry { Pid = 42, Ppid = 1, Uid = 101, Name = "-sh",     User = "linus", StateCh = 'R', Tty = "tty0", Sz = 12 },
         };
 
     private void TickServices()
