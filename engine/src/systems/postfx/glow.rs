@@ -122,7 +122,7 @@ pub(super) fn build_glow_map_inplace(
     }
 
     // ── 2. Blur at full resolution (tight kernel, few passes) ─────────────
-    let blur_passes = 1 + (spread * 1.5).round() as usize; // 1–2 passes
+    let blur_passes = 1 + (spread * 2.5).round() as usize; // 1–3 passes
     let mut src_is_a = true;
     for _ in 0..blur_passes {
         if src_is_a {
@@ -196,11 +196,11 @@ fn blur_glow3x3_into(src: &[GlowPixel], dst: &mut [GlowPixel], width: usize, hei
                     if nx < 0 || ny < 0 || nx >= width as i32 || ny >= height as i32 {
                         continue;
                     }
-                    // Tight kernel: 40% center, 10% cardinal, 5% corners.
+                    // Tight kernel: 34% center, 11% cardinal, 6% corners.
                     let weight = match (ox.abs(), oy.abs()) {
-                        (0, 0) => 0.40,
-                        (0, 1) | (1, 0) => 0.10,
-                        _ => 0.05,
+                        (0, 0) => 0.34,
+                        (0, 1) | (1, 0) => 0.11,
+                        _ => 0.06,
                     };
                     let p = src[ny as usize * width + nx as usize];
                     acc.r += p.r * weight;

@@ -294,6 +294,9 @@ pub(super) fn apply(
                 let mut symbol = orig.symbol;
 
                 // ── GLOW (empty cells only) ──────────────────────────
+                // Shine-up: glow overshoots when scene is fresh, settles by ~0.3s.
+                // g(t) = 1.0 + 0.35 × exp(−t / 0.08)
+                let glow_bloom = 1.0 + 0.35 * (-t / 0.08).exp();
                 if has_glow && symbol == ' ' {
                     let idx = (y as usize) * glow_width + x as usize;
                     if idx < glow_out.len() {
@@ -306,7 +309,7 @@ pub(super) fn apply(
                                         + 0.5);
                             let shimmer =
                                 0.92 + 0.16 * rand01(x, y, frame.wrapping_add(4901));
-                            let aura = (pix.a * glow_brightness * pulse * shimmer * glow_alpha)
+                            let aura = (pix.a * glow_brightness * glow_bloom * pulse * shimmer * glow_alpha)
                                 .clamp(0.0, 1.0);
                             let glow_colour = Color::Rgb {
                                 r: (pix.r * 255.0).round().clamp(0.0, 255.0) as u8,
