@@ -15,12 +15,36 @@ use crossterm::style::Color;
 use rayon::prelude::*;
 
 use crate::obj_prerender::{ObjPrerenderedFrames, ObjPrerenderStatus, PrerenderedFrame};
-use crate::scene::{Layer, SceneRenderedMode, Sprite};
+use crate::scene::{Layer, Scene, SceneRenderedMode, Sprite};
+use crate::scene_pipeline::ScenePreparationStep;
 use crate::services::EngineWorldAccess;
 use crate::systems::compositor::obj_render::{
     obj_sprite_dimensions, render_obj_to_canvas, ObjRenderParams,
 };
 use crate::world::World;
+
+// ── Scene preparation step ────────────────────────────────────────────────────
+
+/// Scene preparation step: prerenders eligible `type: obj` sprites to in-memory
+/// canvases before the scene is activated.
+///
+/// Runs only when `scene.prerender == true`.  Individual sprites opt out with
+/// `prerender: false` on the sprite itself.  Registers scoped
+/// [`ObjPrerenderedFrames`] and [`ObjPrerenderStatus::Ready`] into the world.
+pub struct ObjPrerenderStep;
+
+impl ScenePreparationStep for ObjPrerenderStep {
+    fn name(&self) -> &'static str {
+        "obj-prerender"
+    }
+
+    fn run(&self, scene: &Scene, world: &mut World) {
+        if !scene.prerender {
+            return;
+        }
+        prerender_scene_sprites(&scene.layers, scene.rendered_mode, &scene.id, world);
+    }
+}
 
 /// Work item: everything needed to render one sprite.
 struct PrerenderTarget {
@@ -265,6 +289,7 @@ pub fn prerender_scene_sprites(
         format!("scene={scene_id}: prerender complete ({count} sprites cached)"),
     );
 
-    world.register(frames);
-    world.register(ObjPrerenderStatus::Ready);
+    // Register as scoped so these are automatically cleared when the scene transitions.
+    world.register_scoped(frames);
+    world.register_scoped(ObjPrerenderStatus::Ready);
 }

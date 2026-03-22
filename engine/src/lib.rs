@@ -12,6 +12,7 @@ pub use engine_core::{animations, buffer, effects, logging, markup, scene};
 
 pub mod asset_cache;
 pub mod obj_prerender;
+pub mod scene_pipeline;
 pub mod asset_source;
 pub mod assets;
 pub mod audio;
@@ -189,13 +190,12 @@ impl ShellEngine {
         world.register(renderer);
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
-        if scene.prerender {
-            systems::prerender::prerender_scene_sprites(
-                &scene.layers,
-                scene.rendered_mode,
-                &scene.id,
-                &mut world,
-            );
+        // Register the scene preparation pipeline as a world resource so that
+        // scene_lifecycle can clone the Arc and run it without holding a borrow.
+        world.register(std::sync::Arc::new(scene_pipeline::ScenePipeline::default()));
+        // Prepare the entry scene (prerender, future steps) before activating it.
+        if let Some(pipeline) = world.get::<std::sync::Arc<scene_pipeline::ScenePipeline>>().cloned() {
+            pipeline.prepare(&scene, &mut world);
         }
         world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(Animator::new());
