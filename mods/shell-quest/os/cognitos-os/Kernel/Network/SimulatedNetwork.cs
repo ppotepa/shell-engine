@@ -1,13 +1,13 @@
 namespace CognitosOs.Kernel.Network;
 
+using CognitosOs.Framework.Kernel;
 using CognitosOs.Kernel.Hardware;
 using CognitosOs.Kernel.Resources;
 using CognitosOs.Network;
 
 /// <summary>
 /// Simulated network operations with realistic timing.
-/// DNS resolution reads /etc/hosts from disk. Connections incur TCP handshake delay.
-/// Bandwidth is shared between active connections via <see cref="NetworkController"/>.
+/// Connect/Send/Recv go through <see cref="ISyscallGate"/> for unified latency + resource management.
 /// </summary>
 internal sealed class SimulatedNetwork : INetwork
 {
@@ -15,22 +15,23 @@ internal sealed class SimulatedNetwork : INetwork
     private readonly ResourceState _res;
     private readonly HardwareProfile _hw;
     private readonly Disk.IDisk _disk;
+    private readonly ISyscallGate _gate;
     private readonly Random _rng = new();
 
-    // Track socket → host for bandwidth/RTT lookup
     private readonly Dictionary<int, string> _sockets = new();
 
-    public SimulatedNetwork(NetworkRegistry registry, ResourceState res, HardwareProfile hw, Disk.IDisk disk)
+    public SimulatedNetwork(NetworkRegistry registry, ResourceState res, HardwareProfile hw, Disk.IDisk disk, ISyscallGate gate)
     {
         _registry = registry;
         _res = res;
         _hw = hw;
         _disk = disk;
+        _gate = gate;
     }
 
     public string? Resolve(string hostname)
     {
-        // Read /etc/hosts — real disk I/O!
+        // Read /etc/hosts — real disk I/O via disk subsystem
         string? hosts = _disk.RawRead("/etc/hosts");
         if (hosts is not null)
         {
@@ -50,11 +51,13 @@ internal sealed class SimulatedNetwork : INetwork
             }
         }
 
-        // Not in hosts — check if registry knows this host at all
         if (_registry.IsKnown(hostname))
         {
-            // Simulate DNS query (no real DNS, but delay as if querying nameserver)
-            _hw.BlockFor(_hw.NetBasePingMs * 2);
+            // Simulate DNS query via gate
+            _gate.Dispatch(
+                SyscallRequest.For(SyscallKind.NetResolve),
+                () => { }
+            ).ThrowIfFailed();
             return _registry.ResolveIp(hostname);
         }
 
@@ -70,38 +73,37 @@ internal sealed class SimulatedNetwork : INetwork
         if (!_registry.IsKnown(host))
             throw new IOException($"connect: {host}: Connection refused");
 
-        // Allocate socket FD
         int fd = _res.Fd.Alloc();
-        _res.NetCtrl.ReserveBandwidth();
 
-        // TCP 3-way handshake
-        _hw.BlockFor(_hw.NetBasePingMs * 3 + _res.Cpu.OverheadMs());
+        var result = _gate.Dispatch(
+            SyscallRequest.For(SyscallKind.NetConnect),
+            () => _sockets[fd] = host);
 
-        _sockets[fd] = host;
+        if (!result.Success)
+        {
+            _res.Fd.Close(fd);
+            throw new IOException($"connect: {host}: {result.ErrorCode}");
+        }
+
         return fd;
     }
 
     public void Send(int socketFd, byte[] data)
     {
-        double bw = _res.NetCtrl.AvailableBandwidthKBs();
-        double sizeKb = data.Length / 1024.0;
-        double transferMs = sizeKb / bw * 1000.0;
-
-        _hw.BlockFor(transferMs + _res.Cpu.OverheadMs());
-        _res.NetCtrl.RecordSent(data.Length);
+        _gate.Dispatch(
+            SyscallRequest.For(SyscallKind.NetSend, data.Length),
+            () => _res.NetCtrl.RecordSent(data.Length)
+        ).ThrowIfFailed();
     }
 
     public byte[] Receive(int socketFd, int expectedBytes)
     {
-        double bw = _res.NetCtrl.AvailableBandwidthKBs();
-        double sizeKb = expectedBytes / 1024.0;
-        double transferMs = sizeKb / bw * 1000.0;
+        _gate.Dispatch(
+            SyscallRequest.For(SyscallKind.NetRecv, expectedBytes),
+            () => _res.NetCtrl.RecordReceived(expectedBytes)
+        ).ThrowIfFailed();
 
-        // RTT for request + transfer time for response
-        _hw.BlockFor(_hw.NetBasePingMs + transferMs + _res.Cpu.OverheadMs());
-        _res.NetCtrl.RecordReceived(expectedBytes);
-
-        return new byte[expectedBytes]; // placeholder — actual data comes from server simulation
+        return new byte[expectedBytes];
     }
 
     public PingResult Ping(string host)
@@ -110,7 +112,6 @@ internal sealed class SimulatedNetwork : INetwork
         if (ip is null)
             return new PingResult(host, null, 0, false, $"ping: {host}: Host not found");
 
-        // 2×RTT + random jitter (±20%)
         double jitter = _hw.NetBasePingMs * 0.2 * (_rng.NextDouble() * 2 - 1);
         double rtt = _hw.NetBasePingMs * 2 + jitter;
 
