@@ -1,7 +1,8 @@
 //! Behavior system types: the [`Behavior`] trait, built-in behavior structs, and the [`BehaviorContext`] passed each tick.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::f32::consts::TAU;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::effects::Region;
@@ -525,6 +526,76 @@ thread_local! {
         std::cell::RefCell::new(std::collections::HashMap::new());
 }
 
+// Counter for assigning unique IDs to RhaiScriptBehavior instances.
+// Used as the key into BEHAVIOR_SCOPES so each behavior owns its own
+// persistent Rhai scope without storing non-Send types in the struct.
+static NEXT_BEHAVIOR_ID: AtomicUsize = AtomicUsize::new(1);
+
+// Per-behavior persistent Rhai scopes, keyed by behavior_id.
+// Value: (scope, scope_base_len).
+// Scopes are removed when the behavior is dropped (see impl Drop).
+thread_local! {
+    static BEHAVIOR_SCOPES: std::cell::RefCell<HashMap<usize, (rhai::Scope<'static>, usize)>> =
+        std::cell::RefCell::new(HashMap::new());
+}
+
+// Thread-local Rhai engine with all static type/function registrations pre-done.
+// Reused across all behavior evals on this thread — avoids 25× Engine::new()
+// + 375 register_fn() calls per frame. All closures registered here are pure
+// (no per-call captures); per-call data flows through scope variables instead.
+thread_local! {
+    static RHAI_ENGINE: std::cell::RefCell<Option<RhaiEngine>> = std::cell::RefCell::new(None);
+}
+
+fn init_rhai_engine() -> RhaiEngine {
+    let mut engine = RhaiEngine::new();
+    engine.register_fn("is_blank", |value: &str| -> bool {
+        value.chars().all(char::is_whitespace)
+    });
+    engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
+    engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
+    engine.register_type_with_name::<ScriptGameApi>("GameApi");
+    engine.register_type_with_name::<ScriptTerminalApi>("TerminalApi");
+    engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
+        scene.get(target)
+    });
+    engine.register_fn(
+        "set",
+        |scene: &mut ScriptSceneApi, target: &str, path: &str, value: RhaiDynamic| {
+            scene.set(target, path, value);
+        },
+    );
+    engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
+        object.get(path)
+    });
+    engine.register_fn(
+        "set",
+        |object: &mut ScriptObjectApi, path: &str, value: RhaiDynamic| {
+            object.set(path, value);
+        },
+    );
+    engine.register_fn("push", |terminal: &mut ScriptTerminalApi, line: &str| {
+        terminal.push(line);
+    });
+    engine.register_fn("clear", |terminal: &mut ScriptTerminalApi| {
+        terminal.clear();
+    });
+    engine.register_fn("get", |game: &mut ScriptGameApi, path: &str| game.get(path));
+    engine.register_fn(
+        "set",
+        |game: &mut ScriptGameApi, path: &str, value: RhaiDynamic| game.set(path, value),
+    );
+    engine.register_fn("has", |game: &mut ScriptGameApi, path: &str| game.has(path));
+    engine.register_fn("remove", |game: &mut ScriptGameApi, path: &str| {
+        game.remove(path)
+    });
+    engine.register_fn(
+        "push",
+        |game: &mut ScriptGameApi, path: &str, value: RhaiDynamic| game.push(path, value),
+    );
+    engine
+}
+
 fn script_hash(script: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -539,11 +610,21 @@ pub struct RhaiScriptBehavior {
     /// Compile-time error text stored here and emitted as ScriptError once.
     compile_error: Option<String>,
     compile_error_reported: bool,
+    /// Unique ID used to look up this behavior's persistent Rhai scope in
+    /// the thread-local BEHAVIOR_SCOPES map. Avoids storing non-Send
+    /// `rhai::Scope` directly in the struct while still reusing the scope
+    /// across frames (eliminates `Scope::new()` + ~30 pushes per frame).
+    behavior_id: usize,
 }
 
 #[derive(Clone)]
 struct ScriptSceneApi {
-    objects: Arc<RhaiMap>,
+    object_states: Arc<BTreeMap<String, ObjectRuntimeState>>,
+    object_kinds: Arc<BTreeMap<String, String>>,
+    object_props: Arc<BTreeMap<String, JsonValue>>,
+    object_regions: Arc<BTreeMap<String, Region>>,
+    object_text: Arc<BTreeMap<String, String>>,
+    target_resolver: Arc<TargetResolver>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -565,21 +646,71 @@ struct ScriptTerminalApi {
 }
 
 impl ScriptSceneApi {
-    fn new(objects: Arc<RhaiMap>, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
-        Self { objects, queue }
+    fn new(
+        object_states: Arc<BTreeMap<String, ObjectRuntimeState>>,
+        object_kinds: Arc<BTreeMap<String, String>>,
+        object_props: Arc<BTreeMap<String, JsonValue>>,
+        object_regions: Arc<BTreeMap<String, Region>>,
+        object_text: Arc<BTreeMap<String, String>>,
+        target_resolver: Arc<TargetResolver>,
+        queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    ) -> Self {
+        Self { object_states, object_kinds, object_props, object_regions, object_text, target_resolver, queue }
     }
 
+    /// Lazily build a single-object entry on demand instead of pre-building the
+    /// entire 50+ object map. This is the critical hot-path optimization (OPT-3).
     fn get(&mut self, target: &str) -> ScriptObjectApi {
-        let snapshot = self
-            .objects
-            .get(target)
-            .and_then(|value| value.clone().try_cast::<RhaiMap>())
-            .unwrap_or_default();
+        // Resolve alias → real object id.
+        let object_id = self.target_resolver.resolve_alias(target)
+            .unwrap_or(target);
+
+        let snapshot = self.build_object_entry(object_id);
         ScriptObjectApi {
-            target: target.to_string(),
+            target: object_id.to_string(),
             snapshot,
             queue: Arc::clone(&self.queue),
         }
+    }
+
+    fn build_object_entry(&self, object_id: &str) -> RhaiMap {
+        let Some(state) = self.object_states.get(object_id) else {
+            return RhaiMap::new();
+        };
+        let kind = self.object_kinds.get(object_id)
+            .cloned()
+            .unwrap_or_else(|| "unknown".to_string());
+        let mut entry = RhaiMap::new();
+        entry.insert("id".into(), object_id.to_string().into());
+        entry.insert("kind".into(), kind.clone().into());
+        entry.insert("state".into(), object_state_to_rhai_map(state).into());
+        if let Some(region) = self.object_regions.get(object_id) {
+            entry.insert("region".into(), region_to_rhai_map(region).into());
+        }
+        if let Some(text) = self.object_text.get(object_id) {
+            let mut text_map = RhaiMap::new();
+            text_map.insert("content".into(), text.clone().into());
+            entry.insert("text".into(), text_map.into());
+        }
+        let mut props = RhaiMap::new();
+        props.insert("visible".into(), state.visible.into());
+        let mut offset = RhaiMap::new();
+        offset.insert("x".into(), (state.offset_x as rhai::INT).into());
+        offset.insert("y".into(), (state.offset_y as rhai::INT).into());
+        props.insert("offset".into(), offset.into());
+        if let Some(text) = self.object_text.get(object_id) {
+            let mut text_props = RhaiMap::new();
+            text_props.insert("content".into(), text.clone().into());
+            props.insert("text".into(), text_props.into());
+        }
+        if let Some(extra_props) = self.object_props.get(object_id) {
+            if let Some(extra_map) = json_to_rhai_dynamic(extra_props).try_cast::<RhaiMap>() {
+                merge_rhai_maps(&mut props, &extra_map);
+            }
+        }
+        entry.insert("props".into(), props.into());
+        entry.insert("capabilities".into(), kind_capabilities(Some(kind.as_str())).into());
+        entry
     }
 
     fn set(&mut self, target: &str, path: &str, value: RhaiDynamic) {
@@ -587,11 +718,15 @@ impl ScriptSceneApi {
         let Some(value) = rhai_dynamic_to_json(&value) else {
             return;
         };
+        // Resolve alias for the target.
+        let resolved = self.target_resolver.resolve_alias(target)
+            .unwrap_or(target)
+            .to_string();
         let Ok(mut queue) = self.queue.lock() else {
             return;
         };
         queue.push(BehaviorCommand::SetProperty {
-            target: target.to_string(),
+            target: resolved,
             path: normalized_path,
             value,
         });
@@ -719,9 +854,21 @@ impl RhaiScriptBehavior {
             state: JsonValue::Object(JsonMap::new()),
             compile_error,
             compile_error_reported: false,
+            behavior_id: NEXT_BEHAVIOR_ID.fetch_add(1, Ordering::Relaxed),
         }
     }
+}
 
+impl Drop for RhaiScriptBehavior {
+    fn drop(&mut self) {
+        // Clean up the thread-local scope so it doesn't outlive the scene.
+        BEHAVIOR_SCOPES.with(|scopes| {
+            scopes.borrow_mut().remove(&self.behavior_id);
+        });
+    }
+}
+
+impl RhaiScriptBehavior {
     fn build_regions_map(&self, ctx: &BehaviorContext, scene: &Scene) -> RhaiMap {
         let mut regions = RhaiMap::new();
         for (object_id, region) in ctx.object_regions.iter() {
@@ -752,84 +899,6 @@ impl RhaiScriptBehavior {
         regions
     }
 
-    fn build_objects_map(&self, ctx: &BehaviorContext, scene: &Scene) -> RhaiMap {
-        let mut objects = RhaiMap::new();
-        for (object_id, state) in ctx.object_states.iter() {
-            let mut entry = RhaiMap::new();
-            let kind = ctx
-                .object_kinds
-                .get(object_id)
-                .cloned()
-                .unwrap_or_else(|| "unknown".to_string());
-            entry.insert("id".into(), object_id.clone().into());
-            entry.insert("kind".into(), kind.clone().into());
-            entry.insert("state".into(), object_state_to_rhai_map(state).into());
-            if let Some(region) = ctx.object_regions.get(object_id) {
-                entry.insert("region".into(), region_to_rhai_map(region).into());
-            }
-            if let Some(text) = ctx.object_text.get(object_id) {
-                let mut text_map = RhaiMap::new();
-                text_map.insert("content".into(), text.clone().into());
-                entry.insert("text".into(), text_map.into());
-            }
-            let mut props = RhaiMap::new();
-            props.insert("visible".into(), state.visible.into());
-            let mut offset = RhaiMap::new();
-            offset.insert("x".into(), (state.offset_x as rhai::INT).into());
-            offset.insert("y".into(), (state.offset_y as rhai::INT).into());
-            props.insert("offset".into(), offset.into());
-            if let Some(text) = ctx.object_text.get(object_id) {
-                let mut text_props = RhaiMap::new();
-                text_props.insert("content".into(), text.clone().into());
-                props.insert("text".into(), text_props.into());
-            }
-            if let Some(extra_props) = ctx.object_props.get(object_id) {
-                if let Some(extra_map) = json_to_rhai_dynamic(extra_props).try_cast::<RhaiMap>() {
-                    merge_rhai_maps(&mut props, &extra_map);
-                }
-            }
-            entry.insert("props".into(), props.into());
-            entry.insert(
-                "capabilities".into(),
-                kind_capabilities(Some(kind.as_str())).into(),
-            );
-            objects.insert(object_id.clone().into(), entry.into());
-        }
-
-        let mut aliases = Vec::new();
-        if let Some(target) = self.params.target.as_deref() {
-            aliases.push(target.to_string());
-        }
-        let total = self.params.count.unwrap_or(scene.menu_options.len());
-        let prefix = self
-            .params
-            .item_prefix
-            .as_deref()
-            .unwrap_or("menu-item-")
-            .to_string();
-        for idx in 0..total {
-            aliases.push(if prefix.contains("{}") {
-                prefix.replace("{}", &idx.to_string())
-            } else {
-                format!("{prefix}{idx}")
-            });
-        }
-        for (alias, _) in ctx.target_resolver.aliases_snapshot() {
-            aliases.push(alias);
-        }
-
-        for alias in aliases {
-            let Some(object_id) = ctx.resolve_target(&alias) else {
-                continue;
-            };
-            let Some(existing) = objects.get(object_id).cloned() else {
-                continue;
-            };
-            objects.insert(alias.into(), existing);
-        }
-
-        objects
-    }
 }
 
 impl Behavior for RhaiScriptBehavior {
@@ -856,279 +925,227 @@ impl Behavior for RhaiScriptBehavior {
             return;
         };
 
-        let mut scope = rhai::Scope::new();
-        let mut menu_map = RhaiMap::new();
-        menu_map.insert(
-            "selected_index".into(),
-            (ctx.menu_selected_index as rhai::INT).into(),
-        );
-        menu_map.insert(
-            "count".into(),
-            (scene.menu_options.len() as rhai::INT).into(),
-        );
-        scope.push_dynamic("menu", menu_map.into());
-
-        let mut time_map = RhaiMap::new();
-        time_map.insert(
-            "scene_elapsed_ms".into(),
-            (ctx.scene_elapsed_ms as rhai::INT).into(),
-        );
-        time_map.insert(
-            "stage_elapsed_ms".into(),
-            (ctx.stage_elapsed_ms as rhai::INT).into(),
-        );
-        let stage_str: &str = match ctx.stage {
-            SceneStage::OnEnter => "on_enter",
-            SceneStage::OnIdle => "on_idle",
-            SceneStage::OnLeave => "on_leave",
-            SceneStage::Done => "done",
-        };
-        time_map.insert("stage".into(), stage_str.into());
-        scope.push_dynamic("time", time_map.into());
-
-        // Compatibility layer for existing scripts; prefer `menu.*` and `time.*`.
-        scope.push("selected_index", ctx.menu_selected_index as rhai::INT);
-        scope.push("scene_elapsed_ms", ctx.scene_elapsed_ms as rhai::INT);
-        scope.push("stage_elapsed_ms", ctx.stage_elapsed_ms as rhai::INT);
-        scope.push("menu_count", scene.menu_options.len() as rhai::INT);
-        scope.push_dynamic("params", behavior_params_to_rhai_map(&self.params).into());
-        let regions_map = self.build_regions_map(ctx, scene);
-        scope.push_dynamic("regions", regions_map.into());
-        let objects_map = Arc::new(self.build_objects_map(ctx, scene));
-        scope.push_dynamic("objects", (*objects_map).clone().into());
-        scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
-        scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
-        scope.push(
-            "ui_focused_target",
-            ctx.ui_focused_target_id.clone().unwrap_or_default(),
-        );
-        scope.push("ui_theme", ctx.ui_theme_id.clone().unwrap_or_default());
-        scope.push(
-            "ui_submit_target",
-            ctx.ui_last_submit_target_id.clone().unwrap_or_default(),
-        );
-        scope.push(
-            "ui_submit_text",
-            ctx.ui_last_submit_text.clone().unwrap_or_default(),
-        );
-        scope.push(
-            "ui_change_target",
-            ctx.ui_last_change_target_id.clone().unwrap_or_default(),
-        );
-        scope.push(
-            "ui_change_text",
-            ctx.ui_last_change_text.clone().unwrap_or_default(),
-        );
-        scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
-        scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
-
-        // Raw key bridge: expose `key` map with code + modifier booleans.
-        {
-            let mut key_map = RhaiMap::new();
-            if let Some(k) = &ctx.last_raw_key {
-                key_map.insert("code".into(), k.code.clone().into());
-                key_map.insert("ctrl".into(), k.ctrl.into());
-                key_map.insert("alt".into(), k.alt.into());
-                key_map.insert("shift".into(), k.shift.into());
-                key_map.insert("pressed".into(), true.into());
-            } else {
-                key_map.insert("code".into(), "".into());
-                key_map.insert("ctrl".into(), false.into());
-                key_map.insert("alt".into(), false.into());
-                key_map.insert("shift".into(), false.into());
-                key_map.insert("pressed".into(), false.into());
-            }
-            scope.push_dynamic("key", key_map.into());
-        }
-
-        // External sidecar bridge exposed as object-shaped `ipc.*`.
-        {
-            let mut ipc_map = RhaiMap::new();
-            ipc_map.insert(
-                "has_output".into(),
-                (!ctx.sidecar_io.output_lines.is_empty()).into(),
-            );
-            let output_array: RhaiArray = ctx
-                .sidecar_io
-                .output_lines
-                .iter()
-                .cloned()
-                .map(Into::into)
-                .collect();
-            ipc_map.insert("output_lines".into(), output_array.into());
-            ipc_map.insert("clear_count".into(), (ctx.sidecar_io.clear_count as rhai::INT).into());
-            ipc_map.insert(
-                "has_screen_full".into(),
-                ctx.sidecar_io.screen_full_lines.is_some().into(),
-            );
-            let screen_full_lines: RhaiArray = ctx
-                .sidecar_io
-                .screen_full_lines
-                .as_ref()
-                .map(|lines| lines.iter().cloned().map(Into::into).collect())
-                .unwrap_or_default();
-            ipc_map.insert("screen_full_lines".into(), screen_full_lines.into());
-            let custom_events: RhaiArray = ctx
-                .sidecar_io
-                .custom_events
-                .iter()
-                .cloned()
-                .map(Into::into)
-                .collect();
-            ipc_map.insert("custom_events".into(), custom_events.into());
-            scope.push_dynamic("ipc", ipc_map.into());
-        }
-
-        let mut engine = RhaiEngine::new();
-        let helper_commands = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
-        engine.register_fn("is_blank", |value: &str| -> bool {
-            value.chars().all(char::is_whitespace)
-        });
-
-        engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
-        engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
-        engine.register_type_with_name::<ScriptGameApi>("GameApi");
-        engine.register_type_with_name::<ScriptTerminalApi>("TerminalApi");
-        engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
-            scene.get(target)
-        });
-        engine.register_fn(
-            "set",
-            |scene: &mut ScriptSceneApi, target: &str, path: &str, value: RhaiDynamic| {
-                scene.set(target, path, value);
-            },
-        );
-        engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
-            object.get(path)
-        });
-        engine.register_fn(
-            "set",
-            |object: &mut ScriptObjectApi, path: &str, value: RhaiDynamic| {
-                object.set(path, value);
-            },
-        );
-        engine.register_fn("push", |terminal: &mut ScriptTerminalApi, line: &str| {
-            terminal.push(line);
-        });
-        engine.register_fn("clear", |terminal: &mut ScriptTerminalApi| {
-            terminal.clear();
-        });
-        scope.push(
-            "scene",
-            ScriptSceneApi::new(Arc::clone(&objects_map), Arc::clone(&helper_commands)),
-        );
-        scope.push("game", ScriptGameApi::new(ctx.game_state.clone()));
-        scope.push(
-            "terminal",
-            ScriptTerminalApi::new(Arc::clone(&helper_commands)),
-        );
-
-        // Compatibility layer for existing scripts; prefer `game.get/set/has/remove/push`.
-        if let Some(game_state) = &ctx.game_state {
-            let game_clone = game_state.clone();
-            engine.register_fn("game_get", move |path: &str| -> RhaiDynamic {
-                game_clone
-                    .get(path)
-                    .map(|v| json_to_rhai_dynamic(&v))
-                    .unwrap_or(().into())
-            });
-
-            let game_clone = game_state.clone();
-            engine.register_fn("game_set", move |path: &str, value: RhaiDynamic| -> bool {
-                if let Some(json_value) = rhai_dynamic_to_json(&value) {
-                    game_clone.set(path, json_value)
-                } else {
-                    false
-                }
-            });
-
-            let game_clone = game_state.clone();
-            engine.register_fn("game_has", move |path: &str| -> bool {
-                game_clone.has(path)
-            });
-
-            let game_clone = game_state.clone();
-            engine.register_fn("game_remove", move |path: &str| -> bool {
-                game_clone.remove(path)
-            });
-
-            let game_clone = game_state.clone();
-            engine.register_fn("game_push", move |path: &str, value: RhaiDynamic| -> bool {
-                if let Some(json_value) = rhai_dynamic_to_json(&value) {
-                    game_clone.push(path, json_value)
-                } else {
-                    false
-                }
-            });
-        }
-
-        engine.register_fn("get", |game: &mut ScriptGameApi, path: &str| game.get(path));
-        engine.register_fn(
-            "set",
-            |game: &mut ScriptGameApi, path: &str, value: RhaiDynamic| game.set(path, value),
-        );
-        engine.register_fn("has", |game: &mut ScriptGameApi, path: &str| game.has(path));
-        engine.register_fn("remove", |game: &mut ScriptGameApi, path: &str| {
-            game.remove(path)
-        });
-        engine.register_fn(
-            "push",
-            |game: &mut ScriptGameApi, path: &str, value: RhaiDynamic| game.push(path, value),
-        );
-
-        {
-            let objects_ref = Arc::clone(&objects_map);
-            engine.register_fn("scene_get", move |target: &str| -> RhaiDynamic {
-                objects_ref
-                    .get(target)
-                    .cloned()
-                    .unwrap_or_else(|| RhaiMap::new().into())
-            });
-        }
-        {
-            let helper_commands = Arc::clone(&helper_commands);
-            engine.register_fn(
-                "scene_set",
-                move |target: &str, path: &str, value: RhaiDynamic| {
-                    let normalized_path = normalize_set_path(path);
-                    let Some(value) = rhai_dynamic_to_json(&value) else {
-                        return;
-                    };
-                    let Ok(mut queue) = helper_commands.lock() else {
-                        return;
-                    };
-                    queue.push(BehaviorCommand::SetProperty {
-                        target: target.to_string(),
-                        path: normalized_path,
-                        value,
-                    });
-                },
-            );
-        }
-        // Use cached AST to avoid re-parsing the script string every frame.
+        // Compute hash and regions flag before entering the scope borrow.
         let hash = script_hash(script);
-        let eval_result = AST_CACHE.with(|cache| {
-            let borrow = cache.borrow();
-            if let Some(ast) = borrow.get(&hash) {
-                return engine.eval_ast_with_scope::<RhaiDynamic>(&mut scope, ast);
-            }
-            drop(borrow);
-            // First call on this thread — compile, cache, and evaluate.
-            match engine.compile(script) {
-                Ok(ast) => {
-                    let result = engine.eval_ast_with_scope::<RhaiDynamic>(&mut scope, &ast);
-                    cache.borrow_mut().insert(hash, ast);
-                    result
+        let needs_regions = script.contains("regions");
+
+        // Build per-frame data outside the borrow to avoid lifetime conflicts.
+        let regions_map = if needs_regions {
+            Some(self.build_regions_map(ctx, scene))
+        } else {
+            None
+        };
+        let helper_commands = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+
+        let eval_result: Result<RhaiDynamic, Box<rhai::EvalAltResult>> =
+            BEHAVIOR_SCOPES.with(|scopes| {
+                let mut map = scopes.borrow_mut();
+                let (scope, base_len) = map
+                    .entry(self.behavior_id)
+                    .or_insert_with(|| (rhai::Scope::new(), 0));
+
+                // One-time static init: push params and local below the rewind
+                // point. `local` is seeded from `self.state` so scripts migrating
+                // from the legacy `{state: ...}` return pattern get their state.
+                if *base_len == 0 {
+                    scope.push_dynamic(
+                        "params",
+                        behavior_params_to_rhai_map(&self.params).into(),
+                    );
+                    scope.push_dynamic("local", json_to_rhai_dynamic(&self.state));
+                    *base_len = scope.len();
                 }
-                Err(err) => Err(err.into()),
-            }
-        });
+
+                // Rewind to static base: clears all per-frame variables pushed
+                // last frame and any `let` declarations the script made.
+                // Variables at positions 0..*base_len (params, local) are kept.
+                scope.rewind(*base_len);
+
+                // --- Per-frame pushes ---
+
+                let mut menu_map = RhaiMap::new();
+                menu_map.insert(
+                    "selected_index".into(),
+                    (ctx.menu_selected_index as rhai::INT).into(),
+                );
+                menu_map.insert(
+                    "count".into(),
+                    (scene.menu_options.len() as rhai::INT).into(),
+                );
+                scope.push_dynamic("menu", menu_map.into());
+
+                let mut time_map = RhaiMap::new();
+                time_map.insert(
+                    "scene_elapsed_ms".into(),
+                    (ctx.scene_elapsed_ms as rhai::INT).into(),
+                );
+                time_map.insert(
+                    "stage_elapsed_ms".into(),
+                    (ctx.stage_elapsed_ms as rhai::INT).into(),
+                );
+                let stage_str: &str = match ctx.stage {
+                    SceneStage::OnEnter => "on_enter",
+                    SceneStage::OnIdle => "on_idle",
+                    SceneStage::OnLeave => "on_leave",
+                    SceneStage::Done => "done",
+                };
+                time_map.insert("stage".into(), stage_str.into());
+                scope.push_dynamic("time", time_map.into());
+
+                // Compatibility layer for existing scripts; prefer `menu.*` and `time.*`.
+                scope.push("selected_index", ctx.menu_selected_index as rhai::INT);
+                scope.push("scene_elapsed_ms", ctx.scene_elapsed_ms as rhai::INT);
+                scope.push("stage_elapsed_ms", ctx.stage_elapsed_ms as rhai::INT);
+                scope.push("menu_count", scene.menu_options.len() as rhai::INT);
+
+                // OPT-11: Only build regions_map when the script uses `regions`.
+                scope.push_dynamic(
+                    "regions",
+                    regions_map
+                        .map(|m| rhai::Dynamic::from(m))
+                        .unwrap_or_else(|| RhaiMap::new().into()),
+                );
+                // OPT-3 + OPT-10: Skip build_objects_map entirely; push empty map for
+                // backward compat. All scripts use scene.get(target) for lazy lookup.
+                scope.push_dynamic("objects", RhaiMap::new().into());
+                // `state` pushed per-frame for scripts using the legacy return-state pattern.
+                scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
+                scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
+                scope.push(
+                    "ui_focused_target",
+                    ctx.ui_focused_target_id.clone().unwrap_or_default(),
+                );
+                scope.push("ui_theme", ctx.ui_theme_id.clone().unwrap_or_default());
+                scope.push(
+                    "ui_submit_target",
+                    ctx.ui_last_submit_target_id.clone().unwrap_or_default(),
+                );
+                scope.push(
+                    "ui_submit_text",
+                    ctx.ui_last_submit_text.clone().unwrap_or_default(),
+                );
+                scope.push(
+                    "ui_change_target",
+                    ctx.ui_last_change_target_id.clone().unwrap_or_default(),
+                );
+                scope.push(
+                    "ui_change_text",
+                    ctx.ui_last_change_text.clone().unwrap_or_default(),
+                );
+                scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
+                scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
+
+                // Raw key bridge: expose `key` map with code + modifier booleans.
+                {
+                    let mut key_map = RhaiMap::new();
+                    if let Some(k) = &ctx.last_raw_key {
+                        key_map.insert("code".into(), k.code.clone().into());
+                        key_map.insert("ctrl".into(), k.ctrl.into());
+                        key_map.insert("alt".into(), k.alt.into());
+                        key_map.insert("shift".into(), k.shift.into());
+                        key_map.insert("pressed".into(), true.into());
+                    } else {
+                        key_map.insert("code".into(), "".into());
+                        key_map.insert("ctrl".into(), false.into());
+                        key_map.insert("alt".into(), false.into());
+                        key_map.insert("shift".into(), false.into());
+                        key_map.insert("pressed".into(), false.into());
+                    }
+                    scope.push_dynamic("key", key_map.into());
+                }
+
+                // External sidecar bridge exposed as object-shaped `ipc.*`.
+                {
+                    let mut ipc_map = RhaiMap::new();
+                    ipc_map.insert(
+                        "has_output".into(),
+                        (!ctx.sidecar_io.output_lines.is_empty()).into(),
+                    );
+                    let output_array: RhaiArray = ctx
+                        .sidecar_io
+                        .output_lines
+                        .iter()
+                        .cloned()
+                        .map(Into::into)
+                        .collect();
+                    ipc_map.insert("output_lines".into(), output_array.into());
+                    ipc_map.insert(
+                        "clear_count".into(),
+                        (ctx.sidecar_io.clear_count as rhai::INT).into(),
+                    );
+                    ipc_map.insert(
+                        "has_screen_full".into(),
+                        ctx.sidecar_io.screen_full_lines.is_some().into(),
+                    );
+                    let screen_full_lines: RhaiArray = ctx
+                        .sidecar_io
+                        .screen_full_lines
+                        .as_ref()
+                        .map(|lines| lines.iter().cloned().map(Into::into).collect())
+                        .unwrap_or_default();
+                    ipc_map.insert("screen_full_lines".into(), screen_full_lines.into());
+                    let custom_events: RhaiArray = ctx
+                        .sidecar_io
+                        .custom_events
+                        .iter()
+                        .cloned()
+                        .map(Into::into)
+                        .collect();
+                    ipc_map.insert("custom_events".into(), custom_events.into());
+                    scope.push_dynamic("ipc", ipc_map.into());
+                }
+
+                // OPT-4: Reuse thread-local engine with all static registrations pre-done.
+                scope.push(
+                    "scene",
+                    ScriptSceneApi::new(
+                        Arc::clone(&ctx.object_states),
+                        Arc::clone(&ctx.object_kinds),
+                        Arc::clone(&ctx.object_props),
+                        Arc::clone(&ctx.object_regions),
+                        Arc::clone(&ctx.object_text),
+                        Arc::clone(&ctx.target_resolver),
+                        Arc::clone(&helper_commands),
+                    ),
+                );
+                scope.push("game", ScriptGameApi::new(ctx.game_state.clone()));
+                scope.push(
+                    "terminal",
+                    ScriptTerminalApi::new(Arc::clone(&helper_commands)),
+                );
+
+                // OPT-4: Use thread-local engine + cached AST.
+                RHAI_ENGINE.with(|cell| {
+                    let mut opt = cell.borrow_mut();
+                    let engine = opt.get_or_insert_with(init_rhai_engine);
+                    AST_CACHE.with(|cache| {
+                        let borrow = cache.borrow();
+                        if let Some(ast) = borrow.get(&hash) {
+                            return engine.eval_ast_with_scope::<RhaiDynamic>(scope, ast);
+                        }
+                        drop(borrow);
+                        match engine.compile(script) {
+                            Ok(ast) => {
+                                let result =
+                                    engine.eval_ast_with_scope::<RhaiDynamic>(scope, &ast);
+                                cache.borrow_mut().insert(hash, ast);
+                                result
+                            }
+                            Err(err) => Err(err.into()),
+                        }
+                    })
+                })
+            });
+
         let result = match eval_result {
             Ok(r) => r,
             Err(err) => {
                 let src = self.params.src.as_deref().unwrap_or("<inline>");
                 let msg = format!("{}", err);
-                eprintln!("Rhai script error in scene '{}' (src: {}): {}", scene.id, src, msg);
+                eprintln!(
+                    "Rhai script error in scene '{}' (src: {}): {}",
+                    scene.id, src, msg
+                );
                 commands.push(BehaviorCommand::ScriptError {
                     scene_id: scene.id.clone(),
                     source: self.params.src.clone(),
@@ -2803,13 +2820,13 @@ out.push(#{ op: "offset", target: "menu-item-0", dx: 0, dy: next });
             script: Some(
                 r#"
 let out = [];
-if objects.contains("obj:menu-item-0") && objects.contains("menu-item-0") {
-  let r = objects["menu-item-0"]["region"];
-  let kind = objects["obj:menu-item-0"]["kind"];
-  let dy = objects["obj:menu-item-0"]["state"]["offset_y"];
-  if kind == "text" {
-    out.push(#{ op: "offset", target: "menu-item-0", dx: r["x"], dy: dy });
-  }
+let obj_alias = scene.get("menu-item-0");
+let obj_real = scene.get("obj:menu-item-0");
+let kind = obj_real.get("kind");
+let dy = obj_real.get("state.offset_y");
+let rx = obj_alias.get("region.x");
+if kind == "text" {
+  out.push(#{ op: "offset", target: "menu-item-0", dx: rx, dy: dy });
 }
 out
 "#
@@ -2931,7 +2948,8 @@ obj.set("position.y", dy + 2);
         assert_eq!(
             commands,
             vec![BehaviorCommand::SetProperty {
-                target: "menu-item-0".to_string(),
+                // Alias "menu-item-0" resolves to real object id "obj:menu-item-0".
+                target: "obj:menu-item-0".to_string(),
                 path: "position.y".to_string(),
                 value: JsonValue::Number(7.into())
             }]
