@@ -10,6 +10,9 @@ using CognitOS.Kernel.Process;
 using CognitOS.Kernel.Resources;
 using CognitOS.Kernel.Services;
 using CognitOS.Kernel.Hardware;
+using CognitOS.Kernel.Session;
+using CognitOS.Kernel.Users;
+using CognitOS.Kernel.Mount;
 using CognitOS.State;
 
 /// <summary>
@@ -26,6 +29,9 @@ internal interface IKernel
     IMailSpool Mail { get; }
     IJournal Journal { get; }
     IServiceManager Services { get; }
+    ISessionManager Sessions { get; }
+    IUserDatabase Users { get; }
+    IMountTable Mounts { get; }
     ResourceState Resources { get; }
     HardwareProfile Hardware { get; }
     MachineSpec Spec { get; }

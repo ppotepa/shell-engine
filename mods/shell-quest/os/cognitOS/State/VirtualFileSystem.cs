@@ -30,7 +30,7 @@ internal interface IMutableFileSystem : IVirtualFileSystem
 
 internal sealed class ZipVirtualFileSystem : IMutableFileSystem
 {
-    private const string HomeAbsolute = "/usr/linus";
+    private const string HomeAbsolute = "/usr/torvalds";
 
     private readonly string _statePath;
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
@@ -55,10 +55,10 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
                 using var archive = ZipFile.OpenRead(_statePath);
                 foreach (var entry in archive.Entries)
                 {
-                    if (!entry.FullName.StartsWith("users/linus/home/", StringComparison.Ordinal))
+                    if (!entry.FullName.StartsWith("users/torvalds/home/", StringComparison.Ordinal))
                         continue;
 
-                    var relative = entry.FullName["users/linus/home/".Length..].Trim('/');
+                    var relative = entry.FullName["users/torvalds/home/".Length..].Trim('/');
                     if (relative.Length == 0) continue;
 
                     if (entry.FullName.EndsWith("/", StringComparison.Ordinal))
@@ -127,7 +127,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
         var epoch = new DateTime(1991, 9, 17, 21, 0, 0);
 
         // Ownership by path prefix
-        string owner = "linus", group = "other";
+        string owner = "torvalds", group = "other";
         if (normalized.StartsWith("etc") || normalized.StartsWith("var") ||
             normalized.StartsWith("proc") || normalized.StartsWith("dev") ||
             normalized.StartsWith("bin") || normalized.StartsWith("usr/bin") ||
@@ -319,7 +319,7 @@ export EDITOR=ed", out _);
 daemon:x:1:1:System Daemon:/usr/sbin:/bin/false
 bin:x:2:2:Binary:/bin:/bin/false
 ast:x:100:10:Andy S. Tanenbaum:/usr/ast:/bin/sh
-linus:x:101:10:Linus B. Torvalds:/usr/linus:/bin/sh
+torvalds:x:101:10:Linus B. Torvalds:/usr/torvalds:/bin/sh
 nobody:x:65534:65534:Nobody:/nonexistent:/bin/false", out _);
 
         TryWrite("etc/hostname", "kruuna", out _);
@@ -400,7 +400,7 @@ Sep 17 21:00:01 kruuna kernel: memory: 4096K total, 109K kernel, 3987K free
 Sep 17 21:00:02 kruuna init: system startup
 Sep 17 21:00:02 kruuna cron: started
 Sep 17 21:00:03 kruuna getty: tty0 ready
-Sep 17 21:12:00 kruuna login: linus logged in on tty0
+Sep 17 21:12:00 kruuna login: torvalds logged in on tty0
 Sep 17 21:12:00 kruuna login: session opened for ast on tty1
 Sep 17 21:12:00 kruuna login: session opened for (unknown) on tty2", out _);
 
@@ -410,7 +410,7 @@ Sep 17 21:02:00 cron: /usr/lib/atrun
 Sep 17 21:04:00 cron: /usr/lib/atrun", out _);
 
         TryWrite("var/log/auth.log",
-@"Sep 17 21:12:00 login: linus on tty0
+@"Sep 17 21:12:00 login: torvalds on tty0
 Sep 15 09:41:00 login: ast on tty1
 Jan  1 00:00:00 login: (unknown) on tty2", out _);
 

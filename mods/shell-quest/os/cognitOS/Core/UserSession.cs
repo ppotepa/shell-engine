@@ -51,7 +51,7 @@ internal sealed class UserSession
     }
 
     /// <summary>
-    /// Returns the cwd formatted for display: /home/linus → ~, /home/linus/foo → ~/foo.
+    /// Returns the cwd formatted for display: /usr/torvalds → ~, /usr/torvalds/foo → ~/foo.
     /// </summary>
     public string DisplayCwd()
     {

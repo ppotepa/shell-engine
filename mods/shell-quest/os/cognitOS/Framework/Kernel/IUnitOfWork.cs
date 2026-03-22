@@ -5,9 +5,12 @@ using CognitOS.Kernel.Clock;
 using CognitOS.Kernel.Disk;
 using CognitOS.Kernel.Journal;
 using CognitOS.Kernel.Mail;
+using CognitOS.Kernel.Mount;
 using CognitOS.Kernel.Network;
 using CognitOS.Kernel.Process;
 using CognitOS.Kernel.Resources;
+using CognitOS.Kernel.Session;
+using CognitOS.Kernel.Users;
 using CognitOS.State;
 
 /// <summary>
@@ -25,6 +28,9 @@ internal interface IUnitOfWork : IDisposable
     IClock Clock { get; }
     IMailSpool Mail { get; }
     IJournal Journal { get; }
+    ISessionManager Sessions { get; }
+    IUserDatabase Users { get; }
+    IMountTable Mounts { get; }
     UserSession Session { get; }
     QuestState Quest { get; }
     MachineSpec Spec { get; }

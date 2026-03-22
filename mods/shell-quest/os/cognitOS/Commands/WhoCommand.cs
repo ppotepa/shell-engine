@@ -12,7 +12,7 @@ internal sealed class WhoCommand : IKernelCommand
     public int Run(IUnitOfWork uow, string[] argv)
     {
         var now = uow.Clock.Now();
-        uow.Out.WriteLine($"linus    tty0     {now:MMM dd HH:mm}");
+        uow.Out.WriteLine($"torvalds tty0     {now:MMM dd HH:mm}");
         uow.Out.WriteLine("ast      tty1     Sep 15 09:41");
 
         if (!uow.Quest.UploadSuccess)

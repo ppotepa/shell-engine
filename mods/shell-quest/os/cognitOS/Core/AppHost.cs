@@ -126,9 +126,9 @@ internal sealed class AppHost
 
     private void HandleLoginUser(string user)
     {
-        if (!_machineState.HasAccount && !user.Equals("linus", StringComparison.Ordinal))
+        if (!_machineState.HasAccount && !user.Equals("torvalds", StringComparison.Ordinal))
         {
-            _screen.Append(Style.Fg(Style.Warn, "first boot: login as linus"), "");
+            _screen.Append(Style.Fg(Style.Warn, "first boot: login as torvalds"), "");
             return;
         }
 
@@ -147,7 +147,7 @@ internal sealed class AppHost
                 return;
             }
 
-            _machineState.UserName = "linus";
+            _machineState.UserName = "torvalds";
             _machineState.Password = password;
             _machineState.LastLogin = _kernel.Clock.Now();
             _store.Persist(_machineState);
@@ -180,7 +180,7 @@ internal sealed class AppHost
         _store.Persist(_machineState);
         _reloadVfs?.Invoke();
 
-        _session = new UserSession(_machineState.UserName ?? "linus", "kruuna");
+        _session = new UserSession(_machineState.UserName ?? "torvalds", "kruuna");
         _appStack = new ApplicationStack(_kernel, _machineState, _screen);
         var builtins = new MinixBuiltins();
         var scripts = new MinixScriptInterpreter();

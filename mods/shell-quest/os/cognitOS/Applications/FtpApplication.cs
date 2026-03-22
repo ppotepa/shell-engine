@@ -186,7 +186,7 @@ internal sealed class FtpApplication : IKernelApplication
         uow.Out.WriteLine($"150 Opening {_transferMode.ToUpperInvariant()} mode data connection for {fileName}.");
         _machineState.Quest.UploadAttempted = true;
 
-        var transferTimeMs = (sizeBytes * 8) / Math.Max(uow.Spec.NicSpeedKbps, 1);
+        var transferTimeMs = (long)(sizeBytes * 8) / Math.Max(uow.Spec.ModemBaud / 1000, 1);
         uow.Out.WriteLine("226 Transfer complete.");
         uow.Out.WriteLine($"{sizeBytes} bytes sent in {transferTimeMs / 1000.0:F1} seconds.");
 
@@ -283,7 +283,7 @@ internal sealed class FtpApplication : IKernelApplication
         uow.Out.WriteLine($"Connected to: {(_connected ? _remoteHost : "(not connected)")}");
         uow.Out.WriteLine($"Transfer mode: {_transferMode}");
         uow.Out.WriteLine($"Remote cwd: {_remoteCwd}");
-        uow.Out.WriteLine($"NIC: {uow.Spec.NicModel} ({uow.Spec.NicSpeedKbps} Kbps)");
+        uow.Out.WriteLine($"Modem: {uow.Spec.ModemModel} ({uow.Spec.ModemBaud} baud)");
     }
 
     private void HandleHelp(CognitOS.Kernel.IUnitOfWork uow)

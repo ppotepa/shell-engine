@@ -32,9 +32,9 @@ internal sealed record MachineSpec
     public int DiskKb { get; init; } = 40960;
     public int DiskFreeKb { get; init; } = 20480;
 
-    // Network
-    public string NicModel { get; init; } = "NE2000";
-    public int NicSpeedKbps { get; init; } = 1200;
+    // Modem / serial line
+    public string ModemModel { get; init; } = "US Robotics Courier 2400";
+    public int ModemBaud { get; init; } = 2400;
     public int FtpTimeoutMs { get; init; } = 30000;
 
     // Gameplay multipliers — subsystems can use these for timing/limits
@@ -56,8 +56,8 @@ internal sealed record MachineSpec
             RamKb = 8192,
             DiskKb = 81920,
             DiskFreeKb = 52000,
-            NicModel = "3Com EtherLink III",
-            NicSpeedKbps = 2400,
+            ModemModel = "US Robotics Courier 2400",
+            ModemBaud = 2400,
             FtpTimeoutMs = 60000,
             OperationSpeedMultiplier = 0.6,
             MaxProcesses = 32,
@@ -71,8 +71,8 @@ internal sealed record MachineSpec
             RamKb = 4096,
             DiskKb = 40960,
             DiskFreeKb = 28000,
-            NicModel = "NE2000 compatible",
-            NicSpeedKbps = 1200,
+            ModemModel = "Hayes Smartmodem 1200",
+            ModemBaud = 1200,
             FtpTimeoutMs = 45000,
             OperationSpeedMultiplier = 0.8,
             MaxProcesses = 24,
@@ -86,8 +86,8 @@ internal sealed record MachineSpec
             RamKb = 4096,
             DiskKb = 40960,
             DiskFreeKb = 20480,
-            NicModel = "NE2000",
-            NicSpeedKbps = 1200,
+            ModemModel = "Hayes Smartmodem 1200",
+            ModemBaud = 1200,
             FtpTimeoutMs = 30000,
             OperationSpeedMultiplier = 1.0,
             MaxProcesses = 16,
@@ -101,8 +101,8 @@ internal sealed record MachineSpec
             RamKb = 2048,
             DiskKb = 20480,
             DiskFreeKb = 8000,
-            NicModel = "NE1000",
-            NicSpeedKbps = 600,
+            ModemModel = "Hayes Smartmodem 300",
+            ModemBaud = 300,
             FtpTimeoutMs = 20000,
             OperationSpeedMultiplier = 1.4,
             MaxProcesses = 12,
@@ -116,8 +116,8 @@ internal sealed record MachineSpec
             RamKb = 1024,
             DiskKb = 10240,
             DiskFreeKb = 3200,
-            NicModel = "NE1000",
-            NicSpeedKbps = 300,
+            ModemModel = "Generic 300 baud serial",
+            ModemBaud = 300,
             FtpTimeoutMs = 12000,
             OperationSpeedMultiplier = 2.0,
             MaxProcesses = 8,

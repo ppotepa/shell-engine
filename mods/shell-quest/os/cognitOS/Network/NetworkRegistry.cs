@@ -121,7 +121,7 @@ internal sealed class NetworkRegistry
     public static int JitteredPing(int baseMs, MachineSpec spec)
     {
         if (baseMs <= 0) return 0;
-        var factor = 1200.0 / spec.NicSpeedKbps;
+        var factor = 1200.0 / Math.Max(spec.ModemBaud / 8.0, 1);
         var scaled = (int)(baseMs * factor);
         var jitter = Random.Shared.Next(-(scaled / 7), scaled / 7 + 1);
         return Math.Max(1, scaled + jitter);

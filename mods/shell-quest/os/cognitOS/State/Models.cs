@@ -72,10 +72,10 @@ internal sealed class StateManifest
 
 internal sealed class UserProfile
 {
-    public string UserName { get; set; } = "linus";
+    public string UserName { get; set; } = "torvalds";
     public string Password { get; set; } = "";
     public DateTime? LastLogin { get; set; }
-    public string HomeDirectory { get; set; } = "/usr/linus";
+    public string HomeDirectory { get; set; } = "/usr/torvalds";
     public string Shell { get; set; } = "/bin/sh";
 }
 

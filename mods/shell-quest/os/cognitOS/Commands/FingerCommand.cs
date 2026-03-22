@@ -19,12 +19,13 @@ internal sealed class FingerCommand : IKernelCommand
 
         var target = argv[1].ToLowerInvariant();
 
-        if (target is "linus")
+        if (target is "torvalds")
         {
-            uow.Out.WriteLine("Login: linus                            Name: Linus B. Torvalds");
-            uow.Out.WriteLine("Directory: /home/linus                  Shell: /bin/sh");
+            var plan = uow.Disk.RawRead("/usr/torvalds/.plan") ?? "No plan.";
+            uow.Out.WriteLine("Login: torvalds                         Name: Linus B. Torvalds");
+            uow.Out.WriteLine("Directory: /usr/torvalds                Shell: /bin/sh");
             uow.Out.WriteLine($"On since {uow.Clock.Now():MMM dd HH:mm} on tty0");
-            uow.Out.WriteLine("No plan.");
+            uow.Out.WriteLine($"Plan:\n{plan}");
             return 0;
         }
 

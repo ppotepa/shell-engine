@@ -48,9 +48,9 @@ internal sealed class MinixBootSequence : IBootSequence
         // TTY task — initialises consoles
         steps.Add(S($"{Style.Fg(Style.BootKeyword, "tty")} task", 80, f));
 
-        // Ethernet only if NIC speed implies a real card is present
-        if (spec.NicSpeedKbps > 0)
-            steps.Add(S($"{Style.Fg(Style.BootKeyword, "ethernet")} task", 160, f));
+        // Serial/modem driver — always present
+        if (spec.ModemBaud > 0)
+            steps.Add(S($"{Style.Fg(Style.BootKeyword, "rs232")} task  ({spec.ModemBaud} baud)", 160, f));
 
         steps.Add(S(string.Empty, 100, f));
 

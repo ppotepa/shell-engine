@@ -33,12 +33,12 @@ internal sealed class ZipStateStore : CognitOS.Core.IMachineStart
             using var archive = ZipFile.OpenRead(_path);
             var manifest = ReadJson<StateManifest>(archive, "meta.json") ?? new StateManifest();
             MigrateIfNeeded(manifest);
-            var profile = ReadJson<UserProfile>(archive, "users/linus/profile.json");
+            var profile = ReadJson<UserProfile>(archive, "users/torvalds/profile.json");
             var clock = ReadJson<ClockState>(archive, "system/clock.json");
             var processes = ReadJson<List<ProcessEntry>>(archive, "system/processes.json") ?? new List<ProcessEntry>();
             var services = ReadJson<List<ServiceEntry>>(archive, "system/services.json") ?? new List<ServiceEntry>();
-            var mailMessages = ReadJson<List<MailMessage>>(archive, "users/linus/mail-index.json") ?? new List<MailMessage>();
-            var unread = ReadJson<int>(archive, "users/linus/unread-count.json");
+            var mailMessages = ReadJson<List<MailMessage>>(archive, "users/torvalds/mail-index.json") ?? new List<MailMessage>();
+            var unread = ReadJson<int>(archive, "users/torvalds/unread-count.json");
 
             return new MachineState
             {
@@ -79,19 +79,19 @@ internal sealed class ZipStateStore : CognitOS.Core.IMachineStart
             UpdatedUtc = now,
         });
 
-        WriteJson(archive, "users/linus/profile.json", new UserProfile
+        WriteJson(archive, "users/torvalds/profile.json", new UserProfile
         {
-            UserName = state.UserName ?? "linus",
+            UserName = state.UserName ?? "torvalds",
             Password = state.Password ?? "",
             LastLogin = state.LastLogin,
         });
 
         foreach (var mail in state.MailMessages)
         {
-            WriteText(archive, $"users/linus/home/mail/{mail.FileName}", mail.Content);
+            WriteText(archive, $"users/torvalds/home/mail/{mail.FileName}", mail.Content);
         }
 
-        WriteText(archive, "users/linus/home/notes/starter.txt",
+        WriteText(archive, "users/torvalds/home/notes/starter.txt",
             "- type ls to look around\n" +
             "- type cat mail/welcome.txt to read your mail\n" +
             "- try top to inspect machine status\n");
@@ -100,8 +100,8 @@ internal sealed class ZipStateStore : CognitOS.Core.IMachineStart
 
         WriteJson(archive, "system/processes.json", state.Processes);
         WriteJson(archive, "system/services.json", state.Services);
-        WriteJson(archive, "users/linus/mail-index.json", state.MailMessages);
-        WriteJson(archive, "users/linus/unread-count.json", state.UnreadMailCount);
+        WriteJson(archive, "users/torvalds/mail-index.json", state.MailMessages);
+        WriteJson(archive, "users/torvalds/unread-count.json", state.UnreadMailCount);
     }
 
     private StateManifest? ReadExistingManifest()

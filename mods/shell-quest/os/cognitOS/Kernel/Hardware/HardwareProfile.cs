@@ -38,7 +38,7 @@ internal class HardwareProfile
         DiskTransferKBs  = 750.0 / m;
         DiskDirEntryMs   = DiskAccessMs / 4.0;
 
-        NetBandwidthKBs  = spec.NicSpeedKbps / 8.0;
+        NetBandwidthKBs  = spec.ModemBaud / 8000.0;  // baud → KB/s
         NetBasePingMs    = 120.0 * m;
 
         ForkMs           = 80.0 * m;

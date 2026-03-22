@@ -11,6 +11,9 @@ using CognitOS.Kernel.Process;
 using CognitOS.Kernel.Resources;
 using CognitOS.Kernel.Services;
 using CognitOS.Kernel.Hardware;
+using CognitOS.Kernel.Session;
+using CognitOS.Kernel.Users;
+using CognitOS.Kernel.Mount;
 using CognitOS.Minix.Kernel;
 using CognitOS.State;
 using FrameworkKernel = CognitOS.Framework.Kernel;
@@ -30,6 +33,9 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
     public IMailSpool Mail { get; }
     public IJournal Journal { get; }
     public IServiceManager Services { get; }
+    public ISessionManager Sessions { get; }
+    public IUserDatabase Users { get; }
+    public IMountTable Mounts { get; }
     public ResourceState Resources { get; }
     public HardwareProfile Hardware { get; }
     public MachineSpec Spec { get; }
@@ -56,13 +62,23 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         Process = processTable;
         Net = new SimulatedNetwork(netReg, Resources, Hardware, Disk, gate);
         Journal = new SimulatedJournal(Disk, Clock);
-        Mail = new SimulatedMailSpool(Disk, Clock, "linus");
+        Mail = new SimulatedMailSpool(Disk, Clock, "torvalds");
 
         // Layer 5: Service manager
         Services = new SimulatedServiceManager(Process, Disk, Clock, Mail, Journal);
 
-        // Boot system processes (no fork delay — loaded by bootloader)
+        // Layer 6: Higher-level OS subsystems
+        Sessions = new SessionManager();
+        Users = new UserDatabase(Disk);
+        var mountTable = new MountTable();
+        var rootKb = spec.DiskKb / 2;
+        mountTable.AddMount(new MountEntry { Device = "/dev/hd1", MountPoint = "/",    FsType = "minix", Options = "rw", SizeKb = rootKb });
+        mountTable.AddMount(new MountEntry { Device = "/dev/hd2", MountPoint = "/usr", FsType = "minix", Options = "rw", SizeKb = spec.DiskKb - rootKb });
+        Mounts = mountTable;
+
+        // Boot sessions and processes
         BootSystemProcesses(processTable);
+        BootSessions((SessionManager)Sessions, new DateTime(1991, 9, 17, 21, 12, 0));
     }
 
     public IUnitOfWork CreateScope(UserSession session, TextWriter output, QuestState quest)
@@ -91,10 +107,20 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         pt.AddSystemProcess(new ProcessEntry { Pid = 4, Ppid = 1, Uid = 0, Name = "update", User = "root", StateCh = 'S', Tty = "?", Sz = 4 });
         pt.AddSystemProcess(new ProcessEntry { Pid = 5, Ppid = 1, Uid = 0, Name = "cron", User = "root", StateCh = 'S', Tty = "?", Sz = 8 });
         pt.AddSystemProcess(new ProcessEntry { Pid = 6, Ppid = 1, Uid = 0, Name = "getty", User = "root", StateCh = 'S', Tty = "tty0", Sz = 8 });
-        pt.AddSystemProcess(new ProcessEntry { Pid = 7, Ppid = 6, Uid = 101, Name = "sh", User = "linus", StateCh = 'S', Tty = "tty0", Sz = 16 });
+        pt.AddSystemProcess(new ProcessEntry { Pid = 7, Ppid = 6, Uid = 101, Name = "sh", User = "torvalds", StateCh = 'S', Tty = "tty0", Sz = 16 });
 
         // Start cron and update services
         Services.Start("cron");
         Services.Start("update");
+    }
+
+    private static void BootSessions(SessionManager sm, DateTime epoch)
+    {
+        // torvalds logged in at epoch on tty0 (the player's session)
+        sm.RegisterSession(new TtySession { User = "torvalds", Tty = "tty0", LoginTime = epoch });
+        // ast has been logged in on tty1 since Sep 15
+        sm.RegisterSession(new TtySession { User = "ast",      Tty = "tty1", LoginTime = new DateTime(1991, 9, 15, 9, 41, 0) });
+        // anomaly: unnamed session from epoch zero
+        sm.RegisterSession(new TtySession { User = "",         Tty = "tty2", LoginTime = new DateTime(1970, 1, 1, 0, 0, 0), IsAnomaly = true });
     }
 }
