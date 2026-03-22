@@ -197,6 +197,184 @@ To upload to nic.funet.fi:
   cd /pub/OS/Linux
   binary
   put linux-0.01.tar.Z", out _);
+
+        // --- Mail ---
+        TryMkdir("mail", out _);
+
+        TryWrite("mail/welcome.txt",
+@"From: Operator <op@kruuna>
+Subject: Welcome
+
+you made it in. good.
+read the notes when you get a chance.", out _);
+
+        TryWrite("mail/ast.txt",
+@"From: ast@cs.vu.nl (Andy Tanenbaum)
+Date: Tue, 16 Sep 1991 14:22:00 +0200
+Subject: re: uploading to funet
+
+Linus,
+
+If you're uploading to funet, remember: compressed
+archives must transfer in binary mode. ASCII will
+corrupt them. I've seen students make this mistake
+every semester.
+
+    -- ast", out _);
+
+        // --- Notes ---
+        TryMkdir("notes", out _);
+
+        TryWrite("notes/starter.txt",
+@"- type ls to look around
+- type cat mail/welcome.txt to read your mail
+- try top to inspect machine status", out _);
+
+        // --- History (hint: previous user tried ascii) ---
+        TryWrite(".bash_history",
+@"ls
+cd linux-0.01
+ls -la
+cat RELNOTES-0.01
+ftp nic.funet.fi
+ascii
+put linux-0.01.tar.Z
+quit", out _);
+
+        TryWrite(".profile",
+@"# ~/.profile — sourced by /bin/sh on login
+export PATH=/bin:/usr/bin
+export TERM=minix
+export EDITOR=ed", out _);
+
+        TryWrite(".plan",
+            "working on something. will post to comp.os.minix when ready.", out _);
+
+        // --- /etc ---
+        TryMkdir("etc", out _);
+
+        TryWrite("etc/passwd",
+@"root:x:0:0:Charlie Root:/root:/bin/sh
+daemon:x:1:1:System Daemon:/usr/sbin:/bin/false
+bin:x:2:2:Binary:/bin:/bin/false
+ast:x:100:10:Andy S. Tanenbaum:/usr/ast:/bin/sh
+linus:x:101:10:Linus B. Torvalds:/home/linus:/bin/sh
+nobody:x:65534:65534:Nobody:/nonexistent:/bin/false", out _);
+
+        TryWrite("etc/hostname", "kruuna", out _);
+
+        TryWrite("etc/hosts",
+@"127.0.0.1       localhost kruuna
+128.214.6.100   nic.funet.fi ftp.funet.fi
+130.37.24.3     cs.vu.nl
+128.214.1.1     helsinki.fi", out _);
+
+        TryWrite("etc/services",
+@"ftp        21/tcp
+telnet     23/tcp
+smtp       25/tcp
+http       80/tcp
+finger     79/tcp", out _);
+
+        TryWrite("etc/resolv.conf", "nameserver 128.214.1.1", out _);
+
+        TryWrite("etc/rc",
+@"#!/bin/sh
+# /etc/rc — system initialization
+/usr/bin/update &
+/usr/bin/cron &
+/etc/getty tty0 &", out _);
+
+        // --- /usr/ast ---
+        TryMkdir("usr/ast", out _);
+
+        TryWrite("usr/ast/README",
+@"MINIX is for teaching, not production.
+If you want to write a real OS, start from scratch.
+Good luck.
+    -- ast, 1991", out _);
+
+        TryWrite("usr/ast/.plan",
+@"Working on MINIX 2.0 filesystem improvements.
+Teaching OS course next semester.
+Conference paper due October.", out _);
+
+        TryWrite("usr/ast/minix-2.0-notes.txt",
+@"MINIX 2.0 design notes (draft)
+==============================
+- new virtual filesystem layer
+- improved memory manager
+- POSIX.1 compliance (partial)
+- target: spring 1992
+
+TODO:
+- benchmark vs SunOS 4.1
+- test on 286 (dropped?)", out _);
+
+        // --- /tmp ---
+        TryMkdir("tmp", out _);
+
+        TryWrite("tmp/thesis-FINAL-v3-REAL.bak",
+            "[binary file -- cannot display]", out _);
+
+        TryWrite("tmp/core",
+            "[core dump -- process 'cc1' signal 11 (segmentation fault)]", out _);
+
+        TryWrite("tmp/nroff-err.log",
+@"nroff: warning: can't find font 'HR'
+nroff: warning: can't break line 47
+nroff: 2 warnings, 0 errors (but it looks wrong anyway)", out _);
+
+        TryWrite("tmp/.Xauthority",
+            "[binary file -- cannot display]", out _);
+
+        TryWrite("tmp/.lock-ast", "", out _);
+
+        // --- /var/log ---
+        TryMkdir("var/log", out _);
+
+        TryWrite("var/log/messages",
+@"Sep 17 21:00:01 kruuna kernel: MINIX 1.1 boot
+Sep 17 21:00:01 kruuna kernel: memory: 4096K total, 109K kernel, 3987K free
+Sep 17 21:00:02 kruuna init: system startup
+Sep 17 21:00:02 kruuna cron: started
+Sep 17 21:00:03 kruuna getty: tty0 ready
+Sep 17 21:12:00 kruuna login: linus logged in on tty0
+Sep 17 21:12:00 kruuna login: session opened for ast on tty1
+Sep 17 21:12:00 kruuna login: session opened for (unknown) on tty2", out _);
+
+        TryWrite("var/log/cron.log",
+@"Sep 17 21:00:02 cron: started
+Sep 17 21:02:00 cron: /usr/lib/atrun
+Sep 17 21:04:00 cron: /usr/lib/atrun", out _);
+
+        TryWrite("var/log/auth.log",
+@"Sep 17 21:12:00 login: linus on tty0
+Sep 15 09:41:00 login: ast on tty1
+Jan  1 00:00:00 login: (unknown) on tty2", out _);
+
+        // --- /proc ---
+        TryMkdir("proc", out _);
+
+        TryWrite("proc/version",
+            "Minix version 1.1 (Sep 17 1991) gcc 1.37.1", out _);
+
+        // --- /dev (virtual) ---
+        TryMkdir("dev", out _);
+
+        TryWrite("dev/null", "", out _);
+        TryWrite("dev/random", "[random bytes -- display corrupted]\x07\x1b[2J#@!$%", out _);
+        TryWrite("dev/console", "[device -- cannot read directly]", out _);
+
+        // --- /usr/bin, /usr/lib, /usr/man, /usr/src ---
+        TryMkdir("usr/bin", out _);
+        TryMkdir("usr/lib", out _);
+        TryMkdir("usr/man", out _);
+        TryMkdir("usr/src", out _);
+        TryMkdir("usr/src/minix", out _);
+
+        // /usr/src/minix is not readable (permission denied handled by cat)
+        TryMkdir("bin", out _);
     }
 
     private void RegisterParentDirectories(string normalizedPath)

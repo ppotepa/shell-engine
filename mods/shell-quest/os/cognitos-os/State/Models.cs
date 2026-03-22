@@ -43,6 +43,9 @@ internal sealed class QuestState
     public bool UploadSuccess { get; set; }
     public string? FtpRemoteHost { get; set; }
     public bool FtpConnected { get; set; }
+
+    /// <summary>Hostnames of temporal anomalies the player has pinged.</summary>
+    public List<string>? AnomaliesDiscovered { get; set; }
 }
 
 internal sealed class ServiceEntry
