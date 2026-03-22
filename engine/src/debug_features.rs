@@ -1,5 +1,17 @@
 //! Runtime debug feature toggles that can be enabled independently from build profile.
 
+/// Smoothed real-time FPS tracked by the game loop.
+#[derive(Debug, Clone, Copy)]
+pub struct FpsCounter {
+    pub fps: f32,
+}
+
+impl Default for FpsCounter {
+    fn default() -> Self {
+        Self { fps: 0.0 }
+    }
+}
+
 /// Debug overlay display mode.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum DebugOverlayMode {

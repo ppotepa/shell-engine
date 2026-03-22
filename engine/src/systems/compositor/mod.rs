@@ -15,6 +15,7 @@ use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::{apply_effect, Region};
 use crate::obj_prerender::{ObjPrerenderedFrames, ObjPrerenderStatus};
 use crate::scene::SceneRenderedMode;
+use crate::scene3d_atlas::Scene3DAtlas;
 use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
 use crate::services::EngineWorldAccess;
 use crate::systems::animator::SceneStage;
@@ -34,9 +35,25 @@ pub fn compositor_system(world: &mut World) {
         .runtime_settings()
         .and_then(|s| s.renderer_mode_override);
 
+    // Extract a raw pointer to the scene layer slice to avoid deep-cloning the entire
+    // layer tree (all Sprite::Obj fields, Strings, etc.) every frame.
+    // SAFETY: SceneRuntime is stored under TypeId::of::<SceneRuntime>() in World::scoped.
+    // The mutable borrows taken later (buffer_mut / virtual_buffer_mut) target
+    // TypeId::of::<Buffer>() / TypeId::of::<VirtualBuffer>() — distinct HashMap entries.
+    // No aliasing occurs. The pointer remains valid for the duration of this function
+    // because SceneRuntime is not dropped or mutated until scene_runtime_mut() is called
+    // at the very end (after all rendering is complete).
+    let layers_ptr: *const Vec<crate::scene::Layer> = world
+        .scene_runtime()
+        .map(|rt| &rt.scene().layers as *const _)
+        .unwrap_or(std::ptr::null());
+    if layers_ptr.is_null() {
+        return;
+    }
+
     let (
         bg,
-        layers,
+        ui_enabled,
         target_resolver,
         object_states,
         obj_camera_states,
@@ -48,10 +65,7 @@ pub fn compositor_system(world: &mut World) {
         scene_step_dur,
         rendered_mode,
     ) = {
-        let scene = match world.scene_runtime() {
-            Some(runtime) => runtime.scene(),
-            None => return,
-        };
+        let scene = world.scene_runtime().unwrap().scene();
         let target_resolver = world
             .scene_runtime()
             .map(SceneRuntime::target_resolver)
@@ -76,12 +90,6 @@ pub fn compositor_system(world: &mut World) {
             .map(Color::from)
             .unwrap_or(TRUE_BLACK);
         let ui_enabled = scene.ui.enabled;
-        let layers = scene
-            .layers
-            .iter()
-            .filter(|layer| !layer.ui || ui_enabled)
-            .cloned()
-            .collect::<Vec<_>>();
 
         let current_step = match &stage {
             SceneStage::OnEnter => scene.stages.on_enter.steps.get(step),
@@ -94,7 +102,7 @@ pub fn compositor_system(world: &mut World) {
 
         (
             bg,
-            layers,
+            ui_enabled,
             target_resolver,
             object_states,
             obj_camera_states,
@@ -107,6 +115,9 @@ pub fn compositor_system(world: &mut World) {
             runtime_mode_override.unwrap_or(scene.rendered_mode),
         )
     };
+
+    // SAFETY: see comment above layers_ptr declaration.
+    let layers: &[crate::scene::Layer] = unsafe { (*layers_ptr).as_slice() };
 
     let use_virtual = world
         .runtime_settings()
@@ -133,17 +144,50 @@ pub fn compositor_system(world: &mut World) {
         Some(unsafe { &*prerender_frames_ptr })
     };
 
+    // Extract Scene3DAtlas pointer for zero-overhead access during sprite rendering.
+    // SAFETY: same reasoning as prerender_frames — Scene3DAtlas is stored separately in World
+    // and not mutated during rendering.
+    let atlas_ptr: *const Scene3DAtlas = world
+        .get::<Scene3DAtlas>()
+        .map(|a| a as *const _)
+        .unwrap_or(std::ptr::null());
+    let atlas: Option<&Scene3DAtlas> = if atlas_ptr.is_null() {
+        None
+    } else {
+        Some(unsafe { &*atlas_ptr })
+    };
+
     if use_virtual {
         let buffer = match world.virtual_buffer_mut() {
             Some(v) => &mut v.0,
             None => return,
         };
-        let object_regions = obj_render::with_prerender_frames(prerender_frames, || {
-            match rendered_mode {
-                SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
-                    composite_scene(
+        let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
+            obj_render::with_prerender_frames(prerender_frames, || {
+                match rendered_mode {
+                    SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
+                        composite_scene(
+                            bg,
+                            layers,
+                            ui_enabled,
+                            rendered_mode,
+                            asset_root.as_ref(),
+                            &target_resolver,
+                            &object_states,
+                            &obj_camera_states,
+                            &current_stage,
+                            step_idx,
+                            elapsed_ms,
+                            scene_elapsed_ms,
+                            &scene_effects,
+                            scene_step_dur,
+                            buffer,
+                        )
+                    }
+                    SceneRenderedMode::HalfBlock => composite_scene_halfblock(
                         bg,
-                        &layers,
+                        layers,
+                        ui_enabled,
                         rendered_mode,
                         asset_root.as_ref(),
                         &target_resolver,
@@ -156,11 +200,46 @@ pub fn compositor_system(world: &mut World) {
                         &scene_effects,
                         scene_step_dur,
                         buffer,
-                    )
+                    ),
+                }
+            })
+        });
+        if let Some(runtime) = world.scene_runtime_mut() {
+            runtime.set_object_regions(object_regions);
+        }
+        return;
+    }
+
+    let buffer = match world.buffer_mut() {
+        Some(b) => b,
+        None => return,
+    };
+    let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
+        obj_render::with_prerender_frames(prerender_frames, || {
+            match rendered_mode {
+                SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
+                    composite_scene(
+                        bg,
+                        layers,
+                        ui_enabled,
+                        rendered_mode,
+                        asset_root.as_ref(),
+                        &target_resolver,
+                        &object_states,
+                        &obj_camera_states,
+                        &current_stage,
+                    step_idx,
+                    elapsed_ms,
+                    scene_elapsed_ms,
+                    &scene_effects,
+                    scene_step_dur,
+                    buffer,
+                )
                 }
                 SceneRenderedMode::HalfBlock => composite_scene_halfblock(
                     bg,
-                    &layers,
+                    layers,
+                    ui_enabled,
                     rendered_mode,
                     asset_root.as_ref(),
                     &target_resolver,
@@ -175,54 +254,7 @@ pub fn compositor_system(world: &mut World) {
                     buffer,
                 ),
             }
-        });
-        if let Some(runtime) = world.scene_runtime_mut() {
-            runtime.set_object_regions(object_regions);
-        }
-        return;
-    }
-
-    let buffer = match world.buffer_mut() {
-        Some(b) => b,
-        None => return,
-    };
-    let object_regions = obj_render::with_prerender_frames(prerender_frames, || {
-        match rendered_mode {
-            SceneRenderedMode::Cell | SceneRenderedMode::QuadBlock | SceneRenderedMode::Braille => {
-                composite_scene(
-                    bg,
-                    &layers,
-                    rendered_mode,
-                    asset_root.as_ref(),
-                    &target_resolver,
-                    &object_states,
-                    &obj_camera_states,
-                    &current_stage,
-                    step_idx,
-                    elapsed_ms,
-                    scene_elapsed_ms,
-                    &scene_effects,
-                    scene_step_dur,
-                    buffer,
-                )
-            }
-            SceneRenderedMode::HalfBlock => composite_scene_halfblock(
-                bg,
-                &layers,
-                rendered_mode,
-                asset_root.as_ref(),
-                &target_resolver,
-                &object_states,
-                &obj_camera_states,
-                &current_stage,
-                step_idx,
-                elapsed_ms,
-                scene_elapsed_ms,
-                &scene_effects,
-                scene_step_dur,
-                buffer,
-            ),
-        }
+        })
     });
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.set_object_regions(object_regions);
@@ -232,6 +264,7 @@ pub fn compositor_system(world: &mut World) {
 fn composite_scene(
     bg: Color,
     layers: &[crate::scene::Layer],
+    ui_enabled: bool,
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
@@ -269,6 +302,7 @@ fn composite_scene(
 
     layer_compositor::composite_layers(
         layers,
+        ui_enabled,
         scene_w,
         scene_h,
         scene_rendered_mode,
@@ -306,6 +340,7 @@ fn composite_scene(
 fn composite_scene_halfblock(
     bg: Color,
     layers: &[crate::scene::Layer],
+    ui_enabled: bool,
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
@@ -329,6 +364,7 @@ fn composite_scene_halfblock(
         let object_regions = composite_scene(
             bg,
             layers,
+            ui_enabled,
             scene_rendered_mode,
             asset_root,
             target_resolver,

@@ -60,7 +60,13 @@ pub fn rasterize_cached(
             return buf.clone();
         }
         let buf = rasterize(mod_source, text, font, fg, bg);
-        cache.borrow_mut().insert(key, buf.clone());
+        let mut guard = cache.borrow_mut();
+        // Evict entire cache when it grows too large to prevent unbounded accumulation
+        // across scenes with dynamic text content.
+        if guard.len() >= 512 {
+            guard.clear();
+        }
+        guard.insert(key, buf.clone());
         buf
     })
 }
