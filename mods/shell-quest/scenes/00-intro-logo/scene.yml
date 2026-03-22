@@ -9,6 +9,13 @@ id: 00.intro.logo
 title: 00 Intro Logo
 cutscene: true
 bg: black
+effect-presets-ref: /effects/crt.yml
+postfx:
+  - { use: fx.sq.burn }
+  - { use: fx.sq.glow }
+  - { use: fx.sq.curve }
+  - { use: fx.sq.scan }
+  - { use: fx.sq.tone }
 layers:
   - ref: main
 # Inherit mod-level `virtual_size: max-available` so the intro fills the terminal.
