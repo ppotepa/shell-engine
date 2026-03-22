@@ -31,6 +31,17 @@ pub struct SceneRuntime {
     behaviors: Vec<ObjectBehaviorRuntime>,
     resolver_cache: TargetResolver,
     object_regions: BTreeMap<String, Region>,
+    /// Object kinds computed once at scene load — objects never change after init.
+    cached_object_kinds: std::sync::Arc<BTreeMap<String, String>>,
+    /// Cached Arc of effective (parent-propagated) object states.
+    /// Rebuilt only when `effective_states_dirty` is true.
+    cached_effective_states: Option<std::sync::Arc<BTreeMap<String, ObjectRuntimeState>>>,
+    /// Set to true at the start of each behavior update pass and whenever
+    /// `apply_behavior_commands` actually mutates `object_states`.
+    effective_states_dirty: bool,
+    /// Regions wrapped in Arc so `update_behaviors` can take a refcount
+    /// copy instead of cloning the entire map each frame.
+    cached_object_regions: std::sync::Arc<BTreeMap<String, Region>>,
     obj_orbit_default_speed: BTreeMap<String, f32>,
     obj_camera_states: BTreeMap<String, ObjCameraState>,
     terminal_shell_state: Option<TerminalShellState>,
@@ -415,6 +426,13 @@ impl SceneRuntime {
             }
         }
 
+        let cached_object_kinds = std::sync::Arc::new(
+            objects
+                .iter()
+                .map(|(id, object)| (id.clone(), object_kind_name(&object.kind).to_string()))
+                .collect::<BTreeMap<_, _>>(),
+        );
+
         let mut runtime = Self {
             scene,
             root_id,
@@ -425,6 +443,10 @@ impl SceneRuntime {
             behaviors: Vec::new(),
             resolver_cache: TargetResolver::default(),
             object_regions: BTreeMap::new(),
+            cached_object_kinds,
+            cached_effective_states: None,
+            effective_states_dirty: true,
+            cached_object_regions: std::sync::Arc::new(BTreeMap::new()),
             obj_orbit_default_speed: BTreeMap::new(),
             obj_camera_states: BTreeMap::new(),
             terminal_shell_state: None,
@@ -864,11 +886,8 @@ impl SceneRuntime {
         std::sync::Arc::new(self.object_states.clone())
     }
 
-    pub fn object_kind_snapshot(&self) -> BTreeMap<String, String> {
-        self.objects
-            .iter()
-            .map(|(id, object)| (id.clone(), object_kind_name(&object.kind).to_string()))
-            .collect()
+    pub fn object_kind_snapshot(&self) -> std::sync::Arc<BTreeMap<String, String>> {
+        std::sync::Arc::clone(&self.cached_object_kinds)
     }
 
     pub fn object_text_snapshot(&self) -> BTreeMap<String, String> {
@@ -988,15 +1007,28 @@ impl SceneRuntime {
     }
 
     /// Snapshots effective state for every runtime object for behavior and
-    /// rendering consumers.
-    pub fn effective_object_states_snapshot(&self) -> BTreeMap<String, ObjectRuntimeState> {
-        self.objects
-            .keys()
-            .filter_map(|object_id| {
-                self.effective_object_state(object_id)
-                    .map(|state| (object_id.clone(), state))
-            })
-            .collect()
+    /// rendering consumers. Returns a cached Arc when nothing has mutated
+    /// `object_states` since the last call — O(1) on clean frames.
+    pub fn effective_object_states_snapshot(
+        &mut self,
+    ) -> std::sync::Arc<BTreeMap<String, ObjectRuntimeState>> {
+        if !self.effective_states_dirty {
+            if let Some(cached) = &self.cached_effective_states {
+                return std::sync::Arc::clone(cached);
+            }
+        }
+        let snapshot = std::sync::Arc::new(
+            self.objects
+                .keys()
+                .filter_map(|object_id| {
+                    self.effective_object_state(object_id)
+                        .map(|state| (object_id.clone(), state))
+                })
+                .collect(),
+        );
+        self.cached_effective_states = Some(std::sync::Arc::clone(&snapshot));
+        self.effective_states_dirty = false;
+        snapshot
     }
 
     /// Returns a resolver for authored target names, layer indices, and sprite
@@ -1036,11 +1068,14 @@ impl SceneRuntime {
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
+        // Mark effective-states cache dirty so the first snapshot this frame
+        // is always recomputed fresh.
+        self.effective_states_dirty = true;
         // Wrap read-only per-frame data in Arc once — each behavior gets a
         // cheap O(1) refcount clone instead of a deep BTreeMap copy.
         let resolver = std::sync::Arc::new(self.resolver_cache.clone());
-        let object_regions = std::sync::Arc::new(self.object_regions.clone());
-        let object_kinds = std::sync::Arc::new(self.object_kind_snapshot());
+        let object_regions = std::sync::Arc::clone(&self.cached_object_regions);
+        let object_kinds = self.object_kind_snapshot();
         let object_props = std::sync::Arc::new(self.object_props_snapshot());
         let object_text = std::sync::Arc::new(self.object_text_snapshot());
         let sidecar_io = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
@@ -1049,7 +1084,7 @@ impl SceneRuntime {
         let ui_last_change = self.ui_state.last_change.clone();
         let ui_theme_id = self.ui_state.theme_id.clone();
         let mut commands = Vec::new();
-        let mut current_states = std::sync::Arc::new(self.effective_object_states_snapshot());
+        let mut current_states = self.effective_object_states_snapshot();
         for idx in 0..self.behaviors.len() {
             let object_id = self.behaviors[idx].object_id.clone();
             let Some(object) = self.objects.get(&object_id).cloned() else {
@@ -1088,7 +1123,7 @@ impl SceneRuntime {
             // Only rescan effective states when a behavior actually emitted
             // commands that could have mutated scene state.
             if !local_commands.is_empty() && idx + 1 < self.behaviors.len() {
-                current_states = std::sync::Arc::new(self.effective_object_states_snapshot());
+                current_states = self.effective_object_states_snapshot();
             }
             commands.extend(local_commands.iter().cloned());
         }
@@ -1542,6 +1577,7 @@ impl SceneRuntime {
     }
 
     pub fn set_object_regions(&mut self, object_regions: BTreeMap<String, Region>) {
+        self.cached_object_regions = std::sync::Arc::new(object_regions.clone());
         self.object_regions = object_regions;
     }
 
@@ -1552,6 +1588,10 @@ impl SceneRuntime {
         resolver: &TargetResolver,
         commands: &[BehaviorCommand],
     ) {
+        if commands.is_empty() {
+            return;
+        }
+        self.effective_states_dirty = true;
         for command in commands {
             match command {
                 BehaviorCommand::PlayAudioCue { .. } => {}
