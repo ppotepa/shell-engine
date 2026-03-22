@@ -1,5 +1,6 @@
 //! Software post-process pipeline ("shader-like" passes) applied after compositing.
 
+mod pass_burn_in;
 mod pass_crt_distort;
 mod pass_ruby_crt;
 mod pass_scan_glitch;
@@ -252,6 +253,10 @@ fn apply_compiled_pass(
             kind: PostFxBuiltin::Ruby,
             effect,
         } => pass_ruby_crt::apply(ctx, src, dst, effect),
+        CompiledPostFx::Builtin {
+            kind: PostFxBuiltin::BurnIn,
+            effect,
+        } => pass_burn_in::apply(ctx, src, dst, effect),
         CompiledPostFx::Generic(effect) => {
             dst.clone_from(src);
             let progress = effect_progress(effect, scene_elapsed_ms, frame_count);

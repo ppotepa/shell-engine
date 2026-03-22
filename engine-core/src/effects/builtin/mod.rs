@@ -4,6 +4,7 @@ pub mod artifact;
 pub mod blur;
 pub mod brighten;
 pub mod clear_to_colour;
+pub mod crt_burn_in;
 pub mod crt_distort;
 pub mod crt_on;
 pub mod crt_reflection;
@@ -30,6 +31,7 @@ pub use artifact::ArtifactOutEffect;
 pub use blur::BlurEffect;
 pub use brighten::BrightenEffect;
 pub use clear_to_colour::ClearToColourEffect;
+pub use crt_burn_in::CrtBurnInEffect;
 pub use crt_distort::CtrDistortEffect;
 pub use crt_on::CrtOnEffect;
 pub use crt_reflection::CrtReflectionEffect;
@@ -84,6 +86,10 @@ pub static BUILTIN_EFFECTS: &[BuiltinEffectDefinition] = &[
     BuiltinEffectDefinition {
         name: "crt-on",
         constructor: || Box::new(CrtOnEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "crt-burn-in",
+        constructor: || Box::new(CrtBurnInEffect),
     },
     BuiltinEffectDefinition {
         name: "crt-underlay",

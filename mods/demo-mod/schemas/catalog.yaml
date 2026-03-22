@@ -29,6 +29,7 @@ $defs:
     - blur
     - brighten
     - clear-to-colour
+    - crt-burn-in
     - crt-distort
     - crt-on
     - crt-reflection

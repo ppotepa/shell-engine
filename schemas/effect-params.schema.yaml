@@ -10,7 +10,7 @@ properties:
     minimum: 0.0
     maximum: 1.0
     multipleOf: 0.05
-    description: 'Underlay blend opacity. Used by: crt-underlay, neon-edge-glow.'
+    description: 'Maximum blend opacity of the ghost layer. Used by: crt-burn-in, crt-underlay, neon-edge-glow.'
   amplitude_x:
     type: number
     minimum: 0.0
@@ -38,10 +38,10 @@ properties:
     description: 'Whether to replace the source cell or overlay the processed result. Used by: cutout.'
   brightness:
     type: number
-    minimum: 0.0
+    minimum: 0.2
     maximum: 2.0
-    multipleOf: 0.05
-    description: 'Glow luminance multiplier. Used by: crt-distort, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, terminal-crt.'
+    multipleOf: 0.1
+    description: 'Ghost luminance multiplier. Used by: crt-burn-in, crt-distort, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, terminal-crt.'
   colour:
     $ref: '#/$defs/colour'
     description: 'Target colour (name or #rrggbb). Used by: clear-to-colour, neon-edge-glow.'
@@ -66,7 +66,7 @@ properties:
     - ease-out
     - ease-in-out
     default: linear
-    description: 'Progress curve applied to the effect. Used by: artifact-out, blur, brighten, clear-to-colour, crt-distort, crt-on, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, cutout, devour-out, fade-in, fade-out, fade-to-black, glitch-out, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, posterize, power-off, screen-shake, shatter-glitch, shine, terminal-crt, tesla-orb, whiteout.'
+    description: 'Progress curve applied to the effect. Used by: artifact-out, blur, brighten, clear-to-colour, crt-burn-in, crt-distort, crt-on, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, cutout, devour-out, fade-in, fade-out, fade-to-black, glitch-out, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, posterize, power-off, screen-shake, shatter-glitch, shine, terminal-crt, tesla-orb, whiteout.'
   edge_fidelity:
     type: number
     minimum: 0.0
@@ -108,7 +108,7 @@ properties:
     minimum: 0.0
     maximum: 2.0
     multipleOf: 0.05
-    description: 'Overall strength multiplier. Used by: artifact-out, brighten, crt-distort, crt-ruby, crt-scan-glitch, crt-underlay, devour-out, glitch-out, lightning-ambient, lightning-fbm, lightning-flash, lightning-natural, lightning-optical-80s, neon-edge-glow, scanlines, shatter-glitch, shine, terminal-crt, tesla-orb, whiteout.'
+    description: 'Overall strength multiplier. Used by: artifact-out, brighten, crt-burn-in, crt-distort, crt-ruby, crt-scan-glitch, crt-underlay, devour-out, glitch-out, lightning-ambient, lightning-fbm, lightning-flash, lightning-natural, lightning-optical-80s, neon-edge-glow, scanlines, shatter-glitch, shine, terminal-crt, tesla-orb, whiteout.'
   levels:
     type: number
     minimum: 1.0
@@ -147,10 +147,10 @@ properties:
     description: 'Box-blur smoothing passes applied before quantization. Used by: cutout.'
   speed:
     type: number
-    minimum: 0.0
-    maximum: 2.0
-    multipleOf: 0.1
-    description: 'Temporal shimmer speed. Used by: crt-distort, crt-ruby, crt-scan-glitch, crt-underlay, lightning-ambient, lightning-branch, lightning-fbm, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, shine, terminal-crt, tesla-orb.'
+    minimum: 0.05
+    maximum: 0.95
+    multipleOf: 0.05
+    description: 'How quickly the ghost fades (higher = faster fade). Used by: crt-burn-in, crt-distort, crt-ruby, crt-scan-glitch, crt-underlay, lightning-ambient, lightning-branch, lightning-fbm, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, shine, terminal-crt, tesla-orb.'
   sphericality:
     type: number
     minimum: 0.0

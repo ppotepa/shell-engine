@@ -10,6 +10,7 @@ postfx:
   - { use: fx.mrmo.curve, overrides: { params: { intensity: 0.22, distortion: 0.12 } } }
   - { use: fx.mrmo.sync, overrides: { params: { intensity: 0.18, transparency: 0.16 } } }
   - { use: fx.mrmo.tone, overrides: { params: { intensity: 0.08, brightness: 0.98 } } }
+  - { use: fx.mrmo.burn }
 layers:
   - ref: crt-test/layers/main.yml
 stages:

@@ -48,3 +48,12 @@ effect-presets:
       transparency: 0.24
       brightness: 0.96
       speed: 0.50
+
+  fx.mrmo.burn:
+    name: crt-burn-in
+    duration: 0
+    params:
+      intensity: 0.45
+      alpha: 0.30
+      speed: 0.35
+      brightness: 1.0

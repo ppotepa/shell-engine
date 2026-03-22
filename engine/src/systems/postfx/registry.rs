@@ -6,6 +6,7 @@ pub(super) enum PostFxBuiltin {
     Distort,
     ScanGlitch,
     Ruby,
+    BurnIn,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +39,7 @@ fn resolve_builtin(pass: &Effect) -> Option<PostFxBuiltin> {
             Some(PostFxBuiltin::ScanGlitch)
         }
         "crt-ruby" | "ruby-crt" | "ruby-overlay" => Some(PostFxBuiltin::Ruby),
+        "crt-burn-in" | "crt-persistence" | "phosphor-burn" => Some(PostFxBuiltin::BurnIn),
 
         // Backward-compatible terminal-crt mode switching via params.coverage.
         "terminal-crt" => {

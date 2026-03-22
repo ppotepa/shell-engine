@@ -134,6 +134,50 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: crt-burn-in
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Ghost visibility strength.
+            alpha:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Maximum blend opacity of the ghost layer.
+            speed:
+              type: number
+              minimum: 0.05000000074505806
+              maximum: 0.949999988079071
+              multipleOf: 0.05000000074505806
+              description: How quickly the ghost fades (higher = faster fade).
+            brightness:
+              type: number
+              minimum: 0.20000000298023224
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Ghost luminance multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: crt-burn-in effect variant
+    - description: crt-burn-in overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: crt-distort
         params:
           type: object
