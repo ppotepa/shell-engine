@@ -53,8 +53,8 @@ effect-presets:
     name: crt-burn-in
     duration: 0
     params:
-      alpha: 0.15
-      speed: 0.20
+      alpha: 0.60
+      speed: 0.35
       brightness: 1.0
       intensity: 1.0
       pump: 1.3

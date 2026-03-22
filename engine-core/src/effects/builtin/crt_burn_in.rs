@@ -20,7 +20,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
         slider("decay_tint", "Phosphor tint", "Colour decay shift: 0 = uniform, 1 = full P31 green.", 0.0, 1.0, 0.1, ""),
         P_EASING,
     ],
-    sample: "- name: crt-burn-in\n  params:\n    alpha: 0.15\n    speed: 0.20\n    brightness: 1.0\n    intensity: 1.0\n    pump: 1.3\n    decay_tint: 0.8",
+    sample: "- name: crt-burn-in\n  params:\n    alpha: 0.60\n    speed: 0.35\n    brightness: 1.0\n    intensity: 1.0\n    pump: 1.3\n    decay_tint: 0.8",
 };
 
 pub struct CrtBurnInEffect;

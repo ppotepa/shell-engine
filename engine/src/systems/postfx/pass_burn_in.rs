@@ -14,8 +14,8 @@
 //!
 //! | param        | default | meaning                                        |
 //! |--------------|---------|------------------------------------------------|
-//! | `alpha`      | 0.15    | initial ghost brightness (fraction of original) |
-//! | `speed`      | 0.20    | fade duration in seconds                        |
+//! | `alpha`      | 0.60    | initial ghost brightness (fraction of original) |
+//! | `speed`      | 0.35    | fade duration in seconds                        |
 //! | `brightness` | 1.0     | ghost luminance multiplier                      |
 //! | `intensity`  | 1.0     | overall effect strength (0 = off, 1 = full)     |
 //! | `pump`       | 1.3     | first-frame brightness multiplier (≥1.0)        |
@@ -95,8 +95,8 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         return;
     }
 
-    let alpha = pass.params.alpha.unwrap_or(0.15).clamp(0.0, 1.0);
-    let fade_secs = pass.params.speed.unwrap_or(0.20).clamp(0.01, 10.0);
+    let alpha = pass.params.alpha.unwrap_or(0.60).clamp(0.0, 1.0);
+    let fade_secs = pass.params.speed.unwrap_or(0.35).clamp(0.01, 10.0);
     let fade_ms = (fade_secs * 1000.0) as u64;
     let brightness = pass.params.brightness.unwrap_or(1.0).clamp(0.1, 2.0);
     let intensity = pass.params.intensity.unwrap_or(1.0).clamp(0.0, 1.0);
@@ -134,13 +134,14 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         let t = (elapsed as f32 / fade_ms as f32).clamp(0.0, 1.0);
 
         // Exponential decay: fast drop, long tail.
-        let decay = (-4.0 * t).exp();
+        let decay = (-2.5 * t).exp();
 
         // Brightness pump: flash on first ~30ms then settle.
         let pump_t = (elapsed as f32 / 30.0).clamp(0.0, 1.0);
         let pump_mul = pump + (1.0 - pump) * pump_t; // pump → 1.0 over 30ms
 
-        let ghost_opacity = (alpha * intensity * brightness * decay * pump_mul).clamp(0.0, 1.0);
+        let ghost_opacity = (alpha * intensity * brightness * decay).clamp(0.0, 1.0);
+        let pumped_opacity = (ghost_opacity * pump_mul).clamp(0.0, 1.0);
 
         // Phosphor colour decay channels (P31 green phosphor model):
         // Blue dies fastest, red medium, green lingers.
@@ -199,9 +200,9 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                     + (c_tl_b + c_tr_b + c_bl_b + c_br_b) * 0.06;
 
                 // Apply per-channel phosphor decay + overall opacity.
-                let gr = blur_r * r_decay * ghost_opacity * pump_mul;
-                let gg = blur_g * g_decay * ghost_opacity * pump_mul;
-                let gb = blur_b * b_decay * ghost_opacity * pump_mul;
+                let gr = blur_r * r_decay * pumped_opacity;
+                let gg = blur_g * g_decay * pumped_opacity;
+                let gb = blur_b * b_decay * pumped_opacity;
 
                 if gr + gg + gb < 0.005 {
                     dst.set(x, y, src_cell.symbol, src_cell.fg, src_cell.bg);
@@ -214,9 +215,9 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                     b: (gb * 255.0).clamp(0.0, 255.0) as u8,
                 };
 
-                let out_bg = lerp_colour(normalize_bg(src_cell.bg), ghost_col, ghost_opacity);
+                let out_bg = lerp_colour(normalize_bg(src_cell.bg), ghost_col, pumped_opacity);
                 let out_fg = if src_cell.symbol != ' ' {
-                    lerp_colour(src_cell.fg, ghost_col, ghost_opacity * 0.4)
+                    lerp_colour(src_cell.fg, ghost_col, pumped_opacity * 0.4)
                 } else {
                     out_bg
                 };
