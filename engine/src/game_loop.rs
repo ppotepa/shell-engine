@@ -96,11 +96,30 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         if quit_after_animator {
             break;
         }
+        let t0 = Instant::now();
         systems::behavior::behavior_system(world);
+        let t1 = Instant::now();
         systems::audio::audio_system(world);
         systems::compositor::compositor_system(world);
+        let t2 = Instant::now();
         systems::postfx::postfx_system(world);
+        let t3 = Instant::now();
         systems::renderer::renderer_system(world);
+        let t4 = Instant::now();
+
+        // Sample CPU/MEM stats (~1 Hz internally).
+        if let Some(ps) = world.get_mut::<crate::debug_features::ProcessStats>() {
+            ps.tick();
+        }
+
+        // Update EMA-smoothed per-system timings (same α as FPS counter).
+        if let Some(st) = world.get_mut::<crate::debug_features::SystemTimings>() {
+            const A: f32 = 0.15;
+            st.behavior_us   = st.behavior_us   * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
+            st.compositor_us = st.compositor_us * (1.0 - A) + (t2 - t1).as_micros() as f32 * A;
+            st.postfx_us     = st.postfx_us     * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
+            st.renderer_us   = st.renderer_us   * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
+        }
 
         let elapsed = frame_start.elapsed();
 

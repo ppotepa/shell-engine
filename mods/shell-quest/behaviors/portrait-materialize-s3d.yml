@@ -9,11 +9,11 @@ script: |
   let portrait_id = `difficulty-portrait-${idx}`;
   let sel = menu.selected_index;
   let now = time.scene_elapsed_ms;
-  let is_first = state.type_of() != "map";
-  let was_active = if is_first { false } else { state.active };
-  let t0 = if is_first { now } else { state.t0 };
+  let has_state = state.contains("active");
+  let was_active = if has_state { state.active } else { false };
+  let t0 = if has_state { state.t0 } else { now };
   let is_active = sel == idx;
-  if is_active && !was_active { t0 = now; }
+  if is_active && was_active != true { t0 = now; }
 
   let dur = if params.type_of() == "map" && params.keys().contains("dur") { params.dur } else { 250 };
   let n_kf = 8;

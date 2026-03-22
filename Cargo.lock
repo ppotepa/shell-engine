@@ -563,6 +563,7 @@ dependencies = [
  "engine-core",
  "engine-io",
  "image",
+ "libc",
  "rayon",
  "rhai",
  "serde",

@@ -115,8 +115,11 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
 }
 
 /// Builds the glow map in-place using pre-allocated ping-pong scratch buffers.
-/// `a` and `b` are used as alternating blur sources/destinations; `out` receives the final map.
-/// No heap allocations occur after the first call (buffers grow once, then reuse).
+///
+/// **Half-resolution blur pipeline**: the seed is built and all blur passes run at
+/// half resolution (⌈W/2⌉ × ⌈H/2⌉), then nearest-neighbour upsampled to full
+/// resolution.  This gives ~4× fewer pixels in the blur inner loop — the dominant
+/// cost — with no visible quality loss (glow is inherently soft).
 fn build_glow_map_inplace(
     src: &Buffer,
     intensity: f32,
@@ -134,24 +137,28 @@ fn build_glow_map_inplace(
         return;
     }
 
-    // Grow scratch buffers if the terminal grew; never shrink (reuse larger allocation).
-    if a.len() < n {
-        a.resize(n, GlowPixel::default());
+    // Half-resolution dimensions for blur pipeline.
+    let hw = (width + 1) / 2;
+    let hh = (height + 1) / 2;
+    let hn = hw * hh;
+
+    // Grow scratch buffers if needed; never shrink (reuse larger allocation).
+    let cap = n.max(hn);
+    if a.len() < cap {
+        a.resize(cap, GlowPixel::default());
     }
-    if b.len() < n {
-        b.resize(n, GlowPixel::default());
+    if b.len() < cap {
+        b.resize(cap, GlowPixel::default());
     }
     if out.len() < n {
         out.resize(n, GlowPixel::default());
     }
 
-    // Zero seed buffer (a).
-    for p in &mut a[..n] {
+    // ── 1. Build seed at half resolution ──────────────────────────────────────
+    for p in &mut a[..hn] {
         *p = GlowPixel::default();
     }
 
-    // Build seed: accumulate glow energy at each source pixel's position.
-    // Force centered glow (offset 0,0) for stable text alignment.
     for y in 0..src.height {
         for x in 0..src.width {
             let Some(cell) = src.get(x, y) else {
@@ -174,74 +181,67 @@ fn build_glow_map_inplace(
             if base <= 0.0 {
                 continue;
             }
-            let idx = y as usize * width + x as usize;
+            let idx = (y as usize / 2) * hw + (x as usize / 2);
             a[idx].add_scaled(r, g, bch, base.clamp(0.0, 1.0));
         }
     }
 
-    // Ping-pong blur passes — no allocations; a and b alternate as src/dst.
+    // ── 2. Blur at half resolution ────────────────────────────────────────────
     let blur_passes = 2 + (spread * 4.0).round() as usize;
     let mut src_is_a = true;
     for _ in 0..blur_passes {
         if src_is_a {
-            blur_glow3x3_into(&a[..n], &mut b[..n], width, height);
+            blur_glow3x3_into(&a[..hn], &mut b[..hn], hw, hh);
         } else {
-            blur_glow3x3_into(&b[..n], &mut a[..n], width, height);
+            blur_glow3x3_into(&b[..hn], &mut a[..hn], hw, hh);
         }
         src_is_a = !src_is_a;
     }
 
-    // One extra broad blur of the final blurred result (halo pass).
-    // After this: blurred is still in whichever buffer src_is_a points to,
-    // broad goes into the other one.
+    // ── 3. Broad blur + combine + upsample ────────────────────────────────────
+    // Core = blurred result; one extra blur pass produces the broader halo.
+    // Combine core + halo at half-res, then nearest-neighbour upsample into out.
     if src_is_a {
-        blur_glow3x3_into(&a[..n], &mut b[..n], width, height);
-        // blurred = a, broad = b
-        combine_glow_into_out(src, &a[..n], &b[..n], true, width, frame, out);
+        blur_glow3x3_into(&a[..hn], &mut b[..hn], hw, hh);
+        // core = a, halo = b
+        upsample_combine(&a[..hn], &b[..hn], hw, hh, width, height, frame, out);
     } else {
-        blur_glow3x3_into(&b[..n], &mut a[..n], width, height);
-        // blurred = b, broad = a
-        combine_glow_into_out(src, &a[..n], &b[..n], false, width, frame, out);
+        blur_glow3x3_into(&b[..hn], &mut a[..hn], hw, hh);
+        // core = b, halo = a
+        upsample_combine(&b[..hn], &a[..hn], hw, hh, width, height, frame, out);
     }
 }
 
-/// Combines blurred and broad glow layers into `out`.
-/// `blurred_is_a`: when true, `a` holds blurred and `b` holds broad; otherwise reversed.
-fn combine_glow_into_out(
-    src: &Buffer,
-    a: &[GlowPixel],
-    b: &[GlowPixel],
-    blurred_is_a: bool,
+/// Combines core + halo glow at half resolution and nearest-neighbour upsamples
+/// to full resolution into `out`.
+fn upsample_combine(
+    core: &[GlowPixel],
+    halo: &[GlowPixel],
+    hw: usize,
+    hh: usize,
     width: usize,
+    height: usize,
     frame: u32,
-    out: &mut Vec<GlowPixel>,
+    out: &mut [GlowPixel],
 ) {
-    for y in 0..src.height {
-        for x in 0..src.width {
-            let idx = y as usize * width + x as usize;
-            let Some(cell) = src.get(x, y) else {
-                continue;
-            };
-            if cell.symbol != ' ' {
-                // Only render underlay on empty cells.
-                out[idx] = GlowPixel::default();
-                continue;
-            }
-            let (core, halo) = if blurred_is_a {
-                (a[idx], b[idx])
-            } else {
-                (b[idx], a[idx])
-            };
+    for y in 0..height {
+        let hy = (y / 2).min(hh - 1);
+        let row_off = hy * hw;
+        for x in 0..width {
+            let hx = (x / 2).min(hw - 1);
+            let hi = row_off + hx;
+            let c = core[hi];
+            let h = halo[hi];
             let mut mix = GlowPixel {
-                r: core.r * 0.60 + halo.r * 0.40,
-                g: core.g * 0.60 + halo.g * 0.40,
-                b: core.b * 0.60 + halo.b * 0.40,
-                a: core.a * 0.62 + halo.a * 0.38,
+                r: c.r * 0.60 + h.r * 0.40,
+                g: c.g * 0.60 + h.g * 0.40,
+                b: c.b * 0.60 + h.b * 0.40,
+                a: c.a * 0.62 + h.a * 0.38,
             }
             .normalized();
-            let shimmer = 0.92 + 0.16 * rand01(x, y, frame.wrapping_add(1703));
+            let shimmer = 0.92 + 0.16 * rand01(x as u16, y as u16, frame.wrapping_add(1703));
             mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
-            out[idx] = mix;
+            out[y * width + x] = mix;
         }
     }
 }

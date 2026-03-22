@@ -1,7 +1,9 @@
 # yaml-language-server: $schema=../schemas/object.yaml
 #
-# Difficulty menu object — 5 face pairs (wireframe + solid).
-# Portrait material/camera/lighting is templated by tools/gen-difficulty-menu.py.
+# Difficulty menu object — 5 prerendered 3D portraits.
+# All 3D scene properties (camera, lights, materials, meshes, animation clips)
+# live in difficulty-portraits.scene3d.yml.  Scene3DPrerenderStep renders every
+# named frame into the atlas at scene load; at runtime we just blit buffers.
 #
 kind: object
 name: difficulty-menu
@@ -23,557 +25,79 @@ sprites:
         rows: ["1fr"]
         children:
           # ── face 0 (mouse-enjoyer) ──
-          - type: obj
-            id: difficulty-face-0-wire
-            source: "/assets/3d/sculpts/mouse-enjoyer-wire.obj"
-            at: 0
+          - type: scene3_d
+            id: difficulty-portrait-0
+            src: "/assets/3d/difficulty-portraits.scene3d.yml"
+            frame: face-0-idle
             grid-col: 1
             grid-row: 1
             x: -90
             y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: wireframe
             behaviors:
               - name: menu-selected
                 params: { index: 0 }
-              - name: portrait-materialize
+              - name: portrait-materialize-s3d
                 params: { index: 0, dur: 250 }
-          - type: obj
-            id: difficulty-face-0
-            source: "/assets/3d/sculpts/mouse-enjoyer.obj"
-            at: 0
-            grid-col: 1
-            grid-row: 1
-            x: -90
-            y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: material
-            clip-y-max: 0.0
-            behaviors:
-              - name: menu-selected
-                params: { index: 0 }
 
           # ── face 1 (script-kiddie) ──
-          - type: obj
-            id: difficulty-face-1-wire
-            source: "/assets/3d/sculpts/script-kiddie-wire.obj"
-            at: lt
+          - type: scene3_d
+            id: difficulty-portrait-1
+            src: "/assets/3d/difficulty-portraits.scene3d.yml"
+            frame: face-1-idle
             grid-col: 1
             grid-row: 1
             x: -90
             y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: wireframe
-            visible: false
             behaviors:
               - name: menu-selected
                 params: { index: 1 }
-              - name: portrait-materialize
+              - name: portrait-materialize-s3d
                 params: { index: 1, dur: 250 }
-          - type: obj
-            id: difficulty-face-1
-            source: "/assets/3d/sculpts/script-kiddie.obj"
-            at: lt
-            grid-col: 1
-            grid-row: 1
-            x: -90
-            y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: material
-            clip-y-max: 0.0
-            visible: false
-            behaviors:
-              - name: menu-selected
-                params: { index: 1 }
 
           # ── face 2 (can-exit-vim) ──
-          - type: obj
-            id: difficulty-face-2-wire
-            source: "/assets/3d/sculpts/can-exit-vim-wire.obj"
-            at: lt
+          - type: scene3_d
+            id: difficulty-portrait-2
+            src: "/assets/3d/difficulty-portraits.scene3d.yml"
+            frame: face-2-idle
             grid-col: 1
             grid-row: 1
             x: -90
             y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: wireframe
-            visible: false
             behaviors:
               - name: menu-selected
                 params: { index: 2 }
-              - name: portrait-materialize
+              - name: portrait-materialize-s3d
                 params: { index: 2, dur: 250 }
-          - type: obj
-            id: difficulty-face-2
-            source: "/assets/3d/sculpts/can-exit-vim.obj"
-            at: lt
-            grid-col: 1
-            grid-row: 1
-            x: -90
-            y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: material
-            clip-y-max: 0.0
-            visible: false
-            behaviors:
-              - name: menu-selected
-                params: { index: 2 }
 
           # ── face 3 (dvorak) ──
-          - type: obj
-            id: difficulty-face-3-wire
-            source: "/assets/3d/sculpts/dvorak-wire.obj"
-            at: lt
+          - type: scene3_d
+            id: difficulty-portrait-3
+            src: "/assets/3d/difficulty-portraits.scene3d.yml"
+            frame: face-3-idle
             grid-col: 1
             grid-row: 1
             x: -90
             y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: wireframe
-            visible: false
             behaviors:
               - name: menu-selected
                 params: { index: 3 }
-              - name: portrait-materialize
+              - name: portrait-materialize-s3d
                 params: { index: 3, dur: 250 }
-          - type: obj
-            id: difficulty-face-3
-            source: "/assets/3d/sculpts/dvorak.obj"
-            at: lt
-            grid-col: 1
-            grid-row: 1
-            x: -90
-            y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: material
-            clip-y-max: 0.0
-            visible: false
-            behaviors:
-              - name: menu-selected
-                params: { index: 3 }
 
           # ── face 4 (su) ──
-          - type: obj
-            id: difficulty-face-4-wire
-            source: "/assets/3d/sculpts/su-wire.obj"
-            at: lt
+          - type: scene3_d
+            id: difficulty-portrait-4
+            src: "/assets/3d/difficulty-portraits.scene3d.yml"
+            frame: face-4-idle
             grid-col: 1
             grid-row: 1
             x: -90
             y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: wireframe
-            visible: false
             behaviors:
               - name: menu-selected
                 params: { index: 4 }
-              - name: portrait-materialize
+              - name: portrait-materialize-s3d
                 params: { index: 4, dur: 250 }
-          - type: obj
-            id: difficulty-face-4
-            source: "/assets/3d/sculpts/su.obj"
-            at: lt
-            grid-col: 1
-            grid-row: 1
-            x: -90
-            y: -5
-            width: 150
-            height: 100
-            scale: 4.65
-            backface-cull: true
-            force-renderer-mode: halfblock
-            pitch-deg: -8
-            rotate-y-deg-per-sec: 0
-            camera-distance: 6.15
-            fov-degrees: 58
-            near-clip: 0.0005
-            light-direction-x: 0.0
-            light-direction-y: 0.4
-            light-direction-z: -0.9
-            light-2-direction-x: 0.0
-            light-2-direction-y: 0.0
-            light-2-direction-z: 0.0
-            light-2-intensity: 0.0
-            light-point-x: 0.0
-            light-point-y: 0.0
-            light-point-z: 0.0
-            light-point-intensity: 0.6
-            light-point-colour: "#4488ff"
-            light-point-flicker-depth: 0.0
-            light-point-flicker-hz: 0.0
-            light-point-snap-hz: 2.0
-            light-point-2-x: 0.0
-            light-point-2-y: 0.0
-            light-point-2-z: 0.0
-            light-point-2-intensity: 0.25
-            light-point-2-colour: "#aaddff"
-            light-point-2-flicker-depth: 0.0
-            light-point-2-flicker-hz: 0.0
-            light-point-2-snap-hz: 3.0
-            cel-levels: 5
-            tone-mix: 0.85
-            shadow-colour: "#020410"
-            midtone-colour: "#0a1533"
-            highlight-colour: "#88bbff"
-            fg: "#4488ff"
-            rotation-y: 220
-            surface-mode: material
-            clip-y-max: 0.0
-            visible: false
-            behaviors:
-              - name: menu-selected
-                params: { index: 4 }
 
       - type: grid
         id: difficulty-right-panel
