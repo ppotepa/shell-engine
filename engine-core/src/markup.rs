@@ -1,4 +1,4 @@
-use crate::scene::color::TermColour;
+use crate::scene::color::{parse_colour_str, TermColour};
 
 /// A run of text with an optional colour override.
 /// `colour: None` means use the sprite's base fg_colour.
@@ -98,31 +98,7 @@ pub fn strip_markup(input: &str) -> String {
 }
 
 fn parse_colour_tag(tag: &str) -> Option<TermColour> {
-    match tag.to_lowercase().as_str() {
-        "black" => return Some(TermColour::Black),
-        "white" => return Some(TermColour::White),
-        "gray" | "grey" => return Some(TermColour::Gray),
-        "silver" => return Some(TermColour::Silver),
-        "red" => return Some(TermColour::Red),
-        "green" => return Some(TermColour::Green),
-        "blue" => return Some(TermColour::Blue),
-        "yellow" => return Some(TermColour::Yellow),
-        "cyan" => return Some(TermColour::Cyan),
-        "magenta" => return Some(TermColour::Magenta),
-        _ => {}
-    }
-    if let Some(hex) = tag.strip_prefix('#') {
-        if hex.len() == 6 {
-            if let (Ok(r), Ok(g), Ok(b)) = (
-                u8::from_str_radix(&hex[0..2], 16),
-                u8::from_str_radix(&hex[2..4], 16),
-                u8::from_str_radix(&hex[4..6], 16),
-            ) {
-                return Some(TermColour::Rgb(r, g, b));
-            }
-        }
-    }
-    None
+    parse_colour_str(tag)
 }
 
 #[cfg(test)]
