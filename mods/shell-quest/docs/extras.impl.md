@@ -2,7 +2,7 @@
 
 Prologue scene (Minix 1.1, September 1991) — immersion, hints, easter eggs, spooky undertones.
 
-All features live in `cognitos-os` sidecar (C#) unless noted otherwise.
+All features live in `cognitOS` sidecar (C#) unless noted otherwise.
 
 **Design philosophy:** Everything looks realistic. A real Minix system from 1991.
 But something is slightly off. The machine knows things it shouldn't.

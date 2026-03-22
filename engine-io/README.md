@@ -64,7 +64,7 @@ thread-safe via `Mutex<Child>` and mpsc channels.
 
 from the engine (rust):
 ```rust
-let sidecar = SidecarProcess::spawn("cognitos-os", &[], Some(mod_root))?;
+let sidecar = SidecarProcess::spawn("cognitOS", &[], Some(mod_root))?;
 sidecar.send(IoRequest::Hello {
     cols: 120, rows: 30,
     boot_scene: true,
@@ -72,7 +72,7 @@ sidecar.send(IoRequest::Hello {
 })?;
 ```
 
-from the sidecar (c# — see cognitos-os/Program.cs):
+from the sidecar (c# — see cognitOS/Program.cs):
 ```csharp
 var root = JsonDocument.Parse(line).RootElement;
 var type = Protocol.GetType(root);

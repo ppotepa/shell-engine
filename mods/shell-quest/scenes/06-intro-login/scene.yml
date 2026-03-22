@@ -50,7 +50,7 @@ input:
         - -c
         - Release
         - --project
-        - os/cognitos-os
+        - os/cognitOS
     prompt_sprite_id: login-prompt
     output_sprite_id: login-output
     prompt_prefix: ""

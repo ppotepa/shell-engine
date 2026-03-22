@@ -289,7 +289,7 @@ All OS content lives in C# code:
 ### 6.2 How content reaches the player
 
 ```
-C# sidecar (cognitos-os)
+C# sidecar (cognitOS)
   ↓ JSON over stdio
 Engine (Rust)
   ↓ terminal sprite rendering

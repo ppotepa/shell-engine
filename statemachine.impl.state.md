@@ -47,6 +47,6 @@
   - `tools/ttf-rasterizer/Cargo.toml`
 
 ## Remaining cleanup opportunities
-- unify remaining `CognitosOs.Kernel.IUnitOfWork` aliases onto the framework interface
+- unify remaining `CognitOS.Kernel.IUnitOfWork` aliases onto the framework interface
 - optionally move eggs/apps onto scanner-based registration too
 - optionally remove `ScreenBuffer` once transport owns all presentation directly

@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shell-quest", "shell-quest"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "os", "os", "{695D21D3-999B-4E67-B70E-C78E17E44C6A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cognitos-os", "mods\shell-quest\os\cognitos-os\cognitos-os.csproj", "{5A95C926-F37F-45C6-3DD6-8100899D789E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cognitOS", "mods\shell-quest\os\cognitOS\cognitOS.csproj", "{5A95C926-F37F-45C6-3DD6-8100899D789E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

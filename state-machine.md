@@ -7,13 +7,13 @@
 ## Overview
 
 Shell Quest simulates a MINIX 1.1 machine from September 1991. The simulation runs as
-a **C# sidecar process** (`cognitos-os`) spawned by the Rust game engine. The two
+a **C# sidecar process** (`cognitOS`) spawned by the Rust game engine. The two
 processes communicate via **newline-delimited JSON over stdin/stdout**.
 
 ```
 ┌──────────────────────────────┐          stdin (JSON)          ┌──────────────────────────────┐
 │                              │  ─────────────────────────────▶│                              │
-│    Rust Engine               │                                │    C# Sidecar (cognitos-os)  │
+│    Rust Engine               │                                │    C# Sidecar (cognitOS)  │
 │    (renderer, input,         │  ◀─────────────────────────────│    (simulated OS, commands,  │
 │     scene graph, audio)      │         stdout (JSON)          │     VFS, boot, login, shell) │
 │                              │                                │                              │
@@ -429,7 +429,7 @@ These affect:
 ## 10. File Map
 
 ```
-mods/shell-quest/os/cognitos-os/
+mods/shell-quest/os/cognitOS/
 │
 ├── Program.cs                     Main loop (stdin JSON → route → AppHost)
 │
