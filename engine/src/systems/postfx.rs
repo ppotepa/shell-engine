@@ -221,6 +221,8 @@ fn passes_fingerprint(passes: &[Effect]) -> u64 {
         p.width.map(f32::to_bits).hash(&mut hasher);
         p.amplitude_x.map(f32::to_bits).hash(&mut hasher);
         p.amplitude_y.map(f32::to_bits).hash(&mut hasher);
+        p.pump.map(f32::to_bits).hash(&mut hasher);
+        p.decay_tint.map(f32::to_bits).hash(&mut hasher);
         // String/bool params that don't change mid-scene are still worth hashing.
         p.coverage.hash(&mut hasher);
         p.orientation.hash(&mut hasher);

@@ -8,7 +8,7 @@ use crate::scene::EffectParams;
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "crt-burn-in",
     display_name: "CRT Burn-In",
-    summary: "PostFX: phosphor persistence transition — on scene change the screen goes black and a dim, slightly blurred ghost of the previous frame fades out. Time-based: starts at alpha brightness and fades over speed seconds.",
+    summary: "PostFX: phosphor persistence — ghost of old scene overlays new one with exponential decay, brightness pump, P31 colour shift, and 2D blur.",
     category: "postfx",
     compatible_targets: EffectTargetMask::SCENE,
     params: &[
@@ -16,9 +16,11 @@ pub static METADATA: EffectMetadata = EffectMetadata {
         slider("speed", "Fade duration", "How many seconds the ghost takes to disappear.", 0.01, 10.0, 0.05, ""),
         slider("brightness", "Luminance", "Ghost luminance multiplier.", 0.1, 2.0, 0.1, ""),
         slider("intensity", "Intensity", "Overall effect strength (0 = off, 1 = full).", 0.0, 1.0, 0.05, ""),
+        slider("pump", "Brightness pump", "First-frame flash multiplier (1.0 = no pump).", 1.0, 3.0, 0.1, ""),
+        slider("decay_tint", "Phosphor tint", "Colour decay shift: 0 = uniform, 1 = full P31 green.", 0.0, 1.0, 0.1, ""),
         P_EASING,
     ],
-    sample: "- name: crt-burn-in\n  params:\n    alpha: 0.15\n    speed: 0.18\n    brightness: 1.0\n    intensity: 1.0",
+    sample: "- name: crt-burn-in\n  params:\n    alpha: 0.15\n    speed: 0.20\n    brightness: 1.0\n    intensity: 1.0\n    pump: 1.3\n    decay_tint: 0.8",
 };
 
 pub struct CrtBurnInEffect;

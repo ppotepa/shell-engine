@@ -52,6 +52,12 @@ properties:
     - region
     default: full-screen
     description: 'Scope hint for the flash. Used by: lightning-flash.'
+  decay_tint:
+    type: number
+    minimum: 0.0
+    maximum: 1.0
+    multipleOf: 0.1
+    description: 'Colour decay shift: 0 = uniform, 1 = full P31 green. Used by: crt-burn-in.'
   distortion:
     type: number
     minimum: 0.0
@@ -128,6 +134,12 @@ properties:
     - vertical
     default: horizontal
     description: 'Directional axis for the effect. Used by: lightning-ambient, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural.'
+  pump:
+    type: number
+    minimum: 1.0
+    maximum: 3.0
+    multipleOf: 0.1
+    description: 'First-frame flash multiplier (1.0 = no pump). Used by: crt-burn-in.'
   radius:
     type: number
     minimum: 1.0

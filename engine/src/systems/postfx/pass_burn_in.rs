@@ -1,8 +1,14 @@
 //! CRT phosphor burn-in / persistence transition effect.
 //!
 //! On scene transition the ghost of the previous frame overlays the new scene
-//! and fades out over `speed` seconds.  The new scene renders immediately
-//! underneath — the ghost is purely additive on top.
+//! and fades out.  The new scene renders immediately underneath.
+//!
+//! ## Realism features
+//!
+//! - **Exponential decay** — fast initial drop, long subtle tail (`exp(-4t)`)
+//! - **Brightness pump** — ghost flashes brighter on first frame then drops
+//! - **Phosphor colour decay** — blue fades fastest, green lingers (P31 tint)
+//! - **2D blur kernel** — 3×3 weighted average for phosphor spread
 //!
 //! ## YAML parameters
 //!
@@ -12,6 +18,8 @@
 //! | `speed`      | 0.20    | fade duration in seconds                        |
 //! | `brightness` | 1.0     | ghost luminance multiplier                      |
 //! | `intensity`  | 1.0     | overall effect strength (0 = off, 1 = full)     |
+//! | `pump`       | 1.3     | first-frame brightness multiplier (≥1.0)        |
+//! | `decay_tint` | 0.8     | phosphor colour shift (0=uniform, 1=full P31)   |
 
 use super::{normalize_bg, PostFxContext};
 use crate::buffer::{Buffer, Cell};
@@ -92,6 +100,8 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
     let fade_ms = (fade_secs * 1000.0) as u64;
     let brightness = pass.params.brightness.unwrap_or(1.0).clamp(0.1, 2.0);
     let intensity = pass.params.intensity.unwrap_or(1.0).clamp(0.0, 1.0);
+    let pump = pass.params.pump.unwrap_or(1.3).clamp(1.0, 3.0);
+    let decay_tint = pass.params.decay_tint.unwrap_or(0.8).clamp(0.0, 1.0);
 
     if intensity < 0.001 {
         dst.clone_from(src);
@@ -108,35 +118,49 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         }
         s.prev_scene_elapsed_ms = elapsed;
 
-        // ── 2. Ghost opacity ──────────────────────────────────────────────
+        // ── 2. Ghost active? ──────────────────────────────────────────────
         let has_ghost = s.ghost.is_some() && elapsed < fade_ms;
 
         if !has_ghost {
             if s.ghost.is_some() {
                 s.clear_ghost();
             }
-            // No ghost — pure passthrough, just capture for next time.
             dst.clone_from(src);
             s.capture_live(src);
             return;
         }
 
-        let ghost_t = (elapsed as f32 / fade_ms as f32).clamp(0.0, 1.0);
-        let ghost_opacity = (alpha * intensity * brightness * (1.0 - ghost_t)).clamp(0.0, 1.0);
+        // ── 3. Compute ghost envelope ─────────────────────────────────────
+        let t = (elapsed as f32 / fade_ms as f32).clamp(0.0, 1.0);
+
+        // Exponential decay: fast drop, long tail.
+        let decay = (-4.0 * t).exp();
+
+        // Brightness pump: flash on first ~30ms then settle.
+        let pump_t = (elapsed as f32 / 30.0).clamp(0.0, 1.0);
+        let pump_mul = pump + (1.0 - pump) * pump_t; // pump → 1.0 over 30ms
+
+        let ghost_opacity = (alpha * intensity * brightness * decay * pump_mul).clamp(0.0, 1.0);
+
+        // Phosphor colour decay channels (P31 green phosphor model):
+        // Blue dies fastest, red medium, green lingers.
+        let r_decay = decay.powf(1.0 + 0.3 * decay_tint); // slightly faster
+        let g_decay = decay.powf(1.0 - 0.3 * decay_tint); // slightly slower
+        let b_decay = decay.powf(1.0 + 1.0 * decay_tint); // much faster
 
         let ghost = s.ghost.as_deref().unwrap();
         let gw = s.ghost_w as usize;
+        let gh = s.ghost_h as usize;
 
-        // ── 3. Render: new scene + ghost overlay ──────────────────────────
+        // ── 4. Render: new scene + ghost overlay ──────────────────────────
         for y in 0..src.height {
             for x in 0..src.width {
-                // Start from new scene pixel.
                 let src_cell = src.get(x, y).cloned().unwrap_or_default();
 
-                // Sample ghost pixel (3-pixel horizontal blur).
                 let gx = (x as usize).min(gw.saturating_sub(1));
-                let gy = (y as usize).min((s.ghost_h as usize).saturating_sub(1));
+                let gy = (y as usize).min(gh.saturating_sub(1));
 
+                // 3×3 blur kernel: center 40%, cardinal 12%, corners 6%
                 let sample = |sx: usize, sy: usize| -> (f32, f32, f32) {
                     let idx = sy * gw + sx;
                     if idx >= ghost.len() {
@@ -146,15 +170,40 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                 };
 
                 let (cr, cg, cb) = sample(gx, gy);
-                let (lr, lg, lb) = if gx > 0 { sample(gx - 1, gy) } else { (cr, cg, cb) };
-                let (rr, rg, rb) = if gx + 1 < gw { sample(gx + 1, gy) } else { (cr, cg, cb) };
 
-                let gr = lr * 0.2 + cr * 0.6 + rr * 0.2;
-                let gg = lg * 0.2 + cg * 0.6 + rg * 0.2;
-                let gb = lb * 0.2 + cb * 0.6 + rb * 0.2;
+                let lx = if gx > 0 { gx - 1 } else { gx };
+                let rx = if gx + 1 < gw { gx + 1 } else { gx };
+                let ty = if gy > 0 { gy - 1 } else { gy };
+                let by = if gy + 1 < gh { gy + 1 } else { gy };
 
-                // Skip near-black ghost pixels — no visible contribution.
-                if gr + gg + gb < 0.01 {
+                // Cardinal neighbours (12% each)
+                let (nl, ng_l, nb_l) = sample(lx, gy);
+                let (nr, ng_r, nb_r) = sample(rx, gy);
+                let (nt, ng_t, nb_t) = sample(gx, ty);
+                let (nb_, ng_b, nb_b) = sample(gx, by);
+
+                // Corner neighbours (6% each)
+                let (c_tl_r, c_tl_g, c_tl_b) = sample(lx, ty);
+                let (c_tr_r, c_tr_g, c_tr_b) = sample(rx, ty);
+                let (c_bl_r, c_bl_g, c_bl_b) = sample(lx, by);
+                let (c_br_r, c_br_g, c_br_b) = sample(rx, by);
+
+                let blur_r = cr * 0.40
+                    + (nl + nr + nt + nb_) * 0.12
+                    + (c_tl_r + c_tr_r + c_bl_r + c_br_r) * 0.06;
+                let blur_g = cg * 0.40
+                    + (ng_l + ng_r + ng_t + ng_b) * 0.12
+                    + (c_tl_g + c_tr_g + c_bl_g + c_br_g) * 0.06;
+                let blur_b = cb * 0.40
+                    + (nb_l + nb_r + nb_t + nb_b) * 0.12
+                    + (c_tl_b + c_tr_b + c_bl_b + c_br_b) * 0.06;
+
+                // Apply per-channel phosphor decay + overall opacity.
+                let gr = blur_r * r_decay * ghost_opacity * pump_mul;
+                let gg = blur_g * g_decay * ghost_opacity * pump_mul;
+                let gb = blur_b * b_decay * ghost_opacity * pump_mul;
+
+                if gr + gg + gb < 0.005 {
                     dst.set(x, y, src_cell.symbol, src_cell.fg, src_cell.bg);
                     continue;
                 }
@@ -165,10 +214,9 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                     b: (gb * 255.0).clamp(0.0, 255.0) as u8,
                 };
 
-                // Blend ghost on top of new scene at ghost_opacity.
                 let out_bg = lerp_colour(normalize_bg(src_cell.bg), ghost_col, ghost_opacity);
                 let out_fg = if src_cell.symbol != ' ' {
-                    lerp_colour(src_cell.fg, ghost_col, ghost_opacity * 0.5)
+                    lerp_colour(src_cell.fg, ghost_col, ghost_opacity * 0.4)
                 } else {
                     out_bg
                 };
@@ -176,7 +224,6 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
             }
         }
 
-        // Capture for next transition.
         s.capture_live(src);
     });
 }

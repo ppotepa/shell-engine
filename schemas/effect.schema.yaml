@@ -17,7 +17,7 @@ properties:
       - brighten: Brightens pixels toward white by intensity over duration.
       - clear-to-colour: Clears region to a target terminal colour.
       - crt-on: CRT startup sweep with phosphor-like reveal.
-      - crt-burn-in: PostFX: phosphor persistence transition — on scene change the screen goes black and a dim, slightly blurred ghost of the previous frame fades out. Time-based: starts at alpha brightness and fades over speed seconds.
+      - crt-burn-in: PostFX: phosphor persistence — ghost of old scene overlays new one with exponential decay, brightness pump, P31 colour shift, and 2D blur.
       - crt-underlay: PostFX: soft phosphor underlay glow beneath scene content.
       - crt-distort: PostFX: tube-like cylindrical distortion with CRT margins.
       - crt-scan-glitch: PostFX: sporadic scanline sweep with right-shift chromatic glitch.

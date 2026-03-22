@@ -245,6 +245,12 @@ pub struct EffectParams {
     /// Cutout blend mode: replace or overlay. Used by: cutout.
     #[serde(default)]
     pub blend_mode: Option<String>,
+    /// CRT burn-in: brightness pump multiplier on first frame of transition.
+    #[serde(default)]
+    pub pump: Option<f32>,
+    /// CRT burn-in: phosphor colour decay tint (0 = uniform, 1 = full P31 green shift).
+    #[serde(default)]
+    pub decay_tint: Option<f32>,
 }
 
 /// A single step in a stage — a group of effects that play in parallel.
