@@ -1,25 +1,37 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class WcCommand : ICommand
+internal sealed class WcCommand : IKernelCommand
 {
     public string Name => "wc";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { "usage: wc <file>" }, 1);
+        if (argv.Length < 2)
+        {
+            uow.Err.WriteLine("usage: wc <file>");
+            return 1;
+        }
 
-        var vfsPath = ctx.Os.FileSystem.ToVfsPath(ctx.Session.ResolvePath(ctx.Argv[0]));
-        if (!ctx.Os.FileSystem.TryCat(vfsPath, out var content))
-            return new CommandResult(new[] { $"wc: {ctx.Argv[0]}: No such file or directory" }, 1);
+        var path = uow.Session.ResolvePath(argv[1]);
 
-        var lines = content.Replace("\r\n", "\n").Split('\n').Length;
-        var words = content.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
-        var bytes = content.Length;
+        try
+        {
+            var content = uow.Disk.ReadFile(path);
+            var lines = content.Replace("\r\n", "\n").Split('\n').Length;
+            var words = content.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+            var bytes = content.Length;
 
-        return new CommandResult(new[] { $"  {lines}  {words}  {bytes} {ctx.Argv[0]}" });
+            uow.Out.WriteLine($"  {lines}  {words}  {bytes} {argv[1]}");
+            return 0;
+        }
+        catch (FileNotFoundException)
+        {
+            uow.Err.WriteLine($"wc: {argv[1]}: No such file or directory");
+            return 1;
+        }
     }
 }

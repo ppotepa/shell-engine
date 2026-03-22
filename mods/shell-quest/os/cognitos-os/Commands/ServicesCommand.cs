@@ -1,20 +1,24 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class ServicesCommand : ICommand
+internal sealed class ServicesCommand : IKernelCommand
 {
     public string Name => "services";
     public IReadOnlyList<string> Aliases => new[] { "service" };
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var lines = new List<string> { "name   status  last-tick" };
-        foreach (var service in ctx.Os.ServiceSnapshot().OrderBy(s => s.Name))
-        {
-            lines.Add($"{service.Name,-6} {service.Status,-7} {service.LastTickUtc:HH:mm:ss}");
-        }
+        // Show known daemon processes as services
+        var procs = uow.Process.List()
+            .Where(p => p.User == "root" && p.Tty == "?")
+            .OrderBy(p => p.Name);
 
-        return new CommandResult(lines, ExitCode: 0);
+        uow.Out.WriteLine("name     status  pid");
+        foreach (var p in procs)
+            uow.Out.WriteLine($"{p.Name,-8} active  {p.Pid}");
+
+        return 0;
     }
 }

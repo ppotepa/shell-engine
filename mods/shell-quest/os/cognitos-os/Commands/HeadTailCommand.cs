@@ -1,8 +1,9 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class HeadTailCommand : ICommand
+internal sealed class HeadTailCommand : IKernelCommand
 {
     private readonly bool _isHead;
     public string Name { get; }
@@ -14,30 +15,39 @@ internal sealed class HeadTailCommand : ICommand
         Name = isHead ? "head" : "tail";
     }
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { $"usage: {Name} <file>" }, 1);
-
-        int count = 10;
-        var fileArg = ctx.Argv[0];
-
-        // Parse -N flag
-        if (ctx.Argv.Count >= 2 && ctx.Argv[0].StartsWith('-') && int.TryParse(ctx.Argv[0][1..], out var n))
+        if (argv.Length < 2)
         {
-            count = n;
-            fileArg = ctx.Argv[1];
+            uow.Err.WriteLine($"usage: {Name} <file>");
+            return 1;
         }
 
-        var vfsPath = ctx.Os.FileSystem.ToVfsPath(ctx.Session.ResolvePath(fileArg));
-        if (!ctx.Os.FileSystem.TryCat(vfsPath, out var content))
-            return new CommandResult(new[] { $"{Name}: {fileArg}: No such file or directory" }, 1);
+        int count = 10;
+        var fileArg = argv[1];
 
-        var allLines = content.Replace("\r\n", "\n").Split('\n');
-        var result = _isHead
-            ? allLines.Take(count).ToArray()
-            : allLines.TakeLast(count).ToArray();
+        if (argv.Length >= 3 && argv[1].StartsWith('-') && int.TryParse(argv[1][1..], out var n))
+        {
+            count = n;
+            fileArg = argv[2];
+        }
 
-        return new CommandResult(result);
+        var path = uow.Session.ResolvePath(fileArg);
+
+        try
+        {
+            var content = uow.Disk.ReadFile(path);
+            var allLines = content.Replace("\r\n", "\n").Split('\n');
+            var result = _isHead ? allLines.Take(count) : allLines.TakeLast(count);
+
+            foreach (var line in result)
+                uow.Out.WriteLine(line);
+            return 0;
+        }
+        catch (FileNotFoundException)
+        {
+            uow.Err.WriteLine($"{Name}: {fileArg}: No such file or directory");
+            return 1;
+        }
     }
 }

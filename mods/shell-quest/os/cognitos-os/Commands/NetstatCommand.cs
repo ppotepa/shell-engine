@@ -1,35 +1,29 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class NetstatCommand : ICommand
+internal sealed class NetstatCommand : IKernelCommand
 {
     public string Name => "netstat";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var spec = ctx.Os.Spec;
-        var lines = new List<string>
-        {
-            "Proto  Local Address       Foreign Address     State",
-            "tcp    0.0.0.0:21          *:*                 LISTEN",
-            "tcp    0.0.0.0:23          *:*                 LISTEN",
-            "tcp    0.0.0.0:80          *:*                 LISTEN",
-        };
+        uow.Out.WriteLine("Proto  Local Address       Foreign Address     State");
+        uow.Out.WriteLine("tcp    0.0.0.0:21          *:*                 LISTEN");
+        uow.Out.WriteLine("tcp    0.0.0.0:23          *:*                 LISTEN");
+        uow.Out.WriteLine("tcp    0.0.0.0:80          *:*                 LISTEN");
 
-        // After FTP connection, show it
-        if (ctx.Os.State.Quest.FtpConnected)
-            lines.Add("tcp    130.234.48.5:1024   128.214.6.100:21    ESTABLISHED");
+        if (uow.Quest.FtpConnected)
+            uow.Out.WriteLine("tcp    130.234.48.5:1024   128.214.6.100:21    ESTABLISHED");
 
-        // After all 3 anomalies: mysterious entry
-        var anomalyCount = ctx.Os.State.Quest.AnomaliesDiscovered?.Count ?? 0;
+        var anomalyCount = uow.Quest.AnomaliesDiscovered?.Count ?? 0;
         if (anomalyCount >= 3)
-            lines.Add("???    0.0.0.0:??          *:*                 UNKNOWN");
+            uow.Out.WriteLine("???    0.0.0.0:??          *:*                 UNKNOWN");
 
-        lines.Add("");
-        lines.Add($"interface: {spec.NicModel} at 0x300, UP");
-
-        return new CommandResult(lines);
+        uow.Out.WriteLine("");
+        uow.Out.WriteLine($"interface: {uow.Spec.NicModel} at 0x300, UP");
+        return 0;
     }
 }

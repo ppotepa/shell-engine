@@ -1,16 +1,17 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class PsCommand : ICommand
+internal sealed class PsCommand : IKernelCommand
 {
     public string Name => "ps";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
         bool showAll = false, showNoTty = false, longFmt = false;
-        foreach (var arg in ctx.Argv)
+        foreach (var arg in argv.Skip(1))
         {
             if (arg.StartsWith('-') && arg.Length > 1)
             {
@@ -22,54 +23,43 @@ internal sealed class PsCommand : ICommand
                         case 'x': showNoTty = true; break;
                         case 'l': longFmt = true; break;
                         default:
-                            return new CommandResult(new[]
-                            {
-                                $"ps: illegal option -- {c}",
-                                "Try: man ps"
-                            }, 1);
+                            uow.Err.WriteLine($"ps: illegal option -- {c}");
+                            uow.Err.WriteLine("Try: man ps");
+                            return 1;
                     }
                 }
             }
         }
 
-        var user = ctx.Session.User;
-        var procs = ctx.Os.ProcessSnapshot().OrderBy(p => p.Pid).ToList();
+        var user = uow.Session.User;
+        var procs = uow.Process.List().OrderBy(p => p.Pid).ToList();
 
-        // Filter: default = only user's processes with a tty
         if (!showAll && !showNoTty)
             procs = procs.Where(p => p.User == user && p.Tty != "?").ToList();
         else if (showAll && !showNoTty)
             procs = procs.Where(p => p.Tty != "?").ToList();
-        // showNoTty includes everything; showAll+showNoTty = everything
-
-        var lines = new List<string>();
 
         if (longFmt)
         {
-            lines.Add("  F S   UID   PID  PPID  PGRP    SZ TTY      TIME CMD");
+            uow.Out.WriteLine("  F S   UID   PID  PPID  PGRP    SZ TTY      TIME CMD");
             foreach (var p in procs)
-            {
-                lines.Add(string.Format("{0,3} {1} {2,5} {3,5} {4,5} {5,5} {6,5} {7,-4} {8,9} {9}",
+                uow.Out.WriteLine(string.Format("{0,3} {1} {2,5} {3,5} {4,5} {5,5} {6,5} {7,-4} {8,9} {9}",
                     1, p.StateCh, p.Uid, p.Pid, p.Ppid, p.Pid, p.Sz,
                     p.Tty, FormatTime(p.Pid), p.Name));
-            }
         }
         else
         {
-            lines.Add("  PID TTY      TIME CMD");
+            uow.Out.WriteLine("  PID TTY      TIME CMD");
             foreach (var p in procs)
-            {
-                lines.Add(string.Format("{0,5} {1,-4} {2,9} {3}",
+                uow.Out.WriteLine(string.Format("{0,5} {1,-4} {2,9} {3}",
                     p.Pid, p.Tty, FormatTime(p.Pid), p.Name));
-            }
         }
 
-        return new CommandResult(lines);
+        return 0;
     }
 
     private static string FormatTime(int pid)
     {
-        // Deterministic fake CPU time based on pid
         var mins = pid % 10;
         var secs = (pid * 7) % 60;
         return $"0:{mins:D2}:{secs:D2}";

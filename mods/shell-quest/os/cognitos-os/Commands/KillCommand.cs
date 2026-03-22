@@ -1,27 +1,41 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class KillCommand : ICommand
+internal sealed class KillCommand : IKernelCommand
 {
     public string Name => "kill";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { "usage: kill <pid>" }, 1);
+        if (argv.Length < 2)
+        {
+            uow.Err.WriteLine("usage: kill <pid>");
+            return 1;
+        }
 
-        if (!int.TryParse(ctx.Argv[0], out var pid))
-            return new CommandResult(new[] { $"kill: {ctx.Argv[0]}: arguments must be process IDs" }, 1);
+        if (!int.TryParse(argv[1], out var pid))
+        {
+            uow.Err.WriteLine($"kill: {argv[1]}: arguments must be process IDs");
+            return 1;
+        }
 
-        var process = ctx.Os.ProcessSnapshot().FirstOrDefault(p => p.Pid == pid);
+        var process = uow.Process.Get(pid);
         if (process is null)
-            return new CommandResult(new[] { $"kill: ({pid}) - No such process" }, 1);
+        {
+            uow.Err.WriteLine($"kill: ({pid}) - No such process");
+            return 1;
+        }
 
-        if (process.User != ctx.Session.User)
-            return new CommandResult(new[] { $"kill: ({pid}) - Not owner" }, 1);
+        if (process.User != uow.Session.User)
+        {
+            uow.Err.WriteLine($"kill: ({pid}) - Not owner");
+            return 1;
+        }
 
-        return new CommandResult(new[] { $"kill: ({pid}) - Operation not permitted" }, 1);
+        uow.Err.WriteLine($"kill: ({pid}) - Operation not permitted");
+        return 1;
     }
 }

@@ -1,9 +1,10 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 using CognitosOs.Network;
 
 namespace CognitosOs.Commands;
 
-internal sealed class NslookupCommand : ICommand
+internal sealed class NslookupCommand : IKernelCommand
 {
     private readonly NetworkRegistry _network;
 
@@ -12,40 +13,41 @@ internal sealed class NslookupCommand : ICommand
     public string Name => "nslookup";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { "usage: nslookup <host>" }, 1);
+        if (argv.Length < 2)
+        {
+            uow.Err.WriteLine("usage: nslookup <host>");
+            return 1;
+        }
 
-        var host = ctx.Argv[0];
+        var host = argv[1];
         var server = _network.Resolve(host);
 
         if (server is null)
-            return new CommandResult(new[]
-            {
-                "Server:  128.214.1.1",
-                "Address: 128.214.1.1#53",
-                "",
-                $"** server can't find {host}: NXDOMAIN",
-            }, 1);
+        {
+            uow.Out.WriteLine("Server:  128.214.1.1");
+            uow.Out.WriteLine("Address: 128.214.1.1#53");
+            uow.Out.WriteLine("");
+            uow.Out.WriteLine($"** server can't find {host}: NXDOMAIN");
+            return 1;
+        }
 
         if (server is AnomalyServer)
-            return new CommandResult(new[]
-            {
-                "Server:  128.214.1.1",
-                "Address: 128.214.1.1#53",
-                "",
-                $"** server can't find {host}: SERVFAIL",
-                $"** (partial response received from unallocated AS)",
-            }, 1);
-
-        return new CommandResult(new[]
         {
-            "Server:  128.214.1.1",
-            "Address: 128.214.1.1#53",
-            "",
-            $"Name:    {server.Hostname}",
-            $"Address: {server.IpAddress}",
-        });
+            uow.Out.WriteLine("Server:  128.214.1.1");
+            uow.Out.WriteLine("Address: 128.214.1.1#53");
+            uow.Out.WriteLine("");
+            uow.Out.WriteLine($"** server can't find {host}: SERVFAIL");
+            uow.Out.WriteLine("** (partial response received from unallocated AS)");
+            return 1;
+        }
+
+        uow.Out.WriteLine("Server:  128.214.1.1");
+        uow.Out.WriteLine("Address: 128.214.1.1#53");
+        uow.Out.WriteLine("");
+        uow.Out.WriteLine($"Name:    {server.Hostname}");
+        uow.Out.WriteLine($"Address: {server.IpAddress}");
+        return 0;
     }
 }

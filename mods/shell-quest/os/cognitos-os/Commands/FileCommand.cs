@@ -1,36 +1,49 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class FileCommand : ICommand
+internal sealed class FileCommand : IKernelCommand
 {
     public string Name => "file";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { "usage: file <path>" }, 1);
-
-        var path = ctx.Argv[0];
-        var vfsPath = ctx.Os.FileSystem.ToVfsPath(ctx.Session.ResolvePath(path));
-
-        if (ctx.Os.FileSystem.DirectoryExists(vfsPath))
-            return new CommandResult(new[] { $"{path}: directory" });
-
-        if (!ctx.Os.FileSystem.TryCat(vfsPath, out var content))
-            return new CommandResult(new[] { $"{path}: cannot open" }, 1);
-
-        var type = path switch
+        if (argv.Length < 2)
         {
-            _ when path.EndsWith(".tar.Z") => "compressed data (compress'd)",
-            _ when path.EndsWith(".Z") => "compressed data",
-            _ when path.EndsWith(".tar") => "POSIX tar archive",
-            _ when content.StartsWith("[COMPRESSED") => "compressed data",
-            _ when content.StartsWith("[binary") || content.StartsWith("[core") => "data",
+            uow.Err.WriteLine("usage: file <path>");
+            return 1;
+        }
+
+        var userPath = argv[1];
+        var path = uow.Session.ResolvePath(userPath);
+
+        var raw = uow.Disk.RawRead(path);
+        if (raw == null)
+        {
+            // Maybe a directory?
+            var dir = uow.Disk.RawReadDir(path);
+            if (dir != null)
+            {
+                uow.Out.WriteLine($"{userPath}: directory");
+                return 0;
+            }
+            uow.Err.WriteLine($"{userPath}: cannot open");
+            return 1;
+        }
+
+        var type = userPath switch
+        {
+            _ when userPath.EndsWith(".tar.Z") => "compressed data (compress'd)",
+            _ when userPath.EndsWith(".Z") => "compressed data",
+            _ when userPath.EndsWith(".tar") => "POSIX tar archive",
+            _ when raw.StartsWith("[COMPRESSED") => "compressed data",
+            _ when raw.StartsWith("[binary") || raw.StartsWith("[core") => "data",
             _ => "ASCII text",
         };
 
-        return new CommandResult(new[] { $"{path}: {type}" });
+        uow.Out.WriteLine($"{userPath}: {type}");
+        return 0;
     }
 }

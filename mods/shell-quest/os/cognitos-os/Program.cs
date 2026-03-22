@@ -3,6 +3,7 @@ using CognitosOs.Boot;
 using CognitosOs.Commands;
 using CognitosOs.Core;
 using CognitosOs.EasterEggs;
+using CognitosOs.Kernel;
 using CognitosOs.Network;
 using CognitosOs.State;
 
@@ -17,7 +18,7 @@ internal static class Program
         var network = new NetworkRegistry();
         var historyCmd = new HistoryCommand();
 
-        var commands = new ICommand[]
+        var commands = new IKernelCommand[]
         {
             // Strict-1991 MINIX visible commands
             new HelpCommand(),
@@ -34,6 +35,7 @@ internal static class Program
             new DateCommand(),
             new ManCommand(),
             new FtpCommand(),
+            historyCmd,
             // Classic Unix utilities (present on system, not in help)
             new GrepCommand(),
             new HeadTailCommand(isHead: true),
@@ -45,8 +47,21 @@ internal static class Program
             new SyncCommand(),
             new MountCommand(),
             new FingerCommand(),
+            new FileCommand(),
+            new IdCommand(),
+            new EnvCommand(),
+            new HostnameCommand(),
+            new FortuneCommand(),
+            new FreeCommand(),
+            new TopCommand(),
+            new UptimeCommand(),
+            new DmesgCommand(),
+            new IfconfigCommand(),
+            new NetstatCommand(),
+            new ServicesCommand(),
             // Network (conscious prologue extension for FTP/anomaly quest)
             new PingCommand(network),
+            new NslookupCommand(network),
         };
 
         var eggs = new EasterEggRegistry();
@@ -54,11 +69,20 @@ internal static class Program
         eggs.Register(new LinuxEgg());
         eggs.Register(new OneLiners());
 
+        // Build command index: name -> command, alias -> command
+        var commandIndex = new Dictionary<string, IKernelCommand>(StringComparer.Ordinal);
+        foreach (var c in commands)
+        {
+            commandIndex[c.Name] = c;
+            foreach (var alias in c.Aliases)
+                commandIndex[alias] = c;
+        }
+
         var fileSystem = new ZipVirtualFileSystem(statePath);
 
-        IOperatingSystem os = new MinixOperatingSystem(state, fileSystem, commands);
+        IOperatingSystem os = new MinixOperatingSystem(state, fileSystem);
         IBootSequence boot = new MinixBootSequence();
-        var host = new AppHost(os, machineStart, eggs, historyCmd);
+        var host = new AppHost(os, machineStart, eggs, historyCmd, commandIndex);
         var initialized = false;
 
         string? line;

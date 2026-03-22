@@ -1,5 +1,6 @@
 using CognitosOs.Commands;
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 using CognitosOs.Network;
 using CognitosOs.State;
 
@@ -12,20 +13,27 @@ namespace CognitosOs.Applications;
 internal sealed class ShellApplication : IApplication
 {
     private readonly IOperatingSystem _os;
+    private readonly IReadOnlyDictionary<string, IKernelCommand> _commandIndex;
     private readonly ScreenBuffer _screen;
     private readonly ApplicationStack _stack;
     private readonly EasterEggRegistry _eggs;
     private readonly HistoryCommand _historyCmd;
+    private readonly Func<UserSession, IUnitOfWork> _createUow;
 
     public ShellApplication(
-        IOperatingSystem os, ScreenBuffer screen, ApplicationStack stack,
-        EasterEggRegistry eggs, HistoryCommand historyCmd)
+        IOperatingSystem os,
+        IReadOnlyDictionary<string, IKernelCommand> commandIndex,
+        ScreenBuffer screen, ApplicationStack stack,
+        EasterEggRegistry eggs, HistoryCommand historyCmd,
+        Func<UserSession, IUnitOfWork> createUow)
     {
         _os = os;
+        _commandIndex = commandIndex;
         _screen = screen;
         _stack = stack;
         _eggs = eggs;
         _historyCmd = historyCmd;
+        _createUow = createUow;
     }
 
     public string PromptPrefix(UserSession session)
@@ -45,33 +53,28 @@ internal sealed class ShellApplication : IApplication
         if (string.IsNullOrWhiteSpace(submitted))
             return ApplicationResult.Continue;
 
-        // Track command history
         _historyCmd.CommandLog.Add(submitted);
 
         var parts = submitted.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var cmd = parts[0];
-        var argv = (IReadOnlyList<string>)parts.Skip(1).ToArray();
 
         // Strict-1991: no GNU-style --help. MINIX used man pages.
-        if (argv.Any(a => a == "--help"))
+        if (parts.Skip(1).Any(a => a == "--help"))
         {
             session.LastExitCode = 1;
             _screen.Append($"{cmd}: illegal option -- -", $"Try: man {cmd}", "");
             return ApplicationResult.Continue;
         }
 
-        if (!_os.CommandIndex.TryGetValue(cmd, out var command))
+        if (!_commandIndex.TryGetValue(cmd, out var command))
         {
             // Try easter eggs before "command not found"
-            var ctx = new CommandContext(_os, session, cmd, argv);
-            var eggResult = _eggs.TryHandle(cmd, argv, ctx);
-            if (eggResult != null)
+            using var eggUow = _createUow(session);
+            var exitCode = _eggs.TryHandle(eggUow, cmd, parts);
+            if (exitCode.HasValue)
             {
-                session.LastExitCode = eggResult.ExitCode;
-                if (eggResult.Lines.Count > 0)
-                    _screen.Append(eggResult.Lines.Concat(new[] { "" }).ToArray());
-                else
-                    _screen.Append("");
+                session.LastExitCode = exitCode.Value;
+                FlushOutput(eggUow);
                 return ApplicationResult.Continue;
             }
 
@@ -80,20 +83,39 @@ internal sealed class ShellApplication : IApplication
             return ApplicationResult.Continue;
         }
 
-        var cmdCtx = new CommandContext(_os, session, cmd, argv);
-        var result = command.Execute(cmdCtx);
-        session.LastExitCode = result.ExitCode;
+        using var uow = _createUow(session);
+        var result = command.Run(uow, parts);
+        session.LastExitCode = result;
 
-        if (result.ClearScreen)
-            _screen.ClearViewport();
-        else
-            _screen.Append(result.Lines.Count == 0
-                ? new[] { "" }
-                : result.Lines.Concat(new[] { "" }).ToArray());
-
-        if (result.LaunchApp == "ftp")
-            _stack.Push(new FtpApplication(_os, _screen), session);
+        switch (result)
+        {
+            case 901: // clear screen
+                _screen.ClearViewport();
+                break;
+            case 900: // launch FTP app
+                FlushOutput(uow);
+                _stack.Push(new FtpApplication(_os, _screen), session);
+                break;
+            default:
+                FlushOutput(uow);
+                break;
+        }
 
         return ApplicationResult.Continue;
+    }
+
+    private void FlushOutput(IUnitOfWork uow)
+    {
+        uow.Out.Flush();
+        var text = uow.Out.ToString()!;
+        if (text.Length > 0)
+        {
+            var lines = text.TrimEnd('\r', '\n').Split('\n');
+            _screen.Append(lines.Concat(new[] { "" }).ToArray());
+        }
+        else
+        {
+            _screen.Append("");
+        }
     }
 }

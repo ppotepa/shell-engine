@@ -1,4 +1,5 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 using CognitosOs.State;
 
 namespace CognitosOs.Network;
@@ -11,7 +12,12 @@ internal interface IEasterEgg
 {
     string Trigger { get; }
     bool Matches(string command, IReadOnlyList<string> argv);
-    CommandResult Handle(string fullInput, CommandContext ctx);
+
+    /// <summary>
+    /// Handle the easter egg. Write output to <c>uow.Out</c>.
+    /// Return exit code.
+    /// </summary>
+    int Handle(IUnitOfWork uow, string command, string[] argv);
 }
 
 /// <summary>
@@ -23,12 +29,16 @@ internal sealed class EasterEggRegistry
 
     public void Register(IEasterEgg egg) => _eggs.Add(egg);
 
-    public CommandResult? TryHandle(string command, IReadOnlyList<string> argv, CommandContext ctx)
+    /// <summary>
+    /// Try to handle an unknown command as an easter egg.
+    /// Returns null if no egg matched, or the exit code if one did.
+    /// </summary>
+    public int? TryHandle(IUnitOfWork uow, string command, string[] argv)
     {
         foreach (var egg in _eggs)
         {
             if (egg.Matches(command, argv))
-                return egg.Handle($"{command} {string.Join(' ', argv)}".Trim(), ctx);
+                return egg.Handle(uow, command, argv);
         }
         return null;
     }

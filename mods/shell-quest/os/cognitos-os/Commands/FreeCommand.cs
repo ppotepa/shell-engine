@@ -1,25 +1,21 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class FreeCommand : ICommand
+internal sealed class FreeCommand : IKernelCommand
 {
     public string Name => "free";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var spec = ctx.Os.Spec;
-        var (_, memPct) = ctx.Os.UsageSnapshot();
-        var used = (int)(spec.RamKb * memPct / 100.0);
-        var free = spec.RamKb - used;
-        var swap = spec.RamKb < 2048 ? spec.RamKb / 2 : 0; // swap only on low RAM
+        var res = uow.Resources;
+        var swap = res.TotalRamKb < 2048 ? res.TotalRamKb / 2 : 0;
 
-        return new CommandResult(new[]
-        {
-            "             total       used       free",
-            $"Mem:     {spec.RamKb,9}  {used,9}  {free,9}",
-            $"Swap:    {swap,9}  {0,9}  {swap,9}",
-        });
+        uow.Out.WriteLine("             total       used       free");
+        uow.Out.WriteLine($"Mem:     {res.TotalRamKb,9}  {res.TotalRamKb - res.FreeRamKb,9}  {res.FreeRamKb,9}");
+        uow.Out.WriteLine($"Swap:    {swap,9}  {0,9}  {swap,9}");
+        return 0;
     }
 }

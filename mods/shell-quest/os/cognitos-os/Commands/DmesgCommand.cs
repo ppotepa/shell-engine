@@ -1,36 +1,32 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class DmesgCommand : ICommand
+internal sealed class DmesgCommand : IKernelCommand
 {
     public string Name => "dmesg";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var spec = ctx.Os.Spec;
-        var kernelMem = 109;
-        var freeMem = spec.RamKb - kernelMem;
+        var spec = uow.Spec;
+        var res = uow.Resources;
 
-        var lines = new List<string>
-        {
-            "MINIX 1.1 boot",
-            $"memory: {spec.RamKb}K total, {kernelMem}K kernel, {freeMem}K free",
-            $"hd driver: winchester, {spec.DiskKb}K",
-            "clock: 100 Hz tick",
-            "tty: 3 virtual consoles",
-            $"ethernet: {spec.NicModel} at 0x300, IRQ 9",
-            "root filesystem: /dev/hd1 (minix)",
-            "/usr filesystem: /dev/hd2 (minix)",
-            "init: starting /etc/rc",
-        };
+        uow.Out.WriteLine("MINIX 1.1 boot");
+        uow.Out.WriteLine($"memory: {res.TotalRamKb}K total, {res.KernelKb}K kernel, {res.FreeRamKb}K free");
+        uow.Out.WriteLine($"hd driver: winchester, {res.DiskTotalKb}K");
+        uow.Out.WriteLine("clock: 100 Hz tick");
+        uow.Out.WriteLine("tty: 3 virtual consoles");
+        uow.Out.WriteLine($"ethernet: {spec.NicModel} at 0x300, IRQ 9");
+        uow.Out.WriteLine("root filesystem: /dev/hd1 (minix)");
+        uow.Out.WriteLine("/usr filesystem: /dev/hd2 (minix)");
+        uow.Out.WriteLine("init: starting /etc/rc");
 
-        // After all 3 anomalies: spooky kernel line
-        var anomalyCount = ctx.Os.State.Quest.AnomaliesDiscovered?.Count ?? 0;
+        var anomalyCount = uow.Quest.AnomaliesDiscovered?.Count ?? 0;
         if (anomalyCount >= 3)
-            lines.Add("[????] process 0: unnamed: started");
+            uow.Out.WriteLine("[????] process 0: unnamed: started");
 
-        return new CommandResult(lines);
+        return 0;
     }
 }

@@ -1,25 +1,24 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class HelpCommand : ICommand
+internal sealed class HelpCommand : IKernelCommand
 {
     public string Name => "help";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        return new CommandResult(new[]
-        {
-            "Type a command. For help: man <command>",
-            "",
-            "  ls [dir]       list directory       cat [file]    display file",
-            "  cd [dir]       change directory     pwd           working directory",
-            "  cp src dst     copy file            ps [-alx]     process status",
-            "  who            logged-in users      whoami        current user",
-            "  uname [-a]     system name          date          date and time",
-            "  man <topic>    manual page          ftp [host]    file transfer",
-            "  clear          clear screen",
-        }, ExitCode: 0);
+        uow.Out.WriteLine("Type a command. For help: man <command>");
+        uow.Out.WriteLine("");
+        uow.Out.WriteLine("  ls [dir]       list directory       cat [file]    display file");
+        uow.Out.WriteLine("  cd [dir]       change directory     pwd           working directory");
+        uow.Out.WriteLine("  cp src dst     copy file            ps [-alx]     process status");
+        uow.Out.WriteLine("  who            logged-in users      whoami        current user");
+        uow.Out.WriteLine("  uname [-a]     system name          date          date and time");
+        uow.Out.WriteLine("  man <topic>    manual page          ftp [host]    file transfer");
+        uow.Out.WriteLine("  clear          clear screen");
+        return 0;
     }
 }

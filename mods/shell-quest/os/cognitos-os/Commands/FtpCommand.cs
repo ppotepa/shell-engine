@@ -1,21 +1,17 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-/// <summary>
-/// Enters the FTP client application. Signals the shell to push a
-/// FtpApplication onto the application stack via CommandResult.LaunchApp.
-/// </summary>
-internal sealed class FtpCommand : ICommand
+internal sealed class FtpCommand : IKernelCommand
 {
     public string Name => "ftp";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count > 0)
-            ctx.Os.State.Quest.FtpRemoteHost = ctx.Argv[0];
-
-        return new CommandResult(Array.Empty<string>(), LaunchApp: "ftp");
+        if (argv.Length > 1)
+            uow.Quest.FtpRemoteHost = argv[1];
+        return 900; // signal shell to launch FTP app
     }
 }

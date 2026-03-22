@@ -1,37 +1,40 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class CpCommand : ICommand
+internal sealed class CpCommand : IKernelCommand
 {
     public string Name => "cp";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 2)
-            return new CommandResult(new[] { "usage: cp <source> <dest>" }, 1);
-
-        var srcAbsolute = ctx.Session.ResolvePath(ctx.Argv[0]);
-        var dstAbsolute = ctx.Session.ResolvePath(ctx.Argv[1]);
-        var srcVfs = ctx.Os.FileSystem.ToVfsPath(srcAbsolute);
-        var dstVfs = ctx.Os.FileSystem.ToVfsPath(dstAbsolute);
-
-        if (!ctx.Os.FileSystem.TryCat(srcVfs, out _))
-            return new CommandResult(new[] { $"cp: {ctx.Argv[0]}: No such file or directory" }, 1);
-
-        if (ctx.Os.Spec.DiskFreeKb < 100)
-            return new CommandResult(new[] { $"cp: {ctx.Argv[1]}: No space left on device" }, 1);
-
-        if (ctx.Os.FileSystem is State.IMutableFileSystem mutableFs)
+        if (argv.Length < 3)
         {
-            if (!mutableFs.TryCopy(srcVfs, dstVfs, out var error))
-                return new CommandResult(new[] { $"cp: {error}" }, 1);
-
-            ctx.Os.State.Quest.BackupMade = true;
-            return new CommandResult(Array.Empty<string>());
+            uow.Err.WriteLine("usage: cp <source> <dest>");
+            return 1;
         }
 
-        return new CommandResult(new[] { "cp: read-only file system" }, 1);
+        var srcPath = uow.Session.ResolvePath(argv[1]);
+        var dstPath = uow.Session.ResolvePath(argv[2]);
+
+        try
+        {
+            var content = uow.Disk.ReadFile(srcPath);
+            uow.Disk.WriteFile(dstPath, content);
+            uow.Quest.BackupMade = true;
+            return 0;
+        }
+        catch (FileNotFoundException)
+        {
+            uow.Err.WriteLine($"cp: {argv[1]}: No such file or directory");
+            return 1;
+        }
+        catch (IOException ex)
+        {
+            uow.Err.WriteLine($"cp: {argv[2]}: {ex.Message}");
+            return 1;
+        }
     }
 }

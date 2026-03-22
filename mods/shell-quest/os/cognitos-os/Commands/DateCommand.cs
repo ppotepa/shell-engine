@@ -1,29 +1,28 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class DateCommand : ICommand
+internal sealed class DateCommand : IKernelCommand
 {
     public string Name => "date";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var now = ctx.Os.SimulatedNow();
-        var anomalyCount = ctx.Os.State.Quest.AnomaliesDiscovered?.Count ?? 0;
+        var now = uow.Clock.Now();
+        var anomalyCount = uow.Quest.AnomaliesDiscovered?.Count ?? 0;
 
-        // ~5% chance of date glitch after all 3 anomalies
         if (anomalyCount >= 3 && Random.Shared.Next(20) == 0)
         {
             var realNow = DateTime.UtcNow;
-            return new CommandResult(new[]
-            {
-                now.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy"),
-                realNow.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy"),
-                now.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy"),
-            });
+            uow.Out.WriteLine(now.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy"));
+            uow.Out.WriteLine(realNow.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy"));
+            uow.Out.WriteLine(now.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy"));
+            return 0;
         }
 
-        return new CommandResult(new[] { now.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy") });
+        uow.Out.WriteLine(now.ToString("ddd MMM dd HH:mm:ss 'EET' yyyy"));
+        return 0;
     }
 }

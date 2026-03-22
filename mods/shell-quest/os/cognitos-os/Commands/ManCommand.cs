@@ -1,22 +1,31 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class ManCommand : ICommand
+internal sealed class ManCommand : IKernelCommand
 {
     public string Name => "man";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { "What manual page do you want?" }, 1);
+        if (argv.Length < 2)
+        {
+            uow.Err.WriteLine("What manual page do you want?");
+            return 1;
+        }
 
-        var topic = ctx.Argv.Last().ToLowerInvariant();
+        var topic = argv.Last().ToLowerInvariant();
         if (Pages.TryGetValue(topic, out var page))
-            return new CommandResult(page.Split('\n'));
+        {
+            foreach (var line in page.Split('\n'))
+                uow.Out.WriteLine(line);
+            return 0;
+        }
 
-        return new CommandResult(new[] { $"No manual entry for {topic}." }, 1);
+        uow.Err.WriteLine($"No manual entry for {topic}.");
+        return 1;
     }
 
     private static readonly Dictionary<string, string> Pages = new(StringComparer.OrdinalIgnoreCase)

@@ -1,9 +1,10 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 using CognitosOs.Network;
 
 namespace CognitosOs.Commands;
 
-internal sealed class PingCommand : ICommand
+internal sealed class PingCommand : IKernelCommand
 {
     private readonly NetworkRegistry _network;
 
@@ -12,71 +13,74 @@ internal sealed class PingCommand : ICommand
     public string Name => "ping";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { "usage: ping <host>" }, 1);
+        if (argv.Length < 2)
+        {
+            uow.Err.WriteLine("usage: ping <host>");
+            return 1;
+        }
 
-        var host = ctx.Argv[0];
+        var host = argv[1];
         var server = _network.Resolve(host);
 
         if (server is null)
-            return new CommandResult(new[] { $"ping: unknown host {host}" }, 1);
+        {
+            uow.Err.WriteLine($"ping: unknown host {host}");
+            return 1;
+        }
 
         if (server is AnomalyServer anomaly)
-            return HandleAnomaly(anomaly, ctx);
+            return HandleAnomaly(anomaly, uow);
 
-        return HandleNormal(server, ctx);
+        return HandleNormal(server, uow);
     }
 
-    private CommandResult HandleNormal(IExternalServer server, CommandContext ctx)
+    private int HandleNormal(IExternalServer server, IUnitOfWork uow)
     {
-        var lines = new List<string>();
-        var spec = ctx.Os.Spec;
-
         if (server.Type == ServerType.Loopback)
         {
-            lines.Add($"PING {server.Hostname} ({server.IpAddress}): 56 data bytes");
+            uow.Out.WriteLine($"PING {server.Hostname} ({server.IpAddress}): 56 data bytes");
             for (int i = 0; i < 3; i++)
-                lines.Add($"64 bytes from {server.IpAddress}: icmp_seq={i} ttl=64 time=0.01ms");
-            lines.Add($"--- {server.Hostname} ping statistics ---");
-            lines.Add("3 packets transmitted, 3 received, 0% packet loss");
-            lines.Add("round-trip min/avg/max = 0.01/0.01/0.01 ms");
-            return new CommandResult(lines);
+                uow.Out.WriteLine($"64 bytes from {server.IpAddress}: icmp_seq={i} ttl=64 time=0.01ms");
+            uow.Out.WriteLine($"--- {server.Hostname} ping statistics ---");
+            uow.Out.WriteLine("3 packets transmitted, 3 received, 0% packet loss");
+            uow.Out.WriteLine("round-trip min/avg/max = 0.01/0.01/0.01 ms");
+            return 0;
         }
 
         var pings = new int[3];
         for (int i = 0; i < 3; i++)
-            pings[i] = NetworkRegistry.JitteredPing(server.BasePingMs, spec);
+            pings[i] = NetworkRegistry.JitteredPing(server.BasePingMs, uow.Spec);
 
         var ttl = server.BasePingMs < 50 ? 62 : server.BasePingMs < 150 ? 52 : 44;
-        lines.Add($"PING {server.Hostname} ({server.IpAddress}): 56 data bytes");
+        uow.Out.WriteLine($"PING {server.Hostname} ({server.IpAddress}): 56 data bytes");
         for (int i = 0; i < 3; i++)
-            lines.Add($"64 bytes from {server.IpAddress}: icmp_seq={i} ttl={ttl} time={pings[i]}ms");
-        lines.Add($"--- {server.Hostname} ping statistics ---");
-        lines.Add("3 packets transmitted, 3 received, 0% packet loss");
-        lines.Add($"round-trip min/avg/max = {pings.Min()}/{pings.Sum() / 3}/{pings.Max()} ms");
-        return new CommandResult(lines);
+            uow.Out.WriteLine($"64 bytes from {server.IpAddress}: icmp_seq={i} ttl={ttl} time={pings[i]}ms");
+        uow.Out.WriteLine($"--- {server.Hostname} ping statistics ---");
+        uow.Out.WriteLine("3 packets transmitted, 3 received, 0% packet loss");
+        uow.Out.WriteLine($"round-trip min/avg/max = {pings.Min()}/{pings.Sum() / 3}/{pings.Max()} ms");
+        return 0;
     }
 
-    private static CommandResult HandleAnomaly(AnomalyServer anomaly, CommandContext ctx)
+    private int HandleAnomaly(AnomalyServer anomaly, IUnitOfWork uow)
     {
-        var quest = ctx.Os.State.Quest;
+        var quest = uow.Quest;
 
-        // Track anomaly discovery
         quest.AnomaliesDiscovered ??= new List<string>();
         if (!quest.AnomaliesDiscovered.Contains(anomaly.Hostname))
             quest.AnomaliesDiscovered.Add(anomaly.Hostname);
 
-        // Generate /var/log/net.trace content dynamically
-        UpdateNetTrace(ctx);
+        UpdateNetTrace(uow);
 
-        return new CommandResult(anomaly.ErrorSequence.ToList(), 1);
+        foreach (var line in anomaly.ErrorSequence)
+            uow.Out.WriteLine(line);
+        return 1;
     }
 
-    private static void UpdateNetTrace(CommandContext ctx)
+    private static void UpdateNetTrace(IUnitOfWork uow)
     {
-        var count = ctx.Os.State.Quest.AnomaliesDiscovered?.Count ?? 0;
+        var count = uow.Quest.AnomaliesDiscovered?.Count ?? 0;
         if (count == 0) return;
 
         var lines = new List<string>();
@@ -99,7 +103,7 @@ internal sealed class PingCommand : ICommand
             lines.Add("[    ] ...this shouldn't happen.");
         }
 
-        if (ctx.Os.FileSystem is State.IMutableFileSystem mfs)
-            mfs.TryWrite("var/log/net.trace", string.Join("\n", lines), out _);
+        try { uow.Disk.WriteFile("/var/log/net.trace", string.Join("\n", lines)); }
+        catch { /* disk full — silently fail */ }
     }
 }
