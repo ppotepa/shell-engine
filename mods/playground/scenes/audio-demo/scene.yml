@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: playground-audio-demo
+title: Audio Demo
+bg: black
+layers:
+  - ref: main
+    sprites:
+      - id: title
+        at: [center, 4]
+        text: "♪ AUDIO DEMO — DAISY BELL (1961) ♪"
+        fg: "#55ff55"
+      - id: info
+        at: [center, 8]
+        text: "IBM 7094 — first computer to sing"
+        fg: "#888888"
+      - id: hint
+        at: [center, 14]
+        text: "[press any key to return]"
+        fg: "#555555"
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 400 }] }
+  on_idle:
+    trigger: any-key
+    looping: false
+    steps:
+      - pause: 100ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 300 }] }
+audio:
+  on_enter:
+    - { cue: daisy-bell, at_ms: 500, volume: 0.9 }
+next: playground-menu

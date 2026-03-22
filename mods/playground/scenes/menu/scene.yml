@@ -19,9 +19,6 @@ stages:
   on_leave:
     steps:
       - { effects: [{ name: fade-out, duration: 300 }] }
-audio:
-  on_enter:
-    - { cue: daisy-bell, at_ms: 0, volume: 0.8 }
 next: playground-3d-scene
 # `to` is the concise authored alias; the compiler normalizes it to the legacy routing fields.
 menu-options:
@@ -44,4 +41,5 @@ menu-options:
   - { key: "8", label: LAYOUT LAB, to: playground-layout-lab }
   - { key: "shift+8", label: CRT-TEST, to: playground-crt-test }
   - { key: "9", label: RHAI LAB, to: playground-rhai-lab }
+  - { key: "shift+9", label: AUDIO DEMO, to: playground-audio-demo }
   - { key: "0", label: EXIT, to: playground-exit }
