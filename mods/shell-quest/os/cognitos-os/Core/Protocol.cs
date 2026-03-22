@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CognitosOs.Framework.Transport;
 
 namespace CognitosOs.Core;
 
@@ -12,10 +13,10 @@ internal static class Protocol
         WriteIndented = false,
     };
 
-    public static void Send(object payload)
+    public static void Send(IOutputSink sink, object payload)
     {
-        Console.Out.WriteLine(JsonSerializer.Serialize(payload, JsonOpts));
-        Console.Out.Flush();
+        sink.WriteProtocolLine(JsonSerializer.Serialize(payload, JsonOpts));
+        sink.Flush();
     }
 
     public static string? GetTypeTag(JsonElement root)

@@ -1,7 +1,10 @@
 namespace CognitosOs.Core;
 
+using CognitosOs.Framework.Transport;
+
 internal sealed class ScreenBuffer
 {
+    private readonly IOutputSink _sink;
     private readonly List<string> _visible = new();
     private int _viewportRows = 40;
     private int _viewportCols = 120;
@@ -9,6 +12,11 @@ internal sealed class ScreenBuffer
     private string _inputLine = string.Empty;
     private int _cursorX;
     private int _cursorY;
+
+    public ScreenBuffer(IOutputSink sink)
+    {
+        _sink = sink;
+    }
 
     public void SetViewport(int cols, int rows)
     {
@@ -132,7 +140,7 @@ internal sealed class ScreenBuffer
     private void SendFrame()
     {
         var frame = BuildVisibleFrameLines();
-        Protocol.Send(new
+        Protocol.Send(_sink, new
         {
             type = "screen-full",
             cols = _viewportCols,

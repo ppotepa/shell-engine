@@ -8,11 +8,12 @@ use crate::services::EngineWorldAccess;
 use crate::world::World;
 use engine_core::logging;
 use engine_core::scene::TerminalShellMode;
-use engine_io::{IoEvent, IoRequest, SidecarProcess};
+use engine_io::{IoEvent, IoRequest, TcpSidecar};
+use std::net::TcpListener;
 
 #[derive(Default)]
 pub struct EngineIoRuntime {
-    sidecar: Option<SidecarProcess>,
+    sidecar: Option<TcpSidecar>,
     last_submit_seq: u64,
     last_change_seq: u64,
     last_key_sent: Option<String>,
@@ -116,10 +117,19 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                     );
                 }
                 Some(sidecar_cfg) => {
-                    match SidecarProcess::spawn(
+                    let mut sidecar_args = sidecar_cfg.args.clone();
+                    let port = reserve_tcp_port();
+                    if sidecar_cfg.command == "dotnet" && !sidecar_args.iter().any(|a| a == "--") {
+                        sidecar_args.push("--".to_string());
+                    }
+                    sidecar_args.push("--game-port".to_string());
+                    sidecar_args.push(port.to_string());
+
+                    match TcpSidecar::spawn(
                         &sidecar_cfg.command,
-                        &sidecar_cfg.args,
+                        &sidecar_args,
                         cwd.as_deref(),
+                        port,
                     ) {
                         Ok(proc) => {
                             runtime.sidecar = Some(proc);
@@ -127,23 +137,23 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                             runtime.last_change_seq = 0;
                             runtime.last_key_sent = None;
                             runtime.last_size = None;
-                             if let Some(sidecar) = runtime.sidecar.as_ref() {
-                                 if let Some((cols, rows)) = buf_size {
-                                     if let Err(e) = sidecar.send(IoRequest::Hello {
-                                         cols,
-                                         rows,
-                                         boot_scene: is_boot_scene,
-                                         difficulty: difficulty_label.clone(),
-                                     }) {
-                                         ipc_errors.push(format!("[engine-io] hello send failed: {e}"));
-                                     }
-                                     runtime.last_size = Some((cols, rows));
-                                 }
-                             }
+                            if let Some(sidecar) = runtime.sidecar.as_ref() {
+                                if let Some((cols, rows)) = buf_size {
+                                    if let Err(e) = sidecar.send(IoRequest::Hello {
+                                        cols,
+                                        rows,
+                                        boot_scene: is_boot_scene,
+                                        difficulty: difficulty_label.clone(),
+                                    }) {
+                                        ipc_errors
+                                            .push(format!("[engine-io] hello send failed: {e}"));
+                                    }
+                                    runtime.last_size = Some((cols, rows));
+                                }
+                            }
                         }
                         Err(err) => {
-                            pending_lines
-                                .push(format!("[engine-io] sidecar spawn failed: {err}"));
+                            pending_lines.push(format!("[engine-io] sidecar spawn failed: {err}"));
                         }
                     }
                 }
@@ -229,6 +239,14 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
     for ev in pending_events {
         apply_event(scene_runtime, ev);
     }
+}
+
+fn reserve_tcp_port() -> u16 {
+    TcpListener::bind("127.0.0.1:0")
+        .expect("reserve sidecar TCP port")
+        .local_addr()
+        .expect("resolve sidecar TCP port")
+        .port()
 }
 
 fn apply_event(scene_runtime: &mut crate::scene_runtime::SceneRuntime, ev: IoEvent) {

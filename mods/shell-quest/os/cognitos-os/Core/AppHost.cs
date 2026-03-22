@@ -2,6 +2,7 @@ using CognitosOs.Applications;
 using CognitosOs.Commands;
 using CognitosOs.Framework.Kernel;
 using CognitosOs.Framework.Execution;
+using CognitosOs.Framework.Transport;
 using CognitosOs.Minix.Shell;
 using CognitosOs.Network;
 using CognitosOs.State;
@@ -13,6 +14,7 @@ internal sealed class AppHost
     private readonly IKernel _kernel;
     private readonly MachineState _machineState;
     private readonly IMachineStart _store;
+    private readonly IOutputSink _sink;
     private readonly ScreenBuffer _screen;
     private readonly EasterEggRegistry _eggs;
     private readonly HistoryCommand _historyCmd;
@@ -31,6 +33,7 @@ internal sealed class AppHost
         IKernel kernel,
         MachineState machineState,
         IMachineStart store,
+        IOutputSink sink,
         EasterEggRegistry eggs,
         HistoryCommand historyCmd,
         IReadOnlyDictionary<string, IKernelCommand> commandIndex,
@@ -39,11 +42,12 @@ internal sealed class AppHost
         _kernel = kernel;
         _machineState = machineState;
         _store = store;
+        _sink = sink;
         _eggs = eggs;
         _historyCmd = historyCmd;
         _commandIndex = commandIndex;
         _reloadVfs = reloadVfs;
-        _screen = new ScreenBuffer();
+        _screen = new ScreenBuffer(sink);
     }
 
     public void EmitBoot(IBootSequence boot)
@@ -59,8 +63,8 @@ internal sealed class AppHost
         _screen.ClearViewport();
         _screen.SetPrompt("");
         _screen.SetInputLine("");
-        Protocol.Send(new { type = "set-prompt-prefix", text = "" });
-        Protocol.Send(new { type = "set-prompt-masked", masked = false });
+        Protocol.Send(_sink, new { type = "set-prompt-prefix", text = "" });
+        Protocol.Send(_sink, new { type = "set-prompt-masked", masked = false });
     }
 
     public void StartAtLogin()
@@ -215,31 +219,31 @@ internal sealed class AppHost
         switch (_machineState.Mode)
         {
             case SessionMode.Booting:
-                Protocol.Send(new { type = "set-prompt-prefix", text = "" });
-                Protocol.Send(new { type = "set-prompt-masked", masked = false });
+                Protocol.Send(_sink, new { type = "set-prompt-prefix", text = "" });
+                Protocol.Send(_sink, new { type = "set-prompt-masked", masked = false });
                 break;
 
             case SessionMode.LoginUser:
                 _screen.SetPrompt("kruuna login: ");
-                Protocol.Send(new
+                Protocol.Send(_sink, new
                 {
                     type = "set-prompt-prefix",
                     text = $"{Style.Fg(Style.PromptHost, "kruuna")} login: "
                 });
-                Protocol.Send(new { type = "set-prompt-masked", masked = false });
+                Protocol.Send(_sink, new { type = "set-prompt-masked", masked = false });
                 break;
 
             case SessionMode.LoginPassword:
                 _screen.SetPrompt("password: ");
-                Protocol.Send(new { type = "set-prompt-prefix", text = "password: " });
-                Protocol.Send(new { type = "set-prompt-masked", masked = true });
+                Protocol.Send(_sink, new { type = "set-prompt-prefix", text = "password: " });
+                Protocol.Send(_sink, new { type = "set-prompt-masked", masked = true });
                 break;
 
             case SessionMode.Shell when _appStack is not null && _session is not null:
                 var promptText = _appStack.CurrentPrompt(_session);
                 _screen.SetPrompt(promptText);
-                Protocol.Send(new { type = "set-prompt-prefix", text = promptText });
-                Protocol.Send(new { type = "set-prompt-masked", masked = false });
+                Protocol.Send(_sink, new { type = "set-prompt-prefix", text = promptText });
+                Protocol.Send(_sink, new { type = "set-prompt-masked", masked = false });
                 break;
         }
     }

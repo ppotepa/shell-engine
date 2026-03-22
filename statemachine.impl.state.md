@@ -3,83 +3,50 @@
 ## Worktree
 - Branch: `state-machine`
 - Worktree path: `/home/ppotepa/git/shell-quest-state-machine`
-- Last pushed commit: `b8aef21` — `feat(cognitos-os): Phase 0+2 — IoC container + ISyscallGate`
+- Current head: transport phase completed locally
 
-## Completed phases
-- Phase 0: IoC container
-  - `Framework/Ioc/ServiceContainer.cs`
-  - `Framework/Ioc/ServiceLifetime.cs`
-  - `Framework/Ioc/ServiceDescriptor.cs`
-  - `Framework/Ioc/IOperatingSystemModule.cs`
-  - `Framework/Ioc/CommandAttribute.cs`
-  - `Framework/Ioc/CommandScanner.cs`
-- Phase 2: ISyscallGate
-  - `Framework/Kernel/SyscallKind.cs`
-  - `Framework/Kernel/SyscallRequest.cs`
-  - `Framework/Kernel/SyscallResult.cs`
-  - `Framework/Kernel/SyscallException.cs`
-  - `Framework/Kernel/ISyscallGate.cs`
-  - `Minix/Kernel/MinixSyscallGate.cs`
-  - Subsystems routed through gate:
-    - `Kernel/Disk/SimulatedDisk.cs`
-    - `Kernel/Process/SimulatedProcessTable.cs`
-    - `Kernel/Network/SimulatedNetwork.cs`
+## Implemented phases
+- Phase 0 — IoC container
+  - `ServiceContainer`, lifetimes, OS module boundary, command attribute/scanner skeleton
+- Phase 2 — syscall gate
+  - `ISyscallGate`, syscall request/result types, MINIX gate, disk/net/process routed through gate
+- Phase 3 — kernel wiring
+  - framework `IKernel` / `IUnitOfWork`
+  - `MinixModule`
+  - `Program.cs` and `AppHost` boot through IoC
+- Phase 4A — UoW application stack
+  - `IKernelApplication`, `ApplicationStack`, `ShellApplication`, `FtpApplication`
+- Phase 4B — MINIX execution pipeline
+  - `IShellBuiltins`, `IScriptInterpreter`, `IExecutionPipeline`
+  - `MinixBuiltins`, `MinixScriptInterpreter`, `MinixExecutionPipeline`
+  - `MailApplication`
+- Phase 5 — reflective command registration
+  - command tagging via `[Command(Name, OsTag)]`
+  - `Program.cs` builds command index reflectively
+- Phase 6A — legacy bridge cleanup
+  - deleted `OperatingSystem.cs`
+  - deleted `LegacyUnitOfWork.cs`
+  - removed old `ICommand`, `IOperatingSystem`, `CommandContext`, `CommandResult`
+- Phase 1 — transport
+  - `Framework/Transport/IOutputSink.cs`
+  - `Framework/Transport/IInputSource.cs`
+  - `ConsoleOutputSink` / `ConsoleInputSource`
+  - `TcpOutputSink` / `TcpInputSource`
+  - `GameTextWriter`
+  - sink-based `Protocol`
+  - `Program.cs` now supports stdio mode and `--game-port <port>` TCP mode
+  - `engine-io` now has `TcpSidecar`
+  - `engine_io_system` appends `--game-port` and uses localhost TCP
 
-## Current phase in progress
-- Phase 3: Kernel wiring
-  - `Framework/Kernel/IKernel.cs` created
-  - `Framework/Kernel/IUnitOfWork.cs` created
-  - `Minix/MinixModule.cs` created
-  - Partial rewrites started in:
-    - `Core/AppHost.cs`
-    - `Program.cs`
-    - `Boot/BootSequence.cs`
-    - `Applications/ShellApplication.cs`
-    - `Applications/FtpApplication.cs`
-    - `Kernel/Kernel.cs`
-    - `Kernel/IUnitOfWork.cs`
-    - `Kernel/LegacyUnitOfWork.cs`
-    - `Core/Interfaces.cs`
+## Verification
+- C# sidecar build: `dotnet build -c Release` ✅
+- stdio smoke test: hello/login/pwd flow ✅
+- TCP smoke test: sidecar server accepts client and returns `screen-full` / prompt / `pwd` output ✅
+- Rust syntax gate: `rustfmt` successfully parsed and formatted `engine-io/src/lib.rs` and `engine/src/systems/engine_io.rs` ✅
+- Full cargo workspace build is currently blocked by a pre-existing missing manifest:
+  - `tools/ttf-rasterizer/Cargo.toml`
 
-## Current build state
-- Build is currently **failing**
-- Command used:
-  - `cd mods/shell-quest/os/cognitos-os && dotnet build -c Release`
-
-### Current errors
-1. `Applications/ShellApplication.cs`
-   - `CognitosOs.Framework.Kernel.IUnitOfWork` cannot be passed where `CognitosOs.Kernel.IUnitOfWork` is expected
-   - Cause: mixed old/new `IUnitOfWork` types across command/easter egg call sites
-
-2. `Minix/MinixModule.cs`
-   - `IKernel` ambiguous between `CognitosOs.Kernel.IKernel` and `CognitosOs.Framework.Kernel.IKernel`
-   - `Kernel` used as namespace instead of concrete type
-   - Cause: namespace/type collision during new framework kernel registration
-
-## Working tree changes not yet committed
-- Modified:
-  - `mods/shell-quest/os/cognitos-os/Applications/FtpApplication.cs`
-  - `mods/shell-quest/os/cognitos-os/Applications/ShellApplication.cs`
-  - `mods/shell-quest/os/cognitos-os/Boot/BootSequence.cs`
-  - `mods/shell-quest/os/cognitos-os/Core/AppHost.cs`
-  - `mods/shell-quest/os/cognitos-os/Core/Interfaces.cs`
-  - `mods/shell-quest/os/cognitos-os/Kernel/IUnitOfWork.cs`
-  - `mods/shell-quest/os/cognitos-os/Kernel/Kernel.cs`
-  - `mods/shell-quest/os/cognitos-os/Kernel/LegacyUnitOfWork.cs`
-  - `mods/shell-quest/os/cognitos-os/Program.cs`
-- Untracked:
-  - `mods/shell-quest/os/cognitos-os/Framework/Kernel/IKernel.cs`
-  - `mods/shell-quest/os/cognitos-os/Framework/Kernel/IUnitOfWork.cs`
-  - `mods/shell-quest/os/cognitos-os/Minix/MinixModule.cs`
-
-## Todo state
-- Done: `8`
-- In progress: `6`
-- Pending: `18`
-
-## Recommended next fixes
-1. Unify `IUnitOfWork` usage so command/easter egg paths use one canonical type
-2. Resolve `IKernel` ambiguity with explicit namespace aliasing
-3. Fix `MinixModule` to instantiate the concrete kernel type explicitly
-4. Rebuild until Phase 3 is green
-5. Commit and push Phase 3 to `origin/state-machine`
+## Remaining cleanup opportunities
+- unify remaining `CognitosOs.Kernel.IUnitOfWork` aliases onto the framework interface
+- optionally move eggs/apps onto scanner-based registration too
+- optionally remove `ScreenBuffer` once transport owns all presentation directly
