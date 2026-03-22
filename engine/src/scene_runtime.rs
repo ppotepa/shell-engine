@@ -1113,10 +1113,33 @@ impl SceneRuntime {
         let object_kinds = self.object_kind_snapshot();
         let object_props = self.object_props_snapshot();
         let object_text = self.object_text_snapshot();
-        let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
-        let ui_last_submit = self.ui_state.last_submit.clone();
-        let ui_last_change = self.ui_state.last_change.clone();
-        let ui_theme_id = self.ui_state.theme_id.clone();
+        // UI strings: build Arc<str> once, clone is a single atomic increment per behavior.
+        let ui_focused_target_id: Option<std::sync::Arc<str>> =
+            self.focused_ui_target_id().map(std::sync::Arc::from);
+        let ui_theme_id: Option<std::sync::Arc<str>> =
+            self.ui_state.theme_id.as_deref().map(std::sync::Arc::from);
+        let ui_last_submit_target_id: Option<std::sync::Arc<str>> = self
+            .ui_state
+            .last_submit
+            .as_ref()
+            .map(|e| std::sync::Arc::from(e.target_id.as_str()));
+        let ui_last_submit_text: Option<std::sync::Arc<str>> = self
+            .ui_state
+            .last_submit
+            .as_ref()
+            .map(|e| std::sync::Arc::from(e.text.as_str()));
+        let ui_last_change_target_id: Option<std::sync::Arc<str>> = self
+            .ui_state
+            .last_change
+            .as_ref()
+            .map(|e| std::sync::Arc::from(e.target_id.as_str()));
+        let ui_last_change_text: Option<std::sync::Arc<str>> = self
+            .ui_state
+            .last_change
+            .as_ref()
+            .map(|e| std::sync::Arc::from(e.text.as_str()));
+        let last_raw_key: Option<std::sync::Arc<crate::scene_runtime::RawKeyEvent>> =
+            self.ui_state.last_raw_key.as_ref().map(|k| std::sync::Arc::new(k.clone()));
         let mut commands = Vec::new();
         let mut current_states = self.effective_object_states_snapshot();
         for idx in 0..self.behaviors.len() {
@@ -1137,16 +1160,12 @@ impl SceneRuntime {
                 object_text: std::sync::Arc::clone(&object_text),
                 ui_focused_target_id: ui_focused_target_id.clone(),
                 ui_theme_id: ui_theme_id.clone(),
-                ui_last_submit_target_id: ui_last_submit
-                    .as_ref()
-                    .map(|event| event.target_id.clone()),
-                ui_last_submit_text: ui_last_submit.as_ref().map(|event| event.text.clone()),
-                ui_last_change_target_id: ui_last_change
-                    .as_ref()
-                    .map(|event| event.target_id.clone()),
-                ui_last_change_text: ui_last_change.as_ref().map(|event| event.text.clone()),
+                ui_last_submit_target_id: ui_last_submit_target_id.clone(),
+                ui_last_submit_text: ui_last_submit_text.clone(),
+                ui_last_change_target_id: ui_last_change_target_id.clone(),
+                ui_last_change_text: ui_last_change_text.clone(),
                 game_state: game_state.clone(),
-                last_raw_key: self.ui_state.last_raw_key.clone(),
+                last_raw_key: last_raw_key.clone(),
                 sidecar_io: std::sync::Arc::clone(&sidecar_io),
             };
             let mut local_commands = Vec::new();
