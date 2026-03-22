@@ -19,7 +19,7 @@
 //! | param        | default | meaning                                      |
 //! |--------------|---------|----------------------------------------------|
 //! | `alpha`      | 0.70    | initial ghost brightness (0–1)               |
-//! | `speed`      | 0.15    | decay time constant in seconds               |
+//! | `speed`      | 0.40    | decay time constant in seconds               |
 //! | `brightness` | 1.0     | ghost luminance multiplier                   |
 //! | `intensity`  | 1.0     | overall strength (0 = off)                   |
 //! | `pump`       | 1.3     | first-frame flash multiplier (≥1.0)          |
@@ -106,7 +106,7 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
     }
 
     let alpha = pass.params.alpha.unwrap_or(0.70).clamp(0.0, 1.0);
-    let speed = pass.params.speed.unwrap_or(0.15_f32).max(0.001);
+    let speed = pass.params.speed.unwrap_or(0.40_f32).max(0.001);
     let brightness = pass.params.brightness.unwrap_or(1.0).clamp(0.1, 3.0);
     let intensity = pass.params.intensity.unwrap_or(1.0).clamp(0.0, 1.0);
     let pump = pass.params.pump.unwrap_or(1.3).clamp(1.0, 3.0);
@@ -167,23 +167,34 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         for y in 0..src.height {
             for x in 0..src.width {
                 let src_cell = src.get(x, y).cloned().unwrap_or_default();
-                let (sr, sg, sb) = cell_rgb(&src_cell);
 
                 let gx = (x as usize).min(gw.saturating_sub(1));
                 let gy = (y as usize).min(s.ghost_h.saturating_sub(1) as usize);
 
                 // 3×3 blur on ghost pixel.
-                let (br, bg, bb) = blur_sample(ghost, gw, s.ghost_h as usize, gx, gy);
+                let (blur_r, blur_g, blur_b) = blur_sample(ghost, gw, s.ghost_h as usize, gx, gy);
 
-                // Additive glow: new scene + phosphor afterglow.
-                let out_r = (sr + br * fr * 255.0).min(255.0) as u8;
-                let out_g = (sg + bg * fg_ch * 255.0).min(255.0) as u8;
-                let out_b = (sb + bb * fb * 255.0).min(255.0) as u8;
+                // Glow contribution (0–255 range).
+                let glow_r = blur_r * fr * 255.0;
+                let glow_g = blur_g * fg_ch * 255.0;
+                let glow_b = blur_b * fb * 255.0;
 
-                let out = Color::Rgb { r: out_r, g: out_g, b: out_b };
+                // Add glow to fg and bg SEPARATELY — preserves text contrast.
+                let (sfr, sfg, sfb) = colour_to_rgb(src_cell.fg);
+                let (sbr, sbg, sbb) = colour_to_rgb(normalize_bg(src_cell.bg));
 
-                // Keep original symbol + use glow as both fg and bg.
-                dst.set(x, y, src_cell.symbol, out, out);
+                let out_fg = Color::Rgb {
+                    r: (sfr as f32 + glow_r).min(255.0) as u8,
+                    g: (sfg as f32 + glow_g).min(255.0) as u8,
+                    b: (sfb as f32 + glow_b).min(255.0) as u8,
+                };
+                let out_bg = Color::Rgb {
+                    r: (sbr as f32 + glow_r).min(255.0) as u8,
+                    g: (sbg as f32 + glow_g).min(255.0) as u8,
+                    b: (sbb as f32 + glow_b).min(255.0) as u8,
+                };
+
+                dst.set(x, y, src_cell.symbol, out_fg, out_bg);
             }
         }
 
@@ -238,11 +249,4 @@ fn pixel_rgb(cell: &Cell) -> (f32, f32, f32) {
     let c = if cell.symbol != ' ' { cell.fg } else { normalize_bg(cell.bg) };
     let (r, g, b) = colour_to_rgb(c);
     (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0)
-}
-
-/// Extract RGB (0.0–255.0) from a cell for additive blend.
-fn cell_rgb(cell: &Cell) -> (f32, f32, f32) {
-    let c = if cell.symbol != ' ' { cell.fg } else { normalize_bg(cell.bg) };
-    let (r, g, b) = colour_to_rgb(c);
-    (r as f32, g as f32, b as f32)
 }

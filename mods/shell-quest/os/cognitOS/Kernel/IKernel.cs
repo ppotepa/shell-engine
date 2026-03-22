@@ -13,6 +13,7 @@ using CognitOS.Kernel.Hardware;
 using CognitOS.Kernel.Session;
 using CognitOS.Kernel.Users;
 using CognitOS.Kernel.Mount;
+using CognitOS.Kernel.Modem;
 using CognitOS.State;
 
 /// <summary>
@@ -32,6 +33,7 @@ internal interface IKernel
     ISessionManager Sessions { get; }
     IUserDatabase Users { get; }
     IMountTable Mounts { get; }
+    IModem Modem { get; }
     ResourceState Resources { get; }
     HardwareProfile Hardware { get; }
     MachineSpec Spec { get; }

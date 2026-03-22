@@ -14,6 +14,7 @@ using CognitOS.Kernel.Hardware;
 using CognitOS.Kernel.Session;
 using CognitOS.Kernel.Users;
 using CognitOS.Kernel.Mount;
+using CognitOS.Kernel.Modem;
 using CognitOS.Minix.Kernel;
 using CognitOS.State;
 using FrameworkKernel = CognitOS.Framework.Kernel;
@@ -36,6 +37,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
     public ISessionManager Sessions { get; }
     public IUserDatabase Users { get; }
     public IMountTable Mounts { get; }
+    public IModem Modem { get; }
     public ResourceState Resources { get; }
     public HardwareProfile Hardware { get; }
     public MachineSpec Spec { get; }
@@ -68,6 +70,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         Services = new SimulatedServiceManager(Process, Disk, Clock, Mail, Journal);
 
         // Layer 6: Higher-level OS subsystems
+        Modem = new SimulatedModem(Hardware, netReg);
         Sessions = new SessionManager();
         Users = new UserDatabase(Disk);
         var mountTable = new MountTable();

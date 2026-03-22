@@ -495,7 +495,13 @@ Sep 17 21:04:00 cron: /usr/lib/atrun", out _);
     {
         if (string.IsNullOrWhiteSpace(raw) || raw is "." or "~" or "/" or "./")
             return "";
-        return raw.Trim().TrimStart('/').TrimEnd('/');
+        var trimmed = raw.Trim().TrimStart('/').TrimEnd('/');
+        // Map /usr/torvalds (and sub-paths) to the VFS root, which is stored as "".
+        // This allows SimulatedDisk to pass absolute paths directly without conversion.
+        const string homeRel = "usr/torvalds";
+        if (trimmed == homeRel) return "";
+        if (trimmed.StartsWith(homeRel + "/")) return trimmed[(homeRel.Length + 1)..];
+        return trimmed;
     }
 
     private static bool IsDirectChildOf(string candidate, string parent)

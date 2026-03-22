@@ -54,7 +54,7 @@ effect-presets:
     duration: 0
     params:
       alpha: 0.70
-      speed: 0.15
+      speed: 0.40
       brightness: 1.0
       intensity: 1.0
       pump: 1.3

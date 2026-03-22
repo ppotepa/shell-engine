@@ -5,6 +5,7 @@ using CognitOS.Kernel.Clock;
 using CognitOS.Kernel.Disk;
 using CognitOS.Kernel.Journal;
 using CognitOS.Kernel.Mail;
+using CognitOS.Kernel.Modem;
 using CognitOS.Kernel.Mount;
 using CognitOS.Kernel.Network;
 using CognitOS.Kernel.Process;
@@ -36,6 +37,7 @@ internal sealed class UnitOfWork : IUnitOfWork
     public ISessionManager Sessions => _kernel.Sessions;
     public IUserDatabase Users => _kernel.Users;
     public IMountTable Mounts => _kernel.Mounts;
+    public IModem Modem => _kernel.Modem;
     public UserSession Session { get; }
     public QuestState Quest { get; }
     public MachineSpec Spec => _kernel.Spec;

@@ -5,6 +5,7 @@ using CognitOS.Commands;
 using CognitOS.Core;
 using CognitOS.Framework.Execution;
 using CognitOS.Kernel;
+using CognitOS.Kernel.Modem;
 using CognitOS.Network;
 using CognitOS.State;
 
@@ -167,6 +168,7 @@ internal sealed class MinixExecutionPipeline : IExecutionPipeline
         public CognitOS.Kernel.Session.ISessionManager Sessions => _inner.Sessions;
         public CognitOS.Kernel.Users.IUserDatabase Users => _inner.Users;
         public CognitOS.Kernel.Mount.IMountTable Mounts => _inner.Mounts;
+        public IModem Modem => _inner.Modem;
         public UserSession Session => _inner.Session;
         public QuestState Quest => _inner.Quest;
         public MachineSpec Spec => _inner.Spec;

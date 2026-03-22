@@ -5,6 +5,7 @@ using CognitOS.Kernel.Clock;
 using CognitOS.Kernel.Disk;
 using CognitOS.Kernel.Journal;
 using CognitOS.Kernel.Mail;
+using CognitOS.Kernel.Modem;
 using CognitOS.Kernel.Mount;
 using CognitOS.Kernel.Network;
 using CognitOS.Kernel.Process;
@@ -31,6 +32,7 @@ internal interface IUnitOfWork : IDisposable
     ISessionManager Sessions { get; }
     IUserDatabase Users { get; }
     IMountTable Mounts { get; }
+    IModem Modem { get; }
     UserSession Session { get; }
     QuestState Quest { get; }
     MachineSpec Spec { get; }

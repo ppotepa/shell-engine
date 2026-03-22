@@ -189,9 +189,15 @@ internal sealed class SimulatedDisk : IDisk
     }
 
     /// <summary>
-    /// Convert an absolute or relative path to the normalized VFS key
-    /// used as the inode table key (same format as ZipVirtualFileSystem internal keys).
+    /// Convert an absolute path to the normalized VFS key used as the inode table key.
+    /// Must match ZipVirtualFileSystem.Normalize() logic exactly.
     /// </summary>
     private static string NormalizeKey(string path)
-        => path.Trim().TrimStart('/').TrimEnd('/');
+    {
+        var trimmed = path.Trim().TrimStart('/').TrimEnd('/');
+        const string homeRel = "usr/torvalds";
+        if (trimmed == homeRel) return "";
+        if (trimmed.StartsWith(homeRel + "/")) return trimmed[(homeRel.Length + 1)..];
+        return trimmed;
+    }
 }

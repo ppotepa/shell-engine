@@ -17,13 +17,6 @@ internal sealed class FtpApplication : IKernelApplication
     private string _transferMode = "ascii";
     private string _remoteCwd = "/pub/OS/Linux";
 
-    private static readonly Dictionary<string, string> DnsTable =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["nic.funet.fi"] = "128.214.6.100",
-            ["ftp.funet.fi"] = "128.214.6.100",
-        };
-
     public FtpApplication(MachineState machineState)
     {
         _machineState = machineState;
@@ -115,17 +108,26 @@ internal sealed class FtpApplication : IKernelApplication
             uow.Out.WriteLine("(to) ");
             return;
         }
-        if (!DnsTable.TryGetValue(host, out var ip))
+        var ip = uow.Net.Resolve(host);
+        if (ip is null)
         {
             uow.Out.WriteLine($"ftp: {host}: Name or service not known");
             return;
         }
 
+        // Modem dial sequence before the FTP handshake
+        if (!uow.Modem.Dial(ip, uow.Out))
+        {
+            uow.Out.WriteLine($"ftp: {host}: Connection timed out");
+            return;
+        }
+
+        uow.Out.WriteLine();
         _remoteHost = host;
         uow.Out.WriteLine($"Connected to {host} ({ip}).");
-        uow.Out.WriteLine("220 nic.funet.fi FTP server ready.");
+        uow.Out.WriteLine($"220 {host} FTP server ready.");
         uow.Out.WriteLine($"Name ({host}:anonymous): anonymous");
-        uow.Out.WriteLine("331 Guest login ok, send strIdent as password.");
+        uow.Out.WriteLine("331 Guest login ok, send ident as password.");
         uow.Out.WriteLine("230 Guest login ok, access restrictions apply.");
         uow.Out.WriteLine("Remote system type is UNIX.");
         uow.Out.WriteLine($"Using {_transferMode} mode to transfer files.");
@@ -144,6 +146,7 @@ internal sealed class FtpApplication : IKernelApplication
         _connected = false;
         _remoteHost = "";
         _machineState.Quest.FtpConnected = false;
+        uow.Modem.Hangup();
     }
 
     private void HandleBinary(CognitOS.Kernel.IUnitOfWork uow)
