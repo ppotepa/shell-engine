@@ -1,10 +1,13 @@
 using System.Text.Json;
+using System.Net;
+using System.Net.Sockets;
 using CognitosOs.Boot;
 using CognitosOs.Commands;
 using CognitosOs.Core;
 using CognitosOs.EasterEggs;
 using CognitosOs.Framework.Ioc;
 using CognitosOs.Framework.Kernel;
+using CognitosOs.Framework.Transport;
 using CognitosOs.Minix;
 using CognitosOs.Network;
 using CognitosOs.State;
@@ -13,6 +16,9 @@ internal static class Program
 {
     public static void Main()
     {
+        var transport = CreateTransport(Environment.GetCommandLineArgs().Skip(1).ToArray());
+        Console.SetOut(new GameTextWriter(transport.Output));
+
         var statePath = Path.Combine(Environment.CurrentDirectory, "state.obj");
         IMachineStart machineStart = new ZipStateStore(statePath);
         var state = machineStart.LoadOrCreate();
@@ -33,7 +39,7 @@ internal static class Program
         var initialized = false;
 
         string? line;
-        while ((line = Console.ReadLine()) != null)
+        while ((line = transport.Input.ReadProtocolLine()) != null)
         {
             line = line.TrimEnd('\r', '\n');
             if (string.IsNullOrWhiteSpace(line)) continue;
@@ -76,7 +82,7 @@ internal static class Program
                     var commandIndex = CommandScanner.BuildCommandIndex(osScope, "minix");
 
                     host = new AppHost(
-                        kernel, state, machineStart, eggs, historyCmd, commandIndex,
+                        kernel, state, machineStart, transport.Output, eggs, historyCmd, commandIndex,
                         reloadVfs: () => fileSystem.ReloadFromStateArchive());
 
                     host.HandleResize(cols, rows);
@@ -107,12 +113,64 @@ internal static class Program
             }
             catch (Exception ex)
             {
-                Protocol.Send(new
+                Protocol.Send(transport.Output, new
                 {
                     type = "out",
                     lines = new[] { Style.Fg(Style.Error, $"[cognitos-os] parse error: {ex.Message}"), "" }
                 });
             }
+        }
+    }
+
+    private static TransportContext CreateTransport(string[] args)
+    {
+        if (args.Length >= 2 && args[0] == "--game-port" && int.TryParse(args[1], out var port))
+            return TransportContext.CreateTcp(port);
+
+        return TransportContext.CreateConsole(Console.In, Console.Out);
+    }
+
+    private sealed class TransportContext : IDisposable
+    {
+        public IInputSource Input { get; }
+        public IOutputSink Output { get; }
+        private readonly TcpClient? _client;
+        private readonly TcpListener? _listener;
+
+        private TransportContext(IInputSource input, IOutputSink output, TcpClient? client = null, TcpListener? listener = null)
+        {
+            Input = input;
+            Output = output;
+            _client = client;
+            _listener = listener;
+        }
+
+        public static TransportContext CreateConsole(TextReader input, TextWriter output)
+        {
+            return new TransportContext(
+                new ConsoleInputSource(input),
+                new ConsoleOutputSink(output));
+        }
+
+        public static TransportContext CreateTcp(int port)
+        {
+            var listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+            var client = listener.AcceptTcpClient();
+            var stream = client.GetStream();
+            return new TransportContext(
+                new TcpInputSource(stream),
+                new TcpOutputSink(stream),
+                client,
+                listener);
+        }
+
+        public void Dispose()
+        {
+            Input.Dispose();
+            Output.Dispose();
+            _client?.Dispose();
+            _listener?.Stop();
         }
     }
 }
