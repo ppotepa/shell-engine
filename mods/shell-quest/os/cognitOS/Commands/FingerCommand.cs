@@ -13,41 +13,46 @@ internal sealed class FingerCommand : IKernelCommand
     {
         if (argv.Length < 2)
         {
-            uow.Err.WriteLine("usage: finger <user>");
-            return 1;
+            // finger with no args: list all logged-in users from SessionManager
+            foreach (var s in uow.Sessions.GetSessions())
+            {
+                if (s.IsAnomaly && uow.Quest.UploadSuccess) continue;
+                var name = string.IsNullOrEmpty(s.User) ? "(unknown)" : s.User;
+                var entry = uow.Users.GetUser(s.User ?? "");
+                var gecos = entry?.Gecos ?? "";
+                uow.Out.WriteLine($"{name,-12} {gecos,-28} {s.Tty,-6} {s.LoginTime:MMM dd HH:mm}");
+            }
+            return 0;
         }
 
         var target = argv[1].ToLowerInvariant();
 
-        if (target is "torvalds")
+        // Look up user in /etc/passwd via UserDatabase
+        var user = uow.Users.GetUser(target);
+        if (user is null)
         {
-            var plan = uow.Disk.RawRead("/usr/torvalds/.plan") ?? "No plan.";
-            uow.Out.WriteLine("Login: torvalds                         Name: Linus B. Torvalds");
-            uow.Out.WriteLine("Directory: /usr/torvalds                Shell: /bin/sh");
-            uow.Out.WriteLine($"On since {uow.Clock.Now():MMM dd HH:mm} on tty0");
-            uow.Out.WriteLine($"Plan:\n{plan}");
-            return 0;
+            uow.Err.WriteLine($"finger: {target}: no such user.");
+            return 1;
         }
 
-        if (target is "ast" or "tanenbaum")
-        {
-            var plan = uow.Disk.RawRead("/usr/ast/.plan") ?? "No plan.";
-            uow.Out.WriteLine("Login: ast                              Name: Andy S. Tanenbaum");
-            uow.Out.WriteLine("Directory: /usr/ast                     Shell: /bin/sh");
-            uow.Out.WriteLine("On since Sep 15 09:41 on tty1");
-            uow.Out.WriteLine($"Plan:\n{plan}");
-            return 0;
-        }
+        // Check if they have an active session
+        var session = uow.Sessions.GetSessions().FirstOrDefault(s => s.User == target);
 
-        if (target is "root")
-        {
-            uow.Out.WriteLine("Login: root                             Name: Charlie Root");
-            uow.Out.WriteLine("Directory: /root                        Shell: /bin/sh");
+        uow.Out.WriteLine($"Login: {user.Login,-36} Name: {user.Gecos}");
+        uow.Out.WriteLine($"Directory: {user.Home,-28} Shell: {user.Shell}");
+
+        if (session is not null)
+            uow.Out.WriteLine($"On since {session.LoginTime:MMM dd HH:mm} on {session.Tty}");
+        else
             uow.Out.WriteLine("Never logged in.");
-            return 0;
-        }
 
-        uow.Err.WriteLine($"finger: {target}: no such user.");
-        return 1;
+        // Read .plan from VFS
+        var plan = uow.Disk.RawRead($"{user.Home}/.plan");
+        if (!string.IsNullOrEmpty(plan))
+            uow.Out.WriteLine($"Plan:\n{plan}");
+        else
+            uow.Out.WriteLine("No plan.");
+
+        return 0;
     }
 }

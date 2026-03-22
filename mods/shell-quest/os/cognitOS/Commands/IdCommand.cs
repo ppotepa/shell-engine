@@ -11,13 +11,32 @@ internal sealed class IdCommand : IKernelCommand
 
     public int Run(IUnitOfWork uow, string[] argv)
     {
+        var login = uow.Session.User;
+        var entry = uow.Users.GetUser(login);
+
         if (argv[0] == "groups")
         {
-            uow.Out.WriteLine("staff operator");
+            var groupNames = uow.Users.GetGroupsForUser(login);
+            uow.Out.WriteLine(string.Join(" ", groupNames));
             return 0;
         }
 
-        uow.Out.WriteLine($"uid=101({uow.Session.User}) gid=10(staff) groups=10(staff),5(operator)");
+        if (entry is null)
+        {
+            uow.Out.WriteLine($"uid=?(?) gid=(?) groups=(?)");
+            return 1;
+        }
+
+        var primaryGroup = uow.Users.GetGroup(entry.Gid);
+        var groups = uow.Users.GetGroupsForUser(login).ToList();
+        var gidStr = primaryGroup is not null ? $"{primaryGroup.Gid}({primaryGroup.Name})" : $"{entry.Gid}";
+        var groupsStr = string.Join(",", groups.Select(g =>
+        {
+            var ge = uow.Users.GetGroupByName(g);
+            return ge is not null ? $"{ge.Gid}({ge.Name})" : g;
+        }));
+
+        uow.Out.WriteLine($"uid={entry.Uid}({entry.Login}) gid={gidStr} groups={groupsStr}");
         return 0;
     }
 }

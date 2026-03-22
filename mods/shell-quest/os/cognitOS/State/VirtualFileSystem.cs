@@ -346,6 +346,19 @@ finger     79/tcp", out _);
 /usr/bin/cron &
 /etc/getty tty0 &", out _);
 
+        TryWrite("etc/motd",
+@"MINIX 1.1  kruuna.helsinki.fi
+University of Helsinki, Department of Computer Science
+", out _);
+
+        TryWrite("etc/group",
+@"wheel:x:0:root
+daemon:x:1:daemon
+bin:x:2:bin
+staff:x:10:ast,torvalds
+operator:x:5:torvalds
+nobody:x:65534:", out _);
+
         // --- /usr/ast ---
         TryMkdir("usr/ast", out _);
 
@@ -391,10 +404,10 @@ nroff: 2 warnings, 0 errors (but it looks wrong anyway)", out _);
 
         TryWrite("tmp/.lock-ast", "", out _);
 
-        // --- /var/log ---
-        TryMkdir("var/log", out _);
+        // --- /usr/adm (MINIX log directory, not /var/log) ---
+        TryMkdir("usr/adm", out _);
 
-        TryWrite("var/log/messages",
+        TryWrite("usr/adm/messages",
 @"Sep 17 21:00:01 kruuna kernel: MINIX 1.1 boot
 Sep 17 21:00:01 kruuna kernel: memory: 4096K total, 109K kernel, 3987K free
 Sep 17 21:00:02 kruuna init: system startup
@@ -404,15 +417,13 @@ Sep 17 21:12:00 kruuna login: torvalds logged in on tty0
 Sep 17 21:12:00 kruuna login: session opened for ast on tty1
 Sep 17 21:12:00 kruuna login: session opened for (unknown) on tty2", out _);
 
-        TryWrite("var/log/cron.log",
+        TryWrite("usr/adm/cron",
 @"Sep 17 21:00:02 cron: started
 Sep 17 21:02:00 cron: /usr/lib/atrun
 Sep 17 21:04:00 cron: /usr/lib/atrun", out _);
 
-        TryWrite("var/log/auth.log",
-@"Sep 17 21:12:00 login: torvalds on tty0
-Sep 15 09:41:00 login: ast on tty1
-Jan  1 00:00:00 login: (unknown) on tty2", out _);
+        TryWrite("usr/adm/wtmp",
+            "[binary file -- login accounting records]", out _);
 
         // --- /proc ---
         TryMkdir("proc", out _);
@@ -423,9 +434,16 @@ Jan  1 00:00:00 login: (unknown) on tty2", out _);
         // --- /dev (virtual) ---
         TryMkdir("dev", out _);
 
-        TryWrite("dev/null", "", out _);
-        TryWrite("dev/random", "[random bytes -- display corrupted]\x07\x1b[2J#@!$%", out _);
+        TryWrite("dev/null",    "", out _);
         TryWrite("dev/console", "[device -- cannot read directly]", out _);
+        TryWrite("dev/tty0",    "[tty device -- torvalds, active]", out _);
+        TryWrite("dev/tty1",    "[tty device -- ast, idle]", out _);
+        TryWrite("dev/tty2",    "[tty device -- (unknown), login Jan 1 00:00]", out _);
+        TryWrite("dev/hd0",     "[block device -- winchester disk]", out _);
+        TryWrite("dev/hd1",     "[block device -- root partition]", out _);
+        TryWrite("dev/hd2",     "[block device -- /usr partition]", out _);
+        TryWrite("dev/modem",   "[char device -- RS-232 serial]", out _);
+        TryWrite("dev/mem",     "[block device -- physical memory]", out _);
 
         // --- /usr/bin, /usr/lib, /usr/man, /usr/src ---
         TryMkdir("usr/bin", out _);

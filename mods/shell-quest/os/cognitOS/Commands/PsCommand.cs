@@ -61,8 +61,9 @@ internal sealed class PsCommand : IKernelCommand
 
     private static string FormatTime(int pid)
     {
-        var mins = pid % 10;
-        var secs = (pid * 7) % 60;
-        return $"0:{mins:D2}:{secs:D2}";
+        // Deterministic CPU time based on PID — small processes accumulate little
+        var secs = pid * 3 % 60;
+        var mins = pid / 4 % 60;
+        return $"{mins}:{secs:D2}";
     }
 }

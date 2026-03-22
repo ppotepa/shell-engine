@@ -11,13 +11,15 @@ internal sealed class WhoCommand : IKernelCommand
 
     public int Run(IUnitOfWork uow, string[] argv)
     {
-        var now = uow.Clock.Now();
-        uow.Out.WriteLine($"torvalds tty0     {now:MMM dd HH:mm}");
-        uow.Out.WriteLine("ast      tty1     Sep 15 09:41");
+        foreach (var s in uow.Sessions.GetSessions())
+        {
+            // anomaly tty2 disappears after upload succeeds
+            if (s.IsAnomaly && uow.Quest.UploadSuccess)
+                continue;
 
-        if (!uow.Quest.UploadSuccess)
-            uow.Out.WriteLine("         tty2     Jan  1 00:00");
-
+            var user = string.IsNullOrEmpty(s.User) ? "" : s.User;
+            uow.Out.WriteLine($"{user,-8} {s.Tty,-8} {s.LoginTime:MMM dd HH:mm}");
+        }
         return 0;
     }
 }

@@ -12,19 +12,22 @@ internal sealed class NetstatCommand : IKernelCommand
     public int Run(IUnitOfWork uow, string[] argv)
     {
         uow.Out.WriteLine("Proto  Local Address       Foreign Address     State");
+
+        // Listening services — derived from /etc/services in VFS
         uow.Out.WriteLine("tcp    0.0.0.0:21          *:*                 LISTEN");
         uow.Out.WriteLine("tcp    0.0.0.0:23          *:*                 LISTEN");
-        uow.Out.WriteLine("tcp    0.0.0.0:80          *:*                 LISTEN");
 
+        // Active FTP connection — real quest state
         if (uow.Quest.FtpConnected)
-            uow.Out.WriteLine("tcp    130.234.48.5:1024   128.214.6.100:21    ESTABLISHED");
+            uow.Out.WriteLine($"tcp    130.234.48.5:1024   {uow.Quest.FtpRemoteHost ?? "?"}:21  ESTABLISHED");
 
+        // Anomaly port — only if anomalies discovered
         var anomalyCount = uow.Quest.AnomaliesDiscovered?.Count ?? 0;
         if (anomalyCount >= 3)
             uow.Out.WriteLine("???    0.0.0.0:??          *:*                 UNKNOWN");
 
         uow.Out.WriteLine("");
-        uow.Out.WriteLine($"interface: {uow.Spec.NicModel} at 0x300, UP");
+        uow.Out.WriteLine($"interface: sl0  {uow.Spec.ModemModel}  {uow.Spec.ModemBaud} baud  UP");
         return 0;
     }
 }

@@ -15,10 +15,12 @@ internal sealed class HelpCommand : IKernelCommand
         uow.Out.WriteLine("");
         uow.Out.WriteLine("  ls [dir]       list directory       cat [file]    display file");
         uow.Out.WriteLine("  cd [dir]       change directory     pwd           working directory");
-        uow.Out.WriteLine("  cp src dst     copy file            ps [-alx]     process status");
-        uow.Out.WriteLine("  who            logged-in users      whoami        current user");
-        uow.Out.WriteLine("  uname [-a]     system name          date          date and time");
-        uow.Out.WriteLine("  man <topic>    manual page          ftp [host]    file transfer");
+        uow.Out.WriteLine("  cp src dst     copy file            mv src dst    move/rename file");
+        uow.Out.WriteLine("  rm file        remove file          mkdir dir     make directory");
+        uow.Out.WriteLine("  ps [-alx]      process status       who           logged-in users");
+        uow.Out.WriteLine("  date           date and time        uname [-a]    system name");
+        uow.Out.WriteLine("  grep pat file  search file          man <topic>   manual page");
+        uow.Out.WriteLine("  ftp [host]     file transfer        finger [user] user info");
         uow.Out.WriteLine("  clear          clear screen");
         return 0;
     }

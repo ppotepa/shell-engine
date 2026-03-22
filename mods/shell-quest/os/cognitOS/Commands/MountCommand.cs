@@ -11,9 +11,8 @@ internal sealed class MountCommand : IKernelCommand
 
     public int Run(IUnitOfWork uow, string[] argv)
     {
-        var res = uow.Resources;
-        uow.Out.WriteLine($"/dev/hd1 on / type minix (rw) [{res.DiskTotalKb}K]");
-        uow.Out.WriteLine($"/dev/hd2 on /usr type minix (rw) [{res.DiskTotalKb / 2}K]");
+        foreach (var m in uow.Mounts.GetMounts())
+            uow.Out.WriteLine($"{m.Device} on {m.MountPoint} type {m.FsType} ({m.Options}) [{m.SizeKb}K]");
         return 0;
     }
 }

@@ -1,17 +1,16 @@
 //! CRT phosphor burn-in / persistence transition effect.
 //!
-//! Three-phase transition:
+//! Two-phase transition:
 //!
-//! 1. **Black phase** (0 → 30% of `speed`) — screen goes black, ghost
-//!    of previous scene glows on the dark background at full brightness.
-//! 2. **Reveal phase** (30% → 50% of `speed`) — new scene appears,
-//!    ghost fades from ~25% to ~10% over the new content.
-//! 3. **Tail phase** (50% → end) — ghost decays logarithmically from
-//!    ~10% to imperceptible, auto-cleared below 0.3%.
+//! 1. **Black phase** (0 → 50% of `speed`) — screen goes black, ghost
+//!    of previous scene glows on the dark background, losing 90% brightness
+//!    by end of phase.  Ghost is blurred with 3×3 kernel.
+//! 2. **Tail phase** (50% → end) — new scene appears instantly, ghost
+//!    continues at ~10% brightness with logarithmic decay to imperceptible.
 //!
 //! ## Realism features
 //!
-//! - **Exponential decay** — `exp(-3.5t)` gives fast drop with long tail
+//! - **Exponential decay** — `exp(-4.6t)` drops 90% by mid-point
 //! - **Brightness pump** — ghost flashes brighter on first frame
 //! - **Phosphor colour decay** — blue fades fastest, green lingers (P31)
 //! - **2D blur kernel** — 3×3 weighted average for phosphor spread
@@ -95,10 +94,8 @@ thread_local! {
     static BURN_IN: RefCell<BurnInState> = RefCell::new(BurnInState::default());
 }
 
-/// Phase boundary fractions (of total `speed` duration).
-const BLACK_FRAC: f32 = 0.30; // 0 → 30%: black screen + ghost
-const REVEAL_FRAC: f32 = 0.50; // 30% → 50%: new scene fades in + ghost
-                                // 50% → end: ghost tail only
+/// Phase boundary: black screen for first 50% of `speed` duration.
+const BLACK_FRAC: f32 = 0.50;
 
 pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pass: &Effect) {
     if src.width == 0 || src.height == 0 {
@@ -144,26 +141,13 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
 
         // ── 3. Phase detection ────────────────────────────────────────────
         let black_ms = (fade_secs * BLACK_FRAC * 1000.0) as u64;
-        let reveal_ms = (fade_secs * REVEAL_FRAC * 1000.0) as u64;
-
         let in_black_phase = elapsed < black_ms;
-        let in_reveal_phase = !in_black_phase && elapsed < reveal_ms;
-
-        // Scene visibility: 0.0 during black, ramps 0→1 during reveal, 1.0 after.
-        let scene_mix = if in_black_phase {
-            0.0_f32
-        } else if in_reveal_phase {
-            let reveal_t = (elapsed - black_ms) as f32 / (reveal_ms - black_ms).max(1) as f32;
-            reveal_t.clamp(0.0, 1.0)
-        } else {
-            1.0
-        };
 
         // ── 4. Ghost envelope ─────────────────────────────────────────────
+        //   exp(-4.6t): drops 90% by t=0.5 (the black→reveal boundary).
+        //   At t=0 → 100%, t=0.25 → 32%, t=0.5 → 10%, t=1.0 → 1%.
         let t = elapsed as f32 / fade_ms as f32;
-
-        // exp(-3.5t): at t=0.3 → 35%, t=0.5 → 17%, t=1.0 → 3%
-        let decay = (-3.5 * t).exp();
+        let decay = (-4.6 * t).exp();
 
         // Brightness pump: flash on first ~30ms then settle.
         let pump_t = (elapsed as f32 / 30.0).clamp(0.0, 1.0);
@@ -194,21 +178,11 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
             for x in 0..src.width {
                 let src_cell = src.get(x, y).cloned().unwrap_or_default();
 
-                // Base colour: black → src depending on phase.
-                let base_bg = if scene_mix >= 0.999 {
-                    normalize_bg(src_cell.bg)
-                } else if scene_mix < 0.001 {
-                    black
+                // During black phase: base is black. After: new scene.
+                let (base_bg, base_fg, sym) = if in_black_phase {
+                    (black, black, ' ')
                 } else {
-                    lerp_colour(black, normalize_bg(src_cell.bg), scene_mix)
-                };
-
-                let base_fg = if scene_mix >= 0.999 {
-                    src_cell.fg
-                } else if scene_mix < 0.001 {
-                    black
-                } else {
-                    lerp_colour(black, src_cell.fg, scene_mix)
+                    (normalize_bg(src_cell.bg), src_cell.fg, src_cell.symbol)
                 };
 
                 // Ghost sample with 3×3 blur.
@@ -254,7 +228,6 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                 let gb = blur_b * b_decay * ghost_opacity;
 
                 if gr + gg + gb < 0.005 {
-                    let sym = if scene_mix >= 0.999 { src_cell.symbol } else { ' ' };
                     dst.set(x, y, sym, base_fg, base_bg);
                     continue;
                 }
@@ -266,13 +239,12 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                 };
 
                 let out_bg = lerp_colour(base_bg, ghost_col, ghost_opacity);
-                let out_fg = if src_cell.symbol != ' ' && scene_mix > 0.5 {
+                let out_fg = if src_cell.symbol != ' ' && !in_black_phase {
                     lerp_colour(base_fg, ghost_col, ghost_opacity * 0.4)
                 } else {
                     out_bg
                 };
 
-                let sym = if scene_mix >= 0.999 { src_cell.symbol } else { ' ' };
                 dst.set(x, y, sym, out_fg, out_bg);
             }
         }
