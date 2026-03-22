@@ -1,4 +1,5 @@
 use crossterm::style::Color;
+use std::borrow::Cow;
 
 use crate::assets::AssetRoot;
 use crate::buffer::Buffer;
@@ -161,14 +162,21 @@ fn render_sprite(
             ..
         } => {
             let total_chars = content.chars().count();
-            let rendered_content = match reveal_ms {
+            // Build the visible slice without allocating: for the reveal case walk to
+            // the char boundary and borrow; for the full case borrow directly.
+            let rendered_content: Cow<'_, str> = match reveal_ms {
                 Some(reveal) if *reveal > 0 => {
                     let since = ctx.scene_elapsed_ms - appear_at;
                     let p = (since as f32 / *reveal as f32).clamp(0.0, 1.0);
                     let visible_chars = ((total_chars as f32) * p).ceil() as usize;
-                    content.chars().take(visible_chars).collect::<String>()
+                    let byte_end = content
+                        .char_indices()
+                        .nth(visible_chars)
+                        .map(|(i, _)| i)
+                        .unwrap_or(content.len());
+                    Cow::Borrowed(&content[..byte_end])
                 }
-                _ => content.clone(),
+                _ => Cow::Borrowed(content.as_str()),
             };
             if rendered_content.is_empty() {
                 return;
@@ -186,7 +194,7 @@ fn render_sprite(
             let mod_source = ctx.asset_root.map(|root| root.mod_source());
             let (sprite_width, sprite_height) = text_sprite_dimensions(
                 mod_source,
-                &rendered_content,
+                &*rendered_content,
                 resolved_font.as_deref(),
                 fg,
                 sprite_bg,
@@ -210,7 +218,7 @@ fn render_sprite(
                     .map(Color::from)
                     .unwrap_or_else(|| dim_colour(fg));
                 let radius = glow_opts.radius.max(1) as i32;
-                let glow_content = strip_markup(&rendered_content);
+                let glow_content = strip_markup(&*rendered_content);
                 let glow_key = glow_cache_key(
                     &glow_content, radius, glow_col,
                     resolved_font.as_deref(), sprite_bg,
@@ -270,7 +278,7 @@ fn render_sprite(
             }
             render_text_content(
                 mod_source,
-                &rendered_content,
+                &*rendered_content,
                 resolved_font.as_deref(),
                 fg,
                 sprite_bg,

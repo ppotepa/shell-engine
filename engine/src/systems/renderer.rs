@@ -1,4 +1,4 @@
-use crate::buffer::{Buffer, Cell, TRUE_BLACK};
+use crate::buffer::{Buffer, Cell, TRUE_BLACK, VirtualBuffer};
 use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
@@ -399,55 +399,54 @@ fn should_use_virtual_buffer(world: &World) -> bool {
 }
 
 fn present_virtual_to_output(world: &mut World) {
-    let settings = world.runtime_settings().cloned().unwrap_or_default();
-    let virtual_snapshot = world.virtual_buffer().map(|v| v.0.clone());
-    let Some(virtual_buf) = virtual_snapshot else {
+    let Some(settings) = world.runtime_settings().cloned() else {
         return;
     };
-    let Some(output_buf) = world.buffer_mut() else {
-        return;
-    };
-
-    output_buf.fill(TRUE_BLACK);
-    if virtual_buf.width == 0 || virtual_buf.height == 0 {
-        return;
-    }
-    if output_buf.width == 0 || output_buf.height == 0 {
-        return;
-    }
-
-    let viewport = compute_viewport(
-        output_buf.width,
-        output_buf.height,
-        virtual_buf.width,
-        virtual_buf.height,
-        settings.virtual_policy,
-    );
-
-    for oy in 0..viewport.height {
-        for ox in 0..viewport.width {
-            let (sx, sy) = match settings.virtual_policy {
-                VirtualPolicy::Strict => (
-                    viewport.src_offset_x.saturating_add(ox),
-                    viewport.src_offset_y.saturating_add(oy),
-                ),
-                VirtualPolicy::Fit => sample_fit_source(
-                    ox,
-                    oy,
-                    viewport.width,
-                    viewport.height,
-                    virtual_buf.width,
-                    virtual_buf.height,
-                ),
-            };
-            let Some(cell) = virtual_buf.get(sx, sy) else {
-                continue;
-            };
-            let dx = viewport.dst_offset_x.saturating_add(ox);
-            let dy = viewport.dst_offset_y.saturating_add(oy);
-            copy_cell(output_buf, dx, dy, cell);
+    // Access VirtualBuffer (read) and output Buffer (write) simultaneously —
+    // no clone of the pixel data needed.
+    world.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(|vbuf, output_buf| {
+        let virtual_buf = &vbuf.0;
+        output_buf.fill(TRUE_BLACK);
+        if virtual_buf.width == 0 || virtual_buf.height == 0 {
+            return;
         }
-    }
+        if output_buf.width == 0 || output_buf.height == 0 {
+            return;
+        }
+
+        let viewport = compute_viewport(
+            output_buf.width,
+            output_buf.height,
+            virtual_buf.width,
+            virtual_buf.height,
+            settings.virtual_policy,
+        );
+
+        for oy in 0..viewport.height {
+            for ox in 0..viewport.width {
+                let (sx, sy) = match settings.virtual_policy {
+                    VirtualPolicy::Strict => (
+                        viewport.src_offset_x.saturating_add(ox),
+                        viewport.src_offset_y.saturating_add(oy),
+                    ),
+                    VirtualPolicy::Fit => sample_fit_source(
+                        ox,
+                        oy,
+                        viewport.width,
+                        viewport.height,
+                        virtual_buf.width,
+                        virtual_buf.height,
+                    ),
+                };
+                let Some(cell) = virtual_buf.get(sx, sy) else {
+                    continue;
+                };
+                let dx = viewport.dst_offset_x.saturating_add(ox);
+                let dy = viewport.dst_offset_y.saturating_add(oy);
+                copy_cell(output_buf, dx, dy, cell);
+            }
+        }
+    });
 }
 
 #[derive(Clone, Copy)]

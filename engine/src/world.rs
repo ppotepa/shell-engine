@@ -54,6 +54,40 @@ impl World {
     pub fn clear_scoped(&mut self) {
         self.scoped.clear();
     }
+
+    /// Calls `f` with simultaneous shared access to `A` and exclusive access to `B`.
+    ///
+    /// Both resources must be registered as singletons (not scoped). Avoids the need
+    /// to clone `A` just to satisfy the borrow checker when `B` also needs `&mut World`.
+    ///
+    /// # Panics
+    /// Will not panic as long as `A != B` (enforced by distinct `TypeId`s).
+    pub fn with_ref_and_mut<A, B, F, R>(&mut self, f: F) -> Option<R>
+    where
+        A: Any + Send + Sync + 'static,
+        B: Any + Send + Sync + 'static,
+        F: FnOnce(&A, &mut B) -> R,
+    {
+        assert_ne!(
+            TypeId::of::<A>(),
+            TypeId::of::<B>(),
+            "with_ref_and_mut: A and B must be different types"
+        );
+        // SAFETY: TypeId::of::<A>() != TypeId::of::<B>() (asserted above), so
+        // the two HashMap entries are distinct. We capture a raw pointer to A
+        // to hold a shared reference while separately mutably borrowing B.
+        // The HashMap is not structurally modified between these two borrows.
+        let a_ptr = self
+            .singletons
+            .get(&TypeId::of::<A>())?
+            .downcast_ref::<A>()? as *const A;
+        let b = self
+            .singletons
+            .get_mut(&TypeId::of::<B>())?
+            .downcast_mut::<B>()?;
+        let a = unsafe { &*a_ptr };
+        Some(f(a, b))
+    }
 }
 
 impl Default for World {
