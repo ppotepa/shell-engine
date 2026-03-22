@@ -8,7 +8,38 @@ use crate::render_policy;
 use crate::scene::{Layer, SceneRenderedMode, Sprite};
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+
+// OPT-7: Thread-local cache for pre-rendered text glow buffers.
+type GlowCacheKey = u64;
+
+thread_local! {
+    static GLOW_CACHE: RefCell<HashMap<GlowCacheKey, Buffer>> =
+        RefCell::new(HashMap::new());
+}
+
+fn glow_cache_key(
+    content: &str,
+    radius: i32,
+    glow_col: Color,
+    font: Option<&str>,
+    sprite_bg: Color,
+    sprite_w: u16,
+    sprite_h: u16,
+) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    content.hash(&mut h);
+    radius.hash(&mut h);
+    format!("{:?}", glow_col).hash(&mut h);
+    font.hash(&mut h);
+    format!("{:?}", sprite_bg).hash(&mut h);
+    sprite_w.hash(&mut h);
+    sprite_h.hash(&mut h);
+    h.finish()
+}
 
 use super::image_render::{image_sprite_dimensions, render_image_content};
 use super::layout::{
@@ -180,25 +211,60 @@ fn render_sprite(
                     .unwrap_or_else(|| dim_colour(fg));
                 let radius = glow_opts.radius.max(1) as i32;
                 let glow_content = strip_markup(&rendered_content);
-                for dy in -radius..=radius {
-                    for dx in -radius..=radius {
-                        if dx == 0 && dy == 0 {
-                            continue;
+                let glow_key = glow_cache_key(
+                    &glow_content, radius, glow_col,
+                    resolved_font.as_deref(), sprite_bg,
+                    sprite_width, sprite_height,
+                );
+                // OPT-7: Pre-render all glow offsets into a cached scratch buffer.
+                let glow_buf = GLOW_CACHE.with(|cache| {
+                    if let Some(cached) = cache.borrow().get(&glow_key) {
+                        return cached.clone();
+                    }
+                    let pad = radius as u16;
+                    let bw = sprite_width.saturating_add(pad * 2).max(1);
+                    let bh = sprite_height.saturating_add(pad * 2).max(1);
+                    let mut scratch = Buffer::new(bw, bh);
+                    scratch.fill(Color::Reset);
+                    for dy in -radius..=radius {
+                        for dx in -radius..=radius {
+                            if dx == 0 && dy == 0 { continue; }
+                            let gx = (pad as i32 + dx).max(0) as u16;
+                            let gy = (pad as i32 + dy).max(0) as u16;
+                            render_text_content(
+                                mod_source, &glow_content,
+                                resolved_font.as_deref(), glow_col, sprite_bg,
+                                gx, gy, None, &mut scratch, text_transform,
+                            );
                         }
-                        let gx = (draw_x as i32 + dx).max(0) as u16;
-                        let gy = (draw_y as i32 + dy).max(0) as u16;
-                        render_text_content(
-                            mod_source,
-                            &glow_content,
-                            resolved_font.as_deref(),
-                            glow_col,
-                            sprite_bg,
-                            gx,
-                            gy,
-                            clip,
-                            ctx.layer_buf,
-                            text_transform,
-                        );
+                    }
+                    let mut c = cache.borrow_mut();
+                    if c.len() >= 128 { c.clear(); }
+                    c.insert(glow_key, scratch.clone());
+                    scratch
+                });
+                // Blit cached glow onto layer_buf at the correct position.
+                let pad = radius as u16;
+                let blit_x = (draw_x as i32 - pad as i32).max(0) as u16;
+                let blit_y = (draw_y as i32 - pad as i32).max(0) as u16;
+                for gy in 0..glow_buf.height {
+                    for gx in 0..glow_buf.width {
+                        if let Some(cell) = glow_buf.get(gx, gy) {
+                            if cell.symbol == ' ' && matches!(cell.bg, Color::Reset) {
+                                continue; // transparent
+                            }
+                            let tx = blit_x + gx;
+                            let ty = blit_y + gy;
+                            if let Some(cr) = clip {
+                                let tx_i = tx as i32;
+                                let ty_i = ty as i32;
+                                if tx_i < cr.x || tx_i >= cr.x + cr.width as i32
+                                    || ty_i < cr.y || ty_i >= cr.y + cr.height as i32 {
+                                    continue;
+                                }
+                            }
+                            ctx.layer_buf.set(tx, ty, cell.symbol, cell.fg, cell.bg);
+                        }
                     }
                 }
             }

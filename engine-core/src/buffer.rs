@@ -108,38 +108,38 @@ impl Buffer {
 
     /// Return cells that differ between back and front — the minimal render set.
     pub fn diff(&self) -> Vec<CellDiff<'_>> {
-        self.back
-            .iter()
-            .zip(self.front.iter())
-            .enumerate()
-            .filter(|(_, (b, f))| b != f)
-            .map(|(idx, (b, _))| CellDiff {
-                x: (idx as u16) % self.width,
-                y: (idx as u16) / self.width,
-                cell: b,
-            })
-            .collect()
+        let mut result = Vec::new();
+        let mut idx = 0usize;
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.back[idx] != self.front[idx] {
+                    result.push(CellDiff { x, y, cell: &self.back[idx] });
+                }
+                idx += 1;
+            }
+        }
+        result
     }
 
     /// Fill `out` with raw (pre-resolve) diff tuples, reusing the allocation across frames.
     pub fn diff_into(&self, out: &mut Vec<(u16, u16, char, Color, Color)>) {
-        out.extend(
-            self.back
-                .iter()
-                .zip(self.front.iter())
-                .enumerate()
-                .filter(|(_, (b, f))| b != f)
-                .map(|(idx, (b, _))| {
-                    let x = (idx as u16) % self.width;
-                    let y = (idx as u16) / self.width;
-                    (x, y, b.symbol, b.fg, b.bg)
-                }),
-        );
+        let mut idx = 0usize;
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let b = &self.back[idx];
+                if *b != self.front[idx] {
+                    out.push((x, y, b.symbol, b.fg, b.bg));
+                }
+                idx += 1;
+            }
+        }
     }
 
     /// Promote back buffer to front — call after every successful flush.
+    /// Uses O(1) pointer swap instead of O(W×H) memcpy; the caller always
+    /// calls `fill()` on the back buffer before the next frame anyway.
     pub fn swap(&mut self) {
-        self.front.clone_from(&self.back);
+        std::mem::swap(&mut self.front, &mut self.back);
     }
 
     /// Restore the front buffer (last flushed frame) into the back buffer.
@@ -191,6 +191,7 @@ mod tests {
         let mut buf = Buffer::new(4, 2);
         buf.fill(Color::Black);
         buf.swap();
+        buf.fill(Color::Black); // matches real game loop: fill() after swap()
         assert_eq!(buf.diff().len(), 0);
     }
 
@@ -199,7 +200,7 @@ mod tests {
         let mut buf = Buffer::new(4, 2);
         buf.fill(Color::Black);
         buf.swap();
-        buf.fill(Color::Black); // same content
+        buf.fill(Color::Black); // same content — matches real game loop
         buf.set(1, 0, 'X', Color::White, Color::Black); // one change
         assert_eq!(buf.diff().len(), 1);
         let d = &buf.diff()[0];
@@ -213,6 +214,7 @@ mod tests {
         let mut buf = Buffer::new(2, 2);
         buf.fill(Color::Black);
         buf.swap();
+        buf.fill(Color::Black); // real game loop: fill after swap
         assert_eq!(buf.diff().len(), 0);
         buf.invalidate();
         assert_eq!(buf.diff().len(), 4);

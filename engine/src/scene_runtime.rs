@@ -860,8 +860,8 @@ impl SceneRuntime {
         self.object_states.get(id)
     }
 
-    pub fn object_states_snapshot(&self) -> BTreeMap<String, ObjectRuntimeState> {
-        self.object_states.clone()
+    pub fn object_states_snapshot(&self) -> std::sync::Arc<BTreeMap<String, ObjectRuntimeState>> {
+        std::sync::Arc::new(self.object_states.clone())
     }
 
     pub fn object_kind_snapshot(&self) -> BTreeMap<String, String> {

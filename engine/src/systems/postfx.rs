@@ -33,6 +33,9 @@ struct PostFxRuntime {
     last_pass_fingerprint: u64,
     scratch_a: Option<Buffer>,
     scratch_b: Option<Buffer>,
+    /// Frame-skip: run full pipeline every N+1 frames, blit cached result in between.
+    skip_interval: u8,
+    skip_counter: u8,
 }
 
 pub(super) struct PostFxContext<'a> {
@@ -100,6 +103,8 @@ impl PostFxRuntime {
         {
             self.previous_output = None;
             self.frame_count = 0;
+            self.skip_counter = 0;
+            self.skip_interval = 1; // run every other frame
             self.last_scene_id = Some(scene_id.to_string());
             self.compiled_passes = compile_passes(passes);
             self.last_pass_fingerprint = fingerprint;
@@ -110,6 +115,18 @@ impl PostFxRuntime {
             return;
         }
 
+        // Frame-skip: blit cached result on skipped frames.
+        if self.skip_counter > 0 {
+            if let Some(cached) = self.previous_output.as_ref() {
+                if cached.width == buffer.width && cached.height == buffer.height {
+                    buffer.clone_from(cached);
+                    self.skip_counter -= 1;
+                    self.frame_count = self.frame_count.saturating_add(1);
+                    return;
+                }
+            }
+        }
+
         self.ensure_scratch(buffer.width, buffer.height);
         let Some(a) = self.scratch_a.as_mut() else {
             return;
@@ -118,8 +135,8 @@ impl PostFxRuntime {
             return;
         };
 
-        // Source starts as freshly composited scene buffer.
-        a.clone_from(buffer);
+        // Swap buffer content into scratch_a (O(1) pointer swap instead of clone).
+        std::mem::swap(a, buffer);
         let mut src_is_a = true;
         let mut last_written_is_a = true;
         let frame_count = self.frame_count;
@@ -157,11 +174,16 @@ impl PostFxRuntime {
             src_is_a = !src_is_a;
         }
 
+        // Swap result back into buffer (O(1) pointer swap instead of clone).
         if last_written_is_a {
-            buffer.clone_from(a);
+            std::mem::swap(buffer, a);
         } else {
-            buffer.clone_from(b);
+            std::mem::swap(buffer, b);
         }
+
+        // Cache the output for frame-skip.
+        self.previous_output = Some(buffer.clone());
+        self.skip_counter = self.skip_interval;
         self.frame_count = self.frame_count.saturating_add(1);
     }
 

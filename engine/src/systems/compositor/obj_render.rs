@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use crossterm::style::Color;
 
@@ -8,6 +8,7 @@ use crate::obj_prerender::ObjPrerenderedFrames;
 use crate::scene::{SceneRenderedMode, SpriteSizePreset};
 
 use super::obj_loader::{load_obj_mesh, ObjFace};
+
 
 // Thread-local pointer to the current frame's ObjPrerenderedFrames (set by compositor, cleared after).
 // SAFETY: only set during `with_prerender_frames` and never accessed across threads.
@@ -43,6 +44,12 @@ struct ProjectedVertex {
     y: f32,
     depth: f32,
     view: [f32; 3],
+}
+
+// Thread-local pooled buffers for OBJ rendering — avoids per-frame allocation.
+thread_local! {
+    static OBJ_CANVAS: RefCell<Vec<Option<[u8; 3]>>> = RefCell::new(Vec::new());
+    static OBJ_DEPTH: RefCell<Vec<f32>> = RefCell::new(Vec::new());
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -246,10 +253,24 @@ pub(crate) fn render_obj_to_canvas(
         })
         .collect();
 
-    let mut canvas: Vec<Option<[u8; 3]>> = vec![None; virtual_w as usize * virtual_h as usize];
+    // Use pooled buffers to avoid per-frame allocation.
+    let canvas_size = virtual_w as usize * virtual_h as usize;
+    let mut canvas = OBJ_CANVAS.with(|c| {
+        let mut v = c.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.resize(canvas_size, None);
+        taken
+    });
     if wireframe {
         let line_color = color_to_rgb(fg);
-        let mut depth_buf = vec![f32::INFINITY; canvas.len()];
+        let mut depth_buf = OBJ_DEPTH.with(|d| {
+            let mut v = d.borrow_mut();
+            let mut taken = std::mem::take(&mut *v);
+            taken.clear();
+            taken.resize(canvas_size, f32::INFINITY);
+            taken
+        });
 
         // Depth range from all projected vertices for brightness mapping.
         let (depth_near, depth_far) = {
@@ -296,8 +317,15 @@ pub(crate) fn render_obj_to_canvas(
                 drawn_edges += 1;
             }
         }
+        OBJ_DEPTH.with(|d| *d.borrow_mut() = depth_buf);
     } else {
-        let mut depth = vec![f32::INFINITY; canvas.len()];
+        let mut depth = OBJ_DEPTH.with(|d| {
+            let mut v = d.borrow_mut();
+            let mut taken = std::mem::take(&mut *v);
+            taken.clear();
+            taken.resize(canvas_size, f32::INFINITY);
+            taken
+        });
         let mut drawn_faces = 0usize;
         // Pre-compute normalized light directions once per render (not per face).
         let light_dir_norm = normalize3([params.light_direction_x, params.light_direction_y, params.light_direction_z]);
@@ -414,6 +442,7 @@ pub(crate) fn render_obj_to_canvas(
                 }
             }
         }
+        OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
     Some((canvas, virtual_w, virtual_h))
@@ -448,6 +477,8 @@ pub(crate) fn render_obj_content(
         buf, mode, &canvas, virtual_w, virtual_h, target_w, target_h, x, y, wireframe, draw_char,
         fg, bg, 0, virtual_h as usize,
     );
+    // Return pooled buffers for reuse.
+    OBJ_CANVAS.with(|c| *c.borrow_mut() = canvas);
 }
 
 /// Try to blit a pre-rendered OBJ sprite from the thread-local `ObjPrerenderedFrames`.

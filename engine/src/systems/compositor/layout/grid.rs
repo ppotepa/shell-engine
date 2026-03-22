@@ -2,6 +2,9 @@
 
 use crate::assets::AssetRoot;
 use crate::scene::{SceneRenderedMode, Sprite};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use taffy::geometry::Line;
 use taffy::prelude::{
     auto, fr, length, line, span, AlignSelf, AvailableSpace, Dimension, Display, JustifySelf, Size,
@@ -11,6 +14,47 @@ use taffy::prelude::{
 use super::area::GridCellRect;
 use super::measure::measure_sprite_for_layout;
 use super::tracks::{parse_track_spec, TrackSpec};
+
+thread_local! {
+    static GRID_LAYOUT_CACHE: RefCell<HashMap<u64, Vec<(usize, GridCellRect)>>> =
+        RefCell::new(HashMap::new());
+}
+
+/// Flush cached grid layouts (call on scene change).
+pub(crate) fn invalidate_grid_cache() {
+    GRID_LAYOUT_CACHE.with(|c| c.borrow_mut().clear());
+}
+
+fn grid_cache_key(
+    columns: &[String],
+    rows: &[String],
+    children: &[Sprite],
+    container_w: u16,
+    container_h: u16,
+    gap_x: u16,
+    gap_y: u16,
+    inherited_mode: SceneRenderedMode,
+    asset_root: Option<&AssetRoot>,
+) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    container_w.hash(&mut h);
+    container_h.hash(&mut h);
+    gap_x.hash(&mut h);
+    gap_y.hash(&mut h);
+    columns.hash(&mut h);
+    rows.hash(&mut h);
+    for child in children {
+        let (pw, ph) = measure_sprite_for_layout(child, inherited_mode, asset_root);
+        pw.hash(&mut h);
+        ph.hash(&mut h);
+        let (row, col, rs, cs) = child.grid_position();
+        row.hash(&mut h);
+        col.hash(&mut h);
+        rs.hash(&mut h);
+        cs.hash(&mut h);
+    }
+    h.finish()
+}
 
 /// Computes child rectangles for a grid container.
 pub(crate) fn compute_grid_cells(
@@ -24,6 +68,13 @@ pub(crate) fn compute_grid_cells(
     inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> Vec<(usize, GridCellRect)> {
+    // OPT-6: Cache hit returns previous result without TaffyTree rebuild.
+    let cache_key = grid_cache_key(columns, rows, children, container_w, container_h, gap_x, gap_y, inherited_mode, asset_root);
+    let cached = GRID_LAYOUT_CACHE.with(|c| c.borrow().get(&cache_key).cloned());
+    if let Some(result) = cached {
+        return result;
+    }
+
     let col_specs: Vec<TrackSpec> = if columns.is_empty() {
         vec![TrackSpec::Fr(1)]
     } else {
@@ -149,6 +200,13 @@ pub(crate) fn compute_grid_cells(
         ));
     }
 
+    GRID_LAYOUT_CACHE.with(|c| {
+        let mut cache = c.borrow_mut();
+        if cache.len() >= 256 {
+            cache.clear();
+        }
+        cache.insert(cache_key, out.clone());
+    });
     out
 }
 

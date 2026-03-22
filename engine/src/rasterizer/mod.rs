@@ -8,19 +8,7 @@ use crossterm::style::Color;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
-
-/// Cache key for rasterized bitmap-font text buffers.
-type RasterKey = (
-    Option<String>, // mod_source path
-    String,         // text content
-    String,         // font name
-    (u8, u8, u8),   // fg colour
-    (u8, u8, u8),   // bg colour
-);
-
-thread_local! {
-    static RASTER_CACHE: RefCell<HashMap<RasterKey, Buffer>> = RefCell::new(HashMap::new());
-}
+use std::sync::Arc;
 
 fn color_key(c: Color) -> (u8, u8, u8) {
     match c {
@@ -32,36 +20,43 @@ fn color_key(c: Color) -> (u8, u8, u8) {
     }
 }
 
-/// Cached variant of `rasterize` — returns a clone of a previously computed
-/// buffer when the same (mod_source, text, font, fg, bg) tuple is requested again.
-/// Uses a thread-local `HashMap` so there is no locking overhead.
+// Hash-based cache key — eliminates 3× String allocations per lookup.
+fn raster_cache_hash(mod_source: Option<&Path>, text: &str, font: &str, fg: Color, bg: Color) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    mod_source.map(|p| p.to_string_lossy()).hash(&mut h);
+    text.hash(&mut h);
+    font.hash(&mut h);
+    color_key(fg).hash(&mut h);
+    color_key(bg).hash(&mut h);
+    h.finish()
+}
+
+thread_local! {
+    static RASTER_CACHE: RefCell<HashMap<u64, Arc<Buffer>>> = RefCell::new(HashMap::new());
+}
+
+/// Cached variant of `rasterize` — returns an Arc-wrapped buffer.
+/// Cache hit = Arc::clone (cheap refcount bump), zero buffer cloning.
 pub fn rasterize_cached(
     mod_source: Option<&Path>,
     text: &str,
     font: &str,
     fg: Color,
     bg: Color,
-) -> Buffer {
-    let key: RasterKey = (
-        mod_source.map(|p| p.to_string_lossy().into_owned()),
-        text.to_owned(),
-        font.to_owned(),
-        color_key(fg),
-        color_key(bg),
-    );
+) -> Arc<Buffer> {
+    let key = raster_cache_hash(mod_source, text, font, fg, bg);
 
     RASTER_CACHE.with(|cache| {
-        if let Some(buf) = cache.borrow().get(&key) {
-            return buf.clone();
+        if let Some(arc_buf) = cache.borrow().get(&key) {
+            return Arc::clone(arc_buf);
         }
-        let buf = rasterize(mod_source, text, font, fg, bg);
+        let buf = Arc::new(rasterize(mod_source, text, font, fg, bg));
         let mut guard = cache.borrow_mut();
-        // Evict entire cache when it grows too large to prevent unbounded accumulation
-        // across scenes with dynamic text content.
         if guard.len() >= 512 {
             guard.clear();
         }
-        guard.insert(key, buf.clone());
+        guard.insert(key, Arc::clone(&buf));
         buf
     })
 }

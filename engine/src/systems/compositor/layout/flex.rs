@@ -2,6 +2,9 @@
 
 use crate::assets::AssetRoot;
 use crate::scene::{FlexDirection as SceneFlexDirection, SceneRenderedMode, Sprite};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use taffy::prelude::{
     length, AvailableSpace, Dimension, Display, FlexDirection as TaffyFlexDirection, Size, Style,
     TaffyTree,
@@ -9,6 +12,38 @@ use taffy::prelude::{
 
 use super::area::GridCellRect;
 use super::measure::measure_sprite_for_layout;
+
+thread_local! {
+    static FLEX_LAYOUT_CACHE: RefCell<HashMap<u64, Vec<(usize, GridCellRect)>>> =
+        RefCell::new(HashMap::new());
+}
+
+/// Flush cached flex layouts (call on scene change).
+pub(crate) fn invalidate_flex_cache() {
+    FLEX_LAYOUT_CACHE.with(|c| c.borrow_mut().clear());
+}
+
+fn flex_cache_key(
+    children: &[Sprite],
+    direction: SceneFlexDirection,
+    container_w: u16,
+    container_h: u16,
+    gap: u16,
+    inherited_mode: SceneRenderedMode,
+    asset_root: Option<&AssetRoot>,
+) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    container_w.hash(&mut h);
+    container_h.hash(&mut h);
+    gap.hash(&mut h);
+    std::mem::discriminant(&direction).hash(&mut h);
+    for child in children {
+        let (pw, ph) = measure_sprite_for_layout(child, inherited_mode, asset_root);
+        pw.hash(&mut h);
+        ph.hash(&mut h);
+    }
+    h.finish()
+}
 
 /// Computes child rectangles for a flex container.
 pub(crate) fn compute_flex_cells(
@@ -22,6 +57,13 @@ pub(crate) fn compute_flex_cells(
 ) -> Vec<(usize, GridCellRect)> {
     if children.is_empty() {
         return vec![];
+    }
+
+    // OPT-6: Cache hit returns previous result without TaffyTree rebuild.
+    let cache_key = flex_cache_key(children, direction, container_w, container_h, gap, inherited_mode, asset_root);
+    let cached = FLEX_LAYOUT_CACHE.with(|c| c.borrow().get(&cache_key).cloned());
+    if let Some(result) = cached {
+        return result;
     }
 
     let mut taffy: TaffyTree<()> = TaffyTree::new();
@@ -102,6 +144,13 @@ pub(crate) fn compute_flex_cells(
         ));
     }
 
+    FLEX_LAYOUT_CACHE.with(|c| {
+        let mut cache = c.borrow_mut();
+        if cache.len() >= 256 {
+            cache.clear();
+        }
+        cache.insert(cache_key, out.clone());
+    });
     out
 }
 
