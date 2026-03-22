@@ -41,7 +41,7 @@ cargo run -p editor
 
 shell quest is a two-process system:
 - **engine (rust)** — renderer, scene runtime, systems, compositor
-- **sidecar (c#)** — simulated os (cognitos-os) with shell, filesystem, ftp
+- **sidecar (c#)** — simulated os (cognitOS) with shell, filesystem, ftp
 
 the engine spawns the sidecar when entering a terminal scene. they talk via json lines on stdin/stdout through the `engine-io` crate. the sidecar manages all gameplay state: login, shell commands, ftp transfers, quest progress.
 
@@ -56,7 +56,7 @@ difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidt
 - `engine-io/` — ipc bridge between engine and sidecar processes
 - `editor/` — tui authoring editor
 - `mods/shell-quest/` — main game mod
-  - `os/cognitos-os/` — c# simulated minix sidecar
+  - `os/cognitOS/` — c# simulated minix sidecar
   - `docs/` — quest scripts, design docs
 - `mods/` — other content mods
 - `schemas/` — shared base schemas
@@ -83,7 +83,7 @@ difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidt
 
 ### Sidecar & Gameplay
 - **[engine-io/README.md](engine-io/README.md)** — IPC protocol between engine and sidecar
-- **[cognitos-os README](mods/shell-quest/os/cognitos-os/README.md)** — Simulated OS sidecar architecture
+- **[cognitOS README](mods/shell-quest/os/cognitOS/README.md)** — Simulated OS sidecar architecture
 - **[quest scripts](mods/shell-quest/docs/scripts.md)** — Prologue design doc (ftp upload puzzle, 1991)
 
 ### Advanced
