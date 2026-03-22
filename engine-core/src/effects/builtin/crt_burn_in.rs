@@ -8,7 +8,7 @@ use crate::scene::EffectParams;
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "crt-burn-in",
     display_name: "CRT Burn-In",
-    summary: "PostFX: phosphor persistence transition — fading ghost of the previous scene lingers under the new one. Time-based: starts at alpha brightness and fades over speed seconds.",
+    summary: "PostFX: phosphor persistence transition — on scene change the screen goes black and a dim, slightly blurred ghost of the previous frame fades out. Time-based: starts at alpha brightness and fades over speed seconds.",
     category: "postfx",
     compatible_targets: EffectTargetMask::SCENE,
     params: &[
@@ -18,7 +18,7 @@ pub static METADATA: EffectMetadata = EffectMetadata {
         slider("intensity", "Intensity", "Overall effect strength (0 = off, 1 = full).", 0.0, 1.0, 0.05, ""),
         P_EASING,
     ],
-    sample: "- name: crt-burn-in\n  params:\n    alpha: 0.30\n    speed: 0.35\n    brightness: 1.0\n    intensity: 1.0",
+    sample: "- name: crt-burn-in\n  params:\n    alpha: 0.15\n    speed: 0.18\n    brightness: 1.0\n    intensity: 1.0",
 };
 
 pub struct CrtBurnInEffect;

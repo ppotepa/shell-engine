@@ -1,0 +1,1403 @@
+[33mcommit 2a2aeb2004e3ad92dfa451a235ea14e41758a3a0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 21:04:11 2026 +0100
+
+    feat(color): support rgb(), rgba(), and bare r,g,b colour syntax
+    
+    Extend TermColour parsing to accept:
+    - rgb(r,g,b) and rgba(r,g,b,a) CSS-style functions
+    - Bare comma tuples: r,g,b or r,g,b,a
+    - Alpha channel accepted but ignored (terminal limitation)
+    
+    Extract shared parse_colour_str() to eliminate duplication between
+    YAML deserializer and markup tag parser.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit e35408e741e351f6e01efab356c92e35a5fd2009[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:59:22 2026 +0100
+
+    chore: gitignore C# bin/obj build artifacts
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 36e5a6200115d062c0c148887b0a34569ec084fb[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:58:50 2026 +0100
+
+    feat(postfx): time-based CRT burn-in with YAML-configurable params
+    
+    Rewrite burn-in from ring-buffer to single-ghost transition effect:
+    - Ghost starts at alpha brightness (30%) and fades over speed seconds (0.35s)
+    - Time-based detection: scene_elapsed_ms reset triggers ghost promotion
+    - Ghost shows through dark areas, dims behind bright content
+    - All params YAML-configurable: alpha, speed, brightness, intensity
+    
+    Scene changes:
+    - All CRT screens start with 200ms black hold before 300ms fade-in
+    - Screens 2-5 redesigned with distinct colour themes (cyan/amber/red/white)
+      for maximum ghost contrast visibility
+    - Updated effect metadata and preset params for v2 semantics
+    - Regenerated all mod schemas
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit ac6de07a407a3809165c2510f5967c99295372cf[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:41:57 2026 +0100
+
+    feat(postfx): add CRT phosphor burn-in / persistence effect
+    
+    New postfx pass 'crt-burn-in' maintains a ring buffer (16 frames) of
+    recent snapshots and composites fading ghosts under the current frame.
+    
+    Key design decisions:
+    - History is thread-local (not cleared on scene transition) so the old
+      scene's content fades out naturally under the new one — real CRT feel.
+    - Exponential decay curve: ghost_weight = intensity × decay^age
+    - Ghost blends weakly through bright content, strongly through dark areas.
+    - Captures every 3rd frame to keep memory low (~16 snapshots).
+    - Parameterised via standard effect params:
+        intensity (ghost strength), alpha (max blend), speed (decay rate),
+        brightness (ghost luminance multiplier).
+    
+    Added to all 5 CRT-TEST playground screens via fx.mrmo.burn preset.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit f45c307d82b7ad966f3c63b6a3538e0fbf249e3c[m
+Merge: 874962d be4fb5c
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:27:09 2026 +0100
+
+    Merge branch 'state-machine'
+
+[33mcommit 874962d60748f31556a1dd50b056d8a180f7ac9e[m
+Merge: ba35d99 074d17a
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:27:03 2026 +0100
+
+    Merge branch 'optimizations'
+    
+    # Conflicts:
+    #       engine/src/behavior.rs
+    #       engine/src/scene_runtime.rs
+
+[33mcommit ba35d991b4122108b49ee9ace4ac5453ada6711a[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:24:19 2026 +0100
+
+    chore: regenerate mod schemas and update assets
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit f8f1aa9715d27b7ebceb82025fff0a4caa148f3a[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:24:13 2026 +0100
+
+    feat(playground): add 5-screen CRT layout tour with mod-scoped effect presets
+    
+    - CRT-TEST screens showcase grid/flex/nested Taffy layouts
+    - Each screen uses effect-presets-ref to load mrmo-crt-basic.yml
+    - Enter advances through screens, 0 returns to menu
+    - Playground menu expanded to show CRT-TEST entry
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 68be20aafce607888275aeafdda150b2b6e2bfd7[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 20:23:57 2026 +0100
+
+    chore: update .gitignore for IDE caches and temp files
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit be4fb5cdb45f2d3881d926ed23d2fc94eb83764c[m[33m ([m[1;31morigin/state-machine[m[33m)[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 18:27:47 2026 +0100
+
+    refactor(cognitOS): rename sidecar across solution
+    
+    - rename the sidecar folder from cognitos-os to cognitOS
+    - rename the project file to cognitOS.csproj and update solution refs
+    - rename C# namespaces from CognitosOs to CognitOS
+    - update scene launch config and docs to the new cognitOS name
+    - keep runtime behavior unchanged while aligning paths and branding
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 1d565f6b7cc00bc8a2cda4f5c3b1d49f0b0a2a4b[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 18:15:46 2026 +0100
+
+    feat(cognitos-os): Phase 1 — add dual stdio/TCP transport
+    
+    - add transport abstractions: IInputSource, IOutputSink and GameTextWriter
+    - keep existing stdio JSON transport as the default implementation
+    - add TCP server mode to the sidecar via --game-port <port>
+    - route Protocol, ScreenBuffer, AppHost and Program through sink-based output
+    - add TcpSidecar in engine-io and switch engine_io_system to localhost TCP
+    - preserve the same IoRequest/IoEvent JSON protocol across both transports
+    - update state-machine implementation status doc
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 85a3a792ae00f6058ba9e82b9a53f63457cfc862[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 18:03:06 2026 +0100
+
+    refactor(cognitos-os): Phase 6A — remove dead legacy bridge
+    
+    - delete legacy OperatingSystem wrapper and LegacyUnitOfWork bridge
+    - remove dead ICommand, IOperatingSystem, CommandContext and CommandResult types
+    - keep build green after the bridge removal
+    - retain thin kernel/UoW aliases for now to avoid broad signature churn
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit beae9c67d5222cd006e2c4aeeb0275accfe792fe[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 18:02:10 2026 +0100
+
+    refactor(cognitos-os): Phase 5 — scan tagged commands reflectively
+    
+    - tag command classes with [Command(Name, OsTag)] attributes
+    - extend CommandScanner to instantiate and index commands by reflection
+    - special-case head/tail dual instances and singleton HistoryCommand
+    - rewrite Program.cs to build the command index from the scanner
+    - keep easter eggs manual for now to avoid destabilising boot/session flow
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 8c27136455240edb3de5ff4358612f46803031c0[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 18:00:30 2026 +0100
+
+    refactor(cognitos-os): Phase 4B — extract MINIX execution pipeline
+    
+    - add framework execution contracts for builtins, scripts and shell pipeline
+    - implement MinixBuiltins for cd/pwd/clear/exit
+    - implement MinixScriptInterpreter as the prologue script boundary
+    - add MinixExecutionPipeline to resolve builtins, commands, eggs and apps
+    - simplify ShellApplication to delegate through the pipeline
+    - add a minimal MailApplication for sequential mail-reading flow
+    - wire AppHost to compose the MINIX shell pipeline explicitly
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit a7de014a9d101c95fa8d5cf5f901e296b1c8b8db[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 17:58:41 2026 +0100
+
+    refactor(cognitos-os): Phase 4A — UoW-based application stack
+    
+    - finalize IKernelApplication as the canonical app contract
+    - rewrite ApplicationStack to create per-interaction UoW scopes
+    - migrate ShellApplication to UoW-based command and egg dispatch
+    - migrate FtpApplication to UoW-based I/O and prompt handling
+    - update AppHost to construct the kernel-backed ApplicationStack
+    - keep ScreenBuffer as a temporary view sink until transport cleanup
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit d6b240c5f7e02ab64fcaf07fdb4081473fba2bd4[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 17:55:40 2026 +0100
+
+    refactor(cognitos-os): Phase 3 — wire kernel through IoC and Minix module
+    
+    - add framework-facing IKernel and IUnitOfWork contracts
+    - add MinixModule as the OS-stage registration boundary
+    - rewrite Program.cs to build ServiceContainer and load MinixModule on hello
+    - rewrite AppHost to use IKernel + MachineState instead of IOperatingSystem
+    - update boot sequence to build from IKernel
+    - adapt ShellApplication/FtpApplication to kernel-backed wiring
+    - keep current stdin/stdout transport and legacy types for later cleanup
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 074d17ad02745eeed874366d3068ab03ec8fbb5e[m[33m ([m[1;31morigin/optimizations[m[33m)[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 17:23:03 2026 +0100
+
+    perf: replace Option<String> fields in BehaviorContext with Arc<str>/Arc<RawKeyEvent>
+    
+    - ui_focused_target_id, ui_theme_id, ui_last_submit_target_id/text,
+      ui_last_change_target_id/text: changed from Option<String> to Option<Arc<str>>
+      Built once before the behavior loop using Arc::from(&str); each behavior
+      pays one atomic refcount increment instead of a heap allocation
+    
+    - last_raw_key: changed from Option<RawKeyEvent> to Option<Arc<RawKeyEvent>>
+      RawKeyEvent (code: String + 3 bools) now cloned once per frame instead of
+      once per behavior
+    
+    - Rhai scope push sites updated to .as_deref().unwrap_or_default().to_string()
+      (one String allocation per Rhai behavior, same as before — unavoidable since
+      Rhai scope requires owned values)
+    
+    - ui_context_to_rhai_map updated to use .as_deref() pattern throughout
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit d8ac43407a645e1f633554583083abdf4600bbda[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 17:18:47 2026 +0100
+
+    perf: eliminate GameObject clone + cache sidecar_io Arc in behavior loop
+    
+    - GameObject: changed self.objects.get(...).cloned() to .get() — behavior
+      loop now holds &GameObject via disjoint field borrow (self.objects shared,
+      self.behaviors[idx] mutable, Rust 2021 NLL allows this); saves one full
+      struct clone (3x Vec<String>) per behavior per frame
+    
+    - cached_sidecar_io: SidecarIoFrameState (Vec<String>) is now cached as
+      Arc and reused across frames; invalidated only at the 4 mutation sites
+      (terminal_push_output, terminal_clear_output, sidecar_mark_screen_full,
+      sidecar_push_custom_event); eliminates Vec clone on quiet frames
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit b8aef2178cae147bc6cb3680cb070e658317cb6c[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 17:12:45 2026 +0100
+
+    feat(cognitos-os): Phase 0+2 — IoC container + ISyscallGate
+    
+    Phase 0 — Framework/Ioc:
+    - ServiceContainer: hand-rolled IoC, 3 lifetimes (Singleton/PerOsStage/PerSession)
+    - IOperatingSystemModule: single swap point for MINIX→Linux transition
+    - CommandAttribute: [Command(Name, OsTag, Aliases)] for auto-scan
+    - CommandScanner: assembly reflection scan filtered by osTag
+    
+    Phase 2 — Framework/Kernel + Minix/Kernel:
+    - SyscallKind, SyscallRequest, SyscallResult, SyscallException
+    - ISyscallGate: Dispatch(request, action) — 5-step choke point
+    - MinixSyscallGate: CanSatisfy→Debit→BlockFor→Execute→Credit
+    - SimulatedDisk: all 7 ops now dispatch through gate (no direct BlockFor)
+    - SimulatedProcessTable: Fork/Exec through gate
+    - SimulatedNetwork: Connect/Send/Recv/Resolve through gate
+    - DiskController: added ContentionMs()
+    - NetworkController: added CanConnect(), Acquire/Release aliases
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 1df8fbc8e194169a50f27d7327a9f285cd0f7425[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 17:05:50 2026 +0100
+
+    perf: cache resolver/props/text as Arc in SceneRuntime
+    
+    - resolver_cache: changed from TargetResolver to Arc<TargetResolver>
+      Built once at scene load, update_behaviors now uses Arc::clone (O(1))
+      instead of cloning BTreeMaps on every frame
+    
+    - cached_object_props / cached_object_text: lazy dirty-cache behind Arc
+      Both cleared at start of update_behaviors and when apply_behavior_commands
+      runs; rebuilt on first demand per frame instead of unconditionally every
+      frame — same pattern already proven for effective_states and object_kinds
+    
+    - apply_behavior_commands: also clears props/text caches when mutating,
+      ensuring subsequent behaviors within the same frame see fresh data
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 8e14cc4dca96ecf4de8efe151c44f9890b9a42a0[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 17:00:32 2026 +0100
+
+    perf: eliminate virtual buffer clone and text reveal allocation
+    
+    - world.rs: add with_ref_and_mut<A,B> helper that captures &A via raw
+      pointer and borrows &mut B from the same HashMap without cloning either
+      resource (split-borrow pattern, safe because A != B TypeIds are asserted)
+    
+    - renderer.rs: present_virtual_to_output now uses with_ref_and_mut instead
+      of cloning the entire VirtualBuffer (Vec<Cell>) — eliminates an O(w*h)
+      heap copy every frame (e.g. ~240 KB for a 200x50 virtual buffer)
+    
+    - sprite_renderer.rs: text reveal no longer allocates a String — uses
+      Cow::Borrowed with a char_indices byte-boundary walk for the partial
+      case, and Cow::Borrowed(content.as_str()) for the full case; both
+      content.clone() and collect::<String>() are gone
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit ac7756e96b1b95dd1428b4491d0983c8f977b7a3[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 16:26:35 2026 +0100
+
+    perf: cache object_kinds/effective_states/regions in SceneRuntime
+    
+    - object_kind_snapshot: computed once at scene load, returned as Arc clone (O(1) per frame vs full BTreeMap iteration)
+    - effective_object_states_snapshot: lazy dirty-cache behind Arc; rebuilds only when apply_behavior_commands actually ran, O(1) on clean frames
+    - cached_object_regions: set_object_regions wraps into Arc so update_behaviors takes a cheap refcount copy instead of cloning the full map each frame
+    - apply_behavior_commands: early-return on empty slice; sets effective_states_dirty=true once per call
+    - effective_states_dirty reset to true at start of each update_behaviors pass to guarantee first snapshot is always fresh
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 7f023ead8852d62411e601faf3d80005e4b70895[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 16:10:55 2026 +0100
+
+    perf: renderer and compositor optimisations
+    
+    - buffer: O(1) swap via mem::swap; explicit diff loops (no index division)
+    - rasterizer: Arc<Buffer> cache + u64 hash key (no String allocs on hit)
+    - scene_runtime: object_states_snapshot returns Arc (no BTreeMap clone)
+    - flex/grid layout: thread-local hash cache; skip Taffy rebuild on hit
+    - obj_render: pooled canvas/depth buffers via thread-local mem::take
+    - sprite_renderer: glow pre-rendered into cached Buffer; blit on hit
+    - postfx: mem::swap for scratch buffers; frame-skip (run every 2nd frame)
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 32c4fd9eaae73e4a28d4702b9de4d9eeb0fcb225[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 16:01:07 2026 +0100
+
+    fix(cognitos-os): remove CommandIndex from IOperatingSystem — commands dispatched via AppHost
+    
+    VS Code buffer kept reverting Program.cs/OperatingSystem.cs. Commands are now
+    built and indexed in Program.cs and passed directly to AppHost, not stored on
+    IOperatingSystem. Removes the stale CommandIndex property and 3-arg constructor.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 8e16a9f6f46503ec456665240296551245f7adf3[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 15:59:41 2026 +0100
+
+    docs: add state-machine.md
+
+[33mcommit 6dc63e83fdbfca0b9b4f6896727902a2d189c7b6[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 15:53:27 2026 +0100
+
+    perf(behavior): persistent Rhai scope per behavior via thread-local cache
+    
+    Each RhaiScriptBehavior now owns a persistent rhai::Scope that survives
+    across frames for the lifetime of the scene, instead of creating a new
+    Scope plus ~30 push() calls every frame.
+    
+    Implementation:
+    - NEXT_BEHAVIOR_ID (AtomicUsize) assigns a unique ID to each behavior
+    - BEHAVIOR_SCOPES (thread_local HashMap) stores (Scope, base_len) per ID
+    - On first call: push static data (params, local) below the rewind point
+    - Each frame: scope.rewind(base_len) clears per-frame vars, then push
+      frame-varying data (time, ui, key, ipc, scene, game)
+    - impl Drop removes the entry from BEHAVIOR_SCOPES on scene transition
+    
+    New `local` map (at scope level 0, below rewind point) gives scripts a
+    clean scene-scoped persistent store. `state` return pattern preserved
+    for full backward compatibility.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 283bdcc4e0b4ffbda0a69e40a83163fbbbb09449[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 13:52:56 2026 +0100
+
+    refactor: migrate all 38 commands + easter eggs to IKernelCommand/IUnitOfWork pattern
+    
+    - All commands now implement IKernelCommand.Run(IUnitOfWork, string[])
+    - Output via uow.Out.WriteLine() instead of returning CommandResult
+    - argv[0]=command name, argv[1..]=arguments (Unix convention)
+    - File ops via uow.Disk, process ops via uow.Process, clock via uow.Clock
+    - Special exit codes: 900=launch FTP, 901=clear screen
+    - Easter eggs rewritten to use IUnitOfWork (int return, uow.Out output)
+    - Command index built in Program.cs, passed to AppHost/ShellApplication
+    - LegacyUnitOfWork bridges old IOperatingSystem until full Kernel wired
+    - CommandIndex removed from IOperatingSystem interface
+    - MinixOperatingSystem simplified (no longer builds command index)
+    - Build passes clean (dotnet build -c Release)
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 90d85cbbc352d57b91e54ef8621a37ff90a292bd[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 13:16:16 2026 +0100
+
+    feat(cognitos-os): add Kernel subsystem architecture
+    
+    Implement the full Kernel + UnitOfWork + ResourceState foundation:
+    
+    - Kernel/Hardware/HardwareProfile: derived timing constants from MachineSpec
+      (disk seek/rotation/transfer, network bandwidth, fork/exec delays)
+    - Kernel/Resources: RamAllocator, BufferCache (LRU), DiskController
+      (contention), CpuScheduler, FdTable (EMFILE), NetworkController
+    - Kernel/Resources/ResourceState: central accounting container, Recalc()
+    - Kernel/Disk: IDisk + SimulatedDisk wrapping VFS with cache + timing
+    - Kernel/Network: INetwork + SimulatedNetwork with resolve/connect/ping
+    - Kernel/Process: IProcessTable + SimulatedProcessTable with fork/exit/RAM
+    - Kernel/Clock: IClock + SimulatedClock (1991-09-17 epoch)
+    - Kernel/Mail: IMailSpool + SimulatedMailSpool backed by IDisk
+    - Kernel/Journal: IJournal + SimulatedJournal (/var/log via IDisk)
+    - Kernel/Services: IServiceManager + cooperative cron/update/maild
+    - Kernel/IKernel + Kernel: composes all subsystems, boots system processes
+    - Kernel/IUnitOfWork + UnitOfWork: scoped command context with Out/Disk/Net/Process
+    - IKernelCommand: new-style int Run(IUnitOfWork, argv) alongside old ICommand
+    - IKernelApplication: new-style HandleInput(IUnitOfWork, input)
+    - VFS: added TryDelete, IMutableFileSystem extended
+    - NetworkRegistry: added IsKnown/ResolveIp helpers
+    
+    All timing flows through HardwareProfile.BlockFor(ms) → Thread.Sleep.
+    Resource accounting is emergent from MachineSpec difficulty level.
+    Single-threaded cooperative model (i386 era, no multithreading).
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit e8053015fa0eb3ab9dbded81e8a2422b22217295[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 12:11:13 2026 +0100
+
+    feat(sidecar): strict-1991 MINIX realism refactoring
+    
+    - Home directory: /home/linus → /usr/linus (MINIX convention)
+    - --help rejection: returns 'illegal option' + 'Try: man <cmd>'
+    - Command pruning: removed 15 non-MINIX commands (top, hostname,
+      dmesg, uptime, env, fortune, history, id, file, free, netstat,
+      ifconfig, nslookup, services)
+    - ls: added -l/-a/-1 flags with computed FileStat metadata
+    - ps: MINIX-style columns (PID TTY TIME CMD), -l/-a/-x flags,
+      realistic process table (kernel, mm, fs, init, update, cron,
+      getty, sh)
+    - uname: proper -snrvmpa flag parsing, -n replaces hostname
+    - man: 22 accurate man pages matching MINIX 1.x manuals
+    - VFS: .bash_history → .sh_history, notes reference ps not top,
+      hier page uses /usr/linus
+    - help: shows only strict-1991 visible commands
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 7ec95abfe37c5446dfeacfe24879fc51782454ae[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 12:02:42 2026 +0100
+
+    perf: cache Rhai ASTs, Arc object_states, enable generic font cache
+    
+    - Thread-local AST cache: compile Rhai scripts once, reuse compiled AST
+      every frame instead of re-parsing the script string (10 scripts × 60fps
+      = 600 avoided parses/sec on difficulty-select)
+    - Arc<BTreeMap> for object_states in BehaviorContext: O(1) refcount
+      clone instead of deep-copying the entire state map per behavior
+      (25 behaviors × 50 objects = 1250 avoided map clones/sec)
+    - Arc<RhaiMap> for objects_map shared between scope/ScriptSceneApi/
+      scene_get: eliminates 2 deep clones of the full objects map per script
+    - Enable rasterizer cache for generic fonts: removes the cache bypass
+      that forced re-rasterization of pixel-font text every frame
+    
+    Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+[33mcommit 45c92b4181a245cf356f3431f9f50007074463ab[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 11:55:13 2026 +0100
+
+    feat: performance HUD, half-res blur, Scene3D difficulty menu
+    
+    - Always-visible FPS/CPU/MEM HUD in top-right corner (generic:half font)
+    - Per-system timing (behavior/compositor/postfx/renderer) with EMA smoothing
+    - ProcessStats: CPU% via /proc/self/stat, RSS via /proc/self/status (~1Hz)
+    - Half-resolution blur in postfx underlay pass (~4x fewer pixels)
+    - Difficulty menu rewritten from 10 raw OBJ sprites to 5 Scene3D sprites
+    - Fixed portrait-materialize-s3d Rhai state detection (contains vs type_of)
+    - Fixed serde tag: scene3_d (snake_case of Scene3D)
+    
+    Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+[33mcommit 321fbb7e0e49f01d09e907e8aa9c1602a2539d4a[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 11:42:15 2026 +0100
+
+    docs: comprehensive game design documentation
+    
+    - gameplay.001.md — master doc: simulation, 1991 setting, quest flow,
+      filesystem map, network map, difficulty model, realism audit
+    - docs/script/prologue.md — full narrative script: boot→login→shell→
+      upload, mystery thread (anomalies, tty2), dialogue, scene flow
+    - docs/gameplay/mechanics.md — input model, session lifecycle, command
+      execution, VFS, quest state, discovery mechanics, rendering
+    - docs/gamedesign/design.md — design philosophy, target experience,
+      1991 realism audit, simulation fidelity requirements, difficulty
+      design, content pipeline, progression model
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit f9c5b62997adff6f0e5adfd067317f224adf09c1[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 03:34:51 2026 +0100
+
+    feat(cognitos): add 30+ shell commands, network, easter eggs
+    
+    New commands: ping, date, uptime, whoami, who, uname, hostname,
+    fortune, df, dmesg, man, kill, finger, id, mount, free, netstat,
+    ifconfig, history, env, echo, nslookup, grep, head, tail, wc,
+    file, sync
+    
+    Network layer: IExternalServer, NetworkRegistry with 13 hosts
+    (8 normal 1991-era + 2 loopback + 3 temporal anomaly servers)
+    
+    Easter eggs: MinixEgg (stateful), LinuxEgg (--help walkthrough),
+    40+ one-liner responses (emacs, vi, gcc, make, su, etc.)
+    
+    VFS: seeded /etc, /usr/ast, /tmp, /var/log, /proc, /dev, mail,
+    notes, .bash_history, .profile — 40+ epoch files
+    
+    Wiring: ShellApplication dispatches through CommandIndex then
+    EasterEggRegistry before command-not-found. HistoryCommand tracks
+    all submitted commands. Help lists all available commands.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 58431fbdbb12d185807b64acf1eae872b2a4ab2f[m
+Author: Paweł Potępa <potepapawel@gmail.com>
+Date:   Sun Mar 22 03:32:45 2026 +0100
+
+    Delete mods/shell-quest/assets/linus/linus_desimated.fbx
+
+[33mcommit 45efc0a16da40e84532db5cfb2c9547d7977e897[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 03:25:52 2026 +0100
+
+    update prerender pipeline
+
+[33mcommit 0e08663c31e88731b5bb12472b96936781d767c9[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 01:41:40 2026 +0100
+
+    refactor: make prerender a proper pipeline step in scene loading
+    
+    Introduce ScenePipeline — an ordered list of ScenePreparationStep
+    implementations run once per scene load, before SceneRuntime is activated:
+    
+    - scene_pipeline.rs: ScenePreparationStep trait (name + run), ScenePipeline
+      struct (Vec<Box<dyn Step>>), registered as Arc<ScenePipeline> world resource.
+      Default pipeline: [ObjPrerenderStep].
+    
+    - ObjPrerenderStep: implements ScenePreparationStep in prerender.rs.
+      Runs only when scene.prerender == true; all other logic unchanged.
+    
+    - ObjPrerenderedFrames + ObjPrerenderStatus now registered as scoped
+      resources — automatically cleared when world.clear_scoped() fires on
+      scene transition. No stale frames leak between scenes.
+    
+    - scene_lifecycle.rs: single unified path:
+        1. clear_scoped()        — discard outgoing scene resources
+        2. pipeline.prepare()    — run all preparation steps (scoped outputs)
+        3. register_scoped(SceneRuntime::new(scene))
+      No more layers.clone(), no duplicate prerender call, no ordering hazard.
+    
+    - lib.rs: same pipeline used for the entry scene at startup.
+    
+    Future steps (audio warm-up, sidecar handshake, asset pre-load) can be
+    added to ScenePipeline::default() without touching lifecycle or lib.rs.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit cd339d65c4b4519ffb923e74c3587106bc504029[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 01:27:02 2026 +0100
+
+    refactor: replace bake pipeline with prerender — sprite-id keyed, Obj-only
+    
+    - New obj_prerender.rs: ObjPrerenderedFrames (HashMap<sprite_id, PrerenderedFrame>),
+      PrerenderedFrame stores canvas + virtual dims + rendered_yaw/pitch for pose check.
+      ObjPrerenderStatus replaces ObjBakeStatus.
+    
+    - New systems/prerender.rs: renders each eligible Sprite::Obj once at its exact
+      YAML-declared initial pose (rayon parallel). Eligibility: rotate_y_deg_per_sec==0
+      and sprite.prerender==true. snap_hz/flicker_hz are captured in the initial frame.
+      No 72-yaw-step loop — one render per sprite.
+    
+    - Sprite::ObjBaked removed entirely. Sprite::Obj gains prerender: bool (default true).
+      Scene-level prerender: true triggers the pass; per-sprite prerender: false opts out.
+    
+    - obj_render.rs: thread-local renamed with_prerender_frames; render_obj_content is now
+      pure live-render only; new try_blit_prerendered checks pose match (yaw within 1°,
+      pitch within 0.5°) and blits with clip masking — returns false to fall back to live.
+    
+    - sprite_renderer.rs: Sprite::Obj arm calls try_blit_prerendered before live render.
+      Sprite::ObjBaked arm removed.
+    
+    - Old bake.rs and obj_frame_cache.rs kept as tombstones.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit 5c2c7adcb55d44ecf14437d86ad7783638f81db2[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 01:10:42 2026 +0100
+
+    feat: word-wrap sidecar output + boot colour highlights + dimmed user input
+    
+    Engine (Rust):
+    - Markup-aware word-wrap in viewport_clipped_output and stacked output
+    - wrap_text_to_width breaks on word boundaries, preserves colour tags
+    - User input text rendered 10% dimmer (#adadad) for CRT feel
+    - 10 new wrap regression tests
+    
+    Sidecar (C#):
+    - Boot sequence: MINIX/version bright white, keywords highlighted,
+      OK in green — improves readability
+    - ApplicationStack emits blank line on push/pop for visual breathing
+    - Style.BrightenHex helper for dynamic colour adjustment
+    - Shell welcome messages brightened +15%
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 37d1823fb5c9a5b3052fd8d3df55c32f9f95c985[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 00:43:27 2026 +0100
+
+    perf: skip postfx pass clone and compositor effects clone on hot path
+    
+    postfx_system now computes the pass fingerprint before cloning Vec<Effect>,
+    then only clones when the fingerprint differs from the cached value — the
+    common idle case (same scene, same passes) avoids the allocation entirely.
+    
+    compositor_system consolidates three identical stage-match effects-clone arms
+    into a single step_ref lookup so the clone happens once regardless of stage.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit ca620565d1b988439c61609082f77120f324b2fc[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 00:28:52 2026 +0100
+
+    perf: eliminate major per-frame allocations in render pipeline
+    
+    behavior loop (scene_runtime.rs)
+      - Wrap static per-frame data (resolver, object_kinds/props/text/regions,
+        sidecar_io) in Arc<T> once before the behavior loop.  Each behavior tick
+        now does an O(1) refcount clone instead of a deep BTreeMap copy.
+      - Only call effective_object_states_snapshot() inside the loop when a
+        behavior actually produced commands (O(n²) → O(n) in the common case).
+    
+    renderer.rs
+      - Replace run.chars().count() O(n) scan with a tracked run_len: u16
+        counter (O(1) per diff cell).
+    
+    postfx.rs
+      - Remove three dead buffer.clone() writes to previous_output, which is
+        written every frame but never read.
+      - Replace format!("{:?}", …) String allocations in passes_fingerprint()
+        with discriminant + per-field f32::to_bits hashing (zero heap use).
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit cc7b6affd66c4b9ae825a213e2e4d677d317ac9c[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sun Mar 22 00:04:19 2026 +0100
+
+    chore: update game state snapshot
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit 055844223ab6f391f92339f75feef1082b4cef08[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 23:55:51 2026 +0100
+
+    style: add VGA-style CRT postfx to difficulty-select scene
+    
+    Replaces flat scanlines with the full 4-layer CRT stack from the
+    VGA BIOS scene: crt-underlay (rolling bg), crt-distort, crt-scan-glitch,
+    crt-ruby.  Params dialled down ~20% vs scene-05 so the 3D portraits
+    remain legible.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit f223dabf5b82059ff43ba60a00b871522ffd0534[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 23:50:34 2026 +0100
+
+    fix: two-phase confirm animation — no pitch snap on on_leave
+    
+    Phase 1 (8 frames / 133ms): yaw sweeps 0→320° toward camera.
+      Pitch is not touched, stays at YAML base (-8°) — eliminates the
+      visible 1-frame snap that was caused by behaviour overriding pitch
+      to 0 on the very first on_leave tick.
+    
+    Phase 2 (2 frames / 33ms): yaw held at 320°, pitch eases -8°→+4°
+      (lean toward screen).
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit 38f5ef66a0cb9d556fa37cd86e0e7e8543996a2d[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 23:40:14 2026 +0100
+
+    fix: smooth 10-frame confirm animation on difficulty select
+    
+    The on_leave portrait animation was snapping to pitch=-8 on the first
+    frame (from idle pitch=0), looking like a 1-frame jump.
+    
+    - confirm_dur: 500 ms → 167 ms (10 frames @ 60 fps)
+    - pitch: starts from 0 (idle) and eases to +12°, no frame-0 snap
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit c9e25c496e676c9c24e3f1de6d30fb07006432a9[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 23:23:46 2026 +0100
+
+    style: lightsaber blue palette (Obi-Wan)
+    
+    Shift entire palette from cyan-mint-magenta to monochromatic
+    lightsaber blue family:
+    
+    Cel: shadow #020410, midtone #0a1533, highlight #88bbff.
+    Wireframe/title: #4488ff (electric blue).
+    Point light 1: #4488ff (saber glow), snap-hz 2.
+    Point light 2: #aaddff (pale saber core), snap-hz 3.
+    Arrows: #6699ff. Selected menu: #88ccff. Dim: #0a1225.
+    Neon-edge-glow: #4488ff. Shine sweep: #bbddff.
+    Help text: #152540 (deep muted navy).
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 2c571057a5788e580c76930b974917176d322dd6[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 23:12:59 2026 +0100
+
+    fix: hard-wrap long lines in ScreenBuffer to viewport width
+    
+    BuildVisibleFrameLines now wraps each stored line at _viewportCols visible
+    characters before the row-clip pass. Markup tags ([colour]…[/]) are treated
+    as zero-width so they don't inflate the column count.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit 6d47a18593bc9e23a801e7509d5d448162d8cbd7[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 23:10:50 2026 +0100
+
+    style: cyberpunk-noire palette for difficulty select
+    
+    Cel-shading: shadow #050510, midtone #0a1e2e, highlight #00ffcc
+    (5 levels, tone-mix 0.85 for subtle material bleed).
+    
+    Wireframe fg: #00ccff (neon cyan).
+    Point light 1: cyan #00ccff, intensity 0.6, snap-hz 2.
+    Point light 2: magenta #ff0088, intensity 0.3, snap-hz 3.
+    
+    Menu: selected #00ffcc, dim #0d1520, arrows #ff00aa.
+    Title DIFFICULTY: #00ccff. Help text: #1a3344 (muted).
+    
+    PostFX: scanlines (0.12) + crt-scan-glitch (0.08, slow).
+    Shine sweep + neon-edge-glow recoloured to #00ffcc.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit a2ede740b9060c00a0a8d4eab98a53d2237ae097[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 22:54:01 2026 +0100
+
+    docs: add neon-edge-glow, menu-highlight, confirm animation to changelog
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit dd7a2957f914658ed123827333e3f63530b83c19[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 22:41:29 2026 +0100
+
+    feat: Minix 1.1 hard-disk boot sequence with CPU-speed scaling
+    
+    Implements an authentic Minix 1.1 PC-AT boot sequence (no floppy):
+    - Phase 1: boot monitor "=MINIX boot"
+    - Phase 2: kernel banner + memory line (size/MINIX/RAM disk/available)
+    - Phase 3: task startup (clock, memory, winchester, tty, ethernet)
+    - Phase 4: FS mount (hd1 root, hd2 /usr)
+    - Phase 5: init, /etc/rc, update, cron (cron gated on RAM >= 2 MB)
+    - Phase 6: /etc/getty tty0 &
+    
+    All delays scale by 33 / CpuMhz so slower-difficulty machines boot slower.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit f04931e97f5231a87487d6fbdfa0bef214aed0ab[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 22:34:34 2026 +0100
+
+    feat: menu highlight + shine sweep + 20° lean + portrait flicker
+    
+    - New behavior 'menu-highlight': selected item bright (#88ccff),
+      non-selected items dim (#1a2244) via style.fg — shine sweep only
+      visually hits the bright selected item.
+    - Scene on_idle: 1800ms neon-edge-glow → 800ms neon-edge-glow + shine
+      sweep (angle 20, width 6, colour #ccddff), looping.
+    - Forward lean increased from 12° to 20° (pitch -8 → +12).
+    - Post-materialize periodic glitch: 80ms wireframe overlay flash
+      every 2.5s for cyberpunk digital artifact look.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit a6b981eba0586472050e25b5a45544a434a3e608[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 22:24:54 2026 +0100
+
+    refactor(cognitos-os): application stack, UserSession, canonical VFS paths
+    
+    Replace flat SessionMode enum + ad-hoc FTP mode switching with a proper
+    application stack architecture:
+    
+    - UserSession: canonical /absolute path cwd, ResolvePath handles ~/../relative,
+      DisplayCwd for prompt (~/foo), SetCwd for cd
+    - IApplication + ApplicationStack: input always routes to topmost app;
+      app returns Exit to pop and restore focus to shell
+    - ShellApplication: shell at stack bottom, dispatches commands, pushes child apps
+    - FtpApplication: replaces FtpSession, pushed on `ftp` command, popped on bye
+    - VirtualFileSystem: add DirectoryExists(), ToVfsPath(absolute→vfs-relative);
+      fix epoch-files bug — SeedEpochFiles() now called inside ReloadFromStateArchive
+      so linux-0.01 tree is never lost after login/persist cycle
+    - Commands: CdCommand uses session.ResolvePath + DirectoryExists (handles
+      empty dirs, absolute paths, ~/relative); all commands use ToVfsPath
+    - Remove Network/FtpSession.cs (superseded by Applications/FtpApplication.cs)
+    - Remove Cwd from MachineState and FtpSession from SessionMode enum
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit 24f9ddeedaa09cae6bab1772d446f29017259c25[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 22:10:58 2026 +0100
+
+    feat: neon-edge-glow effect + forward lean confirm animation
+    
+    - New builtin effect 'neon-edge-glow': cyberpunk-style coloured edge
+      glow with 3-ring volumetric spillover and breathing pulse animation.
+      Params: colour, intensity, alpha, speed, easing.
+    - Replace 'brighten' with 'neon-edge-glow' on difficulty-select scene:
+      subtle breathing glow during on_idle, intense flash during on_leave.
+    - Fix confirm nod: replace transient sine bounce with persistent
+      ease-out forward lean (pitch -8 → +4) synced with yaw rotation.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 056e9bacc8799d5279e4733de27cd2104ae8cf6c[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 21:53:55 2026 +0100
+
+    feat: brighten glow underlayer during confirm animation
+    
+    Replace empty 600ms pause with brighten effect (500ms, ease-out,
+    intensity 0.6) that runs in parallel with the portrait rotation
+    and nod. Sequence: brighten glow → fade-out → next scene.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit be9818b6033282528ae977419312dc88a7b7c92b[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 21:47:28 2026 +0100
+
+    fix: confirm rotation +180° — model was facing away from camera
+    
+    Target yaw 140° showed the back of the head. Changed to 320°
+    (base 220° + yaw 320° = 540° = 180° = facing camera).
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 93418bc4d81f3fdf433005e03ff171286850cc8e[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 21:44:59 2026 +0100
+
+    feat: confirm animation — portrait faces camera with cocky nod on Enter
+    
+    When the player confirms difficulty (Enter), the selected portrait:
+    - Rotates from yaw 0° → 140° (total 360° = facing camera) over 500ms
+    - Does a 12° chin-up nod via sine pulse (120ms–400ms into animation)
+    - Uses ease-out curve for natural deceleration
+    
+    Implementation:
+    - Expose time.stage to Rhai scope ('on_enter'/'on_idle'/'on_leave'/'done')
+    - portrait-materialize detects on_leave and runs confirm phase
+    - Scene 04 on_leave: 600ms pause (for animation) + 220ms fade-out
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 9ec2f5b25ab13a7238c66695bd0a4dcbfd2ef785[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 21:24:27 2026 +0100
+
+    fix: expand YAML anchors — serde_yaml 0.9 keeps << as literal key
+    
+    serde_yaml 0.9 does NOT resolve merge keys (`<<: *alias`) when
+    deserializing to `Value` — it preserves `<<` as a literal mapping
+    key. This meant portrait sprites lost all camera/lighting/material
+    properties, rendering as dots and dashes.
+    
+    Revert to explicit properties generated by a Python template.
+    624 lines (vs 906 original) — still cleaner, and fully compatible
+    with the serde_yaml Value-based object pipeline.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 34f81572bd3269d9ea035f328ca47d8dcccf37e3[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 21:20:31 2026 +0100
+
+    fix: bounds-check cached canvas in clip masking loop
+    
+    The clip masking loop used virtual_w × virtual_h to iterate rows,
+    but the cached canvas may have been baked at a slightly different
+    resolution (e.g. when display-time virtual dimensions differ from
+    bake-time due to layout rounding). Guard against out-of-bounds
+    by checking row_start against actual canvas length.
+    
+    Fixes: panicked at obj_render.rs:471 — range start index 1584
+    out of range for slice of length 1536.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 435da5e8ebafe90a4a07e7d40cd7104e3134eff5[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 21:15:29 2026 +0100
+
+    refactor: extract portrait material/camera into YAML anchor
+    
+    Replace 10× duplicated camera, lighting, and material properties
+    with a single `x-portrait-base` anchor and `<<: *portrait-base`
+    merge keys across all difficulty portrait sprites.
+    
+    - 906 lines → 240 lines (−74%)
+    - Single place to tune palette: highlight, midtone, shadow, cel-levels
+    - Single place to tune camera: distance, fov, pitch, near-clip
+    - Single place to tune lighting: direction, point lights
+    - Includes darkened palette (highlight #6688cc, midtone #1a3366, cel 4)
+    
+    serde_yaml 0.9 resolves merge keys at parse time — engine sees
+    flat key/value maps, zero runtime cost.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit ac0e54578f79ee1899881e43127dca7882e55b56[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 20:54:44 2026 +0100
+
+    feat: wireframe depth shading and z-buffer
+    
+    Wireframe edges now have:
+    - Z-buffer: back edges are properly occluded by front edges
+    - Depth-based brightness: edges fade from full brightness (nearest)
+      to 15% brightness (farthest), creating depth perception
+    - Per-pixel depth interpolation along Bresenham lines
+    
+    Implementation:
+    - draw_line_depth: Bresenham with z-test and depth-interpolated color
+    - clipped_depths: parametric t projection for viewport-clipped endpoints
+    - draw_line_flat: simple fallback for face-less model wireframe
+    - Cell mode blit now uses canvas RGB (was ignoring depth-shaded colors)
+    
+    HalfBlock, QuadBlock, and Braille modes already read canvas RGB so
+    depth shading works automatically in all renderer modes.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 0edcd065e1ee35d5345b02b56ce64109c7994574[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 20:47:03 2026 +0100
+
+    docs: prerender pipeline, materialize effect, render optimizations
+    
+    - scene-centric-authoring: new section 2.0.1 — prerender (synchronous bake)
+    - obj-lighting: render pipeline optimizations (Arc cache, rayon, light
+      precompute, sort keys), materialize effect history
+    - carousel-menu-object: clip_y_min/max in Rhai path API, portrait-materialize
+      behavior description with animation pipeline
+    - scripts.md: difficulty-select scene doc (portraits, animation params,
+      difficulty options)
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 64344575eccf481c34564a1edd5708574cc8b3fc[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 20:43:16 2026 +0100
+
+    fix: normalize rotation-y (220) and materialize dur (250ms) across all portraits
+    
+    All difficulty portraits now match Script Kiddie's rotation angle and
+    animation timing. Previously mouse-enjoyer/can-exit-vim/dvorak/su used
+    rotation-y: 270 and can-exit-vim had dur: 600.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 49719b3abf9b4ef7dfd54b316c1820bd2eddde18[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 20:40:02 2026 +0100
+
+    fix: bake full model without clip — clipping applied at render time only
+    
+    The solid sprite had clip-y-max: 0.0 in YAML (hidden initially, revealed by
+    behavior script). During prerender baking, these YAML clip values were passed
+    to render_obj_to_canvas, producing an empty cached canvas. At runtime the
+    behavior updated clip_y_max via scene.set(), but the display-time masking
+    operated on an already-empty canvas — solid never appeared.
+    
+    Fix: always bake with clip_y_min=0.0, clip_y_max=1.0 (full model). Clipping
+    is purely a display-time concern, handled by render_obj_content and
+    render_baked_obj_content when blitting from cache.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 5b4550116612c1a0593ffbe51eead19c21664edb[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 20:22:46 2026 +0100
+
+    fix: materialize scanline — complementary clip_y for wireframe/solid
+    
+    Old: wireframe hid bottom-up (clip_y_max 1→0), solid revealed top-down
+    (clip_y_max 0→1). This created a gap — no scanline boundary.
+    
+    New: scanline sweeps top→bottom. Above the line = solid (clip_y_max=scan),
+    below the line = wireframe (clip_y_min=scan). Both meet at the scan edge.
+    
+    Also removed redundant clip_y_min reset in the scan phase that was
+    overwriting the scanline position.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 5363008e9d6fa33db8d690b68142fe1bedc8870a[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 20:15:03 2026 +0100
+
+    perf: Arc<T> asset cache + pre-compute light normals
+    
+    Asset cache:
+    - AssetCache now stores Arc<T>, returns Arc<T> on get — eliminates
+      deep clone of ObjMesh (vertices/faces/edges) on every cache hit.
+      Affects OBJ, image, font, and source-bytes caches.
+    
+    OBJ shading:
+    - Pre-compute normalized light_dir and light_2_dir once per render
+      instead of per-face (was 20K normalize3 calls with sqrt per frame).
+    - Replace normalize3([0,0,-1]) view_dir with const VIEW_DIR.
+    
+    Test fixes:
+    - Add prerender: false to Scene constructors in tests.
+    - Add ObjBaked arms to sprite match exhaustiveness.
+    - Adapt test assertions for Arc<T> return types.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 2d617413906709ec8dbb0c52132089f187e97e5a[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 20:05:03 2026 +0100
+
+    perf: optimize prerender hot path — eliminate sort allocations
+    
+    Three optimizations in the OBJ render pipeline:
+    
+    1. face_avg_depth(): replace Vec collect() with inline sum/count loop
+       — eliminates ~20-30K heap allocations per render call in the sort
+       comparator (called 1440× during prerender)
+    
+    2. Pre-compute depth keys before sort: compute face_avg_depth() once
+       per face, store alongside face ref, sort by pre-computed key.
+       Old: O(N log N) calls to face_avg_depth inside comparator.
+       New: O(N) calls + O(N log N) float comparisons.
+    
+    3. Share source strings via Arc<str> across rayon work items to avoid
+       1440 String allocations during parallel prerender.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 42d0d73747b3bd4593227c2e9b33b4a3ace8be04[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 19:59:41 2026 +0100
+
+    perf: parallelize OBJ prerender with rayon
+    
+    Replace sequential for-loop with rayon par_iter — all 1440 frames
+    (targets × 72 yaw × 2 modes) rendered in parallel across all CPU
+    cores. Each frame is fully independent (pure function), so this
+    scales linearly with core count.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 098e3654c85ad82bb1dd615b3105441bf853190e[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 19:52:50 2026 +0100
+
+    refactor: synchronous prerender pipeline — remove async bake
+    
+    Convert OBJ prerender from background-thread async baking to
+    synchronous blocking prerender during scene transition:
+    
+    - scene.prerender: Vec<String> → bool (scene declares itself)
+    - prerender_scene_sprites() blocks during transition, fills cache
+    - Remove start_bake_if_needed, tick_bake, paint_loading_overlay
+    - Remove auto-transition logic and loading overlay from game_loop
+    - Remove ObjBakeStatus::Baking variant (no polling needed)
+    - Delete 04a-loading-difficulty scene (no longer needed)
+    - Scene 03 next → 04.intro.difficulty-select (direct)
+    - Cache-miss guard in obj_render: warn + skip instead of live 3D
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 0fc153f8eaffe2d1fb57f22f76ac80900881cf7f[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 19:41:12 2026 +0100
+
+    feat: obj-baked prerender pipeline + portrait polish
+    
+    engine:
+    - new sprite type: obj-baked — displays pre-rendered frames from
+      ObjFrameCache, zero live 3D math at runtime
+    - scene.prerender field — list of scene refs whose OBJ sprites get
+      baked into cache during a loading screen
+    - bake system collects targets from prerender refs, bakes all yaw
+      steps in background thread, paints loading overlay with progress
+    - auto-transition: when bake finishes on a prerender scene, engine
+      fires transition to scene.next automatically
+    - obj_render: ObjBaked sprite rendering with clip-y support, fg
+      colour override, yaw snap to nearest cached step
+    - sprite_renderer: ObjBaked layout + render integration
+    - scene_runtime: ObjBaked property snapshot for Rhai set() API
+    - validation: ObjBaked included in timeline validation
+    
+    content:
+    - 04a-loading-difficulty scene — prerenders difficulty-select OBJ
+      portraits then auto-transitions to the menu
+    - portrait-materialize behavior tuned
+    - difficulty-menu object updated
+    - 03-intro-lab-enter scene tweak
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit b9d4c6c1badb42cb86ce54913647d54e26693256[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 19:28:18 2026 +0100
+
+    docs: update readmes — architecture, sidecar, engine-io, changelog
+    
+    - README.md: added architecture section, expanded repo map, linked
+      sidecar/engine-io/quest docs
+    - AGENTS.md: added engine-io + cognitos-os to repo shape, added
+      sidecar/difficulty/filesystem/ipc change playbooks, sidecar build cmd
+    - CHANGELOG.md: added entries for difficulty, shell commands, ftp,
+      mutable fs, quest state, epoch seeding
+    - engine-io/README.md: new — ipc protocol, message types, usage
+    - cognitos-os/README.md: new — sidecar architecture, commands,
+      difficulty table, filesystem, quest state
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 5e2b91b9463f220972a129ab2925b29c20da1eb8[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 19:03:37 2026 +0100
+
+    feat: epoch files + cwd-aware path resolution
+    
+    - SeedEpochFiles() populates linux-0.01/ working tree at boot
+      (RELNOTES-0.01, linux-0.01.tar.Z, bash.Z, update.Z, README)
+    - CommandContext.ResolvePath() resolves paths relative to cwd
+    - ls, cat, cp all cwd-aware now (cd linux-0.01 && ls works)
+    - FTP put resolves local files relative to shell cwd
+    - CatCommand directory guard is generic (not hardcoded names)
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 7c921f7f978e76b9afb99eb1a68db4156557c65d[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 18:57:33 2026 +0100
+
+    docs: add prologue script doc (mods/shell-quest/docs/scripts.md)
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit a9ac3150ef80a0818b2adc3d9d6844392a26e141[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 18:50:46 2026 +0100
+
+    feat: prologue architecture — difficulty, FTP, mutable FS, shell commands
+    
+    - Difficulty enum (5 levels) + MachineSpec record with FromDifficulty() factory
+    - MachineSpec drives boot hardware lines (CPU/RAM/NIC from spec)
+    - New shell commands: cd, pwd, cp, ftp
+    - IMutableFileSystem with TryCopy/TryWrite/TryMkdir on ZipVirtualFileSystem
+    - Full FTP client session (open/binary/ascii/put/ls/cd/pwd/status/bye)
+    - ASCII vs binary transfer mode is the prologue puzzle
+    - QuestState tracks FTP progress and upload success
+    - AppHost routes FTP session input, manages session lifecycle
+    - Engine passes difficulty label from GameState to sidecar Hello message
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 7026a24c037b6df9e8ba1244c94c6ce6cd7f0ef4[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 18:08:19 2026 +0100
+
+    feat: harden diagnostics — surface silent errors in debug overlay
+    
+    Previously many error categories were invisible during development:
+    - Sidecar IPC send failures (6 'let _ =' sites) — now logged
+    - Scene transition failures — now pushed to DebugLogBuffer
+    - Scene index build failures — now logged with path
+    - Debug overlay only showed Rhai errors — now shows all subsystems
+    
+    Changes:
+    - DebugLogBuffer: add push_warn() method
+    - engine_io: replace all silent 'let _ = sidecar.send()' with
+      error capture → DebugLogBuffer + file log
+    - scene_lifecycle: push transition failures to DebugLogBuffer
+    - scene_loader: log failed scene loads during index build
+    - renderer stats overlay: show current scene stage + elapsed time,
+      add warn-level background color (dark yellow)
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 6bf49fb494bd83af4175e1b36773329847f5ac2c[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 17:58:32 2026 +0100
+
+    fix: viewport-aware scroll for sidecar fullscreen mode
+    
+    Fullscreen mode (screen-full events) was dumping all output lines
+    into the text sprite without viewport calculation, causing content
+    to overflow off-screen.
+    
+    Changes:
+    - viewport_clipped_output() calculates available rows from the
+      output→prompt sprite vertical distance (same as non-fullscreen)
+      and clips output_lines to the last N visible rows
+    - Sidecar resize/hello now sends max_lines as row count instead
+      of full buffer height, so the C# side also clips correctly
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit c3861c85a9cf690379ed25c5c521e39164e9a36a[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 17:40:09 2026 +0100
+
+    fix: clear screen and 500ms delay after boot sequence completes
+    
+    DriveBoot() was transitioning directly to LoginUser mode without
+    clearing the screen buffer, so boot log lines remained visible and
+    the login prompt appeared mixed into the boot output.
+    
+    Now boot completion sets a 500ms post-delay. When the delay expires,
+    DriveBootPostDelay() clears the viewport, shows the Minix banner,
+    and applies the login prompt — matching StartAtLogin() behavior.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit 9f2a15b116504fe095d740ba78f952e5b3a53601[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 17:29:41 2026 +0100
+
+    fix: trigger bake for entry scene + add bake logging
+    
+    - Call start_bake_if_needed() in lib.rs after first scene load
+      (was only called on transitions, first scene was never baked)
+    - Log sprite count and frame count when bake starts
+    - Log skip message when no bakeable sprites found
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit 581d3fbd39ddad7527a4c021e4c0ba28a2e4e79b[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 17:25:39 2026 +0100
+
+    fix: boot-scene flag for sidecar hello message
+    
+    The hardcoded scene ID check in engine_io.rs ("intro-cpu-on") never
+    matched the actual scene ID ("05.intro.cpu-on") after scene IDs were
+    standardized. This meant the C# sidecar always received boot_scene=false
+    in the hello handshake, causing it to skip MinixBootSequence entirely
+    and jump straight to the login prompt.
+    
+    Fix: replace the hardcoded ID check with a declarative boot-scene flag
+    on TerminalShellControls. Scenes that want the sidecar to run its boot
+    sequence now set boot-scene: true in their terminal-shell YAML config.
+    
+    - engine-core: add boot_scene bool field to TerminalShellControls
+    - engine/systems/engine_io: read boot_scene from controls snapshot
+    - mods/shell-quest: set boot-scene: true on 06-intro-login scene
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit c21f0eba79981eae3b819b5c9e6434491b666366[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 17:23:15 2026 +0100
+
+    fix: paint loading overlay before renderer flush
+    
+    overlay was painted after renderer_system so it never reached the
+    terminal — moved to compositor → postfx → overlay → renderer order
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit db9c4b5b5d1aa8ea81a858e621d6681f76af81cb[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 17:15:41 2026 +0100
+
+    feat: OBJ frame pre-baking with cache + loading overlay
+    
+    At scene transition, static OBJ sprites (no dynamic lights, no spin)
+    are baked in a background thread: all 72 yaw steps (5° granularity)
+    × wireframe + material = up to 144 canvases per sprite. Runtime render
+    becomes a cache lookup + clip_y row-slice instead of per-frame sort +
+    project + rasterize.
+    
+    - engine/src/obj_frame_cache.rs: BakeCacheKey, ObjFrameCache,
+      ObjBakeStatus (Idle/Baking/Ready), YAW_STEP_DEG=5
+    - engine/src/systems/bake.rs: start_bake_if_needed(), tick_bake(),
+      paint_loading_overlay() progress bar
+    - engine/src/systems/compositor/obj_render.rs: extract
+      render_obj_to_canvas() (pub(crate)), cache fast-path via
+      thread-local FRAME_CACHE_PTR
+    - engine/src/systems/compositor/mod.rs: with_frame_cache wrapper,
+      bake-status check
+    - engine/src/systems/scene_lifecycle.rs: trigger bake on transition
+    - engine/src/game_loop.rs: tick_bake() + loading overlay per frame
+    
+    289 tests pass.
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit b7a3a856fb2264ace0a4e927223f3c81a8fb985b[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 17:05:44 2026 +0100
+
+    feat: mod-defined named behaviors + portrait-materialize
+    
+    Engine now scans behaviors/*.yml from the mod at startup and registers
+    them as named reusable Rhai behaviors (mod registry takes priority over
+    engine catalog). Mods define logic, engine provides the mechanism.
+    
+    - engine/src/mod_behaviors.rs: ModBehaviorRegistry world resource +
+      load_mod_behaviors() that reads <mod>/behaviors/*.yml
+    - engine-core/src/scene/model.rs: BehaviorParams gets optional `dur`
+      field exposed to Rhai as params.dur
+    - engine/src/behavior.rs: expose dur in Rhai scope; RhaiScriptBehavior
+      pub(crate) for mod behavior instantiation
+    - engine/src/scene_runtime.rs: pending_bindings resolved on first frame
+      via apply_mod_behavior_registry(); zero-cost after init
+    - engine/src/systems/behavior.rs: apply_mod_behavior_registry() call
+      guarded by has_pending_bindings()
+    - mods/shell-quest/behaviors/portrait-materialize.yml: extracted script
+    - mods/shell-quest/objects/difficulty-menu.yml: 5x55-line inline Rhai
+      scripts replaced with portrait-materialize + {index, dur} params
+    
+    Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+
+[33mcommit 7657c2e92780117246f8753b6f1d8a6f56cb9c12[m
+Author: Pawel Potepa <pawel.potepa@hotmail.com>
+Date:   Sat Mar 21 16:50:08 2026 +0100
+
+    docs: add project documentation files and update gitignore
+    
+    - allow all project .md files (architecture, authoring guides, design docs)
+    - ignore only local session markdown
+    - add: agents.yaml.md, assets.md, audio-ipc-prototype.md, authoring.md
+    - add: carousel-menu-object.md, cutout.md, editor-architecture.md, editor.md
+    - add: logging.md, terminal-hud-authoring.md, timeline-architecture.md
+    - add: scene-centric-authoring.md, obj-lighting.md, inputs.md
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit b76d4d79050f775e44ec6d9ff08c683678a61fb8[m
+Author: Paweł Potępa <potepapawel@gmail.com>
+Date:   Sat Mar 21 16:40:44 2026 +0100
+
+    Update README to remove RED color reference
+    
+    Removed the mention of RED color from the intro cutscene due to negative connotations.
