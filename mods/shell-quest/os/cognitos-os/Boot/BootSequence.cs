@@ -18,21 +18,21 @@ internal sealed class MinixBootSequence : IBootSequence
         var availKb = ramKb - MinixKb;
 
         var memoryLine =
-            $"Memory size = {ramKb}K" +
-            $"     MINIX = {MinixKb}K" +
+            $"Memory size = {Style.Fg(Style.Bright, $"{ramKb}K")}" +
+            $"     {Style.Fg(Style.BootKeyword, "MINIX")} = {MinixKb}K" +
             $"     RAM disk = 0K" +
-            $"     Available = {availKb}K";
+            $"     Available = {Style.Fg(Style.Bright, $"{availKb}K")}";
 
         var steps = new List<BootStep>();
 
         // ── Phase 1: Boot monitor ──────────────────────────────────────────────
         // On hard disk boot the monitor prints a single line then boots immediately.
-        steps.Add(S("=MINIX boot", 120, f));
+        steps.Add(S($"={Style.Fg(Style.Bright, "MINIX")} boot", 120, f));
         steps.Add(S(string.Empty, 80, f));
 
         // ── Phase 2: Kernel banner + memory line ──────────────────────────────
         // These two lines are the very first things the Minix kernel prints.
-        steps.Add(S("MINIX 1.1  Copyright 1987, Prentice-Hall, Inc.", 300, f));
+        steps.Add(S($"{Style.Fg(Style.Bright, "MINIX 1.1")}  Copyright 1987, Prentice-Hall, Inc.", 300, f));
         steps.Add(S(memoryLine, 400, f));
         steps.Add(S(string.Empty, 200, f));
 
@@ -40,29 +40,29 @@ internal sealed class MinixBootSequence : IBootSequence
         // Minix starts numbered tasks in order. On a PC-AT the order is:
         //   CLOCK, MEM, FLOPPY, WINCHESTER, TTY, ETHERNET, PRINTER
         // We skip floppy (no removable media) and printer (not present).
-        steps.Add(S("clock task", 120, f));
-        steps.Add(S("memory task", 80, f));
-        steps.Add(S("winchester task", 600, f));   // HDD seek takes time
+        steps.Add(S($"{Style.Fg(Style.BootKeyword, "clock")} task", 120, f));
+        steps.Add(S($"{Style.Fg(Style.BootKeyword, "memory")} task", 80, f));
+        steps.Add(S($"{Style.Fg(Style.BootKeyword, "winchester")} task", 600, f));   // HDD seek takes time
 
         // TTY task — initialises consoles
-        steps.Add(S("tty task", 80, f));
+        steps.Add(S($"{Style.Fg(Style.BootKeyword, "tty")} task", 80, f));
 
         // Ethernet only if NIC speed implies a real card is present
         if (spec.NicSpeedKbps > 0)
-            steps.Add(S("ethernet task", 160, f));
+            steps.Add(S($"{Style.Fg(Style.BootKeyword, "ethernet")} task", 160, f));
 
         steps.Add(S(string.Empty, 100, f));
 
         // ── Phase 4: File system mount ────────────────────────────────────────
         // Minix 1.1 on hard disk uses hd1 (root) and hd2 (/usr).
         // The FS prints one line per mounted device.
-        steps.Add(S("root file system on /dev/hd1  OK", 350, f));
-        steps.Add(S("/usr file system on /dev/hd2  OK", 500, f));
+        steps.Add(S($"root file system on /dev/hd1  {Style.Fg(Style.BootOk, "OK")}", 350, f));
+        steps.Add(S($"/usr file system on /dev/hd2  {Style.Fg(Style.BootOk, "OK")}", 500, f));
         steps.Add(S(string.Empty, 120, f));
 
         // ── Phase 5: init + /etc/rc ───────────────────────────────────────────
         // init reads /etc/rc and starts background daemons.
-        steps.Add(S("Init: Starting system.", 200, f));
+        steps.Add(S($"{Style.Fg(Style.BootKeyword, "Init")}: Starting system.", 200, f));
         steps.Add(S(string.Empty, 80, f));
         steps.Add(S("/etc/rc", 180, f));
         steps.Add(S(string.Empty, 280, f));

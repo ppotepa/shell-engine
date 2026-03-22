@@ -8,6 +8,12 @@ namespace CognitosOs.Core;
 internal sealed class ApplicationStack
 {
     private readonly Stack<IApplication> _stack = new();
+    private readonly ScreenBuffer _screen;
+
+    public ApplicationStack(ScreenBuffer screen)
+    {
+        _screen = screen;
+    }
 
     public bool IsEmpty => _stack.Count == 0;
 
@@ -16,6 +22,7 @@ internal sealed class ApplicationStack
     /// <summary>Pushes a new application and calls its OnEnter.</summary>
     public void Push(IApplication app, UserSession session)
     {
+        _screen.Append("");
         _stack.Push(app);
         app.OnEnter(session);
     }
@@ -33,6 +40,7 @@ internal sealed class ApplicationStack
         {
             _stack.Peek().OnExit(session);
             _stack.Pop();
+            _screen.Append("");
         }
     }
 
