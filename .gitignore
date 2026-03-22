@@ -52,3 +52,7 @@ claude-ext
 
 # Audio project files
 *.aup3
+
+# C# / .NET build artifacts
+**/bin/
+**/obj/
