@@ -29,7 +29,8 @@ pub struct SceneRuntime {
     layer_ids: BTreeMap<usize, String>,
     sprite_ids: BTreeMap<String, String>,
     behaviors: Vec<ObjectBehaviorRuntime>,
-    resolver_cache: TargetResolver,
+    /// Resolver wrapped in Arc — built once at scene load, O(1) clone per frame.
+    resolver_cache: std::sync::Arc<TargetResolver>,
     object_regions: BTreeMap<String, Region>,
     /// Object kinds computed once at scene load — objects never change after init.
     cached_object_kinds: std::sync::Arc<BTreeMap<String, String>>,
@@ -39,6 +40,11 @@ pub struct SceneRuntime {
     /// Set to true at the start of each behavior update pass and whenever
     /// `apply_behavior_commands` actually mutates `object_states`.
     effective_states_dirty: bool,
+    /// Cached object props snapshot. Cleared at start of each behavior pass and
+    /// whenever `apply_behavior_commands` runs; rebuilt on first demand.
+    cached_object_props: Option<std::sync::Arc<BTreeMap<String, serde_json::Value>>>,
+    /// Cached object text snapshot. Same lifecycle as `cached_object_props`.
+    cached_object_text: Option<std::sync::Arc<BTreeMap<String, String>>>,
     /// Regions wrapped in Arc so `update_behaviors` can take a refcount
     /// copy instead of cloning the entire map each frame.
     cached_object_regions: std::sync::Arc<BTreeMap<String, Region>>,
@@ -441,11 +447,13 @@ impl SceneRuntime {
             layer_ids,
             sprite_ids,
             behaviors: Vec::new(),
-            resolver_cache: TargetResolver::default(),
+            resolver_cache: std::sync::Arc::new(TargetResolver::default()),
             object_regions: BTreeMap::new(),
             cached_object_kinds,
             cached_effective_states: None,
             effective_states_dirty: true,
+            cached_object_props: None,
+            cached_object_text: None,
             cached_object_regions: std::sync::Arc::new(BTreeMap::new()),
             obj_orbit_default_speed: BTreeMap::new(),
             obj_camera_states: BTreeMap::new(),
@@ -465,7 +473,7 @@ impl SceneRuntime {
         runtime.sync_terminal_shell_sprites();
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings, None);
-        runtime.resolver_cache = runtime.build_target_resolver();
+        runtime.resolver_cache = std::sync::Arc::new(runtime.build_target_resolver());
         runtime
     }
 
@@ -890,7 +898,10 @@ impl SceneRuntime {
         std::sync::Arc::clone(&self.cached_object_kinds)
     }
 
-    pub fn object_text_snapshot(&self) -> BTreeMap<String, String> {
+    pub fn object_text_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, String>> {
+        if let Some(cached) = &self.cached_object_text {
+            return std::sync::Arc::clone(cached);
+        }
         let mut out = BTreeMap::new();
         for (object_id, object) in &self.objects {
             let Some(sprite_id) = object.aliases.first() else {
@@ -901,10 +912,15 @@ impl SceneRuntime {
             };
             out.insert(object_id.clone(), content.to_string());
         }
-        out
+        let arc = std::sync::Arc::new(out);
+        self.cached_object_text = Some(std::sync::Arc::clone(&arc));
+        arc
     }
 
-    pub fn object_props_snapshot(&self) -> BTreeMap<String, JsonValue> {
+    pub fn object_props_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, JsonValue>> {
+        if let Some(cached) = &self.cached_object_props {
+            return std::sync::Arc::clone(cached);
+        }
         let mut out = BTreeMap::new();
         for (object_id, object) in &self.objects {
             let Some(sprite_id) = object.aliases.first() else {
@@ -955,7 +971,9 @@ impl SceneRuntime {
                 out.insert(object_id.clone(), JsonValue::Object(props));
             }
         }
-        out
+        let arc = std::sync::Arc::new(out);
+        self.cached_object_props = Some(std::sync::Arc::clone(&arc));
+        arc
     }
 
     fn text_sprite_style(
@@ -1034,7 +1052,7 @@ impl SceneRuntime {
     /// Returns a resolver for authored target names, layer indices, and sprite
     /// paths against the current materialized runtime scene.
     pub fn target_resolver(&self) -> TargetResolver {
-        self.resolver_cache.clone()
+        (*self.resolver_cache).clone()
     }
 
     fn build_target_resolver(&self) -> TargetResolver {
@@ -1068,16 +1086,17 @@ impl SceneRuntime {
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
-        // Mark effective-states cache dirty so the first snapshot this frame
-        // is always recomputed fresh.
+        // Mark all per-frame derived caches dirty.
         self.effective_states_dirty = true;
+        self.cached_object_props = None;
+        self.cached_object_text = None;
         // Wrap read-only per-frame data in Arc once — each behavior gets a
         // cheap O(1) refcount clone instead of a deep BTreeMap copy.
-        let resolver = std::sync::Arc::new(self.resolver_cache.clone());
+        let resolver = std::sync::Arc::clone(&self.resolver_cache);
         let object_regions = std::sync::Arc::clone(&self.cached_object_regions);
         let object_kinds = self.object_kind_snapshot();
-        let object_props = std::sync::Arc::new(self.object_props_snapshot());
-        let object_text = std::sync::Arc::new(self.object_text_snapshot());
+        let object_props = self.object_props_snapshot();
+        let object_text = self.object_text_snapshot();
         let sidecar_io = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
         let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
         let ui_last_submit = self.ui_state.last_submit.clone();
@@ -1592,6 +1611,8 @@ impl SceneRuntime {
             return;
         }
         self.effective_states_dirty = true;
+        self.cached_object_props = None;
+        self.cached_object_text = None;
         for command in commands {
             match command {
                 BehaviorCommand::PlayAudioCue { .. } => {}
