@@ -8,21 +8,12 @@ internal sealed class MinixOperatingSystem : IOperatingSystem
 
     public MachineState State { get; }
     public MachineSpec Spec => State.Spec;
-    public IReadOnlyDictionary<string, IKernelCommand> CommandIndex { get; }
     public IVirtualFileSystem FileSystem { get; }
 
-    public MinixOperatingSystem(MachineState state, IVirtualFileSystem fileSystem, IEnumerable<IKernelCommand> commands)
+    public MinixOperatingSystem(MachineState state, IVirtualFileSystem fileSystem)
     {
         State = state;
         FileSystem = fileSystem;
-        var index = new Dictionary<string, IKernelCommand>(StringComparer.Ordinal);
-        foreach (var command in commands)
-        {
-            index[command.Name] = command;
-            foreach (var alias in command.Aliases)
-                index[alias] = command;
-        }
-        CommandIndex = index;
 
         if (State.Processes.Count == 0)
             State.Processes = BuildDefaultProcesses();
