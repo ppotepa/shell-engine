@@ -7,10 +7,11 @@ internal interface IVirtualFileSystem
     IEnumerable<string> Ls(string? path);
     bool TryCat(string target, out string content);
     bool DirectoryExists(string path);
+    FileStat? GetStat(string path);
 
     /// <summary>
-    /// Converts an absolute path (e.g. /home/linus/linux-0.01) to a VFS-relative
-    /// key (e.g. linux-0.01). Paths outside /home/linus pass through stripped of
+    /// Converts an absolute path (e.g. /usr/linus/linux-0.01) to a VFS-relative
+    /// key (e.g. linux-0.01). Paths outside /usr/linus pass through stripped of
     /// the leading slash.
     /// </summary>
     string ToVfsPath(string absolutePath);
@@ -28,7 +29,7 @@ internal interface IMutableFileSystem : IVirtualFileSystem
 
 internal sealed class ZipVirtualFileSystem : IMutableFileSystem
 {
-    private const string HomeAbsolute = "/home/linus";
+    private const string HomeAbsolute = "/usr/linus";
 
     private readonly string _statePath;
     private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
@@ -114,6 +115,58 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
 
     public bool TryCat(string target, out string content)
         => _files.TryGetValue(Normalize(target), out content!);
+
+    public FileStat? GetStat(string path)
+    {
+        var normalized = Normalize(path);
+        bool isDir = _directories.Contains(normalized);
+        bool isFile = _files.ContainsKey(normalized);
+        if (!isDir && !isFile) return null;
+
+        var epoch = new DateTime(1991, 9, 17, 21, 0, 0);
+
+        // Ownership by path prefix
+        string owner = "linus", group = "other";
+        if (normalized.StartsWith("etc") || normalized.StartsWith("var") ||
+            normalized.StartsWith("proc") || normalized.StartsWith("dev") ||
+            normalized.StartsWith("bin") || normalized.StartsWith("usr/bin") ||
+            normalized.StartsWith("usr/lib") || normalized.StartsWith("usr/man") ||
+            normalized.StartsWith("usr/src"))
+        {
+            owner = "root";
+            group = "operator";
+        }
+        else if (normalized.StartsWith("usr/ast"))
+        {
+            owner = "ast";
+        }
+        else if (normalized.StartsWith("tmp"))
+        {
+            // tmp files keep various owners — default linus
+            group = "other";
+            if (normalized.Contains("ast")) owner = "ast";
+        }
+
+        string perms;
+        int links;
+        int size;
+        if (isDir)
+        {
+            perms = "drwxr-xr-x";
+            links = 2;
+            size = 512;
+        }
+        else
+        {
+            perms = owner == "root" ? "-rw-r--r--" : "-rw-rw-r--";
+            if (normalized.StartsWith("etc/rc") || normalized.EndsWith(".sh"))
+                perms = "-rwxr-xr-x";
+            links = 1;
+            size = _files[normalized].Length;
+        }
+
+        return new FileStat(perms, links, owner, group, size, epoch);
+    }
 
     public bool TryCopy(string source, string dest, out string error)
     {
@@ -228,10 +281,11 @@ every semester.
         TryWrite("notes/starter.txt",
 @"- type ls to look around
 - type cat mail/welcome.txt to read your mail
-- try top to inspect machine status", out _);
+- try man to read manual pages
+- type ps to see running processes", out _);
 
         // --- History (hint: previous user tried ascii) ---
-        TryWrite(".bash_history",
+        TryWrite(".sh_history",
 @"ls
 cd linux-0.01
 ls -la
@@ -258,7 +312,7 @@ export EDITOR=ed", out _);
 daemon:x:1:1:System Daemon:/usr/sbin:/bin/false
 bin:x:2:2:Binary:/bin:/bin/false
 ast:x:100:10:Andy S. Tanenbaum:/usr/ast:/bin/sh
-linus:x:101:10:Linus B. Torvalds:/home/linus:/bin/sh
+linus:x:101:10:Linus B. Torvalds:/usr/linus:/bin/sh
 nobody:x:65534:65534:Nobody:/nonexistent:/bin/false", out _);
 
         TryWrite("etc/hostname", "kruuna", out _);
