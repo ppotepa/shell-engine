@@ -167,6 +167,8 @@ impl ShellEngine {
             self.config.debug_feature,
         ));
         world.register(debug_features::FpsCounter::default());
+        world.register(debug_features::SystemTimings::default());
+        world.register(debug_features::ProcessStats::default());
         world.register(debug_log::DebugLogBuffer::new(64));
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
         // Load mod-defined behaviors from behaviors/*.yml

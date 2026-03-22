@@ -93,6 +93,7 @@ pub fn renderer_system(world: &mut World) {
     }
 
     apply_debug_overlay(world);
+    apply_perf_hud(world);
 
     // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
     DIFF_SCRATCH.with(|scratch| {
@@ -130,10 +131,6 @@ fn apply_debug_overlay(world: &mut World) {
         return;
     }
 
-    let fps_val = world
-        .get::<crate::debug_features::FpsCounter>()
-        .map(|c| c.fps.round() as u32);
-
     let stats_data = if matches!(debug.overlay_mode, DebugOverlayMode::Stats) {
         let scene_id = world
             .scene_runtime()
@@ -152,11 +149,20 @@ fn apply_debug_overlay(world: &mut World) {
             })
             .unwrap_or_else(|| "stage: -".to_string());
         let virtual_info = format_virtual_info(world);
+        let timings_info = world
+            .get::<crate::debug_features::SystemTimings>()
+            .map(|st| {
+                format!(
+                    "beh:{:.0} comp:{:.0} pfx:{:.0} rend:{:.0} us",
+                    st.behavior_us, st.compositor_us, st.postfx_us, st.renderer_us
+                )
+            })
+            .unwrap_or_default();
         let script_errors: Vec<String> = world
             .get::<DebugLogBuffer>()
             .map(|log| log.recent(usize::MAX).iter().map(|entry| entry.display_line()).collect())
             .unwrap_or_default();
-        Some((scene_id, stage_info, virtual_info, script_errors))
+        Some((scene_id, stage_info, virtual_info, timings_info, script_errors))
     } else {
         None
     };
@@ -167,28 +173,54 @@ fn apply_debug_overlay(world: &mut World) {
 
     match debug.overlay_mode {
         DebugOverlayMode::Stats => {
-            let Some((scene_id, stage_info, virtual_info, mut script_errors)) = stats_data else {
+            let Some((scene_id, stage_info, virtual_info, timings_info, mut script_errors)) = stats_data else {
                 return;
             };
-            let max_errors = buf.height.saturating_sub(4) as usize;
+            let max_errors = buf.height.saturating_sub(5) as usize;
             if script_errors.len() > max_errors {
                 script_errors = script_errors.split_off(script_errors.len() - max_errors);
             }
-            apply_stats_overlay(buf, &scene_id, &stage_info, &virtual_info, &script_errors);
+            apply_stats_overlay(buf, &scene_id, &stage_info, &virtual_info, &timings_info, &script_errors);
         }
         DebugOverlayMode::Logs => {
             apply_logs_overlay(buf);
         }
     }
+}
 
-    // FPS counter: bright green pixel font, top-left corner, always on top of overlay.
+/// Always-on performance HUD: FPS / CPU% / MEM in the top-right corner.
+fn apply_perf_hud(world: &mut World) {
+    use crate::rasterizer::generic::rasterize_generic_half;
+    use engine_core::scene::sprite::TextTransform;
+
+    let fps_val = world
+        .get::<crate::debug_features::FpsCounter>()
+        .map(|c| c.fps.round() as u32);
+    let proc_stats = world
+        .get::<crate::debug_features::ProcessStats>()
+        .copied();
+
+    let mut parts: Vec<String> = Vec::new();
     if let Some(fps) = fps_val {
-        use crate::rasterizer::generic::rasterize_generic_half;
-        use engine_core::scene::sprite::TextTransform;
-        let fps_str = fps.to_string();
-        let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
-        rasterize_generic_half(&fps_str, green, 0, 0, buf, &TextTransform::None);
+        parts.push(format!("{fps} FPS"));
     }
+    if let Some(ps) = &proc_stats {
+        parts.push(format!("{:.0}% CPU", ps.cpu_percent));
+        parts.push(format!("{:.1}MB", ps.rss_mb));
+    }
+    let hud_text = parts.join("  ");
+    if hud_text.is_empty() {
+        return;
+    }
+
+    let Some(buf) = world.buffer_mut() else {
+        return;
+    };
+    // generic:half font advances 6 cols per char (5-wide glyph + 1 gap)
+    let text_w = hud_text.len() as u16 * 6;
+    let x = buf.width.saturating_sub(text_w);
+    let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
+    rasterize_generic_half(&hud_text, green, x, 0, buf, &TextTransform::None);
 }
 
 fn apply_stats_overlay(
@@ -196,6 +228,7 @@ fn apply_stats_overlay(
     scene_id: &str,
     stage_info: &str,
     virtual_info: &str,
+    timings_info: &str,
     script_errors: &[String],
 ) {
     let mut lines = vec![
@@ -203,6 +236,7 @@ fn apply_stats_overlay(
         format!("scene: {scene_id}"),
         stage_info.to_string(),
         virtual_info.to_string(),
+        timings_info.to_string(),
     ];
     lines.extend(script_errors.iter().cloned());
 
