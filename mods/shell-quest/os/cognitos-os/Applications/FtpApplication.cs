@@ -1,4 +1,5 @@
 using CognitosOs.Core;
+using CognitosOs.Framework.Kernel;
 using CognitosOs.State;
 
 namespace CognitosOs.Applications;
@@ -10,7 +11,8 @@ namespace CognitosOs.Applications;
 /// </summary>
 internal sealed class FtpApplication : IApplication
 {
-    private readonly IOperatingSystem _os;
+    private readonly CognitosOs.Framework.Kernel.IKernel _kernel;
+    private readonly MachineState _machineState;
     private readonly ScreenBuffer _screen;
 
     private bool _connected;
@@ -25,9 +27,10 @@ internal sealed class FtpApplication : IApplication
             ["ftp.funet.fi"] = "128.214.6.100",
         };
 
-    public FtpApplication(IOperatingSystem os, ScreenBuffer screen)
+    public FtpApplication(CognitosOs.Framework.Kernel.IKernel kernel, MachineState machineState, ScreenBuffer screen)
     {
-        _os = os;
+        _kernel = kernel;
+        _machineState = machineState;
         _screen = screen;
     }
 
@@ -36,10 +39,10 @@ internal sealed class FtpApplication : IApplication
 
     public void OnEnter(UserSession session)
     {
-        var pendingHost = _os.State.Quest.FtpRemoteHost;
+        var pendingHost = _machineState.Quest.FtpRemoteHost;
         if (!string.IsNullOrWhiteSpace(pendingHost))
         {
-            _os.State.Quest.FtpRemoteHost = null;
+            _machineState.Quest.FtpRemoteHost = null;
             HandleOpen(pendingHost);
         }
 
@@ -131,7 +134,7 @@ internal sealed class FtpApplication : IApplication
         _screen.Append("Remote system type is UNIX.");
         _screen.Append($"Using {_transferMode} mode to transfer files.");
         _connected = true;
-        _os.State.Quest.FtpConnected = true;
+        _machineState.Quest.FtpConnected = true;
     }
 
     private void HandleClose()
@@ -140,20 +143,20 @@ internal sealed class FtpApplication : IApplication
         _screen.Append($"221 Goodbye from {_remoteHost}.");
         _connected = false;
         _remoteHost = "";
-        _os.State.Quest.FtpConnected = false;
+        _machineState.Quest.FtpConnected = false;
     }
 
     private void HandleBinary()
     {
         _transferMode = "binary";
-        _os.State.Quest.FtpTransferMode = "binary";
+        _machineState.Quest.FtpTransferMode = "binary";
         _screen.Append("200 Type set to I (binary).");
     }
 
     private void HandleAscii()
     {
         _transferMode = "ascii";
-        _os.State.Quest.FtpTransferMode = "ascii";
+        _machineState.Quest.FtpTransferMode = "ascii";
         _screen.Append("200 Type set to A (ascii).");
     }
 
@@ -163,8 +166,8 @@ internal sealed class FtpApplication : IApplication
         if (string.IsNullOrWhiteSpace(fileName)) { _screen.Append("(local-file) "); return; }
 
         var absolute = session.ResolvePath(fileName);
-        var vfsPath = _os.FileSystem.ToVfsPath(absolute);
-        if (!_os.FileSystem.TryCat(vfsPath, out var content))
+        var content = _kernel.Disk.RawRead(absolute);
+        if (content == null)
         {
             _screen.Append($"local: {fileName}: No such file or directory");
             return;
@@ -173,15 +176,15 @@ internal sealed class FtpApplication : IApplication
         var sizeBytes = content.Length;
         _screen.Append("200 PORT command successful.");
         _screen.Append($"150 Opening {_transferMode.ToUpperInvariant()} mode data connection for {fileName}.");
-        _os.State.Quest.UploadAttempted = true;
+        _machineState.Quest.UploadAttempted = true;
 
-        var transferTimeMs = (sizeBytes * 8) / Math.Max(_os.Spec.NicSpeedKbps, 1);
+        var transferTimeMs = (sizeBytes * 8) / Math.Max(_kernel.Spec.NicSpeedKbps, 1);
         _screen.Append("226 Transfer complete.");
         _screen.Append($"{sizeBytes} bytes sent in {transferTimeMs / 1000.0:F1} seconds.");
 
         if (_transferMode == "ascii")
         {
-            _os.State.Quest.UploadSuccess = false;
+            _machineState.Quest.UploadSuccess = false;
             _screen.Append("");
             _screen.Append(Style.Fg(Style.Warn,
                 $"remote: warning: {fileName} - uncompress failed, archive may be damaged"));
@@ -190,7 +193,7 @@ internal sealed class FtpApplication : IApplication
         }
         else
         {
-            _os.State.Quest.UploadSuccess = true;
+            _machineState.Quest.UploadSuccess = true;
             _screen.Append("");
             _screen.Append(Style.Fg(Style.Info,
                 $"remote: {fileName} received OK, archive integrity verified."));
@@ -203,13 +206,13 @@ internal sealed class FtpApplication : IApplication
         _screen.Append("200 PORT command successful.");
         _screen.Append("150 Opening ASCII mode data connection for /bin/ls.");
 
-        if (_os.State.Quest.UploadSuccess)
+        if (_machineState.Quest.UploadSuccess)
         {
             _screen.Append("total 234");
             _screen.Append("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:12 .");
             _screen.Append("-rw-r--r--  1 ftp  ftp  73091 Sep 17 21:12 linux-0.01.tar.Z");
         }
-        else if (_os.State.Quest.UploadAttempted)
+        else if (_machineState.Quest.UploadAttempted)
         {
             _screen.Append("total 234");
             _screen.Append("drwxr-xr-x  2 ftp  ftp  512 Sep 17 21:12 .");
@@ -256,7 +259,7 @@ internal sealed class FtpApplication : IApplication
         _screen.Append($"Connected to: {(_connected ? _remoteHost : "(not connected)")}");
         _screen.Append($"Transfer mode: {_transferMode}");
         _screen.Append($"Remote cwd: {_remoteCwd}");
-        _screen.Append($"NIC: {_os.Spec.NicModel} ({_os.Spec.NicSpeedKbps} Kbps)");
+        _screen.Append($"NIC: {_kernel.Spec.NicModel} ({_kernel.Spec.NicSpeedKbps} Kbps)");
     }
 
     private void HandleHelp()

@@ -13,12 +13,15 @@ using CognitosOs.Kernel.Services;
 using CognitosOs.Kernel.Hardware;
 using CognitosOs.Minix.Kernel;
 using CognitosOs.State;
+using FrameworkKernel = CognitosOs.Framework.Kernel;
 
 /// <summary>
 /// Kernel implementation. Composes all subsystems from a <see cref="MachineSpec"/>
 /// and provides <see cref="IUnitOfWork"/> scopes for command execution.
+/// Implements both <see cref="IKernel"/> (internal) and <see cref="FrameworkKernel.IKernel"/>
+/// (framework-facing) so it can be registered in the IoC container as either.
 /// </summary>
-internal sealed class Kernel : IKernel
+internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
 {
     public IDisk Disk { get; }
     public INetwork Net { get; }
@@ -66,6 +69,11 @@ internal sealed class Kernel : IKernel
     {
         return new UnitOfWork(this, session, output, quest);
     }
+
+    /// <summary>Explicit implementation for Framework.Kernel.IKernel.</summary>
+    FrameworkKernel.IUnitOfWork FrameworkKernel.IKernel.CreateScope(
+        UserSession session, TextWriter output, QuestState quest)
+        => CreateScope(session, output, quest);
 
     public void Tick(ulong dtMs)
     {

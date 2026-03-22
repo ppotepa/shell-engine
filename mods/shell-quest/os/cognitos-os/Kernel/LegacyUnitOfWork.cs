@@ -44,6 +44,7 @@ internal sealed class LegacyUnitOfWork : IUnitOfWork
     public UserSession Session { get; }
     public QuestState Quest => _os.State.Quest;
     public MachineSpec Spec => _os.Spec;
+    public int? CommandPid { get; set; }
 
     public ResourceSnapshot Resources => new(
         TotalRamKb: Spec.RamKb,

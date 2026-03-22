@@ -1,4 +1,5 @@
 using CognitosOs.Core;
+using CognitosOs.Framework.Kernel;
 
 namespace CognitosOs.Boot;
 
@@ -7,9 +8,9 @@ internal sealed class MinixBootSequence : IBootSequence
     // Kernel footprint in KB — fixed for Minix 1.1
     private const int MinixKb = 109;
 
-    public IReadOnlyList<BootStep> BuildBootSteps(IOperatingSystem os)
+    public IReadOnlyList<BootStep> BuildBootSteps(IKernel kernel)
     {
-        var spec = os.Spec;
+        var spec = kernel.Spec;
 
         // Speed factor: slower CPU = longer delays. Baseline is 33 MHz.
         var f = 33.0 / Math.Max(spec.CpuMhz, 1);

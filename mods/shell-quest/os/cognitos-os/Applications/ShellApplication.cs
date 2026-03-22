@@ -1,6 +1,6 @@
 using CognitosOs.Commands;
 using CognitosOs.Core;
-using CognitosOs.Kernel;
+using CognitosOs.Framework.Kernel;
 using CognitosOs.Network;
 using CognitosOs.State;
 
@@ -12,28 +12,28 @@ namespace CognitosOs.Applications;
 /// </summary>
 internal sealed class ShellApplication : IApplication
 {
-    private readonly IOperatingSystem _os;
+    private readonly CognitosOs.Framework.Kernel.IKernel _kernel;
+    private readonly MachineState _machineState;
     private readonly IReadOnlyDictionary<string, IKernelCommand> _commandIndex;
     private readonly ScreenBuffer _screen;
     private readonly ApplicationStack _stack;
     private readonly EasterEggRegistry _eggs;
     private readonly HistoryCommand _historyCmd;
-    private readonly Func<UserSession, IUnitOfWork> _createUow;
 
     public ShellApplication(
-        IOperatingSystem os,
+        CognitosOs.Framework.Kernel.IKernel kernel,
+        MachineState machineState,
         IReadOnlyDictionary<string, IKernelCommand> commandIndex,
         ScreenBuffer screen, ApplicationStack stack,
-        EasterEggRegistry eggs, HistoryCommand historyCmd,
-        Func<UserSession, IUnitOfWork> createUow)
+        EasterEggRegistry eggs, HistoryCommand historyCmd)
     {
-        _os = os;
+        _kernel = kernel;
+        _machineState = machineState;
         _commandIndex = commandIndex;
         _screen = screen;
         _stack = stack;
         _eggs = eggs;
         _historyCmd = historyCmd;
-        _createUow = createUow;
     }
 
     public string PromptPrefix(UserSession session)
@@ -69,12 +69,13 @@ internal sealed class ShellApplication : IApplication
         if (!_commandIndex.TryGetValue(cmd, out var command))
         {
             // Try easter eggs before "command not found"
-            using var eggUow = _createUow(session);
+            var writer = new StringWriter();
+            using var eggUow = (CognitosOs.Kernel.IUnitOfWork)_kernel.CreateScope(session, writer, _machineState.Quest);
             var exitCode = _eggs.TryHandle(eggUow, cmd, parts);
             if (exitCode.HasValue)
             {
                 session.LastExitCode = exitCode.Value;
-                FlushOutput(eggUow);
+                FlushOutput(writer);
                 return ApplicationResult.Continue;
             }
 
@@ -83,7 +84,8 @@ internal sealed class ShellApplication : IApplication
             return ApplicationResult.Continue;
         }
 
-        using var uow = _createUow(session);
+        var cmdWriter = new StringWriter();
+        using var uow = (CognitosOs.Kernel.IUnitOfWork)_kernel.CreateScope(session, cmdWriter, _machineState.Quest);
         var result = command.Run(uow, parts);
         session.LastExitCode = result;
 
@@ -93,21 +95,21 @@ internal sealed class ShellApplication : IApplication
                 _screen.ClearViewport();
                 break;
             case 900: // launch FTP app
-                FlushOutput(uow);
-                _stack.Push(new FtpApplication(_os, _screen), session);
+                FlushOutput(cmdWriter);
+                _stack.Push(new FtpApplication(_kernel, _machineState, _screen), session);
                 break;
             default:
-                FlushOutput(uow);
+                FlushOutput(cmdWriter);
                 break;
         }
 
         return ApplicationResult.Continue;
     }
 
-    private void FlushOutput(IUnitOfWork uow)
+    private void FlushOutput(StringWriter writer)
     {
-        uow.Out.Flush();
-        var text = uow.Out.ToString()!;
+        writer.Flush();
+        var text = writer.ToString();
         if (text.Length > 0)
         {
             var lines = text.TrimEnd('\r', '\n').Split('\n');
