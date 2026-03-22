@@ -9,6 +9,13 @@ id: 02.intro.boot
 title: 02 Intro Boot
 cutscene: true
 bg: black
+effect-presets-ref: /effects/crt.yml
+postfx:
+  - { use: fx.sq.burn }
+  - { use: fx.sq.glow }
+  - { use: fx.sq.curve }
+  - { use: fx.sq.scan }
+  - { use: fx.sq.tone }
 layers:
   - ref: main
 # Inherit mod-level `virtual_size: max-available` so the boot frame uses the full terminal.
