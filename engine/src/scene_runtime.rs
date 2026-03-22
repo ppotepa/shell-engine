@@ -45,6 +45,9 @@ pub struct SceneRuntime {
     cached_object_props: Option<std::sync::Arc<BTreeMap<String, serde_json::Value>>>,
     /// Cached object text snapshot. Same lifecycle as `cached_object_props`.
     cached_object_text: Option<std::sync::Arc<BTreeMap<String, String>>>,
+    /// Cached Arc of the sidecar I/O frame state. Invalidated whenever the
+    /// sidecar writes to `ui_state.sidecar_io` and rebuilt on next demand.
+    cached_sidecar_io: Option<std::sync::Arc<SidecarIoFrameState>>,
     /// Regions wrapped in Arc so `update_behaviors` can take a refcount
     /// copy instead of cloning the entire map each frame.
     cached_object_regions: std::sync::Arc<BTreeMap<String, Region>>,
@@ -454,6 +457,7 @@ impl SceneRuntime {
             effective_states_dirty: true,
             cached_object_props: None,
             cached_object_text: None,
+            cached_sidecar_io: None,
             cached_object_regions: std::sync::Arc::new(BTreeMap::new()),
             obj_orbit_default_speed: BTreeMap::new(),
             obj_camera_states: BTreeMap::new(),
@@ -645,6 +649,7 @@ impl SceneRuntime {
     /// Pushes a line to the terminal shell output transcript.
     /// Does nothing if no terminal shell is active.
     pub fn terminal_push_output(&mut self, line: String) {
+        self.cached_sidecar_io = None;
         self.ui_state.sidecar_io.screen_full_lines = None;
         self.ui_state.sidecar_io.output_lines.push(line.clone());
         if let Some(state) = self.terminal_shell_state.as_mut() {
@@ -657,6 +662,7 @@ impl SceneRuntime {
     /// Clears the terminal shell output transcript.
     /// Does nothing if no terminal shell is active.
     pub fn terminal_clear_output(&mut self) {
+        self.cached_sidecar_io = None;
         if let Some(state) = self.terminal_shell_state.as_mut() {
             state.sidecar_fullscreen_mode = false;
             state.clear_output();
@@ -1090,6 +1096,16 @@ impl SceneRuntime {
         self.effective_states_dirty = true;
         self.cached_object_props = None;
         self.cached_object_text = None;
+        // sidecar_io: build Arc once if not already cached from a prior
+        // mutation-free frame; invalidated at each sidecar write site.
+        let sidecar_io = match &self.cached_sidecar_io {
+            Some(cached) => std::sync::Arc::clone(cached),
+            None => {
+                let arc = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
+                self.cached_sidecar_io = Some(std::sync::Arc::clone(&arc));
+                arc
+            }
+        };
         // Wrap read-only per-frame data in Arc once — each behavior gets a
         // cheap O(1) refcount clone instead of a deep BTreeMap copy.
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
@@ -1097,7 +1113,6 @@ impl SceneRuntime {
         let object_kinds = self.object_kind_snapshot();
         let object_props = self.object_props_snapshot();
         let object_text = self.object_text_snapshot();
-        let sidecar_io = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
         let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
         let ui_last_submit = self.ui_state.last_submit.clone();
         let ui_last_change = self.ui_state.last_change.clone();
@@ -1106,7 +1121,7 @@ impl SceneRuntime {
         let mut current_states = self.effective_object_states_snapshot();
         for idx in 0..self.behaviors.len() {
             let object_id = self.behaviors[idx].object_id.clone();
-            let Some(object) = self.objects.get(&object_id).cloned() else {
+            let Some(object) = self.objects.get(&object_id) else {
                 continue;
             };
             let ctx = BehaviorContext {
@@ -1137,7 +1152,7 @@ impl SceneRuntime {
             let mut local_commands = Vec::new();
             self.behaviors[idx]
                 .behavior
-                .update(&object, &self.scene, &ctx, &mut local_commands);
+                .update(object, &self.scene, &ctx, &mut local_commands);
             self.apply_behavior_commands(&resolver, &local_commands);
             // Only rescan effective states when a behavior actually emitted
             // commands that could have mutated scene state.
@@ -1184,6 +1199,7 @@ impl SceneRuntime {
     }
 
     pub fn sidecar_mark_screen_full(&mut self, lines: Vec<String>) {
+        self.cached_sidecar_io = None;
         self.ui_state.sidecar_io.screen_full_lines = Some(lines);
         if let Some(state) = self.terminal_shell_state.as_mut() {
             state.sidecar_fullscreen_mode = true;
@@ -1198,6 +1214,7 @@ impl SceneRuntime {
     }
 
     pub fn sidecar_push_custom_event(&mut self, payload: String) {
+        self.cached_sidecar_io = None;
         self.ui_state.sidecar_io.custom_events.push(payload);
     }
 
