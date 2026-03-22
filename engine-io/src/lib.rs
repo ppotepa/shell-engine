@@ -5,10 +5,12 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::io::{BufRead, BufReader, Write};
+use std::net::TcpStream;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::Mutex;
 use std::thread;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
@@ -20,25 +22,54 @@ pub enum IoRequest {
         #[serde(skip_serializing_if = "Option::is_none")]
         difficulty: Option<String>,
     },
-    SetInput { text: String },
-    Submit { line: String },
-    Key { code: String, ctrl: bool, alt: bool, shift: bool },
-    Resize { cols: u16, rows: u16 },
-    Tick { dt_ms: u64 },
+    SetInput {
+        text: String,
+    },
+    Submit {
+        line: String,
+    },
+    Key {
+        code: String,
+        ctrl: bool,
+        alt: bool,
+        shift: bool,
+    },
+    Resize {
+        cols: u16,
+        rows: u16,
+    },
+    Tick {
+        dt_ms: u64,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", tag = "type")]
 pub enum IoEvent {
-    Out { lines: Vec<String> },
+    Out {
+        lines: Vec<String>,
+    },
     Clear,
-    SetPromptPrefix { text: String },
-    SetPromptMasked { masked: bool },
+    SetPromptPrefix {
+        text: String,
+    },
+    SetPromptMasked {
+        masked: bool,
+    },
     // Incremental buffer update for sidecars that prefer diff-style terminal output.
-    ScreenDiff { clear: bool, lines: Vec<String> },
+    ScreenDiff {
+        clear: bool,
+        lines: Vec<String>,
+    },
     // Reserved for fullscreen apps (vi-like) — engine can map this to a sprite or compositor layer.
-    ScreenFull { lines: Vec<String>, cursor_x: u16, cursor_y: u16 },
-    Custom { payload: JsonValue },
+    ScreenFull {
+        lines: Vec<String>,
+        cursor_x: u16,
+        cursor_y: u16,
+    },
+    Custom {
+        payload: JsonValue,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -51,6 +82,8 @@ pub enum EngineIoError {
     NoStdout,
     #[error("sidecar write failed: {0}")]
     Write(String),
+    #[error("sidecar connect failed: {0}")]
+    Connect(String),
 }
 
 /// Handle to a running sidecar process.
@@ -62,8 +95,95 @@ pub struct SidecarProcess {
     event_rx: Mutex<Receiver<IoEvent>>,
 }
 
+/// Handle to a running TCP sidecar process.
+///
+/// Spawns the child process, connects to its localhost TCP server, then sends
+/// and receives the same JSON-line protocol used by the stdio transport.
+pub struct TcpSidecar {
+    child: Mutex<Child>,
+    write_tx: Sender<String>,
+    event_rx: Mutex<Receiver<IoEvent>>,
+}
+
+impl TcpSidecar {
+    pub fn spawn(
+        command: &str,
+        args: &[String],
+        cwd: Option<&std::path::Path>,
+        port: u16,
+    ) -> Result<Self, EngineIoError> {
+        let mut cmd = Command::new(command);
+        cmd.args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::inherit());
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+        let child = cmd
+            .spawn()
+            .map_err(|e| EngineIoError::Spawn(format!("{command}: {e}")))?;
+
+        let stream = connect_with_retry(port)?;
+        let reader_stream = stream
+            .try_clone()
+            .map_err(|e| EngineIoError::Connect(e.to_string()))?;
+
+        let (write_tx, write_rx) = mpsc::channel::<String>();
+        let (event_tx, event_rx) = mpsc::channel::<IoEvent>();
+
+        spawn_tcp_writer(stream, write_rx);
+        spawn_stdout_reader(reader_stream, event_tx);
+
+        Ok(Self {
+            child: Mutex::new(child),
+            write_tx,
+            event_rx: Mutex::new(event_rx),
+        })
+    }
+
+    pub fn send(&self, req: IoRequest) -> Result<(), EngineIoError> {
+        let line = serde_json::to_string(&req).map_err(|e| EngineIoError::Write(e.to_string()))?;
+        self.write_tx
+            .send(line)
+            .map_err(|e| EngineIoError::Write(e.to_string()))
+    }
+
+    pub fn try_drain_events(&self, max: usize) -> Vec<IoEvent> {
+        let mut out = Vec::new();
+        let Ok(rx) = self.event_rx.lock() else {
+            return out;
+        };
+        for _ in 0..max {
+            match rx.try_recv() {
+                Ok(ev) => out.push(ev),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => break,
+            }
+        }
+        out
+    }
+
+    pub fn is_alive(&self) -> bool {
+        let Ok(mut child) = self.child.lock() else {
+            return false;
+        };
+        child.try_wait().ok().flatten().is_none()
+    }
+
+    pub fn kill(&self) {
+        if let Ok(mut child) = self.child.lock() {
+            let _ = child.kill();
+        }
+    }
+}
+
 impl SidecarProcess {
-    pub fn spawn(command: &str, args: &[String], cwd: Option<&std::path::Path>) -> Result<Self, EngineIoError> {
+    pub fn spawn(
+        command: &str,
+        args: &[String],
+        cwd: Option<&std::path::Path>,
+    ) -> Result<Self, EngineIoError> {
         let mut cmd = Command::new(command);
         cmd.args(args)
             .stdin(Stdio::piped())
@@ -159,6 +279,36 @@ fn spawn_stdout_reader(stdout: impl std::io::Read + Send + 'static, tx: Sender<I
                 let _ = tx.send(IoEvent::Out {
                     lines: vec![format!("[sidecar] {trimmed}")],
                 });
+            }
+        }
+    });
+}
+
+fn connect_with_retry(port: u16) -> Result<TcpStream, EngineIoError> {
+    let addr = ("127.0.0.1", port);
+    for _ in 0..50 {
+        match TcpStream::connect(addr) {
+            Ok(stream) => return Ok(stream),
+            Err(_) => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+
+    Err(EngineIoError::Connect(format!(
+        "timeout connecting to 127.0.0.1:{port}"
+    )))
+}
+
+fn spawn_tcp_writer(mut stream: TcpStream, rx: Receiver<String>) {
+    thread::spawn(move || {
+        while let Ok(line) = rx.recv() {
+            if stream.write_all(line.as_bytes()).is_err() {
+                break;
+            }
+            if stream.write_all(b"\n").is_err() {
+                break;
+            }
+            if stream.flush().is_err() {
+                break;
             }
         }
     });

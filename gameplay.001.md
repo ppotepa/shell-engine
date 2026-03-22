@@ -8,7 +8,7 @@ real operating system created by Andrew S. Tanenbaum in 1987, as it would have
 existed on a Finnish university workstation in **September 1991**.
 
 Everything the player sees, types, and experiences passes through a simulated
-operating system (the "cognitos-os" sidecar). The game engine renders the
+operating system (the "cognitOS" sidecar). The game engine renders the
 terminal as a 3D object; the OS simulation runs as a separate C# process
 communicating over stdin/stdout JSON IPC.
 

@@ -9,7 +9,7 @@
 - `engine-io/` transport-agnostic IPC bridge (sidecar communication)
 - `editor/` TUI authoring tool
 - `mods/` content mods
-  - `mods/shell-quest/os/cognitos-os/` C# sidecar (simulated MinixOS)
+  - `mods/shell-quest/os/cognitOS/` C# sidecar (simulated MinixOS)
 - `schemas/` shared base schemas
 
 Scenes are loaded as:
@@ -99,7 +99,7 @@ cargo test -p engine-authoring
 Build C# sidecar:
 
 ```bash
-cd mods/shell-quest/os/cognitos-os
+cd mods/shell-quest/os/cognitOS
 dotnet build -c Release
 ```
 

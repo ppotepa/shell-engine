@@ -114,7 +114,7 @@ bye → back to shell
 
 ### notes
 
-- all of this runs inside the c# sidecar (cognitos-os)
+- all of this runs inside the c# sidecar (cognitOS)
 - engine just shows what sidecar sends via ipc
 - no real network — everything simulated in FtpSession.cs
 - quest state tracked in QuestState (Models.cs)
