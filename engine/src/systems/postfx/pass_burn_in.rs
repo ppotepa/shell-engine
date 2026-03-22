@@ -10,9 +10,9 @@
 //! ```
 //!
 //! Enhancements over bare formula:
+//! - **Phosphor bloom** — new scene overshoots ~30% brighter then settles
 //! - **P31 phosphor tint** — per-channel decay (green lingers, blue dies)
 //! - **3×3 blur** — phosphor spread simulation
-//! - **Brightness pump** — brief flash on first frame (electron discharge)
 //!
 //! ## YAML parameters
 //!
@@ -22,7 +22,7 @@
 //! | `speed`      | 0.40    | decay time constant in seconds               |
 //! | `brightness` | 1.0     | ghost luminance multiplier                   |
 //! | `intensity`  | 1.0     | overall strength (0 = off)                   |
-//! | `pump`       | 1.3     | first-frame flash multiplier (≥1.0)          |
+//! | `pump`       | 1.3     | bloom overshoot (1.0=none, 1.3=30% flash)    |
 //! | `decay_tint` | 0.8     | P31 colour shift (0=uniform, 1=full green)   |
 
 use super::{normalize_bg, PostFxContext};
@@ -141,11 +141,13 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         let k = 4.6 / speed;
         let decay = (-k * elapsed_s).exp();
 
-        // Pump: brief flash for first ~30ms then settle to 1.0.
-        let pump_t = (elapsed_s / 0.030).clamp(0.0, 1.0);
-        let pump_mul = pump + (1.0 - pump) * pump_t;
+        let f = (alpha * intensity * brightness * decay).clamp(0.0, 1.0);
 
-        let f = (alpha * intensity * brightness * decay * pump_mul).clamp(0.0, 1.0);
+        // ── 3b. Phosphor bloom: new scene overshoots then settles ─────
+        //   g(t) = 1.0 + (pump - 1) × exp(−t / 0.05)
+        //   At t=0: 30% brighter, at ~200ms: back to normal.
+        let bloom_tau = 0.05_f32;
+        let bloom_mul = 1.0 + (pump - 1.0) * (-elapsed_s / bloom_tau).exp();
 
         // Imperceptible → clear ghost.
         if f < 0.003 {
@@ -180,18 +182,19 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
                 let glow_b = blur_b * fb * 255.0;
 
                 // Add glow to fg and bg SEPARATELY — preserves text contrast.
+                // Bloom multiplies src brightness, glow adds ghost on top.
                 let (sfr, sfg, sfb) = colour_to_rgb(src_cell.fg);
                 let (sbr, sbg, sbb) = colour_to_rgb(normalize_bg(src_cell.bg));
 
                 let out_fg = Color::Rgb {
-                    r: (sfr as f32 + glow_r).min(255.0) as u8,
-                    g: (sfg as f32 + glow_g).min(255.0) as u8,
-                    b: (sfb as f32 + glow_b).min(255.0) as u8,
+                    r: (sfr as f32 * bloom_mul + glow_r).min(255.0) as u8,
+                    g: (sfg as f32 * bloom_mul + glow_g).min(255.0) as u8,
+                    b: (sfb as f32 * bloom_mul + glow_b).min(255.0) as u8,
                 };
                 let out_bg = Color::Rgb {
-                    r: (sbr as f32 + glow_r).min(255.0) as u8,
-                    g: (sbg as f32 + glow_g).min(255.0) as u8,
-                    b: (sbb as f32 + glow_b).min(255.0) as u8,
+                    r: (sbr as f32 * bloom_mul + glow_r).min(255.0) as u8,
+                    g: (sbg as f32 * bloom_mul + glow_g).min(255.0) as u8,
+                    b: (sbb as f32 * bloom_mul + glow_b).min(255.0) as u8,
                 };
 
                 dst.set(x, y, src_cell.symbol, out_fg, out_bg);
