@@ -1,18 +1,19 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class LsCommand : ICommand
+internal sealed class LsCommand : IKernelCommand
 {
     public string Name => "ls";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
         bool showAll = false, longFmt = false, onePer = false;
         string? target = null;
 
-        foreach (var arg in ctx.Argv)
+        foreach (var arg in argv.Skip(1))
         {
             if (arg.StartsWith('-') && arg.Length > 1)
             {
@@ -24,11 +25,9 @@ internal sealed class LsCommand : ICommand
                         case 'l': longFmt = true; break;
                         case '1': onePer = true; break;
                         default:
-                            return new CommandResult(new[]
-                            {
-                                $"ls: illegal option -- {c}",
-                                "Try: man ls"
-                            }, 1);
+                            uow.Err.WriteLine($"ls: illegal option -- {c}");
+                            uow.Err.WriteLine("Try: man ls");
+                            return 1;
                     }
                 }
             }
@@ -39,54 +38,61 @@ internal sealed class LsCommand : ICommand
         }
 
         var absolute = target != null
-            ? ctx.Session.ResolvePath(target)
-            : ctx.Session.Cwd;
+            ? uow.Session.ResolvePath(target)
+            : uow.Session.Cwd;
 
-        var vfsPath = ctx.Os.FileSystem.ToVfsPath(absolute);
+        IReadOnlyList<string> entries;
+        try
+        {
+            entries = uow.Disk.ReadDir(absolute);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            uow.Err.WriteLine(Style.Fg(Style.Error, $"ls: {target ?? "."}: No such file or directory"));
+            return 2;
+        }
 
-        if (!ctx.Os.FileSystem.DirectoryExists(vfsPath))
-            return new CommandResult(new[]
-            {
-                Style.Fg(Style.Error, $"ls: {target ?? "."}: No such file or directory")
-            }, 2);
-
-        var entries = ctx.Os.FileSystem.Ls(vfsPath).ToArray();
-
-        // Filter dotfiles unless -a
+        var filtered = entries.AsEnumerable();
         if (!showAll)
-            entries = entries.Where(e => !SegmentName(e).StartsWith('.')).ToArray();
+            filtered = filtered.Where(e => !SegmentName(e).StartsWith('.'));
 
-        if (entries.Length == 0)
-            return new CommandResult(Array.Empty<string>());
+        var result = filtered.ToArray();
+        if (result.Length == 0)
+            return 0;
 
         if (longFmt)
-            return FormatLong(entries, vfsPath, ctx);
+        {
+            FormatLong(result, absolute, uow);
+            return 0;
+        }
 
         if (onePer)
-            return new CommandResult(entries);
+        {
+            foreach (var e in result)
+                uow.Out.WriteLine(e);
+            return 0;
+        }
 
-        // Default: space-separated (multi-column approximation)
-        return new CommandResult(new[] { string.Join("  ", entries) });
+        uow.Out.WriteLine(string.Join("  ", result));
+        return 0;
     }
 
-    private static CommandResult FormatLong(string[] entries, string dirPath, CommandContext ctx)
+    private static void FormatLong(string[] entries, string dirPath, IUnitOfWork uow)
     {
-        var lines = new List<string>();
-
         foreach (var entry in entries)
         {
             var name = entry.TrimEnd('/');
             var fullPath = dirPath.Length > 0 ? $"{dirPath}/{name}" : name;
-            var stat = ctx.Os.FileSystem.GetStat(fullPath);
-            if (stat == null) continue;
-
-            var date = stat.Modified.ToString("MMM dd HH:mm");
-            lines.Add(string.Format("{0} {1,2} {2,-8} {3,-6} {4,6} {5} {6}",
-                stat.Permissions, stat.Links, stat.Owner, stat.Group,
-                stat.Size, date, entry));
+            try
+            {
+                var stat = uow.Disk.Stat(fullPath);
+                var date = stat.Modified.ToString("MMM dd HH:mm");
+                uow.Out.WriteLine(string.Format("{0} {1,2} {2,-8} {3,-6} {4,6} {5} {6}",
+                    stat.Permissions, stat.Links, stat.Owner, stat.Group,
+                    stat.Size, date, entry));
+            }
+            catch { /* skip entries we can't stat */ }
         }
-
-        return new CommandResult(lines);
     }
 
     private static string SegmentName(string path)

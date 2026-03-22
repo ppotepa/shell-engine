@@ -1,4 +1,5 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 using CognitosOs.Network;
 
 namespace CognitosOs.EasterEggs;
@@ -10,14 +11,14 @@ internal sealed class OneLiners : IEasterEgg
 {
     public string Trigger => "(multiple)";
 
-    private static readonly Dictionary<string, Func<CommandContext, string?>> Responses = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, Func<IUnitOfWork, string?>> Responses = new(StringComparer.OrdinalIgnoreCase)
     {
         ["emacs"] = _ => "emacs: not installed. only vi available on this system.",
         ["vi"] = _ => "vi: insufficient memory",
         ["vim"] = _ => "vim: command not found",
         ["nano"] = _ => "nano: command not found",
         ["rm"] = _ => "rm: permission denied (nice try)",
-        ["su"] = ctx => ctx.Os.Spec.Difficulty == Difficulty.Su
+        ["su"] = uow => uow.Spec.Difficulty == Difficulty.Su
             ? "su: you chose this name, didn't you?"
             : "su: incorrect password",
         ["sudo"] = _ => "sudo: command not found. this is MINIX.",
@@ -55,21 +56,20 @@ internal sealed class OneLiners : IEasterEgg
         ["scp"] = _ => "scp: command not found",
         ["alias"] = _ => "alias: not supported in sh",
         ["export"] = _ => "export: read-only environment",
-        ["hello"] = _ => null, // handled by HelloEgg
+        ["hello"] = _ => null,
     };
 
     public bool Matches(string command, IReadOnlyList<string> argv)
         => Responses.ContainsKey(command);
 
-    public CommandResult Handle(string fullInput, CommandContext ctx)
+    public int Handle(IUnitOfWork uow, string command, string[] argv)
     {
-        var cmd = fullInput.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
-        if (Responses.TryGetValue(cmd, out var fn))
+        if (Responses.TryGetValue(command, out var fn))
         {
-            var result = fn(ctx);
+            var result = fn(uow);
             if (result != null)
-                return new CommandResult(new[] { result });
+                uow.Out.WriteLine(result);
         }
-        return new CommandResult(Array.Empty<string>());
+        return 0;
     }
 }

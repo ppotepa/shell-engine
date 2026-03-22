@@ -1,24 +1,25 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class EchoCommand : ICommand
+internal sealed class EchoCommand : IKernelCommand
 {
     public string Name => "echo";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var text = string.Join(" ", ctx.Argv);
+        var text = string.Join(" ", argv);
 
-        // Basic variable expansion
-        text = text.Replace("$USER", ctx.Session.User);
-        text = text.Replace("$HOME", ctx.Session.Home);
+        text = text.Replace("$USER", uow.Session.User);
+        text = text.Replace("$HOME", uow.Session.Home);
         text = text.Replace("$SHELL", "/bin/sh");
-        text = text.Replace("$HOSTNAME", ctx.Session.Hostname);
-        text = text.Replace("$PWD", ctx.Session.Cwd);
-        text = text.Replace("$?", ctx.Session.LastExitCode.ToString());
+        text = text.Replace("$HOSTNAME", uow.Session.Hostname);
+        text = text.Replace("$PWD", uow.Session.Cwd);
+        text = text.Replace("$?", uow.Session.LastExitCode.ToString());
 
-        return new CommandResult(new[] { text });
+        uow.Out.WriteLine(text);
+        return 0;
     }
 }

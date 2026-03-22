@@ -1,12 +1,16 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class WhoamiCommand : ICommand
+internal sealed class WhoamiCommand : IKernelCommand
 {
     public string Name => "whoami";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
-        => new(new[] { ctx.Session.User });
+    public int Run(IUnitOfWork uow, string[] argv)
+    {
+        uow.Out.WriteLine(uow.Session.User);
+        return 0;
+    }
 }

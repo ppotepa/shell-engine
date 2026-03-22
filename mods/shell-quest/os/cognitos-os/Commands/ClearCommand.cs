@@ -1,12 +1,12 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class ClearCommand : ICommand
+internal sealed class ClearCommand : IKernelCommand
 {
     public string Name => "clear";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
-        => new(Array.Empty<string>(), ExitCode: 0, ClearScreen: true);
+    public int Run(IUnitOfWork uow, string[] argv) => 901;
 }

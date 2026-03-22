@@ -1,8 +1,9 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class FortuneCommand : ICommand
+internal sealed class FortuneCommand : IKernelCommand
 {
     public string Name => "fortune";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
@@ -24,15 +25,17 @@ internal sealed class FortuneCommand : ICommand
     private static readonly string SpookyFortune =
         "\"The best programs are the ones that haven't been written yet.\" -- ????";
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var anomalyCount = ctx.Os.State.Quest.AnomaliesDiscovered?.Count ?? 0;
+        var anomalyCount = uow.Quest.AnomaliesDiscovered?.Count ?? 0;
 
-        // ~10% chance spooky after anomalies
         if (anomalyCount >= 2 && Random.Shared.Next(10) == 0)
-            return new CommandResult(new[] { SpookyFortune });
+        {
+            uow.Out.WriteLine(SpookyFortune);
+            return 0;
+        }
 
-        var pick = Fortunes[Random.Shared.Next(Fortunes.Length)];
-        return new CommandResult(new[] { pick });
+        uow.Out.WriteLine(Fortunes[Random.Shared.Next(Fortunes.Length)]);
+        return 0;
     }
 }

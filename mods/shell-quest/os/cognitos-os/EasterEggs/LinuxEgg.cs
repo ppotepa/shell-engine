@@ -1,4 +1,5 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 using CognitosOs.Network;
 
 namespace CognitosOs.EasterEggs;
@@ -14,26 +15,25 @@ internal sealed class LinuxEgg : IEasterEgg
     public bool Matches(string command, IReadOnlyList<string> argv)
         => command.Equals("linux", StringComparison.OrdinalIgnoreCase);
 
-    public CommandResult Handle(string fullInput, CommandContext ctx)
+    public int Handle(IUnitOfWork uow, string command, string[] argv)
     {
-        if (ctx.Argv.Any(a => a is "--help" or "-h"))
+        if (argv.Any(a => a is "--help" or "-h"))
         {
-            return new CommandResult(new[]
-            {
-                "linux: command not found (not yet)",
-                "",
-                "...but since you asked:",
-                "",
-                "  1. there are files in ~/linux-0.01/",
-                "  2. one of them needs to reach nic.funet.fi",
-                "  3. ftp is how files travel",
-                "  4. compressed archives are not text",
-                "  5. the default mode is wrong",
-                "",
-                "good luck.",
-            });
+            uow.Out.WriteLine("linux: command not found (not yet)");
+            uow.Out.WriteLine("");
+            uow.Out.WriteLine("...but since you asked:");
+            uow.Out.WriteLine("");
+            uow.Out.WriteLine("  1. there are files in ~/linux-0.01/");
+            uow.Out.WriteLine("  2. one of them needs to reach nic.funet.fi");
+            uow.Out.WriteLine("  3. ftp is how files travel");
+            uow.Out.WriteLine("  4. compressed archives are not text");
+            uow.Out.WriteLine("  5. the default mode is wrong");
+            uow.Out.WriteLine("");
+            uow.Out.WriteLine("good luck.");
+            return 0;
         }
 
-        return new CommandResult(new[] { "linux: command not found (not yet)" });
+        uow.Out.WriteLine("linux: command not found (not yet)");
+        return 0;
     }
 }

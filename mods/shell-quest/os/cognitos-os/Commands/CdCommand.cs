@@ -1,22 +1,29 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class CdCommand : ICommand
+internal sealed class CdCommand : IKernelCommand
 {
     public string Name => "cd";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var target = ctx.Argv.Count > 0 ? ctx.Argv[0] : "~";
-        var resolved = ctx.Session.ResolvePath(target);
-        var vfsPath = ctx.Os.FileSystem.ToVfsPath(resolved);
+        var target = argv.Length > 1 ? argv[1] : "~";
+        var resolved = uow.Session.ResolvePath(target);
 
-        if (!ctx.Os.FileSystem.DirectoryExists(vfsPath))
-            return new CommandResult(new[] { $"cd: {target}: No such file or directory" }, 1);
+        try
+        {
+            uow.Disk.ReadDir(resolved);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            uow.Out.WriteLine($"cd: {target}: No such file or directory");
+            return 1;
+        }
 
-        ctx.Session.SetCwd(resolved);
-        return new CommandResult(Array.Empty<string>());
+        uow.Session.SetCwd(resolved);
+        return 0;
     }
 }

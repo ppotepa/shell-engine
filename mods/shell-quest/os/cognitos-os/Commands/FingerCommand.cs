@@ -1,59 +1,51 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class FingerCommand : ICommand
+internal sealed class FingerCommand : IKernelCommand
 {
     public string Name => "finger";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { "usage: finger <user>" }, 1);
+        if (argv.Length < 2)
+        {
+            uow.Err.WriteLine("usage: finger <user>");
+            return 1;
+        }
 
-        var target = ctx.Argv[0].ToLowerInvariant();
+        var target = argv[1].ToLowerInvariant();
 
         if (target is "linus")
         {
-            return new CommandResult(new[]
-            {
-                "Login: linus                            Name: Linus B. Torvalds",
-                "Directory: /home/linus                  Shell: /bin/sh",
-                $"On since {ctx.Os.SimulatedNow():MMM dd HH:mm} on tty0",
-                "No plan.",
-            });
+            uow.Out.WriteLine("Login: linus                            Name: Linus B. Torvalds");
+            uow.Out.WriteLine("Directory: /home/linus                  Shell: /bin/sh");
+            uow.Out.WriteLine($"On since {uow.Clock.Now():MMM dd HH:mm} on tty0");
+            uow.Out.WriteLine("No plan.");
+            return 0;
         }
 
         if (target is "ast" or "tanenbaum")
         {
-            var planPath = "usr/ast/.plan";
-            var plan = ctx.Os.FileSystem.TryCat(planPath, out var planContent)
-                ? planContent
-                : "No plan.";
-
-            return new CommandResult(new[]
-            {
-                "Login: ast                              Name: Andy S. Tanenbaum",
-                "Directory: /usr/ast                     Shell: /bin/sh",
-                "On since Sep 15 09:41 on tty1",
-                $"Plan:\n{plan}",
-            });
+            var plan = uow.Disk.RawRead("/usr/ast/.plan") ?? "No plan.";
+            uow.Out.WriteLine("Login: ast                              Name: Andy S. Tanenbaum");
+            uow.Out.WriteLine("Directory: /usr/ast                     Shell: /bin/sh");
+            uow.Out.WriteLine("On since Sep 15 09:41 on tty1");
+            uow.Out.WriteLine($"Plan:\n{plan}");
+            return 0;
         }
 
         if (target is "root")
         {
-            return new CommandResult(new[]
-            {
-                "Login: root                             Name: Charlie Root",
-                "Directory: /root                        Shell: /bin/sh",
-                "Never logged in.",
-            });
+            uow.Out.WriteLine("Login: root                             Name: Charlie Root");
+            uow.Out.WriteLine("Directory: /root                        Shell: /bin/sh");
+            uow.Out.WriteLine("Never logged in.");
+            return 0;
         }
 
-        if (target is "tty2")
-            return new CommandResult(new[] { "finger: tty2: no such user." }, 1);
-
-        return new CommandResult(new[] { $"finger: {target}: no such user." }, 1);
+        uow.Err.WriteLine($"finger: {target}: no such user.");
+        return 1;
     }
 }

@@ -1,5 +1,6 @@
 using CognitosOs.Applications;
 using CognitosOs.Commands;
+using CognitosOs.Kernel;
 using CognitosOs.Network;
 using CognitosOs.State;
 
@@ -12,6 +13,7 @@ internal sealed class AppHost
     private readonly ScreenBuffer _screen;
     private readonly EasterEggRegistry _eggs;
     private readonly HistoryCommand _historyCmd;
+    private readonly IReadOnlyDictionary<string, IKernelCommand> _commandIndex;
     private readonly Queue<BootStep> _bootQueue = new();
     private ulong _bootCountdownMs;
     private ulong _bootPostDelayMs;
@@ -21,12 +23,13 @@ internal sealed class AppHost
     private UserSession? _session;
     private ApplicationStack? _appStack;
 
-    public AppHost(IOperatingSystem os, IMachineStart store, EasterEggRegistry eggs, HistoryCommand historyCmd)
+    public AppHost(IOperatingSystem os, IMachineStart store, EasterEggRegistry eggs, HistoryCommand historyCmd, IReadOnlyDictionary<string, IKernelCommand> commandIndex)
     {
         _os = os;
         _store = store;
         _eggs = eggs;
         _historyCmd = historyCmd;
+        _commandIndex = commandIndex;
         _screen = new ScreenBuffer();
     }
 
@@ -164,7 +167,10 @@ internal sealed class AppHost
 
         _session = new UserSession(_os.State.UserName ?? "linus", "kruuna");
         _appStack = new ApplicationStack(_screen);
-        _appStack.Push(new ShellApplication(_os, _screen, _appStack, _eggs, _historyCmd), _session);
+        _appStack.Push(
+            new ShellApplication(_os, _commandIndex, _screen, _appStack, _eggs, _historyCmd,
+                session => new LegacyUnitOfWork(_os, session)),
+            _session);
 
         var bi = Style.BrightenHex(Style.Info, 1.15);
         _screen.ClearViewport();

@@ -1,20 +1,19 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class HistoryCommand : ICommand
+internal sealed class HistoryCommand : IKernelCommand
 {
     public string Name => "history";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    // Maintained by ShellApplication on each input
     internal List<string> CommandLog { get; } = new();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        var lines = new List<string>();
         for (int i = 0; i < CommandLog.Count; i++)
-            lines.Add($"  {i + 1}  {CommandLog[i]}");
-        return new CommandResult(lines);
+            uow.Out.WriteLine($"  {i + 1}  {CommandLog[i]}");
+        return 0;
     }
 }

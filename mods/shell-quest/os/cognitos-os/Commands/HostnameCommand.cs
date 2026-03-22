@@ -1,12 +1,16 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class HostnameCommand : ICommand
+internal sealed class HostnameCommand : IKernelCommand
 {
     public string Name => "hostname";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
-        => new(new[] { ctx.Session.Hostname });
+    public int Run(IUnitOfWork uow, string[] argv)
+    {
+        uow.Out.WriteLine(uow.Session.Hostname);
+        return 0;
+    }
 }

@@ -8,32 +8,26 @@ internal sealed class MinixOperatingSystem : IOperatingSystem
 
     public MachineState State { get; }
     public MachineSpec Spec => State.Spec;
-    public IReadOnlyDictionary<string, ICommand> CommandIndex { get; }
+    public IReadOnlyDictionary<string, IKernelCommand> CommandIndex { get; }
     public IVirtualFileSystem FileSystem { get; }
 
-    public MinixOperatingSystem(MachineState state, IVirtualFileSystem fileSystem, IEnumerable<ICommand> commands)
+    public MinixOperatingSystem(MachineState state, IVirtualFileSystem fileSystem, IEnumerable<IKernelCommand> commands)
     {
         State = state;
         FileSystem = fileSystem;
-        var index = new Dictionary<string, ICommand>(StringComparer.Ordinal);
+        var index = new Dictionary<string, IKernelCommand>(StringComparer.Ordinal);
         foreach (var command in commands)
         {
             index[command.Name] = command;
             foreach (var alias in command.Aliases)
-            {
                 index[alias] = command;
-            }
         }
-
         CommandIndex = index;
+
         if (State.Processes.Count == 0)
-        {
             State.Processes = BuildDefaultProcesses();
-        }
         if (State.Services.Count == 0)
-        {
             State.Services = BuildDefaultServices();
-        }
         if (State.MailMessages.Count == 0)
         {
             State.MailMessages = BuildDefaultMail();
@@ -70,17 +64,12 @@ internal sealed class MinixOperatingSystem : IOperatingSystem
     public void MarkMailRead(string targetPath)
     {
         var normalized = targetPath.Trim().TrimStart('/').ToLowerInvariant();
-        if (!normalized.StartsWith("mail/"))
-        {
-            return;
-        }
+        if (!normalized.StartsWith("mail/")) return;
 
         var fileName = normalized["mail/".Length..];
-        var match = State.MailMessages.FirstOrDefault(m => m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
-        if (match is null || match.IsRead)
-        {
-            return;
-        }
+        var match = State.MailMessages.FirstOrDefault(m =>
+            m.FileName.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+        if (match is null || match.IsRead) return;
 
         match.IsRead = true;
         State.UnreadMailCount = State.MailMessages.Count(m => !m.IsRead);
@@ -119,21 +108,15 @@ internal sealed class MinixOperatingSystem : IOperatingSystem
     private void TickServices()
     {
         foreach (var service in State.Services)
-        {
             service.LastTickUtc = SimulatedNow();
-        }
 
         var minute = State.UptimeMs / 60000;
         if (minute > 0 && minute % 2 == 0 && State.MailMessages.All(m => m.FileName != $"mail-{minute:000}.txt"))
         {
-            var fileName = $"mail-{minute:000}.txt";
             State.MailMessages.Add(new MailMessage
             {
-                FileName = fileName,
-                Content =
-                    "From: netd@kruuna\n" +
-                    $"Subject: heartbeat {minute}\n\n" +
-                    "network link stable.\n",
+                FileName = $"mail-{minute:000}.txt",
+                Content = $"From: netd@kruuna\nSubject: heartbeat {minute}\n\nnetwork link stable.\n",
                 IsRead = false,
             });
             State.UnreadMailCount = State.MailMessages.Count(m => !m.IsRead);
@@ -154,11 +137,7 @@ internal sealed class MinixOperatingSystem : IOperatingSystem
             new MailMessage
             {
                 FileName = "welcome.txt",
-                Content =
-                    "From: Operator <op@kruuna>\n" +
-                    "Subject: Welcome\n\n" +
-                    "you made it in. good.\n" +
-                    "read the notes when you get a chance.\n",
+                Content = "From: Operator <op@kruuna>\nSubject: Welcome\n\nyou made it in. good.\nread the notes when you get a chance.\n",
                 IsRead = false,
             },
         };

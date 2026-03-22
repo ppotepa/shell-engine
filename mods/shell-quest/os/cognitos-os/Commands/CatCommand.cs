@@ -1,29 +1,42 @@
 using CognitosOs.Core;
+using CognitosOs.Kernel;
 
 namespace CognitosOs.Commands;
 
-internal sealed class CatCommand : ICommand
+internal sealed class CatCommand : IKernelCommand
 {
     public string Name => "cat";
     public IReadOnlyList<string> Aliases => Array.Empty<string>();
 
-    public CommandResult Execute(CommandContext ctx)
+    public int Run(IUnitOfWork uow, string[] argv)
     {
-        if (ctx.Argv.Count < 1)
-            return new CommandResult(new[] { Style.Fg(Style.Warn, "usage: cat <file>") }, 2);
+        if (argv.Length < 2)
+        {
+            uow.Out.WriteLine(Style.Fg(Style.Warn, "usage: cat <file>"));
+            return 2;
+        }
 
-        var absolute = ctx.Session.ResolvePath(ctx.Argv[0]);
-        var vfsPath = ctx.Os.FileSystem.ToVfsPath(absolute);
+        var path = uow.Session.ResolvePath(argv[1]);
 
-        // directory guard
-        if (ctx.Os.FileSystem.DirectoryExists(vfsPath) && !ctx.Os.FileSystem.TryCat(vfsPath, out _))
-            return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {ctx.Argv[0]}: is a directory") }, 1);
+        string content;
+        try
+        {
+            content = uow.Disk.ReadFile(path);
+        }
+        catch (FileNotFoundException)
+        {
+            if (uow.Disk.Exists(path))
+            {
+                uow.Out.WriteLine(Style.Fg(Style.Error, $"cat: {argv[1]}: is a directory"));
+                return 1;
+            }
+            uow.Out.WriteLine(Style.Fg(Style.Error, $"cat: {argv[1]}: no such file or directory"));
+            return 1;
+        }
 
-        if (!ctx.Os.FileSystem.TryCat(vfsPath, out var content))
-            return new CommandResult(new[] { Style.Fg(Style.Error, $"cat: {ctx.Argv[0]}: no such file or directory") }, 1);
-
-        ctx.Os.MarkMailRead(vfsPath);
-        var lines = content.Replace("\r\n", "\n").Split('\n');
-        return new CommandResult(lines);
+        // TODO: mail read marking needs refactoring for index-based IMailSpool
+        foreach (var line in content.Replace("\r\n", "\n").Split('\n'))
+            uow.Out.WriteLine(line);
+        return 0;
     }
 }
