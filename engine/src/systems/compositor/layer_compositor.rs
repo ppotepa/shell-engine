@@ -17,6 +17,7 @@ thread_local! {
 /// Composite all visible layers onto the scene framebuffer.
 pub fn composite_layers(
     layers: &[Layer],
+    ui_enabled: bool,
     scene_w: u16,
     scene_h: u16,
     scene_rendered_mode: SceneRenderedMode,
@@ -34,6 +35,9 @@ pub fn composite_layers(
     buffer: &mut Buffer,
 ) {
     for (layer_idx, layer) in layers.iter().enumerate() {
+        if layer.ui && !ui_enabled {
+            continue;
+        }
         let layer_state = target_resolver
             .and_then(|resolver| resolver.layer_object_id(layer_idx))
             .and_then(|object_id| object_states.get(object_id))

@@ -1,0 +1,197 @@
+# difficulty-portraits.scene3d.yml
+#
+# Pre-rendered portrait atlas for the difficulty-select scene.
+# Replaces the 10 live-rendered Sprite::Obj sprites (5 × wire + solid pairs)
+# with named frames composited from this file.
+#
+# Frame naming convention:
+#   face-{N}-idle         — wireframe only, static rest pose
+#   face-{N}-materialize-{k} — clip keyframe k (wire + partial solid)
+#   face-{N}-done         — wireframe + full solid mesh
+#
+# Behaviors set `scene3d.frame` on the Sprite::Scene3D to switch frames.
+
+id: difficulty-portraits
+
+viewport:
+  width: 150
+  height: 100
+  rendered_mode: halfblock
+
+camera:
+  distance: 6.15
+  fov_degrees: 58
+  near_clip: 0.0005
+
+lights:
+  - id: key
+    type: directional
+    direction: [0.0, 0.4, -0.9]
+    intensity: 1.0
+
+  - id: rim1
+    type: point
+    position: [0.0, 0.0, 0.0]
+    intensity: 0.6
+    colour: "#4488ff"
+    snap_hz: 2.0
+
+  - id: rim2
+    type: point
+    position: [0.0, 0.0, 0.0]
+    intensity: 0.25
+    colour: "#aaddff"
+    snap_hz: 3.0
+
+materials:
+  wire:
+    surface_mode: wireframe
+    fg_colour: "#4488ff"
+
+  solid:
+    surface_mode: material
+    cel_levels: 5
+    tone_mix: 0.85
+    fg_colour: "#4488ff"
+
+objects:
+  # ── face 0: mouse-enjoyer ──────────────────────────────────────────────────
+  - id: face-0-wire
+    mesh: /assets/3d/sculpts/mouse-enjoyer-wire.obj
+    material: wire
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  - id: face-0-solid
+    mesh: /assets/3d/sculpts/mouse-enjoyer.obj
+    material: solid
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  # ── face 1: script-kiddie ──────────────────────────────────────────────────
+  - id: face-1-wire
+    mesh: /assets/3d/sculpts/script-kiddie-wire.obj
+    material: wire
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  - id: face-1-solid
+    mesh: /assets/3d/sculpts/script-kiddie.obj
+    material: solid
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  # ── face 2: can-exit-vim ───────────────────────────────────────────────────
+  - id: face-2-wire
+    mesh: /assets/3d/sculpts/can-exit-vim-wire.obj
+    material: wire
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  - id: face-2-solid
+    mesh: /assets/3d/sculpts/can-exit-vim.obj
+    material: solid
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  # ── face 3: dvorak ─────────────────────────────────────────────────────────
+  - id: face-3-wire
+    mesh: /assets/3d/sculpts/dvorak-wire.obj
+    material: wire
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  - id: face-3-solid
+    mesh: /assets/3d/sculpts/dvorak.obj
+    material: solid
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  # ── face 4: su ─────────────────────────────────────────────────────────────
+  - id: face-4-wire
+    mesh: /assets/3d/sculpts/su-wire.obj
+    material: wire
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+  - id: face-4-solid
+    mesh: /assets/3d/sculpts/su.obj
+    material: solid
+    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+
+frames:
+  # ── face 0 frames ──────────────────────────────────────────────────────────
+  face-0-idle:
+    show: [face-0-wire]
+
+  face-0-materialize:
+    show: [face-0-wire, face-0-solid]
+    clip:
+      duration_ms: 250
+      keyframes: 8
+      tweens:
+        - { object: face-0-solid, property: clip_y_max, from: 0.0, to: 1.0, easing: ease_out }
+        - { object: face-0-wire,  property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+        - { object: face-0-solid, property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+
+  face-0-done:
+    show: [face-0-wire, face-0-solid]
+
+  # ── face 1 frames ──────────────────────────────────────────────────────────
+  face-1-idle:
+    show: [face-1-wire]
+
+  face-1-materialize:
+    show: [face-1-wire, face-1-solid]
+    clip:
+      duration_ms: 250
+      keyframes: 8
+      tweens:
+        - { object: face-1-solid, property: clip_y_max, from: 0.0, to: 1.0, easing: ease_out }
+        - { object: face-1-wire,  property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+        - { object: face-1-solid, property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+
+  face-1-done:
+    show: [face-1-wire, face-1-solid]
+
+  # ── face 2 frames ──────────────────────────────────────────────────────────
+  face-2-idle:
+    show: [face-2-wire]
+
+  face-2-materialize:
+    show: [face-2-wire, face-2-solid]
+    clip:
+      duration_ms: 250
+      keyframes: 8
+      tweens:
+        - { object: face-2-solid, property: clip_y_max, from: 0.0, to: 1.0, easing: ease_out }
+        - { object: face-2-wire,  property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+        - { object: face-2-solid, property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+
+  face-2-done:
+    show: [face-2-wire, face-2-solid]
+
+  # ── face 3 frames ──────────────────────────────────────────────────────────
+  face-3-idle:
+    show: [face-3-wire]
+
+  face-3-materialize:
+    show: [face-3-wire, face-3-solid]
+    clip:
+      duration_ms: 250
+      keyframes: 8
+      tweens:
+        - { object: face-3-solid, property: clip_y_max, from: 0.0, to: 1.0, easing: ease_out }
+        - { object: face-3-wire,  property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+        - { object: face-3-solid, property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+
+  face-3-done:
+    show: [face-3-wire, face-3-solid]
+
+  # ── face 4 frames ──────────────────────────────────────────────────────────
+  face-4-idle:
+    show: [face-4-wire]
+
+  face-4-materialize:
+    show: [face-4-wire, face-4-solid]
+    clip:
+      duration_ms: 250
+      keyframes: 8
+      tweens:
+        - { object: face-4-solid, property: clip_y_max, from: 0.0, to: 1.0, easing: ease_out }
+        - { object: face-4-wire,  property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+        - { object: face-4-solid, property: yaw_offset, from: 180.0, to: 0.0, easing: ease_out }
+
+  face-4-done:
+    show: [face-4-wire, face-4-solid]

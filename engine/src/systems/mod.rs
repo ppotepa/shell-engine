@@ -3,6 +3,7 @@
 pub mod animator;
 pub mod audio;
 pub mod prerender;
+pub mod scene3d_prerender;
 pub mod behavior;
 pub mod compositor;
 pub mod engine_io;

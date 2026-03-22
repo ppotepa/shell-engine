@@ -103,6 +103,21 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         systems::renderer::renderer_system(world);
 
         let elapsed = frame_start.elapsed();
+
+        // Update smoothed FPS counter (EMA, α=0.15).
+        let actual_fps = if elapsed.as_micros() > 0 {
+            1_000_000.0 / elapsed.as_micros() as f32
+        } else {
+            fps as f32
+        };
+        if let Some(counter) = world.get_mut::<crate::debug_features::FpsCounter>() {
+            if counter.fps < 0.5 {
+                counter.fps = actual_fps;
+            } else {
+                counter.fps = counter.fps * 0.85 + actual_fps * 0.15;
+            }
+        }
+
         if elapsed < frame_budget {
             std::thread::sleep(frame_budget - elapsed);
         }

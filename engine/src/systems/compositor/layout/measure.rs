@@ -245,5 +245,7 @@ pub(crate) fn measure_sprite_for_layout(
             };
             (total_w.max(1), total_h.max(1))
         }
+        // Scene3D: size comes from the atlas buffer at render time; return a placeholder.
+        Sprite::Scene3D { .. } => (1, 1),
     }
 }

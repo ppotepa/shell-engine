@@ -321,7 +321,7 @@ fn sprite_target_kind(sprite: &Sprite) -> EffectTargetKind {
     match sprite {
         Sprite::Text { .. } => EffectTargetKind::SpriteText,
         Sprite::Image { .. } | Sprite::Obj { .. } => EffectTargetKind::SpriteBitmap,
-        Sprite::Grid { .. } | Sprite::Flex { .. } | Sprite::Panel { .. } => {
+        Sprite::Grid { .. } | Sprite::Flex { .. } | Sprite::Panel { .. } | Sprite::Scene3D { .. } => {
             EffectTargetKind::Sprite
         }
     }

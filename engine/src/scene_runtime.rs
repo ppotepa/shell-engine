@@ -1493,6 +1493,14 @@ impl SceneRuntime {
         updated
     }
 
+    fn set_scene3d_sprite_frame(&mut self, sprite_id: &str, next_frame: &str) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_scene3d_frame_recursive(&mut layer.sprites, sprite_id, next_frame, &mut updated);
+        }
+        updated
+    }
+
     fn set_image_sprite_frame_index(&mut self, sprite_id: &str, next_frame: u16) -> bool {
         let mut updated = false;
         for layer in &mut self.scene.layers {
@@ -1715,6 +1723,23 @@ impl SceneRuntime {
                                         &alias,
                                         next_frame as u16,
                                     ) {
+                                        applied = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !applied {
+                                continue;
+                            }
+                        }
+                        "scene3d.frame" => {
+                            let Some(next_frame) = value.as_str() else {
+                                continue;
+                            };
+                            let mut applied = self.set_scene3d_sprite_frame(target, next_frame);
+                            if !applied {
+                                for alias in self.object_alias_candidates(object_id, target) {
+                                    if self.set_scene3d_sprite_frame(&alias, next_frame) {
                                         applied = true;
                                         break;
                                     }
@@ -2044,6 +2069,11 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
         Sprite::Flex { id, .. } => (
             GameObjectKind::FlexSprite,
             sprite_name("flex", id.as_deref(), sprite_idx),
+            sprite_aliases(id.as_deref()),
+        ),
+        Sprite::Scene3D { id, .. } => (
+            GameObjectKind::ObjSprite,
+            sprite_name("scene3d", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
     }
@@ -2442,6 +2472,34 @@ fn set_image_frame_index_recursive(
     }
 }
 
+fn set_scene3d_frame_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    next_frame: &str,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Scene3D {
+                id: Some(id),
+                frame,
+                ..
+            } if id == sprite_id => {
+                if frame != next_frame {
+                    *frame = next_frame.to_string();
+                    *updated = true;
+                }
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_scene3d_frame_recursive(children, sprite_id, next_frame, updated);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn set_obj_property_recursive(
     sprites: &mut [Sprite],
     sprite_id: &str,
@@ -2814,7 +2872,7 @@ fn find_panel_layout_recursive(
                     return Some(layout);
                 }
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Scene3D { .. } => {}
         }
     }
     None
@@ -2845,7 +2903,7 @@ fn set_panel_height_recursive(
             | Sprite::Flex { children, .. } => {
                 set_panel_height_recursive(children, panel_id, next_height, updated)
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Scene3D { .. } => {}
         }
     }
 }
@@ -2869,7 +2927,7 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
                     return Some(result);
                 }
             }
-            Sprite::Text { .. } | Sprite::Image { .. } => {}
+            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Scene3D { .. } => {}
         }
     }
     None

@@ -798,6 +798,24 @@ fn render_sprite(
             );
         }
 
+        Sprite::Scene3D { src, frame, x, y, .. } => {
+            use crate::scene3d_atlas::Scene3DAtlas;
+            use crate::rasterizer::blit;
+            let draw_x = area.origin_x.saturating_add(*x).saturating_add(object_state.offset_x).max(0) as u16;
+            let draw_y = area.origin_y.saturating_add(*y).saturating_add(object_state.offset_y).max(0) as u16;
+            // Look up prerendered buffer from world-scoped atlas via thread-local pointer.
+            if let Some(buf) = Scene3DAtlas::current_get(src, frame) {
+                blit(&buf, ctx.layer_buf, draw_x, draw_y);
+                if let Some(id) = object_id {
+                    object_regions.insert(id.to_string(), crate::effects::Region {
+                        x: draw_x,
+                        y: draw_y,
+                        width: buf.width,
+                        height: buf.height,
+                    });
+                }
+            }
+        }
     }
 }
 

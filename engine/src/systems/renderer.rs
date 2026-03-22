@@ -130,6 +130,10 @@ fn apply_debug_overlay(world: &mut World) {
         return;
     }
 
+    let fps_val = world
+        .get::<crate::debug_features::FpsCounter>()
+        .map(|c| c.fps.round() as u32);
+
     let stats_data = if matches!(debug.overlay_mode, DebugOverlayMode::Stats) {
         let scene_id = world
             .scene_runtime()
@@ -175,6 +179,15 @@ fn apply_debug_overlay(world: &mut World) {
         DebugOverlayMode::Logs => {
             apply_logs_overlay(buf);
         }
+    }
+
+    // FPS counter: bright green pixel font, top-left corner, always on top of overlay.
+    if let Some(fps) = fps_val {
+        use crate::rasterizer::generic::rasterize_generic_half;
+        use engine_core::scene::sprite::TextTransform;
+        let fps_str = fps.to_string();
+        let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
+        rasterize_generic_half(&fps_str, green, 0, 0, buf, &TextTransform::None);
     }
 }
 

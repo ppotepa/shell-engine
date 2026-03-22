@@ -564,6 +564,43 @@ pub enum Sprite {
         #[serde(default)]
         children: Vec<Sprite>,
     },
+    /// A pre-rendered 3D scene blitted from the Scene3D atlas.
+    /// The atlas is populated during scene preparation (before first frame) from a `.scene3d.yml`.
+    Scene3D {
+        #[serde(default)]
+        id: Option<String>,
+        /// Path to `.scene3d.yml` relative to the mod root.
+        src: String,
+        /// Which named frame from the atlas to display. Changed at runtime via `scene.set`.
+        #[serde(default)]
+        frame: String,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default)]
+        z_index: i32,
+        #[serde(default = "default_grid_line", rename = "grid-row")]
+        grid_row: u16,
+        #[serde(default = "default_grid_line", rename = "grid-col")]
+        grid_col: u16,
+        #[serde(default = "default_grid_span", rename = "row-span")]
+        row_span: u16,
+        #[serde(default = "default_grid_span", rename = "col-span")]
+        col_span: u16,
+        #[serde(default)]
+        appear_at_ms: Option<u64>,
+        #[serde(default)]
+        disappear_at_ms: Option<u64>,
+        #[serde(default)]
+        hide_on_leave: bool,
+        #[serde(default)]
+        stages: LayerStages,
+        #[serde(default)]
+        animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
+    },
 }
 
 impl Sprite {
@@ -574,7 +611,8 @@ impl Sprite {
             | Sprite::Obj { id, .. }
             | Sprite::Panel { id, .. }
             | Sprite::Grid { id, .. }
-            | Sprite::Flex { id, .. } => id.as_deref(),
+            | Sprite::Flex { id, .. }
+            | Sprite::Scene3D { id, .. } => id.as_deref(),
         }
     }
 
@@ -585,7 +623,8 @@ impl Sprite {
             | Sprite::Obj { z_index, .. }
             | Sprite::Panel { z_index, .. }
             | Sprite::Grid { z_index, .. }
-            | Sprite::Flex { z_index, .. } => *z_index,
+            | Sprite::Flex { z_index, .. }
+            | Sprite::Scene3D { z_index, .. } => *z_index,
         }
     }
 
@@ -596,7 +635,8 @@ impl Sprite {
             | Sprite::Obj { stages, .. }
             | Sprite::Panel { stages, .. }
             | Sprite::Grid { stages, .. }
-            | Sprite::Flex { stages, .. } => stages,
+            | Sprite::Flex { stages, .. }
+            | Sprite::Scene3D { stages, .. } => stages,
         }
     }
 
@@ -643,6 +683,13 @@ impl Sprite {
                 row_span,
                 col_span,
                 ..
+            }
+            | Sprite::Scene3D {
+                grid_row,
+                grid_col,
+                row_span,
+                col_span,
+                ..
             } => (*grid_row, *grid_col, *row_span, *col_span),
         };
         (row.max(1), col.max(1), row_span.max(1), col_span.max(1))
@@ -672,7 +719,8 @@ impl Sprite {
             | Sprite::Obj { behaviors, .. }
             | Sprite::Panel { behaviors, .. }
             | Sprite::Grid { behaviors, .. }
-            | Sprite::Flex { behaviors, .. } => behaviors,
+            | Sprite::Flex { behaviors, .. }
+            | Sprite::Scene3D { behaviors, .. } => behaviors,
         }
     }
 
@@ -683,7 +731,8 @@ impl Sprite {
             | Sprite::Obj { hide_on_leave, .. }
             | Sprite::Panel { hide_on_leave, .. }
             | Sprite::Grid { hide_on_leave, .. }
-            | Sprite::Flex { hide_on_leave, .. } => *hide_on_leave,
+            | Sprite::Flex { hide_on_leave, .. }
+            | Sprite::Scene3D { hide_on_leave, .. } => *hide_on_leave,
         }
     }
 
@@ -694,7 +743,8 @@ impl Sprite {
             | Sprite::Obj { appear_at_ms, .. }
             | Sprite::Panel { appear_at_ms, .. }
             | Sprite::Grid { appear_at_ms, .. }
-            | Sprite::Flex { appear_at_ms, .. } => *appear_at_ms,
+            | Sprite::Flex { appear_at_ms, .. }
+            | Sprite::Scene3D { appear_at_ms, .. } => *appear_at_ms,
         }
     }
 
@@ -705,7 +755,8 @@ impl Sprite {
             | Sprite::Obj { disappear_at_ms, .. }
             | Sprite::Panel { disappear_at_ms, .. }
             | Sprite::Grid { disappear_at_ms, .. }
-            | Sprite::Flex { disappear_at_ms, .. } => *disappear_at_ms,
+            | Sprite::Flex { disappear_at_ms, .. }
+            | Sprite::Scene3D { disappear_at_ms, .. } => *disappear_at_ms,
         }
     }
 
@@ -716,7 +767,8 @@ impl Sprite {
             | Sprite::Obj { animations, .. }
             | Sprite::Panel { animations, .. }
             | Sprite::Grid { animations, .. }
-            | Sprite::Flex { animations, .. } => animations,
+            | Sprite::Flex { animations, .. }
+            | Sprite::Scene3D { animations, .. } => animations,
         }
     }
 }
@@ -744,7 +796,8 @@ y: -8
             | Sprite::Obj { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
-            | Sprite::Flex { .. } => {
+            | Sprite::Flex { .. }
+            | Sprite::Scene3D { .. } => {
                 panic!("expected text sprite")
             }
         }
@@ -775,7 +828,8 @@ force-font-mode: braille
             | Sprite::Obj { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
-            | Sprite::Flex { .. } => {
+            | Sprite::Flex { .. }
+            | Sprite::Scene3D { .. } => {
                 panic!("expected text sprite")
             }
         }
@@ -818,7 +872,8 @@ stretch-to-area: true
             | Sprite::Obj { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
-            | Sprite::Flex { .. } => {
+            | Sprite::Flex { .. }
+            | Sprite::Scene3D { .. } => {
                 panic!("expected image sprite")
             }
         }
@@ -895,7 +950,8 @@ children:
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
             | Sprite::Panel { .. }
-            | Sprite::Flex { .. } => {
+            | Sprite::Flex { .. }
+            | Sprite::Scene3D { .. } => {
                 panic!("expected grid sprite")
             }
         }
@@ -928,7 +984,8 @@ behaviors:
             | Sprite::Obj { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
-            | Sprite::Flex { .. } => {
+            | Sprite::Flex { .. }
+            | Sprite::Scene3D { .. } => {
                 panic!("expected text sprite")
             }
         }

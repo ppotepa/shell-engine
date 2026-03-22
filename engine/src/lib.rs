@@ -30,6 +30,8 @@ pub mod runtime_settings;
 mod scene_compiler;
 mod scene_loader;
 pub mod scene_runtime;
+pub mod scene3d_atlas;
+pub mod scene3d_format;
 mod services;
 pub mod systems;
 pub mod terminal_caps;
@@ -164,6 +166,7 @@ impl ShellEngine {
         world.register(debug_features::DebugFeatures::from_enabled(
             self.config.debug_feature,
         ));
+        world.register(debug_features::FpsCounter::default());
         world.register(debug_log::DebugLogBuffer::new(64));
         world.register(assets::AssetRoot::new(self.mod_source.clone()));
         // Load mod-defined behaviors from behaviors/*.yml

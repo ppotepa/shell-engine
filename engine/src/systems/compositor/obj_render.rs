@@ -420,7 +420,7 @@ pub(crate) fn render_obj_to_canvas(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn render_obj_content(
+pub(crate) fn render_obj_content(
     source: &str,
     width: Option<u16>,
     height: Option<u16>,
@@ -446,7 +446,7 @@ pub(super) fn render_obj_content(
     };
     blit_color_canvas(
         buf, mode, &canvas, virtual_w, virtual_h, target_w, target_h, x, y, wireframe, draw_char,
-        fg, bg,
+        fg, bg, 0, virtual_h as usize,
     );
 }
 
@@ -491,32 +491,11 @@ pub(super) fn try_blit_prerendered(
     let clip_min_row = (clip_y_min.clamp(0.0, 1.0) * virtual_h as f32) as usize;
     let clip_max_row = (clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
 
-    if clip_min_row == 0 && clip_max_row >= virtual_h as usize {
-        blit_color_canvas(
-            buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y,
-            false, '#', Color::White, Color::Reset,
-        );
-    } else {
-        let mut masked: Vec<Option<[u8; 3]>> = (**canvas).clone();
-        let vw = virtual_w as usize;
-        let canvas_len = masked.len();
-        for vy in 0..virtual_h as usize {
-            if vy < clip_min_row || vy >= clip_max_row {
-                let row_start = vy * vw;
-                if row_start >= canvas_len {
-                    break;
-                }
-                let row_end = (row_start + vw).min(canvas_len);
-                for px in &mut masked[row_start..row_end] {
-                    *px = None;
-                }
-            }
-        }
-        blit_color_canvas(
-            buf, mode, &masked, virtual_w, virtual_h, target_w, target_h, x, y,
-            false, '#', Color::White, Color::Reset,
-        );
-    }
+    blit_color_canvas(
+        buf, mode, canvas, virtual_w, virtual_h, target_w, target_h, x, y,
+        false, '#', Color::White, Color::Reset,
+        clip_min_row, clip_max_row,
+    );
     true
 }
 
@@ -984,13 +963,19 @@ fn blit_color_canvas(
     draw_char: char,
     fg: Color,
     bg: Color,
+    clip_row_min: usize,
+    clip_row_max: usize,
 ) {
     let px = |vx: u16, vy: u16| -> Option<[u8; 3]> {
         if vx >= virtual_w || vy >= virtual_h {
             return None;
         }
+        let vy_usize = vy as usize;
+        if vy_usize < clip_row_min || vy_usize >= clip_row_max {
+            return None;
+        }
         canvas
-            .get(vy as usize * virtual_w as usize + vx as usize)
+            .get(vy_usize * virtual_w as usize + vx as usize)
             .copied()
             .unwrap_or(None)
     };
