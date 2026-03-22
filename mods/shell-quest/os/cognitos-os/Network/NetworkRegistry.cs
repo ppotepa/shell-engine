@@ -108,6 +108,13 @@ internal sealed class NetworkRegistry
 
     public IReadOnlyDictionary<string, IExternalServer> AllHosts => _hosts;
 
+    /// <summary>Check if a hostname is in the registry.</summary>
+    public bool IsKnown(string hostname) => _hosts.ContainsKey(hostname);
+
+    /// <summary>Return the IP address for a known host, or null.</summary>
+    public string? ResolveIp(string hostname) =>
+        _hosts.TryGetValue(hostname, out var server) ? server.IpAddress : null;
+
     /// <summary>
     /// Simulate a ping with jitter scaled by NIC speed.
     /// </summary>

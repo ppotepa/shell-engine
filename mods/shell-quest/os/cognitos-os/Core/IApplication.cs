@@ -1,5 +1,7 @@
 namespace CognitosOs.Core;
 
+using CognitosOs.Kernel;
+
 internal enum ApplicationResult
 {
     Continue,
@@ -27,4 +29,16 @@ internal interface IApplication
     /// and should be popped, returning focus to the app below.
     /// </summary>
     ApplicationResult HandleInput(string input, UserSession session);
+}
+
+/// <summary>
+/// New-style application interface that receives <see cref="IUnitOfWork"/>.
+/// Replaces <see cref="IApplication"/> incrementally.
+/// </summary>
+internal interface IKernelApplication
+{
+    string PromptPrefix(UserSession session);
+    void OnEnter(IUnitOfWork uow);
+    void OnExit(IUnitOfWork uow);
+    ApplicationResult HandleInput(IUnitOfWork uow, string input);
 }

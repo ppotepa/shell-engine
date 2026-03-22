@@ -25,6 +25,7 @@ internal interface IMutableFileSystem : IVirtualFileSystem
     bool TryCopy(string source, string dest, out string error);
     bool TryWrite(string path, string content, out string error);
     bool TryMkdir(string path, out string error);
+    bool TryDelete(string path);
 }
 
 internal sealed class ZipVirtualFileSystem : IMutableFileSystem
@@ -199,6 +200,12 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
         RegisterDirectory(normalized);
         error = "";
         return true;
+    }
+
+    public bool TryDelete(string path)
+    {
+        var normalized = Normalize(path);
+        return _files.Remove(normalized);
     }
 
     /// <summary>
