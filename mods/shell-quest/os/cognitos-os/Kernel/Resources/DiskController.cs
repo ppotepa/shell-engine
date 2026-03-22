@@ -69,4 +69,10 @@ internal sealed class DiskController
 
     /// <summary>Mark service background I/O complete.</summary>
     public void ServiceIoEnd() => ActiveIoCount = Math.Max(0, ActiveIoCount - 1);
+
+    /// <summary>
+    /// Returns extra seek penalty in ms if other I/O is in-flight, without mutating state.
+    /// Called by <see cref="CognitosOs.Minix.Kernel.MinixSyscallGate"/> for latency calculation.
+    /// </summary>
+    public double ContentionMs() => ActiveIoCount > 0 ? _hw.DiskAccessMs * 0.1 : 0;
 }

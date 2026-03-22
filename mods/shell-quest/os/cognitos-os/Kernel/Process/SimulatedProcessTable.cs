@@ -1,13 +1,14 @@
 namespace CognitosOs.Kernel.Process;
 
+using CognitosOs.Framework.Kernel;
 using CognitosOs.Kernel.Clock;
 using CognitosOs.Kernel.Hardware;
 using CognitosOs.Kernel.Resources;
 using CognitosOs.State;
 
 /// <summary>
-/// Simulated MINIX process table. Fork allocates RAM and incurs CPU delay.
-/// Exit frees RAM. All visible in <see cref="List"/>.
+/// Simulated MINIX process table. Fork/Exec go through <see cref="ISyscallGate"/>
+/// for unified resource debit + latency injection.
 /// </summary>
 internal sealed class SimulatedProcessTable : IProcessTable
 {
@@ -15,6 +16,7 @@ internal sealed class SimulatedProcessTable : IProcessTable
     private readonly ResourceState _res;
     private readonly HardwareProfile _hw;
     private readonly IClock _clock;
+    private readonly ISyscallGate _gate;
     private int _nextPid = 1;
 
     // Binary size table (KB) — approximate 1991 MINIX binary sizes
@@ -32,11 +34,12 @@ internal sealed class SimulatedProcessTable : IProcessTable
         ["ping"] = 4, ["help"] = 2, ["history"] = 2,
     };
 
-    public SimulatedProcessTable(ResourceState res, HardwareProfile hw, IClock clock)
+    public SimulatedProcessTable(ResourceState res, HardwareProfile hw, IClock clock, ISyscallGate gate)
     {
         _res = res;
         _hw = hw;
         _clock = clock;
+        _gate = gate;
     }
 
     public int Fork(string name, int sizeKb, string user, string tty)
@@ -44,26 +47,26 @@ internal sealed class SimulatedProcessTable : IProcessTable
         if (_processes.Count >= _hw.Spec.MaxProcesses)
             throw new InvalidOperationException("fork: process table full");
 
-        if (!_res.Ram.CanAllocProcess(sizeKb))
-            throw new InvalidOperationException("fork: not enough memory");
-
-        _res.Ram.AllocProcess(sizeKb);
-        _res.Cpu.IncrementRunnable();
-
-        _hw.BlockFor(_hw.ForkMs + _res.Cpu.OverheadMs());
-
         int pid = _nextPid++;
-        _processes.Add(new ProcessEntry
-        {
-            Pid = pid,
-            Ppid = 1, // default parent = init
-            Uid = user == "root" ? 0 : (user == "ast" ? 100 : 101),
-            Name = name,
-            User = user,
-            StateCh = 'R',
-            Tty = tty,
-            Sz = sizeKb,
-        });
+        var result = _gate.Dispatch(
+            SyscallRequest.For(SyscallKind.ProcessFork, sizeKb * 1024L),
+            () =>
+            {
+                _processes.Add(new ProcessEntry
+                {
+                    Pid = pid,
+                    Ppid = 1,
+                    Uid = user == "root" ? 0 : (user == "ast" ? 100 : 101),
+                    Name = name,
+                    User = user,
+                    StateCh = 'R',
+                    Tty = tty,
+                    Sz = sizeKb,
+                });
+            });
+
+        if (!result.Success)
+            throw new InvalidOperationException($"fork: {result.ErrorCode}");
 
         return pid;
     }
@@ -73,7 +76,10 @@ internal sealed class SimulatedProcessTable : IProcessTable
         string binName = System.IO.Path.GetFileName(binaryPath);
         int binSize = BinarySizes.GetValueOrDefault(binName, 4);
 
-        _hw.BlockFor(_hw.ExecLoadMs(binSize) + _res.Cpu.OverheadMs());
+        _gate.Dispatch(
+            SyscallRequest.For(SyscallKind.ProcessExec, binSize * 1024L),
+            () => { /* binary image loaded — state already committed */ }
+        ).ThrowIfFailed();
     }
 
     public void Exit(int pid)
@@ -92,7 +98,6 @@ internal sealed class SimulatedProcessTable : IProcessTable
         var proc = _processes.Find(p => p.Pid == pid);
         if (proc is null) return;
 
-        // Signal 9 (SIGKILL) always terminates
         if (signal == 9)
             Exit(pid);
     }

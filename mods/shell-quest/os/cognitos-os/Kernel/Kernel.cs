@@ -1,6 +1,7 @@
 namespace CognitosOs.Kernel;
 
 using CognitosOs.Core;
+using CognitosOs.Framework.Kernel;
 using CognitosOs.Kernel.Clock;
 using CognitosOs.Kernel.Disk;
 using CognitosOs.Kernel.Journal;
@@ -10,6 +11,7 @@ using CognitosOs.Kernel.Process;
 using CognitosOs.Kernel.Resources;
 using CognitosOs.Kernel.Services;
 using CognitosOs.Kernel.Hardware;
+using CognitosOs.Minix.Kernel;
 using CognitosOs.State;
 
 /// <summary>
@@ -42,11 +44,14 @@ internal sealed class Kernel : IKernel
         // Layer 3: Clock
         Clock = new SimulatedClock(new DateTime(1991, 9, 17, 21, 12, 0));
 
-        // Layer 4: Subsystems (each wraps storage with timing via Resources + Hardware)
-        Disk = new SimulatedDisk(vfs, Resources, Hardware);
-        var processTable = new SimulatedProcessTable(Resources, Hardware, Clock);
+        // Layer 3.5: Syscall gate — single choke point for resource checks + latency
+        ISyscallGate gate = new MinixSyscallGate(Resources, Hardware);
+
+        // Layer 4: Subsystems (each wraps storage with timing via gate)
+        Disk = new SimulatedDisk(vfs, Resources, Hardware, gate);
+        var processTable = new SimulatedProcessTable(Resources, Hardware, Clock, gate);
         Process = processTable;
-        Net = new SimulatedNetwork(netReg, Resources, Hardware, Disk);
+        Net = new SimulatedNetwork(netReg, Resources, Hardware, Disk, gate);
         Journal = new SimulatedJournal(Disk, Clock);
         Mail = new SimulatedMailSpool(Disk, Clock, "linus");
 
