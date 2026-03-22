@@ -240,14 +240,14 @@ $defs:
     - bg-grid
     - crt01-root
     - crt01-stack
+    - crt02-dash
     - crt02-root
-    - crt02-shell
     - crt03-root
-    - crt03-shell
-    - crt04-main
+    - crt03-stack
     - crt04-root
+    - crt04-shell
     - crt05-root
-    - crt05-shell
+    - crt05-summary
     - focus-card-a
     - focus-card-b
     - focus-card-c

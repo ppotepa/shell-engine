@@ -8,17 +8,17 @@ use crate::scene::EffectParams;
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "crt-burn-in",
     display_name: "CRT Burn-In",
-    summary: "PostFX: phosphor persistence — fading ghost of previous frames lingers under current content. Survives scene transitions for realistic CRT feel.",
+    summary: "PostFX: phosphor persistence transition — fading ghost of the previous scene lingers under the new one. Time-based: starts at alpha brightness and fades over speed seconds.",
     category: "postfx",
     compatible_targets: EffectTargetMask::SCENE,
     params: &[
-        slider("intensity", "Intensity", "Ghost visibility strength.", 0.0, 1.0, 0.05, ""),
-        slider("alpha", "Alpha", "Maximum blend opacity of the ghost layer.", 0.0, 1.0, 0.05, ""),
-        slider("speed", "Decay", "How quickly the ghost fades (higher = faster fade).", 0.05, 0.95, 0.05, ""),
-        slider("brightness", "Brightness", "Ghost luminance multiplier.", 0.2, 2.0, 0.1, ""),
+        slider("alpha", "Initial brightness", "Ghost starts at this fraction of original brightness.", 0.0, 1.0, 0.05, ""),
+        slider("speed", "Fade duration", "How many seconds the ghost takes to disappear.", 0.01, 10.0, 0.05, ""),
+        slider("brightness", "Luminance", "Ghost luminance multiplier.", 0.1, 2.0, 0.1, ""),
+        slider("intensity", "Intensity", "Overall effect strength (0 = off, 1 = full).", 0.0, 1.0, 0.05, ""),
         P_EASING,
     ],
-    sample: "- name: crt-burn-in\n  params:\n    intensity: 0.45\n    alpha: 0.30\n    speed: 0.35\n    brightness: 1.0",
+    sample: "- name: crt-burn-in\n  params:\n    alpha: 0.30\n    speed: 0.35\n    brightness: 1.0\n    intensity: 1.0",
 };
 
 pub struct CrtBurnInEffect;

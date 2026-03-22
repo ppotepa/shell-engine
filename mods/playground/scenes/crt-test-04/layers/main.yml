@@ -5,66 +5,57 @@
     - type: grid
       id: crt04-root
       at: cc
-      columns: ["1fr", "2fr", "1fr"]
-      rows: ["auto", "1fr", "auto"]
-      gap-x: 2
+      columns: ["1fr"]
+      rows: ["auto", "auto", "auto", "1fr", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "CRT-TEST / SCREEN 04", grid-col: 1, grid-row: 1, col-span: 3, at: cc, font: "generic:half", fg: white }
-        - type: flex
-          direction: column
-          grid-col: 1
-          grid-row: 2
-          gap: 1
-          align_x: center
-          align_y: center
-          children:
-            - { type: text, content: "SIDEBAR", font: "generic:1", fg: cyan }
-            - { type: text, content: "scene graph", font: "generic:1", fg: white }
-            - { type: text, content: "layout tree", font: "generic:1", fg: silver }
-            - { type: text, content: "focus order", font: "generic:1", fg: gray }
+        - { type: text, content: "▓▓▓  SECURITY ALERT  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: red }
+        - { type: text, content: "SCREEN 04 — RED/MAGENTA — amber warning ghosts through...", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(255,80,80)" }
+        - { type: text, content: "High-contrast red alert — watch the amber text fade behind.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(220,60,60)" }
         - type: grid
-          id: crt04-main
-          grid-col: 2
-          grid-row: 2
-          columns: ["1fr", "1fr"]
+          id: crt04-shell
+          grid-col: 1
+          grid-row: 4
+          columns: ["1fr", "1fr", "1fr"]
           rows: ["auto", "auto", "auto"]
           gap-x: 2
           gap-y: 1
           children:
-            - { type: text, content: "MAIN WORKSPACE", grid-col: 1, grid-row: 1, col-span: 2, at: cc, font: "generic:1", fg: yellow }
-            - { type: text, content: "timeline", grid-col: 1, grid-row: 2, at: lc, font: "generic:1", fg: white }
-            - { type: text, content: "effect stack", grid-col: 2, grid-row: 2, at: rc, font: "generic:1", fg: white }
+            - { type: text, content: "╔══ INTRUDER ══╗", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: red }
+            - { type: text, content: "╔══ FIREWALL ══╗", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: "rgb(255,50,100)" }
+            - { type: text, content: "╔═══ AUDIT ════╗", grid-col: 3, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
             - type: flex
               direction: column
               grid-col: 1
-              grid-row: 3
+              grid-row: 2
               gap: 1
               align_x: center
-              align_y: center
               children:
-                - { type: text, content: "intro", font: "generic:1", fg: green }
-                - { type: text, content: "hold", font: "generic:1", fg: cyan }
-                - { type: text, content: "leave", font: "generic:1", fg: magenta }
-            - type: grid
+                - { type: text, content: "IP: 10.13.37.1", font: "generic:1", fg: "rgb(255,100,100)" }
+                - { type: text, content: "PORT: 22 (SSH)", font: "generic:1", fg: "rgb(255,80,80)" }
+                - { type: text, content: "ATTEMPTS: 847", font: "generic:1", fg: "rgb(255,60,60)" }
+                - { type: text, content: "STATUS: BLOCKED", font: "generic:1", fg: "rgb(200,40,40)" }
+            - type: flex
+              direction: column
               grid-col: 2
-              grid-row: 3
-              columns: ["1fr"]
-              rows: ["auto", "auto", "auto"]
-              gap-y: 1
+              grid-row: 2
+              gap: 1
+              align_x: center
               children:
-                - { type: text, content: "crt-underlay", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: silver }
-                - { type: text, content: "crt-distort", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: silver }
-                - { type: text, content: "crt-scan-glitch", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
-        - type: grid
-          grid-col: 3
-          grid-row: 2
-          columns: ["1fr"]
-          rows: ["auto", "auto", "auto", "auto"]
-          gap-y: 1
-          children:
-            - { type: text, content: "TELEMETRY", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
-            - { type: text, content: "fps  60", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: white }
-            - { type: text, content: "cpu  14%", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
-            - { type: text, content: "mem  32M", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: gray }
-        - { type: text, content: "Screen 4/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 3, col-span: 3, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+                - { type: text, content: "RULES: 2,341", font: "generic:1", fg: "rgb(255,80,120)" }
+                - { type: text, content: "DROPS: 12,847/s", font: "generic:1", fg: "rgb(240,60,100)" }
+                - { type: text, content: "ACCEPTS: 342/s", font: "generic:1", fg: "rgb(220,40,80)" }
+                - { type: text, content: "LOAD: HIGH ▲", font: "generic:1", fg: "rgb(200,20,60)" }
+            - type: flex
+              direction: column
+              grid-col: 3
+              grid-row: 2
+              gap: 1
+              align_x: center
+              children:
+                - { type: text, content: "EVENTS: 48,291", font: "generic:1", fg: "rgb(200,80,200)" }
+                - { type: text, content: "ALERTS: 17 NEW", font: "generic:1", fg: "rgb(180,60,180)" }
+                - { type: text, content: "SIEM: CONNECTED", font: "generic:1", fg: "rgb(160,40,160)" }
+                - { type: text, content: "LOG: STREAMING", font: "generic:1", fg: "rgb(140,20,140)" }
+            - { type: text, content: "═══════════════ THREAT LEVEL: ELEVATED ═══════════════", grid-col: 1, grid-row: 3, col-span: 3, at: cc, font: "generic:1", fg: "rgb(255,40,40)" }
+        - { type: text, content: "Screen 4/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }

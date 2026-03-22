@@ -6,43 +6,29 @@
       id: crt02-root
       at: cc
       columns: ["1fr"]
-      rows: ["auto", "auto", "1fr", "auto"]
+      rows: ["auto", "auto", "auto", "1fr", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "CRT-TEST / SCREEN 02", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
-        - { type: text, content: "TWO-COLUMN DASHBOARD: GRID OUTSIDE, CONTENT INSIDE", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
+        - { type: text, content: "▓▓▓  NETWORK MONITOR  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: cyan }
+        - { type: text, content: "SCREEN 02 — CYAN/BLUE — watch for green ghost from screen 01", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(100,200,255)" }
+        - { type: text, content: "The green BIOS text persists as a fading phosphor afterimage.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(80,180,240)" }
         - type: grid
-          id: crt02-shell
+          id: crt02-dash
           grid-col: 1
-          grid-row: 3
+          grid-row: 4
           columns: ["1fr", "1fr"]
-          rows: ["auto", "auto", "auto"]
-          gap-x: 2
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-x: 4
           gap-y: 1
           children:
-            - { type: text, content: "LEFT PANEL / SIGNAL", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
-            - { type: text, content: "RIGHT PANEL / PREVIEW", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: yellow }
-            - type: flex
-              direction: column
-              grid-col: 1
-              grid-row: 2
-              gap: 1
-              align_x: center
-              align_y: center
-              children:
-                - { type: text, content: "sync: locked", font: "generic:1", fg: white }
-                - { type: text, content: "phase: stable", font: "generic:1", fg: silver }
-                - { type: text, content: "mask: triad", font: "generic:1", fg: green }
-                - { type: text, content: "bloom: 0.32", font: "generic:1", fg: cyan }
-            - type: grid
-              grid-col: 2
-              grid-row: 2
-              columns: ["1fr"]
-              rows: ["auto", "auto", "auto"]
-              gap-y: 1
-              children:
-                - { type: image, source: "/assets/images/tux.png", grid-col: 1, grid-row: 1, at: cc, size: 3 }
-                - { type: text, content: "image is layout-managed too", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: white }
-                - { type: text, content: "no manual x/y offsets required", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: gray }
-            - { type: text, content: "The outer grid owns structure; inner containers own alignment.", grid-col: 1, grid-row: 3, col-span: 2, at: cc, font: "generic:1", fg: silver }
-        - { type: text, content: "Screen 2/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+            - { type: text, content: "┌─ INCOMING ──────────┐", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
+            - { type: text, content: "┌─ OUTGOING ──────────┐", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: blue }
+            - { type: text, content: "│ 192.168.1.42:8080   │", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(0,200,255)" }
+            - { type: text, content: "│ 10.0.0.1:443  >>>   │", grid-col: 2, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(0,150,255)" }
+            - { type: text, content: "│ tcp SYN_RECV  12ms  │", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(0,180,230)" }
+            - { type: text, content: "│ tls ESTABLISHED 3ms │", grid-col: 2, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(0,130,220)" }
+            - { type: text, content: "│ bytes: 1.2M ▲       │", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: "rgb(0,160,200)" }
+            - { type: text, content: "│ bytes: 340K ▼       │", grid-col: 2, grid-row: 4, at: cc, font: "generic:1", fg: "rgb(0,110,190)" }
+            - { type: text, content: "└──────────────────────┘", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
+            - { type: text, content: "└──────────────────────┘", grid-col: 2, grid-row: 5, at: cc, font: "generic:1", fg: blue }
+        - { type: text, content: "Screen 2/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }

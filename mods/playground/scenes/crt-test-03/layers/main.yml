@@ -6,56 +6,27 @@
       id: crt03-root
       at: cc
       columns: ["1fr"]
-      rows: ["auto", "auto", "1fr", "auto"]
+      rows: ["auto", "auto", "auto", "1fr", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "CRT-TEST / SCREEN 03", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
-        - { type: text, content: "NESTED GRID + FLEX + SPANS", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
-        - type: grid
-          id: crt03-shell
+        - { type: text, content: "▓▓▓  AMBER WARNING  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: yellow }
+        - { type: text, content: "SCREEN 03 — AMBER/GOLD — blue ghost fading behind...", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(255,200,60)" }
+        - { type: text, content: "Classic amber phosphor monitor — the cyan network data ghosts away.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(220,170,40)" }
+        - type: flex
+          id: crt03-stack
+          direction: column
           grid-col: 1
-          grid-row: 3
-          columns: ["1fr", "1fr", "1fr"]
-          rows: ["auto", "auto", "auto"]
-          gap-x: 2
-          gap-y: 1
+          grid-row: 4
+          gap: 1
+          align_x: center
+          align_y: center
           children:
-            - { type: text, content: "COLUMN A", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
-            - { type: text, content: "COLUMN B", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
-            - { type: text, content: "COLUMN C", grid-col: 3, grid-row: 1, at: cc, font: "generic:1", fg: yellow }
-            - type: flex
-              direction: column
-              grid-col: 1
-              grid-row: 2
-              gap: 1
-              align_x: center
-              align_y: center
-              children:
-                - { type: text, content: "stacked labels", font: "generic:1", fg: white }
-                - { type: text, content: "align_x=center", font: "generic:1", fg: silver }
-                - { type: text, content: "align_y=center", font: "generic:1", fg: gray }
-            - type: grid
-              grid-col: 2
-              grid-row: 2
-              columns: ["1fr", "1fr"]
-              rows: ["auto", "auto"]
-              gap-x: 1
-              gap-y: 1
-              children:
-                - { type: text, content: "A1", grid-col: 1, grid-row: 1, at: lc, font: "generic:1", fg: white }
-                - { type: text, content: "B1", grid-col: 2, grid-row: 1, at: rc, font: "generic:1", fg: white }
-                - { type: text, content: "A2", grid-col: 1, grid-row: 2, at: lc, font: "generic:1", fg: cyan }
-                - { type: text, content: "B2", grid-col: 2, grid-row: 2, at: rc, font: "generic:1", fg: yellow }
-            - type: flex
-              direction: row
-              grid-col: 3
-              grid-row: 2
-              gap: 2
-              align_x: center
-              align_y: center
-              children:
-                - { type: text, content: "[A]", font: "generic:1", fg: green }
-                - { type: text, content: "[B]", font: "generic:1", fg: cyan }
-                - { type: text, content: "[C]", font: "generic:1", fg: magenta }
-            - { type: text, content: "Spans let one summary row explain the whole composition.", grid-col: 1, grid-row: 3, col-span: 3, at: cc, font: "generic:1", fg: silver }
-        - { type: text, content: "Screen 3/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+            - { type: text, content: "████████████████████████████████████████████████", font: "generic:1", fg: "rgb(255,180,0)" }
+            - { type: text, content: "██  WARNING: CORE TEMPERATURE ELEVATED         ██", font: "generic:1", fg: "rgb(255,200,40)" }
+            - { type: text, content: "██  SECTOR 7-G: CONTAINMENT BREACH POSSIBLE    ██", font: "generic:1", fg: "rgb(240,180,30)" }
+            - { type: text, content: "██  REACTOR STATUS: NOMINAL (97.3%)            ██", font: "generic:1", fg: "rgb(220,160,20)" }
+            - { type: text, content: "██  COOLANT FLOW: 412 L/min ▼                  ██", font: "generic:1", fg: "rgb(200,140,10)" }
+            - { type: text, content: "██  RADIATION: 0.42 mSv/h — WITHIN LIMITS      ██", font: "generic:1", fg: "rgb(180,120,0)" }
+            - { type: text, content: "██  NEXT INSPECTION: T-14:22:08                ██", font: "generic:1", fg: "rgb(160,100,0)" }
+            - { type: text, content: "████████████████████████████████████████████████", font: "generic:1", fg: "rgb(255,180,0)" }
+        - { type: text, content: "Screen 3/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }

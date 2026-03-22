@@ -6,79 +6,30 @@
       id: crt05-root
       at: cc
       columns: ["1fr"]
-      rows: ["auto", "auto", "1fr", "auto", "auto"]
+      rows: ["auto", "auto", "auto", "1fr", "auto", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "CRT-TEST / SCREEN 05", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
-        - { type: text, content: "COMPOSITE AUTHORING: HUD + PANELS + PREVIEW + TOOLBAR", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
+        - { type: text, content: "▓▓▓  ALL CLEAR  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
+        - { type: text, content: "SCREEN 05 — WHITE/SILVER — red alert ghosts away...", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(200,200,220)" }
+        - { type: text, content: "Clean white on black — the red security data fades like a real CRT.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(180,180,200)" }
         - type: grid
-          id: crt05-shell
+          id: crt05-summary
           grid-col: 1
-          grid-row: 3
-          columns: ["1fr", "2fr", "1fr"]
-          rows: ["auto", "auto", "auto"]
-          gap-x: 2
+          grid-row: 4
+          columns: ["1fr", "1fr"]
+          rows: ["auto", "auto", "auto", "auto", "auto"]
+          gap-x: 4
           gap-y: 1
           children:
-            - { type: text, content: "LEFT RAIL", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
-            - { type: text, content: "MAIN CANVAS", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: yellow }
-            - { type: text, content: "RIGHT RAIL", grid-col: 3, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
-            - type: flex
-              direction: column
-              grid-col: 1
-              grid-row: 2
-              gap: 1
-              align_x: center
-              align_y: center
-              children:
-                - { type: text, content: "alerts", font: "generic:1", fg: white }
-                - { type: text, content: "objectives", font: "generic:1", fg: silver }
-                - { type: text, content: "channels", font: "generic:1", fg: gray }
-                - { type: text, content: "routing", font: "generic:1", fg: green }
-            - type: grid
-              grid-col: 2
-              grid-row: 2
-              columns: ["1fr", "1fr"]
-              rows: ["auto", "auto", "auto"]
-              gap-x: 2
-              gap-y: 1
-              children:
-                - { type: text, content: "top bar spans both columns", grid-col: 1, grid-row: 1, col-span: 2, at: cc, font: "generic:1", fg: silver }
-                - { type: image, source: "/assets/images/tux.png", grid-col: 1, grid-row: 2, at: cc, size: 4 }
-                - type: flex
-                  direction: column
-                  grid-col: 2
-                  grid-row: 2
-                  gap: 1
-                  align_x: center
-                  align_y: center
-                  children:
-                    - { type: text, content: "scene graph", font: "generic:1", fg: white }
-                    - { type: text, content: "layout graph", font: "generic:1", fg: cyan }
-                    - { type: text, content: "render graph", font: "generic:1", fg: yellow }
-                - type: flex
-                  direction: row
-                  grid-col: 1
-                  grid-row: 3
-                  col-span: 2
-                  gap: 2
-                  align_x: center
-                  align_y: center
-                  children:
-                    - { type: text, content: "[ tool A ]", font: "generic:1", fg: green }
-                    - { type: text, content: "[ tool B ]", font: "generic:1", fg: cyan }
-                    - { type: text, content: "[ tool C ]", font: "generic:1", fg: magenta }
-            - type: grid
-              grid-col: 3
-              grid-row: 2
-              columns: ["1fr"]
-              rows: ["auto", "auto", "auto", "auto"]
-              gap-y: 1
-              children:
-                - { type: text, content: "profiling", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
-                - { type: text, content: "postfx", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: silver }
-                - { type: text, content: "input", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: gray }
-                - { type: text, content: "ipc", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: green }
-            - { type: text, content: "This final screen mixes rails, spans, nested grids, flex stacks, rows, and media.", grid-col: 1, grid-row: 3, col-span: 3, at: cc, font: "generic:1", fg: silver }
-        - { type: text, content: "Screen 5/5", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: cyan }
-        - { type: text, content: "ENTER: return to menu  |  2: restart tour  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+            - { type: text, content: "┌── BURN-IN PARAMS ───┐", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
+            - { type: text, content: "┌── COLOUR SEQUENCE ──┐", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: white }
+            - { type: text, content: "│ alpha:  0.30 (30%)  │", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: silver }
+            - { type: text, content: "│ 01: GREEN  (BIOS)   │", grid-col: 2, grid-row: 2, at: cc, font: "generic:1", fg: green }
+            - { type: text, content: "│ speed:  0.35s fade  │", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
+            - { type: text, content: "│ 02: CYAN   (NET)    │", grid-col: 2, grid-row: 3, at: cc, font: "generic:1", fg: cyan }
+            - { type: text, content: "│ bright: 1.0x        │", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: silver }
+            - { type: text, content: "│ 03: AMBER  (WARN)   │", grid-col: 2, grid-row: 4, at: cc, font: "generic:1", fg: yellow }
+            - { type: text, content: "│ intens: 1.0 (full)  │", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: silver }
+            - { type: text, content: "│ 04: RED    (ALERT)  │", grid-col: 2, grid-row: 5, at: cc, font: "generic:1", fg: red }
+        - { type: text, content: "Screen 5/5 — BURN-IN TOUR COMPLETE", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: "rgb(180,220,255)" }
+        - { type: text, content: "ENTER: menu  |  2: restart tour  |  0: menu", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }

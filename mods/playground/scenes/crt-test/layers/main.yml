@@ -9,9 +9,9 @@
       rows: ["auto", "auto", "auto", "1fr", "auto", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "CRT-TEST / SCREEN 01", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
-        - { type: text, content: "TAFFY LAYOUT BASICS: SINGLE GRID + CENTERED FLEX", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: gray }
-        - { type: text, content: "Start simple: one root grid, one centered column, no absolute positioning.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
+        - { type: text, content: "▓▓▓  SYSTEM BOOT  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: green }
+        - { type: text, content: "PHOSPHOR BURN-IN DEMO — SCREEN 01 — GREEN THEME", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: green }
+        - { type: text, content: "When you press ENTER, this green content will ghost into the next blue screen.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(100,255,100)" }
         - type: flex
           id: crt01-stack
           direction: column
@@ -21,9 +21,14 @@
           align_x: center
           align_y: center
           children:
-            - { type: text, content: "[ root grid ]", font: "generic:1", fg: green }
-            - { type: text, content: "[ centered flex column ]", font: "generic:1", fg: cyan }
-            - { type: text, content: "[ text blocks keep alignment on resize ]", font: "generic:1", fg: yellow }
-            - { type: text, content: "This is the smallest useful authored layout.", font: "generic:1", fg: white }
-        - { type: text, content: "Screen 1/5", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
+            - { type: text, content: "████████████████████████████████████████████████", font: "generic:1", fg: green }
+            - { type: text, content: "██  BIOS POST OK — 640K BASE MEMORY VERIFIED  ██", font: "generic:1", fg: "rgb(0,200,0)" }
+            - { type: text, content: "██  IRQ TABLE     ██  DMA CHANNELS  ██  CLOCK  ██", font: "generic:1", fg: "rgb(0,180,0)" }
+            - { type: text, content: "██  0: TIMER      ██  0: REFRESH    ██  14.318  ██", font: "generic:1", fg: "rgb(0,160,0)" }
+            - { type: text, content: "██  1: KEYBOARD   ██  1: USER       ██  MHz     ██", font: "generic:1", fg: "rgb(0,140,0)" }
+            - { type: text, content: "██  2: CASCADE    ██  2: FLOPPY     ██  ────    ██", font: "generic:1", fg: "rgb(0,120,0)" }
+            - { type: text, content: "██  3: COM2       ██  3: PARALLEL   ██  READY   ██", font: "generic:1", fg: "rgb(0,100,0)" }
+            - { type: text, content: "████████████████████████████████████████████████", font: "generic:1", fg: green }
+            - { type: text, content: "BOOT SEQUENCE COMPLETE — SYSTEM READY", font: "generic:1", fg: "rgb(150,255,150)" }
+        - { type: text, content: "Screen 1/5 — BURN-IN DEMO", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
         - { type: text, content: "ENTER: next screen  |  0: back to menu", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
