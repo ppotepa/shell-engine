@@ -49,7 +49,7 @@ internal interface IMachineStart
 
 internal interface IBootSequence
 {
-    IReadOnlyList<BootStep> BuildBootSteps(IOperatingSystem os);
+    IReadOnlyList<BootStep> BuildBootSteps(CognitosOs.Framework.Kernel.IKernel kernel);
 }
 
 internal sealed record BootStep(string Text, ulong DelayMs);

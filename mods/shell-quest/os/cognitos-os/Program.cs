@@ -3,7 +3,9 @@ using CognitosOs.Boot;
 using CognitosOs.Commands;
 using CognitosOs.Core;
 using CognitosOs.EasterEggs;
-using CognitosOs.Kernel;
+using CognitosOs.Framework.Ioc;
+using CognitosOs.Framework.Kernel;
+using CognitosOs.Minix;
 using CognitosOs.Network;
 using CognitosOs.State;
 
@@ -78,11 +80,9 @@ internal static class Program
                 commandIndex[alias] = c;
         }
 
-        var fileSystem = new ZipVirtualFileSystem(statePath);
-
-        IOperatingSystem os = new MinixOperatingSystem(state, fileSystem);
+        var container = new ServiceContainer();
         IBootSequence boot = new MinixBootSequence();
-        var host = new AppHost(os, machineStart, eggs, historyCmd, commandIndex);
+        AppHost? host = null;
         var initialized = false;
 
         string? line;
@@ -100,7 +100,7 @@ internal static class Program
                 if (type == "tick")
                 {
                     if (!initialized) continue;
-                    host.HandleTick((ulong)(root.TryGetProperty("dt_ms", out var dt) && dt.TryGetUInt64(out var ms) ? ms : 0));
+                    host!.HandleTick((ulong)(root.TryGetProperty("dt_ms", out var dt) && dt.TryGetUInt64(out var ms) ? ms : 0));
                     continue;
                 }
 
@@ -109,24 +109,36 @@ internal static class Program
                     if (!initialized) continue;
                     var cols = Protocol.GetInt(root, "cols") ?? 120;
                     var rows = Protocol.GetInt(root, "rows") ?? 40;
-                    host.HandleResize(cols, rows);
+                    host!.HandleResize(cols, rows);
                     continue;
                 }
 
                 if (type == "hello")
                 {
-                    host.HandleResize(
-                        Protocol.GetInt(root, "cols") ?? 120,
-                        Protocol.GetInt(root, "rows") ?? 40
-                    );
+                    var cols = Protocol.GetInt(root, "cols") ?? 120;
+                    var rows = Protocol.GetInt(root, "rows") ?? 40;
+
                     var difficultyLabel = Protocol.GetString(root, "difficulty");
                     var difficulty = MachineSpec.ParseLabel(difficultyLabel);
                     state.Spec = MachineSpec.FromDifficulty(difficulty);
+
+                    var fileSystem = new ZipVirtualFileSystem(statePath);
+                    var module = new MinixModule(state.Spec, fileSystem, network);
+                    var osScope = container.LoadModule(module);
+                    var kernel = osScope.Resolve<IKernel>();
+
+                    host = new AppHost(
+                        kernel, state, machineStart, eggs, historyCmd, commandIndex,
+                        reloadVfs: () => fileSystem.ReloadFromStateArchive());
+
+                    host.HandleResize(cols, rows);
+
                     var bootScene = Protocol.GetBool(root, "boot_scene") ?? false;
                     if (bootScene)
                         host.EmitBoot(boot);
                     else
                         host.StartAtLogin();
+
                     initialized = true;
                     continue;
                 }
@@ -136,14 +148,14 @@ internal static class Program
                 if (type == "set-input")
                 {
                     if (!initialized) continue;
-                    host.HandleInputChange(Protocol.GetString(root, "text") ?? string.Empty);
+                    host!.HandleInputChange(Protocol.GetString(root, "text") ?? string.Empty);
                     continue;
                 }
 
                 if (type != "submit") continue;
                 if (!initialized) continue;
 
-                host.HandleSubmit(Protocol.GetString(root, "line") ?? string.Empty);
+                host!.HandleSubmit(Protocol.GetString(root, "line") ?? string.Empty);
             }
             catch (Exception ex)
             {
@@ -156,3 +168,4 @@ internal static class Program
         }
     }
 }
+
