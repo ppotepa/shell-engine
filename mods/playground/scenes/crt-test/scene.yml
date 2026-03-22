@@ -16,7 +16,7 @@ layers:
 stages:
   on_enter:
     steps:
-      - { effects: [{ name: fade-in, duration: 400 }] }
+      - { duration: 1 }
   on_idle:
     trigger: any-key
     looping: true
@@ -24,7 +24,7 @@ stages:
       - pause: 1200ms
   on_leave:
     steps:
-      - { effects: [{ name: fade-out, duration: 180 }] }
+      - { duration: 1 }
 menu-options:
   - { key: "1", label: "ENTER / NEXT SCREEN", to: playground-crt-test-02 }
   - { key: "0", label: BACK TO MENU, to: playground-menu }
