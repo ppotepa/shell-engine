@@ -16,8 +16,7 @@ layers:
 stages:
   on_enter:
     steps:
-      - pause: 200ms
-      - { effects: [{ name: fade-in, duration: 300 }] }
+      - { effects: [{ name: fade-in, duration: 400 }] }
   on_idle:
     trigger: any-key
     looping: true

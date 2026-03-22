@@ -1,9 +1,8 @@
 //! CRT phosphor burn-in / persistence transition effect.
 //!
 //! On scene transition the screen goes **black** and a dim ghost of the
-//! previous frame lingers, fading to nothing over `speed` seconds.
-//! While the ghost is active the new scene's content is suppressed — the
-//! scene's own `fade-in` on_enter handles bringing content back.
+//! previous frame lingers, fading to nothing.  During the final portion of
+//! the fade the new scene's content cross-fades in smoothly — no hard cuts.
 //!
 //! ## YAML parameters
 //!
@@ -15,24 +14,19 @@
 //! | `intensity`  | 1.0     | overall effect strength (0 = off, 1 = full)     |
 
 use super::{normalize_bg, PostFxContext};
-use crate::buffer::{Buffer, Cell, TRUE_BLACK};
-use crate::effects::utils::color::colour_to_rgb;
+use crate::buffer::{Buffer, Cell};
+use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::scene::Effect;
 use crossterm::style::Color;
 use std::cell::RefCell;
 
 struct BurnInState {
-    /// Continuously captured frame — becomes ghost on transition.
     live_capture: Vec<Cell>,
     live_w: u16,
     live_h: u16,
-
-    /// The ghost frame (promoted from live_capture on transition).
     ghost: Option<Vec<Cell>>,
     ghost_w: u16,
     ghost_h: u16,
-
-    /// Previous frame's scene_elapsed_ms — backwards jump = transition.
     prev_scene_elapsed_ms: u64,
     has_capture: bool,
 }
@@ -114,82 +108,87 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         }
         s.prev_scene_elapsed_ms = elapsed;
 
-        // ── 2. Ghost opacity ──────────────────────────────────────────────
-        let ghost_opacity = if s.ghost.is_some() && elapsed < fade_ms {
-            let t = elapsed as f32 / fade_ms as f32;
-            (alpha * intensity * brightness * (1.0 - t)).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
+        // ── 2. Ghost progress ─────────────────────────────────────────────
+        let has_ghost = s.ghost.is_some() && elapsed < fade_ms;
 
-        if ghost_opacity < 0.002 && s.ghost.is_some() {
-            s.clear_ghost();
+        if !has_ghost {
+            if s.ghost.is_some() {
+                s.clear_ghost();
+            }
+            dst.clone_from(src);
+            s.capture_live(src);
+            return;
         }
 
-        // ── 3. Render ────────────────────────────────────────────────────
-        let has_ghost = ghost_opacity >= 0.002 && s.ghost.is_some();
+        let ghost_t = (elapsed as f32 / fade_ms as f32).clamp(0.0, 1.0);
+        let ghost_opacity = alpha * intensity * brightness * (1.0 - ghost_t);
 
-        if has_ghost {
-            // Ghost active → output = BLACK + ghost pixels at ghost_opacity.
-            // The new scene's src is completely suppressed — the scene's own
-            // fade-in on_enter handles bringing content back after the ghost.
-            let ghost = s.ghost.as_deref().unwrap();
-            let gw = s.ghost_w as usize;
+        // Cross-fade: new scene starts bleeding in during the last 40% of ghost period.
+        // This avoids a hard cut from ghost-over-black to full scene.
+        let scene_mix = smoothstep(0.6, 1.0, ghost_t);
 
-            for y in 0..src.height {
-                for x in 0..src.width {
-                    let gx = (x as usize).min(gw.saturating_sub(1));
-                    let gy = (y as usize).min((s.ghost_h as usize).saturating_sub(1));
+        let ghost = s.ghost.as_deref().unwrap();
+        let gw = s.ghost_w as usize;
 
-                    // Simple 3-pixel horizontal blur: average (left, center, right)
-                    let sample = |sx: usize, sy: usize| -> (f32, f32, f32) {
-                        let idx = sy * gw + sx;
-                        if idx >= ghost.len() {
-                            return (0.0, 0.0, 0.0);
-                        }
-                        pixel_rgb(&ghost[idx])
-                    };
+        for y in 0..src.height {
+            for x in 0..src.width {
+                let gx = (x as usize).min(gw.saturating_sub(1));
+                let gy = (y as usize).min((s.ghost_h as usize).saturating_sub(1));
 
-                    let (cr, cg, cb) = sample(gx, gy);
-                    let (lr, lg, lb) = if gx > 0 {
-                        sample(gx - 1, gy)
+                // ── Ghost pixel (3-pixel horizontal blur) ─────────────────
+                let sample = |sx: usize, sy: usize| -> (f32, f32, f32) {
+                    let idx = sy * gw + sx;
+                    if idx >= ghost.len() {
+                        return (0.0, 0.0, 0.0);
+                    }
+                    pixel_rgb(&ghost[idx])
+                };
+
+                let (cr, cg, cb) = sample(gx, gy);
+                let (lr, lg, lb) = if gx > 0 { sample(gx - 1, gy) } else { (cr, cg, cb) };
+                let (rr, rg, rb) = if gx + 1 < gw { sample(gx + 1, gy) } else { (cr, cg, cb) };
+
+                let gr = (lr * 0.2 + cr * 0.6 + rr * 0.2) * ghost_opacity;
+                let gg = (lg * 0.2 + cg * 0.6 + rg * 0.2) * ghost_opacity;
+                let gb = (lb * 0.2 + cb * 0.6 + rb * 0.2) * ghost_opacity;
+
+                let ghost_col = Color::Rgb {
+                    r: (gr * 255.0).clamp(0.0, 255.0) as u8,
+                    g: (gg * 255.0).clamp(0.0, 255.0) as u8,
+                    b: (gb * 255.0).clamp(0.0, 255.0) as u8,
+                };
+
+                // ── Blend ghost-over-black with src ───────────────────────
+                if scene_mix < 0.001 {
+                    // Pure ghost-over-black phase
+                    dst.set(x, y, ' ', ghost_col, ghost_col);
+                } else {
+                    let src_cell = src.get(x, y).cloned().unwrap_or_default();
+                    let src_fg = src_cell.fg;
+                    let src_bg = normalize_bg(src_cell.bg);
+
+                    let out_bg = lerp_colour(ghost_col, src_bg, scene_mix);
+                    let out_fg = if src_cell.symbol != ' ' {
+                        lerp_colour(ghost_col, src_fg, scene_mix)
                     } else {
-                        (cr, cg, cb)
+                        out_bg
                     };
-                    let (rr, rg, rb) = if gx + 1 < gw {
-                        sample(gx + 1, gy)
-                    } else {
-                        (cr, cg, cb)
-                    };
-
-                    // Weighted blur: center 60%, neighbours 20% each
-                    let br = lr * 0.2 + cr * 0.6 + rr * 0.2;
-                    let bg = lg * 0.2 + cg * 0.6 + rg * 0.2;
-                    let bb = lb * 0.2 + cb * 0.6 + rb * 0.2;
-
-                    // Apply ghost opacity → these are the final RGB values.
-                    let fr = (br * ghost_opacity * 255.0).clamp(0.0, 255.0) as u8;
-                    let fg = (bg * ghost_opacity * 255.0).clamp(0.0, 255.0) as u8;
-                    let fb = (bb * ghost_opacity * 255.0).clamp(0.0, 255.0) as u8;
-
-                    let col = Color::Rgb {
-                        r: fr,
-                        g: fg,
-                        b: fb,
-                    };
-                    dst.set(x, y, ' ', col, col);
+                    dst.set(x, y, src_cell.symbol, out_fg, out_bg);
                 }
             }
-        } else {
-            dst.clone_from(src);
         }
 
-        // ── 4. Capture current frame for next transition ──────────────────
+        // Capture for next transition
         s.capture_live(src);
     });
 }
 
-/// Extract visible colour of a cell as normalized (r, g, b) in 0.0–1.0.
+/// Hermite smoothstep: 0 below edge0, 1 above edge1, smooth in between.
+fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 fn pixel_rgb(cell: &Cell) -> (f32, f32, f32) {
     let c = if cell.symbol != ' ' {
         cell.fg
