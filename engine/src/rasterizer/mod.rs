@@ -42,11 +42,6 @@ pub fn rasterize_cached(
     fg: Color,
     bg: Color,
 ) -> Buffer {
-    // Skip cache for generic fonts — they are already cheap to compute.
-    if font.starts_with("generic") {
-        return rasterize(mod_source, text, font, fg, bg);
-    }
-
     let key: RasterKey = (
         mod_source.map(|p| p.to_string_lossy().into_owned()),
         text.to_owned(),

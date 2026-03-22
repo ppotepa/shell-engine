@@ -23,8 +23,8 @@ pub struct BehaviorContext {
     pub menu_selected_index: usize,
     // Arc-wrapped: identical for every behavior in a frame, clone is O(1).
     pub target_resolver: Arc<TargetResolver>,
-    // Per-behavior mutable state (behaviours can write to this).
-    pub object_states: std::collections::BTreeMap<String, ObjectRuntimeState>,
+    // Arc-wrapped: shared across all behaviors in a frame, clone is O(1).
+    pub object_states: Arc<std::collections::BTreeMap<String, ObjectRuntimeState>>,
     pub object_kinds: Arc<std::collections::BTreeMap<String, String>>,
     pub object_props: Arc<std::collections::BTreeMap<String, JsonValue>>,
     pub object_regions: Arc<std::collections::BTreeMap<String, Region>>,
@@ -517,6 +517,21 @@ impl Behavior for MenuCarouselObjectBehavior {
     }
 }
 
+// Thread-local cache of compiled Rhai ASTs keyed by script source text.
+// Avoids re-parsing the same script string every frame while keeping
+// the non-Send AST type out of cross-thread structs.
+thread_local! {
+    static AST_CACHE: std::cell::RefCell<std::collections::HashMap<u64, rhai::AST>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+fn script_hash(script: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    script.hash(&mut h);
+    h.finish()
+}
+
 /// Evaluates per-frame behavior commands from a Rhai script.
 pub struct RhaiScriptBehavior {
     params: BehaviorParams,
@@ -528,7 +543,7 @@ pub struct RhaiScriptBehavior {
 
 #[derive(Clone)]
 struct ScriptSceneApi {
-    objects: RhaiMap,
+    objects: Arc<RhaiMap>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -550,7 +565,7 @@ struct ScriptTerminalApi {
 }
 
 impl ScriptSceneApi {
-    fn new(objects: RhaiMap, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+    fn new(objects: Arc<RhaiMap>, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
         Self { objects, queue }
     }
 
@@ -682,10 +697,21 @@ impl ScriptTerminalApi {
 impl RhaiScriptBehavior {
     pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         let compile_error = match params.script.as_deref() {
-            Some(src) => RhaiEngine::new()
-                .compile(src)
-                .err()
-                .map(|err| format!("{}", err)),
+            Some(src) => {
+                let engine = RhaiEngine::new();
+                match engine.compile(src) {
+                    Ok(ast) => {
+                        // Pre-populate the thread-local AST cache so the first
+                        // frame doesn't pay the compile cost.
+                        let hash = script_hash(src);
+                        AST_CACHE.with(|cache| {
+                            cache.borrow_mut().insert(hash, ast);
+                        });
+                        None
+                    }
+                    Err(err) => Some(format!("{}", err)),
+                }
+            }
             None => None,
         };
         Self {
@@ -728,7 +754,7 @@ impl RhaiScriptBehavior {
 
     fn build_objects_map(&self, ctx: &BehaviorContext, scene: &Scene) -> RhaiMap {
         let mut objects = RhaiMap::new();
-        for (object_id, state) in &ctx.object_states {
+        for (object_id, state) in ctx.object_states.iter() {
             let mut entry = RhaiMap::new();
             let kind = ctx
                 .object_kinds
@@ -868,8 +894,8 @@ impl Behavior for RhaiScriptBehavior {
         scope.push_dynamic("params", behavior_params_to_rhai_map(&self.params).into());
         let regions_map = self.build_regions_map(ctx, scene);
         scope.push_dynamic("regions", regions_map.into());
-        let objects_map = self.build_objects_map(ctx, scene);
-        scope.push_dynamic("objects", objects_map.clone().into());
+        let objects_map = Arc::new(self.build_objects_map(ctx, scene));
+        scope.push_dynamic("objects", (*objects_map).clone().into());
         scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
         scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
         scope.push(
@@ -989,7 +1015,7 @@ impl Behavior for RhaiScriptBehavior {
         });
         scope.push(
             "scene",
-            ScriptSceneApi::new(objects_map.clone(), Arc::clone(&helper_commands)),
+            ScriptSceneApi::new(Arc::clone(&objects_map), Arc::clone(&helper_commands)),
         );
         scope.push("game", ScriptGameApi::new(ctx.game_state.clone()));
         scope.push(
@@ -1051,9 +1077,9 @@ impl Behavior for RhaiScriptBehavior {
         );
 
         {
-            let objects_map = objects_map.clone();
+            let objects_ref = Arc::clone(&objects_map);
             engine.register_fn("scene_get", move |target: &str| -> RhaiDynamic {
-                objects_map
+                objects_ref
                     .get(target)
                     .cloned()
                     .unwrap_or_else(|| RhaiMap::new().into())
@@ -1079,7 +1105,24 @@ impl Behavior for RhaiScriptBehavior {
                 },
             );
         }
-        let eval_result = engine.eval_with_scope::<RhaiDynamic>(&mut scope, script);
+        // Use cached AST to avoid re-parsing the script string every frame.
+        let hash = script_hash(script);
+        let eval_result = AST_CACHE.with(|cache| {
+            let borrow = cache.borrow();
+            if let Some(ast) = borrow.get(&hash) {
+                return engine.eval_ast_with_scope::<RhaiDynamic>(&mut scope, ast);
+            }
+            drop(borrow);
+            // First call on this thread — compile, cache, and evaluate.
+            match engine.compile(script) {
+                Ok(ast) => {
+                    let result = engine.eval_ast_with_scope::<RhaiDynamic>(&mut scope, &ast);
+                    cache.borrow_mut().insert(hash, ast);
+                    result
+                }
+                Err(err) => Err(err.into()),
+            }
+        });
         let result = match eval_result {
             Ok(r) => r,
             Err(err) => {
@@ -1161,7 +1204,7 @@ fn smoke_probe_context(
         stage_elapsed_ms: elapsed_ms,
         menu_selected_index: 0,
         target_resolver: Arc::new(TargetResolver::default()),
-        object_states: BTreeMap::new(),
+        object_states: Arc::new(BTreeMap::new()),
         object_kinds: Arc::new(BTreeMap::new()),
         object_props: Arc::new(BTreeMap::new()),
         object_regions: Arc::new(BTreeMap::new()),
@@ -1923,7 +1966,7 @@ mod tests {
             stage_elapsed_ms: 0,
             menu_selected_index: 0,
             target_resolver: Arc::new(TargetResolver::default()),
-            object_states: BTreeMap::new(),
+            object_states: Arc::new(BTreeMap::new()),
             object_kinds: Arc::new(BTreeMap::new()),
             object_props: Arc::new(BTreeMap::new()),
             object_regions: Arc::new(BTreeMap::new()),
@@ -2192,7 +2235,7 @@ out
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
-        test_ctx.object_states = object_states;
+        test_ctx.object_states = Arc::new(object_states);
         let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
 
         assert_eq!(
@@ -2791,7 +2834,7 @@ out
         object_regions.insert("obj:menu-item-0".to_string(), region(12, 5, 10, 1));
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
-        test_ctx.object_states = object_states;
+        test_ctx.object_states = Arc::new(object_states);
         test_ctx.object_kinds = Arc::new(object_kinds);
         test_ctx.object_regions = Arc::new(object_regions);
 
@@ -2838,7 +2881,7 @@ out
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
-        test_ctx.object_states = object_states;
+        test_ctx.object_states = Arc::new(object_states);
         test_ctx.object_kinds = Arc::new(object_kinds);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
@@ -2881,7 +2924,7 @@ obj.set("position.y", dy + 2);
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
-        test_ctx.object_states = object_states;
+        test_ctx.object_states = Arc::new(object_states);
         test_ctx.object_kinds = Arc::new(object_kinds);
 
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
@@ -2931,7 +2974,7 @@ out
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
-        test_ctx.object_states = object_states;
+        test_ctx.object_states = Arc::new(object_states);
         test_ctx.object_kinds = Arc::new(object_kinds);
         test_ctx.object_props = Arc::new(object_props);
 
@@ -2982,7 +3025,7 @@ out
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
-        test_ctx.object_states = object_states;
+        test_ctx.object_states = Arc::new(object_states);
         test_ctx.object_kinds = Arc::new(object_kinds);
         test_ctx.object_props = Arc::new(object_props);
 
@@ -3035,7 +3078,7 @@ out
         object_text.insert("obj:menu-item-0".to_string(), "HELLO".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
-        test_ctx.object_states = object_states;
+        test_ctx.object_states = Arc::new(object_states);
         test_ctx.object_kinds = Arc::new(object_kinds);
         test_ctx.object_props = Arc::new(object_props);
         test_ctx.object_text = Arc::new(object_text);
