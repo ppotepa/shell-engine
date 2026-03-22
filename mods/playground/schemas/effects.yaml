@@ -4,6 +4,30 @@ title: schema playground effects
 type: array
 items:
   oneOf:
+  - type: object
+    properties:
+      use:
+        type: string
+        minLength: 1
+      preset:
+        type: string
+        minLength: 1
+      ref:
+        type: string
+        minLength: 1
+      overrides:
+        type: object
+        default: {}
+        additionalProperties: true
+    additionalProperties: true
+    anyOf:
+    - required:
+      - use
+    - required:
+      - preset
+    - required:
+      - ref
+    title: effect preset alias
   - allOf:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
@@ -860,6 +884,48 @@ items:
               description: Progress curve applied to the effect.
       title: lightning-optical-80s effect variant
     - description: lightning-optical-80s overlay from playground generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
+          const: neon-edge-glow
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            colour:
+              type: string
+              default: '#00ccff'
+              description: 'Neon glow colour (name or #rrggbb).'
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            alpha:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Spillover glow opacity.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: neon-edge-glow effect variant
+    - description: neon-edge-glow overlay from playground generated metadata
   - allOf:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:

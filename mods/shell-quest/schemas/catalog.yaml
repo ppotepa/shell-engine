@@ -75,6 +75,7 @@ $defs:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - neon-edge-glow
     - posterize
     - power-off
     - scanlines
@@ -153,6 +154,10 @@ $defs:
     type: string
     enum:
     - /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+  scene3d_paths:
+    type: string
+    enum:
+    - /assets/3d/difficulty-portraits.scene3d.yml
   cutscene_refs:
     type: string
     enum: []

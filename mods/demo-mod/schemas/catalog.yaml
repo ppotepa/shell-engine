@@ -48,6 +48,7 @@ $defs:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - neon-edge-glow
     - posterize
     - power-off
     - scanlines
@@ -95,6 +96,9 @@ $defs:
     type: string
     enum: []
   model_paths:
+    type: string
+    enum: []
+  scene3d_paths:
     type: string
     enum: []
   cutscene_refs:

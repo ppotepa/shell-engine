@@ -864,6 +864,48 @@ items:
     - $ref: ../../../schemas/effect-file.schema.yaml#/items
     - properties:
         name:
+          const: neon-edge-glow
+        params:
+          type: object
+          additionalProperties: false
+          properties:
+            colour:
+              type: string
+              default: '#00ccff'
+              description: 'Neon glow colour (name or #rrggbb).'
+            intensity:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.05000000074505806
+              description: Overall strength multiplier.
+            alpha:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              multipleOf: 0.05000000074505806
+              description: Spillover glow opacity.
+            speed:
+              type: number
+              minimum: 0.0
+              maximum: 2.0
+              multipleOf: 0.10000000149011612
+              description: Animation speed multiplier.
+            easing:
+              type: string
+              enum:
+              - linear
+              - ease-in
+              - ease-out
+              - ease-in-out
+              default: linear
+              description: Progress curve applied to the effect.
+      title: neon-edge-glow effect variant
+    - description: neon-edge-glow overlay from demo-mod generated metadata
+  - allOf:
+    - $ref: ../../../schemas/effect-file.schema.yaml#/items
+    - properties:
+        name:
           const: posterize
         params:
           type: object

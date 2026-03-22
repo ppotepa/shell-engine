@@ -6,6 +6,11 @@ $defs:
     type: string
     enum:
     - playground-3d-scene
+    - playground-crt-test
+    - playground-crt-test-02
+    - playground-crt-test-03
+    - playground-crt-test-04
+    - playground-crt-test-05
     - playground-decoration-showcase
     - playground-exit
     - playground-font-showcase
@@ -31,6 +36,11 @@ $defs:
     type: string
     enum:
     - /scenes/3d-scene/scene.yml
+    - /scenes/crt-test-02/scene.yml
+    - /scenes/crt-test-03/scene.yml
+    - /scenes/crt-test-04/scene.yml
+    - /scenes/crt-test-05/scene.yml
+    - /scenes/crt-test/scene.yml
     - /scenes/decoration-showcase/scene.yml
     - /scenes/exit/scene.yml
     - /scenes/font-showcase/scene.yml
@@ -56,6 +66,11 @@ $defs:
     type: string
     enum:
     - /scenes/3d-scene/scene.yml
+    - /scenes/crt-test-02/scene.yml
+    - /scenes/crt-test-03/scene.yml
+    - /scenes/crt-test-04/scene.yml
+    - /scenes/crt-test-05/scene.yml
+    - /scenes/crt-test/scene.yml
     - /scenes/decoration-showcase/scene.yml
     - /scenes/exit/scene.yml
     - /scenes/font-showcase/scene.yml
@@ -78,6 +93,11 @@ $defs:
     - /scenes/terminal-shell/scene.yml
     - /scenes/terminal-size-test/scene.yml
     - playground-3d-scene
+    - playground-crt-test
+    - playground-crt-test-02
+    - playground-crt-test-03
+    - playground-crt-test-04
+    - playground-crt-test-05
     - playground-decoration-showcase
     - playground-exit
     - playground-font-showcase
@@ -130,6 +150,7 @@ $defs:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - neon-edge-glow
     - posterize
     - power-off
     - scanlines
@@ -143,6 +164,11 @@ $defs:
     type: string
     enum:
     - 3d-scene/layers/main.yml
+    - crt-test-02/layers/main.yml
+    - crt-test-03/layers/main.yml
+    - crt-test-04/layers/main.yml
+    - crt-test-05/layers/main.yml
+    - crt-test/layers/main.yml
     - exit/layers/main.yml
     - font-showcase/layers/main.yml
     - layout-lab/layers/main.yml
@@ -174,7 +200,8 @@ $defs:
     - suzan
   effect_refs:
     type: string
-    enum: []
+    enum:
+    - /effects/mrmo-crt-basic.yml
   font_names:
     type: string
     enum: []
@@ -200,6 +227,9 @@ $defs:
     enum:
     - /scenes/3d/blender/suzanne.obj
     - /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+  scene3d_paths:
+    type: string
+    enum: []
   cutscene_refs:
     type: string
     enum: []
@@ -207,6 +237,16 @@ $defs:
     type: string
     enum:
     - bg-grid
+    - crt01-root
+    - crt01-stack
+    - crt02-root
+    - crt02-shell
+    - crt03-root
+    - crt03-shell
+    - crt04-main
+    - crt04-root
+    - crt05-root
+    - crt05-shell
     - focus-card-a
     - focus-card-b
     - focus-card-c

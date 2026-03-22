@@ -62,6 +62,11 @@ $defs:
         - $ref: ./catalog.yaml#/$defs/model_paths
         - type: string
           minLength: 1
+      src:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/scene3d_paths
+        - type: string
+          minLength: 1
       font:
         anyOf:
         - $ref: ./catalog.yaml#/$defs/font_specs

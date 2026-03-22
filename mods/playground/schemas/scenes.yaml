@@ -62,6 +62,11 @@ $defs:
         - $ref: ./catalog.yaml#/$defs/model_paths
         - type: string
           minLength: 1
+      src:
+        anyOf:
+        - $ref: ./catalog.yaml#/$defs/scene3d_paths
+        - type: string
+          minLength: 1
       font:
         anyOf:
         - $ref: ./catalog.yaml#/$defs/font_specs
@@ -1243,6 +1248,44 @@ allOf:
       properties:
         stages:
           $ref: '#/$defs/scene_stages_overlay'
+  - if:
+      required:
+      - effect-presets
+    then:
+      properties:
+        effect-presets:
+          type: object
+          additionalProperties:
+            $ref: ./effects.yaml#/items
+  - if:
+      required:
+      - effect_presets
+    then:
+      properties:
+        effect_presets:
+          type: object
+          additionalProperties:
+            $ref: ./effects.yaml#/items
+  - if:
+      required:
+      - effect-presets-ref
+    then:
+      properties:
+        effect-presets-ref:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/effect_refs
+          - type: string
+            minLength: 1
+  - if:
+      required:
+      - effect_presets_ref
+    then:
+      properties:
+        effect_presets_ref:
+          anyOf:
+          - $ref: ./catalog.yaml#/$defs/effect_refs
+          - type: string
+            minLength: 1
   - if:
       required:
       - postfx
