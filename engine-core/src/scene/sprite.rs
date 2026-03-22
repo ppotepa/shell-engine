@@ -91,30 +91,34 @@ pub enum SpriteSizePreset {
     Small,
     Medium,
     Large,
+    XLarge,
 }
 
 impl SpriteSizePreset {
     pub const fn generic_mode(self) -> &'static str {
         match self {
-            Self::Small => "1",
+            Self::Small  => "1",
             Self::Medium => "2",
-            Self::Large => "3",
+            Self::Large  => "3",
+            Self::XLarge => "4",
         }
     }
 
     pub const fn image_scale_ratio(self) -> (u16, u16) {
         match self {
-            Self::Small => (1, 3),
+            Self::Small  => (1, 3),
             Self::Medium => (1, 2),
-            Self::Large => (2, 3),
+            Self::Large  => (2, 3),
+            Self::XLarge => (3, 4),
         }
     }
 
     pub const fn obj_dimensions(self) -> (u16, u16) {
         match self {
-            Self::Small => (32, 12),
+            Self::Small  => (32, 12),
             Self::Medium => (64, 24),
-            Self::Large => (96, 36),
+            Self::Large  => (96, 36),
+            Self::XLarge => (128, 48),
         }
     }
 }
@@ -127,6 +131,7 @@ impl TryFrom<u8> for SpriteSizePreset {
             1 => Ok(Self::Small),
             2 => Ok(Self::Medium),
             3 => Ok(Self::Large),
+            4 => Ok(Self::XLarge),
             other => Err(format!("unsupported sprite size preset: {other}")),
         }
     }
@@ -909,7 +914,7 @@ frame-index: 3
         let raw = r#"
 type: image
 source: "/assets/images/tux.png"
-size: 4
+size: 5
 "#;
         let error = serde_yaml::from_str::<Sprite>(raw).expect_err("size should be rejected");
         assert!(

@@ -458,9 +458,12 @@ fn select_background(top: Color, bottom: Color, fallback_bg: Color) -> Color {
 #[cfg(test)]
 mod tests {
     use crossterm::style::Color;
+    use std::path::PathBuf;
 
+    use crate::assets::AssetRoot;
     use crate::buffer::{Buffer, TRUE_BLACK};
     use crate::runtime_settings::RuntimeSettings;
+    use crate::scene_loader::SceneLoader;
     use crate::scene::Scene;
     use crate::scene_runtime::SceneRuntime;
     use crate::systems::animator::{Animator, SceneStage};
@@ -595,5 +598,44 @@ layers:
 
         let buffer = world.get::<Buffer>().expect("buffer");
         assert_eq!(buffer.get(0, 0).expect("world text").symbol, 'W');
+    }
+
+    #[test]
+    fn shell_quest_intro_logo_renders_non_black_cells() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("engine crate should live under repo root")
+            .to_path_buf();
+        let mod_root = repo_root.join("mods/shell-quest");
+        let loader = SceneLoader::new(mod_root.clone()).expect("scene loader");
+        let scene = loader
+            .load_by_ref("00.intro.logo")
+            .expect("load shell-quest intro logo");
+
+        let mut world = World::new();
+        world.register(Buffer::new(120, 40));
+        world.register(RuntimeSettings::default());
+        world.register(AssetRoot::new(mod_root));
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnEnter,
+            step_idx: 0,
+            elapsed_ms: 300,
+            stage_elapsed_ms: 300,
+            scene_elapsed_ms: 300,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        compositor_system(&mut world);
+
+        let buffer = world.get::<Buffer>().expect("buffer");
+        let has_visible_glyph = (0..buffer.height).any(|y| {
+            (0..buffer.width).any(|x| {
+                let cell = buffer.get(x, y).expect("cell in bounds");
+                cell.symbol != ' ' && (cell.fg != TRUE_BLACK || cell.bg != TRUE_BLACK)
+            })
+        });
+        assert!(has_visible_glyph, "intro logo should draw visible glyphs");
     }
 }

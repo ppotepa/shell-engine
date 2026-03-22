@@ -32,6 +32,7 @@ mod scene_loader;
 pub mod scene_runtime;
 pub mod scene3d_atlas;
 pub mod scene3d_format;
+pub mod scene3d_resolve;
 mod services;
 pub mod systems;
 pub mod terminal_caps;

@@ -25,6 +25,7 @@ const SPRITE_TYPE_OPTIONS: &[&str] = &[
     "flex",
     "window",
     "scroll-list",
+    "scene3_d",
 ];
 const LOGIC_TYPE_OPTIONS: &[&str] = &["native", "graph", "script"];
 const RENDERED_MODE_OPTIONS: &[&str] = &["cell", "halfblock", "quadblock", "braille"];
@@ -442,9 +443,9 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         name: "size",
         value_kind: ValueKind::Integer,
         requirement: Requirement::Optional,
-        description: "Sprite size preset: 1=small, 2=medium, 3=large.",
+        description: "Sprite size preset: 1=small, 2=medium, 3=large, 4=xlarge.",
         default_text: None, default_number: None, enum_options: None,
-        min: Some(1.0), max: Some(3.0), step: Some(1.0), unit: None,
+        min: Some(1.0), max: Some(4.0), step: Some(1.0), unit: None,
         sources: LIT_ONLY,
     },
     FieldMetadata {
@@ -1171,6 +1172,27 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         requirement: Requirement::RequiredIf { field: "type", equals: "grid" },
         description: "Grid row track definitions (\"auto\", \"<n>fr\", or \"<n>\" fixed cells).",
         default_text: None, default_number: None, enum_options: None,
+        min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
+    // ── Scene3D sprite fields ─────────────────────────────────────────────
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "src",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::RequiredIf { field: "type", equals: "scene3_d" },
+        description: "Path to a .scene3d.yml file (relative to mod root). Used by type: scene3_d.",
+        default_text: None, default_number: None, enum_options: None,
+        min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "frame",
+        value_kind: ValueKind::Text,
+        requirement: Requirement::Optional,
+        description: "Named frame from the Scene3D atlas to display. Changed at runtime via scene.set.",
+        default_text: Some(""), default_number: None, enum_options: None,
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
     },

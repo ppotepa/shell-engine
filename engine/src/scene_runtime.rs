@@ -1098,43 +1098,49 @@ impl SceneRuntime {
         let object_props = self.object_props_snapshot();
         let object_text = self.object_text_snapshot();
         let sidecar_io = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
-        let ui_focused_target_id = self.focused_ui_target_id().map(str::to_string);
-        let ui_last_submit = self.ui_state.last_submit.clone();
-        let ui_last_change = self.ui_state.last_change.clone();
-        let ui_theme_id = self.ui_state.theme_id.clone();
+        let ui_focused_target_id: Option<std::sync::Arc<str>> =
+            self.focused_ui_target_id().map(std::sync::Arc::from);
+        let ui_theme_id: Option<std::sync::Arc<str>> =
+            self.ui_state.theme_id.as_deref().map(std::sync::Arc::from);
+        let ui_last_submit_target_id: Option<std::sync::Arc<str>> =
+            self.ui_state.last_submit.as_ref().map(|ev| std::sync::Arc::from(ev.target_id.as_str()));
+        let ui_last_submit_text: Option<std::sync::Arc<str>> =
+            self.ui_state.last_submit.as_ref().map(|ev| std::sync::Arc::from(ev.text.as_str()));
+        let ui_last_change_target_id: Option<std::sync::Arc<str>> =
+            self.ui_state.last_change.as_ref().map(|ev| std::sync::Arc::from(ev.target_id.as_str()));
+        let ui_last_change_text: Option<std::sync::Arc<str>> =
+            self.ui_state.last_change.as_ref().map(|ev| std::sync::Arc::from(ev.text.as_str()));
+        let last_raw_key = self.ui_state.last_raw_key.as_ref().map(|k| std::sync::Arc::new(k.clone()));
         let mut commands = Vec::new();
-        let mut current_states = self.effective_object_states_snapshot();
+        // Construct context once; only `object_states` mutates between iterations.
+        let mut ctx = BehaviorContext {
+            stage,
+            scene_elapsed_ms,
+            stage_elapsed_ms,
+            menu_selected_index,
+            target_resolver: resolver.clone(),
+            object_states: self.effective_object_states_snapshot(),
+            object_kinds,
+            object_props,
+            object_regions,
+            object_text,
+            ui_focused_target_id,
+            ui_theme_id,
+            ui_last_submit_target_id,
+            ui_last_submit_text,
+            ui_last_change_target_id,
+            ui_last_change_text,
+            game_state,
+            last_raw_key,
+            sidecar_io,
+        };
+        let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {
-            let object_id = self.behaviors[idx].object_id.clone();
-            let Some(object) = self.objects.get(&object_id).cloned() else {
+            let object_id = &self.behaviors[idx].object_id;
+            let Some(object) = self.objects.get(object_id).cloned() else {
                 continue;
             };
-            let ctx = BehaviorContext {
-                stage,
-                scene_elapsed_ms,
-                stage_elapsed_ms,
-                menu_selected_index,
-                target_resolver: std::sync::Arc::clone(&resolver),
-                object_states: std::sync::Arc::clone(&current_states),
-                object_kinds: std::sync::Arc::clone(&object_kinds),
-                object_props: std::sync::Arc::clone(&object_props),
-                object_regions: std::sync::Arc::clone(&object_regions),
-                object_text: std::sync::Arc::clone(&object_text),
-                ui_focused_target_id: ui_focused_target_id.clone(),
-                ui_theme_id: ui_theme_id.clone(),
-                ui_last_submit_target_id: ui_last_submit
-                    .as_ref()
-                    .map(|event| event.target_id.clone()),
-                ui_last_submit_text: ui_last_submit.as_ref().map(|event| event.text.clone()),
-                ui_last_change_target_id: ui_last_change
-                    .as_ref()
-                    .map(|event| event.target_id.clone()),
-                ui_last_change_text: ui_last_change.as_ref().map(|event| event.text.clone()),
-                game_state: game_state.clone(),
-                last_raw_key: self.ui_state.last_raw_key.clone(),
-                sidecar_io: std::sync::Arc::clone(&sidecar_io),
-            };
-            let mut local_commands = Vec::new();
+            local_commands.clear();
             self.behaviors[idx]
                 .behavior
                 .update(&object, &self.scene, &ctx, &mut local_commands);
@@ -1142,7 +1148,7 @@ impl SceneRuntime {
             // Only rescan effective states when a behavior actually emitted
             // commands that could have mutated scene state.
             if !local_commands.is_empty() && idx + 1 < self.behaviors.len() {
-                current_states = self.effective_object_states_snapshot();
+                ctx.object_states = self.effective_object_states_snapshot();
             }
             commands.extend(local_commands.iter().cloned());
         }

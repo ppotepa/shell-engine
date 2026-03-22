@@ -3,19 +3,25 @@
 //! Populated by [`Scene3DPrerenderStep`] during scene transition (before first frame).
 //! Accessed at render time via a thread-local pointer set by the compositor for the duration
 //! of each frame (same pattern as `PRERENDER_FRAMES_PTR` in obj_render.rs).
+//!
+//! ## Key design
+//!
+//! Frames are stored in a two-level `HashMap<src, HashMap<frame_id, Arc<Buffer>>>`.
+//! Both levels use `String` keys, which support `get(&str)` via `Borrow<str>` —
+//! so runtime lookups never allocate (no `format!("{src}::{frame_id}")` required).
 
 use crate::buffer::Buffer;
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Key: `"{src}::{frame_id}"` — unique per (scene3d file path, named frame).
-pub type AtlasKey = String;
-
 /// World resource: all prerendered Scene3D buffers for the active scene.
+///
+/// Keyed by `(src_path, frame_id)` — two-level map avoids heap allocation on every lookup.
 #[derive(Default)]
 pub struct Scene3DAtlas {
-    frames: HashMap<AtlasKey, Arc<Buffer>>,
+    /// Outer key: `.scene3d.yml` source path. Inner key: named frame id.
+    frames: HashMap<String, HashMap<String, Arc<Buffer>>>,
 }
 
 impl Scene3DAtlas {
@@ -24,23 +30,24 @@ impl Scene3DAtlas {
     }
 
     pub fn insert(&mut self, src: &str, frame_id: &str, buf: Buffer) {
-        self.frames.insert(Self::key(src, frame_id), Arc::new(buf));
+        self.frames
+            .entry(src.to_string())
+            .or_default()
+            .insert(frame_id.to_string(), Arc::new(buf));
     }
 
+    /// Look up a frame. Uses `Borrow<str>` on both levels — no allocation.
     pub fn get(&self, src: &str, frame_id: &str) -> Option<Arc<Buffer>> {
-        self.frames.get(&Self::key(src, frame_id)).cloned()
+        self.frames.get(src)?.get(frame_id).cloned()
     }
 
     pub fn is_empty(&self) -> bool {
         self.frames.is_empty()
     }
 
+    /// Total number of frames across all sources.
     pub fn len(&self) -> usize {
-        self.frames.len()
-    }
-
-    fn key(src: &str, frame_id: &str) -> AtlasKey {
-        format!("{src}::{frame_id}")
+        self.frames.values().map(|m| m.len()).sum()
     }
 }
 

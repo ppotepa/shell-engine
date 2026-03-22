@@ -20,6 +20,7 @@ use crate::render_policy;
 use crate::scene::{Layer, Scene, SceneRenderedMode, Sprite};
 use crate::scene3d_atlas::Scene3DAtlas;
 use crate::scene3d_format::{load_scene3d, FrameDef, LightKind, Scene3DDefinition, SurfaceMode};
+use crate::scene3d_resolve::resolve_scene3d_refs;
 use crate::scene_pipeline::ScenePreparationStep;
 use crate::services::EngineWorldAccess;
 use crate::systems::compositor::obj_render::{render_obj_content, ObjRenderParams};
@@ -67,7 +68,7 @@ impl ScenePreparationStep for Scene3DPrerenderStep {
             .flat_map(|src| {
                 let path = asset_root.resolve(src);
                 let path_str = path.to_string_lossy();
-                let def = match load_scene3d(&path_str) {
+                let mut def = match load_scene3d(&path_str) {
                     Ok(d) => d,
                     Err(e) => {
                         engine_core::logging::warn(
@@ -77,6 +78,7 @@ impl ScenePreparationStep for Scene3DPrerenderStep {
                         return vec![];
                     }
                 };
+                resolve_scene3d_refs(&mut def, src, &asset_root);
                 build_work_items(src, def, inherited_mode)
             })
             .collect();
@@ -356,11 +358,12 @@ fn build_object_specs(
             let bg = mat.bg_colour.as_deref().and_then(parse_hex_color).unwrap_or(Color::Reset);
             let draw_char = mat.wireframe_char.unwrap_or('#');
 
+            let (rot_x, rot_y, rot_z) = tf.resolved_rotation();
             let params = ObjRenderParams {
-                scale: tf.scale.unwrap_or(1.0),
-                yaw_deg: tf.rotation_y + yaw_offset,
-                pitch_deg: tf.pitch,
-                roll_deg: tf.roll,
+                scale: tf.resolved_scale(),
+                yaw_deg: rot_y + yaw_offset,
+                pitch_deg: rot_x,
+                roll_deg: rot_z,
                 rotation_x: 0.0,
                 rotation_y: 0.0,
                 rotation_z: 0.0,
@@ -394,10 +397,10 @@ fn build_object_specs(
                 light_point_2_orbit_hz: 0.0,
                 light_point_2_snap_hz: lights.point2_snap_hz,
                 cel_levels: mat.cel_levels,
-                shadow_colour: None,
-                midtone_colour: None,
-                highlight_colour: None,
-                tone_mix: 0.0,
+                shadow_colour: mat.shadow_colour.as_deref().and_then(parse_hex_color),
+                midtone_colour: mat.midtone_colour.as_deref().and_then(parse_hex_color),
+                highlight_colour: mat.highlight_colour.as_deref().and_then(parse_hex_color),
+                tone_mix: mat.tone_mix,
                 scene_elapsed_ms: 0,
                 camera_pan_x: 0.0,
                 camera_pan_y: 0.0,
@@ -411,7 +414,7 @@ fn build_object_specs(
                 mesh: obj.mesh.clone(),
                 params,
                 wireframe,
-                backface_cull: false,
+                backface_cull: mat.backface_cull,
                 draw_char,
                 fg,
                 bg,

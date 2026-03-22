@@ -45,13 +45,14 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     let layer_refs = collect_scene_partial_refs(mod_root, "layers")?;
     let sprite_refs = collect_scene_partial_refs(mod_root, "sprites")?;
     let template_refs = collect_scene_partial_refs(mod_root, "templates")?;
-    let effect_refs = collect_scene_partial_refs(mod_root, "effects")?;
+    let effect_refs = collect_effect_refs(mod_root)?;
 
     // Asset catalogs for autocomplete
     let font_names = collect_font_names(mod_root)?;
     let font_specs = collect_font_specs(&font_names);
     let image_paths = collect_image_paths(mod_root)?;
     let model_paths = collect_model_paths(mod_root)?;
+    let scene3d_paths = collect_scene3d_paths(mod_root)?;
     let cutscene_refs = collect_cutscene_refs(mod_root)?;
     let sprite_ids = collect_sprite_ids(mod_root)?;
     let template_names = collect_template_names(mod_root)?;
@@ -128,6 +129,10 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
     defs.insert(
         Value::String("model_paths".to_string()),
         enum_schema(model_paths.into_iter().collect()),
+    );
+    defs.insert(
+        Value::String("scene3d_paths".to_string()),
+        enum_schema(scene3d_paths.into_iter().collect()),
     );
     defs.insert(
         Value::String("cutscene_refs".to_string()),
@@ -1149,9 +1154,8 @@ fn build_effect_file_overlay_schema(mod_name: &str, effect_names: &BTreeSet<Stri
 }
 
 fn effect_variant_schemas(mod_name: &str, effect_names: &BTreeSet<String>) -> Vec<Value> {
-    effect_names
-        .iter()
-        .map(|effect_name| {
+    let mut variants = vec![effect_preset_alias_schema()];
+    variants.extend(effect_names.iter().map(|effect_name| {
             let meta = shared_dispatcher().metadata(effect_name);
             let mut name_props = Mapping::new();
             name_props.insert(
@@ -1189,8 +1193,55 @@ fn effect_variant_schemas(mod_name: &str, effect_names: &BTreeSet<String>) -> Ve
                     )),
                 ]),
             ))
-        })
-        .collect()
+        }));
+    variants
+}
+
+fn effect_preset_alias_schema() -> Value {
+    let mut props = Mapping::new();
+    props.insert(Value::String("use".to_string()), non_empty_string_schema());
+    props.insert(
+        Value::String("preset".to_string()),
+        non_empty_string_schema(),
+    );
+    props.insert(Value::String("ref".to_string()), non_empty_string_schema());
+    props.insert(Value::String("overrides".to_string()), object_schema());
+
+    let mut alias = Mapping::new();
+    alias.insert(
+        Value::String("type".to_string()),
+        Value::String("object".to_string()),
+    );
+    alias.insert(
+        Value::String("properties".to_string()),
+        Value::Mapping(props),
+    );
+    alias.insert(
+        Value::String("additionalProperties".to_string()),
+        Value::Bool(true),
+    );
+    alias.insert(
+        Value::String("anyOf".to_string()),
+        Value::Sequence(vec![
+            Value::Mapping(mapping_with(
+                "required",
+                Value::Sequence(vec![Value::String("use".to_string())]),
+            )),
+            Value::Mapping(mapping_with(
+                "required",
+                Value::Sequence(vec![Value::String("preset".to_string())]),
+            )),
+            Value::Mapping(mapping_with(
+                "required",
+                Value::Sequence(vec![Value::String("ref".to_string())]),
+            )),
+        ]),
+    );
+    alias.insert(
+        Value::String("title".to_string()),
+        Value::String("effect preset alias".to_string()),
+    );
+    Value::Mapping(alias)
 }
 
 fn effect_params_schema(params: &'static [engine_core::effects::ParamMetadata]) -> Value {
@@ -1337,6 +1388,22 @@ fn scene_overlay_patch() -> Mapping {
     patches.push(conditional_property_overlay(
         "stages",
         schema_ref("#/$defs/scene_stages_overlay"),
+    ));
+    patches.push(conditional_property_overlay(
+        "effect-presets",
+        object_additional_properties_ref("./effects.yaml#/items"),
+    ));
+    patches.push(conditional_property_overlay(
+        "effect_presets",
+        object_additional_properties_ref("./effects.yaml#/items"),
+    ));
+    patches.push(conditional_property_overlay(
+        "effect-presets-ref",
+        suggested_string_refs(&["./catalog.yaml#/$defs/effect_refs"]),
+    ));
+    patches.push(conditional_property_overlay(
+        "effect_presets_ref",
+        suggested_string_refs(&["./catalog.yaml#/$defs/effect_refs"]),
     ));
     patches.push(conditional_property_overlay(
         "postfx",
@@ -1925,6 +1992,10 @@ fn sprite_overlay_def() -> Mapping {
         ]),
     );
     props.insert(
+        Value::String("src".to_string()),
+        suggested_string_refs(&["./catalog.yaml#/$defs/scene3d_paths"]),
+    );
+    props.insert(
         Value::String("font".to_string()),
         nullable_suggested_string_refs(&["./catalog.yaml#/$defs/font_specs"]),
     );
@@ -2227,6 +2298,16 @@ fn collect_effect_names(mod_root: &Path) -> Result<BTreeSet<String>> {
     Ok(names)
 }
 
+fn collect_effect_refs(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let mut refs = collect_scene_partial_refs(mod_root, "effects")?;
+    for file in yaml_files_under(&mod_root.join("effects"))? {
+        if let Ok(rel) = file.strip_prefix(mod_root) {
+            refs.insert(format!("/{}", rel.to_string_lossy().replace('\\', "/")));
+        }
+    }
+    Ok(refs)
+}
+
 fn collect_effect_names_from_value(value: &Value, out: &mut BTreeSet<String>) {
     match value {
         Value::Mapping(map) => {
@@ -2402,6 +2483,40 @@ fn walk_models(
                 out.insert(format!(
                     "/{}/{}",
                     prefix,
+                    rel.to_string_lossy().replace('\\', "/")
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Collects `.scene3d.yml` paths from assets/3d/**/*.scene3d.yml files.
+fn collect_scene3d_paths(mod_root: &Path) -> Result<BTreeSet<String>> {
+    let root = mod_root.join("assets/3d");
+    let mut paths = BTreeSet::new();
+    if !root.exists() {
+        return Ok(paths);
+    }
+    walk_scene3d(&root, &root, &mut paths)?;
+    Ok(paths)
+}
+
+fn walk_scene3d(root: &Path, current: &Path, out: &mut BTreeSet<String>) -> Result<()> {
+    for entry in
+        fs::read_dir(current).with_context(|| format!("failed to read {}", current.display()))?
+    {
+        let entry = entry?;
+        let p = entry.path();
+        if p.is_dir() {
+            walk_scene3d(root, &p, out)?;
+            continue;
+        }
+        let name = p.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+        if name.ends_with(".scene3d.yml") {
+            if let Ok(rel) = p.strip_prefix(root) {
+                out.insert(format!(
+                    "/assets/3d/{}",
                     rel.to_string_lossy().replace('\\', "/")
                 ));
             }

@@ -66,6 +66,7 @@ where
     let mut raw = serde_yaml::from_str::<Value>(content)?;
     expand_scene_layer_refs(&mut raw, scene_source_path, &mut object_loader);
     expand_scene_stages_ref(&mut raw, scene_source_path, &mut object_loader)?;
+    expand_scene_effect_presets_ref(&mut raw, scene_source_path, &mut object_loader)?;
     expand_scene_objects(&mut raw, scene_source_path, &mut object_loader);
     expand_layer_objects(&mut raw, scene_source_path, &mut object_loader);
     expand_scene_cutscene_ref_with_filters(
@@ -291,6 +292,75 @@ fn expand_scene_effect_presets(root: &mut Value) -> Result<(), serde_yaml::Error
     Ok(())
 }
 
+fn expand_scene_effect_presets_ref<F>(
+    root: &mut Value,
+    scene_source_path: &str,
+    asset_loader: &mut F,
+) -> Result<(), serde_yaml::Error>
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    let Some(scene_map) = root.as_mapping_mut() else {
+        return Ok(());
+    };
+
+    let has_canonical = scene_map.contains_key(Value::String("effect-presets-ref".to_string()));
+    let has_legacy = scene_map.contains_key(Value::String("effect_presets_ref".to_string()));
+    if has_canonical && has_legacy {
+        return Err(serde_yaml::Error::custom(
+            "scene defines both 'effect-presets-ref' and 'effect_presets_ref'; use only one",
+        ));
+    }
+
+    let Some(reference) = scene_map
+        .get(Value::String("effect-presets-ref".to_string()))
+        .or_else(|| scene_map.get(Value::String("effect_presets_ref".to_string())))
+        .and_then(Value::as_str)
+        .map(str::trim)
+    else {
+        return Ok(());
+    };
+
+    if reference.is_empty() {
+        return Err(serde_yaml::Error::custom(
+            "effect-presets-ref cannot be empty",
+        ));
+    }
+
+    let path = resolve_effect_presets_ref_path(scene_source_path, reference);
+    let Some(raw_presets) = asset_loader(&path) else {
+        return Err(serde_yaml::Error::custom(format!(
+            "effect-presets-ref '{}' resolved to '{}', but file was not found",
+            reference, path
+        )));
+    };
+    let parsed = serde_yaml::from_str::<Value>(&raw_presets).map_err(|err| {
+        serde_yaml::Error::custom(format!(
+            "failed to parse effect-presets-ref '{}': {err}",
+            path
+        ))
+    })?;
+    let mut merged = extract_referenced_effect_presets_map(&parsed)
+        .ok_or_else(|| {
+            serde_yaml::Error::custom(format!(
+                "effect-presets-ref '{}' must resolve to a mapping (or mapping with top-level 'effect-presets')",
+                path
+            ))
+        })?
+        .clone();
+    if let Some(local) = resolve_scene_effect_presets(scene_map)? {
+        merge_mapping_deep(&mut merged, &local);
+    }
+    scene_map.insert(
+        Value::String("effect-presets".to_string()),
+        Value::Mapping(merged),
+    );
+    scene_map.remove(Value::String("effect_presets".to_string()));
+    scene_map.remove(Value::String("effect-presets-ref".to_string()));
+    scene_map.remove(Value::String("effect_presets_ref".to_string()));
+    Ok(())
+}
+
 fn resolve_scene_effect_presets(scene_map: &Mapping) -> Result<Option<Mapping>, serde_yaml::Error> {
     let has_canonical = scene_map.contains_key(Value::String("effect-presets".to_string()));
     let has_legacy = scene_map.contains_key(Value::String("effect_presets".to_string()));
@@ -324,6 +394,14 @@ fn expand_effect_presets_in_value(
                 .and_then(Value::as_sequence_mut)
             {
                 for effect in effects {
+                    expand_single_effect_entry(effect, presets)?;
+                }
+            }
+            if let Some(postfx) = map
+                .get_mut(Value::String("postfx".to_string()))
+                .and_then(Value::as_sequence_mut)
+            {
+                for effect in postfx {
                     expand_single_effect_entry(effect, presets)?;
                 }
             }
@@ -908,6 +986,42 @@ fn resolve_stages_ref_path(scene_source_path: &str, reference: &str) -> String {
         return normalize_mod_path(&format!("/stages/{trimmed}"));
     }
     normalize_mod_path(&format!("/stages/{trimmed}.yml"))
+}
+
+fn extract_referenced_effect_presets_map(value: &Value) -> Option<&Mapping> {
+    let map = value.as_mapping()?;
+    if let Some(presets) = map
+        .get(Value::String("effect-presets".to_string()))
+        .and_then(Value::as_mapping)
+    {
+        return Some(presets);
+    }
+    if let Some(presets) = map
+        .get(Value::String("effect_presets".to_string()))
+        .and_then(Value::as_mapping)
+    {
+        return Some(presets);
+    }
+    Some(map)
+}
+
+fn resolve_effect_presets_ref_path(scene_source_path: &str, reference: &str) -> String {
+    if reference.starts_with('/') {
+        return normalize_mod_path(reference);
+    }
+    if reference.starts_with("./") || reference.starts_with("../") {
+        let scene_dir = parent_dir(scene_source_path);
+        return normalize_mod_path(&format!("{scene_dir}/{reference}"));
+    }
+    let trimmed = reference.trim_start_matches('/');
+    let has_yaml_ext = trimmed.ends_with(".yml") || trimmed.ends_with(".yaml");
+    if has_yaml_ext {
+        if trimmed.starts_with("effects/") {
+            return normalize_mod_path(&format!("/{trimmed}"));
+        }
+        return normalize_mod_path(&format!("/effects/{trimmed}"));
+    }
+    normalize_mod_path(&format!("/effects/{trimmed}.yml"))
 }
 
 fn parent_dir(path: &str) -> String {
@@ -1577,6 +1691,77 @@ sprites:
             Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
             _ => panic!("expected text sprite"),
         }
+    }
+
+    #[test]
+    fn effect_presets_ref_merges_referenced_and_local_presets() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+effect-presets-ref: /effects/shared-crt.yml
+effect-presets:
+  fx.local:
+    name: crt-ruby
+    duration: 240
+    params:
+      intensity: 0.25
+postfx:
+  - use: fx.shared
+  - use: fx.local
+layers: []
+next: null
+"#;
+        let scene = compile_scene_document_with_loader_and_source(
+            scene_raw,
+            "/scenes/intro/scene.yml",
+            |path| match path {
+                "/effects/shared-crt.yml" => Some(
+                    r#"
+effect-presets:
+  fx.shared:
+    name: terminal-crt
+    duration: 900
+    params:
+      intensity: 0.8
+"#
+                    .to_string(),
+                ),
+                _ => None,
+            },
+        )
+        .expect("scene compile");
+        assert_eq!(scene.postfx.len(), 2);
+        assert_eq!(scene.postfx[0].name, "terminal-crt");
+        assert_eq!(scene.postfx[0].duration, 900);
+        assert_eq!(scene.postfx[1].name, "crt-ruby");
+        assert_eq!(scene.postfx[1].duration, 240);
+    }
+
+    #[test]
+    fn effect_presets_expand_inside_postfx() {
+        let scene_raw = r#"
+id: intro
+title: Intro
+effect-presets:
+  fx.crt:
+    name: terminal-crt
+    duration: 1200
+    params:
+      intensity: 0.9
+postfx:
+  - use: fx.crt
+    overrides:
+      params:
+        intensity: 1.1
+layers: []
+next: null
+"#;
+        let scene =
+            compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
+        assert_eq!(scene.postfx.len(), 1);
+        assert_eq!(scene.postfx[0].name, "terminal-crt");
+        assert_eq!(scene.postfx[0].duration, 1200);
+        assert_eq!(scene.postfx[0].params.intensity, Some(1.1));
     }
 
     #[test]

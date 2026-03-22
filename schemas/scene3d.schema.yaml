@@ -1,0 +1,446 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://shell-quest.local/schemas/scene3d.schema.yaml"
+title: Scene3D Schema
+description: >
+  Defines a pre-rendered 3D scene (`.scene3d.yml`) for Shell Quest.
+  All named frames are rendered to buffers before the scene activates
+  and stored in the Scene3DAtlas for zero-cost blitting at runtime.
+type: object
+additionalProperties: false
+required:
+  - id
+  - viewport
+  - frames
+properties:
+  id:
+    type: string
+    minLength: 1
+    description: Unique identifier for this 3D scene definition.
+
+  viewport:
+    $ref: "#/$defs/viewport"
+
+  camera:
+    $ref: "#/$defs/camera"
+
+  lights:
+    type: array
+    items:
+      $ref: "#/$defs/light"
+    description: List of lights illuminating the scene.
+
+  materials:
+    type: object
+    additionalProperties:
+      $ref: "#/$defs/material"
+    description: Named material definitions. Keys are referenced by objects.
+
+  objects:
+    type: array
+    items:
+      $ref: "#/$defs/object"
+    description: >
+      Scene objects (meshes). Each references a material and has a transform.
+      Visibility per frame is controlled by the `show` list in each frame definition.
+
+  frames:
+    type: object
+    additionalProperties:
+      $ref: "#/$defs/frame"
+    description: >
+      Named frames. Keys are used by Sprite::Scene3D `frame` property.
+      Static frames render once; clip frames generate N sub-frames named `{id}-{n}`.
+
+  materials-ref:
+    type: string
+    minLength: 1
+    description: >
+      Path to a shared YAML file containing a map of material definitions (`HashMap<name, MaterialDef>`).
+      Ref materials fill in any material keys absent from the local `materials` block — local wins on conflicts.
+      Path forms: `/absolute` (from mod root), `./relative` (from this file), plain name → `/assets/3d/{name}.yml`.
+
+  camera-ref:
+    type: string
+    minLength: 1
+    description: >
+      Path to a shared YAML file containing a `CameraDef` (same schema as the `camera` block).
+      Replaces the local `camera` block entirely — do not combine with a local `camera:` section.
+      Path forms: `/absolute`, `./relative`, plain name → `/assets/3d/{name}.yml`.
+
+  lights-ref:
+    type: string
+    minLength: 1
+    description: >
+      Path to a shared YAML file containing a list of light definitions (same schema as the `lights` block).
+      Applied only when the local `lights` list is empty — local lights always win.
+      Path forms: `/absolute`, `./relative`, plain name → `/assets/3d/{name}.yml`.
+
+$defs:
+  viewport:
+    type: object
+    additionalProperties: false
+    required:
+      - width
+      - height
+    properties:
+      width:
+        type: integer
+        minimum: 1
+        description: Viewport width in terminal columns.
+      height:
+        type: integer
+        minimum: 1
+        description: Viewport height in terminal rows.
+      rendered_mode:
+        type: string
+        enum: [cell, halfblock, quadblock, braille]
+        description: >
+          Renderer mode override for this 3D scene.
+          Overrides the parent scene's rendered_mode if set.
+
+  camera:
+    type: object
+    additionalProperties: false
+    properties:
+      distance:
+        type: number
+        default: 3.0
+        description: Camera orbit distance from the origin.
+      fov_degrees:
+        type: number
+        default: 60.0
+        description: Field of view in degrees.
+      near_clip:
+        type: number
+        default: 0.001
+        description: Near clipping plane distance.
+      position:
+        type: array
+        items:
+          type: number
+        minItems: 3
+        maxItems: 3
+        description: Camera position override [x, y, z] in world space (overrides `distance`).
+      look_at:
+        type: array
+        items:
+          type: number
+        minItems: 3
+        maxItems: 3
+        description: World-space point the camera looks at [x, y, z].
+
+  light:
+    type: object
+    additionalProperties: false
+    required:
+      - id
+      - type
+    properties:
+      id:
+        type: string
+        minLength: 1
+        description: Unique identifier for this light.
+      type:
+        type: string
+        enum: [directional, point, ambient]
+        description: Light type.
+      direction:
+        type: array
+        items:
+          type: number
+        minItems: 3
+        maxItems: 3
+        description: >
+          Directional light: unit direction vector [x, y, z].
+          Only used when `type` is `directional`.
+      position:
+        type: array
+        items:
+          type: number
+        minItems: 3
+        maxItems: 3
+        description: >
+          Point light: world-space position [x, y, z].
+          Only used when `type` is `point`.
+      intensity:
+        type: number
+        default: 1.0
+        minimum: 0.0
+        description: Light intensity multiplier.
+      snap_hz:
+        type: number
+        default: 0.0
+        minimum: 0.0
+        description: >
+          Quantise time to N snapshots per second for a flicker/strobe effect.
+          0 = smooth (no quantisation).
+      colour:
+        type: string
+        pattern: "^#[0-9a-fA-F]{6}$"
+        description: Light colour as a hex string (e.g. `#4488ff`). Defaults to white.
+
+  material:
+    type: object
+    additionalProperties: false
+    properties:
+      surface_mode:
+        type: string
+        enum: [material, wireframe, unlit]
+        default: material
+        description: >
+          How faces are rendered.
+          `material` = lit + cel-shaded, `wireframe` = edge lines only, `unlit` = flat colour.
+      cel_levels:
+        type: integer
+        minimum: 1
+        maximum: 16
+        default: 4
+        description: Number of discrete brightness bands for cel-shading (1 = flat, 4 = classic).
+      fg_colour:
+        type: string
+        pattern: "^#[0-9a-fA-F]{6}$"
+        description: Foreground colour as hex (e.g. `#4488ff`).
+      bg_colour:
+        type: string
+        pattern: "^#[0-9a-fA-F]{6}$"
+        description: Background colour as hex. Defaults to terminal reset.
+      wireframe_char:
+        type: string
+        maxLength: 1
+        description: Character used for wireframe edges. Defaults to `#`.
+      opacity:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        default: 1.0
+        description: Opacity blended over the layer buffer.
+      tone_mix:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        default: 0.0
+        description: >
+          Blend factor between raw lighting (0.0) and full tonal cel-shading colours (1.0).
+          Requires `shadow_colour`, `midtone_colour`, or `highlight_colour` to have effect.
+      shadow_colour:
+        type: string
+        pattern: "^#[0-9a-fA-F]{6}$"
+        description: Cel-shading shadow band colour (e.g. `#000033`).
+      midtone_colour:
+        type: string
+        pattern: "^#[0-9a-fA-F]{6}$"
+        description: Cel-shading midtone band colour (e.g. `#333366`).
+      highlight_colour:
+        type: string
+        pattern: "^#[0-9a-fA-F]{6}$"
+        description: Cel-shading highlight band colour (e.g. `#6666ff`).
+      backface_cull:
+        type: boolean
+        default: false
+        description: Whether to cull back-facing polygons.
+
+  object:
+    type: object
+    additionalProperties: false
+    required:
+      - id
+      - mesh
+      - material
+    properties:
+      id:
+        type: string
+        minLength: 1
+        description: Unique object identifier. Referenced by `show` lists in frames.
+      mesh:
+        type: string
+        minLength: 1
+        description: Path to a `.obj` mesh file relative to the asset root.
+      material:
+        type: string
+        minLength: 1
+        description: Key into the top-level `materials` map.
+      transform:
+        $ref: "#/$defs/transform"
+
+  transform:
+    type: object
+    additionalProperties: false
+    properties:
+      translation:
+        type: array
+        items:
+          type: number
+        minItems: 3
+        maxItems: 3
+        description: World-space translation [x, y, z].
+      rotation:
+        $ref: "#/$defs/rotation3"
+      rotation_y:
+        type: number
+        default: 0.0
+        description: >
+          Legacy Y-axis (yaw) rotation in degrees.
+          Ignored when `rotation` is present.
+      pitch:
+        type: number
+        default: 0.0
+        description: >
+          Legacy X-axis (pitch) rotation in degrees.
+          Ignored when `rotation` is present.
+      roll:
+        type: number
+        default: 0.0
+        description: >
+          Legacy Z-axis (roll) rotation in degrees.
+          Ignored when `rotation` is present.
+      scale:
+        $ref: "#/$defs/scale"
+
+  rotation3:
+    type: object
+    additionalProperties: false
+    description: Structured 3-axis rotation in degrees.
+    properties:
+      x:
+        type: number
+        default: 0.0
+        description: Pitch (X-axis rotation) in degrees.
+      y:
+        type: number
+        default: 0.0
+        description: Yaw (Y-axis rotation) in degrees.
+      z:
+        type: number
+        default: 0.0
+        description: Roll (Z-axis rotation) in degrees.
+
+  scale:
+    description: >
+      Uniform or per-axis scale factor.
+      A scalar applies uniformly; an object with `{x, y, z}` applies per axis
+      (the renderer resolves per-axis to the maximum component for now).
+    oneOf:
+      - type: number
+        description: Uniform scale.
+      - type: object
+        additionalProperties: false
+        required: [x, y, z]
+        properties:
+          x:
+            type: number
+          y:
+            type: number
+          z:
+            type: number
+        description: Per-axis scale.
+
+  frame:
+    description: >
+      Either a static frame (single render) or an animated clip (N sub-frames).
+    oneOf:
+      - $ref: "#/$defs/static_frame"
+      - $ref: "#/$defs/clip_frame"
+
+  static_frame:
+    type: object
+    additionalProperties: false
+    required:
+      - show
+    properties:
+      show:
+        type: array
+        items:
+          type: string
+        description: Object IDs to render; all others are hidden.
+      overrides:
+        type: array
+        items:
+          $ref: "#/$defs/object_override"
+        description: Per-object property overrides applied only for this frame.
+
+  clip_frame:
+    type: object
+    additionalProperties: false
+    required:
+      - show
+      - clip
+    properties:
+      show:
+        type: array
+        items:
+          type: string
+        description: Object IDs visible throughout the clip.
+      clip:
+        $ref: "#/$defs/clip"
+
+  clip:
+    type: object
+    additionalProperties: false
+    required:
+      - duration_ms
+      - keyframes
+    properties:
+      duration_ms:
+        type: integer
+        minimum: 1
+        description: Total clip duration in milliseconds.
+      keyframes:
+        type: integer
+        minimum: 1
+        description: Number of discrete frames to pre-render.
+      tweens:
+        type: array
+        items:
+          $ref: "#/$defs/tween"
+        description: Interpolated property animations across the clip timeline.
+
+  tween:
+    type: object
+    additionalProperties: false
+    required:
+      - object
+      - property
+      - from
+      - to
+    properties:
+      object:
+        type: string
+        description: Object ID to animate.
+      property:
+        type: string
+        enum: [clip_y_min, clip_y_max, yaw_offset, opacity, translation_x, translation_y, translation_z]
+        description: >
+          Property to interpolate. Supported values:
+          `clip_y_min` / `clip_y_max` — vertical clip bounds (0.0–1.0);
+          `yaw_offset` — additional Y-axis rotation (degrees);
+          `opacity` — transparency (0.0–1.0);
+          `translation_x/y/z` — world-space offset.
+      from:
+        type: number
+        description: Start value at t=0.
+      to:
+        type: number
+        description: End value at t=1.
+      easing:
+        type: string
+        enum: [linear, ease_in, ease_out, ease_in_out]
+        default: linear
+        description: Easing curve applied to t before interpolation.
+
+  object_override:
+    type: object
+    additionalProperties: false
+    required:
+      - object
+      - property
+      - value
+    properties:
+      object:
+        type: string
+        description: Object ID to override.
+      property:
+        type: string
+        description: Property name to set.
+      value:
+        type: number
+        description: Override value.

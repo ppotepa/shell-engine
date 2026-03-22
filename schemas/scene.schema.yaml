@@ -624,10 +624,11 @@ $defs:
     properties:
       type:
         type: string
-        enum: [text, image, obj, grid, flex, window, scroll-list]
+        enum: [text, image, obj, grid, flex, window, scroll-list, scene3_d]
         description: >
-          Sprite type. Runtime-native: text, image, obj, grid, flex.
+          Sprite type. Runtime-native: text, image, obj, grid, flex, scene3_d.
           Authoring sugar: window, scroll-list (expanded to grid/text by compiler).
+          scene3_d: blits a pre-rendered frame from a .scene3d.yml atlas.
       use:
         type: string
         minLength: 1
@@ -647,6 +648,19 @@ $defs:
         type: string
         minLength: 1
         description: Asset path (required for type=image/obj), e.g. /assets/images/tux.png or /scenes/3d/model.obj.
+      src:
+        type: string
+        minLength: 1
+        description: >
+          Path to a .scene3d.yml file relative to mod root (required for type=scene3_d).
+          All 3D setup (camera, lights, materials, meshes, frames) lives in that file.
+          Example: /assets/3d/difficulty-portraits.scene3d.yml
+      frame:
+        type: string
+        default: ""
+        description: >
+          Named frame from the Scene3D atlas to display (type=scene3_d only).
+          Switched at runtime via scene.set(id, "scene3d.frame", frame_name).
       spritesheet-columns:
         type: integer
         minimum: 1

@@ -30,15 +30,17 @@ pub struct BehaviorContext {
     pub object_props: Arc<std::collections::BTreeMap<String, JsonValue>>,
     pub object_regions: Arc<std::collections::BTreeMap<String, Region>>,
     pub object_text: Arc<std::collections::BTreeMap<String, String>>,
-    pub ui_focused_target_id: Option<String>,
-    pub ui_theme_id: Option<String>,
-    pub ui_last_submit_target_id: Option<String>,
-    pub ui_last_submit_text: Option<String>,
-    pub ui_last_change_target_id: Option<String>,
-    pub ui_last_change_text: Option<String>,
+    // Arc-wrapped: cloned once per frame, shared across all behaviors via O(1) refcount.
+    pub ui_focused_target_id: Option<Arc<str>>,
+    pub ui_theme_id: Option<Arc<str>>,
+    pub ui_last_submit_target_id: Option<Arc<str>>,
+    pub ui_last_submit_text: Option<Arc<str>>,
+    pub ui_last_change_target_id: Option<Arc<str>>,
+    pub ui_last_change_text: Option<Arc<str>>,
     pub game_state: Option<crate::game_state::GameState>,
     /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
-    pub last_raw_key: Option<RawKeyEvent>,
+    /// Arc-wrapped: shared across all behaviors in a frame, clone is O(1).
+    pub last_raw_key: Option<Arc<RawKeyEvent>>,
     /// Sidecar IO frame snapshot (output lines / clear / fullscreen / custom events).
     pub sidecar_io: Arc<crate::scene_runtime::SidecarIoFrameState>,
 }
@@ -1013,24 +1015,24 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
                 scope.push(
                     "ui_focused_target",
-                    ctx.ui_focused_target_id.clone().unwrap_or_default(),
+                    ctx.ui_focused_target_id.as_deref().unwrap_or("").to_string(),
                 );
-                scope.push("ui_theme", ctx.ui_theme_id.clone().unwrap_or_default());
+                scope.push("ui_theme", ctx.ui_theme_id.as_deref().unwrap_or("").to_string());
                 scope.push(
                     "ui_submit_target",
-                    ctx.ui_last_submit_target_id.clone().unwrap_or_default(),
+                    ctx.ui_last_submit_target_id.as_deref().unwrap_or("").to_string(),
                 );
                 scope.push(
                     "ui_submit_text",
-                    ctx.ui_last_submit_text.clone().unwrap_or_default(),
+                    ctx.ui_last_submit_text.as_deref().unwrap_or("").to_string(),
                 );
                 scope.push(
                     "ui_change_target",
-                    ctx.ui_last_change_target_id.clone().unwrap_or_default(),
+                    ctx.ui_last_change_target_id.as_deref().unwrap_or("").to_string(),
                 );
                 scope.push(
                     "ui_change_text",
-                    ctx.ui_last_change_text.clone().unwrap_or_default(),
+                    ctx.ui_last_change_text.as_deref().unwrap_or("").to_string(),
                 );
                 scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
                 scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
@@ -1226,10 +1228,10 @@ fn smoke_probe_context(
         object_props: Arc::new(BTreeMap::new()),
         object_regions: Arc::new(BTreeMap::new()),
         object_text: Arc::new(BTreeMap::new()),
-        ui_focused_target_id: Some("login-hidden-prompt".to_string()),
+        ui_focused_target_id: Some(Arc::from("login-hidden-prompt")),
         ui_theme_id: None,
-        ui_last_submit_target_id: submit_text.map(|_| "login-hidden-prompt".to_string()),
-        ui_last_submit_text: submit_text.map(ToString::to_string),
+        ui_last_submit_target_id: submit_text.map(|_| Arc::from("login-hidden-prompt")),
+        ui_last_submit_text: submit_text.map(|s| Arc::from(s)),
         ui_last_change_target_id: None,
         ui_last_change_text: None,
         game_state: Some(game_state),
@@ -1666,31 +1668,31 @@ fn kind_capabilities(kind: Option<&str>) -> RhaiArray {
 
 fn ui_context_to_rhai_map(ctx: &BehaviorContext) -> RhaiMap {
     let mut out = RhaiMap::new();
-    if let Some(value) = ctx.ui_focused_target_id.as_ref() {
-        out.insert("focused_target".into(), value.clone().into());
+    if let Some(value) = ctx.ui_focused_target_id.as_deref() {
+        out.insert("focused_target".into(), value.to_string().into());
     }
-    if let Some(value) = ctx.ui_theme_id.as_ref() {
-        out.insert("theme".into(), value.clone().into());
+    if let Some(value) = ctx.ui_theme_id.as_deref() {
+        out.insert("theme".into(), value.to_string().into());
     }
     out.insert(
         "has_submit".into(),
         ctx.ui_last_submit_target_id.is_some().into(),
     );
-    if let Some(value) = ctx.ui_last_submit_target_id.as_ref() {
-        out.insert("submit_target".into(), value.clone().into());
+    if let Some(value) = ctx.ui_last_submit_target_id.as_deref() {
+        out.insert("submit_target".into(), value.to_string().into());
     }
-    if let Some(value) = ctx.ui_last_submit_text.as_ref() {
-        out.insert("submit_text".into(), value.clone().into());
+    if let Some(value) = ctx.ui_last_submit_text.as_deref() {
+        out.insert("submit_text".into(), value.to_string().into());
     }
     out.insert(
         "has_change".into(),
         ctx.ui_last_change_target_id.is_some().into(),
     );
-    if let Some(value) = ctx.ui_last_change_target_id.as_ref() {
-        out.insert("change_target".into(), value.clone().into());
+    if let Some(value) = ctx.ui_last_change_target_id.as_deref() {
+        out.insert("change_target".into(), value.to_string().into());
     }
-    if let Some(value) = ctx.ui_last_change_text.as_ref() {
-        out.insert("change_text".into(), value.clone().into());
+    if let Some(value) = ctx.ui_last_change_text.as_deref() {
+        out.insert("change_text".into(), value.to_string().into());
     }
     out
 }
@@ -2561,12 +2563,12 @@ out
             ..BehaviorParams::default()
         });
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
-        test_ctx.ui_focused_target_id = Some("terminal-prompt".to_string());
-        test_ctx.ui_theme_id = Some("terminal".to_string());
-        test_ctx.ui_last_submit_target_id = Some("terminal-prompt".to_string());
-        test_ctx.ui_last_submit_text = Some("status".to_string());
-        test_ctx.ui_last_change_target_id = Some("terminal-prompt".to_string());
-        test_ctx.ui_last_change_text = Some("sta".to_string());
+        test_ctx.ui_focused_target_id = Some(Arc::from("terminal-prompt"));
+        test_ctx.ui_theme_id = Some(Arc::from("terminal"));
+        test_ctx.ui_last_submit_target_id = Some(Arc::from("terminal-prompt"));
+        test_ctx.ui_last_submit_text = Some(Arc::from("status"));
+        test_ctx.ui_last_change_target_id = Some(Arc::from("terminal-prompt"));
+        test_ctx.ui_last_change_text = Some(Arc::from("sta"));
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         assert_eq!(
             commands,

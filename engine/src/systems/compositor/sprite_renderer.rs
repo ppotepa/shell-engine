@@ -1,5 +1,6 @@
 use crossterm::style::Color;
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use crate::assets::AssetRoot;
 use crate::buffer::Buffer;
@@ -15,11 +16,38 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
 // OPT-7: Thread-local cache for pre-rendered text glow buffers.
+// Stores Arc<Buffer> so cache hits are a refcount increment, not a full Buffer clone.
 type GlowCacheKey = u64;
 
 thread_local! {
-    static GLOW_CACHE: RefCell<HashMap<GlowCacheKey, Buffer>> =
+    static GLOW_CACHE: RefCell<HashMap<GlowCacheKey, Arc<Buffer>>> =
         RefCell::new(HashMap::new());
+}
+
+/// Hash a `crossterm::style::Color` without allocating (avoids `format!("{:?}", col)`).
+#[inline]
+fn hash_color<H: Hasher>(col: Color, h: &mut H) {
+    match col {
+        Color::Reset        => 0u8.hash(h),
+        Color::Black        => 1u8.hash(h),
+        Color::DarkGrey     => 2u8.hash(h),
+        Color::Red          => 3u8.hash(h),
+        Color::DarkRed      => 4u8.hash(h),
+        Color::Green        => 5u8.hash(h),
+        Color::DarkGreen    => 6u8.hash(h),
+        Color::Yellow       => 7u8.hash(h),
+        Color::DarkYellow   => 8u8.hash(h),
+        Color::Blue         => 9u8.hash(h),
+        Color::DarkBlue     => 10u8.hash(h),
+        Color::Magenta      => 11u8.hash(h),
+        Color::DarkMagenta  => 12u8.hash(h),
+        Color::Cyan         => 13u8.hash(h),
+        Color::DarkCyan     => 14u8.hash(h),
+        Color::White        => 15u8.hash(h),
+        Color::Grey         => 16u8.hash(h),
+        Color::Rgb { r, g, b } => { 17u8.hash(h); r.hash(h); g.hash(h); b.hash(h); }
+        Color::AnsiValue(v) => { 18u8.hash(h); v.hash(h); }
+    }
 }
 
 fn glow_cache_key(
@@ -34,9 +62,9 @@ fn glow_cache_key(
     let mut h = std::collections::hash_map::DefaultHasher::new();
     content.hash(&mut h);
     radius.hash(&mut h);
-    format!("{:?}", glow_col).hash(&mut h);
+    hash_color(glow_col, &mut h);
     font.hash(&mut h);
-    format!("{:?}", sprite_bg).hash(&mut h);
+    hash_color(sprite_bg, &mut h);
     sprite_w.hash(&mut h);
     sprite_h.hash(&mut h);
     h.finish()
@@ -225,9 +253,10 @@ fn render_sprite(
                     sprite_width, sprite_height,
                 );
                 // OPT-7: Pre-render all glow offsets into a cached scratch buffer.
-                let glow_buf = GLOW_CACHE.with(|cache| {
+                // Cache stores Arc<Buffer>: hit = refcount increment, miss = one Arc wrap.
+                let glow_buf: Arc<Buffer> = GLOW_CACHE.with(|cache| {
                     if let Some(cached) = cache.borrow().get(&glow_key) {
-                        return cached.clone();
+                        return Arc::clone(cached);
                     }
                     let pad = radius as u16;
                     let bw = sprite_width.saturating_add(pad * 2).max(1);
@@ -246,10 +275,11 @@ fn render_sprite(
                             );
                         }
                     }
+                    let arc = Arc::new(scratch);
                     let mut c = cache.borrow_mut();
                     if c.len() >= 128 { c.clear(); }
-                    c.insert(glow_key, scratch.clone());
-                    scratch
+                    c.insert(glow_key, Arc::clone(&arc));
+                    arc
                 });
                 // Blit cached glow onto layer_buf at the correct position.
                 let pad = radius as u16;

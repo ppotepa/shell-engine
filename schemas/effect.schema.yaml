@@ -35,6 +35,7 @@ properties:
       - lightning-growth: Slow-growing branched bolt spreading outward.
       - lightning-natural: Naturalistic bolt with secondary arcs.
       - lightning-optical-80s: Retro 80s neon-style optical lightning.
+      - neon-edge-glow: Cyberpunk neon glow around content edges with volumetric spillover.
       - posterize: Reduces colour band count by quantizing RGB channels.
       - power-off: Old display shutdown collapse to center line.
       - scanlines: Classic CRT horizontal scanline overlay.
@@ -68,6 +69,7 @@ properties:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - neon-edge-glow
     - posterize
     - power-off
     - scanlines

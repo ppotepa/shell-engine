@@ -172,6 +172,8 @@ fn generate_shared_effect_params_schema() -> Result<Value> {
     struct ParamEntry {
         description: &'static str,
         control: ParamControl,
+        /// True when multiple effects share this param name with differing defaults.
+        ambiguous_default: bool,
     }
 
     let dispatcher = shared_dispatcher();
@@ -188,13 +190,23 @@ fn generate_shared_effect_params_schema() -> Result<Value> {
                         ParamEntry {
                             description: param.description,
                             control: param.control,
+                            ambiguous_default: false,
                         },
                     );
                 }
                 Some(existing) if existing.control == param.control => {}
+                Some(_existing)
+                    if std::mem::discriminant(&_existing.control)
+                        == std::mem::discriminant(&param.control) =>
+                {
+                    // Same control type, different defaults — mark as ambiguous so we
+                    // omit the default from the shared schema.  Per-effect defaults are
+                    // documented in each effect's own oneOf variant instead.
+                    params.get_mut(param.name).unwrap().ambiguous_default = true;
+                }
                 Some(existing) => {
                     anyhow::bail!(
-                        "parameter '{}' has conflicting controls across effects: {:?} vs {:?}",
+                        "parameter '{}' has incompatible control types across effects: {:?} vs {:?}",
                         param.name,
                         existing.control,
                         param.control
@@ -217,7 +229,7 @@ fn generate_shared_effect_params_schema() -> Result<Value> {
         };
         properties.insert(
             yaml_str(param_name),
-            param_control_schema(entry.control, &description),
+            param_control_schema(entry.control, &description, entry.ambiguous_default),
         );
     }
 
@@ -245,7 +257,7 @@ fn generate_shared_effect_params_schema() -> Result<Value> {
     Ok(Value::Mapping(root))
 }
 
-fn param_control_schema(control: ParamControl, description: &str) -> Value {
+fn param_control_schema(control: ParamControl, description: &str, omit_default: bool) -> Value {
     let mut prop = Mapping::new();
     match control {
         ParamControl::Slider {
@@ -267,19 +279,27 @@ fn param_control_schema(control: ParamControl, description: &str) -> Value {
                 yaml_str("enum"),
                 Value::Sequence(options.iter().map(|v| yaml_str(v)).collect()),
             );
-            prop.insert(yaml_str("default"), yaml_str(default));
+            if !omit_default {
+                prop.insert(yaml_str("default"), yaml_str(default));
+            }
         }
         ParamControl::Toggle { default } => {
             prop.insert(yaml_str("type"), yaml_str("boolean"));
-            prop.insert(yaml_str("default"), Value::Bool(default));
+            if !omit_default {
+                prop.insert(yaml_str("default"), Value::Bool(default));
+            }
         }
         ParamControl::Text { default } => {
             prop.insert(yaml_str("type"), yaml_str("string"));
-            prop.insert(yaml_str("default"), yaml_str(default));
+            if !omit_default {
+                prop.insert(yaml_str("default"), yaml_str(default));
+            }
         }
         ParamControl::Colour { default } => {
             prop.insert(yaml_str("$ref"), yaml_str("#/$defs/colour"));
-            prop.insert(yaml_str("default"), yaml_str(default));
+            if !omit_default {
+                prop.insert(yaml_str("default"), yaml_str(default));
+            }
         }
     }
     prop.insert(yaml_str("description"), yaml_str(description));

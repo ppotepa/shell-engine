@@ -25,6 +25,18 @@ pub struct Scene3DDefinition {
     pub objects: Vec<ObjectDef>,
     /// Named frames. Key = frame_id used in `Sprite::Scene3D.frame`.
     pub frames: HashMap<String, FrameDef>,
+
+    // ── Cross-file references ───────────────────────────────────────────────
+    /// Path to a shared materials YAML (`HashMap<name, MaterialDef>`).
+    /// Loaded and merged before rendering; local materials override ref materials.
+    #[serde(default, rename = "materials-ref")]
+    pub materials_ref: Option<String>,
+    /// Path to a shared camera YAML (`CameraDef`). Replaces the local `camera` block.
+    #[serde(default, rename = "camera-ref")]
+    pub camera_ref: Option<String>,
+    /// Path to a shared lights YAML (`Vec<LightDef>`). Applied when local `lights` is empty.
+    #[serde(default, rename = "lights-ref")]
+    pub lights_ref: Option<String>,
 }
 
 // ── Viewport ─────────────────────────────────────────────────────────────────
@@ -122,6 +134,21 @@ pub struct MaterialDef {
     /// Opacity 0.0–1.0 (blended over the layer buffer).
     #[serde(default = "default_opacity")]
     pub opacity: f32,
+    /// Blend factor between raw lighting and tonal cel-shade colours (0.0 = lighting only, 1.0 = full tonal).
+    #[serde(default)]
+    pub tone_mix: f32,
+    /// Cel-shading shadow band colour (hex, e.g. "#000033").
+    #[serde(default)]
+    pub shadow_colour: Option<String>,
+    /// Cel-shading midtone band colour (hex, e.g. "#333366").
+    #[serde(default)]
+    pub midtone_colour: Option<String>,
+    /// Cel-shading highlight band colour (hex, e.g. "#6666ff").
+    #[serde(default)]
+    pub highlight_colour: Option<String>,
+    /// Whether to cull back-facing polygons.
+    #[serde(default)]
+    pub backface_cull: bool,
 }
 
 #[derive(Debug, Deserialize, Default, PartialEq, Eq)]
@@ -149,18 +176,76 @@ pub struct ObjectDef {
     pub transform: TransformDef,
 }
 
+/// Structured 3-axis rotation (degrees). All axes default to 0.0.
+#[derive(Debug, Deserialize, Default, Clone, Copy)]
+pub struct RotationDef {
+    #[serde(default)]
+    pub x: f32,
+    #[serde(default)]
+    pub y: f32,
+    #[serde(default)]
+    pub z: f32,
+}
+
+/// Scale: either a uniform scalar or per-axis vector.
+/// ```yaml
+/// scale: 4.65          # uniform
+/// scale: { x: 1.0, y: 2.0, z: 1.0 }  # per-axis
+/// ```
+#[derive(Debug, Deserialize, Clone, Copy)]
+#[serde(untagged)]
+pub enum ScaleDef {
+    Uniform(f32),
+    PerAxis { x: f32, y: f32, z: f32 },
+}
+
+impl ScaleDef {
+    /// Resolve to a uniform scale. Per-axis uses the maximum component.
+    /// (The renderer supports uniform scale only; per-axis is future-proofing.)
+    pub fn uniform(&self) -> f32 {
+        match *self {
+            ScaleDef::Uniform(s) => s,
+            ScaleDef::PerAxis { x, y, z } => x.max(y).max(z),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct TransformDef {
     #[serde(default)]
     pub translation: Option<[f32; 3]>,
+    /// Structured 3-axis rotation (degrees). Takes priority over legacy fields when present.
+    #[serde(default)]
+    pub rotation: Option<RotationDef>,
+    /// Legacy: Y-axis rotation (degrees). Used when `rotation` is absent.
     #[serde(default)]
     pub rotation_y: f32,
+    /// Legacy: X-axis rotation / pitch (degrees). Used when `rotation` is absent.
     #[serde(default)]
     pub pitch: f32,
+    /// Legacy: Z-axis rotation / roll (degrees). Used when `rotation` is absent.
     #[serde(default)]
     pub roll: f32,
+    /// Scale — either a scalar or `{x, y, z}` map.
     #[serde(default)]
-    pub scale: Option<f32>,
+    pub scale: Option<ScaleDef>,
+}
+
+impl TransformDef {
+    /// Resolved rotation as `(pitch_x, yaw_y, roll_z)` in degrees.
+    /// Prefers the structured `rotation` block; falls back to legacy `pitch`/`rotation_y`/`roll`.
+    pub fn resolved_rotation(&self) -> (f32, f32, f32) {
+        if let Some(r) = self.rotation {
+            (r.x, r.y, r.z)
+        } else {
+            (self.pitch, self.rotation_y, self.roll)
+        }
+    }
+
+    /// Resolved uniform scale (1.0 if not specified).
+    pub fn resolved_scale(&self) -> f32 {
+        self.scale.map(|s| s.uniform()).unwrap_or(1.0)
+    }
 }
 
 // ── Frames ───────────────────────────────────────────────────────────────────

@@ -4,7 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_SOURCE="${SHELL_QUEST_MOD_SOURCE:-$ROOT_DIR/mods/shell-quest}"
 MOD_MANIFEST="$MOD_SOURCE/mod.yaml"
-WINDOW_MODE="${SHELL_QUEST_WINDOW_MODE:-game}" # game | normal
+# Default to a regular-sized terminal window. Fullscreen terminals can make
+# the current authored scenes look effectively blank because they render into
+# a much larger character grid than the authored minimum.
+WINDOW_MODE="${SHELL_QUEST_WINDOW_MODE:-normal}" # game | normal
 FORCED_TERMINAL="${SHELL_QUEST_TERMINAL:-}"
 START_SCENE="${SHELL_QUEST_START_SCENE:-}"
 SKIP_SPLASH=0
