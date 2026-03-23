@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MOD_SOURCE="${SHELL_QUEST_MOD_SOURCE:-$ROOT_DIR/mods/shell-quest}"
+MOD_NAME="${SHELL_QUEST_MOD:-shell-quest}"
+MOD_SOURCE="$ROOT_DIR/mods/$MOD_NAME"
 MOD_MANIFEST="$MOD_SOURCE/mod.yaml"
 # Default to a regular-sized terminal window. Fullscreen terminals can make
 # the current authored scenes look effectively blank because they render into
@@ -19,7 +20,8 @@ print_usage() {
 Usage: ./launcher.sh [options]
 
 Options:
-  --mod-source <path>      Explicit mod source (directory or .zip)
+  --mod <name>             Mod to load (resolves to mods/<name>/). Default: shell-quest
+  --mod-source <path>      Explicit mod source path (directory or .zip)
   --start-scene <path>    Jump directly to a specific scene (overrides entrypoint)
   --in-place              Run in current terminal (no new window)
   --terminal <name>       Force terminal binary (e.g. konsole, gnome-terminal)
@@ -38,6 +40,16 @@ while [[ $# -gt 0 ]]; do
     --in-place)
       IN_PLACE=1
       shift
+      ;;
+    --mod)
+      MOD_NAME="${2:-}"
+      if [[ -z "$MOD_NAME" ]]; then
+        echo "[launcher] --mod requires a value" >&2
+        exit 2
+      fi
+      MOD_SOURCE="$ROOT_DIR/mods/$MOD_NAME"
+      MOD_MANIFEST="$MOD_SOURCE/mod.yaml"
+      shift 2
       ;;
     --mod-source)
       MOD_SOURCE="${2:-}"
@@ -123,8 +135,8 @@ MIN_HEIGHT="${MIN_HEIGHT:-40}"
 MIN_COLOURS="${MIN_COLOURS:-256}"
 
 build_game_cmd() {
-  local shell_mod shell_root hold_line
-  shell_mod="$(printf "%q" "$MOD_SOURCE")"
+  local shell_mod_name shell_root hold_line
+  shell_mod_name="$(printf "%q" "$MOD_NAME")"
   shell_root="$(printf "%q" "$ROOT_DIR")"
   hold_line=""
   if [[ "$HOLD_ON_EXIT" == "1" ]]; then
@@ -144,7 +156,7 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
   esac
 fi
 stty cols "$MIN_WIDTH" rows "$MIN_HEIGHT" 2>/dev/null || true
-cargo run -q -p app -- --mod-source $shell_mod${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$SOUND_SERVER" == "1" ]] && echo " --sound-server --sound-server-cmd 'cargo run -p sound-server --quiet -- --assets-root $shell_root/assets'" )
+cargo run -q -p app -- --mod $shell_mod_name${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$SOUND_SERVER" == "1" ]] && echo " --sound-server --sound-server-cmd 'cargo run -p sound-server --quiet -- --assets-root $shell_root/assets'" )
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
 $hold_line

@@ -5,8 +5,11 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "shell-quest", about = "Shell Quest terminal engine launcher")]
 struct Cli {
-    /// Mod source path (directory or .zip).
-    #[arg(long)]
+    /// Mod to load by name (resolves to mods/<name>/). Default: shell-quest.
+    #[arg(long = "mod", default_value = "shell-quest")]
+    mod_name: String,
+    /// Full mod source path (directory or .zip). Overrides --mod when set.
+    #[arg(long = "mod-source", hide = true)]
     mod_source: Option<String>,
     /// Force renderer mode globally: cell | halfblock | quadblock | braille.
     #[arg(long = "renderer-mode")]
@@ -74,7 +77,7 @@ fn main() {
     }
     let mod_source = cli
         .mod_source
-        .unwrap_or_else(|| "mods/shell-quest/".to_string());
+        .unwrap_or_else(|| format!("mods/{}/", cli.mod_name));
     logging::info("app.main", format!("resolved mod_source={mod_source}"));
 
     let config = EngineConfig {
