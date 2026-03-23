@@ -31,6 +31,9 @@ impl AudioBackend for NullAudioBackend {
 }
 
 /// In-process audio backend using rodio for direct WAV/MP3 playback.
+///
+/// Safety: rodio's `OutputStream` contains a raw pointer that is not `Send`/`Sync`,
+/// but the engine only ever accesses this backend from the single-threaded game loop.
 pub struct RodioAudioBackend {
     _stream: OutputStream,
     stream_handle: OutputStreamHandle,
@@ -38,6 +41,11 @@ pub struct RodioAudioBackend {
     assets: HashMap<String, PathBuf>,
     master_volume: f32,
 }
+
+// SAFETY: RodioAudioBackend is only accessed from the main (game loop) thread.
+// The OutputStream raw pointer is never shared across threads.
+unsafe impl Send for RodioAudioBackend {}
+unsafe impl Sync for RodioAudioBackend {}
 
 impl RodioAudioBackend {
     /// Opens the default audio output device and indexes audio files under `assets_root`.

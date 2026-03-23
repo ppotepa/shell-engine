@@ -11,20 +11,19 @@ internal sealed class MinixModule : IOperatingSystemModule
 {
     private readonly MachineSpec _spec;
     private readonly IMutableFileSystem _vfs;
-    private readonly NetworkRegistry _network;
+    private readonly RemoteHostIndex _hostIndex;
 
     public string Name => "MINIX 1.1";
 
-    public MinixModule(MachineSpec spec, IMutableFileSystem vfs, NetworkRegistry network)
+    public MinixModule(MachineSpec spec, IMutableFileSystem vfs, RemoteHostIndex hostIndex)
     {
         _spec = spec;
         _vfs = vfs;
-        _network = network;
+        _hostIndex = hostIndex;
     }
 
     public void Register(ServiceContainer container)
     {
-        // Kernel is per-OS-stage singleton — one instance, composed internally
-        container.RegisterInstance<FrameworkKernel>(new MinixKernel(_spec, _vfs, _network));
+        container.RegisterInstance<FrameworkKernel>(new MinixKernel(_spec, _vfs, _hostIndex));
     }
 }

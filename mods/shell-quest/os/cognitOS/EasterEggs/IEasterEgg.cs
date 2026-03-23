@@ -8,7 +8,7 @@ namespace CognitOS.Network;
 /// Easter egg interface — checked after CommandIndex lookup fails,
 /// before emitting "command not found".
 /// </summary>
-internal interface IEasterEgg
+internal interface IShellEasterEgg
 {
     string Trigger { get; }
     bool Matches(string command, IReadOnlyList<string> argv);
@@ -25,9 +25,9 @@ internal interface IEasterEgg
 /// </summary>
 internal sealed class EasterEggRegistry
 {
-    private readonly List<IEasterEgg> _eggs = new();
+    private readonly List<IShellEasterEgg> _eggs = new();
 
-    public void Register(IEasterEgg egg) => _eggs.Add(egg);
+    public void Register(IShellEasterEgg egg) => _eggs.Add(egg);
 
     /// <summary>
     /// Try to handle an unknown command as an easter egg.

@@ -24,8 +24,8 @@ internal static class Program
         var state = machineStart.LoadOrCreate();
 
         var container = new ServiceContainer();
-        var network = new NetworkRegistry();
-        container.RegisterInstance(network);
+        var hostIndex = RemoteHostIndex.Build();
+        container.RegisterInstance(hostIndex);
 
         var historyCmd = new HistoryCommand();
         container.RegisterInstance(historyCmd);
@@ -76,7 +76,7 @@ internal static class Program
                     state.Spec = MachineSpec.FromDifficulty(difficulty);
 
                     var fileSystem = new ZipVirtualFileSystem(statePath);
-                    var module = new MinixModule(state.Spec, fileSystem, network);
+                    var module = new MinixModule(state.Spec, fileSystem, hostIndex);
                     var osScope = container.LoadModule(module);
                     var kernel = osScope.Resolve<IKernel>();
                     var commandIndex = CommandScanner.BuildCommandIndex(osScope, "minix");

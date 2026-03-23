@@ -13,11 +13,15 @@ internal sealed class UserSession
     public string Cwd { get; private set; }
     public int LastExitCode { get; set; }
 
-    public UserSession(string user, string hostname)
+    /// <param name="home">
+    /// Home directory — should come from /etc/passwd via IUserDatabase.
+    /// Falls back to /usr/{user} if not supplied.
+    /// </param>
+    public UserSession(string user, string hostname, string? home = null)
     {
         User = user;
         Hostname = hostname;
-        Home = $"/usr/{user}";
+        Home = !string.IsNullOrWhiteSpace(home) ? home : $"/usr/{user}";
         Cwd = Home;
     }
 

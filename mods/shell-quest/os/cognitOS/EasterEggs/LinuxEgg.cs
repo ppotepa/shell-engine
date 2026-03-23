@@ -8,7 +8,7 @@ namespace CognitOS.EasterEggs;
 /// "linux" → "command not found (not yet)"
 /// "linux --help" → full quest walkthrough
 /// </summary>
-internal sealed class LinuxEgg : IEasterEgg
+internal sealed class LinuxEgg : IShellEasterEgg
 {
     public string Trigger => "linux";
 

@@ -1,7 +1,6 @@
 namespace CognitOS.Kernel.Modem;
 
 using CognitOS.Kernel.Hardware;
-using CognitOS.Network;
 
 /// <summary>
 /// Simulated Hayes AT modem. Writes a realistic dial sequence to the caller's
@@ -13,7 +12,6 @@ using CognitOS.Network;
 internal sealed class SimulatedModem : IModem
 {
     private readonly HardwareProfile _hw;
-    private readonly NetworkRegistry _registry;
     private bool _connected;
 
     // Dialup phone numbers for known hosts (Finland / Nordic FUNET, 1991)
@@ -27,10 +25,9 @@ internal sealed class SimulatedModem : IModem
 
     public bool IsConnected => _connected;
 
-    public SimulatedModem(HardwareProfile hw, NetworkRegistry registry)
+    public SimulatedModem(HardwareProfile hw)
     {
         _hw = hw;
-        _registry = registry;
     }
 
     public bool Dial(string host, System.IO.TextWriter output)
@@ -64,8 +61,8 @@ internal sealed class SimulatedModem : IModem
         output.WriteLine("RINGING");
         _hw.BlockFor(1200);
 
-        // Check if the host is actually reachable
-        bool reachable = _registry.IsKnown(host) || PhoneBook.ContainsKey(host);
+        // Check if the host is actually reachable (phone book is the authority for modem dial)
+        bool reachable = PhoneBook.ContainsKey(host);
         if (!reachable)
         {
             output.WriteLine("NO CARRIER");

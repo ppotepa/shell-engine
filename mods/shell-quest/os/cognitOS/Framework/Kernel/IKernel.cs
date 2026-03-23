@@ -8,6 +8,7 @@ using CognitOS.Kernel.Mail;
 using CognitOS.Kernel.Network;
 using CognitOS.Kernel.Process;
 using CognitOS.Kernel.Resources;
+using CognitOS.Kernel.Users;
 using CognitOS.State;
 
 /// <summary>
@@ -22,6 +23,7 @@ internal interface IKernel
     IClock Clock { get; }
     IMailSpool Mail { get; }
     IJournal Journal { get; }
+    IUserDatabase Users { get; }
     MachineSpec Spec { get; }
     ResourceState Resources { get; }
 

@@ -180,7 +180,9 @@ internal sealed class AppHost
         _store.Persist(_machineState);
         _reloadVfs?.Invoke();
 
-        _session = new UserSession(_machineState.UserName ?? "torvalds", "kruuna");
+        var userName = _machineState.UserName ?? "torvalds";
+        var homeDir = _kernel.Users.GetUser(userName)?.Home;
+        _session = new UserSession(userName, "kruuna", homeDir);
         _appStack = new ApplicationStack(_kernel, _machineState, _screen);
         var builtins = new MinixBuiltins();
         var scripts = new MinixScriptInterpreter();

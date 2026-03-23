@@ -7,7 +7,7 @@ namespace CognitOS.EasterEggs;
 /// <summary>
 /// Stateful: silent twice, "minix: I know." on 3rd call, then silent forever.
 /// </summary>
-internal sealed class MinixEgg : IEasterEgg
+internal sealed class MinixEgg : IShellEasterEgg
 {
     private int _count;
     public string Trigger => "minix";

@@ -42,7 +42,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
     public HardwareProfile Hardware { get; }
     public MachineSpec Spec { get; }
 
-    public Kernel(MachineSpec spec, IMutableFileSystem vfs, CognitOS.Network.NetworkRegistry netReg)
+    public Kernel(MachineSpec spec, IMutableFileSystem vfs, CognitOS.Network.RemoteHostIndex hostIndex)
     {
         Spec = spec;
 
@@ -62,7 +62,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         Disk = new SimulatedDisk(vfs, Resources, Hardware, gate, Clock);
         var processTable = new SimulatedProcessTable(Resources, Hardware, Clock, gate);
         Process = processTable;
-        Net = new SimulatedNetwork(netReg, Resources, Hardware, Disk, gate);
+        Net = new SimulatedNetwork(hostIndex, Resources, Hardware, Disk, gate);
         Journal = new SimulatedJournal(Disk, Clock);
         Mail = new SimulatedMailSpool(Disk, Clock, "torvalds");
 
@@ -70,7 +70,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         Services = new SimulatedServiceManager(Process, Disk, Clock, Mail, Journal);
 
         // Layer 6: Higher-level OS subsystems
-        Modem = new SimulatedModem(Hardware, netReg);
+        Modem = new SimulatedModem(Hardware);
         Sessions = new SessionManager();
         Users = new UserDatabase(Disk);
         var mountTable = new MountTable();

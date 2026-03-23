@@ -11,7 +11,7 @@ using CognitOS.Network;
 /// </summary>
 internal sealed class SimulatedNetwork : INetwork
 {
-    private readonly NetworkRegistry _registry;
+    private readonly RemoteHostIndex _registry;
     private readonly ResourceState _res;
     private readonly HardwareProfile _hw;
     private readonly Disk.IDisk _disk;
@@ -20,7 +20,7 @@ internal sealed class SimulatedNetwork : INetwork
 
     private readonly Dictionary<int, string> _sockets = new();
 
-    public SimulatedNetwork(NetworkRegistry registry, ResourceState res, HardwareProfile hw, Disk.IDisk disk, ISyscallGate gate)
+    public SimulatedNetwork(RemoteHostIndex registry, ResourceState res, HardwareProfile hw, Disk.IDisk disk, ISyscallGate gate)
     {
         _registry = registry;
         _res = res;

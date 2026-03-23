@@ -7,7 +7,7 @@ namespace CognitOS.EasterEggs;
 /// <summary>
 /// Simple one-liner responses for unrecognized commands that deserve flavor.
 /// </summary>
-internal sealed class OneLiners : IEasterEgg
+internal sealed class OneLiners : IShellEasterEgg
 {
     public string Trigger => "(multiple)";
 
