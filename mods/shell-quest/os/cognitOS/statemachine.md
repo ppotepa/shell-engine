@@ -157,21 +157,36 @@ via `UpdateSpindleState(nowMs)`. Disk access incurs spin-up latency only on stat
 ### 5.2 Network / Modem
 
 ```
-Idle ──[dial]──► ATH0 (200ms)
-ATH0 ──► ATDT dialing (800ms)
-ATDT ──► Ringing (3 × 2000ms rings)
-Ringing ──► Handshake (1200ms)
-Handshake ──► Connected
+Idle ──[dial]──► ATH0 (0ms)
+ATH0 ──► OK (200ms)
+OK ──► ATDT dialing (100ms)
+ATDT ──► DIALING... (300ms)
+DIALING... ──► RINGING (800ms + baud factor)
+RINGING ──► CONNECT <baud> (1200-2200ms handshake)
 Connected ──[hangup]──► Idle
 ```
 
-`SimulatedModem.Dial()` currently uses sequential `BlockFor` calls for each phase.
-Target: each phase transition is a `Modem` event on `KernelEventQueue`.
+`SimulatedModem.Dial()` now uses `uow.ScheduleOutput()` to emit each phase
+with appropriate delays. Each line arrives with realistic spacing instead of
+all at once. The dial sequence:
+1. ATH0 reset line (immediate, 0ms)
+2. OK response (200ms after reset)
+3. ATDT phone number command (100ms after OK)
+4. DIALING... notification (300ms after command)
+5. RINGING feedback (800ms + modem-speed factor)
+6. CONNECT handshake (1200ms to 2200ms depending on baud rate)
 
 **Latency sources:**
-- 2400 baud modem: ~240 bytes/s
-- Each ping packet: ~200ms round-trip (dial-up era)
-- Timeout: 1200ms (standard ICMP timeout)
+- Hayes AT modem: 2400 baud typical (1991)
+- Handshake time: scales with baud (3500ms @ 300 baud, 800ms @ 2400 baud)
+- Phone book: checks known hosts for reachability
+- Unknown hosts: synthesized phone number from IP octets for realism
+
+**Implementation:**
+- `IModem.Dial()` signature changed to accept `IUnitOfWork` instead of `TextWriter`
+- `SimulatedModem.Dial()` schedules each line via `uow.ScheduleOutput(text, delayMs)`
+- `FtpApplication.HandleOpen()` updated to pass `uow` instead of `uow.Out`
+- Modem state (Connected) still tracked via `_connected` boolean
 
 ### 5.3 Network packet queue
 

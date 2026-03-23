@@ -116,7 +116,7 @@ internal sealed class FtpApplication : IKernelApplication
         }
 
         // Modem dial sequence before the FTP handshake
-        if (!uow.Modem.Dial(ip, uow.Out))
+        if (!uow.Modem.Dial(uow, ip))
         {
             uow.Out.WriteLine($"ftp: {host}: Connection timed out");
             return;

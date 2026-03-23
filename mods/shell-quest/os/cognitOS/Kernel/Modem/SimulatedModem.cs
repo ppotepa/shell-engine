@@ -1,10 +1,11 @@
 namespace CognitOS.Kernel.Modem;
 
+using CognitOS.Framework.Kernel;
 using CognitOS.Kernel.Hardware;
 
 /// <summary>
 /// Simulated Hayes AT modem. Writes a realistic dial sequence to the caller's
-/// output writer, then signals connected/no-carrier.
+/// UoW (replacing sequential BlockFor calls with scheduled output).
 ///
 /// Phone book: maps known IP addresses to dialup numbers.
 /// In September 1991, nic.funet.fi was reachable by modem from Helsinki.
@@ -30,7 +31,7 @@ internal sealed class SimulatedModem : IModem
         _hw = hw;
     }
 
-    public bool Dial(string host, System.IO.TextWriter output)
+    public bool Dial(IUnitOfWork uow, string host)
     {
         if (_connected)
             return true;
@@ -44,29 +45,22 @@ internal sealed class SimulatedModem : IModem
 
         var baudLabel = BaudLabel(_hw.Spec.ModemBaud);
 
-        // Hayes AT command sequence ────────────────────────────────────────
-        output.WriteLine("ATH0");
-        _hw.BlockFor(200);
-        output.WriteLine("OK");
-        _hw.BlockFor(100);
-
-        output.WriteLine($"ATDT {number}");
-        _hw.BlockFor(300);
+        // Hayes AT command sequence with realistic delays ────────────────────────
+        uow.ScheduleOutput("ATH0", 0);
+        uow.ScheduleOutput("OK", 200);
+        uow.ScheduleOutput($"ATDT {number}", 100);
+        uow.ScheduleOutput("DIALING...", 300);
 
         // Dialing tones
-        output.WriteLine("DIALING...");
-        _hw.BlockFor((long)(800 + _hw.Spec.ModemBaud / 4.0));
-
-        // Ring
-        output.WriteLine("RINGING");
-        _hw.BlockFor(1200);
+        double dialingMs = 800 + _hw.Spec.ModemBaud / 4.0;
+        uow.ScheduleOutput("RINGING", (ulong)dialingMs);
 
         // Check if the host is actually reachable (phone book is the authority for modem dial)
         bool reachable = PhoneBook.ContainsKey(host);
         if (!reachable)
         {
-            output.WriteLine("NO CARRIER");
-            output.WriteLine();
+            uow.ScheduleOutput("NO CARRIER", 1200);
+            uow.ScheduleOutput("", 100);
             return false;
         }
 
@@ -74,8 +68,7 @@ internal sealed class SimulatedModem : IModem
         double handshakeMs = 3500.0 - (_hw.Spec.ModemBaud / 2400.0) * 400.0;
         handshakeMs = Math.Max(800, handshakeMs);
 
-        output.WriteLine("CONNECT " + baudLabel);
-        _hw.BlockFor((long)handshakeMs);
+        uow.ScheduleOutput("CONNECT " + baudLabel, (ulong)handshakeMs);
 
         _connected = true;
         return true;
