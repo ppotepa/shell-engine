@@ -3,7 +3,7 @@
 use engine_core::logging;
 use serde::Serialize;
 use std::env;
-use std::io::{self, BufWriter, Write};
+use std::io::{self, BufRead, BufWriter, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -45,6 +45,14 @@ impl StdIoSoundBackend {
         })
     }
 
+    /// Returns the PID of the sound-server child process (for diagnostics).
+    pub fn pid(&self) -> u32 {
+        self.client
+            .lock()
+            .map(|c| c.child.id())
+            .unwrap_or(0)
+    }
+
     fn log_once(&self, message: &str) {
         if !self.failed.swap(true, Ordering::Relaxed) {
             logging::warn("engine.audio", message);
@@ -57,6 +65,10 @@ impl StdIoSoundBackend {
 
 impl AudioBackend for StdIoSoundBackend {
     fn play(&mut self, command: &AudioCommand) {
+        logging::debug(
+            "engine.audio",
+            format!("dispatching cue='{}' volume={:?}", command.cue, command.volume),
+        );
         let mut client = match self.client.lock() {
             Ok(client) => client,
             Err(_) => {
@@ -97,14 +109,52 @@ impl SoundServerClient {
             .arg("-lc")
             .arg(&shell_command)
             .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()?;
 
         let stdin = child
             .stdin
             .take()
             .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "missing child stdin"))?;
+
+        // Route child stderr to engine logging on a background thread.
+        if let Some(stderr) = child.stderr.take() {
+            std::thread::Builder::new()
+                .name("sound-server-stderr".into())
+                .spawn(move || {
+                    let reader = io::BufReader::new(stderr);
+                    for line in reader.lines() {
+                        match line {
+                            Ok(line) if !line.is_empty() => {
+                                logging::info("sound-server", &line);
+                            }
+                            Err(_) => break,
+                            _ => {}
+                        }
+                    }
+                })
+                .ok();
+        }
+
+        // Route child stdout (ack responses) to engine logging on a background thread.
+        if let Some(stdout) = child.stdout.take() {
+            std::thread::Builder::new()
+                .name("sound-server-stdout".into())
+                .spawn(move || {
+                    let reader = io::BufReader::new(stdout);
+                    for line in reader.lines() {
+                        match line {
+                            Ok(line) if !line.is_empty() => {
+                                logging::debug("sound-server.ack", &line);
+                            }
+                            Err(_) => break,
+                            _ => {}
+                        }
+                    }
+                })
+                .ok();
+        }
 
         Ok(Self {
             child,
@@ -182,17 +232,25 @@ impl AudioRuntime {
     /// Creates an audio runtime from explicit launch options.
     pub fn from_options(enabled: bool, command: Option<String>, mod_source: &str) -> Self {
         if !enabled && command.is_none() {
+            logging::info(
+                "engine.audio",
+                "audio disabled (pass --sound-server to enable)",
+            );
             return Self::null();
         }
         let assets_root = format!("{}/assets", mod_source.trim_end_matches('/'));
         let command = command.unwrap_or_else(|| {
-            format!("cargo run -p sound-server --quiet -- --assets-root {assets_root} --verbose")
+            format!("cargo run -p sound-server --quiet -- --assets-root {assets_root} --verbose --ack")
         });
+        logging::info(
+            "engine.audio",
+            format!("spawning sound-server: {command}"),
+        );
         match StdIoSoundBackend::spawn(command.clone()) {
             Ok(backend) => {
                 logging::info(
                     "engine.audio",
-                    format!("external sound-server backend enabled: command='{command}'"),
+                    format!("sound-server process spawned (pid={})", backend.pid()),
                 );
                 Self::with_backend(Box::new(backend))
             }
