@@ -183,7 +183,7 @@ impl AudioRuntime {
         if !enabled && command.is_none() {
             return Self::null();
         }
-        let command = command.unwrap_or_else(|| "cargo run -p sound-server --quiet --".to_string());
+        let command = command.unwrap_or_else(|| "cargo run -p sound-server --quiet -- --assets-root assets --verbose".to_string());
         match StdIoSoundBackend::spawn(command.clone()) {
             Ok(backend) => {
                 logging::info(
