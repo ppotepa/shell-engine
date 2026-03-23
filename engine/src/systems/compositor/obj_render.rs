@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 
 use crossterm::style::Color;
+use rayon::prelude::*;
 
 use crate::assets::AssetRoot;
 use crate::buffer::Buffer;
@@ -219,14 +220,17 @@ pub(crate) fn render_obj_to_canvas(
         max_x: viewport.max_x,
         max_y: viewport.max_y.min(clip_row_max),
     };
+    // Parallel vertex projection: each vertex is independent.
+    // Significant win for large meshes (>1K vertices).
+    let center = mesh.center;
     let projected: Vec<Option<ProjectedVertex>> = mesh
         .vertices
-        .iter()
+        .par_iter()
         .map(|v| {
             let centered = [
-                (v[0] - mesh.center[0]) * model_scale,
-                (v[1] - mesh.center[1]) * model_scale,
-                (v[2] - mesh.center[2]) * model_scale,
+                (v[0] - center[0]) * model_scale,
+                (v[1] - center[1]) * model_scale,
+                (v[2] - center[2]) * model_scale,
             ];
             let rotated = rotate_xyz(centered, pitch, yaw, roll);
             // Apply camera pan: shift the scene in view-space (equivalent to moving camera).
@@ -326,7 +330,6 @@ pub(crate) fn render_obj_to_canvas(
             taken.resize(canvas_size, f32::INFINITY);
             taken
         });
-        let mut drawn_faces = 0usize;
         // Pre-compute normalized light directions once per render (not per face).
         let light_dir_norm = normalize3([params.light_direction_x, params.light_direction_y, params.light_direction_z]);
         let light_2_dir_norm = normalize3([params.light_2_direction_x, params.light_2_direction_y, params.light_2_direction_z]);
@@ -342,79 +345,88 @@ pub(crate) fn render_obj_to_canvas(
             b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        for &(_, face) in &sorted_faces {
-            if drawn_faces > 20_000 {
-                break;
-            }
-            let Some(v0) = projected.get(face.indices[0]).and_then(|p| *p) else {
-                continue;
-            };
-            let Some(v1) = projected.get(face.indices[1]).and_then(|p| *p) else {
-                continue;
-            };
-            let Some(v2) = projected.get(face.indices[2]).and_then(|p| *p) else {
-                continue;
-            };
-            // Back-face culling: skip faces whose screen-space winding is clockwise.
-            // Opt-in via `backface-cull: true` in YAML; disabled by default for OBJ
-            // files with inconsistent winding.
-            if backface_cull {
-                let screen_area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
-                if screen_area < 0.0 {
-                    continue;
-                }
-            }
-            let shading = face_shading_with_specular(
-                v0.view,
-                v1.view,
-                v2.view,
-                face.ka,
-                face.ks,
-                face.ns,
-                light_dir_norm,
-                light_2_dir_norm,
-                params.light_2_intensity,
-                [light_1_x, params.light_point_y, light_1_z],
-                params.light_point_intensity * point_1_flicker,
-                [
-                    light_2_x,
-                    params.light_point_2_y,
-                    light_2_z,
-                ],
-                params.light_point_2_intensity * point_2_flicker,
-                params.cel_levels,
-                params.tone_mix,
-            );
-            let shaded_base = apply_shading(face.color, shading.0);
-            let toned_color = apply_tone_palette(
-                shaded_base,
-                shading.1,
-                params.shadow_colour,
-                params.midtone_colour,
-                params.highlight_colour,
-                params.tone_mix,
-            );
-            let shaded_color = apply_point_light_tint(
-                toned_color,
-                params.light_point_colour,
-                shading.2,
-                params.light_point_2_colour,
-                shading.3,
-            );
+        // Parallel shading: compute face color for each visible face independently.
+        // Rasterization must remain sequential (shared canvas/depth writes with depth sort).
+        let face_limit = sorted_faces.len().min(20_000);
+        let light_point_y = params.light_point_y;
+        let light_point_2_y = params.light_point_2_y;
+        let light_2_intensity = params.light_2_intensity;
+        let light_point_intensity = params.light_point_intensity;
+        let light_point_2_intensity = params.light_point_2_intensity;
+        let cel_levels = params.cel_levels;
+        let tone_mix = params.tone_mix;
+        let shadow_colour = params.shadow_colour;
+        let midtone_colour = params.midtone_colour;
+        let highlight_colour = params.highlight_colour;
+        let light_point_colour = params.light_point_colour;
+        let light_point_2_colour = params.light_point_2_colour;
+
+        // Phase 1 (parallel): filter visible faces and compute shaded colors.
+        let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
+            sorted_faces[..face_limit]
+                .par_iter()
+                .filter_map(|(_, face)| {
+                    let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
+                    let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
+                    let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
+                    // Back-face culling check
+                    if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
+                        return None;
+                    }
+                    let shading = face_shading_with_specular(
+                        v0.view,
+                        v1.view,
+                        v2.view,
+                        face.ka,
+                        face.ks,
+                        face.ns,
+                        light_dir_norm,
+                        light_2_dir_norm,
+                        light_2_intensity,
+                        [light_1_x, light_point_y, light_1_z],
+                        light_point_intensity * point_1_flicker,
+                        [light_2_x, light_point_2_y, light_2_z],
+                        light_point_2_intensity * point_2_flicker,
+                        cel_levels,
+                        tone_mix,
+                    );
+                    let shaded_base = apply_shading(face.color, shading.0);
+                    let toned_color = apply_tone_palette(
+                        shaded_base,
+                        shading.1,
+                        shadow_colour,
+                        midtone_colour,
+                        highlight_colour,
+                        tone_mix,
+                    );
+                    let shaded_color = apply_point_light_tint(
+                        toned_color,
+                        light_point_colour,
+                        shading.2,
+                        light_point_2_colour,
+                        shading.3,
+                    );
+                    Some((v0, v1, v2, shaded_color))
+                })
+                .collect();
+
+        // Phase 2 (sequential): rasterize in depth-sorted order.
+        // Canvas and depth buffer require exclusive access with correct ordering.
+        for (v0, v1, v2, shaded_color) in &shaded_faces {
             rasterize_triangle(
                 &mut canvas,
                 &mut depth,
                 virtual_w,
                 virtual_h,
-                v0,
-                v1,
-                v2,
-                shaded_color,
+                *v0,
+                *v1,
+                *v2,
+                *shaded_color,
                 clipped_viewport.min_y,
                 clipped_viewport.max_y,
             );
-            drawn_faces += 1;
         }
+        let drawn_faces = shaded_faces.len();
 
         // Fallback if model has no valid faces/materials.
         if drawn_faces == 0 {
