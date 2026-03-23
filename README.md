@@ -1,10 +1,18 @@
 # Shell Quest - Inspired by One Lone Coder https://www.youtube.com/javidx9
-status : 22-03-2026 
+
+status : 22-03-2026
+
 plot : started doing some plot/script related work, digging some internet, trying to make it as immersive as possible by looking up as many historical details
 eastereggs: ;)
 
 **optimizations** : rendering optimizations, there are no regressions that are related to 3d drawing itself, currently the optimizations are my primary focus, 
 some stuff is not rendered properly as im reworking the PRERENDERING pipelines
+
+**gpu and paralelization** will be trying to offload as much work as possible to GPU and possibly paralelize few areas, currently we are single CPU bound with
+little to ono optimizations so every time we render to terminal this is just costy as terminal is just another layer we have to translate into"
+
+**effects and shaders** since it was solely a proof of concept from the start this is another costy feature, that requires a lot of optimization possibly prerendering too, 
+im fairly satisfided with how it all aligns so far, but starting kind of to regret not sticking with gpu accel from the start
 
 **postfx**: a lot of focus went into finding and researching the CRT look and feel, as most of the game is aiming to be set withing the terminal  it is a key POSTFX
 
