@@ -38,19 +38,49 @@ internal static class EasterEggOutput
             }
             else if (inStats)
             {
-                // Subsequent stats lines: immediate
+                // Subsequent stats lines: immediate (grouped together)
                 uow.ScheduleOutput(line, 0);
             }
             else if (line.StartsWith("Request timeout"))
             {
+                // Timeout waits the full 1200ms simulated probe window
                 uow.ScheduleOutput(line, 1200);
             }
             else
             {
-                // Normal reply or other mid-ping line
-                uow.ScheduleOutput(line, 200);
+                // Use the RTT from the line text as the animation delay so fast hosts
+                // feel fast and slow hosts feel slow. Floor at 80ms so loopback/LAN
+                // responses still have a visible beat; cap at 1200ms.
+                uow.ScheduleOutput(line, ExtractReplyDelay(line));
             }
         }
+    }
+
+    /// <summary>
+    /// Parse time=Xms from a ping reply line and return a clamped animation delay.
+    /// Returns 200ms if the pattern is absent or the value is non-positive (spooky hosts).
+    /// </summary>
+    private static ulong ExtractReplyDelay(string line)
+    {
+        const ulong MinDelay  = 80;
+        const ulong MaxDelay  = 1200;
+        const ulong FallbackDelay = 200;
+
+        var idx = line.IndexOf("time=", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return FallbackDelay;
+
+        var after = line.AsSpan(idx + 5);
+        int end = 0;
+        // Accept digits, dot, and minus (for spooky negative RTT hosts)
+        while (end < after.Length && (char.IsDigit(after[end]) || after[end] == '.' || after[end] == '-'))
+            end++;
+
+        if (end == 0 || !double.TryParse(after[..end], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var ms))
+            return FallbackDelay;
+
+        if (ms <= 0) return MinDelay; // negative/zero RTT (spooky hosts) — still show with a beat
+        return (ulong)Math.Clamp(ms, MinDelay, MaxDelay);
     }
 
     private static IOutputSink ResolveSink(System.IO.TextWriter writer)

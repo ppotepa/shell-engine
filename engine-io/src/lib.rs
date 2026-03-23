@@ -53,7 +53,7 @@ pub enum IoEvent {
     /// Engine queues this and displays after delay for realistic timing simulation.
     EmitLine {
         text: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "delay_ms", skip_serializing_if = "Option::is_none")]
         delay_ms: Option<u64>,
     },
     Clear,
