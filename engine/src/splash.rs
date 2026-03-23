@@ -1,8 +1,9 @@
 //! Engine splash screen — shown once before the mod game loop starts.
 //!
 //! Displays the embedded Cognitos logo centered on the terminal. The splash
-//! always starts on a white background, then fades out to the entry scene
-//! background colour.
+//! starts on a black background with the logo rendered in white, then fades
+//! out to the entry scene background colour. When audio is enabled, plays
+//! a short jingle alongside the visual.
 
 use std::io::{self, Write};
 use std::time::Duration;
@@ -11,6 +12,7 @@ use crossterm::{cursor, queue, style, terminal};
 use image::load_from_memory;
 
 const SPLASH_PNG: &[u8] = include_bytes!("../assets/cognitos_splash.png");
+const SPLASH_WAV: &[u8] = include_bytes!("../assets/daisy-short.wav");
 const ALPHA_THRESHOLD: u8 = 16;
 
 const HOLD_MS: u64 = 900;
@@ -20,12 +22,43 @@ const FADE_STEPS: u16 = 12;
 /// Display the Cognitos engine logo centered on the terminal.
 ///
 /// Must be called after the alternate screen has been entered and the console
-/// cleared. This blocks the calling thread for ~1.5s.
-pub fn show_splash(target_bg: style::Color) {
+/// cleared. This blocks the calling thread for ~1.5s. When `audio` is true,
+/// plays a short jingle in a background thread.
+pub fn show_splash(target_bg: style::Color, audio: bool) {
+    if audio {
+        start_splash_audio();
+    }
     if let Err(e) = try_show_splash(target_bg) {
-        // Non-fatal — if splash fails, skip silently.
         crate::logging::warn("engine.splash", format!("splash display skipped: {e}"));
     }
+}
+
+/// Plays the embedded splash jingle in a detached thread so playback continues
+/// beyond the blocking splash hold/fade without leaking resources.
+fn start_splash_audio() {
+    use rodio::{Decoder, OutputStream, Sink};
+
+    std::thread::Builder::new()
+        .name("splash-audio".into())
+        .spawn(|| {
+            let Ok((_stream, handle)) = OutputStream::try_default() else {
+                crate::logging::warn("engine.splash", "cannot open audio device for splash jingle");
+                return;
+            };
+            let cursor = std::io::Cursor::new(SPLASH_WAV);
+            let Ok(source) = Decoder::new(cursor) else {
+                crate::logging::warn("engine.splash", "cannot decode splash WAV");
+                return;
+            };
+            let Ok(sink) = Sink::try_new(&handle) else {
+                crate::logging::warn("engine.splash", "cannot create splash audio sink");
+                return;
+            };
+            sink.set_volume(0.7);
+            sink.append(source);
+            sink.sleep_until_end();
+        })
+        .ok();
 }
 
 fn try_show_splash(target_bg: style::Color) -> io::Result<()> {
@@ -36,15 +69,14 @@ fn try_show_splash(target_bg: style::Color) -> io::Result<()> {
     let (term_w, term_h) = terminal::size()?;
     let (render_cols, render_rows) = fit_logo(img.width(), img.height(), term_w, term_h);
 
-    // Fill full screen white regardless of logo fit (requirement: white background).
-    let white = style::Color::White;
+    let black = style::Color::Black;
     let mut stdout = io::stdout();
-    fill_solid(&mut stdout, term_w, term_h, white)?;
+    fill_solid(&mut stdout, term_w, term_h, black)?;
 
     if render_cols == 0 || render_rows == 0 {
         stdout.flush()?;
         std::thread::sleep(Duration::from_millis(HOLD_MS));
-        fade_to_bg(&mut stdout, term_w, term_h, white, target_bg)?;
+        fade_to_bg(&mut stdout, term_w, term_h, black, target_bg)?;
         return Ok(());
     }
 
@@ -58,17 +90,17 @@ fn try_show_splash(target_bg: style::Color) -> io::Result<()> {
         origin_y,
         render_cols,
         render_rows,
-        white,
+        black,
         1.0,
     )?;
     stdout.flush()?;
 
     std::thread::sleep(Duration::from_millis(HOLD_MS));
 
-    // Fade out: both the background (white -> target) and the logo (alpha -> 0).
+    // Fade out: background (black -> target) and logo (alpha -> 0).
     for step in 0..=FADE_STEPS {
         let t = step as f32 / FADE_STEPS.max(1) as f32;
-        let bg = lerp_colour(white, target_bg, t);
+        let bg = lerp_colour(black, target_bg, t);
         let fade = (1.0 - t).clamp(0.0, 1.0);
 
         fill_solid(&mut stdout, term_w, term_h, bg)?;
@@ -190,7 +222,8 @@ fn composite_pixel(pixel: [u8; 4], bg: (u8, u8, u8), fade: f32) -> (bool, (u8, u
         return (false, bg);
     }
     let alpha = (a / 255.0).clamp(0.0, 1.0);
-    let src = (pixel[0], pixel[1], pixel[2]);
+    // Force logo to white regardless of source pixel colour.
+    let src = (255u8, 255u8, 255u8);
     (true, blend(bg, src, alpha))
 }
 

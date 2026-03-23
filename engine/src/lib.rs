@@ -190,7 +190,7 @@ impl ShellEngine {
             .map(crossterm::style::Color::from)
             .unwrap_or(crossterm::style::Color::Black);
         if !self.config.skip_splash {
-            splash::show_splash(splash_bg);
+            splash::show_splash(splash_bg, self.config.audio);
         }
         world.register(renderer);
 
