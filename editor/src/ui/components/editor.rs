@@ -15,7 +15,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
         .file
         .as_ref()
         .map(|f| format!("Editing: {}", f))
-        .unwrap_or_else(|| "Editor".to_string());
+        .unwrap_or_else(|| String::from("Editor"));
 
     let lines: Vec<Line> = app
         .editor

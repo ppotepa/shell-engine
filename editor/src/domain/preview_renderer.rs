@@ -54,7 +54,7 @@ pub fn render_scene_buffer(req: PreviewRenderRequest<'_>) -> Result<Buffer, Stri
     world
         .get::<Buffer>()
         .cloned()
-        .ok_or_else(|| "Preview render did not produce a buffer".to_string())
+        .ok_or_else(|| String::from("Preview render did not produce a buffer"))
 }
 
 pub fn buffer_to_lines(buffer: &Buffer) -> Vec<Line<'static>> {

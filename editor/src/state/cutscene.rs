@@ -24,20 +24,20 @@ impl AppState {
         self.cutscene.validation_error = None;
 
         if self.mod_source.is_empty() {
-            self.cutscene.source_dir = "assets/raw".to_string();
-            self.cutscene.validation_error = Some("Open a mod project first.".to_string());
+            self.cutscene.source_dir = String::from("assets/raw");
+            self.cutscene.validation_error = Some(String::from("Open a mod project first."));
             return;
         }
 
         let source_dir = Path::new(&self.mod_source).join("assets/raw");
         self.cutscene.source_dir = source_dir.display().to_string();
         if !source_dir.exists() {
-            self.cutscene.validation_error = Some("Missing folder: assets/raw".to_string());
+            self.cutscene.validation_error = Some(String::from("Missing folder: assets/raw"));
             return;
         }
         if !source_dir.is_dir() {
             self.cutscene.validation_error =
-                Some("assets/raw exists but is not a directory".to_string());
+                Some(String::from("assets/raw exists but is not a directory"));
             return;
         }
 
@@ -93,7 +93,7 @@ impl AppState {
 
         if read_failed {
             self.cutscene.validation_error =
-                Some("Could not read some files from assets/raw".to_string());
+                Some(String::from("Could not read some files from assets/raw"));
             return;
         }
 
@@ -168,7 +168,7 @@ impl AppState {
             return format!("Cutscene Maker: invalid source ({err})");
         }
         if self.cutscene.frames.is_empty() {
-            "Cutscene Maker: no frames detected in assets/raw".to_string()
+            String::from("Cutscene Maker: no frames detected in assets/raw")
         } else {
             format!(
                 "Cutscene Maker: {} frame(s) ready | default {}ms/frame",

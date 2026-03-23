@@ -11,7 +11,7 @@ impl AppState {
     pub(super) fn enter_edit_mode(&mut self) {
         if let Some(item) = self.selected_tree_item() {
             let file_path = match item {
-                TreeItem::ModYaml => Some("mod.yaml".to_string()),
+                TreeItem::ModYaml => Some(String::from("mod.yaml")),
                 TreeItem::Scene(path) => Some(path.clone()),
                 TreeItem::Image(path) => Some(path.clone()),
                 TreeItem::Font(path) => Some(path.clone()),

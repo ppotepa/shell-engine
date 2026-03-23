@@ -67,8 +67,7 @@ pub struct ShellEngine {
 pub struct EngineConfig {
     pub renderer_mode: Option<String>,
     pub debug_feature: bool,
-    pub sound_server: bool,
-    pub sound_server_cmd: Option<String>,
+    pub audio: bool,
     /// Override the mod's entrypoint — jump straight to this scene path.
     pub start_scene: Option<String>,
     /// Skip the engine splash screen on startup.
@@ -118,11 +117,11 @@ impl ShellEngine {
         logging::info(
             "engine.run",
             format!(
-                "starting engine run: mod_source={} entrypoint={} dev={} sound_server={}",
+                "starting engine run: mod_source={} entrypoint={} dev={} audio={}",
                 self.mod_source.display(),
                 entrypoint,
                 self.config.debug_feature,
-                self.config.sound_server
+                self.config.audio
             ),
         );
 
@@ -160,8 +159,7 @@ impl ShellEngine {
         world.register(EventQueue::new());
         world.register(buffer::Buffer::new(term_w, term_h));
         world.register(audio::AudioRuntime::from_options(
-            self.config.sound_server,
-            self.config.sound_server_cmd.clone(),
+            self.config.audio,
             &self.mod_source.to_string_lossy(),
         ));
         world.register(runtime_settings);

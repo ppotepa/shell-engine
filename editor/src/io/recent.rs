@@ -6,7 +6,7 @@ use std::path::PathBuf;
 const MAX_RECENT: usize = 12;
 
 fn recent_file() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let home = std::env::var("HOME").unwrap_or_else(|_| String::from("."));
     PathBuf::from(home)
         .join(".config")
         .join("sq-editor")

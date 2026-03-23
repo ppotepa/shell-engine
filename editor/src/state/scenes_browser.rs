@@ -57,15 +57,15 @@ impl AppState {
 
     pub(super) fn scene_browser_status_message(&self) -> String {
         if self.index.scenes.scene_paths.is_empty() {
-            return "Scenes Browser: no discoverable scenes found".to_string();
+            return String::from("Scenes Browser: no discoverable scenes found");
         }
         let scene_name = self
             .selected_scene_display_name()
-            .unwrap_or_else(|| "<unknown-scene>".to_string());
+            .unwrap_or_else(|| String::from("<unknown-scene>"));
         let scene_path = self
             .selected_scene_path()
             .map(|path| self.normalize_scene_ref_path(path))
-            .unwrap_or_else(|| "<none>".to_string());
+            .unwrap_or_else(|| String::from("<none>"));
         format!(
             "Scenes Browser: F5 soft-run | F6 run | scene={} | path={} | mod={}",
             scene_name, scene_path, self.mod_source
@@ -83,9 +83,9 @@ impl AppState {
         }
         self.scenes.scene_preview_fullscreen_hold = enabled;
         if enabled {
-            self.status = "Scenes Browser: fullscreen hold (release F to exit)".to_string();
+            self.status = String::from("Scenes Browser: fullscreen hold (release F to exit)");
         } else if self.scenes.scene_preview_fullscreen_toggle {
-            self.status = "Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)".to_string();
+            self.status = String::from("Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)");
         } else {
             self.status = self.scene_browser_status_message();
         }
@@ -98,9 +98,9 @@ impl AppState {
         self.scenes.scene_preview_fullscreen_toggle = !self.scenes.scene_preview_fullscreen_toggle;
         self.scenes.scene_preview_fullscreen_hold = false;
         self.status = if self.scenes.scene_preview_fullscreen_toggle {
-            "Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)".to_string()
+            String::from("Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)")
         } else {
-            "Scenes Browser: fullscreen toggle OFF".to_string()
+            String::from("Scenes Browser: fullscreen toggle OFF")
         };
     }
 

@@ -46,13 +46,13 @@ impl AppState {
             ),
         );
         if self.mod_source.is_empty() {
-            self.status = "Scene Run: open a mod project first".to_string();
+            self.status = String::from("Scene Run: open a mod project first");
             logging::warn("editor.scene-run", "start rejected: no open mod project");
             return;
         }
 
         let Some(scene_path) = self.selected_scene_path().map(str::to_string) else {
-            self.status = "Scene Run: no scene selected".to_string();
+            self.status = String::from("Scene Run: no scene selected");
             logging::warn("editor.scene-run", "start rejected: no selected scene");
             return;
         };
@@ -128,7 +128,7 @@ impl AppState {
         if self.sidebar.active == SidebarItem::Scenes {
             self.status = self.scene_browser_status_message();
         } else {
-            self.status = "Scene Run stopped".to_string();
+            self.status = String::from("Scene Run stopped");
         }
     }
 
@@ -347,6 +347,6 @@ fn preferred_scene_name(scene: &Scene) -> String {
     } else if !scene.id.trim().is_empty() {
         scene.id.clone()
     } else {
-        "<scene>".to_string()
+        String::from("<scene>")
     }
 }

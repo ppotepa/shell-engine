@@ -27,12 +27,9 @@ struct Cli {
     /// Backward-compatible alias for `--dev`.
     #[arg(long = "debug-feature", hide = true)]
     debug_feature: bool,
-    /// Enable external sound server integration (audio commands over stdin/stdout JSONL).
-    #[arg(long = "sound-server")]
-    sound_server: bool,
-    /// Override shell command used to spawn the sound server process.
-    #[arg(long = "sound-server-cmd")]
-    sound_server_cmd: Option<String>,
+    /// Enable audio playback (uses system audio device via rodio).
+    #[arg(long = "audio")]
+    audio: bool,
     /// Force-enable run logging (also enabled by default in debug builds).
     #[arg(long = "logs")]
     logs: bool,
@@ -56,7 +53,7 @@ fn main() {
     let logs_enabled = resolve_logs_enabled(&cli);
 
     match logging::init_run_logger(logging::RunLoggerConfig {
-        app_name: "app".to_string(),
+        app_name: String::from("app"),
         enabled: logs_enabled,
         root_dir: cli.log_root.clone().map(PathBuf::from),
     }) {
@@ -83,18 +80,16 @@ fn main() {
     let config = EngineConfig {
         renderer_mode: cli.renderer_mode,
         debug_feature,
-        sound_server: cli.sound_server,
-        sound_server_cmd: cli.sound_server_cmd,
+        audio: cli.audio,
         start_scene: cli.start_scene,
         skip_splash: cli.skip_splash,
     };
     logging::debug(
         "app.main",
         format!(
-            "engine config: dev={} sound_server={} sound_server_cmd={}",
+            "engine config: dev={} audio={}",
             config.debug_feature,
-            config.sound_server,
-            config.sound_server_cmd.as_deref().unwrap_or("<default>")
+            config.audio,
         ),
     );
 

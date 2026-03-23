@@ -222,11 +222,11 @@ fn build_preview_scene_doc(
     let placement = choose_preview_placement(effect_name);
     let effect = build_effect_value(effect_name, params, placement.target_kind());
     PreviewSceneDoc {
-        id: "effect_preview".to_string(),
-        title: "Effect Preview".to_string(),
+        id: String::from("effect_preview"),
+        title: String::from("Effect Preview"),
         cutscene: false,
-        rendered_mode: "halfblock".to_string(),
-        bg_colour: "black".to_string(),
+        rendered_mode: String::from("halfblock"),
+        bg_colour: String::from("black"),
         stages: PreviewStages {
             on_idle: build_stage(placement == PreviewPlacement::Scene, &effect),
         },
@@ -290,24 +290,24 @@ fn build_preview_layer(
         let layout = PreviewLayout::for_viewport(viewport_w, viewport_h);
         vec![
             PreviewSprite::Image {
-                id: "penguin".to_string(),
-                source: "/assets/images/tux.png".to_string(),
+                id: String::from("penguin"),
+                source: String::from("/assets/images/tux.png"),
                 width: layout.penguin_width,
                 height: layout.penguin_height * 2,
-                align_x: "center".to_string(),
-                align_y: "center".to_string(),
+                align_x: String::from("center"),
+                align_y: String::from("center"),
                 y: (layout.penguin_offset_y * 2) as i32,
                 stages: PreviewStages {
                     on_idle: build_stage(placement == PreviewPlacement::PenguinSprite, &effect),
                 },
             },
             PreviewSprite::Text {
-                id: "caption".to_string(),
-                content: "SHELL QUEST".to_string(),
-                align_x: "center".to_string(),
-                align_y: "center".to_string(),
+                id: String::from("caption"),
+                content: String::from("SHELL QUEST"),
+                align_x: String::from("center"),
+                align_y: String::from("center"),
                 y: (layout.caption_offset_y * 2) as i32,
-                fg_colour: "white".to_string(),
+                fg_colour: String::from("white"),
                 stages: PreviewStages {
                     on_idle: build_stage(placement == PreviewPlacement::CaptionSprite, &effect),
                 },
@@ -316,7 +316,7 @@ fn build_preview_layer(
     };
 
     PreviewLayer {
-        name: "preview".to_string(),
+        name: String::from("preview"),
         z_index: 0,
         visible: true,
         stages: PreviewStages {
@@ -447,16 +447,16 @@ fn easing_name(easing: &Easing) -> &'static str {
 
 fn colour_name(colour: &engine_core::scene::TermColour) -> String {
     match colour {
-        engine_core::scene::TermColour::Black => "black".to_string(),
-        engine_core::scene::TermColour::White => "white".to_string(),
-        engine_core::scene::TermColour::Silver => "silver".to_string(),
-        engine_core::scene::TermColour::Gray => "gray".to_string(),
-        engine_core::scene::TermColour::Red => "red".to_string(),
-        engine_core::scene::TermColour::Green => "green".to_string(),
-        engine_core::scene::TermColour::Blue => "blue".to_string(),
-        engine_core::scene::TermColour::Yellow => "yellow".to_string(),
-        engine_core::scene::TermColour::Cyan => "cyan".to_string(),
-        engine_core::scene::TermColour::Magenta => "magenta".to_string(),
+        engine_core::scene::TermColour::Black => String::from("black"),
+        engine_core::scene::TermColour::White => String::from("white"),
+        engine_core::scene::TermColour::Silver => String::from("silver"),
+        engine_core::scene::TermColour::Gray => String::from("gray"),
+        engine_core::scene::TermColour::Red => String::from("red"),
+        engine_core::scene::TermColour::Green => String::from("green"),
+        engine_core::scene::TermColour::Blue => String::from("blue"),
+        engine_core::scene::TermColour::Yellow => String::from("yellow"),
+        engine_core::scene::TermColour::Cyan => String::from("cyan"),
+        engine_core::scene::TermColour::Magenta => String::from("magenta"),
         engine_core::scene::TermColour::Rgb(r, g, b) => format!("#{r:02x}{g:02x}{b:02x}"),
     }
 }

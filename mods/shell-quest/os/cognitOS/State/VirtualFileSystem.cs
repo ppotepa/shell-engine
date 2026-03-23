@@ -33,8 +33,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     private const string HomeAbsolute = "/usr/torvalds";
 
     private readonly string _statePath;
-    private readonly Dictionary<string, string> _files = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _directories = new(StringComparer.Ordinal);
+    private FileSystemTrie _fs = new();
 
     public ZipVirtualFileSystem(string statePath)
     {
@@ -44,9 +43,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
 
     public void ReloadFromStateArchive()
     {
-        _files.Clear();
-        _directories.Clear();
-        _directories.Add("");
+        _fs = new FileSystemTrie();
 
         if (File.Exists(_statePath))
         {
@@ -62,16 +59,19 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
                     if (relative.Length == 0) continue;
 
                     if (entry.FullName.EndsWith("/", StringComparison.Ordinal))
-                        RegisterDirectory(relative);
+                        _fs.AddDirectory(relative);
                     else
-                        RegisterFile(relative, entry);
+                    {
+                        using var stream = entry.Open();
+                        using var reader = new StreamReader(stream);
+                        var content = reader.ReadToEnd();
+                        _fs.SetFile(relative, content);
+                    }
                 }
             }
             catch
             {
-                _files.Clear();
-                _directories.Clear();
-                _directories.Add("");
+                _fs = new FileSystemTrie();
             }
         }
 
@@ -90,38 +90,36 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     }
 
     public bool DirectoryExists(string path)
-        => _directories.Contains(Normalize(path));
+        => _fs.IsDirectory(Normalize(path));
 
     public IEnumerable<string> Ls(string? path)
     {
         var normalized = Normalize(path);
-        if (!_directories.Contains(normalized))
+        if (!_fs.IsDirectory(normalized))
             return Array.Empty<string>();
 
-        var items = new List<string>();
-        foreach (var dir in _directories)
-        {
-            if (dir.Length == 0 || !IsDirectChildOf(dir, normalized)) continue;
-            items.Add($"{SegmentName(dir)}/");
-        }
-        foreach (var file in _files.Keys)
-        {
-            if (IsDirectChildOf(file, normalized))
-                items.Add(SegmentName(file));
-        }
-
-        items.Sort(StringComparer.Ordinal);
-        return items;
+        return _fs.ListDirectory(normalized);
     }
 
     public bool TryCat(string target, out string content)
-        => _files.TryGetValue(Normalize(target), out content!);
+    {
+        var file = _fs.GetFile(Normalize(target));
+        if (file != null)
+        {
+            content = file;
+            return true;
+        }
+        content = "";
+        return false;
+    }
 
     public FileStat? GetStat(string path)
     {
         var normalized = Normalize(path);
-        bool isDir = _directories.Contains(normalized);
-        bool isFile = _files.ContainsKey(normalized);
+        bool isDir = _fs.IsDirectory(normalized);
+        var fileContent = _fs.GetFile(normalized);
+        bool isFile = fileContent != null;
+
         if (!isDir && !isFile) return null;
 
         var epoch = new DateTime(1991, 9, 17, 21, 0, 0);
@@ -163,7 +161,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
             if (normalized.StartsWith("etc/rc") || normalized.EndsWith(".sh"))
                 perms = "-rwxr-xr-x";
             links = 1;
-            size = _files[normalized].Length;
+            size = fileContent.Length;
         }
 
         return new FileStat(perms, links, owner, group, size, epoch);
@@ -172,14 +170,14 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     public bool TryCopy(string source, string dest, out string error)
     {
         var src = Normalize(source);
-        if (!_files.TryGetValue(src, out var content))
+        var content = _fs.GetFile(src);
+        if (content == null)
         {
             error = $"{source}: No such file or directory";
             return false;
         }
         var dst = Normalize(dest);
-        _files[dst] = content;
-        RegisterParentDirectories(dst);
+        _fs.SetFile(dst, content);
         error = "";
         return true;
     }
@@ -187,8 +185,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     public bool TryWrite(string path, string content, out string error)
     {
         var normalized = Normalize(path);
-        _files[normalized] = content;
-        RegisterParentDirectories(normalized);
+        _fs.SetFile(normalized, content);
         error = "";
         return true;
     }
@@ -197,7 +194,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     {
         var normalized = Normalize(path);
         if (normalized.Length == 0) { error = "invalid path"; return false; }
-        RegisterDirectory(normalized);
+        _fs.AddDirectory(normalized);
         error = "";
         return true;
     }
@@ -205,7 +202,7 @@ internal sealed class ZipVirtualFileSystem : IMutableFileSystem
     public bool TryDelete(string path)
     {
         var normalized = Normalize(path);
-        return _files.Remove(normalized);
+        return _fs.Delete(normalized);
     }
 
     /// <summary>
@@ -464,31 +461,23 @@ Sep 17 21:04:00 cron: /usr/lib/atrun", out _);
             var slash = parent.LastIndexOf('/');
             if (slash < 0) break;
             parent = parent[..slash];
-            _directories.Add(parent);
+            _fs.AddDirectory(parent);
         }
     }
 
     private void RegisterFile(string relativePath, ZipArchiveEntry entry)
     {
         var normalized = Normalize(relativePath);
-        RegisterParentDirectories(normalized);
         using var stream = entry.Open();
         using var reader = new StreamReader(stream);
-        _files[normalized] = reader.ReadToEnd();
+        _fs.SetFile(normalized, reader.ReadToEnd());
     }
 
     private void RegisterDirectory(string relativePath)
     {
         var normalized = Normalize(relativePath);
         if (normalized.Length == 0) return;
-
-        var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var current = "";
-        foreach (var part in parts)
-        {
-            current = current.Length == 0 ? part : $"{current}/{part}";
-            _directories.Add(current);
-        }
+        _fs.AddDirectory(normalized);
     }
 
     private static string Normalize(string? raw)

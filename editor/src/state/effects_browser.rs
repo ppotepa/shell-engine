@@ -112,9 +112,9 @@ impl AppState {
         self.sync_effect_param_cursor();
 
         self.status = if self.effects.effects_live_preview {
-            "Effects Browser: LIVE preview ON | Tab focus | ↑/↓ param | ←/→ adjust".to_string()
+            String::from("Effects Browser: LIVE preview ON | Tab focus | ↑/↓ param | ←/→ adjust")
         } else {
-            "Effects Browser: LIVE preview OFF | F enables live buffer preview".to_string()
+            String::from("Effects Browser: LIVE preview OFF | F enables live buffer preview")
         };
     }
 

@@ -100,7 +100,7 @@ impl AppState {
             "Detected file changes: project lists, previews, and editor buffer refreshed"
                 .to_string()
         } else {
-            "Detected file changes: project lists and previews refreshed".to_string()
+            String::from("Detected file changes: project lists and previews refreshed")
         };
         if self.sidebar.active == SidebarItem::Cutscene {
             self.status = self.cutscene_status_message();

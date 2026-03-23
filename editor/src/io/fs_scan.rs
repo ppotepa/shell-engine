@@ -48,7 +48,7 @@ pub fn validate_project_dir_with_manifest(
             ProjectValidation {
                 valid: false,
                 code: "E_MOD_MISSING",
-                message: "mod.yaml not found".to_string(),
+                message: String::from("mod.yaml not found"),
             },
         );
     }
@@ -59,7 +59,7 @@ pub fn validate_project_dir_with_manifest(
             ProjectValidation {
                 valid: false,
                 code: "E_MOD_READ",
-                message: "mod.yaml cannot be read".to_string(),
+                message: String::from("mod.yaml cannot be read"),
             },
         );
     };
@@ -70,7 +70,7 @@ pub fn validate_project_dir_with_manifest(
             ProjectValidation {
                 valid: false,
                 code: "E_MOD_PARSE",
-                message: "mod.yaml is not valid YAML".to_string(),
+                message: String::from("mod.yaml is not valid YAML"),
             },
         );
     };
@@ -97,7 +97,7 @@ pub fn validate_project_dir_with_manifest(
             ProjectValidation {
                 valid: false,
                 code: "E_MOD_FIELDS",
-                message: "required fields missing: name/version/entrypoint".to_string(),
+                message: String::from("required fields missing: name/version/entrypoint"),
             },
         );
     }
@@ -108,7 +108,7 @@ pub fn validate_project_dir_with_manifest(
             ProjectValidation {
                 valid: false,
                 code: "E_ENTRYPOINT_FORMAT",
-                message: "entrypoint must start with '/' and end with '.yml'".to_string(),
+                message: String::from("entrypoint must start with '/' and end with '.yml'"),
             },
         );
     }
@@ -130,7 +130,7 @@ pub fn validate_project_dir_with_manifest(
         ProjectValidation {
             valid: true,
             code: "OK",
-            message: "project manifest is valid".to_string(),
+            message: String::from("project manifest is valid"),
         },
     )
 }

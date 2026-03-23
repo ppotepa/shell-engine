@@ -1,12 +1,14 @@
 //! Audio command queue and backend abstraction used by the engine's audio system.
+//!
+//! When audio is enabled, the engine uses an embedded [`RodioAudioBackend`] that plays
+//! WAV/MP3 files directly via the system audio device — no external process needed.
 
 use engine_core::logging;
-use serde::Serialize;
-use std::env;
-use std::io::{self, BufRead, BufWriter, Write};
-use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::{env, fs, io};
+
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 
 /// A single audio playback request, bundling the cue name and optional volume.
 #[derive(Debug, Clone, PartialEq)]
@@ -28,169 +30,156 @@ impl AudioBackend for NullAudioBackend {
     fn play(&mut self, _command: &AudioCommand) {}
 }
 
-/// [`AudioBackend`] implementation that forwards audio commands to an external process over stdin.
-///
-/// The process is expected to accept one JSON object per line (JSONL).
-pub struct StdIoSoundBackend {
-    client: Mutex<SoundServerClient>,
-    failed: AtomicBool,
+/// In-process audio backend using rodio for direct WAV/MP3 playback.
+pub struct RodioAudioBackend {
+    _stream: OutputStream,
+    stream_handle: OutputStreamHandle,
+    sinks: HashMap<String, Sink>,
+    assets: HashMap<String, PathBuf>,
+    master_volume: f32,
 }
 
-impl StdIoSoundBackend {
-    /// Spawns a sound-server process using `shell_command` and prepares a JSONL command stream.
-    pub fn spawn(shell_command: impl Into<String>) -> io::Result<Self> {
+impl RodioAudioBackend {
+    /// Opens the default audio output device and indexes audio files under `assets_root`.
+    pub fn new(assets_root: &Path) -> Result<Self, String> {
+        let (stream, handle) = OutputStream::try_default()
+            .map_err(|e| format!("failed to open audio output: {e}"))?;
+
+        let assets = scan_audio_assets(assets_root);
+        logging::info(
+            "engine.audio",
+            format!(
+                "rodio backend ready — {} cues indexed from '{}'",
+                assets.len(),
+                assets_root.display()
+            ),
+        );
+        for (cue, path) in &assets {
+            logging::debug(
+                "engine.audio",
+                format!("  cue '{cue}' -> {}", path.display()),
+            );
+        }
+
         Ok(Self {
-            client: Mutex::new(SoundServerClient::spawn(shell_command.into())?),
-            failed: AtomicBool::new(false),
+            _stream: stream,
+            stream_handle: handle,
+            sinks: HashMap::new(),
+            assets,
+            master_volume: 1.0,
         })
     }
-
-    /// Returns the PID of the sound-server child process (for diagnostics).
-    pub fn pid(&self) -> u32 {
-        self.client
-            .lock()
-            .map(|c| c.child.id())
-            .unwrap_or(0)
-    }
-
-    fn log_once(&self, message: &str) {
-        if !self.failed.swap(true, Ordering::Relaxed) {
-            logging::warn("engine.audio", message);
-            if !logging::is_enabled() {
-                eprintln!("[audio] {message}");
-            }
-        }
-    }
 }
 
-impl AudioBackend for StdIoSoundBackend {
+impl AudioBackend for RodioAudioBackend {
     fn play(&mut self, command: &AudioCommand) {
-        logging::debug(
-            "engine.audio",
-            format!("dispatching cue='{}' volume={:?}", command.cue, command.volume),
-        );
-        let mut client = match self.client.lock() {
-            Ok(client) => client,
-            Err(_) => {
-                self.log_once("sound backend lock poisoned; disabling external audio backend");
+        // GC finished sinks.
+        self.sinks.retain(|_, sink| !sink.empty());
+
+        let Some(path) = self.assets.get(&command.cue) else {
+            logging::warn(
+                "engine.audio",
+                format!("unknown audio cue '{}'", command.cue),
+            );
+            return;
+        };
+
+        // Stop existing playback of same cue.
+        self.sinks.remove(&command.cue);
+
+        let file = match fs::File::open(path) {
+            Ok(f) => f,
+            Err(e) => {
+                logging::warn(
+                    "engine.audio",
+                    format!("cannot open {}: {e}", path.display()),
+                );
+                return;
+            }
+        };
+        let reader = io::BufReader::new(file);
+        let source = match Decoder::new(reader) {
+            Ok(s) => s,
+            Err(e) => {
+                logging::warn(
+                    "engine.audio",
+                    format!("cannot decode {}: {e}", path.display()),
+                );
                 return;
             }
         };
 
-        if let Err(error) = client.send(SoundServerCommand::Play {
-            cue: &command.cue,
-            volume: command.volume,
-        }) {
-            self.log_once(&format!(
-                "failed to send audio command to sound-server: {error}; backend disabled"
-            ));
-        }
-    }
-}
-
-impl Drop for StdIoSoundBackend {
-    fn drop(&mut self) {
-        if let Ok(mut client) = self.client.lock() {
-            let _ = client.send(SoundServerCommand::Shutdown);
-            client.terminate();
-        }
-    }
-}
-
-#[derive(Debug)]
-struct SoundServerClient {
-    child: Child,
-    stdin: BufWriter<ChildStdin>,
-}
-
-impl SoundServerClient {
-    fn spawn(shell_command: String) -> io::Result<Self> {
-        let mut child = Command::new("sh")
-            .arg("-lc")
-            .arg(&shell_command)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "missing child stdin"))?;
-
-        // Route child stderr to engine logging on a background thread.
-        if let Some(stderr) = child.stderr.take() {
-            std::thread::Builder::new()
-                .name("sound-server-stderr".into())
-                .spawn(move || {
-                    let reader = io::BufReader::new(stderr);
-                    for line in reader.lines() {
-                        match line {
-                            Ok(line) if !line.is_empty() => {
-                                logging::info("sound-server", &line);
-                            }
-                            Err(_) => break,
-                            _ => {}
-                        }
-                    }
-                })
-                .ok();
-        }
-
-        // Route child stdout (ack responses) to engine logging on a background thread.
-        if let Some(stdout) = child.stdout.take() {
-            std::thread::Builder::new()
-                .name("sound-server-stdout".into())
-                .spawn(move || {
-                    let reader = io::BufReader::new(stdout);
-                    for line in reader.lines() {
-                        match line {
-                            Ok(line) if !line.is_empty() => {
-                                logging::debug("sound-server.ack", &line);
-                            }
-                            Err(_) => break,
-                            _ => {}
-                        }
-                    }
-                })
-                .ok();
-        }
-
-        Ok(Self {
-            child,
-            stdin: BufWriter::new(stdin),
-        })
-    }
-
-    fn send(&mut self, command: SoundServerCommand<'_>) -> io::Result<()> {
-        serde_json::to_writer(&mut self.stdin, &command).map_err(serde_json_to_io)?;
-        self.stdin.write_all(b"\n")?;
-        self.stdin.flush()
-    }
-
-    fn terminate(&mut self) {
-        match self.child.try_wait() {
-            Ok(Some(_)) => {}
-            Ok(None) => {
-                let _ = self.child.kill();
-                let _ = self.child.wait();
+        let sink = match Sink::try_new(&self.stream_handle) {
+            Ok(s) => s,
+            Err(e) => {
+                logging::warn(
+                    "engine.audio",
+                    format!("cannot create audio sink: {e}"),
+                );
+                return;
             }
-            Err(_) => {
-                let _ = self.child.kill();
+        };
+
+        let vol = command.volume.unwrap_or(1.0) * self.master_volume;
+        sink.set_volume(vol);
+        sink.append(source);
+
+        logging::info(
+            "engine.audio",
+            format!(
+                "playing cue='{}' file={} volume={:.2}",
+                command.cue,
+                path.display(),
+                vol,
+            ),
+        );
+
+        self.sinks.insert(command.cue.clone(), sink);
+    }
+}
+
+/// Scan a directory (+ one level of subdirs) for WAV/MP3/OGG files.
+/// Returns a map of filename stem → path.
+fn scan_audio_assets(root: &Path) -> HashMap<String, PathBuf> {
+    let mut map = HashMap::new();
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(e) => {
+            logging::debug(
+                "engine.audio",
+                format!("cannot read assets dir {}: {e}", root.display()),
+            );
+            return map;
+        }
+    };
+
+    let mut dirs_to_scan = vec![root.to_path_buf()];
+    for entry in entries.flatten() {
+        if entry.path().is_dir() {
+            dirs_to_scan.push(entry.path());
+        }
+    }
+
+    for dir in dirs_to_scan {
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if !matches!(ext, "wav" | "mp3" | "ogg") {
+                continue;
+            }
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                map.insert(stem.to_string(), path);
             }
         }
     }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
-enum SoundServerCommand<'a> {
-    Play { cue: &'a str, volume: Option<f32> },
-    Shutdown,
-}
-
-fn serde_json_to_io(error: serde_json::Error) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, error)
+    map
 }
 
 /// Buffers [`AudioCommand`]s each frame and flushes them to the active [`AudioBackend`].
@@ -217,55 +206,40 @@ impl AudioRuntime {
 
     /// Creates an audio runtime from env toggles.
     ///
-    /// - `SHELL_QUEST_SOUND_SERVER=1|true|yes|on` enables external sound backend.
-    /// - `SHELL_QUEST_SOUND_SERVER_CMD` overrides the shell command used to spawn the backend process.
-    ///   If command is present, backend is considered enabled even when `SHELL_QUEST_SOUND_SERVER`
-    ///   is missing.
+    /// - `SHELL_QUEST_AUDIO=1|true|yes|on` enables embedded audio backend.
     pub fn from_env() -> Self {
-        let enabled = env_flag("SHELL_QUEST_SOUND_SERVER")
-            || env::var("SHELL_QUEST_SOUND_SERVER_CMD").is_ok();
-        let command = env::var("SHELL_QUEST_SOUND_SERVER_CMD").ok();
-        let mod_source = env::var("SHELL_QUEST_MOD_SOURCE").unwrap_or_else(|_| "mods/shell-quest".to_string());
-        Self::from_options(enabled, command, &mod_source)
+        let enabled = env_flag("SHELL_QUEST_AUDIO");
+        let mod_source =
+            env::var("SHELL_QUEST_MOD_SOURCE").unwrap_or_else(|_| "mods/shell-quest".to_string());
+        Self::from_options(enabled, &mod_source)
     }
 
     /// Creates an audio runtime from explicit launch options.
-    pub fn from_options(enabled: bool, command: Option<String>, mod_source: &str) -> Self {
-        if !enabled && command.is_none() {
+    ///
+    /// When `enabled` is true, opens the system audio device via rodio and indexes
+    /// audio assets from `<mod_source>/assets/`. Falls back to [`NullAudioBackend`]
+    /// if the audio device cannot be opened.
+    pub fn from_options(enabled: bool, mod_source: &str) -> Self {
+        if !enabled {
             logging::info(
                 "engine.audio",
-                "audio disabled (pass --sound-server to enable)",
+                "audio disabled (pass --audio to enable)",
             );
             return Self::null();
         }
-        let assets_root = format!("{}/assets", mod_source.trim_end_matches('/'));
-        let command = command.unwrap_or_else(|| {
-            format!("cargo run -p sound-server --quiet -- --assets-root {assets_root} --verbose --ack")
-        });
-        logging::info(
-            "engine.audio",
-            format!("spawning sound-server: {command}"),
-        );
-        match StdIoSoundBackend::spawn(command.clone()) {
-            Ok(backend) => {
-                logging::info(
-                    "engine.audio",
-                    format!("sound-server process spawned (pid={})", backend.pid()),
-                );
-                Self::with_backend(Box::new(backend))
-            }
+
+        let assets_root = PathBuf::from(format!(
+            "{}/assets",
+            mod_source.trim_end_matches('/')
+        ));
+
+        match RodioAudioBackend::new(&assets_root) {
+            Ok(backend) => Self::with_backend(Box::new(backend)),
             Err(error) => {
                 logging::warn(
                     "engine.audio",
-                    format!(
-                        "failed to spawn sound-server with command '{command}': {error}; using null audio backend"
-                    ),
+                    format!("cannot initialize audio: {error}; using null backend"),
                 );
-                if !logging::is_enabled() {
-                    eprintln!(
-                        "[audio] failed to spawn sound-server with command '{command}': {error}; continuing with null audio"
-                    );
-                }
                 Self::null()
             }
         }

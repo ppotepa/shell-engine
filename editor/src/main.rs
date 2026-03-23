@@ -27,7 +27,7 @@ fn main() -> Result<()> {
 fn init_logging(cli: &cli::Cli) {
     let enabled = logging::resolve_enabled(cli.logs, cli.no_logs);
     match logging::init_run_logger(logging::RunLoggerConfig {
-        app_name: "editor".to_string(),
+        app_name: String::from("editor"),
         enabled,
         root_dir: cli.log_root.as_ref().map(PathBuf::from),
     }) {

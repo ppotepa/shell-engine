@@ -107,7 +107,7 @@ impl AppState {
         self.scenes.scene_preview_layers.clear();
         self.scenes.scene_preview_scene = None;
         self.scenes.scene_preview_started_at_ms = 0;
-        self.cutscene.source_dir = "assets/raw".to_string();
+        self.cutscene.source_dir = String::from("assets/raw");
         self.cutscene.frames.clear();
         self.cutscene.missing_frames.clear();
         self.cutscene.validation_error = None;
@@ -119,7 +119,7 @@ impl AppState {
         self.watch.last_scan_ms = 0;
         self.watch.stamp = 0;
         self.status =
-            "Start: j/k move | Enter select | f schema scan | x prune stale | q quit".to_string();
+            String::from("Start: j/k move | Enter select | f schema scan | x prune stale | q quit");
         logging::info("editor.project", "project closed");
     }
 
@@ -128,9 +128,9 @@ impl AppState {
         self.picker.schema_cursor = 0;
         self.start_dialog = StartDialog::SchemaPicker;
         if self.picker.schema_candidates.is_empty() {
-            self.status = "No schema-tagged .yml files found in current workspace".to_string();
+            self.status = String::from("No schema-tagged .yml files found in current workspace");
         } else {
-            self.status = "Select schema .yml and Enter to open project".to_string();
+            self.status = String::from("Select schema .yml and Enter to open project");
         }
     }
 
@@ -140,7 +140,7 @@ impl AppState {
         self.picker.dir_preview_popup = false;
         self.picker.dir_preview_started_at_ms = 0;
         self.refresh_directory_items(initial);
-        self.status = "Directory browser: Enter open, F5 preview, Esc back, j/k move".to_string();
+        self.status = String::from("Directory browser: Enter open, F5 preview, Esc back, j/k move");
     }
 
     fn refresh_directory_items(&mut self, base: &str) {
@@ -222,12 +222,12 @@ impl AppState {
                 )
             } else {
                 self.picker.dir_preview_started_at_ms = 0;
-                "Preview closed".to_string()
+                String::from("Preview closed")
             };
         } else {
             self.picker.dir_preview_popup = false;
             self.picker.dir_preview_started_at_ms = 0;
-            self.status = "Preview unavailable for this folder".to_string();
+            self.status = String::from("Preview unavailable for this folder");
         }
     }
 
@@ -246,7 +246,7 @@ impl AppState {
                     let path = self.picker.dir_browser_path.clone();
                     self.open_project(&path);
                 } else {
-                    self.status = "Cannot open this directory".to_string();
+                    self.status = String::from("Cannot open this directory");
                 }
             }
             DirBrowserItem::Parent => {
@@ -323,7 +323,7 @@ impl AppState {
                         self.open_schema_picker();
                     }
                     2 => {
-                        self.status = "New Project: coming soon (MVP browser)".to_string();
+                        self.status = String::from("New Project: coming soon (MVP browser)");
                     }
                     3 => {
                         return true;
@@ -425,7 +425,7 @@ impl AppState {
                 Command::Back | Command::TogglePreview => {
                     self.picker.dir_preview_popup = false;
                     self.picker.dir_preview_started_at_ms = 0;
-                    self.status = "Preview closed".to_string();
+                    self.status = String::from("Preview closed");
                 }
                 Command::Up
                 | Command::Down

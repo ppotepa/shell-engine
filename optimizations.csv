@@ -1,0 +1,228 @@
+file,line,code,issue,risk,gain,status
+[ARCHITECTURE] Caching,0,Computation cache,Cache expensive computations across frames,LOW,+10-20%,completed
+[ARCHITECTURE] Command dispatch,0,Command lookup,Hash table instead of string matching,LOW,+15-30%,completed
+[ARCHITECTURE] Event system,0,Event processing,Batch events and process in parallel,HIGH,+50-80%,completed
+[ARCHITECTURE] File system,0,Path resolution,Use trie data structure for O(k) lookup,MEDIUM,+40-60%,completed
+[ARCHITECTURE] GPU acceleration,0,3D rendering,Offload OBJ rendering to GPU,HIGH,+200-400%,pending
+[ARCHITECTURE] Memory pool,0,Object allocation,Implement object pool for frame data,MEDIUM,+15-25%,completed
+[ARCHITECTURE] Parallelization,0,System execution,Use rayon/tokio for parallel systems,HIGH,+60-120%,pending
+[ARCHITECTURE] Render pipeline,0,Halfblock rendering,Batch terminal writes instead of per-cell,MEDIUM,+30-50%,completed
+[ARCHITECTURE] Streaming,0,Asset loading,Stream scenes instead of loading all,MEDIUM,+30-50%,pending
+[ARCHITECTURE] Transform system,0,Matrix transformations,Implement transform cache with dirty flag,MEDIUM,+20-40%,completed
+app/src/main.rs,56,"        app_name: ""app"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+app/src/main.rs,58,"        root_dir: cli.log_root.clone().map(PathBuf::from),",Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+app/src/main.rs,65,                format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+app/src/main.rs,77,"        .unwrap_or_else(|| ""mods/shell-quest/"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+app/src/main.rs,78,"    logging::info(""app.main"", format!(""resolved mod_source={mod_source}""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+app/src/main.rs,90,        format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+app/src/main.rs,101,"            format!(""failed to initialize ShellEngine: {error}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+app/src/main.rs,120,"        logging::error(""app.main"", format!(""engine run failed: {error}""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/app.rs,29,"        format!(""starting editor loop: launch_mod_source={}"", cli.mod_source),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/app.rs,46,"        format!(""recent projects loaded: {}"", app.recent_projects.len()),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/app.rs,126,        format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/domain/effect_params.rs,95,"        let bar = format!(""[{}{}]"", ""="".repeat(filled), "" "".repeat(empty));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/domain/effect_params.rs,97,"            format!(""{bar} {:5.2}"", value)",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/domain/effect_params.rs,99,"            format!(""{bar} {:5.1} {}"", value, self.control.unit())",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/domain/effects_catalog.rs,19,        .map(|s| (*s).to_string()),String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,225,"        id: ""effect_preview"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,226,"        title: ""Effect Preview"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,228,"        rendered_mode: ""halfblock"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,229,"        bg_colour: ""black"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,286,        Vec::new(),Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,293,"                id: ""penguin"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,294,"                source: ""/assets/images/tux.png"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,297,"                align_x: ""center"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/effects_preview_scene.rs,298,"                align_y: ""center"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/preview_renderer.rs,30,        return Err(format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/domain/preview_renderer.rs,43,    world.register_scoped(SceneRuntime::new(req.scene.clone()));,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/domain/preview_renderer.rs,57,"        .ok_or_else(|| ""Preview render did not produce a buffer"".to_string())",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/domain/preview_renderer.rs,74,"                spans.push(Span::styled(symbol.to_string(), style));",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,19,    let mut out = Vec::new();,Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,51,"                message: ""mod.yaml not found"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,62,"                message: ""mod.yaml cannot be read"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,73,"                message: ""mod.yaml is not valid YAML"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,90,        .clone(),Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,93,        .to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,100,"                message: ""required fields missing: name/version/entrypoint"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,111,"                message: ""entrypoint must start with '/' and end with '.yml'"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,123,"                message: format!(""entrypoint file does not exist: {entrypoint}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/io/fs_scan.rs,133,"            message: ""project manifest is valid"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,150,            out.push(p.display().to_string());,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/fs_scan.rs,166,        out.push(p.display().to_string());,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/indexer.rs,29,"            .push(format!(""{}: {}"", validation.code, validation.message));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/io/indexer.rs,44,            .map(|&name| name.to_string()),String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/indexer.rs,57,        std::fs::create_dir_all(&temp_dir).unwrap();,Unwrap() - use ? operator or expect with message,MEDIUM,+5-15%,completed
+editor/src/io/indexer.rs,62,        .unwrap();,Unwrap() - use ? operator or expect with message,MEDIUM,+5-15%,completed
+editor/src/io/indexer.rs,63,"        std::fs::create_dir_all(temp_dir.join(""scenes"")).unwrap();",Unwrap() - use ? operator or expect with message,MEDIUM,+5-15%,completed
+editor/src/io/indexer.rs,64,"        std::fs::write(temp_dir.join(""scenes/main.yml""), ""id: main\ntitle: Main\n"").unwrap();",Unwrap() - use ? operator or expect with message,MEDIUM,+5-15%,completed
+editor/src/io/indexer.rs,66,        let index = build_project_index(temp_dir.to_str().unwrap());,Unwrap() - use ? operator or expect with message,MEDIUM,+5-15%,completed
+editor/src/io/recent.rs,9,"    let home = std::env::var(""HOME"").unwrap_or_else(|_| ""."".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/recent.rs,27,        return Vec::new();,Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/io/recent.rs,32,    let mut result = Vec::new();,Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/io/recent.rs,41,        let normalized = normalize_path(line).unwrap_or_else(|| line.to_string());,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/io/recent.rs,43,        if seen.insert(normalized.clone()) {,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/io/recent.rs,67,        .collect::<Vec<_>>(),Vec collection - Use for_each or iterator,MEDIUM,+3-12%,completed
+editor/src/io/recent.rs,75,    let normalized = normalize_path(path).unwrap_or_else(|| path.to_string());,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/main.rs,22,"        format!(""editor startup: mod_source={}"", cli.mod_source),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/main.rs,30,"        app_name: ""editor"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/main.rs,39,                format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/cutscene.rs,27,"            self.cutscene.source_dir = ""assets/raw"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,28,"            self.cutscene.validation_error = Some(""Open a mod project first."".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,33,        self.cutscene.source_dir = source_dir.display().to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,40,"                Some(""assets/raw exists but is not a directory"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,44,"        let mut numbered_frames: BTreeMap<u32, Vec<String>> = BTreeMap::new();",Uninitialized BTreeMap - Pre-size if possible,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,45,        let mut invalid_named_frames: Vec<String> = Vec::new();,Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,74,                        .to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,89,"                    Some(format!(""Cannot read assets/raw folder: {err}""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/cutscene.rs,96,"                Some(""Could not read some files from assets/raw"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,112,"                    .to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,117,        let mut duplicate_numbers = Vec::new();,Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,120,"                duplicate_numbers.push(format!(""{number}""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/cutscene.rs,154,                .collect::<Vec<_>>(),Vec collection - Use for_each or iterator,MEDIUM,+3-12%,completed
+editor/src/state/cutscene.rs,162,"                Some(format!(""Missing frame numbers: {preview}{suffix}""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/cutscene.rs,168,"            return format!(""Cutscene Maker: invalid source ({err})"");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/cutscene.rs,171,"            ""Cutscene Maker: no frames detected in assets/raw"".to_string()",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/cutscene.rs,173,            format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/editor_pane.rs,14,"                TreeItem::ModYaml => Some(""mod.yaml"".to_string()),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/editor_pane.rs,15,"                TreeItem::Scene(path) => Some(path.clone()),",Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/editor_pane.rs,16,"                TreeItem::Image(path) => Some(path.clone()),",Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/editor_pane.rs,17,"                TreeItem::Font(path) => Some(path.clone()),",Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/editor_pane.rs,25,                        self.editor.file = Some(path.clone());,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/editor_pane.rs,28,"                        self.status = format!(""Editing: {} | ESC to exit"", path);",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/editor_pane.rs,31,"                        self.status = format!(""Cannot open file: {}"", e);",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/editor_pane.rs,44,                .to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/effects_browser.rs,86,"            .insert(spec.name.to_string(), next);",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/effects_browser.rs,89,"        self.status = format!(""{}: {}"", spec.label, spec.render_value(next.as_float()));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/effects_browser.rs,101,            .to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/effects_browser.rs,115,"            ""Effects Browser: LIVE preview ON | Tab focus | ↑/↓ param | ←/→ adjust"".to_string()",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/effects_browser.rs,117,"            ""Effects Browser: LIVE preview OFF | F enables live buffer preview"".to_string()",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/effects_browser.rs,186,                        .to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/project_explorer.rs,10,        let mut items = Vec::new();,Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/state/project_explorer.rs,17,                items.push(TreeItem::Scene(scene.clone()));,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/project_explorer.rs,24,                items.push(TreeItem::Image(image.clone()));,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/project_explorer.rs,31,                items.push(TreeItem::Font(font.clone()));,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/scene_run.rs,43,            format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scene_run.rs,49,"            self.status = ""Scene Run: open a mod project first"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scene_run.rs,55,"            self.status = ""Scene Run: no scene selected"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scene_run.rs,62,            .unwrap_or_else(|| scene_ref.clone());,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/scene_run.rs,69,"                self.status = format!(""Scene Run: cannot load scene ({err})"");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scene_run.rs,72,"                    format!(""failed to load scene for run: ref={scene_ref} error={err}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scene_run.rs,103,        self.status = format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scene_run.rs,131,"            self.status = ""Scene Run stopped"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scene_run.rs,249,"                format!(""hard-run transition requested: to={to_scene_ref}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scene_run.rs,256,"                    format!(""hard-run transition unresolved: to={to_scene_ref}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scene_run.rs,272,                format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scene_run.rs,298,"        for (idx, scene_path) in self.index.scenes.scene_paths.iter().enumerate() {",Explicit .iter() on for loop - use for-in directly,LOW,+1-3%,completed
+editor/src/state/scenes_browser.rs,34,                    .to_string(),String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,50,            format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scenes_browser.rs,60,"            return ""Scenes Browser: no discoverable scenes found"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,64,"            .unwrap_or_else(|| ""<unknown-scene>"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,68,"            .unwrap_or_else(|| ""<none>"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,69,        format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scenes_browser.rs,86,"            self.status = ""Scenes Browser: fullscreen hold (release F to exit)"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,101,"            ""Scenes Browser: fullscreen toggle ON (Ctrl+F to exit)"".to_string()",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,103,"            ""Scenes Browser: fullscreen toggle OFF"".to_string()",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,123,                format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scenes_browser.rs,161,        self.status = format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scenes_browser.rs,211,            normalized = normalized[mod_source.len()..].to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,213,            normalized = normalized[idx..].to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,217,"            normalized = format!(""/{}"", normalized.trim_start_matches('/'));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scenes_browser.rs,250,"                            format!(""layer-{idx}"")",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/scenes_browser.rs,252,                            layer.name.clone(),Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/scenes_browser.rs,268,"                self.status = format!(""Scenes Browser: failed to load preview scene ({err})"");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,20,"        logging::info(""editor.project"", format!(""open requested: path={path}""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,30,                format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,37,"            self.status = format!(""Cannot open project: {path}"");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,42,        self.mod_source = path.to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,57,"        self.status = format!(""Opened: {path} | Ctrl+W close project"");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,60,            format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,78,"        self.status = format!(""Removed {removed} stale recent entrie(s)"");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,81,"            format!(""pruned stale recents: removed={removed}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,89,"                format!(""closing project: path={}"", self.mod_source),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/state/start_screen.rs,110,"        self.cutscene.source_dir = ""assets/raw"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,122,"            ""Start: j/k move | Enter select | f schema scan | x prune stale | q quit"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,131,"            self.status = ""No schema-tagged .yml files found in current workspace"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,133,"            self.status = ""Select schema .yml and Enter to open project"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,143,"        self.status = ""Directory browser: Enter open, F5 preview, Esc back, j/k move"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,148,        self.picker.dir_browser_path = canonical.display().to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,151,        self.picker.dir_validation_code = root_validation.code.to_string();,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,160,        let mut dirs = Vec::new();,Uninitialized Vec - Use Vec::with_capacity,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,166,"                    dirs.push((p.display().to_string(), v.valid, v.code.to_string()));",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,187,"            DirBrowserItem::OpenHere => Some(self.picker.dir_browser_path.clone()),",Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,190,"                .map(|p| p.display().to_string()),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,191,"            DirBrowserItem::Directory { path, .. } => Some(path.clone()),",Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,201,        self.picker.dir_preview_path = path.clone();,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,225,"                ""Preview closed"".to_string()",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,230,"            self.status = ""Preview unavailable for this folder"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,246,                    let path = self.picker.dir_browser_path.clone();,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,249,"                    self.status = ""Cannot open this directory"".to_string();",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,255,                    .map(|p| p.display().to_string()),String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/start_screen.rs,256,                    .unwrap_or_else(|| self.picker.dir_browser_path.clone());,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/watch.rs,101,                .to_string(),String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/watch.rs,103,"            ""Detected file changes: project lists and previews refreshed"".to_string()",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/state/watch.rs,111,        let Some(path) = self.editor.file.clone() else {,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/state/watch.rs,123,                let missing_notice = format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,16,"        Line::from(format!(""Source folder: {}"", app.cutscene.source_dir)),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,17,"        Line::from(format!(""Output GIF: {}"", app.cutscene.output_gif)),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,18,        Line::from(format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,27,"        lines.push(Line::from(format!(""Reason: {err}"")));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,30,        lines.push(Line::from(format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,43,            .collect::<Vec<_>>(),Vec collection - Use for_each or iterator,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,50,"        lines.push(Line::from(format!(""Missing: {missing}{suffix}"")));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/cutscene_preview.rs,58,        for name in app.cutscene.frames.iter().take(12) {,Explicit .iter() on for loop - use for-in directly,LOW,+1-3%,completed
+editor/src/ui/components/cutscene_preview.rs,59,"            lines.push(Line::from(format!(""  - {name}"")));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/editor.rs,17,"        .map(|f| format!(""Editing: {}"", f))",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/editor.rs,18,"        .unwrap_or_else(|| ""Editor"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/editor.rs,27,"                Span::styled(format!(""{:>4} "", i + 1), theme::fg_disabled()),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/editor.rs,28,"                Span::styled(line.to_string(), theme::fg_normal()),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,53,"                format!("" [{}] "", t.label())",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,55,"                format!(""  {}  "", t.label())",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,58,        .collect::<Vec<_>>(),Vec collection - Use for_each or iterator,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,61,"    let title = format!("" {tab_bar} "");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,97,"                .title_bottom(Span::styled(format!("" {hint} ""), theme::fg_disabled())),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,114,"            Span::styled(name.to_string(), a),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,118,"            Span::raw(doc.category.to_string()),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,122,"            Span::raw(format!(""{:?}"", doc.target_kind)),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,133,"            Span::styled(format!(""  {:<16}"", p.name), theme::fg_normal()),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,134,"            Span::styled(p.description.to_string(), theme::fg_disabled()),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,144,"            format!(""# {} — parameter schema"", meta.display_name),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,152,"            Span::styled(format!(""{:<18}"", p.name), theme::fg_active()),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,175,        lines.push(Line::from(l.to_string()));,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,185,            Line::from(format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,195,"                Line::from(Span::styled(format!(""// {}"", path), theme::fg_disabled())),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,199,                lines.push(Line::from(l.to_string()));,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,205,"            Line::from(e.to_string()),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,235,"            let candidate = format!(""{}.rs"", other.replace('-', ""_""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,272,"                format!(""range {min}..{max}  step {step}"")",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,274,"                format!(""range {min}..{max}{unit}  step {step}{unit}"")",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,278,"            format!(""options: {}  default: {}"", options.join("", ""), default)",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,281,"            format!(""default: {}"", if *default { ""true"" } else { ""false"" })",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,283,"        ParamControl::Text { default } => format!(""default: {default}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,284,"        ParamControl::Colour { default } => format!(""default: {default}""),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/effects_preview.rs,289,"    let title = format!(""Live: {}"", app.selected_builtin_effect().unwrap_or(""none""));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/header.rs,22,"    let mode = format!("" {} "", app.current_mode_label());",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/header.rs,23,"    let screen = format!("" {}"", app.current_screen_name());",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/help.rs,22,"                    .title(format!(""{} Help"", app.current_screen_name()))",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,23,            Line::from(format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,31,"            Line::from(format!(""{} image(s) in project"", app.index.images.len())),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,36,"            Line::from(format!(""{} font(s) in project"", app.index.fonts.len())),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,64,        lines.push(Line::from(format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,97,                .to_string(),String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/preview.rs,100,"        Line::from(format!(""🎬 {}"", scene_display_name)),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,109,                lines.push(Line::from(line.to_string()));,String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/preview.rs,117,"            lines.push(Line::from(format!(""Error reading file: {}"", e)));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,127,        Line::from(format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,139,"            lines.push(Line::from(format!(""Size: {} bytes"", metadata.len())));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,140,"            lines.push(Line::from(format!(""Path: {}"", image_path)));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/preview.rs,143,"            lines.push(Line::from(format!(""Error: {}"", e)));",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,71,"                ListItem::new(Line::from(Span::styled(format!(""{prefix} {label}""), style)))",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,116,                    format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,152,"        .unwrap_or_else(|| ""none"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,153,"    let title = format!(""Live Preview: {scene_name}"");",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,190,            let mut filtered_scene = scene.clone();,Clone allocation - Consider ownership or references,LOW,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,208,"                            .unwrap_or_else(|| ""-"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,211,                            format!(,Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/scenes_preview.rs,299,"        return Err(""mod source is not set"".to_string());",String allocation - Use String::from() or &str,LOW,+3-12%,completed
+editor/src/ui/components/sidebar/effects.rs,45,"                Span::styled(format!(""{cursor} ""), name_style),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/sidebar/effects.rs,47,"                Span::styled(format!("" {name}""), name_style),",Format allocation - Use write!() macro,MEDIUM,+3-12%,completed
+editor/src/ui/components/sidebar/explorer.rs,21,"                TreeItem::ModYaml => (""📄 mod.yaml"".to_string(), theme::fg_active()),",String allocation - Use String::from() or &str,LOW,+3-12%,completed

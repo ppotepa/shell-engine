@@ -149,7 +149,7 @@ fn render_live_preview(
 ) {
     let scene_name = app
         .selected_scene_display_name()
-        .unwrap_or_else(|| "none".to_string());
+        .unwrap_or_else(|| String::from("none"));
     let title = format!("Live Preview: {scene_name}");
 
     if area.width < 12 || area.height < 8 {
@@ -205,7 +205,7 @@ fn render_live_preview(
                     if !fullscreen {
                         let scene_path = app
                             .selected_scene_ref_path()
-                            .unwrap_or_else(|| "-".to_string());
+                            .unwrap_or_else(|| String::from("-"));
                         lines.push(Line::from(""));
                         lines.push(Line::from(Span::styled(
                             format!(
@@ -296,7 +296,7 @@ fn render_scene_preview(
     progress: f32,
 ) -> Result<engine::buffer::Buffer, String> {
     if mod_source.is_empty() {
-        return Err("mod source is not set".to_string());
+        return Err(String::from("mod source is not set"));
     }
     let asset_root = PathBuf::from(mod_source);
     preview_renderer::render_scene_buffer(PreviewRenderRequest {

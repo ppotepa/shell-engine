@@ -18,8 +18,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
         .enumerate()
         .map(|(idx, item)| {
             let (label, style) = match item {
-                TreeItem::ModYaml => ("📄 mod.yaml".to_string(), theme::fg_active()),
-                TreeItem::ScenesFolder => ("📁 scenes/".to_string(), theme::accent()),
+                TreeItem::ModYaml => (String::from("📄 mod.yaml"), theme::fg_active()),
+                TreeItem::ScenesFolder => (String::from("📁 scenes/"), theme::accent()),
                 TreeItem::Scene(path) => {
                     let idx = app
                         .index
@@ -33,7 +33,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
                         theme::fg_normal(),
                     )
                 }
-                TreeItem::ImagesFolder => ("📁 images/".to_string(), theme::accent()),
+                TreeItem::ImagesFolder => (String::from("📁 images/"), theme::accent()),
                 TreeItem::Image(path) => {
                     let name = Path::new(path)
                         .file_stem()
@@ -41,7 +41,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &AppState) {
                         .unwrap_or(path);
                     (format!("  🖼️  {}", name), theme::fg_normal())
                 }
-                TreeItem::FontsFolder => ("📁 fonts/".to_string(), theme::accent()),
+                TreeItem::FontsFolder => (String::from("📁 fonts/"), theme::accent()),
                 TreeItem::Font(path) => {
                     let name = Path::new(path)
                         .file_stem()

@@ -452,7 +452,7 @@ fn render_preview_scene(
     let scene: Scene =
         serde_yaml::from_str(yaml).map_err(|err| format!("YAML parse error: {err}"))?;
     let asset_root = effects_preview_scene::preview_asset_root()
-        .ok_or_else(|| "Preview asset root not found (expected mods/shell-quest)".to_string())?;
+        .ok_or_else(|| String::from("Preview asset root not found (expected mods/shell-quest)"))?;
     preview_renderer::render_scene_buffer(PreviewRenderRequest {
         scene: &scene,
         width,
