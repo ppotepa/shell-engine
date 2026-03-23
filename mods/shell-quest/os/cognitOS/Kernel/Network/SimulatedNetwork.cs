@@ -124,7 +124,9 @@ internal sealed class SimulatedNetwork : INetwork
         double jitter = _hw.NetBasePingMs * 0.2 * (_rng.NextDouble() * 2 - 1);
         double rtt = _hw.NetBasePingMs * 2 + jitter;
 
-        _hw.BlockFor(rtt + _res.Cpu.OverheadMs());
+        // Note: This method is not used by commands (they use EasterEggOutput.SimulatePing).
+        // The latency here is informational only and does not block.
+        // Real ping output is scheduled via UnitOfWork.ScheduleOutput().
 
         return new PingResult(host, ip, rtt, true, null);
     }

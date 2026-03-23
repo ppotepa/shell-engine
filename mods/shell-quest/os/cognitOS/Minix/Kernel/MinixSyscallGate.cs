@@ -25,8 +25,13 @@ internal sealed class MinixSyscallGate : ISyscallGate
 
         Debit(req);
         double latencyMs = LatencyFor(req);
-        _hw.BlockFor(latencyMs);
-
+        
+        // Note: We do NOT block here. The event-driven output model (ScheduleOutput/EmitLine)
+        // handles all user-visible latency (ping output, modem handshake, etc). Syscall latency
+        // is server-side and invisible to the user. The spindle state machine (via Acquire)
+        // captures the key disk realism. Full BlockFor would freeze the sidecar and prevent
+        // event-driven updates. This is addressed in Phase 2b (async command context refactor).
+        
         try
         {
             execute();
@@ -50,8 +55,9 @@ internal sealed class MinixSyscallGate : ISyscallGate
 
         Debit(req);
         double latencyMs = LatencyFor(req);
-        _hw.BlockFor(latencyMs);
-
+        
+        // Note: We do NOT block here. See Dispatch(Action) above for explanation.
+        
         T value = default!;
         try
         {
