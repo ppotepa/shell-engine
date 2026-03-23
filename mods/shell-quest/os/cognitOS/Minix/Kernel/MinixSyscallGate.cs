@@ -1,6 +1,7 @@
 namespace CognitOS.Minix.Kernel;
 
 using CognitOS.Framework.Kernel;
+using CognitOS.Kernel.Clock;
 using CognitOS.Kernel.Hardware;
 using CognitOS.Kernel.Resources;
 
@@ -8,11 +9,13 @@ internal sealed class MinixSyscallGate : ISyscallGate
 {
     private readonly ResourceState _res;
     private readonly HardwareProfile _hw;
+    private readonly IClock _clock;
 
-    public MinixSyscallGate(ResourceState res, HardwareProfile hw)
+    public MinixSyscallGate(ResourceState res, HardwareProfile hw, IClock clock)
     {
         _res = res;
         _hw = hw;
+        _clock = clock;
     }
 
     public SyscallResult Dispatch(SyscallRequest req, Action execute)
@@ -98,7 +101,7 @@ internal sealed class MinixSyscallGate : ISyscallGate
             case SyscallKind.DiskRead:
             case SyscallKind.DiskWrite:
             case SyscallKind.DiskAppend:
-                _res.DiskCtrl.Acquire();
+                _res.DiskCtrl.ReserveForAccounting();
                 break;
 
             case SyscallKind.NetConnect:
@@ -145,15 +148,17 @@ internal sealed class MinixSyscallGate : ISyscallGate
     private double LatencyFor(SyscallRequest req)
     {
         double sizeKb = Math.Max(1, req.SizeBytes / 1024.0);
+        ulong nowMs = _clock.UptimeMs();
+        
         return req.Kind switch
         {
-            SyscallKind.DiskRead      => _hw.DiskAccessMs + _hw.DiskTransferMs(sizeKb) + _res.DiskCtrl.ContentionMs() + _res.Cpu.OverheadMs(),
-            SyscallKind.DiskWrite     => _hw.DiskAccessMs + _hw.DiskTransferMs(sizeKb) + _res.DiskCtrl.ContentionMs() + _res.Cpu.OverheadMs(),
-            SyscallKind.DiskAppend    => _hw.DiskAccessMs + _hw.DiskTransferMs(sizeKb) + _res.DiskCtrl.ContentionMs() + _res.Cpu.OverheadMs(),
-            SyscallKind.DiskStat      => _hw.DiskDirEntryMs + _res.Cpu.OverheadMs(),
-            SyscallKind.DiskListDir   => _hw.DiskDirEntryMs * 2 + _res.Cpu.OverheadMs(),
-            SyscallKind.DiskUnlink    => _hw.DiskAccessMs + _res.Cpu.OverheadMs(),
-            SyscallKind.DiskMkdir     => _hw.DiskAccessMs + _res.Cpu.OverheadMs(),
+            SyscallKind.DiskRead      => _res.DiskCtrl.Acquire(nowMs) + _hw.DiskTransferMs(sizeKb) + _res.DiskCtrl.ContentionMs() + _res.Cpu.OverheadMs(),
+            SyscallKind.DiskWrite     => _res.DiskCtrl.Acquire(nowMs) + _hw.DiskTransferMs(sizeKb) + _res.DiskCtrl.ContentionMs() + _res.Cpu.OverheadMs(),
+            SyscallKind.DiskAppend    => _res.DiskCtrl.Acquire(nowMs) + _hw.DiskTransferMs(sizeKb) + _res.DiskCtrl.ContentionMs() + _res.Cpu.OverheadMs(),
+            SyscallKind.DiskStat      => _res.DiskCtrl.Acquire(nowMs) + _hw.DiskDirEntryMs + _res.Cpu.OverheadMs(),
+            SyscallKind.DiskListDir   => _res.DiskCtrl.Acquire(nowMs) + _hw.DiskDirEntryMs * 2 + _res.Cpu.OverheadMs(),
+            SyscallKind.DiskUnlink    => _res.DiskCtrl.Acquire(nowMs) + _res.Cpu.OverheadMs(),
+            SyscallKind.DiskMkdir     => _res.DiskCtrl.Acquire(nowMs) + _res.Cpu.OverheadMs(),
 
             SyscallKind.NetConnect    => _hw.NetBasePingMs,
             SyscallKind.NetSend       => _hw.NetTransferMs(sizeKb),
@@ -172,8 +177,8 @@ internal sealed class MinixSyscallGate : ISyscallGate
 
             SyscallKind.ClockRead     => 0,
 
-            SyscallKind.MailRead      => _hw.DiskAccessMs + _res.Cpu.OverheadMs(),
-            SyscallKind.MailDeliver   => _hw.DiskAccessMs + _res.Cpu.OverheadMs(),
+            SyscallKind.MailRead      => _res.DiskCtrl.Acquire(nowMs) + _res.Cpu.OverheadMs(),
+            SyscallKind.MailDeliver   => _res.DiskCtrl.Acquire(nowMs) + _res.Cpu.OverheadMs(),
 
             SyscallKind.JournalAppend => _hw.DiskDirEntryMs,
 

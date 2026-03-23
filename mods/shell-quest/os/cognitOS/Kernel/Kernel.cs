@@ -59,7 +59,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         Events = new KernelEventQueue();
 
         // Layer 3.5: Syscall gate — single choke point for resource checks + latency
-        ISyscallGate gate = new MinixSyscallGate(Resources, Hardware);
+        ISyscallGate gate = new MinixSyscallGate(Resources, Hardware, Clock);
 
         // Layer 4: Subsystems (each wraps storage with timing via gate)
         Disk = new SimulatedDisk(vfs, Resources, Hardware, gate, Clock);
@@ -106,6 +106,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
     {
         Clock.Advance(dtMs);
         Services.Tick(dtMs);
+        Resources.DiskCtrl.UpdateSpindleState(NowMs);
         foreach (var ev in Events.DrainReady(NowMs))
             ev.Action();
         Resources.Recalc();

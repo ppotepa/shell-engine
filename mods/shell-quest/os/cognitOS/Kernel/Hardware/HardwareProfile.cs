@@ -20,6 +20,16 @@ internal class HardwareProfile
     public double NetBandwidthKBs { get; }
     public double NetBasePingMs { get; }
 
+    // Disk — spindle state transitions
+    /// <summary>Spin-up from fully stopped (disk idle >30s): ~300ms for a 1991 5400-RPM drive.</summary>
+    public double DiskSpinUpMs { get; }
+    /// <summary>Partial spin-up (disk idle 2-30s, platter still coasting): ~80ms.</summary>
+    public double DiskCoastMs { get; }
+    /// <summary>After this many ms idle the spindle stops completely.</summary>
+    public double DiskIdleStopMs { get; }
+    /// <summary>After this many ms idle the spindle is coasting (slower than full speed).</summary>
+    public double DiskCoastThresholdMs { get; }
+
     // CPU — fork/exec/context-switch
     public double ForkMs { get; }
     public double ContextSwitchMs { get; }
@@ -37,6 +47,10 @@ internal class HardwareProfile
         DiskAccessMs     = DiskSeekMs + DiskRotationMs;
         DiskTransferKBs  = 750.0 / m;
         DiskDirEntryMs   = DiskAccessMs / 4.0;
+        DiskSpinUpMs     = 300.0 * m;        // full stop to full speed
+        DiskCoastMs      = 80.0 * m;         // coasting to full speed
+        DiskIdleStopMs   = 30000.0 * m;      // 30s idle stops spindle
+        DiskCoastThresholdMs = 2000.0 * m;   // 2s idle: transition to coast
 
         NetBandwidthKBs  = spec.ModemBaud / 8000.0;  // baud → KB/s
         NetBasePingMs    = 120.0 * m;

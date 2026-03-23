@@ -131,21 +131,28 @@ the intended target architecture.
 
 ### 5.1 Disk
 
+**Status: ✅ IMPLEMENTED**
+
 ```
-Idle ──[read/write request]──► SpinUp (300ms)
-SpinUp ──► Seeking (random 5–50ms)
-Seeking ──► Reading | Writing (bytes / transfer rate)
-Reading | Writing ──[done]──► Idle
+Running ──[idle >30s]──► Stopped
+Running ──[idle 2-30s]──► Coasting
+Stopped ──[access]──► Running (adds 300ms spindle spin-up)
+Coasting ──[access]──► Running (adds 80ms coast→full speed)
+Running ──[access]──► Running (no extra delay)
 ```
 
-**Latency sources:**
-- Spin-up from idle: ~300ms (5400 RPM HD)
-- Seek: 5–50ms random
-- Transfer: ~1MB/s sequential (Minix default block size 1KB)
+The spindle state is tracked in `DiskController` with transitions recalculated each kernel tick
+via `UpdateSpindleState(nowMs)`. Disk access incurs spin-up latency only on state change.
 
-Implementation target: `MinixSyscallGate.Dispatch` schedules a `Disk` event on
-`KernelEventQueue` instead of calling `_hw.BlockFor`. The kernel tick fires the
-completion callback, which unblocks the command continuation.
+**Implementation details:**
+- `HardwareProfile`: Added `DiskSpinUpMs` (300ms), `DiskCoastMs` (80ms), `DiskIdleStopMs` (30s), `DiskCoastThresholdMs` (2s)
+- `DiskController`: Tracks spindle `_lastAccessMs` and `_state` (enum). `Acquire(nowMs)` returns spin-up cost.
+- `MinixSyscallGate`: Calls `_res.DiskCtrl.Acquire(_clock.UptimeMs())` in `LatencyFor()`, passing current time.
+- `Kernel.Tick()`: Calls `Resources.DiskCtrl.UpdateSpindleState(NowMs)` each tick to advance state.
+
+**Latency model:**
+- DiskRead: `Acquire(spin-up) + TransferTime + Contention + CPU overhead`
+- All disk ops use the state machine; network ops unaffected
 
 ### 5.2 Network / Modem
 
