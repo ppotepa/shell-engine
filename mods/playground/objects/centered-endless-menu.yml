@@ -14,7 +14,7 @@ sprites:
     width: 40
     height: 23
     columns: ["1fr"]
-    rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
+    rows: ["auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto", "auto"]
     gap-y: 1
     children:
       - { type: text, id: menu-item-0, content: "[1] 3D SCENE", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
@@ -28,7 +28,8 @@ sprites:
       - { type: text, id: menu-item-8, content: "[8] LAYOUT LAB", grid-col: 1, grid-row: 9, at: cc, font: "generic:1", fg: gray }
       - { type: text, id: menu-item-9, content: "[S+8] CRT-TEST", grid-col: 1, grid-row: 10, at: cc, font: "generic:1", fg: silver }
       - { type: text, id: menu-item-10, content: "[9] RHAI LAB", grid-col: 1, grid-row: 11, at: cc, font: "generic:1", fg: gray }
-      - { type: text, id: menu-item-11, content: "[0] EXIT", grid-col: 1, grid-row: 12, at: cc, font: "generic:1", fg: silver }
+      - { type: text, id: menu-item-11, content: "[S+9] AUDIO DEMO", grid-col: 1, grid-row: 12, at: cc, font: "generic:1", fg: silver }
+      - { type: text, id: menu-item-12, content: "[0] EXIT", grid-col: 1, grid-row: 13, at: cc, font: "generic:1", fg: gray }
 
   - { type: text, id: sel0-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
   - { type: text, id: sel0-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
@@ -54,3 +55,5 @@ sprites:
   - { type: text, id: sel10-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-10, index: 10, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
   - { type: text, id: sel11-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-11, index: 11, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
   - { type: text, id: sel11-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-11, index: 11, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel12-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-12, index: 12, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel12-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-12, index: 12, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
