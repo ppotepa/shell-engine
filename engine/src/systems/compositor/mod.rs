@@ -65,14 +65,14 @@ pub fn compositor_system(world: &mut World) {
         scene_step_dur,
         rendered_mode,
     ) = {
+        let object_states = world
+            .scene_runtime_mut()
+            .map(|rt| rt.object_states_snapshot())
+            .unwrap_or_default();
         let scene = world.scene_runtime().unwrap().scene();
         let target_resolver = world
             .scene_runtime()
             .map(SceneRuntime::target_resolver)
-            .unwrap_or_default();
-        let object_states = world
-            .scene_runtime()
-            .map(SceneRuntime::object_states_snapshot)
             .unwrap_or_default();
         let obj_camera_states = world
             .scene_runtime()

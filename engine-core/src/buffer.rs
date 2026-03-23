@@ -41,6 +41,8 @@ pub struct CellDiff<'a> {
 /// `front` mirrors what is currently visible on the terminal.
 /// Only cells that differ between back and front are flushed on each render.
 /// After flushing, `swap()` copies back → front.
+///
+/// Dirty rect tracking avoids O(W*H) fill/diff scans by tracking modified regions.
 #[derive(Debug, Clone)]
 pub struct Buffer {
     pub width: u16,
@@ -49,6 +51,15 @@ pub struct Buffer {
     back: Vec<Cell>,
     /// Front buffer — mirrors what the terminal currently shows.
     front: Vec<Cell>,
+    /// Generation counter for lazy invalidation (avoids rewriting every front cell).
+    generation: u64,
+    /// Tracks which generation this frame's front buffer represents.
+    front_generation: u64,
+    /// Dirty region bounds: (min_x, max_x, min_y, max_y) — uint::MAX means no dirty region.
+    dirty_x_min: u16,
+    dirty_x_max: u16,
+    dirty_y_min: u16,
+    dirty_y_max: u16,
 }
 
 /// Optional off-screen fixed-resolution buffer used before presenting to terminal output.
@@ -80,20 +91,47 @@ impl Buffer {
             height,
             back,
             front,
+            generation: 1,
+            front_generation: 0,
+            dirty_x_min: u16::MAX,
+            dirty_x_max: 0,
+            dirty_y_min: u16::MAX,
+            dirty_y_max: 0,
         }
     }
 
     /// Fill the entire back buffer with blank cells of the given background colour.
+    /// Uses generation-based lazy invalidation instead of rewriting every front cell.
     pub fn fill(&mut self, bg: Color) {
+        // Reuse the same cell for all positions to minimize work.
+        let blank = Cell::blank(bg);
         for cell in &mut self.back {
-            *cell = Cell::blank(bg);
+            *cell = blank.clone();
         }
+        // Mark entire buffer as dirty region.
+        self.dirty_x_min = 0;
+        self.dirty_x_max = self.width.saturating_sub(1);
+        self.dirty_y_min = 0;
+        self.dirty_y_max = self.height.saturating_sub(1);
     }
 
-    /// Write a single pixel to the back buffer.
+    /// Write a single pixel to the back buffer, tracking dirty region.
     pub fn set(&mut self, x: u16, y: u16, symbol: char, fg: Color, bg: Color) {
         if x < self.width && y < self.height {
             self.back[y as usize * self.width as usize + x as usize] = Cell { symbol, fg, bg };
+            // Update dirty region bounds.
+            if x < self.dirty_x_min {
+                self.dirty_x_min = x;
+            }
+            if x > self.dirty_x_max {
+                self.dirty_x_max = x;
+            }
+            if y < self.dirty_y_min {
+                self.dirty_y_min = y;
+            }
+            if y > self.dirty_y_max {
+                self.dirty_y_max = y;
+            }
         }
     }
 
@@ -106,56 +144,115 @@ impl Buffer {
         }
     }
 
-    /// Return cells that differ between back and front — the minimal render set.
+    /// Return cells that differ between back and front within dirty region — minimal render set.
+    /// If generation changed (invalidate/resize), scans entire buffer.
     pub fn diff(&self) -> Vec<CellDiff<'_>> {
         let mut result = Vec::new();
-        let mut idx = 0usize;
-        for y in 0..self.height {
-            for x in 0..self.width {
+        
+        // If generation changed, front needs full redraw.
+        if self.generation != self.front_generation {
+            // Full buffer scan — front was invalidated.
+            let mut idx = 0usize;
+            for y in 0..self.height {
+                for x in 0..self.width {
+                    if self.back[idx] != self.front[idx] {
+                        result.push(CellDiff { x, y, cell: &self.back[idx] });
+                    }
+                    idx += 1;
+                }
+            }
+            return result;
+        }
+        
+        // Normal case: no generation change, scan dirty region only.
+        if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
+            return result;
+        }
+        
+        // Scan only the dirty region.
+        for y in self.dirty_y_min..=self.dirty_y_max.min(self.height.saturating_sub(1)) {
+            for x in self.dirty_x_min..=self.dirty_x_max.min(self.width.saturating_sub(1)) {
+                let idx = y as usize * self.width as usize + x as usize;
                 if self.back[idx] != self.front[idx] {
                     result.push(CellDiff { x, y, cell: &self.back[idx] });
                 }
-                idx += 1;
             }
         }
         result
     }
 
-    /// Fill `out` with raw (pre-resolve) diff tuples, reusing the allocation across frames.
+    /// Fill `out` with raw (pre-resolve) diff tuples within dirty region, reusing the allocation.
+    /// If generation changed, scans entire buffer.
     pub fn diff_into(&self, out: &mut Vec<(u16, u16, char, Color, Color)>) {
-        let mut idx = 0usize;
-        for y in 0..self.height {
-            for x in 0..self.width {
+        // If generation changed, front needs full redraw.
+        if self.generation != self.front_generation {
+            let mut idx = 0usize;
+            for y in 0..self.height {
+                for x in 0..self.width {
+                    let b = &self.back[idx];
+                    if *b != self.front[idx] {
+                        out.push((x, y, b.symbol, b.fg, b.bg));
+                    }
+                    idx += 1;
+                }
+            }
+            return;
+        }
+        
+        // Normal case: no generation change, scan dirty region only.
+        if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
+            return;
+        }
+        
+        // Scan only the dirty region.
+        for y in self.dirty_y_min..=self.dirty_y_max.min(self.height.saturating_sub(1)) {
+            for x in self.dirty_x_min..=self.dirty_x_max.min(self.width.saturating_sub(1)) {
+                let idx = y as usize * self.width as usize + x as usize;
                 let b = &self.back[idx];
                 if *b != self.front[idx] {
                     out.push((x, y, b.symbol, b.fg, b.bg));
                 }
-                idx += 1;
             }
         }
     }
 
     /// Promote back buffer to front — call after every successful flush.
-    /// Uses O(1) pointer swap instead of O(W×H) memcpy; the caller always
-    /// calls `fill()` on the back buffer before the next frame anyway.
+    /// Uses O(1) pointer swap instead of O(W×H) memcpy; resets dirty tracking.
     pub fn swap(&mut self) {
         std::mem::swap(&mut self.front, &mut self.back);
+        self.front_generation = self.generation;
+        // Reset dirty region for next frame.
+        self.dirty_x_min = u16::MAX;
+        self.dirty_x_max = 0;
+        self.dirty_y_min = u16::MAX;
+        self.dirty_y_max = 0;
     }
 
     /// Restore the front buffer (last flushed frame) into the back buffer.
     ///
     /// Used by the last-good-frame fallback: when a script error is detected,
     /// calling this before the diff preserves the last visible frame on screen
-    /// instead of showing a compositor-cleared blank.
+    /// instead of showing a compositor-cleared blank. Marks entire region as dirty.
     pub fn restore_front_to_back(&mut self) {
         self.back.clone_from(&self.front);
+        // Mark entire buffer as dirty so restored frame gets flushed.
+        self.dirty_x_min = 0;
+        self.dirty_x_max = self.width.saturating_sub(1);
+        self.dirty_y_min = 0;
+        self.dirty_y_max = self.height.saturating_sub(1);
     }
 
     /// Force a full re-flush on the next render (e.g. after terminal resize).
+    /// Writes sentinels to front and marks entire region as dirty.
     pub fn invalidate(&mut self) {
         for cell in &mut self.front {
             cell.symbol = '\0';
         }
+        // Mark entire buffer as dirty so diff will include everything.
+        self.dirty_x_min = 0;
+        self.dirty_x_max = self.width.saturating_sub(1);
+        self.dirty_y_min = 0;
+        self.dirty_y_max = self.height.saturating_sub(1);
     }
 
     /// Resize both buffers, preserving nothing (invalidates front for full redraw).
@@ -172,6 +269,48 @@ impl Buffer {
             };
             size
         ];
+        // Increment generation to force full redraw.
+        self.generation = self.generation.wrapping_add(1);
+        self.dirty_x_min = 0;
+        self.dirty_x_max = width.saturating_sub(1);
+        self.dirty_y_min = 0;
+        self.dirty_y_max = height.saturating_sub(1);
+    }
+
+    /// Blit a rectangular region from source buffer to this buffer's back.
+    /// Only copies non-transparent cells (space with Color::Reset background).
+    /// Tracks dirty region for efficient diff.
+    pub fn blit_from(
+        &mut self,
+        src: &Buffer,
+        src_x: u16,
+        src_y: u16,
+        dst_x: u16,
+        dst_y: u16,
+        width: u16,
+        height: u16,
+    ) {
+        for y in 0..height {
+            let src_row = src_y.wrapping_add(y);
+            let dst_row = dst_y.wrapping_add(y);
+            if dst_row >= self.height || src_row >= src.height {
+                continue;
+            }
+            for x in 0..width {
+                let src_col = src_x.wrapping_add(x);
+                let dst_col = dst_x.wrapping_add(x);
+                if dst_col >= self.width || src_col >= src.width {
+                    continue;
+                }
+                if let Some(cell) = src.get(src_col, src_row) {
+                    // Skip transparent cells (space with Reset background).
+                    if cell.symbol == ' ' && cell.bg == Color::Reset {
+                        continue;
+                    }
+                    self.set(dst_col, dst_row, cell.symbol, cell.fg, cell.bg);
+                }
+            }
+        }
     }
 }
 

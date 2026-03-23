@@ -106,19 +106,8 @@ pub fn composite_layers(
                 &mut *layer_buf,
             );
 
-            // Blit layer onto scene framebuffer — skip transparent pixels
-            for ly in 0..scene_h {
-                for lx in 0..scene_w {
-                    if let Some(cell) = layer_buf.get(lx, ly) {
-                        if !(cell.symbol == ' ' && cell.bg == Color::Reset) {
-                            let sym = cell.symbol;
-                            let fg = cell.fg;
-                            let cbg = cell.bg;
-                            buffer.set(lx, ly, sym, fg, cbg);
-                        }
-                    }
-                }
-            }
+            // Blit layer onto scene framebuffer using optimized region copy.
+            buffer.blit_from(&layer_buf, 0, 0, 0, 0, scene_w, scene_h);
         });
     }
 }

@@ -34,6 +34,9 @@ pub struct SceneRuntime {
     object_regions: BTreeMap<String, Region>,
     /// Object kinds computed once at scene load — objects never change after init.
     cached_object_kinds: std::sync::Arc<BTreeMap<String, String>>,
+    /// Cached Arc of raw object states — used for compositor access each frame.
+    /// Invalidated at start of each behavior pass and on state mutations.
+    cached_object_states: Option<std::sync::Arc<BTreeMap<String, ObjectRuntimeState>>>,
     /// Cached Arc of effective (parent-propagated) object states.
     /// Rebuilt only when `effective_states_dirty` is true.
     cached_effective_states: Option<std::sync::Arc<BTreeMap<String, ObjectRuntimeState>>>,
@@ -453,6 +456,7 @@ impl SceneRuntime {
             resolver_cache: std::sync::Arc::new(TargetResolver::default()),
             object_regions: BTreeMap::new(),
             cached_object_kinds,
+            cached_object_states: None,
             cached_effective_states: None,
             effective_states_dirty: true,
             cached_object_props: None,
@@ -896,8 +900,13 @@ impl SceneRuntime {
         self.object_states.get(id)
     }
 
-    pub fn object_states_snapshot(&self) -> std::sync::Arc<BTreeMap<String, ObjectRuntimeState>> {
-        std::sync::Arc::new(self.object_states.clone())
+    pub fn object_states_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, ObjectRuntimeState>> {
+        if let Some(cached) = &self.cached_object_states {
+            return std::sync::Arc::clone(cached);
+        }
+        let arc = std::sync::Arc::new(self.object_states.clone());
+        self.cached_object_states = Some(std::sync::Arc::clone(&arc));
+        arc
     }
 
     pub fn object_kind_snapshot(&self) -> std::sync::Arc<BTreeMap<String, String>> {
@@ -1094,6 +1103,7 @@ impl SceneRuntime {
         self.sync_terminal_shell_sprites();
         // Mark all per-frame derived caches dirty.
         self.effective_states_dirty = true;
+        self.cached_object_states = None;
         self.cached_object_props = None;
         self.cached_object_text = None;
         // sidecar_io: build Arc once if not already cached from a prior
@@ -1636,6 +1646,7 @@ impl SceneRuntime {
             return;
         }
         self.effective_states_dirty = true;
+        self.cached_object_states = None;
         self.cached_object_props = None;
         self.cached_object_text = None;
         for command in commands {
