@@ -19,6 +19,20 @@ internal static class Protocol
         sink.Flush();
     }
 
+    /// <summary>
+    /// Send a single line with optional delay in milliseconds.
+    /// Engine queues and displays after delay for realistic timing simulation.
+    /// </summary>
+    public static void EmitLine(IOutputSink sink, string text, ulong? delayMs = null)
+    {
+        Send(sink, new
+        {
+            type = "emit-line",
+            text,
+            delay_ms = delayMs
+        });
+    }
+
     public static string? GetTypeTag(JsonElement root)
         => root.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String
             ? t.GetString()

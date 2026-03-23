@@ -1,9 +1,9 @@
+use std::collections::HashMap;
 use crate::buffer::Buffer;
 use crate::effects::{apply_effect, Region};
 use crate::scene::{Layer, LayerStages, Stage, Step};
 use crate::scene_runtime::TargetResolver;
 use crate::systems::animator::SceneStage;
-use std::collections::BTreeMap;
 
 /// Apply effects for a sprite's lifecycle stage.
 ///
@@ -20,7 +20,7 @@ pub fn apply_sprite_effects(
     sprite_elapsed_ms: u64,
     region: Region,
     target_resolver: Option<&TargetResolver>,
-    object_regions: &BTreeMap<String, Region>,
+    object_regions: &HashMap<String, Region>,
     buffer: &mut Buffer,
 ) {
     let current_stage = match stage {
@@ -61,7 +61,7 @@ pub fn apply_layer_effects(
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
     target_resolver: Option<&TargetResolver>,
-    object_regions: &BTreeMap<String, Region>,
+    object_regions: &HashMap<String, Region>,
     buffer: &mut Buffer,
 ) {
     let current_stage = match stage {
@@ -170,7 +170,7 @@ mod tests {
     use crate::scene_runtime::SceneRuntime;
     use crate::systems::animator::SceneStage;
     use crossterm::style::Color;
-    use std::collections::BTreeMap;
+    use std::collections::HashMap;
 
     #[test]
     fn layer_effects_can_target_named_sprite_region() {
@@ -200,7 +200,7 @@ layers:
             .expect("scene should parse"),
         );
         let resolver = runtime.target_resolver();
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         let title_id = resolver.resolve_alias("title").expect("title target");
         object_regions.insert(
             title_id.to_string(),
@@ -301,7 +301,7 @@ layers:
             1,
             0,
             None,
-            &BTreeMap::new(),
+            &HashMap::new(),
             &mut buffer,
         );
 
@@ -348,7 +348,7 @@ layers:
             0,
             sprite_region,
             None,
-            &BTreeMap::new(),
+            &HashMap::new(),
             &mut buffer,
         );
 

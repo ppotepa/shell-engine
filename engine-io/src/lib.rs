@@ -49,6 +49,13 @@ pub enum IoEvent {
     Out {
         lines: Vec<String>,
     },
+    /// Single line output with optional delay in milliseconds.
+    /// Engine queues this and displays after delay for realistic timing simulation.
+    EmitLine {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        delay_ms: Option<u64>,
+    },
     Clear,
     SetPromptPrefix {
         text: String,

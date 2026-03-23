@@ -333,6 +333,10 @@ pub(crate) fn render_obj_to_canvas(
         // Pre-compute normalized light directions once per render (not per face).
         let light_dir_norm = normalize3([params.light_direction_x, params.light_direction_y, params.light_direction_z]);
         let light_2_dir_norm = normalize3([params.light_2_direction_x, params.light_2_direction_y, params.light_2_direction_z]);
+        // Pre-compute Blinn-Phong half-vectors for directional lights (constant per mesh render).
+        // VIEW_DIR is always [0,0,-1] in view space (camera looks down -Z).
+        let half_dir_1 = normalize3([light_dir_norm[0], light_dir_norm[1], light_dir_norm[2] - 1.0]);
+        let half_dir_2 = normalize3([light_2_dir_norm[0], light_2_dir_norm[1], light_2_dir_norm[2] - 1.0]);
         // Sort faces back-to-front for correct painter's-algorithm blending when
         // depth-buffering alone isn't enough (avoids most z-fighting glitches).
         // Pre-compute depth keys to avoid redundant work inside the comparator.
@@ -382,6 +386,8 @@ pub(crate) fn render_obj_to_canvas(
                         face.ns,
                         light_dir_norm,
                         light_2_dir_norm,
+                        half_dir_1,
+                        half_dir_2,
                         light_2_intensity,
                         [light_1_x, light_point_y, light_1_z],
                         light_point_intensity * point_1_flicker,
@@ -705,9 +711,10 @@ fn rasterize_triangle(
     let max_y = max_y.min(clip_max_y);
 
     for py in min_y..=max_y {
+        let y = py as f32 + 0.5;
+        let row_start = py as usize * w as usize;
         for px in min_x..=max_x {
             let x = px as f32 + 0.5;
-            let y = py as f32 + 0.5;
             let w0 = edge(v1.x, v1.y, v2.x, v2.y, x, y) / area;
             let w1 = edge(v2.x, v2.y, v0.x, v0.y, x, y) / area;
             let w2 = edge(v0.x, v0.y, v1.x, v1.y, x, y) / area;
@@ -715,7 +722,7 @@ fn rasterize_triangle(
                 continue;
             }
             let z = w0 * v0.depth + w1 * v1.depth + w2 * v2.depth;
-            let idx = py as usize * w as usize + px as usize;
+            let idx = row_start + px as usize;
             if z < depth[idx] {
                 depth[idx] = z;
                 canvas[idx] = Some(color);
@@ -753,6 +760,8 @@ fn face_shading_with_specular(
     ns: f32,
     light_dir: [f32; 3],
     light_2_dir: [f32; 3],
+    half_dir_1: [f32; 3],
+    half_dir_2: [f32; 3],
     light_2_intensity: f32,
     light_point: [f32; 3],
     light_point_intensity: f32,
@@ -798,28 +807,11 @@ fn face_shading_with_specular(
     let material_influence = (1.0 - tone_mix.clamp(0.0, 1.0)).clamp(0.0, 1.0);
     let ka_lum_material = (ka[0] * 0.299 + ka[1] * 0.587 + ka[2] * 0.114).clamp(0.03, 0.25);
     let ka_lum = 0.06 + (ka_lum_material - 0.06) * material_influence;
-    // view_dir is constant [0, 0, -1] — already unit length, skip normalize.
-    const VIEW_DIR: [f32; 3] = [0.0, 0.0, -1.0];
-    let half_dir_1 = normalize3([
-        light_dir[0] + VIEW_DIR[0],
-        light_dir[1] + VIEW_DIR[1],
-        light_dir[2] + VIEW_DIR[2],
-    ]);
-    let half_dir_2 = normalize3([
-        light_2_dir[0] + VIEW_DIR[0],
-        light_2_dir[1] + VIEW_DIR[1],
-        light_2_dir[2] + VIEW_DIR[2],
-    ]);
-    let half_dir_point = normalize3([
-        point_dir[0] + VIEW_DIR[0],
-        point_dir[1] + VIEW_DIR[1],
-        point_dir[2] + VIEW_DIR[2],
-    ]);
-    let half_dir_point_2 = normalize3([
-        point_2_dir[0] + VIEW_DIR[0],
-        point_2_dir[1] + VIEW_DIR[1],
-        point_2_dir[2] + VIEW_DIR[2],
-    ]);
+    // half_dir_1 and half_dir_2 are pre-computed by the caller (constant per render).
+    // point half-vectors depend on per-face centroid, so they remain here.
+    // VIEW_DIR = [0, 0, -1]; add directly without allocating a constant.
+    let half_dir_point = normalize3([point_dir[0], point_dir[1], point_dir[2] - 1.0]);
+    let half_dir_point_2 = normalize3([point_2_dir[0], point_2_dir[1], point_2_dir[2] - 1.0]);
     let shininess = 24.0 + (ns.clamp(2.0, 200.0) - 24.0) * material_influence;
     let spec_1 = dot3(normal, half_dir_1).abs().powf(shininess);
     let spec_2 = dot3(normal, half_dir_2).abs().powf(shininess) * light_2_strength * 0.7;

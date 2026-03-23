@@ -4,6 +4,7 @@ using CognitOS.Core;
 using CognitOS.Framework.Kernel;
 using CognitOS.Kernel.Clock;
 using CognitOS.Kernel.Disk;
+using CognitOS.Kernel.Events;
 using CognitOS.Kernel.Journal;
 using CognitOS.Kernel.Mail;
 using CognitOS.Kernel.Network;
@@ -41,6 +42,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
     public ResourceState Resources { get; }
     public HardwareProfile Hardware { get; }
     public MachineSpec Spec { get; }
+    public KernelEventQueue Events { get; }
 
     public Kernel(MachineSpec spec, IMutableFileSystem vfs, CognitOS.Network.RemoteHostIndex hostIndex)
     {
@@ -54,6 +56,7 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
 
         // Layer 3: Clock
         Clock = new SimulatedClock(new DateTime(1991, 9, 17, 21, 12, 0));
+        Events = new KernelEventQueue();
 
         // Layer 3.5: Syscall gate — single choke point for resource checks + latency
         ISyscallGate gate = new MinixSyscallGate(Resources, Hardware);
@@ -94,10 +97,17 @@ internal sealed class Kernel : IKernel, FrameworkKernel.IKernel
         UserSession session, TextWriter output, QuestState quest)
         => CreateScope(session, output, quest);
 
+    public ulong NowMs => Clock.UptimeMs();
+
+    public void Schedule(KernelEventKind kind, ulong delayMs, Action action, string? tag = null)
+        => Events.ScheduleAfter(NowMs, delayMs, kind, action, tag);
+
     public void Tick(ulong dtMs)
     {
         Clock.Advance(dtMs);
         Services.Tick(dtMs);
+        foreach (var ev in Events.DrainReady(NowMs))
+            ev.Action();
         Resources.Recalc();
     }
 

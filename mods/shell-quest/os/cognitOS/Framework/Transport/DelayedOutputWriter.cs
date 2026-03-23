@@ -4,22 +4,30 @@ using System.Text;
 using CognitOS.Core;
 
 /// <summary>
-/// Bridges accidental Console.WriteLine debugging into the sidecar protocol.
-/// Each flushed line becomes a normal `out` event.
+/// TextWriter that emits lines with configurable delays for realistic timing simulation.
+/// Used by commands that need to simulate network latency, disk spin-up, or other hardware delays.
 /// </summary>
-internal sealed class GameTextWriter : TextWriter
+internal sealed class DelayedOutputWriter : TextWriter
 {
     private readonly IOutputSink _sink;
     private readonly StringBuilder _buffer = new();
+    private ulong _accumulatedDelayMs;
 
-    public GameTextWriter(IOutputSink sink)
+    public DelayedOutputWriter(IOutputSink sink)
     {
         _sink = sink;
     }
 
     public override Encoding Encoding => Encoding.UTF8;
 
-    internal IOutputSink Sink => _sink;
+    /// <summary>
+    /// Set delay for the next line to be emitted.
+    /// Call before WriteLine to schedule line output after specified ms.
+    /// </summary>
+    public void SetNextLineDelay(ulong delayMs)
+    {
+        _accumulatedDelayMs += delayMs;
+    }
 
     public override void Write(char value)
     {
@@ -59,10 +67,8 @@ internal sealed class GameTextWriter : TextWriter
     {
         var text = _buffer.ToString();
         _buffer.Clear();
-        Protocol.Send(_sink, new
-        {
-            type = "out",
-            lines = new[] { text }
-        });
+
+        Protocol.EmitLine(_sink, text, _accumulatedDelayMs > 0 ? _accumulatedDelayMs : null);
+        _accumulatedDelayMs = 0;
     }
 }

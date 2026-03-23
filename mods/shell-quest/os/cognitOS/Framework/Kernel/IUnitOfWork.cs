@@ -38,4 +38,10 @@ internal interface IUnitOfWork : IDisposable
     MachineSpec Spec { get; }
     ResourceSnapshot Resources { get; }
     int? CommandPid { get; set; }
+
+    /// <summary>
+    /// Schedule a delayed output line on simulated kernel time.
+    /// Accumulated delay is relative to when this call is made.
+    /// </summary>
+    void ScheduleOutput(string line, ulong delayMs);
 }

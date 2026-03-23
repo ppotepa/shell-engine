@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use super::effect_applicator::apply_layer_effects;
 use super::sprite_renderer::render_sprites;
 use crate::assets::AssetRoot;
@@ -23,15 +24,15 @@ pub fn composite_layers(
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: Option<&TargetResolver>,
-    object_regions: &mut BTreeMap<String, Region>,
+    object_regions: &mut HashMap<String, Region>,
     scene_origin_x: i32,
     scene_origin_y: i32,
-    object_states: &BTreeMap<String, ObjectRuntimeState>,
+    object_states: &HashMap<String, ObjectRuntimeState>,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
-    obj_camera_states: &BTreeMap<String, ObjCameraState>,
+    obj_camera_states: &HashMap<String, ObjCameraState>,
     buffer: &mut Buffer,
 ) {
     for (layer_idx, layer) in layers.iter().enumerate() {

@@ -16,7 +16,7 @@ use crate::scene::{
 use crate::systems::animator::SceneStage;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use tui_input::{Input, InputRequest};
 
 /// Materialized runtime view of a [`Scene`] with stable object ids, behavior
@@ -24,40 +24,40 @@ use tui_input::{Input, InputRequest};
 pub struct SceneRuntime {
     scene: Scene,
     root_id: String,
-    objects: BTreeMap<String, GameObject>,
-    object_states: BTreeMap<String, ObjectRuntimeState>,
+    objects: HashMap<String, GameObject>,
+    object_states: HashMap<String, ObjectRuntimeState>,
     layer_ids: BTreeMap<usize, String>,
-    sprite_ids: BTreeMap<String, String>,
+    sprite_ids: HashMap<String, String>,
     behaviors: Vec<ObjectBehaviorRuntime>,
     /// Resolver wrapped in Arc — built once at scene load, O(1) clone per frame.
     resolver_cache: std::sync::Arc<TargetResolver>,
-    object_regions: BTreeMap<String, Region>,
+    object_regions: HashMap<String, Region>,
     /// Object kinds computed once at scene load — objects never change after init.
-    cached_object_kinds: std::sync::Arc<BTreeMap<String, String>>,
+    cached_object_kinds: std::sync::Arc<HashMap<String, String>>,
     /// Cached Arc of raw object states — used for compositor access each frame.
     /// Invalidated at start of each behavior pass and on state mutations.
-    cached_object_states: Option<std::sync::Arc<BTreeMap<String, ObjectRuntimeState>>>,
+    cached_object_states: Option<std::sync::Arc<HashMap<String, ObjectRuntimeState>>>,
     /// Cached Arc of effective (parent-propagated) object states.
     /// Rebuilt only when `effective_states_dirty` is true.
-    cached_effective_states: Option<std::sync::Arc<BTreeMap<String, ObjectRuntimeState>>>,
+    cached_effective_states: Option<std::sync::Arc<HashMap<String, ObjectRuntimeState>>>,
     /// Set to true at the start of each behavior update pass and whenever
     /// `apply_behavior_commands` actually mutates `object_states`.
     effective_states_dirty: bool,
     /// Cached object props snapshot. Cleared at start of each behavior pass and
     /// whenever `apply_behavior_commands` runs; rebuilt on first demand.
-    cached_object_props: Option<std::sync::Arc<BTreeMap<String, serde_json::Value>>>,
+    cached_object_props: Option<std::sync::Arc<HashMap<String, serde_json::Value>>>,
     /// Cached object text snapshot. Same lifecycle as `cached_object_props`.
-    cached_object_text: Option<std::sync::Arc<BTreeMap<String, String>>>,
+    cached_object_text: Option<std::sync::Arc<HashMap<String, String>>>,
     /// Cached Arc of the sidecar I/O frame state. Invalidated whenever the
     /// sidecar writes to `ui_state.sidecar_io` and rebuilt on next demand.
     cached_sidecar_io: Option<std::sync::Arc<SidecarIoFrameState>>,
     /// Regions wrapped in Arc so `update_behaviors` can take a refcount
     /// copy instead of cloning the entire map each frame.
-    cached_object_regions: std::sync::Arc<BTreeMap<String, Region>>,
-    obj_orbit_default_speed: BTreeMap<String, f32>,
-    obj_camera_states: BTreeMap<String, ObjCameraState>,
+    cached_object_regions: std::sync::Arc<HashMap<String, Region>>,
+    obj_orbit_default_speed: HashMap<String, f32>,
+    obj_camera_states: HashMap<String, ObjCameraState>,
     /// Cached Arc of OBJ camera states — rebuilt when cameras change.
-    cached_obj_camera_states: Option<std::sync::Arc<BTreeMap<String, ObjCameraState>>>,
+    cached_obj_camera_states: Option<std::sync::Arc<HashMap<String, ObjCameraState>>>,
     terminal_shell_state: Option<TerminalShellState>,
     terminal_shell_scene_elapsed_ms: u64,
     ui_state: UiRuntimeState,
@@ -81,9 +81,9 @@ pub struct ObjCameraState {
 /// materialization.
 pub struct TargetResolver {
     scene_object_id: String,
-    aliases: BTreeMap<String, String>,
+    aliases: HashMap<String, String>,
     layer_ids: BTreeMap<usize, String>,
-    sprite_ids: BTreeMap<String, String>,
+    sprite_ids: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -366,10 +366,10 @@ impl SceneRuntime {
             layer.sprites.sort_by_key(|s| s.z_index());
         }
         let root_id = format!("scene:{}", sanitize_fragment(&scene.id));
-        let mut objects = BTreeMap::new();
-        let mut object_states = BTreeMap::new();
+        let mut objects = HashMap::new();
+        let mut object_states = HashMap::new();
         let mut layer_ids = BTreeMap::new();
-        let mut sprite_ids = BTreeMap::new();
+        let mut sprite_ids = HashMap::new();
         let mut behavior_bindings = Vec::new();
         insert_object(
             &mut objects,
@@ -444,7 +444,7 @@ impl SceneRuntime {
             objects
                 .iter()
                 .map(|(id, object)| (id.clone(), object_kind_name(&object.kind).to_string()))
-                .collect::<BTreeMap<_, _>>(),
+                .collect::<HashMap<_, _>>(),
         );
 
         let mut runtime = Self {
@@ -456,7 +456,7 @@ impl SceneRuntime {
             sprite_ids,
             behaviors: Vec::new(),
             resolver_cache: std::sync::Arc::new(TargetResolver::default()),
-            object_regions: BTreeMap::new(),
+            object_regions: HashMap::new(),
             cached_object_kinds,
             cached_object_states: None,
             cached_effective_states: None,
@@ -464,9 +464,9 @@ impl SceneRuntime {
             cached_object_props: None,
             cached_object_text: None,
             cached_sidecar_io: None,
-            cached_object_regions: std::sync::Arc::new(BTreeMap::new()),
-            obj_orbit_default_speed: BTreeMap::new(),
-            obj_camera_states: BTreeMap::new(),
+            cached_object_regions: std::sync::Arc::new(HashMap::new()),
+            obj_orbit_default_speed: HashMap::new(),
+            obj_camera_states: HashMap::new(),
             cached_obj_camera_states: None,
             terminal_shell_state: None,
             terminal_shell_scene_elapsed_ms: 0,
@@ -911,7 +911,7 @@ impl SceneRuntime {
         self.object_states.get(id)
     }
 
-    pub fn object_states_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, ObjectRuntimeState>> {
+    pub fn object_states_snapshot(&mut self) -> std::sync::Arc<HashMap<String, ObjectRuntimeState>> {
         if let Some(cached) = &self.cached_object_states {
             return std::sync::Arc::clone(cached);
         }
@@ -920,15 +920,15 @@ impl SceneRuntime {
         arc
     }
 
-    pub fn object_kind_snapshot(&self) -> std::sync::Arc<BTreeMap<String, String>> {
+    pub fn object_kind_snapshot(&self) -> std::sync::Arc<HashMap<String, String>> {
         std::sync::Arc::clone(&self.cached_object_kinds)
     }
 
-    pub fn object_text_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, String>> {
+    pub fn object_text_snapshot(&mut self) -> std::sync::Arc<HashMap<String, String>> {
         if let Some(cached) = &self.cached_object_text {
             return std::sync::Arc::clone(cached);
         }
-        let mut out = BTreeMap::new();
+        let mut out = HashMap::new();
         for (object_id, object) in &self.objects {
             let Some(sprite_id) = object.aliases.first() else {
                 continue;
@@ -943,11 +943,11 @@ impl SceneRuntime {
         arc
     }
 
-    pub fn object_props_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, JsonValue>> {
+    pub fn object_props_snapshot(&mut self) -> std::sync::Arc<HashMap<String, JsonValue>> {
         if let Some(cached) = &self.cached_object_props {
             return std::sync::Arc::clone(cached);
         }
-        let mut out = BTreeMap::new();
+        let mut out = HashMap::new();
         for (object_id, object) in &self.objects {
             let Some(sprite_id) = object.aliases.first() else {
                 continue;
@@ -1019,7 +1019,7 @@ impl SceneRuntime {
             .find_map(|layer| find_obj_properties_recursive(&layer.sprites, sprite_id))
     }
 
-    pub fn obj_camera_states_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, ObjCameraState>> {
+    pub fn obj_camera_states_snapshot(&mut self) -> std::sync::Arc<HashMap<String, ObjCameraState>> {
         if let Some(cached) = &self.cached_obj_camera_states {
             return std::sync::Arc::clone(cached);
         }
@@ -1060,7 +1060,7 @@ impl SceneRuntime {
     /// `object_states` since the last call — O(1) on clean frames.
     pub fn effective_object_states_snapshot(
         &mut self,
-    ) -> std::sync::Arc<BTreeMap<String, ObjectRuntimeState>> {
+    ) -> std::sync::Arc<HashMap<String, ObjectRuntimeState>> {
         if !self.effective_states_dirty {
             if let Some(cached) = &self.cached_effective_states {
                 return std::sync::Arc::clone(cached);
@@ -1087,7 +1087,7 @@ impl SceneRuntime {
     }
 
     fn build_target_resolver(&self) -> TargetResolver {
-        let mut aliases = BTreeMap::new();
+        let mut aliases = HashMap::new();
 
         for (object_id, object) in &self.objects {
             aliases.insert(object_id.clone(), object_id.clone());
@@ -1646,7 +1646,7 @@ impl SceneRuntime {
         false
     }
 
-    pub fn set_object_regions(&mut self, object_regions: BTreeMap<String, Region>) {
+    pub fn set_object_regions(&mut self, object_regions: HashMap<String, Region>) {
         self.cached_object_regions = std::sync::Arc::new(object_regions.clone());
         self.object_regions = object_regions;
     }
@@ -2042,7 +2042,7 @@ impl TargetResolver {
     }
 
     /// Returns a snapshot of all alias -> runtime object id bindings.
-    pub fn aliases_snapshot(&self) -> BTreeMap<String, String> {
+    pub fn aliases_snapshot(&self) -> HashMap<String, String> {
         self.aliases.clone()
     }
 
@@ -2065,7 +2065,7 @@ impl TargetResolver {
         &self,
         target: Option<&str>,
         default_region: Region,
-        object_regions: &BTreeMap<String, Region>,
+        object_regions: &HashMap<String, Region>,
     ) -> Region {
         let Some(target) = target.filter(|value| !value.trim().is_empty()) else {
             return default_region;
@@ -2086,9 +2086,9 @@ fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
 }
 
 fn build_sprite_objects(
-    objects: &mut BTreeMap<String, GameObject>,
-    object_states: &mut BTreeMap<String, ObjectRuntimeState>,
-    sprite_ids: &mut BTreeMap<String, String>,
+    objects: &mut HashMap<String, GameObject>,
+    object_states: &mut HashMap<String, ObjectRuntimeState>,
+    sprite_ids: &mut HashMap<String, String>,
     behavior_bindings: &mut Vec<BehaviorBinding>,
     layer_idx: usize,
     sprite_path: &[usize],
@@ -2144,8 +2144,8 @@ fn build_sprite_objects(
 }
 
 fn insert_object(
-    objects: &mut BTreeMap<String, GameObject>,
-    object_states: &mut BTreeMap<String, ObjectRuntimeState>,
+    objects: &mut HashMap<String, GameObject>,
+    object_states: &mut HashMap<String, ObjectRuntimeState>,
     object: GameObject,
 ) {
     object_states.insert(object.id.clone(), ObjectRuntimeState::default());
@@ -2251,8 +2251,8 @@ fn object_kind_name(kind: &GameObjectKind) -> &'static str {
     }
 }
 
-fn collect_obj_orbit_defaults(scene: &Scene) -> BTreeMap<String, f32> {
-    let mut out = BTreeMap::new();
+fn collect_obj_orbit_defaults(scene: &Scene) -> HashMap<String, f32> {
+    let mut out = HashMap::new();
     for layer in &scene.layers {
         for_each_obj(&layer.sprites, &mut |sprite| {
             if let Sprite::Obj {

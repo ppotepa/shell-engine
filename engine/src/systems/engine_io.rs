@@ -19,6 +19,10 @@ pub struct EngineIoRuntime {
     last_key_sent: Option<String>,
     last_size: Option<(u16, u16)>,
     scene_id: Option<String>,
+    /// Queue of lines waiting to be emitted with their scheduled engine-io time.
+    delayed_lines: Vec<(u64, String)>,
+    /// Monotonic time used to schedule delayed sidecar output.
+    accumulated_ms: u64,
 }
 
 pub fn engine_io_system(world: &mut World, dt_ms: u64) {
@@ -88,6 +92,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
         let Some(runtime) = world.get_mut::<EngineIoRuntime>() else {
             return;
         };
+        runtime.accumulated_ms = runtime.accumulated_ms.saturating_add(dt_ms);
 
         if runtime.scene_id.as_deref() != Some(scene_id.as_str()) {
             if let Some(sidecar) = runtime.sidecar.take() {
@@ -98,6 +103,8 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
             runtime.last_key_sent = None;
             runtime.last_size = None;
             runtime.scene_id = Some(scene_id.clone());
+            runtime.delayed_lines.clear();
+            runtime.accumulated_ms = 0;
         }
 
         if runtime.sidecar.as_ref().is_some_and(|p| !p.is_alive()) {
@@ -106,6 +113,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
             runtime.last_change_seq = 0;
             runtime.last_key_sent = None;
             runtime.last_size = None;
+            runtime.delayed_lines.clear();
             pending_lines.push("[engine-io] sidecar exited".to_string());
         }
 
@@ -208,7 +216,34 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                 runtime.last_key_sent = None;
             }
 
-            pending_events.extend(sidecar.try_drain_events(64));
+            for ev in sidecar.try_drain_events(64) {
+                match ev {
+                    IoEvent::EmitLine { text, delay_ms } => {
+                        let due_at = runtime
+                            .accumulated_ms
+                            .saturating_add(delay_ms.unwrap_or(0));
+                        runtime.delayed_lines.push((due_at, text));
+                    }
+                    other => pending_events.push(other),
+                }
+            }
+        }
+
+        if !runtime.delayed_lines.is_empty() {
+            runtime.delayed_lines.sort_by_key(|(due_at, _)| *due_at);
+            let ready_count = runtime
+                .delayed_lines
+                .iter()
+                .take_while(|(due_at, _)| *due_at <= runtime.accumulated_ms)
+                .count();
+            if ready_count > 0 {
+                pending_lines.extend(
+                    runtime
+                        .delayed_lines
+                        .drain(..ready_count)
+                        .map(|(_, line)| line),
+                );
+            }
         }
     }
 
@@ -255,6 +290,9 @@ fn apply_event(scene_runtime: &mut crate::scene_runtime::SceneRuntime, ev: IoEve
             for line in lines {
                 scene_runtime.terminal_push_output(line);
             }
+        }
+        IoEvent::EmitLine { text, .. } => {
+            scene_runtime.terminal_push_output(text);
         }
         IoEvent::Clear => {
             scene_runtime.terminal_clear_output();

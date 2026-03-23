@@ -181,6 +181,9 @@ internal sealed class MinixExecutionPipeline : IExecutionPipeline
             Out = redirected;
         }
 
+        // Piped context: schedule on the inner UoW so the output timing still flows out
+        public void ScheduleOutput(string line, ulong delayMs) => _inner.ScheduleOutput(line, delayMs);
+
         public void Dispose() => _inner.Dispose();
     }
 

@@ -3,7 +3,7 @@
 use crate::effects::Region;
 use crate::scene::{SceneRenderedMode, Sprite};
 use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use super::super::layout::{GridCellRect, RenderArea};
 use super::super::text_render::ClipRect;
@@ -20,8 +20,8 @@ pub(crate) fn render_children_in_cells<F>(
     resolved_mode: SceneRenderedMode,
     parent_clip: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
-    object_regions: &mut BTreeMap<String, Region>,
-    object_states: &BTreeMap<String, ObjectRuntimeState>,
+    object_regions: &mut HashMap<String, Region>,
+    object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
     mut render_child: F,
 ) where
@@ -33,8 +33,8 @@ pub(crate) fn render_children_in_cells<F>(
         SceneRenderedMode,
         Option<ClipRect>,
         Option<&TargetResolver>,
-        &mut BTreeMap<String, Region>,
-        &BTreeMap<String, ObjectRuntimeState>,
+        &mut HashMap<String, Region>,
+        &HashMap<String, ObjectRuntimeState>,
         &mut RenderCtx<'_>,
     ),
 {

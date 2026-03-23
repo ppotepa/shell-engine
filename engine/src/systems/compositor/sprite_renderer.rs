@@ -91,15 +91,15 @@ pub fn render_sprites(
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: Option<&TargetResolver>,
-    object_regions: &mut BTreeMap<String, Region>,
+    object_regions: &mut HashMap<String, Region>,
     root_origin_x: i32,
     root_origin_y: i32,
-    object_states: &BTreeMap<String, ObjectRuntimeState>,
+    object_states: &HashMap<String, ObjectRuntimeState>,
     scene_elapsed_ms: u64,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
-    obj_camera_states: &BTreeMap<String, ObjCameraState>,
+    obj_camera_states: &HashMap<String, ObjCameraState>,
     layer_buf: &mut Buffer,
 ) {
     let mut ctx = RenderCtx {
@@ -145,8 +145,8 @@ fn render_sprite(
     inherited_mode: SceneRenderedMode,
     clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
-    object_regions: &mut BTreeMap<String, Region>,
-    object_states: &BTreeMap<String, ObjectRuntimeState>,
+    object_regions: &mut HashMap<String, Region>,
+    object_states: &HashMap<String, ObjectRuntimeState>,
     ctx: &mut RenderCtx<'_>,
 ) {
     let object_id =

@@ -1,6 +1,7 @@
 namespace CognitOS.Kernel;
 
 using CognitOS.Core;
+using CognitOS.Framework.Transport;
 using CognitOS.Kernel.Clock;
 using CognitOS.Kernel.Disk;
 using CognitOS.Kernel.Journal;
@@ -22,6 +23,7 @@ internal sealed class UnitOfWork : IUnitOfWork
 {
     private readonly IKernel _kernel;
     private bool _disposed;
+    private ulong _pendingDelayMs;
 
     /// <summary>PID of the forked command process (set by Shell after fork).</summary>
     public int? CommandPid { get; set; }
@@ -50,6 +52,31 @@ internal sealed class UnitOfWork : IUnitOfWork
         Out = output;
         Err = output; // In 1991 MINIX, stderr goes to same terminal
         Quest = quest;
+    }
+
+    /// <summary>
+    /// Emit a line after <paramref name="delayMs"/> simulated milliseconds.
+    /// Delays are cumulative so a sequence of calls produces staggered output.
+    /// </summary>
+    public void ScheduleOutput(string line, ulong delayMs)
+    {
+        _pendingDelayMs += delayMs;
+
+        var sink = ResolveSink(Out);
+        if (sink is not null)
+            Protocol.EmitLine(sink, line, _pendingDelayMs > 0 ? _pendingDelayMs : null);
+        else
+            Out.WriteLine(line);
+    }
+
+    private static IOutputSink? ResolveSink(TextWriter writer)
+    {
+        if (writer is GameTextWriter gameWriter)
+            return gameWriter.Sink;
+        var field = writer.GetType().GetField(
+            "_sink",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        return field?.GetValue(writer) as IOutputSink;
     }
 
     public void Dispose()

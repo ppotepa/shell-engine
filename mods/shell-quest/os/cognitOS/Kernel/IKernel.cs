@@ -14,6 +14,7 @@ using CognitOS.Kernel.Session;
 using CognitOS.Kernel.Users;
 using CognitOS.Kernel.Mount;
 using CognitOS.Kernel.Modem;
+using CognitOS.Kernel.Events;
 using CognitOS.State;
 
 /// <summary>
@@ -43,4 +44,10 @@ internal interface IKernel
 
     /// <summary>Advance kernel tick: clock, services, resource recalc.</summary>
     void Tick(ulong dtMs);
+
+    /// <summary>Current simulated kernel time in milliseconds.</summary>
+    ulong NowMs { get; }
+
+    /// <summary>Schedule work on simulated time instead of blocking the process.</summary>
+    void Schedule(KernelEventKind kind, ulong delayMs, Action action, string? tag = null);
 }

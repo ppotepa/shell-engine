@@ -7,7 +7,7 @@ use crate::effects::Region;
 use crate::scene::LayerStages;
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use super::super::effect_applicator::apply_sprite_effects;
 
@@ -24,7 +24,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) step_idx: usize,
     pub(crate) elapsed_ms: u64,
     pub(crate) layer_buf: &'a mut Buffer,
-    pub(crate) obj_camera_states: &'a BTreeMap<String, ObjCameraState>,
+    pub(crate) obj_camera_states: &'a HashMap<String, ObjCameraState>,
 }
 
 /// Returns `Some(appear_at)` when the sprite should be rendered, `None` to skip.
@@ -89,7 +89,7 @@ pub(crate) fn finalize_sprite(
     stages: &LayerStages,
     ctx: &mut RenderCtx<'_>,
     target_resolver: Option<&TargetResolver>,
-    object_regions: &mut BTreeMap<String, Region>,
+    object_regions: &mut HashMap<String, Region>,
 ) {
     if let Some(id) = object_id {
         object_regions.insert(id.to_string(), sprite_region);

@@ -22,7 +22,7 @@ use crate::systems::animator::SceneStage;
 use crate::world::World;
 use crossterm::style::Color;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 thread_local! {
     static HALFBLOCK_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
@@ -267,8 +267,8 @@ fn composite_scene(
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
-    object_states: &BTreeMap<String, ObjectRuntimeState>,
-    obj_camera_states: &BTreeMap<String, crate::scene_runtime::ObjCameraState>,
+    object_states: &HashMap<String, ObjectRuntimeState>,
+    obj_camera_states: &HashMap<String, crate::scene_runtime::ObjCameraState>,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
@@ -276,16 +276,16 @@ fn composite_scene(
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
     buffer: &mut Buffer,
-) -> BTreeMap<String, Region> {
+) -> HashMap<String, Region> {
     buffer.fill(bg);
     let scene_state = object_states
         .get(target_resolver.scene_object_id())
         .cloned()
         .unwrap_or_default();
     if !scene_state.visible {
-        return BTreeMap::new();
+        return HashMap::new();
     }
-    let mut object_regions = BTreeMap::new();
+    let mut object_regions = HashMap::new();
     object_regions.insert(
         target_resolver.scene_object_id().to_string(),
         offset_region(
@@ -343,8 +343,8 @@ fn composite_scene_halfblock(
     scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: &TargetResolver,
-    object_states: &BTreeMap<String, ObjectRuntimeState>,
-    obj_camera_states: &BTreeMap<String, crate::scene_runtime::ObjCameraState>,
+    object_states: &HashMap<String, ObjectRuntimeState>,
+    obj_camera_states: &HashMap<String, crate::scene_runtime::ObjCameraState>,
     current_stage: &SceneStage,
     step_idx: usize,
     elapsed_ms: u64,
@@ -352,7 +352,7 @@ fn composite_scene_halfblock(
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
     target: &mut Buffer,
-) -> BTreeMap<String, Region> {
+) -> HashMap<String, Region> {
     let needed_w = target.width;
     let needed_h = target.height.saturating_mul(2);
     HALFBLOCK_SCRATCH.with(|scratch| {

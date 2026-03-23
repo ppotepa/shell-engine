@@ -29,10 +29,10 @@ and Research Network).
 
 ### Who
 
-The player is **Linus Torvalds**, 21 years old, second-year CS student.
-He has just finished the first version of his hobby operating system project
-(Linux 0.01) and needs to upload it to the public FTP archive at
-nic.funet.fi.
+The player is **Linus Benedict Torvalds** (login: `torvalds`), 21 years old, 
+second-year CS student. He has just finished the first version of his hobby 
+operating system project (Linux 0.01) and needs to upload it to the public 
+FTP archive at nic.funet.fi.
 
 Three weeks earlier (August 25, 1991), he posted his famous message to
 comp.os.minix: *"Hello everybody out there using minix — I'm doing a (free)
@@ -95,13 +95,16 @@ operating system (just a hobby, won't be big and professional like gnu)..."*
 
 ### Primary Quest: The Upload
 
-1. Player boots machine → MINIX 1.1 loads (animated, services start)
-2. Login as `linus` → create password on first boot
-3. Explore filesystem → find linux-0.01/ with the source archive
-4. Read notes, mail → hints about FTP and binary mode
-5. `ftp nic.funet.fi` → connect, navigate to /pub/OS/Linux
-6. `put linux-0.01.tar.Z` → **fails** (ASCII mode corrupts binary)
-7. Discover the problem → `binary` → re-upload → **success**
+1. Player boots machine → MINIX 1.1 loads (animated boot sequence, services start)
+2. Login as `torvalds` → create password on first boot (max 5 characters)
+3. Start in `/usr/torvalds/` → explore filesystem with `ls`, `cd`, `cat`
+4. Find `linux-0.01/` directory with the source archive
+5. Read `mail/` folder (1 new message) → hints about FTP and binary mode
+6. Read `notes/starter.txt` → basic command cheatsheet
+7. Check `.sh_history` → shows previous **failed** FTP attempt (uploaded in ASCII mode)
+8. `ftp nic.funet.fi` → connect, navigate to /pub/OS/Linux
+9. `put linux-0.01.tar.Z` → **fails** (ASCII mode corrupts binary)
+10. Discover the problem → `binary` → re-upload → **success**
 
 ### Secondary Thread: The Anomalies
 
@@ -179,16 +182,26 @@ kruuna login: _
 MINIX, version, and OK markers are brightly colored. Hardware specs
 come from `MachineSpec` (varies by difficulty).
 
-### What the player sees after login
+### What the player sees after login (first boot)
 
 ```
 account created.
 last login: Tue Sep 17 21:12
-you have 2 new messages.
+you have 1 new message.
 type ls to look around.
 type cat <file> to read notes.
 
-linus@kruuna:~ [0]$ _
+torvalds@kruuna:/usr/torvalds [0]$ _
+```
+
+On subsequent logins:
+```
+last login: Tue Sep 17 21:12
+you have 1 new message.
+type ls to look around.
+type cat <file> to read notes.
+
+torvalds@kruuna:/usr/torvalds [0]$ _
 ```
 
 ---
@@ -212,8 +225,10 @@ CPU model appears in `dmesg` and `uname`.
 
 ## Filesystem Map (September 17, 1991)
 
+**VFS Root = `/usr/torvalds/`** (player's home directory)
+
 ```
-/home/linus/
+/usr/torvalds/
 ├── linux-0.01/
 │   ├── RELNOTES-0.01          ← Linus's release notes
 │   ├── linux-0.01.tar.Z       ← THE file to upload (73K compressed)
@@ -221,20 +236,22 @@ CPU model appears in `dmesg` and `uname`.
 │   ├── update.Z               ← update daemon
 │   └── README                 ← build instructions + FTP hint
 ├── mail/
-│   ├── welcome.txt            ← from Operator
+│   ├── welcome.txt            ← from Operator (unread on first boot)
 │   └── ast.txt                ← from Tanenbaum (binary mode hint)
 ├── notes/
 │   └── starter.txt            ← basic commands cheatsheet
-├── .bash_history              ← previous (failed) FTP session
+├── .sh_history                ← previous (failed) FTP session
 ├── .profile                   ← PATH, TERM, EDITOR
 └── .plan                      ← "working on something"
 
 /etc/
-├── passwd                     ← 6 users (root, daemon, bin, ast, linus, nobody)
+├── passwd                     ← 5 users (root, daemon, bin, ast, torvalds)
+├── group                      ← groups (operator, staff, other)
 ├── hostname                   ← kruuna
-├── hosts                      ← DNS table (4 entries)
+├── hosts                      ← DNS table
 ├── services                   ← port assignments (ftp, telnet, smtp, http, finger)
 ├── resolv.conf                ← nameserver 128.214.1.1
+├── motd                       ← message of the day
 └── rc                         ← init script
 
 /usr/ast/                      ← Tanenbaum's home directory
@@ -249,11 +266,10 @@ CPU model appears in `dmesg` and `uname`.
 ├── .Xauthority                ← binary
 └── .lock-ast                  ← empty lockfile
 
-/var/log/
+/usr/adm/  (system logs - MINIX 1.1 uses /usr/adm not /var/log)
 ├── messages                   ← syslog (grows over time)
-├── cron.log                   ← cron execution log
-├── auth.log                   ← login records (tty2 anomaly here)
-└── net.trace                  ← appears after anomaly pings
+├── cron                       ← cron execution log
+└── wtmp                       ← login records
 
 /proc/
 └── version                    ← Minix version 1.1
@@ -320,11 +336,11 @@ Each anomaly ping appends to `/var/log/net.trace` and tracks in QuestState.
 
 ### Filesystem discoveries
 
-- `.bash_history` shows a previous **failed** FTP attempt (ascii mode)
+- `.sh_history` shows a previous **failed** FTP attempt (ascii mode)
 - `mail/ast.txt` from Tanenbaum explicitly mentions binary mode
-- `/var/log/auth.log` shows tty2 login with timestamp `Jan 1 00:00:00`
+- `/usr/adm/wtmp` — login records (inspect with custom tools)
 - `/tmp/core` — a segfault dump from cc1 (the C compiler)
-- `usr/ast/minix-2.0-notes.txt` — Tanenbaum's private design notes
+- `/usr/ast/minix-2.0-notes.txt` — Tanenbaum's private design notes
 - `/dev/random` displays corrupted characters
 
 ### Fortune quotes (1 in 10 is spooky)
@@ -340,40 +356,79 @@ Spooky (selected randomly when anomaly count > 0):
 
 ---
 
-## What Needs Better Realistic Styling
+## Current Implementation Status
 
-### Currently shallow → needs depth
+### ✅ Fully Implemented (MINIX 1.1 Accurate)
 
-1. **Boot sequence** — should feel like real hardware POST + service init.
-   Each line should come from a real Kernel subsystem, not hardcoded strings.
+1. **Boot sequence** — Real kernel subsystem boot with hardware detection:
+   - Memory detection and kernel/free memory reporting
+   - Winchester disk driver initialization
+   - Clock tick configuration (100 Hz)
+   - Virtual console setup (3 TTYs)
+   - Ethernet card detection (3Com EtherLink II)
+   - Root and /usr filesystem mount
+   - Service startup (netd, maild, cron)
 
-2. **`ps` / `top`** — processes are 4 hardcoded entries with sinusoidal CPU.
-   Should show real process tree: init→netd→maild→sh→(current command).
-
-3. **`ls` output** — just shows filenames. Real Minix shows:
+2. **`ls` output** — Full MINIX-style long format implemented:
    ```
-   -rw-r--r--  1 linus  users  73091 Sep 17 21:00  linux-0.01.tar.Z
-   drwxr-xr-x  2 linus  users    512 Sep 17 20:45  notes/
+   -rw-rw-r--  1 torvalds  staff  73091 Sep 17 21:00  linux-0.01.tar.Z
+   drwxr-xr-x  2 torvalds  staff    512 Sep 17 20:45  notes/
    ```
-   Needs: permissions, owner, group, size, date.
+   Shows: permissions, link count, owner, group, size, mtime
 
-4. **Services** — `netd`, `maild`, `crond` are names only. Should tick,
-   produce logs, generate mail, rotate files. A living system.
+3. **File metadata** — Complete `InodeTable` with UNIX semantics:
+   - Mode bits (rwxrwxrwx + type)
+   - Owner/group resolution via /etc/passwd and /etc/group
+   - Link counts
+   - Timestamps (mtime, ctime) seeded from epoch (Sep 17, 1991 21:00 UTC)
 
-5. **Pipes** — `cat /var/log/messages | grep anomaly` doesn't work.
-   Essential Unix operation. Shell must parse `|` and chain stdout→stdin.
+4. **User authentication** — Real /etc/passwd parsing:
+   - First boot: create account as `torvalds` with password (max 5 chars)
+   - Subsequent logins: password verification
+   - Home directory resolution from passwd entry
+   - Shell assignment per user
 
-6. **Environment variables** — `echo $HOME` doesn't expand. `export` doesn't
-   exist. Player can't modify PATH or set variables.
+5. **Mail system** — Simulated mail spool with disk I/O:
+   - `/var/spool/mail/torvalds` backing store
+   - Unread count shown at login
+   - Mail delivery via `IMailSpool` interface
+   - Read/unread tracking
 
-7. **Journal/Logging** — `/var/log/messages` is static seed text. Should grow
-   over time as syslogd aggregates from services and kernel events.
+6. **Network simulation** — Real DNS resolution and ping timing:
+   - 10 historically accurate 1991 hosts (nic.funet.fi, cs.vu.nl, etc.)
+   - 3 anomaly hosts (google.com, github.com, wikipedia.org)
+   - Realistic RTT simulation based on geographic distance
+   - FTP client with ASCII/binary mode switching
 
-8. **File metadata** — no permissions, no timestamps, no sizes. VFS stores
-   content only. Need `FileStat` with mode/owner/group/size/mtime.
+7. **Services** — Living daemons that tick and produce logs:
+   - `netd` — network daemon
+   - `maild` — mail delivery daemon
+   - `crond` — cron scheduler
+   - All tracked as simulated processes with CPU usage
 
-9. **Process lifecycle** — commands don't spawn processes. `kill` can't work.
-   Boot doesn't actually start services as processes.
+8. **Process simulation** — Full process table:
+   - init (PID 1) → service tree
+   - Dynamic process spawning for commands
+   - CPU usage tracking with realistic variance
+   - `ps` and `top` show real process state
 
-10. **Time awareness** — `date` shows epoch but uptime doesn't persist across
-    sessions. Login delta not tracked. No "system was down for 8 hours".
+### 🚧 Partially Implemented
+
+9. **Pipes and redirection** — Shell pipeline parsing implemented:
+   - Command chaining with `|` works
+   - Stdout→stdin piping functional
+   - Redirection (`>`, `>>`, `<`) may have gaps
+
+10. **Environment variables** — Partial support:
+    - `$HOME`, `$PATH`, `$USER` readable
+    - `export` and shell variable assignment need expansion
+
+### 📋 Not Yet Implemented
+
+11. **Dynamic logging** — `/usr/adm/messages` is seeded but static:
+    - Should grow as services generate events
+    - syslogd aggregation not yet wired to service ticks
+
+12. **Time persistence** — `date` shows epoch but:
+    - Uptime doesn't persist across game sessions
+    - "System was down for X hours" not tracked

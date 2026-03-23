@@ -26,11 +26,11 @@ pub struct BehaviorContext {
     // Arc-wrapped: identical for every behavior in a frame, clone is O(1).
     pub target_resolver: Arc<TargetResolver>,
     // Arc-wrapped: shared across all behaviors in a frame, clone is O(1).
-    pub object_states: Arc<std::collections::BTreeMap<String, ObjectRuntimeState>>,
-    pub object_kinds: Arc<std::collections::BTreeMap<String, String>>,
-    pub object_props: Arc<std::collections::BTreeMap<String, JsonValue>>,
-    pub object_regions: Arc<std::collections::BTreeMap<String, Region>>,
-    pub object_text: Arc<std::collections::BTreeMap<String, String>>,
+    pub object_states: Arc<std::collections::HashMap<String, ObjectRuntimeState>>,
+    pub object_kinds: Arc<std::collections::HashMap<String, String>>,
+    pub object_props: Arc<std::collections::HashMap<String, JsonValue>>,
+    pub object_regions: Arc<std::collections::HashMap<String, Region>>,
+    pub object_text: Arc<std::collections::HashMap<String, String>>,
     // Arc<str>: built once per frame, each behavior pays only an atomic refcount increment.
     pub ui_focused_target_id: Option<Arc<str>>,
     pub ui_theme_id: Option<Arc<str>>,
@@ -636,11 +636,11 @@ pub struct RhaiScriptBehavior {
 
 #[derive(Clone)]
 struct ScriptSceneApi {
-    object_states: Arc<BTreeMap<String, ObjectRuntimeState>>,
-    object_kinds: Arc<BTreeMap<String, String>>,
-    object_props: Arc<BTreeMap<String, JsonValue>>,
-    object_regions: Arc<BTreeMap<String, Region>>,
-    object_text: Arc<BTreeMap<String, String>>,
+    object_states: Arc<HashMap<String, ObjectRuntimeState>>,
+    object_kinds: Arc<HashMap<String, String>>,
+    object_props: Arc<HashMap<String, JsonValue>>,
+    object_regions: Arc<HashMap<String, Region>>,
+    object_text: Arc<HashMap<String, String>>,
     target_resolver: Arc<TargetResolver>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
@@ -664,11 +664,11 @@ struct ScriptTerminalApi {
 
 impl ScriptSceneApi {
     fn new(
-        object_states: Arc<BTreeMap<String, ObjectRuntimeState>>,
-        object_kinds: Arc<BTreeMap<String, String>>,
-        object_props: Arc<BTreeMap<String, JsonValue>>,
-        object_regions: Arc<BTreeMap<String, Region>>,
-        object_text: Arc<BTreeMap<String, String>>,
+        object_states: Arc<HashMap<String, ObjectRuntimeState>>,
+        object_kinds: Arc<HashMap<String, String>>,
+        object_props: Arc<HashMap<String, JsonValue>>,
+        object_regions: Arc<HashMap<String, Region>>,
+        object_text: Arc<HashMap<String, String>>,
         target_resolver: Arc<TargetResolver>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
@@ -1238,11 +1238,11 @@ fn smoke_probe_context(
         stage_elapsed_ms: elapsed_ms,
         menu_selected_index: 0,
         target_resolver: Arc::new(TargetResolver::default()),
-        object_states: Arc::new(BTreeMap::new()),
-        object_kinds: Arc::new(BTreeMap::new()),
-        object_props: Arc::new(BTreeMap::new()),
-        object_regions: Arc::new(BTreeMap::new()),
-        object_text: Arc::new(BTreeMap::new()),
+        object_states: Arc::new(HashMap::new()),
+        object_kinds: Arc::new(HashMap::new()),
+        object_props: Arc::new(HashMap::new()),
+        object_regions: Arc::new(HashMap::new()),
+        object_text: Arc::new(HashMap::new()),
         ui_focused_target_id: Some(Arc::from("login-hidden-prompt")),
         ui_theme_id: None,
         ui_last_submit_target_id: submit_text.map(|_| Arc::from("login-hidden-prompt")),
@@ -1936,8 +1936,8 @@ mod tests {
     use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
     use crate::systems::animator::SceneStage;
     use serde_json::Value as JsonValue;
+    use std::collections::HashMap;
     use std::sync::Arc;
-    use std::collections::BTreeMap;
 
     fn scene_object() -> GameObject {
         GameObject {
@@ -2000,11 +2000,11 @@ mod tests {
             stage_elapsed_ms: 0,
             menu_selected_index: 0,
             target_resolver: Arc::new(TargetResolver::default()),
-            object_states: Arc::new(BTreeMap::new()),
-            object_kinds: Arc::new(BTreeMap::new()),
-            object_props: Arc::new(BTreeMap::new()),
-            object_regions: Arc::new(BTreeMap::new()),
-            object_text: Arc::new(BTreeMap::new()),
+            object_states: Arc::new(HashMap::new()),
+            object_kinds: Arc::new(HashMap::new()),
+            object_props: Arc::new(HashMap::new()),
+            object_regions: Arc::new(HashMap::new()),
+            object_text: Arc::new(HashMap::new()),
             ui_focused_target_id: None,
             ui_theme_id: None,
             ui_last_submit_target_id: None,
@@ -2258,7 +2258,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("leader".to_string(), "obj:leader".to_string());
-        let mut object_states = BTreeMap::new();
+        let mut object_states = HashMap::new();
         object_states.insert(
             "obj:leader".to_string(),
             ObjectRuntimeState {
@@ -2320,7 +2320,7 @@ out
 
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("scene:intro".to_string(), region(10, 20, 12, 1));
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
 
@@ -2359,7 +2359,7 @@ out
 
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("scene:intro".to_string(), region(10, 20, 12, 1));
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
 
@@ -2398,7 +2398,7 @@ out
 
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("scene:intro".to_string(), region(10, 20, 12, 1));
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
 
@@ -2430,7 +2430,7 @@ out
 
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-grid".to_string(), "obj:menu-grid".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         // Item currently at y=20 with height=3 (simulates a taller rendered row).
         object_regions.insert("scene:intro".to_string(), region(10, 20, 24, 3));
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
@@ -2475,7 +2475,7 @@ out
         resolver.register_alias("menu-item-1".to_string(), "obj:menu-item-1".to_string());
         resolver.register_alias("menu-item-2".to_string(), "obj:menu-item-2".to_string());
 
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("obj:menu-grid".to_string(), region(0, 10, 40, 9));
         object_regions.insert("obj:menu-item-0".to_string(), region(10, 6, 20, 1));
         object_regions.insert("obj:menu-item-1".to_string(), region(10, 10, 20, 1));
@@ -2853,7 +2853,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_states = BTreeMap::new();
+        let mut object_states = HashMap::new();
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
@@ -2862,9 +2862,9 @@ out
                 offset_y: 7,
             },
         );
-        let mut object_kinds = BTreeMap::new();
+        let mut object_kinds = HashMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("obj:menu-item-0".to_string(), region(12, 5, 10, 1));
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
@@ -2902,7 +2902,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_states = BTreeMap::new();
+        let mut object_states = HashMap::new();
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
@@ -2911,7 +2911,7 @@ out
                 offset_y: 4,
             },
         );
-        let mut object_kinds = BTreeMap::new();
+        let mut object_kinds = HashMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
@@ -2945,7 +2945,7 @@ obj.set("position.y", dy + 2);
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_states = BTreeMap::new();
+        let mut object_states = HashMap::new();
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
@@ -2954,7 +2954,7 @@ obj.set("position.y", dy + 2);
                 offset_y: 5,
             },
         );
-        let mut object_kinds = BTreeMap::new();
+        let mut object_kinds = HashMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
@@ -2991,7 +2991,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_states = BTreeMap::new();
+        let mut object_states = HashMap::new();
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
@@ -3000,9 +3000,9 @@ out
                 offset_y: 0,
             },
         );
-        let mut object_kinds = BTreeMap::new();
+        let mut object_kinds = HashMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
-        let mut object_props = BTreeMap::new();
+        let mut object_props = HashMap::new();
         object_props.insert(
             "obj:menu-item-0".to_string(),
             serde_json::json!({ "text": { "font": "generic:half" } }),
@@ -3042,7 +3042,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_states = BTreeMap::new();
+        let mut object_states = HashMap::new();
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
@@ -3051,9 +3051,9 @@ out
                 offset_y: 0,
             },
         );
-        let mut object_kinds = BTreeMap::new();
+        let mut object_kinds = HashMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
-        let mut object_props = BTreeMap::new();
+        let mut object_props = HashMap::new();
         object_props.insert(
             "obj:menu-item-0".to_string(),
             serde_json::json!({ "text": { "font": "generic:half" } }),
@@ -3093,7 +3093,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_states = BTreeMap::new();
+        let mut object_states = HashMap::new();
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
@@ -3102,14 +3102,14 @@ out
                 offset_y: 0,
             },
         );
-        let mut object_kinds = BTreeMap::new();
+        let mut object_kinds = HashMap::new();
         object_kinds.insert("obj:menu-item-0".to_string(), "text".to_string());
-        let mut object_props = BTreeMap::new();
+        let mut object_props = HashMap::new();
         object_props.insert(
             "obj:menu-item-0".to_string(),
             serde_json::json!({ "text": { "font": "generic:half" } }),
         );
-        let mut object_text = BTreeMap::new();
+        let mut object_text = HashMap::new();
         object_text.insert("obj:menu-item-0".to_string(), "HELLO".to_string());
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
@@ -3162,7 +3162,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("scene:intro".to_string(), region(20, 10, 1, 1));
         object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 3));
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
@@ -3217,7 +3217,7 @@ out
 
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("scene:intro".to_string(), region(20, 10, 1, 1));
         object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 3));
         let mut selected_ctx = ctx(SceneStage::OnIdle, 0, 0);
@@ -3255,7 +3255,7 @@ out
         });
         let mut resolver = TargetResolver::default();
         resolver.register_alias("menu-item-0".to_string(), "obj:menu-item-0".to_string());
-        let mut object_regions = BTreeMap::new();
+        let mut object_regions = HashMap::new();
         object_regions.insert("scene:intro".to_string(), region(20, 10, 3, 5));
         object_regions.insert("obj:menu-item-0".to_string(), region(30, 8, 10, 5));
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);

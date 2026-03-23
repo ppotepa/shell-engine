@@ -17,6 +17,8 @@ pub struct TerminalRenderer {
 thread_local! {
     static DIFF_SCRATCH: RefCell<Vec<(u16, u16, char, style::Color, style::Color)>> =
         RefCell::new(Vec::with_capacity(4096));
+    /// Reusable run buffer for RLE batching — avoids per-frame heap allocation.
+    static RUN_BUF: RefCell<String> = RefCell::new(String::with_capacity(256));
 }
 
 impl TerminalRenderer {
@@ -529,46 +531,73 @@ fn flush_batched(stdout: &mut io::Stdout, diffs: &[(u16, u16, char, style::Color
         return;
     }
 
-    let mut run = String::new();
-    let (mut rx, mut ry, _, raw_fg0, raw_bg0) = diffs[0];
-    let (mut rfg, mut rbg) = (resolve_color(raw_fg0), resolve_color(raw_bg0));
-    run.push(diffs[0].2);
-    let mut run_len: u16 = 1;
+    RUN_BUF.with(|cell| {
+        let mut run = cell.borrow_mut();
+        run.clear();
 
-    for &(x, y, ch, raw_fg, raw_bg) in &diffs[1..] {
-        let fg = resolve_color(raw_fg);
-        let bg = resolve_color(raw_bg);
-        // O(1): compare cached length instead of scanning the string.
-        let continues = y == ry && x == rx + run_len && fg == rfg && bg == rbg;
-        if continues {
-            run.push(ch);
-            run_len += 1;
+        let (mut rx, mut ry, _, raw_fg0, raw_bg0) = diffs[0];
+        let (mut rfg, mut rbg) = (resolve_color(raw_fg0), resolve_color(raw_bg0));
+        run.push(diffs[0].2);
+        let mut run_len: u16 = 1;
+        // Cursor position after the last flush — used to skip redundant MoveTo.
+        let mut cursor_x = u16::MAX;
+        let mut cursor_y = u16::MAX;
+
+        for &(x, y, ch, raw_fg, raw_bg) in &diffs[1..] {
+            let fg = resolve_color(raw_fg);
+            let bg = resolve_color(raw_bg);
+            // O(1): compare cached length instead of scanning the string.
+            let continues = y == ry && x == rx + run_len && fg == rfg && bg == rbg;
+            if continues {
+                run.push(ch);
+                run_len += 1;
+            } else {
+                if cursor_x == rx && cursor_y == ry {
+                    let _ = queue!(
+                        stdout,
+                        style::SetForegroundColor(rfg),
+                        style::SetBackgroundColor(rbg),
+                        style::Print(&*run)
+                    );
+                } else {
+                    let _ = queue!(
+                        stdout,
+                        cursor::MoveTo(rx, ry),
+                        style::SetForegroundColor(rfg),
+                        style::SetBackgroundColor(rbg),
+                        style::Print(&*run)
+                    );
+                }
+                cursor_x = rx + run_len;
+                cursor_y = ry;
+                run.clear();
+                run.push(ch);
+                run_len = 1;
+                rx = x;
+                ry = y;
+                rfg = fg;
+                rbg = bg;
+            }
+        }
+
+        if cursor_x == rx && cursor_y == ry {
+            let _ = queue!(
+                stdout,
+                style::SetForegroundColor(rfg),
+                style::SetBackgroundColor(rbg),
+                style::Print(&*run)
+            );
         } else {
             let _ = queue!(
                 stdout,
                 cursor::MoveTo(rx, ry),
                 style::SetForegroundColor(rfg),
                 style::SetBackgroundColor(rbg),
-                style::Print(&run)
+                style::Print(&*run)
             );
-            run.clear();
-            run.push(ch);
-            run_len = 1;
-            rx = x;
-            ry = y;
-            rfg = fg;
-            rbg = bg;
         }
-    }
-
-    let _ = queue!(
-        stdout,
-        cursor::MoveTo(rx, ry),
-        style::SetForegroundColor(rfg),
-        style::SetBackgroundColor(rbg),
-        style::Print(&run)
-    );
-    let _ = stdout.flush();
+        let _ = stdout.flush();
+    });
 }
 
 fn copy_cell(dst: &mut Buffer, x: u16, y: u16, src: &Cell) {

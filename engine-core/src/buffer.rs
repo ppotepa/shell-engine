@@ -2,7 +2,7 @@ use crossterm::style::Color;
 
 /// A single terminal cell — the atomic "pixel" of the engine.
 /// Stores a Unicode character plus foreground and background colours.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Cell {
     pub symbol: char,
     pub fg: Color,
@@ -103,11 +103,7 @@ impl Buffer {
     /// Fill the entire back buffer with blank cells of the given background colour.
     /// Uses generation-based lazy invalidation instead of rewriting every front cell.
     pub fn fill(&mut self, bg: Color) {
-        // Reuse the same cell for all positions to minimize work.
-        let blank = Cell::blank(bg);
-        for cell in &mut self.back {
-            *cell = blank.clone();
-        }
+        self.back.fill(Cell::blank(bg));
         // Mark entire buffer as dirty region.
         self.dirty_x_min = 0;
         self.dirty_x_max = self.width.saturating_sub(1);
