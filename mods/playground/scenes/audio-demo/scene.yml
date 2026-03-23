@@ -22,5 +22,5 @@ stages:
       - { effects: [{ name: fade-out, duration: 300 }] }
 audio:
   on_enter:
-    - { cue: daisy-bell, at_ms: 500, volume: 0.9 }
+    - { cue: daisy-bell, at_ms: 0, volume: 0.9 }
 next: playground-menu

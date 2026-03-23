@@ -881,6 +881,11 @@ impl SceneRuntime {
         &self.root_id
     }
 
+    /// Returns the number of registered behavior runtimes (for diagnostics).
+    pub fn behavior_count(&self) -> usize {
+        self.behaviors.len()
+    }
+
     /// Looks up a materialized runtime object by its stable runtime id.
     pub fn object(&self, id: &str) -> Option<&GameObject> {
         self.objects.get(id)

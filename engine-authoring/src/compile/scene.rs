@@ -2154,4 +2154,23 @@ frames:
             _ => panic!("expected image sprite"),
         }
     }
+
+    #[test]
+    fn audio_cues_survive_scene_compilation() {
+        let raw = r#"
+id: audio-test
+title: Audio Test
+bg: black
+layers: []
+audio:
+  on_enter:
+    - { cue: daisy-bell, at_ms: 500, volume: 0.9 }
+"#;
+        let scene = compile_scene_document_with_loader_and_source(raw, "test/scene.yml", |_| None)
+            .expect("should compile");
+        assert_eq!(scene.audio.on_enter.len(), 1);
+        assert_eq!(scene.audio.on_enter[0].cue, "daisy-bell");
+        assert_eq!(scene.audio.on_enter[0].at_ms, 500);
+        assert_eq!(scene.audio.on_enter[0].volume, Some(0.9));
+    }
 }

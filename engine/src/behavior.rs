@@ -12,6 +12,7 @@ use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, RawKeyEvent, TargetResolver};
 use crate::systems::animator::SceneStage;
 use engine_core::authoring::metadata::FieldMetadata;
+use engine_core::logging;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 
@@ -170,7 +171,17 @@ impl Behavior for SceneAudioBehavior {
         ctx: &BehaviorContext,
         commands: &mut Vec<BehaviorCommand>,
     ) {
-        for cue in cues_for_stage(scene, &ctx.stage) {
+        let cues = cues_for_stage(scene, &ctx.stage);
+        if !cues.is_empty() {
+            logging::debug(
+                "engine.audio.behavior",
+                format!(
+                    "scene={} stage={:?} elapsed={}ms cues={} emitted={}",
+                    scene.id, ctx.stage, ctx.scene_elapsed_ms, cues.len(), self.emitted.len()
+                ),
+            );
+        }
+        for cue in cues {
             if ctx.scene_elapsed_ms < cue.at_ms || cue.cue.trim().is_empty() {
                 continue;
             }
@@ -182,6 +193,10 @@ impl Behavior for SceneAudioBehavior {
                 cue.cue.clone(),
             );
             if self.emitted.insert(key) {
+                logging::info(
+                    "engine.audio.behavior",
+                    format!("emitting audio cue='{}' volume={:?}", cue.cue, cue.volume),
+                );
                 emit_audio(commands, cue.cue.clone(), cue.volume);
             }
         }

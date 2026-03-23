@@ -173,12 +173,18 @@ impl SceneLifecycleManager {
             world.register_scoped(SceneRuntime::new(new_scene));
             world.register_scoped(Animator::new());
             if let Some(runtime) = world.scene_runtime() {
+                let scene = runtime.scene();
+                let audio_cue_count = scene.audio.on_enter.len()
+                    + scene.audio.on_idle.len()
+                    + scene.audio.on_leave.len();
                 logging::info(
                     "engine.scene",
                     format!(
-                        "transition applied: active_scene={} title={}",
-                        runtime.scene().id,
-                        runtime.scene().title
+                        "transition applied: active_scene={} title={} audio_cues={} behaviors={}",
+                        scene.id,
+                        scene.title,
+                        audio_cue_count,
+                        runtime.behavior_count(),
                     ),
                 );
             }
