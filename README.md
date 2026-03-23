@@ -1,5 +1,16 @@
 # Shell Quest - Inspired by One Lone Coder https://www.youtube.com/javidx9
-
+status : 22-03-2026 
+plot : started doing some plot/script related work, digging some internet, trying to make it as immersive as possible by looking up as many historical details
+eastereggs: ;)
+**optimizations** : rendering optimizations, there are no regressions that are related to 3d drawing itself, currently the optimizations are my primary focus, 
+some stuff is not rendered properly as im reworking the PRERENDERING pipelines
+**postfx**: a lot of focus went into finding and researching the CRT look and feel, as most of the game is aiming to be set withing the terminal  it is a key POSTFX
+**engine**: separated a lot of concernes regarding 3d rendering, currently it is possible to create a small 3d scene and prerender it at a lower cost, 
+but there are some issues with camera near/z, and some vertexes appear z-flipped
+**sound** i was 100% sure that in will need an audio server to play audio, but it does not matter as long as audio drivers are loaded (thought working via terminal wold limit that in some ways
+playing sounds works now, there is playground demo for that
+**generated a lot of md files are part of current optimization process unfortunately i want to keep it this way as sometimes i just lose context when working with agensts**
+**C# side car is kinda working right now, user is able to navigate and do basic stuff**
 ## about this project
 
 after ~20 years of coding, regular programming lost its appeal — but building something new still brings spark. this engine is slow going right now, but it's being built as a reusable foundation for future projects.
