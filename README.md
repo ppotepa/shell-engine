@@ -32,8 +32,7 @@ after ~20 years of coding, regular programming lost its appeal — but building 
 
 shell quest runs entirely in the terminal with inherent limitations. the aesthetic is **lo-fi by design** due to budget constraints, paired with **cyber-noire cutscene graphics**. gameplay is terminal-native, where bash commands become your spells and powers. difficulty levels affect simulated machine resources (ram, cpu). the world is open-ended using real state machines under the hood, styled as retro dos text-adventure.
 
-core philosophy: lean on **freedom** in design. no closed ecosystems. awkward in small talk, comfortable in building systems.
-decided to remove **RED** colour from the intro cutscenee, as RED was bad
+core philosophy: lean on **freedom** in design. no closed ecosystems.
 this is a work-in-progress playground.
 
 ---
@@ -112,8 +111,10 @@ difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidt
 - **[cognitOS README](mods/shell-quest/os/cognitOS/README.md)** — Simulated OS sidecar architecture
 - **[quest scripts](mods/shell-quest/docs/scripts.md)** — Prologue design doc (ftp upload puzzle, 1991)
 
-### Advanced
-- **[audio-ipc-prototype.md](audio-ipc-prototype.md)** — Audio IPC design notes
-- **[carousel-menu-object.md](carousel-menu-object.md)** — Reusable menu carousel behavior
-- **[cutout.md](cutout.md)** — Cutscene compilation and filters
+### Design & Patterns (docs/)
+- **[carousel-menu-object.md](docs/carousel-menu-object.md)** — Reusable menu carousel behavior
+- **[cutout.md](docs/cutout.md)** — Cutscene compilation and filters
+- **[state-machine.md](docs/state-machine.md)** — CognitOS state machine and simulated OS architecture
+- **[gameplay.001.md](docs/gameplay.001.md)** — Prologue quest design (1991 MINIX setting)
+- **[agents.yaml.md](docs/agents.yaml.md)** — YAML authoring schema reference
 
