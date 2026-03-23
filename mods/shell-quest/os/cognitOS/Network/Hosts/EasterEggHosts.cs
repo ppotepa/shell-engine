@@ -76,32 +76,27 @@ internal sealed class GoogleCom : IEasterEgg
 
     public void Execute(IUnitOfWork uow)
     {
-        // Wrap output in DelayedOutputWriter for realistic ping timing
         using var delayed = EasterEggOutput.Delayed(uow);
-        
+
         delayed.WriteLine("PING google.com (216.58.209.14): 56 data bytes");
-        
-        // First timeout - 1200ms delay
+
         delayed.SetNextLineDelay(1200);
         delayed.WriteLine("Request timeout for icmp_seq 0");
-        
-        // Second timeout - another 1200ms
+
         delayed.SetNextLineDelay(1200);
         delayed.WriteLine("Request timeout for icmp_seq 1");
-        
-        // Third packet arrives - 800ms later
-        delayed.SetNextLineDelay(800);
-        delayed.WriteLine("64 bytes from 216.58.209.14: icmp_seq=2 ttl=54 time=12ms");
-        
-        // Statistics - 200ms after packet
+
+        // Third packet - long route, US West via several hops from Finland
+        delayed.SetNextLineDelay(900);
+        delayed.WriteLine("64 bytes from 216.58.209.14: icmp_seq=2 ttl=54 time=131ms");
+
         delayed.SetNextLineDelay(200);
         delayed.WriteLine("--- google.com ping statistics ---");
         delayed.WriteLine("3 packets transmitted, 1 received, 66% packet loss");
-        delayed.WriteLine("round-trip min/avg/max = 12/12/12 ms");
+        delayed.WriteLine("round-trip min/avg/max = 131/131/131 ms");
         delayed.WriteLine("net: warning: 216.58.209.14 is not allocated by IANA");
         delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
     }
-
 }
 
 [RemoteHost("github.com")]
@@ -116,29 +111,27 @@ internal sealed class GithubCom : IEasterEgg
     public void Execute(IUnitOfWork uow)
     {
         using var delayed = EasterEggOutput.Delayed(uow);
-        
+
         delayed.WriteLine("PING github.com (140.82.121.4): 56 data bytes");
-        
-        // Three successful pings with 300-400ms intervals
+
+        // US East from Finland — realistic ~105ms RTT
         delayed.SetNextLineDelay(300);
-        delayed.WriteLine("64 bytes from 140.82.121.4: icmp_seq=0 ttl=47 time=8ms");
-        
-        delayed.SetNextLineDelay(350);
-        delayed.WriteLine("64 bytes from 140.82.121.4: icmp_seq=1 ttl=47 time=7ms");
-        
-        delayed.SetNextLineDelay(400);
-        delayed.WriteLine("64 bytes from 140.82.121.4: icmp_seq=2 ttl=47 time=9ms");
-        
-        // Statistics
+        delayed.WriteLine("64 bytes from 140.82.121.4: icmp_seq=0 ttl=47 time=105ms");
+
+        delayed.SetNextLineDelay(300);
+        delayed.WriteLine("64 bytes from 140.82.121.4: icmp_seq=1 ttl=47 time=103ms");
+
+        delayed.SetNextLineDelay(300);
+        delayed.WriteLine("64 bytes from 140.82.121.4: icmp_seq=2 ttl=47 time=108ms");
+
         delayed.SetNextLineDelay(150);
         delayed.WriteLine("--- github.com ping statistics ---");
         delayed.WriteLine("3 packets transmitted, 3 received, 0% packet loss");
-        delayed.WriteLine("round-trip min/avg/max = 7/8/9 ms");
+        delayed.WriteLine("round-trip min/avg/max = 103/105/108 ms");
         delayed.WriteLine("net: warning: 140.82.121.4 is not allocated by IANA");
         delayed.WriteLine("net: route fragment timestamp: 10 Apr 2008 00:00:01 UTC (clock skew detected)");
         delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
     }
-
 }
 
 [RemoteHost("wikipedia.org")]
@@ -153,20 +146,18 @@ internal sealed class WikipediaOrg : IEasterEgg
     public void Execute(IUnitOfWork uow)
     {
         using var delayed = EasterEggOutput.Delayed(uow);
-        
+
         delayed.WriteLine("PING wikipedia.org (208.80.154.224): 56 data bytes");
-        
-        // Three timeouts - 1200ms each
+
         delayed.SetNextLineDelay(1200);
         delayed.WriteLine("Request timeout for icmp_seq 0");
-        
+
         delayed.SetNextLineDelay(1200);
         delayed.WriteLine("Request timeout for icmp_seq 1");
-        
+
         delayed.SetNextLineDelay(1200);
         delayed.WriteLine("Request timeout for icmp_seq 2");
-        
-        // Creepy statistics
+
         delayed.SetNextLineDelay(200);
         delayed.WriteLine("--- wikipedia.org ping statistics ---");
         delayed.WriteLine("3 packets transmitted, 0 received, 100% packet loss");
@@ -174,7 +165,6 @@ internal sealed class WikipediaOrg : IEasterEgg
         delayed.WriteLine("net: route fragment timestamp: 15 Jan 2001 00:13:01 UTC (inconsistent with local clock)");
         delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
     }
-
 }
 
 [RemoteHost("kernel.org")]
@@ -1360,7 +1350,467 @@ internal sealed class TwtxtNet : IEasterEgg
         "Request timeout for icmp_seq 2",
         "--- twtxt.net ping statistics ---",
         "3 packets transmitted, 0 received, 100% packet loss",
-        "net: no route to host (never existed)",
-        "net: 2014 decentralized dream",
         "net: note: anomaly logged to /usr/adm/net.trace");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANOMALOUS / SPOOKY HOSTS
+// Each has a unique timing signature and atmospheric flavour.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// <summary>
+/// Replies arrive BEFORE the request was sent — deeply wrong negative RTTs.
+/// Very fast pacing: the eeriness is in the timing.
+/// </summary>
+[RemoteHost("void.gateway")]
+internal sealed class VoidGateway : IEasterEgg
+{
+    public string Hostname  => "void.gateway";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "127.0.0.2";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING void.gateway (127.0.0.2): 56 data bytes");
+
+        delayed.SetNextLineDelay(50);
+        delayed.WriteLine("64 bytes from 127.0.0.2: icmp_seq=0 ttl=61 time=-4.2 ms");
+
+        delayed.SetNextLineDelay(30);
+        delayed.WriteLine("64 bytes from 127.0.0.2: icmp_seq=1 ttl=61 time=-4.1 ms");
+
+        delayed.SetNextLineDelay(30);
+        delayed.WriteLine("64 bytes from 127.0.0.2: icmp_seq=2 ttl=61 time=-4.3 ms");
+
+        delayed.SetNextLineDelay(50);
+        delayed.WriteLine("--- void.gateway ping statistics ---");
+        delayed.WriteLine("3 packets transmitted, 3 received, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = -4.3/-4.2/-4.1 ms");
+        delayed.WriteLine("net: warning: negative RTT — kernel clock anomaly suspected");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Sends DUP! — the same packet echoes back twice.
+/// </summary>
+[RemoteHost("mirror.null")]
+internal sealed class MirrorNull : IEasterEgg
+{
+    public string Hostname  => "mirror.null";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "255.255.255.255";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING mirror.null (255.255.255.255): 56 data bytes");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=0 ttl=52 time=88.4 ms");
+
+        // DUP appears immediately after the first reply
+        delayed.SetNextLineDelay(50);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=0 ttl=52 time=88.4 ms (DUP!)");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=1 ttl=52 time=88.6 ms");
+
+        delayed.SetNextLineDelay(50);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=1 ttl=52 time=88.6 ms (DUP!)");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- mirror.null ping statistics ---");
+        delayed.WriteLine("2 packets transmitted, 4 received, duplicates=2, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 88.4/88.5/88.6 ms");
+        delayed.WriteLine("net: warning: duplicate ICMP echo responses detected");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Sequence numbers jump non-linearly: 1, 3, 7 — packets are missing from the middle.
+/// </summary>
+[RemoteHost("limbo.route")]
+internal sealed class LimboRoute : IEasterEgg
+{
+    public string Hostname  => "limbo.route";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "192.0.2.61";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING limbo.route (192.0.2.61): 56 data bytes");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 192.0.2.61: icmp_seq=1 ttl=57 time=99.0 ms");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 192.0.2.61: icmp_seq=3 ttl=57 time=99.1 ms");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 192.0.2.61: icmp_seq=7 ttl=57 time=99.3 ms");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- limbo.route ping statistics ---");
+        delayed.WriteLine("7 packets transmitted, 3 received, 57% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 99.0/99.1/99.3 ms");
+        delayed.WriteLine("net: warning: non-sequential icmp_seq — lost in routing loop?");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Sequence numbers count DOWN — packets arrive in reverse order.
+/// </summary>
+[RemoteHost("night-switch")]
+internal sealed class NightSwitch : IEasterEgg
+{
+    public string Hostname  => "night-switch";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "1.1.1.1";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING night-switch (1.1.1.1): 56 data bytes");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 1.1.1.1: icmp_seq=3 ttl=59 time=73.0 ms");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 1.1.1.1: icmp_seq=2 ttl=59 time=72.9 ms");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 1.1.1.1: icmp_seq=1 ttl=59 time=72.8 ms");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- night-switch ping statistics ---");
+        delayed.WriteLine("3 packets transmitted, 3 received, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 72.8/72.9/73.0 ms");
+        delayed.WriteLine("net: warning: reverse icmp_seq — is time running backward?");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// A remote note arrives mid-ping but cuts off abruptly — message never completed.
+/// </summary>
+[RemoteHost("cold.tape")]
+internal sealed class ColdTape : IEasterEgg
+{
+    public string Hostname  => "cold.tape";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "127.0.0.2";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING cold.tape (127.0.0.2): 56 data bytes");
+
+        delayed.SetNextLineDelay(300);
+        delayed.WriteLine("64 bytes from 127.0.0.2: icmp_seq=0 ttl=49 time=211.4 ms");
+
+        delayed.SetNextLineDelay(300);
+        delayed.WriteLine("64 bytes from 127.0.0.2: icmp_seq=1 ttl=49 time=211.6 ms");
+
+        // The message cuts off mid-word
+        delayed.SetNextLineDelay(400);
+        delayed.WriteLine("warning: remote note: DO N");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- cold.tape ping statistics ---");
+        delayed.WriteLine("2 packets transmitted, 2 received, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 211.4/211.5/211.6 ms");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// The remote host asks who is there between each packet.
+/// </summary>
+[RemoteHost("unknown-peer")]
+internal sealed class UnknownPeer : IEasterEgg
+{
+    public string Hostname  => "unknown-peer";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "192.0.2.96";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING unknown-peer (192.0.2.96): 56 data bytes");
+
+        delayed.SetNextLineDelay(250);
+        delayed.WriteLine("64 bytes from 192.0.2.96: icmp_seq=0 ttl=48 time=188.8 ms");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("remote note: who is there");
+
+        delayed.SetNextLineDelay(250);
+        delayed.WriteLine("64 bytes from 192.0.2.96: icmp_seq=1 ttl=48 time=188.6 ms");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("remote note: who is there");
+
+        delayed.SetNextLineDelay(250);
+        delayed.WriteLine("64 bytes from 192.0.2.96: icmp_seq=2 ttl=48 time=188.9 ms");
+
+        delayed.SetNextLineDelay(100);
+        delayed.WriteLine("remote note: who is there");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- unknown-peer ping statistics ---");
+        delayed.WriteLine("3 packets transmitted, 3 received, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 188.6/188.7/188.9 ms");
+        delayed.WriteLine("net: warning: unsolicited ICMP payload in replies");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Reports 100% packet loss in stats but then a late reply sneaks in anyway.
+/// </summary>
+[RemoteHost("dusk-gw")]
+internal sealed class DuskGw : IEasterEgg
+{
+    public string Hostname  => "dusk-gw";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "255.255.255.255";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING dusk-gw (255.255.255.255): 56 data bytes");
+
+        delayed.SetNextLineDelay(1200);
+        delayed.WriteLine("Request timeout for icmp_seq 0");
+
+        delayed.SetNextLineDelay(1200);
+        delayed.WriteLine("Request timeout for icmp_seq 1");
+
+        delayed.SetNextLineDelay(1200);
+        delayed.WriteLine("Request timeout for icmp_seq 2");
+
+        // Stats: shows 100% loss
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- dusk-gw ping statistics ---");
+        delayed.WriteLine("3 packets transmitted, 0 received, 100% packet loss");
+
+        // Then a reply arrives after stats are already printed
+        delayed.SetNextLineDelay(700);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=0 ttl=33 time=520.1 ms");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Replies arrive before the request — reply pre-dates the header.
+/// Very fast: these packets were never actually sent.
+/// </summary>
+[RemoteHost("ghost-hop")]
+internal sealed class GhostHop : IEasterEgg
+{
+    public string Hostname  => "ghost-hop";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "203.0.113.61";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING ghost-hop (203.0.113.61): 56 data bytes");
+
+        // Replies arrive extremely fast — before any packet could have been sent
+        delayed.SetNextLineDelay(30);
+        delayed.WriteLine("64 bytes from 203.0.113.61: icmp_seq=0 ttl=255 time=-0.041 ms");
+
+        delayed.SetNextLineDelay(20);
+        delayed.WriteLine("64 bytes from 203.0.113.61: icmp_seq=1 ttl=255 time=-0.039 ms");
+
+        delayed.SetNextLineDelay(20);
+        delayed.WriteLine("64 bytes from 203.0.113.61: icmp_seq=2 ttl=255 time=-0.038 ms");
+
+        delayed.SetNextLineDelay(50);
+        delayed.WriteLine("--- ghost-hop ping statistics ---");
+        delayed.WriteLine("1 packets transmitted, 3 received, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = -0.041/-0.039/-0.038 ms");
+        delayed.WriteLine("net: warning: replies exceed packets sent");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Replies carry timestamps from 1987 — four years before this machine was built.
+/// </summary>
+[RemoteHost("crawlspace.net")]
+internal sealed class CrawlspaceNet : IEasterEgg
+{
+    public string Hostname  => "crawlspace.net";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "192.0.2.131";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING crawlspace.net (192.0.2.131): 56 data bytes");
+
+        delayed.SetNextLineDelay(300);
+        delayed.WriteLine("[1987-01-07 00:00:00] 64 bytes from 192.0.2.131: icmp_seq=0 ttl=37 time=310.1 ms");
+
+        delayed.SetNextLineDelay(310);
+        delayed.WriteLine("[1987-01-07 00:00:01] 64 bytes from 192.0.2.131: icmp_seq=1 ttl=37 time=309.9 ms");
+
+        delayed.SetNextLineDelay(310);
+        delayed.WriteLine("[1987-01-07 00:00:02] 64 bytes from 192.0.2.131: icmp_seq=2 ttl=37 time=310.3 ms");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- crawlspace.net ping statistics ---");
+        delayed.WriteLine("3 packets transmitted, 3 received, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 309.9/310.1/310.3 ms");
+        delayed.WriteLine("net: warning: ICMP timestamp 4 years behind local clock");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Data corruption: wrong bytes reported between replies — the payload is decaying.
+/// </summary>
+[RemoteHost("echo.archive")]
+internal sealed class EchoArchive : IEasterEgg
+{
+    public string Hostname  => "echo.archive";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "255.255.255.255";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING echo.archive (255.255.255.255): 56 data bytes");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=0 ttl=46 time=204.8 ms");
+
+        delayed.SetNextLineDelay(100);
+        delayed.WriteLine("wrong data byte #16 should be 0x10 but was 0x00");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=1 ttl=46 time=205.0 ms");
+
+        delayed.SetNextLineDelay(100);
+        delayed.WriteLine("wrong data byte #17 should be 0x11 but was 0x2e");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 255.255.255.255: icmp_seq=2 ttl=46 time=205.1 ms");
+
+        delayed.SetNextLineDelay(100);
+        delayed.WriteLine("wrong data byte #18 should be 0x12 but was 0x00");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- echo.archive ping statistics ---");
+        delayed.WriteLine("3 packets transmitted, 3 received, corrupted=3, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 204.8/205.0/205.1 ms");
+        delayed.WriteLine("net: warning: payload corruption on all received packets");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Receives 3 replies but sequence 3 was never sent — an extra ghost packet arrives.
+/// </summary>
+[RemoteHost("empty-campus")]
+internal sealed class EmptyCampus : IEasterEgg
+{
+    public string Hostname  => "empty-campus";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "10.18.126.234";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING empty-campus (10.18.126.234): 56 data bytes");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 10.18.126.234: icmp_seq=1 ttl=54 time=154.1 ms");
+
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 10.18.126.234: icmp_seq=2 ttl=54 time=154.2 ms");
+
+        // seq=4 — icmp_seq=3 never arrived, but 4 did
+        delayed.SetNextLineDelay(200);
+        delayed.WriteLine("64 bytes from 10.18.126.234: icmp_seq=4 ttl=54 time=154.2 ms");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- empty-campus ping statistics ---");
+        delayed.WriteLine("2 packets transmitted, 3 received, 0% packet loss");
+        delayed.WriteLine("round-trip min/avg/max = 154.1/154.2/154.2 ms");
+        delayed.WriteLine("net: warning: received more replies than packets sent");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
+}
+
+/// <summary>
+/// Destination Net Unreachable — this host is nowhere.
+/// </summary>
+[RemoteHost("hollow.link")]
+internal sealed class HollowLink : IEasterEgg
+{
+    public string Hostname  => "hollow.link";
+    public IReadOnlyList<string> Aliases => [];
+    public string IpAddress => "0.0.0.0";
+    public int BasePingMs   => 0;
+    public HostAccess Access => HostAccess.Normal;
+
+    public void Execute(IUnitOfWork uow)
+    {
+        using var delayed = EasterEggOutput.Delayed(uow);
+
+        delayed.WriteLine("PING hollow.link (0.0.0.0): 56 data bytes");
+
+        delayed.SetNextLineDelay(400);
+        delayed.WriteLine("Redirect Host(New addr: 0.0.0.0)");
+
+        delayed.SetNextLineDelay(600);
+        delayed.WriteLine("From 0.0.0.0 icmp_seq=0 Destination Net Unreachable");
+
+        delayed.SetNextLineDelay(150);
+        delayed.WriteLine("--- hollow.link ping statistics ---");
+        delayed.WriteLine("1 packets transmitted, 0 received, errors=2, 100% packet loss");
+        delayed.WriteLine("net: error: no route to 0.0.0.0");
+        delayed.WriteLine("net: note: anomaly logged to /usr/adm/net.trace");
+    }
 }

@@ -68,7 +68,11 @@ internal sealed class DelayedOutputWriter : TextWriter
         var text = _buffer.ToString();
         _buffer.Clear();
 
+        // Skip empty lines from spurious Flush/Dispose calls
+        if (text.Length == 0) return;
+
         Protocol.EmitLine(_sink, text, _accumulatedDelayMs > 0 ? _accumulatedDelayMs : null);
-        _accumulatedDelayMs = 0;
+        // Do NOT reset _accumulatedDelayMs — keep it accumulating so each SetNextLineDelay
+        // adds to the previous, giving correct absolute per-line timestamps on the engine side.
     }
 }
