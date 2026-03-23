@@ -3,7 +3,7 @@ file,line,code,issue,risk,gain,status
 [ARCHITECTURE] Command dispatch,0,Command lookup,Hash table instead of string matching,LOW,+15-30%,completed
 [ARCHITECTURE] Event system,0,Event processing,Batch events and process in parallel,HIGH,+50-80%,completed
 [ARCHITECTURE] File system,0,Path resolution,Use trie data structure for O(k) lookup,MEDIUM,+40-60%,completed
-[ARCHITECTURE] GPU acceleration,0,3D rendering,Offload OBJ rendering to GPU,HIGH,+200-400%,pending
+[ARCHITECTURE] GPU acceleration,0,3D rendering,Offload OBJ rendering to GPU (Phase 1/4),HIGH,+200-400%,in-progress
 [ARCHITECTURE] Memory pool,0,Object allocation,Implement object pool for frame data,MEDIUM,+15-25%,completed
 [ARCHITECTURE] Parallelization,0,System execution,Use rayon/tokio for parallel systems,HIGH,+60-120%,pending
 [ARCHITECTURE] Render pipeline,0,Halfblock rendering,Batch terminal writes instead of per-cell,MEDIUM,+30-50%,completed
