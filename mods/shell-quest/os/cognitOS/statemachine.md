@@ -190,9 +190,39 @@ all at once. The dial sequence:
 
 ### 5.3 Network packet queue
 
-Per-connection `Queue<NetworkPacket>`. Each packet has a `dueAtMs` based on RTT.
-`Network` events on `KernelEventQueue` fire when a packet is ready to be consumed
-by the waiting command.
+```
+Connect(host, port)
+    │
+    └─ Create NetworkPacketQueue(host, rttMs=50, bandwidthBytesPerMs=3)
+            │
+            ├─ Per-socket tracking: _packetQueues[fd]
+            │
+            └─ Available methods:
+                ├─ EnqueueResponse(data, nowMs)  — schedule packet for delivery
+                ├─ DrainReady(nowMs)            — get packets ready to deliver
+                └─ Peek, PendingCount           — diagnostic accessors
+```
+
+Each socket maintains its own `NetworkPacketQueue` which models:
+- **RTT (50ms)**: round-trip time to remote host
+- **Bandwidth (3 bytes/ms = 24 Kbps)**: typical 1991 modem speed
+- **Cumulative transfer time**: each packet adds transfer delay for the next
+
+When a command sends data over a socket, the response packet is scheduled based on:
+1. Initial RTT (50ms to reach remote)
+2. Response bytes / bandwidth (transfer time)
+3. RTT back (50ms)
+
+The kernel event loop can poll all packet queues each tick and fire `Network`
+events when packets are ready, enabling event-driven networking instead of
+blocking `BlockFor()` calls.
+
+**Implementation:**
+- `NetworkPacketQueue.cs`: Queue with `EnqueueResponse()`, `DrainReady(nowMs)`, and `Peek` for diagnostics
+- `SimulatedNetwork._packetQueues`: Dictionary of `fd → NetworkPacketQueue`
+- `Connect()`: Creates a queue for the new socket
+- `Close()`: Removes the queue when socket is closed
+- `GetPacketQueues()`: Exposes queues to kernel event loop for polling
 
 ---
 

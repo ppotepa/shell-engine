@@ -8,6 +8,9 @@ using CognitOS.Network;
 /// <summary>
 /// Simulated network operations with realistic timing.
 /// Connect/Send/Recv go through <see cref="ISyscallGate"/> for unified latency + resource management.
+/// 
+/// Per-socket packet queues model bandwidth limitations and RTT so network operations
+/// feel realistic — packets arrive over time instead of instantly.
 /// </summary>
 internal sealed class SimulatedNetwork : INetwork
 {
@@ -19,6 +22,7 @@ internal sealed class SimulatedNetwork : INetwork
     private readonly Random _rng = new();
 
     private readonly Dictionary<int, string> _sockets = new();
+    private readonly Dictionary<int, NetworkPacketQueue> _packetQueues = new();
 
     public SimulatedNetwork(RemoteHostIndex registry, ResourceState res, HardwareProfile hw, Disk.IDisk disk, ISyscallGate gate)
     {
@@ -77,7 +81,12 @@ internal sealed class SimulatedNetwork : INetwork
 
         var result = _gate.Dispatch(
             SyscallRequest.For(SyscallKind.NetConnect),
-            () => _sockets[fd] = host);
+            () =>
+            {
+                _sockets[fd] = host;
+                // Create packet queue for this socket: RTT ~50ms, bandwidth ~3 bytes/ms (24 Kbps)
+                _packetQueues[fd] = new NetworkPacketQueue(host, rttMs: 50, bandwidthBytesPerMs: 3);
+            });
 
         if (!result.Success)
         {
@@ -126,8 +135,16 @@ internal sealed class SimulatedNetwork : INetwork
         {
             _res.Fd.Close(socketFd);
             _res.NetCtrl.ReleaseBandwidth();
+            _packetQueues.Remove(socketFd);
         }
     }
 
     public bool IsKnownHost(string hostname) => _registry.IsKnown(hostname);
+
+    /// <summary>
+    /// Get all packet queues for the kernel event loop to drain.
+    /// </summary>
+    internal IEnumerable<(int fd, NetworkPacketQueue queue)> GetPacketQueues()
+        => _packetQueues.Select(kvp => (kvp.Key, kvp.Value));
 }
+
