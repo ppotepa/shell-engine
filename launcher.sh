@@ -145,8 +145,6 @@ build_game_cmd() {
 
   cat <<EOF
 cd $shell_root
-export COLUMNS=$MIN_WIDTH
-export LINES=$MIN_HEIGHT
 if [[ ${MIN_COLOURS} -ge 16777216 ]]; then
   export COLORTERM=truecolor
 elif [[ ${MIN_COLOURS} -ge 256 ]]; then
@@ -155,7 +153,6 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
     *) export TERM=xterm-256color ;;
   esac
 fi
-stty cols "$MIN_WIDTH" rows "$MIN_HEIGHT" 2>/dev/null || true
 cargo run -q -p app -- --mod $shell_mod_name${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$AUDIO" == "1" ]] && echo " --audio" )
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
@@ -220,7 +217,7 @@ case "$TERMINAL_BIN" in
     kgx "${args[@]}" -- bash -lc "$GAME_CMD" >/dev/null 2>&1 &
     ;;
   gnome-terminal)
-    args=(--title="Shell Quest" --geometry="${MIN_WIDTH}x${MIN_HEIGHT}")
+    args=(--title="Shell Quest")
     if [[ "$WINDOW_MODE" == "game" ]]; then
       has_flag gnome-terminal "--full-screen" && args+=(--full-screen)
       has_flag gnome-terminal "--hide-menubar" && args+=(--hide-menubar)
@@ -238,7 +235,7 @@ case "$TERMINAL_BIN" in
     konsole "${args[@]}" -e bash -lc "$GAME_CMD" >/dev/null 2>&1 &
     ;;
   xfce4-terminal)
-    args=(--title="Shell Quest" --geometry="${MIN_WIDTH}x${MIN_HEIGHT}")
+    args=(--title="Shell Quest")
     if [[ "$WINDOW_MODE" == "game" ]] && has_flag xfce4-terminal "--fullscreen"; then
       args+=(--fullscreen)
     fi
@@ -255,8 +252,6 @@ case "$TERMINAL_BIN" in
     args=(-t "Shell Quest" -e bash -lc "$GAME_CMD")
     if [[ "$WINDOW_MODE" == "game" ]]; then
       args=(-o window.startup_mode=Fullscreen -o window.decorations=None "${args[@]}")
-    else
-      args=(-o window.dimensions.columns="$MIN_WIDTH" -o window.dimensions.lines="$MIN_HEIGHT" "${args[@]}")
     fi
     alacritty "${args[@]}" >/dev/null 2>&1 &
     ;;
@@ -268,7 +263,7 @@ case "$TERMINAL_BIN" in
     wezterm "${args[@]}" >/dev/null 2>&1 &
     ;;
   xterm)
-    args=(-T "Shell Quest" -geometry "${MIN_WIDTH}x${MIN_HEIGHT}" -e bash -lc "$GAME_CMD")
+    args=(-T "Shell Quest" -e bash -lc "$GAME_CMD")
     xterm "${args[@]}" >/dev/null 2>&1 &
     ;;
   *)
