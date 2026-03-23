@@ -19,6 +19,7 @@ thread_local! {
 }
 
 /// Flush cached flex layouts (call on scene change).
+#[allow(dead_code)]
 pub(crate) fn invalidate_flex_cache() {
     FLEX_LAYOUT_CACHE.with(|c| c.borrow_mut().clear());
 }

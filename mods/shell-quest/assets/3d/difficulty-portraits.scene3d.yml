@@ -47,10 +47,12 @@ lights:
 materials:
   wire:
     surface_mode: wireframe
+    backface_cull: true
     fg_colour: "#4488ff"
 
   solid:
     surface_mode: material
+    backface_cull: true
     cel_levels: 5
     tone_mix: 0.85
     fg_colour: "#4488ff"
@@ -60,7 +62,7 @@ objects:
   - id: face-0-wire
     mesh: /assets/3d/sculpts/mouse-enjoyer-wire.obj
     material: wire
-    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+    transform: { rotation_y: 220, pitch: -8, scale: 4.5428, translation: [0.0032, -0.0307, -0.0133] }
 
   - id: face-0-solid
     mesh: /assets/3d/sculpts/mouse-enjoyer.obj
@@ -71,7 +73,7 @@ objects:
   - id: face-1-wire
     mesh: /assets/3d/sculpts/script-kiddie-wire.obj
     material: wire
-    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+    transform: { rotation_y: 220, pitch: -8, scale: 4.5486, translation: [-0.0410, -0.0069, -0.0394] }
 
   - id: face-1-solid
     mesh: /assets/3d/sculpts/script-kiddie.obj
@@ -82,7 +84,7 @@ objects:
   - id: face-2-wire
     mesh: /assets/3d/sculpts/can-exit-vim-wire.obj
     material: wire
-    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+    transform: { rotation_y: 220, pitch: -8, scale: 4.5307, translation: [-0.0046, -0.0966, -0.0406] }
 
   - id: face-2-solid
     mesh: /assets/3d/sculpts/can-exit-vim.obj
@@ -93,7 +95,7 @@ objects:
   - id: face-3-wire
     mesh: /assets/3d/sculpts/dvorak-wire.obj
     material: wire
-    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+    transform: { rotation_y: 220, pitch: -8, scale: 4.6084, translation: [0.0218, -0.0056, 0.0122] }
 
   - id: face-3-solid
     mesh: /assets/3d/sculpts/dvorak.obj
@@ -104,7 +106,7 @@ objects:
   - id: face-4-wire
     mesh: /assets/3d/sculpts/su-wire.obj
     material: wire
-    transform: { rotation_y: 220, pitch: -8, scale: 4.65 }
+    transform: { rotation_y: 220, pitch: -8, scale: 4.5255, translation: [0.0618, -0.1273, -0.0537] }
 
   - id: face-4-solid
     mesh: /assets/3d/sculpts/su.obj

@@ -9,7 +9,6 @@ use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use crossterm::style::Color;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 
 thread_local! {
     static LAYER_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));

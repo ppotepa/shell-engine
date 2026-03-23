@@ -1,6 +1,5 @@
 using CognitOS.Kernel;
 using CognitOS.Framework.Transport;
-using CognitOS.Core;
 
 namespace CognitOS.Network.Hosts;
 
@@ -9,7 +8,7 @@ namespace CognitOS.Network.Hosts;
 
 internal static class EasterEggOutput
 {
-    public static DelayedOutputWriter Delayed(IUnitOfWork uow) => new(ResolveSink(uow.Out));
+    public static DelayedOutputWriter Delayed(IUnitOfWork uow) => new(uow);
 
     /// <summary>
     /// Emit ping output lines with realistic delays derived from line content:
@@ -54,26 +53,15 @@ internal static class EasterEggOutput
             }
         }
     }
-
-    private static IOutputSink ResolveSink(System.IO.TextWriter writer)
-    {
-        if (writer is GameTextWriter gameWriter)
-            return gameWriter.Sink;
-
-        var field = writer.GetType().GetField(
-            "_sink",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        return (IOutputSink)field!.GetValue(writer)!;
-    }
 }
 
 [RemoteHost("google.com")]
 internal sealed class GoogleCom : IEasterEgg
 {
-    public string Hostname  => "google.com";
+    public string Hostname => "google.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "216.58.209.14";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -104,10 +92,10 @@ internal sealed class GoogleCom : IEasterEgg
 [RemoteHost("github.com")]
 internal sealed class GithubCom : IEasterEgg
 {
-    public string Hostname  => "github.com";
+    public string Hostname => "github.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "140.82.121.4";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -139,10 +127,10 @@ internal sealed class GithubCom : IEasterEgg
 [RemoteHost("wikipedia.org")]
 internal sealed class WikipediaOrg : IEasterEgg
 {
-    public string Hostname  => "wikipedia.org";
+    public string Hostname => "wikipedia.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "208.80.154.224";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -172,10 +160,10 @@ internal sealed class WikipediaOrg : IEasterEgg
 [RemoteHost("kernel.org")]
 internal sealed class KernelOrg : IEasterEgg
 {
-    public string Hostname  => "kernel.org";
+    public string Hostname => "kernel.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "198.145.20.140";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -195,10 +183,10 @@ internal sealed class KernelOrg : IEasterEgg
 [RemoteHost("archive.org")]
 internal sealed class ArchiveOrg : IEasterEgg
 {
-    public string Hostname  => "archive.org";
+    public string Hostname => "archive.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "207.241.224.2";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -217,10 +205,10 @@ internal sealed class ArchiveOrg : IEasterEgg
 [RemoteHost("facebook.com")]
 internal sealed class FacebookCom : IEasterEgg
 {
-    public string Hostname  => "facebook.com";
+    public string Hostname => "facebook.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "157.240.2.35";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -240,10 +228,10 @@ internal sealed class FacebookCom : IEasterEgg
 [RemoteHost("amazon.com")]
 internal sealed class AmazonCom : IEasterEgg
 {
-    public string Hostname  => "amazon.com";
+    public string Hostname => "amazon.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "205.251.242.103";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -262,10 +250,10 @@ internal sealed class AmazonCom : IEasterEgg
 [RemoteHost("youtube.com")]
 internal sealed class YoutubeCom : IEasterEgg
 {
-    public string Hostname  => "youtube.com";
+    public string Hostname => "youtube.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "142.250.74.110";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -285,10 +273,10 @@ internal sealed class YoutubeCom : IEasterEgg
 [RemoteHost("twitter.com")]
 internal sealed class TwitterCom : IEasterEgg
 {
-    public string Hostname  => "twitter.com";
+    public string Hostname => "twitter.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "104.244.42.193";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -307,10 +295,10 @@ internal sealed class TwitterCom : IEasterEgg
 [RemoteHost("reddit.com")]
 internal sealed class RedditCom : IEasterEgg
 {
-    public string Hostname  => "reddit.com";
+    public string Hostname => "reddit.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "151.101.1.140";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -329,10 +317,10 @@ internal sealed class RedditCom : IEasterEgg
 [RemoteHost("stackoverflow.com")]
 internal sealed class StackoverflowCom : IEasterEgg
 {
-    public string Hostname  => "stackoverflow.com";
+    public string Hostname => "stackoverflow.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "151.101.65.69";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -351,10 +339,10 @@ internal sealed class StackoverflowCom : IEasterEgg
 [RemoteHost("netflix.com")]
 internal sealed class NetflixCom : IEasterEgg
 {
-    public string Hostname  => "netflix.com";
+    public string Hostname => "netflix.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "52.21.140.173";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -373,10 +361,10 @@ internal sealed class NetflixCom : IEasterEgg
 [RemoteHost("openai.com")]
 internal sealed class OpenaiCom : IEasterEgg
 {
-    public string Hostname  => "openai.com";
+    public string Hostname => "openai.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "13.107.238.54";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -395,10 +383,10 @@ internal sealed class OpenaiCom : IEasterEgg
 [RemoteHost("torproject.org")]
 internal sealed class TorprojectOrg : IEasterEgg
 {
-    public string Hostname  => "torproject.org";
+    public string Hostname => "torproject.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "116.202.120.166";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -416,10 +404,10 @@ internal sealed class TorprojectOrg : IEasterEgg
 [RemoteHost("linkedin.com")]
 internal sealed class LinkedinCom : IEasterEgg
 {
-    public string Hostname  => "linkedin.com";
+    public string Hostname => "linkedin.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "108.174.10.10";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -438,10 +426,10 @@ internal sealed class LinkedinCom : IEasterEgg
 [RemoteHost("slashdot.org")]
 internal sealed class SlashdotOrg : IEasterEgg
 {
-    public string Hostname  => "slashdot.org";
+    public string Hostname => "slashdot.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "216.34.181.45";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -460,10 +448,10 @@ internal sealed class SlashdotOrg : IEasterEgg
 [RemoteHost("sourceforge.net")]
 internal sealed class SourceforgeNet : IEasterEgg
 {
-    public string Hostname  => "sourceforge.net";
+    public string Hostname => "sourceforge.net";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "216.105.38.12";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -482,10 +470,10 @@ internal sealed class SourceforgeNet : IEasterEgg
 [RemoteHost("netscape.com")]
 internal sealed class NetscapeCom : IEasterEgg
 {
-    public string Hostname  => "netscape.com";
+    public string Hostname => "netscape.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "205.188.153.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -504,10 +492,10 @@ internal sealed class NetscapeCom : IEasterEgg
 [RemoteHost("discord.com")]
 internal sealed class DiscordCom : IEasterEgg
 {
-    public string Hostname  => "discord.com";
+    public string Hostname => "discord.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "162.159.128.233";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -526,10 +514,10 @@ internal sealed class DiscordCom : IEasterEgg
 [RemoteHost("slack.com")]
 internal sealed class SlackCom : IEasterEgg
 {
-    public string Hostname  => "slack.com";
+    public string Hostname => "slack.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "54.192.151.79";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -548,10 +536,10 @@ internal sealed class SlackCom : IEasterEgg
 [RemoteHost("zoom.us")]
 internal sealed class ZoomUs : IEasterEgg
 {
-    public string Hostname  => "zoom.us";
+    public string Hostname => "zoom.us";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "170.114.0.4";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -570,10 +558,10 @@ internal sealed class ZoomUs : IEasterEgg
 [RemoteHost("instagram.com")]
 internal sealed class InstagramCom : IEasterEgg
 {
-    public string Hostname  => "instagram.com";
+    public string Hostname => "instagram.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "157.240.3.174";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -592,10 +580,10 @@ internal sealed class InstagramCom : IEasterEgg
 [RemoteHost("snapchat.com")]
 internal sealed class SnapchatCom : IEasterEgg
 {
-    public string Hostname  => "snapchat.com";
+    public string Hostname => "snapchat.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "35.186.224.47";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -614,10 +602,10 @@ internal sealed class SnapchatCom : IEasterEgg
 [RemoteHost("tiktok.com")]
 internal sealed class TiktokCom : IEasterEgg
 {
-    public string Hostname  => "tiktok.com";
+    public string Hostname => "tiktok.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "128.14.149.250";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -637,10 +625,10 @@ internal sealed class TiktokCom : IEasterEgg
 [RemoteHost("whatsapp.com")]
 internal sealed class WhatsappCom : IEasterEgg
 {
-    public string Hostname  => "whatsapp.com";
+    public string Hostname => "whatsapp.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "157.240.8.53";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -659,10 +647,10 @@ internal sealed class WhatsappCom : IEasterEgg
 [RemoteHost("seti.org")]
 internal sealed class SetiOrg : IEasterEgg
 {
-    public string Hostname  => "seti.org";
+    public string Hostname => "seti.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "207.218.253.51";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -681,10 +669,10 @@ internal sealed class SetiOrg : IEasterEgg
 [RemoteHost("creativecommons.org")]
 internal sealed class CreativecommonsOrg : IEasterEgg
 {
-    public string Hostname  => "creativecommons.org";
+    public string Hostname => "creativecommons.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "54.84.12.12";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -703,10 +691,10 @@ internal sealed class CreativecommonsOrg : IEasterEgg
 [RemoteHost("y2k.com")]
 internal sealed class Y2kCom : IEasterEgg
 {
-    public string Hostname  => "y2k.com";
+    public string Hostname => "y2k.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "192.168.1.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -725,10 +713,10 @@ internal sealed class Y2kCom : IEasterEgg
 [RemoteHost("void.null")]
 internal sealed class VoidNull : IEasterEgg
 {
-    public string Hostname  => "void.null";
+    public string Hostname => "void.null";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -747,10 +735,10 @@ internal sealed class VoidNull : IEasterEgg
 [RemoteHost("linus.torvalds.name")]
 internal sealed class LinusTorvaldsName : IEasterEgg
 {
-    public string Hostname  => "linus.torvalds.name";
+    public string Hostname => "linus.torvalds.name";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "127.0.0.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -768,10 +756,10 @@ internal sealed class LinusTorvaldsName : IEasterEgg
 [RemoteHost("unknown.global")]
 internal sealed class UnknownGlobal : IEasterEgg
 {
-    public string Hostname  => "unknown.global";
+    public string Hostname => "unknown.global";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -790,10 +778,10 @@ internal sealed class UnknownGlobal : IEasterEgg
 [RemoteHost("stripe.com")]
 internal sealed class StripeCom : IEasterEgg
 {
-    public string Hostname  => "stripe.com";
+    public string Hostname => "stripe.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "52.89.214.238";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -812,10 +800,10 @@ internal sealed class StripeCom : IEasterEgg
 [RemoteHost("paypal.com")]
 internal sealed class PaypalCom : IEasterEgg
 {
-    public string Hostname  => "paypal.com";
+    public string Hostname => "paypal.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "173.0.85.101";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -834,10 +822,10 @@ internal sealed class PaypalCom : IEasterEgg
 [RemoteHost("telegram.org")]
 internal sealed class TelegramOrg : IEasterEgg
 {
-    public string Hostname  => "telegram.org";
+    public string Hostname => "telegram.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "149.154.167.99";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -855,10 +843,10 @@ internal sealed class TelegramOrg : IEasterEgg
 [RemoteHost("signal.org")]
 internal sealed class SignalOrg : IEasterEgg
 {
-    public string Hostname  => "signal.org";
+    public string Hostname => "signal.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "151.101.1.140";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -877,10 +865,10 @@ internal sealed class SignalOrg : IEasterEgg
 [RemoteHost("matrix.org")]
 internal sealed class MatrixOrg : IEasterEgg
 {
-    public string Hostname  => "matrix.org";
+    public string Hostname => "matrix.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "45.76.99.226";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -899,10 +887,10 @@ internal sealed class MatrixOrg : IEasterEgg
 [RemoteHost("bbc.com")]
 internal sealed class BbcCom : IEasterEgg
 {
-    public string Hostname  => "bbc.com";
+    public string Hostname => "bbc.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "212.58.244.70";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -921,10 +909,10 @@ internal sealed class BbcCom : IEasterEgg
 [RemoteHost("reuters.com")]
 internal sealed class ReutersCom : IEasterEgg
 {
-    public string Hostname  => "reuters.com";
+    public string Hostname => "reuters.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "213.52.136.140";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -943,10 +931,10 @@ internal sealed class ReutersCom : IEasterEgg
 [RemoteHost("dropbox.com")]
 internal sealed class DropboxCom : IEasterEgg
 {
-    public string Hostname  => "dropbox.com";
+    public string Hostname => "dropbox.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "162.125.74.36";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -965,10 +953,10 @@ internal sealed class DropboxCom : IEasterEgg
 [RemoteHost("aws.amazon.com")]
 internal sealed class AwsAmazonCom : IEasterEgg
 {
-    public string Hostname  => "aws.amazon.com";
+    public string Hostname => "aws.amazon.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "176.32.98.166";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -987,10 +975,10 @@ internal sealed class AwsAmazonCom : IEasterEgg
 [RemoteHost("gitlab.com")]
 internal sealed class GitlabCom : IEasterEgg
 {
-    public string Hostname  => "gitlab.com";
+    public string Hostname => "gitlab.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "172.65.251.78";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1009,10 +997,10 @@ internal sealed class GitlabCom : IEasterEgg
 [RemoteHost("bing.com")]
 internal sealed class BingCom : IEasterEgg
 {
-    public string Hostname  => "bing.com";
+    public string Hostname => "bing.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "204.79.197.200";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1031,10 +1019,10 @@ internal sealed class BingCom : IEasterEgg
 [RemoteHost("duckduckgo.com")]
 internal sealed class DuckduckgoCom : IEasterEgg
 {
-    public string Hostname  => "duckduckgo.com";
+    public string Hostname => "duckduckgo.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "3.213.240.89";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1053,10 +1041,10 @@ internal sealed class DuckduckgoCom : IEasterEgg
 [RemoteHost("microsoft.com")]
 internal sealed class MicrosoftCom : IEasterEgg
 {
-    public string Hostname  => "microsoft.com";
+    public string Hostname => "microsoft.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "13.107.42.14";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1075,10 +1063,10 @@ internal sealed class MicrosoftCom : IEasterEgg
 [RemoteHost("apple.com")]
 internal sealed class AppleCom : IEasterEgg
 {
-    public string Hostname  => "apple.com";
+    public string Hostname => "apple.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "17.142.160.59";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1097,10 +1085,10 @@ internal sealed class AppleCom : IEasterEgg
 [RemoteHost("cloudflare.com")]
 internal sealed class CloudflareCom : IEasterEgg
 {
-    public string Hostname  => "cloudflare.com";
+    public string Hostname => "cloudflare.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "104.16.132.229";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1119,10 +1107,10 @@ internal sealed class CloudflareCom : IEasterEgg
 [RemoteHost("heroku.com")]
 internal sealed class HerokoCom : IEasterEgg
 {
-    public string Hostname  => "heroku.com";
+    public string Hostname => "heroku.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "54.175.233.142";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1141,10 +1129,10 @@ internal sealed class HerokoCom : IEasterEgg
 [RemoteHost("ethereum.org")]
 internal sealed class EthereumOrg : IEasterEgg
 {
-    public string Hostname  => "ethereum.org";
+    public string Hostname => "ethereum.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "104.21.10.74";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1163,10 +1151,10 @@ internal sealed class EthereumOrg : IEasterEgg
 [RemoteHost("spotify.com")]
 internal sealed class SpotifyCom : IEasterEgg
 {
-    public string Hostname  => "spotify.com";
+    public string Hostname => "spotify.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "35.195.14.250";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1185,10 +1173,10 @@ internal sealed class SpotifyCom : IEasterEgg
 [RemoteHost("medium.com")]
 internal sealed class MediumCom : IEasterEgg
 {
-    public string Hostname  => "medium.com";
+    public string Hostname => "medium.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "35.186.202.80";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1207,10 +1195,10 @@ internal sealed class MediumCom : IEasterEgg
 [RemoteHost("notion.so")]
 internal sealed class NotionSo : IEasterEgg
 {
-    public string Hostname  => "notion.so";
+    public string Hostname => "notion.so";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "104.18.8.97";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1229,10 +1217,10 @@ internal sealed class NotionSo : IEasterEgg
 [RemoteHost("protonmail.com")]
 internal sealed class ProtonmailCom : IEasterEgg
 {
-    public string Hostname  => "protonmail.com";
+    public string Hostname => "protonmail.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "185.70.40.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1251,10 +1239,10 @@ internal sealed class ProtonmailCom : IEasterEgg
 [RemoteHost("fastmail.com")]
 internal sealed class FastmailCom : IEasterEgg
 {
-    public string Hostname  => "fastmail.com";
+    public string Hostname => "fastmail.com";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "103.105.40.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1273,10 +1261,10 @@ internal sealed class FastmailCom : IEasterEgg
 [RemoteHost("bitbucket.org")]
 internal sealed class BitbucketOrg : IEasterEgg
 {
-    public string Hostname  => "bitbucket.org";
+    public string Hostname => "bitbucket.org";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "104.192.141.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1295,10 +1283,10 @@ internal sealed class BitbucketOrg : IEasterEgg
 [RemoteHost("mastodon.social")]
 internal sealed class MastodonSocial : IEasterEgg
 {
-    public string Hostname  => "mastodon.social";
+    public string Hostname => "mastodon.social";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "104.21.12.92";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1317,10 +1305,10 @@ internal sealed class MastodonSocial : IEasterEgg
 [RemoteHost("lobste.rs")]
 internal sealed class LobstersRs : IEasterEgg
 {
-    public string Hostname  => "lobste.rs";
+    public string Hostname => "lobste.rs";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "108.165.75.39";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1339,10 +1327,10 @@ internal sealed class LobstersRs : IEasterEgg
 [RemoteHost("twtxt.net")]
 internal sealed class TwtxtNet : IEasterEgg
 {
-    public string Hostname  => "twtxt.net";
+    public string Hostname => "twtxt.net";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "192.0.2.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow) => EasterEggOutput.SimulatePing(uow,
@@ -1367,10 +1355,10 @@ internal sealed class TwtxtNet : IEasterEgg
 [RemoteHost("void.gateway")]
 internal sealed class VoidGateway : IEasterEgg
 {
-    public string Hostname  => "void.gateway";
+    public string Hostname => "void.gateway";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "127.0.0.2";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1403,10 +1391,10 @@ internal sealed class VoidGateway : IEasterEgg
 [RemoteHost("mirror.null")]
 internal sealed class MirrorNull : IEasterEgg
 {
-    public string Hostname  => "mirror.null";
+    public string Hostname => "mirror.null";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "255.255.255.255";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1443,10 +1431,10 @@ internal sealed class MirrorNull : IEasterEgg
 [RemoteHost("limbo.route")]
 internal sealed class LimboRoute : IEasterEgg
 {
-    public string Hostname  => "limbo.route";
+    public string Hostname => "limbo.route";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "192.0.2.61";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1479,10 +1467,10 @@ internal sealed class LimboRoute : IEasterEgg
 [RemoteHost("night-switch")]
 internal sealed class NightSwitch : IEasterEgg
 {
-    public string Hostname  => "night-switch";
+    public string Hostname => "night-switch";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "1.1.1.1";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1515,10 +1503,10 @@ internal sealed class NightSwitch : IEasterEgg
 [RemoteHost("cold.tape")]
 internal sealed class ColdTape : IEasterEgg
 {
-    public string Hostname  => "cold.tape";
+    public string Hostname => "cold.tape";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "127.0.0.2";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1551,10 +1539,10 @@ internal sealed class ColdTape : IEasterEgg
 [RemoteHost("unknown-peer")]
 internal sealed class UnknownPeer : IEasterEgg
 {
-    public string Hostname  => "unknown-peer";
+    public string Hostname => "unknown-peer";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "192.0.2.96";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1596,10 +1584,10 @@ internal sealed class UnknownPeer : IEasterEgg
 [RemoteHost("dusk-gw")]
 internal sealed class DuskGw : IEasterEgg
 {
-    public string Hostname  => "dusk-gw";
+    public string Hostname => "dusk-gw";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "255.255.255.255";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1636,10 +1624,10 @@ internal sealed class DuskGw : IEasterEgg
 [RemoteHost("ghost-hop")]
 internal sealed class GhostHop : IEasterEgg
 {
-    public string Hostname  => "ghost-hop";
+    public string Hostname => "ghost-hop";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "203.0.113.61";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1673,10 +1661,10 @@ internal sealed class GhostHop : IEasterEgg
 [RemoteHost("crawlspace.net")]
 internal sealed class CrawlspaceNet : IEasterEgg
 {
-    public string Hostname  => "crawlspace.net";
+    public string Hostname => "crawlspace.net";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "192.0.2.131";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1709,10 +1697,10 @@ internal sealed class CrawlspaceNet : IEasterEgg
 [RemoteHost("echo.archive")]
 internal sealed class EchoArchive : IEasterEgg
 {
-    public string Hostname  => "echo.archive";
+    public string Hostname => "echo.archive";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "255.255.255.255";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1754,10 +1742,10 @@ internal sealed class EchoArchive : IEasterEgg
 [RemoteHost("empty-campus")]
 internal sealed class EmptyCampus : IEasterEgg
 {
-    public string Hostname  => "empty-campus";
+    public string Hostname => "empty-campus";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "10.18.126.234";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)
@@ -1791,10 +1779,10 @@ internal sealed class EmptyCampus : IEasterEgg
 [RemoteHost("hollow.link")]
 internal sealed class HollowLink : IEasterEgg
 {
-    public string Hostname  => "hollow.link";
+    public string Hostname => "hollow.link";
     public IReadOnlyList<string> Aliases => [];
     public string IpAddress => "0.0.0.0";
-    public int BasePingMs   => 0;
+    public int BasePingMs => 0;
     public HostAccess Access => HostAccess.Normal;
 
     public void Execute(IUnitOfWork uow)

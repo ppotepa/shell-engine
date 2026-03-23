@@ -219,6 +219,7 @@ fn is_shell_quest_schema_ref(line: &str) -> bool {
     references_sq_schema && references_schema_file
 }
 
+#[allow(dead_code)]
 fn extract_schema_ref(path: &Path) -> Option<String> {
     let raw = fs::read_to_string(path).ok()?;
     raw.lines()
@@ -230,6 +231,7 @@ fn extract_schema_ref(path: &Path) -> Option<String> {
         .map(str::to_string)
 }
 
+#[allow(dead_code)]
 fn resolve_schema_ref_path(
     repo_root: &Path,
     yaml_path: &Path,
@@ -249,6 +251,7 @@ fn resolve_schema_ref_path(
     ))
 }
 
+#[allow(dead_code)]
 fn normalize_path(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     for component in path.components() {

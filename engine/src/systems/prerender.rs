@@ -191,6 +191,9 @@ fn collect_from_sprites(sprites: &[Sprite], mode: SceneRenderedMode, out: &mut V
                     camera_pan_y: 0.0,
                     camera_look_yaw: 0.0,
                     camera_look_pitch: 0.0,
+                    object_translate_x: 0.0,
+                    object_translate_y: 0.0,
+                    object_translate_z: 0.0,
                     clip_y_min: 0.0, // always prerender full model
                     clip_y_max: 1.0,
                 };

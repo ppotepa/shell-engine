@@ -83,7 +83,18 @@ impl BurnInState {
         if !self.has_capture {
             return;
         }
-        self.ghost = Some(self.live_capture.clone());
+        // Reuse ghost buffer if exists and same size, else clone.
+        if let Some(ref mut ghost_buf) = self.ghost {
+            if ghost_buf.len() == self.live_capture.len() {
+                // Swap instead of clone to avoid allocation.
+                std::mem::swap(ghost_buf, &mut self.live_capture);
+                self.live_capture.clear();  // Clear the swapped-in buffer so it's ready for next capture
+            } else {
+                self.ghost = Some(self.live_capture.clone());
+            }
+        } else {
+            self.ghost = Some(self.live_capture.clone());
+        }
         self.ghost_w = self.live_w;
         self.ghost_h = self.live_h;
     }
@@ -217,6 +228,8 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 /// 3×3 blur: center 40%, cardinal 12%, corners 6%.
+/// Unrolled kernel without closure overhead.
+#[inline(always)]
 fn blur_sample(
     ghost: &[Cell],
     gw: usize,
@@ -224,30 +237,39 @@ fn blur_sample(
     gx: usize,
     gy: usize,
 ) -> (f32, f32, f32) {
-    let sample = |sx: usize, sy: usize| -> (f32, f32, f32) {
-        let idx = sy * gw + sx;
-        if idx >= ghost.len() {
-            return (0.0, 0.0, 0.0);
-        }
-        pixel_rgb(&ghost[idx])
-    };
-
-    let (cr, cg, cb) = sample(gx, gy);
-
     let lx = gx.saturating_sub(1);
-    let rx = if gx + 1 < gw { gx + 1 } else { gx };
+    let rx = (gx + 1).min(gw - 1);
     let ty = gy.saturating_sub(1);
-    let by = if gy + 1 < gh { gy + 1 } else { gy };
+    let by = (gy + 1).min(gh - 1);
 
-    let (lr, lg, lb) = sample(lx, gy);
-    let (rr, rg, rb) = sample(rx, gy);
-    let (tr, tg, tb) = sample(gx, ty);
-    let (btr, btg, btb) = sample(gx, by);
+    // Pre-compute indices (with bounds guard).
+    let len = ghost.len();
+    let idx_c = gy * gw + gx;
+    let idx_l = gy * gw + lx;
+    let idx_r = gy * gw + rx;
+    let idx_t = ty * gw + gx;
+    let idx_b = by * gw + gx;
+    let idx_tl = ty * gw + lx;
+    let idx_tr = ty * gw + rx;
+    let idx_bl = by * gw + lx;
+    let idx_br = by * gw + rx;
 
-    let (tlr, tlg, tlb) = sample(lx, ty);
-    let (trr, trg, trb) = sample(rx, ty);
-    let (blr, blg, blb) = sample(lx, by);
-    let (brr, brg, brb) = sample(rx, by);
+    // Guard all indices once at start.
+    if idx_c >= len || idx_l >= len || idx_r >= len || idx_t >= len || idx_b >= len
+        || idx_tl >= len || idx_tr >= len || idx_bl >= len || idx_br >= len {
+        return (0.0, 0.0, 0.0);
+    }
+
+    // Unrolled samples (no closure overhead).
+    let (cr, cg, cb) = pixel_rgb(&ghost[idx_c]);
+    let (lr, lg, lb) = pixel_rgb(&ghost[idx_l]);
+    let (rr, rg, rb) = pixel_rgb(&ghost[idx_r]);
+    let (tr, tg, tb) = pixel_rgb(&ghost[idx_t]);
+    let (btr, btg, btb) = pixel_rgb(&ghost[idx_b]);
+    let (tlr, tlg, tlb) = pixel_rgb(&ghost[idx_tl]);
+    let (trr, trg, trb) = pixel_rgb(&ghost[idx_tr]);
+    let (blr, blg, blb) = pixel_rgb(&ghost[idx_bl]);
+    let (brr, brg, brb) = pixel_rgb(&ghost[idx_br]);
 
     (
         cr * 0.40 + (lr + rr + tr + btr) * 0.12 + (tlr + trr + blr + brr) * 0.06,
@@ -257,6 +279,7 @@ fn blur_sample(
 }
 
 /// Extract representative RGB (0.0–1.0) from a cell.
+#[inline(always)]
 fn pixel_rgb(cell: &Cell) -> (f32, f32, f32) {
     let c = if cell.symbol != ' ' { cell.fg } else { normalize_bg(cell.bg) };
     let (r, g, b) = colour_to_rgb(c);

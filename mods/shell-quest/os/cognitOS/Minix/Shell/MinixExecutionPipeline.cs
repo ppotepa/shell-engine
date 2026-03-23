@@ -184,6 +184,10 @@ internal sealed class MinixExecutionPipeline : IExecutionPipeline
         // Piped context: schedule on the inner UoW so the output timing still flows out
         public void ScheduleOutput(string line, ulong delayMs) => _inner.ScheduleOutput(line, delayMs);
 
+        // Drain delegates to inner so ApplicationStack sees all scheduled outputs
+        public IReadOnlyList<(ulong DelayMs, string Line)> DrainScheduledOutputs()
+            => _inner.DrainScheduledOutputs();
+
         public void Dispose() => _inner.Dispose();
     }
 

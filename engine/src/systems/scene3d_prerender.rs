@@ -23,7 +23,10 @@ use crate::scene3d_format::{load_scene3d, FrameDef, LightKind, Scene3DDefinition
 use crate::scene3d_resolve::resolve_scene3d_refs;
 use crate::scene_pipeline::ScenePreparationStep;
 use crate::services::EngineWorldAccess;
-use crate::systems::compositor::obj_render::{render_obj_content, ObjRenderParams};
+use crate::systems::compositor::obj_render::{
+    blit_color_canvas, render_obj_to_shared_buffers,
+    virtual_dimensions, ObjRenderParams,
+};
 use crate::world::World;
 
 // ── Scene preparation step ─────────────────────────────────────────────────────
@@ -160,9 +163,7 @@ struct ObjectRenderSpec {
     params: ObjRenderParams,
     wireframe: bool,
     backface_cull: bool,
-    draw_char: char,
     fg: Color,
-    bg: Color,
 }
 
 /// Expand a `Scene3DDefinition` into one `WorkItem` per frame (or N per clip).
@@ -346,6 +347,19 @@ fn build_object_specs(
                 .and_then(|m| m.get("clip_y_max"))
                 .copied()
                 .unwrap_or(1.0);
+            let base_translation = obj.transform.translation.unwrap_or([0.0, 0.0, 0.0]);
+            let translation_x = obj_tweens
+                .and_then(|m| m.get("translation_x"))
+                .copied()
+                .unwrap_or(base_translation[0]);
+            let translation_y = obj_tweens
+                .and_then(|m| m.get("translation_y"))
+                .copied()
+                .unwrap_or(base_translation[1]);
+            let translation_z = obj_tweens
+                .and_then(|m| m.get("translation_z"))
+                .copied()
+                .unwrap_or(base_translation[2]);
 
             let tf = &obj.transform;
             let cam_pos = camera.position.unwrap_or([0.0, 0.0, camera.distance]);
@@ -355,8 +369,6 @@ fn build_object_specs(
 
             let wireframe = mat.surface_mode == SurfaceMode::Wireframe;
             let fg = mat.fg_colour.as_deref().and_then(parse_hex_color).unwrap_or(Color::White);
-            let bg = mat.bg_colour.as_deref().and_then(parse_hex_color).unwrap_or(Color::Reset);
-            let draw_char = mat.wireframe_char.unwrap_or('#');
 
             let (rot_x, rot_y, rot_z) = tf.resolved_rotation();
             let params = ObjRenderParams {
@@ -406,6 +418,9 @@ fn build_object_specs(
                 camera_pan_y: 0.0,
                 camera_look_yaw: 0.0,
                 camera_look_pitch: 0.0,
+                object_translate_x: translation_x,
+                object_translate_y: translation_y,
+                object_translate_z: translation_z,
                 clip_y_min,
                 clip_y_max,
             };
@@ -415,9 +430,7 @@ fn build_object_specs(
                 params,
                 wireframe,
                 backface_cull: mat.backface_cull,
-                draw_char,
                 fg,
-                bg,
             })
         })
         .collect()
@@ -427,26 +440,37 @@ fn build_object_specs(
 
 fn render_frame(item: &WorkItem, asset_root: &crate::assets::AssetRoot) -> Option<Buffer> {
     let mut buf = Buffer::new(item.viewport_w, item.viewport_h);
+    let (virtual_w, virtual_h) = virtual_dimensions(item.mode, item.viewport_w, item.viewport_h);
+    let canvas_size = virtual_w as usize * virtual_h as usize;
+    if canvas_size == 0 {
+        return Some(buf);
+    }
 
-    for obj in &item.objects {
-        render_obj_content(
-            &obj.mesh,
-            Some(item.viewport_w),
-            Some(item.viewport_h),
-            None,
-            item.mode,
-            obj.params,
-            obj.wireframe,
-            obj.backface_cull,
-            obj.draw_char,
-            obj.fg,
-            obj.bg,
-            Some(asset_root),
-            0,
-            0,
-            &mut buf,
+    let mut canvas: Vec<Option<[u8; 3]>> = vec![None; canvas_size];
+    let mut depth_buf: Vec<f32> = vec![f32::INFINITY; canvas_size];
+
+    // Render solid objects first (fill depth buffer), then wireframe on top.
+    // Shared depth buffer ensures wire edges behind solid faces are correctly culled.
+    for obj in item.objects.iter().filter(|o| !o.wireframe) {
+        render_obj_to_shared_buffers(
+            &obj.mesh, item.viewport_w, item.viewport_h, item.mode,
+            obj.params, obj.wireframe, obj.backface_cull, obj.fg,
+            Some(asset_root), &mut canvas, &mut depth_buf,
         );
     }
+    for obj in item.objects.iter().filter(|o| o.wireframe) {
+        render_obj_to_shared_buffers(
+            &obj.mesh, item.viewport_w, item.viewport_h, item.mode,
+            obj.params, obj.wireframe, obj.backface_cull, obj.fg,
+            Some(asset_root), &mut canvas, &mut depth_buf,
+        );
+    }
+
+    blit_color_canvas(
+        &mut buf, item.mode, &canvas, virtual_w, virtual_h,
+        item.viewport_w, item.viewport_h, 0, 0, false, '#',
+        Color::White, Color::Reset, 0, virtual_h as usize,
+    );
 
     Some(buf)
 }

@@ -239,16 +239,10 @@ impl Buffer {
     }
 
     /// Force a full re-flush on the next render (e.g. after terminal resize).
-    /// Writes sentinels to front and marks entire region as dirty.
+    /// Bumps generation to trigger full diff scan without per-cell writes.
     pub fn invalidate(&mut self) {
-        for cell in &mut self.front {
-            cell.symbol = '\0';
-        }
-        // Mark entire buffer as dirty so diff will include everything.
-        self.dirty_x_min = 0;
-        self.dirty_x_max = self.width.saturating_sub(1);
-        self.dirty_y_min = 0;
-        self.dirty_y_max = self.height.saturating_sub(1);
+        self.generation = self.generation.wrapping_add(1);
+        self.front_generation = self.front_generation.wrapping_sub(2);
     }
 
     /// Resize both buffers, preserving nothing (invalidates front for full redraw).
@@ -256,15 +250,12 @@ impl Buffer {
         let size = width as usize * height as usize;
         self.width = width;
         self.height = height;
-        self.back = vec![Cell::default(); size];
-        self.front = vec![
-            Cell {
-                symbol: '\0',
-                fg: Color::Reset,
-                bg: Color::Reset
-            };
-            size
-        ];
+        self.back.resize(size, Cell::default());
+        self.front.resize(size, Cell {
+            symbol: '\0',
+            fg: Color::Reset,
+            bg: Color::Reset
+        });
         // Increment generation to force full redraw.
         self.generation = self.generation.wrapping_add(1);
         self.dirty_x_min = 0;
@@ -275,7 +266,7 @@ impl Buffer {
 
     /// Blit a rectangular region from source buffer to this buffer's back.
     /// Only copies non-transparent cells (space with Color::Reset background).
-    /// Tracks dirty region for efficient diff.
+    /// Tracks dirty region once after all copies (instead of per-pixel updates).
     pub fn blit_from(
         &mut self,
         src: &Buffer,
@@ -286,6 +277,12 @@ impl Buffer {
         width: u16,
         height: u16,
     ) {
+        let mut min_x = u16::MAX;
+        let mut max_x = 0u16;
+        let mut min_y = u16::MAX;
+        let mut max_y = 0u16;
+        let mut any_written = false;
+
         for y in 0..height {
             let src_row = src_y.wrapping_add(y);
             let dst_row = dst_y.wrapping_add(y);
@@ -303,9 +300,24 @@ impl Buffer {
                     if cell.symbol == ' ' && cell.bg == Color::Reset {
                         continue;
                     }
-                    self.set(dst_col, dst_row, cell.symbol, cell.fg, cell.bg);
+                    // Direct write to back buffer without calling set() (which updates dirty per pixel).
+                    self.back[dst_row as usize * self.width as usize + dst_col as usize] = *cell;
+                    // Track dirty bounds.
+                    min_x = min_x.min(dst_col);
+                    max_x = max_x.max(dst_col);
+                    min_y = min_y.min(dst_row);
+                    max_y = max_y.max(dst_row);
+                    any_written = true;
                 }
             }
+        }
+
+        // Update dirty region once after all writes.
+        if any_written {
+            self.dirty_x_min = self.dirty_x_min.min(min_x);
+            self.dirty_x_max = self.dirty_x_max.max(max_x);
+            self.dirty_y_min = self.dirty_y_min.min(min_y);
+            self.dirty_y_max = self.dirty_y_max.max(max_y);
         }
     }
 }

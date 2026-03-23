@@ -59,26 +59,28 @@ pub struct RunLogInfo {
 
 #[derive(Debug)]
 struct RunLogger {
-    app_name: String,
     info: RunLogInfo,
     file: Mutex<File>,
+    cached_pid: u32,
 }
 
 impl RunLogger {
     fn write_line(&self, level: LogLevel, target: &str, message: &str) {
         let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S%.3f");
-        let pid = std::process::id();
         let line = format!(
-            "{timestamp} [{pid}] [{}] [{}] [{}] {message}\n",
-            self.app_name,
+            "{timestamp} [{}] [{}] [{}] {message}\n",
+            self.cached_pid,
             level.as_str(),
             target
         );
         if let Ok(mut file) = self.file.lock() {
             let _ = file.write_all(line.as_bytes());
-            let _ = file.flush();
+            // Only flush on Warn/Error, or let OS buffer smaller Infos.
+            if matches!(level, LogLevel::Warn | LogLevel::Error) {
+                let _ = file.flush();
+            }
         }
-        
+
         // Append to in-memory ring buffer for overlay
         append_to_log_ring(level, target, message);
     }
@@ -92,15 +94,15 @@ const LOG_RING_CAPACITY: usize = 500;
 /// Appends a log line to the in-memory ring buffer.
 fn append_to_log_ring(level: LogLevel, target: &str, message: &str) {
     if let Ok(mut ring) = LOG_RING.lock() {
+        // Pre-check capacity and drop before allocating if needed.
+        if ring.len() >= LOG_RING_CAPACITY {
+            ring.pop_front();
+        }
         ring.push_back(LogOverlayLine {
             level: level.as_str(),
             target: target.to_string(),
             message: message.to_string(),
         });
-        // Drop oldest entry if over capacity
-        while ring.len() > LOG_RING_CAPACITY {
-            ring.pop_front();
-        }
     }
 }
 
@@ -145,9 +147,9 @@ pub fn init_run_logger(config: RunLoggerConfig) -> io::Result<Option<RunLogInfo>
         .open(&run_info.file_path)?;
 
     let logger = RunLogger {
-        app_name: config.app_name,
         info: run_info.clone(),
         file: Mutex::new(file),
+        cached_pid: std::process::id(),
     };
 
     let _ = LOGGER.set(logger);
@@ -188,13 +190,11 @@ pub fn run_log_info() -> Option<RunLogInfo> {
 /// Returns the most recent N log entries from the in-memory ring buffer.
 pub fn tail_recent(limit: usize) -> Vec<LogOverlayLine> {
     if let Ok(ring) = LOG_RING.lock() {
+        let len = ring.len();
+        let skip = if len > limit { len - limit } else { 0 };
         ring.iter()
-            .rev()
-            .take(limit)
+            .skip(skip)
             .cloned()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
             .collect()
     } else {
         Vec::new()

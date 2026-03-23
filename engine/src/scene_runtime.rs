@@ -130,7 +130,9 @@ struct ObjSpritePropertySnapshot {
     roll: Option<f32>,
     orbit_speed: Option<f32>,
     surface_mode: Option<String>,
+    #[allow(dead_code)]
     clip_y_min: Option<f32>,
+    #[allow(dead_code)]
     clip_y_max: Option<f32>,
 }
 
@@ -1124,7 +1126,7 @@ impl SceneRuntime {
         self.cached_object_text = None;
         // sidecar_io: build Arc once if not already cached from a prior
         // mutation-free frame; invalidated at each sidecar write site.
-        let sidecar_io = match &self.cached_sidecar_io {
+        let _sidecar_io = match &self.cached_sidecar_io {
             Some(cached) => std::sync::Arc::clone(cached),
             None => {
                 let arc = std::sync::Arc::new(self.ui_state.sidecar_io.clone());

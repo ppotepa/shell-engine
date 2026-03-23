@@ -1,7 +1,6 @@
 namespace CognitOS.Kernel;
 
 using CognitOS.Core;
-using CognitOS.Framework.Transport;
 using CognitOS.Kernel.Clock;
 using CognitOS.Kernel.Disk;
 using CognitOS.Kernel.Journal;
@@ -45,6 +44,8 @@ internal sealed class UnitOfWork : IUnitOfWork
     public MachineSpec Spec => _kernel.Spec;
     public ResourceSnapshot Resources => _kernel.Resources.Snapshot();
 
+    private readonly List<(ulong DelayMs, string Line)> _scheduledOutputs = new();
+
     public UnitOfWork(IKernel kernel, UserSession session, TextWriter output, QuestState quest)
     {
         _kernel = kernel;
@@ -55,28 +56,26 @@ internal sealed class UnitOfWork : IUnitOfWork
     }
 
     /// <summary>
-    /// Emit a line after <paramref name="delayMs"/> simulated milliseconds.
-    /// Delays are cumulative so a sequence of calls produces staggered output.
+    /// Schedule a line to appear after <paramref name="delayMs"/> cumulative simulated ms.
+    /// Delays accumulate across calls — each call adds to the running total.
+    /// Lines are collected here and drained by ApplicationStack via tick events.
     /// </summary>
     public void ScheduleOutput(string line, ulong delayMs)
     {
         _pendingDelayMs += delayMs;
-
-        var sink = ResolveSink(Out);
-        if (sink is not null)
-            Protocol.EmitLine(sink, line, _pendingDelayMs > 0 ? _pendingDelayMs : null);
-        else
-            Out.WriteLine(line);
+        _scheduledOutputs.Add((_pendingDelayMs, line));
     }
 
-    private static IOutputSink? ResolveSink(TextWriter writer)
+    /// <summary>
+    /// Returns all scheduled outputs collected during this scope and clears the list.
+    /// Called by ApplicationStack after each command finishes.
+    /// </summary>
+    public IReadOnlyList<(ulong DelayMs, string Line)> DrainScheduledOutputs()
     {
-        if (writer is GameTextWriter gameWriter)
-            return gameWriter.Sink;
-        var field = writer.GetType().GetField(
-            "_sink",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        return field?.GetValue(writer) as IOutputSink;
+        var result = _scheduledOutputs.ToList();
+        _scheduledOutputs.Clear();
+        _pendingDelayMs = 0;
+        return result;
     }
 
     public void Dispose()

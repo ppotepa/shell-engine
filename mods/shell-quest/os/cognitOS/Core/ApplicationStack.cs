@@ -14,6 +14,7 @@ internal sealed class ApplicationStack
     private readonly MachineState _machineState;
     private readonly Stack<IKernelApplication> _stack = new();
     private readonly ScreenBuffer _screen;
+    private readonly List<(ulong DueAtMs, string Line)> _pendingDelayed = new();
 
     public ApplicationStack(IKernel kernel, MachineState machineState, ScreenBuffer screen)
     {
@@ -34,6 +35,7 @@ internal sealed class ApplicationStack
         using var uow = CreateScope(session);
         app.OnEnter(uow);
         FlushOutput(uow);
+        SchedulePendingOutputs(uow);
     }
 
     /// <summary>
@@ -47,14 +49,38 @@ internal sealed class ApplicationStack
         using var uow = CreateScope(session);
         var result = _stack.Peek().HandleInput(uow, input);
         FlushOutput(uow);
+        SchedulePendingOutputs(uow);
         if (result == ApplicationResult.Exit)
         {
             using var exitUow = CreateScope(session);
             _stack.Peek().OnExit(exitUow);
             FlushOutput(exitUow);
+            SchedulePendingOutputs(exitUow);
             _stack.Pop();
             _screen.Append("");
         }
+    }
+
+    /// <summary>
+    /// Drain any pending delayed outputs whose due time has arrived.
+    /// Called every tick so delayed lines appear sequentially over time.
+    /// </summary>
+    public void DrainDelayedOutput(ulong nowMs)
+    {
+        if (_pendingDelayed.Count == 0) return;
+
+        _pendingDelayed.Sort((a, b) => a.DueAtMs.CompareTo(b.DueAtMs));
+
+        int drained = 0;
+        foreach (var (dueAt, line) in _pendingDelayed)
+        {
+            if (dueAt > nowMs) break;
+            _screen.Append(line);
+            drained++;
+        }
+
+        if (drained > 0)
+            _pendingDelayed.RemoveRange(0, drained);
     }
 
     /// <summary>Returns the prompt prefix of the topmost app.</summary>
@@ -73,5 +99,15 @@ internal sealed class ApplicationStack
 
         var lines = text.TrimEnd('\r', '\n').Split('\n');
         _screen.Append(lines.Concat(new[] { "" }).ToArray());
+    }
+
+    private void SchedulePendingOutputs(CognitOS.Kernel.IUnitOfWork uow)
+    {
+        var scheduled = uow.DrainScheduledOutputs();
+        if (scheduled.Count == 0) return;
+
+        var baseMs = _kernel.Clock.UptimeMs();
+        foreach (var (delayMs, line) in scheduled)
+            _pendingDelayed.Add((baseMs + delayMs, line));
     }
 }

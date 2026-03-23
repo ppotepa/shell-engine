@@ -145,6 +145,7 @@ pub(super) fn build_glow_map_inplace(
 
 // ── Private helpers ───────────────────────────────────────────────────────
 
+#[inline(always)]
 fn glow_source_colour(cell: &Cell) -> Option<Color> {
     if cell.symbol != ' ' {
         return Some(cell.fg);
@@ -175,51 +176,128 @@ fn combine_core_halo(
             a: c.a * 0.72 + h.a * 0.28,
         }
         .normalized();
-        // Derive x/y from index for deterministic shimmer.
-        let shimmer = 0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
-        mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
+        // Only apply shimmer if alpha is significant (avoid wasted rand for transparent pixels).
+        if mix.a > 0.01 {
+            let shimmer = 0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
+            mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
+        }
         out[i] = mix;
     }
 }
 
 /// In-place 3×3 blur with tight, center-heavy kernel.
 /// Realistic CRT phosphor bleeds ~1 cell, not across the screen.
+/// Unrolled to avoid per-neighbor match branch; split interior vs border for bounds-check elimination.
 fn blur_glow3x3_into(src: &[GlowPixel], dst: &mut [GlowPixel], width: usize, height: usize) {
-    for y in 0..height {
-        for x in 0..width {
-            let mut acc = GlowPixel::default();
-            let mut wsum = 0.0_f32;
-            for oy in -1_i32..=1 {
-                for ox in -1_i32..=1 {
-                    let nx = x as i32 + ox;
-                    let ny = y as i32 + oy;
-                    if nx < 0 || ny < 0 || nx >= width as i32 || ny >= height as i32 {
-                        continue;
-                    }
-                    // Tight kernel: 34% center, 11% cardinal, 6% corners.
-                    let weight = match (ox.abs(), oy.abs()) {
-                        (0, 0) => 0.34,
-                        (0, 1) | (1, 0) => 0.11,
-                        _ => 0.06,
-                    };
-                    let p = src[ny as usize * width + nx as usize];
-                    acc.r += p.r * weight;
-                    acc.g += p.g * weight;
-                    acc.b += p.b * weight;
-                    acc.a += p.a * weight;
-                    wsum += weight;
-                }
-            }
-            dst[y * width + x] = if wsum > 0.0 {
-                GlowPixel {
-                    r: acc.r / wsum,
-                    g: acc.g / wsum,
-                    b: acc.b / wsum,
-                    a: acc.a / wsum,
-                }
-            } else {
-                GlowPixel::default()
+    if width == 0 || height == 0 {
+        return;
+    }
+
+    // Interior pixels (not on edge) — no bounds checks needed.
+    for y in 1..height.saturating_sub(1) {
+        for x in 1..width.saturating_sub(1) {
+            let idx = y * width + x;
+            let c = src[idx];                           // center 0.34
+            let u = src[(y - 1) * width + x];           // up 0.11
+            let d = src[(y + 1) * width + x];           // down 0.11
+            let l = src[y * width + (x - 1)];           // left 0.11
+            let r = src[y * width + (x + 1)];           // right 0.11
+            let ul = src[(y - 1) * width + (x - 1)];    // up-left 0.06
+            let ur = src[(y - 1) * width + (x + 1)];    // up-right 0.06
+            let dl = src[(y + 1) * width + (x - 1)];    // down-left 0.06
+            let dr = src[(y + 1) * width + (x + 1)];    // down-right 0.06
+
+            dst[idx] = GlowPixel {
+                r: c.r * 0.34 + u.r * 0.11 + d.r * 0.11 + l.r * 0.11 + r.r * 0.11
+                    + ul.r * 0.06 + ur.r * 0.06 + dl.r * 0.06 + dr.r * 0.06,
+                g: c.g * 0.34 + u.g * 0.11 + d.g * 0.11 + l.g * 0.11 + r.g * 0.11
+                    + ul.g * 0.06 + ur.g * 0.06 + dl.g * 0.06 + dr.g * 0.06,
+                b: c.b * 0.34 + u.b * 0.11 + d.b * 0.11 + l.b * 0.11 + r.b * 0.11
+                    + ul.b * 0.06 + ur.b * 0.06 + dl.b * 0.06 + dr.b * 0.06,
+                a: c.a * 0.34 + u.a * 0.11 + d.a * 0.11 + l.a * 0.11 + r.a * 0.11
+                    + ul.a * 0.06 + ur.a * 0.06 + dl.a * 0.06 + dr.a * 0.06,
             };
+        }
+    }
+
+    // Border pixels — use fallback with bounds checks (rare, don't optimize).
+    if height >= 2 {
+        // Top and bottom rows
+        for x in 0..width {
+            for y in [0, height - 1] {
+                let mut acc = GlowPixel::default();
+                let mut wsum = 0.0_f32;
+                for oy in -1_i32..=1 {
+                    for ox in -1_i32..=1 {
+                        let nx = x as i32 + ox;
+                        let ny = y as i32 + oy;
+                        if nx < 0 || ny < 0 || nx >= width as i32 || ny >= height as i32 {
+                            continue;
+                        }
+                        let weight = match (ox.abs(), oy.abs()) {
+                            (0, 0) => 0.34,
+                            (0, 1) | (1, 0) => 0.11,
+                            _ => 0.06,
+                        };
+                        let p = src[ny as usize * width + nx as usize];
+                        acc.r += p.r * weight;
+                        acc.g += p.g * weight;
+                        acc.b += p.b * weight;
+                        acc.a += p.a * weight;
+                        wsum += weight;
+                    }
+                }
+                dst[y * width + x] = if wsum > 0.0 {
+                    GlowPixel {
+                        r: acc.r / wsum,
+                        g: acc.g / wsum,
+                        b: acc.b / wsum,
+                        a: acc.a / wsum,
+                    }
+                } else {
+                    GlowPixel::default()
+                };
+            }
+        }
+    }
+
+    if width >= 2 {
+        // Left and right columns (interior rows only, to avoid double-processing corners)
+        for y in 1..height.saturating_sub(1) {
+            for x in [0, width - 1] {
+                let mut acc = GlowPixel::default();
+                let mut wsum = 0.0_f32;
+                for oy in -1_i32..=1 {
+                    for ox in -1_i32..=1 {
+                        let nx = x as i32 + ox;
+                        let ny = y as i32 + oy;
+                        if nx < 0 || ny < 0 || nx >= width as i32 || ny >= height as i32 {
+                            continue;
+                        }
+                        let weight = match (ox.abs(), oy.abs()) {
+                            (0, 0) => 0.34,
+                            (0, 1) | (1, 0) => 0.11,
+                            _ => 0.06,
+                        };
+                        let p = src[ny as usize * width + nx as usize];
+                        acc.r += p.r * weight;
+                        acc.g += p.g * weight;
+                        acc.b += p.b * weight;
+                        acc.a += p.a * weight;
+                        wsum += weight;
+                    }
+                }
+                dst[y * width + x] = if wsum > 0.0 {
+                    GlowPixel {
+                        r: acc.r / wsum,
+                        g: acc.g / wsum,
+                        b: acc.b / wsum,
+                        a: acc.a / wsum,
+                    }
+                } else {
+                    GlowPixel::default()
+                };
+            }
         }
     }
 }

@@ -84,6 +84,7 @@ internal sealed class AppHost
         _kernel.Tick(dtMs);
         DriveBoot(dtMs);
         DriveBootPostDelay(dtMs);
+        _appStack?.DrainDelayedOutput(_kernel.Clock.UptimeMs());
     }
 
     public void HandleResize(int cols, int rows)

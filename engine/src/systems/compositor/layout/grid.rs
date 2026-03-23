@@ -21,6 +21,7 @@ thread_local! {
 }
 
 /// Flush cached grid layouts (call on scene change).
+#[allow(dead_code)]
 pub(crate) fn invalidate_grid_cache() {
     GRID_LAYOUT_CACHE.with(|c| c.borrow_mut().clear());
 }

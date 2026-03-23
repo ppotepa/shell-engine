@@ -11,7 +11,6 @@ use crate::scene::{Layer, SceneRenderedMode, Sprite};
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use crate::systems::animator::SceneStage;
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -25,7 +24,7 @@ thread_local! {
 }
 
 /// Hash a `crossterm::style::Color` without allocating (avoids `format!("{:?}", col)`).
-#[inline]
+#[inline(always)]
 fn hash_color<H: Hasher>(col: Color, h: &mut H) {
     match col {
         Color::Reset        => 0u8.hash(h),
@@ -872,6 +871,9 @@ fn render_sprite(
                     camera_pan_y: camera_state.pan_y,
                     camera_look_yaw: camera_state.look_yaw,
                     camera_look_pitch: camera_state.look_pitch,
+                    object_translate_x: 0.0,
+                    object_translate_y: 0.0,
+                    object_translate_z: 0.0,
                     clip_y_min: clip_y_min.unwrap_or(0.0),
                     clip_y_max: clip_y_max.unwrap_or(1.0),
                 },
@@ -995,6 +997,7 @@ fn intersect_clip_rect(a: Option<ClipRect>, b: Option<ClipRect>) -> Option<ClipR
     }
 }
 
+#[inline(always)]
 fn panel_cell_visible(x: u16, y: u16, width: u16, height: u16, rounded: bool) -> bool {
     if !rounded {
         return true;
@@ -1005,6 +1008,7 @@ fn panel_cell_visible(x: u16, y: u16, width: u16, height: u16, rounded: bool) ->
         || x == width.saturating_sub(1) && y == height.saturating_sub(1))
 }
 
+#[inline(always)]
 fn set_panel_cell(buffer: &mut Buffer, x: i32, y: i32, bg: Color) {
     if x < 0 || y < 0 {
         return;

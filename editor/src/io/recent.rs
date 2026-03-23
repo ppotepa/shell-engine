@@ -14,6 +14,7 @@ fn recent_file() -> PathBuf {
 }
 
 /// Normalize path to canonical form for deduplication
+#[allow(dead_code)]
 fn normalize_path(path: &str) -> Option<String> {
     fs::canonicalize(path)
         .ok()

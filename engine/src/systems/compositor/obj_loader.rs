@@ -18,7 +18,7 @@ pub(crate) struct ObjMesh {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(super) struct ObjFace {
+pub(crate) struct ObjFace {
     pub indices: [usize; 3],
     /// Diffuse color (sRGB, gamma-corrected from MTL Kd).
     pub color: [u8; 3],

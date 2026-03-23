@@ -4,6 +4,7 @@ use crate::scene::SceneRenderedMode;
 use crate::scene::SpriteSizePreset;
 
 /// Returns the effective render mode, applying `force_renderer_mode` over `scene_mode` when set.
+#[inline(always)]
 pub fn resolve_renderer_mode(
     scene_mode: SceneRenderedMode,
     force_renderer_mode: Option<SceneRenderedMode>,
@@ -96,7 +97,8 @@ fn map_renderer_to_generic_mode(mode: SceneRenderedMode) -> Option<&'static str>
 }
 
 fn normalize_generic_mode(mode: &str) -> Option<&'static str> {
-    match mode.to_ascii_lowercase().as_str() {
+    let m = mode.to_ascii_lowercase();
+    match m.as_str() {
         "1" | "tiny" => Some("1"),
         "2" | "standard" => Some("2"),
         "3" | "large" => Some("3"),
