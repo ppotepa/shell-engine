@@ -32,55 +32,27 @@ internal static class EasterEggOutput
             if (!inStats && (line.StartsWith("---") || line.StartsWith("net:") ||
                              (line.Length > 0 && char.IsDigit(line[0]) && line.Contains("packet"))))
             {
-                // First stats line: 150ms gap after last packet
+                // First stats line: short gap after last packet, then rest is immediate
                 uow.ScheduleOutput(line, 150);
                 inStats = true;
             }
             else if (inStats)
             {
-                // Subsequent stats lines: immediate (grouped together)
+                // Stats block lines all arrive together
                 uow.ScheduleOutput(line, 0);
             }
             else if (line.StartsWith("Request timeout"))
             {
-                // Timeout waits the full 1200ms simulated probe window
+                // Simulate the full probe window — feels like waiting for a dead host
                 uow.ScheduleOutput(line, 1200);
             }
             else
             {
-                // Use the RTT from the line text as the animation delay so fast hosts
-                // feel fast and slow hosts feel slow. Floor at 80ms so loopback/LAN
-                // responses still have a visible beat; cap at 1200ms.
-                uow.ScheduleOutput(line, ExtractReplyDelay(line));
+                // Fixed 250ms between every reply — matches real ping cadence
+                // (one packet per second, compressed to 250ms for game pacing).
+                uow.ScheduleOutput(line, 250);
             }
         }
-    }
-
-    /// <summary>
-    /// Parse time=Xms from a ping reply line and return a clamped animation delay.
-    /// Returns 200ms if the pattern is absent or the value is non-positive (spooky hosts).
-    /// </summary>
-    private static ulong ExtractReplyDelay(string line)
-    {
-        const ulong MinDelay  = 80;
-        const ulong MaxDelay  = 1200;
-        const ulong FallbackDelay = 200;
-
-        var idx = line.IndexOf("time=", StringComparison.OrdinalIgnoreCase);
-        if (idx < 0) return FallbackDelay;
-
-        var after = line.AsSpan(idx + 5);
-        int end = 0;
-        // Accept digits, dot, and minus (for spooky negative RTT hosts)
-        while (end < after.Length && (char.IsDigit(after[end]) || after[end] == '.' || after[end] == '-'))
-            end++;
-
-        if (end == 0 || !double.TryParse(after[..end], System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var ms))
-            return FallbackDelay;
-
-        if (ms <= 0) return MinDelay; // negative/zero RTT (spooky hosts) — still show with a beat
-        return (ulong)Math.Clamp(ms, MinDelay, MaxDelay);
     }
 
     private static IOutputSink ResolveSink(System.IO.TextWriter writer)

@@ -48,8 +48,8 @@ internal sealed class PingCommand : IKernelCommand
         {
             uow.ScheduleOutput($"PING {host.Hostname} ({host.IpAddress}): 56 data bytes", 0);
             for (int i = 0; i < 3; i++)
-                uow.ScheduleOutput($"64 bytes from {host.IpAddress}: icmp_seq={i} ttl=64 time=0.01ms", 15);
-            uow.ScheduleOutput($"--- {host.Hostname} ping statistics ---", 80);
+                uow.ScheduleOutput($"64 bytes from {host.IpAddress}: icmp_seq={i} ttl=64 time=0.01ms", 250);
+            uow.ScheduleOutput($"--- {host.Hostname} ping statistics ---", 150);
             uow.ScheduleOutput("3 packets transmitted, 3 received, 0% packet loss", 0);
             uow.ScheduleOutput("round-trip min/avg/max = 0.01/0.01/0.01 ms", 0);
             return 0;
@@ -60,12 +60,10 @@ internal sealed class PingCommand : IKernelCommand
             pings[i] = RemoteHostIndex.JitteredPing(host.BasePingMs, uow.Spec);
 
         var ttl = host.BasePingMs < 50 ? 62 : host.BasePingMs < 150 ? 52 : 44;
-        // Per-packet delay: use RTT value with a minimum of 200ms for visible pacing
-        ulong replyDelay = (ulong)Math.Max(200, host.BasePingMs);
 
         uow.ScheduleOutput($"PING {host.Hostname} ({host.IpAddress}): 56 data bytes", 0);
         for (int i = 0; i < 3; i++)
-            uow.ScheduleOutput($"64 bytes from {host.IpAddress}: icmp_seq={i} ttl={ttl} time={pings[i]}ms", replyDelay);
+            uow.ScheduleOutput($"64 bytes from {host.IpAddress}: icmp_seq={i} ttl={ttl} time={pings[i]}ms", 250);
         uow.ScheduleOutput($"--- {host.Hostname} ping statistics ---", 150);
         uow.ScheduleOutput("3 packets transmitted, 3 received, 0% packet loss", 0);
         uow.ScheduleOutput($"round-trip min/avg/max = {pings.Min()}/{pings.Sum() / 3}/{pings.Max()} ms", 0);
