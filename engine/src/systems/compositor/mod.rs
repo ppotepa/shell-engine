@@ -4,7 +4,7 @@ mod effect_applicator;
 mod image_render;
 mod layer_compositor;
 mod layout;
-mod obj_loader;
+pub(crate) mod obj_loader;
 pub(crate) mod obj_render;
 mod render;
 mod sprite_renderer;

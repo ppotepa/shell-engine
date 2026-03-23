@@ -9,7 +9,7 @@ use crate::assets::AssetRoot;
 use crate::EngineError;
 
 #[derive(Debug, Clone)]
-pub(super) struct ObjMesh {
+pub(crate) struct ObjMesh {
     pub vertices: Vec<[f32; 3]>,
     pub edges: Vec<(usize, usize)>,
     pub faces: Vec<ObjFace>,
@@ -76,7 +76,7 @@ impl Default for MaterialProps {
     }
 }
 
-pub(super) fn load_obj_mesh(asset_root: &AssetRoot, source: &str) -> Option<std::sync::Arc<ObjMesh>> {
+pub(crate) fn load_obj_mesh(asset_root: &AssetRoot, source: &str) -> Option<std::sync::Arc<ObjMesh>> {
     let loader = ModAssetSourceLoader::new(asset_root.mod_source()).ok()?;
     let source = SourceRef::mod_asset(source);
     load_decoded_source(&OBJ_CACHE, &loader, &source, &ObjMeshAdapter)

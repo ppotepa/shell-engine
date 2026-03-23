@@ -12,3 +12,4 @@ pub mod menu;
 pub mod postfx;
 pub mod renderer;
 pub mod scene_lifecycle;
+pub mod warmup;

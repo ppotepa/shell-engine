@@ -81,9 +81,14 @@ impl ScenePipeline {
 }
 
 impl Default for ScenePipeline {
-    /// Default pipeline: OBJ prerender + Scene3D prerender.
+    /// Default pipeline: mesh warmup → OBJ prerender → Scene3D prerender.
+    ///
+    /// Mesh warmup runs first so OBJ meshes are in cache before prerendering
+    /// starts, eliminating redundant disk reads and enabling warm-cache rendering
+    /// on the first frame even for dynamic (non-prerendered) sprites.
     fn default() -> Self {
         Self::new(vec![
+            Box::new(crate::systems::warmup::MeshWarmupStep),
             Box::new(crate::systems::prerender::ObjPrerenderStep),
             Box::new(crate::systems::scene3d_prerender::Scene3DPrerenderStep),
         ])

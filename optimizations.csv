@@ -7,7 +7,7 @@ file,line,code,issue,risk,gain,status
 [ARCHITECTURE] Memory pool,0,Object allocation,Implement object pool for frame data,MEDIUM,+15-25%,completed
 [ARCHITECTURE] Parallelization,0,System execution,Use rayon/tokio for parallel systems,HIGH,+60-120%,completed
 [ARCHITECTURE] Render pipeline,0,Halfblock rendering,Batch terminal writes instead of per-cell,MEDIUM,+30-50%,completed
-[ARCHITECTURE] Streaming,0,Asset loading,Stream scenes instead of loading all,MEDIUM,+30-50%,pending
+[ARCHITECTURE] Streaming,0,Asset loading,Stream scenes instead of loading all,MEDIUM,+30-50%,completed
 [ARCHITECTURE] Transform system,0,Matrix transformations,Implement transform cache with dirty flag,MEDIUM,+20-40%,completed
 app/src/main.rs,56,"        app_name: ""app"".to_string(),",String allocation - Use String::from() or &str,LOW,+3-12%,completed
 app/src/main.rs,58,"        root_dir: cli.log_root.clone().map(PathBuf::from),",Clone allocation - Consider ownership or references,LOW,+3-12%,completed
