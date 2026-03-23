@@ -65,18 +65,17 @@ pub fn compositor_system(world: &mut World) {
         scene_step_dur,
         rendered_mode,
     ) = {
-        let object_states = world
+        // Get both Arc snapshots first (requires &mut)
+        let (object_states, obj_camera_states) = world
             .scene_runtime_mut()
-            .map(|rt| rt.object_states_snapshot())
+            .map(|rt| (rt.object_states_snapshot(), rt.obj_camera_states_snapshot()))
             .unwrap_or_default();
+        
+        // Now get immutable references
         let scene = world.scene_runtime().unwrap().scene();
         let target_resolver = world
             .scene_runtime()
             .map(SceneRuntime::target_resolver)
-            .unwrap_or_default();
-        let obj_camera_states = world
-            .scene_runtime()
-            .map(SceneRuntime::obj_camera_states_snapshot)
             .unwrap_or_default();
         let animator = world.animator();
         let stage = animator.map(|a| a.stage.clone()).unwrap_or_default();

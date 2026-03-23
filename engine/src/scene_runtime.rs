@@ -56,6 +56,8 @@ pub struct SceneRuntime {
     cached_object_regions: std::sync::Arc<BTreeMap<String, Region>>,
     obj_orbit_default_speed: BTreeMap<String, f32>,
     obj_camera_states: BTreeMap<String, ObjCameraState>,
+    /// Cached Arc of OBJ camera states — rebuilt when cameras change.
+    cached_obj_camera_states: Option<std::sync::Arc<BTreeMap<String, ObjCameraState>>>,
     terminal_shell_state: Option<TerminalShellState>,
     terminal_shell_scene_elapsed_ms: u64,
     ui_state: UiRuntimeState,
@@ -465,6 +467,7 @@ impl SceneRuntime {
             cached_object_regions: std::sync::Arc::new(BTreeMap::new()),
             obj_orbit_default_speed: BTreeMap::new(),
             obj_camera_states: BTreeMap::new(),
+            cached_obj_camera_states: None,
             terminal_shell_state: None,
             terminal_shell_scene_elapsed_ms: 0,
             ui_state: UiRuntimeState::default(),
@@ -607,6 +610,7 @@ impl SceneRuntime {
             .or_default();
         state.pan_x += dx;
         state.pan_y += dy;
+        self.cached_obj_camera_states = None; // Invalidate cache
     }
 
     /// Accumulate free-camera look rotation (degrees) for a sprite.
@@ -617,6 +621,7 @@ impl SceneRuntime {
             .or_default();
         state.look_yaw += dyaw;
         state.look_pitch = (state.look_pitch + dpitch).clamp(-85.0, 85.0);
+        self.cached_obj_camera_states = None; // Invalidate cache
     }
 
     pub fn obj_camera_state(&self, sprite_id: &str) -> ObjCameraState {
@@ -632,6 +637,7 @@ impl SceneRuntime {
             .entry(sprite_id.to_string())
             .or_default();
         state.last_mouse_pos = pos;
+        self.cached_obj_camera_states = None; // Invalidate cache
     }
 
     pub fn obj_last_mouse_pos(&self, sprite_id: &str) -> Option<(u16, u16)> {
@@ -1013,8 +1019,13 @@ impl SceneRuntime {
             .find_map(|layer| find_obj_properties_recursive(&layer.sprites, sprite_id))
     }
 
-    pub fn obj_camera_states_snapshot(&self) -> BTreeMap<String, ObjCameraState> {
-        self.obj_camera_states.clone()
+    pub fn obj_camera_states_snapshot(&mut self) -> std::sync::Arc<BTreeMap<String, ObjCameraState>> {
+        if let Some(cached) = &self.cached_obj_camera_states {
+            return std::sync::Arc::clone(cached);
+        }
+        let arc = std::sync::Arc::new(self.obj_camera_states.clone());
+        self.cached_obj_camera_states = Some(std::sync::Arc::clone(&arc));
+        arc
     }
 
     /// Returns the effective object state after inheriting visibility and
