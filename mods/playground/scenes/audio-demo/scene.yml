@@ -5,18 +5,9 @@ bg: black
 layers:
   - ref: main
     sprites:
-      - id: title
-        at: [center, 4]
-        text: "♪ AUDIO DEMO — DAISY BELL (1961) ♪"
-        fg: "#55ff55"
-      - id: info
-        at: [center, 8]
-        text: "IBM 7094 — first computer to sing"
-        fg: "#888888"
-      - id: hint
-        at: [center, 14]
-        text: "[press any key to return]"
-        fg: "#555555"
+      - { type: text, id: title, content: "♪ AUDIO DEMO — DAISY BELL (1961) ♪", at: cc, y: 4, fg: "#55ff55" }
+      - { type: text, id: info, content: "IBM 7094 — first computer to sing", at: cc, y: 8, fg: "#888888" }
+      - { type: text, id: hint, content: "[press any key to return]", at: cc, y: 14, fg: "#555555" }
 stages:
   on_enter:
     steps:
