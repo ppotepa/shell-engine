@@ -3,13 +3,6 @@ id: 03.intro.lab-enter
 title: 03 Intro Lab Enter
 cutscene: true
 bg: black
-effect-presets-ref: /effects/crt.yml
-postfx:
-  - { use: fx.sq.burn }
-  - { use: fx.sq.glow }
-  - { use: fx.sq.curve }
-  - { use: fx.sq.scan }
-  - { use: fx.sq.tone }
 layers:
   - ref: main
 stages:
