@@ -175,15 +175,19 @@ impl AudioRuntime {
         let enabled = env_flag("SHELL_QUEST_SOUND_SERVER")
             || env::var("SHELL_QUEST_SOUND_SERVER_CMD").is_ok();
         let command = env::var("SHELL_QUEST_SOUND_SERVER_CMD").ok();
-        Self::from_options(enabled, command)
+        let mod_source = env::var("SHELL_QUEST_MOD_SOURCE").unwrap_or_else(|_| "mods/shell-quest".to_string());
+        Self::from_options(enabled, command, &mod_source)
     }
 
     /// Creates an audio runtime from explicit launch options.
-    pub fn from_options(enabled: bool, command: Option<String>) -> Self {
+    pub fn from_options(enabled: bool, command: Option<String>, mod_source: &str) -> Self {
         if !enabled && command.is_none() {
             return Self::null();
         }
-        let command = command.unwrap_or_else(|| "cargo run -p sound-server --quiet -- --assets-root assets --verbose".to_string());
+        let assets_root = format!("{}/assets", mod_source.trim_end_matches('/'));
+        let command = command.unwrap_or_else(|| {
+            format!("cargo run -p sound-server --quiet -- --assets-root {assets_root} --verbose")
+        });
         match StdIoSoundBackend::spawn(command.clone()) {
             Ok(backend) => {
                 logging::info(

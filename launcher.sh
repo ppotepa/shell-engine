@@ -156,7 +156,7 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
   esac
 fi
 stty cols "$MIN_WIDTH" rows "$MIN_HEIGHT" 2>/dev/null || true
-cargo run -q -p app -- --mod $shell_mod_name${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$SOUND_SERVER" == "1" ]] && echo " --sound-server --sound-server-cmd 'cargo run -p sound-server --quiet -- --assets-root $shell_root/assets'" )
+cargo run -q -p app -- --mod $shell_mod_name${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$SOUND_SERVER" == "1" ]] && echo " --sound-server" )
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
 $hold_line

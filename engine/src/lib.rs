@@ -162,6 +162,7 @@ impl ShellEngine {
         world.register(audio::AudioRuntime::from_options(
             self.config.sound_server,
             self.config.sound_server_cmd.clone(),
+            &self.mod_source.to_string_lossy(),
         ));
         world.register(runtime_settings);
         world.register(debug_features::DebugFeatures::from_enabled(
