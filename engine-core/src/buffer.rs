@@ -117,20 +117,17 @@ impl Buffer {
     /// Write a single pixel to the back buffer, tracking dirty region.
     pub fn set(&mut self, x: u16, y: u16, symbol: char, fg: Color, bg: Color) {
         if x < self.width && y < self.height {
-            self.back[y as usize * self.width as usize + x as usize] = Cell { symbol, fg, bg };
-            if x < self.dirty_x_min {
-                self.dirty_x_min = x;
+            let idx = y as usize * self.width as usize + x as usize;
+            let new_cell = Cell { symbol, fg, bg };
+            if self.back[idx] != new_cell {
+                self.back[idx] = new_cell;
+                self.write_count += 1;
             }
-            if x > self.dirty_x_max {
-                self.dirty_x_max = x;
-            }
-            if y < self.dirty_y_min {
-                self.dirty_y_min = y;
-            }
-            if y > self.dirty_y_max {
-                self.dirty_y_max = y;
-            }
-            self.write_count += 1;
+            // Always track dirty region so pack/diff covers written regions.
+            if x < self.dirty_x_min { self.dirty_x_min = x; }
+            if x > self.dirty_x_max { self.dirty_x_max = x; }
+            if y < self.dirty_y_min { self.dirty_y_min = y; }
+            if y > self.dirty_y_max { self.dirty_y_max = y; }
         }
     }
 
@@ -248,6 +245,44 @@ impl Buffer {
         self.front_generation = self.front_generation.wrapping_sub(2);
     }
 
+    /// Reset dirty bounds and write_count to zero without clearing buffer contents.
+    /// Call after a background fill to track only subsequent content writes.
+    /// Used by compositor to make dirty-region and skip-static optimizations effective.
+    pub fn reset_dirty(&mut self) {
+        self.dirty_x_min = u16::MAX;
+        self.dirty_x_max = 0;
+        self.dirty_y_min = u16::MAX;
+        self.dirty_y_max = 0;
+        self.write_count = 0;
+    }
+
+    /// Compute a fast 64-bit FNV-1a hash of the back buffer contents.
+    /// Used by present-skip to detect identical frames without per-cell comparison.
+    pub fn back_hash(&self) -> u64 {
+        const FNV_OFFSET: u64 = 14695981039346656037;
+        const FNV_PRIME: u64 = 1099511628211;
+        let mut hash = FNV_OFFSET;
+        // Hash each cell as 3 u8 fields: symbol (4 bytes) + fg index + bg index.
+        // Use the raw bytes of the back slice via bytemuck-style cast.
+        for cell in &self.back {
+            let sym = cell.symbol as u32;
+            hash ^= ((sym & 0xff) as u64);
+            hash = hash.wrapping_mul(FNV_PRIME);
+            hash ^= ((sym >> 8) & 0xff) as u64;
+            hash = hash.wrapping_mul(FNV_PRIME);
+            hash ^= ((sym >> 16) & 0xff) as u64;
+            hash = hash.wrapping_mul(FNV_PRIME);
+            hash ^= ((sym >> 24) & 0xff) as u64;
+            hash = hash.wrapping_mul(FNV_PRIME);
+            // Hash fg and bg as their discriminant byte.
+            hash ^= color_byte(cell.fg);
+            hash = hash.wrapping_mul(FNV_PRIME);
+            hash ^= color_byte(cell.bg);
+            hash = hash.wrapping_mul(FNV_PRIME);
+        }
+        hash
+    }
+
     /// #5 opt-comp-halfblock: return dirty bounds (x_min, x_max, y_min, y_max).
     /// Returns None if no dirty region exists.
     pub fn dirty_bounds(&self) -> Option<(u16, u16, u16, u16)> {
@@ -314,9 +349,13 @@ impl Buffer {
                     if cell.symbol == ' ' && cell.bg == Color::Reset {
                         continue;
                     }
-                    // Direct write to back buffer without calling set() (which updates dirty per pixel).
-                    self.back[dst_row as usize * self.width as usize + dst_col as usize] = *cell;
-                    // Track dirty bounds.
+                    let dest_idx = dst_row as usize * self.width as usize + dst_col as usize;
+                    // Only count as a content change if cell actually differs.
+                    if self.back[dest_idx] != *cell {
+                        self.back[dest_idx] = *cell;
+                        self.write_count += 1;
+                    }
+                    // Track dirty bounds regardless (pack still needs to reprocess this region).
                     min_x = min_x.min(dst_col);
                     max_x = max_x.max(dst_col);
                     min_y = min_y.min(dst_row);
@@ -332,7 +371,6 @@ impl Buffer {
             self.dirty_x_max = self.dirty_x_max.max(max_x);
             self.dirty_y_min = self.dirty_y_min.min(min_y);
             self.dirty_y_max = self.dirty_y_max.max(max_y);
-            self.write_count += 1;
         }
     }
 
@@ -347,6 +385,35 @@ impl Buffer {
         self.dirty_y_min = 0;
         self.dirty_y_max = self.height.saturating_sub(1);
         self.write_count += 1;
+    }
+}
+
+/// Map a Color to a single byte for fast hashing.
+fn color_byte(c: Color) -> u64 {
+    match c {
+        Color::Reset => 0,
+        Color::Black => 1,
+        Color::DarkGrey => 2,
+        Color::Red => 3,
+        Color::DarkRed => 4,
+        Color::Green => 5,
+        Color::DarkGreen => 6,
+        Color::Yellow => 7,
+        Color::DarkYellow => 8,
+        Color::Blue => 9,
+        Color::DarkBlue => 10,
+        Color::Magenta => 11,
+        Color::DarkMagenta => 12,
+        Color::Cyan => 13,
+        Color::DarkCyan => 14,
+        Color::White => 15,
+        Color::Grey => 16,
+        Color::Rgb { r, g, b } => {
+            (r as u64).wrapping_mul(65521)
+                ^ (g as u64).wrapping_mul(257)
+                ^ b as u64
+        }
+        Color::AnsiValue(v) => 200u64.wrapping_add(v as u64),
     }
 }
 

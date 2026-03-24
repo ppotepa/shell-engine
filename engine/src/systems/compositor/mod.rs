@@ -284,6 +284,9 @@ fn composite_scene(
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
     buffer.fill(bg);
+    // Reset dirty tracking after background fill so that only sprite/effect writes
+    // contribute to dirty_bounds and write_count — makes #5 and #13 effective.
+    buffer.reset_dirty();
     let scene_state = object_states
         .get(target_resolver.scene_object_id())
         .cloned()
