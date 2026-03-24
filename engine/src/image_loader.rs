@@ -29,6 +29,7 @@ impl LoadedRgbaImage {
         self.pixels.get(idx).copied()
     }
 
+    #[allow(dead_code)]
     pub(crate) fn from_pixels(width: u32, height: u32, pixels: Vec<[u8; 4]>) -> Self {
         Self {
             width,

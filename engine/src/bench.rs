@@ -22,6 +22,11 @@ pub struct FrameSample {
     pub postfx_us:     f32,
     pub renderer_us:   f32,
     pub sleep_us:      f32,
+    // buffer/pipeline counters (per-frame)
+    pub diff_cells:    u32,
+    pub dirty_cells:   u32,
+    pub total_cells:   u32,
+    pub write_ops:     u64,
 }
 
 // ── Accumulator ─────────────────────────────────────────────────────
@@ -29,6 +34,9 @@ pub struct FrameSample {
 /// Lives as a `World` resource while `--bench` is active.
 pub struct BenchmarkState {
     pub duration: Duration,
+    pub opt_comp: bool,
+    pub opt_present: bool,
+    pub opt_diff: bool,
     start: Instant,
     samples: Vec<FrameSample>,
     /// Set once the results screen has been rendered.
@@ -37,10 +45,13 @@ pub struct BenchmarkState {
 }
 
 impl BenchmarkState {
-    pub fn new(duration_secs: f32) -> Self {
+    pub fn new(duration_secs: f32, opt_comp: bool, opt_present: bool, opt_diff: bool) -> Self {
         let cap = (duration_secs * 120.0) as usize;
         Self {
             duration: Duration::from_secs_f32(duration_secs),
+            opt_comp,
+            opt_present,
+            opt_diff,
             start: Instant::now(),
             samples: Vec::with_capacity(cap),
             results_shown: false,
@@ -65,7 +76,9 @@ impl BenchmarkState {
         }
     }
 
-    pub fn results(&self) -> BenchResults { BenchResults::compute(&self.samples) }
+    pub fn results(&self) -> BenchResults {
+        BenchResults::compute(&self.samples, self.opt_comp, self.opt_present, self.opt_diff)
+    }
 }
 
 // ── Computed results ────────────────────────────────────────────────
@@ -110,6 +123,10 @@ impl MetricStats {
 pub struct BenchResults {
     pub total_frames: usize,
     pub score: u32,
+    // active opt flags
+    pub opt_comp: bool,
+    pub opt_present: bool,
+    pub opt_diff: bool,
     // frame-level
     pub frame:      MetricStats,
     pub fps:        MetricStats,
@@ -125,10 +142,15 @@ pub struct BenchResults {
     pub postfx:     MetricStats,
     pub renderer:   MetricStats,
     pub sleep:      MetricStats,
+    // buffer pipeline
+    pub diff_cells: MetricStats,
+    pub dirty_cells: MetricStats,
+    pub total_cells: f32,
+    pub write_ops: MetricStats,
 }
 
 impl BenchResults {
-    fn compute(samples: &[FrameSample]) -> Self {
+    fn compute(samples: &[FrameSample], opt_comp: bool, opt_present: bool, opt_diff: bool) -> Self {
         let n = samples.len();
         let extract = |f: fn(&FrameSample) -> f32| -> Vec<f32> {
             samples.iter().map(f).collect()
@@ -155,6 +177,14 @@ impl BenchResults {
         let renderer   = MetricStats::from_samples(&extract(|s| s.renderer_us));
         let sleep      = MetricStats::from_samples(&extract(|s| s.sleep_us));
 
+        let diff_cells_v: Vec<f32> = samples.iter().map(|s| s.diff_cells as f32).collect();
+        let dirty_cells_v: Vec<f32> = samples.iter().map(|s| s.dirty_cells as f32).collect();
+        let write_ops_v: Vec<f32> = samples.iter().map(|s| s.write_ops as f32).collect();
+        let diff_cells  = MetricStats::from_samples(&diff_cells_v);
+        let dirty_cells = MetricStats::from_samples(&dirty_cells_v);
+        let write_ops   = MetricStats::from_samples(&write_ops_v);
+        let total_cells = samples.first().map(|s| s.total_cells as f32).unwrap_or(0.0);
+
         // Score: higher is better. Dominated by avg FPS, penalised by variance.
         let score = (fps.avg * 10.0
             + (1_000_000.0 / frame.p50.max(1.0)) * 5.0
@@ -164,9 +194,11 @@ impl BenchResults {
         Self {
             total_frames: n,
             score,
+            opt_comp, opt_present, opt_diff,
             frame, fps,
             input, lifecycle, animator, hot_reload, engine_io,
             behavior, audio, compositor, postfx, renderer, sleep,
+            diff_cells, dirty_cells, total_cells, write_ops,
         }
     }
 
@@ -174,10 +206,18 @@ impl BenchResults {
 
     /// Generate a full multi-line plain-text report.
     pub fn report_text(&self) -> String {
-        let mut r = String::with_capacity(2048);
+        let mut r = String::with_capacity(4096);
         r.push_str("╔══════════════════════════════════════════════════════════════╗\n");
         r.push_str("║              SHELL QUEST ENGINE — BENCHMARK REPORT          ║\n");
         r.push_str("╚══════════════════════════════════════════════════════════════╝\n\n");
+
+        // Optimization flags
+        r.push_str("── CONFIGURATION ─────────────────────────────────────────────\n");
+        let flag = |b: bool| if b { "ON" } else { "off" };
+        r.push_str(&format!("  --opt-comp ........ {}\n", flag(self.opt_comp)));
+        r.push_str(&format!("  --opt-present ..... {}\n", flag(self.opt_present)));
+        r.push_str(&format!("  --opt-diff ........ {}\n", flag(self.opt_diff)));
+        r.push('\n');
 
         r.push_str(&format!("  SCORE .............. {}\n", self.score));
         r.push_str(&format!("  TOTAL FRAMES ....... {}\n\n", self.total_frames));
@@ -217,6 +257,20 @@ impl BenchResults {
             let bar_len = (pct / 2.0).round() as usize; // 50 chars = 100%
             let bar: String = "█".repeat(bar_len.min(50));
             r.push_str(&format!("  {:<12} {:>5.1}%  {}\n", name, pct, bar));
+        }
+        r.push('\n');
+
+        // Buffer pipeline stats
+        r.push_str("── BUFFER PIPELINE ───────────────────────────────────────────\n");
+        r.push_str(&format!("  Total cells ........ {:.0}\n", self.total_cells));
+        Self::fmt_metric(&mut r, "Diff cells", &self.diff_cells, "");
+        Self::fmt_metric(&mut r, "Dirty cells", &self.dirty_cells, "");
+        Self::fmt_metric(&mut r, "Write ops", &self.write_ops, "");
+        if self.total_cells > 0.0 {
+            let dirty_pct = self.dirty_cells.avg / self.total_cells * 100.0;
+            let diff_pct  = self.diff_cells.avg / self.total_cells * 100.0;
+            r.push_str(&format!("  Avg dirty coverage . {:.1}%\n", dirty_pct));
+            r.push_str(&format!("  Avg diff coverage .. {:.1}%\n", diff_pct));
         }
         r.push('\n');
 

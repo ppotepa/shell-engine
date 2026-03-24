@@ -197,7 +197,12 @@ impl ShellEngine {
             self.config.opt_present,
         ));
         if let Some(secs) = self.config.bench_secs {
-            world.register(bench::BenchmarkState::new(secs));
+            world.register(bench::BenchmarkState::new(
+                secs,
+                self.config.opt_comp,
+                self.config.opt_present,
+                self.config.opt_diff,
+            ));
         }
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));

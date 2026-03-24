@@ -62,6 +62,8 @@ pub struct Buffer {
     dirty_y_max: u16,
     /// Monotonic counter incremented on every mutation (set/fill/blit/resize).
     pub write_count: u64,
+    /// Number of cells emitted by the most recent diff_into / diff_into_dirty call.
+    pub last_diff_count: u32,
 }
 
 /// Optional off-screen fixed-resolution buffer used before presenting to terminal output.
@@ -100,6 +102,7 @@ impl Buffer {
             dirty_y_min: u16::MAX,
             dirty_y_max: 0,
             write_count: 0,
+            last_diff_count: 0,
         }
     }
 
@@ -262,6 +265,19 @@ impl Buffer {
         }
     }
 
+    /// Total number of cells in the buffer.
+    pub fn total_cells(&self) -> u32 { self.width as u32 * self.height as u32 }
+
+    /// Number of cells inside the current dirty region (0 if no dirty region).
+    pub fn dirty_cell_count(&self) -> u32 {
+        match self.dirty_bounds() {
+            Some((x0, x1, y0, y1)) => {
+                (x1 - x0 + 1) as u32 * (y1 - y0 + 1) as u32
+            }
+            None => 0,
+        }
+    }
+
     /// Resize both buffers, preserving nothing (invalidates front for full redraw).
     pub fn resize(&mut self, width: u16, height: u16) {
         let size = width as usize * height as usize;
@@ -387,6 +403,8 @@ fn color_byte(c: Color) -> u64 {
 mod tests {
     use super::*;
 
+    // ── existing diff tests ────────────────────────────────────────
+
     #[test]
     fn new_buffer_has_all_cells_as_diff() {
         let buf = Buffer::new(4, 2);
@@ -436,5 +454,288 @@ mod tests {
         assert_eq!(buf.width, 3);
         assert_eq!(buf.height, 3);
         assert_eq!(buf.diff().len(), 9);
+    }
+
+    // ── viewport validity helpers ──────────────────────────────────
+
+    /// Returns true when every cell in the back buffer is a "valid" cell:
+    /// either fully transparent (space + Reset bg) or has a concrete RGB/named colour.
+    /// Catches cells left in an impossible state (e.g. non-space glyph + Reset bg).
+    fn assert_no_orphan_glyphs(buf: &Buffer) {
+        for y in 0..buf.height {
+            for x in 0..buf.width {
+                let cell = buf.get(x, y).expect("in bounds");
+                let is_transparent = cell.symbol == ' ' && cell.bg == Color::Reset;
+                let is_concrete = cell.bg != Color::Reset;
+                assert!(
+                    is_transparent || is_concrete,
+                    "Orphan glyph at ({x},{y}): symbol='{}' fg={:?} bg={:?} — \
+                     non-space glyph with Reset bg would be invisible/glitchy",
+                    cell.symbol, cell.fg, cell.bg,
+                );
+            }
+        }
+    }
+
+    /// Returns true when every cell inside the given rectangle has bg != Reset
+    /// (i.e. the region is fully opaque — no accidental holes).
+    fn assert_region_opaque(buf: &Buffer, x0: u16, y0: u16, w: u16, h: u16) {
+        for y in y0..y0 + h {
+            for x in x0..x0 + w {
+                let cell = buf.get(x, y).expect("in bounds");
+                assert!(
+                    cell.bg != Color::Reset,
+                    "Transparent hole at ({x},{y}) in expected-opaque region \
+                     [{x0},{y0}..{},{})]: symbol='{}' bg={:?}",
+                    x0 + w, y0 + h, cell.symbol, cell.bg,
+                );
+            }
+        }
+    }
+
+    /// Asserts that the entire buffer contains only cells matching `bg_color` with
+    /// space glyphs. Used to verify a clean fill with no stale data.
+    fn assert_uniform_fill(buf: &Buffer, bg_color: Color) {
+        for y in 0..buf.height {
+            for x in 0..buf.width {
+                let cell = buf.get(x, y).expect("in bounds");
+                assert_eq!(
+                    (cell.symbol, cell.bg),
+                    (' ', bg_color),
+                    "Cell ({x},{y}) expected uniform fill bg={bg_color:?}, \
+                     got symbol='{}' bg={:?}",
+                    cell.symbol, cell.bg,
+                );
+            }
+        }
+    }
+
+    // ── viewport validation tests ──────────────────────────────────
+
+    #[test]
+    fn fill_produces_uniform_valid_buffer() {
+        let mut buf = Buffer::new(10, 8);
+        let black = Color::Rgb { r: 0, g: 0, b: 0 };
+        buf.fill(black);
+        assert_uniform_fill(&buf, black);
+        assert_no_orphan_glyphs(&buf);
+    }
+
+    #[test]
+    fn fill_with_reset_is_fully_transparent() {
+        let mut buf = Buffer::new(6, 4);
+        buf.fill(Color::Reset);
+        for y in 0..buf.height {
+            for x in 0..buf.width {
+                let cell = buf.get(x, y).expect("in bounds");
+                assert_eq!(cell.symbol, ' ');
+                assert_eq!(cell.bg, Color::Reset);
+            }
+        }
+    }
+
+    #[test]
+    fn blit_from_skips_transparent_cells() {
+        let bg = Color::Rgb { r: 20, g: 20, b: 30 };
+        let mut dst = Buffer::new(6, 4);
+        dst.fill(bg);
+
+        let mut src = Buffer::new(6, 4);
+        src.fill(Color::Reset); // all transparent
+        src.set(2, 1, 'A', Color::White, Color::Red);
+
+        dst.blit_from(&src, 0, 0, 0, 0, 6, 4);
+
+        // Only (2,1) should be overwritten; rest keeps dst fill.
+        let cell_a = dst.get(2, 1).unwrap();
+        assert_eq!(cell_a.symbol, 'A');
+        assert_eq!(cell_a.bg, Color::Red);
+
+        // Neighbouring cell untouched.
+        let cell_n = dst.get(3, 1).unwrap();
+        assert_eq!(cell_n.symbol, ' ');
+        assert_eq!(cell_n.bg, bg);
+
+        assert_no_orphan_glyphs(&dst);
+    }
+
+    #[test]
+    fn blit_from_preserves_dst_outside_src_bounds() {
+        let bg = Color::Rgb { r: 10, g: 10, b: 10 };
+        let mut dst = Buffer::new(10, 8);
+        dst.fill(bg);
+
+        let mut src = Buffer::new(4, 3);
+        src.fill(Color::Rgb { r: 255, g: 0, b: 0 });
+        src.set(0, 0, 'X', Color::White, Color::Rgb { r: 255, g: 0, b: 0 });
+
+        dst.blit_from(&src, 0, 0, 2, 2, 4, 3);
+
+        // Blitted region is opaque.
+        assert_region_opaque(&dst, 2, 2, 4, 3);
+        // Margin region keeps original bg.
+        assert_eq!(dst.get(0, 0).unwrap().bg, bg);
+        assert_eq!(dst.get(9, 7).unwrap().bg, bg);
+        assert_no_orphan_glyphs(&dst);
+    }
+
+    #[test]
+    fn swap_then_fill_produces_zero_diff_on_same_content() {
+        // Simulates the real game loop: fill → render → swap → fill(same) → diff = 0.
+        let bg = Color::Rgb { r: 0, g: 0, b: 0 };
+        let mut buf = Buffer::new(8, 6);
+        buf.fill(bg);
+        buf.swap();
+        buf.fill(bg);
+        assert_eq!(buf.diff().len(), 0, "same content after swap should produce zero diff");
+    }
+
+    #[test]
+    fn swap_then_different_fill_produces_full_diff() {
+        let mut buf = Buffer::new(4, 4);
+        buf.fill(Color::Rgb { r: 0, g: 0, b: 0 });
+        buf.swap();
+        buf.fill(Color::Rgb { r: 255, g: 255, b: 255 });
+        assert_eq!(buf.diff().len(), 16, "different fill should diff every cell");
+    }
+
+    #[test]
+    fn dirty_region_tracks_writes_correctly() {
+        let mut buf = Buffer::new(10, 10);
+        buf.fill(Color::Black);
+        buf.reset_dirty();
+        assert_eq!(buf.dirty_cell_count(), 0);
+
+        buf.set(3, 4, 'X', Color::White, Color::Black);
+        buf.set(7, 2, 'Y', Color::White, Color::Black);
+        let bounds = buf.dirty_bounds();
+        assert!(bounds.is_some());
+        let (xmin, xmax, ymin, ymax) = bounds.unwrap();
+        assert_eq!((xmin, xmax), (3, 7));
+        assert_eq!((ymin, ymax), (2, 4));
+    }
+
+    #[test]
+    fn dirty_region_diff_matches_full_diff() {
+        let bg = Color::Rgb { r: 10, g: 10, b: 20 };
+        let mut buf = Buffer::new(20, 15);
+        buf.fill(bg);
+        buf.swap();
+        buf.fill(bg);
+
+        // Write a few cells.
+        buf.set(5, 3, 'A', Color::White, Color::Red);
+        buf.set(10, 7, 'B', Color::Green, Color::Blue);
+        buf.set(15, 12, 'C', Color::Yellow, Color::Magenta);
+
+        let full_diff = buf.diff();
+        let mut dirty_diff = Vec::new();
+        buf.diff_into_dirty(&mut dirty_diff);
+
+        assert_eq!(full_diff.len(), dirty_diff.len(),
+            "dirty-region diff must find same cells as full-scan diff");
+    }
+
+    #[test]
+    fn write_count_increments_on_mutations() {
+        let mut buf = Buffer::new(4, 4);
+        let initial = buf.write_count;
+        buf.fill(Color::Black);
+        assert!(buf.write_count > initial, "fill should increment write_count");
+
+        let after_fill = buf.write_count;
+        buf.set(0, 0, 'Z', Color::White, Color::Black);
+        assert!(buf.write_count > after_fill, "set should increment write_count");
+    }
+
+    #[test]
+    fn total_cells_and_dirty_cells_consistent() {
+        let mut buf = Buffer::new(20, 10);
+        assert_eq!(buf.total_cells(), 200);
+
+        buf.fill(Color::Black);
+        assert_eq!(buf.dirty_cell_count(), 200, "fill dirties entire buffer");
+
+        buf.reset_dirty();
+        assert_eq!(buf.dirty_cell_count(), 0, "reset clears dirty count");
+
+        buf.set(5, 5, 'X', Color::White, Color::Black);
+        assert!(buf.dirty_cell_count() >= 1, "single set creates at least 1 dirty cell");
+    }
+
+    #[test]
+    fn blit_transparent_src_leaves_dst_unchanged() {
+        let bg = Color::Rgb { r: 50, g: 50, b: 50 };
+        let mut dst = Buffer::new(8, 6);
+        dst.fill(bg);
+
+        let src = Buffer::new(8, 6); // default: space + TRUE_BLACK bg — NOT transparent!
+        let transparent_src = {
+            let mut s = Buffer::new(8, 6);
+            s.fill(Color::Reset); // all transparent
+            s
+        };
+
+        let hash_before = dst.back_hash();
+        dst.blit_from(&transparent_src, 0, 0, 0, 0, 8, 6);
+        let hash_after = dst.back_hash();
+        assert_eq!(hash_before, hash_after,
+            "blitting fully-transparent source should not change destination");
+
+        // Confirm dst still uniform.
+        assert_uniform_fill(&dst, bg);
+    }
+
+    #[test]
+    fn true_black_is_not_transparent() {
+        // Critical invariant: TRUE_BLACK (Rgb{0,0,0}) is NOT the same as Reset.
+        // Cells with TRUE_BLACK bg are opaque and WILL be blitted.
+        let mut dst = Buffer::new(4, 4);
+        dst.fill(Color::Rgb { r: 100, g: 100, b: 100 });
+
+        let mut src = Buffer::new(4, 4);
+        src.fill(TRUE_BLACK); // opaque black
+
+        dst.blit_from(&src, 0, 0, 0, 0, 4, 4);
+        assert_uniform_fill(&dst, TRUE_BLACK);
+    }
+
+    #[test]
+    fn diff_into_and_diff_into_dirty_agree_after_set() {
+        let bg = Color::Rgb { r: 0, g: 0, b: 0 };
+        let mut buf = Buffer::new(30, 20);
+        buf.fill(bg);
+        buf.swap();
+        buf.fill(bg);
+        buf.set(15, 10, 'Z', Color::White, Color::Red);
+
+        let mut full = Vec::new();
+        buf.diff_into(&mut full);
+
+        let mut dirty = Vec::new();
+        buf.diff_into_dirty(&mut dirty);
+
+        assert_eq!(full.len(), dirty.len());
+        assert_eq!(full.len(), 1);
+        assert_eq!(full[0], dirty[0]);
+    }
+
+    #[test]
+    fn back_hash_changes_on_mutation() {
+        let mut buf = Buffer::new(8, 8);
+        buf.fill(Color::Black);
+        let h1 = buf.back_hash();
+        buf.set(4, 4, 'Q', Color::White, Color::Red);
+        let h2 = buf.back_hash();
+        assert_ne!(h1, h2, "hash must change when buffer content changes");
+    }
+
+    #[test]
+    fn back_hash_stable_for_same_content() {
+        let mut buf = Buffer::new(8, 8);
+        buf.fill(Color::Rgb { r: 42, g: 42, b: 42 });
+        let h1 = buf.back_hash();
+        let h2 = buf.back_hash();
+        assert_eq!(h1, h2, "hash must be deterministic for same content");
     }
 }

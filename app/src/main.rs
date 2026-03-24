@@ -54,6 +54,9 @@ struct Cli {
     /// Enable dirty-region diff scan (experimental — may cause artifacts).
     #[arg(long = "opt-diff")]
     opt_diff: bool,
+    /// Enable ALL optimizations at once (equivalent to --opt-comp --opt-present --opt-diff).
+    #[arg(long = "opt")]
+    opt_all: bool,
     /// Run benchmark: play demo for N seconds, display score, save report to reports/benchmark/.
     #[arg(long = "bench", value_name = "SECS", default_missing_value = "5")]
     bench: Option<f32>,
@@ -95,9 +98,9 @@ fn main() {
         audio: cli.audio,
         start_scene: cli.start_scene,
         skip_splash: cli.skip_splash || cli.bench.is_some(),
-        opt_comp: cli.opt_comp,
-        opt_present: cli.opt_present,
-        opt_diff: cli.opt_diff,
+        opt_comp: cli.opt_comp || cli.opt_all,
+        opt_present: cli.opt_present || cli.opt_all,
+        opt_diff: cli.opt_diff || cli.opt_all,
         bench_secs: cli.bench,
     };
     logging::debug(

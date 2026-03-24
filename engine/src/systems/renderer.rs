@@ -132,8 +132,13 @@ pub fn renderer_system(world: &mut World) {
         }
     });
 
-    let is_empty = DIFF_SCRATCH.with(|s| s.borrow().is_empty());
-    if is_empty {
+    // Store diff count on buffer for benchmark instrumentation.
+    let diff_len = DIFF_SCRATCH.with(|s| s.borrow().len()) as u32;
+    if let Some(buf) = world.buffer_mut() {
+        buf.last_diff_count = diff_len;
+    }
+
+    if diff_len == 0 {
         if let Some(buf) = world.buffer_mut() {
             buf.swap();
         }
@@ -585,6 +590,7 @@ fn compute_viewport(
     }
 }
 
+#[allow(dead_code)]
 fn sample_fit_source(
     ox: u16,
     oy: u16,
@@ -682,6 +688,8 @@ pub(crate) fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u1
                     let _ = queue!(&mut *ansi, style::Print(&*run));
                     cursor_x = rx + run_len;
                     cursor_y = ry;
+                    // Suppress "value never read" on final invocation.
+                    let _ = (cursor_x, cursor_y, active_fg, active_bg);
                 };
             }
 
