@@ -21,6 +21,8 @@ thread_local! {
     static RUN_BUF: RefCell<String> = RefCell::new(String::with_capacity(256));
     /// #3 opt-term-ansibuf: accumulate all ANSI into a contiguous buffer, single write_all per frame.
     static ANSI_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(65536));
+    /// #13 opt-present-skipstatic: last seen VirtualBuffer write_count to skip redundant presents.
+    static LAST_VBUF_WRITE_COUNT: RefCell<u64> = RefCell::new(u64::MAX);
 }
 
 impl TerminalRenderer {
@@ -406,10 +408,20 @@ fn present_virtual_to_output(world: &mut World) {
     let Some(settings) = world.runtime_settings().cloned() else {
         return;
     };
-    // Access VirtualBuffer (read) and output Buffer (write) simultaneously —
-    // no clone of the pixel data needed.
     world.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(|vbuf, output_buf| {
         let virtual_buf = &vbuf.0;
+
+        // #13 opt-present-skipstatic: skip when virtual buffer hasn't changed.
+        let wc = virtual_buf.write_count;
+        let skip = LAST_VBUF_WRITE_COUNT.with(|c| {
+            let prev = *c.borrow();
+            *c.borrow_mut() = wc;
+            prev == wc
+        });
+        if skip {
+            return;
+        }
+
         output_buf.fill(TRUE_BLACK);
         if virtual_buf.width == 0 || virtual_buf.height == 0 {
             return;

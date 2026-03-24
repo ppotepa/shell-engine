@@ -60,6 +60,8 @@ pub struct Buffer {
     dirty_x_max: u16,
     dirty_y_min: u16,
     dirty_y_max: u16,
+    /// Monotonic counter incremented on every mutation (set/fill/blit/resize).
+    pub write_count: u64,
 }
 
 /// Optional off-screen fixed-resolution buffer used before presenting to terminal output.
@@ -97,6 +99,7 @@ impl Buffer {
             dirty_x_max: 0,
             dirty_y_min: u16::MAX,
             dirty_y_max: 0,
+            write_count: 0,
         }
     }
 
@@ -104,18 +107,17 @@ impl Buffer {
     /// Uses generation-based lazy invalidation instead of rewriting every front cell.
     pub fn fill(&mut self, bg: Color) {
         self.back.fill(Cell::blank(bg));
-        // Mark entire buffer as dirty region.
         self.dirty_x_min = 0;
         self.dirty_x_max = self.width.saturating_sub(1);
         self.dirty_y_min = 0;
         self.dirty_y_max = self.height.saturating_sub(1);
+        self.write_count += 1;
     }
 
     /// Write a single pixel to the back buffer, tracking dirty region.
     pub fn set(&mut self, x: u16, y: u16, symbol: char, fg: Color, bg: Color) {
         if x < self.width && y < self.height {
             self.back[y as usize * self.width as usize + x as usize] = Cell { symbol, fg, bg };
-            // Update dirty region bounds.
             if x < self.dirty_x_min {
                 self.dirty_x_min = x;
             }
@@ -128,6 +130,7 @@ impl Buffer {
             if y > self.dirty_y_max {
                 self.dirty_y_max = y;
             }
+            self.write_count += 1;
         }
     }
 
@@ -262,6 +265,7 @@ impl Buffer {
         self.dirty_x_max = width.saturating_sub(1);
         self.dirty_y_min = 0;
         self.dirty_y_max = height.saturating_sub(1);
+        self.write_count += 1;
     }
 
     /// Blit a rectangular region from source buffer to this buffer's back.
@@ -318,6 +322,7 @@ impl Buffer {
             self.dirty_x_max = self.dirty_x_max.max(max_x);
             self.dirty_y_min = self.dirty_y_min.min(min_y);
             self.dirty_y_max = self.dirty_y_max.max(max_y);
+            self.write_count += 1;
         }
     }
 
@@ -331,6 +336,7 @@ impl Buffer {
         self.dirty_x_max = self.width.saturating_sub(1);
         self.dirty_y_min = 0;
         self.dirty_y_max = self.height.saturating_sub(1);
+        self.write_count += 1;
     }
 }
 
