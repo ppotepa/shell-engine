@@ -5,11 +5,15 @@ status : 24-03-2026
 plot : started doing some plot/script related work, digging some internet, trying to make it as immersive as possible by looking up as many historical details
 eastereggs: ;)
 
-**rendering optimizations (23-03-2026)** : full-day push on async rendering pipeline — ~20 commits covering dirty-region tracking, halfblock partial compositing, async render thread with buffer ownership handoff, PostFX quality profiles, Scene3D atlas memory management, OBJ prerender parallelization, threaded-render feature flag, virtual buffer presentation optimization. all of it worked in isolation but combined it introduced visual regressions (flickering, text artifacts, stale frames, resolution degradation). work preserved in git reflog and stash for future re-introduction.
+---
 
-**rendering pipeline rollback (24-03-2026)** : reverted the 23-03 optimization commits. root cause: async render thread + dirty-region partial compositing + buffer ownership handoff created an unstable pipeline when combined. kept the new splash screen. all experimental optimizations (async render, dirty halfblock, partial composite) are documented and preserved behind feature flags in `pipeline_flags.rs` for future re-implementation one at a time.
+## changelog
 
-**optimizations** : rendering optimizations are on hold. the async render thread architecture was sound in isolation but caused frame delivery timing issues when combined with dirty-region tracking and halfblock partial repacking. next approach: re-introduce optimizations one by one with proper regression tests.
+**24-03-2026** : diagnosed and rolled back ~20 async rendering optimization commits that caused visual regressions (flickering, text artifacts, stale frames, resolution degradation). root cause: async render thread + dirty-region partial compositing + buffer ownership handoff created an unstable pipeline when combined. kept the new splash screen. all experimental optimizations preserved behind feature flags in `pipeline_flags.rs` for future re-introduction one at a time. rendering optimizations are on hold — next approach: re-introduce one by one with proper regression tests.
+
+**23-03-2026** : full-day push on async rendering pipeline — ~20 commits covering dirty-region tracking, halfblock partial compositing, async render thread with buffer ownership handoff, PostFX quality profiles, Scene3D atlas memory management, OBJ prerender parallelization, threaded-render feature flag, virtual buffer presentation optimization. all of it worked in isolation but combined it introduced visual regressions. work preserved in git reflog and stash for future re-introduction.
+
+---
 
 **gpu and paralelization** will be trying to offload as much work as possible to GPU and possibly paralelize few areas, currently we are single CPU bound with
 little to no optimizations so every time we render to terminal this is just costly as terminal is just another layer we have to translate into
