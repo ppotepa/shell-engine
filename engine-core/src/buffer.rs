@@ -248,6 +248,16 @@ impl Buffer {
         self.front_generation = self.front_generation.wrapping_sub(2);
     }
 
+    /// #5 opt-comp-halfblock: return dirty bounds (x_min, x_max, y_min, y_max).
+    /// Returns None if no dirty region exists.
+    pub fn dirty_bounds(&self) -> Option<(u16, u16, u16, u16)> {
+        if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
+            None
+        } else {
+            Some((self.dirty_x_min, self.dirty_x_max, self.dirty_y_min, self.dirty_y_max))
+        }
+    }
+
     /// Resize both buffers, preserving nothing (invalidates front for full redraw).
     pub fn resize(&mut self, width: u16, height: u16) {
         let size = width as usize * height as usize;

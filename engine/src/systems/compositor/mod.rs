@@ -390,10 +390,21 @@ fn composite_scene_halfblock(
 
 fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color) {
     target.fill(fallback_bg);
-    for y in 0..target.height {
+
+    // #5 opt-comp-halfblock: only repack rows touched by dirty region.
+    let (x_start, x_end, y_start, y_end) = match source.dirty_bounds() {
+        Some((xmin, xmax, ymin, ymax)) => {
+            let ty_start = ymin / 2;
+            let ty_end = (ymax / 2).min(target.height.saturating_sub(1));
+            (xmin, xmax, ty_start, ty_end)
+        }
+        None => return,
+    };
+
+    for y in y_start..=y_end {
         let top_y = y.saturating_mul(2);
         let bottom_y = top_y.saturating_add(1);
-        for x in 0..target.width {
+        for x in x_start..=x_end {
             let top = cell_or_blank(source, x, top_y, fallback_bg);
             let bottom = if bottom_y < source.height {
                 cell_or_blank(source, x, bottom_y, fallback_bg)
