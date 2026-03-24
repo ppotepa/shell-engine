@@ -3,32 +3,42 @@
 **Goal:** Gradually introduce optimizations behind CLI flags to avoid regression.
 **Pipeline:** simulate -> composite -> postfx -> present -> flush_to_terminal
 
+### CLI Flags
+
+| Flag | Scope | What it gates | Default |
+|------|-------|---------------|---------|
+| `--opt-comp` | Compositor | #4 layer-scratch skip, #5 dirty-halfblock narrowing | OFF |
+| `--opt-present` | Present | #13 hash-based static frame skip | OFF |
+
+Safe optimizations (#1-#3, #6-#10, #14, #16) are always on — no flag needed.
+Run `./run-optimization.sh` to enable all experimental flags at once.
+
 ### Implementation Status
 
 | # | Flag | Status | Notes |
 |---|------|--------|-------|
-| 1 | opt-term-bufwrite | ✅ Done | BufWriter 64KB wraps stdout |
-| 2 | opt-term-colorstate | ✅ Done | Skip redundant SetColor ANSI commands |
-| 3 | opt-term-ansibuf | ✅ Done | Single write_all per frame |
-| 4 | opt-comp-layerscratch | ✅ Done | Direct render when layer has no effects |
-| 5 | opt-comp-halfblock | ✅ Done | Pack only dirty-region rows/cols |
-| 6 | opt-comp-effectsref | ✅ Done | Raw pointer avoids Vec<Effect> clone |
-| 7 | opt-postfx-swap | ✅ Done | copy_back_from() skips front copy |
-| 8 | opt-postfx-passes | ✅ Done | All passes use copy_back_from |
-| 9 | opt-img-sheetview | ✅ Done | Zero-copy ImageView replaces clone |
-| 10 | opt-img-quadstack | ✅ Done | Stack arrays in quadblock/braille |
+| 1 | opt-term-bufwrite | ✅ Always on | BufWriter 64KB wraps stdout |
+| 2 | opt-term-colorstate | ✅ Always on | Skip redundant SetColor ANSI commands |
+| 3 | opt-term-ansibuf | ✅ Always on | Single write_all per frame |
+| 4 | opt-comp-layerscratch | ✅ Gated `--opt-comp` | Direct render when layer has no effects |
+| 5 | opt-comp-halfblock | ✅ Gated `--opt-comp` | Pack only dirty-region rows/cols |
+| 6 | opt-comp-effectsref | ✅ Always on | Raw pointer avoids Vec<Effect> clone |
+| 7 | opt-postfx-swap | ✅ Always on | copy_back_from() skips front copy |
+| 8 | opt-postfx-passes | ✅ Always on | All passes use copy_back_from |
+| 9 | opt-img-sheetview | ✅ Always on | Zero-copy ImageView replaces clone |
+| 10 | opt-img-quadstack | ✅ Always on | Stack arrays in quadblock/braille |
 | 11 | opt-sim-objstates | ✅ Already in codebase | cached_object_states Arc caching |
 | 12 | opt-sim-rhaiscope | ✅ Already in codebase | BEHAVIOR_SCOPES rewind pattern |
-| 13 | opt-present-skipstatic | ✅ Done | Buffer hash skip; reset_dirty() after fill |
-| 14 | opt-present-fitlut | ✅ Done | Precomputed x/y LUT for Fit mode |
+| 13 | opt-present-skipstatic | ✅ Gated `--opt-present` | Buffer hash skip for static frames |
+| 14 | opt-present-fitlut | ✅ Always on | Precomputed x/y LUT for Fit mode |
 | 15 | opt-comp-skipidle | ⏳ Deferred | Invasive dirty tracking across all systems |
-| 16 | opt-postfx-earlyret | ✅ Done | Early return when no postfx passes |
+| 16 | opt-postfx-earlyret | ✅ Always on | Early return when no postfx passes |
 | 17 | opt-comp-regioncache | ⏳ Deferred | effect_region() already O(1) HashMap |
 | 18 | opt-buf-cellpack | ⏳ Deferred | Major SoA buffer refactor |
 | 19 | opt-mem-glowevict | ✅ Already in codebase | 128-entry GLOW_CACHE eviction |
 | 20 | opt-comp-borrowstr | ⏳ Deferred | Invasive lifetime propagation |
 
-**16 of 20 optimizations complete** (including 3 already in codebase). 4 deferred.
+**16 of 20 optimizations complete** (3 gated behind flags, 10 always-on, 3 already in codebase). 4 deferred.
 
 ---
 
