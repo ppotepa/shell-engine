@@ -94,6 +94,10 @@ impl LoadedImageAsset {
             Self::Animated(animation) => animation.frame_at(elapsed_ms),
         }
     }
+
+    pub fn is_animated(&self) -> bool {
+        matches!(self, Self::Animated(_))
+    }
 }
 
 static IMAGE_CACHE: AssetCache<LoadedImageAsset> = AssetCache::new();

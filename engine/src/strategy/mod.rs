@@ -22,8 +22,6 @@ pub use scene_compositor::{
 pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};
 
 use engine_core::strategy::{DiffStrategy, FullScanDiff};
-// DirtyRegionDiff is available but currently disabled — re-enable when --opt-diff is reintroduced.
-#[allow(unused_imports)]
 use engine_core::strategy::DirtyRegionDiff;
 
 /// Aggregated render pipeline strategies, registered as a World resource at startup.
@@ -52,18 +50,34 @@ impl PipelineStrategies {
 
     /// Construct from CLI optimisation flags.
     ///
-    /// **NOTE**: All optimised strategies are currently disabled while we re-introduce
-    /// them one-by-one with proper visual verification.  The flags are accepted but
-    /// have no effect — safe defaults are always used.
-    ///
-    /// | flag           | intended effect (currently disabled)                 |
+    /// | flag           | effect                                              |
     /// |----------------|-----------------------------------------------------|
     /// | `--opt-diff`   | `DirtyRegionDiff` instead of `FullScanDiff`         |
     /// | `--opt-comp`   | `DirectLayerCompositor` + `DirtyRegionPacker`       |
     /// | `--opt-present`| `HashSkipPresenter` instead of `AlwaysPresenter`    |
-    pub fn from_flags(_opt_diff: bool, _opt_comp: bool, _opt_present: bool) -> Self {
-        // All optimisations disabled — return safe defaults.
-        // Re-enable one-by-one after visual regression testing.
-        Self::default_safe()
+    pub fn from_flags(opt_diff: bool, opt_comp: bool, opt_present: bool) -> Self {
+        Self {
+            diff: if opt_diff {
+                Box::new(DirtyRegionDiff)
+            } else {
+                Box::new(FullScanDiff)
+            },
+            layer: if opt_comp {
+                Box::new(DirectLayerCompositor)
+            } else {
+                Box::new(ScratchLayerCompositor)
+            },
+            halfblock: if opt_comp {
+                Box::new(DirtyRegionPacker)
+            } else {
+                Box::new(FullScanPacker)
+            },
+            present: if opt_present {
+                Box::new(HashSkipPresenter)
+            } else {
+                Box::new(AlwaysPresenter)
+            },
+            flush: Box::new(AnsiBatchFlusher),
+        }
     }
 }

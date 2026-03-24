@@ -164,6 +164,11 @@ impl SceneLifecycleManager {
             // 1. Discard every scoped resource from the outgoing scene (SceneRuntime,
             //    prerendered frames, any future scoped resources).
             world.clear_scoped();
+            // 1b. Invalidate buffer dirty region so the first frame of the new scene
+            //     gets a full diff (required for dirty-region diff correctness).
+            if let Some(buf) = world.buffer_mut() {
+                buf.invalidate();
+            }
             // 2. Run the scene preparation pipeline for the incoming scene.
             //    Steps register their outputs as scoped resources.
             if let Some(pipeline) = pipeline {

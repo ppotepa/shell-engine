@@ -476,6 +476,8 @@ fn present_virtual_to_output(world: &mut World) {
             presenter.should_skip(hash, prev)
         });
         if skip {
+            // Still reset dirty tracking so the next non-skip frame starts clean.
+            output_buf.reset_dirty();
             return;
         }
 

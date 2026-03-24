@@ -67,6 +67,13 @@ pub(super) fn render_image_content(
         return;
     }
 
+    // For animated images, mark the full sprite bounding box dirty so that
+    // DirtyRegionPacker always covers the previous frame's area even when the
+    // new frame has more transparent / fewer pixels.
+    if image_asset.is_animated() {
+        buf.mark_dirty_region(x, y, target_w, target_h);
+    }
+
     match mode {
         SceneRenderedMode::Cell => rasterize_image_cell(&image, target_w, target_h, x, y, buf),
         SceneRenderedMode::HalfBlock => {

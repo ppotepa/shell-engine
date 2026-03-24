@@ -265,6 +265,19 @@ impl Buffer {
         }
     }
 
+    /// Expand dirty bounds to cover the given rectangle without writing any cells.
+    /// Used to force dirty-region tracking for animated sprites whose frame area
+    /// may shrink between frames (old pixels need to be covered by the diff).
+    pub fn mark_dirty_region(&mut self, x: u16, y: u16, w: u16, h: u16) {
+        if w == 0 || h == 0 { return; }
+        let x_max = x.saturating_add(w.saturating_sub(1)).min(self.width.saturating_sub(1));
+        let y_max = y.saturating_add(h.saturating_sub(1)).min(self.height.saturating_sub(1));
+        if x < self.dirty_x_min { self.dirty_x_min = x; }
+        if x_max > self.dirty_x_max { self.dirty_x_max = x_max; }
+        if y < self.dirty_y_min { self.dirty_y_min = y; }
+        if y_max > self.dirty_y_max { self.dirty_y_max = y_max; }
+    }
+
     /// Total number of cells in the buffer.
     pub fn total_cells(&self) -> u32 { self.width as u32 * self.height as u32 }
 
@@ -737,5 +750,56 @@ mod tests {
         let h1 = buf.back_hash();
         let h2 = buf.back_hash();
         assert_eq!(h1, h2, "hash must be deterministic for same content");
+    }
+
+    // ── mark_dirty_region tests ──────────────────────────────────
+
+    #[test]
+    fn mark_dirty_region_expands_bounds() {
+        let mut buf = Buffer::new(80, 40);
+        buf.fill(Color::Reset);
+        buf.reset_dirty();
+        assert!(buf.dirty_bounds().is_none(), "no dirty region after reset");
+
+        buf.mark_dirty_region(10, 5, 20, 10);
+        let (xmin, xmax, ymin, ymax) = buf.dirty_bounds().unwrap();
+        assert_eq!((xmin, xmax, ymin, ymax), (10, 29, 5, 14));
+    }
+
+    #[test]
+    fn mark_dirty_region_merges_with_existing() {
+        let mut buf = Buffer::new(80, 40);
+        buf.fill(Color::Reset);
+        buf.reset_dirty();
+
+        buf.set(5, 5, 'X', Color::White, Color::Black);
+        buf.mark_dirty_region(20, 20, 10, 10);
+        let (xmin, xmax, ymin, ymax) = buf.dirty_bounds().unwrap();
+        assert_eq!(xmin, 5);
+        assert_eq!(ymin, 5);
+        assert_eq!(xmax, 29);
+        assert_eq!(ymax, 29);
+    }
+
+    #[test]
+    fn mark_dirty_region_clamps_to_buffer_size() {
+        let mut buf = Buffer::new(20, 10);
+        buf.fill(Color::Reset);
+        buf.reset_dirty();
+
+        buf.mark_dirty_region(15, 5, 100, 100);
+        let (_, xmax, _, ymax) = buf.dirty_bounds().unwrap();
+        assert_eq!(xmax, 19);
+        assert_eq!(ymax, 9);
+    }
+
+    #[test]
+    fn mark_dirty_region_noop_on_zero_size() {
+        let mut buf = Buffer::new(20, 10);
+        buf.fill(Color::Reset);
+        buf.reset_dirty();
+
+        buf.mark_dirty_region(5, 5, 0, 0);
+        assert!(buf.dirty_bounds().is_none());
     }
 }
