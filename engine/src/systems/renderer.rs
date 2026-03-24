@@ -405,7 +405,7 @@ fn apply_logs_overlay(buf: &mut Buffer) {
 /// Resolve a color for output — `Color::Reset` is mapped to true black so that
 /// terminal theme colours never bleed through transparent/unset pixels.
 #[inline]
-fn resolve_color(c: style::Color) -> style::Color {
+pub(crate) fn resolve_color(c: style::Color) -> style::Color {
     match c {
         style::Color::Reset => crate::buffer::TRUE_BLACK,
         other => other,

@@ -1,5 +1,6 @@
 //! Fade-in and fade-out effects that linearly interpolate foreground brightness.
 
+use crossterm::style::Color;
 use crate::buffer::{Buffer, TRUE_BLACK};
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING};
@@ -73,11 +74,15 @@ impl Effect for FadeOutEffect {
                         continue;
                     }
                     if p >= 0.999 {
-                        buffer.set(x, y, ' ', TRUE_BLACK, TRUE_BLACK);
+                        // Clear to transparent so blit_from skips this cell,
+                        // revealing the background layer instead of leaving an opaque rectangle.
+                        buffer.set(x, y, ' ', Color::Reset, Color::Reset);
                         continue;
                     }
                     let fg = lerp_colour(cell.fg, TRUE_BLACK, p);
-                    buffer.set(x, y, symbol, fg, TRUE_BLACK);
+                    // Preserve cell.bg so we don't overwrite background-layer colours
+                    // with an opaque TRUE_BLACK when this scratch layer is blit'd onto the scene.
+                    buffer.set(x, y, symbol, fg, cell.bg);
                 }
             }
         }

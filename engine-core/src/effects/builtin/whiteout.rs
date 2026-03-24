@@ -31,6 +31,9 @@ impl Effect for WhiteoutEffect {
                 let x = region.x + dx;
                 let y = region.y + dy;
                 if let Some(cell) = buffer.get(x, y).cloned() {
+                    if cell.symbol == ' ' && cell.bg == Color::Reset {
+                        continue;
+                    }
                     let fg = lerp_colour(cell.fg, white, mix);
                     let bg = lerp_colour(cell.bg, white, (mix * 0.9).clamp(0.0, 1.0));
                     buffer.set(x, y, cell.symbol, fg, bg);

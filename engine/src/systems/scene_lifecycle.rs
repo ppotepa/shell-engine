@@ -256,6 +256,7 @@ fn begin_leave(a: &mut crate::systems::animator::Animator) {
     a.stage = SceneStage::OnLeave;
     a.step_idx = 0;
     a.elapsed_ms = 0;
+    a.stage_elapsed_ms = 0;
 }
 
 fn reset_timeout_idle_clock(world: &mut World) {
