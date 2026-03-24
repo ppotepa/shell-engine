@@ -14,6 +14,7 @@ pub mod asset_cache;
 pub mod obj_prerender;
 pub mod scene_pipeline;
 pub mod pipeline_flags;
+pub mod strategy;
 pub mod asset_source;
 pub mod assets;
 pub mod audio;
@@ -187,6 +188,11 @@ impl ShellEngine {
         pflags.opt_present = self.config.opt_present;
         pflags.opt_diff = self.config.opt_diff;
         world.register(pflags);
+        world.register(strategy::PipelineStrategies::from_flags(
+            self.config.opt_diff,
+            self.config.opt_comp,
+            self.config.opt_present,
+        ));
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
         }

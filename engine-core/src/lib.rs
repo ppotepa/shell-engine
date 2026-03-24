@@ -15,3 +15,5 @@ pub mod logging;
 pub mod markup;
 /// Scene data model, authoring types, and runtime model.
 pub mod scene;
+/// Render pipeline strategy traits and default implementations.
+pub mod strategy;
