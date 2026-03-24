@@ -104,33 +104,10 @@ pub trait Behavior: Send + Sync {
 type EmittedCueKey = (String, String, SceneStage, u64, String);
 
 /// Returns the built-in [`Behavior`] implementation for `spec`, or `None` if the name is unrecognised.
+/// Delegates to [`crate::strategy::BuiltInBehaviorFactory`] — the single authoritative dispatch point.
 pub fn built_in_behavior(spec: &BehaviorSpec) -> Option<Box<dyn Behavior + Send + Sync>> {
-    let name = spec.name.trim();
-    if name.eq_ignore_ascii_case("blink") {
-        Some(Box::new(BlinkBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("bob") {
-        Some(Box::new(BobBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("follow") {
-        Some(Box::new(FollowBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("menu-carousel") {
-        Some(Box::new(MenuCarouselBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("menu-carousel-object") {
-        Some(Box::new(MenuCarouselObjectBehavior::from_params(
-            &spec.params,
-        )))
-    } else if name.eq_ignore_ascii_case("rhai-script") {
-        Some(Box::new(RhaiScriptBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("menu-selected") {
-        Some(Box::new(MenuSelectedBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("selected-arrows") {
-        Some(Box::new(SelectedArrowsBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("stage-visibility") {
-        Some(Box::new(StageVisibilityBehavior::from_params(&spec.params)))
-    } else if name.eq_ignore_ascii_case("timed-visibility") {
-        Some(Box::new(TimedVisibilityBehavior::from_params(&spec.params)))
-    } else {
-        None
-    }
+    use crate::strategy::BehaviorFactory;
+    crate::strategy::BuiltInBehaviorFactory.create(spec)
 }
 
 /// Returns names of all built-in behaviors.
@@ -212,7 +189,7 @@ pub struct BlinkBehavior {
 }
 
 impl BlinkBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         Self {
             target: params.target.clone(),
             visible_ms: params.visible_ms.unwrap_or(250),
@@ -251,7 +228,7 @@ pub struct BobBehavior {
 }
 
 impl BobBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         Self {
             target: params.target.clone(),
             amplitude_x: params.amplitude_x.unwrap_or(0),
@@ -288,7 +265,7 @@ pub struct FollowBehavior {
 }
 
 impl FollowBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         Self {
             target: params.target.clone(),
             offset_x: params.amplitude_x.unwrap_or(0),
@@ -334,7 +311,7 @@ pub struct MenuSelectedBehavior {
 }
 
 impl MenuSelectedBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         Self {
             target: params.target.clone(),
             index: params.index.unwrap_or(0),
@@ -370,7 +347,7 @@ pub struct MenuCarouselBehavior {
 }
 
 impl MenuCarouselBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         Self {
             target: params.target.clone(),
             index: params.index.unwrap_or(0),
@@ -455,7 +432,7 @@ pub struct MenuCarouselObjectBehavior {
 }
 
 impl MenuCarouselObjectBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         Self {
             target: params.target.clone(),
             item_prefix: params
@@ -1404,7 +1381,7 @@ enum ArrowSide {
 }
 
 impl SelectedArrowsBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         let side_str = params.side.as_deref().unwrap_or("");
         let side = if side_str.trim().eq_ignore_ascii_case("right") {
             ArrowSide::Right
@@ -1496,7 +1473,7 @@ impl Behavior for SelectedArrowsBehavior {
 }
 
 impl StageVisibilityBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         let stages = params
             .stages
             .iter()
@@ -1535,7 +1512,7 @@ pub struct TimedVisibilityBehavior {
 }
 
 impl TimedVisibilityBehavior {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         Self {
             target: params.target.clone(),
             start_ms: params.start_ms,
@@ -1853,7 +1830,7 @@ enum TimeScope {
 }
 
 impl TimeScope {
-    fn from_params(params: &BehaviorParams) -> Self {
+    pub(crate) fn from_params(params: &BehaviorParams) -> Self {
         let scope_str = params.time_scope.as_deref().unwrap_or("");
         if scope_str.trim().eq_ignore_ascii_case("stage") {
             Self::Stage

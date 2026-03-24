@@ -6,11 +6,20 @@ pub mod halfblock;
 pub mod present;
 /// Terminal flusher strategy (batched ANSI vs naive).
 pub mod flush;
+/// Scene rendered-mode compositor strategy (Cell vs HalfBlock path).
+pub mod scene_compositor;
+/// Behavior factory strategy (built-in vs custom behavior resolution).
+pub mod behavior_factory;
 
 pub use layer::{DirectLayerCompositor, LayerCompositor, ScratchLayerCompositor};
 pub use halfblock::{DirtyRegionPacker, FullScanPacker, HalfblockPacker};
 pub use present::{AlwaysPresenter, HashSkipPresenter, VirtualPresenter};
 pub use flush::{AnsiBatchFlusher, NaiveFlusher, TerminalFlusher};
+pub use scene_compositor::{
+    CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
+    compositor_for,
+};
+pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};
 
 use engine_core::strategy::{DiffStrategy, FullScanDiff, DirtyRegionDiff};
 
