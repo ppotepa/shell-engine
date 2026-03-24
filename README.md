@@ -9,29 +9,22 @@ eastereggs: ;)
 
 ## changelog
 
-**24-03-2026** : diagnosed and rolled back ~20 async rendering optimization commits that caused visual regressions (flickering, text artifacts, stale frames, resolution degradation). root cause: async render thread + dirty-region partial compositing + buffer ownership handoff created an unstable pipeline when combined. kept the new splash screen. all experimental optimizations preserved behind feature flags in `pipeline_flags.rs` for future re-introduction one at a time. rendering optimizations are on hold — next approach: re-introduce one by one with proper regression tests.
+### 24-03-2026
 
-**23-03-2026** : full-day push on async rendering pipeline — ~20 commits covering dirty-region tracking, halfblock partial compositing, async render thread with buffer ownership handoff, PostFX quality profiles, Scene3D atlas memory management, OBJ prerender parallelization, threaded-render feature flag, virtual buffer presentation optimization. all of it worked in isolation but combined it introduced visual regressions. work preserved in git reflog and stash for future re-introduction.
+- **rendering** : diagnosed and rolled back ~20 async rendering optimization commits — visual regressions confirmed (flickering, text artifacts, stale frames, resolution degradation). root cause: async render thread + dirty-region compositing + buffer ownership handoff unstable when combined. all experimental flags preserved in `pipeline_flags.rs` for future one-by-one re-introduction
+- **splash** : kept the new YAML-driven splash screen on rolled-back codebase — cherry-picked splash.rs, scene.yml, SVG/PNG assets, added `base64`/`roxmltree` deps
+- **diagnostics** : identified 15 root causes across 3 themes (generation tracking, dirty region inconsistencies, viewport caching), documented 20 missing integration tests
+- **docs** : updated README, 3D rendering documentation overhaul across subsystem files
+
+### 23-03-2026
+
+- **rendering** : full-day push on async rendering pipeline — ~20 commits covering dirty-region tracking, halfblock partial compositing, async render thread with buffer ownership handoff, virtual buffer presentation optimization
+- **postfx** : PostFX quality profiles, modular pipeline restructuring
+- **3d** : Scene3D atlas memory management, OBJ prerender parallelization
+- **engine** : threaded-render feature flag, prepared-frame infrastructure, pipeline flags system
+- **note** : all worked in isolation but combined introduced visual regressions — work preserved in git reflog and stash
 
 ---
-
-**gpu and paralelization** will be trying to offload as much work as possible to GPU and possibly paralelize few areas, currently we are single CPU bound with
-little to no optimizations so every time we render to terminal this is just costly as terminal is just another layer we have to translate into
-
-**effects and shaders** since it was solely a proof of concept from the start this is another costly feature, that requires a lot of optimization possibly prerendering too, 
-im fairly satisfied with how it all aligns so far, but starting kind of to regret not sticking with gpu accel from the start
-
-**postfx**: a lot of focus went into finding and researching the CRT look and feel, as most of the game is aiming to be set within the terminal it is a key POSTFX
-
-**engine**: separated a lot of concerns regarding 3d rendering, currently it is possible to create a small 3d scene and prerender it at a lower cost, 
-but there are some issues with camera near/z, and some vertexes appear z-flipped
-
-**splash**: new YAML-driven splash screen — loads scene definition from `engine/assets/scenes/splash/scene.yml`, supports SVG logos, PNG splatter overlays, shake/fade animations, all configurable without code changes
-
-**sound** i was 100% sure that i will need an audio server to play audio, but it does not matter as long as audio drivers are loaded (thought working via terminal would limit that in some ways)
-playing sounds works now, there is playground demo for that
-
-**C# sidecar is kinda working right now, user is able to navigate and do basic stuff**
 
 ## about this project
 
