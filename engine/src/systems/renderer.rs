@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::io::{self, Write};
 
 pub struct TerminalRenderer {
-    stdout: io::Stdout,
+    stdout: io::BufWriter<io::Stdout>,
 }
 
 thread_local! {
@@ -19,12 +19,14 @@ thread_local! {
         RefCell::new(Vec::with_capacity(4096));
     /// Reusable run buffer for RLE batching — avoids per-frame heap allocation.
     static RUN_BUF: RefCell<String> = RefCell::new(String::with_capacity(256));
+    /// #3 opt-term-ansibuf: accumulate all ANSI into a contiguous buffer, single write_all per frame.
+    static ANSI_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(65536));
 }
 
 impl TerminalRenderer {
     pub fn new() -> io::Result<Self> {
         terminal::enable_raw_mode()?;
-        let mut stdout = io::stdout();
+        let mut stdout = io::BufWriter::with_capacity(65536, io::stdout());
         execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide)?;
         Ok(Self { stdout })
     }
@@ -526,77 +528,73 @@ fn sample_fit_source(
 /// number of terminal I/O operations from O(cells) toward O(colour-runs).
 /// Diffs arrive in row-major order from `Buffer::diff_into`, so no sort is needed.
 /// Raw (pre-resolve) colours are accepted; `Color::Reset` is mapped to true black here.
-fn flush_batched(stdout: &mut io::Stdout, diffs: &[(u16, u16, char, style::Color, style::Color)]) {
+fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u16, u16, char, style::Color, style::Color)]) {
     if diffs.is_empty() {
         return;
     }
 
-    RUN_BUF.with(|cell| {
-        let mut run = cell.borrow_mut();
-        run.clear();
+    // #3 opt-term-ansibuf: write all ANSI into Vec<u8>, then single write_all.
+    // #2 opt-term-colorstate: track last-emitted fg/bg to skip redundant SetColor commands.
+    ANSI_BUF.with(|ansi_cell| {
+        RUN_BUF.with(|run_cell| {
+            let mut ansi = ansi_cell.borrow_mut();
+            let mut run = run_cell.borrow_mut();
+            ansi.clear();
+            run.clear();
 
-        let (mut rx, mut ry, _, raw_fg0, raw_bg0) = diffs[0];
-        let (mut rfg, mut rbg) = (resolve_color(raw_fg0), resolve_color(raw_bg0));
-        run.push(diffs[0].2);
-        let mut run_len: u16 = 1;
-        // Cursor position after the last flush — used to skip redundant MoveTo.
-        let mut cursor_x = u16::MAX;
-        let mut cursor_y = u16::MAX;
+            let (mut rx, mut ry, _, raw_fg0, raw_bg0) = diffs[0];
+            let (mut rfg, mut rbg) = (resolve_color(raw_fg0), resolve_color(raw_bg0));
+            run.push(diffs[0].2);
+            let mut run_len: u16 = 1;
+            let mut cursor_x = u16::MAX;
+            let mut cursor_y = u16::MAX;
+            let mut active_fg = style::Color::Reset;
+            let mut active_bg = style::Color::Reset;
 
-        for &(x, y, ch, raw_fg, raw_bg) in &diffs[1..] {
-            let fg = resolve_color(raw_fg);
-            let bg = resolve_color(raw_bg);
-            // O(1): compare cached length instead of scanning the string.
-            let continues = y == ry && x == rx + run_len && fg == rfg && bg == rbg;
-            if continues {
-                run.push(ch);
-                run_len += 1;
-            } else {
-                if cursor_x == rx && cursor_y == ry {
-                    let _ = queue!(
-                        stdout,
-                        style::SetForegroundColor(rfg),
-                        style::SetBackgroundColor(rbg),
-                        style::Print(&*run)
-                    );
-                } else {
-                    let _ = queue!(
-                        stdout,
-                        cursor::MoveTo(rx, ry),
-                        style::SetForegroundColor(rfg),
-                        style::SetBackgroundColor(rbg),
-                        style::Print(&*run)
-                    );
-                }
-                cursor_x = rx + run_len;
-                cursor_y = ry;
-                run.clear();
-                run.push(ch);
-                run_len = 1;
-                rx = x;
-                ry = y;
-                rfg = fg;
-                rbg = bg;
+            // Inline helper: emit a queued run into the ANSI buffer.
+            macro_rules! emit_run {
+                () => {
+                    if cursor_x != rx || cursor_y != ry {
+                        let _ = queue!(&mut *ansi, cursor::MoveTo(rx, ry));
+                    }
+                    if rfg != active_fg {
+                        let _ = queue!(&mut *ansi, style::SetForegroundColor(rfg));
+                        active_fg = rfg;
+                    }
+                    if rbg != active_bg {
+                        let _ = queue!(&mut *ansi, style::SetBackgroundColor(rbg));
+                        active_bg = rbg;
+                    }
+                    let _ = queue!(&mut *ansi, style::Print(&*run));
+                    cursor_x = rx + run_len;
+                    cursor_y = ry;
+                };
             }
-        }
 
-        if cursor_x == rx && cursor_y == ry {
-            let _ = queue!(
-                stdout,
-                style::SetForegroundColor(rfg),
-                style::SetBackgroundColor(rbg),
-                style::Print(&*run)
-            );
-        } else {
-            let _ = queue!(
-                stdout,
-                cursor::MoveTo(rx, ry),
-                style::SetForegroundColor(rfg),
-                style::SetBackgroundColor(rbg),
-                style::Print(&*run)
-            );
-        }
-        let _ = stdout.flush();
+            for &(x, y, ch, raw_fg, raw_bg) in &diffs[1..] {
+                let fg = resolve_color(raw_fg);
+                let bg = resolve_color(raw_bg);
+                let continues = y == ry && x == rx + run_len && fg == rfg && bg == rbg;
+                if continues {
+                    run.push(ch);
+                    run_len += 1;
+                } else {
+                    emit_run!();
+                    run.clear();
+                    run.push(ch);
+                    run_len = 1;
+                    rx = x;
+                    ry = y;
+                    rfg = fg;
+                    rbg = bg;
+                }
+            }
+
+            emit_run!();
+
+            let _ = stdout.write_all(&ansi);
+            let _ = stdout.flush();
+        });
     });
 }
 

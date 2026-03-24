@@ -127,7 +127,8 @@ impl PostFxRuntime {
         if self.skip_counter > 0 {
             if let Some(cached) = self.previous_output.as_ref() {
                 if cached.width == buffer.width && cached.height == buffer.height {
-                    buffer.clone_from(cached);
+                    // #7 opt-postfx-swap: only copy back buffer (front not needed for postfx cache).
+                    buffer.copy_back_from(cached);
                     self.skip_counter -= 1;
                     self.frame_count = self.frame_count.saturating_add(1);
                     return;
@@ -189,8 +190,13 @@ impl PostFxRuntime {
             std::mem::swap(buffer, b);
         }
 
-        // Cache the output for frame-skip.
-        self.previous_output = Some(buffer.clone());
+        // #7 opt-postfx-swap: reuse cache allocation, copy only back buffer.
+        match &mut self.previous_output {
+            Some(cached) if cached.width == buffer.width && cached.height == buffer.height => {
+                cached.copy_back_from(buffer);
+            }
+            slot => *slot = Some(buffer.clone()),
+        }
         self.skip_counter = self.skip_interval;
         self.frame_count = self.frame_count.saturating_add(1);
     }

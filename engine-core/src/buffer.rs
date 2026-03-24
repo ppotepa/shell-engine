@@ -320,6 +320,18 @@ impl Buffer {
             self.dirty_y_max = self.dirty_y_max.max(max_y);
         }
     }
+
+    /// #7 opt-postfx-swap: copy only the back buffer from source (skip front).
+    /// Used by postfx cache to avoid cloning the front buffer which is never needed.
+    pub fn copy_back_from(&mut self, src: &Buffer) {
+        debug_assert_eq!(self.width, src.width);
+        debug_assert_eq!(self.height, src.height);
+        self.back.copy_from_slice(&src.back);
+        self.dirty_x_min = 0;
+        self.dirty_x_max = self.width.saturating_sub(1);
+        self.dirty_y_min = 0;
+        self.dirty_y_max = self.height.saturating_sub(1);
+    }
 }
 
 #[cfg(test)]
