@@ -118,12 +118,8 @@ impl Buffer {
     pub fn set(&mut self, x: u16, y: u16, symbol: char, fg: Color, bg: Color) {
         if x < self.width && y < self.height {
             let idx = y as usize * self.width as usize + x as usize;
-            let new_cell = Cell { symbol, fg, bg };
-            if self.back[idx] != new_cell {
-                self.back[idx] = new_cell;
-                self.write_count += 1;
-            }
-            // Always track dirty region so pack/diff covers written regions.
+            self.back[idx] = Cell { symbol, fg, bg };
+            self.write_count += 1;
             if x < self.dirty_x_min { self.dirty_x_min = x; }
             if x > self.dirty_x_max { self.dirty_x_max = x; }
             if y < self.dirty_y_min { self.dirty_y_min = y; }
@@ -241,8 +237,13 @@ impl Buffer {
     /// Force a full re-flush on the next render (e.g. after terminal resize).
     /// Bumps generation to trigger full diff scan without per-cell writes.
     pub fn invalidate(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
-        self.front_generation = self.front_generation.wrapping_sub(2);
+        for cell in &mut self.front {
+            cell.symbol = '\0';
+        }
+        self.dirty_x_min = 0;
+        self.dirty_x_max = self.width.saturating_sub(1);
+        self.dirty_y_min = 0;
+        self.dirty_y_max = self.height.saturating_sub(1);
     }
 
     /// Reset dirty bounds and write_count to zero without clearing buffer contents.
@@ -340,11 +341,8 @@ impl Buffer {
                         continue;
                     }
                     let dest_idx = dst_row as usize * self.width as usize + dst_col as usize;
-                    // Only count as a content change if cell actually differs.
-                    if self.back[dest_idx] != *cell {
-                        self.back[dest_idx] = *cell;
-                        self.write_count += 1;
-                    }
+                    self.back[dest_idx] = *cell;
+                    self.write_count += 1;
                     // Track dirty bounds regardless (pack still needs to reprocess this region).
                     min_x = min_x.min(dst_col);
                     max_x = max_x.max(dst_col);
