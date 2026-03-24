@@ -438,28 +438,43 @@ fn present_virtual_to_output(world: &mut World) {
             settings.virtual_policy,
         );
 
-        for oy in 0..viewport.height {
-            for ox in 0..viewport.width {
-                let (sx, sy) = match settings.virtual_policy {
-                    VirtualPolicy::Strict => (
+        // #14 opt-present-fitlut: use precomputed LUT for Fit mode.
+        let use_fit_lut = matches!(settings.virtual_policy, VirtualPolicy::Fit);
+
+        if use_fit_lut {
+            FIT_LUT_CACHE.with(|cache| {
+                let mut lut_opt = cache.borrow_mut();
+                if lut_opt.as_ref().map_or(true, |l| !l.matches(
+                    viewport.width, viewport.height, virtual_buf.width, virtual_buf.height
+                )) {
+                    *lut_opt = Some(FitLut::build(
+                        viewport.width, viewport.height, virtual_buf.width, virtual_buf.height
+                    ));
+                }
+                let lut = lut_opt.as_ref().unwrap();
+                for oy in 0..viewport.height {
+                    let sy = lut.y_map[oy as usize];
+                    for ox in 0..viewport.width {
+                        let sx = lut.x_map[ox as usize];
+                        let Some(cell) = virtual_buf.get(sx, sy) else { continue; };
+                        let dx = viewport.dst_offset_x.saturating_add(ox);
+                        let dy = viewport.dst_offset_y.saturating_add(oy);
+                        copy_cell(output_buf, dx, dy, cell);
+                    }
+                }
+            });
+        } else {
+            for oy in 0..viewport.height {
+                for ox in 0..viewport.width {
+                    let (sx, sy) = (
                         viewport.src_offset_x.saturating_add(ox),
                         viewport.src_offset_y.saturating_add(oy),
-                    ),
-                    VirtualPolicy::Fit => sample_fit_source(
-                        ox,
-                        oy,
-                        viewport.width,
-                        viewport.height,
-                        virtual_buf.width,
-                        virtual_buf.height,
-                    ),
-                };
-                let Some(cell) = virtual_buf.get(sx, sy) else {
-                    continue;
-                };
-                let dx = viewport.dst_offset_x.saturating_add(ox);
-                let dy = viewport.dst_offset_y.saturating_add(oy);
-                copy_cell(output_buf, dx, dy, cell);
+                    );
+                    let Some(cell) = virtual_buf.get(sx, sy) else { continue; };
+                    let dx = viewport.dst_offset_x.saturating_add(ox);
+                    let dy = viewport.dst_offset_y.saturating_add(oy);
+                    copy_cell(output_buf, dx, dy, cell);
+                }
             }
         }
     });
@@ -531,6 +546,41 @@ fn sample_fit_source(
     let sy = ((oy as u32).saturating_mul(virtual_h as u32) / viewport_h.max(1) as u32)
         .min(virtual_h.saturating_sub(1) as u32) as u16;
     (sx, sy)
+}
+
+/// #14 opt-present-fitlut: precomputed coordinate LUT for Fit mode.
+struct FitLut {
+    x_map: Vec<u16>,
+    y_map: Vec<u16>,
+    viewport_w: u16,
+    viewport_h: u16,
+    virtual_w: u16,
+    virtual_h: u16,
+}
+
+impl FitLut {
+    fn build(viewport_w: u16, viewport_h: u16, virtual_w: u16, virtual_h: u16) -> Self {
+        let vw = viewport_w.max(1) as u32;
+        let vh = viewport_h.max(1) as u32;
+        let vmax_x = virtual_w.saturating_sub(1) as u32;
+        let vmax_y = virtual_h.saturating_sub(1) as u32;
+        let x_map: Vec<u16> = (0..viewport_w)
+            .map(|ox| ((ox as u32 * virtual_w as u32) / vw).min(vmax_x) as u16)
+            .collect();
+        let y_map: Vec<u16> = (0..viewport_h)
+            .map(|oy| ((oy as u32 * virtual_h as u32) / vh).min(vmax_y) as u16)
+            .collect();
+        Self { x_map, y_map, viewport_w, viewport_h, virtual_w, virtual_h }
+    }
+
+    fn matches(&self, vw: u16, vh: u16, virt_w: u16, virt_h: u16) -> bool {
+        self.viewport_w == vw && self.viewport_h == vh
+            && self.virtual_w == virt_w && self.virtual_h == virt_h
+    }
+}
+
+thread_local! {
+    static FIT_LUT_CACHE: RefCell<Option<FitLut>> = RefCell::new(None);
 }
 
 /// Batch-flush diffs to the terminal.
