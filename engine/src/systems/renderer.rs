@@ -105,11 +105,19 @@ pub fn renderer_system(world: &mut World) {
     apply_perf_hud(world);
 
     // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
+    let opt_diff = world
+        .get::<crate::pipeline_flags::PipelineFlags>()
+        .map(|f| f.opt_diff)
+        .unwrap_or(false);
     DIFF_SCRATCH.with(|scratch| {
         let mut diffs = scratch.borrow_mut();
         diffs.clear();
         if let Some(buf) = world.buffer() {
-            buf.diff_into(&mut diffs);
+            if opt_diff {
+                buf.diff_into_dirty(&mut diffs);
+            } else {
+                buf.diff_into(&mut diffs);
+            }
         }
     });
 

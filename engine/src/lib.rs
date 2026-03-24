@@ -77,6 +77,8 @@ pub struct EngineConfig {
     pub opt_comp: bool,
     /// Enable present optimizations (#13 hash-based frame skip).
     pub opt_present: bool,
+    /// Enable dirty-region diff scan (experimental — off by default).
+    pub opt_diff: bool,
 }
 
 impl ShellEngine {
@@ -183,6 +185,7 @@ impl ShellEngine {
         let mut pflags = pipeline_flags::PipelineFlags::default();
         pflags.opt_comp = self.config.opt_comp;
         pflags.opt_present = self.config.opt_present;
+        pflags.opt_diff = self.config.opt_diff;
         world.register(pflags);
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));

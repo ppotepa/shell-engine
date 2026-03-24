@@ -51,6 +51,9 @@ struct Cli {
     /// Enable present optimizations (hash-based frame skip for static scenes).
     #[arg(long = "opt-present")]
     opt_present: bool,
+    /// Enable dirty-region diff scan (experimental — may cause artifacts).
+    #[arg(long = "opt-diff")]
+    opt_diff: bool,
 }
 
 fn main() {
@@ -91,6 +94,7 @@ fn main() {
         skip_splash: cli.skip_splash,
         opt_comp: cli.opt_comp,
         opt_present: cli.opt_present,
+        opt_diff: cli.opt_diff,
     };
     logging::debug(
         "app.main",

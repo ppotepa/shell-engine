@@ -5,5 +5,6 @@
 # Flags:
 #   --opt-comp     Compositor: layer-scratch skip (#4), dirty-halfblock narrowing (#5)
 #   --opt-present  Present: hash-based static frame skip (#13)
+#   --opt-diff     Diff: dirty-region scan instead of full-buffer scan (experimental)
 
-exec cargo run -p app -- --opt-comp --opt-present "$@"
+exec cargo run -p app -- --opt-comp --opt-present --opt-diff "$@"

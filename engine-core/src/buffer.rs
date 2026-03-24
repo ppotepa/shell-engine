@@ -140,63 +140,41 @@ impl Buffer {
     /// If generation changed (invalidate/resize), scans entire buffer.
     pub fn diff(&self) -> Vec<CellDiff<'_>> {
         let mut result = Vec::new();
-        
-        // If generation changed, front needs full redraw.
-        if self.generation != self.front_generation {
-            // Full buffer scan — front was invalidated.
-            let mut idx = 0usize;
-            for y in 0..self.height {
-                for x in 0..self.width {
-                    if self.back[idx] != self.front[idx] {
-                        result.push(CellDiff { x, y, cell: &self.back[idx] });
-                    }
-                    idx += 1;
-                }
-            }
-            return result;
-        }
-        
-        // Normal case: no generation change, scan dirty region only.
-        if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
-            return result;
-        }
-        
-        // Scan only the dirty region.
-        for y in self.dirty_y_min..=self.dirty_y_max.min(self.height.saturating_sub(1)) {
-            for x in self.dirty_x_min..=self.dirty_x_max.min(self.width.saturating_sub(1)) {
-                let idx = y as usize * self.width as usize + x as usize;
+        let mut idx = 0usize;
+        for y in 0..self.height {
+            for x in 0..self.width {
                 if self.back[idx] != self.front[idx] {
                     result.push(CellDiff { x, y, cell: &self.back[idx] });
                 }
+                idx += 1;
             }
         }
         result
     }
 
-    /// Fill `out` with raw (pre-resolve) diff tuples within dirty region, reusing the allocation.
-    /// If generation changed, scans entire buffer.
+    /// Fill `out` with raw (pre-resolve) diff tuples, reusing the allocation.
+    /// Always scans the full buffer — safe default. Use DirtyRegionDiff strategy
+    /// behind --opt-diff for the narrowed scan optimization.
     pub fn diff_into(&self, out: &mut Vec<(u16, u16, char, Color, Color)>) {
-        // If generation changed, front needs full redraw.
-        if self.generation != self.front_generation {
-            let mut idx = 0usize;
-            for y in 0..self.height {
-                for x in 0..self.width {
-                    let b = &self.back[idx];
-                    if *b != self.front[idx] {
-                        out.push((x, y, b.symbol, b.fg, b.bg));
-                    }
-                    idx += 1;
+        let mut idx = 0usize;
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let b = &self.back[idx];
+                if *b != self.front[idx] {
+                    out.push((x, y, b.symbol, b.fg, b.bg));
                 }
+                idx += 1;
             }
-            return;
         }
-        
-        // Normal case: no generation change, scan dirty region only.
+    }
+
+    /// Dirty-region variant of diff_into — scans only the tracked dirty bounds.
+    /// Used by the DirtyRegionDiff strategy behind --opt-diff.
+    /// ONLY safe when fill() is guaranteed to have run this frame with no reset_dirty() after it.
+    pub fn diff_into_dirty(&self, out: &mut Vec<(u16, u16, char, Color, Color)>) {
         if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
             return;
         }
-        
-        // Scan only the dirty region.
         for y in self.dirty_y_min..=self.dirty_y_max.min(self.height.saturating_sub(1)) {
             for x in self.dirty_x_min..=self.dirty_x_max.min(self.width.saturating_sub(1)) {
                 let idx = y as usize * self.width as usize + x as usize;

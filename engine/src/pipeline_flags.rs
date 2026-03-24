@@ -40,6 +40,12 @@ pub struct PipelineFlags {
     /// Gates #13 (hash-based frame skip when virtual buffer is unchanged).
     /// Default: `false` (always full present — stable).
     pub opt_present: bool,
+
+    /// `--opt-diff`: Use dirty-region scan in diff_into instead of full-buffer scan.
+    /// ONLY safe when fill() is guaranteed before every diff and reset_dirty() is not
+    /// called after fill(). Experimental — off by default to avoid artifact bugs.
+    /// Default: `false` (always full-buffer scan — stable).
+    pub opt_diff: bool,
 }
 
 impl Default for PipelineFlags {
@@ -51,6 +57,7 @@ impl Default for PipelineFlags {
             lock_renderer_mode_to_scene: true,
             opt_comp: false,
             opt_present: false,
+            opt_diff: false,
         }
     }
 }

@@ -20,7 +20,8 @@ pub fn colour_to_rgb(c: Color) -> (u8, u8, u8) {
         Color::DarkCyan => (0, 128, 128),
         Color::Magenta => (255, 0, 255),
         Color::DarkMagenta => (128, 0, 128),
-        Color::AnsiValue(_) | Color::Reset => (255, 255, 255),
+        // Reset has no meaningful RGB — treat as black so effects don't bleed white into transparent cells.
+        Color::AnsiValue(_) | Color::Reset => (0, 0, 0),
     }
 }
 

@@ -1,0 +1,20 @@
+[package]
+name = "rust-os"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rust-os"
+path = "src/main.rs"
+
+[lib]
+name = "rust_os"
+path = "src/lib.rs"
+
+[dependencies]
+engine-io = { path = "../engine-io" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
