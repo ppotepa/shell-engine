@@ -3,6 +3,31 @@
 **Goal:** Gradually introduce optimizations behind CLI flags to avoid regression.
 **Pipeline:** simulate -> composite -> postfx -> present -> flush_to_terminal
 
+### Implementation Status
+
+| # | Flag | Status |
+|---|------|--------|
+| 1 | opt-term-bufwrite | ✅ Done |
+| 2 | opt-term-colorstate | ✅ Done |
+| 3 | opt-term-ansibuf | ✅ Done |
+| 4 | opt-comp-layerscratch | ✅ Done |
+| 5 | opt-comp-halfblock | ✅ Done |
+| 6 | opt-comp-effectsref | ✅ Done |
+| 7 | opt-postfx-swap | ✅ Done |
+| 8 | opt-postfx-passes | ✅ Done |
+| 9 | opt-img-sheetview | ✅ Done |
+| 10 | opt-img-quadstack | ✅ Done |
+| 11 | opt-sim-objstates | ✅ Already in codebase |
+| 12 | opt-sim-rhaiscope | ✅ Already in codebase (BEHAVIOR_SCOPES rewind) |
+| 13 | opt-present-skipstatic | ✅ Done |
+| 14 | opt-present-fitlut | ✅ Done |
+| 15 | opt-comp-skipidle | ⏳ Deferred (invasive dirty tracking) |
+| 16 | opt-postfx-earlyret | ✅ Done |
+| 17 | opt-comp-regioncache | ⏳ Deferred (moderate gain) |
+| 18 | opt-buf-cellpack | ⏳ Deferred (major SoA refactor) |
+| 19 | opt-mem-glowevict | ✅ Already in codebase |
+| 20 | opt-comp-borrowstr | ⏳ Deferred (invasive lifetime propagation) |
+
 ---
 
 ### #1 — --opt-term-bufwrite
