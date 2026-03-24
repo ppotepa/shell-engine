@@ -294,7 +294,8 @@ fn composite_scene(
     if !scene_state.visible {
         return HashMap::new();
     }
-    let mut object_regions = HashMap::new();
+    // Pre-allocate with capacity to avoid re-hashing as objects are inserted.
+    let mut object_regions = HashMap::with_capacity(layers.len() + 4);
     object_regions.insert(
         target_resolver.scene_object_id().to_string(),
         offset_region(

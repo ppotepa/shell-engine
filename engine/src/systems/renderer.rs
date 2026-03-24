@@ -412,6 +412,7 @@ fn present_virtual_to_output(world: &mut World) {
         let virtual_buf = &vbuf.0;
 
         // #13 opt-present-skipstatic: skip when virtual buffer content unchanged.
+        // Hash the full back buffer to detect identical consecutive frames.
         let hash = virtual_buf.back_hash();
         let skip = LAST_VBUF_HASH.with(|c| {
             let prev = *c.borrow();

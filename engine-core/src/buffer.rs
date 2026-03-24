@@ -256,31 +256,21 @@ impl Buffer {
         self.write_count = 0;
     }
 
-    /// Compute a fast 64-bit FNV-1a hash of the back buffer contents.
-    /// Used by present-skip to detect identical frames without per-cell comparison.
+    /// Compute a fast 64-bit hash of the back buffer contents for frame comparison.
+    /// Uses XOR folding — cheap enough to run every frame, accurate enough to detect changes.
     pub fn back_hash(&self) -> u64 {
-        const FNV_OFFSET: u64 = 14695981039346656037;
-        const FNV_PRIME: u64 = 1099511628211;
-        let mut hash = FNV_OFFSET;
-        // Hash each cell as 3 u8 fields: symbol (4 bytes) + fg index + bg index.
-        // Use the raw bytes of the back slice via bytemuck-style cast.
-        for cell in &self.back {
-            let sym = cell.symbol as u32;
-            hash ^= ((sym & 0xff) as u64);
-            hash = hash.wrapping_mul(FNV_PRIME);
-            hash ^= ((sym >> 8) & 0xff) as u64;
-            hash = hash.wrapping_mul(FNV_PRIME);
-            hash ^= ((sym >> 16) & 0xff) as u64;
-            hash = hash.wrapping_mul(FNV_PRIME);
-            hash ^= ((sym >> 24) & 0xff) as u64;
-            hash = hash.wrapping_mul(FNV_PRIME);
-            // Hash fg and bg as their discriminant byte.
-            hash ^= color_byte(cell.fg);
-            hash = hash.wrapping_mul(FNV_PRIME);
-            hash ^= color_byte(cell.bg);
-            hash = hash.wrapping_mul(FNV_PRIME);
+        let mut h: u64 = self.width as u64 | ((self.height as u64) << 16);
+        for (i, cell) in self.back.iter().enumerate() {
+            let i64 = i as u64;
+            // Combine position with cell content via a fast mixing step.
+            let v = (cell.symbol as u64)
+                .wrapping_add(color_byte(cell.fg).wrapping_mul(257))
+                .wrapping_add(color_byte(cell.bg).wrapping_mul(65537));
+            h ^= v.wrapping_mul(0x9e3779b97f4a7c15u64).wrapping_add(i64);
+            // Cheap rotation to spread bits.
+            h = h.rotate_left(7);
         }
-        hash
+        h
     }
 
     /// #5 opt-comp-halfblock: return dirty bounds (x_min, x_max, y_min, y_max).
