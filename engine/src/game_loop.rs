@@ -8,7 +8,12 @@ use crate::systems;
 use crate::world::World;
 
 /// Runs the engine game loop for `world` at `target_fps` until the player quits.
-pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
+/// If `frame_capture` is provided, captures each frame after rendering.
+pub fn game_loop(
+    world: &mut World,
+    target_fps: u16,
+    frame_capture: &mut Option<crate::frame_capture::FrameCapture>,
+) -> Result<(), EngineError> {
     use crossterm::event::{self, Event, KeyEventKind, MouseEventKind};
     use std::time::{Duration, Instant};
     use systems::scene_lifecycle::SceneLifecycleManager;
@@ -165,6 +170,13 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         let t3 = Instant::now();
         systems::renderer::renderer_system(world);
         let t4 = Instant::now();
+
+        // Capture frame if capture mode is active
+        if let Some(capture) = frame_capture {
+            if let Some(buf) = world.output_buffer() {
+                capture.capture(buf)?;
+            }
+        }
 
         // Sample CPU/MEM stats (~1 Hz internally).
         if let Some(ps) = world.get_mut::<crate::debug_features::ProcessStats>() {

@@ -60,6 +60,9 @@ struct Cli {
     /// Run benchmark: play demo for N seconds, display score, save report to reports/benchmark/.
     #[arg(long = "bench", value_name = "SECS", default_missing_value = "5")]
     bench: Option<f32>,
+    /// Capture frames to a directory for visual regression testing (one .bin file per frame).
+    #[arg(long = "capture-frames", value_name = "DIR")]
+    capture_frames: Option<String>,
 }
 
 fn main() {
@@ -102,6 +105,7 @@ fn main() {
         opt_present: cli.opt_present || cli.opt_all,
         opt_diff: cli.opt_diff || cli.opt_all,
         bench_secs: cli.bench,
+        capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
     };
     logging::debug(
         "app.main",

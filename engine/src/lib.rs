@@ -6,6 +6,8 @@ pub mod debug_log;
 mod error;
 mod game_loop;
 mod mod_loader;
+pub mod frame_capture;
+pub mod frame_compare;
 pub use error::EngineError;
 
 // Re-export core modules from engine-core for compatibility
@@ -66,7 +68,7 @@ pub struct ShellEngine {
 }
 
 /// Runtime launch options passed explicitly from the launcher.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct EngineConfig {
     pub renderer_mode: Option<String>,
     pub debug_feature: bool,
@@ -83,6 +85,25 @@ pub struct EngineConfig {
     pub opt_diff: bool,
     /// Run benchmark mode for N seconds, then show results and exit.
     pub bench_secs: Option<f32>,
+    /// Capture frames to this directory for visual regression testing.
+    pub capture_frames_dir: Option<PathBuf>,
+}
+
+impl Default for EngineConfig {
+    fn default() -> Self {
+        Self {
+            renderer_mode: None,
+            debug_feature: false,
+            audio: false,
+            start_scene: None,
+            skip_splash: false,
+            opt_comp: false,
+            opt_present: false,
+            opt_diff: false,
+            bench_secs: None,
+            capture_frames_dir: None,
+        }
+    }
 }
 
 impl ShellEngine {
@@ -234,7 +255,14 @@ impl ShellEngine {
         world.register_scoped(SceneRuntime::new(scene));
         world.register_scoped(Animator::new());
 
-        let result = game_loop::game_loop(&mut world, target_fps);
+        // Initialize frame capture if requested
+        let mut frame_capture = if let Some(ref dir) = self.config.capture_frames_dir {
+            Some(frame_capture::FrameCapture::new(dir.clone())?)
+        } else {
+            None
+        };
+
+        let result = game_loop::game_loop(&mut world, target_fps, &mut frame_capture);
 
         // Write benchmark report if bench mode was active.
         if self.config.bench_secs.is_some() {
