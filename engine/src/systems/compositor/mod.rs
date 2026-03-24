@@ -14,6 +14,7 @@ use crate::assets::AssetRoot;
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::{apply_effect, Region};
 use crate::obj_prerender::{ObjPrerenderedFrames, ObjPrerenderStatus};
+use crate::pipeline_flags::PipelineFlags;
 use crate::scene::SceneRenderedMode;
 use crate::scene3d_atlas::Scene3DAtlas;
 use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
@@ -34,6 +35,7 @@ pub fn compositor_system(world: &mut World) {
     let runtime_mode_override = world
         .runtime_settings()
         .and_then(|s| s.renderer_mode_override);
+    let opt_comp = world.get::<PipelineFlags>().map_or(false, |f| f.opt_comp);
 
     // Extract a raw pointer to the scene layer slice to avoid deep-cloning the entire
     // layer tree (all Sprite::Obj fields, Strings, etc.) every frame.
@@ -186,6 +188,7 @@ pub fn compositor_system(world: &mut World) {
                             scene_elapsed_ms,
                             &scene_effects,
                             scene_step_dur,
+                            opt_comp,
                             buffer,
                         )
                     }
@@ -204,6 +207,7 @@ pub fn compositor_system(world: &mut World) {
                         scene_elapsed_ms,
                         &scene_effects,
                         scene_step_dur,
+                        opt_comp,
                         buffer,
                     ),
                 }
@@ -238,6 +242,7 @@ pub fn compositor_system(world: &mut World) {
                     scene_elapsed_ms,
                     &scene_effects,
                     scene_step_dur,
+                    opt_comp,
                     buffer,
                 )
                 }
@@ -256,6 +261,7 @@ pub fn compositor_system(world: &mut World) {
                     scene_elapsed_ms,
                     &scene_effects,
                     scene_step_dur,
+                    opt_comp,
                     buffer,
                 ),
             }
@@ -281,12 +287,16 @@ fn composite_scene(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
+    opt_comp: bool,
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
     buffer.fill(bg);
-    // Reset dirty tracking after background fill so that only sprite/effect writes
-    // contribute to dirty_bounds and write_count — makes #5 and #13 effective.
-    buffer.reset_dirty();
+    // #5 opt-comp: reset dirty tracking after background fill so that only sprite/effect writes
+    // contribute to dirty_bounds — makes dirty-region halfblock narrowing effective.
+    // Only when opt_comp is enabled; otherwise dirty_bounds covers the whole buffer (safe default).
+    if opt_comp {
+        buffer.reset_dirty();
+    }
     let scene_state = object_states
         .get(target_resolver.scene_object_id())
         .cloned()
@@ -326,6 +336,7 @@ fn composite_scene(
         elapsed_ms,
         scene_elapsed_ms,
         obj_camera_states,
+        opt_comp,
         buffer,
     );
 
@@ -361,6 +372,7 @@ fn composite_scene_halfblock(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
+    opt_comp: bool,
     target: &mut Buffer,
 ) -> HashMap<String, Region> {
     let needed_w = target.width;
@@ -385,24 +397,30 @@ fn composite_scene_halfblock(
             scene_elapsed_ms,
             scene_effects,
             scene_step_dur,
+            opt_comp,
             &mut *virtual_buf,
         );
-        pack_halfblock_buffer(&*virtual_buf, target, bg);
+        pack_halfblock_buffer(&*virtual_buf, target, bg, opt_comp);
         object_regions
     })
 }
 
-fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color) {
+fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, opt_comp: bool) {
     target.fill(fallback_bg);
 
-    // #5 opt-comp-halfblock: only repack rows touched by dirty region.
-    let (x_start, x_end, y_start, y_end) = match source.dirty_bounds() {
-        Some((xmin, xmax, ymin, ymax)) => {
-            let ty_start = ymin / 2;
-            let ty_end = (ymax / 2).min(target.height.saturating_sub(1));
-            (xmin, xmax, ty_start, ty_end)
+    // #5 opt-comp-halfblock: when opt_comp is enabled, only repack rows touched by dirty region.
+    // When disabled, pack the full buffer (safe default).
+    let (x_start, x_end, y_start, y_end) = if opt_comp {
+        match source.dirty_bounds() {
+            Some((xmin, xmax, ymin, ymax)) => {
+                let ty_start = ymin / 2;
+                let ty_end = (ymax / 2).min(target.height.saturating_sub(1));
+                (xmin, xmax, ty_start, ty_end)
+            }
+            None => return,
         }
-        None => return,
+    } else {
+        (0, source.width.saturating_sub(1), 0, target.height.saturating_sub(1))
     };
 
     for y in y_start..=y_end {
@@ -499,7 +517,7 @@ mod tests {
         source.set(0, 1, '#', Color::Blue, TRUE_BLACK);
 
         let mut target = Buffer::new(1, 1);
-        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK);
+        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, false);
 
         let cell = target.get(0, 0).expect("cell exists");
         assert_eq!(cell.symbol, '▀');
@@ -513,7 +531,7 @@ mod tests {
         source.fill(Color::DarkGrey);
 
         let mut target = Buffer::new(1, 1);
-        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK);
+        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, false);
 
         let cell = target.get(0, 0).expect("cell exists");
         assert_eq!(cell.symbol, ' ');

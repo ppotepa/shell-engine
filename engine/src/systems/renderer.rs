@@ -411,36 +411,44 @@ fn present_virtual_to_output(world: &mut World) {
     let Some(settings) = world.runtime_settings().cloned() else {
         return;
     };
+    let opt_present = world
+        .get::<crate::pipeline_flags::PipelineFlags>()
+        .map_or(false, |f| f.opt_present);
 
-    // Detect scene transitions — reset the hash so the first frame of a new scene is
-    // never skipped (which would show the previous scene's background briefly).
-    let current_scene_id = world
-        .scene_runtime()
-        .map(|rt| rt.scene().id.clone())
-        .unwrap_or_default();
-    let scene_changed = LAST_SCENE_ID.with(|s| {
-        let changed = *s.borrow() != current_scene_id;
-        if changed {
-            *s.borrow_mut() = current_scene_id;
-            LAST_VBUF_HASH.with(|h| *h.borrow_mut() = u64::MAX);
-        }
-        changed
-    });
+    // #13 opt-present-skipstatic: when opt_present is enabled, detect scene transitions
+    // and reset the hash so the first frame of a new scene is never skipped.
+    let scene_changed = if opt_present {
+        let current_scene_id = world
+            .scene_runtime()
+            .map(|rt| rt.scene().id.clone())
+            .unwrap_or_default();
+        LAST_SCENE_ID.with(|s| {
+            let changed = *s.borrow() != current_scene_id;
+            if changed {
+                *s.borrow_mut() = current_scene_id;
+                LAST_VBUF_HASH.with(|h| *h.borrow_mut() = u64::MAX);
+            }
+            changed
+        })
+    } else {
+        false
+    };
 
     world.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(|vbuf, output_buf| {
         let virtual_buf = &vbuf.0;
 
         // #13 opt-present-skipstatic: skip when virtual buffer content unchanged.
-        // Hash the full back buffer to detect identical consecutive frames.
-        // Skip is suppressed on scene_changed (hash was just reset above).
-        let hash = virtual_buf.back_hash();
-        let skip = !scene_changed && LAST_VBUF_HASH.with(|c| {
-            let prev = *c.borrow();
-            *c.borrow_mut() = hash;
-            prev == hash
-        });
-        if skip {
-            return;
+        // Only active when --opt-present is passed; otherwise always does a full present.
+        if opt_present {
+            let hash = virtual_buf.back_hash();
+            let skip = !scene_changed && LAST_VBUF_HASH.with(|c| {
+                let prev = *c.borrow();
+                *c.borrow_mut() = hash;
+                prev == hash
+            });
+            if skip {
+                return;
+            }
         }
 
         output_buf.fill(TRUE_BLACK);

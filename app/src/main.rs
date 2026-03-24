@@ -45,6 +45,12 @@ struct Cli {
     /// Skip the engine splash screen on startup.
     #[arg(long = "skip-splash")]
     skip_splash: bool,
+    /// Enable compositor optimizations (layer-scratch skip, dirty-halfblock narrowing).
+    #[arg(long = "opt-comp")]
+    opt_comp: bool,
+    /// Enable present optimizations (hash-based frame skip for static scenes).
+    #[arg(long = "opt-present")]
+    opt_present: bool,
 }
 
 fn main() {
@@ -83,6 +89,8 @@ fn main() {
         audio: cli.audio,
         start_scene: cli.start_scene,
         skip_splash: cli.skip_splash,
+        opt_comp: cli.opt_comp,
+        opt_present: cli.opt_present,
     };
     logging::debug(
         "app.main",

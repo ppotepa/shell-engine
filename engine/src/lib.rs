@@ -73,6 +73,10 @@ pub struct EngineConfig {
     pub start_scene: Option<String>,
     /// Skip the engine splash screen on startup.
     pub skip_splash: bool,
+    /// Enable compositor optimizations (#4 layer-scratch, #5 dirty-halfblock).
+    pub opt_comp: bool,
+    /// Enable present optimizations (#13 hash-based frame skip).
+    pub opt_present: bool,
 }
 
 impl ShellEngine {
@@ -176,7 +180,10 @@ impl ShellEngine {
         let mod_behavior_registry = mod_behaviors::load_mod_behaviors(&self.mod_source);
         world.register(mod_behavior_registry);
         world.register(game_state::GameState::new());
-        world.register(pipeline_flags::PipelineFlags::default());
+        let mut pflags = pipeline_flags::PipelineFlags::default();
+        pflags.opt_comp = self.config.opt_comp;
+        pflags.opt_present = self.config.opt_present;
+        world.register(pflags);
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
         }

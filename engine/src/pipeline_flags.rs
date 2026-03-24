@@ -4,7 +4,7 @@
 //! so no code needs to guess what is safe. To re-enable an optimization, flip the flag
 //! and verify that no regressions appear in the full scene flow.
 //!
-//! Registered as a World resource at startup. Read by game_loop and compositor.
+//! Registered as a World resource at startup. Read by compositor and renderer.
 
 /// Feature flags for the render pipeline.
 ///
@@ -14,7 +14,6 @@ pub struct PipelineFlags {
     /// Enable async postfx offload to the render thread.
     /// When `false`, every frame renders synchronously on the simulation thread.
     /// Default: `false` (synchronous — stable, predictable frame delivery).
-    /// Enable via `--async-render` CLI flag for performance experiments.
     pub async_render_enabled: bool,
 
     /// Invalidate buffers and force N sync frames on scene transition or resize.
@@ -31,19 +30,16 @@ pub struct PipelineFlags {
     /// Default: `true`.
     pub lock_renderer_mode_to_scene: bool,
 
-    /// Allow dirty-region partial composite in Cell/QuadBlock/Braille mode.
-    /// When `false`, every compositor pass does a full buffer fill + full layer walk.
-    /// Default: `false` (full redraw — stable).
-    pub experimental_dirty_cell: bool,
+    /// `--opt-comp`: Compositor optimizations.
+    /// Gates #4 (skip scratch buffer for effectless layers) and
+    /// #5 (dirty-region narrowing in halfblock packing).
+    /// Default: `false` (full redraw every frame — stable).
+    pub opt_comp: bool,
 
-    /// Allow dirty-region partial repack in HalfBlock mode.
-    /// When `false`, always runs `pack_halfblock_buffer()` (full repack).
-    /// Default: `false` (full repack — stable).
-    pub experimental_dirty_halfblock: bool,
-
-    /// Allow adaptive virtual-present sampling (skip unchanged output cells).
-    /// Default: `false` (always full virtual present — stable).
-    pub adaptive_virtual_present: bool,
+    /// `--opt-present`: Virtual-to-output present optimizations.
+    /// Gates #13 (hash-based frame skip when virtual buffer is unchanged).
+    /// Default: `false` (always full present — stable).
+    pub opt_present: bool,
 }
 
 impl Default for PipelineFlags {
@@ -53,9 +49,8 @@ impl Default for PipelineFlags {
             full_redraw_on_scene_change: true,
             sync_guard_frame_count: 2,
             lock_renderer_mode_to_scene: true,
-            experimental_dirty_cell: false,
-            experimental_dirty_halfblock: false,
-            adaptive_virtual_present: false,
+            opt_comp: false,
+            opt_present: false,
         }
     }
 }
