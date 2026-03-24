@@ -1,30 +1,31 @@
 # Shell Quest - Inspired by One Lone Coder https://www.youtube.com/javidx9
 
-status : 22-03-2026
+status : 24-03-2026
 
 plot : started doing some plot/script related work, digging some internet, trying to make it as immersive as possible by looking up as many historical details
 eastereggs: ;)
 
-**optimizations** : rendering optimizations, there are no regressions that are related to 3d drawing itself, currently the optimizations are my primary focus, 
-some stuff is not rendered properly as im reworking the PRERENDERING pipelines
+**rendering pipeline rollback (24-03-2026)** : reverted ~20 async rendering optimization commits that introduced visual regressions (flickering, text artifacts, stale frames, resolution degradation). root cause: async render thread + dirty-region partial compositing + buffer ownership handoff created an unstable pipeline when combined. kept the new splash screen. all experimental optimizations (async render, dirty halfblock, partial composite) are documented and preserved behind feature flags in `pipeline_flags.rs` for future re-implementation one at a time.
+
+**optimizations** : rendering optimizations are on hold. the async render thread architecture was sound in isolation but caused frame delivery timing issues when combined with dirty-region tracking and halfblock partial repacking. next approach: re-introduce optimizations one by one with proper regression tests.
 
 **gpu and paralelization** will be trying to offload as much work as possible to GPU and possibly paralelize few areas, currently we are single CPU bound with
-little to ono optimizations so every time we render to terminal this is just costy as terminal is just another layer we have to translate into"
+little to no optimizations so every time we render to terminal this is just costly as terminal is just another layer we have to translate into
 
-**effects and shaders** since it was solely a proof of concept from the start this is another costy feature, that requires a lot of optimization possibly prerendering too, 
-im fairly satisfided with how it all aligns so far, but starting kind of to regret not sticking with gpu accel from the start
+**effects and shaders** since it was solely a proof of concept from the start this is another costly feature, that requires a lot of optimization possibly prerendering too, 
+im fairly satisfied with how it all aligns so far, but starting kind of to regret not sticking with gpu accel from the start
 
-**postfx**: a lot of focus went into finding and researching the CRT look and feel, as most of the game is aiming to be set withing the terminal  it is a key POSTFX
+**postfx**: a lot of focus went into finding and researching the CRT look and feel, as most of the game is aiming to be set within the terminal it is a key POSTFX
 
-**engine**: separated a lot of concernes regarding 3d rendering, currently it is possible to create a small 3d scene and prerender it at a lower cost, 
+**engine**: separated a lot of concerns regarding 3d rendering, currently it is possible to create a small 3d scene and prerender it at a lower cost, 
 but there are some issues with camera near/z, and some vertexes appear z-flipped
 
-**sound** i was 100% sure that in will need an audio server to play audio, but it does not matter as long as audio drivers are loaded (thought working via terminal wold limit that in some ways
+**splash**: new YAML-driven splash screen — loads scene definition from `engine/assets/scenes/splash/scene.yml`, supports SVG logos, PNG splatter overlays, shake/fade animations, all configurable without code changes
+
+**sound** i was 100% sure that i will need an audio server to play audio, but it does not matter as long as audio drivers are loaded (thought working via terminal would limit that in some ways)
 playing sounds works now, there is playground demo for that
 
-**generated a lot of md files are part of current optimization process unfortunately i want to keep it this way as sometimes i just lose context when working with agensts**
-
-**C# side car is kinda working right now, user is able to navigate and do basic stuff**
+**C# sidecar is kinda working right now, user is able to navigate and do basic stuff**
 
 ## about this project
 
