@@ -1,5 +1,6 @@
 //! Fixed-timestep game loop: polls input, ticks systems, and paces frames to the target FPS.
 
+use crate::bench::{self, BenchmarkState, FrameSample};
 use crate::error::EngineError;
 use crate::events::EngineEvent;
 use crate::services::EngineWorldAccess;
@@ -18,6 +19,48 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
     let _mouse_capture_guard = MouseCaptureGuard::new(should_capture_mouse(world))?;
 
     loop {
+        // ── Benchmark: check if results phase ───────────────────────
+        let bench_time_up = world
+            .get::<BenchmarkState>()
+            .map(|bs| bs.time_up())
+            .unwrap_or(false);
+
+        if bench_time_up {
+            let should_quit = world
+                .get::<BenchmarkState>()
+                .map(|bs| bs.should_quit())
+                .unwrap_or(false);
+            if should_quit {
+                break;
+            }
+            let already_shown = world
+                .get::<BenchmarkState>()
+                .map(|bs| bs.results_shown)
+                .unwrap_or(true);
+            if !already_shown {
+                // Compute results and render the score screen.
+                let results = world.get::<BenchmarkState>().unwrap().results();
+                if let Some(buf) = world.buffer_mut() {
+                    bench::render_bench_results(buf, &results);
+                }
+                // Flush the results screen to terminal.
+                systems::renderer::renderer_system(world);
+                if let Some(bs) = world.get_mut::<BenchmarkState>() {
+                    bs.mark_results_shown();
+                }
+            }
+            // During results display, just sleep and poll for quit keys.
+            while event::poll(Duration::from_millis(0))? {
+                if let Event::Key(key) = event::read()? {
+                    if key.kind == KeyEventKind::Release { continue; }
+                    if is_quit_key(key.code, key.modifiers) { break; }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(50));
+            continue;
+        }
+
+        // ── Normal frame ────────────────────────────────────────────
         let frame_start = Instant::now();
         let scene_target_fps = world
             .scene_runtime()
@@ -27,6 +70,7 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         let frame_budget = Duration::from_millis(tick_ms);
 
         // --- INPUT ---
+        let t_input_start = Instant::now();
         while event::poll(Duration::from_millis(0))? {
             match event::read()? {
                 Event::Key(key) => {
@@ -67,14 +111,17 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         }
 
         world.events_mut().unwrap().push(EngineEvent::Tick);
+        let t_input = t_input_start.elapsed();
 
         // --- DRAIN EVENTS ---
+        let t_lifecycle_start = Instant::now();
         let events = world.events_mut().unwrap().drain();
 
         let quit = SceneLifecycleManager::process_events(world, events);
         if quit {
             break;
         }
+        let t_lifecycle = t_lifecycle_start.elapsed();
 
         // --- SYSTEMS ---
         let ticks_this_frame = if debug_fast_forward {
@@ -82,12 +129,22 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         } else {
             1
         };
+
+        let t_anim_start = Instant::now();
         for _ in 0..ticks_this_frame {
-        systems::animator::animator_system(world, tick_ms);
+            systems::animator::animator_system(world, tick_ms);
         }
+        let t_anim = t_anim_start.elapsed();
+
+        let t_hotreload_start = Instant::now();
         systems::hot_reload::debug_scene_hot_reload_system(world);
+        let t_hotreload = t_hotreload_start.elapsed();
+
         // Bridge external sidecar IO before behaviors run (behaviors clear UI submit/change each frame).
+        let t_io_start = Instant::now();
         systems::engine_io::engine_io_system(world, tick_ms);
+        let t_io = t_io_start.elapsed();
+
         // Process transitions emitted by animator in the same frame to avoid
         // rendering one extra "done" frame that can briefly re-show sprites.
         let post_animator_events = world.events_mut().unwrap().drain();
@@ -96,10 +153,12 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         if quit_after_animator {
             break;
         }
+
         let t0 = Instant::now();
         systems::behavior::behavior_system(world);
         let t1 = Instant::now();
         systems::audio::audio_system(world);
+        let t1b = Instant::now();
         systems::compositor::compositor_system(world);
         let t2 = Instant::now();
         systems::postfx::postfx_system(world);
@@ -116,7 +175,7 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         if let Some(st) = world.get_mut::<crate::debug_features::SystemTimings>() {
             const A: f32 = 0.15;
             st.behavior_us   = st.behavior_us   * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
-            st.compositor_us = st.compositor_us * (1.0 - A) + (t2 - t1).as_micros() as f32 * A;
+            st.compositor_us = st.compositor_us * (1.0 - A) + (t2 - t1b).as_micros() as f32 * A;
             st.postfx_us     = st.postfx_us     * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
             st.renderer_us   = st.renderer_us   * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
         }
@@ -137,8 +196,28 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
             }
         }
 
+        let t_sleep_start = Instant::now();
         if elapsed < frame_budget {
             std::thread::sleep(frame_budget - elapsed);
+        }
+        let t_sleep = t_sleep_start.elapsed();
+
+        // ── Benchmark: record frame sample ──────────────────────────
+        if let Some(bs) = world.get_mut::<BenchmarkState>() {
+            bs.push(FrameSample {
+                frame_us:      frame_start.elapsed().as_micros() as f32,
+                input_us:      t_input.as_micros() as f32,
+                lifecycle_us:  t_lifecycle.as_micros() as f32,
+                animator_us:   t_anim.as_micros() as f32,
+                hot_reload_us: t_hotreload.as_micros() as f32,
+                engine_io_us:  t_io.as_micros() as f32,
+                behavior_us:   (t1 - t0).as_micros() as f32,
+                audio_us:      (t1b - t1).as_micros() as f32,
+                compositor_us: (t2 - t1b).as_micros() as f32,
+                postfx_us:     (t3 - t2).as_micros() as f32,
+                renderer_us:   (t4 - t3).as_micros() as f32,
+                sleep_us:      t_sleep.as_micros() as f32,
+            });
         }
     }
     Ok(())

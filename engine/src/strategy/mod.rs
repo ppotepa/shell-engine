@@ -21,7 +21,10 @@ pub use scene_compositor::{
 };
 pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};
 
-use engine_core::strategy::{DiffStrategy, FullScanDiff, DirtyRegionDiff};
+use engine_core::strategy::{DiffStrategy, FullScanDiff};
+// DirtyRegionDiff is available but currently disabled — re-enable when --opt-diff is reintroduced.
+#[allow(unused_imports)]
+use engine_core::strategy::DirtyRegionDiff;
 
 /// Aggregated render pipeline strategies, registered as a World resource at startup.
 ///

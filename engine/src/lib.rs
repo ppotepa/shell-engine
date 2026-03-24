@@ -1,5 +1,6 @@
 //! Root crate for the Shell Quest engine — initialises a mod, runs startup checks, and drives the game loop.
 
+pub mod bench;
 pub mod debug_features;
 pub mod debug_log;
 mod error;
@@ -80,6 +81,8 @@ pub struct EngineConfig {
     pub opt_present: bool,
     /// Enable dirty-region diff scan (experimental — off by default).
     pub opt_diff: bool,
+    /// Run benchmark mode for N seconds, then show results and exit.
+    pub bench_secs: Option<f32>,
 }
 
 impl ShellEngine {
@@ -193,6 +196,9 @@ impl ShellEngine {
             self.config.opt_comp,
             self.config.opt_present,
         ));
+        if let Some(secs) = self.config.bench_secs {
+            world.register(bench::BenchmarkState::new(secs));
+        }
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
         }
@@ -224,6 +230,24 @@ impl ShellEngine {
         world.register_scoped(Animator::new());
 
         let result = game_loop::game_loop(&mut world, target_fps);
+
+        // Write benchmark report if bench mode was active.
+        if self.config.bench_secs.is_some() {
+            if let Some(bs) = world.get::<bench::BenchmarkState>() {
+                let results = bs.results();
+                match bench::write_report(&results) {
+                    Ok(path) => {
+                        logging::info(
+                            "engine.bench",
+                            format!("benchmark report written to {}", path.display()),
+                        );
+                    }
+                    Err(e) => {
+                        logging::warn("engine.bench", format!("failed to write report: {e}"));
+                    }
+                }
+            }
+        }
 
         if let Some(renderer) = world.renderer_mut() {
             let _ = renderer.shutdown();

@@ -56,3 +56,4 @@ claude-ext
 # C# / .NET build artifacts
 **/bin/
 **/obj/
+reports/benchmark/
