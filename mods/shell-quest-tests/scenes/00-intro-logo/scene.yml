@@ -1,0 +1,61 @@
+# Test variant of 00-intro-logo without user input requirement
+# Flow:
+# - on_enter: powers the CRT on, stages lightning beats
+# - on_idle: auto-transitions (timeout) instead of waiting for key press
+# - on_leave: flash + whiteout to next scene
+id: 00.intro.logo
+title: 00 Intro Logo (Test)
+cutscene: true
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - pause: 200ms
+      - {
+          duration: 400,
+          effects:
+            [{ name: crt-on, duration: 400, params: { easing: ease-out } }],
+        }
+      - pause: 1400ms
+
+  on_idle:
+    trigger: timeout
+    timeout: 3500ms
+    steps:
+      - pause: 1800ms
+      - {
+          effects:
+            [
+              {
+                name: shine,
+                duration: 1000,
+                params:
+                  {
+                    angle: 20,
+                    width: 4,
+                    falloff: 2.5,
+                    intensity: 2.0,
+                    colour: white,
+                    easing: ease-in,
+                  },
+              },
+            ],
+        }
+  on_leave:
+    steps:
+      - pause: 900ms
+      - {
+          effects:
+            [
+              {
+                name: lightning-flash,
+                duration: 180,
+                params: { intensity: 1.9 },
+              },
+              { name: whiteout, duration: 180 },
+            ],
+        }
+      - { effects: [{ name: fade-to-black, duration: 420 }] }
+next: 01.intro.date

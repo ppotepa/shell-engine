@@ -1,0 +1,20 @@
+# Test variant - same as original (uses timeout)
+id: 01.intro.date
+title: 01 Intro Date (Test)
+cutscene: true
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { duration: 8600, effects: [{ name: scanlines, duration: 8600 }] }
+  on_idle:
+    trigger: timeout
+    timeout: 1000ms
+    steps:
+      - { duration: 1, effects: [{ name: clear-to-colour, duration: 1, params: { colour: black } }] }
+  on_leave:
+    steps:
+      - { duration: 180, effects: [{ name: clear-to-colour, duration: 180, params: { colour: black } }] }
+next: 02.intro.boot
