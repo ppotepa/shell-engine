@@ -1,10 +1,4 @@
 # Shell Quest - Inspired by One Lone Coder https://www.youtube.com/javidx9
-
-status : 24-03-2026
-
-plot : started doing some plot/script related work, digging some internet, trying to make it as immersive as possible by looking up as many historical details
-eastereggs: ;)
-
 ---
 
 ## changelog
@@ -14,7 +8,7 @@ eastereggs: ;)
 - **splash** : new splash screen
 - **optimizations** : tried to optimize the engine as much as possible failed, rolled back plenty of changes, will be doing them more carefully and gradually
 - **graphics** : planning on rework of the difficulty menu
-- **sidecar** : will be rewritten in rust with some improvements
+- **sidecar** : will be rewritten in **rust** with some improvements
 - **audio** : played around with audio, and experimented a little with the final background theme - i think all themes will be simulating 90s machines including floppy, hd operations, modem in simulated manner
 
 ### 23-03-2026
@@ -26,6 +20,8 @@ eastereggs: ;)
 - **engine** : separated a lot of concerns regarding 3d rendering, currently it is possible to create a small 3d scene and prerender it at a lower cost, but there are some issues with camera near/z, and some vertexes appear z-flipped
 - **sound** : i was 100% sure that i will need an audio server to play audio, but it does not matter as long as audio drivers are loaded (thought working via terminal would limit that in some ways) playing sounds works now, there is playground demo for that
 - **C# sidecar** : is kinda working right now, user is able to navigate and do basic stuff
+-*plot* : started doing some plot/script related work, digging some internet, trying to make it as immersive as possible by looking up as many historical details
+eastereggs: ;)
 
 ---
 
