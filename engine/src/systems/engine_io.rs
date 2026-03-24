@@ -8,12 +8,12 @@ use crate::services::EngineWorldAccess;
 use crate::world::World;
 use engine_core::logging;
 use engine_core::scene::TerminalShellMode;
-use engine_io::{IoEvent, IoRequest, TcpSidecar};
+use engine_io::{IoEvent, IoRequest, SidecarTransport, TcpSidecar};
 use std::net::TcpListener;
 
 #[derive(Default)]
 pub struct EngineIoRuntime {
-    sidecar: Option<TcpSidecar>,
+    sidecar: Option<Box<dyn SidecarTransport>>,
     last_submit_seq: u64,
     last_change_seq: u64,
     last_key_sent: Option<String>,
@@ -140,7 +140,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
                         port,
                     ) {
                         Ok(proc) => {
-                            runtime.sidecar = Some(proc);
+                            runtime.sidecar = Some(Box::new(proc));
                             runtime.last_submit_seq = 0;
                             runtime.last_change_seq = 0;
                             runtime.last_key_sent = None;

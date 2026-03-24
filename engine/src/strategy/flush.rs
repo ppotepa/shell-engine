@@ -7,13 +7,13 @@ use crossterm::style::Color;
 /// Additional implementations (NaiveFlusher, SixelFlusher, etc.) can be
 /// selected at startup without touching the renderer.
 pub trait TerminalFlusher: Send + Sync {
-    /// Flush a slice of `(x, y, char, fg, bg)` diffs to the terminal.
-    /// The diffs arrive in row-major order; implementations may rely on this.
     fn flush(
         &self,
         stdout: &mut std::io::BufWriter<std::io::Stdout>,
         diffs: &[(u16, u16, char, Color, Color)],
     );
+    /// Returns `true` for `NaiveFlusher` — used to branch without holding a borrow.
+    fn is_naive(&self) -> bool { false }
 }
 
 /// One command per cell — no batching. Useful as a correctness reference or debug sink.
@@ -39,16 +39,15 @@ impl TerminalFlusher for NaiveFlusher {
         }
         let _ = stdout.flush();
     }
+    fn is_naive(&self) -> bool { true }
 }
 
 /// The default high-performance ANSI batch flusher.
 /// Consecutive cells on the same row sharing the same fg+bg are merged into a
 /// single MoveTo+SetFg+SetBg+Print(run) command.
 ///
-/// This is a marker type — the actual hot-path implementation lives in
-/// `renderer::flush_batched` to keep the thread-locals collocated.
-/// Systems that receive `Box<dyn TerminalFlusher>` call `flush_batched` when
-/// they detect `AnsiBatchFlusher`.
+/// Delegates to `crate::systems::renderer::flush_batched` which owns the
+/// thread-local `ANSI_BUF` / `RUN_BUF` scratch allocations.
 pub struct AnsiBatchFlusher;
 
 impl TerminalFlusher for AnsiBatchFlusher {
@@ -57,9 +56,6 @@ impl TerminalFlusher for AnsiBatchFlusher {
         stdout: &mut std::io::BufWriter<std::io::Stdout>,
         diffs: &[(u16, u16, char, Color, Color)],
     ) {
-        // Delegates to the optimised renderer implementation.
-        // Imported as a free function in the renderer where thread-locals live.
-        // This fallback should never be called directly; it is here for completeness.
-        NaiveFlusher.flush(stdout, diffs);
+        crate::systems::renderer::flush_batched(stdout, diffs);
     }
 }

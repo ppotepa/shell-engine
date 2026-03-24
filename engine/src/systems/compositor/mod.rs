@@ -14,7 +14,6 @@ use crate::assets::AssetRoot;
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
 use crate::effects::{apply_effect, Region};
 use crate::obj_prerender::{ObjPrerenderedFrames, ObjPrerenderStatus};
-use crate::pipeline_flags::PipelineFlags;
 use crate::scene::SceneRenderedMode;
 use crate::scene3d_atlas::Scene3DAtlas;
 use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
@@ -35,7 +34,10 @@ pub fn compositor_system(world: &mut World) {
     let runtime_mode_override = world
         .runtime_settings()
         .and_then(|s| s.renderer_mode_override);
-    let opt_comp = world.get::<PipelineFlags>().map_or(false, |f| f.opt_comp);
+    let (direct_layer, dirty_halfblock) = world
+        .get::<crate::strategy::PipelineStrategies>()
+        .map(|s| (s.layer.is_direct(), s.halfblock.is_dirty_region()))
+        .unwrap_or((false, false));
 
     // Extract a raw pointer to the scene layer slice to avoid deep-cloning the entire
     // layer tree (all Sprite::Obj fields, Strings, etc.) every frame.
@@ -188,7 +190,8 @@ pub fn compositor_system(world: &mut World) {
                             scene_elapsed_ms,
                             &scene_effects,
                             scene_step_dur,
-                            opt_comp,
+                            direct_layer,
+                            dirty_halfblock,
                             buffer,
                         )
                     }
@@ -207,7 +210,8 @@ pub fn compositor_system(world: &mut World) {
                         scene_elapsed_ms,
                         &scene_effects,
                         scene_step_dur,
-                        opt_comp,
+                        direct_layer,
+                        dirty_halfblock,
                         buffer,
                     ),
                 }
@@ -242,7 +246,8 @@ pub fn compositor_system(world: &mut World) {
                     scene_elapsed_ms,
                     &scene_effects,
                     scene_step_dur,
-                    opt_comp,
+                    direct_layer,
+                    dirty_halfblock,
                     buffer,
                 )
                 }
@@ -261,7 +266,8 @@ pub fn compositor_system(world: &mut World) {
                     scene_elapsed_ms,
                     &scene_effects,
                     scene_step_dur,
-                    opt_comp,
+                    direct_layer,
+                    dirty_halfblock,
                     buffer,
                 ),
             }
@@ -287,14 +293,15 @@ fn composite_scene(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
-    opt_comp: bool,
+    direct_layer: bool,
+    dirty_halfblock: bool,
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
     buffer.fill(bg);
-    // #5 opt-comp: reset dirty tracking after background fill so that only sprite/effect writes
-    // contribute to dirty_bounds — makes dirty-region halfblock narrowing effective.
-    // Only when opt_comp is enabled; otherwise dirty_bounds covers the whole buffer (safe default).
-    if opt_comp {
+    // #5 opt-comp-halfblock: reset dirty tracking after background fill so that only
+    // sprite/effect writes contribute to dirty_bounds — makes dirty-region halfblock
+    // narrowing effective. Only when DirtyRegionPacker strategy is active.
+    if dirty_halfblock {
         buffer.reset_dirty();
     }
     let scene_state = object_states
@@ -336,7 +343,7 @@ fn composite_scene(
         elapsed_ms,
         scene_elapsed_ms,
         obj_camera_states,
-        opt_comp,
+        direct_layer,
         buffer,
     );
 
@@ -372,7 +379,8 @@ fn composite_scene_halfblock(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
-    opt_comp: bool,
+    direct_layer: bool,
+    dirty_halfblock: bool,
     target: &mut Buffer,
 ) -> HashMap<String, Region> {
     let needed_w = target.width;
@@ -397,20 +405,21 @@ fn composite_scene_halfblock(
             scene_elapsed_ms,
             scene_effects,
             scene_step_dur,
-            opt_comp,
+            direct_layer,
+            dirty_halfblock,
             &mut *virtual_buf,
         );
-        pack_halfblock_buffer(&*virtual_buf, target, bg, opt_comp);
+        pack_halfblock_buffer(&*virtual_buf, target, bg, dirty_halfblock);
         object_regions
     })
 }
 
-fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, opt_comp: bool) {
+fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, dirty_halfblock: bool) {
     target.fill(fallback_bg);
 
-    // #5 opt-comp-halfblock: when opt_comp is enabled, only repack rows touched by dirty region.
-    // When disabled, pack the full buffer (safe default).
-    let (x_start, x_end, y_start, y_end) = if opt_comp {
+    // #5 opt-comp-halfblock: DirtyRegionPacker strategy — only repack rows in dirty bounds.
+    // When disabled (FullScanPacker), pack the full buffer (safe default).
+    let (x_start, x_end, y_start, y_end) = if dirty_halfblock {
         match source.dirty_bounds() {
             Some((xmin, xmax, ymin, ymax)) => {
                 let ty_start = ymin / 2;

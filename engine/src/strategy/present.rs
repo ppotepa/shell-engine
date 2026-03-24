@@ -1,10 +1,9 @@
 /// Controls whether the virtual buffer is copied to the output buffer every frame
 /// or skipped when the contents are unchanged.
 pub trait VirtualPresenter: Send + Sync {
-    /// Returns `true` if the present step should be skipped this frame.
-    /// `hash` is the current hash of the virtual buffer contents.
-    /// `last_hash` is the hash from the previous presented frame.
     fn should_skip(&self, hash: u64, last_hash: u64) -> bool;
+    /// Returns `true` when this is the experimental hash-skip variant.
+    fn is_hash_skip(&self) -> bool { false }
 }
 
 /// Always presents the virtual buffer. Safe default.
@@ -28,4 +27,5 @@ impl VirtualPresenter for HashSkipPresenter {
     fn should_skip(&self, hash: u64, last_hash: u64) -> bool {
         hash == last_hash
     }
+    fn is_hash_skip(&self) -> bool { true }
 }

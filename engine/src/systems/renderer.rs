@@ -3,6 +3,7 @@ use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
+use crate::strategy::TerminalFlusher;
 use crate::systems::animator::{Animator, SceneStage};
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
@@ -105,15 +106,15 @@ pub fn renderer_system(world: &mut World) {
     apply_perf_hud(world);
 
     // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
-    let opt_diff = world
-        .get::<crate::pipeline_flags::PipelineFlags>()
-        .map(|f| f.opt_diff)
+    let use_dirty_diff = world
+        .get::<crate::strategy::PipelineStrategies>()
+        .map(|s| s.diff.is_dirty_region())
         .unwrap_or(false);
     DIFF_SCRATCH.with(|scratch| {
         let mut diffs = scratch.borrow_mut();
         diffs.clear();
         if let Some(buf) = world.buffer() {
-            if opt_diff {
+            if use_dirty_diff {
                 buf.diff_into_dirty(&mut diffs);
             } else {
                 buf.diff_into(&mut diffs);
@@ -129,9 +130,20 @@ pub fn renderer_system(world: &mut World) {
         return;
     }
 
+    // Read the flusher strategy before taking the renderer borrow.
+    // AnsiBatchFlusher (default) calls flush_batched directly; NaiveFlusher is used in tests.
+    let use_naive_flush = world
+        .get::<crate::strategy::PipelineStrategies>()
+        .map(|s| s.flush.is_naive())
+        .unwrap_or(false);
+
     if let Some(renderer) = world.renderer_mut() {
         DIFF_SCRATCH.with(|scratch| {
-            flush_batched(&mut renderer.stdout, &scratch.borrow());
+            if use_naive_flush {
+                crate::strategy::NaiveFlusher.flush(&mut renderer.stdout, &scratch.borrow());
+            } else {
+                flush_batched(&mut renderer.stdout, &scratch.borrow());
+            }
         });
     }
 
@@ -419,13 +431,14 @@ fn present_virtual_to_output(world: &mut World) {
     let Some(settings) = world.runtime_settings().cloned() else {
         return;
     };
-    let opt_present = world
-        .get::<crate::pipeline_flags::PipelineFlags>()
-        .map_or(false, |f| f.opt_present);
+    let hash_skip_present = world
+        .get::<crate::strategy::PipelineStrategies>()
+        .map(|s| s.present.is_hash_skip())
+        .unwrap_or(false);
 
-    // #13 opt-present-skipstatic: when opt_present is enabled, detect scene transitions
+    // #13 opt-present-skipstatic: when hash_skip_present is enabled, detect scene transitions
     // and reset the hash so the first frame of a new scene is never skipped.
-    let scene_changed = if opt_present {
+    let scene_changed = if hash_skip_present {
         let current_scene_id = world
             .scene_runtime()
             .map(|rt| rt.scene().id.clone())
@@ -446,8 +459,8 @@ fn present_virtual_to_output(world: &mut World) {
         let virtual_buf = &vbuf.0;
 
         // #13 opt-present-skipstatic: skip when virtual buffer content unchanged.
-        // Only active when --opt-present is passed; otherwise always does a full present.
-        if opt_present {
+        // Only active when HashSkipPresenter strategy is selected.
+        if hash_skip_present {
             let hash = virtual_buf.back_hash();
             let skip = !scene_changed && LAST_VBUF_HASH.with(|c| {
                 let prev = *c.borrow();
@@ -627,7 +640,7 @@ thread_local! {
 /// number of terminal I/O operations from O(cells) toward O(colour-runs).
 /// Diffs arrive in row-major order from `Buffer::diff_into`, so no sort is needed.
 /// Raw (pre-resolve) colours are accepted; `Color::Reset` is mapped to true black here.
-fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u16, u16, char, style::Color, style::Color)]) {
+pub(crate) fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u16, u16, char, style::Color, style::Color)]) {
     if diffs.is_empty() {
         return;
     }

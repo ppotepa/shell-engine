@@ -32,7 +32,7 @@ pub fn composite_layers(
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
-    opt_comp: bool,
+    direct_layer: bool,
     buffer: &mut Buffer,
 ) {
     for (layer_idx, layer) in layers.iter().enumerate() {
@@ -69,10 +69,10 @@ pub fn composite_layers(
             );
         }
 
-        // #4 opt-comp-layerscratch: when opt_comp is enabled, layers without effects render
-        // directly onto the scene buffer (skip scratch fill+blit). When disabled, always use
-        // the scratch path for correctness (safe default).
-        let layer_has_effects = if opt_comp {
+        // #4 opt-comp-layerscratch: DirectLayerCompositor strategy — layers without active
+        // effects render directly onto the scene buffer (skip scratch fill+blit).
+        // When disabled (ScratchLayerCompositor), always use the scratch path (safe default).
+        let layer_has_active_effects = {
             let stage_ref = match current_stage {
                 SceneStage::OnEnter => &layer.stages.on_enter,
                 SceneStage::OnIdle => &layer.stages.on_idle,
@@ -80,11 +80,10 @@ pub fn composite_layers(
                 SceneStage::Done => &layer.stages.on_idle,
             };
             stage_ref.steps.iter().any(|s| !s.effects.is_empty())
-        } else {
-            true
         };
+        let needs_scratch = if direct_layer { layer_has_active_effects } else { true };
 
-        if layer_has_effects {
+        if needs_scratch {
             // Full scratch path: fill + render + effects + blit.
             LAYER_SCRATCH.with(|scratch| {
                 let mut layer_buf = scratch.borrow_mut();

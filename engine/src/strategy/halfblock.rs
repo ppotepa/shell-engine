@@ -3,13 +3,13 @@ use crossterm::style::Color;
 
 /// Controls how the virtual (2× height) buffer is packed into the terminal halfblock buffer.
 pub trait HalfblockPacker: Send + Sync {
-    /// Returns the (x_start, x_end, y_start, y_end) iteration bounds for the packing loop.
-    /// `source` is the virtual buffer; `target_height` is the halfblock buffer height.
     fn iteration_bounds(
         &self,
         source: &Buffer,
         target_height: u16,
     ) -> Option<(u16, u16, u16, u16)>;
+    /// Returns `true` when this is the experimental dirty-region variant.
+    fn is_dirty_region(&self) -> bool { false }
 }
 
 /// Iterates the full buffer every frame. Safe default.
@@ -49,4 +49,5 @@ impl HalfblockPacker for DirtyRegionPacker {
             (xmin, xmax, ty_start, ty_end)
         })
     }
+    fn is_dirty_region(&self) -> bool { true }
 }

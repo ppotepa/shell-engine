@@ -1,14 +1,17 @@
-//! `PipelineFlags` — explicit feature flags for risky render pipeline optimizations.
+//! `PipelineFlags` — startup configuration for the render pipeline.
 //!
-//! All experimental or unstable paths are off by default. Stable defaults are set here
-//! so no code needs to guess what is safe. To re-enable an optimization, flip the flag
-//! and verify that no regressions appear in the full scene flow.
+//! Holds both always-active invariant flags (e.g. `full_redraw_on_scene_change`)
+//! and the opt-in CLI flags used to construct `PipelineStrategies` at startup.
 //!
-//! Registered as a World resource at startup. Read by compositor and renderer.
+//! After startup, runtime systems read from `PipelineStrategies` (registered in World),
+//! not from `PipelineFlags` directly. `PipelineFlags` remains in World for diagnostic
+//! tooling and debug overlays that need to know which flags are active.
 
 /// Feature flags for the render pipeline.
 ///
-/// Designed so `PipelineFlags::default()` is always the safe, stable configuration.
+/// `PipelineFlags::default()` is always the safe, stable configuration.
+/// The `opt_*` fields are read once at startup to construct `PipelineStrategies`.
+/// Runtime systems use `PipelineStrategies`, not these booleans directly.
 #[derive(Debug, Clone, Copy)]
 pub struct PipelineFlags {
     /// Enable async postfx offload to the render thread.

@@ -4,10 +4,9 @@ use crossterm::style::Color;
 /// Controls whether a layer renders through a scratch buffer (safe) or
 /// directly into the scene buffer (optimised, skips scratch when no effects).
 pub trait LayerCompositor: Send + Sync {
-    /// Returns `true` if this layer should use the full scratch-buffer path
-    /// (fill → render → effects → blit). When `false`, sprites render directly
-    /// onto the destination buffer — only safe for layers with no active effects.
     fn use_scratch(&self, layer_has_active_effects: bool) -> bool;
+    /// Returns `true` when this is the experimental direct-render variant.
+    fn is_direct(&self) -> bool { false }
 }
 
 /// Always uses the scratch-buffer path. Safe in all circumstances.
@@ -29,4 +28,5 @@ impl LayerCompositor for DirectLayerCompositor {
     fn use_scratch(&self, layer_has_active_effects: bool) -> bool {
         layer_has_active_effects
     }
+    fn is_direct(&self) -> bool { true }
 }
