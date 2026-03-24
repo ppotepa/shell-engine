@@ -20,7 +20,7 @@ echo ""
 # Capture baseline (safe defaults)
 echo "📷 Capturing baseline frames (safe defaults)..."
 rm -rf "$BASELINE_DIR"
-timeout 60 cargo run -p app --release -- --capture-frames "$BASELINE_DIR" --bench "$BENCH_FRAMES" 2>&1 | tail -10 || true
+timeout 60 cargo run -p app --release -- --mod shell-quest-tests --capture-frames "$BASELINE_DIR" --bench "$BENCH_FRAMES" 2>&1 | tail -10 || true
 frames_baseline=$(ls -1 "$BASELINE_DIR" 2>/dev/null | wc -l)
 echo "✓ Baseline captured: $frames_baseline frames"
 
@@ -29,7 +29,7 @@ echo ""
 # Capture optimized (all optimizations enabled)
 echo "📷 Capturing optimized frames (--opt-comp --opt-present --opt-diff)..."
 rm -rf "$OPTIMIZED_DIR"
-timeout 60 cargo run -p app --release -- --opt-comp --opt-present --opt-diff --capture-frames "$OPTIMIZED_DIR" --bench "$BENCH_FRAMES" 2>&1 | tail -10 || true
+timeout 60 cargo run -p app --release -- --mod shell-quest-tests --opt-comp --opt-present --opt-diff --capture-frames "$OPTIMIZED_DIR" --bench "$BENCH_FRAMES" 2>&1 | tail -10 || true
 frames_optimized=$(ls -1 "$OPTIMIZED_DIR" 2>/dev/null | wc -l)
 echo "✓ Optimized captured: $frames_optimized frames"
 

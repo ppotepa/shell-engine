@@ -79,10 +79,4 @@ stages:
               alpha: 0.7
               speed: 3.0
       - { effects: [{ name: fade-out, duration: 220, params: { easing: ease-in } }] }
-next: 05.intro.cpu-on
-menu-options:
-  - { key: "1", label: "MOUSE ENJOYER", to: 05.intro.cpu-on }
-  - { key: "2", label: "SCRIPT KIDDIE", to: 05.intro.cpu-on }
-  - { key: "3", label: "I CAN EXIT VIM", to: 05.intro.cpu-on }
-  - { key: "4", label: "DVORAK", to: 05.intro.cpu-on }
-  - { key: "5", label: "SU", to: 05.intro.cpu-on }
+next: null
