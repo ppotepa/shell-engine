@@ -265,28 +265,34 @@ fn rasterize_image_quadblock(
                 virtual_h,
             );
 
+            // #10 opt-img-quadstack: stack array instead of Vec to avoid heap allocs.
             let mut mask = 0u8;
-            let mut colours = Vec::new();
+            let mut colours = [[0u8; 4]; 4];
+            let mut count = 0;
             if tl[3] >= ALPHA_THRESHOLD {
                 mask |= 0b0001;
-                colours.push(tl);
+                colours[count] = tl;
+                count += 1;
             }
             if tr[3] >= ALPHA_THRESHOLD {
                 mask |= 0b0010;
-                colours.push(tr);
+                colours[count] = tr;
+                count += 1;
             }
             if bl[3] >= ALPHA_THRESHOLD {
                 mask |= 0b0100;
-                colours.push(bl);
+                colours[count] = bl;
+                count += 1;
             }
             if br[3] >= ALPHA_THRESHOLD {
                 mask |= 0b1000;
-                colours.push(br);
+                colours[count] = br;
+                count += 1;
             }
             let Some(symbol) = quadrant_char(mask) else {
                 continue;
             };
-            let fg = average_rgb(&colours);
+            let fg = average_rgb(&colours[..count]);
             buf.set(x + ox, y + oy, symbol, fg, TRUE_BLACK);
         }
     }
@@ -316,19 +322,22 @@ fn rasterize_image_braille(
                 sample_scaled(image, sx, sy + 3, virtual_w, virtual_h),
                 sample_scaled(image, sx + 1, sy + 3, virtual_w, virtual_h),
             ];
+            // #10 opt-img-quadstack: stack array instead of Vec to avoid heap allocs.
             let mut mask = 0u8;
-            let mut colours = Vec::new();
+            let mut colours = [[0u8; 4]; 8];
+            let mut count = 0;
             for (i, px) in samples.iter().enumerate() {
                 if px[3] < ALPHA_THRESHOLD {
                     continue;
                 }
                 mask |= 1 << i;
-                colours.push(*px);
+                colours[count] = *px;
+                count += 1;
             }
             let Some(symbol) = braille_char(mask) else {
                 continue;
             };
-            let fg = average_rgb(&colours);
+            let fg = average_rgb(&colours[..count]);
             buf.set(x + ox, y + oy, symbol, fg, TRUE_BLACK);
         }
     }

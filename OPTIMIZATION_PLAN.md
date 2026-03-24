@@ -1,11 +1,11 @@
-## Pipeline Optimization Roadmap — 20 Ranked --optimize-* Flags
+## Pipeline Optimization Roadmap — 20 Ranked --opt-{scope}-{shortname} Flags
 
 **Goal:** Gradually introduce optimizations behind CLI flags to avoid regression.
 **Pipeline:** simulate -> composite -> postfx -> present -> flush_to_terminal
 
 ---
 
-### #1 — --optimize-buffered-stdout
+### #1 — --opt-term-bufwrite
 **Impact: 5/5 | Gain: 30-60% renderer_us**
 **Files:** engine/src/systems/renderer.rs
 
@@ -15,18 +15,18 @@ Steps:
 3. In flush_batched() (line 529), change param from &mut io::Stdout to &mut io::BufWriter<io::Stdout>
 4. The queue!() calls (lines 556-597) already write via Write trait — BufWriter collects them; single flush at line 599
 5. clear_black() / reset_console() / shutdown() use self.stdout — unchanged; crossterm macros work on any Write
-6. Add --optimize-buffered-stdout flag to app/src/main.rs (clap bool arg)
-7. Pass through EngineConfig -> add field pub optimize_buffered_stdout: bool
+6. Add --opt-term-bufwrite flag to app/src/main.rs (clap bool arg)
+7. Pass through EngineConfig -> add field pub opt_term_bufwrite: bool
 8. In engine/src/lib.rs run(), read flag: when OFF use raw io::Stdout; when ON use BufWriter
-9. Add pub optimize_buffered_stdout: bool to PipelineFlags, default false
-10. Test: cargo test -p engine then cargo run -p app -- --optimize-buffered-stdout --dev
+9. Add pub opt_term_bufwrite: bool to PipelineFlags, default false
+10. Test: cargo test -p engine then cargo run -p app -- --opt-term-bufwrite --dev
 11. Verify in debug overlay: renderer_us should drop significantly
 
 Why: io::Stdout locks/unlocks mutex on EVERY write(). ~500 queue!() calls/frame = 500 lock cycles. BufWriter batches into one flush.
 
 ---
 
-### #2 — --optimize-color-state
+### #2 — --opt-term-colorstate
 **Impact: 4/5 | Gain: 20-40% less ANSI bytes**
 **Files:** engine/src/systems/renderer.rs
 
@@ -34,7 +34,7 @@ Steps:
 1. In flush_batched(), add before loop: let mut active_fg = style::Color::Reset; let mut active_bg = style::Color::Reset;
 2. Extract helper fn emit_run() — skip SetForegroundColor when rfg == active_fg; skip SetBackgroundColor when rbg == active_bg; emit MoveTo only when cursor not at correct pos; queue Print(run); update cursor position
 3. Replace all 4 emit sites (lines 555-570, 583-597) with calls to emit_run()
-4. Add pub optimize_color_state: bool to PipelineFlags, default false
+4. Add pub opt_term_colorstate: bool to PipelineFlags, default false
 5. When flag OFF: always emit all commands (current); when ON: skip redundant
 6. Test: all scenes, verify no color glitches
 
@@ -42,7 +42,7 @@ Why: Consecutive runs often share fg or bg. Each SetForegroundColor(Rgb) = ~20 b
 
 ---
 
-### #3 — --optimize-write-buffer
+### #3 — --opt-term-ansibuf
 **Impact: 4/5 | Gain: 1 syscall/frame**
 **Files:** engine/src/systems/renderer.rs
 
@@ -53,14 +53,14 @@ Steps:
 4. After loop: stdout.write_all(&ansi)?; stdout.flush()?;
 5. Entire frame ANSI goes into contiguous Vec<u8>, then one write_all syscall
 6. Alternative to #1. Can combine: Vec -> BufWriter -> Stdout
-7. Add pub optimize_write_buffer: bool to PipelineFlags, default false
+7. Add pub opt_term_ansibuf: bool to PipelineFlags, default false
 8. Test: visual correctness across all scenes
 
 Why: Each queue!(stdout, ...) triggers write(). Vec<u8> absorbs all writes as memcpy, then single write_all + flush.
 
 ---
 
-### #4 — --optimize-layer-scratch
+### #4 — --opt-comp-layerscratch
 **Impact: 4/5 | Gain: 2x fewer buffer fills**
 **Files:** engine/src/systems/compositor/layer_compositor.rs, effect_applicator.rs
 
@@ -69,7 +69,7 @@ Steps:
 2. In composite_layers() loop (line 37), before LAYER_SCRATCH: let needs_scratch = layer_has_effects(...)
 3. When needs_scratch == false: call render_sprites() with buffer directly (scene buffer). Skip apply_layer_effects and blit_from.
 4. When needs_scratch == true: keep current scratch path
-5. Add pub optimize_layer_scratch: bool to PipelineFlags, default false
+5. Add pub opt_comp_layerscratch: bool to PipelineFlags, default false
 6. Guard: transparent sprites need scratch to avoid overwriting lower layers
 7. Test: scenes with multiple overlapping layers, verify Z-order
 
@@ -77,7 +77,7 @@ Why: Scratch path = fill(WxH) + render + blit(WxH) = 3 passes. Direct = render o
 
 ---
 
-### #5 — --optimize-halfblock-pack
+### #5 — --opt-comp-halfblock
 **Impact: 4/5 | Gain: 80-95% on idle**
 **Files:** engine/src/systems/compositor/mod.rs, engine-core/src/buffer.rs
 
@@ -97,7 +97,7 @@ Why: On idle, dirty region empty -> skip entire pack. Currently always O(WxH).
 
 ---
 
-### #6 — --optimize-scene-effects-ref
+### #6 — --opt-comp-effectsref
 **Impact: 3/5 | Gain: eliminate Vec<Effect> clone/frame**
 **Files:** engine/src/systems/compositor/mod.rs
 
@@ -113,7 +113,7 @@ Why: Avoids cloning Vec<Effect> containing Strings every frame. Data lives in Sc
 
 ---
 
-### #7 — --optimize-postfx-swap
+### #7 — --opt-postfx-swap
 **Impact: 4/5 | Gain: halve memcpy in postfx**
 **Files:** engine/src/systems/postfx.rs, engine-core/src/buffer.rs
 
@@ -121,7 +121,7 @@ Steps:
 1. Add to Buffer: pub fn copy_back_from(&mut self, src: &Buffer) — only copies back buffer
 2. Line 125 (skip-frame): replace buffer.clone_from(cached) with buffer.copy_back_from(cached)
 3. Line 188 (cache output): reuse allocation where possible
-4. Add pub optimize_postfx_swap: bool to PipelineFlags, default false
+4. Add pub opt_postfx_swap: bool to PipelineFlags, default false
 5. When OFF: keep clone/clone_from; when ON: use copy_back_from
 6. Test: scenes with postfx (CRT, burn-in), verify identical output
 
@@ -129,7 +129,7 @@ Why: clone/clone_from copies both back+front. Cache only needs back buffer. Save
 
 ---
 
-### #8 — --optimize-postfx-passes
+### #8 — --opt-postfx-passes
 **Impact: 3/5 | Gain: 50% less memcpy per pass**
 **Files:** engine/src/systems/postfx/pass_*.rs (6 files)
 
@@ -139,14 +139,14 @@ Steps per pass — replace dst.clone_from(src) + modify with single-pass read-sr
 3. pass_scan_glitch.rs: iterate dst rows; if glitch read src at offset; else read src at same pos
 4. pass_crt.rs: single pass: read src, apply CRT scanline+phosphor+curvature, write dst
 5. pass_burn_in.rs: refactor each stage to single-pass
-6. Add pub optimize_postfx_passes: bool to PipelineFlags
+6. Add pub opt_postfx_passes: bool to PipelineFlags
 7. Test each pass individually
 
 Why: clone_from writes every pixel, then pass overwrites subset. Single-pass reads+writes once.
 
 ---
 
-### #9 — --optimize-spritesheet-view
+### #9 — --opt-img-sheetview
 **Impact: 3/5 | Gain: zero-copy frame selection**
 **Files:** engine/src/systems/compositor/image_render.rs, engine/src/image_loader.rs
 
@@ -164,7 +164,7 @@ Why: Current code clones entire image per sprite per frame. ImageView = zero-cop
 
 ---
 
-### #10 — --optimize-quadblock-alloc
+### #10 — --opt-img-quadstack
 **Impact: 3/5 | Gain: kill thousands of heap allocs**
 **Files:** engine/src/systems/compositor/image_render.rs
 
@@ -179,7 +179,7 @@ Why: Inner pixel loop allocs Vec per pixel (WxH times). Stack array = zero heap 
 
 ---
 
-### #11 — --optimize-object-states
+### #11 — --opt-sim-objstates
 **Impact: 3/5 | Gain: O(1) vs O(N) on idle**
 **Files:** engine/src/scene_runtime.rs
 
@@ -187,7 +187,7 @@ Steps:
 1. Add field: object_states_dirty: bool to SceneRuntime (initially true)
 2. Set dirty=true in every state-mutating method
 3. In object_states_snapshot(): if !dirty && cached -> return Arc::clone(cached)
-4. Add pub optimize_object_states: bool to PipelineFlags
+4. Add pub opt_sim_objstates: bool to PipelineFlags
 5. When OFF: always rebuild; when ON: dirty check
 6. Test: behaviors that mutate states still update visuals
 
@@ -195,7 +195,7 @@ Why: On idle, no mutations -> O(1) Arc clone vs O(N) HashMap rebuild.
 
 ---
 
-### #12 — --optimize-rhai-scope
+### #12 — --opt-sim-rhaiscope
 **Impact: 2/5 | Gain: fewer allocs per behavior**
 **Files:** engine/src/systems/behavior.rs
 
@@ -204,7 +204,7 @@ Steps:
 2. Identify dynamic vars: elapsed_ms, delta_ms, state, visible, offset_x/y
 3. Add per-behavior cache: BehaviorScopeCache { scope, base_len, scene_id }
 4. First call: build full scope, record base_len; subsequent: scope.rewind(base_len) + push dynamic
-5. Gate behind PipelineFlags::optimize_rhai_scope
+5. Gate behind PipelineFlags::opt_sim_rhaiscope
 6. Clear cache on scene transition
 7. Test: Rhai behaviors reading all scope vars
 
@@ -212,7 +212,7 @@ Why: scope.push() for Maps/Arrays allocates. Static vars pushed once and reused.
 
 ---
 
-### #13 — --optimize-virtual-present
+### #13 — --opt-present-skipstatic
 **Impact: 3/5 | Gain: skip present on static frames**
 **Files:** engine/src/systems/renderer.rs, engine-core/src/buffer.rs
 
@@ -226,7 +226,7 @@ Why: On idle, compositor writes same pixels -> same write_count -> skip O(viewpo
 
 ---
 
-### #14 — --optimize-virtual-fit-lut
+### #14 — --opt-present-fitlut
 **Impact: 2/5 | Gain: ~2x faster virtual present (Fit mode)**
 **Files:** engine/src/systems/renderer.rs
 
@@ -241,7 +241,7 @@ Why: sample_fit_source does 2 muls + 2 divs per cell. LUT = 1 array index.
 
 ---
 
-### #15 — --optimize-compositor-skip
+### #15 — --opt-comp-skipidle
 **Impact: 4/5 | Gain: zero compositor cost on idle**
 **Files:** engine/src/systems/compositor/mod.rs, game_loop.rs, scene_runtime.rs
 
@@ -257,7 +257,7 @@ Why: On truly static frames, compositor output identical to previous.
 
 ---
 
-### #16 — --optimize-postfx-skip
+### #16 — --opt-postfx-earlyret
 **Impact: 2/5 | Gain: eliminate overhead on no-postfx scenes**
 **Files:** engine/src/systems/postfx.rs
 
@@ -271,7 +271,7 @@ Why: Many scenes have no postfx. Current code does unnecessary work before disco
 
 ---
 
-### #17 — --optimize-effect-region
+### #17 — --opt-comp-regioncache
 **Impact: 2/5 | Gain: cache region lookups per step**
 **Files:** engine/src/systems/compositor/mod.rs
 
@@ -286,7 +286,7 @@ Why: Effect regions static within a step. HashMap lookup eliminated on repeated 
 
 ---
 
-### #18 — --optimize-cell-pack
+### #18 — --opt-buf-cellpack
 **Impact: 2/5 | Gain: 30% less memory, better cache**
 **Files:** engine-core/src/buffer.rs
 
@@ -302,7 +302,7 @@ Why: SoA means diff scanning loads only color data. More cells per cache line.
 
 ---
 
-### #19 — --optimize-glow-cache-evict
+### #19 — --opt-mem-glowevict
 **Impact: 1/5 | Gain: bounded memory**
 **Files:** engine/src/systems/compositor/sprite_renderer.rs
 
@@ -316,7 +316,7 @@ Why: Unbounded HashMap grows forever.
 
 ---
 
-### #20 — --optimize-object-region-strings
+### #20 — --opt-comp-borrowstr
 **Impact: 2/5 | Gain: eliminate String heap allocs/frame**
 **Files:** layer_compositor.rs, render/common.rs, compositor/mod.rs
 
@@ -335,26 +335,26 @@ Why: to_string() per layer per frame = 10-50 heap allocs. Borrowed &str = zero a
 
 | # | Flag | Impact | Category |
 |---|------|--------|----------|
-| 1 | --optimize-buffered-stdout | 5/5 | Terminal output |
-| 2 | --optimize-color-state | 4/5 | Terminal output |
-| 3 | --optimize-write-buffer | 4/5 | Terminal output |
-| 4 | --optimize-layer-scratch | 4/5 | Compositor |
-| 5 | --optimize-halfblock-pack | 4/5 | Compositor |
-| 6 | --optimize-scene-effects-ref | 3/5 | Compositor |
-| 7 | --optimize-postfx-swap | 4/5 | PostFX |
-| 8 | --optimize-postfx-passes | 3/5 | PostFX |
-| 9 | --optimize-spritesheet-view | 3/5 | Image render |
-| 10 | --optimize-quadblock-alloc | 3/5 | Image render |
-| 11 | --optimize-object-states | 3/5 | Simulation |
-| 12 | --optimize-rhai-scope | 2/5 | Simulation |
-| 13 | --optimize-virtual-present | 3/5 | Present |
-| 14 | --optimize-virtual-fit-lut | 2/5 | Present |
-| 15 | --optimize-compositor-skip | 4/5 | Compositor |
-| 16 | --optimize-postfx-skip | 2/5 | PostFX |
-| 17 | --optimize-effect-region | 2/5 | Compositor |
-| 18 | --optimize-cell-pack | 2/5 | Buffer core |
-| 19 | --optimize-glow-cache-evict | 1/5 | Memory |
-| 20 | --optimize-object-region-strings | 2/5 | Compositor |
+| 1 | --opt-term-bufwrite | 5/5 | Terminal output |
+| 2 | --opt-term-colorstate | 4/5 | Terminal output |
+| 3 | --opt-term-ansibuf | 4/5 | Terminal output |
+| 4 | --opt-comp-layerscratch | 4/5 | Compositor |
+| 5 | --opt-comp-halfblock | 4/5 | Compositor |
+| 6 | --opt-comp-effectsref | 3/5 | Compositor |
+| 7 | --opt-postfx-swap | 4/5 | PostFX |
+| 8 | --opt-postfx-passes | 3/5 | PostFX |
+| 9 | --opt-img-sheetview | 3/5 | Image render |
+| 10 | --opt-img-quadstack | 3/5 | Image render |
+| 11 | --opt-sim-objstates | 3/5 | Simulation |
+| 12 | --opt-sim-rhaiscope | 2/5 | Simulation |
+| 13 | --opt-present-skipstatic | 3/5 | Present |
+| 14 | --opt-present-fitlut | 2/5 | Present |
+| 15 | --opt-comp-skipidle | 4/5 | Compositor |
+| 16 | --opt-postfx-earlyret | 2/5 | PostFX |
+| 17 | --opt-comp-regioncache | 2/5 | Compositor |
+| 18 | --opt-buf-cellpack | 2/5 | Buffer core |
+| 19 | --opt-mem-glowevict | 1/5 | Memory |
+| 20 | --opt-comp-borrowstr | 2/5 | Compositor |
 
 ## Recommended Implementation Order
 Safe starters (no flag needed): #16, #10, #6, #9

@@ -48,6 +48,11 @@ pub(super) struct PostFxContext<'a> {
 }
 
 pub fn postfx_system(world: &mut World) {
+    // #16 opt-postfx-earlyret: skip all work when scene has no postfx passes.
+    if world.scene_runtime().map_or(true, |rt| rt.scene().postfx.is_empty()) {
+        return;
+    }
+
     let (scene_id, fingerprint, passes, scene_elapsed_ms) = {
         let Some(runtime) = world.scene_runtime() else {
             return;

@@ -61,7 +61,7 @@ pub fn compositor_system(world: &mut World) {
         step_idx,
         elapsed_ms,
         scene_elapsed_ms,
-        scene_effects,
+        effects_ptr,
         scene_step_dur,
         rendered_mode,
     ) = {
@@ -96,7 +96,11 @@ pub fn compositor_system(world: &mut World) {
             SceneStage::OnLeave => scene.stages.on_leave.steps.get(step),
             SceneStage::Done => None,
         };
-        let scene_effects = current_step.map(|s| s.effects.clone()).unwrap_or_default();
+        // #6 opt-comp-effectsref: raw pointer avoids Vec<Effect> clone every frame.
+        // SAFETY: same reasoning as layers_ptr — scene is not mutated until rendering is complete.
+        let effects_ptr: *const [crate::scene::Effect] = current_step
+            .map(|s| s.effects.as_slice() as *const _)
+            .unwrap_or(&[] as *const _);
         let scene_step_dur = current_step.map(|s| s.duration_ms()).unwrap_or(0);
 
         (
@@ -109,7 +113,7 @@ pub fn compositor_system(world: &mut World) {
             step,
             elapsed,
             scene_elapsed,
-            scene_effects,
+            effects_ptr,
             scene_step_dur,
             runtime_mode_override.unwrap_or(scene.rendered_mode),
         )
@@ -117,6 +121,8 @@ pub fn compositor_system(world: &mut World) {
 
     // SAFETY: see comment above layers_ptr declaration.
     let layers: &[crate::scene::Layer] = unsafe { (*layers_ptr).as_slice() };
+    // SAFETY: see comment above effects_ptr declaration (#6).
+    let scene_effects: &[crate::scene::Effect] = unsafe { &*effects_ptr };
 
     let use_virtual = world
         .runtime_settings()
