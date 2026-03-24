@@ -12,7 +12,7 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
     let frame = ctx.frame_count as u32;
 
     // This pass modifies only selected scan-bands, so preserve the full source first.
-    dst.clone_from(src);
+    dst.copy_back_from(src);
 
     let band_half = (1.0 + thickness * 3.0).round() as i32; // 1..4 lines each side
     let extra_bands = if rand01(3, 11, frame.wrapping_add(97)) < (0.08 + speed * 0.16) {

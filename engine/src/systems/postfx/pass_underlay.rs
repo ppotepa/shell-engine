@@ -6,7 +6,7 @@ use crossterm::style::Color;
 
 pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pass: &Effect) {
     if src.width == 0 || src.height == 0 {
-        dst.clone_from(src);
+        dst.copy_back_from(src);
         return;
     }
     // Photoshop-style model:

@@ -40,7 +40,7 @@ pub(super) fn apply(
     sub_passes: &[(PostFxBuiltin, Effect)],
 ) {
     if src.width <= 2 || src.height <= 2 {
-        dst.clone_from(src);
+        dst.copy_back_from(src);
         return;
     }
 

@@ -10,7 +10,7 @@ pub(super) fn apply(_ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pa
     let brightness = pass.params.brightness.unwrap_or(1.0).clamp(0.6, 1.4);
 
     if src.width <= 2 || src.height <= 2 {
-        dst.clone_from(src);
+        dst.copy_back_from(src);
         return;
     }
 

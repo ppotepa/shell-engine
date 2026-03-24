@@ -112,7 +112,7 @@ thread_local! {
 
 pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pass: &Effect) {
     if src.width == 0 || src.height == 0 {
-        dst.clone_from(src);
+        dst.copy_back_from(src);
         return;
     }
 
@@ -124,7 +124,7 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
     let decay_tint = pass.params.decay_tint.unwrap_or(0.8).clamp(0.0, 1.0);
 
     if intensity < 0.001 {
-        dst.clone_from(src);
+        dst.copy_back_from(src);
         return;
     }
 
@@ -142,7 +142,7 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
 
         // ── 2. No ghost → pass-through, capture for next time ─────────
         if s.ghost.is_none() {
-            dst.clone_from(src);
+            dst.copy_back_from(src);
             s.capture_live(src);
             return;
         }
@@ -167,7 +167,7 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
         // Imperceptible → clear ghost.
         if f < 0.003 {
             s.clear_ghost();
-            dst.clone_from(src);
+            dst.copy_back_from(src);
             s.capture_live(src);
             return;
         }

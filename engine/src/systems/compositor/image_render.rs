@@ -9,6 +9,31 @@ use crate::scene::{SceneRenderedMode, SpriteSizePreset};
 
 const ALPHA_THRESHOLD: u8 = 16;
 
+/// #9 opt-img-sheetview: zero-copy view into a spritesheet frame.
+/// Avoids cloning/allocating pixels for sub-frame selection.
+struct ImageView<'a> {
+    source: &'a LoadedRgbaImage,
+    offset_x: u32,
+    offset_y: u32,
+    width: u32,
+    height: u32,
+}
+
+impl<'a> ImageView<'a> {
+    fn full(image: &'a LoadedRgbaImage) -> Self {
+        Self { source: image, offset_x: 0, offset_y: 0, width: image.width, height: image.height }
+    }
+
+    fn sub(image: &'a LoadedRgbaImage, x: u32, y: u32, w: u32, h: u32) -> Self {
+        Self { source: image, offset_x: x, offset_y: y, width: w, height: h }
+    }
+
+    fn pixel(&self, x: u32, y: u32) -> Option<[u8; 4]> {
+        if x >= self.width || y >= self.height { return None; }
+        self.source.pixel(self.offset_x + x, self.offset_y + y)
+    }
+}
+
 pub(super) fn render_image_content(
     source: &str,
     req_width: Option<u16>,
@@ -82,16 +107,16 @@ pub(super) fn image_sprite_dimensions(
     resolve_image_dimensions(&image, mode, req_width, req_height, size)
 }
 
-fn select_spritesheet_frame(
-    image: &LoadedRgbaImage,
+fn select_spritesheet_frame<'a>(
+    image: &'a LoadedRgbaImage,
     sheet_columns: Option<u16>,
     sheet_rows: Option<u16>,
     frame_index: Option<u16>,
-) -> LoadedRgbaImage {
+) -> ImageView<'a> {
     let cols = sheet_columns.unwrap_or(1).max(1) as u32;
     let rows = sheet_rows.unwrap_or(1).max(1) as u32;
     if cols == 1 && rows == 1 {
-        return image.clone();
+        return ImageView::full(image);
     }
     let cell_w = (image.width / cols).max(1);
     let cell_h = (image.height / rows).max(1);
@@ -114,17 +139,11 @@ fn select_spritesheet_frame(
 
     let out_w = end_x.saturating_sub(start_x).max(1);
     let out_h = end_y.saturating_sub(start_y).max(1);
-    let mut pixels = Vec::with_capacity((out_w as usize).saturating_mul(out_h as usize));
-    for y in start_y..end_y {
-        for x in start_x..end_x {
-            pixels.push(image.pixel(x, y).unwrap_or([0, 0, 0, 0]));
-        }
-    }
-    LoadedRgbaImage::from_pixels(out_w, out_h, pixels)
+    ImageView::sub(image, start_x, start_y, out_w, out_h)
 }
 
 fn resolve_image_dimensions(
-    image: &LoadedRgbaImage,
+    image: &ImageView,
     mode: SceneRenderedMode,
     req_width: Option<u16>,
     req_height: Option<u16>,
@@ -158,7 +177,7 @@ fn scale_dimensions(width: u16, height: u16, ratio: (u16, u16)) -> (u16, u16) {
     )
 }
 
-fn natural_image_dimensions(image: &LoadedRgbaImage, mode: SceneRenderedMode) -> (u16, u16) {
+fn natural_image_dimensions(image: &ImageView, mode: SceneRenderedMode) -> (u16, u16) {
     let w = image.width.max(1);
     let h = image.height.max(1);
     let (cell_w, cell_h) = match mode {
@@ -174,7 +193,7 @@ fn natural_image_dimensions(image: &LoadedRgbaImage, mode: SceneRenderedMode) ->
 }
 
 fn rasterize_image_cell(
-    image: &LoadedRgbaImage,
+    image: &ImageView,
     target_w: u16,
     target_h: u16,
     x: u16,
@@ -199,7 +218,7 @@ fn rasterize_image_cell(
 }
 
 fn rasterize_image_halfblock(
-    image: &LoadedRgbaImage,
+    image: &ImageView,
     target_w: u16,
     target_h: u16,
     x: u16,
@@ -231,7 +250,7 @@ fn rasterize_image_halfblock(
 }
 
 fn rasterize_image_quadblock(
-    image: &LoadedRgbaImage,
+    image: &ImageView,
     target_w: u16,
     target_h: u16,
     x: u16,
@@ -299,7 +318,7 @@ fn rasterize_image_quadblock(
 }
 
 fn rasterize_image_braille(
-    image: &LoadedRgbaImage,
+    image: &ImageView,
     target_w: u16,
     target_h: u16,
     x: u16,
@@ -344,7 +363,7 @@ fn rasterize_image_braille(
 }
 
 fn sample_scaled(
-    image: &LoadedRgbaImage,
+    image: &ImageView,
     x: u32,
     y: u32,
     virtual_w: u32,
