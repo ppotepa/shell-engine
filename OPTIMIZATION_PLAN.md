@@ -5,28 +5,30 @@
 
 ### Implementation Status
 
-| # | Flag | Status |
-|---|------|--------|
-| 1 | opt-term-bufwrite | ✅ Done |
-| 2 | opt-term-colorstate | ✅ Done |
-| 3 | opt-term-ansibuf | ✅ Done |
-| 4 | opt-comp-layerscratch | ✅ Done |
-| 5 | opt-comp-halfblock | ✅ Done |
-| 6 | opt-comp-effectsref | ✅ Done |
-| 7 | opt-postfx-swap | ✅ Done |
-| 8 | opt-postfx-passes | ✅ Done |
-| 9 | opt-img-sheetview | ✅ Done |
-| 10 | opt-img-quadstack | ✅ Done |
-| 11 | opt-sim-objstates | ✅ Already in codebase |
-| 12 | opt-sim-rhaiscope | ✅ Already in codebase (BEHAVIOR_SCOPES rewind) |
-| 13 | opt-present-skipstatic | ✅ Done |
-| 14 | opt-present-fitlut | ✅ Done |
-| 15 | opt-comp-skipidle | ⏳ Deferred (invasive dirty tracking) |
-| 16 | opt-postfx-earlyret | ✅ Done |
-| 17 | opt-comp-regioncache | ⏳ Deferred (moderate gain) |
-| 18 | opt-buf-cellpack | ⏳ Deferred (major SoA refactor) |
-| 19 | opt-mem-glowevict | ✅ Already in codebase |
-| 20 | opt-comp-borrowstr | ⏳ Deferred (invasive lifetime propagation) |
+| # | Flag | Status | Notes |
+|---|------|--------|-------|
+| 1 | opt-term-bufwrite | ✅ Done | BufWriter 64KB wraps stdout |
+| 2 | opt-term-colorstate | ✅ Done | Skip redundant SetColor ANSI commands |
+| 3 | opt-term-ansibuf | ✅ Done | Single write_all per frame |
+| 4 | opt-comp-layerscratch | ✅ Done | Direct render when layer has no effects |
+| 5 | opt-comp-halfblock | ✅ Done | Pack only dirty-region rows/cols |
+| 6 | opt-comp-effectsref | ✅ Done | Raw pointer avoids Vec<Effect> clone |
+| 7 | opt-postfx-swap | ✅ Done | copy_back_from() skips front copy |
+| 8 | opt-postfx-passes | ✅ Done | All passes use copy_back_from |
+| 9 | opt-img-sheetview | ✅ Done | Zero-copy ImageView replaces clone |
+| 10 | opt-img-quadstack | ✅ Done | Stack arrays in quadblock/braille |
+| 11 | opt-sim-objstates | ✅ Already in codebase | cached_object_states Arc caching |
+| 12 | opt-sim-rhaiscope | ✅ Already in codebase | BEHAVIOR_SCOPES rewind pattern |
+| 13 | opt-present-skipstatic | ✅ Done | Buffer hash skip; reset_dirty() after fill |
+| 14 | opt-present-fitlut | ✅ Done | Precomputed x/y LUT for Fit mode |
+| 15 | opt-comp-skipidle | ⏳ Deferred | Invasive dirty tracking across all systems |
+| 16 | opt-postfx-earlyret | ✅ Done | Early return when no postfx passes |
+| 17 | opt-comp-regioncache | ⏳ Deferred | effect_region() already O(1) HashMap |
+| 18 | opt-buf-cellpack | ⏳ Deferred | Major SoA buffer refactor |
+| 19 | opt-mem-glowevict | ✅ Already in codebase | 128-entry GLOW_CACHE eviction |
+| 20 | opt-comp-borrowstr | ⏳ Deferred | Invasive lifetime propagation |
+
+**16 of 20 optimizations complete** (including 3 already in codebase). 4 deferred.
 
 ---
 
