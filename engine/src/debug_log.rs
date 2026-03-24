@@ -163,3 +163,25 @@ impl DebugLogBuffer {
         self.last_error = None;
     }
 }
+
+/// A sink that receives diagnostic entries.
+///
+/// The default implementation is `DebugLogBuffer` (in-process ring buffer for
+/// the debug overlay). Additional sinks (`FileSink`, `NullSink`) can be composed
+/// at startup without modifying the engine's push call sites.
+pub trait DiagnosticSink: Send + Sync {
+    fn push(&mut self, entry: DebugLogEntry);
+}
+
+impl DiagnosticSink for DebugLogBuffer {
+    fn push(&mut self, entry: DebugLogEntry) {
+        DebugLogBuffer::push(self, entry);
+    }
+}
+
+/// Discards all entries — zero overhead in production builds or tests.
+pub struct NullSink;
+
+impl DiagnosticSink for NullSink {
+    fn push(&mut self, _entry: DebugLogEntry) {}
+}

@@ -79,6 +79,22 @@ pub enum IoEvent {
     },
 }
 
+/// Transport-agnostic interface for communicating with a running sidecar.
+///
+/// Both `TcpSidecar` (localhost TCP) and `SidecarProcess` (stdio JSON-lines)
+/// implement this trait, making the transport selection a startup-time concern
+/// rather than a hard-coded call site.
+pub trait SidecarTransport: Send + Sync {
+    /// Send a request to the sidecar. Non-blocking; queued on an internal channel.
+    fn send(&self, req: IoRequest) -> Result<(), EngineIoError>;
+    /// Drain up to `max` pending inbound events without blocking.
+    fn try_drain_events(&self, max: usize) -> Vec<IoEvent>;
+    /// `true` if the child process is still running.
+    fn is_alive(&self) -> bool;
+    /// Kill the child process.
+    fn kill(&self);
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum EngineIoError {
     #[error("failed to spawn sidecar: {0}")]
@@ -253,6 +269,53 @@ impl SidecarProcess {
             let _ = child.kill();
         }
     }
+}
+
+impl SidecarTransport for TcpSidecar {
+    fn send(&self, req: IoRequest) -> Result<(), EngineIoError> {
+        TcpSidecar::send(self, req)
+    }
+    fn try_drain_events(&self, max: usize) -> Vec<IoEvent> {
+        TcpSidecar::try_drain_events(self, max)
+    }
+    fn is_alive(&self) -> bool {
+        TcpSidecar::is_alive(self)
+    }
+    fn kill(&self) {
+        TcpSidecar::kill(self)
+    }
+}
+
+impl SidecarTransport for SidecarProcess {
+    fn send(&self, req: IoRequest) -> Result<(), EngineIoError> {
+        SidecarProcess::send(self, req)
+    }
+    fn try_drain_events(&self, max: usize) -> Vec<IoEvent> {
+        SidecarProcess::try_drain_events(self, max)
+    }
+    fn is_alive(&self) -> bool {
+        SidecarProcess::is_alive(self)
+    }
+    fn kill(&self) {
+        SidecarProcess::kill(self)
+    }
+}
+
+/// A no-op transport that discards all requests and produces no events.
+/// Useful for testing and for scenes that do not use a sidecar.
+pub struct NullTransport;
+
+impl SidecarTransport for NullTransport {
+    fn send(&self, _req: IoRequest) -> Result<(), EngineIoError> {
+        Ok(())
+    }
+    fn try_drain_events(&self, _max: usize) -> Vec<IoEvent> {
+        Vec::new()
+    }
+    fn is_alive(&self) -> bool {
+        false
+    }
+    fn kill(&self) {}
 }
 
 fn spawn_stdin_writer(mut stdin: ChildStdin, rx: Receiver<String>) {
