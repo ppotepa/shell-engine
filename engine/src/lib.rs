@@ -13,6 +13,7 @@ pub use engine_core::{animations, buffer, effects, logging, markup, scene};
 pub mod asset_cache;
 pub mod obj_prerender;
 pub mod scene_pipeline;
+pub mod pipeline_flags;
 pub mod asset_source;
 pub mod assets;
 pub mod audio;
@@ -175,6 +176,7 @@ impl ShellEngine {
         let mod_behavior_registry = mod_behaviors::load_mod_behaviors(&self.mod_source);
         world.register(mod_behavior_registry);
         world.register(game_state::GameState::new());
+        world.register(pipeline_flags::PipelineFlags::default());
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
         }

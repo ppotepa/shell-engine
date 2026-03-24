@@ -68,13 +68,61 @@ pub fn composite_layers(
             );
         }
 
-        LAYER_SCRATCH.with(|scratch| {
-            let mut layer_buf = scratch.borrow_mut();
-            if layer_buf.width != scene_w || layer_buf.height != scene_h {
-                layer_buf.resize(scene_w, scene_h);
-            }
-            layer_buf.fill(Color::Reset);
+        // #4 opt-comp-layerscratch: check if layer has effects at current stage/step.
+        let layer_has_effects = {
+            let stage_ref = match current_stage {
+                SceneStage::OnEnter => &layer.stages.on_enter,
+                SceneStage::OnIdle => &layer.stages.on_idle,
+                SceneStage::OnLeave => &layer.stages.on_leave,
+                SceneStage::Done => &layer.stages.on_idle,
+            };
+            stage_ref.steps.iter().any(|s| !s.effects.is_empty())
+        };
 
+        if layer_has_effects {
+            // Full scratch path: fill + render + effects + blit.
+            LAYER_SCRATCH.with(|scratch| {
+                let mut layer_buf = scratch.borrow_mut();
+                if layer_buf.width != scene_w || layer_buf.height != scene_h {
+                    layer_buf.resize(scene_w, scene_h);
+                }
+                layer_buf.fill(Color::Reset);
+
+                render_sprites(
+                    layer_idx,
+                    layer,
+                    scene_w,
+                    scene_h,
+                    scene_rendered_mode,
+                    asset_root,
+                    target_resolver,
+                    object_regions,
+                    total_origin_x,
+                    total_origin_y,
+                    object_states,
+                    scene_elapsed_ms,
+                    current_stage,
+                    step_idx,
+                    elapsed_ms,
+                    obj_camera_states,
+                    &mut *layer_buf,
+                );
+
+                apply_layer_effects(
+                    layer,
+                    current_stage,
+                    step_idx,
+                    elapsed_ms,
+                    scene_elapsed_ms,
+                    target_resolver,
+                    object_regions,
+                    &mut *layer_buf,
+                );
+
+                buffer.blit_from(&layer_buf, 0, 0, 0, 0, scene_w, scene_h);
+            });
+        } else {
+            // No effects: render sprites directly onto scene buffer (skip scratch).
             render_sprites(
                 layer_idx,
                 layer,
@@ -92,22 +140,8 @@ pub fn composite_layers(
                 step_idx,
                 elapsed_ms,
                 obj_camera_states,
-                &mut *layer_buf,
+                buffer,
             );
-
-            apply_layer_effects(
-                layer,
-                current_stage,
-                step_idx,
-                elapsed_ms,
-                scene_elapsed_ms,
-                target_resolver,
-                object_regions,
-                &mut *layer_buf,
-            );
-
-            // Blit layer onto scene framebuffer using optimized region copy.
-            buffer.blit_from(&layer_buf, 0, 0, 0, 0, scene_w, scene_h);
-        });
+        }
     }
 }
