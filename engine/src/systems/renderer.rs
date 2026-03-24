@@ -3,11 +3,12 @@ use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
-use crate::strategy::TerminalFlusher;
+use crate::strategy::{AnsiBatchFlusher, TerminalFlusher, AlwaysPresenter, VirtualPresenter};
 use crate::systems::animator::{Animator, SceneStage};
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
 use engine_core::logging;
+use engine_core::strategy::{DiffStrategy, FullScanDiff};
 use std::cell::RefCell;
 use std::io::{self, Write};
 
@@ -105,20 +106,29 @@ pub fn renderer_system(world: &mut World) {
     apply_debug_overlay(world);
     apply_perf_hud(world);
 
-    // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
-    let use_dirty_diff = world
+    // Extract raw pointer to avoid a long-lived PipelineStrategies borrow conflicting
+    // with buffer borrows taken below. Pattern mirrors layers_ptr in compositor_system.
+    // SAFETY: PipelineStrategies is registered at startup and never mutated or dropped
+    // during frame processing. Pointer valid for duration of render_system.
+    let strats_ptr: *const crate::strategy::PipelineStrategies = world
         .get::<crate::strategy::PipelineStrategies>()
-        .map(|s| s.diff.is_dirty_region())
-        .unwrap_or(false);
+        .map(|s| s as *const _)
+        .unwrap_or(std::ptr::null());
+    static FALLBACK_DIFF: FullScanDiff = FullScanDiff;
+    static FALLBACK_FLUSH: AnsiBatchFlusher = AnsiBatchFlusher;
+    let diff_strategy: &dyn DiffStrategy =
+        if strats_ptr.is_null() { &FALLBACK_DIFF }
+        else { unsafe { (*strats_ptr).diff.as_ref() } };
+    let flusher: &dyn TerminalFlusher =
+        if strats_ptr.is_null() { &FALLBACK_FLUSH }
+        else { unsafe { (*strats_ptr).flush.as_ref() } };
+
+    // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
     DIFF_SCRATCH.with(|scratch| {
         let mut diffs = scratch.borrow_mut();
         diffs.clear();
         if let Some(buf) = world.buffer() {
-            if use_dirty_diff {
-                buf.diff_into_dirty(&mut diffs);
-            } else {
-                buf.diff_into(&mut diffs);
-            }
+            diff_strategy.diff_into(buf, &mut diffs);
         }
     });
 
@@ -130,20 +140,9 @@ pub fn renderer_system(world: &mut World) {
         return;
     }
 
-    // Read the flusher strategy before taking the renderer borrow.
-    // AnsiBatchFlusher (default) calls flush_batched directly; NaiveFlusher is used in tests.
-    let use_naive_flush = world
-        .get::<crate::strategy::PipelineStrategies>()
-        .map(|s| s.flush.is_naive())
-        .unwrap_or(false);
-
     if let Some(renderer) = world.renderer_mut() {
         DIFF_SCRATCH.with(|scratch| {
-            if use_naive_flush {
-                crate::strategy::NaiveFlusher.flush(&mut renderer.stdout, &scratch.borrow());
-            } else {
-                flush_batched(&mut renderer.stdout, &scratch.borrow());
-            }
+            flusher.flush(&mut renderer.stdout, &scratch.borrow());
         });
     }
 
@@ -431,14 +430,23 @@ fn present_virtual_to_output(world: &mut World) {
     let Some(settings) = world.runtime_settings().cloned() else {
         return;
     };
-    let hash_skip_present = world
-        .get::<crate::strategy::PipelineStrategies>()
-        .map(|s| s.present.is_hash_skip())
-        .unwrap_or(false);
 
-    // #13 opt-present-skipstatic: when hash_skip_present is enabled, detect scene transitions
-    // and reset the hash so the first frame of a new scene is never skipped.
-    let scene_changed = if hash_skip_present {
+    // Extract raw pointer to the VirtualPresenter strategy to avoid a long-lived borrow
+    // conflicting with the with_ref_and_mut closure below.
+    // SAFETY: same invariant as in render_system — PipelineStrategies is startup-only, immutable.
+    let strats_ptr: *const crate::strategy::PipelineStrategies = world
+        .get::<crate::strategy::PipelineStrategies>()
+        .map(|s| s as *const _)
+        .unwrap_or(std::ptr::null());
+    static FALLBACK_PRESENT: AlwaysPresenter = AlwaysPresenter;
+    let presenter: &dyn VirtualPresenter =
+        if strats_ptr.is_null() { &FALLBACK_PRESENT }
+        else { unsafe { (*strats_ptr).present.as_ref() } };
+
+    // Scene-change tracking resets the hash on scene transitions so the first frame of
+    // a new scene is never incorrectly skipped. AlwaysPresenter.should_skip() always
+    // returns false so this tracking is harmless when hash-skip is not active.
+    let scene_changed = {
         let current_scene_id = world
             .scene_runtime()
             .map(|rt| rt.scene().id.clone())
@@ -451,25 +459,19 @@ fn present_virtual_to_output(world: &mut World) {
             }
             changed
         })
-    } else {
-        false
     };
 
     world.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(|vbuf, output_buf| {
         let virtual_buf = &vbuf.0;
 
-        // #13 opt-present-skipstatic: skip when virtual buffer content unchanged.
-        // Only active when HashSkipPresenter strategy is selected.
-        if hash_skip_present {
-            let hash = virtual_buf.back_hash();
-            let skip = !scene_changed && LAST_VBUF_HASH.with(|c| {
-                let prev = *c.borrow();
-                *c.borrow_mut() = hash;
-                prev == hash
-            });
-            if skip {
-                return;
-            }
+        let hash = virtual_buf.back_hash();
+        let skip = !scene_changed && LAST_VBUF_HASH.with(|c| {
+            let prev = *c.borrow();
+            *c.borrow_mut() = hash;
+            presenter.should_skip(hash, prev)
+        });
+        if skip {
+            return;
         }
 
         output_buf.fill(TRUE_BLACK);

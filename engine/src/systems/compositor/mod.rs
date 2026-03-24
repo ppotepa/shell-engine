@@ -34,10 +34,23 @@ pub fn compositor_system(world: &mut World) {
     let runtime_mode_override = world
         .runtime_settings()
         .and_then(|s| s.renderer_mode_override);
-    let (direct_layer, dirty_halfblock) = world
+
+    // Extract raw pointer to PipelineStrategies to avoid a long-lived borrow that would
+    // conflict with the buffer/virtual_buffer borrows taken later in this function.
+    // SAFETY: PipelineStrategies is registered at startup and never mutated or dropped
+    // during frame processing. The pointer remains valid for the duration of compositor_system.
+    let strats_ptr: *const crate::strategy::PipelineStrategies = world
         .get::<crate::strategy::PipelineStrategies>()
-        .map(|s| (s.layer.is_direct(), s.halfblock.is_dirty_region()))
-        .unwrap_or((false, false));
+        .map(|s| s as *const _)
+        .unwrap_or(std::ptr::null());
+    static FALLBACK_LAYER: crate::strategy::ScratchLayerCompositor = crate::strategy::ScratchLayerCompositor;
+    static FALLBACK_HALFBLOCK: crate::strategy::FullScanPacker = crate::strategy::FullScanPacker;
+    let layer_strategy: &dyn crate::strategy::LayerCompositor =
+        if strats_ptr.is_null() { &FALLBACK_LAYER }
+        else { unsafe { (*strats_ptr).layer.as_ref() } };
+    let halfblock_strategy: &dyn crate::strategy::HalfblockPacker =
+        if strats_ptr.is_null() { &FALLBACK_HALFBLOCK }
+        else { unsafe { (*strats_ptr).halfblock.as_ref() } };
 
     // Extract a raw pointer to the scene layer slice to avoid deep-cloning the entire
     // layer tree (all Sprite::Obj fields, Strings, etc.) every frame.
@@ -190,8 +203,8 @@ pub fn compositor_system(world: &mut World) {
                             scene_elapsed_ms,
                             &scene_effects,
                             scene_step_dur,
-                            direct_layer,
-                            dirty_halfblock,
+                            layer_strategy,
+                            halfblock_strategy,
                             buffer,
                         )
                     }
@@ -210,8 +223,8 @@ pub fn compositor_system(world: &mut World) {
                         scene_elapsed_ms,
                         &scene_effects,
                         scene_step_dur,
-                        direct_layer,
-                        dirty_halfblock,
+                        layer_strategy,
+                        halfblock_strategy,
                         buffer,
                     ),
                 }
@@ -246,8 +259,8 @@ pub fn compositor_system(world: &mut World) {
                     scene_elapsed_ms,
                     &scene_effects,
                     scene_step_dur,
-                    direct_layer,
-                    dirty_halfblock,
+                    layer_strategy,
+                    halfblock_strategy,
                     buffer,
                 )
                 }
@@ -266,8 +279,8 @@ pub fn compositor_system(world: &mut World) {
                     scene_elapsed_ms,
                     &scene_effects,
                     scene_step_dur,
-                    direct_layer,
-                    dirty_halfblock,
+                    layer_strategy,
+                    halfblock_strategy,
                     buffer,
                 ),
             }
@@ -293,17 +306,14 @@ fn composite_scene(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
-    direct_layer: bool,
-    dirty_halfblock: bool,
+    layer: &dyn crate::strategy::LayerCompositor,
+    halfblock: &dyn crate::strategy::HalfblockPacker,
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
     buffer.fill(bg);
-    // #5 opt-comp-halfblock: reset dirty tracking after background fill so that only
-    // sprite/effect writes contribute to dirty_bounds — makes dirty-region halfblock
-    // narrowing effective. Only when DirtyRegionPacker strategy is active.
-    if dirty_halfblock {
-        buffer.reset_dirty();
-    }
+    // #5 opt-comp-halfblock: HalfblockPacker strategy calls prepare_source() after fill so
+    // only subsequent sprite/effect writes contribute to dirty_bounds. FullScanPacker no-ops.
+    halfblock.prepare_source(buffer);
     let scene_state = object_states
         .get(target_resolver.scene_object_id())
         .cloned()
@@ -343,7 +353,7 @@ fn composite_scene(
         elapsed_ms,
         scene_elapsed_ms,
         obj_camera_states,
-        direct_layer,
+        layer,
         buffer,
     );
 
@@ -379,8 +389,8 @@ fn composite_scene_halfblock(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
-    direct_layer: bool,
-    dirty_halfblock: bool,
+    layer: &dyn crate::strategy::LayerCompositor,
+    halfblock: &dyn crate::strategy::HalfblockPacker,
     target: &mut Buffer,
 ) -> HashMap<String, Region> {
     let needed_w = target.width;
@@ -405,31 +415,23 @@ fn composite_scene_halfblock(
             scene_elapsed_ms,
             scene_effects,
             scene_step_dur,
-            direct_layer,
-            dirty_halfblock,
+            layer,
+            halfblock,
             &mut *virtual_buf,
         );
-        pack_halfblock_buffer(&*virtual_buf, target, bg, dirty_halfblock);
+        pack_halfblock_buffer(&*virtual_buf, target, bg, halfblock);
         object_regions
     })
 }
 
-fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, dirty_halfblock: bool) {
+fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, halfblock: &dyn crate::strategy::HalfblockPacker) {
     target.fill(fallback_bg);
 
-    // #5 opt-comp-halfblock: DirtyRegionPacker strategy — only repack rows in dirty bounds.
-    // When disabled (FullScanPacker), pack the full buffer (safe default).
-    let (x_start, x_end, y_start, y_end) = if dirty_halfblock {
-        match source.dirty_bounds() {
-            Some((xmin, xmax, ymin, ymax)) => {
-                let ty_start = ymin / 2;
-                let ty_end = (ymax / 2).min(target.height.saturating_sub(1));
-                (xmin, xmax, ty_start, ty_end)
-            }
-            None => return,
-        }
-    } else {
-        (0, source.width.saturating_sub(1), 0, target.height.saturating_sub(1))
+    // #5 opt-comp-halfblock: HalfblockPacker strategy owns the iteration bounds.
+    // DirtyRegionPacker returns None when there is no dirty region (skip packing).
+    // FullScanPacker always returns the full extent.
+    let Some((x_start, x_end, y_start, y_end)) = halfblock.iteration_bounds(source, target.height) else {
+        return;
     };
 
     for y in y_start..=y_end {
@@ -517,6 +519,7 @@ mod tests {
     use crate::world::World;
 
     use super::{compositor_system, pack_halfblock_buffer};
+    use crate::strategy::FullScanPacker;
 
     #[test]
     fn packs_two_virtual_rows_into_one_terminal_cell() {
@@ -526,7 +529,7 @@ mod tests {
         source.set(0, 1, '#', Color::Blue, TRUE_BLACK);
 
         let mut target = Buffer::new(1, 1);
-        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, false);
+        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
 
         let cell = target.get(0, 0).expect("cell exists");
         assert_eq!(cell.symbol, '▀');
@@ -540,7 +543,7 @@ mod tests {
         source.fill(Color::DarkGrey);
 
         let mut target = Buffer::new(1, 1);
-        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, false);
+        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
 
         let cell = target.get(0, 0).expect("cell exists");
         assert_eq!(cell.symbol, ' ');

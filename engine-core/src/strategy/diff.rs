@@ -10,9 +10,6 @@ use crate::buffer::Buffer;
 /// have run this frame with no `reset_dirty()` call after it.
 pub trait DiffStrategy: Send + Sync {
     fn diff_into(&self, buf: &Buffer, out: &mut Vec<(u16, u16, char, Color, Color)>);
-    /// Returns `true` when this is the experimental dirty-region variant.
-    /// Used to read the active strategy from `PipelineStrategies` without holding a borrow.
-    fn is_dirty_region(&self) -> bool { false }
 }
 
 /// Always scans the full buffer. Stable and correct in all circumstances.
@@ -35,5 +32,4 @@ impl DiffStrategy for DirtyRegionDiff {
     fn diff_into(&self, buf: &Buffer, out: &mut Vec<(u16, u16, char, Color, Color)>) {
         buf.diff_into_dirty(out);
     }
-    fn is_dirty_region(&self) -> bool { true }
 }

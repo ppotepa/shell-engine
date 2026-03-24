@@ -1,5 +1,4 @@
 use engine_core::buffer::Buffer;
-use crossterm::style::Color;
 
 /// Controls how the virtual (2× height) buffer is packed into the terminal halfblock buffer.
 pub trait HalfblockPacker: Send + Sync {
@@ -8,8 +7,12 @@ pub trait HalfblockPacker: Send + Sync {
         source: &Buffer,
         target_height: u16,
     ) -> Option<(u16, u16, u16, u16)>;
-    /// Returns `true` when this is the experimental dirty-region variant.
-    fn is_dirty_region(&self) -> bool { false }
+
+    /// Called on the source buffer immediately after `fill()`, before sprite rendering.
+    /// `DirtyRegionPacker` resets dirty tracking here so only subsequent sprite writes
+    /// contribute to `dirty_bounds`, making the dirty-region narrowing effective.
+    /// The default no-op is correct for `FullScanPacker`.
+    fn prepare_source(&self, _buf: &mut Buffer) {}
 }
 
 /// Iterates the full buffer every frame. Safe default.
@@ -49,5 +52,9 @@ impl HalfblockPacker for DirtyRegionPacker {
             (xmin, xmax, ty_start, ty_end)
         })
     }
-    fn is_dirty_region(&self) -> bool { true }
+
+    #[inline]
+    fn prepare_source(&self, buf: &mut Buffer) {
+        buf.reset_dirty();
+    }
 }

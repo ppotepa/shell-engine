@@ -2,8 +2,6 @@
 /// or skipped when the contents are unchanged.
 pub trait VirtualPresenter: Send + Sync {
     fn should_skip(&self, hash: u64, last_hash: u64) -> bool;
-    /// Returns `true` when this is the experimental hash-skip variant.
-    fn is_hash_skip(&self) -> bool { false }
 }
 
 /// Always presents the virtual buffer. Safe default.
@@ -27,5 +25,4 @@ impl VirtualPresenter for HashSkipPresenter {
     fn should_skip(&self, hash: u64, last_hash: u64) -> bool {
         hash == last_hash
     }
-    fn is_hash_skip(&self) -> bool { true }
 }

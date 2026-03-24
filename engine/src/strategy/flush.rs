@@ -12,8 +12,6 @@ pub trait TerminalFlusher: Send + Sync {
         stdout: &mut std::io::BufWriter<std::io::Stdout>,
         diffs: &[(u16, u16, char, Color, Color)],
     );
-    /// Returns `true` for `NaiveFlusher` — used to branch without holding a borrow.
-    fn is_naive(&self) -> bool { false }
 }
 
 /// One command per cell — no batching. Useful as a correctness reference or debug sink.
@@ -39,7 +37,6 @@ impl TerminalFlusher for NaiveFlusher {
         }
         let _ = stdout.flush();
     }
-    fn is_naive(&self) -> bool { true }
 }
 
 /// The default high-performance ANSI batch flusher.
