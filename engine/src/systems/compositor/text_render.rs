@@ -2,12 +2,17 @@
 
 use crossterm::style::Color;
 use engine_core::scene::sprite::TextTransform;
+use std::cell::RefCell;
 use std::path::Path;
 
 use crate::buffer::Buffer;
 use crate::markup::{parse_spans, strip_markup};
 use crate::rasterizer;
 use crate::rasterizer::generic;
+
+thread_local! {
+    static TEXT_LINE_BUF: RefCell<Buffer> = RefCell::new(Buffer::new(1, 1));
+}
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct ClipRect {
@@ -64,11 +69,11 @@ pub(super) fn render_text_content(
             let line_h = generic_mode_line_height(mode);
             for (line_idx, line) in content.split('\n').enumerate() {
                 let spans = parse_spans(line);
-                let colored_spans: Vec<(String, Color)> = spans
+                let colored_spans: Vec<(&str, Color)> = spans
                     .iter()
                     .map(|s| {
                         (
-                            s.text.clone(),
+                            s.text.as_str(),
                             s.colour.as_ref().map(Color::from).unwrap_or(fg),
                         )
                     })
@@ -79,10 +84,13 @@ pub(super) fn render_text_content(
                     .map(|(text, _)| generic::generic_dimensions_mode(text, mode).0)
                     .fold(0u16, |acc, w| acc.saturating_add(w))
                     .max(1);
-                let mut line_buf = Buffer::new(line_width, line_h.max(1));
-                line_buf.fill(Color::Reset);
-                generic::rasterize_spans_mode(&colored_spans, mode, 0, 0, &mut line_buf, transform);
-                blit_with_clip(&line_buf, buf, x, line_y, clip);
+                TEXT_LINE_BUF.with(|cell| {
+                    let line_buf = &mut *cell.borrow_mut();
+                    line_buf.resize(line_width, line_h.max(1));
+                    line_buf.fill(Color::Reset);
+                    generic::rasterize_spans_mode(&colored_spans, mode, 0, 0, line_buf, transform);
+                    blit_with_clip(line_buf, buf, x, line_y, clip);
+                });
             }
         }
         Some(font_name) => {

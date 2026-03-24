@@ -225,6 +225,7 @@ fn apply_debug_overlay(world: &mut World) {
 fn apply_perf_hud(world: &mut World) {
     use crate::rasterizer::generic::rasterize_generic_half;
     use engine_core::scene::sprite::TextTransform;
+    use std::fmt::Write;
 
     let fps_val = world
         .get::<crate::debug_features::FpsCounter>()
@@ -233,27 +234,32 @@ fn apply_perf_hud(world: &mut World) {
         .get::<crate::debug_features::ProcessStats>()
         .copied();
 
-    let mut parts: Vec<String> = Vec::new();
-    if let Some(fps) = fps_val {
-        parts.push(format!("{fps} FPS"));
-    }
-    if let Some(ps) = &proc_stats {
-        parts.push(format!("{:.0}% CPU", ps.cpu_percent));
-        parts.push(format!("{:.1}MB", ps.rss_mb));
-    }
-    let hud_text = parts.join("  ");
-    if hud_text.is_empty() {
-        return;
+    thread_local! {
+        static HUD_STR: RefCell<String> = RefCell::new(String::with_capacity(64));
     }
 
-    let Some(buf) = world.buffer_mut() else {
-        return;
-    };
-    // generic:half font advances 6 cols per char (5-wide glyph + 1 gap)
-    let text_w = hud_text.len() as u16 * 6;
-    let x = buf.width.saturating_sub(text_w);
-    let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
-    rasterize_generic_half(&hud_text, green, x, 0, buf, &TextTransform::None);
+    HUD_STR.with(|cell| {
+        let hud_text = &mut *cell.borrow_mut();
+        hud_text.clear();
+        if let Some(fps) = fps_val {
+            let _ = write!(hud_text, "{fps} FPS");
+        }
+        if let Some(ps) = &proc_stats {
+            if !hud_text.is_empty() { hud_text.push_str("  "); }
+            let _ = write!(hud_text, "{:.0}% CPU  {:.1}MB", ps.cpu_percent, ps.rss_mb);
+        }
+        if hud_text.is_empty() {
+            return;
+        }
+
+        let Some(buf) = world.buffer_mut() else {
+            return;
+        };
+        let text_w = hud_text.len() as u16 * 6;
+        let x = buf.width.saturating_sub(text_w);
+        let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
+        rasterize_generic_half(hud_text, green, x, 0, buf, &TextTransform::None);
+    });
 }
 
 fn apply_stats_overlay(

@@ -659,7 +659,7 @@ pub fn rasterize_generic_braille(
 }
 
 pub fn rasterize_spans_mode(
-    spans: &[(String, crossterm::style::Color)],
+    spans: &[(&str, crossterm::style::Color)],
     mode: GenericMode,
     draw_x: u16,
     draw_y: u16,
@@ -684,7 +684,7 @@ pub fn rasterize_spans_mode(
 /// Rasterize a list of (text, colour) spans using the generic font at the given preset.
 /// preset 1 = 3×5 tiny, preset 3 = 5×7 ×2 scale, default = 5×7 ×1 scale.
 pub fn rasterize_spans(
-    spans: &[(String, crossterm::style::Color)],
+    spans: &[(&str, crossterm::style::Color)],
     preset: u16,
     draw_x: u16,
     draw_y: u16,
