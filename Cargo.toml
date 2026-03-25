@@ -9,8 +9,42 @@ authors = ["Paweł Potępa <pawel.potepa@hotmail.com>"]
 license = "MIT"
 
 [workspace.dependencies]
+# Sibling crates (path dependencies)
+engine-core = { path = "./engine-core" }
+engine-authoring = { path = "./engine-authoring" }
+engine-io = { path = "./engine-io" }
+engine = { path = "./engine" }
+
+# Common external dependencies
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
+thiserror = "2.0"
+base64 = "0.22"
+tempfile = "3.13"
+
+# Terminal/UI
+crossterm = "0.29"
+tui-input = { version = "0.11", default-features = false }
+
+# Graphics/Rendering
+image = { version = "0.25", default-features = false, features = ["png", "gif"] }
+taffy = "0.7"
+
+# Compression/Packaging
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+
+# Scripting
+rhai = { version = "1.19", default-features = false, features = ["std"] }
+
+# Audio
+rodio = { version = "0.20", default-features = false, features = ["wav", "mp3"] }
+
+# Parallelism
+rayon = "1.10"
+
+# System/Platform
+libc = "0.2"
+roxmltree = "0.20"
