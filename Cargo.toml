@@ -1,5 +1,5 @@
 [workspace]
-members = ["app", "engine", "engine-core", "engine-authoring", "editor", "tools/schema-gen", "tools/devtool", "tools/sound-server", "engine-io", "rust-os", "engine-audio", "engine-render", "engine-animation", "engine-render-terminal", "engine-3d"]
+members = ["app", "engine", "engine-core", "engine-authoring", "editor", "tools/schema-gen", "tools/devtool", "tools/sound-server", "engine-io", "rust-os", "engine-audio", "engine-render", "engine-animation", "engine-render-terminal", "engine-3d", "engine-terminal"]
 resolver = "2"
 
 [workspace.package]

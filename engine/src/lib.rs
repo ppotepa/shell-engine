@@ -18,6 +18,8 @@ pub use engine_audio as audio;
 pub use engine_animation as animation;
 // Re-export 3D subsystem
 pub use engine_3d as rendering_3d;
+// Re-export terminal subsystem
+pub use engine_terminal as terminal;
 
 pub mod asset_cache;
 pub mod obj_prerender;

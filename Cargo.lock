@@ -689,6 +689,7 @@ dependencies = [
  "engine-authoring",
  "engine-core",
  "engine-io",
+ "engine-terminal",
  "image",
  "libc",
  "rayon",
@@ -775,6 +776,15 @@ dependencies = [
  "crossterm 0.29.0",
  "engine-core",
  "engine-render",
+]
+
+[[package]]
+name = "engine-terminal"
+version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]
