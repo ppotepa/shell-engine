@@ -13,7 +13,8 @@ use engine_animation::Animator;
 use crate::systems::renderer::TerminalRenderer;
 use crate::world::World;
 use engine_audio::AudioProvider;
-use engine_animation::AnimatorProvider;
+use engine_animation::{AnimatorProvider, LifecycleProvider};
+use engine_render_terminal::RendererProvider;
 use engine_core::scene::Scene;
 
 /// Typed accessor trait for all engine-managed resources stored in [`World`].
@@ -108,7 +109,7 @@ impl AudioProvider for World {
 // Implement AnimatorProvider for World to work with engine-animation
 impl AnimatorProvider for World {
     fn scene(&self) -> Option<Scene> {
-        self.scene_runtime().map(|rt| rt.scene().clone())
+        EngineWorldAccess::scene_runtime(self).map(|rt| rt.scene().clone())
     }
 
     fn animator(&self) -> Option<&Animator> {
@@ -143,8 +144,6 @@ impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
 }
 
 // Implement RendererProvider for World to work with engine-render-terminal
-use engine_render_terminal::RendererProvider;
-
 impl RendererProvider for World {
     fn buffer(&self) -> Option<&dyn std::any::Any> {
         self.get::<Buffer>().map(|b| b as &dyn std::any::Any)
@@ -176,5 +175,48 @@ impl RendererProvider for World {
 
     fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
+    }
+}
+
+// Implement LifecycleProvider for World to work with engine-animation
+impl LifecycleProvider for World {
+    fn animator(&self) -> Option<&dyn std::any::Any> {
+        self.get::<Animator>().map(|a| a as &dyn std::any::Any)
+    }
+
+    fn animator_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<Animator>().map(|a| a as &mut dyn std::any::Any)
+    }
+
+    fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
+        self.get::<SceneRuntime>().map(|sr| sr as &dyn std::any::Any)
+    }
+
+    fn scene_runtime_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<SceneRuntime>().map(|sr| sr as &mut dyn std::any::Any)
+    }
+
+    fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<Buffer>().map(|b| b as &mut dyn std::any::Any)
+    }
+
+    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<VirtualBuffer>().map(|b| b as &mut dyn std::any::Any)
+    }
+
+    fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
+        self.get::<RuntimeSettings>().map(|r| r as &dyn std::any::Any)
+    }
+
+    fn debug_features(&self) -> Option<&dyn std::any::Any> {
+        self.get::<DebugFeatures>().map(|d| d as &dyn std::any::Any)
+    }
+
+    fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
+    }
+
+    fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<EventQueue>().map(|e| e as &mut dyn std::any::Any)
     }
 }
