@@ -71,6 +71,46 @@ pub fn postfx_system(world: &mut World) {
         (scene_id, fingerprint, passes, scene_elapsed_ms)
     };
 
+    // Consult frame-skip oracle for PostFX cache skip decision
+    let should_skip_postfx = world
+        .get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>()
+        .and_then(|oracle| {
+            oracle.lock().ok().map(|mut o| {
+                o.should_skip_postfx(&scene_id, fingerprint)
+            })
+        })
+        .unwrap_or(false);
+
+    if should_skip_postfx {
+        // Use cached PostFX result instead of full pipeline.
+        POSTFX_RUNTIME.with(|runtime| {
+            let mut rt = runtime.borrow_mut();
+            if let Some(cached) = rt.previous_output.as_ref() {
+                let use_virtual = world
+                    .runtime_settings()
+                    .map(|settings| settings.use_virtual_buffer)
+                    .unwrap_or(false);
+                let buffer = if use_virtual {
+                    match world.virtual_buffer_mut() {
+                        Some(v) => &mut v.0,
+                        None => return,
+                    }
+                } else {
+                    match world.buffer_mut() {
+                        Some(b) => b,
+                        None => return,
+                    }
+                };
+                if cached.width == buffer.width && cached.height == buffer.height {
+                    buffer.copy_back_from(cached);
+                    rt.frame_count = rt.frame_count.saturating_add(1);
+                    return;
+                }
+            }
+        });
+        return;
+    }
+
     let use_virtual = world
         .runtime_settings()
         .map(|settings| settings.use_virtual_buffer)

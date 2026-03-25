@@ -437,6 +437,26 @@ fn present_virtual_to_output(world: &mut World) {
         return;
     };
 
+    // Consult frame-skip oracle for Presenter skip decision
+    let should_skip_present = {
+        let hash = world
+            .virtual_buffer()
+            .map(|vbuf| vbuf.0.back_hash())
+            .unwrap_or(u64::MAX);
+        world
+            .get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>()
+            .and_then(|oracle| {
+                oracle.lock().ok().map(|mut o| {
+                    o.should_skip_present(hash)
+                })
+            })
+            .unwrap_or(false)
+    };
+
+    if should_skip_present {
+        return;
+    }
+
     world.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(|vbuf, output_buf| {
         let virtual_buf = &vbuf.0;
 
