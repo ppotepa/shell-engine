@@ -2,6 +2,38 @@
 
 Daily progress updates for Shell Quest development.
 
+## Format Guidelines
+
+Each day should follow this structure:
+- **Header**: `## DD-MM-YYYY` (date of work)
+- **Title**: Brief summary of primary focus
+- **Entries**: List changes by subdomain (only include subdomains that were touched)
+  - Format: `**subdomain**: one-liner description`
+  - Examples: `**splash**`, `**optimizations**`, `**graphics**`, `**sidecar**`, `**audio**`, `**engine**`, `**docs**`
+  - Omit subdomains if no work was done that day
+- **Result** (optional): Summary of outcome or impact
+
+Example:
+```
+## 25-03-2026
+
+**Documentation consolidation complete** ✅
+- **docs**: consolidated 26 scattered files into 5 focused docs + 20 crate READMEs
+- **testing**: verified all 204 engine tests passing (zero regressions)
+- **result**: 69% doc reduction (26 → 8 root files), clear navigation hierarchy
+
+## 24-03-2026
+
+**Splash & optimization focus**
+- **splash**: new splash screen design
+- **optimizations**: attempted aggressive optimization; rolled back to apply gradually
+- **graphics**: planning difficulty menu rework
+- **sidecar**: will be rewritten in Rust
+- **audio**: 90s machine simulation experiments (floppy, HD, modem sounds)
+```
+
+Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs to [Unreleased] section below.
+
 ---
 
 ## 25-03-2026
