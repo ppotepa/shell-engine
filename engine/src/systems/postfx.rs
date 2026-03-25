@@ -146,6 +146,11 @@ impl PostFxRuntime {
 
         // Swap buffer content into scratch_a (O(1) pointer swap instead of clone).
         std::mem::swap(a, buffer);
+        
+        // Preserve the compositor's dirty region, which we'll need after all postfx passes.
+        // Without this, swapping to intermediate scratch buffers loses the original dirty bounds.
+        let mut combined_dirty = a.dirty_bounds();
+        
         let mut src_is_a = true;
         let mut last_written_is_a = true;
         let frame_count = self.frame_count;
@@ -165,6 +170,14 @@ impl PostFxRuntime {
                     frame_count,
                 );
                 last_written_is_a = false;
+                // Merge b's dirty region into combined.
+                combined_dirty = match (combined_dirty, b.dirty_bounds()) {
+                    (Some((cx0, cx1, cy0, cy1)), Some((bx0, bx1, by0, by1))) => {
+                        Some((cx0.min(bx0), cx1.max(bx1), cy0.min(by0), cy1.max(by1)))
+                    }
+                    (None, b_dirty) => b_dirty,
+                    (c_dirty, None) => c_dirty,
+                };
             } else {
                 apply_compiled_pass(
                     compiled,
@@ -179,6 +192,14 @@ impl PostFxRuntime {
                     frame_count,
                 );
                 last_written_is_a = true;
+                // Merge a's dirty region into combined.
+                combined_dirty = match (combined_dirty, a.dirty_bounds()) {
+                    (Some((cx0, cx1, cy0, cy1)), Some((ax0, ax1, ay0, ay1))) => {
+                        Some((cx0.min(ax0), cx1.max(ax1), cy0.min(ay0), cy1.max(ay1)))
+                    }
+                    (None, a_dirty) => a_dirty,
+                    (c_dirty, None) => c_dirty,
+                };
             }
             src_is_a = !src_is_a;
         }
@@ -189,6 +210,10 @@ impl PostFxRuntime {
         } else {
             std::mem::swap(buffer, b);
         }
+        
+        // Restore the combined dirty region so that renderer (via DirtyRegionDiff strategy)
+        // includes all affected areas from compositor + all postfx passes.
+        buffer.expand_dirty_bounds(combined_dirty);
 
         // #7 opt-postfx-swap: reuse cache allocation, copy only back buffer.
         match &mut self.previous_output {

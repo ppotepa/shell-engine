@@ -291,6 +291,21 @@ impl Buffer {
         }
     }
 
+    /// Expand the dirty region to include another dirty bounds.
+    /// Used when merging dirty regions from multiple passes (e.g., compositor + postfx layers).
+    pub fn expand_dirty_bounds(&mut self, other: Option<(u16, u16, u16, u16)>) {
+        if let Some((x_min, x_max, y_min, y_max)) = other {
+            if x_min <= x_max {
+                if x_min < self.dirty_x_min { self.dirty_x_min = x_min; }
+                if x_max > self.dirty_x_max { self.dirty_x_max = x_max; }
+            }
+            if y_min <= y_max {
+                if y_min < self.dirty_y_min { self.dirty_y_min = y_min; }
+                if y_max > self.dirty_y_max { self.dirty_y_max = y_max; }
+            }
+        }
+    }
+
     /// Resize both buffers, preserving nothing (invalidates front for full redraw).
     pub fn resize(&mut self, width: u16, height: u16) {
         let size = width as usize * height as usize;
