@@ -36,9 +36,6 @@ struct PostFxRuntime {
     last_pass_fingerprint: u64,
     scratch_a: Option<Buffer>,
     scratch_b: Option<Buffer>,
-    /// Frame-skip: run full pipeline every N+1 frames, blit cached result in between.
-    skip_interval: u8,
-    skip_counter: u8,
 }
 
 pub(super) struct PostFxContext<'a> {
@@ -74,14 +71,6 @@ pub fn postfx_system(world: &mut World) {
         (scene_id, fingerprint, passes, scene_elapsed_ms)
     };
 
-    // Check if present optimization is active before taking mutable borrow.
-    // If so, disable postfx frame-skip cache to avoid desynchronization between
-    // present skip and postfx cache frames, which can cause animation flickering.
-    let disable_postfx_cache = world
-        .get::<crate::pipeline_flags::PipelineFlags>()
-        .map(|flags| flags.opt_present)
-        .unwrap_or(false);
-
     let use_virtual = world
         .runtime_settings()
         .map(|settings| settings.use_virtual_buffer)
@@ -101,7 +90,7 @@ pub fn postfx_system(world: &mut World) {
     POSTFX_RUNTIME.with(|runtime| {
         runtime
             .borrow_mut()
-            .apply(&scene_id, fingerprint, &passes, scene_elapsed_ms, buffer, disable_postfx_cache);
+            .apply(&scene_id, fingerprint, &passes, scene_elapsed_ms, buffer);
     });
 }
 
@@ -113,17 +102,12 @@ impl PostFxRuntime {
         passes: &[Effect],
         scene_elapsed_ms: u64,
         buffer: &mut Buffer,
-        disable_cache: bool,
     ) {
         if self.last_scene_id.as_deref() != Some(scene_id)
             || self.last_pass_fingerprint != fingerprint
         {
             self.previous_output = None;
             self.frame_count = 0;
-            self.skip_counter = 0;
-            // Disable frame-skip cache when present optimization is active to avoid
-            // desynchronization between present skip and postfx cache frames.
-            self.skip_interval = if disable_cache { 0 } else { 1 };
             self.last_scene_id = Some(scene_id.to_string());
             self.compiled_passes = compile_passes(passes);
             self.last_pass_fingerprint = fingerprint;
@@ -132,19 +116,6 @@ impl PostFxRuntime {
         if self.compiled_passes.is_empty() {
             self.frame_count = self.frame_count.saturating_add(1);
             return;
-        }
-
-        // Frame-skip: blit cached result on skipped frames.
-        if self.skip_counter > 0 {
-            if let Some(cached) = self.previous_output.as_ref() {
-                if cached.width == buffer.width && cached.height == buffer.height {
-                    // #7 opt-postfx-swap: only copy back buffer (front not needed for postfx cache).
-                    buffer.copy_back_from(cached);
-                    self.skip_counter -= 1;
-                    self.frame_count = self.frame_count.saturating_add(1);
-                    return;
-                }
-            }
         }
 
         self.ensure_scratch(buffer.width, buffer.height);
@@ -233,7 +204,6 @@ impl PostFxRuntime {
             }
             slot => *slot = Some(buffer.clone()),
         }
-        self.skip_counter = self.skip_interval;
         self.frame_count = self.frame_count.saturating_add(1);
     }
 

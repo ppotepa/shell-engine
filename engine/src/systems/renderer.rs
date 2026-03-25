@@ -3,7 +3,7 @@ use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
-use crate::strategy::{AnsiBatchFlusher, TerminalFlusher, AlwaysPresenter, VirtualPresenter};
+use crate::strategy::{AnsiBatchFlusher, TerminalFlusher};
 use crate::systems::animator::{Animator, SceneStage};
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
@@ -23,11 +23,6 @@ thread_local! {
     static RUN_BUF: RefCell<String> = RefCell::new(String::with_capacity(256));
     /// #3 opt-term-ansibuf: accumulate all ANSI into a contiguous buffer, single write_all per frame.
     static ANSI_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(65536));
-    /// #13 opt-present-skipstatic: last seen VirtualBuffer back_hash to skip redundant presents.
-    static LAST_VBUF_HASH: RefCell<u64> = RefCell::new(u64::MAX);
-    /// Scene id seen on the last present — reset LAST_VBUF_HASH when it changes so that the
-    /// first frame of a new scene is never incorrectly skipped (transition background bug).
-    static LAST_SCENE_ID: RefCell<String> = RefCell::new(String::new());
 }
 
 impl TerminalRenderer {
@@ -442,50 +437,8 @@ fn present_virtual_to_output(world: &mut World) {
         return;
     };
 
-    // Extract raw pointer to the VirtualPresenter strategy to avoid a long-lived borrow
-    // conflicting with the with_ref_and_mut closure below.
-    // SAFETY: same invariant as in render_system — PipelineStrategies is startup-only, immutable.
-    let strats_ptr: *const crate::strategy::PipelineStrategies = world
-        .get::<crate::strategy::PipelineStrategies>()
-        .map(|s| s as *const _)
-        .unwrap_or(std::ptr::null());
-    static FALLBACK_PRESENT: AlwaysPresenter = AlwaysPresenter;
-    let presenter: &dyn VirtualPresenter =
-        if strats_ptr.is_null() { &FALLBACK_PRESENT }
-        else { unsafe { (*strats_ptr).present.as_ref() } };
-
-    // Scene-change tracking resets the hash on scene transitions so the first frame of
-    // a new scene is never incorrectly skipped. AlwaysPresenter.should_skip() always
-    // returns false so this tracking is harmless when hash-skip is not active.
-    let scene_changed = {
-        let current_scene_id = world
-            .scene_runtime()
-            .map(|rt| rt.scene().id.clone())
-            .unwrap_or_default();
-        LAST_SCENE_ID.with(|s| {
-            let changed = *s.borrow() != current_scene_id;
-            if changed {
-                *s.borrow_mut() = current_scene_id;
-                LAST_VBUF_HASH.with(|h| *h.borrow_mut() = u64::MAX);
-            }
-            changed
-        })
-    };
-
     world.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(|vbuf, output_buf| {
         let virtual_buf = &vbuf.0;
-
-        let hash = virtual_buf.back_hash();
-        let skip = !scene_changed && LAST_VBUF_HASH.with(|c| {
-            let prev = *c.borrow();
-            *c.borrow_mut() = hash;
-            presenter.should_skip(hash, prev)
-        });
-        if skip {
-            // Still reset dirty tracking so the next non-skip frame starts clean.
-            output_buf.reset_dirty();
-            return;
-        }
 
         output_buf.fill(TRUE_BLACK);
         if virtual_buf.width == 0 || virtual_buf.height == 0 {
