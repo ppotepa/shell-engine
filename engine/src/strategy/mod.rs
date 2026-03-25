@@ -10,6 +10,8 @@ pub mod flush;
 pub mod scene_compositor;
 /// Behavior factory strategy (built-in vs custom behavior resolution).
 pub mod behavior_factory;
+/// Frame-skip oracle strategy (unified coordination).
+pub mod skip;
 
 pub use layer::{DirectLayerCompositor, LayerCompositor, ScratchLayerCompositor};
 pub use halfblock::{DirtyRegionPacker, FullScanPacker, HalfblockPacker};
@@ -20,6 +22,7 @@ pub use scene_compositor::{
     compositor_for,
 };
 pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};
+pub use skip::{AlwaysRender, CoordinatedSkip, FrameSkipOracle};
 
 use engine_core::strategy::{DiffStrategy, FullScanDiff};
 use engine_core::strategy::DirtyRegionDiff;

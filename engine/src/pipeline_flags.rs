@@ -41,6 +41,7 @@ pub struct PipelineFlags {
 
     /// `--opt-present`: Virtual-to-output present optimizations.
     /// Gates #13 (hash-based frame skip when virtual buffer is unchanged).
+    /// **DEPRECATED:** Use `--opt-skip` instead for unified frame-skip coordination.
     /// Default: `false` (always full present — stable).
     pub opt_present: bool,
 
@@ -49,6 +50,13 @@ pub struct PipelineFlags {
     /// called after fill(). Experimental — off by default to avoid artifact bugs.
     /// Default: `false` (always full-buffer scan — stable).
     pub opt_diff: bool,
+
+    /// `--opt-skip`: Unified frame-skip oracle (coordinated PostFX cache + Presenter hash).
+    /// Prevents desynchronization between independent skip mechanisms that caused animation
+    /// flickering. PostFX cache and Presenter skip decisions are now atomic — both skip or
+    /// both render, never disagree.
+    /// Default: `false` (always full render — stable).
+    pub opt_skip: bool,
 }
 
 impl Default for PipelineFlags {
@@ -61,6 +69,7 @@ impl Default for PipelineFlags {
             opt_comp: false,
             opt_present: false,
             opt_diff: false,
+            opt_skip: false,
         }
     }
 }

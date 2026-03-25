@@ -83,6 +83,8 @@ pub struct EngineConfig {
     pub opt_present: bool,
     /// Enable dirty-region diff scan (experimental — off by default).
     pub opt_diff: bool,
+    /// Enable unified frame-skip coordination (PostFX cache + Presenter sync).
+    pub opt_skip: bool,
     /// Run benchmark mode for N seconds, then show results and exit.
     pub bench_secs: Option<f32>,
     /// Capture frames to this directory for visual regression testing.
@@ -100,6 +102,7 @@ impl Default for EngineConfig {
             opt_comp: false,
             opt_present: false,
             opt_diff: false,
+            opt_skip: false,
             bench_secs: None,
             capture_frames_dir: None,
         }
@@ -211,6 +214,7 @@ impl ShellEngine {
         pflags.opt_comp = self.config.opt_comp;
         pflags.opt_present = self.config.opt_present;
         pflags.opt_diff = self.config.opt_diff;
+        pflags.opt_skip = self.config.opt_skip;
         world.register(pflags);
         world.register(strategy::PipelineStrategies::from_flags(
             self.config.opt_diff,
@@ -227,6 +231,17 @@ impl ShellEngine {
         }
         if runtime_settings.use_virtual_buffer {
             world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
+        }
+
+        // Register frame-skip oracle (either AlwaysRender or CoordinatedSkip based on --opt-skip flag)
+        if self.config.opt_skip {
+            world.register(std::sync::Mutex::new(
+                Box::new(strategy::CoordinatedSkip::default()) as Box<dyn strategy::FrameSkipOracle>
+            ));
+        } else {
+            world.register(std::sync::Mutex::new(
+                Box::new(strategy::AlwaysRender) as Box<dyn strategy::FrameSkipOracle>
+            ));
         }
 
         // Enter alt-screen, hard-reset console surface, then paint black before first frame.

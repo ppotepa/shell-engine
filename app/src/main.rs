@@ -54,7 +54,11 @@ struct Cli {
     /// Enable dirty-region diff scan (experimental — may cause artifacts).
     #[arg(long = "opt-diff")]
     opt_diff: bool,
-    /// Enable ALL optimizations at once (equivalent to --opt-comp --opt-present --opt-diff).
+    /// Enable unified frame-skip coordination (PostFX cache + Presenter hash sync).
+    /// Prevents desynchronization-related flickering from independent skip mechanisms.
+    #[arg(long = "opt-skip")]
+    opt_skip: bool,
+    /// Enable ALL optimizations at once (equivalent to --opt-comp --opt-present --opt-diff --opt-skip).
     #[arg(long = "opt")]
     opt_all: bool,
     /// Run benchmark: play demo for N seconds, display score, save report to reports/benchmark/.
@@ -104,6 +108,7 @@ fn main() {
         opt_comp: cli.opt_comp || cli.opt_all,
         opt_present: cli.opt_present || cli.opt_all,
         opt_diff: cli.opt_diff || cli.opt_all,
+        opt_skip: cli.opt_skip || cli.opt_all,
         bench_secs: cli.bench,
         capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
     };
