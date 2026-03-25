@@ -15,5 +15,9 @@ pub mod logging;
 pub mod markup;
 /// Scene data model, authoring types, and runtime model.
 pub mod scene;
+/// Core scene-object types: [`GameObjectKind`] and [`GameObject`].
+pub mod game_object;
 /// Render pipeline strategy traits and default implementations.
 pub mod strategy;
+/// Terminal capability detection and mod-level requirements.
+pub mod terminal_caps;
