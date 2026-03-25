@@ -1,19 +1,32 @@
 # AGENTS.md
 
-## 0) Local Knowledge Hubs
+## 0) Documentation Roadmap
 
-Each subsystem has a `README.AGENTS.MD` for efficient navigation:
+**Start here:** Read the root-level consolidated docs first, then drill into subsystem READMEs as needed.
+
+### Root-Level Consolidated Docs (Main Directory)
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Repository structure, dependency graph, per-frame systems, strategy pattern, scene model, buffer architecture, halfblock rendering, timeline system, input system, logging, schema system, editor design, change playbook
+- **[AUTHORING.md](AUTHORING.md)** — Metadata-first approach, mod structure, asset system, sprite types, scene contract, PostFX pipeline, OBJ lighting, terminal HUD, Rhai scripting, compilation pipeline, author checklist, daily workflow
+- **[MODS.md](MODS.md)** — Shell Quest main mod, shell-quest-tests benchmark mod, playground dev mod, creating custom mods
+- **[BENCHMARKING.md](BENCHMARKING.md)** — Quick start, optimization flags, test mod specs, frame capture regression testing, benchmark scenarios and reports
+- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — CLI flags, strategy pattern, 20 optimization implementations, summary stats, key invariants, usage examples
+
+### Subsystem-Local READMEs (Each Directory)
+
+Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 
 - **[app/README.AGENTS.MD](app/README.AGENTS.MD)** — CLI flags, startup flow, configuration
 - **[editor/README.AGENTS.MD](editor/README.AGENTS.MD)** — Editor architecture, hot-reload, subsystems
 - **[engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
 - **[engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Scene model, buffer management, strategy traits
+- **[engine-*/README.md](engine-3d/README.md)** — 20 crate-specific READMEs (purpose, key types, dependencies, usage)
 - **[mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Content structure, scenes, assets
 - **[mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
 - **[tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Benchmark runners, frame capture, schema tools
 - **[schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — Schema generation, validation, drift checking
 
-Read the nearest hub before making subsystem-specific changes. Each covers only that subsystem with no duplication.
+**Workflow:** Read consolidated docs first for breadth, then `README.AGENTS.MD` / `engine-*/README.md` for depth.
 
 ## 1) Repo shape
 
@@ -144,6 +157,8 @@ Optimization flags:
 
 ## 4) Authoring invariants
 
+Refer to **[AUTHORING.md](AUTHORING.md)** for comprehensive authoring contract. Key points below.
+
 - Preserve runtime system order unless explicitly changing architecture.
 - Keep resolver correctness for layer/sprite ordering.
 - Apply scene `virtual-size-override` on transitions.
@@ -182,7 +197,7 @@ When changing Rhai script API (scope variables, commands):
 
 - update `BehaviorContext` in `engine/src/behavior.rs`,
 - update scope push block in `RhaiScriptBehavior::update`,
-- update `scene-centric-authoring.md` section 13,
+- update `AUTHORING.md` section 9,
 - add regression test in `behavior::tests`.
 
 When adding new debug/diagnostic features:
@@ -200,23 +215,15 @@ When adding new optimization flags:
 - wire into `PipelineStrategies::from_flags()`,
 - include in `--opt` umbrella flag,
 - add benchmark comparison before/after,
-- update `OPTIMIZATION_PLAN.md`.
+- update `OPTIMIZATIONS.md`.
 
-**When adding sprite timing fields** (March 2026):
+**When adding sprite timing fields**:
 
 - Add fields to `Sprite` variants in `engine-core/src/scene/sprite.rs`,
 - Add metadata in `engine-core/src/scene/metadata.rs`,
 - Update schema in `schemas/scene.schema.yaml`,
 - Update validation in `engine-authoring/src/validate/mod.rs` (if timing-related),
-- Update `timeline-architecture.md` documentation.
-
-**When debugging sprite visibility issues** (March 2026):
-
-1. Check sprite `appear_at_ms` vs scene `on_enter` duration
-2. Run debug build to see validation warnings: `cargo build`
-3. Verify layer `visible` flag and runtime `layer_state.visible`
-4. Check scene transition cleanup (already working via `world.clear_scoped()`)
-5. Review `timeline-architecture.md` for architecture constraints
+- Update `AUTHORING.md` section 9 and `ARCHITECTURE.md` section 8.
 
 ## 6) Sidecar & gameplay changes
 
