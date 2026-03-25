@@ -5,7 +5,7 @@ use engine_core::effects::Region;
 use engine_core::scene::{Effect, Layer, SceneRenderedMode};
 use crate::assets::AssetRoot;
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 use super::{HalfblockPacker, LayerCompositor};
 
 /// All scene-invariant inputs to a single compositor invocation.

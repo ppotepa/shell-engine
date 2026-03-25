@@ -9,7 +9,7 @@ use crate::markup::strip_markup;
 use crate::render_policy;
 use crate::scene::{Layer, SceneRenderedMode, Sprite};
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};

@@ -3,7 +3,7 @@ use crate::buffer::Buffer;
 use crate::effects::{apply_effect, Region};
 use crate::scene::{Layer, LayerStages, Stage, Step};
 use crate::scene_runtime::TargetResolver;
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 
 /// Apply effects for a sprite's lifecycle stage.
 ///
@@ -168,7 +168,7 @@ mod tests {
     use crate::effects::Region;
     use crate::scene::{Effect, EffectParams, Layer, LayerStages, Stage, Step, TermColour};
     use crate::scene_runtime::SceneRuntime;
-    use crate::systems::animator::SceneStage;
+    use engine_animation::SceneStage;
     use crossterm::style::Color;
     use std::collections::HashMap;
 

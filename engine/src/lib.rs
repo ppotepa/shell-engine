@@ -14,6 +14,8 @@ pub use error::EngineError;
 pub use engine_core::{animations, buffer, effects, logging, markup, scene};
 // Re-export audio subsystem
 pub use engine_audio as audio;
+// Re-export animation subsystem
+pub use engine_animation as animation;
 
 pub mod asset_cache;
 pub mod obj_prerender;
@@ -148,7 +150,7 @@ impl ShellEngine {
         use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use scene_runtime::SceneRuntime;
-        use systems::animator::Animator;
+        use engine_animation::Animator;
         use systems::renderer::TerminalRenderer;
         use terminal_caps::target_fps_from_manifest;
 

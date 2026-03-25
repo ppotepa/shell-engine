@@ -94,7 +94,7 @@ mod tests {
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene::Scene;
     use crate::scene_runtime::SceneRuntime;
-    use crate::systems::animator::{Animator, SceneStage};
+    use engine_animation::{Animator, SceneStage};
     use crate::systems::compositor::compositor_system;
     use crate::world::World;
 

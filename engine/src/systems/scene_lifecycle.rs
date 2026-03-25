@@ -4,7 +4,7 @@ use crate::events::EngineEvent;
 use crate::scene::{self, SceneRenderedMode};
 use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
 use crate::services::EngineWorldAccess;
-use crate::systems::animator::{Animator, SceneStage};
+use engine_animation::{Animator, SceneStage};
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -257,7 +257,7 @@ fn is_scene_idle(world: &World) -> bool {
         .unwrap_or(false)
 }
 
-fn begin_leave(a: &mut crate::systems::animator::Animator) {
+fn begin_leave(a: &mut engine_animation::Animator) {
     a.stage = SceneStage::OnLeave;
     a.step_idx = 0;
     a.elapsed_ms = 0;
@@ -677,7 +677,7 @@ mod tests {
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
     use crate::services::EngineWorldAccess;
-    use crate::systems::animator::{Animator, SceneStage};
+    use engine_animation::{Animator, SceneStage};
     use crate::world::World;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use std::fs;

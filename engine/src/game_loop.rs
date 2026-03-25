@@ -137,7 +137,7 @@ pub fn game_loop(
 
         let t_anim_start = Instant::now();
         for _ in 0..ticks_this_frame {
-            systems::animator::animator_system(world, tick_ms);
+            let _ = engine_animation::animator_system(world, tick_ms);
         }
         let t_anim = t_anim_start.elapsed();
 

@@ -18,7 +18,7 @@ use crate::scene::SceneRenderedMode;
 use crate::scene3d_atlas::Scene3DAtlas;
 use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
 use crate::services::EngineWorldAccess;
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 use crate::world::World;
 use crossterm::style::Color;
 use std::cell::RefCell;
@@ -532,7 +532,7 @@ mod tests {
     use crate::scene_loader::SceneLoader;
     use crate::scene::Scene;
     use crate::scene_runtime::SceneRuntime;
-    use crate::systems::animator::{Animator, SceneStage};
+    use engine_animation::{Animator, SceneStage};
     use crate::world::World;
 
     use super::{compositor_system, pack_halfblock_buffer};

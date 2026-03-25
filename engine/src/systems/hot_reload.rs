@@ -13,7 +13,7 @@ use crate::scene::Scene;
 use crate::scene_loader::SceneLoader;
 use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
-use crate::systems::animator::Animator;
+use engine_animation::Animator;
 use crate::world::World;
 
 const DEFAULT_POLL_INTERVAL_MS: u64 = 350;

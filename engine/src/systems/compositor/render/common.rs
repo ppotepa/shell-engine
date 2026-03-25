@@ -6,7 +6,7 @@ use crate::buffer::Buffer;
 use crate::effects::Region;
 use crate::scene::LayerStages;
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 use std::collections::HashMap;
 
 use super::super::effect_applicator::apply_sprite_effects;

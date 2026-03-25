@@ -8,7 +8,7 @@ use engine::buffer::Buffer;
 use engine::runtime_settings::RuntimeSettings;
 use engine::scene::Scene;
 use engine::scene_runtime::SceneRuntime;
-use engine::systems::animator::{Animator, SceneStage};
+use engine::animation::{Animator, SceneStage};
 use engine::systems::compositor::compositor_system;
 use engine::world::World;
 use ratatui::style::{Color, Style};

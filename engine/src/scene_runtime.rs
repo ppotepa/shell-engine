@@ -13,7 +13,7 @@ use crate::scene::{
     resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite, TermColour,
     TerminalShellControls, UiThemeStyle,
 };
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, HashMap};
@@ -1212,10 +1212,10 @@ impl SceneRuntime {
                 (stage_elapsed_ms as rhai::INT).into(),
             );
             let stage_str: &str = match stage {
-                crate::systems::animator::SceneStage::OnEnter => "on_enter",
-                crate::systems::animator::SceneStage::OnIdle => "on_idle",
-                crate::systems::animator::SceneStage::OnLeave => "on_leave",
-                crate::systems::animator::SceneStage::Done => "done",
+                engine_animation::SceneStage::OnEnter => "on_enter",
+                engine_animation::SceneStage::OnIdle => "on_idle",
+                engine_animation::SceneStage::OnLeave => "on_leave",
+                engine_animation::SceneStage::Done => "done",
             };
             time_map.insert("stage".into(), stage_str.into());
             std::sync::Arc::new(time_map)

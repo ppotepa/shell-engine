@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 engine-authoring = { workspace = true }
+engine-animation = { path = "../engine-animation" }
 engine-audio = { path = "../engine-audio" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }

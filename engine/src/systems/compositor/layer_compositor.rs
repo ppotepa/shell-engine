@@ -6,7 +6,7 @@ use crate::buffer::Buffer;
 use crate::effects::Region;
 use crate::scene::{Layer, SceneRenderedMode};
 use crate::scene_runtime::{ObjCameraState, ObjectRuntimeState, TargetResolver};
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 use crate::strategy::LayerCompositor;
 use crossterm::style::Color;
 use std::cell::RefCell;

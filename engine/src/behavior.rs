@@ -10,7 +10,7 @@ use crate::game_object::{GameObject, GameObjectKind};
 use crate::game_state::GameState;
 use crate::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use crate::scene_runtime::{ObjectRuntimeState, RawKeyEvent, TargetResolver};
-use crate::systems::animator::SceneStage;
+use engine_animation::SceneStage;
 use engine_core::authoring::metadata::FieldMetadata;
 use engine_core::logging;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
@@ -1889,7 +1889,7 @@ mod tests {
         SceneStages, TermColour,
     };
     use crate::scene_runtime::{ObjectRuntimeState, TargetResolver};
-    use crate::systems::animator::SceneStage;
+    use engine_animation::SceneStage;
     use serde_json::Value as JsonValue;
     use std::collections::HashMap;
     use std::sync::Arc;

@@ -1,6 +1,5 @@
-//! Engine ECS-style systems: animator, behavior, prerender, compositor, menu, renderer, and scene-lifecycle.
+//! Engine ECS-style systems: behavior, prerender, compositor, menu, renderer, and scene-lifecycle.
 
-pub mod animator;
 pub mod prerender;
 pub mod scene3d_prerender;
 pub mod behavior;

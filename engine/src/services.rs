@@ -7,10 +7,12 @@ use crate::events::EventQueue;
 use crate::runtime_settings::RuntimeSettings;
 use crate::scene_loader::SceneLoader;
 use crate::scene_runtime::SceneRuntime;
-use crate::systems::animator::Animator;
+use engine_animation::Animator;
 use crate::systems::renderer::TerminalRenderer;
 use crate::world::World;
 use engine_audio::AudioProvider;
+use engine_animation::AnimatorProvider;
+use engine_core::scene::Scene;
 
 /// Typed accessor trait for all engine-managed resources stored in [`World`].
 pub(crate) trait EngineWorldAccess {
@@ -98,5 +100,20 @@ impl EngineWorldAccess for World {
 impl AudioProvider for World {
     fn audio_runtime_mut(&mut self) -> Option<&mut AudioRuntime> {
         self.get_mut::<AudioRuntime>()
+    }
+}
+
+// Implement AnimatorProvider for World to work with engine-animation
+impl AnimatorProvider for World {
+    fn scene(&self) -> Option<Scene> {
+        self.scene_runtime().map(|rt| rt.scene().clone())
+    }
+
+    fn animator(&self) -> Option<&Animator> {
+        self.get::<Animator>()
+    }
+
+    fn animator_mut(&mut self) -> Option<&mut Animator> {
+        self.get_mut::<Animator>()
     }
 }

@@ -4,7 +4,7 @@ use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
 use crate::strategy::{AnsiBatchFlusher, AsyncDisplaySink, DisplayFrame, DisplaySink, TerminalFlusher};
-use crate::systems::animator::{Animator, SceneStage};
+use engine_animation::{Animator, SceneStage};
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
 use engine_core::logging;
@@ -761,7 +761,7 @@ mod tests {
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
-    use crate::systems::animator::{Animator, SceneStage};
+    use engine_animation::{Animator, SceneStage};
     use crate::systems::compositor::compositor_system;
     use crate::world::World;
     use std::path::PathBuf;
