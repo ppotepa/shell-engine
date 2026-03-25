@@ -87,6 +87,9 @@ pub struct EngineConfig {
     pub opt_skip: bool,
     /// Enable row-level dirty skip in diff scan (experimental — off by default).
     pub opt_rowdiff: bool,
+    /// Enable async display sink: offload terminal I/O to background thread.
+    /// Decouples main thread from write/flush latency (1-5ms/frame).
+    pub opt_async_display: bool,
     /// Run benchmark mode for N seconds, then show results and exit.
     pub bench_secs: Option<f32>,
     /// Capture frames to this directory for visual regression testing.
@@ -106,6 +109,7 @@ impl Default for EngineConfig {
             opt_diff: false,
             opt_skip: false,
             opt_rowdiff: false,
+            opt_async_display: false,
             bench_secs: None,
             capture_frames_dir: None,
         }
@@ -219,12 +223,14 @@ impl ShellEngine {
         pflags.opt_diff = self.config.opt_diff;
         pflags.opt_skip = self.config.opt_skip;
         pflags.opt_rowdiff = self.config.opt_rowdiff;
+        pflags.opt_async_display = self.config.opt_async_display;
         world.register(pflags);
         world.register(strategy::PipelineStrategies::from_flags(
             self.config.opt_diff,
             self.config.opt_comp,
             self.config.opt_present,
             self.config.opt_rowdiff,
+            self.config.opt_async_display,
         ));
         if let Some(secs) = self.config.bench_secs {
             world.register(bench::BenchmarkState::new(
@@ -251,7 +257,7 @@ impl ShellEngine {
 
         // Enter alt-screen, hard-reset console surface, then paint black before first frame.
         // This prevents the terminal's previous content from flashing on the first frame.
-        let mut renderer = TerminalRenderer::new()?;
+        let mut renderer = TerminalRenderer::new_with_async(self.config.opt_async_display)?;
         renderer.reset_console()?;
         renderer.clear_black()?;
         let splash_bg = scene

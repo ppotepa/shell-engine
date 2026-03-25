@@ -64,6 +64,14 @@ pub struct PipelineFlags {
     /// Up to ~10-20% faster on frames with static regions (e.g., UI background).
     /// Default: `false` (always full-buffer scan — stable).
     pub opt_rowdiff: bool,
+
+    /// `--opt-async`: Async display sink for I/O offload.
+    /// Decouple main thread from terminal write/flush latency.
+    /// Renderer submits ANSI blob to background thread; main thread starts next frame immediately.
+    /// Safe: blob is immutable after diff+swap; I/O thread only reads and writes to terminal.
+    /// Expected: 1-5ms/frame unblocked on slow terminal emulators.
+    /// Default: `false` (sync flush — no latency decoupling).
+    pub opt_async_display: bool,
 }
 
 impl Default for PipelineFlags {
@@ -78,6 +86,7 @@ impl Default for PipelineFlags {
             opt_diff: false,
             opt_skip: false,
             opt_rowdiff: false,
+            opt_async_display: false,
         }
     }
 }

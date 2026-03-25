@@ -3,7 +3,7 @@ use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
-use crate::strategy::{AnsiBatchFlusher, TerminalFlusher};
+use crate::strategy::{AnsiBatchFlusher, AsyncDisplaySink, DisplayFrame, DisplaySink, TerminalFlusher};
 use crate::systems::animator::{Animator, SceneStage};
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
@@ -14,6 +14,7 @@ use std::io::{self, Write};
 
 pub struct TerminalRenderer {
     stdout: io::BufWriter<io::Stdout>,
+    async_sink: Option<AsyncDisplaySink>,
 }
 
 thread_local! {
@@ -27,10 +28,21 @@ thread_local! {
 
 impl TerminalRenderer {
     pub fn new() -> io::Result<Self> {
+        Self::new_with_async(false)
+    }
+
+    pub fn new_with_async(async_display: bool) -> io::Result<Self> {
         terminal::enable_raw_mode()?;
         let mut stdout = io::BufWriter::with_capacity(65536, io::stdout());
         execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide)?;
-        Ok(Self { stdout })
+        
+        let async_sink = if async_display {
+            Some(AsyncDisplaySink::new())
+        } else {
+            None
+        };
+        
+        Ok(Self { stdout, async_sink })
     }
 
     /// Paint the entire screen true-black before the first game frame.
@@ -64,6 +76,9 @@ impl TerminalRenderer {
     }
 
     pub fn shutdown(&mut self) -> io::Result<()> {
+        if let Some(sink) = &mut self.async_sink {
+            sink.drain();
+        }
         execute!(
             self.stdout,
             style::ResetColor,
@@ -71,6 +86,12 @@ impl TerminalRenderer {
             terminal::LeaveAlternateScreen
         )?;
         terminal::disable_raw_mode()
+    }
+}
+
+impl Drop for TerminalRenderer {
+    fn drop(&mut self) {
+        let _ = self.shutdown();
     }
 }
 
@@ -142,7 +163,17 @@ pub fn renderer_system(world: &mut World) {
 
     if let Some(renderer) = world.renderer_mut() {
         DIFF_SCRATCH.with(|scratch| {
-            flusher.flush(&mut renderer.stdout, &scratch.borrow());
+            let diffs = scratch.borrow().clone();
+            
+            // Submit to async sink if available; otherwise flush inline
+            if let Some(sink) = &mut renderer.async_sink {
+                sink.submit(DisplayFrame {
+                    diffs,
+                    frame_id: 0,  // Currently unused
+                });
+            } else {
+                flusher.flush(&mut renderer.stdout, &diffs);
+            }
         });
     }
 

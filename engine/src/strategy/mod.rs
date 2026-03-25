@@ -62,7 +62,8 @@ impl PipelineStrategies {
     /// | `--opt-rowdiff`| `RowSkipDiff` (row-level skip in full-scan)         |
     /// | `--opt-comp`   | `DirectLayerCompositor` + `DirtyRegionPacker`       |
     /// | `--opt-present`| `HashSkipPresenter` instead of `AlwaysPresenter`    |
-    pub fn from_flags(opt_diff: bool, opt_comp: bool, opt_present: bool, opt_rowdiff: bool) -> Self {
+    /// | `--opt-async`  | Handled separately (display sink in renderer)        |
+    pub fn from_flags(opt_diff: bool, opt_comp: bool, opt_present: bool, opt_rowdiff: bool, _opt_async_display: bool) -> Self {
         Self {
             diff: if opt_diff {
                 Box::new(DirtyRegionDiff)

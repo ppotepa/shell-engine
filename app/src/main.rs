@@ -62,7 +62,11 @@ struct Cli {
     /// Skips entire rows marked not dirty, ~10-20% faster on static regions.
     #[arg(long = "opt-rowdiff")]
     opt_rowdiff: bool,
-    /// Enable ALL optimizations at once (equivalent to --opt-comp --opt-present --opt-diff --opt-skip --opt-rowdiff).
+    /// Enable async display sink: offload terminal I/O to background thread.
+    /// Decouples main thread from terminal write/flush latency (1-5ms/frame).
+    #[arg(long = "opt-async")]
+    opt_async_display: bool,
+    /// Enable ALL optimizations at once (equivalent to --opt-comp --opt-present --opt-diff --opt-skip --opt-rowdiff --opt-async).
     #[arg(long = "opt")]
     opt_all: bool,
     /// Run benchmark: play demo for N seconds, display score, save report to reports/benchmark/.
@@ -114,6 +118,7 @@ fn main() {
         opt_diff: cli.opt_diff || cli.opt_all,
         opt_skip: cli.opt_skip || cli.opt_all,
         opt_rowdiff: cli.opt_rowdiff || cli.opt_all,
+        opt_async_display: cli.opt_async_display || cli.opt_all,
         bench_secs: cli.bench,
         capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
     };
