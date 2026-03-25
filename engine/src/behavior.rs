@@ -50,6 +50,10 @@ pub struct BehaviorContext {
     pub rhai_time_map: Arc<RhaiMap>,
     pub rhai_menu_map: Arc<RhaiMap>,
     pub rhai_key_map: Arc<RhaiMap>,
+    /// Engine-level key state and metadata — read-only, never mutated by behaviors.
+    /// Includes `code`, `ctrl`, `alt`, `shift`, `pressed`, `is_quit` fields.
+    /// Pushed to Rhai scope as `engine` map to keep engine concerns separate.
+    pub engine_key_map: Arc<RhaiMap>,
 }
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -1014,6 +1018,9 @@ impl Behavior for RhaiScriptBehavior {
                 // Phase 7C: Use Arc-wrapped key map from context instead of rebuilding.
                 scope.push_dynamic("key", (*ctx.rhai_key_map).clone().into());
 
+                // Engine-level key state (separate namespace to prevent behavior interference)
+                scope.push_dynamic("engine", (*ctx.engine_key_map).clone().into());
+
                 // External sidecar bridge exposed as object-shaped `ipc.*`.
                 {
                     let mut ipc_map = RhaiMap::new();
@@ -1198,6 +1205,7 @@ fn smoke_probe_context(
         rhai_time_map: Arc::new(RhaiMap::new()),
         rhai_menu_map: Arc::new(RhaiMap::new()),
         rhai_key_map: Arc::new(RhaiMap::new()),
+        engine_key_map: Arc::new(RhaiMap::new()),
     }
 }
 
@@ -1965,6 +1973,17 @@ mod tests {
         Arc::new(key_map)
     }
 
+    fn empty_engine_key_map() -> Arc<RhaiMap> {
+        let mut engine_key = RhaiMap::new();
+        engine_key.insert("code".into(), "".into());
+        engine_key.insert("ctrl".into(), false.into());
+        engine_key.insert("alt".into(), false.into());
+        engine_key.insert("shift".into(), false.into());
+        engine_key.insert("pressed".into(), false.into());
+        engine_key.insert("is_quit".into(), false.into());
+        Arc::new(engine_key)
+    }
+
     fn base_ctx() -> BehaviorContext {
         BehaviorContext {
             stage: SceneStage::OnIdle,
@@ -1989,6 +2008,7 @@ mod tests {
             rhai_time_map: empty_rhai_time_map(),
             rhai_menu_map: empty_rhai_menu_map(),
             rhai_key_map: empty_rhai_key_map(),
+            engine_key_map: empty_engine_key_map(),
         }
     }
 

@@ -1239,6 +1239,29 @@ impl SceneRuntime {
             std::sync::Arc::new(key_map)
         };
         
+        // Engine-level key metadata for Rhai scope (separate `engine` namespace)
+        let engine_key_map = {
+            let mut engine_key = RhaiMap::new();
+            if let Some(k) = &self.ui_state.last_raw_key {
+                engine_key.insert("code".into(), k.code.clone().into());
+                engine_key.insert("ctrl".into(), k.ctrl.into());
+                engine_key.insert("alt".into(), k.alt.into());
+                engine_key.insert("shift".into(), k.shift.into());
+                engine_key.insert("pressed".into(), true.into());
+                // Mark quit keys so behaviors can check without handling them
+                let is_quit = k.ctrl && (k.code == "q" || k.code == "Q" || k.code == "c" || k.code == "C");
+                engine_key.insert("is_quit".into(), is_quit.into());
+            } else {
+                engine_key.insert("code".into(), "".into());
+                engine_key.insert("ctrl".into(), false.into());
+                engine_key.insert("alt".into(), false.into());
+                engine_key.insert("shift".into(), false.into());
+                engine_key.insert("pressed".into(), false.into());
+                engine_key.insert("is_quit".into(), false.into());
+            }
+            std::sync::Arc::new(engine_key)
+        };
+        
         let mut commands = Vec::new();
         // Construct context once; only `object_states` mutates between iterations.
         let mut ctx = BehaviorContext {
@@ -1264,6 +1287,7 @@ impl SceneRuntime {
             rhai_time_map,
             rhai_menu_map,
             rhai_key_map,
+            engine_key_map,
         };
         let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {
