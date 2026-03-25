@@ -3,6 +3,8 @@
 use crate::assets::AssetRoot;
 use crate::audio::AudioRuntime;
 use crate::buffer::{Buffer, VirtualBuffer};
+use crate::debug_features::DebugFeatures;
+use crate::debug_log::DebugLogBuffer;
 use crate::events::EventQueue;
 use crate::runtime_settings::RuntimeSettings;
 use crate::scene_loader::SceneLoader;
@@ -140,39 +142,39 @@ impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
     }
 }
 
-// Public trait for PostFX system provider (enables engine-postfx extraction)
-/// Provides access to resources needed by the post-effects system
-pub trait PostFXProvider {
-    fn runtime(&self) -> Option<&SceneRuntime>;
-    fn animator(&self) -> Option<&Animator>;
-    fn buffer_mut(&mut self) -> Option<&mut Buffer>;
-    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer>;
-    fn runtime_settings(&self) -> Option<&RuntimeSettings>;
-    fn frame_skip_oracle_mut(&mut self) -> Option<&mut std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>;
-}
+// Implement RendererProvider for World to work with engine-render-terminal
+use engine_render_terminal::RendererProvider;
 
-impl PostFXProvider for World {
-    fn runtime(&self) -> Option<&SceneRuntime> {
-        self.get::<SceneRuntime>()
+impl RendererProvider for World {
+    fn buffer(&self) -> Option<&dyn std::any::Any> {
+        self.get::<Buffer>().map(|b| b as &dyn std::any::Any)
     }
 
-    fn animator(&self) -> Option<&Animator> {
-        self.get::<Animator>()
+    fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<Buffer>().map(|b| b as &mut dyn std::any::Any)
     }
 
-    fn buffer_mut(&mut self) -> Option<&mut Buffer> {
-        self.get_mut::<Buffer>()
+    fn output_buffer(&self) -> Option<&dyn std::any::Any> {
+        self.get::<Buffer>().map(|b| b as &dyn std::any::Any)
     }
 
-    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer> {
-        self.get_mut::<VirtualBuffer>()
+    fn virtual_buffer(&self) -> Option<&dyn std::any::Any> {
+        self.get::<VirtualBuffer>().map(|b| b as &dyn std::any::Any)
     }
 
-    fn runtime_settings(&self) -> Option<&RuntimeSettings> {
-        self.get::<RuntimeSettings>()
+    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<VirtualBuffer>().map(|b| b as &mut dyn std::any::Any)
     }
 
-    fn frame_skip_oracle_mut(&mut self) -> Option<&mut std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>> {
-        self.get_mut::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>()
+    fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
+        self.get::<RuntimeSettings>().map(|r| r as &dyn std::any::Any)
+    }
+
+    fn debug_features(&self) -> Option<&dyn std::any::Any> {
+        self.get::<DebugFeatures>().map(|d| d as &dyn std::any::Any)
+    }
+
+    fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
     }
 }

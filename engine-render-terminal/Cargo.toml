@@ -7,5 +7,6 @@ license.workspace = true
 
 [dependencies]
 engine-core = { workspace = true }
+engine-animation = { path = "../engine-animation" }
 engine-render = { path = "../engine-render" }
 crossterm = "0.29"
