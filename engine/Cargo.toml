@@ -16,6 +16,8 @@ engine-render-terminal = { path = "../engine-render-terminal" }
 engine-runtime = { path = "../engine-runtime" }
 engine-terminal = { path = "../engine-terminal" }
 engine-pipeline = { path = "../engine-pipeline" }
+engine-error = { path = "../engine-error" }
+engine-frame = { path = "../engine-frame" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }
 crossterm = "0.29"

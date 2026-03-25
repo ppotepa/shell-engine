@@ -688,7 +688,9 @@ dependencies = [
  "engine-audio",
  "engine-authoring",
  "engine-core",
+ "engine-error",
  "engine-events",
+ "engine-frame",
  "engine-game",
  "engine-io",
  "engine-pipeline",
@@ -760,11 +762,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-error"
+version = "0.1.0"
+dependencies = [
+ "serde_yaml",
+ "thiserror 2.0.18",
+ "zip",
+]
+
+[[package]]
 name = "engine-events"
 version = "0.1.0"
 dependencies = [
  "crossterm 0.29.0",
 ]
+
+[[package]]
+name = "engine-frame"
+version = "0.1.0"
 
 [[package]]
 name = "engine-game"

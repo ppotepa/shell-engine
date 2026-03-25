@@ -1,0 +1,9 @@
+[package]
+name = "engine-error"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "2.0"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+serde_yaml = "0.9"
