@@ -3,7 +3,7 @@
 //! Integration: engine-animation is decoupled from World and engine-core.
 //! The engine calls `animator_system()` once per frame with a provider that implements AnimatorProvider.
 
-use engine_core::scene::Scene;
+use engine_core::scene::{Scene, StageTrigger};
 
 use crate::animator::Animator;
 
@@ -41,10 +41,14 @@ pub fn animator_system<T: AnimatorProvider>(provider: &mut T, tick_ms: u64) -> O
             step_dur,
             step_durs,
             stage_def.looping,
-            scene.next.clone(),
+            scene.stages.on_idle.trigger.clone(),
+            animator
+                .next_scene_override
+                .clone()
+                .or_else(|| scene.next.clone()),
         )
     };
-    let (step_count, step_dur, step_durs, stage_looping, next_scene) = tick_data;
+    let (step_count, step_dur, step_durs, stage_looping, idle_trigger, next_scene) = tick_data;
 
     let transition = {
         let Some(animator) = provider.animator_mut() else {
@@ -56,6 +60,7 @@ pub fn animator_system<T: AnimatorProvider>(provider: &mut T, tick_ms: u64) -> O
             step_dur,
             &step_durs,
             stage_looping,
+            &idle_trigger,
             next_scene,
             tick_ms,
         )
@@ -64,12 +69,21 @@ pub fn animator_system<T: AnimatorProvider>(provider: &mut T, tick_ms: u64) -> O
     transition
 }
 
+fn next_stage(stage: &crate::SceneStage) -> crate::SceneStage {
+    match stage {
+        crate::SceneStage::OnEnter => crate::SceneStage::OnIdle,
+        crate::SceneStage::OnIdle => crate::SceneStage::OnLeave,
+        crate::SceneStage::OnLeave | crate::SceneStage::Done => crate::SceneStage::Done,
+    }
+}
+
 fn tick_animator_primitives(
     animator: &mut Animator,
     step_count: usize,
     step_dur: u64,
     step_durs: &[u64],
     stage_looping: bool,
+    idle_trigger: &StageTrigger,
     next_scene: Option<String>,
     tick_ms: u64,
 ) -> Option<String> {
@@ -83,32 +97,53 @@ fn tick_animator_primitives(
         return None;
     }
 
-    // Advance through consecutive zero-duration steps in one tick.
-    let mut new_idx = animator.step_idx;
-    while new_idx < step_durs.len() && step_durs[new_idx] == 0 {
-        new_idx += 1;
-    }
-    animator.step_idx = new_idx;
-    animator.elapsed_ms = 0;
-
-    // If stage done, advance to next stage.
-    if animator.step_idx >= step_count {
-        animator.stage = match animator.stage {
-            crate::SceneStage::OnEnter => crate::SceneStage::OnIdle,
-            crate::SceneStage::OnIdle => {
-                if stage_looping {
-                    animator.step_idx = 0;
-                    animator.elapsed_ms = 0;
-                    return None;
-                }
-                crate::SceneStage::OnLeave
+    // Advance to next step, then skip any consecutive zero-duration steps in one tick.
+    let mut step_idx = animator.step_idx;
+    loop {
+        let next_step = step_idx + 1;
+        if next_step < step_count {
+            step_idx = next_step;
+            // If next step also has zero duration, keep going in same tick.
+            if step_durs.get(step_idx).copied().unwrap_or(1) == 0 {
+                continue;
             }
-            crate::SceneStage::OnLeave => crate::SceneStage::Done,
-            crate::SceneStage::Done => crate::SceneStage::Done,
-        };
+        }
+        break;
+    }
+
+    if step_idx > animator.step_idx {
+        // Advanced one or more steps but still within the stage.
+        animator.step_idx = step_idx;
+        animator.elapsed_ms = 0;
+        // Check if we've consumed all steps.
+        if animator.step_idx + 1 < step_count
+            || step_durs.get(animator.step_idx).copied().unwrap_or(1) != 0
+        {
+            return None;
+        }
+    } else if animator.step_idx + 1 < step_count {
+        // Normal advance to next step.
+        animator.step_idx += 1;
+        animator.elapsed_ms = 0;
+        return None;
+    }
+
+    // All steps done — check for loop or stage transition.
+    let should_loop = stage_looping
+        || matches!(
+            (&animator.stage, idle_trigger),
+            (crate::SceneStage::OnIdle, StageTrigger::AnyKey)
+        );
+    if should_loop {
         animator.step_idx = 0;
         animator.elapsed_ms = 0;
+        return None;
     }
+
+    animator.stage = next_stage(&animator.stage);
+    animator.step_idx = 0;
+    animator.elapsed_ms = 0;
+    animator.stage_elapsed_ms = 0;
 
     if animator.stage == crate::SceneStage::Done {
         if let Some(scene_id) = next_scene {
@@ -189,6 +224,65 @@ mod tests {
 
         let result = animator_system(&mut provider, 50);
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn nonzero_steps_advance_through_stage() {
+        let mut scene = minimal_scene();
+        scene.stages.on_enter = Stage {
+            trigger: StageTrigger::None,
+            steps: vec![
+                Step { effects: Vec::new(), duration: Some(200) },
+                Step { effects: Vec::new(), duration: Some(400) },
+                Step { effects: Vec::new(), duration: Some(100) },
+            ],
+            looping: false,
+        };
+        let mut provider = TestAnimatorProvider {
+            animator: Some(Animator::new()),
+            scene: Some(scene),
+        };
+
+        // Step 0 (200ms): tick 150ms — still in step 0
+        animator_system(&mut provider, 150);
+        assert_eq!(provider.animator.as_ref().unwrap().step_idx, 0);
+        assert_eq!(provider.animator.as_ref().unwrap().stage, crate::SceneStage::OnEnter);
+
+        // Tick 60ms more (total 210ms) — should advance to step 1
+        animator_system(&mut provider, 60);
+        assert_eq!(provider.animator.as_ref().unwrap().step_idx, 1);
+
+        // Step 1 (400ms): tick 410ms — should advance to step 2
+        animator_system(&mut provider, 410);
+        assert_eq!(provider.animator.as_ref().unwrap().step_idx, 2);
+
+        // Step 2 (100ms): tick 110ms — should transition to OnIdle
+        animator_system(&mut provider, 110);
+        assert_eq!(provider.animator.as_ref().unwrap().stage, crate::SceneStage::OnIdle);
+    }
+
+    #[test]
+    fn any_key_trigger_forces_idle_looping() {
+        let mut scene = minimal_scene();
+        scene.stages.on_idle = Stage {
+            trigger: StageTrigger::AnyKey,
+            steps: vec![
+                Step { effects: Vec::new(), duration: Some(100) },
+            ],
+            looping: false, // looping is false, but any-key trigger should force looping
+        };
+        let mut provider = TestAnimatorProvider {
+            animator: Some(Animator {
+                stage: crate::SceneStage::OnIdle,
+                ..Animator::new()
+            }),
+            scene: Some(scene),
+        };
+
+        // Complete the on_idle step — should loop back, not transition to OnLeave
+        animator_system(&mut provider, 110);
+        assert_eq!(provider.animator.as_ref().unwrap().stage, crate::SceneStage::OnIdle);
+        assert_eq!(provider.animator.as_ref().unwrap().step_idx, 0);
     }
 
     #[test]
