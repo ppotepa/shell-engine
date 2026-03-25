@@ -691,6 +691,7 @@ dependencies = [
  "engine-events",
  "engine-game",
  "engine-io",
+ "engine-pipeline",
  "engine-render",
  "engine-render-policy",
  "engine-render-terminal",
@@ -781,6 +782,10 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
 ]
+
+[[package]]
+name = "engine-pipeline"
+version = "0.1.0"
 
 [[package]]
 name = "engine-render"

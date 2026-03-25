@@ -22,6 +22,8 @@ pub use engine_3d as rendering_3d;
 pub use engine_terminal as terminal;
 // Re-export game subsystem
 pub use engine_game as game;
+// Re-export pipeline subsystem
+pub use engine_pipeline as pipeline;
 
 pub mod asset_cache;
 pub mod obj_prerender;
