@@ -25,7 +25,7 @@ pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};
 pub use skip::{AlwaysRender, CoordinatedSkip, FrameSkipOracle};
 
 use engine_core::strategy::{DiffStrategy, FullScanDiff};
-use engine_core::strategy::DirtyRegionDiff;
+use engine_core::strategy::{DirtyRegionDiff, RowSkipDiff};
 
 /// Aggregated render pipeline strategies, registered as a World resource at startup.
 ///
@@ -56,12 +56,15 @@ impl PipelineStrategies {
     /// | flag           | effect                                              |
     /// |----------------|-----------------------------------------------------|
     /// | `--opt-diff`   | `DirtyRegionDiff` instead of `FullScanDiff`         |
+    /// | `--opt-rowdiff`| `RowSkipDiff` (row-level skip in full-scan)         |
     /// | `--opt-comp`   | `DirectLayerCompositor` + `DirtyRegionPacker`       |
     /// | `--opt-present`| `HashSkipPresenter` instead of `AlwaysPresenter`    |
-    pub fn from_flags(opt_diff: bool, opt_comp: bool, opt_present: bool) -> Self {
+    pub fn from_flags(opt_diff: bool, opt_comp: bool, opt_present: bool, opt_rowdiff: bool) -> Self {
         Self {
             diff: if opt_diff {
                 Box::new(DirtyRegionDiff)
+            } else if opt_rowdiff {
+                Box::new(RowSkipDiff)
             } else {
                 Box::new(FullScanDiff)
             },

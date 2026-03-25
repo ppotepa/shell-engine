@@ -85,6 +85,8 @@ pub struct EngineConfig {
     pub opt_diff: bool,
     /// Enable unified frame-skip coordination (PostFX cache + Presenter sync).
     pub opt_skip: bool,
+    /// Enable row-level dirty skip in diff scan (experimental — off by default).
+    pub opt_rowdiff: bool,
     /// Run benchmark mode for N seconds, then show results and exit.
     pub bench_secs: Option<f32>,
     /// Capture frames to this directory for visual regression testing.
@@ -103,6 +105,7 @@ impl Default for EngineConfig {
             opt_present: false,
             opt_diff: false,
             opt_skip: false,
+            opt_rowdiff: false,
             bench_secs: None,
             capture_frames_dir: None,
         }
@@ -215,11 +218,13 @@ impl ShellEngine {
         pflags.opt_present = self.config.opt_present;
         pflags.opt_diff = self.config.opt_diff;
         pflags.opt_skip = self.config.opt_skip;
+        pflags.opt_rowdiff = self.config.opt_rowdiff;
         world.register(pflags);
         world.register(strategy::PipelineStrategies::from_flags(
             self.config.opt_diff,
             self.config.opt_comp,
             self.config.opt_present,
+            self.config.opt_rowdiff,
         ));
         if let Some(secs) = self.config.bench_secs {
             world.register(bench::BenchmarkState::new(

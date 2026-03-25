@@ -43,6 +43,7 @@ pub struct CellDiff<'a> {
 /// After flushing, `swap()` copies back → front.
 ///
 /// Dirty rect tracking avoids O(W*H) fill/diff scans by tracking modified regions.
+/// Row-level dirty flags allow diff_into_rowskip to skip entirely unchanged rows.
 #[derive(Debug, Clone)]
 pub struct Buffer {
     pub width: u16,
@@ -60,6 +61,9 @@ pub struct Buffer {
     dirty_x_max: u16,
     dirty_y_min: u16,
     dirty_y_max: u16,
+    /// Row-level dirty flags: true if row may have changes (set/fill/blit touched it).
+    /// Reset to false after swap(). If false, diff_into_rowskip skips entire row.
+    dirty_rows: Vec<bool>,
     /// Monotonic counter incremented on every mutation (set/fill/blit/resize).
     pub write_count: u64,
     /// Number of cells emitted by the most recent diff_into / diff_into_dirty call.
@@ -90,6 +94,7 @@ impl Buffer {
             };
             size
         ];
+        let dirty_rows = vec![true; height as usize];
         Self {
             width,
             height,
@@ -101,6 +106,7 @@ impl Buffer {
             dirty_x_max: 0,
             dirty_y_min: u16::MAX,
             dirty_y_max: 0,
+            dirty_rows,
             write_count: 0,
             last_diff_count: 0,
         }
@@ -114,6 +120,8 @@ impl Buffer {
         self.dirty_x_max = self.width.saturating_sub(1);
         self.dirty_y_min = 0;
         self.dirty_y_max = self.height.saturating_sub(1);
+        // Mark all rows as dirty
+        self.dirty_rows.fill(true);
         self.write_count += 1;
     }
 
@@ -127,6 +135,10 @@ impl Buffer {
             if x > self.dirty_x_max { self.dirty_x_max = x; }
             if y < self.dirty_y_min { self.dirty_y_min = y; }
             if y > self.dirty_y_max { self.dirty_y_max = y; }
+            // Mark this row as dirty
+            if (y as usize) < self.dirty_rows.len() {
+                self.dirty_rows[y as usize] = true;
+            }
         }
     }
 
@@ -189,16 +201,39 @@ impl Buffer {
         }
     }
 
+    /// Row-skip variant of diff_into — skips entire rows marked not dirty.
+    /// Used by RowSkipDiff strategy behind --opt-rowdiff.
+    /// Safe: dirty_rows only set to true (never false mid-frame), reset only after swap().
+    pub fn diff_into_row_skip(&self, out: &mut Vec<(u16, u16, char, Color, Color)>) {
+        let mut idx = 0usize;
+        for y in 0..self.height {
+            let y_usize = y as usize;
+            if y_usize < self.dirty_rows.len() && !self.dirty_rows[y_usize] {
+                // Row not dirty, skip entire row
+                idx += self.width as usize;
+                continue;
+            }
+            for x in 0..self.width {
+                let b = &self.back[idx];
+                if *b != self.front[idx] {
+                    out.push((x, y, b.symbol, b.fg, b.bg));
+                }
+                idx += 1;
+            }
+        }
+    }
+
     /// Promote back buffer to front — call after every successful flush.
     /// Uses O(1) pointer swap instead of O(W×H) memcpy; resets dirty tracking.
     pub fn swap(&mut self) {
         std::mem::swap(&mut self.front, &mut self.back);
         self.front_generation = self.generation;
-        // Reset dirty region for next frame.
+        // Reset dirty region and row flags for next frame.
         self.dirty_x_min = u16::MAX;
         self.dirty_x_max = 0;
         self.dirty_y_min = u16::MAX;
         self.dirty_y_max = 0;
+        self.dirty_rows.fill(false);
     }
 
     /// Restore the front buffer (last flushed frame) into the back buffer.
@@ -213,6 +248,7 @@ impl Buffer {
         self.dirty_x_max = self.width.saturating_sub(1);
         self.dirty_y_min = 0;
         self.dirty_y_max = self.height.saturating_sub(1);
+        self.dirty_rows.fill(true);
     }
 
     /// Force a full re-flush on the next render (e.g. after terminal resize).
@@ -225,6 +261,7 @@ impl Buffer {
         self.dirty_x_max = self.width.saturating_sub(1);
         self.dirty_y_min = 0;
         self.dirty_y_max = self.height.saturating_sub(1);
+        self.dirty_rows.fill(true);
     }
 
     /// Reset dirty bounds and write_count to zero without clearing buffer contents.
@@ -276,6 +313,12 @@ impl Buffer {
         if x_max > self.dirty_x_max { self.dirty_x_max = x_max; }
         if y < self.dirty_y_min { self.dirty_y_min = y; }
         if y_max > self.dirty_y_max { self.dirty_y_max = y_max; }
+        // Mark affected rows as dirty
+        for y_coord in y..=y_max {
+            if (y_coord as usize) < self.dirty_rows.len() {
+                self.dirty_rows[y_coord as usize] = true;
+            }
+        }
     }
 
     /// Total number of cells in the buffer.
@@ -317,6 +360,7 @@ impl Buffer {
             fg: Color::Reset,
             bg: Color::Reset
         });
+        self.dirty_rows.resize(height as usize, true);
         // Increment generation to force full redraw.
         self.generation = self.generation.wrapping_add(1);
         self.dirty_x_min = 0;
@@ -381,6 +425,12 @@ impl Buffer {
             self.dirty_x_max = self.dirty_x_max.max(max_x);
             self.dirty_y_min = self.dirty_y_min.min(min_y);
             self.dirty_y_max = self.dirty_y_max.max(max_y);
+            // Mark affected rows as dirty
+            for y in min_y..=max_y {
+                if (y as usize) < self.dirty_rows.len() {
+                    self.dirty_rows[y as usize] = true;
+                }
+            }
         }
     }
 
@@ -394,6 +444,7 @@ impl Buffer {
         self.dirty_x_max = self.width.saturating_sub(1);
         self.dirty_y_min = 0;
         self.dirty_y_max = self.height.saturating_sub(1);
+        self.dirty_rows.fill(true);
         self.write_count += 1;
     }
 }

@@ -636,6 +636,8 @@ pub(crate) fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u1
 
     // #3 opt-term-ansibuf: write all ANSI into Vec<u8>, then single write_all.
     // #2 opt-term-colorstate: track last-emitted fg/bg to skip redundant SetColor commands.
+    // #1 opt-term-cursor: skip redundant MoveTo (cursor auto-advances after Print).
+    //    Use CursorRight(n) for small gaps (3 bytes vs 6 for MoveTo).
     ANSI_BUF.with(|ansi_cell| {
         RUN_BUF.with(|run_cell| {
             let mut ansi = ansi_cell.borrow_mut();
@@ -653,10 +655,25 @@ pub(crate) fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u1
             let mut active_bg = style::Color::Reset;
 
             // Inline helper: emit a queued run into the ANSI buffer.
+            // Optimizations:
+            //   - Skip MoveTo if already at correct position (cursor auto-advances)
+            //   - Use CursorRight(n) for small horizontal gaps (cheaper than MoveTo)
+            //   - Only emit SetFg/Bg if color changed (already tracked)
             macro_rules! emit_run {
                 () => {
-                    if cursor_x != rx || cursor_y != ry {
+                    // Cursor movement: skip redundant MoveTo, use CursorRight for small gaps
+                    if cursor_y != ry {
                         let _ = queue!(&mut *ansi, cursor::MoveTo(rx, ry));
+                    } else if cursor_x != rx {
+                        let gap = rx.saturating_sub(cursor_x) as usize;
+                        if gap > 0 && gap <= 3 {
+                            // CursorRight is cheaper for gaps 1-3 cells
+                            for _ in 0..gap {
+                                let _ = queue!(&mut *ansi, cursor::MoveRight(1));
+                            }
+                        } else if gap > 3 {
+                            let _ = queue!(&mut *ansi, cursor::MoveTo(rx, ry));
+                        }
                     }
                     if rfg != active_fg {
                         let _ = queue!(&mut *ansi, style::SetForegroundColor(rfg));
