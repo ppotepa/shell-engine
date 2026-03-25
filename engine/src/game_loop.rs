@@ -171,6 +171,17 @@ pub fn game_loop(
         systems::renderer::renderer_system(world);
         let t4 = Instant::now();
 
+        // Notify frame-skip oracle that frame has advanced
+        if let Some(oracle) = world.get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>() {
+            if let Ok(mut o) = oracle.lock() {
+                let frame_id = world
+                    .animator()
+                    .map(|a| a.step_idx)
+                    .unwrap_or(0) as u64;
+                o.frame_advanced(frame_id, false);
+            }
+        }
+
         // Capture frame if capture mode is active
         if let Some(capture) = frame_capture {
             if let Some(buf) = world.output_buffer() {
