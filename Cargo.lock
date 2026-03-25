@@ -688,6 +688,7 @@ dependencies = [
  "engine-audio",
  "engine-authoring",
  "engine-core",
+ "engine-events",
  "engine-game",
  "engine-io",
  "engine-terminal",
@@ -751,6 +752,13 @@ dependencies = [
  "serde",
  "serde_yaml",
  "tempfile",
+]
+
+[[package]]
+name = "engine-events"
+version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
 ]
 
 [[package]]
