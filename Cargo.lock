@@ -870,7 +870,10 @@ dependencies = [
  "crossterm 0.29.0",
  "engine-animation",
  "engine-core",
+ "engine-debug",
+ "engine-pipeline",
  "engine-render",
+ "engine-runtime",
 ]
 
 [[package]]

@@ -16,6 +16,9 @@ use engine_audio::AudioProvider;
 use engine_animation::{AnimatorProvider, LifecycleProvider};
 use engine_render_terminal::RendererProvider;
 use engine_core::scene::Scene;
+use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
+use engine_pipeline::{PipelineStrategies, FrameSkipOracle};
+use std::sync::Mutex;
 
 /// Typed accessor trait for all engine-managed resources stored in [`World`].
 pub(crate) trait EngineWorldAccess {
@@ -145,36 +148,80 @@ impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
 
 // Implement RendererProvider for World to work with engine-render-terminal
 impl RendererProvider for World {
-    fn buffer(&self) -> Option<&dyn std::any::Any> {
-        self.get::<Buffer>().map(|b| b as &dyn std::any::Any)
+    fn buffer(&self) -> Option<&Buffer> {
+        self.get::<Buffer>()
     }
 
-    fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<Buffer>().map(|b| b as &mut dyn std::any::Any)
+    fn buffer_mut(&mut self) -> Option<&mut Buffer> {
+        self.get_mut::<Buffer>()
     }
 
-    fn output_buffer(&self) -> Option<&dyn std::any::Any> {
-        self.get::<Buffer>().map(|b| b as &dyn std::any::Any)
+    fn virtual_buffer(&self) -> Option<&VirtualBuffer> {
+        self.get::<VirtualBuffer>()
     }
 
-    fn virtual_buffer(&self) -> Option<&dyn std::any::Any> {
-        self.get::<VirtualBuffer>().map(|b| b as &dyn std::any::Any)
+    fn runtime_settings(&self) -> Option<&RuntimeSettings> {
+        self.get::<RuntimeSettings>()
     }
 
-    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<VirtualBuffer>().map(|b| b as &mut dyn std::any::Any)
+    fn debug_features(&self) -> Option<&DebugFeatures> {
+        self.get::<DebugFeatures>()
     }
 
-    fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
-        self.get::<RuntimeSettings>().map(|r| r as &dyn std::any::Any)
+    fn debug_log(&self) -> Option<&DebugLogBuffer> {
+        self.get::<DebugLogBuffer>()
     }
 
-    fn debug_features(&self) -> Option<&dyn std::any::Any> {
-        self.get::<DebugFeatures>().map(|d| d as &dyn std::any::Any)
+    fn animator(&self) -> Option<&Animator> {
+        self.get::<Animator>()
     }
 
-    fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
+    fn fps_counter(&self) -> Option<&FpsCounter> {
+        self.get::<FpsCounter>()
+    }
+
+    fn process_stats(&self) -> Option<&ProcessStats> {
+        self.get::<ProcessStats>()
+    }
+
+    fn system_timings(&self) -> Option<&SystemTimings> {
+        self.get::<SystemTimings>()
+    }
+
+    fn current_scene_id(&self) -> String {
+        EngineWorldAccess::scene_runtime(self)
+            .map(|sr| sr.scene().id.clone())
+            .unwrap_or_else(|| "unknown".to_string())
+    }
+
+    fn pipeline_strategies_ptr(&self) -> *const PipelineStrategies {
+        self.get::<PipelineStrategies>()
+            .map(|s| s as *const _)
+            .unwrap_or(std::ptr::null())
+    }
+
+    fn frame_skip_oracle(&self) -> Option<&Mutex<Box<dyn FrameSkipOracle>>> {
+        self.get::<Mutex<Box<dyn FrameSkipOracle>>>()
+    }
+
+    fn renderer_mut(&mut self) -> Option<&mut TerminalRenderer> {
+        self.get_mut::<TerminalRenderer>()
+    }
+
+    fn swap_buffers(&mut self) {
+        if let Some(buf) = self.get_mut::<Buffer>() {
+            buf.swap();
+        }
+    }
+
+    fn restore_front_to_back(&mut self) {
+        if let Some(buf) = self.get_mut::<Buffer>() {
+            buf.restore_front_to_back();
+        }
+    }
+
+    fn with_virtual_and_output<F: FnOnce(&VirtualBuffer, &mut Buffer)>(&mut self, f: F) {
+        self.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(f);
     }
 }
 

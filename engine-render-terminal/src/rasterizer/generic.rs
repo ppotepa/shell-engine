@@ -241,7 +241,7 @@ pub fn rasterize_generic(
     fg_col: crossterm::style::Color,
     draw_x: u16,
     draw_y: u16,
-    buffer: &mut crate::buffer::Buffer,
+    buffer: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
     let scale = scale.max(1);
@@ -359,7 +359,7 @@ pub fn rasterize_generic_tiny(
     fg_col: crossterm::style::Color,
     draw_x: u16,
     draw_y: u16,
-    buffer: &mut crate::buffer::Buffer,
+    buffer: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
     let glyph_w = 3u16;
@@ -515,7 +515,7 @@ pub fn rasterize_generic_half(
     fg_col: crossterm::style::Color,
     draw_x: u16,
     draw_y: u16,
-    buffer: &mut crate::buffer::Buffer,
+    buffer: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
     let mut cursor_x = draw_x;
@@ -559,7 +559,7 @@ pub fn rasterize_generic_quad(
     fg_col: crossterm::style::Color,
     draw_x: u16,
     draw_y: u16,
-    buffer: &mut crate::buffer::Buffer,
+    buffer: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
     let mut cursor_x = draw_x;
@@ -601,7 +601,7 @@ pub fn rasterize_generic_braille(
     fg_col: crossterm::style::Color,
     draw_x: u16,
     draw_y: u16,
-    buffer: &mut crate::buffer::Buffer,
+    buffer: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
     let mut cursor_x = draw_x;
@@ -663,7 +663,7 @@ pub fn rasterize_spans_mode(
     mode: GenericMode,
     draw_x: u16,
     draw_y: u16,
-    buf: &mut crate::buffer::Buffer,
+    buf: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
     let mut x = draw_x;
@@ -688,7 +688,7 @@ pub fn rasterize_spans(
     preset: u16,
     draw_x: u16,
     draw_y: u16,
-    buf: &mut crate::buffer::Buffer,
+    buf: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
     let mode = match preset {
@@ -764,7 +764,7 @@ mod tests {
     #[test]
     fn rasterize_generic_lowercase_differs_from_uppercase() {
         use super::{rasterize_generic, TextTransform};
-        use crate::buffer::Buffer;
+        use engine_core::buffer::Buffer;
         use crossterm::style::Color;
 
         let mut buf_lower = Buffer::new(100, 10);

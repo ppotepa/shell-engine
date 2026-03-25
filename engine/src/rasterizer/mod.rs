@@ -1,5 +1,5 @@
 mod font_loader;
-pub mod generic;
+pub use engine_render_terminal::rasterizer::generic;
 mod types;
 
 use crate::buffer::Buffer;

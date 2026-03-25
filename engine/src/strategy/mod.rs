@@ -17,14 +17,13 @@ pub use engine_pipeline::{
     PipelineStrategies,
 };
 
-// Concrete implementations that need engine-specific code
-pub mod flush;
-pub mod display;
+// Re-export terminal-specific strategies from engine-render-terminal
+pub use engine_render_terminal::strategy::flush::{AnsiBatchFlusher, NaiveFlusher};
+pub use engine_render_terminal::strategy::display::{AsyncDisplaySink, SyncDisplaySink};
+
 pub mod scene_compositor;
 pub mod behavior_factory;
 
-pub use flush::{AnsiBatchFlusher, NaiveFlusher};
-pub use display::{AsyncDisplaySink, SyncDisplaySink};
 pub use scene_compositor::{
     CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
     compositor_for,

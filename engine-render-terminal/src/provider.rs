@@ -1,18 +1,31 @@
 //! RendererProvider trait — decouples renderer from engine's World type.
-//!
-//! This trait allows the renderer system in engine-render-terminal to access
-//! World resources without depending on the engine crate's World type.
 
-/// Provides access to renderer-needed resources from World.
-///
-/// Allows renderer system to be generic and independent of engine's type-erased World.
+use engine_core::buffer::{Buffer, VirtualBuffer};
+use engine_debug::{DebugFeatures, FpsCounter, ProcessStats, SystemTimings};
+use engine_debug::DebugLogBuffer;
+use engine_runtime::RuntimeSettings;
+use engine_animation::Animator;
+use engine_pipeline::{PipelineStrategies, FrameSkipOracle};
+use crate::renderer::TerminalRenderer;
+use std::sync::Mutex;
+
 pub trait RendererProvider {
-    fn buffer(&self) -> Option<&dyn std::any::Any>;
-    fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any>;
-    fn output_buffer(&self) -> Option<&dyn std::any::Any>;
-    fn virtual_buffer(&self) -> Option<&dyn std::any::Any>;
-    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any>;
-    fn runtime_settings(&self) -> Option<&dyn std::any::Any>;
-    fn debug_features(&self) -> Option<&dyn std::any::Any>;
-    fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any>;
+    fn buffer(&self) -> Option<&Buffer>;
+    fn buffer_mut(&mut self) -> Option<&mut Buffer>;
+    fn virtual_buffer(&self) -> Option<&VirtualBuffer>;
+    fn runtime_settings(&self) -> Option<&RuntimeSettings>;
+    fn debug_features(&self) -> Option<&DebugFeatures>;
+    fn debug_log(&self) -> Option<&DebugLogBuffer>;
+    fn animator(&self) -> Option<&Animator>;
+    fn fps_counter(&self) -> Option<&FpsCounter>;
+    fn process_stats(&self) -> Option<&ProcessStats>;
+    fn system_timings(&self) -> Option<&SystemTimings>;
+    fn current_scene_id(&self) -> String;
+    /// Returns a raw pointer to PipelineStrategies (safe: singleton, never dropped during frame).
+    fn pipeline_strategies_ptr(&self) -> *const PipelineStrategies;
+    fn frame_skip_oracle(&self) -> Option<&Mutex<Box<dyn FrameSkipOracle>>>;
+    fn renderer_mut(&mut self) -> Option<&mut TerminalRenderer>;
+    fn swap_buffers(&mut self);
+    fn restore_front_to_back(&mut self);
+    fn with_virtual_and_output<F: FnOnce(&VirtualBuffer, &mut Buffer)>(&mut self, f: F);
 }
