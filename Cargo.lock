@@ -687,6 +687,7 @@ dependencies = [
  "engine-animation",
  "engine-audio",
  "engine-authoring",
+ "engine-capture",
  "engine-core",
  "engine-error",
  "engine-events",
@@ -748,6 +749,15 @@ dependencies = [
  "engine-core",
  "serde",
  "serde_yaml",
+]
+
+[[package]]
+name = "engine-capture"
+version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
+ "engine-core",
+ "engine-error",
 ]
 
 [[package]]

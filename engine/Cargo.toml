@@ -18,6 +18,7 @@ engine-terminal = { path = "../engine-terminal" }
 engine-pipeline = { path = "../engine-pipeline" }
 engine-error = { path = "../engine-error" }
 engine-frame = { path = "../engine-frame" }
+engine-capture = { path = "../engine-capture" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }
 crossterm = "0.29"
