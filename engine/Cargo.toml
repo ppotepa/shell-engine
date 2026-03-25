@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-engine-authoring = { path = "../engine-authoring" }
-engine-core = { path = "../engine-core" }
-engine-io = { path = "../engine-io" }
+engine-authoring = { workspace = true }
+engine-audio = { path = "../engine-audio" }
+engine-core = { workspace = true }
+engine-io = { workspace = true }
 crossterm = "0.29"
 tui-input = { version = "0.11", default-features = false }
 taffy = "0.7"

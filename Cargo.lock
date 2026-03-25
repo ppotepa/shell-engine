@@ -683,6 +683,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "crossterm 0.29.0",
+ "engine-audio",
  "engine-authoring",
  "engine-core",
  "engine-io",
@@ -700,6 +701,15 @@ dependencies = [
  "thiserror 2.0.18",
  "tui-input",
  "zip",
+]
+
+[[package]]
+name = "engine-audio"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "rodio",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

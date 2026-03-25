@@ -12,6 +12,8 @@ pub use error::EngineError;
 
 // Re-export core modules from engine-core for compatibility
 pub use engine_core::{animations, buffer, effects, logging, markup, scene};
+// Re-export audio subsystem
+pub use engine_audio as audio;
 
 pub mod asset_cache;
 pub mod obj_prerender;
@@ -20,7 +22,6 @@ pub mod pipeline_flags;
 pub mod strategy;
 pub mod asset_source;
 pub mod assets;
-pub mod audio;
 pub mod behavior;
 pub mod events;
 pub mod mod_behaviors;

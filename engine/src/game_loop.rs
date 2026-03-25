@@ -162,7 +162,7 @@ pub fn game_loop(
         let t0 = Instant::now();
         systems::behavior::behavior_system(world);
         let t1 = Instant::now();
-        systems::audio::audio_system(world);
+        engine_audio::audio_system(world);
         let t1b = Instant::now();
         systems::compositor::compositor_system(world);
         let t2 = Instant::now();

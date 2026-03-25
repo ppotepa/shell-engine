@@ -1,0 +1,11 @@
+[package]
+name = "engine-audio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-core = { workspace = true }
+rodio = { version = "0.20", default-features = false, features = ["wav", "mp3"] }
+thiserror = { workspace = true }
