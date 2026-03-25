@@ -1,17 +1,15 @@
 use engine_core::buffer::{Buffer, Cell, TRUE_BLACK, VirtualBuffer};
-use engine_debug::{DebugFeatures, DebugOverlayMode, FpsCounter, ProcessStats, SystemTimings};
-use engine_debug::DebugLogBuffer;
+use engine_debug::DebugOverlayMode;
 use engine_runtime::{VirtualPolicy, RuntimeSettings};
 use crate::provider::RendererProvider;
 use crate::strategy::{AnsiBatchFlusher, AsyncDisplaySink};
-use engine_pipeline::{DisplayFrame, DisplaySink, TerminalFlusher, PipelineStrategies, FrameSkipOracle};
-use engine_animation::{Animator, SceneStage};
+use engine_pipeline::{DisplayFrame, DisplaySink, TerminalFlusher, PipelineStrategies};
+use engine_animation::SceneStage;
 use crossterm::{cursor, execute, queue, style, terminal};
 use engine_core::logging;
 use engine_core::strategy::{DiffStrategy, FullScanDiff};
 use std::cell::RefCell;
 use std::io::{self, Write};
-use std::sync::Mutex;
 
 pub struct TerminalRenderer {
     stdout: io::BufWriter<io::Stdout>,
@@ -326,7 +324,10 @@ fn apply_stats_overlay(
     }
 }
 
-fn format_virtual_info(settings: &RuntimeSettings, vbuf: Option<&VirtualBuffer>) -> String {
+fn format_virtual_info(settings: Option<&RuntimeSettings>, vbuf: Option<&VirtualBuffer>) -> String {
+    let Some(settings) = settings else {
+        return "virtual: unavailable".to_string();
+    };
     if !settings.use_virtual_buffer {
         return "virtual: disabled".to_string();
     }
@@ -453,7 +454,7 @@ fn should_use_virtual_buffer<T: RendererProvider>(world: &T) -> bool {
         && world.virtual_buffer().is_some()
 }
 
-fn present_virtual_to_output<T: RendererProvider>(world: &mut T) {
+pub fn present_virtual_to_output<T: RendererProvider>(world: &mut T) {
     let Some(settings) = world.runtime_settings().cloned() else {
         return;
     };
