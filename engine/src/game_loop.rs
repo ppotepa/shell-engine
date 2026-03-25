@@ -137,7 +137,11 @@ pub fn game_loop(
 
         let t_anim_start = Instant::now();
         for _ in 0..ticks_this_frame {
-            let _ = engine_animation::animator_system(world, tick_ms);
+            if let Some(to_scene_id) = engine_animation::animator_system(world, tick_ms) {
+                if let Some(queue) = world.events_mut() {
+                    queue.push(EngineEvent::SceneTransition { to_scene_id });
+                }
+            }
         }
         let t_anim = t_anim_start.elapsed();
 
