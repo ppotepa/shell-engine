@@ -759,6 +759,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-render-terminal"
+version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
+ "engine-core",
+ "engine-render",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -117,3 +117,16 @@ impl AnimatorProvider for World {
         self.get_mut::<Animator>()
     }
 }
+
+// Public trait for 3D rendering provider (enables engine-3d extraction)
+/// Provides access to 3D assets needed by rendering systems
+pub trait Asset3DProvider {
+    /// Get mutable access to the asset root (for OBJ loading, etc.)
+    fn asset_root_mut(&mut self) -> Option<&mut AssetRoot>;
+}
+
+impl Asset3DProvider for World {
+    fn asset_root_mut(&mut self) -> Option<&mut AssetRoot> {
+        self.get_mut::<AssetRoot>()
+    }
+}
