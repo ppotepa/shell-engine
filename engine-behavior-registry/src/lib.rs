@@ -1,6 +1,10 @@
 //! Registry of mod-defined named behaviors loaded from `behaviors/*.yml` at engine startup.
 
+pub mod provider;
+
 use std::collections::HashMap;
+
+pub use provider::BehaviorProvider;
 
 /// World resource: holds mod-defined named behaviors loaded from `<mod_source>/behaviors/*.yml`.
 #[derive(Default, Clone)]

@@ -15,6 +15,7 @@ use crate::world::World;
 use engine_audio::AudioProvider;
 use engine_animation::{AnimatorProvider, LifecycleProvider};
 use engine_render_terminal::RendererProvider;
+use engine_behavior_registry::BehaviorProvider;
 use engine_core::scene::Scene;
 use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
 use engine_pipeline::{PipelineStrategies, FrameSkipOracle};
@@ -261,6 +262,53 @@ impl LifecycleProvider for World {
 
     fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
+    }
+
+    fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<EventQueue>().map(|e| e as &mut dyn std::any::Any)
+    }
+}
+
+// Implement BehaviorProvider for World
+impl BehaviorProvider for World {
+    fn scene(&self) -> Option<&dyn std::any::Any> {
+        self.get::<Scene>().map(|s| s as &dyn std::any::Any)
+    }
+
+    fn animator(&self) -> Option<&dyn std::any::Any> {
+        self.get::<Animator>().map(|a| a as &dyn std::any::Any)
+    }
+
+    fn scene_runtime_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<SceneRuntime>().map(|sr| sr as &mut dyn std::any::Any)
+    }
+
+    fn game_state(&self) -> Option<&dyn std::any::Any> {
+        self.get::<crate::game_state::GameState>().map(|gs| gs as &dyn std::any::Any)
+    }
+
+    fn mod_behaviors(&self) -> Option<&dyn std::any::Any> {
+        self.get::<engine_behavior_registry::ModBehaviorRegistry>().map(|mb| mb as &dyn std::any::Any)
+    }
+
+    fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
+    }
+
+    fn dispatch_audio_command(&mut self, _cmd: Box<dyn std::any::Any>) {
+        // TODO: dispatch to audio system
+    }
+
+    fn dispatch_behavior_command(&mut self, _cmd: Box<dyn std::any::Any>) {
+        // TODO: dispatch to behavior command queue
+    }
+
+    fn dispatch_animation_command(&mut self, _cmd: Box<dyn std::any::Any>) {
+        // TODO: dispatch to animation command queue
+    }
+
+    fn dispatch_lifecycle_command(&mut self, _cmd: Box<dyn std::any::Any>) {
+        // TODO: dispatch to lifecycle command queue
     }
 
     fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
