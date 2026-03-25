@@ -275,6 +275,7 @@ impl ShellEngine {
             self.config.opt_present,
             self.config.opt_rowdiff,
             self.config.opt_async_display,
+            Box::new(strategy::AnsiBatchFlusher),
         ));
         if let Some(secs) = self.config.bench_secs {
             world.register(bench::BenchmarkState::new(

@@ -1,11 +1,23 @@
-//! `PipelineFlags` — startup configuration for the render pipeline.
+//! Render pipeline configuration: flags, strategy traits, and strategy aggregation.
 //!
-//! Holds both always-active invariant flags (e.g. `full_redraw_on_scene_change`)
-//! and the opt-in CLI flags used to construct `PipelineStrategies` at startup.
-//!
-//! After startup, runtime systems read from `PipelineStrategies` (registered in World),
-//! not from `PipelineFlags` directly. `PipelineFlags` remains in World for diagnostic
-//! tooling and debug overlays that need to know which flags are active.
+//! `PipelineFlags` holds startup-time CLI options. Strategy traits define the
+//! abstract interfaces for each pipeline stage. `PipelineStrategies` aggregates
+//! one concrete strategy per stage into a single World resource.
+
+pub mod strategies;
+
+pub use strategies::{
+    // Trait definitions
+    LayerCompositor, HalfblockPacker, VirtualPresenter, TerminalFlusher,
+    DisplaySink, DisplayFrame, FrameSkipOracle,
+    // Simple impls (no engine/ deps)
+    DirectLayerCompositor, ScratchLayerCompositor,
+    DirtyRegionPacker, FullScanPacker,
+    AlwaysPresenter, HashSkipPresenter,
+    AlwaysRender, CoordinatedSkip,
+    // Aggregation
+    PipelineStrategies,
+};
 
 /// Feature flags for the render pipeline.
 ///

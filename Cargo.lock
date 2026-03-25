@@ -843,6 +843,10 @@ dependencies = [
 [[package]]
 name = "engine-pipeline"
 version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
+ "engine-core",
+]
 
 [[package]]
 name = "engine-render"
