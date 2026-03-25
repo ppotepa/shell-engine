@@ -94,6 +94,8 @@ pub struct EngineConfig {
     pub bench_secs: Option<f32>,
     /// Capture frames to this directory for visual regression testing.
     pub capture_frames_dir: Option<PathBuf>,
+    /// Override the mod's target FPS (e.g. 240 for uncapped benchmarks).
+    pub target_fps_override: Option<u16>,
 }
 
 impl Default for EngineConfig {
@@ -112,6 +114,7 @@ impl Default for EngineConfig {
             opt_async_display: false,
             bench_secs: None,
             capture_frames_dir: None,
+            target_fps_override: None,
         }
     }
 }
@@ -183,7 +186,10 @@ impl ShellEngine {
             "engine.scene",
             format!("loaded entry scene: id={} title={}", scene.id, scene.title),
         );
-        let target_fps = target_fps_from_manifest(&self.mod_manifest);
+        let target_fps = self
+            .config
+            .target_fps_override
+            .unwrap_or_else(|| target_fps_from_manifest(&self.mod_manifest));
         let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
         if let Some(mode) = self
             .config

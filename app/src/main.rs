@@ -75,6 +75,9 @@ struct Cli {
     /// Capture frames to a directory for visual regression testing (one .bin file per frame).
     #[arg(long = "capture-frames", value_name = "DIR")]
     capture_frames: Option<String>,
+    /// Override target FPS (e.g. 240 for uncapped benchmarks). Default: from mod manifest (60).
+    #[arg(long = "target-fps", value_name = "FPS")]
+    target_fps: Option<u16>,
 }
 
 fn main() {
@@ -121,6 +124,7 @@ fn main() {
         opt_async_display: cli.opt_async_display || cli.opt_all,
         bench_secs: cli.bench,
         capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
+        target_fps_override: cli.target_fps,
     };
     logging::debug(
         "app.main",
