@@ -1184,6 +1184,61 @@ impl SceneRuntime {
         let ui_last_change_text: Option<std::sync::Arc<str>> =
             self.ui_state.last_change.as_ref().map(|ev| std::sync::Arc::from(ev.text.as_str()));
         let last_raw_key = self.ui_state.last_raw_key.as_ref().map(|k| std::sync::Arc::new(k.clone()));
+        
+        // Phase 7C: Build Rhai maps once per frame and wrap in Arc.
+        // Behaviors will clone these Arc refs (O(1) refcount) instead of cloning maps (O(n_map)).
+        use rhai::Map as RhaiMap;
+        let rhai_menu_map = {
+            let mut menu_map = RhaiMap::new();
+            menu_map.insert(
+                "selected_index".into(),
+                (menu_selected_index as rhai::INT).into(),
+            );
+            menu_map.insert(
+                "count".into(),
+                (self.scene.menu_options.len() as rhai::INT).into(),
+            );
+            std::sync::Arc::new(menu_map)
+        };
+        
+        let rhai_time_map = {
+            let mut time_map = RhaiMap::new();
+            time_map.insert(
+                "scene_elapsed_ms".into(),
+                (scene_elapsed_ms as rhai::INT).into(),
+            );
+            time_map.insert(
+                "stage_elapsed_ms".into(),
+                (stage_elapsed_ms as rhai::INT).into(),
+            );
+            let stage_str: &str = match stage {
+                crate::systems::animator::SceneStage::OnEnter => "on_enter",
+                crate::systems::animator::SceneStage::OnIdle => "on_idle",
+                crate::systems::animator::SceneStage::OnLeave => "on_leave",
+                crate::systems::animator::SceneStage::Done => "done",
+            };
+            time_map.insert("stage".into(), stage_str.into());
+            std::sync::Arc::new(time_map)
+        };
+        
+        let rhai_key_map = {
+            let mut key_map = RhaiMap::new();
+            if let Some(k) = &self.ui_state.last_raw_key {
+                key_map.insert("code".into(), k.code.clone().into());
+                key_map.insert("ctrl".into(), k.ctrl.into());
+                key_map.insert("alt".into(), k.alt.into());
+                key_map.insert("shift".into(), k.shift.into());
+                key_map.insert("pressed".into(), true.into());
+            } else {
+                key_map.insert("code".into(), "".into());
+                key_map.insert("ctrl".into(), false.into());
+                key_map.insert("alt".into(), false.into());
+                key_map.insert("shift".into(), false.into());
+                key_map.insert("pressed".into(), false.into());
+            }
+            std::sync::Arc::new(key_map)
+        };
+        
         let mut commands = Vec::new();
         // Construct context once; only `object_states` mutates between iterations.
         let mut ctx = BehaviorContext {
@@ -1206,6 +1261,9 @@ impl SceneRuntime {
             game_state,
             last_raw_key,
             sidecar_io,
+            rhai_time_map,
+            rhai_menu_map,
+            rhai_key_map,
         };
         let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {

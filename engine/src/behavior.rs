@@ -44,6 +44,12 @@ pub struct BehaviorContext {
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
     /// Sidecar IO frame snapshot (output lines / clear / fullscreen / custom events).
     pub sidecar_io: Arc<crate::scene_runtime::SidecarIoFrameState>,
+    /// Rhai maps built once per frame, shared across all behaviors via Arc.
+    /// Each behavior gets O(1) refcount clone instead of HashMap clone.
+    /// Built in behavior_system; used in RhaiScriptBehavior::update().
+    pub rhai_time_map: Arc<RhaiMap>,
+    pub rhai_menu_map: Arc<RhaiMap>,
+    pub rhai_key_map: Arc<RhaiMap>,
 }
 
 /// A side-effect produced by a behavior and consumed by the engine systems.
@@ -957,34 +963,10 @@ impl Behavior for RhaiScriptBehavior {
 
                 // --- Per-frame pushes ---
 
-                let mut menu_map = RhaiMap::new();
-                menu_map.insert(
-                    "selected_index".into(),
-                    (ctx.menu_selected_index as rhai::INT).into(),
-                );
-                menu_map.insert(
-                    "count".into(),
-                    (scene.menu_options.len() as rhai::INT).into(),
-                );
-                scope.push_dynamic("menu", menu_map.into());
-
-                let mut time_map = RhaiMap::new();
-                time_map.insert(
-                    "scene_elapsed_ms".into(),
-                    (ctx.scene_elapsed_ms as rhai::INT).into(),
-                );
-                time_map.insert(
-                    "stage_elapsed_ms".into(),
-                    (ctx.stage_elapsed_ms as rhai::INT).into(),
-                );
-                let stage_str: &str = match ctx.stage {
-                    SceneStage::OnEnter => "on_enter",
-                    SceneStage::OnIdle => "on_idle",
-                    SceneStage::OnLeave => "on_leave",
-                    SceneStage::Done => "done",
-                };
-                time_map.insert("stage".into(), stage_str.into());
-                scope.push_dynamic("time", time_map.into());
+                // Phase 7C: Use Arc-wrapped maps from context instead of rebuilding.
+                // Each push_dynamic clones the Arc (O(1) refcount), not the map (O(n)).
+                scope.push_dynamic("menu", (*ctx.rhai_menu_map).clone().into());
+                scope.push_dynamic("time", (*ctx.rhai_time_map).clone().into());
 
                 // Compatibility layer for existing scripts; prefer `menu.*` and `time.*`.
                 scope.push("selected_index", ctx.menu_selected_index as rhai::INT);
@@ -1029,24 +1011,8 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
                 scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
 
-                // Raw key bridge: expose `key` map with code + modifier booleans.
-                {
-                    let mut key_map = RhaiMap::new();
-                    if let Some(k) = &ctx.last_raw_key {
-                        key_map.insert("code".into(), k.code.clone().into());
-                        key_map.insert("ctrl".into(), k.ctrl.into());
-                        key_map.insert("alt".into(), k.alt.into());
-                        key_map.insert("shift".into(), k.shift.into());
-                        key_map.insert("pressed".into(), true.into());
-                    } else {
-                        key_map.insert("code".into(), "".into());
-                        key_map.insert("ctrl".into(), false.into());
-                        key_map.insert("alt".into(), false.into());
-                        key_map.insert("shift".into(), false.into());
-                        key_map.insert("pressed".into(), false.into());
-                    }
-                    scope.push_dynamic("key", key_map.into());
-                }
+                // Phase 7C: Use Arc-wrapped key map from context instead of rebuilding.
+                scope.push_dynamic("key", (*ctx.rhai_key_map).clone().into());
 
                 // External sidecar bridge exposed as object-shaped `ipc.*`.
                 {
@@ -1229,6 +1195,9 @@ fn smoke_probe_context(
         game_state: Some(game_state),
         last_raw_key: None,
         sidecar_io: Arc::new(crate::scene_runtime::SidecarIoFrameState::default()),
+        rhai_time_map: Arc::new(RhaiMap::new()),
+        rhai_menu_map: Arc::new(RhaiMap::new()),
+        rhai_key_map: Arc::new(RhaiMap::new()),
     }
 }
 
@@ -1903,6 +1872,7 @@ mod tests {
         RhaiScriptBehavior, SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
         TimedVisibilityBehavior,
     };
+    use rhai::Map as RhaiMap;
     use crate::effects::Region;
     use crate::game_object::{GameObject, GameObjectKind};
     use crate::game_state::GameState;
@@ -1970,6 +1940,31 @@ mod tests {
         }
     }
 
+    fn empty_rhai_menu_map() -> Arc<RhaiMap> {
+        let mut menu_map = RhaiMap::new();
+        menu_map.insert("selected_index".into(), 0i64.into());
+        menu_map.insert("count".into(), 0i64.into());
+        Arc::new(menu_map)
+    }
+
+    fn empty_rhai_time_map() -> Arc<RhaiMap> {
+        let mut time_map = RhaiMap::new();
+        time_map.insert("scene_elapsed_ms".into(), 0i64.into());
+        time_map.insert("stage_elapsed_ms".into(), 0i64.into());
+        time_map.insert("stage".into(), "on_idle".into());
+        Arc::new(time_map)
+    }
+
+    fn empty_rhai_key_map() -> Arc<RhaiMap> {
+        let mut key_map = RhaiMap::new();
+        key_map.insert("code".into(), "".into());
+        key_map.insert("ctrl".into(), false.into());
+        key_map.insert("alt".into(), false.into());
+        key_map.insert("shift".into(), false.into());
+        key_map.insert("pressed".into(), false.into());
+        Arc::new(key_map)
+    }
+
     fn base_ctx() -> BehaviorContext {
         BehaviorContext {
             stage: SceneStage::OnIdle,
@@ -1991,16 +1986,43 @@ mod tests {
             game_state: None,
             last_raw_key: None,
             sidecar_io: Arc::new(crate::scene_runtime::SidecarIoFrameState::default()),
+            rhai_time_map: empty_rhai_time_map(),
+            rhai_menu_map: empty_rhai_menu_map(),
+            rhai_key_map: empty_rhai_key_map(),
         }
     }
 
     fn ctx(stage: SceneStage, scene_elapsed_ms: u64, stage_elapsed_ms: u64) -> BehaviorContext {
+        // Build time map with correct values for this test context
+        let rhai_time_map = {
+            let mut time_map = RhaiMap::new();
+            time_map.insert("scene_elapsed_ms".into(), (scene_elapsed_ms as rhai::INT).into());
+            time_map.insert("stage_elapsed_ms".into(), (stage_elapsed_ms as rhai::INT).into());
+            let stage_str: &str = match stage {
+                SceneStage::OnEnter => "on_enter",
+                SceneStage::OnIdle => "on_idle",
+                SceneStage::OnLeave => "on_leave",
+                SceneStage::Done => "done",
+            };
+            time_map.insert("stage".into(), stage_str.into());
+            Arc::new(time_map)
+        };
+        
         BehaviorContext {
             stage,
             scene_elapsed_ms,
             stage_elapsed_ms,
+            rhai_time_map,
             ..base_ctx()
         }
+    }
+
+    fn update_ctx_menu_map(ctx: &mut BehaviorContext, menu_count: usize) {
+        // When test modifies menu_selected_index, rebuild the menu map to match
+        let mut menu_map = RhaiMap::new();
+        menu_map.insert("selected_index".into(), (ctx.menu_selected_index as rhai::INT).into());
+        menu_map.insert("count".into(), (menu_count as rhai::INT).into());
+        ctx.rhai_menu_map = Arc::new(menu_map);
     }
 
     #[test]
@@ -2606,6 +2628,7 @@ out
         });
         let mut test_ctx = ctx(SceneStage::OnIdle, 480, 120);
         test_ctx.menu_selected_index = 1;
+        update_ctx_menu_map(&mut test_ctx, 3);
         test_ctx.game_state = Some(GameState::new());
         let commands = run_behavior(&mut behavior, &scene_with_menu_options(3), test_ctx);
         assert_eq!(
