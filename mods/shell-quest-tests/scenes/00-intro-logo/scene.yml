@@ -14,10 +14,10 @@ stages:
       - pause: 350ms
 
   on_idle:
-    trigger: timeout
-    timeout: 600ms
+    trigger: any-key
+    looping: true
     steps:
-      - pause: 300ms
+      - pause: 1800ms
       - { effects: [{ name: shine, duration: 300, params: { angle: 20, width: 4, falloff: 2.5, intensity: 2.0, colour: white, easing: ease-in } }] }
 
   on_leave:
