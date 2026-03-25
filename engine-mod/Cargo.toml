@@ -1,0 +1,9 @@
+[package]
+name = "engine-mod"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engine-error = { path = "../engine-error" }
+serde_yaml = "0.9"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }

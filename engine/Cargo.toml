@@ -19,6 +19,9 @@ engine-pipeline = { path = "../engine-pipeline" }
 engine-error = { path = "../engine-error" }
 engine-frame = { path = "../engine-frame" }
 engine-capture = { path = "../engine-capture" }
+engine-mod = { path = "../engine-mod" }
+engine-behavior-registry = { path = "../engine-behavior-registry" }
+engine-debug = { path = "../engine-debug" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }
 crossterm = "0.29"

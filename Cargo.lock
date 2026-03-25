@@ -687,13 +687,16 @@ dependencies = [
  "engine-animation",
  "engine-audio",
  "engine-authoring",
+ "engine-behavior-registry",
  "engine-capture",
  "engine-core",
+ "engine-debug",
  "engine-error",
  "engine-events",
  "engine-frame",
  "engine-game",
  "engine-io",
+ "engine-mod",
  "engine-pipeline",
  "engine-render",
  "engine-render-policy",
@@ -752,6 +755,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-behavior-registry"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "serde_yaml",
+]
+
+[[package]]
 name = "engine-capture"
 version = "0.1.0"
 dependencies = [
@@ -769,6 +780,14 @@ dependencies = [
  "serde",
  "serde_yaml",
  "tempfile",
+]
+
+[[package]]
+name = "engine-debug"
+version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
+ "libc",
 ]
 
 [[package]]
@@ -806,6 +825,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "engine-mod"
+version = "0.1.0"
+dependencies = [
+ "engine-error",
+ "serde_yaml",
+ "zip",
 ]
 
 [[package]]

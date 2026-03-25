@@ -1,0 +1,8 @@
+[package]
+name = "engine-behavior-registry"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engine-core = { workspace = true }
+serde_yaml = "0.9"
