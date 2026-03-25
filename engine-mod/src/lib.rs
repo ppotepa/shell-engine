@@ -1,4 +1,9 @@
-//! Mod manifest loader — reads and validates `mod.yaml` from a directory or `.zip` archive.
+//! Mod manifest loader and startup validation pipeline.
+//!
+//! Reads and validates `mod.yaml` from a directory or `.zip` archive, and provides
+//! the pre-run startup check framework.
+
+pub mod startup;
 
 use std::{
     fs,

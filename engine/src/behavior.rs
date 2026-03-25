@@ -1135,7 +1135,7 @@ impl Behavior for RhaiScriptBehavior {
 
 /// Executes a tiny multi-step runtime probe against a Rhai script using the same
 /// behavior runtime path as the game loop.
-pub(crate) fn smoke_validate_rhai_script(script: &str, src: Option<&str>, scene: &Scene) -> Result<(), String> {
+pub fn smoke_validate_rhai_script(script: &str, src: Option<&str>, scene: &Scene) -> Result<(), String> {
     let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
         src: src.map(ToString::to_string),
         script: Some(script.to_string()),

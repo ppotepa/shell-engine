@@ -2,9 +2,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::image_loader;
-use crate::scene::Sprite;
-use crate::EngineError;
+use engine_core::scene::Sprite;
+use engine_error::EngineError;
 
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
@@ -40,7 +39,7 @@ impl StartupCheck for ImageAssetsCheck {
 
         let mut missing = Vec::new();
         for (source, used_in_scenes) in &images {
-            if !image_loader::has_image_asset(ctx.mod_source(), source) {
+            if !ctx.has_image_asset(source) {
                 missing.push(format!(
                     "{source} (used in: {})",
                     used_in_scenes

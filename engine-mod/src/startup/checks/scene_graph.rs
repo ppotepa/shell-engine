@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::EngineError;
+use engine_error::EngineError;
 
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
@@ -161,12 +161,67 @@ fn has_cycle(graph: &BTreeMap<String, Vec<String>>, entry_id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::SceneGraphCheck;
-    use crate::pipelines::startup::{
-        StartupCheck, StartupContext, StartupIssueLevel, StartupReport,
-    };
+    use crate::startup::{StartupCheck, StartupContext, StartupIssueLevel, StartupReport};
+    use engine_error::EngineError;
     use serde_yaml::Value;
     use std::fs;
     use tempfile::tempdir;
+
+    fn scene_loader(
+        mod_source: &std::path::Path,
+    ) -> Result<Vec<crate::startup::StartupSceneFile>, EngineError> {
+        let scenes_dir = mod_source.join("scenes");
+        let mut scenes = Vec::new();
+        if !scenes_dir.is_dir() {
+            return Ok(scenes);
+        }
+        load_scenes_recursive(mod_source, &scenes_dir, &mut scenes)?;
+        Ok(scenes)
+    }
+
+    fn load_scenes_recursive(
+        mod_root: &std::path::Path,
+        dir: &std::path::Path,
+        scenes: &mut Vec<crate::startup::StartupSceneFile>,
+    ) -> Result<(), EngineError> {
+        for entry in fs::read_dir(dir).map_err(|e| EngineError::ManifestRead {
+            path: dir.to_path_buf(),
+            source: e,
+        })? {
+            let entry = entry.map_err(|e| EngineError::ManifestRead {
+                path: dir.to_path_buf(),
+                source: e,
+            })?;
+            let path = entry.path();
+            if path.is_dir() {
+                load_scenes_recursive(mod_root, &path, scenes)?;
+            } else if path.extension().is_some_and(|ext| ext == "yml") {
+                let content =
+                    fs::read_to_string(&path).map_err(|e| EngineError::ManifestRead {
+                        path: path.clone(),
+                        source: e,
+                    })?;
+                let scene = serde_yaml::from_str(&content).map_err(|e| {
+                    EngineError::InvalidModYaml {
+                        path: path.clone(),
+                        source: e,
+                    }
+                })?;
+                // Make path relative to mod root, prefixed with /
+                let rel = path
+                    .strip_prefix(mod_root)
+                    .unwrap_or(&path)
+                    .display()
+                    .to_string();
+                let rel = format!("/{}", rel.replace('\\', "/"));
+                scenes.push(crate::startup::StartupSceneFile {
+                    path: rel,
+                    scene,
+                });
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     fn accepts_explicit_path_refs_in_scene_graph() {
@@ -199,7 +254,12 @@ layers: []
             "name: Test\nversion: 0.1.0\nentrypoint: /scenes/intro/scene.yml\n",
         )
         .expect("manifest");
-        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/intro/scene.yml");
+        let ctx = StartupContext::new(
+            &mod_dir,
+            &manifest,
+            "/scenes/intro/scene.yml",
+            &scene_loader,
+        );
         let mut report = StartupReport::default();
 
         SceneGraphCheck

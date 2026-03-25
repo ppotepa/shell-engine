@@ -2,10 +2,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::rasterizer;
-use crate::render_policy;
-use crate::scene::Sprite;
-use crate::EngineError;
+use engine_core::scene::Sprite;
+use engine_error::EngineError;
+use engine_render_policy;
 
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
@@ -37,7 +36,7 @@ impl StartupCheck for FontManifestCheck {
                         else {
                             return;
                         };
-                        let Some(font_name) = render_policy::resolve_text_font_spec(
+                        let Some(font_name) = engine_render_policy::resolve_text_font_spec(
                             font.as_deref(),
                             force_font_mode.as_deref(),
                             *size,
@@ -60,7 +59,7 @@ impl StartupCheck for FontManifestCheck {
 
         let mut missing = Vec::new();
         for (font_name, scenes_using) in &fonts {
-            if !rasterizer::has_font_assets(Some(ctx.mod_source()), font_name) {
+            if !ctx.has_font_assets(font_name) {
                 missing.push(format!(
                     "{font_name} (used in: {})",
                     scenes_using.iter().cloned().collect::<Vec<_>>().join(", ")

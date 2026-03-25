@@ -1,6 +1,6 @@
 //! The [`StartupCheck`] trait — implemented by every pre-run validation step.
 
-use crate::EngineError;
+use engine_error::EngineError;
 
 use super::context::StartupContext;
 use super::report::StartupReport;

@@ -154,7 +154,8 @@ impl ShellEngine {
     /// Runs startup checks, enters the alt-screen, and drives the game loop until the player quits.
     pub fn run(&self) -> Result<(), EngineError> {
         use events::EventQueue;
-        use pipelines::startup::{StartupContext, StartupIssueLevel, StartupRunner};
+        use engine_mod::startup::{StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile};
+        use repositories::SceneRepository;
         use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use scene_runtime::SceneRuntime;
@@ -181,7 +182,33 @@ impl ShellEngine {
             ),
         );
 
-        let startup_ctx = StartupContext::new(&self.mod_source, &self.mod_manifest, entrypoint);
+        let scene_loader_fn = |mod_source: &std::path::Path| -> Result<Vec<StartupSceneFile>, EngineError> {
+            let repo = repositories::create_scene_repository(mod_source)?;
+            let paths = repo.discover_scene_paths()?;
+            let mut scenes = Vec::with_capacity(paths.len());
+            for path in paths {
+                let scene = repo.load_scene(&path)?;
+                scenes.push(StartupSceneFile { path, scene });
+            }
+            Ok(scenes)
+        };
+        let font_checker = |mod_src: Option<&std::path::Path>, font: &str| -> bool {
+            rasterizer::has_font_assets(mod_src, font)
+        };
+        let glyph_checker = |mod_src: Option<&std::path::Path>, font: &str, text: &str| -> Option<Vec<char>> {
+            rasterizer::missing_glyphs(mod_src, font, text)
+        };
+        let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
+            image_loader::has_image_asset(mod_src, source)
+        };
+        let rhai_validator = |script: &str, src: Option<&str>, scene: &crate::scene::Scene| -> Result<(), String> {
+            behavior::smoke_validate_rhai_script(script, src, scene)
+        };
+        let startup_ctx = StartupContext::new(&self.mod_source, &self.mod_manifest, entrypoint, &scene_loader_fn)
+            .with_font_asset_checker(&font_checker)
+            .with_glyph_coverage_checker(&glyph_checker)
+            .with_image_asset_checker(&image_checker)
+            .with_rhai_script_validator(&rhai_validator);
         let startup_report = StartupRunner::default().run(&startup_ctx)?;
         for issue in startup_report.issues() {
             if matches!(issue.level, StartupIssueLevel::Warning) {
@@ -361,13 +388,14 @@ fn parse_renderer_mode(raw: &str) -> Option<scene::SceneRenderedMode> {
 #[cfg(test)]
 mod tests {
     use super::ShellEngine;
-    use crate::pipelines::startup::checks::{
+    use engine_mod::startup::checks::{
         EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
         SceneGraphCheck,
     };
-    use crate::pipelines::startup::{StartupContext, StartupRunner};
+    use engine_mod::startup::{StartupContext, StartupRunner, StartupSceneFile};
     use crate::repositories::{create_scene_repository, SceneRepository};
     use crate::scene_loader;
+    use crate::EngineError;
     use std::{fs, path::PathBuf};
     use tempfile::tempdir;
 
@@ -457,7 +485,29 @@ mod tests {
             .and_then(|value| value.as_str())
             .expect("entrypoint string");
 
-        let startup_ctx = StartupContext::new(&mod_dir, engine.mod_manifest(), entrypoint);
+        let scene_loader_fn = |mod_source: &std::path::Path| -> Result<Vec<StartupSceneFile>, EngineError> {
+            let repo = create_scene_repository(mod_source)?;
+            let paths = repo.discover_scene_paths()?;
+            let mut scenes = Vec::with_capacity(paths.len());
+            for path in paths {
+                let scene = repo.load_scene(&path)?;
+                scenes.push(StartupSceneFile { path, scene });
+            }
+            Ok(scenes)
+        };
+        let font_checker = |mod_src: Option<&std::path::Path>, font: &str| -> bool {
+            crate::rasterizer::has_font_assets(mod_src, font)
+        };
+        let glyph_checker = |mod_src: Option<&std::path::Path>, font: &str, text: &str| -> Option<Vec<char>> {
+            crate::rasterizer::missing_glyphs(mod_src, font, text)
+        };
+        let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
+            crate::image_loader::has_image_asset(mod_src, source)
+        };
+        let startup_ctx = StartupContext::new(&mod_dir, engine.mod_manifest(), entrypoint, &scene_loader_fn)
+            .with_font_asset_checker(&font_checker)
+            .with_glyph_coverage_checker(&glyph_checker)
+            .with_image_asset_checker(&image_checker);
         StartupRunner::with_checks(vec![
             Box::new(SceneGraphCheck),
             Box::new(EffectRegistryCheck),

@@ -2,11 +2,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::markup::strip_markup;
-use crate::rasterizer;
-use crate::render_policy;
-use crate::scene::Sprite;
-use crate::EngineError;
+use engine_core::markup::strip_markup;
+use engine_core::scene::Sprite;
+use engine_error::EngineError;
+use engine_render_policy;
 
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
@@ -40,7 +39,7 @@ impl StartupCheck for FontGlyphCoverageCheck {
                         else {
                             return;
                         };
-                        let Some(font_name) = render_policy::resolve_text_font_spec(
+                        let Some(font_name) = engine_render_policy::resolve_text_font_spec(
                             font.as_deref(),
                             force_font_mode.as_deref(),
                             *size,
@@ -72,9 +71,7 @@ impl StartupCheck for FontGlyphCoverageCheck {
         let mut issues = Vec::new();
         for (font_name, chars) in &required_chars {
             let text: String = chars.iter().collect();
-            let Some(missing) =
-                rasterizer::missing_glyphs(Some(ctx.mod_source()), font_name, &text)
-            else {
+            let Some(missing) = ctx.font_missing_glyphs(font_name, &text) else {
                 issues.push(format!("{font_name}: font assets are missing"));
                 continue;
             };

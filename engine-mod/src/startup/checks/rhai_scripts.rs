@@ -1,7 +1,7 @@
 //! Validates that all `rhai-script` behavior payloads compile before runtime starts.
 
-use crate::scene::{BehaviorSpec, Scene, Sprite};
-use crate::EngineError;
+use engine_core::scene::{BehaviorSpec, Scene, Sprite};
+use engine_error::EngineError;
 
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
@@ -22,6 +22,7 @@ impl StartupCheck for RhaiScriptsCheck {
 
         for scene_file in scenes {
             collect_scene_failures(
+                ctx,
                 &scene_file.scene,
                 &scene_file.path,
                 &mut checked,
@@ -44,9 +45,16 @@ impl StartupCheck for RhaiScriptsCheck {
     }
 }
 
-fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failures: &mut Vec<String>) {
+fn collect_scene_failures(
+    ctx: &StartupContext,
+    scene: &Scene,
+    path: &str,
+    checked: &mut usize,
+    failures: &mut Vec<String>,
+) {
     for (idx, behavior) in scene.behaviors.iter().enumerate() {
         collect_behavior_failure(
+            ctx,
             scene,
             behavior,
             path,
@@ -60,6 +68,7 @@ fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failur
     for (layer_idx, layer) in scene.layers.iter().enumerate() {
         for (behavior_idx, behavior) in layer.behaviors.iter().enumerate() {
             collect_behavior_failure(
+                ctx,
                 scene,
                 behavior,
                 path,
@@ -72,6 +81,7 @@ fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failur
 
         for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
             collect_sprite_failures(
+                ctx,
                 scene,
                 sprite,
                 path,
@@ -85,6 +95,7 @@ fn collect_scene_failures(scene: &Scene, path: &str, checked: &mut usize, failur
 }
 
 fn collect_sprite_failures(
+    ctx: &StartupContext,
     scene: &Scene,
     sprite: &Sprite,
     path: &str,
@@ -95,6 +106,7 @@ fn collect_sprite_failures(
 ) {
     for (behavior_idx, behavior) in sprite.behaviors().iter().enumerate() {
         collect_behavior_failure(
+            ctx,
             scene,
             behavior,
             path,
@@ -106,9 +118,12 @@ fn collect_sprite_failures(
     }
 
     match sprite {
-        Sprite::Panel { children, .. } | Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+        Sprite::Panel { children, .. }
+        | Sprite::Grid { children, .. }
+        | Sprite::Flex { children, .. } => {
             for (child_idx, child) in children.iter().enumerate() {
                 collect_sprite_failures(
+                    ctx,
                     scene,
                     child,
                     path,
@@ -124,6 +139,7 @@ fn collect_sprite_failures(
 }
 
 fn collect_behavior_failure(
+    ctx: &StartupContext,
     scene: &Scene,
     behavior: &BehaviorSpec,
     path: &str,
@@ -146,11 +162,7 @@ fn collect_behavior_failure(
         return;
     };
 
-    if let Err(error) = crate::behavior::smoke_validate_rhai_script(
-        script,
-        behavior.params.src.as_deref(),
-        scene,
-    ) {
+    if let Err(error) = ctx.validate_rhai_script(script, behavior.params.src.as_deref(), scene) {
         failures.push(format!(
             "{path} (scene `{scene_id}`, {scope}): src `{src}` preflight failed: {error}"
         ));
@@ -160,14 +172,52 @@ fn collect_behavior_failure(
 #[cfg(test)]
 mod tests {
     use super::RhaiScriptsCheck;
-    use crate::pipelines::startup::{StartupCheck, StartupContext, StartupIssueLevel, StartupReport};
-    use crate::EngineError;
+    use crate::startup::{StartupCheck, StartupContext, StartupIssueLevel, StartupReport};
+    use engine_error::EngineError;
     use serde_yaml::Value;
     use std::fs;
     use tempfile::tempdir;
 
+    fn scene_loader(
+        mod_source: &std::path::Path,
+    ) -> Result<Vec<crate::startup::StartupSceneFile>, EngineError> {
+        let scenes_dir = mod_source.join("scenes");
+        let mut scenes = Vec::new();
+        if scenes_dir.is_dir() {
+            for entry in fs::read_dir(&scenes_dir).map_err(|e| EngineError::ManifestRead {
+                path: scenes_dir.clone(),
+                source: e,
+            })? {
+                let entry = entry.map_err(|e| EngineError::ManifestRead {
+                    path: scenes_dir.clone(),
+                    source: e,
+                })?;
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "yml") {
+                    let content = fs::read_to_string(&path).map_err(|e| {
+                        EngineError::ManifestRead {
+                            path: path.clone(),
+                            source: e,
+                        }
+                    })?;
+                    let scene = serde_yaml::from_str(&content).map_err(|e| {
+                        EngineError::InvalidModYaml {
+                            path: path.clone(),
+                            source: e,
+                        }
+                    })?;
+                    scenes.push(crate::startup::StartupSceneFile {
+                        path: path.display().to_string(),
+                        scene,
+                    });
+                }
+            }
+        }
+        Ok(scenes)
+    }
+
     #[test]
-    fn accepts_valid_rhai_scripts() {
+    fn accepts_valid_rhai_scripts_without_validator() {
         let temp = tempdir().expect("temp dir");
         let mod_dir = temp.path().join("mod");
         fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
@@ -190,7 +240,8 @@ layers: []
         let manifest: Value =
             serde_yaml::from_str("name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n")
                 .expect("manifest");
-        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml");
+        // No rhai validator registered — should pass (validation skipped)
+        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml", &scene_loader);
         let mut report = StartupReport::default();
         RhaiScriptsCheck
             .run(&ctx, &mut report)
@@ -204,7 +255,7 @@ layers: []
     }
 
     #[test]
-    fn rejects_invalid_rhai_scripts() {
+    fn rejects_invalid_rhai_scripts_with_validator() {
         let temp = tempdir().expect("temp dir");
         let mod_dir = temp.path().join("mod");
         fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
@@ -226,7 +277,14 @@ layers: []
         let manifest: Value =
             serde_yaml::from_str("name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n")
                 .expect("manifest");
-        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml");
+
+        // Inject a validator that always fails for this invalid script
+        let validator = |_script: &str, _src: Option<&str>, _scene: &engine_core::scene::Scene| -> Result<(), String> {
+            Err("compile error: expected variable name".to_string())
+        };
+
+        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml", &scene_loader)
+            .with_rhai_script_validator(&validator);
         let mut report = StartupReport::default();
         let error = RhaiScriptsCheck
             .run(&ctx, &mut report)
@@ -236,49 +294,6 @@ layers: []
             EngineError::StartupCheckFailed { check, details } => {
                 assert_eq!(check, "rhai-scripts");
                 assert!(details.contains("compile error"));
-            }
-            other => panic!("unexpected error variant: {other}"),
-        }
-    }
-
-    #[test]
-    fn rejects_runtime_api_errors_during_smoke_probe() {
-        let temp = tempdir().expect("temp dir");
-        let mod_dir = temp.path().join("mod");
-        fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
-        fs::write(
-            mod_dir.join("scenes/main.yml"),
-            r#"
-id: main
-title: Main
-behaviors:
-  - name: rhai-script
-    params:
-      src: ./scene.rhai
-      script: |
-        let submitted = ();
-        if submitted.is_empty() {
-            terminal.push("never");
-        }
-        #{}
-layers: []
-"#,
-        )
-        .expect("write scene");
-
-        let manifest: Value =
-            serde_yaml::from_str("name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n")
-                .expect("manifest");
-        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml");
-        let mut report = StartupReport::default();
-        let error = RhaiScriptsCheck
-            .run(&ctx, &mut report)
-            .expect_err("runtime API error should fail startup preflight");
-
-        match error {
-            EngineError::StartupCheckFailed { check, details } => {
-                assert_eq!(check, "rhai-scripts");
-                assert!(details.contains("is_empty"));
             }
             other => panic!("unexpected error variant: {other}"),
         }

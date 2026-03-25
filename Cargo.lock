@@ -831,8 +831,12 @@ dependencies = [
 name = "engine-mod"
 version = "0.1.0"
 dependencies = [
+ "engine-core",
  "engine-error",
+ "engine-render-policy",
+ "engine-runtime",
  "serde_yaml",
+ "tempfile",
  "zip",
 ]
 

@@ -1,6 +1,6 @@
 //! [`StartupRunner`] — executes an ordered list of [`StartupCheck`]s and returns a [`StartupReport`].
 
-use crate::EngineError;
+use engine_error::EngineError;
 
 use super::check::StartupCheck;
 use super::checks::{
