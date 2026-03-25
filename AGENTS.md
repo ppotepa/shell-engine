@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## 0) Local Knowledge Hubs
+
+Each subsystem has a `README.AGENTS.MD` for efficient navigation:
+
+- **[app/README.AGENTS.MD](app/README.AGENTS.MD)** — CLI flags, startup flow, configuration
+- **[editor/README.AGENTS.MD](editor/README.AGENTS.MD)** — Editor architecture, hot-reload, subsystems
+- **[engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
+- **[engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Scene model, buffer management, strategy traits
+- **[mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Content structure, scenes, assets
+- **[mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
+- **[tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Benchmark runners, frame capture, schema tools
+- **[schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — Schema generation, validation, drift checking
+
+Read the nearest hub before making subsystem-specific changes. Each covers only that subsystem with no duplication.
+
 ## 1) Repo shape
 
 - `app/` launcher

@@ -110,10 +110,13 @@ difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidt
 - **[cognitOS README](mods/shell-quest/os/cognitOS/README.md)** — Simulated OS sidecar architecture
 - **[quest scripts](mods/shell-quest/docs/scripts.md)** — Prologue design doc (ftp upload puzzle, 1991)
 
-### Design & Patterns (docs/)
-- **[carousel-menu-object.md](docs/carousel-menu-object.md)** — Reusable menu carousel behavior
-- **[cutout.md](docs/cutout.md)** — Cutscene compilation and filters
-- **[state-machine.md](docs/state-machine.md)** — CognitOS state machine and simulated OS architecture
-- **[gameplay.001.md](docs/gameplay.001.md)** — Prologue quest design (1991 MINIX setting)
-- **[agents.yaml.md](docs/agents.yaml.md)** — YAML authoring schema reference
+### Local Knowledge Hubs (subsystem navigation)
+- **[/app/README.AGENTS.MD](app/README.AGENTS.MD)** — CLI flags, app startup, configuration
+- **[/editor/README.AGENTS.MD](editor/README.AGENTS.MD)** — Editor subsystem, architecture, hot-reload
+- **[/engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
+- **[/engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Core model, scene structure, strategy traits
+- **[/mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Main mod content, scenes, assets
+- **[/mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod structure, benchmarking
+- **[/tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Development tools, runners, schema validation
+- **[/schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — YAML schema system, generation, validation
 
