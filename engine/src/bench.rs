@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 /// Raw timing sample collected each frame (all values in **microseconds**).
 #[derive(Clone, Default)]
 pub struct FrameSample {
+    // scene identification
+    pub scene_id:      String,
     // top-level wall time
     pub frame_us:      f32,
     // per-system
@@ -120,6 +122,18 @@ impl MetricStats {
     }
 }
 
+/// Per-scene aggregate statistics.
+pub struct SceneStats {
+    pub scene_id: String,
+    pub frame_count: usize,
+    pub frame: MetricStats,
+    pub fps: MetricStats,
+    pub compositor: MetricStats,
+    pub postfx: MetricStats,
+    pub renderer: MetricStats,
+    pub behavior: MetricStats,
+}
+
 pub struct BenchResults {
     pub total_frames: usize,
     pub score: u32,
@@ -147,6 +161,8 @@ pub struct BenchResults {
     pub dirty_cells: MetricStats,
     pub total_cells: f32,
     pub write_ops: MetricStats,
+    // per-scene breakdown
+    pub scenes: Vec<SceneStats>,
 }
 
 impl BenchResults {
@@ -191,6 +207,9 @@ impl BenchResults {
             - frame.p99 / 100.0)
             .max(0.0) as u32;
 
+        // Per-scene breakdown
+        let scenes = Self::compute_per_scene(samples);
+
         Self {
             total_frames: n,
             score,
@@ -199,7 +218,40 @@ impl BenchResults {
             input, lifecycle, animator, hot_reload, engine_io,
             behavior, audio, compositor, postfx, renderer, sleep,
             diff_cells, dirty_cells, total_cells, write_ops,
+            scenes,
         }
+    }
+
+    fn compute_per_scene(samples: &[FrameSample]) -> Vec<SceneStats> {
+        use std::collections::BTreeMap;
+        let mut groups: BTreeMap<&str, Vec<&FrameSample>> = BTreeMap::new();
+        for s in samples {
+            groups.entry(&s.scene_id).or_default().push(s);
+        }
+        groups.into_iter().map(|(id, group)| {
+            let frame_us: Vec<f32> = group.iter().map(|s| s.frame_us).collect();
+            let fps_vals: Vec<f32> = frame_us.iter()
+                .map(|&us| if us > 0.0 { 1_000_000.0 / us } else { 0.0 })
+                .collect();
+            SceneStats {
+                scene_id: id.to_string(),
+                frame_count: group.len(),
+                frame: MetricStats::from_samples(&frame_us),
+                fps: MetricStats::from_samples(&fps_vals),
+                compositor: MetricStats::from_samples(
+                    &group.iter().map(|s| s.compositor_us).collect::<Vec<_>>(),
+                ),
+                postfx: MetricStats::from_samples(
+                    &group.iter().map(|s| s.postfx_us).collect::<Vec<_>>(),
+                ),
+                renderer: MetricStats::from_samples(
+                    &group.iter().map(|s| s.renderer_us).collect::<Vec<_>>(),
+                ),
+                behavior: MetricStats::from_samples(
+                    &group.iter().map(|s| s.behavior_us).collect::<Vec<_>>(),
+                ),
+            }
+        }).collect()
     }
 
     // ── report text ────────────────────────────────────────────────
@@ -273,6 +325,24 @@ impl BenchResults {
             r.push_str(&format!("  Avg diff coverage .. {:.1}%\n", diff_pct));
         }
         r.push('\n');
+
+        // Per-scene breakdown
+        if !self.scenes.is_empty() {
+            r.push_str("── SCENE BREAKDOWN ───────────────────────────────────────────\n");
+            r.push_str(&format!(
+                "  {:<30} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}\n",
+                "SCENE", "FRAMES", "FPS avg", "COMP us", "PFX us", "REND us", "BHV us"
+            ));
+            r.push_str(&format!("  {}\n", "─".repeat(86)));
+            for sc in &self.scenes {
+                r.push_str(&format!(
+                    "  {:<30} {:>6} {:>8.1} {:>8.1} {:>8.1} {:>8.1} {:>8.1}\n",
+                    sc.scene_id, sc.frame_count, sc.fps.avg,
+                    sc.compositor.avg, sc.postfx.avg, sc.renderer.avg, sc.behavior.avg,
+                ));
+            }
+            r.push('\n');
+        }
 
         r
     }

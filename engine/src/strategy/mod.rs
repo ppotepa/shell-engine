@@ -12,11 +12,14 @@ pub mod scene_compositor;
 pub mod behavior_factory;
 /// Frame-skip oracle strategy (unified coordination).
 pub mod skip;
+/// Display sink strategy (sync vs async terminal output).
+pub mod display;
 
 pub use layer::{DirectLayerCompositor, LayerCompositor, ScratchLayerCompositor};
 pub use halfblock::{DirtyRegionPacker, FullScanPacker, HalfblockPacker};
 pub use present::{AlwaysPresenter, HashSkipPresenter, VirtualPresenter};
 pub use flush::{AnsiBatchFlusher, NaiveFlusher, TerminalFlusher};
+pub use display::{AsyncDisplaySink, DisplayFrame, DisplaySink, SyncDisplaySink};
 pub use scene_compositor::{
     CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
     compositor_for,

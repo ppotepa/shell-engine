@@ -120,6 +120,42 @@ def parse_report(filepath):
             if m:
                 metrics['diff_coverage_pct'] = m.group(1)
     
+    # Extract per-scene breakdown (new section)
+    scene_section = False
+    scene_data = []
+    for line in content.split('\n'):
+        if 'SCENE BREAKDOWN' in line:
+            scene_section = True
+            continue
+        if scene_section:
+            if line.strip().startswith('─') or line.strip().startswith('SCENE'):
+                continue
+            if not line.strip():
+                scene_section = False
+                continue
+            parts = line.split()
+            if len(parts) >= 7:
+                scene_data.append({
+                    'scene_id': parts[0],
+                    'frames': parts[1],
+                    'fps_avg': parts[2],
+                    'comp_us': parts[3],
+                    'pfx_us': parts[4],
+                    'rend_us': parts[5],
+                    'bhv_us': parts[6],
+                })
+    
+    if scene_data:
+        metrics['scene_count'] = str(len(scene_data))
+        metrics['scene_ids'] = ','.join(s['scene_id'] for s in scene_data)
+        for s in scene_data:
+            prefix = f"scene_{s['scene_id']}"
+            metrics[f"{prefix}_frames"] = s['frames']
+            metrics[f"{prefix}_fps"] = s['fps_avg']
+            metrics[f"{prefix}_comp"] = s['comp_us']
+            metrics[f"{prefix}_pfx"] = s['pfx_us']
+            metrics[f"{prefix}_rend"] = s['rend_us']
+    
     return metrics if len(metrics) > 2 else None
 
 def generate_flag_name(metrics):
@@ -178,8 +214,18 @@ def main():
         'comp_time_avg', 'rend_time_avg', 'behavior_time_avg',
         'diff_cells_avg', 'dirty_cells_avg',
         'dirty_coverage_pct', 'diff_coverage_pct',
+        'scene_count', 'scene_ids',
         'file',
     ]
+    
+    # Collect all per-scene column names dynamically
+    scene_cols = set()
+    for row in all_metrics:
+        for k in row:
+            if k.startswith('scene_') and k not in ('scene_count', 'scene_ids'):
+                scene_cols.add(k)
+    scene_cols = sorted(scene_cols)
+    columns = columns[:-1] + scene_cols + [columns[-1]]  # insert before 'file'
     
     with open(output_csv, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=columns)

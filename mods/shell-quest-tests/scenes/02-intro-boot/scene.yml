@@ -1,4 +1,5 @@
-# Test variant - same as original (uses timeout)
+# Test variant — compressed for benchmarking
+# Original: ~12290ms, compressed: ~2200ms
 id: 02.intro.boot
 title: 02 Intro Boot (Test)
 cutscene: true
@@ -8,13 +9,13 @@ layers:
 stages:
   on_enter:
     steps:
-      - { duration: 220, effects: [{ name: fade-in, duration: 220, params: { easing: ease-out } }] }
-      - { duration: 10530, effects: [{ name: scanlines, duration: 10530 }] }
-      - { duration: 420, effects: [{ name: fade-out, duration: 420, params: { easing: ease-in } }] }
+      - { duration: 120, effects: [{ name: fade-in, duration: 120, params: { easing: ease-out } }] }
+      - { duration: 1600, effects: [{ name: scanlines, duration: 1600 }] }
+      - { duration: 200, effects: [{ name: fade-out, duration: 200, params: { easing: ease-in } }] }
   on_idle:
     trigger: timeout
-    timeout: 1000ms
+    timeout: 200ms
     steps: [{ pause: 1ms }]
   on_leave:
-    steps: [{ pause: 120ms }]
+    steps: [{ pause: 60ms }]
 next: 03.intro.lab-enter

@@ -227,6 +227,10 @@ pub fn game_loop(
 
         // ── Benchmark: record frame sample ──────────────────────────
         if world.get::<BenchmarkState>().is_some() {
+            let scene_id = world
+                .scene_runtime()
+                .map(|r| r.scene().id.clone())
+                .unwrap_or_default();
             let (diff_cells, dirty_cells, total_cells, write_ops) =
                 if let Some(buf) = world.output_buffer() {
                     (
@@ -240,6 +244,7 @@ pub fn game_loop(
                 };
             if let Some(bs) = world.get_mut::<BenchmarkState>() {
                 bs.push(FrameSample {
+                    scene_id,
                     frame_us:      frame_start.elapsed().as_micros() as f32,
                     input_us:      t_input.as_micros() as f32,
                     lifecycle_us:  t_lifecycle.as_micros() as f32,

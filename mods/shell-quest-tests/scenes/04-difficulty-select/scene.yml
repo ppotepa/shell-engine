@@ -1,4 +1,6 @@
-# Test variant - auto-selects first option after pause instead of any-key
+# Test variant — compressed for benchmarking, loops back to scene 00
+# Original: ~5000ms, compressed: ~2800ms
+# This is the heaviest scene (4 postfx passes) — loops for continuous benchmarking
 id: 04.intro.difficulty-select
 title: 04 Intro Difficulty Select (Test)
 bg: black
@@ -37,15 +39,15 @@ layers:
 stages:
   on_enter:
     steps:
-      - { effects: [{ name: fade-in, duration: 280, params: { easing: ease-out } }] }
+      - { effects: [{ name: fade-in, duration: 180, params: { easing: ease-out } }] }
   on_idle:
     trigger: timeout
-    timeout: 4000ms
+    timeout: 2000ms
     steps:
-      - pause: 1800ms
+      - pause: 800ms
         effects:
           - name: neon-edge-glow
-            duration: 1800
+            duration: 800
             params:
               colour: "#4488ff"
               intensity: 0.5
@@ -53,14 +55,14 @@ stages:
               speed: 1.0
       - effects:
           - name: neon-edge-glow
-            duration: 800
+            duration: 400
             params:
               colour: "#4488ff"
               intensity: 0.6
               alpha: 0.4
               speed: 1.5
           - name: shine
-            duration: 800
+            duration: 400
             params:
               angle: 20
               width: 6
@@ -72,11 +74,11 @@ stages:
     steps:
       - effects:
           - name: neon-edge-glow
-            duration: 500
+            duration: 250
             params:
               colour: "#4488ff"
               intensity: 1.4
               alpha: 0.7
               speed: 3.0
-      - { effects: [{ name: fade-out, duration: 220, params: { easing: ease-in } }] }
-next: null
+      - { effects: [{ name: fade-out, duration: 120, params: { easing: ease-in } }] }
+next: 00.intro.logo

@@ -1,4 +1,5 @@
-# Test variant - same as original (uses timeout)
+# Test variant — compressed for benchmarking
+# Original: ~9780ms, compressed: ~2000ms
 id: 01.intro.date
 title: 01 Intro Date (Test)
 cutscene: true
@@ -8,13 +9,13 @@ layers:
 stages:
   on_enter:
     steps:
-      - { duration: 8600, effects: [{ name: scanlines, duration: 8600 }] }
+      - { duration: 1400, effects: [{ name: scanlines, duration: 1400 }] }
   on_idle:
     trigger: timeout
-    timeout: 1000ms
+    timeout: 400ms
     steps:
       - { duration: 1, effects: [{ name: clear-to-colour, duration: 1, params: { colour: black } }] }
   on_leave:
     steps:
-      - { duration: 180, effects: [{ name: clear-to-colour, duration: 180, params: { colour: black } }] }
+      - { duration: 100, effects: [{ name: clear-to-colour, duration: 100, params: { colour: black } }] }
 next: 02.intro.boot
