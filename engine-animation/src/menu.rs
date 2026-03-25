@@ -1,6 +1,6 @@
 //! Menu input system — maps key presses to navigation and activation actions for scene menus.
 
-use crate::scene::MenuOption;
+use engine_core::scene::MenuOption;
 use crossterm::event::{KeyCode, KeyEvent};
 
 /// The outcome of evaluating menu input for a single frame.

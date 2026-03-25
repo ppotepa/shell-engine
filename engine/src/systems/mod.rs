@@ -6,9 +6,11 @@ pub mod behavior;
 pub mod compositor;
 pub mod engine_io;
 pub mod hot_reload;
-pub mod menu;
 pub mod postfx;
 pub mod renderer;
 mod renderer_tests;
 pub mod scene_lifecycle;
 pub mod warmup;
+
+// Re-export menu from engine-animation
+pub use engine_animation::menu;
