@@ -694,6 +694,7 @@ dependencies = [
  "engine-render",
  "engine-render-policy",
  "engine-render-terminal",
+ "engine-runtime",
  "engine-terminal",
  "image",
  "libc",
@@ -803,6 +804,15 @@ dependencies = [
  "crossterm 0.29.0",
  "engine-core",
  "engine-render",
+]
+
+[[package]]
+name = "engine-runtime"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]
