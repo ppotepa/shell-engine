@@ -74,6 +74,14 @@ pub fn postfx_system(world: &mut World) {
         (scene_id, fingerprint, passes, scene_elapsed_ms)
     };
 
+    // Check if present optimization is active before taking mutable borrow.
+    // If so, disable postfx frame-skip cache to avoid desynchronization between
+    // present skip and postfx cache frames, which can cause animation flickering.
+    let disable_postfx_cache = world
+        .get::<crate::pipeline_flags::PipelineFlags>()
+        .map(|flags| flags.opt_present)
+        .unwrap_or(false);
+
     let use_virtual = world
         .runtime_settings()
         .map(|settings| settings.use_virtual_buffer)
@@ -93,7 +101,7 @@ pub fn postfx_system(world: &mut World) {
     POSTFX_RUNTIME.with(|runtime| {
         runtime
             .borrow_mut()
-            .apply(&scene_id, fingerprint, &passes, scene_elapsed_ms, buffer);
+            .apply(&scene_id, fingerprint, &passes, scene_elapsed_ms, buffer, disable_postfx_cache);
     });
 }
 
@@ -105,6 +113,7 @@ impl PostFxRuntime {
         passes: &[Effect],
         scene_elapsed_ms: u64,
         buffer: &mut Buffer,
+        disable_cache: bool,
     ) {
         if self.last_scene_id.as_deref() != Some(scene_id)
             || self.last_pass_fingerprint != fingerprint
@@ -112,7 +121,9 @@ impl PostFxRuntime {
             self.previous_output = None;
             self.frame_count = 0;
             self.skip_counter = 0;
-            self.skip_interval = 1; // run every other frame
+            // Disable frame-skip cache when present optimization is active to avoid
+            // desynchronization between present skip and postfx cache frames.
+            self.skip_interval = if disable_cache { 0 } else { 1 };
             self.last_scene_id = Some(scene_id.to_string());
             self.compiled_passes = compile_passes(passes);
             self.last_pass_fingerprint = fingerprint;
