@@ -683,6 +683,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "crossterm 0.29.0",
+ "engine-3d",
  "engine-animation",
  "engine-audio",
  "engine-authoring",
@@ -702,6 +703,15 @@ dependencies = [
  "thiserror 2.0.18",
  "tui-input",
  "zip",
+]
+
+[[package]]
+name = "engine-3d"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]

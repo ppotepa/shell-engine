@@ -7,6 +7,7 @@ edition = "2021"
 engine-authoring = { workspace = true }
 engine-animation = { path = "../engine-animation" }
 engine-audio = { path = "../engine-audio" }
+engine-3d = { path = "../engine-3d" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }
 crossterm = "0.29"

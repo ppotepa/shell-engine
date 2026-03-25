@@ -130,3 +130,12 @@ impl Asset3DProvider for World {
         self.get_mut::<AssetRoot>()
     }
 }
+
+// Implement Scene3DAssetResolver for AssetRoot (enables backward compat + extraction)
+impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
+    fn resolve_and_load_asset(&self, asset_path: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let full = self.resolve(asset_path);
+        let text = std::fs::read_to_string(full)?;
+        Ok(text)
+    }
+}

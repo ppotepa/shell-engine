@@ -16,6 +16,8 @@ pub use engine_core::{animations, buffer, effects, logging, markup, scene};
 pub use engine_audio as audio;
 // Re-export animation subsystem
 pub use engine_animation as animation;
+// Re-export 3D subsystem
+pub use engine_3d as rendering_3d;
 
 pub mod asset_cache;
 pub mod obj_prerender;
