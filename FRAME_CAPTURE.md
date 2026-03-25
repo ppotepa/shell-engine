@@ -162,9 +162,13 @@ cargo run -p app -- --capture-frames <DIR> [--opt-*] [--bench N]
     Saves one file per frame: frame_000000.bin, frame_000001.bin, ...
 
 --bench N
-    Benchmark mode: run N scenes and exit.
-    Designed for frame capture workflows.
+    Benchmark mode: run for N seconds and exit.
+    Splash is automatically skipped.
+    Designed for frame capture and benchmarking workflows.
 
---opt-comp, --opt-present, --opt-diff
+--opt-comp, --opt-present, --opt-diff, --opt-skip, --opt-rowdiff
     Enable specific optimizations (see OPTIMIZATION_PLAN.md).
+
+--opt
+    Enable all optimizations at once.
 ```

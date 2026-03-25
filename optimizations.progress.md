@@ -1,6 +1,6 @@
 # Optimization, Strategy & Benchmark — Progress Report
 
-> Generated from codebase state as of commit `dd60a1d` + uncommitted `--opt`/buffer-metrics work.
+> Updated as of `optimizations` branch, March 2026.
 
 ---
 
@@ -10,31 +10,32 @@
 shell-quest/
 ├── app/
 │   └── src/
-│       └── main.rs                          # CLI flags: --opt, --opt-comp/present/diff, --bench <SECS>
+│       └── main.rs                          # CLI flags: --opt, --opt-comp/present/diff/skip/rowdiff, --bench <SECS>
 │
 ├── engine-core/
 │   └── src/
-│       ├── buffer.rs                        # Double-buffer: dirty tracking, diff, write_count, last_diff_count
+│       ├── buffer.rs                        # Double-buffer: dirty tracking, dirty_rows, diff, write_count, last_diff_count
 │       ├── effects/
 │       │   └── builtin/
 │       │       ├── fade.rs                  # FadeOut glitch fix (transparent at p≥0.999)
 │       │       └── whiteout.rs              # Whiteout glitch fix (skip transparent cells)
 │       └── strategy/
 │           ├── mod.rs                       # re-exports: DiffStrategy, ModEffectFactory
-│           ├── diff.rs                      # trait DiffStrategy → FullScanDiff, DirtyRegionDiff
+│           ├── diff.rs                      # trait DiffStrategy → FullScanDiff, DirtyRegionDiff, RowSkipDiff
 │           └── effect_factory.rs            # trait ModEffectFactory (mod-defined effects hook)
 │
 ├── engine/
 │   └── src/
-│       ├── bench.rs                         # Benchmark infra: FrameSample, BenchmarkState, BenchResults, report writer
-│       ├── game_loop.rs                     # Per-frame timing for 11 systems + buffer metrics → BenchmarkState
+│       ├── bench.rs                         # Benchmark: FrameSample (scene_id), BenchmarkState, BenchResults, per-scene breakdown
+│       ├── game_loop.rs                     # Per-frame timing for 11 systems + buffer metrics + scene_id → BenchmarkState
 │       ├── lib.rs                           # EngineConfig (bench_secs, opt_*), BenchmarkState registration
-│       ├── pipeline_flags.rs                # PipelineFlags struct (read at startup → constructs strategies)
+│       ├── pipeline_flags.rs                # PipelineFlags struct (opt_comp/present/diff/skip/rowdiff)
 │       ├── systems/
-│       │   ├── renderer.rs                  # Strategy dispatch (diff, flush, present), diff count tracking
+│       │   ├── renderer.rs                  # Strategy dispatch (diff, flush, present), ANSI payload optimisation
 │       │   └── scene_lifecycle.rs           # begin_leave fix (stage_elapsed_ms = 0)
 │       └── strategy/
 │           ├── mod.rs                       # PipelineStrategies container, from_flags(), default_safe()
+│           ├── display.rs                   # trait DisplaySink → SyncDisplaySink, AsyncDisplaySink (not yet wired)
 │           ├── layer.rs                     # trait LayerCompositor → ScratchLayerCompositor, DirectLayerCompositor
 │           ├── halfblock.rs                 # trait HalfblockPacker → FullScanPacker, DirtyRegionPacker
 │           ├── present.rs                   # trait VirtualPresenter → AlwaysPresenter, HashSkipPresenter
@@ -42,10 +43,17 @@ shell-quest/
 │           ├── scene_compositor.rs          # trait SceneCompositor → CellSceneCompositor, HalfblockSceneCompositor
 │           └── behavior_factory.rs          # trait BehaviorFactory → BuiltInBehaviorFactory
 │
+├── collect-benchmarks.py                    # CSV aggregator: parses report .txt files, per-scene columns
+├── benchmark.py                             # Automated multi-scenario runner
+├── benchmark.sh                             # Shell batch benchmark runner
+│
 ├── reports/
 │   └── benchmark/                           # (gitignored) timestamped .txt benchmark reports
-│       ├── 20260324-175833.txt
-│       └── 20260324-175852.txt
+│
+├── mods/
+│   └── shell-quest-tests/                   # Benchmark test mod: compressed scenes, looping
+│       ├── mod.yaml
+│       └── scenes/                          # 5 scenes, ~9.4s per loop, loops continuously
 │
 └── .gitignore                               # includes reports/benchmark/
 ```
@@ -56,7 +64,7 @@ shell-quest/
 
 | # | Trait | Crate | File | Implementations | CLI Gate |
 |---|-------|-------|------|-----------------|----------|
-| 1 | `DiffStrategy` | engine-core | `strategy/diff.rs` | **FullScanDiff** (safe), **DirtyRegionDiff** | `--opt-diff` |
+| 1 | `DiffStrategy` | engine-core | `strategy/diff.rs` | **FullScanDiff** (safe), **DirtyRegionDiff**, **RowSkipDiff** | `--opt-diff` / `--opt-rowdiff` |
 | 2 | `LayerCompositor` | engine | `strategy/layer.rs` | **ScratchLayerCompositor** (safe), **DirectLayerCompositor** | `--opt-comp` |
 | 3 | `HalfblockPacker` | engine | `strategy/halfblock.rs` | **FullScanPacker** (safe), **DirtyRegionPacker** | `--opt-comp` |
 | 4 | `VirtualPresenter` | engine | `strategy/present.rs` | **AlwaysPresenter** (safe), **HashSkipPresenter** | `--opt-present` |
@@ -64,22 +72,24 @@ shell-quest/
 | 6 | `SceneCompositor` | engine | `strategy/scene_compositor.rs` | **CellSceneCompositor**, **HalfblockSceneCompositor** | auto per scene |
 | 7 | `BehaviorFactory` | engine | `strategy/behavior_factory.rs` | **BuiltInBehaviorFactory** (10 built-in behaviors) | — |
 | 8 | `ModEffectFactory` | engine-core | `strategy/effect_factory.rs` | *(mod-defined, future)* | — |
+| 9 | `DisplaySink` | engine | `strategy/display.rs` | **SyncDisplaySink** (safe), **AsyncDisplaySink** (not wired) | — |
 
 ### PipelineStrategies Container
 
 ```
 struct PipelineStrategies {
-    diff:      Box<dyn DiffStrategy>,       // FullScanDiff | DirtyRegionDiff
+    diff:      Box<dyn DiffStrategy>,       // FullScanDiff | DirtyRegionDiff | RowSkipDiff
     layer:     Box<dyn LayerCompositor>,     // ScratchLayerCompositor | DirectLayerCompositor
     halfblock: Box<dyn HalfblockPacker>,     // FullScanPacker | DirtyRegionPacker
     present:   Box<dyn VirtualPresenter>,    // AlwaysPresenter | HashSkipPresenter
     flush:     Box<dyn TerminalFlusher>,     // AnsiBatchFlusher | NaiveFlusher
+    display:   Box<dyn DisplaySink>,         // SyncDisplaySink | AsyncDisplaySink
 }
 ```
 
 Registered once in `World` at startup. Systems call trait methods — zero boolean branching in hot loops.
 
-**Current state:** `from_flags()` always returns `default_safe()` — all optimizations disabled while we re-enable them one-by-one with benchmark verification.
+**Current state:** `from_flags()` selects implementations based on `--opt-*` CLI flags. `default_safe()` returns all-safe defaults.
 
 ---
 
@@ -87,11 +97,13 @@ Registered once in `World` at startup. Systems call trait methods — zero boole
 
 | Flag | Default | Purpose | Status |
 |------|---------|---------|--------|
-| `--opt-comp` | off | Skip scratch buffer for effectless layers + dirty-region halfblock packing | **disabled** |
-| `--opt-present` | off | Hash-based frame skip when virtual buffer unchanged | **disabled** (known bug: skips fill) |
-| `--opt-diff` | off | DirtyRegionDiff instead of FullScanDiff (~90% diff savings) | **disabled** (unsafe if dirty invariants break) |
-| `--opt` | off | Enable ALL of the above at once | **disabled** (all three above disabled) |
-| `--bench <SECS>` | — | Run benchmark for N seconds, show score, write report | **working** |
+| `--opt-comp` | off | Skip scratch buffer for effectless layers + dirty-region halfblock packing | **working** (fixes applied) |
+| `--opt-present` | off | Hash-based frame skip when virtual buffer unchanged | **working** (disables postfx cache for correctness) |
+| `--opt-diff` | off | DirtyRegionDiff instead of FullScanDiff (~90% diff savings) | **experimental** (dirty invariant edge cases) |
+| `--opt-skip` | off | FrameSkipOracle — skip redundant frames by content hash | **working** |
+| `--opt-rowdiff` | off | RowSkipDiff — row-level dirty tracking, skip unchanged rows | **working** |
+| `--opt` | off | Enable ALL of the above at once | **working** |
+| `--bench <SECS>` | — | Run benchmark for N seconds, per-scene breakdown, write report | **working** |
 
 ---
 
@@ -125,15 +137,30 @@ Registered once in `World` at startup. Systems call trait methods — zero boole
 - **Stats per metric:** avg, min, max, p50, p95, p99
 - **Budget chart:** ASCII bar graph showing % of frame time per system
 - **Buffer pipeline:** Diff/dirty cell counts and coverage percentages
+- **Per-scene breakdown:** Frame count, FPS, compositor/postfx/renderer/behavior per scene
 - **Score formula:** `fps.avg × 10 + (1M / frame.p50) × 5 − frame.p99 / 100`
 
 ### Usage
 
 ```bash
-cargo run -p app -- --bench 5                      # 5s baseline
-cargo run -p app -- --opt --bench 5                # 5s with ALL optimizations
-cargo run -p app -- --opt-comp --bench 5           # 5s with compositor opts only
+# Recommended: 10-second benchmark with test mod (covers all scenes)
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
+
+# With optimizations
+cargo run -p app -- --mod-source=mods/shell-quest-tests --opt --bench 10
+
+# Specific flags
+cargo run -p app -- --mod-source=mods/shell-quest-tests --opt-comp --opt-skip --bench 10
 ```
+
+### CSV Aggregation
+
+```bash
+# Parse all .txt reports into a single CSV
+python collect-benchmarks.py reports/benchmark/ reports/benchmark/results.csv
+```
+
+Output includes per-scene columns: `scene_<ID>_frames`, `scene_<ID>_fps`, `scene_<ID>_comp`, `scene_<ID>_pfx`, `scene_<ID>_rend`.
 
 ---
 
@@ -148,17 +175,17 @@ cargo run -p app -- --opt-comp --bench 5           # 5s with compositor opts onl
 
 ---
 
-## Optimization Re-enablement Plan
+## Optimization Re-enablement Status
 
-All optimizations were reverted in `f5ae73e` to establish a clean baseline. Re-enablement proceeds one-by-one with benchmark comparison:
+All optimizations reverted in `f5ae73e`, then re-enabled one-by-one with bug fixes:
 
-| Order | Optimization | Fix Required Before Re-enabling |
-|-------|-------------|--------------------------------|
-| 1 | `--opt-comp` (DirectLayerCompositor + DirtyRegionPacker) | GIF frame changes don't trigger dirty-rect invalidation |
-| 2 | `--opt-present` (HashSkipPresenter) | Skipped frames also skip `fill()` → breaks diff |
-| 3 | `--opt-diff` (DirtyRegionDiff) | Misses regions outside dirty bounds during scene transitions |
-
-**Invariant:** `full_redraw_on_scene_change` flag exists in PipelineFlags but is never consumed. Must wire into scene transition path to force full-buffer diff on scene change.
+| Optimization | Status | Fix(es) Applied |
+|-------------|--------|-----------------|
+| `--opt-comp` | ✅ working | Force scratch for timed sprites (f330c3b), image dirty tracking, fill dirty preservation (d8aeb2c) |
+| `--opt-present` | ✅ working | Disable postfx cache when present active (4b6f06c) |
+| `--opt-diff` | ⚠️ experimental | PostFX dirty region preservation (877ac10); still fragile with edge cases |
+| `--opt-skip` | ✅ working | FrameSkipOracle prevents redundant frame processing |
+| `--opt-rowdiff` | ✅ working | Row-level dirty tracking in Buffer, skip unchanged rows in diff |
 
 ---
 

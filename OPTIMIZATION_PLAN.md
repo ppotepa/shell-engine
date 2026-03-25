@@ -10,6 +10,9 @@
 | `--opt-comp` | Compositor | #4 layer-scratch skip, #5 dirty-halfblock narrowing | OFF |
 | `--opt-present` | Present | #13 hash-based static frame skip | OFF |
 | `--opt-diff` | Buffer diff | dirty-region scan instead of full-buffer scan (experimental) | OFF |
+| `--opt-skip` | Frame skip | Unified FrameSkipOracle — prevents animation flickering | OFF |
+| `--opt-rowdiff` | Buffer diff | Row-level dirty skip — skips unchanged rows in diff scan | OFF |
+| `--opt` | All | Enables all of the above | OFF |
 
 Safe optimizations (#1-#3, #6-#10, #14, #16) are always on — no flag needed.
 Run `./run-optimization.sh` to enable all experimental flags at once.
@@ -25,14 +28,17 @@ at startup via `PipelineStrategies`. Systems call trait methods instead of if/el
 | `--opt-comp` (layer) | `LayerCompositor` | `ScratchLayerCompositor` | `DirectLayerCompositor` |
 | `--opt-comp` (pack) | `HalfblockPacker` | `FullScanPacker` | `DirtyRegionPacker` |
 | `--opt-present` | `VirtualPresenter` | `AlwaysPresenter` | `HashSkipPresenter` |
+| `--opt-skip` | `FrameSkipOracle` | `NeverSkipOracle` | `UnifiedFrameSkipOracle` |
+| `--opt-rowdiff` | `DiffStrategy` | `FullScanDiff` | `RowSkipDiff` |
 | (flush always ANSI) | `TerminalFlusher` | `AnsiBatchFlusher` | `NaiveFlusher` (debug) |
+| (async display prep) | `DisplaySink` | `SyncDisplaySink` | `AsyncDisplaySink` (not yet wired) |
 
 Beyond-pipeline strategy traits (additive, no behaviour changed yet):
 - `SidecarTransport` — unified trait for `TcpSidecar` + `SidecarProcess` + `NullTransport`
 - `ModEffectFactory` — allows mods to inject effects before builtin lookup
 - `DiagnosticSink` — `DebugLogBuffer` implements it; `NullSink` for production/tests
 
-`PipelineStrategies::from_flags(opt_diff, opt_comp, opt_present)` selects implementations at startup.
+`PipelineStrategies::from_flags(opt_diff, opt_comp, opt_present, opt_skip, opt_rowdiff)` selects implementations at startup.
 
 ### Implementation Status
 
@@ -53,6 +59,10 @@ Beyond-pipeline strategy traits (additive, no behaviour changed yet):
 | 13 | opt-present-skipstatic | ✅ Gated `--opt-present` | Buffer hash skip for static frames |
 | 14 | opt-present-fitlut | ✅ Always on | Precomputed x/y LUT for Fit mode |
 | diff | opt-diff | ✅ Gated `--opt-diff` | DirtyRegionDiff strategy (experimental) |
+| skip | opt-skip | ✅ Gated `--opt-skip` | Unified FrameSkipOracle (prevents flickering) |
+| rowdiff | opt-rowdiff | ✅ Gated `--opt-rowdiff` | RowSkipDiff — row-level dirty skip in diff scan |
+| ansi | ANSI payload reduction | ✅ Always on | Skip redundant MoveTo, use MoveRight for small gaps |
+| display | DisplaySink | ⏳ Prepared (not wired) | AsyncDisplaySink trait + SyncDisplaySink ready |
 | 15 | opt-comp-skipidle | ⏳ Deferred | Invasive dirty tracking across all systems |
 | 16 | opt-postfx-earlyret | ✅ Always on | Early return when no postfx passes |
 | 17 | opt-comp-regioncache | ⏳ Deferred | effect_region() already O(1) HashMap |
@@ -60,7 +70,7 @@ Beyond-pipeline strategy traits (additive, no behaviour changed yet):
 | 19 | opt-mem-glowevict | ✅ Already in codebase | 128-entry GLOW_CACHE eviction |
 | 20 | opt-comp-borrowstr | ⏳ Deferred | Invasive lifetime propagation |
 
-**17 of 20 optimizations complete** (4 gated behind flags, 10 always-on, 3 already in codebase). 4 deferred.
+**20 of 23 optimizations complete** (6 gated behind flags, 10 always-on, 3 already in codebase, 1 prepared not wired). 3 deferred.
 
 ---
 

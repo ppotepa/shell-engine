@@ -1,21 +1,23 @@
 # Shell Quest Engine Benchmarking System
 
-Comprehensive performance benchmarking for all optimization flags.
+Comprehensive performance benchmarking for all optimization flags with per-scene breakdown.
 
 ## Quick Start
 
 ### Run a Single Benchmark
 
 ```bash
-# Baseline (no flags), 5 seconds
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash
+# Baseline (no flags), 10 seconds (recommended)
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
 
-# With opt-rowdiff, 5 seconds
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash --opt-rowdiff
+# With opt-rowdiff, 10 seconds
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt-rowdiff
 
-# All optimizations, 5 seconds
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash --opt
+# All optimizations, 10 seconds
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 ```
+
+> **Note:** Splash is automatically skipped when `--bench` is active. No need for `--skip-splash`.
 
 ### Aggregate Existing Reports to CSV
 
@@ -23,17 +25,21 @@ cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash 
 python3 collect-benchmarks.py
 ```
 
-This creates `reports/benchmark/results.csv` with all existing benchmark data.
+This creates `reports/benchmark/results.csv` with all existing benchmark data including per-scene breakdown.
 
 ---
 
 ## How It Works
 
-1. **Run benchmarks** with `--bench <SECS>` flag
+1. **Run benchmarks** with `--bench <SECS>` flag (splash auto-skipped)
 2. **App displays results** in-game on a full-screen display
-3. **Report is saved** to `reports/benchmark/TIMESTAMP.txt`
+3. **Report is saved** to `reports/benchmark/TIMESTAMP.txt` (includes per-scene breakdown)
 4. **Run aggregator** to convert all reports to CSV
 5. **Open CSV** in your spreadsheet for analysis
+
+### Test Mod Looping
+
+The test mod (`mods/shell-quest-tests`) loops continuously — scene 04 transitions back to scene 00. One full loop takes ~9.4 seconds, so `--bench 10` covers all 5 scenes.
 
 ---
 
@@ -43,43 +49,45 @@ This creates `reports/benchmark/results.csv` with all existing benchmark data.
 
 | Flag | Description | Est. Impact |
 |------|-------------|------------|
-| `--opt-comp` | Layer scratch skip, dirty-region narrowing | ~5% |
+| `--opt-comp` | Layer scratch skip, dirty-region halfblock packing | ~5% |
 | `--opt-diff` | Dirty-region diff scan (experimental) | ~20% |
-| `--opt-skip` | Unified frame-skip oracle (recommended) | ~0-5% |
-| `--opt-rowdiff` | Row-level dirty skip | ~10-20% |
+| `--opt-present` | Hash-based static frame skip | ~0-5% |
+| `--opt-skip` | Unified frame-skip oracle (prevents flickering) | ~0-5% |
+| `--opt-rowdiff` | Row-level dirty skip in diff scan | ~10-20% |
 | `--opt` | All optimizations | ~30-50% |
 
 ### Recommended Combinations
 
 1. **Baseline**: No flags
 2. **Safe**: `--opt-skip` (prevents flickering)
-3. **Balanced**: `--opt-comp --opt-skip`
+3. **Balanced**: `--opt-comp --opt-skip --opt-rowdiff`
 4. **Aggressive**: `--opt` (all flags)
 
 ---
 
 ## Benchmark Scenarios
 
-### Quick Test (2 seconds)
+### Quick Validation (5 seconds)
 ```bash
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 2 --skip-splash
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5
 ```
+- Covers scenes 00-02 partially
 - Fast iteration during development
-- Less stable metrics
 
-### Standard Benchmark (5 seconds) — **RECOMMENDED**
+### Standard Benchmark (10 seconds) — **RECOMMENDED**
 ```bash
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
 ```
-- Balanced accuracy
-- Good for comparative analysis
+- Covers all 5 scenes in one full loop
+- Includes the PostFX-heavy scene 04
+- Best balance of accuracy and speed
 
-### Extended Benchmark (10 seconds)
+### Extended Benchmark (20 seconds)
 ```bash
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --skip-splash
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 20
 ```
-- Most stable metrics
-- Slower iteration
+- Two full loops for more stable metrics
+- Better for comparative analysis
 
 ---
 
@@ -110,6 +118,15 @@ cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --skip-splash
 - `dirty_coverage_pct`: Fraction of screen marked dirty
 - `diff_coverage_pct`: Fraction of screen that actually changed
 
+### Per-Scene Columns (dynamic)
+- `scene_count`: Number of unique scenes captured
+- `scene_ids`: Comma-separated scene ID list
+- `scene_<ID>_frames`: Frame count per scene
+- `scene_<ID>_fps`: Average FPS per scene
+- `scene_<ID>_comp`: Compositor time per scene
+- `scene_<ID>_pfx`: PostFX time per scene
+- `scene_<ID>_rend`: Renderer time per scene
+
 ---
 
 ## Workflow: Comparing Flags
@@ -117,62 +134,33 @@ cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --skip-splash
 ### 1. Establish Baseline
 
 ```bash
-# Run baseline
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash
-
-# Note the FPS from in-game display
-# (also saved to reports/benchmark/TIMESTAMP.txt)
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
 ```
 
 ### 2. Test Individual Flags
 
 ```bash
-# Test opt-rowdiff
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash --opt-rowdiff
-
-# Test opt-skip
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash --opt-skip
-
-# Test combined
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash --opt-comp --opt-rowdiff
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt-rowdiff
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt-skip
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt-comp --opt-rowdiff
 ```
 
 ### 3. Aggregate Results
 
 ```bash
 python3 collect-benchmarks.py
-# Creates results.csv with all benchmarks
 ```
 
 ### 4. Analyze in Spreadsheet
 
 ```bash
-# Open in LibreOffice Calc, Excel, or similar
 open reports/benchmark/results.csv
 ```
 
 Then:
 - Sort by `fps_avg` to find fastest combination
 - Check `frame_time_p99` for jitter/variance
-- Compare system breakdown to find bottlenecks
-
----
-
-## Example Results
-
-From recent testing (mods/shell-quest-tests, 5-second benchmarks):
-
-| Flag | FPS | Frame Time (us) | Compositor (us) | Renderer (us) | Dirty % |
-|------|-----|-----------------|-----------------|---------------|---------|
-| baseline | 62.2 | 16,066 | 120 | 132 | 6.7% |
-| opt-comp | 62.2 | 16,072 | 164 | 149 | 6.7% |
-| opt-diff | 62.2 | 16,068 | 129 | 145 | 6.7% |
-| **opt-comp+diff** | **62.2** | **16,069** | **64** | **67** | **7.3%** |
-
-**Observations:**
-- All combinations achieve ~62 FPS (60 Hz target)
-- Combined `--opt-comp --opt-diff` has lowest system times
-- Diff cells actually higher (more precision in tracking)
+- Compare per-scene columns to find bottlenecks (e.g., scene 04 PostFX)
 
 ---
 
@@ -180,32 +168,30 @@ From recent testing (mods/shell-quest-tests, 5-second benchmarks):
 
 ### Building for Speed
 
-Use release mode (faster iteration):
+Use release mode for accurate profiling:
 ```bash
-cargo run --release -p app -- --mod-source=mods/shell-quest-tests --bench 5 --skip-splash
+cargo run --release -p app -- --mod-source=mods/shell-quest-tests --bench 10
 ```
 
-### Filtering CSV Results
+### Identifying Scene Bottlenecks
 
-In spreadsheet software:
-1. Apply filter to `flag_name`
-2. Sort by `fps_avg` descending
-3. Compare variations of interest
+Check the per-scene breakdown in reports to find which scenes are heaviest:
+- **Scene 04** (difficulty-select) has 4 PostFX passes — expect highest PFX times
+- **Scenes 00-03** have no PostFX — compare compositor/renderer only
 
 ### Detecting Regressions
 
 Compare P99 frame times:
-- If `frame_time_p99` is much higher than `frame_time_avg`, there's jitter
 - Good flags: P99 < 1.1 × AVG
 - Bad flags: P99 > 1.5 × AVG
 
 ### Low FPS Debugging
 
 Check in this order:
-1. **Compositor bottleneck** if `comp_time_avg` > `rend_time_avg`
-2. **Renderer bottleneck** if `rend_time_avg` is high
-3. **Behavior bottleneck** if `behavior_time_avg` is high
-4. **Output bottleneck** if `diff_cells_avg` is very high
+1. **PostFX bottleneck** if scene 04 FPS much lower than others
+2. **Compositor bottleneck** if `comp_time_avg` > `rend_time_avg`
+3. **Renderer bottleneck** if `rend_time_avg` is high
+4. **Behavior bottleneck** if `behavior_time_avg` is high
 
 ---
 
@@ -213,30 +199,17 @@ Check in this order:
 
 ### No reports generated
 
-- Check `reports/benchmark/` exists
 - Verify app ran for full duration (wait for in-game results screen)
-- Try running manually first: `cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 2`
+- Try: `cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 5`
 
 ### CSV is empty
 
 - Ensure reports exist: `ls reports/benchmark/*.txt`
 - Run aggregator: `python3 collect-benchmarks.py`
-- Check for parse errors in Python output
 
 ### FPS is too low (< 50)
 
 - Running in debug mode? Add `--release` flag
-- Resolution too high? Try `--renderer-mode Cell`
-- Many optimizations active? Try `--opt-skip` alone first
-
----
-
-## Next Steps
-
-After benchmarking and analysis:
-
-1. **Document results** — Save CSV and notes to repo
-2. **Identify best combo** — Usually `--opt` or `--opt-comp --opt-rowdiff`
-3. **Make default** — Update game launch to use recommended flags
-4. **Iterate** — Re-benchmark after engine changes
+- Resolution too high? See RESOLUTIONS.md
+- Scene 04 heavy? This is expected (4 PostFX passes)
 
