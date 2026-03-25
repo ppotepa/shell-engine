@@ -10,21 +10,25 @@ pub mod flush;
 pub mod scene_compositor;
 /// Behavior factory strategy (built-in vs custom behavior resolution).
 pub mod behavior_factory;
+/// Frame-skip oracle strategy (unified coordination).
+pub mod skip;
+/// Display sink strategy (sync vs async terminal output).
+pub mod display;
 
 pub use layer::{DirectLayerCompositor, LayerCompositor, ScratchLayerCompositor};
 pub use halfblock::{DirtyRegionPacker, FullScanPacker, HalfblockPacker};
 pub use present::{AlwaysPresenter, HashSkipPresenter, VirtualPresenter};
 pub use flush::{AnsiBatchFlusher, NaiveFlusher, TerminalFlusher};
+pub use display::{AsyncDisplaySink, DisplayFrame, DisplaySink, SyncDisplaySink};
 pub use scene_compositor::{
     CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
     compositor_for,
 };
 pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};
+pub use skip::{AlwaysRender, CoordinatedSkip, FrameSkipOracle};
 
 use engine_core::strategy::{DiffStrategy, FullScanDiff};
-// DirtyRegionDiff is available but currently disabled — re-enable when --opt-diff is reintroduced.
-#[allow(unused_imports)]
-use engine_core::strategy::DirtyRegionDiff;
+use engine_core::strategy::{DirtyRegionDiff, RowSkipDiff};
 
 /// Aggregated render pipeline strategies, registered as a World resource at startup.
 ///
@@ -52,18 +56,38 @@ impl PipelineStrategies {
 
     /// Construct from CLI optimisation flags.
     ///
-    /// **NOTE**: All optimised strategies are currently disabled while we re-introduce
-    /// them one-by-one with proper visual verification.  The flags are accepted but
-    /// have no effect — safe defaults are always used.
-    ///
-    /// | flag           | intended effect (currently disabled)                 |
+    /// | flag           | effect                                              |
     /// |----------------|-----------------------------------------------------|
     /// | `--opt-diff`   | `DirtyRegionDiff` instead of `FullScanDiff`         |
+    /// | `--opt-rowdiff`| `RowSkipDiff` (row-level skip in full-scan)         |
     /// | `--opt-comp`   | `DirectLayerCompositor` + `DirtyRegionPacker`       |
     /// | `--opt-present`| `HashSkipPresenter` instead of `AlwaysPresenter`    |
-    pub fn from_flags(_opt_diff: bool, _opt_comp: bool, _opt_present: bool) -> Self {
-        // All optimisations disabled — return safe defaults.
-        // Re-enable one-by-one after visual regression testing.
-        Self::default_safe()
+    /// | `--opt-async`  | Handled separately (display sink in renderer)        |
+    pub fn from_flags(opt_diff: bool, opt_comp: bool, opt_present: bool, opt_rowdiff: bool, _opt_async_display: bool) -> Self {
+        Self {
+            diff: if opt_diff {
+                Box::new(DirtyRegionDiff)
+            } else if opt_rowdiff {
+                Box::new(RowSkipDiff)
+            } else {
+                Box::new(FullScanDiff)
+            },
+            layer: if opt_comp {
+                Box::new(DirectLayerCompositor)
+            } else {
+                Box::new(ScratchLayerCompositor)
+            },
+            halfblock: if opt_comp {
+                Box::new(DirtyRegionPacker)
+            } else {
+                Box::new(FullScanPacker)
+            },
+            present: if opt_present {
+                Box::new(HashSkipPresenter)
+            } else {
+                Box::new(AlwaysPresenter)
+            },
+            flush: Box::new(AnsiBatchFlusher),
+        }
     }
 }

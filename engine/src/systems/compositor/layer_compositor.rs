@@ -80,7 +80,10 @@ pub fn composite_layers(
                 SceneStage::OnLeave => &layer.stages.on_leave,
                 SceneStage::Done => &layer.stages.on_idle,
             };
+            // Layer has effects OR layer has sprites with appear/disappear timing.
+            // Sprites with timing need scratch path for proper dirty region tracking when they vanish.
             stage_ref.steps.iter().any(|s| !s.effects.is_empty())
+                || layer.sprites.iter().any(|s| s.appear_at_ms().is_some() || s.disappear_at_ms().is_some())
         };
         let needs_scratch = layer_compositor.use_scratch(layer_has_active_effects);
 
@@ -128,6 +131,8 @@ pub fn composite_layers(
             });
         } else {
             // No effects: render sprites directly onto scene buffer (skip scratch).
+            // Note: We still need to preserve transparency for this layer.
+            // Render directly but rely on sprite rendering to skip transparent cells.
             render_sprites(
                 layer_idx,
                 layer,

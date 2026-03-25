@@ -8,7 +8,12 @@ use crate::systems;
 use crate::world::World;
 
 /// Runs the engine game loop for `world` at `target_fps` until the player quits.
-pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> {
+/// If `frame_capture` is provided, captures each frame after rendering.
+pub fn game_loop(
+    world: &mut World,
+    target_fps: u16,
+    frame_capture: &mut Option<crate::frame_capture::FrameCapture>,
+) -> Result<(), EngineError> {
     use crossterm::event::{self, Event, KeyEventKind, MouseEventKind};
     use std::time::{Duration, Instant};
     use systems::scene_lifecycle::SceneLifecycleManager;
@@ -166,6 +171,24 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         systems::renderer::renderer_system(world);
         let t4 = Instant::now();
 
+        // Notify frame-skip oracle that frame has advanced
+        if let Some(oracle) = world.get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>() {
+            if let Ok(mut o) = oracle.lock() {
+                let frame_id = world
+                    .animator()
+                    .map(|a| a.step_idx)
+                    .unwrap_or(0) as u64;
+                o.frame_advanced(frame_id, false);
+            }
+        }
+
+        // Capture frame if capture mode is active
+        if let Some(capture) = frame_capture {
+            if let Some(buf) = world.output_buffer() {
+                capture.capture(buf)?;
+            }
+        }
+
         // Sample CPU/MEM stats (~1 Hz internally).
         if let Some(ps) = world.get_mut::<crate::debug_features::ProcessStats>() {
             ps.tick();
@@ -203,21 +226,43 @@ pub fn game_loop(world: &mut World, target_fps: u16) -> Result<(), EngineError> 
         let t_sleep = t_sleep_start.elapsed();
 
         // ── Benchmark: record frame sample ──────────────────────────
-        if let Some(bs) = world.get_mut::<BenchmarkState>() {
-            bs.push(FrameSample {
-                frame_us:      frame_start.elapsed().as_micros() as f32,
-                input_us:      t_input.as_micros() as f32,
-                lifecycle_us:  t_lifecycle.as_micros() as f32,
-                animator_us:   t_anim.as_micros() as f32,
-                hot_reload_us: t_hotreload.as_micros() as f32,
-                engine_io_us:  t_io.as_micros() as f32,
-                behavior_us:   (t1 - t0).as_micros() as f32,
-                audio_us:      (t1b - t1).as_micros() as f32,
-                compositor_us: (t2 - t1b).as_micros() as f32,
-                postfx_us:     (t3 - t2).as_micros() as f32,
-                renderer_us:   (t4 - t3).as_micros() as f32,
-                sleep_us:      t_sleep.as_micros() as f32,
-            });
+        if world.get::<BenchmarkState>().is_some() {
+            let scene_id = world
+                .scene_runtime()
+                .map(|r| r.scene().id.clone())
+                .unwrap_or_default();
+            let (diff_cells, dirty_cells, total_cells, write_ops) =
+                if let Some(buf) = world.output_buffer() {
+                    (
+                        buf.last_diff_count,
+                        buf.dirty_cell_count() as u32,
+                        buf.total_cells() as u32,
+                        buf.write_count,
+                    )
+                } else {
+                    (0, 0, 0, 0)
+                };
+            if let Some(bs) = world.get_mut::<BenchmarkState>() {
+                bs.push(FrameSample {
+                    scene_id,
+                    frame_us:      frame_start.elapsed().as_micros() as f32,
+                    input_us:      t_input.as_micros() as f32,
+                    lifecycle_us:  t_lifecycle.as_micros() as f32,
+                    animator_us:   t_anim.as_micros() as f32,
+                    hot_reload_us: t_hotreload.as_micros() as f32,
+                    engine_io_us:  t_io.as_micros() as f32,
+                    behavior_us:   (t1 - t0).as_micros() as f32,
+                    audio_us:      (t1b - t1).as_micros() as f32,
+                    compositor_us: (t2 - t1b).as_micros() as f32,
+                    postfx_us:     (t3 - t2).as_micros() as f32,
+                    renderer_us:   (t4 - t3).as_micros() as f32,
+                    sleep_us:      t_sleep.as_micros() as f32,
+                    diff_cells,
+                    dirty_cells,
+                    total_cells,
+                    write_ops,
+                });
+            }
         }
     }
     Ok(())

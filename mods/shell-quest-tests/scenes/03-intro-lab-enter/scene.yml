@@ -1,0 +1,21 @@
+# Test variant — compressed for benchmarking
+# Original: ~3160ms, compressed: ~1200ms
+id: 03.intro.lab-enter
+title: 03 Intro Lab Enter (Test)
+cutscene: true
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 120, params: { easing: ease-out } }] }
+      - { pause: 600ms }
+      - { effects: [{ name: fade-out, duration: 160, params: { easing: ease-in } }] }
+  on_idle:
+    trigger: timeout
+    timeout: 200ms
+    steps: [{ pause: 1ms }]
+  on_leave:
+    steps: [{ pause: 40ms }]
+next: 04.intro.difficulty-select

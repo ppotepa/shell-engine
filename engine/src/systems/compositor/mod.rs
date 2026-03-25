@@ -377,6 +377,9 @@ fn composite_scene_halfblock(
 }
 
 fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, halfblock: &dyn crate::strategy::HalfblockPacker) {
+    // Always fill target with fallback background at the start of each frame.
+    // This ensures stale data from the previous frame is cleared, even when
+    // DirtyRegionPacker finds no dirty region to update.
     target.fill(fallback_bg);
 
     // #5 opt-comp-halfblock: HalfblockPacker strategy owns the iteration bounds.

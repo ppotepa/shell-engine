@@ -20,6 +20,7 @@ pub(crate) trait EngineWorldAccess {
     fn animator_mut(&mut self) -> Option<&mut Animator>;
     fn buffer(&self) -> Option<&Buffer>;
     fn buffer_mut(&mut self) -> Option<&mut Buffer>;
+    fn output_buffer(&self) -> Option<&Buffer>;
     fn virtual_buffer(&self) -> Option<&VirtualBuffer>;
     fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer>;
     fn runtime_settings(&self) -> Option<&RuntimeSettings>;
@@ -56,6 +57,11 @@ impl EngineWorldAccess for World {
 
     fn buffer_mut(&mut self) -> Option<&mut Buffer> {
         self.get_mut::<Buffer>()
+    }
+
+    /// The terminal-sized output buffer (alias for `buffer`).
+    fn output_buffer(&self) -> Option<&Buffer> {
+        self.get::<Buffer>()
     }
 
     fn virtual_buffer(&self) -> Option<&VirtualBuffer> {

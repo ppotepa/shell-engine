@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: date
+  z_index: 2
+  visible: true
+  # Date/location cards play strictly one after another (no overlap).
+  sprites:
+    - type: text
+      id: date-text
+      content: "September 17, 1991"
+      at: cc
+      font: "Abril Fatface:raster"
+      fg: gray
+      appear_at_ms: 3000
+      disappear_at_ms: 5400
+      stages:
+        on_enter:
+          steps:
+            - { effects: [{ name: fade-in, duration: 350, params: { easing: ease-out } }] }
+            - pause: 1500ms
+            - { effects: [{ name: fade-out, duration: 450, params: { easing: ease-in } }] }
+
+    - type: text
+      id: location-text
+      content: "HELSINKI, FINLAND"
+      at: cc
+      font: "Abril Fatface:raster"
+      fg: gray
+      appear_at_ms: 5900
+      disappear_at_ms: 8300
+      stages:
+        on_enter:
+          steps:
+            - { effects: [{ name: fade-in, duration: 350, params: { easing: ease-out } }] }
+            - pause: 1550ms
+            - { effects: [{ name: fade-out, duration: 500, params: { easing: ease-in } }] }

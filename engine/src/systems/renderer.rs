@@ -3,7 +3,7 @@ use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::runtime_settings::VirtualPolicy;
 use crate::services::EngineWorldAccess;
-use crate::strategy::{AnsiBatchFlusher, TerminalFlusher, AlwaysPresenter, VirtualPresenter};
+use crate::strategy::{AnsiBatchFlusher, AsyncDisplaySink, DisplayFrame, DisplaySink, TerminalFlusher};
 use crate::systems::animator::{Animator, SceneStage};
 use crate::world::World;
 use crossterm::{cursor, execute, queue, style, terminal};
@@ -14,6 +14,7 @@ use std::io::{self, Write};
 
 pub struct TerminalRenderer {
     stdout: io::BufWriter<io::Stdout>,
+    async_sink: Option<AsyncDisplaySink>,
 }
 
 thread_local! {
@@ -23,19 +24,25 @@ thread_local! {
     static RUN_BUF: RefCell<String> = RefCell::new(String::with_capacity(256));
     /// #3 opt-term-ansibuf: accumulate all ANSI into a contiguous buffer, single write_all per frame.
     static ANSI_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(65536));
-    /// #13 opt-present-skipstatic: last seen VirtualBuffer back_hash to skip redundant presents.
-    static LAST_VBUF_HASH: RefCell<u64> = RefCell::new(u64::MAX);
-    /// Scene id seen on the last present — reset LAST_VBUF_HASH when it changes so that the
-    /// first frame of a new scene is never incorrectly skipped (transition background bug).
-    static LAST_SCENE_ID: RefCell<String> = RefCell::new(String::new());
 }
 
 impl TerminalRenderer {
     pub fn new() -> io::Result<Self> {
+        Self::new_with_async(false)
+    }
+
+    pub fn new_with_async(async_display: bool) -> io::Result<Self> {
         terminal::enable_raw_mode()?;
         let mut stdout = io::BufWriter::with_capacity(65536, io::stdout());
         execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide)?;
-        Ok(Self { stdout })
+        
+        let async_sink = if async_display {
+            Some(AsyncDisplaySink::new())
+        } else {
+            None
+        };
+        
+        Ok(Self { stdout, async_sink })
     }
 
     /// Paint the entire screen true-black before the first game frame.
@@ -69,6 +76,9 @@ impl TerminalRenderer {
     }
 
     pub fn shutdown(&mut self) -> io::Result<()> {
+        if let Some(sink) = &mut self.async_sink {
+            sink.drain();
+        }
         execute!(
             self.stdout,
             style::ResetColor,
@@ -76,6 +86,12 @@ impl TerminalRenderer {
             terminal::LeaveAlternateScreen
         )?;
         terminal::disable_raw_mode()
+    }
+}
+
+impl Drop for TerminalRenderer {
+    fn drop(&mut self) {
+        let _ = self.shutdown();
     }
 }
 
@@ -132,8 +148,13 @@ pub fn renderer_system(world: &mut World) {
         }
     });
 
-    let is_empty = DIFF_SCRATCH.with(|s| s.borrow().is_empty());
-    if is_empty {
+    // Store diff count on buffer for benchmark instrumentation.
+    let diff_len = DIFF_SCRATCH.with(|s| s.borrow().len()) as u32;
+    if let Some(buf) = world.buffer_mut() {
+        buf.last_diff_count = diff_len;
+    }
+
+    if diff_len == 0 {
         if let Some(buf) = world.buffer_mut() {
             buf.swap();
         }
@@ -142,7 +163,17 @@ pub fn renderer_system(world: &mut World) {
 
     if let Some(renderer) = world.renderer_mut() {
         DIFF_SCRATCH.with(|scratch| {
-            flusher.flush(&mut renderer.stdout, &scratch.borrow());
+            let diffs = scratch.borrow().clone();
+            
+            // Submit to async sink if available; otherwise flush inline
+            if let Some(sink) = &mut renderer.async_sink {
+                sink.submit(DisplayFrame {
+                    diffs,
+                    frame_id: 0,  // Currently unused
+                });
+            } else {
+                flusher.flush(&mut renderer.stdout, &diffs);
+            }
         });
     }
 
@@ -220,6 +251,7 @@ fn apply_debug_overlay(world: &mut World) {
 fn apply_perf_hud(world: &mut World) {
     use crate::rasterizer::generic::rasterize_generic_half;
     use engine_core::scene::sprite::TextTransform;
+    use std::fmt::Write;
 
     let fps_val = world
         .get::<crate::debug_features::FpsCounter>()
@@ -228,27 +260,32 @@ fn apply_perf_hud(world: &mut World) {
         .get::<crate::debug_features::ProcessStats>()
         .copied();
 
-    let mut parts: Vec<String> = Vec::new();
-    if let Some(fps) = fps_val {
-        parts.push(format!("{fps} FPS"));
-    }
-    if let Some(ps) = &proc_stats {
-        parts.push(format!("{:.0}% CPU", ps.cpu_percent));
-        parts.push(format!("{:.1}MB", ps.rss_mb));
-    }
-    let hud_text = parts.join("  ");
-    if hud_text.is_empty() {
-        return;
+    thread_local! {
+        static HUD_STR: RefCell<String> = RefCell::new(String::with_capacity(64));
     }
 
-    let Some(buf) = world.buffer_mut() else {
-        return;
-    };
-    // generic:half font advances 6 cols per char (5-wide glyph + 1 gap)
-    let text_w = hud_text.len() as u16 * 6;
-    let x = buf.width.saturating_sub(text_w);
-    let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
-    rasterize_generic_half(&hud_text, green, x, 0, buf, &TextTransform::None);
+    HUD_STR.with(|cell| {
+        let hud_text = &mut *cell.borrow_mut();
+        hud_text.clear();
+        if let Some(fps) = fps_val {
+            let _ = write!(hud_text, "{fps} FPS");
+        }
+        if let Some(ps) = &proc_stats {
+            if !hud_text.is_empty() { hud_text.push_str("  "); }
+            let _ = write!(hud_text, "{:.0}% CPU  {:.1}MB", ps.cpu_percent, ps.rss_mb);
+        }
+        if hud_text.is_empty() {
+            return;
+        }
+
+        let Some(buf) = world.buffer_mut() else {
+            return;
+        };
+        let text_w = hud_text.len() as u16 * 6;
+        let x = buf.width.saturating_sub(text_w);
+        let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
+        rasterize_generic_half(hud_text, green, x, 0, buf, &TextTransform::None);
+    });
 }
 
 fn apply_stats_overlay(
@@ -431,48 +468,28 @@ fn present_virtual_to_output(world: &mut World) {
         return;
     };
 
-    // Extract raw pointer to the VirtualPresenter strategy to avoid a long-lived borrow
-    // conflicting with the with_ref_and_mut closure below.
-    // SAFETY: same invariant as in render_system — PipelineStrategies is startup-only, immutable.
-    let strats_ptr: *const crate::strategy::PipelineStrategies = world
-        .get::<crate::strategy::PipelineStrategies>()
-        .map(|s| s as *const _)
-        .unwrap_or(std::ptr::null());
-    static FALLBACK_PRESENT: AlwaysPresenter = AlwaysPresenter;
-    let presenter: &dyn VirtualPresenter =
-        if strats_ptr.is_null() { &FALLBACK_PRESENT }
-        else { unsafe { (*strats_ptr).present.as_ref() } };
-
-    // Scene-change tracking resets the hash on scene transitions so the first frame of
-    // a new scene is never incorrectly skipped. AlwaysPresenter.should_skip() always
-    // returns false so this tracking is harmless when hash-skip is not active.
-    let scene_changed = {
-        let current_scene_id = world
-            .scene_runtime()
-            .map(|rt| rt.scene().id.clone())
-            .unwrap_or_default();
-        LAST_SCENE_ID.with(|s| {
-            let changed = *s.borrow() != current_scene_id;
-            if changed {
-                *s.borrow_mut() = current_scene_id;
-                LAST_VBUF_HASH.with(|h| *h.borrow_mut() = u64::MAX);
-            }
-            changed
-        })
+    // Consult frame-skip oracle for Presenter skip decision
+    let should_skip_present = {
+        let hash = world
+            .virtual_buffer()
+            .map(|vbuf| vbuf.0.back_hash())
+            .unwrap_or(u64::MAX);
+        world
+            .get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>()
+            .and_then(|oracle| {
+                oracle.lock().ok().map(|mut o| {
+                    o.should_skip_present(hash)
+                })
+            })
+            .unwrap_or(false)
     };
+
+    if should_skip_present {
+        return;
+    }
 
     world.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(|vbuf, output_buf| {
         let virtual_buf = &vbuf.0;
-
-        let hash = virtual_buf.back_hash();
-        let skip = !scene_changed && LAST_VBUF_HASH.with(|c| {
-            let prev = *c.borrow();
-            *c.borrow_mut() = hash;
-            presenter.should_skip(hash, prev)
-        });
-        if skip {
-            return;
-        }
 
         output_buf.fill(TRUE_BLACK);
         if virtual_buf.width == 0 || virtual_buf.height == 0 {
@@ -585,6 +602,7 @@ fn compute_viewport(
     }
 }
 
+#[allow(dead_code)]
 fn sample_fit_source(
     ox: u16,
     oy: u16,
@@ -649,6 +667,8 @@ pub(crate) fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u1
 
     // #3 opt-term-ansibuf: write all ANSI into Vec<u8>, then single write_all.
     // #2 opt-term-colorstate: track last-emitted fg/bg to skip redundant SetColor commands.
+    // #1 opt-term-cursor: skip redundant MoveTo (cursor auto-advances after Print).
+    //    Use CursorRight(n) for small gaps (3 bytes vs 6 for MoveTo).
     ANSI_BUF.with(|ansi_cell| {
         RUN_BUF.with(|run_cell| {
             let mut ansi = ansi_cell.borrow_mut();
@@ -666,10 +686,25 @@ pub(crate) fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u1
             let mut active_bg = style::Color::Reset;
 
             // Inline helper: emit a queued run into the ANSI buffer.
+            // Optimizations:
+            //   - Skip MoveTo if already at correct position (cursor auto-advances)
+            //   - Use CursorRight(n) for small horizontal gaps (cheaper than MoveTo)
+            //   - Only emit SetFg/Bg if color changed (already tracked)
             macro_rules! emit_run {
                 () => {
-                    if cursor_x != rx || cursor_y != ry {
+                    // Cursor movement: skip redundant MoveTo, use CursorRight for small gaps
+                    if cursor_y != ry {
                         let _ = queue!(&mut *ansi, cursor::MoveTo(rx, ry));
+                    } else if cursor_x != rx {
+                        let gap = rx.saturating_sub(cursor_x) as usize;
+                        if gap > 0 && gap <= 3 {
+                            // CursorRight is cheaper for gaps 1-3 cells
+                            for _ in 0..gap {
+                                let _ = queue!(&mut *ansi, cursor::MoveRight(1));
+                            }
+                        } else if gap > 3 {
+                            let _ = queue!(&mut *ansi, cursor::MoveTo(rx, ry));
+                        }
                     }
                     if rfg != active_fg {
                         let _ = queue!(&mut *ansi, style::SetForegroundColor(rfg));
@@ -682,6 +717,8 @@ pub(crate) fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u1
                     let _ = queue!(&mut *ansi, style::Print(&*run));
                     cursor_x = rx + run_len;
                     cursor_y = ry;
+                    // Suppress "value never read" on final invocation.
+                    let _ = (cursor_x, cursor_y, active_fg, active_bg);
                 };
             }
 

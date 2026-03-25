@@ -67,6 +67,12 @@ pub(super) fn render_image_content(
         return;
     }
 
+    // Mark the full sprite bounding box dirty for all image sprites so that
+    // DirtyRegionDiff always covers the area even when frame changes or pixels shrink.
+    // This is essential for animated (GIF) images, but also helps non-animated images
+    // that may have transparency changes due to scene effects.
+    buf.mark_dirty_region(x, y, target_w, target_h);
+
     match mode {
         SceneRenderedMode::Cell => rasterize_image_cell(&image, target_w, target_h, x, y, buf),
         SceneRenderedMode::HalfBlock => {

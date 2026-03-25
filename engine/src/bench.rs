@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 /// Raw timing sample collected each frame (all values in **microseconds**).
 #[derive(Clone, Default)]
 pub struct FrameSample {
+    // scene identification
+    pub scene_id:      String,
     // top-level wall time
     pub frame_us:      f32,
     // per-system
@@ -22,6 +24,11 @@ pub struct FrameSample {
     pub postfx_us:     f32,
     pub renderer_us:   f32,
     pub sleep_us:      f32,
+    // buffer/pipeline counters (per-frame)
+    pub diff_cells:    u32,
+    pub dirty_cells:   u32,
+    pub total_cells:   u32,
+    pub write_ops:     u64,
 }
 
 // ── Accumulator ─────────────────────────────────────────────────────
@@ -29,6 +36,9 @@ pub struct FrameSample {
 /// Lives as a `World` resource while `--bench` is active.
 pub struct BenchmarkState {
     pub duration: Duration,
+    pub opt_comp: bool,
+    pub opt_present: bool,
+    pub opt_diff: bool,
     start: Instant,
     samples: Vec<FrameSample>,
     /// Set once the results screen has been rendered.
@@ -37,10 +47,13 @@ pub struct BenchmarkState {
 }
 
 impl BenchmarkState {
-    pub fn new(duration_secs: f32) -> Self {
+    pub fn new(duration_secs: f32, opt_comp: bool, opt_present: bool, opt_diff: bool) -> Self {
         let cap = (duration_secs * 120.0) as usize;
         Self {
             duration: Duration::from_secs_f32(duration_secs),
+            opt_comp,
+            opt_present,
+            opt_diff,
             start: Instant::now(),
             samples: Vec::with_capacity(cap),
             results_shown: false,
@@ -65,7 +78,9 @@ impl BenchmarkState {
         }
     }
 
-    pub fn results(&self) -> BenchResults { BenchResults::compute(&self.samples) }
+    pub fn results(&self) -> BenchResults {
+        BenchResults::compute(&self.samples, self.opt_comp, self.opt_present, self.opt_diff)
+    }
 }
 
 // ── Computed results ────────────────────────────────────────────────
@@ -107,9 +122,25 @@ impl MetricStats {
     }
 }
 
+/// Per-scene aggregate statistics.
+pub struct SceneStats {
+    pub scene_id: String,
+    pub frame_count: usize,
+    pub frame: MetricStats,
+    pub fps: MetricStats,
+    pub compositor: MetricStats,
+    pub postfx: MetricStats,
+    pub renderer: MetricStats,
+    pub behavior: MetricStats,
+}
+
 pub struct BenchResults {
     pub total_frames: usize,
     pub score: u32,
+    // active opt flags
+    pub opt_comp: bool,
+    pub opt_present: bool,
+    pub opt_diff: bool,
     // frame-level
     pub frame:      MetricStats,
     pub fps:        MetricStats,
@@ -125,10 +156,17 @@ pub struct BenchResults {
     pub postfx:     MetricStats,
     pub renderer:   MetricStats,
     pub sleep:      MetricStats,
+    // buffer pipeline
+    pub diff_cells: MetricStats,
+    pub dirty_cells: MetricStats,
+    pub total_cells: f32,
+    pub write_ops: MetricStats,
+    // per-scene breakdown
+    pub scenes: Vec<SceneStats>,
 }
 
 impl BenchResults {
-    fn compute(samples: &[FrameSample]) -> Self {
+    fn compute(samples: &[FrameSample], opt_comp: bool, opt_present: bool, opt_diff: bool) -> Self {
         let n = samples.len();
         let extract = |f: fn(&FrameSample) -> f32| -> Vec<f32> {
             samples.iter().map(f).collect()
@@ -155,29 +193,83 @@ impl BenchResults {
         let renderer   = MetricStats::from_samples(&extract(|s| s.renderer_us));
         let sleep      = MetricStats::from_samples(&extract(|s| s.sleep_us));
 
+        let diff_cells_v: Vec<f32> = samples.iter().map(|s| s.diff_cells as f32).collect();
+        let dirty_cells_v: Vec<f32> = samples.iter().map(|s| s.dirty_cells as f32).collect();
+        let write_ops_v: Vec<f32> = samples.iter().map(|s| s.write_ops as f32).collect();
+        let diff_cells  = MetricStats::from_samples(&diff_cells_v);
+        let dirty_cells = MetricStats::from_samples(&dirty_cells_v);
+        let write_ops   = MetricStats::from_samples(&write_ops_v);
+        let total_cells = samples.first().map(|s| s.total_cells as f32).unwrap_or(0.0);
+
         // Score: higher is better. Dominated by avg FPS, penalised by variance.
         let score = (fps.avg * 10.0
             + (1_000_000.0 / frame.p50.max(1.0)) * 5.0
             - frame.p99 / 100.0)
             .max(0.0) as u32;
 
+        // Per-scene breakdown
+        let scenes = Self::compute_per_scene(samples);
+
         Self {
             total_frames: n,
             score,
+            opt_comp, opt_present, opt_diff,
             frame, fps,
             input, lifecycle, animator, hot_reload, engine_io,
             behavior, audio, compositor, postfx, renderer, sleep,
+            diff_cells, dirty_cells, total_cells, write_ops,
+            scenes,
         }
+    }
+
+    fn compute_per_scene(samples: &[FrameSample]) -> Vec<SceneStats> {
+        use std::collections::BTreeMap;
+        let mut groups: BTreeMap<&str, Vec<&FrameSample>> = BTreeMap::new();
+        for s in samples {
+            groups.entry(&s.scene_id).or_default().push(s);
+        }
+        groups.into_iter().map(|(id, group)| {
+            let frame_us: Vec<f32> = group.iter().map(|s| s.frame_us).collect();
+            let fps_vals: Vec<f32> = frame_us.iter()
+                .map(|&us| if us > 0.0 { 1_000_000.0 / us } else { 0.0 })
+                .collect();
+            SceneStats {
+                scene_id: id.to_string(),
+                frame_count: group.len(),
+                frame: MetricStats::from_samples(&frame_us),
+                fps: MetricStats::from_samples(&fps_vals),
+                compositor: MetricStats::from_samples(
+                    &group.iter().map(|s| s.compositor_us).collect::<Vec<_>>(),
+                ),
+                postfx: MetricStats::from_samples(
+                    &group.iter().map(|s| s.postfx_us).collect::<Vec<_>>(),
+                ),
+                renderer: MetricStats::from_samples(
+                    &group.iter().map(|s| s.renderer_us).collect::<Vec<_>>(),
+                ),
+                behavior: MetricStats::from_samples(
+                    &group.iter().map(|s| s.behavior_us).collect::<Vec<_>>(),
+                ),
+            }
+        }).collect()
     }
 
     // ── report text ────────────────────────────────────────────────
 
     /// Generate a full multi-line plain-text report.
     pub fn report_text(&self) -> String {
-        let mut r = String::with_capacity(2048);
+        let mut r = String::with_capacity(4096);
         r.push_str("╔══════════════════════════════════════════════════════════════╗\n");
         r.push_str("║              SHELL QUEST ENGINE — BENCHMARK REPORT          ║\n");
         r.push_str("╚══════════════════════════════════════════════════════════════╝\n\n");
+
+        // Optimization flags
+        r.push_str("── CONFIGURATION ─────────────────────────────────────────────\n");
+        let flag = |b: bool| if b { "ON" } else { "off" };
+        r.push_str(&format!("  --opt-comp ........ {}\n", flag(self.opt_comp)));
+        r.push_str(&format!("  --opt-present ..... {}\n", flag(self.opt_present)));
+        r.push_str(&format!("  --opt-diff ........ {}\n", flag(self.opt_diff)));
+        r.push('\n');
 
         r.push_str(&format!("  SCORE .............. {}\n", self.score));
         r.push_str(&format!("  TOTAL FRAMES ....... {}\n\n", self.total_frames));
@@ -219,6 +311,38 @@ impl BenchResults {
             r.push_str(&format!("  {:<12} {:>5.1}%  {}\n", name, pct, bar));
         }
         r.push('\n');
+
+        // Buffer pipeline stats
+        r.push_str("── BUFFER PIPELINE ───────────────────────────────────────────\n");
+        r.push_str(&format!("  Total cells ........ {:.0}\n", self.total_cells));
+        Self::fmt_metric(&mut r, "Diff cells", &self.diff_cells, "");
+        Self::fmt_metric(&mut r, "Dirty cells", &self.dirty_cells, "");
+        Self::fmt_metric(&mut r, "Write ops", &self.write_ops, "");
+        if self.total_cells > 0.0 {
+            let dirty_pct = self.dirty_cells.avg / self.total_cells * 100.0;
+            let diff_pct  = self.diff_cells.avg / self.total_cells * 100.0;
+            r.push_str(&format!("  Avg dirty coverage . {:.1}%\n", dirty_pct));
+            r.push_str(&format!("  Avg diff coverage .. {:.1}%\n", diff_pct));
+        }
+        r.push('\n');
+
+        // Per-scene breakdown
+        if !self.scenes.is_empty() {
+            r.push_str("── SCENE BREAKDOWN ───────────────────────────────────────────\n");
+            r.push_str(&format!(
+                "  {:<30} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8}\n",
+                "SCENE", "FRAMES", "FPS avg", "COMP us", "PFX us", "REND us", "BHV us"
+            ));
+            r.push_str(&format!("  {}\n", "─".repeat(86)));
+            for sc in &self.scenes {
+                r.push_str(&format!(
+                    "  {:<30} {:>6} {:>8.1} {:>8.1} {:>8.1} {:>8.1} {:>8.1}\n",
+                    sc.scene_id, sc.frame_count, sc.fps.avg,
+                    sc.compositor.avg, sc.postfx.avg, sc.renderer.avg, sc.behavior.avg,
+                ));
+            }
+            r.push('\n');
+        }
 
         r
     }

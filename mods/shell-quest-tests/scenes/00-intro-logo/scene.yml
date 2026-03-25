@@ -1,0 +1,28 @@
+# Test variant of 00-intro-logo — compressed for benchmarking
+# Original: ~7000ms, compressed: ~1800ms
+id: 00.intro.logo
+title: 00 Intro Logo (Test)
+cutscene: true
+bg: black
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - pause: 50ms
+      - { duration: 200, effects: [{ name: crt-on, duration: 200, params: { easing: ease-out } }] }
+      - pause: 350ms
+
+  on_idle:
+    trigger: timeout
+    timeout: 600ms
+    steps:
+      - pause: 300ms
+      - { effects: [{ name: shine, duration: 300, params: { angle: 20, width: 4, falloff: 2.5, intensity: 2.0, colour: white, easing: ease-in } }] }
+
+  on_leave:
+    steps:
+      - pause: 200ms
+      - { effects: [{ name: lightning-flash, duration: 80, params: { intensity: 1.9 } }, { name: whiteout, duration: 80 }] }
+      - { effects: [{ name: fade-to-black, duration: 200 }] }
+next: 01.intro.date

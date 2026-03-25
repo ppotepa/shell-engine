@@ -54,9 +54,27 @@ struct Cli {
     /// Enable dirty-region diff scan (experimental — may cause artifacts).
     #[arg(long = "opt-diff")]
     opt_diff: bool,
+    /// Enable unified frame-skip coordination (PostFX cache + Presenter hash sync).
+    /// Prevents desynchronization-related flickering from independent skip mechanisms.
+    #[arg(long = "opt-skip")]
+    opt_skip: bool,
+    /// Enable row-level dirty skip in diff scan (experimental).
+    /// Skips entire rows marked not dirty, ~10-20% faster on static regions.
+    #[arg(long = "opt-rowdiff")]
+    opt_rowdiff: bool,
+    /// Enable async display sink: offload terminal I/O to background thread.
+    /// Decouples main thread from terminal write/flush latency (1-5ms/frame).
+    #[arg(long = "opt-async")]
+    opt_async_display: bool,
+    /// Enable ALL optimizations at once (equivalent to --opt-comp --opt-present --opt-diff --opt-skip --opt-rowdiff --opt-async).
+    #[arg(long = "opt")]
+    opt_all: bool,
     /// Run benchmark: play demo for N seconds, display score, save report to reports/benchmark/.
     #[arg(long = "bench", value_name = "SECS", default_missing_value = "5")]
     bench: Option<f32>,
+    /// Capture frames to a directory for visual regression testing (one .bin file per frame).
+    #[arg(long = "capture-frames", value_name = "DIR")]
+    capture_frames: Option<String>,
 }
 
 fn main() {
@@ -95,10 +113,14 @@ fn main() {
         audio: cli.audio,
         start_scene: cli.start_scene,
         skip_splash: cli.skip_splash || cli.bench.is_some(),
-        opt_comp: cli.opt_comp,
-        opt_present: cli.opt_present,
-        opt_diff: cli.opt_diff,
+        opt_comp: cli.opt_comp || cli.opt_all,
+        opt_present: cli.opt_present || cli.opt_all,
+        opt_diff: cli.opt_diff || cli.opt_all,
+        opt_skip: cli.opt_skip || cli.opt_all,
+        opt_rowdiff: cli.opt_rowdiff || cli.opt_all,
+        opt_async_display: cli.opt_async_display || cli.opt_all,
         bench_secs: cli.bench,
+        capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
     };
     logging::debug(
         "app.main",

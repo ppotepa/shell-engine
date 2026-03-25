@@ -1,5 +1,20 @@
 # AGENTS.md
 
+## 0) Local Knowledge Hubs
+
+Each subsystem has a `README.AGENTS.MD` for efficient navigation:
+
+- **[app/README.AGENTS.MD](app/README.AGENTS.MD)** — CLI flags, startup flow, configuration
+- **[editor/README.AGENTS.MD](editor/README.AGENTS.MD)** — Editor architecture, hot-reload, subsystems
+- **[engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
+- **[engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Scene model, buffer management, strategy traits
+- **[mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Content structure, scenes, assets
+- **[mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
+- **[tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Benchmark runners, frame capture, schema tools
+- **[schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — Schema generation, validation, drift checking
+
+Read the nearest hub before making subsystem-specific changes. Each covers only that subsystem with no duplication.
+
 ## 1) Repo shape
 
 - `app/` launcher
@@ -103,6 +118,30 @@ cd mods/shell-quest/os/cognitOS
 dotnet build -c Release
 ```
 
+Benchmarking:
+
+```bash
+# Baseline 10-second benchmark (splash auto-skipped)
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
+
+# With all optimizations
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
+
+# Aggregate reports to CSV
+python3 collect-benchmarks.py
+```
+
+Optimization flags:
+
+| Flag | What it does |
+|------|-------------|
+| `--opt-comp` | Compositor: layer scratch skip, dirty-region halfblock |
+| `--opt-diff` | DirtyRegionDiff instead of full buffer scan |
+| `--opt-present` | Hash-based static frame skip |
+| `--opt-skip` | Unified frame-skip oracle (prevents flickering) |
+| `--opt-rowdiff` | Row-level dirty skip in diff scan |
+| `--opt` | All of the above |
+
 ## 4) Authoring invariants
 
 - Preserve runtime system order unless explicitly changing architecture.
@@ -151,6 +190,17 @@ When adding new debug/diagnostic features:
 - push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut::<DebugLogBuffer>()`,
 - keep overlay render O(rows × cols),
 - do not read `run.log` from disk per frame.
+
+When adding new optimization flags:
+
+- add `--opt-*` CLI flag in `app/src/main.rs`,
+- add field to `PipelineFlags` (`engine/src/pipeline_flags.rs`),
+- add field to `EngineConfig` (`engine/src/lib.rs`),
+- implement as Strategy trait (see `engine/src/strategy/`),
+- wire into `PipelineStrategies::from_flags()`,
+- include in `--opt` umbrella flag,
+- add benchmark comparison before/after,
+- update `OPTIMIZATION_PLAN.md`.
 
 **When adding sprite timing fields** (March 2026):
 

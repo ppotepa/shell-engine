@@ -41,6 +41,7 @@ pub struct PipelineFlags {
 
     /// `--opt-present`: Virtual-to-output present optimizations.
     /// Gates #13 (hash-based frame skip when virtual buffer is unchanged).
+    /// **DEPRECATED:** Use `--opt-skip` instead for unified frame-skip coordination.
     /// Default: `false` (always full present — stable).
     pub opt_present: bool,
 
@@ -49,6 +50,28 @@ pub struct PipelineFlags {
     /// called after fill(). Experimental — off by default to avoid artifact bugs.
     /// Default: `false` (always full-buffer scan — stable).
     pub opt_diff: bool,
+
+    /// `--opt-skip`: Unified frame-skip oracle (coordinated PostFX cache + Presenter hash).
+    /// Prevents desynchronization between independent skip mechanisms that caused animation
+    /// flickering. PostFX cache and Presenter skip decisions are now atomic — both skip or
+    /// both render, never disagree.
+    /// Default: `false` (always full render — stable).
+    pub opt_skip: bool,
+
+    /// `--opt-rowdiff`: Row-level dirty skip in diff scan.
+    /// Skips entire rows marked not dirty, avoiding per-cell comparisons.
+    /// Safe: dirty_rows only set to true during frame, reset after swap().
+    /// Up to ~10-20% faster on frames with static regions (e.g., UI background).
+    /// Default: `false` (always full-buffer scan — stable).
+    pub opt_rowdiff: bool,
+
+    /// `--opt-async`: Async display sink for I/O offload.
+    /// Decouple main thread from terminal write/flush latency.
+    /// Renderer submits ANSI blob to background thread; main thread starts next frame immediately.
+    /// Safe: blob is immutable after diff+swap; I/O thread only reads and writes to terminal.
+    /// Expected: 1-5ms/frame unblocked on slow terminal emulators.
+    /// Default: `false` (sync flush — no latency decoupling).
+    pub opt_async_display: bool,
 }
 
 impl Default for PipelineFlags {
@@ -61,6 +84,9 @@ impl Default for PipelineFlags {
             opt_comp: false,
             opt_present: false,
             opt_diff: false,
+            opt_skip: false,
+            opt_rowdiff: false,
+            opt_async_display: false,
         }
     }
 }

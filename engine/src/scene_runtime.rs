@@ -34,6 +34,17 @@ pub struct SceneRuntime {
     object_regions: HashMap<String, Region>,
     /// Object kinds computed once at scene load — objects never change after init.
     cached_object_kinds: std::sync::Arc<HashMap<String, String>>,
+    /// Generation counter bumped whenever `object_states` is mutated.
+    /// Used to gate snapshot rebuilds — skip clone if gen unchanged.
+    object_mutation_gen: u64,
+    /// Last gen when object_states snapshot was built.
+    cached_object_states_gen: u64,
+    /// Last gen when effective_states snapshot was built.
+    cached_effective_states_gen: u64,
+    /// Last gen when object_props snapshot was built.
+    cached_object_props_gen: u64,
+    /// Last gen when object_text snapshot was built.
+    cached_object_text_gen: u64,
     /// Cached Arc of raw object states — used for compositor access each frame.
     /// Invalidated at start of each behavior pass and on state mutations.
     cached_object_states: Option<std::sync::Arc<HashMap<String, ObjectRuntimeState>>>,
@@ -460,6 +471,11 @@ impl SceneRuntime {
             resolver_cache: std::sync::Arc::new(TargetResolver::default()),
             object_regions: HashMap::new(),
             cached_object_kinds,
+            object_mutation_gen: 0,
+            cached_object_states_gen: 0,
+            cached_effective_states_gen: 0,
+            cached_object_props_gen: 0,
+            cached_object_text_gen: 0,
             cached_object_states: None,
             cached_effective_states: None,
             effective_states_dirty: true,
@@ -915,10 +931,13 @@ impl SceneRuntime {
 
     pub fn object_states_snapshot(&mut self) -> std::sync::Arc<HashMap<String, ObjectRuntimeState>> {
         if let Some(cached) = &self.cached_object_states {
-            return std::sync::Arc::clone(cached);
+            if self.cached_object_states_gen == self.object_mutation_gen {
+                return std::sync::Arc::clone(cached);
+            }
         }
         let arc = std::sync::Arc::new(self.object_states.clone());
         self.cached_object_states = Some(std::sync::Arc::clone(&arc));
+        self.cached_object_states_gen = self.object_mutation_gen;
         arc
     }
 
@@ -928,7 +947,9 @@ impl SceneRuntime {
 
     pub fn object_text_snapshot(&mut self) -> std::sync::Arc<HashMap<String, String>> {
         if let Some(cached) = &self.cached_object_text {
-            return std::sync::Arc::clone(cached);
+            if self.cached_object_text_gen == self.object_mutation_gen {
+                return std::sync::Arc::clone(cached);
+            }
         }
         let mut out = HashMap::new();
         for (object_id, object) in &self.objects {
@@ -942,12 +963,15 @@ impl SceneRuntime {
         }
         let arc = std::sync::Arc::new(out);
         self.cached_object_text = Some(std::sync::Arc::clone(&arc));
+        self.cached_object_text_gen = self.object_mutation_gen;
         arc
     }
 
     pub fn object_props_snapshot(&mut self) -> std::sync::Arc<HashMap<String, JsonValue>> {
         if let Some(cached) = &self.cached_object_props {
-            return std::sync::Arc::clone(cached);
+            if self.cached_object_props_gen == self.object_mutation_gen {
+                return std::sync::Arc::clone(cached);
+            }
         }
         let mut out = HashMap::new();
         for (object_id, object) in &self.objects {
@@ -1001,6 +1025,7 @@ impl SceneRuntime {
         }
         let arc = std::sync::Arc::new(out);
         self.cached_object_props = Some(std::sync::Arc::clone(&arc));
+        self.cached_object_props_gen = self.object_mutation_gen;
         arc
     }
 
@@ -1065,7 +1090,9 @@ impl SceneRuntime {
     ) -> std::sync::Arc<HashMap<String, ObjectRuntimeState>> {
         if !self.effective_states_dirty {
             if let Some(cached) = &self.cached_effective_states {
-                return std::sync::Arc::clone(cached);
+                if self.cached_effective_states_gen == self.object_mutation_gen {
+                    return std::sync::Arc::clone(cached);
+                }
             }
         }
         let snapshot = std::sync::Arc::new(
@@ -1078,6 +1105,7 @@ impl SceneRuntime {
                 .collect(),
         );
         self.cached_effective_states = Some(std::sync::Arc::clone(&snapshot));
+        self.cached_effective_states_gen = self.object_mutation_gen;
         self.effective_states_dirty = false;
         snapshot
     }
@@ -1190,13 +1218,19 @@ impl SceneRuntime {
                 .behavior
                 .update(object, &self.scene, &ctx, &mut local_commands);
             self.apply_behavior_commands(&resolver, &local_commands);
-            // Only rescan effective states when a behavior actually emitted
-            // commands that could have mutated scene state.
+            commands.extend(local_commands.iter().cloned());
+            // Update ctx object_states after each behavior emits commands, so subsequent
+            // behaviors see the mutations. effective_object_states_snapshot() uses gen-counter
+            // gating to skip rebuilds on mutation-free frames (the common case).
             if !local_commands.is_empty() && idx + 1 < self.behaviors.len() {
                 ctx.object_states = self.effective_object_states_snapshot();
             }
-            commands.extend(local_commands.iter().cloned());
         }
+        // Update effective_states once after all behaviors run, not per-behavior.
+        // This was previously updated in the loop above (line 1221) for each
+        // command emission, causing redundant O(n) rebuilds. Now deferred to once
+        // after the loop with gen-counter gating in effective_object_states_snapshot().
+        self.cached_effective_states = None;
         self.ui_state.last_submit = None;
         self.ui_state.last_change = None;
         commands
@@ -1664,6 +1698,7 @@ impl SceneRuntime {
             return;
         }
         self.effective_states_dirty = true;
+        self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
         self.cached_object_states = None;
         self.cached_object_props = None;
         self.cached_object_text = None;

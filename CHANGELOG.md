@@ -72,13 +72,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Scene on_idle: looping neon-edge-glow + shine sweep cycle
   - Scene on_leave: intense neon flash + fade-out
 
-- **Documentation expansion** (March 2026)
+- **Strategy pattern optimization pipeline** (March 2026)
+  - 9 strategy traits with safe/optimized implementations (see OPTIMIZATION_PLAN.md)
+  - CLI flags: `--opt-comp`, `--opt-present`, `--opt-diff`, `--opt-skip`, `--opt-rowdiff`, `--opt` (all)
+  - `PipelineStrategies` container registered once in World; zero boolean branching in hot loops
+  - `FrameSkipOracle` (`--opt-skip`): skip redundant frames by content hash
+  - `RowSkipDiff` (`--opt-rowdiff`): row-level dirty tracking, skip unchanged rows in diff
+  - `DisplaySink` trait: async display prep (SyncDisplaySink / AsyncDisplaySink); not yet wired
+  - ANSI payload reduction: batch flush, skip redundant color resets, compact move sequences
+
+- **Benchmark system** (March 2026)
+  - `--bench <SECS>`: timed benchmark with per-frame sampling of 11 systems
+  - Per-scene breakdown: frame count, FPS, compositor/postfx/renderer/behavior per scene
+  - Score formula, ASCII budget chart, buffer pipeline stats
+  - Report files: `reports/benchmark/<YYYYMMDD-HHMMSS>.txt`
+  - CSV aggregator: `collect-benchmarks.py` with dynamic per-scene columns
+  - Automated multi-scenario runner: `benchmark.py`
+
+- **Test mod for benchmarking** (March 2026)
+  - `mods/shell-quest-tests`: compressed scenes (~9.4s per loop vs ~37s original)
+  - Continuous looping: scene 04 → scene 00
+  - All triggers replaced with timeouts (no user input)
+  - `--bench` auto-skips splash screen
+
+- **Frame capture regression system** (March 2026)
+  - `--capture-frames <DIR>`: binary frame capture for pixel-perfect comparison
+  - Frame comparison test with tolerance thresholds
+  - Automated capture script: `capture-frames-tests.sh`
+
   - New `timeline-architecture.md` — complete timeline system documentation
   - New `obj-lighting.md` — 3D lighting features (directional, point, orbit, snap, cel)
   - Updated `scene-centric-authoring.md` with timeline section (9.1)
   - Updated `README.md` with full documentation index
 
 ### Fixed
+- **Optimization visual regression fixes** (March 2026)
+  - Transparency loss on timed sprites: force scratch path for layers with appear/disappear timing
+  - Image sprite ghosting: mark dirty region for ALL image sprites, not just animated
+  - CRT/GIF artifacts: preserve combined dirty region across PostFX pass chain
+  - Screen ghosting: preserve fill() dirty region in DirtyRegionPacker
+  - Animation flicker: disable PostFX frame cache when present optimization active
+
 - **Boot sequence choreography** (March 2026)
   - Fixed VGA/BIOS sprite "leak" into login scene (was authoring error, not engine bug)
   - Removed problematic terminal-monitor object from `05-intro-cpu-on` scene
@@ -191,7 +225,7 @@ Both fields can coexist (snap takes priority), allowing gradual migration.
 ## Testing
 
 All changes include test coverage:
-- **206 engine tests** pass
+- **233 engine tests** pass
 - **73 engine-authoring tests** pass (includes 3 new timeline validation tests)
 - **79 engine-core tests** pass
 

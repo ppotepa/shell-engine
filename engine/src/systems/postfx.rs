@@ -36,9 +36,6 @@ struct PostFxRuntime {
     last_pass_fingerprint: u64,
     scratch_a: Option<Buffer>,
     scratch_b: Option<Buffer>,
-    /// Frame-skip: run full pipeline every N+1 frames, blit cached result in between.
-    skip_interval: u8,
-    skip_counter: u8,
 }
 
 pub(super) struct PostFxContext<'a> {
@@ -73,6 +70,46 @@ pub fn postfx_system(world: &mut World) {
         };
         (scene_id, fingerprint, passes, scene_elapsed_ms)
     };
+
+    // Consult frame-skip oracle for PostFX cache skip decision
+    let should_skip_postfx = world
+        .get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>()
+        .and_then(|oracle| {
+            oracle.lock().ok().map(|mut o| {
+                o.should_skip_postfx(&scene_id, fingerprint)
+            })
+        })
+        .unwrap_or(false);
+
+    if should_skip_postfx {
+        // Use cached PostFX result instead of full pipeline.
+        POSTFX_RUNTIME.with(|runtime| {
+            let mut rt = runtime.borrow_mut();
+            if let Some(cached) = rt.previous_output.as_ref() {
+                let use_virtual = world
+                    .runtime_settings()
+                    .map(|settings| settings.use_virtual_buffer)
+                    .unwrap_or(false);
+                let buffer = if use_virtual {
+                    match world.virtual_buffer_mut() {
+                        Some(v) => &mut v.0,
+                        None => return,
+                    }
+                } else {
+                    match world.buffer_mut() {
+                        Some(b) => b,
+                        None => return,
+                    }
+                };
+                if cached.width == buffer.width && cached.height == buffer.height {
+                    buffer.copy_back_from(cached);
+                    rt.frame_count = rt.frame_count.saturating_add(1);
+                    return;
+                }
+            }
+        });
+        return;
+    }
 
     let use_virtual = world
         .runtime_settings()
@@ -111,8 +148,6 @@ impl PostFxRuntime {
         {
             self.previous_output = None;
             self.frame_count = 0;
-            self.skip_counter = 0;
-            self.skip_interval = 1; // run every other frame
             self.last_scene_id = Some(scene_id.to_string());
             self.compiled_passes = compile_passes(passes);
             self.last_pass_fingerprint = fingerprint;
@@ -121,19 +156,6 @@ impl PostFxRuntime {
         if self.compiled_passes.is_empty() {
             self.frame_count = self.frame_count.saturating_add(1);
             return;
-        }
-
-        // Frame-skip: blit cached result on skipped frames.
-        if self.skip_counter > 0 {
-            if let Some(cached) = self.previous_output.as_ref() {
-                if cached.width == buffer.width && cached.height == buffer.height {
-                    // #7 opt-postfx-swap: only copy back buffer (front not needed for postfx cache).
-                    buffer.copy_back_from(cached);
-                    self.skip_counter -= 1;
-                    self.frame_count = self.frame_count.saturating_add(1);
-                    return;
-                }
-            }
         }
 
         self.ensure_scratch(buffer.width, buffer.height);
@@ -146,6 +168,11 @@ impl PostFxRuntime {
 
         // Swap buffer content into scratch_a (O(1) pointer swap instead of clone).
         std::mem::swap(a, buffer);
+        
+        // Preserve the compositor's dirty region, which we'll need after all postfx passes.
+        // Without this, swapping to intermediate scratch buffers loses the original dirty bounds.
+        let mut combined_dirty = a.dirty_bounds();
+        
         let mut src_is_a = true;
         let mut last_written_is_a = true;
         let frame_count = self.frame_count;
@@ -165,6 +192,14 @@ impl PostFxRuntime {
                     frame_count,
                 );
                 last_written_is_a = false;
+                // Merge b's dirty region into combined.
+                combined_dirty = match (combined_dirty, b.dirty_bounds()) {
+                    (Some((cx0, cx1, cy0, cy1)), Some((bx0, bx1, by0, by1))) => {
+                        Some((cx0.min(bx0), cx1.max(bx1), cy0.min(by0), cy1.max(by1)))
+                    }
+                    (None, b_dirty) => b_dirty,
+                    (c_dirty, None) => c_dirty,
+                };
             } else {
                 apply_compiled_pass(
                     compiled,
@@ -179,6 +214,14 @@ impl PostFxRuntime {
                     frame_count,
                 );
                 last_written_is_a = true;
+                // Merge a's dirty region into combined.
+                combined_dirty = match (combined_dirty, a.dirty_bounds()) {
+                    (Some((cx0, cx1, cy0, cy1)), Some((ax0, ax1, ay0, ay1))) => {
+                        Some((cx0.min(ax0), cx1.max(ax1), cy0.min(ay0), cy1.max(ay1)))
+                    }
+                    (None, a_dirty) => a_dirty,
+                    (c_dirty, None) => c_dirty,
+                };
             }
             src_is_a = !src_is_a;
         }
@@ -189,6 +232,10 @@ impl PostFxRuntime {
         } else {
             std::mem::swap(buffer, b);
         }
+        
+        // Restore the combined dirty region so that renderer (via DirtyRegionDiff strategy)
+        // includes all affected areas from compositor + all postfx passes.
+        buffer.expand_dirty_bounds(combined_dirty);
 
         // #7 opt-postfx-swap: reuse cache allocation, copy only back buffer.
         match &mut self.previous_output {
@@ -197,7 +244,6 @@ impl PostFxRuntime {
             }
             slot => *slot = Some(buffer.clone()),
         }
-        self.skip_counter = self.skip_interval;
         self.frame_count = self.frame_count.saturating_add(1);
     }
 

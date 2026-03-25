@@ -1,0 +1,84 @@
+# Test variant — compressed for benchmarking, loops back to scene 00
+# Original: ~5000ms, compressed: ~2800ms
+# This is the heaviest scene (4 postfx passes) — loops for continuous benchmarking
+id: 04.intro.difficulty-select
+title: 04 Intro Difficulty Select (Test)
+bg: black
+prerender: true
+postfx:
+  - name: crt-underlay
+    params:
+      intensity: 1.80
+      alpha: 0.22
+      sphericality: 0.18
+      transparency: 0.62
+      brightness: 1.15
+      speed: 0.42
+  - name: crt-distort
+    params:
+      intensity: 0.14
+      distortion: 0.08
+      sphericality: 0.15
+      transparency: 0.25
+      brightness: 1.00
+      speed: 0.28
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.20
+      transparency: 0.22
+      brightness: 1.00
+      speed: 0.75
+  - name: crt-ruby
+    params:
+      intensity: 0.18
+      transparency: 0.26
+      brightness: 0.97
+      speed: 0.55
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 180, params: { easing: ease-out } }] }
+  on_idle:
+    trigger: timeout
+    timeout: 2000ms
+    steps:
+      - pause: 800ms
+        effects:
+          - name: neon-edge-glow
+            duration: 800
+            params:
+              colour: "#4488ff"
+              intensity: 0.5
+              alpha: 0.35
+              speed: 1.0
+      - effects:
+          - name: neon-edge-glow
+            duration: 400
+            params:
+              colour: "#4488ff"
+              intensity: 0.6
+              alpha: 0.4
+              speed: 1.5
+          - name: shine
+            duration: 400
+            params:
+              angle: 20
+              width: 6
+              falloff: 1.5
+              intensity: 1.0
+              colour: "#bbddff"
+              easing: ease-in
+  on_leave:
+    steps:
+      - effects:
+          - name: neon-edge-glow
+            duration: 250
+            params:
+              colour: "#4488ff"
+              intensity: 1.4
+              alpha: 0.7
+              speed: 3.0
+      - { effects: [{ name: fade-out, duration: 120, params: { easing: ease-in } }] }
+next: 00.intro.logo

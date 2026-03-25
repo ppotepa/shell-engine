@@ -35,7 +35,8 @@ impl HalfblockPacker for FullScanPacker {
 }
 
 /// Narrows packing to the dirty bounding box tracked by `fill()` / `set()`.
-/// Only safe when `fill()` ran this frame and `reset_dirty()` was NOT called after it.
+/// Safe because fill() establishes dirty region as FULL, and subsequent sprite writes
+/// either expand or keep the full region. Never reset dirty after fill().
 /// Gate behind `--opt-comp`.
 pub struct DirtyRegionPacker;
 
@@ -53,8 +54,5 @@ impl HalfblockPacker for DirtyRegionPacker {
         })
     }
 
-    #[inline]
-    fn prepare_source(&self, buf: &mut Buffer) {
-        buf.reset_dirty();
-    }
+    // No prepare_source override — preserve dirty region from fill().
 }
