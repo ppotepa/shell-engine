@@ -139,3 +139,40 @@ impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
         Ok(text)
     }
 }
+
+// Public trait for PostFX system provider (enables engine-postfx extraction)
+/// Provides access to resources needed by the post-effects system
+pub trait PostFXProvider {
+    fn runtime(&self) -> Option<&SceneRuntime>;
+    fn animator(&self) -> Option<&Animator>;
+    fn buffer_mut(&mut self) -> Option<&mut Buffer>;
+    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer>;
+    fn runtime_settings(&self) -> Option<&RuntimeSettings>;
+    fn frame_skip_oracle_mut(&mut self) -> Option<&mut std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>;
+}
+
+impl PostFXProvider for World {
+    fn runtime(&self) -> Option<&SceneRuntime> {
+        self.get::<SceneRuntime>()
+    }
+
+    fn animator(&self) -> Option<&Animator> {
+        self.get::<Animator>()
+    }
+
+    fn buffer_mut(&mut self) -> Option<&mut Buffer> {
+        self.get_mut::<Buffer>()
+    }
+
+    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer> {
+        self.get_mut::<VirtualBuffer>()
+    }
+
+    fn runtime_settings(&self) -> Option<&RuntimeSettings> {
+        self.get::<RuntimeSettings>()
+    }
+
+    fn frame_skip_oracle_mut(&mut self) -> Option<&mut std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>> {
+        self.get_mut::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>()
+    }
+}

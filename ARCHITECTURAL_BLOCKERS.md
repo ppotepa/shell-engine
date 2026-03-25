@@ -145,3 +145,59 @@ The XXXProvider trait pattern is powerful and should be applied systematically:
 - [ ] Extract and test engine-render-terminal
 - [ ] Measure compilation impact
 - [ ] Plan Phase 3 (engine-assets) prerequisites
+
+---
+
+## Session 3 Progress: Provider Trait Pattern Validated
+
+### Extraction #7-8: engine-3d with Scene3DAssetResolver
+
+**Success**: Proved the provider trait pattern works for complex systems.
+
+**What we did:**
+1. Created `Scene3DAssetResolver` trait (generic over asset loading)
+2. Refactored `resolve_scene3d_refs()` to be generic: `<R: Scene3DAssetResolver>`
+3. Implemented resolver for `AssetRoot` (backward compat)
+4. Extracted 5 scene3d files to engine-3d crate (893 LOC)
+5. Added engine-3d dep to engine, re-exported as `rendering_3d`
+
+**Result:** 0 regressions, all tests pass, crate compiles cleanly.
+
+**Key insight**: This pattern WILL work for postfx, rasterizer, etc. The effort is:
+1. Identify what World resources the system needs (5 min analysis)
+2. Create XXXProvider trait in services.rs (10 min)
+3. Implement for World (5 min)
+4. Refactor system to generic<P: XXXProvider> (30-60 min per system)
+5. Extract to new crate (10 min)
+6. Add re-export to engine/lib.rs (2 min)
+
+**Total per system: 1-2 hours solo, including testing.**
+
+### Remaining High-Confidence Extractions
+
+**For Next Session (Effort Estimate):**
+
+1. **engine-postfx** (386 LOC, 1.5 hours)
+   - Needs: PostFXProvider trait
+   - Access: scene_runtime, animator, buffer_mut, virtual_buffer_mut, runtime_settings
+   - Status: Trait framework ready, just needs implementation
+
+2. **engine-rasterizer** (1390 LOC, 2 hours)
+   - Needs: AssetProvider trait first
+   - Access: asset_root for image loading
+   - Blocker: Depends on engine-assets extraction
+
+3. **Slim down engine** (cleanup, 1 hour)
+   - Remove old module exports after extractions
+   - Update Cargo.toml after all Phase 2B complete
+   - Clean up re-exports
+
+### Why Other Systems Are Harder
+
+- **engine-assets**: Circular dep risk (depends on scene_compiler)
+- **engine-compositor**: 3000+ LOC, depends on postfx, rasterizer, 3d
+- **engine-scene**: High fan-in, depends on everything
+- **engine-behavior**: 3507 LOC, Rhai-specific, deeply coupled
+
+**Recommendation**: Complete Phase 2B first (postfx + rasterizer), THEN tackle Phase 3.
+
