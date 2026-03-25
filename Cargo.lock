@@ -691,6 +691,9 @@ dependencies = [
  "engine-events",
  "engine-game",
  "engine-io",
+ "engine-render",
+ "engine-render-policy",
+ "engine-render-terminal",
  "engine-terminal",
  "image",
  "libc",
@@ -784,6 +787,13 @@ version = "0.1.0"
 dependencies = [
  "engine-core",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "engine-render-policy"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
 ]
 
 [[package]]

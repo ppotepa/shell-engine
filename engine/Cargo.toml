@@ -10,6 +10,9 @@ engine-audio = { path = "../engine-audio" }
 engine-3d = { path = "../engine-3d" }
 engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }
+engine-render = { path = "../engine-render" }
+engine-render-policy = { path = "../engine-render-policy" }
+engine-render-terminal = { path = "../engine-render-terminal" }
 engine-terminal = { path = "../engine-terminal" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }

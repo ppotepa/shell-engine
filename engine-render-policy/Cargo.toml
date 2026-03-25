@@ -1,0 +1,9 @@
+[package]
+name = "engine-render-policy"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-core = { workspace = true }
