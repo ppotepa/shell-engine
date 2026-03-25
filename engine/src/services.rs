@@ -16,6 +16,7 @@ use engine_audio::AudioProvider;
 use engine_animation::{AnimatorProvider, LifecycleProvider};
 use engine_render_terminal::RendererProvider;
 use engine_behavior_registry::BehaviorProvider;
+use engine_compositor::CompositorProvider;
 use engine_core::scene::Scene;
 use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
 use engine_pipeline::{PipelineStrategies, FrameSkipOracle};
@@ -195,11 +196,6 @@ impl RendererProvider for World {
             .unwrap_or_else(|| "unknown".to_string())
     }
 
-    fn pipeline_strategies_ptr(&self) -> *const PipelineStrategies {
-        self.get::<PipelineStrategies>()
-            .map(|s| s as *const _)
-            .unwrap_or(std::ptr::null())
-    }
 
     fn frame_skip_oracle(&self) -> Option<&Mutex<Box<dyn FrameSkipOracle>>> {
         self.get::<Mutex<Box<dyn FrameSkipOracle>>>()
@@ -223,6 +219,12 @@ impl RendererProvider for World {
 
     fn with_virtual_and_output<F: FnOnce(&VirtualBuffer, &mut Buffer)>(&mut self, f: F) {
         self.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(f);
+    }
+
+    fn pipeline_strategies_ptr(&self) -> *const PipelineStrategies {
+        self.get::<PipelineStrategies>()
+            .map(|ps| ps as *const PipelineStrategies)
+            .unwrap_or(std::ptr::null())
     }
 }
 
@@ -314,4 +316,36 @@ impl BehaviorProvider for World {
     fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         self.get_mut::<EventQueue>().map(|e| e as &mut dyn std::any::Any)
     }
+}
+
+// Implement CompositorProvider for World
+impl CompositorProvider for World {
+    fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<Buffer>().map(|b| b as &mut dyn std::any::Any)
+    }
+
+    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.get_mut::<VirtualBuffer>().map(|b| b as &mut dyn std::any::Any)
+    }
+
+    fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
+        self.get::<SceneRuntime>().map(|sr| sr as &dyn std::any::Any)
+    }
+
+    fn animator(&self) -> Option<&dyn std::any::Any> {
+        self.get::<Animator>().map(|a| a as &dyn std::any::Any)
+    }
+
+    fn asset_root(&self) -> Option<&dyn std::any::Any> {
+        self.get::<AssetRoot>().map(|ar| ar as &dyn std::any::Any)
+    }
+
+    fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
+        self.get::<RuntimeSettings>().map(|r| r as &dyn std::any::Any)
+    }
+
+    fn debug_features(&self) -> Option<&dyn std::any::Any> {
+        self.get::<DebugFeatures>().map(|d| d as &dyn std::any::Any)
+    }
+
 }

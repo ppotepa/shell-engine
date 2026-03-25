@@ -689,6 +689,7 @@ dependencies = [
  "engine-authoring",
  "engine-behavior-registry",
  "engine-capture",
+ "engine-compositor",
  "engine-core",
  "engine-debug",
  "engine-error",
@@ -772,6 +773,18 @@ dependencies = [
  "crossterm 0.29.0",
  "engine-core",
  "engine-error",
+]
+
+[[package]]
+name = "engine-compositor"
+version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
+ "engine-animation",
+ "engine-core",
+ "engine-debug",
+ "engine-pipeline",
+ "engine-render-policy",
 ]
 
 [[package]]

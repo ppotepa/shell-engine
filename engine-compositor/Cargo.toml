@@ -1,0 +1,14 @@
+[package]
+name = "engine-compositor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-core = { workspace = true }
+engine-debug = { path = "../engine-debug" }
+engine-animation = { path = "../engine-animation" }
+engine-pipeline = { path = "../engine-pipeline" }
+engine-render-policy = { path = "../engine-render-policy" }
+crossterm = { workspace = true }
