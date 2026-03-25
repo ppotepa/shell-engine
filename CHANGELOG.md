@@ -39,12 +39,15 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 ## 25-03-2026
 
 **Documentation consolidation complete** ✅
-- Consolidated 26 scattered markdown files → 5 focused root docs + 20 crate READMEs
-- Created ARCHITECTURE.md (352 lines), AUTHORING.md (260 lines), MODS.md (154 lines), OPTIMIZATIONS.md (100 lines)
-- Rewrote BENCHMARKING.md consolidating frame capture + test mod specs
-- Updated AGENTS.md navigation model (two-tier: consolidated + subsystem)
-- Archived 13 source docs in docs/ARCHIVED/, deleted 9 refactor history files
-- **Result**: 69% doc reduction (26 → 8 files), zero test regressions (204/204 passing)
+- **docs**: consolidated 26 scattered files into 5 focused docs + 20 crate READMEs
+- **docs**: added CHANGELOG format guidelines for standardized daily reporting
+- **testing**: verified all 204 engine tests passing (zero regressions)
+- **result**: 69% doc reduction (26 → 8 root files), clear navigation hierarchy
+
+**Input regression fix** 🔧
+- **tests**: restored input handling in test scene (trigger: any-key instead of timeout)
+- **ui**: verified lightning background effects render during on_idle phase
+- **testing**: confirmed all 204 tests still passing post-fix
 
 ---
 
