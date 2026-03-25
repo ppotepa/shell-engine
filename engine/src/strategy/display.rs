@@ -45,7 +45,7 @@ impl DisplaySink for SyncDisplaySink {
 /// Main thread submits frames; display thread dequeues and flushes.
 /// Allows main thread to start next frame's compositor while display thread I/O completes.
 pub struct AsyncDisplaySink {
-    tx: Sender<DisplayFrame>,
+    tx: Option<Sender<DisplayFrame>>,
     _thread: Option<JoinHandle<()>>,
 }
 
@@ -63,7 +63,7 @@ impl AsyncDisplaySink {
             // Channel closed, thread exits
         });
         Self {
-            tx,
+            tx: Some(tx),
             _thread: Some(thread),
         }
     }
@@ -72,12 +72,15 @@ impl AsyncDisplaySink {
 impl DisplaySink for AsyncDisplaySink {
     fn submit(&mut self, frame: DisplayFrame) {
         // Queue to background thread (non-blocking, unless channel is full)
-        let _ = self.tx.send(frame);
+        if let Some(ref tx) = self.tx {
+            let _ = tx.send(frame);
+        }
     }
 
     fn drain(&mut self) {
-        // Drop the sender to signal end-of-stream to the display thread
-        drop(self.tx.clone());
+        // Drop the sender to close the channel and signal EOF to the receiver.
+        // This allows the display thread's recv() loop to exit.
+        self.tx.take();
         // Wait for thread to finish draining queue and exit
         if let Some(thread) = self._thread.take() {
             let _ = thread.join();
