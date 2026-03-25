@@ -688,6 +688,7 @@ dependencies = [
  "engine-audio",
  "engine-authoring",
  "engine-core",
+ "engine-game",
  "engine-io",
  "engine-terminal",
  "image",
@@ -750,6 +751,14 @@ dependencies = [
  "serde",
  "serde_yaml",
  "tempfile",
+]
+
+[[package]]
+name = "engine-game"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

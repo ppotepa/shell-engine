@@ -20,6 +20,8 @@ pub use engine_animation as animation;
 pub use engine_3d as rendering_3d;
 // Re-export terminal subsystem
 pub use engine_terminal as terminal;
+// Re-export game subsystem
+pub use engine_game as game;
 
 pub mod asset_cache;
 pub mod obj_prerender;
