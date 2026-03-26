@@ -686,6 +686,7 @@ dependencies = [
  "crossterm 0.29.0",
  "engine-3d",
  "engine-animation",
+ "engine-asset",
  "engine-audio",
  "engine-authoring",
  "engine-behavior",
@@ -740,6 +741,18 @@ dependencies = [
  "engine-core",
  "engine-debug",
  "engine-events",
+]
+
+[[package]]
+name = "engine-asset"
+version = "0.1.0"
+dependencies = [
+ "engine-authoring",
+ "engine-core",
+ "engine-error",
+ "serde_yaml",
+ "tempfile",
+ "zip",
 ]
 
 [[package]]

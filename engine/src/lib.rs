@@ -24,6 +24,8 @@ pub use engine_terminal as terminal;
 pub use engine_game as game;
 // Re-export pipeline subsystem
 pub use engine_pipeline as pipeline;
+// Re-export asset subsystem
+pub use engine_asset as asset;
 
 pub mod asset_cache;
 pub mod obj_prerender;
@@ -41,9 +43,7 @@ pub mod image_loader;
 pub mod pipelines;
 pub mod rasterizer;
 pub mod render_policy;
-pub mod repositories;
 pub mod runtime_settings;
-mod scene_compiler;
 mod scene_loader;
 pub mod scene_runtime;
 pub mod scene3d_atlas;
@@ -155,7 +155,7 @@ impl ShellEngine {
     pub fn run(&self) -> Result<(), EngineError> {
         use events::EventQueue;
         use engine_mod::startup::{StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile};
-        use repositories::SceneRepository;
+        use engine_asset::SceneRepository;
         use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use scene_runtime::SceneRuntime;
@@ -183,7 +183,7 @@ impl ShellEngine {
         );
 
         let scene_loader_fn = |mod_source: &std::path::Path| -> Result<Vec<StartupSceneFile>, EngineError> {
-            let repo = repositories::create_scene_repository(mod_source)?;
+            let repo = engine_asset::create_scene_repository(mod_source)?;
             let paths = repo.discover_scene_paths()?;
             let mut scenes = Vec::with_capacity(paths.len());
             for path in paths {
@@ -394,7 +394,7 @@ mod tests {
         SceneGraphCheck,
     };
     use engine_mod::startup::{StartupContext, StartupRunner, StartupSceneFile};
-    use crate::repositories::{create_scene_repository, SceneRepository};
+    use engine_asset::{create_scene_repository, SceneRepository};
     use crate::scene_loader;
     use crate::EngineError;
     use std::{fs, path::PathBuf};

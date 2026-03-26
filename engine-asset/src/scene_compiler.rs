@@ -1,7 +1,7 @@
 //! Compilation helpers that turn authored scene YAML into the runtime `Scene`
 //! model, including object expansion before typed deserialization.
 
-use crate::scene::Scene;
+use engine_core::scene::Scene;
 
 /// Compiles authored scene YAML into a runtime [`Scene`].
 ///

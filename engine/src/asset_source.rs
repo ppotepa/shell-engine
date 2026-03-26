@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 pub use engine_core::asset_source::*;
 
-use crate::repositories::{create_asset_repository, AnyAssetRepository, AssetRepository};
+use engine_asset::{create_asset_repository, AnyAssetRepository, AssetRepository};
 use crate::EngineError;
 
 /// Current concrete source loader backed by the mod directory/zip repository.

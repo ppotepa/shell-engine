@@ -25,6 +25,7 @@ engine-scene-runtime = { path = "../engine-scene-runtime" }
 engine-behavior-registry = { path = "../engine-behavior-registry" }
 engine-compositor = { path = "../engine-compositor" }
 engine-debug = { path = "../engine-debug" }
+engine-asset = { path = "../engine-asset" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }
 crossterm = "0.29"

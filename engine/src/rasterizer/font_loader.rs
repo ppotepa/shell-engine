@@ -2,7 +2,7 @@
 
 use super::types::{GlyphManifest, LoadedFont, LoadedGlyph};
 use crate::asset_cache::AssetCache;
-use crate::repositories::{create_asset_repository, AssetRepository};
+use engine_asset::{create_asset_repository, AssetRepository};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -247,7 +247,7 @@ fn slugify_font_name(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{find_font_manifest_path, load_font_assets, mode_order, resolve_asset_ref};
-    use crate::repositories::create_asset_repository;
+    use engine_asset::create_asset_repository;
     use std::fs;
     use tempfile::tempdir;
     use zip::write::SimpleFileOptions;

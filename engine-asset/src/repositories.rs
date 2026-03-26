@@ -13,9 +13,10 @@ use engine_authoring::repository::{
     is_discoverable_scene_path, is_scene_package_manifest, is_yaml_path,
 };
 
-use crate::scene::Scene;
+use engine_core::scene::Scene;
+use engine_error::EngineError;
+
 use crate::scene_compiler::compile_scene_document_with_loader_and_source;
-use crate::EngineError;
 
 /// Loads authored scenes from a mod source after any package-level assembly.
 pub trait SceneRepository {
@@ -677,7 +678,7 @@ next: null
         let scene = repo.load_scene("/scenes/intro.yml").expect("load scene");
         assert_eq!(scene.layers.len(), 1);
         match &scene.layers[0].sprites[0] {
-            crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "READY"),
+            engine_core::scene::Sprite::Text { content, .. } => assert_eq!(content, "READY"),
             _ => panic!("expected text sprite"),
         }
     }
@@ -704,7 +705,7 @@ next: null
         let scene = repo.load_scene("/scenes/intro.yml").expect("load scene");
         assert_eq!(scene.layers.len(), 1);
         match &scene.layers[0].sprites[0] {
-            crate::scene::Sprite::Text { content, .. } => assert_eq!(content, "ZIP"),
+            engine_core::scene::Sprite::Text { content, .. } => assert_eq!(content, "ZIP"),
             _ => panic!("expected text sprite"),
         }
     }

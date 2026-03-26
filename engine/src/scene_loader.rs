@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::repositories::{create_scene_repository, AnySceneRepository, SceneRepository};
+use engine_asset::{create_scene_repository, AnySceneRepository, SceneRepository};
 use crate::{scene::Scene, EngineError};
 use engine_core::logging;
 
