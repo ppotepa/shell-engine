@@ -28,5 +28,7 @@ pub mod strategy;
 pub mod world;
 /// Domain access traits for typed resource retrieval from World.
 pub mod access;
+/// Asset resolution helpers (AssetRoot).
+pub mod assets;
 /// Terminal capability detection and mod-level requirements.
 pub mod terminal_caps;

@@ -5,6 +5,7 @@
 
 use crate::buffer::{Buffer, VirtualBuffer};
 use crate::game_state::GameState;
+use crate::assets::AssetRoot;
 use crate::world::World;
 
 /// Typed access to the terminal and virtual frame buffers.
@@ -42,5 +43,16 @@ impl GameStateAccess for World {
     }
     fn game_state_mut(&mut self) -> Option<&mut GameState> {
         self.get_mut::<GameState>()
+    }
+}
+
+/// Typed access to the mod asset root directory.
+pub trait AssetAccess {
+    fn asset_root(&self) -> Option<&AssetRoot>;
+}
+
+impl AssetAccess for World {
+    fn asset_root(&self) -> Option<&AssetRoot> {
+        self.get::<AssetRoot>()
     }
 }
