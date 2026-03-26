@@ -17,6 +17,11 @@ pub mod markup;
 pub mod scene;
 /// Core scene-object types: [`GameObjectKind`] and [`GameObject`].
 pub mod game_object;
+/// Persistent game state singleton: generic JSON key-value store for cross-scene data.
+pub mod game_state;
+/// Pure data types shared between scene runtime and behavior system.
+/// Includes TargetResolver, ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState.
+pub mod scene_runtime_types;
 /// Render pipeline strategy traits and default implementations.
 pub mod strategy;
 /// Terminal capability detection and mod-level requirements.

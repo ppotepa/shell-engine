@@ -9,6 +9,9 @@ use crate::mod_behaviors::ModBehaviorRegistry;
 use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
 use crate::rasterizer::generic::GenericMode;
+pub use engine_core::scene_runtime_types::{
+    ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
+};
 use crate::scene::{
     resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite, TermColour,
     TerminalShellControls, UiThemeStyle,
@@ -87,23 +90,8 @@ pub struct ObjCameraState {
     pub last_mouse_pos: Option<(u16, u16)>,
 }
 
-#[derive(Debug, Clone, Default)]
-/// Resolves authored target aliases to runtime object ids after scene
-/// materialization.
-pub struct TargetResolver {
-    scene_object_id: String,
-    aliases: HashMap<String, String>,
-    layer_ids: BTreeMap<usize, String>,
-    sprite_ids: HashMap<String, String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-/// Runtime state accumulated by behaviors on top of the authored scene data.
-pub struct ObjectRuntimeState {
-    pub visible: bool,
-    pub offset_x: i32,
-    pub offset_y: i32,
-}
+// Note: TargetResolver moved to engine-core::scene_runtime_types
+// Note: ObjectRuntimeState moved to engine-core::scene_runtime_types (re-exported above)
 
 #[derive(Debug, Clone)]
 struct TerminalShellState {
@@ -153,13 +141,7 @@ struct UiTextEvent {
     text: String,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct SidecarIoFrameState {
-    pub output_lines: Vec<String>,
-    pub clear_count: u64,
-    pub screen_full_lines: Option<Vec<String>>,
-    pub custom_events: Vec<String>,
-}
+// Note: SidecarIoFrameState moved to engine-core::scene_runtime_types
 
 #[derive(Debug, Clone, Default)]
 struct UiRuntimeState {
@@ -176,26 +158,9 @@ struct UiRuntimeState {
     pub sidecar_io: SidecarIoFrameState,
 }
 
-/// Domain-agnostic key event exposed to Rhai scripts.
-#[derive(Debug, Clone, Default)]
-pub struct RawKeyEvent {
-    /// Key code as string: "a".."z", "0".."9", "Enter", "Backspace", "Tab",
-    /// "Up", "Down", "Left", "Right", "Esc", "F1".."F12", etc.
-    pub code: String,
-    pub ctrl: bool,
-    pub alt: bool,
-    pub shift: bool,
-}
+// Note: RawKeyEvent moved to engine-core::scene_runtime_types
 
-impl Default for ObjectRuntimeState {
-    fn default() -> Self {
-        Self {
-            visible: true,
-            offset_x: 0,
-            offset_y: 0,
-        }
-    }
-}
+// ObjectRuntimeState::default() is now in engine-core
 
 impl TerminalShellState {
     fn new(controls: TerminalShellControls) -> Self {
@@ -1127,12 +1092,12 @@ impl SceneRuntime {
             }
         }
 
-        TargetResolver {
-            scene_object_id: self.root_id.clone(),
+        TargetResolver::from_parts(
+            self.root_id.clone(),
             aliases,
-            layer_ids: self.layer_ids.clone(),
-            sprite_ids: self.sprite_ids.clone(),
-        }
+            self.layer_ids.clone(),
+            self.sprite_ids.clone(),
+        )
     }
 
     /// Updates attached runtime behaviors for the active scene stage and
@@ -2145,55 +2110,7 @@ fn has_scene_audio(scene: &Scene) -> bool {
         || !scene.audio.on_leave.is_empty()
 }
 
-impl TargetResolver {
-    /// Returns the runtime id of the scene root object.
-    pub fn scene_object_id(&self) -> &str {
-        &self.scene_object_id
-    }
-
-    /// Resolves an authored target alias or object id to its runtime object id.
-    pub fn resolve_alias(&self, target: &str) -> Option<&str> {
-        self.aliases.get(target).map(String::as_str)
-    }
-
-    pub fn register_alias(&mut self, alias: String, object_id: String) {
-        self.aliases.insert(alias, object_id);
-    }
-
-    /// Returns a snapshot of all alias -> runtime object id bindings.
-    pub fn aliases_snapshot(&self) -> HashMap<String, String> {
-        self.aliases.clone()
-    }
-
-    /// Resolves a compositor layer index to its runtime layer object id.
-    pub fn layer_object_id(&self, layer_idx: usize) -> Option<&str> {
-        self.layer_ids.get(&layer_idx).map(String::as_str)
-    }
-
-    /// Resolves a sprite path within a layer to the corresponding runtime
-    /// sprite object id.
-    pub fn sprite_object_id(&self, layer_idx: usize, sprite_path: &[usize]) -> Option<&str> {
-        self.sprite_ids
-            .get(&path_key(layer_idx, sprite_path))
-            .map(String::as_str)
-    }
-
-    /// Resolves the authored target region for an effect, falling back to the
-    /// caller-provided default region when no target is bound.
-    pub fn effect_region(
-        &self,
-        target: Option<&str>,
-        default_region: Region,
-        object_regions: &HashMap<String, Region>,
-    ) -> Region {
-        let Some(target) = target.filter(|value| !value.trim().is_empty()) else {
-            return default_region;
-        };
-        self.resolve_alias(target)
-            .and_then(|object_id| object_regions.get(object_id).copied())
-            .unwrap_or(default_region)
-    }
-}
+// TargetResolver impl moved to engine-core::scene_runtime_types
 
 fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
     let mut key = layer_idx.to_string();
