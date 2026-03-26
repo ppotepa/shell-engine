@@ -30,6 +30,8 @@ pub mod world;
 pub mod access;
 /// Asset resolution helpers (AssetRoot).
 pub mod assets;
+/// Lazy cache for optional assets: `AssetCache<T>`.
+pub mod asset_cache;
 /// Terminal capability detection and mod-level requirements.
 pub mod terminal_caps;
 
