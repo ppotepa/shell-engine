@@ -184,7 +184,7 @@ pub fn compositor_system(world: &mut World) {
             Some(v) => &mut v.0,
             None => return,
         };
-        let scene_compositor = crate::strategy::compositor_for(rendered_mode);
+        
         let params = crate::strategy::CompositeParams {
             bg,
             layers,
@@ -203,7 +203,7 @@ pub fn compositor_system(world: &mut World) {
         };
         let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
             obj_render::with_prerender_frames(prerender_frames, || {
-                scene_compositor.composite(&params, layer_strategy, halfblock_strategy, buffer)
+                dispatch_composite(rendered_mode, &params, layer_strategy, halfblock_strategy, buffer)
             })
         });
         if let Some(runtime) = world.scene_runtime_mut() {
@@ -216,7 +216,7 @@ pub fn compositor_system(world: &mut World) {
         Some(b) => b,
         None => return,
     };
-    let scene_compositor = crate::strategy::compositor_for(rendered_mode);
+    
     let params = crate::strategy::CompositeParams {
         bg,
         layers,
@@ -235,7 +235,7 @@ pub fn compositor_system(world: &mut World) {
     };
     let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
         obj_render::with_prerender_frames(prerender_frames, || {
-            scene_compositor.composite(&params, layer_strategy, halfblock_strategy, buffer)
+            dispatch_composite(rendered_mode, &params, layer_strategy, halfblock_strategy, buffer)
         })
     });
     if let Some(runtime) = world.scene_runtime_mut() {
@@ -258,8 +258,8 @@ fn composite_scene(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
-    layer: &dyn crate::strategy::LayerCompositor,
-    halfblock: &dyn crate::strategy::HalfblockPacker,
+    layer: &dyn engine_pipeline::LayerCompositor,
+    halfblock: &dyn engine_pipeline::HalfblockPacker,
     buffer: &mut Buffer,
 ) -> HashMap<String, Region> {
     buffer.fill(bg);
@@ -341,8 +341,8 @@ fn composite_scene_halfblock(
     scene_elapsed_ms: u64,
     scene_effects: &[crate::scene::Effect],
     scene_step_dur: u64,
-    layer: &dyn crate::strategy::LayerCompositor,
-    halfblock: &dyn crate::strategy::HalfblockPacker,
+    layer: &dyn engine_pipeline::LayerCompositor,
+    halfblock: &dyn engine_pipeline::HalfblockPacker,
     target: &mut Buffer,
 ) -> HashMap<String, Region> {
     let needed_w = target.width;
@@ -376,7 +376,7 @@ fn composite_scene_halfblock(
     })
 }
 
-fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, halfblock: &dyn crate::strategy::HalfblockPacker) {
+fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, halfblock: &dyn engine_pipeline::HalfblockPacker) {
     // Always fill target with fallback background at the start of each frame.
     // This ensures stale data from the previous frame is cleared, even when
     // DirtyRegionPacker finds no dirty region to update.
@@ -459,16 +459,16 @@ fn select_background(top: Color, bottom: Color, fallback_bg: Color) -> Color {
     }
 }
 
-/// `SceneCompositor` impl for Cell/QuadBlock/Braille — calls the standard layer path.
-impl crate::strategy::SceneCompositor for crate::strategy::CellSceneCompositor {
-    fn composite(
-        &self,
-        params: &crate::strategy::CompositeParams<'_>,
-        layer: &dyn crate::strategy::LayerCompositor,
-        halfblock: &dyn crate::strategy::HalfblockPacker,
-        buffer: &mut Buffer,
-    ) -> HashMap<String, Region> {
-        composite_scene(
+/// Dispatches compositing to the correct function based on rendered mode.
+fn dispatch_composite(
+    mode: SceneRenderedMode,
+    params: &engine_compositor::CompositeParams<'_>,
+    layer: &dyn engine_pipeline::LayerCompositor,
+    halfblock: &dyn engine_pipeline::HalfblockPacker,
+    buffer: &mut Buffer,
+) -> HashMap<String, Region> {
+    match mode {
+        SceneRenderedMode::HalfBlock => composite_scene_halfblock(
             params.bg,
             params.layers,
             params.ui_enabled,
@@ -486,20 +486,8 @@ impl crate::strategy::SceneCompositor for crate::strategy::CellSceneCompositor {
             layer,
             halfblock,
             buffer,
-        )
-    }
-}
-
-/// `SceneCompositor` impl for HalfBlock — renders at 2× height then packs to halfblocks.
-impl crate::strategy::SceneCompositor for crate::strategy::HalfblockSceneCompositor {
-    fn composite(
-        &self,
-        params: &crate::strategy::CompositeParams<'_>,
-        layer: &dyn crate::strategy::LayerCompositor,
-        halfblock: &dyn crate::strategy::HalfblockPacker,
-        buffer: &mut Buffer,
-    ) -> HashMap<String, Region> {
-        composite_scene_halfblock(
+        ),
+        _ => composite_scene(
             params.bg,
             params.layers,
             params.ui_enabled,
@@ -517,7 +505,7 @@ impl crate::strategy::SceneCompositor for crate::strategy::HalfblockSceneComposi
             layer,
             halfblock,
             buffer,
-        )
+        ),
     }
 }
 

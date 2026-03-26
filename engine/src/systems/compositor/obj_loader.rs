@@ -40,15 +40,17 @@ impl SourceAdapter<ObjMesh> for ObjMeshAdapter {
         source: &SourceRef,
         bytes: &[u8],
         loader: &dyn SourceLoader,
-    ) -> Result<ObjMesh, EngineError> {
-        let text = std::str::from_utf8(bytes).map_err(|_| EngineError::StartupCheckFailed {
+    ) -> Result<ObjMesh, Box<dyn std::error::Error + Send + Sync>> {
+        let text = std::str::from_utf8(bytes).map_err(|_| -> Box<dyn std::error::Error + Send + Sync> { Box::new(EngineError::StartupCheckFailed {
             check: "obj-decode".to_string(),
             details: format!("OBJ source is not valid UTF-8: {}", source.value()),
+        })
         })?;
         let materials = load_material_palette(text, source, loader);
-        parse_obj_mesh_from_text(text, &materials).ok_or_else(|| EngineError::StartupCheckFailed {
+        parse_obj_mesh_from_text(text, &materials).ok_or_else(|| -> Box<dyn std::error::Error + Send + Sync> { Box::new(EngineError::StartupCheckFailed {
             check: "obj-decode".to_string(),
             details: format!("failed to parse OBJ mesh: {}", source.value()),
+        })
         })
     }
 }

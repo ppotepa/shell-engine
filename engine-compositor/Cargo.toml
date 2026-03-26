@@ -11,4 +11,13 @@ engine-debug = { path = "../engine-debug" }
 engine-animation = { path = "../engine-animation" }
 engine-pipeline = { path = "../engine-pipeline" }
 engine-render-policy = { path = "../engine-render-policy" }
+engine-render-terminal = { path = "../engine-render-terminal" }
+engine-scene-runtime = { path = "../engine-scene-runtime" }
+engine-runtime = { path = "../engine-runtime" }
+engine-error = { path = "../engine-error" }
+engine-3d = { path = "../engine-3d" }
 crossterm = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["png", "gif"] }
+serde_json = "1"
+rayon = "1.10"
+base64 = "0.22"

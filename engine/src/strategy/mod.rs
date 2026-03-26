@@ -26,6 +26,5 @@ pub mod behavior_factory;
 
 pub use scene_compositor::{
     CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
-    compositor_for,
 };
 pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};

@@ -110,7 +110,7 @@ impl SourceAdapter<LoadedImageAsset> for ImageAssetAdapter {
         source: &SourceRef,
         bytes: &[u8],
         _loader: &dyn SourceLoader,
-    ) -> Result<LoadedImageAsset, EngineError> {
+    ) -> Result<LoadedImageAsset, Box<dyn std::error::Error + Send + Sync>> {
         if source
             .normalized_value()
             .rsplit('.')
@@ -118,9 +118,9 @@ impl SourceAdapter<LoadedImageAsset> for ImageAssetAdapter {
             .map(|ext| ext.eq_ignore_ascii_case("gif"))
             .unwrap_or(false)
         {
-            return decode_gif(bytes);
+            return Ok(decode_gif(bytes)?);
         }
-        decode_static_image(bytes)
+        Ok(decode_static_image(bytes)?)
     }
 }
 

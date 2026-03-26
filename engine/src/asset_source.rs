@@ -1,75 +1,14 @@
 //! Source abstraction for runtime asset loading.
 //!
-//! This isolates "where bytes come from" from "how bytes are decoded" so the
-//! current mod-asset pipeline can later grow URL/generated adapters without
-//! rewriting image/mesh/font consumers.
+//! Re-exports core types from engine-core::asset_source and provides the
+//! concrete ModAssetSourceLoader backed by the mod asset repository.
 
 use std::path::{Path, PathBuf};
 
-use crate::asset_cache::AssetCache;
+pub use engine_core::asset_source::*;
+
 use crate::repositories::{create_asset_repository, AnyAssetRepository, AssetRepository};
 use crate::EngineError;
-
-/// Supported runtime source categories.
-///
-/// Today only mod-local assets are enabled, but the enum provides the stable
-/// expansion point for future URL/generated adapters.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SourceKind {
-    ModAsset,
-}
-
-/// Normalized reference to some loadable source.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SourceRef {
-    kind: SourceKind,
-    value: String,
-}
-
-impl SourceRef {
-    /// Builds a mod-local asset reference such as `/assets/images/tux.png`.
-    pub fn mod_asset(value: impl Into<String>) -> Self {
-        let raw = value.into();
-        let normalized = if raw.starts_with('/') {
-            raw
-        } else {
-            format!("/{raw}")
-        };
-        Self {
-            kind: SourceKind::ModAsset,
-            value: normalized,
-        }
-    }
-
-    pub fn kind(&self) -> &SourceKind {
-        &self.kind
-    }
-
-    pub fn value(&self) -> &str {
-        &self.value
-    }
-
-    pub fn normalized_value(&self) -> &str {
-        self.value.trim_start_matches('/')
-    }
-}
-
-/// Loads raw bytes for a given source reference.
-pub trait SourceLoader {
-    fn read_bytes(&self, source: &SourceRef) -> Result<Vec<u8>, EngineError>;
-    fn has_source(&self, source: &SourceRef) -> Result<bool, EngineError>;
-    fn cache_key(&self, source: &SourceRef) -> String;
-}
-
-/// Decodes typed assets from raw bytes and optional nested source lookups.
-pub trait SourceAdapter<T> {
-    fn decode(
-        &self,
-        source: &SourceRef,
-        bytes: &[u8],
-        loader: &dyn SourceLoader,
-    ) -> Result<T, EngineError>;
-}
 
 /// Current concrete source loader backed by the mod directory/zip repository.
 #[derive(Debug, Clone)]
@@ -88,15 +27,15 @@ impl ModAssetSourceLoader {
 }
 
 impl SourceLoader for ModAssetSourceLoader {
-    fn read_bytes(&self, source: &SourceRef) -> Result<Vec<u8>, EngineError> {
+    fn read_bytes(&self, source: &SourceRef) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
         match source.kind() {
-            SourceKind::ModAsset => self.repo.read_asset_bytes(source.value()),
+            SourceKind::ModAsset => self.repo.read_asset_bytes(source.value()).map_err(|e| Box::new(e) as _),
         }
     }
 
-    fn has_source(&self, source: &SourceRef) -> Result<bool, EngineError> {
+    fn has_source(&self, source: &SourceRef) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         match source.kind() {
-            SourceKind::ModAsset => self.repo.has_asset(source.value()),
+            SourceKind::ModAsset => self.repo.has_asset(source.value()).map_err(|e| Box::new(e) as _),
         }
     }
 
@@ -107,33 +46,6 @@ impl SourceLoader for ModAssetSourceLoader {
             source.normalized_value()
         )
     }
-}
-
-static SOURCE_BYTES_CACHE: AssetCache<Vec<u8>> = AssetCache::new();
-
-/// Loads raw bytes with a shared source cache.
-pub fn load_source_bytes(loader: &impl SourceLoader, source: &SourceRef) -> Option<std::sync::Arc<Vec<u8>>> {
-    let key = loader.cache_key(source);
-    SOURCE_BYTES_CACHE.get_or_load(key, || loader.read_bytes(source).ok())
-}
-
-/// Returns `true` when the source exists according to the concrete loader.
-pub fn has_source(loader: &impl SourceLoader, source: &SourceRef) -> bool {
-    loader.has_source(source).unwrap_or(false)
-}
-
-/// Loads and decodes a typed asset with a caller-owned typed cache.
-pub fn load_decoded_source<T>(
-    cache: &AssetCache<T>,
-    loader: &impl SourceLoader,
-    source: &SourceRef,
-    adapter: &impl SourceAdapter<T>,
-) -> Option<std::sync::Arc<T>> {
-    let key = loader.cache_key(source);
-    cache.get_or_load(key, || {
-        let bytes = load_source_bytes(loader, source)?;
-        adapter.decode(source, &bytes, loader).ok()
-    })
 }
 
 #[cfg(test)]

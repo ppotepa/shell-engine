@@ -794,12 +794,21 @@ dependencies = [
 name = "engine-compositor"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "crossterm 0.29.0",
+ "engine-3d",
  "engine-animation",
  "engine-core",
  "engine-debug",
+ "engine-error",
  "engine-pipeline",
  "engine-render-policy",
+ "engine-render-terminal",
+ "engine-runtime",
+ "engine-scene-runtime",
+ "image",
+ "rayon",
+ "serde_json",
 ]
 
 [[package]]

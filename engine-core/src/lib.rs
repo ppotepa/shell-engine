@@ -37,3 +37,4 @@ pub mod terminal_caps;
 
 #[cfg(test)]
 mod access_tests;
+pub mod asset_source;
