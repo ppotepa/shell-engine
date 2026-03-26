@@ -705,6 +705,7 @@ dependencies = [
  "engine-render-policy",
  "engine-render-terminal",
  "engine-runtime",
+ "engine-scene-runtime",
  "engine-terminal",
  "image",
  "libc",
@@ -917,6 +918,22 @@ dependencies = [
  "engine-core",
  "serde",
  "serde_yaml",
+]
+
+[[package]]
+name = "engine-scene-runtime"
+version = "0.1.0"
+dependencies = [
+ "crossterm 0.29.0",
+ "engine-animation",
+ "engine-behavior",
+ "engine-behavior-registry",
+ "engine-core",
+ "engine-render-terminal",
+ "rhai",
+ "serde_json",
+ "serde_yaml",
+ "tui-input",
 ]
 
 [[package]]
