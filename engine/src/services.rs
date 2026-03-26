@@ -349,3 +349,52 @@ impl CompositorProvider for World {
     }
 
 }
+
+// Implement CompositorAccess for World
+impl engine_compositor::CompositorAccess for World {
+    fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
+        self.get::<SceneRuntime>().map(|sr| sr as &dyn std::any::Any)
+    }
+
+    fn animator(&self) -> Option<&Animator> {
+        self.get::<Animator>()
+    }
+
+    fn buffer_mut(&self) -> Option<&mut Buffer> {
+        // Note: mutating through const ref won't compile, so this would be an issue.
+        // In practice, the compositor system will take &mut World, not &World.
+        None
+    }
+
+    fn virtual_buffer_mut(&self) -> Option<&mut VirtualBuffer> {
+        None
+    }
+
+    fn runtime_settings(&self) -> Option<&RuntimeSettings> {
+        self.get::<RuntimeSettings>()
+    }
+
+    fn asset_root(&self) -> Option<&AssetRoot> {
+        self.get::<AssetRoot>()
+    }
+
+    fn scene3d_atlas(&self) -> Option<&dyn std::any::Any> {
+        self.get::<engine_compositor::scene3d_atlas::Scene3DAtlas>()
+            .map(|atlas| atlas as &dyn std::any::Any)
+    }
+
+    fn obj_prerender_frames(&self) -> Option<&dyn std::any::Any> {
+        self.get::<engine_compositor::obj_prerender::ObjPrerenderedFrames>()
+            .map(|frames| frames as &dyn std::any::Any)
+    }
+
+    fn layer_compositor(&self) -> Option<&dyn std::any::Any> {
+        // Layer compositor is a strategy, not stored in World
+        None
+    }
+
+    fn halfblock_packer(&self) -> Option<&dyn std::any::Any> {
+        // Halfblock packer is a strategy, not stored in World
+        None
+    }
+}

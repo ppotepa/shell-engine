@@ -6,12 +6,14 @@
 //! - Scene compositor strategy pattern types (Cell vs Halfblock)
 //! - CompositorProvider trait for decoupling from engine's World type
 
+pub mod access;
 pub mod provider;
 pub mod scene_compositor;
 pub mod systems;
 pub mod obj_prerender;
 pub mod scene3d_atlas;
 
+pub use access::CompositorAccess;
 pub use provider::CompositorProvider;
 pub use scene_compositor::{
     CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
