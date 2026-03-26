@@ -11,3 +11,7 @@ pub use repositories::{
     AssetRepository, FsSceneRepository, SceneRepository, ZipSceneRepository,
 };
 pub use scene_compiler::compile_scene_document_with_loader_and_source;
+
+pub mod source_loader;
+
+pub use source_loader::ModAssetSourceLoader;
