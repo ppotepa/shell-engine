@@ -398,3 +398,14 @@ impl engine_compositor::CompositorAccess for World {
         None
     }
 }
+
+// Implement SceneRuntimeAccess for World
+impl engine_scene_runtime::SceneRuntimeAccess for World {
+    fn scene_runtime(&self) -> Option<&engine_scene_runtime::SceneRuntime> {
+        self.get::<engine_scene_runtime::SceneRuntime>()
+    }
+
+    fn scene_runtime_mut(&mut self) -> Option<&mut engine_scene_runtime::SceneRuntime> {
+        self.get_mut::<engine_scene_runtime::SceneRuntime>()
+    }
+}

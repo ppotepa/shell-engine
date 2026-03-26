@@ -1,6 +1,8 @@
 //! Runtime scene materialization and object graph helpers derived from the
 //! authored scene model.
 
+pub mod access;
+
 use engine_behavior::{
     built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, RhaiScriptBehavior,
     SceneAudioBehavior,
@@ -12,6 +14,7 @@ use engine_render_terminal::rasterizer::generic::GenericMode;
 pub use engine_core::scene_runtime_types::{
     ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver, ObjCameraState,
 };
+pub use access::SceneRuntimeAccess;
 use engine_core::scene::{
     resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite, TermColour,
     TerminalShellControls, UiThemeStyle,
