@@ -1,0 +1,21 @@
+[package]
+name = "engine-behavior"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engine-core = { path = "../engine-core" }
+engine-animation = { path = "../engine-animation" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rhai = { version = "1.18", features = ["metadata"] }
+serde_yaml = "0.9"
+base64 = "0.22"
+
+[[test]]
+name = "behavior"
+path = "src/tests/behavior.rs"
+
+[lib]
+name = "engine_behavior"
+path = "src/lib.rs"

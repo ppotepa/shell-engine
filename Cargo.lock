@@ -16,6 +16,7 @@ checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
 dependencies = [
  "cfg-if",
  "const-random",
+ "getrandom 0.3.4",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -687,6 +688,7 @@ dependencies = [
  "engine-animation",
  "engine-audio",
  "engine-authoring",
+ "engine-behavior",
  "engine-behavior-registry",
  "engine-capture",
  "engine-compositor",
@@ -755,6 +757,19 @@ dependencies = [
  "anyhow",
  "engine-core",
  "serde",
+ "serde_yaml",
+]
+
+[[package]]
+name = "engine-behavior"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "engine-animation",
+ "engine-core",
+ "rhai",
+ "serde",
+ "serde_json",
  "serde_yaml",
 ]
 
@@ -1720,6 +1735,8 @@ dependencies = [
  "num-traits",
  "once_cell",
  "rhai_codegen",
+ "serde",
+ "serde_json",
  "smallvec",
  "smartstring",
  "thin-vec",
@@ -1978,6 +1995,9 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "smartstring"
@@ -1986,6 +2006,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fb72c633efbaa2dd666986505016c32c3044395ceaf881518399d2f4127ee29"
 dependencies = [
  "autocfg",
+ "serde",
  "static_assertions",
  "version_check",
 ]
@@ -2124,6 +2145,9 @@ name = "thin-vec"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "144f754d318415ac792f9d69fc87abbbfc043ce2ef041c60f16ad828f638717d"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "thiserror"

@@ -20,6 +20,7 @@ engine-error = { path = "../engine-error" }
 engine-frame = { path = "../engine-frame" }
 engine-capture = { path = "../engine-capture" }
 engine-mod = { path = "../engine-mod" }
+engine-behavior = { path = "../engine-behavior" }
 engine-behavior-registry = { path = "../engine-behavior-registry" }
 engine-compositor = { path = "../engine-compositor" }
 engine-debug = { path = "../engine-debug" }
