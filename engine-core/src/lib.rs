@@ -24,5 +24,7 @@ pub mod game_state;
 pub mod scene_runtime_types;
 /// Render pipeline strategy traits and default implementations.
 pub mod strategy;
+/// Type-erased resource container (World) for engine ECS.
+pub mod world;
 /// Terminal capability detection and mod-level requirements.
 pub mod terminal_caps;
