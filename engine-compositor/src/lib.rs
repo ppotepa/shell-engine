@@ -16,3 +16,4 @@ pub use provider::CompositorProvider;
 pub use scene_compositor::{
     CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
 };
+pub use systems::postfx;
