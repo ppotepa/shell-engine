@@ -26,5 +26,7 @@ pub mod scene_runtime_types;
 pub mod strategy;
 /// Type-erased resource container (World) for engine ECS.
 pub mod world;
+/// Domain access traits for typed resource retrieval from World.
+pub mod access;
 /// Terminal capability detection and mod-level requirements.
 pub mod terminal_caps;

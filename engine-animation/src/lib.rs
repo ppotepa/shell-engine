@@ -10,6 +10,7 @@ pub mod animator;
 pub mod provider;
 pub mod systems;
 pub mod menu;
+pub mod access;
 
 pub use animator::{Animator, SceneStage};
 pub use provider::LifecycleProvider;

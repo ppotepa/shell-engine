@@ -9,6 +9,7 @@
 
 pub mod audio;
 pub mod systems_audio;
+pub mod access;
 
 pub use audio::{AudioBackend, AudioCommand, AudioRuntime, NullAudioBackend, RodioAudioBackend};
 pub use systems_audio::{audio_system, AudioProvider};

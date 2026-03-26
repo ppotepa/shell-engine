@@ -1,5 +1,7 @@
 //! Engine event types and the per-frame [`EventQueue`] that shuttles them between systems.
 
+pub mod access;
+
 use crossterm::event::KeyEvent;
 
 /// Represents a discrete engine event produced by input, the game loop, or scene transitions.

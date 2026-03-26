@@ -1,3 +1,5 @@
+pub mod access;
+
 use serde_yaml::Value;
 use std::env;
 
@@ -229,7 +231,7 @@ mod tests {
         let settings = RuntimeSettings::from_manifest(&yaml);
         assert_eq!(
             settings.renderer_mode_override,
-            Some(crate::scene::SceneRenderedMode::Braille)
+            Some(engine_core::scene::SceneRenderedMode::Braille)
         );
     }
 

@@ -804,6 +804,7 @@ name = "engine-debug"
 version = "0.1.0"
 dependencies = [
  "crossterm 0.29.0",
+ "engine-core",
  "libc",
 ]
 
@@ -821,6 +822,7 @@ name = "engine-events"
 version = "0.1.0"
 dependencies = [
  "crossterm 0.29.0",
+ "engine-core",
 ]
 
 [[package]]

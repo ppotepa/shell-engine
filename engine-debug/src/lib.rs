@@ -1,6 +1,7 @@
 //! Runtime debug feature toggles that can be enabled independently from build profile.
 
 pub mod log;
+pub mod access;
 
 pub use log::DebugLogBuffer;
 
