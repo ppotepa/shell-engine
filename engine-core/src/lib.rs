@@ -32,3 +32,6 @@ pub mod access;
 pub mod assets;
 /// Terminal capability detection and mod-level requirements.
 pub mod terminal_caps;
+
+#[cfg(test)]
+mod access_tests;
