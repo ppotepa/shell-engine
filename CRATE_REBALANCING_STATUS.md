@@ -1,13 +1,15 @@
 # Crate Rebalancing Project - Current Status
 
 **Date**: March 26, 2026  
-**Progress**: ~60% complete (infrastructure + Phase 0-3.5 done, Phases 4-6 blocked by architecture)
+**Progress**: ~70% infrastructure complete (Phase 0-3.6 done, Phases 4-6 unblocked architecturally)
 
 ## Executive Summary
 
-The monolithic `engine` crate (26,387 LOC) is being decomposed into 12-14 focused, dependency-safe sub-crates. **Phase 0-3.5 complete** with 4,210 LOC extracted, 298 tests passing, zero regressions.
+The monolithic `engine` crate (25,907 LOC) is being decomposed into 12-14 focused, dependency-safe sub-crates. **Phase 0-3.6 complete** with ~4,400 LOC extracted, 306 tests passing, zero regressions.
 
-**Blocker**: Phases 4-6 cannot proceed without genericizing `scene_lifecycle_system`, `behavior_system`, and `compositor_system` over provider traits to avoid circular dependencies with `World` type.
+**Key breakthrough**: `World` moved to `engine-core`, breaking ALL circular dependencies. Six domain `XxxAccess` traits created in sub-crates. Newtype wrapper in engine preserves backward compatibility.
+
+**Remaining blocker**: `SceneRuntime` (3,615 LOC) is behavior-coupled (~30% of methods). Needs splitting into core data (→ engine-core) + behavior extension (→ engine) before Phases 4-6 systems can move.
 
 ---
 
@@ -41,40 +43,65 @@ The monolithic `engine` crate (26,387 LOC) is being decomposed into 12-14 focuse
 
 **Significance**: Breaks coupling between `behavior.rs` and `scene_runtime.rs`. These types now live in engine-core, accessible to both without circular dependencies.
 
+### Phase 3.6: World + Access Traits → engine-core ✨ BREAKTHROUGH
+- ✅ `world.rs` (94 LOC) → `engine-core/src/world.rs` — type-erased resource container
+- ✅ `assets.rs` (31 LOC) → `engine-core/src/assets.rs` — AssetRoot path resolver
+- ✅ Newtype wrapper in `engine/src/world.rs` (Deref/DerefMut) for orphan rule compat
+- ✅ Six domain `XxxAccess` traits created:
+  - `BufferAccess` + `GameStateAccess` + `AssetAccess` (engine-core)
+  - `AnimatorAccess` (engine-animation)
+  - `EventAccess` (engine-events)
+  - `DebugAccess` (engine-debug)
+  - `RuntimeAccess` (engine-runtime)
+  - `AudioAccess` (engine-audio)
+- ✅ `engine-events` and `engine-debug` now depend on `engine-core`
+- ✅ Pre-existing test bug fixed in engine-runtime
+
+**Significance**: ALL circular dependencies are architecturally BROKEN. Sub-crates can now:
+1. Import `World` from `engine-core` (not engine)
+2. Define typed accessors via `impl XxxAccess for World`
+3. Write systems that take `&mut World` without depending on engine
+
 ---
 
-## Failed Attempts (Documented)
+## Previously Blocked (Now Architecturally Unblocked)
 
 ### Phase 4: Scene Lifecycle → engine-animation
-**Status**: ❌ BLOCKED - Circular dependency
+**Status**: 🟡 UNBLOCKED architecturally, blocked by SceneRuntime location
 
-**Why**: `SceneLifecycleManager::process_events(world: &mut World)` requires `engine::World` type.
-- If `engine-animation/src/lifecycle.rs` uses `World`, engine-animation depends on engine
-- But engine already depends on engine-animation (for re-exports)
-- **Cycle created**
-
-**Solution needed**: Genericize `scene_lifecycle_system<T: LifecycleProvider>(provider: &mut T)`
+**Why it was blocked**: `scene_lifecycle_system(world: &mut World)` required World from engine → cycle.
+**Why it's unblocked**: World now in engine-core. System can import from engine-core.
+**Remaining blocker**: SceneRuntime (3,615 LOC) still in engine. System needs it.
 
 ### Phase 5: Behavior System → engine-behavior-registry  
-**Status**: ❌ BLOCKED - Circular dependency + Rhai coupling
+**Status**: 🟡 UNBLOCKED architecturally, blocked by SceneRuntime location
 
-**Why**: `behavior_system(world: &mut World)` + `behavior.rs` module imports `engine::mod_behaviors`
-- Result: engine-behavior-registry → engine → engine-behavior-registry (cycle)
-- Additionally: Rhai runtime initialization tightly couples to BehaviorContext which depends on World
-
-**Solution needed**:
-1. Move `mod_behaviors` module entirely to engine-behavior-registry
-2. Genericize `behavior_system<T: BehaviorProvider>(provider: &mut T)`
-3. Refactor BehaviorContext to accept provider trait instead of World
+**Why it was blocked**: `behavior_system(world: &mut World)` + Rhai coupling → cycle.
+**Why it's unblocked**: World in engine-core. Access traits available.
+**Remaining blocker**: SceneRuntime + behavior.rs coupling.
 
 ### Phase 6: Compositor + PostFX → engine-compositor
-**Status**: ❌ BLOCKED - Circular dependency
+**Status**: 🟡 UNBLOCKED architecturally, blocked by SceneRuntime location
 
-**Why**: `compositor_system(world: &mut World)` uses World directly
-- Largest extraction (9,600 LOC) with deepest World coupling
-- Would create same circular dependency as Phase 4
+**Why it was blocked**: `compositor_system(world: &mut World)` → cycle.
+**Why it's unblocked**: World in engine-core. BufferAccess, AnimatorAccess, AssetAccess all available.
+**Remaining blocker**: SceneRuntime still needed by compositor.
 
-**Solution needed**: Genericize `compositor_system<T: CompositorProvider>(provider: &mut T)`
+---
+
+## Next Step: Phase 3.7 — Split SceneRuntime
+
+**The single remaining blocker** for all Phases 4-6 is `SceneRuntime` (3,615 LOC in engine).
+
+**Analysis**: 150 functions total, ~46 reference behavior types (30%). The other ~104 functions (70%) are pure data/scene methods.
+
+**Plan**:
+1. Define `SceneRuntimeCore` in engine-core with behavior-free methods
+2. Keep behavior-coupled methods as extension trait in engine
+3. Register `SceneRuntimeCore` in World
+4. Sub-crate systems access `SceneRuntimeCore` via a new `SceneAccess` trait
+
+This is the critical path to Phases 4-6.
 
 ---
 
