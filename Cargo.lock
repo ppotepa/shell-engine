@@ -778,8 +778,7 @@ dependencies = [
 name = "engine-behavior-registry"
 version = "0.1.0"
 dependencies = [
- "engine-core",
- "serde_yaml",
+ "engine-behavior",
 ]
 
 [[package]]
