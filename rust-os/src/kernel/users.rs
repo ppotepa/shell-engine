@@ -25,17 +25,68 @@ impl UserDatabase {
         // Hard-coded matching the VFS /etc/passwd and /etc/group
         Self {
             passwd: vec![
-                PasswdEntry { login: "root".into(), uid: 0, gid: 0, gecos: "System Administrator".into(), home: "/".into(), shell: "/bin/sh".into() },
-                PasswdEntry { login: "daemon".into(), uid: 1, gid: 1, gecos: "Daemon".into(), home: "/".into(), shell: "/bin/false".into() },
-                PasswdEntry { login: "ast".into(), uid: 100, gid: 10, gecos: "Andrew S. Tanenbaum".into(), home: "/usr/ast".into(), shell: "/bin/sh".into() },
-                PasswdEntry { login: "torvalds".into(), uid: 1000, gid: 10, gecos: "Linus Torvalds".into(), home: "/usr/torvalds".into(), shell: "/bin/sh".into() },
-                PasswdEntry { login: "nobody".into(), uid: 65534, gid: 65534, gecos: "Nobody".into(), home: "/".into(), shell: "/bin/false".into() },
+                PasswdEntry {
+                    login: "root".into(),
+                    uid: 0,
+                    gid: 0,
+                    gecos: "System Administrator".into(),
+                    home: "/".into(),
+                    shell: "/bin/sh".into(),
+                },
+                PasswdEntry {
+                    login: "daemon".into(),
+                    uid: 1,
+                    gid: 1,
+                    gecos: "Daemon".into(),
+                    home: "/".into(),
+                    shell: "/bin/false".into(),
+                },
+                PasswdEntry {
+                    login: "ast".into(),
+                    uid: 100,
+                    gid: 10,
+                    gecos: "Andrew S. Tanenbaum".into(),
+                    home: "/usr/ast".into(),
+                    shell: "/bin/sh".into(),
+                },
+                PasswdEntry {
+                    login: "torvalds".into(),
+                    uid: 1000,
+                    gid: 10,
+                    gecos: "Linus Torvalds".into(),
+                    home: "/usr/torvalds".into(),
+                    shell: "/bin/sh".into(),
+                },
+                PasswdEntry {
+                    login: "nobody".into(),
+                    uid: 65534,
+                    gid: 65534,
+                    gecos: "Nobody".into(),
+                    home: "/".into(),
+                    shell: "/bin/false".into(),
+                },
             ],
             groups: vec![
-                GroupEntry { name: "root".into(), gid: 0, members: vec![] },
-                GroupEntry { name: "staff".into(), gid: 10, members: vec!["ast".into(), "torvalds".into()] },
-                GroupEntry { name: "wheel".into(), gid: 11, members: vec!["torvalds".into()] },
-                GroupEntry { name: "users".into(), gid: 100, members: vec!["ast".into(), "torvalds".into()] },
+                GroupEntry {
+                    name: "root".into(),
+                    gid: 0,
+                    members: vec![],
+                },
+                GroupEntry {
+                    name: "staff".into(),
+                    gid: 10,
+                    members: vec!["ast".into(), "torvalds".into()],
+                },
+                GroupEntry {
+                    name: "wheel".into(),
+                    gid: 11,
+                    members: vec!["torvalds".into()],
+                },
+                GroupEntry {
+                    name: "users".into(),
+                    gid: 100,
+                    members: vec!["ast".into(), "torvalds".into()],
+                },
             ],
         }
     }
@@ -57,7 +108,8 @@ impl UserDatabase {
     }
 
     pub fn groups_for_user(&self, login: &str) -> Vec<String> {
-        self.groups.iter()
+        self.groups
+            .iter()
             .filter(|g| g.members.contains(&login.to_string()))
             .map(|g| g.name.clone())
             .collect()

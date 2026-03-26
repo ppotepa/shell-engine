@@ -117,11 +117,21 @@ impl Command for MailCmd {
             return;
         }
         uow.print(format!("Mail version 2.12 6/28/83. Type ? for help."));
-        uow.print(format!("\"/var/spool/mail/{}\": {} messages",
-            uow.session.user, messages.len()));
+        uow.print(format!(
+            "\"/var/spool/mail/{}\": {} messages",
+            uow.session.user,
+            messages.len()
+        ));
         for (i, m) in messages.iter().enumerate() {
             let status = if m.read { " " } else { "N" };
-            uow.print(format!("{}{:3} {}  {:<20} {}", status, i + 1, m.date, m.from, m.subject));
+            uow.print(format!(
+                "{}{:3} {}  {:<20} {}",
+                status,
+                i + 1,
+                m.date,
+                m.from,
+                m.subject
+            ));
         }
         uow.print("& ".to_string());
         uow.print("(use mail application for interactive reading)".to_string());

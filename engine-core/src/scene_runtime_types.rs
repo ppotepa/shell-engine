@@ -32,7 +32,12 @@ impl TargetResolver {
         layer_ids: BTreeMap<usize, String>,
         sprite_ids: HashMap<String, String>,
     ) -> Self {
-        Self { scene_object_id, aliases, layer_ids, sprite_ids }
+        Self {
+            scene_object_id,
+            aliases,
+            layer_ids,
+            sprite_ids,
+        }
     }
 
     /// Returns the runtime id of the scene root object.
@@ -87,7 +92,8 @@ impl TargetResolver {
     }
 
     pub fn register_sprite(&mut self, layer_idx: usize, sprite_path: &[usize], object_id: String) {
-        self.sprite_ids.insert(path_key(layer_idx, sprite_path), object_id);
+        self.sprite_ids
+            .insert(path_key(layer_idx, sprite_path), object_id);
     }
 }
 

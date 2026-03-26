@@ -1,14 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use engine_render_terminal::renderer::present_virtual_to_output;
     use crate::assets::AssetRoot;
-    use crate::buffer::{Buffer, TRUE_BLACK, VirtualBuffer};
+    use crate::buffer::{Buffer, VirtualBuffer, TRUE_BLACK};
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
-    use engine_animation::{Animator, SceneStage};
     use crate::systems::compositor::compositor_system;
     use crate::world::World;
+    use engine_animation::{Animator, SceneStage};
+    use engine_render_terminal::renderer::present_virtual_to_output;
     use std::path::PathBuf;
 
     #[test]

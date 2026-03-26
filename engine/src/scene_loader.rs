@@ -4,8 +4,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use engine_asset::{create_scene_repository, AnySceneRepository, SceneRepository};
 use crate::{scene::Scene, EngineError};
+use engine_asset::{create_scene_repository, AnySceneRepository, SceneRepository};
 use engine_core::logging;
 
 /// Loads a scene from the active mod source without constructing a long-lived

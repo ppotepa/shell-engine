@@ -1,19 +1,19 @@
 //! Audio system — provides the system callback to flush audio commands each frame.
 //!
-//! Integration: engine-audio is backend-agnostic. The engine (or any consumer) 
+//! Integration: engine-audio is backend-agnostic. The engine (or any consumer)
 //! calls `audio_system()` once per frame after processing commands.
 
 use crate::audio::AudioRuntime;
 
 /// Trait for any type that can provide mutable audio runtime access.
-/// 
+///
 /// This allows engine-audio to remain decoupled from the main engine's World implementation.
 pub trait AudioProvider: Send {
     fn audio_runtime_mut(&mut self) -> Option<&mut AudioRuntime>;
 }
 
 /// Flushes all pending audio commands to the backend for the current frame.
-/// 
+///
 /// This should be called once per frame after all systems have queued audio commands.
 pub fn audio_system<T: AudioProvider>(provider: &mut T) {
     let Some(audio_runtime) = provider.audio_runtime_mut() else {
@@ -42,7 +42,7 @@ mod tests {
         let mut provider = TestProvider {
             audio: Some(AudioRuntime::null()),
         };
-        
+
         if let Some(audio) = &mut provider.audio {
             audio.queue(AudioCommand {
                 cue: "thunder".to_string(),

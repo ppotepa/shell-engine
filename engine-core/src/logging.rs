@@ -192,10 +192,7 @@ pub fn tail_recent(limit: usize) -> Vec<LogOverlayLine> {
     if let Ok(ring) = LOG_RING.lock() {
         let len = ring.len();
         let skip = if len > limit { len - limit } else { 0 };
-        ring.iter()
-            .skip(skip)
-            .cloned()
-            .collect()
+        ring.iter().skip(skip).cloned().collect()
     } else {
         Vec::new()
     }

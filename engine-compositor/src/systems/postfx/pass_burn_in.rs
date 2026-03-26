@@ -26,10 +26,10 @@
 //! | `decay_tint` | 0.8     | P31 colour shift (0=uniform, 1=full green)   |
 
 use super::{normalize_bg, PostFxContext};
+use engine_core::color::Color;
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
-use crossterm::style::Color;
 use std::cell::RefCell;
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ impl BurnInState {
             if ghost_buf.len() == self.live_capture.len() {
                 // Swap instead of clone to avoid allocation.
                 std::mem::swap(ghost_buf, &mut self.live_capture);
-                self.live_capture.clear();  // Clear the swapped-in buffer so it's ready for next capture
+                self.live_capture.clear(); // Clear the swapped-in buffer so it's ready for next capture
             } else {
                 self.ghost = Some(self.live_capture.clone());
             }
@@ -230,13 +230,7 @@ pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pas
 /// 3×3 blur: center 40%, cardinal 12%, corners 6%.
 /// Unrolled kernel without closure overhead.
 #[inline(always)]
-fn blur_sample(
-    ghost: &[Cell],
-    gw: usize,
-    gh: usize,
-    gx: usize,
-    gy: usize,
-) -> (f32, f32, f32) {
+fn blur_sample(ghost: &[Cell], gw: usize, gh: usize, gx: usize, gy: usize) -> (f32, f32, f32) {
     let lx = gx.saturating_sub(1);
     let rx = (gx + 1).min(gw - 1);
     let ty = gy.saturating_sub(1);
@@ -255,8 +249,16 @@ fn blur_sample(
     let idx_br = by * gw + rx;
 
     // Guard all indices once at start.
-    if idx_c >= len || idx_l >= len || idx_r >= len || idx_t >= len || idx_b >= len
-        || idx_tl >= len || idx_tr >= len || idx_bl >= len || idx_br >= len {
+    if idx_c >= len
+        || idx_l >= len
+        || idx_r >= len
+        || idx_t >= len
+        || idx_b >= len
+        || idx_tl >= len
+        || idx_tr >= len
+        || idx_bl >= len
+        || idx_br >= len
+    {
         return (0.0, 0.0, 0.0);
     }
 
@@ -281,7 +283,11 @@ fn blur_sample(
 /// Extract representative RGB (0.0–1.0) from a cell.
 #[inline(always)]
 fn pixel_rgb(cell: &Cell) -> (f32, f32, f32) {
-    let c = if cell.symbol != ' ' { cell.fg } else { normalize_bg(cell.bg) };
+    let c = if cell.symbol != ' ' {
+        cell.fg
+    } else {
+        normalize_bg(cell.bg)
+    };
     let (r, g, b) = colour_to_rgb(c);
     (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0)
 }

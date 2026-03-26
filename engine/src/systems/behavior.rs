@@ -2,7 +2,7 @@
 
 use crate::audio::AudioCommand;
 use crate::behavior::BehaviorCommand;
-use crate::debug_log::{DebugLogBuffer, DebugSeverity, DebugLogEntry};
+use crate::debug_log::{DebugLogBuffer, DebugLogEntry, DebugSeverity};
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 use engine_core::logging;
@@ -26,7 +26,9 @@ pub fn behavior_system(world: &mut World) {
         .map(|rt| rt.has_pending_bindings())
         .unwrap_or(false);
     if has_pending {
-        let mod_registry = world.get::<crate::mod_behaviors::ModBehaviorRegistry>().cloned();
+        let mod_registry = world
+            .get::<crate::mod_behaviors::ModBehaviorRegistry>()
+            .cloned();
         if let Some(registry) = mod_registry {
             if let Some(runtime) = world.scene_runtime_mut() {
                 runtime.apply_mod_behavior_registry(&registry);
@@ -94,9 +96,9 @@ mod tests {
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene::Scene;
     use crate::scene_runtime::SceneRuntime;
-    use engine_animation::{Animator, SceneStage};
     use crate::systems::compositor::compositor_system;
     use crate::world::World;
+    use engine_animation::{Animator, SceneStage};
 
     #[test]
     fn behavior_system_queues_audio_commands_from_scene_runtime() {

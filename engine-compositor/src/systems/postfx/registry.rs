@@ -11,9 +11,14 @@ pub(super) enum PostFxBuiltin {
 
 #[derive(Debug, Clone)]
 pub(super) enum CompiledPostFx {
-    Builtin { kind: PostFxBuiltin, effect: Effect },
+    Builtin {
+        kind: PostFxBuiltin,
+        effect: Effect,
+    },
     /// Multiple CRT sub-effects coalesced into a single pixel loop.
-    CrtComposite { sub_passes: Vec<(PostFxBuiltin, Effect)> },
+    CrtComposite {
+        sub_passes: Vec<(PostFxBuiltin, Effect)>,
+    },
     Generic(Effect),
 }
 
@@ -28,10 +33,7 @@ fn is_coalescable(kind: PostFxBuiltin) -> bool {
     )
 }
 
-fn flush_crt_group(
-    group: &mut Vec<(PostFxBuiltin, Effect)>,
-    result: &mut Vec<CompiledPostFx>,
-) {
+fn flush_crt_group(group: &mut Vec<(PostFxBuiltin, Effect)>, result: &mut Vec<CompiledPostFx>) {
     if group.is_empty() {
         return;
     }
@@ -195,7 +197,11 @@ mod tests {
             effect("crt-distort"),
         ];
         let compiled = compile_passes(&input);
-        assert_eq!(compiled.len(), 3, "underlay + generic + distort stay separate");
+        assert_eq!(
+            compiled.len(),
+            3,
+            "underlay + generic + distort stay separate"
+        );
         assert!(matches!(
             compiled[0],
             CompiledPostFx::Builtin {

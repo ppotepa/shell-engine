@@ -1,148 +1,38 @@
-# Main Mod — Shell Quest Content
+# mods/shell-quest — main game mod
 
-## Scene Map
+## Purpose
 
-All scenes in shell-quest (main mod):
+This is the primary playable content mod. It contains the authored scenes,
+objects, assets, behaviors, schemas, and sidecar integration content that make
+up the Shell Quest experience.
 
-| ID | Title | Duration | Purpose | Key Effects |
-|----|-------|----------|---------|------------|
-| `00.intro.logo` | Intro Logo | 7000ms | Title card | CRT-on, shine, flash/whiteout |
-| `01.intro.date` | Intro Date | 9780ms | Date card | Scanlines fade |
-| `02.intro.boot` | Intro Boot | 12290ms | Linus boot animation | Fade, scanlines, fade-out |
-| `03.intro.lab-enter` | Lab Enter | 3160ms | Lab fade in/out | Fade in/out, pause |
-| `04.intro.difficulty-select` | Difficulty Select | 5000ms | Menu + portraits | 4× PostFX, neon-edge-glow |
-| `05.intro.cpu-on` | CPU On | ~8000ms | CPU boot sequence | CRT effects, terminal output |
-| `06.prologue.` | Prologue (series) | various | Main game prologue | Dynamic behaviors, Rhai |
+## Directory layout
 
-## Content Structure
+- `mod.yaml` — mod manifest and terminal/runtime defaults
+- `scenes/` — authored scene files and scene packages
+- `objects/` — shared authored object fragments
+- `behaviors/` — mod-defined behavior definitions
+- `assets/` — images, 3D assets, sounds, fonts, and other content
+- `schemas/` — mod-local generated schema fragments
+- `os/cognitOS/` — C# sidecar project used by terminal/OS scenes
 
-```
-mods/shell-quest/
-├── mod.yaml                         Mod manifest
-├── scenes/
-│   ├── 00-intro-logo/
-│   │   ├── scene.yml
-│   │   └── layers/main.yml
-│   ├── 01-intro-date/
-│   │   ├── scene.yml
-│   │   └── layers/main.yml
-│   └── ... (4 more scenes)
-├── objects/
-│   ├── difficulty-menu.yml
-│   ├── cpu.yml
-│   └── ... (other game objects)
-├── behaviors/
-│   ├── menu-select.yml
-│   ├── hint-system.yml
-│   └── ... (custom behaviors)
-├── effects/
-│   ├── crt-custom.yml
-│   └── ... (mod-specific effects)
-├── assets/
-│   ├── 3d/ (OBJ files, portraits)
-│   ├── sounds/ (WAV, MP3, OGG)
-│   ├── gifs/ (animated sprites)
-│   └── sprites/ (PNG sprites)
-└── docs/
-    ├── features.md (feature list)
-    ├── scripts.md (Rhai API reference)
-    └── ... (mod documentation)
-```
+## How to work with this mod
 
-## Custom Behaviors
+- treat it as the source of truth for real gameplay content and visual style,
+- prefer scene packages for complex scenes so layers/effects/objects stay split,
+- refresh mod-local schemas after changing scene/effect authoring surfaces,
+- use this mod for real gameplay validation, not for automation-only benchmarks,
+- keep sidecar-dependent scenes aligned with the IPC contract documented in `engine-io` and the C# sidecar README.
 
-**menu-highlight** — Dynamic menu item highlighting
-- Attached to menu text sprites
-- Sets `style.fg` based on selection state
-- Selected: bright color (#88ccff)
-- Unselected: dim color (#1a2244)
+## Important runtime assumptions
 
-**hint-system** — Contextual hints during gameplay
-- Triggered by scene events
-- Displays temporary text overlay
-- Fades out after duration
+- the manifest currently opts into virtual buffer rendering with `virtual_size: max-available`,
+- the entrypoint is `/scenes/00-intro-logo/scene.yml`,
+- authored scene transitions and intro pacing here are the “real” player-facing versions,
+- large 3D assets should be kept compatible with the renderer’s practical face budget.
 
-## Custom Effects
+## Related docs
 
-**neon-edge-glow** — Cyberpunk aesthetic
-- 3-ring volumetric spillover
-- Breathing pulse (progress × speed)
-- Parameters: color, intensity, alpha, speed, easing
-- Applied to difficulty menu 3D portraits
-
-## Asset Organization
-
-### 3D Assets (assets/3d/)
-- `dvorak-2.obj` — Full mesh (~1.4M faces)
-- `dvorak-2-portrait.obj` — Portrait version
-- `dvorak-2-wire.obj` — Wireframe derivative
-- Other character portraits (simplified OBJ files)
-
-**Rendering**: Engine caps OBJ at 50k faces. Larger models fall back to wireframe.
-
-### Sounds (assets/sounds/)
-- `daisy-short.wav` — Splash screen audio (~5s)
-- `boot-sequence.wav` — Boot animation audio
-- `menu-select.wav` — Menu interaction SFX
-- Format: WAV, MP3, OGG supported
-
-### Animated GIFs (assets/gifs/)
-- Boot sequence animations
-- Loading spinners
-- Transition effects
-
-### Static Sprites (assets/sprites/)
-- UI elements (buttons, panels)
-- Text overlays
-- Background images
-
-## Key Scenes Deep-Dive
-
-### Scene 04: Difficulty Select
-
-Heaviest scene (4 PostFX passes):
-1. CRT underlay
-2. CRT distortion
-3. CRT scan glitch
-4. CRT ruby (color) effect
-
-Features:
-- 3D portrait models (snap lighting, neon glow)
-- Menu with dynamic highlighting
-- On Enter: portrait rotates (yaw 0→320°, 500ms ease-out)
-- On Leave: intense neon flash + fade-out
-
-Benchmark: stresses PostFX and OBJ rendering.
-
-### Scene 00: Logo
-
-Splash screen:
-- Title card with shine effect
-- Flash transition (white + fade-out)
-- Optional whiteout glow
-- Duration: 7000ms (compressed from original 8.5s)
-
-## Sidecar Integration
-
-Scene `05.intro.cpu-on` interacts with C# sidecar:
-- Emulates Linus Torvalds boot sequence
-- Displays simulated terminal output
-- Responsive to player input (affects prologue difficulty)
-
-Communication via `engine-io` IPC bridge.
-
-## Visual Style
-
-- **Colors**: Cyberpunk neon palette (#88ccff, #ff00ff, etc.)
-- **Effects**: Heavy CRT, scanlines, glitch for retro-terminal aesthetic
-- **Typography**: Monospace font (supports Unicode box-drawing)
-- **Resolution**: Optimized for 379×109 (halfblock-based, fits most terminals)
-
-## Extending the Mod
-
-To add new scenes:
-1. Create `scenes/<name>/scene.yml`
-2. Define stages, layers, sprites
-3. Validate via `cargo run -p schema-gen -- --check`
-4. Reference in `scenes/<name>/layers/main.yml` (import shared assets)
-5. Link in prologue scene transitions
+- root `AUTHORING.md` for authored content rules
+- `mods/shell-quest-tests/README.AGENTS.MD` for the benchmark/test variant
+- `mods/shell-quest/os/cognitOS/README.md` for sidecar details

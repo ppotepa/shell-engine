@@ -17,8 +17,8 @@ use engine_core::effects::utils::color::{colour_to_rgb, lerp_colour};
 use engine_core::effects::utils::noise::crt_hash;
 use engine_core::scene::Effect;
 
+use engine_core::color::Color;
 use engine_core::world::World;
-use crossterm::style::Color;
 use registry::{compile_passes, CompiledPostFx, PostFxBuiltin};
 use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
@@ -47,7 +47,10 @@ pub(super) struct PostFxContext<'a> {
 
 pub fn postfx_system(world: &mut World) {
     // #16 opt-postfx-earlyret: skip all work when scene has no postfx passes.
-    if world.get::<engine_scene_runtime::SceneRuntime>().map_or(true, |rt| rt.scene().postfx.is_empty()) {
+    if world
+        .get::<engine_scene_runtime::SceneRuntime>()
+        .map_or(true, |rt| rt.scene().postfx.is_empty())
+    {
         return;
     }
 
@@ -58,11 +61,15 @@ pub fn postfx_system(world: &mut World) {
         let scene = runtime.scene();
         let scene_id = scene.id.clone();
         let fingerprint = passes_fingerprint(&scene.postfx);
-        let scene_elapsed_ms = world.get::<engine_animation::Animator>().map(|a| a.scene_elapsed_ms).unwrap_or(0);
+        let scene_elapsed_ms = world
+            .get::<engine_animation::Animator>()
+            .map(|a| a.scene_elapsed_ms)
+            .unwrap_or(0);
         // Only clone the pass list when the scene or pass config has changed.
         let needs_recompile = POSTFX_RUNTIME.with(|rt| {
             let rt = rt.borrow();
-            rt.last_scene_id.as_deref() != Some(&scene_id) || rt.last_pass_fingerprint != fingerprint
+            rt.last_scene_id.as_deref() != Some(&scene_id)
+                || rt.last_pass_fingerprint != fingerprint
         });
         let passes = if needs_recompile {
             scene.postfx.clone()
@@ -76,9 +83,10 @@ pub fn postfx_system(world: &mut World) {
     let should_skip_postfx = world
         .get::<std::sync::Mutex<Box<dyn engine_pipeline::FrameSkipOracle>>>()
         .and_then(|oracle| {
-            oracle.lock().ok().map(|mut o| {
-                o.should_skip_postfx(&scene_id, fingerprint)
-            })
+            oracle
+                .lock()
+                .ok()
+                .map(|mut o| o.should_skip_postfx(&scene_id, fingerprint))
         })
         .unwrap_or(false);
 
@@ -169,11 +177,11 @@ impl PostFxRuntime {
 
         // Swap buffer content into scratch_a (O(1) pointer swap instead of clone).
         std::mem::swap(a, buffer);
-        
+
         // Preserve the compositor's dirty region, which we'll need after all postfx passes.
         // Without this, swapping to intermediate scratch buffers loses the original dirty bounds.
         let mut combined_dirty = a.dirty_bounds();
-        
+
         let mut src_is_a = true;
         let mut last_written_is_a = true;
         let frame_count = self.frame_count;
@@ -233,7 +241,7 @@ impl PostFxRuntime {
         } else {
             std::mem::swap(buffer, b);
         }
-        
+
         // Restore the combined dirty region so that renderer (via DirtyRegionDiff strategy)
         // includes all affected areas from compositor + all postfx passes.
         buffer.expand_dirty_bounds(combined_dirty);
@@ -319,9 +327,7 @@ fn apply_compiled_pass(
             kind: PostFxBuiltin::BurnIn,
             effect,
         } => pass_burn_in::apply(ctx, src, dst, effect),
-        CompiledPostFx::CrtComposite { sub_passes } => {
-            pass_crt::apply(ctx, src, dst, sub_passes)
-        }
+        CompiledPostFx::CrtComposite { sub_passes } => pass_crt::apply(ctx, src, dst, sub_passes),
         CompiledPostFx::Generic(effect) => {
             dst.clone_from(src);
             let progress = effect_progress(effect, scene_elapsed_ms, frame_count);

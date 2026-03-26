@@ -1,33 +1,39 @@
 # engine-core
 
-Scene model, buffer management, effects, metadata, and strategy traits.
+Shared foundational types for the whole workspace.
 
 ## Purpose
 
-The foundation crate for the entire engine. Defines the scene data model
-(scenes, layers, sprites), the virtual buffer and cell system used for
-rendering, all built-in effect definitions and metadata, and the strategy
-traits that allow the render pipeline to be composed from pluggable
-implementations.
+`engine-core` is the base layer used by nearly every other crate. It owns the
+data types and low-level helpers that should not depend on engine orchestration.
+
+That includes:
+
+- the scene model consumed at runtime,
+- buffer and cell types,
+- asset source abstractions,
+- effect and authoring metadata,
+- game object and scene-runtime snapshot types,
+- the shared `World` container and access helpers.
 
 ## Key Types
 
-- `Scene` / `Layer` / `Sprite` — hierarchical scene data model
-- `Buffer` / `Cell` — virtual framebuffer and per-cell terminal state
-- `Effect` — trait for visual effects (fade, typewriter, glow, etc.)
-- `DiffStrategy` — trait for detecting dirty regions between frames
-- `LayerCompositor` — trait for compositing layers into a single buffer
-- `HalfblockPacker` — trait for packing cells into halfblock characters
-- `VirtualPresenter` — trait for presenting the virtual buffer to output
-- `TerminalFlusher` — trait for flushing composed output to the terminal
+- `Scene`, `Layer`, `Sprite` — normalized runtime scene model
+- `Buffer`, `Cell` — double-buffered terminal/virtual framebuffer types
+- `World` — shared type-indexed resource container
+- `GameObject` / `GameObjectKind` — runtime object graph types
+- `TargetResolver`, `ObjectRuntimeState`, `RawKeyEvent`, `SidecarIoFrameState` — shared scene-runtime data shapes
+- effect metadata and authoring catalogs used by compilers and editors
 
-## Dependencies
+## Working with this crate
 
-- `crossterm` — terminal style and color types
-- `serde` / `serde_yaml` — serialization of scene model
-- `chrono` — timestamp support
+When you add or change a cross-cutting model type, this is usually the right
+home. But keep pure data here: orchestration, scene lifecycle flow, behavior
+execution, and rendering algorithms belong in higher crates.
 
-## Usage
+If you change scene fields or public runtime types, also update:
 
-Nearly every other engine crate depends on `engine-core`. See
-`engine-core/README.AGENTS.MD` for detailed subsystem documentation.
+- `engine-authoring` compilation and normalization,
+- schema generation,
+- runtime consumers such as `engine-scene-runtime` and `engine-compositor`,
+- editor-facing metadata if authoring surfaces changed.

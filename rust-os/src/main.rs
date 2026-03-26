@@ -1,7 +1,7 @@
-use std::io::{BufRead, BufReader, Write};
 use engine_io::{IoEvent, IoRequest};
-use rust_os::AppHost;
 use rust_os::difficulty::{Difficulty, MachineSpec};
+use rust_os::AppHost;
+use std::io::{BufRead, BufReader, Write};
 
 fn main() {
     let stdin = std::io::stdin();
@@ -26,7 +26,8 @@ fn main() {
             Err(e) => {
                 let err = serde_json::to_string(&IoEvent::Out {
                     lines: vec![format!("[rust-os] parse error: {e}")],
-                }).unwrap_or_default();
+                })
+                .unwrap_or_default();
                 let _ = writeln!(out, "{err}");
                 let _ = out.flush();
                 continue;
@@ -34,8 +35,15 @@ fn main() {
         };
 
         // Initialize host on Hello
-        if let IoRequest::Hello { ref difficulty, cols, rows, .. } = req {
-            let diff = difficulty.as_deref()
+        if let IoRequest::Hello {
+            ref difficulty,
+            cols,
+            rows,
+            ..
+        } = req
+        {
+            let diff = difficulty
+                .as_deref()
                 .map(Difficulty::from_label)
                 .unwrap_or(Difficulty::ICanExitVim);
             let spec = MachineSpec::from_difficulty(diff);

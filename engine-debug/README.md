@@ -1,26 +1,24 @@
 # engine-debug
 
-Debug overlay rendering, log buffer, and memory statistics.
+Runtime debug flags, log buffering, and lightweight performance stats.
 
 ## Purpose
 
-Provides runtime diagnostic overlays drawn on top of the rendered scene.
-Includes a stats overlay (scene ID, virtual size, errors), a scrollable
-log overlay, and memory usage tracking. Activated with `--debug-feature`.
+`engine-debug` holds runtime-only diagnostics that can be enabled without
+changing the build profile. It tracks overlay state, recent log messages, FPS,
+per-system timings, and sampled process statistics.
 
-## Key Types
+## Key types
 
-- `DebugOverlay` — renders diagnostic information over the scene output
-- `DebugLogBuffer` — ring buffer collecting runtime log entries and script errors
-- `MemoryStats` — queries process RSS and heap usage via libc
+- `DebugLogBuffer` — recent runtime/script log entries
+- `DebugFeatures` — debug toggle state and overlay visibility
+- `DebugOverlayMode` — stats vs logs view
+- `FpsCounter` — smoothed FPS sample
+- `SystemTimings` — smoothed per-system timings
+- `ProcessStats` — sampled CPU and RSS statistics
 
-## Dependencies
+## Working with this crate
 
-- `crossterm` — terminal drawing primitives for overlay rendering
-- `libc` — system calls for memory usage queries
-
-## Usage
-
-Launch with `--debug-feature`, then use hotkeys:
-- **F1** — toggle Stats overlay
-- **~ / `** — toggle Logs overlay
+- keep debug helpers cheap when disabled,
+- prefer pushing meaningful runtime diagnostics here instead of scattering ad-hoc debug prints,
+- if new debug UI modes are added, update the launcher/help docs and keybinding docs too.

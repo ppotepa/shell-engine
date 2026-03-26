@@ -1,31 +1,31 @@
 pub mod clock;
 pub mod disk;
+pub mod events;
+pub mod journal;
+pub mod mail;
+pub mod modem;
+pub mod mount;
 pub mod network;
 pub mod process;
-pub mod users;
-pub mod mail;
-pub mod mount;
-pub mod modem;
-pub mod journal;
 pub mod resources;
-pub mod events;
 pub mod unit_of_work;
+pub mod users;
 
 use crate::difficulty::MachineSpec;
 use crate::hardware::HardwareProfile;
-use crate::state::{MachineState, QuestState, FileStat};
+use crate::state::{FileStat, MachineState, QuestState};
 use crate::vfs::Vfs;
 use clock::SimulatedClock;
 use disk::SimulatedDisk;
+use events::KernelEventQueue;
+use journal::Journal;
+use mail::MailSpool;
+use modem::SimulatedModem;
+use mount::MountTable;
 use network::SimulatedNetwork;
 use process::SimulatedProcessTable;
-use users::UserDatabase;
-use mail::MailSpool;
-use mount::MountTable;
-use modem::SimulatedModem;
-use journal::Journal;
 use resources::ResourceState;
-use events::KernelEventQueue;
+use users::UserDatabase;
 
 pub struct Kernel {
     pub spec: MachineSpec,

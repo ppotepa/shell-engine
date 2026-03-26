@@ -1,5 +1,5 @@
-use crate::state::QuestState;
 use crate::session::UserSession;
+use crate::state::QuestState;
 
 /// Accumulated output with per-line delays.
 pub struct ScheduledLine {

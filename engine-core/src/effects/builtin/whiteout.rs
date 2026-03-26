@@ -3,7 +3,7 @@ use crate::effects::effect::{Effect, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING, P_INTENSITY};
 use crate::effects::utils::color::lerp_colour;
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "whiteout",

@@ -17,8 +17,7 @@ impl FrameCapture {
     /// Create a new frame capture writer, initializing output directory.
     pub fn new(output_dir: impl Into<PathBuf>) -> Result<Self, EngineError> {
         let output_dir = output_dir.into();
-        fs::create_dir_all(&output_dir)
-            .map_err(|e| EngineError::Render(e))?;
+        fs::create_dir_all(&output_dir).map_err(|e| EngineError::Render(e))?;
         Ok(Self {
             output_dir,
             frame_num: 0,
@@ -33,8 +32,7 @@ impl FrameCapture {
         let filename = format!("frame_{:06}.bin", self.frame_num);
         let path = self.output_dir.join(&filename);
 
-        let mut file = fs::File::create(&path)
-            .map_err(|e| EngineError::Render(e))?;
+        let mut file = fs::File::create(&path).map_err(|e| EngineError::Render(e))?;
 
         // Write header
         file.write_all(&buffer.width.to_le_bytes())
@@ -77,8 +75,8 @@ fn write_cell(file: &mut fs::File, cell: &Cell) -> Result<(), EngineError> {
     Ok(())
 }
 
-fn color_to_rgb(color: crossterm::style::Color) -> (u8, u8, u8) {
-    use crossterm::style::Color;
+fn color_to_rgb(color: engine_core::color::Color) -> (u8, u8, u8) {
+    use engine_core::color::Color;
     match color {
         Color::Reset => (0, 0, 0),
         Color::Black => (0, 0, 0),
@@ -98,7 +96,6 @@ fn color_to_rgb(color: crossterm::style::Color) -> (u8, u8, u8) {
         Color::DarkMagenta => (128, 0, 128),
         Color::DarkCyan => (0, 128, 128),
         Color::Rgb { r, g, b } => (r, g, b),
-        Color::AnsiValue(val) => ansi_to_rgb(val),
     }
 }
 
@@ -158,11 +155,15 @@ mod tests {
 
     #[test]
     fn test_color_to_rgb() {
-        use crossterm::style::Color;
+        use engine_core::color::Color;
         assert_eq!(color_to_rgb(Color::Black), (0, 0, 0));
         assert_eq!(color_to_rgb(Color::White), (255, 255, 255));
         assert_eq!(
-            color_to_rgb(Color::Rgb { r: 100, g: 150, b: 200 }),
+            color_to_rgb(Color::Rgb {
+                r: 100,
+                g: 150,
+                b: 200
+            }),
             (100, 150, 200)
         );
     }

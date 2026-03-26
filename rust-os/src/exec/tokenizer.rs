@@ -84,7 +84,11 @@ fn parse_simple(input: &str) -> SimpleCommand {
         }
     }
 
-    SimpleCommand { tokens, redirect_file, redirect_append }
+    SimpleCommand {
+        tokens,
+        redirect_file,
+        redirect_append,
+    }
 }
 
 fn tokenize_words(input: &str) -> Vec<String> {

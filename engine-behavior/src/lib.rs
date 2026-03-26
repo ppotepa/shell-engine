@@ -8,14 +8,16 @@ use std::f32::consts::TAU;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
+use engine_animation::SceneStage;
+use engine_core::authoring::metadata::FieldMetadata;
 use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
 use engine_core::game_state::GameState;
-use engine_core::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
-use engine_core::scene_runtime_types::{ObjectRuntimeState, RawKeyEvent, TargetResolver, SidecarIoFrameState};
-use engine_animation::SceneStage;
-use engine_core::authoring::metadata::FieldMetadata;
 use engine_core::logging;
+use engine_core::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
+use engine_core::scene_runtime_types::{
+    ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
+};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 
@@ -168,7 +170,11 @@ impl Behavior for SceneAudioBehavior {
                 "engine.audio.behavior",
                 format!(
                     "scene={} stage={:?} elapsed={}ms cues={} emitted={}",
-                    scene.id, ctx.stage, ctx.scene_elapsed_ms, cues.len(), self.emitted.len()
+                    scene.id,
+                    ctx.stage,
+                    ctx.scene_elapsed_ms,
+                    cues.len(),
+                    self.emitted.len()
                 ),
             );
         }
@@ -663,15 +669,22 @@ impl ScriptSceneApi {
         target_resolver: Arc<TargetResolver>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
-        Self { object_states, object_kinds, object_props, object_regions, object_text, target_resolver, queue }
+        Self {
+            object_states,
+            object_kinds,
+            object_props,
+            object_regions,
+            object_text,
+            target_resolver,
+            queue,
+        }
     }
 
     /// Lazily build a single-object entry on demand instead of pre-building the
     /// entire 50+ object map. This is the critical hot-path optimization (OPT-3).
     fn get(&mut self, target: &str) -> ScriptObjectApi {
         // Resolve alias → real object id.
-        let object_id = self.target_resolver.resolve_alias(target)
-            .unwrap_or(target);
+        let object_id = self.target_resolver.resolve_alias(target).unwrap_or(target);
 
         let snapshot = self.build_object_entry(object_id);
         ScriptObjectApi {
@@ -685,7 +698,9 @@ impl ScriptSceneApi {
         let Some(state) = self.object_states.get(object_id) else {
             return RhaiMap::new();
         };
-        let kind = self.object_kinds.get(object_id)
+        let kind = self
+            .object_kinds
+            .get(object_id)
             .cloned()
             .unwrap_or_else(|| "unknown".to_string());
         let mut entry = RhaiMap::new();
@@ -717,7 +732,10 @@ impl ScriptSceneApi {
             }
         }
         entry.insert("props".into(), props.into());
-        entry.insert("capabilities".into(), kind_capabilities(Some(kind.as_str())).into());
+        entry.insert(
+            "capabilities".into(),
+            kind_capabilities(Some(kind.as_str())).into(),
+        );
         entry
     }
 
@@ -727,7 +745,9 @@ impl ScriptSceneApi {
             return;
         };
         // Resolve alias for the target.
-        let resolved = self.target_resolver.resolve_alias(target)
+        let resolved = self
+            .target_resolver
+            .resolve_alias(target)
             .unwrap_or(target)
             .to_string();
         let Ok(mut queue) = self.queue.lock() else {
@@ -906,7 +926,6 @@ impl RhaiScriptBehavior {
         }
         regions
     }
-
 }
 
 impl Behavior for RhaiScriptBehavior {
@@ -956,10 +975,7 @@ impl Behavior for RhaiScriptBehavior {
                 // point. `local` is seeded from `self.state` so scripts migrating
                 // from the legacy `{state: ...}` return pattern get their state.
                 if *base_len == 0 {
-                    scope.push_dynamic(
-                        "params",
-                        behavior_params_to_rhai_map(&self.params).into(),
-                    );
+                    scope.push_dynamic("params", behavior_params_to_rhai_map(&self.params).into());
                     scope.push_dynamic("local", json_to_rhai_dynamic(&self.state));
                     *base_len = scope.len();
                 }
@@ -997,24 +1013,42 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
                 scope.push(
                     "ui_focused_target",
-                    ctx.ui_focused_target_id.as_deref().unwrap_or_default().to_string(),
+                    ctx.ui_focused_target_id
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_string(),
                 );
-                scope.push("ui_theme", ctx.ui_theme_id.as_deref().unwrap_or_default().to_string());
+                scope.push(
+                    "ui_theme",
+                    ctx.ui_theme_id.as_deref().unwrap_or_default().to_string(),
+                );
                 scope.push(
                     "ui_submit_target",
-                    ctx.ui_last_submit_target_id.as_deref().unwrap_or_default().to_string(),
+                    ctx.ui_last_submit_target_id
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_string(),
                 );
                 scope.push(
                     "ui_submit_text",
-                    ctx.ui_last_submit_text.as_deref().unwrap_or_default().to_string(),
+                    ctx.ui_last_submit_text
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_string(),
                 );
                 scope.push(
                     "ui_change_target",
-                    ctx.ui_last_change_target_id.as_deref().unwrap_or_default().to_string(),
+                    ctx.ui_last_change_target_id
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_string(),
                 );
                 scope.push(
                     "ui_change_text",
-                    ctx.ui_last_change_text.as_deref().unwrap_or_default().to_string(),
+                    ctx.ui_last_change_text
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_string(),
                 );
                 scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
                 scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
@@ -1097,8 +1131,7 @@ impl Behavior for RhaiScriptBehavior {
                         drop(borrow);
                         match engine.compile(script) {
                             Ok(ast) => {
-                                let result =
-                                    engine.eval_ast_with_scope::<RhaiDynamic>(scope, &ast);
+                                let result = engine.eval_ast_with_scope::<RhaiDynamic>(scope, &ast);
                                 cache.borrow_mut().insert(hash, ast);
                                 result
                             }
@@ -1139,7 +1172,11 @@ impl Behavior for RhaiScriptBehavior {
 
 /// Executes a tiny multi-step runtime probe against a Rhai script using the same
 /// behavior runtime path as the game loop.
-pub fn smoke_validate_rhai_script(script: &str, src: Option<&str>, scene: &Scene) -> Result<(), String> {
+pub fn smoke_validate_rhai_script(
+    script: &str,
+    src: Option<&str>,
+    scene: &Scene,
+) -> Result<(), String> {
     let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
         src: src.map(ToString::to_string),
         script: Some(script.to_string()),
@@ -1884,7 +1921,7 @@ mod tests {
         RhaiScriptBehavior, SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
         TimedVisibilityBehavior,
     };
-    use rhai::Map as RhaiMap;
+    use engine_animation::SceneStage;
     use engine_core::effects::Region;
     use engine_core::game_object::{GameObject, GameObjectKind};
     use engine_core::game_state::GameState;
@@ -1892,8 +1929,10 @@ mod tests {
         AudioCue, BehaviorParams, BehaviorSpec, MenuOption, Scene, SceneAudio, SceneRenderedMode,
         SceneStages, TermColour,
     };
-    use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver, SidecarIoFrameState};
-    use engine_animation::SceneStage;
+    use engine_core::scene_runtime_types::{
+        ObjectRuntimeState, SidecarIoFrameState, TargetResolver,
+    };
+    use rhai::Map as RhaiMap;
     use serde_json::Value as JsonValue;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -2020,8 +2059,14 @@ mod tests {
         // Build time map with correct values for this test context
         let rhai_time_map = {
             let mut time_map = RhaiMap::new();
-            time_map.insert("scene_elapsed_ms".into(), (scene_elapsed_ms as rhai::INT).into());
-            time_map.insert("stage_elapsed_ms".into(), (stage_elapsed_ms as rhai::INT).into());
+            time_map.insert(
+                "scene_elapsed_ms".into(),
+                (scene_elapsed_ms as rhai::INT).into(),
+            );
+            time_map.insert(
+                "stage_elapsed_ms".into(),
+                (stage_elapsed_ms as rhai::INT).into(),
+            );
             let stage_str: &str = match stage {
                 SceneStage::OnEnter => "on_enter",
                 SceneStage::OnIdle => "on_idle",
@@ -2031,7 +2076,7 @@ mod tests {
             time_map.insert("stage".into(), stage_str.into());
             Arc::new(time_map)
         };
-        
+
         BehaviorContext {
             stage,
             scene_elapsed_ms,
@@ -2044,7 +2089,10 @@ mod tests {
     fn update_ctx_menu_map(ctx: &mut BehaviorContext, menu_count: usize) {
         // When test modifies menu_selected_index, rebuild the menu map to match
         let mut menu_map = RhaiMap::new();
-        menu_map.insert("selected_index".into(), (ctx.menu_selected_index as rhai::INT).into());
+        menu_map.insert(
+            "selected_index".into(),
+            (ctx.menu_selected_index as rhai::INT).into(),
+        );
         menu_map.insert("count".into(), (menu_count as rhai::INT).into());
         ctx.rhai_menu_map = Arc::new(menu_map);
     }
@@ -3416,7 +3464,11 @@ out
             ..BehaviorParams::default()
         });
         let first = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 0, 0));
-        let second = run_behavior(&mut behavior, &base_scene(), ctx(SceneStage::OnIdle, 16, 16));
+        let second = run_behavior(
+            &mut behavior,
+            &base_scene(),
+            ctx(SceneStage::OnIdle, 16, 16),
+        );
         let first_errors = first
             .iter()
             .filter(|c| matches!(c, BehaviorCommand::ScriptError { .. }))
@@ -3425,7 +3477,10 @@ out
             .iter()
             .filter(|c| matches!(c, BehaviorCommand::ScriptError { .. }))
             .count();
-        assert_eq!(first_errors, 1, "first tick should emit exactly one ScriptError");
+        assert_eq!(
+            first_errors, 1,
+            "first tick should emit exactly one ScriptError"
+        );
         assert_eq!(
             second_errors, 0,
             "subsequent ticks should not spam compile ScriptError"
@@ -3442,7 +3497,10 @@ out
         let has_script_error = commands
             .iter()
             .any(|c| matches!(c, BehaviorCommand::ScriptError { .. }));
-        assert!(!has_script_error, "should not emit ScriptError for valid script");
+        assert!(
+            !has_script_error,
+            "should not emit ScriptError for valid script"
+        );
     }
 
     #[test]
@@ -3459,7 +3517,10 @@ out
             .iter()
             .find(|c| matches!(c, BehaviorCommand::ScriptError { .. }));
         assert!(error_cmd.is_some(), "expected ScriptError command");
-        if let Some(BehaviorCommand::ScriptError { scene_id, source, .. }) = error_cmd {
+        if let Some(BehaviorCommand::ScriptError {
+            scene_id, source, ..
+        }) = error_cmd
+        {
             assert_eq!(scene_id, "intro-login");
             assert_eq!(source.as_deref(), Some("./scene.rhai"));
         }
@@ -3470,9 +3531,7 @@ out
     #[test]
     fn rhai_script_behavior_game_state_set_persists_to_game_state() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
-            script: Some(
-                r#"game.set("/session/user", "linus"); #{}"#.to_string(),
-            ),
+            script: Some(r#"game.set("/session/user", "linus"); #{}"#.to_string()),
             ..BehaviorParams::default()
         });
         let game_state = GameState::new();
@@ -3504,7 +3563,9 @@ let ok = game.has("/quests/first_message/completed");
         test_ctx.game_state = Some(game_state);
         let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
         assert!(
-            !commands.iter().any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
             "game.has after game.set should not produce a ScriptError"
         );
     }

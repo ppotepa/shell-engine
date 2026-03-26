@@ -3,7 +3,7 @@ use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{select, slider, EffectMetadata, P_EASING};
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Mutex, OnceLock};
@@ -480,7 +480,7 @@ mod tests {
     use crate::buffer::Buffer;
     use crate::effects::effect::{Effect, EffectTargetMask, Region};
     use crate::scene::EffectParams;
-    use crossterm::style::Color;
+    use crate::color::Color;
     use std::collections::BTreeSet;
 
     #[test]

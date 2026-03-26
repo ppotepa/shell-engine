@@ -1,1 +1,1 @@
-pub use engine_core::assets::{AssetRoot, resolve_asset_path};
+pub use engine_core::assets::{resolve_asset_path, AssetRoot};

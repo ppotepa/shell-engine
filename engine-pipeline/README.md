@@ -1,31 +1,30 @@
 # engine-pipeline
 
-Pure data struct for pipeline optimization flags.
+Pipeline flags and reusable rendering strategy interfaces.
 
 ## Purpose
 
-Holds the set of boolean flags that control render pipeline
-optimizations. Passed through the runtime to enable or disable
-compositor, diff, present, skip, and row-diff optimizations
-without coupling flag parsing to pipeline internals.
+`engine-pipeline` is the shared configuration and strategy layer for the render
+pipeline. It holds startup-time optimization flags and exports the trait-based
+strategy building blocks used to assemble the active pipeline behavior.
 
-## Key Types
+## Main exports
 
-- `PipelineFlags` — struct with fields: `opt_comp`, `opt_diff`, `opt_present`, `opt_skip`, `opt_rowdiff`
+- `PipelineFlags`
+- `PipelineStrategies`
+- strategy traits and implementations from `strategies`
 
-## Dependencies
+## What `PipelineFlags` controls
 
-None — this is a standalone data crate with no external dependencies.
+- async render-thread usage,
+- scene-change redraw guards,
+- renderer-mode locking,
+- compositor optimization gates,
+- diff/present/skip optimizations,
+- async display offload.
 
-## Usage
+## Working with this crate
 
-Flags are set from CLI arguments:
-
-| Flag | Effect |
-|------|--------|
-| `--opt-comp` | Compositor scratch skip, dirty-region halfblock |
-| `--opt-diff` | DirtyRegionDiff instead of full buffer scan |
-| `--opt-present` | Hash-based static frame skip |
-| `--opt-skip` | Unified frame-skip oracle |
-| `--opt-rowdiff` | Row-level dirty skip in diff scan |
-| `--opt` | All of the above |
+- keep flags as startup configuration, not ad-hoc runtime switches,
+- prefer expressing pipeline variation through strategies instead of branching everywhere,
+- when optimization flags change, update root optimization docs and benchmark workflows too.

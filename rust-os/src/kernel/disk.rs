@@ -7,9 +7,16 @@ pub struct SimulatedDisk {
 
 impl SimulatedDisk {
     pub fn new() -> Self {
-        Self { total_reads: 0, total_writes: 0 }
+        Self {
+            total_reads: 0,
+            total_writes: 0,
+        }
     }
 
-    pub fn record_read(&mut self) { self.total_reads += 1; }
-    pub fn record_write(&mut self) { self.total_writes += 1; }
+    pub fn record_read(&mut self) {
+        self.total_reads += 1;
+    }
+    pub fn record_write(&mut self) {
+        self.total_writes += 1;
+    }
 }

@@ -3,8 +3,8 @@
 //! Type definitions, traits, and helper functions for the asset source pipeline.
 //! Concrete loaders (e.g. ModAssetSourceLoader) live in the engine crate.
 
-use std::sync::Arc;
 use crate::asset_cache::AssetCache;
+use std::sync::Arc;
 
 /// Supported runtime source categories.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,8 +49,14 @@ impl SourceRef {
 
 /// Loads raw bytes for a given source reference.
 pub trait SourceLoader {
-    fn read_bytes(&self, source: &SourceRef) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>;
-    fn has_source(&self, source: &SourceRef) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;
+    fn read_bytes(
+        &self,
+        source: &SourceRef,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>;
+    fn has_source(
+        &self,
+        source: &SourceRef,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;
     fn cache_key(&self, source: &SourceRef) -> String;
 }
 

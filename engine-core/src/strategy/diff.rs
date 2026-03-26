@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use crate::color::Color;
 
 use crate::buffer::Buffer;
 

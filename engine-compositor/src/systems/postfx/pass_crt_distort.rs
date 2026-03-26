@@ -77,9 +77,9 @@ pub(super) fn apply(_ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pa
 #[cfg(test)]
 mod tests {
     use super::apply;
+    use engine_core::color::Color;
     use engine_core::buffer::Buffer;
     use engine_core::scene::{Effect, EffectParams, EffectTargetKind};
-    use crossterm::style::Color;
 
     fn pass_with_defaults() -> Effect {
         Effect {

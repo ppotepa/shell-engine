@@ -1,12 +1,12 @@
 //! RendererProvider trait — decouples renderer from engine's World type.
 
-use engine_core::buffer::{Buffer, VirtualBuffer};
-use engine_debug::{DebugFeatures, FpsCounter, ProcessStats, SystemTimings};
-use engine_debug::DebugLogBuffer;
-use engine_runtime::RuntimeSettings;
-use engine_animation::Animator;
-use engine_pipeline::{PipelineStrategies, FrameSkipOracle};
 use crate::renderer::TerminalRenderer;
+use engine_animation::Animator;
+use engine_core::buffer::{Buffer, VirtualBuffer};
+use engine_debug::DebugLogBuffer;
+use engine_debug::{DebugFeatures, FpsCounter, ProcessStats, SystemTimings};
+use engine_pipeline::{FrameSkipOracle, PipelineStrategies};
+use engine_runtime::RuntimeSettings;
 use std::sync::Mutex;
 
 pub trait RendererProvider {

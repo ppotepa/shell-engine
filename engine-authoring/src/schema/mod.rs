@@ -188,10 +188,48 @@ pub fn generate_mod_schema_files(mod_root: &Path) -> Result<Vec<GeneratedSchemaF
 /// Renders one schema document as YAML with a trailing newline.
 pub fn render_schema_file(value: &Value) -> Result<String> {
     let mut yaml = serde_yaml::to_string(value)?;
+    yaml = quote_problematic_schema_scalars(&yaml);
     if !yaml.ends_with('\n') {
         yaml.push('\n');
     }
     Ok(yaml)
+}
+
+fn quote_problematic_schema_scalars(yaml: &str) -> String {
+    yaml.lines()
+        .map(|line| sanitize_schema_line(line))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn sanitize_schema_line(line: &str) -> String {
+    let Some(colon_idx) = line.find(':') else {
+        return line.to_string();
+    };
+    let (prefix, rest) = line.split_at(colon_idx + 1);
+    let Some(value) = rest.strip_prefix(' ') else {
+        return line.to_string();
+    };
+
+    let key = prefix.trim_end_matches(':').trim();
+    if !matches!(key, "description" | "title") {
+        return line.to_string();
+    }
+    if value.is_empty()
+        || value.starts_with('"')
+        || value.starts_with('\'')
+        || value.starts_with('[')
+        || value.starts_with('{')
+        || value.starts_with('|')
+        || value.starts_with('>')
+    {
+        return line.to_string();
+    }
+    if !value.contains(": ") {
+        return line.to_string();
+    }
+
+    format!("{prefix} '{}'", value.replace('\'', "''"))
 }
 
 fn output_file(file_name: String, value: Value) -> GeneratedSchemaFile {
@@ -1156,44 +1194,44 @@ fn build_effect_file_overlay_schema(mod_name: &str, effect_names: &BTreeSet<Stri
 fn effect_variant_schemas(mod_name: &str, effect_names: &BTreeSet<String>) -> Vec<Value> {
     let mut variants = vec![effect_preset_alias_schema()];
     variants.extend(effect_names.iter().map(|effect_name| {
-            let meta = shared_dispatcher().metadata(effect_name);
-            let mut name_props = Mapping::new();
-            name_props.insert(
-                Value::String("name".to_string()),
-                Value::Mapping(mapping_with(
-                    "const",
-                    Value::String(effect_name.to_string()),
-                )),
-            );
-            name_props.insert(
-                Value::String("params".to_string()),
-                effect_params_schema(meta.params),
-            );
-
-            let mut patch = Mapping::new();
-            patch.insert(
-                Value::String("properties".to_string()),
-                Value::Mapping(name_props),
-            );
-            patch.insert(
-                Value::String("title".to_string()),
-                Value::String(format!("{effect_name} effect variant")),
-            );
-
+        let meta = shared_dispatcher().metadata(effect_name);
+        let mut name_props = Mapping::new();
+        name_props.insert(
+            Value::String("name".to_string()),
             Value::Mapping(mapping_with(
-                "allOf",
-                Value::Sequence(vec![
-                    schema_ref("../../../schemas/effect-file.schema.yaml#/items"),
-                    Value::Mapping(patch),
-                    Value::Mapping(mapping_with(
-                        "description",
-                        Value::String(format!(
-                            "{effect_name} overlay from {mod_name} generated metadata"
-                        )),
+                "const",
+                Value::String(effect_name.to_string()),
+            )),
+        );
+        name_props.insert(
+            Value::String("params".to_string()),
+            effect_params_schema(meta.params),
+        );
+
+        let mut patch = Mapping::new();
+        patch.insert(
+            Value::String("properties".to_string()),
+            Value::Mapping(name_props),
+        );
+        patch.insert(
+            Value::String("title".to_string()),
+            Value::String(format!("{effect_name} effect variant")),
+        );
+
+        Value::Mapping(mapping_with(
+            "allOf",
+            Value::Sequence(vec![
+                schema_ref("../../../schemas/effect-file.schema.yaml#/items"),
+                Value::Mapping(patch),
+                Value::Mapping(mapping_with(
+                    "description",
+                    Value::String(format!(
+                        "{effect_name} overlay from {mod_name} generated metadata"
                     )),
-                ]),
-            ))
-        }));
+                )),
+            ]),
+        ))
+    }));
     variants
 }
 
@@ -2676,6 +2714,7 @@ mod tests {
         build_animation_schema, build_behavior_schema, build_input_profile_schema,
         build_sugar_schema, generate_mod_schema_files, render_schema_file,
     };
+    use serde_yaml::Mapping;
     use serde_yaml::Value;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -2857,6 +2896,21 @@ mod tests {
         assert!(object_overlay_yaml.contains("const: blink"));
         assert!(object_overlay_yaml.contains("behavior:"));
         assert!(object_overlay_yaml.contains("visible_ms:"));
+    }
+
+    #[test]
+    fn render_schema_file_quotes_description_scalars_with_inline_colons() {
+        let mut root = Mapping::new();
+        root.insert(
+            Value::String("description".to_string()),
+            Value::String("External sidecar process configuration used when `mode: sidecar`.".into()),
+        );
+
+        let yaml = render_schema_file(&Value::Mapping(root)).expect("render schema");
+        assert!(yaml.contains(
+            "description: 'External sidecar process configuration used when `mode: sidecar`.'"
+        ));
+        serde_yaml::from_str::<Value>(&yaml).expect("rendered yaml should parse");
     }
 
     #[test]

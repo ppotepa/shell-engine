@@ -1,29 +1,26 @@
 # engine-io
 
-Transport-agnostic IPC bridge for sidecar communication.
+Transport-agnostic sidecar bridge for external process integration.
 
 ## Purpose
 
-Defines a trait-based transport layer for communicating with external
-sidecar processes (e.g., the C# cognitOS simulator). Supports TCP
-connections, process lifecycle management, and a null transport for
-testing without a live sidecar.
+`engine-io` defines the JSON-line protocol and transport abstractions used to
+talk to sidecar applications such as the `cognitOS` simulator.
 
-## Key Types
+It supports both stdio-backed child processes and localhost TCP sidecars behind
+the same `SidecarTransport` contract.
 
-- `SidecarTransport` — trait for sending/receiving `IpcMessage` values
-- `TcpSidecar` — TCP-based transport implementation
-- `SidecarProcess` — manages spawning and stopping the sidecar process
-- `NullTransport` — no-op transport for headless and test runs
-- `IpcMessage` — JSON-serialized message envelope
+## Key types
 
-## Dependencies
+- `IoRequest` — outbound requests sent to the sidecar
+- `IoEvent` — inbound sidecar events consumed by the engine
+- `SidecarTransport` — common transport trait
+- `SidecarProcess` — stdio transport/process host
+- `TcpSidecar` — TCP transport/process host
+- `EngineIoError` — transport/process error type
 
-- `serde` / `serde_json` — message serialization
-- `thiserror` — error type derivation
+## Working with this crate
 
-## Usage
-
-The runtime selects a transport at startup. Scene behaviors send
-commands to the sidecar via `SidecarTransport::send()` and poll
-responses with `recv()`.
+- keep the protocol transport-agnostic and scene-agnostic,
+- preserve JSON compatibility because engine and sidecar may evolve independently,
+- when adding new request/event variants, update both the engine handlers and the sidecar implementation together.

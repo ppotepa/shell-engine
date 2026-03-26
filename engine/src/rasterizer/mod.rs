@@ -3,8 +3,8 @@ pub use engine_render_terminal::rasterizer::generic;
 mod types;
 
 use crate::buffer::Buffer;
+use engine_core::color::Color;
 use engine_core::scene::sprite::TextTransform;
-use crossterm::style::Color;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
@@ -21,7 +21,13 @@ fn color_key(c: Color) -> (u8, u8, u8) {
 }
 
 // Hash-based cache key — eliminates 3× String allocations per lookup.
-fn raster_cache_hash(mod_source: Option<&Path>, text: &str, font: &str, fg: Color, bg: Color) -> u64 {
+fn raster_cache_hash(
+    mod_source: Option<&Path>,
+    text: &str,
+    font: &str,
+    fg: Color,
+    bg: Color,
+) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     mod_source.map(|p| p.to_string_lossy()).hash(&mut h);
@@ -82,7 +88,14 @@ pub fn rasterize(
                 let (width, height) = generic::generic_dimensions_tiny(text);
                 let mut out = Buffer::new(width.max(1), height.max(1));
                 out.fill(Color::Reset);
-                generic::rasterize_generic_tiny(text, fg, 0, 0, &mut out, &TextTransform::Uppercase);
+                generic::rasterize_generic_tiny(
+                    text,
+                    fg,
+                    0,
+                    0,
+                    &mut out,
+                    &TextTransform::Uppercase,
+                );
                 return out;
             }
             3 => {

@@ -23,14 +23,14 @@ pub struct SceneDocument {
 
 impl SceneDocument {
     /// Normalizes authored YAML and materializes the runtime [`Scene`] model.
-    /// 
+    ///
     /// In debug mode, validates sprite timeline and logs warnings for sprites
     /// that will never be visible.
     pub fn compile(self) -> Result<Scene, serde_yaml::Error> {
         let mut normalized = self.raw;
         normalize_scene_value(&mut normalized)?;
         let scene: Scene = serde_yaml::from_value(normalized)?;
-        
+
         #[cfg(debug_assertions)]
         {
             use crate::validate::validate_sprite_timeline;
@@ -62,7 +62,7 @@ impl SceneDocument {
                 }
             }
         }
-        
+
         Ok(scene)
     }
 }

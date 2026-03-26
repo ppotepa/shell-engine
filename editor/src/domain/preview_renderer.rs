@@ -2,13 +2,13 @@
 
 use std::path::Path;
 
+use engine::animation::{Animator, SceneStage};
 use engine::assets::AssetRoot;
 use engine::audio::AudioRuntime;
 use engine::buffer::Buffer;
 use engine::runtime_settings::RuntimeSettings;
 use engine::scene::Scene;
 use engine::scene_runtime::SceneRuntime;
-use engine::animation::{Animator, SceneStage};
 use engine::systems::compositor::compositor_system;
 use engine::world::World;
 use ratatui::style::{Color, Style};
@@ -79,26 +79,26 @@ pub fn buffer_to_lines(buffer: &Buffer) -> Vec<Line<'static>> {
     out
 }
 
-fn to_ratatui_color(color: crossterm::style::Color) -> Color {
+fn to_ratatui_color(color: engine_core::color::Color) -> Color {
     match color {
-        crossterm::style::Color::Reset => Color::Reset,
-        crossterm::style::Color::Black => Color::Black,
-        crossterm::style::Color::DarkGrey => Color::DarkGray,
-        crossterm::style::Color::Red => Color::Red,
-        crossterm::style::Color::DarkRed => Color::LightRed,
-        crossterm::style::Color::Green => Color::Green,
-        crossterm::style::Color::DarkGreen => Color::LightGreen,
-        crossterm::style::Color::Yellow => Color::Yellow,
-        crossterm::style::Color::DarkYellow => Color::LightYellow,
-        crossterm::style::Color::Blue => Color::Blue,
-        crossterm::style::Color::DarkBlue => Color::LightBlue,
-        crossterm::style::Color::Magenta => Color::Magenta,
-        crossterm::style::Color::DarkMagenta => Color::LightMagenta,
-        crossterm::style::Color::Cyan => Color::Cyan,
-        crossterm::style::Color::DarkCyan => Color::LightCyan,
-        crossterm::style::Color::White => Color::White,
-        crossterm::style::Color::Grey => Color::Gray,
-        crossterm::style::Color::Rgb { r, g, b } => Color::Rgb(r, g, b),
-        crossterm::style::Color::AnsiValue(v) => Color::Indexed(v),
+        engine_core::color::Color::Reset => Color::Reset,
+        engine_core::color::Color::Black => Color::Black,
+        engine_core::color::Color::DarkGrey => Color::DarkGray,
+        engine_core::color::Color::Red => Color::Red,
+        engine_core::color::Color::DarkRed => Color::LightRed,
+        engine_core::color::Color::Green => Color::Green,
+        engine_core::color::Color::DarkGreen => Color::LightGreen,
+        engine_core::color::Color::Yellow => Color::Yellow,
+        engine_core::color::Color::DarkYellow => Color::LightYellow,
+        engine_core::color::Color::Blue => Color::Blue,
+        engine_core::color::Color::DarkBlue => Color::LightBlue,
+        engine_core::color::Color::Magenta => Color::Magenta,
+        engine_core::color::Color::DarkMagenta => Color::LightMagenta,
+        engine_core::color::Color::Cyan => Color::Cyan,
+        engine_core::color::Color::DarkCyan => Color::LightCyan,
+        engine_core::color::Color::White => Color::White,
+        engine_core::color::Color::Grey => Color::Gray,
+        engine_core::color::Color::Rgb { r, g, b } => Color::Rgb(r, g, b),
+        engine_core::color::Color::AnsiValue(v) => Color::Indexed(v),
     }
 }

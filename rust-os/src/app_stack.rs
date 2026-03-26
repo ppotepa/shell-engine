@@ -13,7 +13,9 @@ pub struct AppStack {
 
 impl AppStack {
     pub fn new() -> Self {
-        Self { pending: Vec::new() }
+        Self {
+            pending: Vec::new(),
+        }
     }
 
     /// Enqueue scheduled lines from a command execution.

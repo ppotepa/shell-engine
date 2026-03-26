@@ -4,6 +4,7 @@
 //! the pre-run startup check framework.
 
 pub mod startup;
+pub mod terminal_caps;
 
 use std::{
     fs,

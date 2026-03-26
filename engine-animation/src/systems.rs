@@ -158,8 +158,8 @@ fn tick_animator_primitives(
 mod tests {
     use super::*;
     use engine_core::scene::{
-        Scene, Stage, Step, StageTrigger, SceneStages, SceneAudio, SceneUi, SceneInput,
-        SceneRenderedMode,
+        Scene, SceneAudio, SceneInput, SceneRenderedMode, SceneStages, SceneUi, Stage,
+        StageTrigger, Step,
     };
 
     struct TestAnimatorProvider {
@@ -232,9 +232,18 @@ mod tests {
         scene.stages.on_enter = Stage {
             trigger: StageTrigger::None,
             steps: vec![
-                Step { effects: Vec::new(), duration: Some(200) },
-                Step { effects: Vec::new(), duration: Some(400) },
-                Step { effects: Vec::new(), duration: Some(100) },
+                Step {
+                    effects: Vec::new(),
+                    duration: Some(200),
+                },
+                Step {
+                    effects: Vec::new(),
+                    duration: Some(400),
+                },
+                Step {
+                    effects: Vec::new(),
+                    duration: Some(100),
+                },
             ],
             looping: false,
         };
@@ -246,7 +255,10 @@ mod tests {
         // Step 0 (200ms): tick 150ms — still in step 0
         animator_system(&mut provider, 150);
         assert_eq!(provider.animator.as_ref().unwrap().step_idx, 0);
-        assert_eq!(provider.animator.as_ref().unwrap().stage, crate::SceneStage::OnEnter);
+        assert_eq!(
+            provider.animator.as_ref().unwrap().stage,
+            crate::SceneStage::OnEnter
+        );
 
         // Tick 60ms more (total 210ms) — should advance to step 1
         animator_system(&mut provider, 60);
@@ -258,7 +270,10 @@ mod tests {
 
         // Step 2 (100ms): tick 110ms — should transition to OnIdle
         animator_system(&mut provider, 110);
-        assert_eq!(provider.animator.as_ref().unwrap().stage, crate::SceneStage::OnIdle);
+        assert_eq!(
+            provider.animator.as_ref().unwrap().stage,
+            crate::SceneStage::OnIdle
+        );
     }
 
     #[test]
@@ -266,9 +281,10 @@ mod tests {
         let mut scene = minimal_scene();
         scene.stages.on_idle = Stage {
             trigger: StageTrigger::AnyKey,
-            steps: vec![
-                Step { effects: Vec::new(), duration: Some(100) },
-            ],
+            steps: vec![Step {
+                effects: Vec::new(),
+                duration: Some(100),
+            }],
             looping: false, // looping is false, but any-key trigger should force looping
         };
         let mut provider = TestAnimatorProvider {
@@ -281,7 +297,10 @@ mod tests {
 
         // Complete the on_idle step — should loop back, not transition to OnLeave
         animator_system(&mut provider, 110);
-        assert_eq!(provider.animator.as_ref().unwrap().stage, crate::SceneStage::OnIdle);
+        assert_eq!(
+            provider.animator.as_ref().unwrap().stage,
+            crate::SceneStage::OnIdle
+        );
         assert_eq!(provider.animator.as_ref().unwrap().step_idx, 0);
     }
 

@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use crate::color::Color;
 use serde::{Deserialize, Deserializer};
 
 /// A colour value in YAML.

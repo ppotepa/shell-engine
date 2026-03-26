@@ -7,16 +7,25 @@
 pub mod strategies;
 
 pub use strategies::{
-    // Trait definitions
-    LayerCompositor, HalfblockPacker, VirtualPresenter, TerminalFlusher,
-    DisplaySink, DisplayFrame, FrameSkipOracle,
+    AlwaysPresenter,
+    AlwaysRender,
+    CoordinatedSkip,
     // Simple impls (no engine/ deps)
-    DirectLayerCompositor, ScratchLayerCompositor,
-    DirtyRegionPacker, FullScanPacker,
-    AlwaysPresenter, HashSkipPresenter,
-    AlwaysRender, CoordinatedSkip,
+    DirectLayerCompositor,
+    DirtyRegionPacker,
+    DisplayFrame,
+    DisplaySink,
+    FrameSkipOracle,
+    FullScanPacker,
+    HalfblockPacker,
+    HashSkipPresenter,
+    // Trait definitions
+    LayerCompositor,
     // Aggregation
     PipelineStrategies,
+    ScratchLayerCompositor,
+    TerminalFlusher,
+    VirtualPresenter,
 };
 
 /// Feature flags for the render pipeline.

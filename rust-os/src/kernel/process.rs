@@ -18,14 +18,14 @@ impl SimulatedProcessTable {
 
     pub fn boot_system_processes(&mut self) {
         let sys = vec![
-            (0, 0, 0, "kernel", "root", 'S', "?",  0),
-            (1, 0, 0, "init",   "root", 'S', "?",  16),
-            (2, 1, 0, "mm",     "root", 'S', "?",  48),
-            (3, 1, 0, "fs",     "root", 'S', "?",  64),
-            (4, 1, 0, "update", "root", 'S', "?",  12),
-            (5, 1, 0, "cron",   "root", 'S', "?",  8),
-            (6, 1, 0, "getty",  "root", 'S', "tty0", 4),
-            (7, 6, 1000, "sh",  "torvalds", 'S', "tty0", 20),
+            (0, 0, 0, "kernel", "root", 'S', "?", 0),
+            (1, 0, 0, "init", "root", 'S', "?", 16),
+            (2, 1, 0, "mm", "root", 'S', "?", 48),
+            (3, 1, 0, "fs", "root", 'S', "?", 64),
+            (4, 1, 0, "update", "root", 'S', "?", 12),
+            (5, 1, 0, "cron", "root", 'S', "?", 8),
+            (6, 1, 0, "getty", "root", 'S', "tty0", 4),
+            (7, 6, 1000, "sh", "torvalds", 'S', "tty0", 20),
         ];
         for (pid, ppid, uid, name, user, state_ch, tty, sz) in sys {
             self.processes.push(ProcessEntry {
@@ -71,7 +71,9 @@ impl SimulatedProcessTable {
 
     pub fn kill(&mut self, pid: u32) -> bool {
         // Cannot kill PID 0-5 (system)
-        if pid <= 5 { return false; }
+        if pid <= 5 {
+            return false;
+        }
         let before = self.processes.len();
         self.processes.retain(|p| p.pid != pid);
         self.processes.len() < before

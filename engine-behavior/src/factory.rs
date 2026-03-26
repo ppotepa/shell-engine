@@ -1,9 +1,9 @@
-use engine_core::scene::BehaviorSpec;
 use crate::{
     Behavior, BlinkBehavior, BobBehavior, FollowBehavior, MenuCarouselBehavior,
     MenuCarouselObjectBehavior, MenuSelectedBehavior, RhaiScriptBehavior, SelectedArrowsBehavior,
     StageVisibilityBehavior, TimedVisibilityBehavior,
 };
+use engine_core::scene::BehaviorSpec;
 
 /// Resolves a `BehaviorSpec` into a boxed `Behavior` runtime instance.
 ///
@@ -31,7 +31,9 @@ impl BehaviorFactory for BuiltInBehaviorFactory {
         } else if name.eq_ignore_ascii_case("menu-carousel") {
             Some(Box::new(MenuCarouselBehavior::from_params(&spec.params)))
         } else if name.eq_ignore_ascii_case("menu-carousel-object") {
-            Some(Box::new(MenuCarouselObjectBehavior::from_params(&spec.params)))
+            Some(Box::new(MenuCarouselObjectBehavior::from_params(
+                &spec.params,
+            )))
         } else if name.eq_ignore_ascii_case("rhai-script") {
             Some(Box::new(RhaiScriptBehavior::from_params(&spec.params)))
         } else if name.eq_ignore_ascii_case("menu-selected") {

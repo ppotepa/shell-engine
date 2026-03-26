@@ -9,7 +9,7 @@ use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{slider, EffectMetadata, P_EASING};
 use crate::effects::utils::color::colour_to_rgb;
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "blur",
@@ -126,7 +126,7 @@ mod tests {
     use crate::buffer::{Buffer, TRUE_BLACK};
     use crate::effects::effect::{Effect, EffectTargetMask, Region};
     use crate::scene::EffectParams;
-    use crossterm::style::Color;
+    use crate::color::Color;
 
     #[test]
     fn metadata_is_any_target() {

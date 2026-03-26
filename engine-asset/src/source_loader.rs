@@ -24,15 +24,27 @@ impl ModAssetSourceLoader {
 }
 
 impl SourceLoader for ModAssetSourceLoader {
-    fn read_bytes(&self, source: &SourceRef) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    fn read_bytes(
+        &self,
+        source: &SourceRef,
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
         match source.kind() {
-            SourceKind::ModAsset => self.repo.read_asset_bytes(source.value()).map_err(|e| Box::new(e) as _),
+            SourceKind::ModAsset => self
+                .repo
+                .read_asset_bytes(source.value())
+                .map_err(|e| Box::new(e) as _),
         }
     }
 
-    fn has_source(&self, source: &SourceRef) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    fn has_source(
+        &self,
+        source: &SourceRef,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         match source.kind() {
-            SourceKind::ModAsset => self.repo.has_asset(source.value()).map_err(|e| Box::new(e) as _),
+            SourceKind::ModAsset => self
+                .repo
+                .has_asset(source.value())
+                .map_err(|e| Box::new(e) as _),
         }
     }
 
@@ -71,7 +83,10 @@ mod tests {
         let loader = ModAssetSourceLoader::new(&mod_dir).expect("loader");
         let source = SourceRef::mod_asset("/assets/images/tiny.bin");
         assert!(has_source(&loader, &source));
-        assert_eq!(load_source_bytes(&loader, &source).as_deref(), Some(&b"abc".to_vec()));
+        assert_eq!(
+            load_source_bytes(&loader, &source).as_deref(),
+            Some(&b"abc".to_vec())
+        );
     }
 
     #[test]
@@ -89,6 +104,9 @@ mod tests {
         let loader = ModAssetSourceLoader::new(&zip_path).expect("loader");
         let source = SourceRef::mod_asset("/assets/images/tiny.bin");
         assert!(has_source(&loader, &source));
-        assert_eq!(load_source_bytes(&loader, &source).as_deref(), Some(&b"abc".to_vec()));
+        assert_eq!(
+            load_source_bytes(&loader, &source).as_deref(),
+            Some(&b"abc".to_vec())
+        );
     }
 }

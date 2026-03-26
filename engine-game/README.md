@@ -1,27 +1,27 @@
 # engine-game
 
-Persistent game state with path-based key-value access.
+Shared game-state and runtime object types.
 
 ## Purpose
 
-Manages runtime game state as a nested key-value store. Supports
-dot-separated path access (get/set/has/remove/push) so Rhai scripts
-and scene behaviors can read and write persistent flags, counters,
-and inventory data across scene transitions.
+`engine-game` hosts lightweight stateful types shared across runtime systems:
+the persistent `GameState` used by gameplay logic and the `GameObject` model
+used by the scene/runtime object graph.
 
-## Key Types
+## Key modules
 
-- `GameState` — the state container with path-based `get`, `set`, `has`, `remove`, and `push` operations
+- `game_state` — nested mutable state exposed to gameplay and scripts
+- `game_object` — runtime object node model and object-kind discriminants
 
-## Dependencies
+## Main exports
 
-- `serde` / `serde_json` — serialization for save/load and JSON value representation
+- `GameState`
+- `GameObject`
+- `GameObjectKind`
 
-## Usage
+## Working with this crate
 
-Rhai scripts interact with game state through scope variables:
-
-```rhai
-state.set("player.health", 100);
-let hp = state.get("player.health");
-```
+- keep state helpers generic and runtime-safe,
+- preserve stable path-based access patterns used by scripts and behaviors,
+- if object graph behavior changes, coordinate with `engine-scene-runtime`,
+- if script-visible state APIs change, verify Rhai integration and authoring docs.

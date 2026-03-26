@@ -1,25 +1,28 @@
 # engine-render-policy
 
-Render scheduling and frame pacing policies.
+Renderer-mode and font-resolution policy helpers.
 
 ## Purpose
 
-Controls when the engine renders a new frame. Policies decide whether
-to render on every tick, at a fixed rate, or synchronized to a vsync
-signal, allowing the runtime to trade off responsiveness against CPU
-usage.
+`engine-render-policy` contains small shared policy functions used to resolve
+effective renderer mode and font specification choices from scene data,
+overrides, and sprite sizing rules.
 
-## Key Types
+## Main functions
 
-- `RenderPolicy` — trait with `should_render()` and `on_frame_complete()` methods
-- `FixedRatePolicy` — renders at a fixed interval (e.g., 60 FPS cap)
-- `VsyncPolicy` — synchronizes frame production to vertical sync
+- `resolve_renderer_mode()`
+- `resolve_font_spec()`
+- `resolve_text_font_spec()`
 
-## Dependencies
+## What it handles
 
-- `engine-core` — timing and frame context types
+- forced renderer-mode overrides,
+- generic font-mode derivation from render mode,
+- text font derivation from sprite size presets,
+- normalization of named and generic font-mode aliases.
 
-## Usage
+## Working with this crate
 
-The runtime selects a policy at startup. Each tick, the main loop
-calls `should_render()` to decide whether to run the render pipeline.
+- keep these helpers pure and deterministic,
+- preserve compatibility with authored font specs and existing aliases,
+- if renderer-mode semantics change, update both these helpers and the authoring docs.

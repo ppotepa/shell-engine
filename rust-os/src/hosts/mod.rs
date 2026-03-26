@@ -1,2 +1,2 @@
 pub mod registry;
-pub use registry::{RemoteHost, RemoteHostIndex, HostKind};
+pub use registry::{HostKind, RemoteHost, RemoteHostIndex};

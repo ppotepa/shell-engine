@@ -3,8 +3,8 @@ use crate::exec::builtins;
 use crate::exec::tokenizer::tokenize;
 use crate::kernel::unit_of_work::UnitOfWork;
 use crate::kernel::Kernel;
-use crate::state::QuestState;
 use crate::session::UserSession;
+use crate::state::QuestState;
 
 pub struct MinixPipeline {
     registry: CommandRegistry,
@@ -70,36 +70,92 @@ fn try_one_liner(name: &str, args: &[String], uow: &mut UnitOfWork, kernel: &Ker
     let quest = &*uow.quest;
 
     match name {
-        "emacs" => { uow.print("emacs: not installed. only vi available."); true }
-        "vi" => { uow.print("vi: insufficient memory"); true }
-        "vim" => { uow.print("vim: not installed. try vi. (insufficient memory anyway)"); true }
-        "nano" => { uow.print("nano: not installed"); true }
-        "gcc" => { uow.print("gcc: not installed. try Amsterdam Compiler Kit (ack)"); true }
-        "cc" => { uow.print("cc: no input files"); true }
-        "make" => { uow.print("make: no targets. nothing to do."); true }
-        "sed" => { uow.print("sed: not installed"); true }
-        "awk" => { uow.print("awk: not installed"); true }
+        "emacs" => {
+            uow.print("emacs: not installed. only vi available.");
+            true
+        }
+        "vi" => {
+            uow.print("vi: insufficient memory");
+            true
+        }
+        "vim" => {
+            uow.print("vim: not installed. try vi. (insufficient memory anyway)");
+            true
+        }
+        "nano" => {
+            uow.print("nano: not installed");
+            true
+        }
+        "gcc" => {
+            uow.print("gcc: not installed. try Amsterdam Compiler Kit (ack)");
+            true
+        }
+        "cc" => {
+            uow.print("cc: no input files");
+            true
+        }
+        "make" => {
+            uow.print("make: no targets. nothing to do.");
+            true
+        }
+        "sed" => {
+            uow.print("sed: not installed");
+            true
+        }
+        "awk" => {
+            uow.print("awk: not installed");
+            true
+        }
         "python" | "python3" | "perl" | "ruby" | "node" => {
             uow.print(format!("{name}: command not found"));
             true
         }
-        "ssh" => { uow.print("ssh: command not found (not yet invented)"); true }
-        "scp" | "sftp" => { uow.print(format!("{name}: command not found")); true }
-        "wget" | "curl" => { uow.print(format!("{name}: command not found. use ftp.")); true }
-        "sudo" => { uow.print("sudo: command not found. this is MINIX."); true }
-        "apt" | "apt-get" | "yum" | "brew" => {
-            uow.print(format!("{name}: command not found. software is installed from tarballs here."));
+        "ssh" => {
+            uow.print("ssh: command not found (not yet invented)");
             true
         }
-        "git" => { uow.print("git: command not found (not yet)"); true }
+        "scp" | "sftp" => {
+            uow.print(format!("{name}: command not found"));
+            true
+        }
+        "wget" | "curl" => {
+            uow.print(format!("{name}: command not found. use ftp."));
+            true
+        }
+        "sudo" => {
+            uow.print("sudo: command not found. this is MINIX.");
+            true
+        }
+        "apt" | "apt-get" | "yum" | "brew" => {
+            uow.print(format!(
+                "{name}: command not found. software is installed from tarballs here."
+            ));
+            true
+        }
+        "git" => {
+            uow.print("git: command not found (not yet)");
+            true
+        }
         "docker" | "kubectl" | "terraform" => {
             uow.print(format!("{name}: command not found"));
             true
         }
-        "init" => { uow.print("init: must be run as PID 1"); true }
-        "reboot" => { uow.print("reboot: permission denied"); true }
-        "shutdown" => { uow.print("shutdown: permission denied"); true }
-        "halt" => { uow.print("halt: permission denied"); true }
+        "init" => {
+            uow.print("init: must be run as PID 1");
+            true
+        }
+        "reboot" => {
+            uow.print("reboot: permission denied");
+            true
+        }
+        "shutdown" => {
+            uow.print("shutdown: permission denied");
+            true
+        }
+        "halt" => {
+            uow.print("halt: permission denied");
+            true
+        }
         "linux" => {
             uow.print("linux: command not found (not yet)");
             true
@@ -112,7 +168,7 @@ fn try_one_liner(name: &str, args: &[String], uow: &mut UnitOfWork, kernel: &Ker
             }
             true
         }
-        "hello" => { true } // silent
+        "hello" => true, // silent
         "su" => {
             use crate::difficulty::Difficulty;
             if matches!(difficulty, Difficulty::Su) {
@@ -122,7 +178,11 @@ fn try_one_liner(name: &str, args: &[String], uow: &mut UnitOfWork, kernel: &Ker
             }
             true
         }
-        "rm" if args.get(1).map(|s| s == "-rf" || s == "-fr").unwrap_or(false) => {
+        "rm" if args
+            .get(1)
+            .map(|s| s == "-rf" || s == "-fr")
+            .unwrap_or(false) =>
+        {
             if args.get(2).map(|s| s == "/").unwrap_or(false) {
                 uow.print("rm: '/': Operation not permitted");
             } else {

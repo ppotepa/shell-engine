@@ -23,41 +23,52 @@ use std::collections::HashMap;
 use crate::scene3d_format::{CameraDef, LightDef, MaterialDef, Scene3DDefinition};
 
 /// Provider trait for accessing 3D asset resolution (enables engine-3d extraction).
-/// 
+///
 /// Systems that need to resolve 3D asset paths (materials, cameras, lights) should
 /// be generic over this trait instead of taking `&AssetRoot` directly.
 pub trait Scene3DAssetResolver {
     /// Resolve a mod-root-relative path to an absolute file path and load as string.
-    fn resolve_and_load_asset(&self, asset_path: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
+    fn resolve_and_load_asset(
+        &self,
+        asset_path: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
 }
 
 /// Resolve all `*-ref` fields in `def`, loading and merging external YAML files.
 ///
 /// `src_path` is the mod-root-relative path of the `.scene3d.yml` file being loaded
 /// (used to resolve `./relative` references).
-pub fn resolve_scene3d_refs<R: Scene3DAssetResolver>(def: &mut Scene3DDefinition, src_path: &str, resolver: &R) {
+pub fn resolve_scene3d_refs<R: Scene3DAssetResolver>(
+    def: &mut Scene3DDefinition,
+    src_path: &str,
+    resolver: &R,
+) {
     if let Some(ref path) = def.materials_ref.clone() {
         let resolved = resolve_ref_path(path, src_path, "assets/3d");
         match resolver.resolve_and_load_asset(&resolved) {
-            Ok(full_str) => {
-                match load_materials_ref_from_str(&full_str) {
-                    Ok(ref_materials) => {
-                        for (key, mat) in ref_materials {
-                            def.materials.entry(key).or_insert(mat);
-                        }
-                    }
-                    Err(e) => {
-                        engine_core::logging::warn(
-                            "engine.scene3d",
-                            format!("scene={}: failed to parse materials-ref '{}': {e}", def.id, path),
-                        );
+            Ok(full_str) => match load_materials_ref_from_str(&full_str) {
+                Ok(ref_materials) => {
+                    for (key, mat) in ref_materials {
+                        def.materials.entry(key).or_insert(mat);
                     }
                 }
-            }
+                Err(e) => {
+                    engine_core::logging::warn(
+                        "engine.scene3d",
+                        format!(
+                            "scene={}: failed to parse materials-ref '{}': {e}",
+                            def.id, path
+                        ),
+                    );
+                }
+            },
             Err(e) => {
                 engine_core::logging::warn(
                     "engine.scene3d",
-                    format!("scene={}: failed to load materials-ref '{}': {e}", def.id, path),
+                    format!(
+                        "scene={}: failed to load materials-ref '{}': {e}",
+                        def.id, path
+                    ),
                 );
             }
         }
@@ -66,23 +77,27 @@ pub fn resolve_scene3d_refs<R: Scene3DAssetResolver>(def: &mut Scene3DDefinition
     if let Some(ref path) = def.camera_ref.clone() {
         let resolved = resolve_ref_path(path, src_path, "assets/3d");
         match resolver.resolve_and_load_asset(&resolved) {
-            Ok(full_str) => {
-                match load_camera_ref_from_str(&full_str) {
-                    Ok(camera) => {
-                        def.camera = camera;
-                    }
-                    Err(e) => {
-                        engine_core::logging::warn(
-                            "engine.scene3d",
-                            format!("scene={}: failed to parse camera-ref '{}': {e}", def.id, path),
-                        );
-                    }
+            Ok(full_str) => match load_camera_ref_from_str(&full_str) {
+                Ok(camera) => {
+                    def.camera = camera;
                 }
-            }
+                Err(e) => {
+                    engine_core::logging::warn(
+                        "engine.scene3d",
+                        format!(
+                            "scene={}: failed to parse camera-ref '{}': {e}",
+                            def.id, path
+                        ),
+                    );
+                }
+            },
             Err(e) => {
                 engine_core::logging::warn(
                     "engine.scene3d",
-                    format!("scene={}: failed to load camera-ref '{}': {e}", def.id, path),
+                    format!(
+                        "scene={}: failed to load camera-ref '{}': {e}",
+                        def.id, path
+                    ),
                 );
             }
         }
@@ -92,23 +107,27 @@ pub fn resolve_scene3d_refs<R: Scene3DAssetResolver>(def: &mut Scene3DDefinition
         if def.lights.is_empty() {
             let resolved = resolve_ref_path(path, src_path, "assets/3d");
             match resolver.resolve_and_load_asset(&resolved) {
-                Ok(full_str) => {
-                    match load_lights_ref_from_str(&full_str) {
-                        Ok(lights) => {
-                            def.lights = lights;
-                        }
-                        Err(e) => {
-                            engine_core::logging::warn(
-                                "engine.scene3d",
-                                format!("scene={}: failed to parse lights-ref '{}': {e}", def.id, path),
-                            );
-                        }
+                Ok(full_str) => match load_lights_ref_from_str(&full_str) {
+                    Ok(lights) => {
+                        def.lights = lights;
                     }
-                }
+                    Err(e) => {
+                        engine_core::logging::warn(
+                            "engine.scene3d",
+                            format!(
+                                "scene={}: failed to parse lights-ref '{}': {e}",
+                                def.id, path
+                            ),
+                        );
+                    }
+                },
                 Err(e) => {
                     engine_core::logging::warn(
                         "engine.scene3d",
-                        format!("scene={}: failed to load lights-ref '{}': {e}", def.id, path),
+                        format!(
+                            "scene={}: failed to load lights-ref '{}': {e}",
+                            def.id, path
+                        ),
                     );
                 }
             }
@@ -191,7 +210,11 @@ mod tests {
     #[test]
     fn resolve_absolute_path() {
         assert_eq!(
-            resolve_ref_path("/assets/3d/materials/cyber.yml", "/scenes/foo.yml", "assets/3d"),
+            resolve_ref_path(
+                "/assets/3d/materials/cyber.yml",
+                "/scenes/foo.yml",
+                "assets/3d"
+            ),
             "/assets/3d/materials/cyber.yml"
         );
     }
@@ -199,7 +222,11 @@ mod tests {
     #[test]
     fn resolve_relative_path() {
         assert_eq!(
-            resolve_ref_path("./materials/cyber.yml", "/assets/3d/portraits.scene3d.yml", "assets/3d"),
+            resolve_ref_path(
+                "./materials/cyber.yml",
+                "/assets/3d/portraits.scene3d.yml",
+                "assets/3d"
+            ),
             "/assets/3d/materials/cyber.yml"
         );
     }
@@ -223,7 +250,11 @@ mod tests {
     #[test]
     fn resolve_parent_relative() {
         assert_eq!(
-            resolve_ref_path("../shared/camera.yml", "/assets/3d/portraits.scene3d.yml", "assets/3d"),
+            resolve_ref_path(
+                "../shared/camera.yml",
+                "/assets/3d/portraits.scene3d.yml",
+                "assets/3d"
+            ),
             "/assets/shared/camera.yml"
         );
     }

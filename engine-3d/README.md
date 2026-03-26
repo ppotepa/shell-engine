@@ -1,25 +1,31 @@
 # engine-3d
 
-OBJ mesh loading, Scene3D YAML definitions, and 3D asset resolution.
+Shared 3D scene definitions, resolution, and prerender support.
 
 ## Purpose
 
-Provides a pipeline for loading 3D assets (OBJ meshes and MTL materials)
-and resolving them against Scene3D definitions authored in YAML. This crate
-bridges raw 3D geometry with the engine's scene model.
+`engine-3d` owns the data and helper layers needed to work with authored 3D
+scene content. It does not own the full compositor pipeline; instead it
+provides the reusable 3D-specific pieces that other runtime/rendering crates
+consume.
 
-## Key Types
+## Key modules
 
-- `Scene3D` — YAML-defined 3D scene model with camera, lights, and mesh references
-- `Scene3DAssetResolver` — trait for locating and loading 3D assets from mod sources
-- `ObjLoader` / `MtlLoader` — parsers for Wavefront OBJ and MTL file formats
+- `scene3d_format` — authored `Scene3DDefinition` structures
+- `scene3d_resolve` — asset resolution and reference binding
+- `scene3d_atlas` — atlas/cache structures for resolved 3D scenes
+- `obj_prerender` — prerender helpers for expensive 3D content
+- `obj_frame_cache` — cached prerender frame support
 
-## Dependencies
+## Main exports
 
-- `engine-core` — scene model and shared types
-- `serde` / `serde_yaml` — YAML deserialization of Scene3D definitions
+- `Scene3DDefinition`
+- `Scene3DAtlas`
+- `Scene3DAssetResolver`
+- `resolve_scene3d_refs()`
 
-## Usage
+## Working with this crate
 
-Scene3D definitions live in mod YAML files. The asset resolver locates
-referenced OBJ/MTL files from the mod's asset directory at load time.
+- keep authored format and resolution logic separate from renderer orchestration,
+- if Scene3D schema or reference rules change, update authoring/schema surfaces too,
+- heavy 3D rendering policy still belongs in compositor/runtime crates, not here.

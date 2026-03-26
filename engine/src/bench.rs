@@ -9,26 +9,26 @@ use std::time::{Duration, Instant};
 #[derive(Clone, Default)]
 pub struct FrameSample {
     // scene identification
-    pub scene_id:      String,
+    pub scene_id: String,
     // top-level wall time
-    pub frame_us:      f32,
+    pub frame_us: f32,
     // per-system
-    pub input_us:      f32,
-    pub lifecycle_us:  f32,
-    pub animator_us:   f32,
+    pub input_us: f32,
+    pub lifecycle_us: f32,
+    pub animator_us: f32,
     pub hot_reload_us: f32,
-    pub engine_io_us:  f32,
-    pub behavior_us:   f32,
-    pub audio_us:      f32,
+    pub engine_io_us: f32,
+    pub behavior_us: f32,
+    pub audio_us: f32,
     pub compositor_us: f32,
-    pub postfx_us:     f32,
-    pub renderer_us:   f32,
-    pub sleep_us:      f32,
+    pub postfx_us: f32,
+    pub renderer_us: f32,
+    pub sleep_us: f32,
     // buffer/pipeline counters (per-frame)
-    pub diff_cells:    u32,
-    pub dirty_cells:   u32,
-    pub total_cells:   u32,
-    pub write_ops:     u64,
+    pub diff_cells: u32,
+    pub dirty_cells: u32,
+    pub total_cells: u32,
+    pub write_ops: u64,
 }
 
 // ── Accumulator ─────────────────────────────────────────────────────
@@ -61,9 +61,13 @@ impl BenchmarkState {
         }
     }
 
-    pub fn push(&mut self, sample: FrameSample) { self.samples.push(sample); }
+    pub fn push(&mut self, sample: FrameSample) {
+        self.samples.push(sample);
+    }
 
-    pub fn time_up(&self) -> bool { self.start.elapsed() >= self.duration }
+    pub fn time_up(&self) -> bool {
+        self.start.elapsed() >= self.duration
+    }
 
     pub fn should_quit(&self) -> bool {
         self.results_shown_at
@@ -79,7 +83,12 @@ impl BenchmarkState {
     }
 
     pub fn results(&self) -> BenchResults {
-        BenchResults::compute(&self.samples, self.opt_comp, self.opt_present, self.opt_diff)
+        BenchResults::compute(
+            &self.samples,
+            self.opt_comp,
+            self.opt_present,
+            self.opt_diff,
+        )
     }
 }
 
@@ -142,20 +151,20 @@ pub struct BenchResults {
     pub opt_present: bool,
     pub opt_diff: bool,
     // frame-level
-    pub frame:      MetricStats,
-    pub fps:        MetricStats,
+    pub frame: MetricStats,
+    pub fps: MetricStats,
     // per-system (microseconds)
-    pub input:      MetricStats,
-    pub lifecycle:  MetricStats,
-    pub animator:   MetricStats,
+    pub input: MetricStats,
+    pub lifecycle: MetricStats,
+    pub animator: MetricStats,
     pub hot_reload: MetricStats,
-    pub engine_io:  MetricStats,
-    pub behavior:   MetricStats,
-    pub audio:      MetricStats,
+    pub engine_io: MetricStats,
+    pub behavior: MetricStats,
+    pub audio: MetricStats,
     pub compositor: MetricStats,
-    pub postfx:     MetricStats,
-    pub renderer:   MetricStats,
-    pub sleep:      MetricStats,
+    pub postfx: MetricStats,
+    pub renderer: MetricStats,
+    pub sleep: MetricStats,
     // buffer pipeline
     pub diff_cells: MetricStats,
     pub dirty_cells: MetricStats,
@@ -168,9 +177,7 @@ pub struct BenchResults {
 impl BenchResults {
     fn compute(samples: &[FrameSample], opt_comp: bool, opt_present: bool, opt_diff: bool) -> Self {
         let n = samples.len();
-        let extract = |f: fn(&FrameSample) -> f32| -> Vec<f32> {
-            samples.iter().map(f).collect()
-        };
+        let extract = |f: fn(&FrameSample) -> f32| -> Vec<f32> { samples.iter().map(f).collect() };
 
         let frame_us = extract(|s| s.frame_us);
         let fps_vals: Vec<f32> = frame_us
@@ -178,33 +185,31 @@ impl BenchResults {
             .map(|&us| if us > 0.0 { 1_000_000.0 / us } else { 0.0 })
             .collect();
 
-        let frame   = MetricStats::from_samples(&frame_us);
-        let fps     = MetricStats::from_samples(&fps_vals);
+        let frame = MetricStats::from_samples(&frame_us);
+        let fps = MetricStats::from_samples(&fps_vals);
 
-        let input      = MetricStats::from_samples(&extract(|s| s.input_us));
-        let lifecycle  = MetricStats::from_samples(&extract(|s| s.lifecycle_us));
-        let animator   = MetricStats::from_samples(&extract(|s| s.animator_us));
+        let input = MetricStats::from_samples(&extract(|s| s.input_us));
+        let lifecycle = MetricStats::from_samples(&extract(|s| s.lifecycle_us));
+        let animator = MetricStats::from_samples(&extract(|s| s.animator_us));
         let hot_reload = MetricStats::from_samples(&extract(|s| s.hot_reload_us));
-        let engine_io  = MetricStats::from_samples(&extract(|s| s.engine_io_us));
-        let behavior   = MetricStats::from_samples(&extract(|s| s.behavior_us));
-        let audio      = MetricStats::from_samples(&extract(|s| s.audio_us));
+        let engine_io = MetricStats::from_samples(&extract(|s| s.engine_io_us));
+        let behavior = MetricStats::from_samples(&extract(|s| s.behavior_us));
+        let audio = MetricStats::from_samples(&extract(|s| s.audio_us));
         let compositor = MetricStats::from_samples(&extract(|s| s.compositor_us));
-        let postfx     = MetricStats::from_samples(&extract(|s| s.postfx_us));
-        let renderer   = MetricStats::from_samples(&extract(|s| s.renderer_us));
-        let sleep      = MetricStats::from_samples(&extract(|s| s.sleep_us));
+        let postfx = MetricStats::from_samples(&extract(|s| s.postfx_us));
+        let renderer = MetricStats::from_samples(&extract(|s| s.renderer_us));
+        let sleep = MetricStats::from_samples(&extract(|s| s.sleep_us));
 
         let diff_cells_v: Vec<f32> = samples.iter().map(|s| s.diff_cells as f32).collect();
         let dirty_cells_v: Vec<f32> = samples.iter().map(|s| s.dirty_cells as f32).collect();
         let write_ops_v: Vec<f32> = samples.iter().map(|s| s.write_ops as f32).collect();
-        let diff_cells  = MetricStats::from_samples(&diff_cells_v);
+        let diff_cells = MetricStats::from_samples(&diff_cells_v);
         let dirty_cells = MetricStats::from_samples(&dirty_cells_v);
-        let write_ops   = MetricStats::from_samples(&write_ops_v);
+        let write_ops = MetricStats::from_samples(&write_ops_v);
         let total_cells = samples.first().map(|s| s.total_cells as f32).unwrap_or(0.0);
 
         // Score: higher is better. Dominated by avg FPS, penalised by variance.
-        let score = (fps.avg * 10.0
-            + (1_000_000.0 / frame.p50.max(1.0)) * 5.0
-            - frame.p99 / 100.0)
+        let score = (fps.avg * 10.0 + (1_000_000.0 / frame.p50.max(1.0)) * 5.0 - frame.p99 / 100.0)
             .max(0.0) as u32;
 
         // Per-scene breakdown
@@ -213,11 +218,26 @@ impl BenchResults {
         Self {
             total_frames: n,
             score,
-            opt_comp, opt_present, opt_diff,
-            frame, fps,
-            input, lifecycle, animator, hot_reload, engine_io,
-            behavior, audio, compositor, postfx, renderer, sleep,
-            diff_cells, dirty_cells, total_cells, write_ops,
+            opt_comp,
+            opt_present,
+            opt_diff,
+            frame,
+            fps,
+            input,
+            lifecycle,
+            animator,
+            hot_reload,
+            engine_io,
+            behavior,
+            audio,
+            compositor,
+            postfx,
+            renderer,
+            sleep,
+            diff_cells,
+            dirty_cells,
+            total_cells,
+            write_ops,
             scenes,
         }
     }
@@ -228,30 +248,34 @@ impl BenchResults {
         for s in samples {
             groups.entry(&s.scene_id).or_default().push(s);
         }
-        groups.into_iter().map(|(id, group)| {
-            let frame_us: Vec<f32> = group.iter().map(|s| s.frame_us).collect();
-            let fps_vals: Vec<f32> = frame_us.iter()
-                .map(|&us| if us > 0.0 { 1_000_000.0 / us } else { 0.0 })
-                .collect();
-            SceneStats {
-                scene_id: id.to_string(),
-                frame_count: group.len(),
-                frame: MetricStats::from_samples(&frame_us),
-                fps: MetricStats::from_samples(&fps_vals),
-                compositor: MetricStats::from_samples(
-                    &group.iter().map(|s| s.compositor_us).collect::<Vec<_>>(),
-                ),
-                postfx: MetricStats::from_samples(
-                    &group.iter().map(|s| s.postfx_us).collect::<Vec<_>>(),
-                ),
-                renderer: MetricStats::from_samples(
-                    &group.iter().map(|s| s.renderer_us).collect::<Vec<_>>(),
-                ),
-                behavior: MetricStats::from_samples(
-                    &group.iter().map(|s| s.behavior_us).collect::<Vec<_>>(),
-                ),
-            }
-        }).collect()
+        groups
+            .into_iter()
+            .map(|(id, group)| {
+                let frame_us: Vec<f32> = group.iter().map(|s| s.frame_us).collect();
+                let fps_vals: Vec<f32> = frame_us
+                    .iter()
+                    .map(|&us| if us > 0.0 { 1_000_000.0 / us } else { 0.0 })
+                    .collect();
+                SceneStats {
+                    scene_id: id.to_string(),
+                    frame_count: group.len(),
+                    frame: MetricStats::from_samples(&frame_us),
+                    fps: MetricStats::from_samples(&fps_vals),
+                    compositor: MetricStats::from_samples(
+                        &group.iter().map(|s| s.compositor_us).collect::<Vec<_>>(),
+                    ),
+                    postfx: MetricStats::from_samples(
+                        &group.iter().map(|s| s.postfx_us).collect::<Vec<_>>(),
+                    ),
+                    renderer: MetricStats::from_samples(
+                        &group.iter().map(|s| s.renderer_us).collect::<Vec<_>>(),
+                    ),
+                    behavior: MetricStats::from_samples(
+                        &group.iter().map(|s| s.behavior_us).collect::<Vec<_>>(),
+                    ),
+                }
+            })
+            .collect()
     }
 
     // ── report text ────────────────────────────────────────────────
@@ -267,7 +291,10 @@ impl BenchResults {
         r.push_str("── CONFIGURATION ─────────────────────────────────────────────\n");
         let flag = |b: bool| if b { "ON" } else { "off" };
         r.push_str(&format!("  --opt-comp ........ {}\n", flag(self.opt_comp)));
-        r.push_str(&format!("  --opt-present ..... {}\n", flag(self.opt_present)));
+        r.push_str(&format!(
+            "  --opt-present ..... {}\n",
+            flag(self.opt_present)
+        ));
         r.push_str(&format!("  --opt-diff ........ {}\n", flag(self.opt_diff)));
         r.push('\n');
 
@@ -284,17 +311,17 @@ impl BenchResults {
 
         r.push_str("── SYSTEM BREAKDOWN (us) ──────────────────────────────────────\n");
         let systems: &[(&str, &MetricStats)] = &[
-            ("Input",       &self.input),
-            ("Lifecycle",   &self.lifecycle),
-            ("Animator",    &self.animator),
-            ("HotReload",   &self.hot_reload),
-            ("EngineIO",    &self.engine_io),
-            ("Behavior",    &self.behavior),
-            ("Audio",       &self.audio),
-            ("Compositor",  &self.compositor),
-            ("PostFX",      &self.postfx),
-            ("Renderer",    &self.renderer),
-            ("Sleep",       &self.sleep),
+            ("Input", &self.input),
+            ("Lifecycle", &self.lifecycle),
+            ("Animator", &self.animator),
+            ("HotReload", &self.hot_reload),
+            ("EngineIO", &self.engine_io),
+            ("Behavior", &self.behavior),
+            ("Audio", &self.audio),
+            ("Compositor", &self.compositor),
+            ("PostFX", &self.postfx),
+            ("Renderer", &self.renderer),
+            ("Sleep", &self.sleep),
         ];
         for (name, stat) in systems {
             Self::fmt_metric(&mut r, name, stat, "us");
@@ -320,7 +347,7 @@ impl BenchResults {
         Self::fmt_metric(&mut r, "Write ops", &self.write_ops, "");
         if self.total_cells > 0.0 {
             let dirty_pct = self.dirty_cells.avg / self.total_cells * 100.0;
-            let diff_pct  = self.diff_cells.avg / self.total_cells * 100.0;
+            let diff_pct = self.diff_cells.avg / self.total_cells * 100.0;
             r.push_str(&format!("  Avg dirty coverage . {:.1}%\n", dirty_pct));
             r.push_str(&format!("  Avg diff coverage .. {:.1}%\n", diff_pct));
         }
@@ -337,8 +364,13 @@ impl BenchResults {
             for sc in &self.scenes {
                 r.push_str(&format!(
                     "  {:<30} {:>6} {:>8.1} {:>8.1} {:>8.1} {:>8.1} {:>8.1}\n",
-                    sc.scene_id, sc.frame_count, sc.fps.avg,
-                    sc.compositor.avg, sc.postfx.avg, sc.renderer.avg, sc.behavior.avg,
+                    sc.scene_id,
+                    sc.frame_count,
+                    sc.fps.avg,
+                    sc.compositor.avg,
+                    sc.postfx.avg,
+                    sc.renderer.avg,
+                    sc.behavior.avg,
                 ));
             }
             r.push('\n');
@@ -359,20 +391,40 @@ impl BenchResults {
 
 /// Render benchmark results onto the buffer in large font.
 pub fn render_bench_results(buf: &mut crate::buffer::Buffer, results: &BenchResults) {
-    use crate::rasterizer::generic::{rasterize_generic, generic_dimensions};
-    use crossterm::style::Color;
+    use crate::rasterizer::generic::{generic_dimensions, rasterize_generic};
+    use engine_core::color::Color;
     use engine_core::scene::sprite::TextTransform;
 
-    let bg = Color::Rgb { r: 10, g: 10, b: 20 };
+    let bg = Color::Rgb {
+        r: 10,
+        g: 10,
+        b: 20,
+    };
     buf.fill(bg);
 
     let w = buf.width;
     let _h = buf.height;
     let t = TextTransform::None;
-    let green  = Color::Rgb { r: 0, g: 255, b: 120 };
-    let gold   = Color::Rgb { r: 255, g: 220, b: 50 };
-    let silver = Color::Rgb { r: 180, g: 180, b: 200 };
-    let dim    = Color::Rgb { r: 100, g: 100, b: 120 };
+    let green = Color::Rgb {
+        r: 0,
+        g: 255,
+        b: 120,
+    };
+    let gold = Color::Rgb {
+        r: 255,
+        g: 220,
+        b: 50,
+    };
+    let silver = Color::Rgb {
+        r: 180,
+        g: 180,
+        b: 200,
+    };
+    let dim = Color::Rgb {
+        r: 100,
+        g: 100,
+        b: 120,
+    };
 
     // Title — scale 2 (12×14)
     let title = "BENCHMARK";
@@ -396,9 +448,9 @@ pub fn render_bench_results(buf: &mut crate::buffer::Buffer, results: &BenchResu
     let systems: &[(&str, &MetricStats)] = &[
         ("COMP", &results.compositor),
         ("REND", &results.renderer),
-        ("BHV",  &results.behavior),
-        ("PFX",  &results.postfx),
-        ("IO",   &results.engine_io),
+        ("BHV", &results.behavior),
+        ("PFX", &results.postfx),
+        ("IO", &results.engine_io),
         ("ANIM", &results.animator),
     ];
     let mut y = 50;
@@ -455,15 +507,33 @@ fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
     let mut y = 1970;
     loop {
         let ylen = if is_leap(y) { 366 } else { 365 };
-        if days < ylen { break; }
+        if days < ylen {
+            break;
+        }
         days -= ylen;
         y += 1;
     }
     let leap = is_leap(y);
-    let mdays = [31, if leap {29} else {28}, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mdays = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut mo = 0;
     for (i, &ml) in mdays.iter().enumerate() {
-        if days < ml { mo = i as u64 + 1; break; }
+        if days < ml {
+            mo = i as u64 + 1;
+            break;
+        }
         days -= ml;
     }
     (y, mo, days + 1)

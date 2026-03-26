@@ -23,7 +23,11 @@ impl ShellApp {
         let host = style::fg(style::PROMPT_HOST, &session.hostname);
         let colon = style::fg(style::DIM, ":");
         let cwd = style::fg(style::PROMPT_PATH, &session.display_cwd());
-        let code_color = if exit_code == 0 { style::BOOT_OK } else { style::ERROR };
+        let code_color = if exit_code == 0 {
+            style::BOOT_OK
+        } else {
+            style::ERROR
+        };
         let code = style::fg(code_color, &format!("[{exit_code}]"));
         format!("{user}{at}{host}{colon}{cwd} {code}$ ")
     }

@@ -1,28 +1,28 @@
 # engine-terminal
 
-Terminal detection and configuration.
+Terminal capability detection and manifest requirement checks.
 
 ## Purpose
 
-Detects the host terminal's capabilities (color depth, Unicode
-support, dimensions) and builds a configuration struct the engine
-uses to adapt its rendering output accordingly.
+`engine-terminal` detects the host terminal’s size and colour support, parses
+terminal requirements from mod manifests, and reports requirement violations
+before runtime startup continues.
 
-## Key Types
+## Key types
 
-- `TerminalConfig` — resolved terminal settings (size, color mode, features)
-- `TerminalCapabilities` — detected feature flags (truecolor, halfblock, etc.)
-- `detect_terminal()` — probes the environment and returns `TerminalConfig`
+- `TerminalCaps`
+- `TerminalRequirements`
+- `TerminalViolation`
 
-## Dependencies
+## Main helpers
 
-- `crossterm` — terminal size queries and capability detection
-- `serde_yaml` / `serde` — optional config file deserialization
+- `TerminalCaps::detect()`
+- `TerminalCaps::validate()`
+- `TerminalRequirements::from_manifest()`
+- `target_fps_from_manifest()`
 
-## Usage
+## Working with this crate
 
-Called once at startup before the render backend is initialized:
-
-```rust
-let config = detect_terminal()?;
-```
+- keep environment-based colour detection conservative and predictable,
+- preserve manifest compatibility for terminal settings such as `target-fps`,
+- if terminal requirement fields change, update example mods and launcher docs too.

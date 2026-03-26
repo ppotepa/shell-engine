@@ -43,7 +43,10 @@ pub fn load_frame(path: &Path) -> std::io::Result<(FrameHeader, Vec<SerializedCe
     if buf.len() < expected_size {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            format!("frame truncated: expected {expected_size} bytes, got {}", buf.len()),
+            format!(
+                "frame truncated: expected {expected_size} bytes, got {}",
+                buf.len()
+            ),
         ));
     }
 
@@ -51,7 +54,12 @@ pub fn load_frame(path: &Path) -> std::io::Result<(FrameHeader, Vec<SerializedCe
     let mut offset = 4;
 
     for _ in 0..(width as usize * height as usize) {
-        let symbol = u32::from_le_bytes([buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3]]);
+        let symbol = u32::from_le_bytes([
+            buf[offset],
+            buf[offset + 1],
+            buf[offset + 2],
+            buf[offset + 3],
+        ]);
         let fg_r = buf[offset + 4];
         let fg_g = buf[offset + 5];
         let fg_b = buf[offset + 6];
@@ -85,11 +93,7 @@ pub fn compare_frames(
 
     // Check headers match
     if header1.width != header2.width || header1.height != header2.height {
-        return Ok(Some((
-            0,
-            cells1[0].clone(),
-            cells2[0].clone(),
-        )));
+        return Ok(Some((0, cells1[0].clone(), cells2[0].clone())));
     }
 
     // Compare cells
@@ -107,18 +111,12 @@ pub fn list_frame_files(dir: &Path) -> std::io::Result<Vec<std::fs::DirEntry>> {
     let mut entries: Vec<_> = fs::read_dir(dir)?
         .filter_map(|e| e.ok())
         .filter(|e| {
-            e.file_name()
-                .to_string_lossy()
-                .starts_with("frame_")
+            e.file_name().to_string_lossy().starts_with("frame_")
                 && e.file_name().to_string_lossy().ends_with(".bin")
         })
         .collect();
 
-    entries.sort_by_key(|e| {
-        e.file_name()
-            .to_string_lossy()
-            .to_string()
-    });
+    entries.sort_by_key(|e| e.file_name().to_string_lossy().to_string());
 
     Ok(entries)
 }

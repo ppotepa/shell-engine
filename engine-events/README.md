@@ -1,22 +1,30 @@
 # engine-events
 
-Input event type definitions for the engine runtime.
+Shared engine event types and the per-frame event queue.
 
 ## Purpose
 
-Defines the `EngineEvent` enum that the runtime uses to represent
-all external inputs — keyboard presses, terminal resizes, scene
-transitions, and quit signals.
+`engine-events` defines the typed events passed between input handling, the game
+loop, audio triggers, scene lifecycle systems, and other runtime subsystems.
 
-## Key Types
+Keeping these types in a small crate lets multiple systems share the same event
+contract without pulling in larger engine modules.
 
-- `EngineEvent` — enum with variants: `KeyPress`, `Resize`, `SceneTransition`, `Quit`
+## Key types
 
-## Dependencies
+- `EngineEvent` — runtime events such as:
+  - `Tick`
+  - `KeyPressed`
+  - `MouseMoved`
+  - `SceneLoaded`
+  - `SceneTransition`
+  - `AudioCue`
+  - `TerminalResized`
+  - `Quit`
+- `EventQueue` — frame-local queue with `push`, `drain`, and `is_empty`
 
-- `crossterm` — key event and modifier types used in `KeyPress`
+## Working with this crate
 
-## Usage
-
-The input subsystem converts raw crossterm events into `EngineEvent`
-values. The main loop pattern-matches on these to dispatch behavior.
+- prefer extending `EngineEvent` here instead of creating ad-hoc side channels,
+- keep variants high-level and engine-facing rather than backend-specific,
+- when adding new event kinds, update all producers and consumers in the same change.

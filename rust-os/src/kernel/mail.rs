@@ -6,7 +6,9 @@ pub struct MailSpool {
 
 impl MailSpool {
     pub fn new() -> Self {
-        let mut spool = Self { messages: Vec::new() };
+        let mut spool = Self {
+            messages: Vec::new(),
+        };
         spool.seed_initial_mail();
         spool
     }

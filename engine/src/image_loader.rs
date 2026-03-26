@@ -196,7 +196,10 @@ fn delay_to_ms(delay: Delay) -> u64 {
 }
 
 /// Loads the decoded image asset at `asset_path` from `mod_source`, returning a cached result on repeated calls.
-pub fn load_image_asset(mod_source: &Path, asset_path: &str) -> Option<std::sync::Arc<LoadedImageAsset>> {
+pub fn load_image_asset(
+    mod_source: &Path,
+    asset_path: &str,
+) -> Option<std::sync::Arc<LoadedImageAsset>> {
     let loader = ModAssetSourceLoader::new(mod_source).ok()?;
     let source = SourceRef::mod_asset(asset_path);
     load_decoded_source(&IMAGE_CACHE, &loader, &source, &ImageAssetAdapter)

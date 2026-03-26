@@ -5,10 +5,9 @@
 //! the trait enables compositor logic to move out of `engine` into `engine-compositor`.
 
 use engine_animation::Animator;
-use engine_core::buffer::{Buffer, VirtualBuffer};
 use engine_core::assets::AssetRoot;
+use engine_core::buffer::{Buffer, VirtualBuffer};
 use engine_runtime::RuntimeSettings;
-use std::collections::HashMap;
 
 /// Trait providing access to the resources needed by the compositor system.
 pub trait CompositorAccess {

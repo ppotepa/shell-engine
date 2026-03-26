@@ -1,27 +1,29 @@
 # engine-audio
 
-Audio playback subsystem with pluggable backends.
+In-process audio runtime with pluggable backends.
 
 ## Purpose
 
-Provides a trait-based audio interface so the engine can play sound
-effects and music without coupling to a specific audio library. The
-default backend uses rodio; a null backend exists for headless/test runs.
+`engine-audio` provides the audio subsystem used by the runtime to play sound
+effects and music cues emitted by scenes and behaviors.
 
-## Key Types
+The default production path is embedded rodio playback. This is not a separate
+sound server process.
 
-- `AudioProvider` — trait abstracting audio playback (play, stop, set_volume)
-- `RodioAudioBackend` — production backend using the rodio crate
-- `NullAudioBackend` — silent no-op backend for testing and CI
+## Key modules and types
 
-## Dependencies
+- `audio` — backend types and runtime command handling
+- `systems_audio` — frame-driven audio system integration
+- `access` — provider traits for host integration
+- `AudioBackend`
+- `AudioRuntime`
+- `AudioCommand`
+- `RodioAudioBackend`
+- `NullAudioBackend`
+- `AudioProvider`
 
-- `engine-core` — shared types and audio command definitions
-- `rodio` — cross-platform audio playback
-- `thiserror` — error type derivation
+## Working with this crate
 
-## Usage
-
-The runtime selects a backend at startup. Scene behaviors emit audio
-commands (play/stop) which the runtime forwards to the active
-`AudioProvider`.
+- keep backend selection and runtime command flushing separate,
+- preserve the no-audio/null path for tests and headless runs,
+- when changing asset loading or cue lookup, verify behavior against real mod asset directories.

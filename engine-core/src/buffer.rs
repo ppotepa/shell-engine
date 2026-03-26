@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use crate::color::Color;
 
 /// A single terminal cell — the atomic "pixel" of the engine.
 /// Stores a Unicode character plus foreground and background colours.
@@ -10,7 +10,7 @@ pub struct Cell {
 }
 
 /// True black constant — bypasses terminal theme palette.
-pub const TRUE_BLACK: Color = Color::Rgb { r: 0, g: 0, b: 0 };
+pub const TRUE_BLACK: Color = Color::BLACK;
 
 impl Cell {
     pub fn blank(bg: Color) -> Self {
@@ -131,10 +131,18 @@ impl Buffer {
             let idx = y as usize * self.width as usize + x as usize;
             self.back[idx] = Cell { symbol, fg, bg };
             self.write_count += 1;
-            if x < self.dirty_x_min { self.dirty_x_min = x; }
-            if x > self.dirty_x_max { self.dirty_x_max = x; }
-            if y < self.dirty_y_min { self.dirty_y_min = y; }
-            if y > self.dirty_y_max { self.dirty_y_max = y; }
+            if x < self.dirty_x_min {
+                self.dirty_x_min = x;
+            }
+            if x > self.dirty_x_max {
+                self.dirty_x_max = x;
+            }
+            if y < self.dirty_y_min {
+                self.dirty_y_min = y;
+            }
+            if y > self.dirty_y_max {
+                self.dirty_y_max = y;
+            }
             // Mark this row as dirty
             if (y as usize) < self.dirty_rows.len() {
                 self.dirty_rows[y as usize] = true;
@@ -159,7 +167,11 @@ impl Buffer {
         for y in 0..self.height {
             for x in 0..self.width {
                 if self.back[idx] != self.front[idx] {
-                    result.push(CellDiff { x, y, cell: &self.back[idx] });
+                    result.push(CellDiff {
+                        x,
+                        y,
+                        cell: &self.back[idx],
+                    });
                 }
                 idx += 1;
             }
@@ -298,7 +310,12 @@ impl Buffer {
         if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
             None
         } else {
-            Some((self.dirty_x_min, self.dirty_x_max, self.dirty_y_min, self.dirty_y_max))
+            Some((
+                self.dirty_x_min,
+                self.dirty_x_max,
+                self.dirty_y_min,
+                self.dirty_y_max,
+            ))
         }
     }
 
@@ -306,13 +323,27 @@ impl Buffer {
     /// Used to force dirty-region tracking for animated sprites whose frame area
     /// may shrink between frames (old pixels need to be covered by the diff).
     pub fn mark_dirty_region(&mut self, x: u16, y: u16, w: u16, h: u16) {
-        if w == 0 || h == 0 { return; }
-        let x_max = x.saturating_add(w.saturating_sub(1)).min(self.width.saturating_sub(1));
-        let y_max = y.saturating_add(h.saturating_sub(1)).min(self.height.saturating_sub(1));
-        if x < self.dirty_x_min { self.dirty_x_min = x; }
-        if x_max > self.dirty_x_max { self.dirty_x_max = x_max; }
-        if y < self.dirty_y_min { self.dirty_y_min = y; }
-        if y_max > self.dirty_y_max { self.dirty_y_max = y_max; }
+        if w == 0 || h == 0 {
+            return;
+        }
+        let x_max = x
+            .saturating_add(w.saturating_sub(1))
+            .min(self.width.saturating_sub(1));
+        let y_max = y
+            .saturating_add(h.saturating_sub(1))
+            .min(self.height.saturating_sub(1));
+        if x < self.dirty_x_min {
+            self.dirty_x_min = x;
+        }
+        if x_max > self.dirty_x_max {
+            self.dirty_x_max = x_max;
+        }
+        if y < self.dirty_y_min {
+            self.dirty_y_min = y;
+        }
+        if y_max > self.dirty_y_max {
+            self.dirty_y_max = y_max;
+        }
         // Mark affected rows as dirty
         for y_coord in y..=y_max {
             if (y_coord as usize) < self.dirty_rows.len() {
@@ -322,14 +353,14 @@ impl Buffer {
     }
 
     /// Total number of cells in the buffer.
-    pub fn total_cells(&self) -> u32 { self.width as u32 * self.height as u32 }
+    pub fn total_cells(&self) -> u32 {
+        self.width as u32 * self.height as u32
+    }
 
     /// Number of cells inside the current dirty region (0 if no dirty region).
     pub fn dirty_cell_count(&self) -> u32 {
         match self.dirty_bounds() {
-            Some((x0, x1, y0, y1)) => {
-                (x1 - x0 + 1) as u32 * (y1 - y0 + 1) as u32
-            }
+            Some((x0, x1, y0, y1)) => (x1 - x0 + 1) as u32 * (y1 - y0 + 1) as u32,
             None => 0,
         }
     }
@@ -339,12 +370,20 @@ impl Buffer {
     pub fn expand_dirty_bounds(&mut self, other: Option<(u16, u16, u16, u16)>) {
         if let Some((x_min, x_max, y_min, y_max)) = other {
             if x_min <= x_max {
-                if x_min < self.dirty_x_min { self.dirty_x_min = x_min; }
-                if x_max > self.dirty_x_max { self.dirty_x_max = x_max; }
+                if x_min < self.dirty_x_min {
+                    self.dirty_x_min = x_min;
+                }
+                if x_max > self.dirty_x_max {
+                    self.dirty_x_max = x_max;
+                }
             }
             if y_min <= y_max {
-                if y_min < self.dirty_y_min { self.dirty_y_min = y_min; }
-                if y_max > self.dirty_y_max { self.dirty_y_max = y_max; }
+                if y_min < self.dirty_y_min {
+                    self.dirty_y_min = y_min;
+                }
+                if y_max > self.dirty_y_max {
+                    self.dirty_y_max = y_max;
+                }
             }
         }
     }
@@ -355,11 +394,14 @@ impl Buffer {
         self.width = width;
         self.height = height;
         self.back.resize(size, Cell::default());
-        self.front.resize(size, Cell {
-            symbol: '\0',
-            fg: Color::Reset,
-            bg: Color::Reset
-        });
+        self.front.resize(
+            size,
+            Cell {
+                symbol: '\0',
+                fg: Color::Reset,
+                bg: Color::Reset,
+            },
+        );
         self.dirty_rows.resize(height as usize, true);
         // Increment generation to force full redraw.
         self.generation = self.generation.wrapping_add(1);
@@ -470,11 +512,8 @@ fn color_byte(c: Color) -> u64 {
         Color::White => 15,
         Color::Grey => 16,
         Color::Rgb { r, g, b } => {
-            (r as u64).wrapping_mul(65521)
-                ^ (g as u64).wrapping_mul(257)
-                ^ b as u64
+            (r as u64).wrapping_mul(65521) ^ (g as u64).wrapping_mul(257) ^ b as u64
         }
-        Color::AnsiValue(v) => 200u64.wrapping_add(v as u64),
     }
 }
 
@@ -550,7 +589,9 @@ mod tests {
                     is_transparent || is_concrete,
                     "Orphan glyph at ({x},{y}): symbol='{}' fg={:?} bg={:?} — \
                      non-space glyph with Reset bg would be invisible/glitchy",
-                    cell.symbol, cell.fg, cell.bg,
+                    cell.symbol,
+                    cell.fg,
+                    cell.bg,
                 );
             }
         }
@@ -566,7 +607,10 @@ mod tests {
                     cell.bg != Color::Reset,
                     "Transparent hole at ({x},{y}) in expected-opaque region \
                      [{x0},{y0}..{},{})]: symbol='{}' bg={:?}",
-                    x0 + w, y0 + h, cell.symbol, cell.bg,
+                    x0 + w,
+                    y0 + h,
+                    cell.symbol,
+                    cell.bg,
                 );
             }
         }
@@ -583,7 +627,8 @@ mod tests {
                     (' ', bg_color),
                     "Cell ({x},{y}) expected uniform fill bg={bg_color:?}, \
                      got symbol='{}' bg={:?}",
-                    cell.symbol, cell.bg,
+                    cell.symbol,
+                    cell.bg,
                 );
             }
         }
@@ -615,7 +660,11 @@ mod tests {
 
     #[test]
     fn blit_from_skips_transparent_cells() {
-        let bg = Color::Rgb { r: 20, g: 20, b: 30 };
+        let bg = Color::Rgb {
+            r: 20,
+            g: 20,
+            b: 30,
+        };
         let mut dst = Buffer::new(6, 4);
         dst.fill(bg);
 
@@ -640,7 +689,11 @@ mod tests {
 
     #[test]
     fn blit_from_preserves_dst_outside_src_bounds() {
-        let bg = Color::Rgb { r: 10, g: 10, b: 10 };
+        let bg = Color::Rgb {
+            r: 10,
+            g: 10,
+            b: 10,
+        };
         let mut dst = Buffer::new(10, 8);
         dst.fill(bg);
 
@@ -666,7 +719,11 @@ mod tests {
         buf.fill(bg);
         buf.swap();
         buf.fill(bg);
-        assert_eq!(buf.diff().len(), 0, "same content after swap should produce zero diff");
+        assert_eq!(
+            buf.diff().len(),
+            0,
+            "same content after swap should produce zero diff"
+        );
     }
 
     #[test]
@@ -674,8 +731,16 @@ mod tests {
         let mut buf = Buffer::new(4, 4);
         buf.fill(Color::Rgb { r: 0, g: 0, b: 0 });
         buf.swap();
-        buf.fill(Color::Rgb { r: 255, g: 255, b: 255 });
-        assert_eq!(buf.diff().len(), 16, "different fill should diff every cell");
+        buf.fill(Color::Rgb {
+            r: 255,
+            g: 255,
+            b: 255,
+        });
+        assert_eq!(
+            buf.diff().len(),
+            16,
+            "different fill should diff every cell"
+        );
     }
 
     #[test]
@@ -696,7 +761,11 @@ mod tests {
 
     #[test]
     fn dirty_region_diff_matches_full_diff() {
-        let bg = Color::Rgb { r: 10, g: 10, b: 20 };
+        let bg = Color::Rgb {
+            r: 10,
+            g: 10,
+            b: 20,
+        };
         let mut buf = Buffer::new(20, 15);
         buf.fill(bg);
         buf.swap();
@@ -711,8 +780,11 @@ mod tests {
         let mut dirty_diff = Vec::new();
         buf.diff_into_dirty(&mut dirty_diff);
 
-        assert_eq!(full_diff.len(), dirty_diff.len(),
-            "dirty-region diff must find same cells as full-scan diff");
+        assert_eq!(
+            full_diff.len(),
+            dirty_diff.len(),
+            "dirty-region diff must find same cells as full-scan diff"
+        );
     }
 
     #[test]
@@ -720,11 +792,17 @@ mod tests {
         let mut buf = Buffer::new(4, 4);
         let initial = buf.write_count;
         buf.fill(Color::Black);
-        assert!(buf.write_count > initial, "fill should increment write_count");
+        assert!(
+            buf.write_count > initial,
+            "fill should increment write_count"
+        );
 
         let after_fill = buf.write_count;
         buf.set(0, 0, 'Z', Color::White, Color::Black);
-        assert!(buf.write_count > after_fill, "set should increment write_count");
+        assert!(
+            buf.write_count > after_fill,
+            "set should increment write_count"
+        );
     }
 
     #[test]
@@ -739,12 +817,19 @@ mod tests {
         assert_eq!(buf.dirty_cell_count(), 0, "reset clears dirty count");
 
         buf.set(5, 5, 'X', Color::White, Color::Black);
-        assert!(buf.dirty_cell_count() >= 1, "single set creates at least 1 dirty cell");
+        assert!(
+            buf.dirty_cell_count() >= 1,
+            "single set creates at least 1 dirty cell"
+        );
     }
 
     #[test]
     fn blit_transparent_src_leaves_dst_unchanged() {
-        let bg = Color::Rgb { r: 50, g: 50, b: 50 };
+        let bg = Color::Rgb {
+            r: 50,
+            g: 50,
+            b: 50,
+        };
         let mut dst = Buffer::new(8, 6);
         dst.fill(bg);
 
@@ -758,8 +843,10 @@ mod tests {
         let hash_before = dst.back_hash();
         dst.blit_from(&transparent_src, 0, 0, 0, 0, 8, 6);
         let hash_after = dst.back_hash();
-        assert_eq!(hash_before, hash_after,
-            "blitting fully-transparent source should not change destination");
+        assert_eq!(
+            hash_before, hash_after,
+            "blitting fully-transparent source should not change destination"
+        );
 
         // Confirm dst still uniform.
         assert_uniform_fill(&dst, bg);
@@ -770,7 +857,11 @@ mod tests {
         // Critical invariant: TRUE_BLACK (Rgb{0,0,0}) is NOT the same as Reset.
         // Cells with TRUE_BLACK bg are opaque and WILL be blitted.
         let mut dst = Buffer::new(4, 4);
-        dst.fill(Color::Rgb { r: 100, g: 100, b: 100 });
+        dst.fill(Color::Rgb {
+            r: 100,
+            g: 100,
+            b: 100,
+        });
 
         let mut src = Buffer::new(4, 4);
         src.fill(TRUE_BLACK); // opaque black
@@ -812,7 +903,11 @@ mod tests {
     #[test]
     fn back_hash_stable_for_same_content() {
         let mut buf = Buffer::new(8, 8);
-        buf.fill(Color::Rgb { r: 42, g: 42, b: 42 });
+        buf.fill(Color::Rgb {
+            r: 42,
+            g: 42,
+            b: 42,
+        });
         let h1 = buf.back_hash();
         let h2 = buf.back_hash();
         assert_eq!(h1, h2, "hash must be deterministic for same content");

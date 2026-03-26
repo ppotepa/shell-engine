@@ -1,13 +1,13 @@
-use std::collections::HashMap;
 use crate::kernel::unit_of_work::UnitOfWork;
 use crate::kernel::Kernel;
+use std::collections::HashMap;
 
 pub mod fs;
-pub mod text;
+pub mod misc;
 pub mod net;
 pub mod proc;
 pub mod sys;
-pub mod misc;
+pub mod text;
 
 pub trait Command: Send + Sync {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel);

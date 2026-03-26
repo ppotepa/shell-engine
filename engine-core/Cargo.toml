@@ -6,7 +6,6 @@ authors = ["Paweł Potępa <pawel.potepa@hotmail.com>"]
 license = "MIT"
 
 [dependencies]
-crossterm = "0.29"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1"

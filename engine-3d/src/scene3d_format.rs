@@ -80,9 +80,15 @@ impl Default for CameraDef {
     }
 }
 
-fn default_camera_distance() -> f32 { 3.0 }
-fn default_fov() -> f32 { 60.0 }
-fn default_near_clip() -> f32 { 0.001 }
+fn default_camera_distance() -> f32 {
+    3.0
+}
+fn default_fov() -> f32 {
+    60.0
+}
+fn default_near_clip() -> f32 {
+    0.001
+}
 
 // ── Lights ───────────────────────────────────────────────────────────────────
 
@@ -114,7 +120,9 @@ pub enum LightKind {
     Ambient,
 }
 
-fn default_intensity() -> f32 { 1.0 }
+fn default_intensity() -> f32 {
+    1.0
+}
 
 // ── Materials ────────────────────────────────────────────────────────────────
 
@@ -160,8 +168,12 @@ pub enum SurfaceMode {
     Unlit,
 }
 
-fn default_cel_levels() -> u8 { 4 }
-fn default_opacity() -> f32 { 1.0 }
+fn default_cel_levels() -> u8 {
+    4
+}
+fn default_opacity() -> f32 {
+    1.0
+}
 
 // ── Objects ──────────────────────────────────────────────────────────────────
 
@@ -337,7 +349,9 @@ pub struct ObjectOverride {
 // ── Loader ───────────────────────────────────────────────────────────────────
 
 /// Load and parse a `.scene3d.yml` file from disk.
-pub fn load_scene3d(path: &str) -> Result<Scene3DDefinition, Box<dyn std::error::Error + Send + Sync>> {
+pub fn load_scene3d(
+    path: &str,
+) -> Result<Scene3DDefinition, Box<dyn std::error::Error + Send + Sync>> {
     let text = std::fs::read_to_string(path)?;
     let def: Scene3DDefinition = serde_yaml::from_str(&text)?;
     Ok(def)

@@ -44,11 +44,26 @@ pub fn validate_sprite_timeline(scene: &Scene) -> Vec<TimelineDiagnostic> {
     for layer in &scene.layers {
         for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
             let (appear_at, disappear_at) = match sprite {
-                Sprite::Text { appear_at_ms, disappear_at_ms, .. } => (*appear_at_ms, *disappear_at_ms),
-                Sprite::Image { appear_at_ms, disappear_at_ms, .. } => (*appear_at_ms, *disappear_at_ms),
-                Sprite::Obj { appear_at_ms, disappear_at_ms, .. } => (*appear_at_ms, *disappear_at_ms),
+                Sprite::Text {
+                    appear_at_ms,
+                    disappear_at_ms,
+                    ..
+                } => (*appear_at_ms, *disappear_at_ms),
+                Sprite::Image {
+                    appear_at_ms,
+                    disappear_at_ms,
+                    ..
+                } => (*appear_at_ms, *disappear_at_ms),
+                Sprite::Obj {
+                    appear_at_ms,
+                    disappear_at_ms,
+                    ..
+                } => (*appear_at_ms, *disappear_at_ms),
                 // Panel, Grid, Flex, Scene3D don't have disappear_at_ms timeline validation
-                Sprite::Panel { .. } | Sprite::Grid { .. } | Sprite::Flex { .. } | Sprite::Scene3D { .. } => continue,
+                Sprite::Panel { .. }
+                | Sprite::Grid { .. }
+                | Sprite::Flex { .. }
+                | Sprite::Scene3D { .. } => continue,
             };
 
             let appear = appear_at.unwrap_or(0);

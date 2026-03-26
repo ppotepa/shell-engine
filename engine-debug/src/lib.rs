@@ -1,7 +1,7 @@
 //! Runtime debug feature toggles that can be enabled independently from build profile.
 
-pub mod log;
 pub mod access;
+pub mod log;
 
 pub use log::DebugLogBuffer;
 
@@ -126,7 +126,10 @@ impl ProcessStats {
     /// Returns (utime+stime in clock ticks, wall time in microseconds).
     fn read_cpu_ticks() -> (u64, u64) {
         let wall = {
-            let mut tv = libc::timeval { tv_sec: 0, tv_usec: 0 };
+            let mut tv = libc::timeval {
+                tv_sec: 0,
+                tv_usec: 0,
+            };
             unsafe { libc::gettimeofday(&mut tv, std::ptr::null_mut()) };
             tv.tv_sec as u64 * 1_000_000 + tv.tv_usec as u64
         };

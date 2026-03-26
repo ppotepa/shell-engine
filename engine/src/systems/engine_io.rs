@@ -219,9 +219,7 @@ pub fn engine_io_system(world: &mut World, dt_ms: u64) {
             for ev in sidecar.try_drain_events(64) {
                 match ev {
                     IoEvent::EmitLine { text, delay_ms } => {
-                        let due_at = runtime
-                            .accumulated_ms
-                            .saturating_add(delay_ms.unwrap_or(0));
+                        let due_at = runtime.accumulated_ms.saturating_add(delay_ms.unwrap_or(0));
                         runtime.delayed_lines.push((due_at, text));
                     }
                     other => pending_events.push(other),

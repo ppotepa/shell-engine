@@ -3,9 +3,9 @@
 //! Each trait provides typed accessors for resources that live in this crate.
 //! Sub-crates define their own `XxxAccess` traits for their domain types.
 
+use crate::assets::AssetRoot;
 use crate::buffer::{Buffer, VirtualBuffer};
 use crate::game_state::GameState;
-use crate::assets::AssetRoot;
 use crate::world::World;
 
 /// Typed access to the terminal and virtual frame buffers.

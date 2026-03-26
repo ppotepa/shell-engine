@@ -1,7 +1,7 @@
-pub mod shell;
 pub mod ftp;
 pub mod mail;
+pub mod shell;
 
-pub use shell::ShellApp;
 pub use ftp::FtpApp;
 pub use mail::MailApp;
+pub use shell::ShellApp;

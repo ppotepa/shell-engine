@@ -31,8 +31,9 @@ impl SimulatedClock {
         let sec = s % 60;
         let day_offset = (self.elapsed_ms / 1000) / 86400;
         let day = EPOCH_DAY as u64 + day_offset;
-        let month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        let month_names = [
+            "", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
         let month = EPOCH_MONTH as usize;
         format!(
             "{} {:.0} {:02}:{:02}:{:02} EET 1991",

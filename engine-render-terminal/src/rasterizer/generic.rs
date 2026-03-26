@@ -238,7 +238,7 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
 pub fn rasterize_generic(
     content: &str,
     scale: u16,
-    fg_col: crossterm::style::Color,
+    fg_col: engine_core::color::Color,
     draw_x: u16,
     draw_y: u16,
     buffer: &mut engine_core::buffer::Buffer,
@@ -267,7 +267,7 @@ pub fn rasterize_generic(
                         for sx in 0..scale {
                             let cx = cursor_x + col * scale + sx;
                             let cy = draw_y + row_idx as u16 * scale + sy;
-                            buffer.set(cx, cy, '█', fg_col, crossterm::style::Color::Reset);
+                            buffer.set(cx, cy, '█', fg_col, engine_core::color::Color::Reset);
                         }
                     }
                 }
@@ -356,7 +356,7 @@ fn shrink_5x7_to_3x5(rows_5x7: [u8; 7]) -> [u8; 5] {
 /// OFF pixels = transparent (unchanged).
 pub fn rasterize_generic_tiny(
     content: &str,
-    fg_col: crossterm::style::Color,
+    fg_col: engine_core::color::Color,
     draw_x: u16,
     draw_y: u16,
     buffer: &mut engine_core::buffer::Buffer,
@@ -381,7 +381,7 @@ pub fn rasterize_generic_tiny(
                 if bit == 1 {
                     let cx = cursor_x + col;
                     let cy = draw_y + row_idx as u16;
-                    buffer.set(cx, cy, '█', fg_col, crossterm::style::Color::Reset);
+                    buffer.set(cx, cy, '█', fg_col, engine_core::color::Color::Reset);
                 }
             }
         }
@@ -512,7 +512,7 @@ fn braille_char(mask: u8) -> Option<char> {
 
 pub fn rasterize_generic_half(
     content: &str,
-    fg_col: crossterm::style::Color,
+    fg_col: engine_core::color::Color,
     draw_x: u16,
     draw_y: u16,
     buffer: &mut engine_core::buffer::Buffer,
@@ -545,7 +545,7 @@ pub fn rasterize_generic_half(
                         draw_y + oy,
                         sym,
                         fg_col,
-                        crossterm::style::Color::Reset,
+                        engine_core::color::Color::Reset,
                     );
                 }
             }
@@ -556,7 +556,7 @@ pub fn rasterize_generic_half(
 
 pub fn rasterize_generic_quad(
     content: &str,
-    fg_col: crossterm::style::Color,
+    fg_col: engine_core::color::Color,
     draw_x: u16,
     draw_y: u16,
     buffer: &mut engine_core::buffer::Buffer,
@@ -587,7 +587,7 @@ pub fn rasterize_generic_quad(
                         draw_y + oy,
                         sym,
                         fg_col,
-                        crossterm::style::Color::Reset,
+                        engine_core::color::Color::Reset,
                     );
                 }
             }
@@ -598,7 +598,7 @@ pub fn rasterize_generic_quad(
 
 pub fn rasterize_generic_braille(
     content: &str,
-    fg_col: crossterm::style::Color,
+    fg_col: engine_core::color::Color,
     draw_x: u16,
     draw_y: u16,
     buffer: &mut engine_core::buffer::Buffer,
@@ -649,7 +649,7 @@ pub fn rasterize_generic_braille(
                         draw_y + oy,
                         sym,
                         fg_col,
-                        crossterm::style::Color::Reset,
+                        engine_core::color::Color::Reset,
                     );
                 }
             }
@@ -659,7 +659,7 @@ pub fn rasterize_generic_braille(
 }
 
 pub fn rasterize_spans_mode(
-    spans: &[(&str, crossterm::style::Color)],
+    spans: &[(&str, engine_core::color::Color)],
     mode: GenericMode,
     draw_x: u16,
     draw_y: u16,
@@ -684,7 +684,7 @@ pub fn rasterize_spans_mode(
 /// Rasterize a list of (text, colour) spans using the generic font at the given preset.
 /// preset 1 = 3×5 tiny, preset 3 = 5×7 ×2 scale, default = 5×7 ×1 scale.
 pub fn rasterize_spans(
-    spans: &[(&str, crossterm::style::Color)],
+    spans: &[(&str, engine_core::color::Color)],
     preset: u16,
     draw_x: u16,
     draw_y: u16,
@@ -765,7 +765,7 @@ mod tests {
     fn rasterize_generic_lowercase_differs_from_uppercase() {
         use super::{rasterize_generic, TextTransform};
         use engine_core::buffer::Buffer;
-        use crossterm::style::Color;
+        use engine_core::color::Color;
 
         let mut buf_lower = Buffer::new(100, 10);
         buf_lower.fill(Color::Reset);

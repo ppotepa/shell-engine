@@ -1,7 +1,7 @@
 //! Typed access to debug resources via [`World`].
 
-use crate::{DebugFeatures, FpsCounter, ProcessStats, SystemTimings};
 use crate::log::DebugLogBuffer;
+use crate::{DebugFeatures, FpsCounter, ProcessStats, SystemTimings};
 use engine_core::world::World;
 
 /// Typed access to debug/diagnostic resources in World.

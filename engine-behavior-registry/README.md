@@ -1,25 +1,25 @@
 # engine-behavior-registry
 
-Behavior definition loading and lookup from YAML.
+Compatibility crate re-exporting behavior registry types from `engine-behavior`.
 
 ## Purpose
 
-Loads named behavior definitions from YAML files and provides a
-registry for the runtime to resolve behavior references at scene
-compile time.
+This crate exists only to preserve older dependency paths after the behavior
+registry implementation was absorbed into `engine-behavior`.
 
-## Key Types
+New code should depend on `engine-behavior` directly. This crate remains as a
+thin re-export layer so the workspace can evolve without breaking every caller
+at once.
 
-- `BehaviorRegistry` — collection of named behavior definitions, keyed by ID
-- `BehaviorDefinition` — a single behavior's YAML-defined parameters and script reference
+## What lives here
 
-## Dependencies
+- `pub use engine_behavior::registry::*;`
 
-- `engine-core` — shared behavior model types
-- `serde_yaml` — YAML deserialization of behavior definition files
+That is the entire public contract.
 
-## Usage
+## Working with this crate
 
-The scene compiler queries the `BehaviorRegistry` to resolve behavior
-references found in scene YAML. Definitions are loaded once at mod
-initialization.
+- do not add new logic here unless temporary compatibility absolutely requires it,
+- prefer moving callers to `engine-behavior` instead of expanding this crate,
+- if the compatibility layer is ever removed, update dependent READMEs and
+  Cargo manifests together.

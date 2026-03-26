@@ -1,5 +1,5 @@
-use std::collections::BinaryHeap;
 use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 
 pub struct ScheduledEvent {
     pub due_at_ms: u64,
@@ -24,7 +24,9 @@ impl PartialOrd for ScheduledEvent {
 impl Ord for ScheduledEvent {
     fn cmp(&self, other: &Self) -> Ordering {
         // Min-heap: earlier events have higher priority
-        other.due_at_ms.cmp(&self.due_at_ms)
+        other
+            .due_at_ms
+            .cmp(&self.due_at_ms)
             .then_with(|| other.sequence.cmp(&self.sequence))
     }
 }
@@ -42,7 +44,12 @@ impl KernelEventQueue {
         }
     }
 
-    pub fn schedule_at(&mut self, due_at_ms: u64, action: impl FnOnce() + Send + 'static, tag: Option<&str>) {
+    pub fn schedule_at(
+        &mut self,
+        due_at_ms: u64,
+        action: impl FnOnce() + Send + 'static,
+        tag: Option<&str>,
+    ) {
         let seq = self.seq;
         self.seq += 1;
         self.queue.push(ScheduledEvent {
@@ -53,7 +60,13 @@ impl KernelEventQueue {
         });
     }
 
-    pub fn schedule_after(&mut self, now_ms: u64, delay_ms: u64, action: impl FnOnce() + Send + 'static, tag: Option<&str>) {
+    pub fn schedule_after(
+        &mut self,
+        now_ms: u64,
+        delay_ms: u64,
+        action: impl FnOnce() + Send + 'static,
+        tag: Option<&str>,
+    ) {
         self.schedule_at(now_ms + delay_ms, action, tag);
     }
 

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::input::commands::Command;
-use engine::repositories::{create_scene_repository, SceneRepository};
+use engine::asset::{create_scene_repository, SceneRepository};
 use engine_core::logging;
 
 use super::{focus::FocusPane, now_millis, AppState, SidebarItem};

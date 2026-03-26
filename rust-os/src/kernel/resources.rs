@@ -1,6 +1,6 @@
-use std::collections::{HashMap, VecDeque};
 use crate::difficulty::MachineSpec;
 use crate::hardware::HardwareProfile;
+use std::collections::{HashMap, VecDeque};
 
 // ── Spindle State Machine ──
 
@@ -138,9 +138,30 @@ pub struct FdTable {
 impl FdTable {
     pub fn new(spec: &MachineSpec) -> Self {
         let mut entries = HashMap::new();
-        entries.insert(0, FdEntry { path: "/dev/stdin".into(), mode: FdMode::Read, offset: 0 });
-        entries.insert(1, FdEntry { path: "/dev/stdout".into(), mode: FdMode::Write, offset: 0 });
-        entries.insert(2, FdEntry { path: "/dev/stderr".into(), mode: FdMode::Write, offset: 0 });
+        entries.insert(
+            0,
+            FdEntry {
+                path: "/dev/stdin".into(),
+                mode: FdMode::Read,
+                offset: 0,
+            },
+        );
+        entries.insert(
+            1,
+            FdEntry {
+                path: "/dev/stdout".into(),
+                mode: FdMode::Write,
+                offset: 0,
+            },
+        );
+        entries.insert(
+            2,
+            FdEntry {
+                path: "/dev/stderr".into(),
+                mode: FdMode::Write,
+                offset: 0,
+            },
+        );
         Self {
             next_fd: 3,
             max: spec.max_open_files,
@@ -161,7 +182,14 @@ impl FdTable {
 
     pub fn open_file(&mut self, path: &str, mode: FdMode) -> Option<u32> {
         let fd = self.alloc()?;
-        self.entries.insert(fd, FdEntry { path: path.to_string(), mode, offset: 0 });
+        self.entries.insert(
+            fd,
+            FdEntry {
+                path: path.to_string(),
+                mode,
+                offset: 0,
+            },
+        );
         Some(fd)
     }
 
@@ -322,14 +350,19 @@ impl NetworkController {
         }
         let id = self.next_socket_id;
         self.next_socket_id = self.next_socket_id.wrapping_add(1);
-        if self.next_socket_id == 0 { self.next_socket_id = 1; }
-        self.sockets.insert(id, SocketEntry {
-            remote_host: host.to_string(),
-            remote_port: port,
-            state: SocketState::Established,
-            bytes_sent: 0,
-            bytes_recv: 0,
-        });
+        if self.next_socket_id == 0 {
+            self.next_socket_id = 1;
+        }
+        self.sockets.insert(
+            id,
+            SocketEntry {
+                remote_host: host.to_string(),
+                remote_port: port,
+                state: SocketState::Established,
+                bytes_sent: 0,
+                bytes_recv: 0,
+            },
+        );
         self.packet_queues.insert(id, VecDeque::new());
         Some(id)
     }
@@ -371,7 +404,10 @@ impl NetworkController {
     }
 
     pub fn active_count(&self) -> usize {
-        self.sockets.values().filter(|s| s.state == SocketState::Established).count()
+        self.sockets
+            .values()
+            .filter(|s| s.state == SocketState::Established)
+            .count()
     }
 
     pub fn list_sockets(&self) -> Vec<(u8, &SocketEntry)> {

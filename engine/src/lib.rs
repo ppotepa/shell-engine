@@ -4,10 +4,10 @@ pub mod bench;
 pub mod debug_features;
 pub mod debug_log;
 mod error;
-mod game_loop;
-mod mod_loader;
 pub mod frame_capture;
 pub mod frame_compare;
+mod game_loop;
+mod mod_loader;
 pub use error::EngineError;
 
 // Re-export core modules from engine-core for compatibility
@@ -28,32 +28,32 @@ pub use engine_pipeline as pipeline;
 pub use engine_asset as asset;
 
 pub mod asset_cache;
-pub mod obj_prerender;
-pub mod scene_pipeline;
-pub mod pipeline_flags;
-pub mod strategy;
 pub mod asset_source;
 pub mod assets;
 pub mod behavior;
 pub mod events;
-pub mod mod_behaviors;
 pub mod game_object;
 pub mod game_state;
 pub mod image_loader;
+pub mod mod_behaviors;
+pub mod obj_prerender;
+pub mod pipeline_flags;
 pub mod pipelines;
 pub mod rasterizer;
 pub mod render_policy;
 pub mod runtime_settings;
-mod scene_loader;
-pub mod scene_runtime;
 pub mod scene3d_atlas;
 pub mod scene3d_format;
 pub mod scene3d_resolve;
+mod scene_loader;
+pub mod scene_pipeline;
+pub mod scene_runtime;
 mod services;
+mod splash;
+pub mod strategy;
 pub mod systems;
 pub mod terminal_caps;
 pub mod world;
-mod splash;
 
 /// Returns (behavior_name, fields) tuples for all built-in behaviors.
 /// Re-exported from engine crate to make available in authoring catalog.
@@ -153,13 +153,15 @@ impl ShellEngine {
 
     /// Runs startup checks, enters the alt-screen, and drives the game loop until the player quits.
     pub fn run(&self) -> Result<(), EngineError> {
-        use events::EventQueue;
-        use engine_mod::startup::{StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile};
+        use engine_animation::Animator;
         use engine_asset::SceneRepository;
+        use engine_mod::startup::{
+            StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile,
+        };
+        use events::EventQueue;
         use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use scene_runtime::SceneRuntime;
-        use engine_animation::Animator;
         use systems::renderer::TerminalRenderer;
         use terminal_caps::target_fps_from_manifest;
 
@@ -182,33 +184,41 @@ impl ShellEngine {
             ),
         );
 
-        let scene_loader_fn = |mod_source: &std::path::Path| -> Result<Vec<StartupSceneFile>, EngineError> {
-            let repo = engine_asset::create_scene_repository(mod_source)?;
-            let paths = repo.discover_scene_paths()?;
-            let mut scenes = Vec::with_capacity(paths.len());
-            for path in paths {
-                let scene = repo.load_scene(&path)?;
-                scenes.push(StartupSceneFile { path, scene });
-            }
-            Ok(scenes)
-        };
+        let scene_loader_fn =
+            |mod_source: &std::path::Path| -> Result<Vec<StartupSceneFile>, EngineError> {
+                let repo = engine_asset::create_scene_repository(mod_source)?;
+                let paths = repo.discover_scene_paths()?;
+                let mut scenes = Vec::with_capacity(paths.len());
+                for path in paths {
+                    let scene = repo.load_scene(&path)?;
+                    scenes.push(StartupSceneFile { path, scene });
+                }
+                Ok(scenes)
+            };
         let font_checker = |mod_src: Option<&std::path::Path>, font: &str| -> bool {
             rasterizer::has_font_assets(mod_src, font)
         };
-        let glyph_checker = |mod_src: Option<&std::path::Path>, font: &str, text: &str| -> Option<Vec<char>> {
-            rasterizer::missing_glyphs(mod_src, font, text)
-        };
+        let glyph_checker =
+            |mod_src: Option<&std::path::Path>, font: &str, text: &str| -> Option<Vec<char>> {
+                rasterizer::missing_glyphs(mod_src, font, text)
+            };
         let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
             image_loader::has_image_asset(mod_src, source)
         };
-        let rhai_validator = |script: &str, src: Option<&str>, scene: &crate::scene::Scene| -> Result<(), String> {
-            behavior::smoke_validate_rhai_script(script, src, scene)
-        };
-        let startup_ctx = StartupContext::new(&self.mod_source, &self.mod_manifest, entrypoint, &scene_loader_fn)
-            .with_font_asset_checker(&font_checker)
-            .with_glyph_coverage_checker(&glyph_checker)
-            .with_image_asset_checker(&image_checker)
-            .with_rhai_script_validator(&rhai_validator);
+        let rhai_validator =
+            |script: &str, src: Option<&str>, scene: &crate::scene::Scene| -> Result<(), String> {
+                behavior::smoke_validate_rhai_script(script, src, scene)
+            };
+        let startup_ctx = StartupContext::new(
+            &self.mod_source,
+            &self.mod_manifest,
+            entrypoint,
+            &scene_loader_fn,
+        )
+        .with_font_asset_checker(&font_checker)
+        .with_glyph_coverage_checker(&glyph_checker)
+        .with_image_asset_checker(&image_checker)
+        .with_rhai_script_validator(&rhai_validator);
         let startup_report = StartupRunner::default().run(&startup_ctx)?;
         for issue in startup_report.issues() {
             if matches!(issue.level, StartupIssueLevel::Warning) {
@@ -292,7 +302,8 @@ impl ShellEngine {
         // Register frame-skip oracle (either AlwaysRender or CoordinatedSkip based on --opt-skip flag)
         if self.config.opt_skip {
             world.register(std::sync::Mutex::new(
-                Box::new(strategy::CoordinatedSkip::default()) as Box<dyn strategy::FrameSkipOracle>
+                Box::new(strategy::CoordinatedSkip::default())
+                    as Box<dyn strategy::FrameSkipOracle>,
             ));
         } else {
             world.register(std::sync::Mutex::new(
@@ -308,7 +319,10 @@ impl ShellEngine {
         let splash_bg = scene
             .bg_colour
             .as_ref()
-            .map(crossterm::style::Color::from)
+            .map(|tc| {
+                let engine_color = engine_core::color::Color::from(tc);
+                engine_render_terminal::color_convert::to_crossterm(engine_color)
+            })
             .unwrap_or(crossterm::style::Color::Black);
         if !self.config.skip_splash {
             splash::show_splash(splash_bg);
@@ -320,7 +334,10 @@ impl ShellEngine {
         // scene_lifecycle can clone the Arc and run it without holding a borrow.
         world.register(std::sync::Arc::new(scene_pipeline::ScenePipeline::default()));
         // Prepare the entry scene (prerender, future steps) before activating it.
-        if let Some(pipeline) = world.get::<std::sync::Arc<scene_pipeline::ScenePipeline>>().cloned() {
+        if let Some(pipeline) = world
+            .get::<std::sync::Arc<scene_pipeline::ScenePipeline>>()
+            .cloned()
+        {
             pipeline.prepare(&scene, &mut world);
         }
         world.register_scoped(SceneRuntime::new(scene));
@@ -389,14 +406,14 @@ fn parse_renderer_mode(raw: &str) -> Option<scene::SceneRenderedMode> {
 #[cfg(test)]
 mod tests {
     use super::ShellEngine;
+    use crate::scene_loader;
+    use crate::EngineError;
+    use engine_asset::{create_scene_repository, SceneRepository};
     use engine_mod::startup::checks::{
         EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
         SceneGraphCheck,
     };
     use engine_mod::startup::{StartupContext, StartupRunner, StartupSceneFile};
-    use engine_asset::{create_scene_repository, SceneRepository};
-    use crate::scene_loader;
-    use crate::EngineError;
     use std::{fs, path::PathBuf};
     use tempfile::tempdir;
 
@@ -486,29 +503,36 @@ mod tests {
             .and_then(|value| value.as_str())
             .expect("entrypoint string");
 
-        let scene_loader_fn = |mod_source: &std::path::Path| -> Result<Vec<StartupSceneFile>, EngineError> {
-            let repo = create_scene_repository(mod_source)?;
-            let paths = repo.discover_scene_paths()?;
-            let mut scenes = Vec::with_capacity(paths.len());
-            for path in paths {
-                let scene = repo.load_scene(&path)?;
-                scenes.push(StartupSceneFile { path, scene });
-            }
-            Ok(scenes)
-        };
+        let scene_loader_fn =
+            |mod_source: &std::path::Path| -> Result<Vec<StartupSceneFile>, EngineError> {
+                let repo = create_scene_repository(mod_source)?;
+                let paths = repo.discover_scene_paths()?;
+                let mut scenes = Vec::with_capacity(paths.len());
+                for path in paths {
+                    let scene = repo.load_scene(&path)?;
+                    scenes.push(StartupSceneFile { path, scene });
+                }
+                Ok(scenes)
+            };
         let font_checker = |mod_src: Option<&std::path::Path>, font: &str| -> bool {
             crate::rasterizer::has_font_assets(mod_src, font)
         };
-        let glyph_checker = |mod_src: Option<&std::path::Path>, font: &str, text: &str| -> Option<Vec<char>> {
-            crate::rasterizer::missing_glyphs(mod_src, font, text)
-        };
+        let glyph_checker =
+            |mod_src: Option<&std::path::Path>, font: &str, text: &str| -> Option<Vec<char>> {
+                crate::rasterizer::missing_glyphs(mod_src, font, text)
+            };
         let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
             crate::image_loader::has_image_asset(mod_src, source)
         };
-        let startup_ctx = StartupContext::new(&mod_dir, engine.mod_manifest(), entrypoint, &scene_loader_fn)
-            .with_font_asset_checker(&font_checker)
-            .with_glyph_coverage_checker(&glyph_checker)
-            .with_image_asset_checker(&image_checker);
+        let startup_ctx = StartupContext::new(
+            &mod_dir,
+            engine.mod_manifest(),
+            entrypoint,
+            &scene_loader_fn,
+        )
+        .with_font_asset_checker(&font_checker)
+        .with_glyph_coverage_checker(&glyph_checker)
+        .with_image_asset_checker(&image_checker);
         StartupRunner::with_checks(vec![
             Box::new(SceneGraphCheck),
             Box::new(EffectRegistryCheck),

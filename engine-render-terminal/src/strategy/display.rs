@@ -1,7 +1,7 @@
+use engine_pipeline::{DisplayFrame, DisplaySink};
+use std::io;
 use std::sync::mpsc::{self, Sender};
 use std::thread::JoinHandle;
-use std::io;
-use engine_pipeline::{DisplaySink, DisplayFrame};
 
 /// Default: flushes synchronously on the main thread.
 pub struct SyncDisplaySink;

@@ -194,12 +194,11 @@ mod tests {
                 })?;
                 let path = entry.path();
                 if path.extension().is_some_and(|ext| ext == "yml") {
-                    let content = fs::read_to_string(&path).map_err(|e| {
-                        EngineError::ManifestRead {
+                    let content =
+                        fs::read_to_string(&path).map_err(|e| EngineError::ManifestRead {
                             path: path.clone(),
                             source: e,
-                        }
-                    })?;
+                        })?;
                     let scene = serde_yaml::from_str(&content).map_err(|e| {
                         EngineError::InvalidModYaml {
                             path: path.clone(),
@@ -279,7 +278,10 @@ layers: []
                 .expect("manifest");
 
         // Inject a validator that always fails for this invalid script
-        let validator = |_script: &str, _src: Option<&str>, _scene: &engine_core::scene::Scene| -> Result<(), String> {
+        let validator = |_script: &str,
+                         _src: Option<&str>,
+                         _scene: &engine_core::scene::Scene|
+         -> Result<(), String> {
             Err("compile error: expected variable name".to_string())
         };
 

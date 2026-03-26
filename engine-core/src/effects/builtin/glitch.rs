@@ -5,7 +5,7 @@ use crate::effects::utils::color::lerp_colour;
 use crate::effects::utils::math::{smoothstep, TICK_MS};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "glitch-out",

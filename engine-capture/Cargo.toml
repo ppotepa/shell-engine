@@ -6,4 +6,6 @@ edition = "2021"
 [dependencies]
 engine-core = { workspace = true }
 engine-error = { path = "../engine-error" }
-crossterm = "0.29"
+
+[dev-dependencies]
+tempfile = "3.13"

@@ -1,5 +1,5 @@
 //! Integration test for frame capture regression testing.
-//! 
+//!
 //! Usage:
 //!   cargo test --test frame_regression -- --nocapture --ignored
 //!
@@ -19,18 +19,20 @@ fn compare_frame_captures() {
     let optimized_dir = std::env::var("FRAME_OPTIMIZED")
         .expect("Set FRAME_OPTIMIZED env var to optimized capture directory");
 
-    let baseline_path = Path::new(&baseline_dir).canonicalize()
+    let baseline_path = Path::new(&baseline_dir)
+        .canonicalize()
         .expect("FRAME_BASELINE path does not exist");
-    let optimized_path = Path::new(&optimized_dir).canonicalize()
+    let optimized_path = Path::new(&optimized_dir)
+        .canonicalize()
         .expect("FRAME_OPTIMIZED path does not exist");
 
     println!("Baseline:  {}", baseline_path.display());
     println!("Optimized: {}", optimized_path.display());
 
-    let baseline_files = frame_compare::list_frame_files(&baseline_path)
-        .expect("failed to list baseline frames");
-    let optimized_files = frame_compare::list_frame_files(&optimized_path)
-        .expect("failed to list optimized frames");
+    let baseline_files =
+        frame_compare::list_frame_files(&baseline_path).expect("failed to list baseline frames");
+    let optimized_files =
+        frame_compare::list_frame_files(&optimized_path).expect("failed to list optimized frames");
 
     println!(
         "Comparing {} baseline frames with {} optimized frames",
@@ -69,19 +71,33 @@ fn compare_frame_captures() {
                     x,
                     y
                 );
-                eprintln!("      baseline: symbol={} fg=({},{},{}) bg=({},{},{})",
+                eprintln!(
+                    "      baseline: symbol={} fg=({},{},{}) bg=({},{},{})",
                     baseline_cell.symbol,
-                    baseline_cell.fg_r, baseline_cell.fg_g, baseline_cell.fg_b,
-                    baseline_cell.bg_r, baseline_cell.bg_g, baseline_cell.bg_b
+                    baseline_cell.fg_r,
+                    baseline_cell.fg_g,
+                    baseline_cell.fg_b,
+                    baseline_cell.bg_r,
+                    baseline_cell.bg_g,
+                    baseline_cell.bg_b
                 );
-                eprintln!("      optimized: symbol={} fg=({},{},{}) bg=({},{},{})",
+                eprintln!(
+                    "      optimized: symbol={} fg=({},{},{}) bg=({},{},{})",
                     optimized_cell.symbol,
-                    optimized_cell.fg_r, optimized_cell.fg_g, optimized_cell.fg_b,
-                    optimized_cell.bg_r, optimized_cell.bg_g, optimized_cell.bg_b
+                    optimized_cell.fg_r,
+                    optimized_cell.fg_g,
+                    optimized_cell.fg_b,
+                    optimized_cell.bg_r,
+                    optimized_cell.bg_g,
+                    optimized_cell.bg_b
                 );
             }
             Err(e) => {
-                panic!("failed to compare {}: {}", baseline_name.to_string_lossy(), e);
+                panic!(
+                    "failed to compare {}: {}",
+                    baseline_name.to_string_lossy(),
+                    e
+                );
             }
         }
     }

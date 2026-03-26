@@ -16,13 +16,14 @@ pub struct LsCmd;
 impl Command for LsCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
         let long = args.contains(&"-l") || args.contains(&"-la") || args.contains(&"-al");
-        let all = args.contains(&"-a") || args.contains(&"-la") || args.contains(&"-al") || args.contains(&"-A");
+        let all = args.contains(&"-a")
+            || args.contains(&"-la")
+            || args.contains(&"-al")
+            || args.contains(&"-A");
         let one = args.contains(&"-1");
 
         // Determine target path
-        let path_arg = args.iter().skip(1)
-            .find(|a| !a.starts_with('-'))
-            .copied();
+        let path_arg = args.iter().skip(1).find(|a| !a.starts_with('-')).copied();
         let target = uow.session.resolve_path(path_arg);
 
         if !kernel.vfs.exists(&target) {
@@ -36,8 +37,13 @@ impl Command for LsCmd {
                     let name = target.split('/').last().unwrap_or(&target);
                     uow.print(format!(
                         "{} {:2} {:8} {:8} {:6} {} {}",
-                        stat.permissions, stat.links, stat.owner, stat.group,
-                        stat.size, stat.modified, name
+                        stat.permissions,
+                        stat.links,
+                        stat.owner,
+                        stat.group,
+                        stat.size,
+                        stat.modified,
+                        name
                     ));
                 }
             } else {
@@ -66,15 +72,32 @@ impl Command for LsCmd {
                 };
                 let (perms, links, owner, group, size, modified) =
                     if let Some(stat) = kernel.vfs.stat(&full) {
-                        (stat.permissions.clone(), stat.links,
-                         stat.owner.clone(), stat.group.clone(),
-                         stat.size, stat.modified.clone())
+                        (
+                            stat.permissions.clone(),
+                            stat.links,
+                            stat.owner.clone(),
+                            stat.group.clone(),
+                            stat.size,
+                            stat.modified.clone(),
+                        )
                     } else if name == "." || name == ".." {
-                        ("drwxr-xr-x".to_string(), 2,
-                         uow.session.user.clone(), "staff".to_string(), 512u64, "Sep 17 21:12".to_string())
+                        (
+                            "drwxr-xr-x".to_string(),
+                            2,
+                            uow.session.user.clone(),
+                            "staff".to_string(),
+                            512u64,
+                            "Sep 17 21:12".to_string(),
+                        )
                     } else {
-                        ("-rw-r--r--".to_string(), 1,
-                         uow.session.user.clone(), "staff".to_string(), 0u64, "Sep 17 21:12".to_string())
+                        (
+                            "-rw-r--r--".to_string(),
+                            1,
+                            uow.session.user.clone(),
+                            "staff".to_string(),
+                            0u64,
+                            "Sep 17 21:12".to_string(),
+                        )
                     };
                 uow.print(format!(
                     "{} {:2} {:8} {:8} {:6} {} {}",
@@ -98,7 +121,12 @@ impl Command for LsCmd {
 pub struct CatCmd;
 impl Command for CatCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
-        let files: Vec<&str> = args.iter().skip(1).filter(|a| !a.starts_with('-')).copied().collect();
+        let files: Vec<&str> = args
+            .iter()
+            .skip(1)
+            .filter(|a| !a.starts_with('-'))
+            .copied()
+            .collect();
         if files.is_empty() {
             uow.print("cat: no file specified");
             return;
@@ -169,7 +197,12 @@ pub struct RmCmd;
 impl Command for RmCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
         let recursive = args.contains(&"-r") || args.contains(&"-rf") || args.contains(&"-fr");
-        let files: Vec<&str> = args.iter().skip(1).filter(|a| !a.starts_with('-')).copied().collect();
+        let files: Vec<&str> = args
+            .iter()
+            .skip(1)
+            .filter(|a| !a.starts_with('-'))
+            .copied()
+            .collect();
         if files.is_empty() {
             uow.print("usage: rm [-r] file...");
             return;
@@ -215,7 +248,12 @@ impl Command for RmdirCmd {
 pub struct MkdirCmd;
 impl Command for MkdirCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
-        let dirs: Vec<&str> = args.iter().skip(1).filter(|a| !a.starts_with('-')).copied().collect();
+        let dirs: Vec<&str> = args
+            .iter()
+            .skip(1)
+            .filter(|a| !a.starts_with('-'))
+            .copied()
+            .collect();
         if dirs.is_empty() {
             uow.print("usage: mkdir dir...");
             return;
@@ -259,12 +297,10 @@ fn apply_chmod(current: &str, mode: &str) -> String {
         let is_dir = current.starts_with('d');
         let mut chars: Vec<char> = vec!['?'; 10];
         chars[0] = if is_dir { 'd' } else { '-' };
-        let digits: Vec<u8> = mode.chars()
-            .map(|c| c as u8 - b'0')
-            .collect();
+        let digits: Vec<u8> = mode.chars().map(|c| c as u8 - b'0').collect();
         for (i, &d) in digits.iter().enumerate() {
             let base = 1 + i * 3;
-            chars[base]     = if d & 4 != 0 { 'r' } else { '-' };
+            chars[base] = if d & 4 != 0 { 'r' } else { '-' };
             chars[base + 1] = if d & 2 != 0 { 'w' } else { '-' };
             chars[base + 2] = if d & 1 != 0 { 'x' } else { '-' };
         }
@@ -289,7 +325,10 @@ impl Command for FileCmd {
             } else if let Some(content) = kernel.vfs.read_file(&path) {
                 if content.contains("[COMPRESSED ARCHIVE") {
                     "compress'd data".to_string()
-                } else if content.contains("[binary") || content.contains("[core dump") || content.contains("[mail spool") {
+                } else if content.contains("[binary")
+                    || content.contains("[core dump")
+                    || content.contains("[mail spool")
+                {
                     "data".to_string()
                 } else if content.starts_with("#!/bin/sh") || content.starts_with("#!/bin") {
                     "Bourne shell script text".to_string()

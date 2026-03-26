@@ -1,32 +1,13 @@
 //! Compositor system — walks the scene layer/sprite tree and renders each frame into the terminal `Buffer`.
 
-mod effect_applicator;
-mod image_render;
-mod layer_compositor;
-mod layout;
-pub(crate) mod obj_loader;
-pub(crate) mod obj_render;
-mod render;
-mod sprite_renderer;
-mod text_render;
-
-use crate::assets::AssetRoot;
-use crate::buffer::{Buffer, Cell, TRUE_BLACK};
-use crate::effects::{apply_effect, Region};
-use crate::obj_prerender::{ObjPrerenderedFrames, ObjPrerenderStatus};
-use crate::scene::SceneRenderedMode;
+use crate::buffer::TRUE_BLACK;
+use crate::obj_prerender::{ObjPrerenderStatus, ObjPrerenderedFrames};
 use crate::scene3d_atlas::Scene3DAtlas;
-use crate::scene_runtime::{ObjectRuntimeState, SceneRuntime, TargetResolver};
+use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
-use engine_animation::SceneStage;
 use crate::world::World;
-use crossterm::style::Color;
-use std::cell::RefCell;
-use std::collections::HashMap;
-
-thread_local! {
-    static HALFBLOCK_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
-}
+use engine_core::color::Color;
+use engine_animation::SceneStage;
 
 /// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
@@ -43,14 +24,19 @@ pub fn compositor_system(world: &mut World) {
         .get::<crate::strategy::PipelineStrategies>()
         .map(|s| s as *const _)
         .unwrap_or(std::ptr::null());
-    static FALLBACK_LAYER: crate::strategy::ScratchLayerCompositor = crate::strategy::ScratchLayerCompositor;
+    static FALLBACK_LAYER: crate::strategy::ScratchLayerCompositor =
+        crate::strategy::ScratchLayerCompositor;
     static FALLBACK_HALFBLOCK: crate::strategy::FullScanPacker = crate::strategy::FullScanPacker;
-    let layer_strategy: &dyn crate::strategy::LayerCompositor =
-        if strats_ptr.is_null() { &FALLBACK_LAYER }
-        else { unsafe { (*strats_ptr).layer.as_ref() } };
-    let halfblock_strategy: &dyn crate::strategy::HalfblockPacker =
-        if strats_ptr.is_null() { &FALLBACK_HALFBLOCK }
-        else { unsafe { (*strats_ptr).halfblock.as_ref() } };
+    let layer_strategy: &dyn crate::strategy::LayerCompositor = if strats_ptr.is_null() {
+        &FALLBACK_LAYER
+    } else {
+        unsafe { (*strats_ptr).layer.as_ref() }
+    };
+    let halfblock_strategy: &dyn crate::strategy::HalfblockPacker = if strats_ptr.is_null() {
+        &FALLBACK_HALFBLOCK
+    } else {
+        unsafe { (*strats_ptr).halfblock.as_ref() }
+    };
 
     // Extract a raw pointer to the scene layer slice to avoid deep-cloning the entire
     // layer tree (all Sprite::Obj fields, Strings, etc.) every frame.
@@ -87,7 +73,7 @@ pub fn compositor_system(world: &mut World) {
             .scene_runtime_mut()
             .map(|rt| (rt.object_states_snapshot(), rt.obj_camera_states_snapshot()))
             .unwrap_or_default();
-        
+
         // Now get immutable references
         let scene = world.scene_runtime().unwrap().scene();
         let target_resolver = world
@@ -148,7 +134,10 @@ pub fn compositor_system(world: &mut World) {
 
     // Determine if prerendering is complete and we can use the prerendered frame store.
     // We extract a raw pointer to avoid holding a borrow while also needing mut access to world.
-    let prerender_ready = matches!(world.get::<ObjPrerenderStatus>(), Some(ObjPrerenderStatus::Ready));
+    let prerender_ready = matches!(
+        world.get::<ObjPrerenderStatus>(),
+        Some(ObjPrerenderStatus::Ready)
+    );
     let prerender_frames_ptr: *const ObjPrerenderedFrames = if prerender_ready {
         world
             .get::<ObjPrerenderedFrames>()
@@ -184,7 +173,7 @@ pub fn compositor_system(world: &mut World) {
             Some(v) => &mut v.0,
             None => return,
         };
-        
+
         let params = crate::strategy::CompositeParams {
             bg,
             layers,
@@ -202,8 +191,14 @@ pub fn compositor_system(world: &mut World) {
             scene_step_dur,
         };
         let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
-            obj_render::with_prerender_frames(prerender_frames, || {
-                dispatch_composite(rendered_mode, &params, layer_strategy, halfblock_strategy, buffer)
+            engine_compositor::with_prerender_frames(prerender_frames, || {
+                engine_compositor::dispatch_composite(
+                    rendered_mode,
+                    &params,
+                    layer_strategy,
+                    halfblock_strategy,
+                    buffer,
+                )
             })
         });
         if let Some(runtime) = world.scene_runtime_mut() {
@@ -216,7 +211,7 @@ pub fn compositor_system(world: &mut World) {
         Some(b) => b,
         None => return,
     };
-    
+
     let params = crate::strategy::CompositeParams {
         bg,
         layers,
@@ -234,8 +229,14 @@ pub fn compositor_system(world: &mut World) {
         scene_step_dur,
     };
     let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
-        obj_render::with_prerender_frames(prerender_frames, || {
-            dispatch_composite(rendered_mode, &params, layer_strategy, halfblock_strategy, buffer)
+        engine_compositor::with_prerender_frames(prerender_frames, || {
+            engine_compositor::dispatch_composite(
+                rendered_mode,
+                &params,
+                layer_strategy,
+                halfblock_strategy,
+                buffer,
+            )
         })
     });
     if let Some(runtime) = world.scene_runtime_mut() {
@@ -243,287 +244,21 @@ pub fn compositor_system(world: &mut World) {
     }
 }
 
-fn composite_scene(
-    bg: Color,
-    layers: &[crate::scene::Layer],
-    ui_enabled: bool,
-    scene_rendered_mode: SceneRenderedMode,
-    asset_root: Option<&AssetRoot>,
-    target_resolver: &TargetResolver,
-    object_states: &HashMap<String, ObjectRuntimeState>,
-    obj_camera_states: &HashMap<String, crate::scene_runtime::ObjCameraState>,
-    current_stage: &SceneStage,
-    step_idx: usize,
-    elapsed_ms: u64,
-    scene_elapsed_ms: u64,
-    scene_effects: &[crate::scene::Effect],
-    scene_step_dur: u64,
-    layer: &dyn engine_pipeline::LayerCompositor,
-    halfblock: &dyn engine_pipeline::HalfblockPacker,
-    buffer: &mut Buffer,
-) -> HashMap<String, Region> {
-    buffer.fill(bg);
-    // #5 opt-comp-halfblock: HalfblockPacker strategy calls prepare_source() after fill so
-    // only subsequent sprite/effect writes contribute to dirty_bounds. FullScanPacker no-ops.
-    halfblock.prepare_source(buffer);
-    let scene_state = object_states
-        .get(target_resolver.scene_object_id())
-        .cloned()
-        .unwrap_or_default();
-    if !scene_state.visible {
-        return HashMap::new();
-    }
-    // Pre-allocate with capacity to avoid re-hashing as objects are inserted.
-    let mut object_regions = HashMap::with_capacity(layers.len() + 4);
-    object_regions.insert(
-        target_resolver.scene_object_id().to_string(),
-        offset_region(
-            buffer.width,
-            buffer.height,
-            scene_state.offset_x,
-            scene_state.offset_y,
-        ),
-    );
-
-    let scene_w = buffer.width;
-    let scene_h = buffer.height;
-
-    layer_compositor::composite_layers(
-        layers,
-        ui_enabled,
-        scene_w,
-        scene_h,
-        scene_rendered_mode,
-        asset_root,
-        Some(target_resolver),
-        &mut object_regions,
-        scene_state.offset_x,
-        scene_state.offset_y,
-        object_states,
-        current_stage,
-        step_idx,
-        elapsed_ms,
-        scene_elapsed_ms,
-        obj_camera_states,
-        layer,
-        buffer,
-    );
-
-    let scene_progress = if scene_step_dur == 0 {
-        0.0_f32
-    } else {
-        (elapsed_ms as f32 / scene_step_dur as f32).clamp(0.0, 1.0)
-    };
-    let full_region = Region::full(buffer);
-    for effect in scene_effects {
-        let region = target_resolver.effect_region(
-            effect.params.target.as_deref(),
-            full_region,
-            &object_regions,
-        );
-        apply_effect(effect, scene_progress, region, buffer);
-    }
-    object_regions
-}
-
-fn composite_scene_halfblock(
-    bg: Color,
-    layers: &[crate::scene::Layer],
-    ui_enabled: bool,
-    scene_rendered_mode: SceneRenderedMode,
-    asset_root: Option<&AssetRoot>,
-    target_resolver: &TargetResolver,
-    object_states: &HashMap<String, ObjectRuntimeState>,
-    obj_camera_states: &HashMap<String, crate::scene_runtime::ObjCameraState>,
-    current_stage: &SceneStage,
-    step_idx: usize,
-    elapsed_ms: u64,
-    scene_elapsed_ms: u64,
-    scene_effects: &[crate::scene::Effect],
-    scene_step_dur: u64,
-    layer: &dyn engine_pipeline::LayerCompositor,
-    halfblock: &dyn engine_pipeline::HalfblockPacker,
-    target: &mut Buffer,
-) -> HashMap<String, Region> {
-    let needed_w = target.width;
-    let needed_h = target.height.saturating_mul(2);
-    HALFBLOCK_SCRATCH.with(|scratch| {
-        let mut virtual_buf = scratch.borrow_mut();
-        if virtual_buf.width != needed_w || virtual_buf.height != needed_h {
-            virtual_buf.resize(needed_w, needed_h);
-        }
-        let object_regions = composite_scene(
-            bg,
-            layers,
-            ui_enabled,
-            scene_rendered_mode,
-            asset_root,
-            target_resolver,
-            object_states,
-            obj_camera_states,
-            current_stage,
-            step_idx,
-            elapsed_ms,
-            scene_elapsed_ms,
-            scene_effects,
-            scene_step_dur,
-            layer,
-            halfblock,
-            &mut *virtual_buf,
-        );
-        pack_halfblock_buffer(&*virtual_buf, target, bg, halfblock);
-        object_regions
-    })
-}
-
-fn pack_halfblock_buffer(source: &Buffer, target: &mut Buffer, fallback_bg: Color, halfblock: &dyn engine_pipeline::HalfblockPacker) {
-    // Always fill target with fallback background at the start of each frame.
-    // This ensures stale data from the previous frame is cleared, even when
-    // DirtyRegionPacker finds no dirty region to update.
-    target.fill(fallback_bg);
-
-    // #5 opt-comp-halfblock: HalfblockPacker strategy owns the iteration bounds.
-    // DirtyRegionPacker returns None when there is no dirty region (skip packing).
-    // FullScanPacker always returns the full extent.
-    let Some((x_start, x_end, y_start, y_end)) = halfblock.iteration_bounds(source, target.height) else {
-        return;
-    };
-
-    for y in y_start..=y_end {
-        let top_y = y.saturating_mul(2);
-        let bottom_y = top_y.saturating_add(1);
-        for x in x_start..=x_end {
-            let top = cell_or_blank(source, x, top_y, fallback_bg);
-            let bottom = if bottom_y < source.height {
-                cell_or_blank(source, x, bottom_y, fallback_bg)
-            } else {
-                Cell::blank(resolve_bg(top.bg, fallback_bg))
-            };
-
-            let top_bg = resolve_bg(top.bg, fallback_bg);
-            let bottom_bg = resolve_bg(bottom.bg, fallback_bg);
-            let out_bg = select_background(top_bg, bottom_bg, fallback_bg);
-            let top_on = top.symbol != ' ';
-            let bottom_on = bottom.symbol != ' ';
-
-            let (symbol, fg, bg) = match (top_on, bottom_on) {
-                (false, false) => (' ', TRUE_BLACK, out_bg),
-                (true, false) => ('▀', top.fg, bottom_bg),
-                (false, true) => ('▄', bottom.fg, top_bg),
-                (true, true) => {
-                    if top.fg == bottom.fg {
-                        ('█', top.fg, out_bg)
-                    } else {
-                        ('▀', top.fg, bottom.fg)
-                    }
-                }
-            };
-            target.set(x, y, symbol, fg, bg);
-        }
-    }
-}
-
-fn offset_region(width: u16, height: u16, offset_x: i32, offset_y: i32) -> Region {
-    let origin_x = offset_x.max(0) as u16;
-    let origin_y = offset_y.max(0) as u16;
-    let clipped_w = width.saturating_sub(offset_x.unsigned_abs().min(width as u32) as u16);
-    let clipped_h = height.saturating_sub(offset_y.unsigned_abs().min(height as u32) as u16);
-    Region {
-        x: origin_x,
-        y: origin_y,
-        width: clipped_w,
-        height: clipped_h,
-    }
-}
-
-fn cell_or_blank(buffer: &Buffer, x: u16, y: u16, fallback_bg: Color) -> Cell {
-    buffer
-        .get(x, y)
-        .cloned()
-        .unwrap_or_else(|| Cell::blank(fallback_bg))
-}
-
-fn resolve_bg(colour: Color, fallback_bg: Color) -> Color {
-    if matches!(colour, Color::Reset) {
-        fallback_bg
-    } else {
-        colour
-    }
-}
-
-fn select_background(top: Color, bottom: Color, fallback_bg: Color) -> Color {
-    if top != fallback_bg {
-        top
-    } else {
-        bottom
-    }
-}
-
-/// Dispatches compositing to the correct function based on rendered mode.
-fn dispatch_composite(
-    mode: SceneRenderedMode,
-    params: &engine_compositor::CompositeParams<'_>,
-    layer: &dyn engine_pipeline::LayerCompositor,
-    halfblock: &dyn engine_pipeline::HalfblockPacker,
-    buffer: &mut Buffer,
-) -> HashMap<String, Region> {
-    match mode {
-        SceneRenderedMode::HalfBlock => composite_scene_halfblock(
-            params.bg,
-            params.layers,
-            params.ui_enabled,
-            params.scene_rendered_mode,
-            params.asset_root,
-            params.target_resolver,
-            params.object_states,
-            params.obj_camera_states,
-            params.current_stage,
-            params.step_idx,
-            params.elapsed_ms,
-            params.scene_elapsed_ms,
-            params.scene_effects,
-            params.scene_step_dur,
-            layer,
-            halfblock,
-            buffer,
-        ),
-        _ => composite_scene(
-            params.bg,
-            params.layers,
-            params.ui_enabled,
-            params.scene_rendered_mode,
-            params.asset_root,
-            params.target_resolver,
-            params.object_states,
-            params.obj_camera_states,
-            params.current_stage,
-            params.step_idx,
-            params.elapsed_ms,
-            params.scene_elapsed_ms,
-            params.scene_effects,
-            params.scene_step_dur,
-            layer,
-            halfblock,
-            buffer,
-        ),
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crossterm::style::Color;
+    use engine_core::color::Color;
     use std::path::PathBuf;
 
     use crate::assets::AssetRoot;
     use crate::buffer::{Buffer, TRUE_BLACK};
     use crate::runtime_settings::RuntimeSettings;
-    use crate::scene_loader::SceneLoader;
     use crate::scene::Scene;
+    use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
-    use engine_animation::{Animator, SceneStage};
     use crate::world::World;
+    use engine_animation::{Animator, SceneStage};
 
-    use super::{compositor_system, pack_halfblock_buffer};
+    use super::compositor_system;
     use crate::strategy::FullScanPacker;
 
     #[test]
@@ -534,7 +269,7 @@ mod tests {
         source.set(0, 1, '#', Color::Blue, TRUE_BLACK);
 
         let mut target = Buffer::new(1, 1);
-        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
+        engine_compositor::pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
 
         let cell = target.get(0, 0).expect("cell exists");
         assert_eq!(cell.symbol, '▀');
@@ -548,7 +283,7 @@ mod tests {
         source.fill(Color::DarkGrey);
 
         let mut target = Buffer::new(1, 1);
-        pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
+        engine_compositor::pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
 
         let cell = target.get(0, 0).expect("cell exists");
         assert_eq!(cell.symbol, ' ');

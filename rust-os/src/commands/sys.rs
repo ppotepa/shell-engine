@@ -70,11 +70,21 @@ impl Command for UnameCmd {
             ));
         } else if sys || node || rel || ver || mach {
             let mut parts = Vec::new();
-            if sys  { parts.push("MINIX"); }
-            if node { parts.push("kruuna.helsinki.fi"); }
-            if rel  { parts.push("1.1"); }
-            if ver  { parts.push("#1"); }
-            if mach { parts.push("i386"); }
+            if sys {
+                parts.push("MINIX");
+            }
+            if node {
+                parts.push("kruuna.helsinki.fi");
+            }
+            if rel {
+                parts.push("1.1");
+            }
+            if ver {
+                parts.push("#1");
+            }
+            if mach {
+                parts.push("i386");
+            }
             uow.print(parts.join(" "));
         } else {
             uow.print("MINIX");
@@ -85,7 +95,9 @@ impl Command for UnameCmd {
 pub struct HostnameCmd;
 impl Command for HostnameCmd {
     fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
-        let hostname = kernel.vfs.read_file("/etc/hostname")
+        let hostname = kernel
+            .vfs
+            .read_file("/etc/hostname")
             .unwrap_or("kruuna")
             .trim()
             .to_string();
@@ -130,13 +142,27 @@ impl Command for WCmd {
             2 => "0.31",
             _ => "0.87",
         };
-        uow.print(format!(" {time} up {uptime},  {} users,  load average: {load}, {load}, {load}",
-            if anomaly_count >= 2 { 3 } else { 2 }));
-        uow.print(format!("{:<9}{:<9}{:<14}{:<9}{:<7}{}", "USER", "TTY", "FROM", "LOGIN@", "IDLE", "WHAT"));
-        uow.print(format!("{:<9}{:<9}{:<14}{:<9}{:<7}{}", "torvalds", "tty0", ":0", "21:12", "0:00", "sh"));
-        uow.print(format!("{:<9}{:<9}{:<14}{:<9}{:<7}{}", "ast", "tty1", "cs.vu.nl", "21:12", "14:22", "vi /usr/src/minix/kernel/proc.c"));
+        uow.print(format!(
+            " {time} up {uptime},  {} users,  load average: {load}, {load}, {load}",
+            if anomaly_count >= 2 { 3 } else { 2 }
+        ));
+        uow.print(format!(
+            "{:<9}{:<9}{:<14}{:<9}{:<7}{}",
+            "USER", "TTY", "FROM", "LOGIN@", "IDLE", "WHAT"
+        ));
+        uow.print(format!(
+            "{:<9}{:<9}{:<14}{:<9}{:<7}{}",
+            "torvalds", "tty0", ":0", "21:12", "0:00", "sh"
+        ));
+        uow.print(format!(
+            "{:<9}{:<9}{:<14}{:<9}{:<7}{}",
+            "ast", "tty1", "cs.vu.nl", "21:12", "14:22", "vi /usr/src/minix/kernel/proc.c"
+        ));
         if anomaly_count >= 2 {
-            uow.print(format!("{:<9}{:<9}{:<14}{:<9}{:<7}{}", "(null)", "tty2", "???", "21:12", "0:00", "-"));
+            uow.print(format!(
+                "{:<9}{:<9}{:<14}{:<9}{:<7}{}",
+                "(null)", "tty2", "???", "21:12", "0:00", "-"
+            ));
         }
     }
 }
@@ -145,9 +171,15 @@ pub struct IdCmd;
 impl Command for IdCmd {
     fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
         let user = &uow.session.user;
-        let (uid, gid) = if user == "root" { (0u32, 0u32) } else { (1000, 10) };
+        let (uid, gid) = if user == "root" {
+            (0u32, 0u32)
+        } else {
+            (1000, 10)
+        };
         let groups = kernel.users.groups_for_user(user).join(", ");
-        uow.print(format!("uid={uid}({user}) gid={gid}(staff) groups={gid}({groups})"));
+        uow.print(format!(
+            "uid={uid}({user}) gid={gid}(staff) groups={gid}({groups})"
+        ));
     }
 }
 
@@ -166,8 +198,13 @@ impl Command for DmesgCmd {
         let ram = spec.ram_kb;
         let avail = ram - 512;
         uow.print(format!("Sep 17 21:12:00 kernel: MINIX 1.1 (i386)"));
-        uow.print(format!("Sep 17 21:12:00 kernel: memory: {ram}K total, {avail}K available"));
-        uow.print(format!("Sep 17 21:12:01 hd1: Seagate ST-157A, {}K", spec.disk_kb));
+        uow.print(format!(
+            "Sep 17 21:12:00 kernel: memory: {ram}K total, {avail}K available"
+        ));
+        uow.print(format!(
+            "Sep 17 21:12:01 hd1: Seagate ST-157A, {}K",
+            spec.disk_kb
+        ));
         uow.print(format!("Sep 17 21:12:01 eth0: NE2000 compatible at 0x300"));
         uow.print(format!("Sep 17 21:12:01 rs232: {} baud", spec.modem_baud));
         uow.print(format!("Sep 17 21:12:02 tty0: getty started"));
@@ -183,11 +220,23 @@ pub struct LastCmd;
 impl Command for LastCmd {
     fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
         let anomaly_count = uow.quest.anomaly_count();
-        uow.print(format!("{:<10}{:<8}{:<20}{}", "torvalds", "tty0", ":0", "Mon Sep 17 21:12   still logged in"));
-        uow.print(format!("{:<10}{:<8}{:<20}{}", "ast", "tty1", "cs.vu.nl", "Mon Sep 17 21:12   still logged in"));
-        uow.print(format!("{:<10}{:<8}{:<20}{}", "reboot", "~", "system boot", "Mon Sep 17 21:12"));
+        uow.print(format!(
+            "{:<10}{:<8}{:<20}{}",
+            "torvalds", "tty0", ":0", "Mon Sep 17 21:12   still logged in"
+        ));
+        uow.print(format!(
+            "{:<10}{:<8}{:<20}{}",
+            "ast", "tty1", "cs.vu.nl", "Mon Sep 17 21:12   still logged in"
+        ));
+        uow.print(format!(
+            "{:<10}{:<8}{:<20}{}",
+            "reboot", "~", "system boot", "Mon Sep 17 21:12"
+        ));
         if anomaly_count >= 3 {
-            uow.print(format!("{:<10}{:<8}{:<20}{}", "(null)", "tty2", "0.0.0.0", "Mon Sep 17 21:11   still logged in"));
+            uow.print(format!(
+                "{:<10}{:<8}{:<20}{}",
+                "(null)", "tty2", "0.0.0.0", "Mon Sep 17 21:11   still logged in"
+            ));
             uow.print("note: (null) login predates system boot by 1 second".to_string());
         }
         uow.print("".to_string());

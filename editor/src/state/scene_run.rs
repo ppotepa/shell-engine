@@ -3,17 +3,17 @@
 use std::path::Path;
 
 use crossterm::event::KeyEvent;
+use engine::animation::{animator_system, Animator};
 use engine::assets::AssetRoot;
+use engine::audio::audio_system;
 use engine::audio::AudioRuntime;
 use engine::buffer::Buffer;
 use engine::debug_features::DebugFeatures;
 use engine::events::{EngineEvent, EventQueue};
-use engine::repositories::{create_scene_repository, SceneRepository};
+use engine::asset::{create_scene_repository, SceneRepository};
 use engine::runtime_settings::RuntimeSettings;
 use engine::scene::Scene;
 use engine::scene_runtime::SceneRuntime;
-use engine::animation::{animator_system, Animator};
-use engine::audio::audio_system;
 use engine::systems::behavior::behavior_system;
 use engine::systems::compositor::compositor_system;
 use engine::systems::postfx::postfx_system;

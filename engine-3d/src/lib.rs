@@ -6,11 +6,11 @@
 //! - Prerender frame caching with thread-locals
 //! - Scene3D reference resolution (materials, cameras, lights)
 
+pub mod obj_frame_cache;
+pub mod obj_prerender;
 pub mod scene3d_atlas;
 pub mod scene3d_format;
 pub mod scene3d_resolve;
-pub mod obj_prerender;
-pub mod obj_frame_cache;
 
 // Re-export public types
 pub use scene3d_atlas::Scene3DAtlas;

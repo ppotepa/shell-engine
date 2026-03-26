@@ -7,4 +7,15 @@ license.workspace = true
 
 [dependencies]
 engine-core = { workspace = true }
+engine-error = { path = "../engine-error" }
 thiserror = { workspace = true }
+crossterm = { workspace = true }
+engine-asset = { path = "../engine-asset" }
+image = { version = "0.25", default-features = false, features = ["png", "gif"] }
+rusttype = { version = "0.9", features = ["gpu_cache"] }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+zip = { workspace = true }

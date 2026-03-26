@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use engine_core::color::Color;
 
 /// Immutable snapshot of diff ready for async display/flush.
 /// Handoff from main thread to display thread (if async mode is active).

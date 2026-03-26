@@ -130,8 +130,7 @@ fn main() {
         "app.main",
         format!(
             "engine config: dev={} audio={}",
-            config.debug_feature,
-            config.audio,
+            config.debug_feature, config.audio,
         ),
     );
 

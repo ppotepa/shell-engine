@@ -2,11 +2,8 @@ use engine_core::buffer::Buffer;
 
 /// Controls how the virtual (2× height) buffer is packed into the terminal halfblock buffer.
 pub trait HalfblockPacker: Send + Sync {
-    fn iteration_bounds(
-        &self,
-        source: &Buffer,
-        target_height: u16,
-    ) -> Option<(u16, u16, u16, u16)>;
+    fn iteration_bounds(&self, source: &Buffer, target_height: u16)
+        -> Option<(u16, u16, u16, u16)>;
 
     /// Called on the source buffer immediately after `fill()`, before sprite rendering.
     /// `DirtyRegionPacker` resets dirty tracking here so only subsequent sprite writes

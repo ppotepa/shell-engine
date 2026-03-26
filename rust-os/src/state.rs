@@ -120,7 +120,10 @@ impl MachineState {
     }
 
     pub fn has_account(&self) -> bool {
-        self.user_name.as_ref().map(|s| !s.is_empty()).unwrap_or(false)
+        self.user_name
+            .as_ref()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false)
     }
 }
 

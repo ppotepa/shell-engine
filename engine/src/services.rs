@@ -9,17 +9,17 @@ use crate::events::EventQueue;
 use crate::runtime_settings::RuntimeSettings;
 use crate::scene_loader::SceneLoader;
 use crate::scene_runtime::SceneRuntime;
-use engine_animation::Animator;
 use crate::systems::renderer::TerminalRenderer;
 use crate::world::World;
-use engine_audio::AudioProvider;
+use engine_animation::Animator;
 use engine_animation::{AnimatorProvider, LifecycleProvider};
-use engine_render_terminal::RendererProvider;
+use engine_audio::AudioProvider;
 use engine_behavior_registry::BehaviorProvider;
 use engine_compositor::CompositorProvider;
 use engine_core::scene::Scene;
 use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
-use engine_pipeline::{PipelineStrategies, FrameSkipOracle};
+use engine_pipeline::{FrameSkipOracle, PipelineStrategies};
+use engine_render_terminal::RendererProvider;
 use std::sync::Mutex;
 
 /// Typed accessor trait for all engine-managed resources stored in [`World`].
@@ -141,7 +141,10 @@ impl Asset3DProvider for World {
 
 // Implement Scene3DAssetResolver for AssetRoot (enables backward compat + extraction)
 impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
-    fn resolve_and_load_asset(&self, asset_path: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    fn resolve_and_load_asset(
+        &self,
+        asset_path: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let full = self.resolve(asset_path);
         let text = std::fs::read_to_string(full)?;
         Ok(text)
@@ -196,7 +199,6 @@ impl RendererProvider for World {
             .unwrap_or_else(|| "unknown".to_string())
     }
 
-
     fn frame_skip_oracle(&self) -> Option<&Mutex<Box<dyn FrameSkipOracle>>> {
         self.get::<Mutex<Box<dyn FrameSkipOracle>>>()
     }
@@ -235,27 +237,33 @@ impl LifecycleProvider for World {
     }
 
     fn animator_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<Animator>().map(|a| a as &mut dyn std::any::Any)
+        self.get_mut::<Animator>()
+            .map(|a| a as &mut dyn std::any::Any)
     }
 
     fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
-        self.get::<SceneRuntime>().map(|sr| sr as &dyn std::any::Any)
+        self.get::<SceneRuntime>()
+            .map(|sr| sr as &dyn std::any::Any)
     }
 
     fn scene_runtime_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<SceneRuntime>().map(|sr| sr as &mut dyn std::any::Any)
+        self.get_mut::<SceneRuntime>()
+            .map(|sr| sr as &mut dyn std::any::Any)
     }
 
     fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<Buffer>().map(|b| b as &mut dyn std::any::Any)
+        self.get_mut::<Buffer>()
+            .map(|b| b as &mut dyn std::any::Any)
     }
 
     fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<VirtualBuffer>().map(|b| b as &mut dyn std::any::Any)
+        self.get_mut::<VirtualBuffer>()
+            .map(|b| b as &mut dyn std::any::Any)
     }
 
     fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
-        self.get::<RuntimeSettings>().map(|r| r as &dyn std::any::Any)
+        self.get::<RuntimeSettings>()
+            .map(|r| r as &dyn std::any::Any)
     }
 
     fn debug_features(&self) -> Option<&dyn std::any::Any> {
@@ -263,11 +271,13 @@ impl LifecycleProvider for World {
     }
 
     fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
+        self.get_mut::<DebugLogBuffer>()
+            .map(|d| d as &mut dyn std::any::Any)
     }
 
     fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<EventQueue>().map(|e| e as &mut dyn std::any::Any)
+        self.get_mut::<EventQueue>()
+            .map(|e| e as &mut dyn std::any::Any)
     }
 }
 
@@ -282,19 +292,23 @@ impl BehaviorProvider for World {
     }
 
     fn scene_runtime_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<SceneRuntime>().map(|sr| sr as &mut dyn std::any::Any)
+        self.get_mut::<SceneRuntime>()
+            .map(|sr| sr as &mut dyn std::any::Any)
     }
 
     fn game_state(&self) -> Option<&dyn std::any::Any> {
-        self.get::<crate::game_state::GameState>().map(|gs| gs as &dyn std::any::Any)
+        self.get::<crate::game_state::GameState>()
+            .map(|gs| gs as &dyn std::any::Any)
     }
 
     fn mod_behaviors(&self) -> Option<&dyn std::any::Any> {
-        self.get::<engine_behavior_registry::ModBehaviorRegistry>().map(|mb| mb as &dyn std::any::Any)
+        self.get::<engine_behavior_registry::ModBehaviorRegistry>()
+            .map(|mb| mb as &dyn std::any::Any)
     }
 
     fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<DebugLogBuffer>().map(|d| d as &mut dyn std::any::Any)
+        self.get_mut::<DebugLogBuffer>()
+            .map(|d| d as &mut dyn std::any::Any)
     }
 
     fn dispatch_audio_command(&mut self, _cmd: Box<dyn std::any::Any>) {
@@ -314,22 +328,26 @@ impl BehaviorProvider for World {
     }
 
     fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<EventQueue>().map(|e| e as &mut dyn std::any::Any)
+        self.get_mut::<EventQueue>()
+            .map(|e| e as &mut dyn std::any::Any)
     }
 }
 
 // Implement CompositorProvider for World
 impl CompositorProvider for World {
     fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<Buffer>().map(|b| b as &mut dyn std::any::Any)
+        self.get_mut::<Buffer>()
+            .map(|b| b as &mut dyn std::any::Any)
     }
 
     fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<VirtualBuffer>().map(|b| b as &mut dyn std::any::Any)
+        self.get_mut::<VirtualBuffer>()
+            .map(|b| b as &mut dyn std::any::Any)
     }
 
     fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
-        self.get::<SceneRuntime>().map(|sr| sr as &dyn std::any::Any)
+        self.get::<SceneRuntime>()
+            .map(|sr| sr as &dyn std::any::Any)
     }
 
     fn animator(&self) -> Option<&dyn std::any::Any> {
@@ -341,19 +359,20 @@ impl CompositorProvider for World {
     }
 
     fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
-        self.get::<RuntimeSettings>().map(|r| r as &dyn std::any::Any)
+        self.get::<RuntimeSettings>()
+            .map(|r| r as &dyn std::any::Any)
     }
 
     fn debug_features(&self) -> Option<&dyn std::any::Any> {
         self.get::<DebugFeatures>().map(|d| d as &dyn std::any::Any)
     }
-
 }
 
 // Implement CompositorAccess for World
 impl engine_compositor::CompositorAccess for World {
     fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
-        self.get::<SceneRuntime>().map(|sr| sr as &dyn std::any::Any)
+        self.get::<SceneRuntime>()
+            .map(|sr| sr as &dyn std::any::Any)
     }
 
     fn animator(&self) -> Option<&Animator> {

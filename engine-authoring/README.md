@@ -1,36 +1,34 @@
 # engine-authoring
 
-YAML compile, normalize, and schema pipeline for scene authoring.
+YAML authoring pipeline for scenes, packages, validation, and schema metadata.
 
 ## Purpose
 
-The largest engine crate. Compiles raw YAML scene files into validated,
-normalized scene models consumed by the runtime. Also generates JSON
-schemas for editor autocompletion and validation. Handles scene packages,
-partial includes, and repository-level operations across mods.
+`engine-authoring` is the shared content-ingest layer for authored Shell Quest
+data. It parses YAML documents, assembles scene packages, normalizes authored
+input, validates it, and exposes schema-generation metadata consumed by tooling.
 
-## Key Types
+## Key modules
 
-- `SceneCompiler` — transforms raw YAML into fully resolved `Scene` models
-- `Normalizer` — applies defaults, expands shorthand, and validates fields
-- `SchemaGenerator` — produces JSON schemas from scene/effect metadata
-- `Repository` — indexes all scenes and assets across a mod source
+- `compile` — compile authored inputs into runtime-ready scene data
+- `document` — YAML document handling helpers
+- `package` — scene package assembly
+- `repository` — repository/mod scanning and authored asset discovery
+- `schema` — schema metadata and generation support
+- `validate` — validation rules and diagnostics
 
-## Dependencies
+## Main export
 
-- `engine-core` — scene model, effect metadata, and strategy traits
-- `anyhow` — error propagation during compilation
-- `serde` / `serde_yaml` — YAML parsing and serialization
+- `AuthoringResult<T>`
 
-## Usage
+## Integration points
 
-```bash
-# Generate schemas for all mods
-cargo run -p schema-gen -- --all-mods
+- `tools/schema-gen` uses this crate to write shared and mod-local YAML schemas
+- `devtool` relies on it for scaffold/edit-aware schema refresh
+- `editor` and runtime loading paths depend on its compile/validation behavior
 
-# Check for schema drift
-cargo run -p schema-gen -- --all-mods --check
-```
+## Working with this crate
 
-The editor and CLI tools use this crate to load, validate, and
-transform scene YAML.
+- this is the source of truth for authored content interpretation,
+- if authoring fields or normalization rules change, update schemas and nearby docs in the same change,
+- keep generated-schema discussions aligned with the current YAML workflow, not the older JSON-only descriptions.

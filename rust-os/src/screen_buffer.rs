@@ -63,7 +63,10 @@ impl ScreenBuffer {
     }
 
     pub fn send_frame(&self) -> IoEvent {
-        let start = self.visible.len().saturating_sub(self.viewport_rows.saturating_sub(1));
+        let start = self
+            .visible
+            .len()
+            .saturating_sub(self.viewport_rows.saturating_sub(1));
         let mut lines: Vec<String> = self.visible[start..].to_vec();
         // Add prompt line
         lines.push(format!("{}{}", self.prompt_prefix, self.input_line));

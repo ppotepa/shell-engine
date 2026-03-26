@@ -50,8 +50,8 @@ unsafe impl Sync for RodioAudioBackend {}
 impl RodioAudioBackend {
     /// Opens the default audio output device and indexes audio files under `assets_root`.
     pub fn new(assets_root: &Path) -> Result<Self, String> {
-        let (stream, handle) = OutputStream::try_default()
-            .map_err(|e| format!("failed to open audio output: {e}"))?;
+        let (stream, handle) =
+            OutputStream::try_default().map_err(|e| format!("failed to open audio output: {e}"))?;
 
         let assets = scan_audio_assets(assets_root);
         logging::info(
@@ -120,10 +120,7 @@ impl AudioBackend for RodioAudioBackend {
         let sink = match Sink::try_new(&self.stream_handle) {
             Ok(s) => s,
             Err(e) => {
-                logging::warn(
-                    "engine.audio",
-                    format!("cannot create audio sink: {e}"),
-                );
+                logging::warn("engine.audio", format!("cannot create audio sink: {e}"));
                 return;
             }
         };
@@ -229,17 +226,11 @@ impl AudioRuntime {
     /// if the audio device cannot be opened.
     pub fn from_options(enabled: bool, mod_source: &str) -> Self {
         if !enabled {
-            logging::info(
-                "engine.audio",
-                "audio disabled (pass --audio to enable)",
-            );
+            logging::info("engine.audio", "audio disabled (pass --audio to enable)");
             return Self::null();
         }
 
-        let assets_root = PathBuf::from(format!(
-            "{}/assets",
-            mod_source.trim_end_matches('/')
-        ));
+        let assets_root = PathBuf::from(format!("{}/assets", mod_source.trim_end_matches('/')));
 
         match RodioAudioBackend::new(&assets_root) {
             Ok(backend) => Self::with_backend(Box::new(backend)),

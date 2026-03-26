@@ -57,8 +57,12 @@ pub fn game_loop(
             // During results display, just sleep and poll for quit keys.
             while event::poll(Duration::from_millis(0))? {
                 if let Event::Key(key) = event::read()? {
-                    if key.kind == KeyEventKind::Release { continue; }
-                    if is_quit_key(key.code, key.modifiers) { break; }
+                    if key.kind == KeyEventKind::Release {
+                        continue;
+                    }
+                    if is_quit_key(key.code, key.modifiers) {
+                        break;
+                    }
                 }
             }
             std::thread::sleep(Duration::from_millis(50));
@@ -176,12 +180,11 @@ pub fn game_loop(
         let t4 = Instant::now();
 
         // Notify frame-skip oracle that frame has advanced
-        if let Some(oracle) = world.get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>() {
+        if let Some(oracle) =
+            world.get::<std::sync::Mutex<Box<dyn crate::strategy::FrameSkipOracle>>>()
+        {
             if let Ok(mut o) = oracle.lock() {
-                let frame_id = world
-                    .animator()
-                    .map(|a| a.step_idx)
-                    .unwrap_or(0) as u64;
+                let frame_id = world.animator().map(|a| a.step_idx).unwrap_or(0) as u64;
                 o.frame_advanced(frame_id, false);
             }
         }
@@ -201,10 +204,10 @@ pub fn game_loop(
         // Update EMA-smoothed per-system timings (same α as FPS counter).
         if let Some(st) = world.get_mut::<crate::debug_features::SystemTimings>() {
             const A: f32 = 0.15;
-            st.behavior_us   = st.behavior_us   * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
+            st.behavior_us = st.behavior_us * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
             st.compositor_us = st.compositor_us * (1.0 - A) + (t2 - t1b).as_micros() as f32 * A;
-            st.postfx_us     = st.postfx_us     * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
-            st.renderer_us   = st.renderer_us   * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
+            st.postfx_us = st.postfx_us * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
+            st.renderer_us = st.renderer_us * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
         }
 
         let elapsed = frame_start.elapsed();
@@ -249,18 +252,18 @@ pub fn game_loop(
             if let Some(bs) = world.get_mut::<BenchmarkState>() {
                 bs.push(FrameSample {
                     scene_id,
-                    frame_us:      frame_start.elapsed().as_micros() as f32,
-                    input_us:      t_input.as_micros() as f32,
-                    lifecycle_us:  t_lifecycle.as_micros() as f32,
-                    animator_us:   t_anim.as_micros() as f32,
+                    frame_us: frame_start.elapsed().as_micros() as f32,
+                    input_us: t_input.as_micros() as f32,
+                    lifecycle_us: t_lifecycle.as_micros() as f32,
+                    animator_us: t_anim.as_micros() as f32,
                     hot_reload_us: t_hotreload.as_micros() as f32,
-                    engine_io_us:  t_io.as_micros() as f32,
-                    behavior_us:   (t1 - t0).as_micros() as f32,
-                    audio_us:      (t1b - t1).as_micros() as f32,
+                    engine_io_us: t_io.as_micros() as f32,
+                    behavior_us: (t1 - t0).as_micros() as f32,
+                    audio_us: (t1b - t1).as_micros() as f32,
                     compositor_us: (t2 - t1b).as_micros() as f32,
-                    postfx_us:     (t3 - t2).as_micros() as f32,
-                    renderer_us:   (t4 - t3).as_micros() as f32,
-                    sleep_us:      t_sleep.as_micros() as f32,
+                    postfx_us: (t3 - t2).as_micros() as f32,
+                    renderer_us: (t4 - t3).as_micros() as f32,
+                    sleep_us: t_sleep.as_micros() as f32,
                     diff_cells,
                     dirty_cells,
                     total_cells,

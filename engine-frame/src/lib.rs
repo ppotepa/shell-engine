@@ -31,8 +31,7 @@ impl FrameTicket {
     /// Returns `true` if this ticket is strictly newer than `other` within the same generation.
     #[inline]
     pub fn is_newer_than(&self, other: &FrameTicket) -> bool {
-        self.scene_generation == other.scene_generation
-            && self.sim_frame_id > other.sim_frame_id
+        self.scene_generation == other.scene_generation && self.sim_frame_id > other.sim_frame_id
     }
 
     /// Returns `true` if this ticket should be accepted as the next presented frame.
@@ -52,14 +51,23 @@ mod tests {
 
     #[test]
     fn newer_frame_accepted() {
-        let last = FrameTicket { sim_frame_id: 5, scene_generation: 1 };
-        let next = FrameTicket { sim_frame_id: 6, scene_generation: 1 };
+        let last = FrameTicket {
+            sim_frame_id: 5,
+            scene_generation: 1,
+        };
+        let next = FrameTicket {
+            sim_frame_id: 6,
+            scene_generation: 1,
+        };
         assert!(next.is_acceptable(&last));
     }
 
     #[test]
     fn same_frame_not_accepted() {
-        let t = FrameTicket { sim_frame_id: 5, scene_generation: 1 };
+        let t = FrameTicket {
+            sim_frame_id: 5,
+            scene_generation: 1,
+        };
         assert!(!t.is_acceptable(&t));
     }
 
@@ -67,8 +75,14 @@ mod tests {
     fn cross_generation_accepted_if_newer() {
         // Generation filtering is the caller's responsibility via matches_generation().
         // is_acceptable only checks sim_frame_id ordering.
-        let last = FrameTicket { sim_frame_id: 100, scene_generation: 1 };
-        let newer = FrameTicket { sim_frame_id: 101, scene_generation: 2 };
+        let last = FrameTicket {
+            sim_frame_id: 100,
+            scene_generation: 1,
+        };
+        let newer = FrameTicket {
+            sim_frame_id: 101,
+            scene_generation: 2,
+        };
         assert!(newer.is_acceptable(&last));
     }
 }

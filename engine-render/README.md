@@ -1,25 +1,35 @@
 # engine-render
 
-RenderBackend trait abstraction for output targets.
+Shared rendering abstractions and helper utilities.
 
 ## Purpose
 
-Defines the `RenderBackend` trait that decouples the engine's render
-pipeline from any specific output target. Concrete backends (e.g.,
-terminal, capture) implement this trait to present composed frames.
+`engine-render` provides cross-crate rendering primitives that are not tied to
+the main engine orchestrator or to a single backend implementation.
 
-## Key Types
+It defines the backend-facing traits used to present frames and also hosts
+shared helpers used by extracted renderers, including rasterization and asset
+loading support.
 
-- `RenderBackend` — trait with methods: `present()`, `clear()`, `shutdown()`
-- `RenderError` — error type for backend failures
+## Key types and modules
 
-## Dependencies
+- `RenderBackend` — trait for presenting composed frames
+- `DisplaySink` — lower-level sink abstraction for queued output
+- `RenderFrame` — frame payload passed to a backend
+- `RenderCaps`, `ColorDepth`, `PresentMode` — backend capability and present semantics
+- `rasterizer` — shared text/font rasterization helpers
+- `generic` — renderer-agnostic helper utilities
+- `image_loader` / `font_loader` — asset loading helpers used by renderer code
 
-- `engine-core` — buffer types passed to `present()`
-- `thiserror` — error type derivation
+## Integration points
 
-## Usage
+- `engine-render-terminal` implements terminal presentation on top of this contract
+- `engine-compositor` uses shared rasterization and loader helpers
+- the engine runtime presents final buffers through a `RenderBackend`
 
-The runtime holds a `Box<dyn RenderBackend>` and calls `present()`
-each frame. Swap backends to redirect output (terminal, file capture,
-headless).
+## Working with this crate
+
+- keep this layer backend-agnostic,
+- prefer putting reusable rendering helpers here rather than back into `engine`,
+- if a helper requires world access or scene orchestration, it likely belongs in
+  `engine-compositor` or `engine`, not here.

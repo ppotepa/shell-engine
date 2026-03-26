@@ -196,17 +196,15 @@ mod tests {
             if path.is_dir() {
                 load_scenes_recursive(mod_root, &path, scenes)?;
             } else if path.extension().is_some_and(|ext| ext == "yml") {
-                let content =
-                    fs::read_to_string(&path).map_err(|e| EngineError::ManifestRead {
+                let content = fs::read_to_string(&path).map_err(|e| EngineError::ManifestRead {
+                    path: path.clone(),
+                    source: e,
+                })?;
+                let scene =
+                    serde_yaml::from_str(&content).map_err(|e| EngineError::InvalidModYaml {
                         path: path.clone(),
                         source: e,
                     })?;
-                let scene = serde_yaml::from_str(&content).map_err(|e| {
-                    EngineError::InvalidModYaml {
-                        path: path.clone(),
-                        source: e,
-                    }
-                })?;
                 // Make path relative to mod root, prefixed with /
                 let rel = path
                     .strip_prefix(mod_root)
@@ -214,10 +212,7 @@ mod tests {
                     .display()
                     .to_string();
                 let rel = format!("/{}", rel.replace('\\', "/"));
-                scenes.push(crate::startup::StartupSceneFile {
-                    path: rel,
-                    scene,
-                });
+                scenes.push(crate::startup::StartupSceneFile { path: rel, scene });
             }
         }
         Ok(())

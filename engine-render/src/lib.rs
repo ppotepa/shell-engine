@@ -1,5 +1,7 @@
 //! Abstract render backend trait enabling pluggable rendering (Terminal, OpenGL, D3D, Vulkan, WebGL).
 //!
+//! Also exports rasterizer for font rendering across crates.
+//!
 //! Core types:
 //! - `RenderBackend` trait: present frames, query capabilities, shutdown
 //! - `DisplaySink` trait: queue and flush frames (may be async)
@@ -7,6 +9,15 @@
 //! - `RenderCaps`: capabilities (resolution, color depth, FPS)
 
 use engine_core::buffer::Buffer;
+
+mod font_loader;
+pub mod generic;
+pub mod image_loader;
+pub mod rasterizer;
+mod types;
+
+pub use generic::*;
+pub use rasterizer::{blit, has_font_assets, missing_glyphs, rasterize, rasterize_cached};
 
 /// Error type for render backend operations
 #[derive(Debug, thiserror::Error)]
@@ -59,7 +70,7 @@ pub struct RenderFrame<'a> {
 }
 
 /// Abstract trait for render backends (Terminal, OpenGL, D3D, Vulkan, WebGL, etc).
-/// 
+///
 /// Implementations handle all rendering details; the engine calls these methods
 /// each frame without knowing which backend is active.
 pub trait RenderBackend: Send {

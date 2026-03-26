@@ -40,7 +40,9 @@ impl Command for PsCmd {
 pub struct KillCmd;
 impl Command for KillCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
-        let pids: Vec<u32> = args.iter().skip(1)
+        let pids: Vec<u32> = args
+            .iter()
+            .skip(1)
             .filter(|a| !a.starts_with('-'))
             .filter_map(|a| a.parse().ok())
             .collect();

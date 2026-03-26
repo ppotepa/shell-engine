@@ -1,14 +1,14 @@
 use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::events::EngineEvent;
-use crate::scene::{self, SceneRenderedMode};
-use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
+use crate::scene::{self};
+use crate::scene_runtime::{RawKeyEvent, SceneRuntime, TerminalShellRoute};
 use crate::services::EngineWorldAccess;
-use engine_animation::{Animator, SceneStage};
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::SetSize;
+use engine_animation::{Animator, SceneStage};
 use engine_core::logging;
 use std::io::stdout;
 
@@ -360,7 +360,10 @@ fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
                         // Visible + Stats → switch to Logs
                         (true, DebugOverlayMode::Stats) => {
                             debug.overlay_mode = DebugOverlayMode::Logs;
-                            logging::debug("engine.debug.input", "overlay mode switched: Stats → Logs");
+                            logging::debug(
+                                "engine.debug.input",
+                                "overlay mode switched: Stats → Logs",
+                            );
                             handled = true;
                         }
                     }
@@ -413,31 +416,6 @@ fn handle_ui_focus_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool
     runtime.handle_ui_focus_keys(key_presses)
 }
 
-fn active_obj_viewer_target(world: &World) -> Option<String> {
-    world
-        .scene_runtime()
-        .and_then(|runtime| runtime.scene().input.obj_viewer.as_ref())
-        .map(|cfg| cfg.sprite_id.clone())
-}
-
-fn active_terminal_size_presets(world: &World) -> Option<Vec<(u16, u16)>> {
-    let cfg = world
-        .scene_runtime()
-        .and_then(|runtime| runtime.scene().input.terminal_size_tester.clone())?;
-    let mut out = Vec::new();
-    for preset in cfg.presets {
-        if let Some((w, h, is_max)) = crate::runtime_settings::parse_virtual_size_str(&preset) {
-            if !is_max {
-                out.push((w, h));
-            }
-        }
-    }
-    if out.is_empty() {
-        out.extend([(80, 24), (100, 30), (120, 36), (160, 48)]);
-    }
-    Some(out)
-}
-
 fn apply_terminal_size_change(world: &mut World, width: u16, height: u16) {
     let _ = crossterm::execute!(stdout(), SetSize(width, height));
     if let Some(buf) = world.buffer_mut() {
@@ -449,7 +427,10 @@ fn apply_terminal_size_change(world: &mut World, width: u16, height: u16) {
 }
 
 fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
-    let Some(presets) = active_terminal_size_presets(world) else {
+    let Some(presets) = world
+        .scene_runtime()
+        .and_then(|runtime| runtime.terminal_size_presets())
+    else {
         return false;
     };
     if !is_scene_idle(world) {
@@ -478,161 +459,45 @@ fn handle_terminal_shell_controls(world: &mut World, key_presses: &[KeyEvent]) -
     if !is_scene_idle(world) {
         return false;
     }
-    let mut consumed_input = false;
-    let back_next_scene = {
+    let route = {
         let Some(runtime) = world.scene_runtime_mut() else {
             return false;
         };
-        if !runtime.has_terminal_shell() {
-            return false;
-        }
-        if runtime.terminal_shell_back_requested(key_presses) {
-            Some(runtime.scene().next.clone())
-        } else {
-            // Scene-local terminal shell takes ownership of regular key input.
-            consumed_input = runtime.handle_terminal_shell_keys(key_presses);
-            None
-        }
+        runtime.handle_terminal_shell_lifecycle_keys(key_presses)
     };
-    if consumed_input {
-        reset_timeout_idle_clock(world);
-    }
-    if let Some(next_scene) = back_next_scene {
-        if let Some(animator) = world.animator_mut() {
-            animator.next_scene_override = next_scene;
-            begin_leave(animator);
+    match route {
+        TerminalShellRoute::Absent => false,
+        TerminalShellRoute::Passive => true,
+        TerminalShellRoute::ConsumedInput => {
+            reset_timeout_idle_clock(world);
+            true
+        }
+        TerminalShellRoute::BackRequested(next_scene) => {
+            if let Some(animator) = world.animator_mut() {
+                animator.next_scene_override = next_scene;
+                begin_leave(animator);
+            }
+            true
         }
     }
-    true
 }
 
 fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
-    let Some(sprite_id) = active_obj_viewer_target(world) else {
-        return false;
-    };
     if !is_scene_idle(world) {
         return false;
     }
-
-    if key_presses
-        .iter()
-        .any(|key| matches!(key.code, KeyCode::Enter))
-    {
-        return false;
-    }
-
-    let orbit_active = world
-        .scene_runtime()
-        .map(|r| r.is_obj_orbit_active(&sprite_id))
-        .unwrap_or(true);
-
-    let mut zoom_delta = 0.0f32;
-    let mut mode_switch: Option<SceneRenderedMode> = None;
-    let mut toggle_wireframe = false;
-    let mut toggle_orbit = false;
-    let mut pan_dx = 0.0f32;
-    let mut pan_dy = 0.0f32;
-
-    for key in key_presses {
-        match key.code {
-            KeyCode::Char('a') | KeyCode::Char('A') => zoom_delta += 0.1,
-            KeyCode::Char('z') | KeyCode::Char('Z') => zoom_delta -= 0.1,
-            KeyCode::Char('1') | KeyCode::Char('6') => mode_switch = Some(SceneRenderedMode::Cell),
-            KeyCode::Char('2') | KeyCode::Char('7') => {
-                mode_switch = Some(SceneRenderedMode::HalfBlock)
-            }
-            KeyCode::Char('3') | KeyCode::Char('8') => {
-                mode_switch = Some(SceneRenderedMode::QuadBlock)
-            }
-            KeyCode::Char('4') => mode_switch = Some(SceneRenderedMode::Braille),
-            KeyCode::Char('5') => toggle_wireframe = true,
-            KeyCode::Char('o') | KeyCode::Char('O') => toggle_orbit = true,
-            // Arrow keys: pan camera when orbit is off.
-            KeyCode::Left if !orbit_active => pan_dx -= 0.04,
-            KeyCode::Right if !orbit_active => pan_dx += 0.04,
-            KeyCode::Up if !orbit_active => pan_dy += 0.04,
-            KeyCode::Down if !orbit_active => pan_dy -= 0.04,
-            _ => {}
-        }
-    }
-
-    if let Some(runtime) = world.scene_runtime_mut() {
-        if zoom_delta != 0.0 {
-            let _ = runtime.adjust_obj_scale(&sprite_id, zoom_delta);
-        }
-        if let Some(mode) = mode_switch {
-            runtime.set_scene_rendered_mode(mode);
-        }
-        if toggle_wireframe {
-            let _ = runtime.toggle_obj_surface_mode(&sprite_id);
-        }
-        if toggle_orbit {
-            let _ = runtime.toggle_obj_orbit(&sprite_id);
-            // Reset mouse reference so first mouse move after toggle doesn't jump.
-            runtime.set_obj_last_mouse_pos(&sprite_id, None);
-        }
-        if pan_dx != 0.0 || pan_dy != 0.0 {
-            runtime.apply_obj_camera_pan(&sprite_id, pan_dx, pan_dy);
-        }
-    }
-
-    true
+    world
+        .scene_runtime_mut()
+        .map(|runtime| runtime.apply_obj_viewer_key_presses(key_presses))
+        .unwrap_or(false)
 }
 
 fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
-    let Some(sprite_id) = active_obj_viewer_target(world) else {
-        return;
-    };
     if !is_scene_idle(world) {
         return;
     }
-
-    let orbit_active = world
-        .scene_runtime()
-        .map(|r| r.is_obj_orbit_active(&sprite_id))
-        .unwrap_or(true);
-    if orbit_active {
-        // Orbit is on — mouse look is disabled; just update position reference.
-        if let Some(last) = mouse_moves.last() {
-            if let Some(runtime) = world.scene_runtime_mut() {
-                runtime.set_obj_last_mouse_pos(&sprite_id, Some(*last));
-            }
-        }
-        return;
-    }
-
-    let last_pos = world
-        .scene_runtime()
-        .and_then(|r| r.obj_last_mouse_pos(&sprite_id));
-
-    let Some((mut prev_col, mut prev_row)) = last_pos else {
-        // First event after orbit was toggled off — seed position, don't rotate.
-        if let Some(last) = mouse_moves.last() {
-            if let Some(runtime) = world.scene_runtime_mut() {
-                runtime.set_obj_last_mouse_pos(&sprite_id, Some(*last));
-            }
-        }
-        return;
-    };
-
-    let mut total_dyaw = 0.0f32;
-    let mut total_dpitch = 0.0f32;
-
-    for &(col, row) in mouse_moves {
-        let dc = col as f32 - prev_col as f32;
-        let dr = row as f32 - prev_row as f32;
-        // Scale: 1 terminal cell ≈ 1.8 degrees horizontal, 2.8 degrees vertical.
-        total_dyaw += dc * 1.8;
-        total_dpitch += dr * 2.8;
-        prev_col = col;
-        prev_row = row;
-    }
-
     if let Some(runtime) = world.scene_runtime_mut() {
-        runtime.set_obj_last_mouse_pos(&sprite_id, Some((prev_col, prev_row)));
-        if total_dyaw != 0.0 || total_dpitch != 0.0 {
-            runtime.apply_obj_camera_look(&sprite_id, total_dyaw, total_dpitch);
-        }
+        runtime.apply_obj_viewer_mouse_moves(mouse_moves);
     }
 }
 
@@ -677,9 +542,9 @@ mod tests {
     use crate::scene_loader::SceneLoader;
     use crate::scene_runtime::SceneRuntime;
     use crate::services::EngineWorldAccess;
-    use engine_animation::{Animator, SceneStage};
     use crate::world::World;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use engine_animation::{Animator, SceneStage};
     use std::fs;
     use tempfile::tempdir;
 

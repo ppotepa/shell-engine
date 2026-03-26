@@ -14,6 +14,8 @@ use crate::effects::{shared_dispatcher, Region};
 use crate::scene::{HorizontalAlign, TermColour, VerticalAlign};
 use base64::Engine as _;
 use crossterm::{cursor, queue, style, terminal};
+use engine_core::color::Color;
+use engine_render_terminal::color_convert;
 use image::{imageops, load_from_memory};
 use serde::Deserialize;
 
@@ -143,7 +145,7 @@ impl SplashScene {
                 .as_deref()
                 .map(|asset| resolve_scene_asset(scene_dir, asset)),
             audio_path: resolve_scene_asset(scene_dir, &definition.audio),
-            bg_colour: style::Color::from(&definition.bg_colour),
+            bg_colour: convert_to_crossterm(Color::from(&definition.bg_colour)),
             alpha_threshold: definition.alpha_threshold,
             logo_scale: definition.logo_scale.max(0.1),
             logo_align_x: definition.logo_align_x,
@@ -470,9 +472,9 @@ fn parse_svg_raster_layer(node: &roxmltree::Node<'_, '_>) -> io::Result<SvgRaste
         .attribute("href")
         .or_else(|| node.attribute(("http://www.w3.org/1999/xlink", "href")))
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "svg image missing href"))?;
-    let encoded = href
-        .strip_prefix("data:image/png;base64,")
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "svg image is not embedded png"))?;
+    let encoded = href.strip_prefix("data:image/png;base64,").ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidData, "svg image is not embedded png")
+    })?;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
@@ -517,7 +519,9 @@ fn render_svg_layer_to_canvas(
     if (layer.opacity - 1.0).abs() > f32::EPSILON {
         let mut adjusted = resized.clone();
         for pixel in adjusted.pixels_mut() {
-            pixel[3] = ((pixel[3] as f32) * layer.opacity).round().clamp(0.0, 255.0) as u8;
+            pixel[3] = ((pixel[3] as f32) * layer.opacity)
+                .round()
+                .clamp(0.0, 255.0) as u8;
         }
         imageops::overlay(&mut canvas, &adjusted, x, y);
     } else {
@@ -793,18 +797,17 @@ fn draw_image(
                 drip_t,
             );
 
-            let (sym, cell_fg, cell_bg) =
-                match render_halfblock_cell(
-                    top,
-                    bot,
-                    colour_mode,
-                    bg_rgb,
-                    alpha_threshold,
-                    opacity,
-                ) {
-                    Some(v) => v,
-                    None => continue,
-                };
+            let (sym, cell_fg, cell_bg) = match render_halfblock_cell(
+                top,
+                bot,
+                colour_mode,
+                bg_rgb,
+                alpha_threshold,
+                opacity,
+            ) {
+                Some(v) => v,
+                None => continue,
+            };
 
             queue!(
                 stdout,
@@ -902,7 +905,8 @@ fn to_rgb(c: style::Color) -> (u8, u8, u8) {
         Color::DarkCyan => (0, 128, 128),
         Color::White => (255, 255, 255),
         Color::Grey => (192, 192, 192),
-        Color::AnsiValue(_) | Color::Reset => (0, 0, 0),
+        Color::Reset => (0, 0, 0),
+        Color::AnsiValue(_) => (0, 0, 0),
     }
 }
 
@@ -1189,7 +1193,8 @@ fn draw_drip_tail(
     opacity: f32,
     drip_t: f32,
 ) -> io::Result<()> {
-    let max_tail_rows = term_h.saturating_sub(placement.origin_y.saturating_add(placement.render_rows));
+    let max_tail_rows =
+        term_h.saturating_sub(placement.origin_y.saturating_add(placement.render_rows));
     if max_tail_rows == 0 || drip_t <= 0.0 || placement.render_cols == 0 {
         return Ok(());
     }
@@ -1200,14 +1205,20 @@ fn draw_drip_tail(
         let Some(paint) = sample_drip_colour(img, u) else {
             continue;
         };
-        let paint_colour = style::Color::Rgb {
+        let paint_colour = Color::Rgb {
             r: paint.0,
             g: paint.1,
             b: paint.2,
         };
-        buffer.set(col, 0, ' ', style::Color::Reset, paint_colour);
+        buffer.set(col, 0, ' ', Color::Reset, paint_colour);
         if max_tail_rows > 0 {
-            buffer.set(col, 1.min(max_tail_rows), ' ', style::Color::Reset, paint_colour);
+            buffer.set(
+                col,
+                1.min(max_tail_rows),
+                ' ',
+                Color::Reset,
+                paint_colour,
+            );
         }
     }
 
@@ -1242,7 +1253,7 @@ fn transparent_buffer(width: u16, height: u16) -> Buffer {
     let mut buffer = Buffer::new(width, height);
     for y in 0..height {
         for x in 0..width {
-            buffer.set(x, y, ' ', style::Color::Reset, style::Color::Reset);
+            buffer.set(x, y, ' ', Color::Reset, Color::Reset);
         }
     }
     buffer
@@ -1259,14 +1270,17 @@ fn render_buffer_overlay(
             let Some(cell) = buffer.get(x, y).copied() else {
                 continue;
             };
-            if cell.symbol == ' ' && cell.fg == style::Color::Reset && cell.bg == style::Color::Reset {
+            if cell.symbol == ' '
+                && cell.fg == Color::Reset
+                && cell.bg == Color::Reset
+            {
                 continue;
             }
             queue!(
                 stdout,
                 cursor::MoveTo(origin_x + x, origin_y + y),
-                style::SetForegroundColor(cell.fg),
-                style::SetBackgroundColor(cell.bg),
+                style::SetForegroundColor(convert_to_crossterm(cell.fg)),
+                style::SetBackgroundColor(convert_to_crossterm(cell.bg)),
                 style::Print(cell.symbol),
             )?;
         }
@@ -1284,4 +1298,9 @@ fn sample_drip_colour(img: &image::RgbaImage, u: f32) -> Option<(u8, u8, u8)> {
         }
     }
     None
+}
+
+/// Convert engine_core::color::Color to crossterm::style::Color.
+fn convert_to_crossterm(c: Color) -> style::Color {
+    color_convert::to_crossterm(c)
 }

@@ -1,30 +1,36 @@
 # engine-capture
 
-Frame capture and comparison for regression testing.
+Frame capture and frame-comparison utilities for regression workflows.
 
 ## Purpose
 
-Captures rendered frames to disk as structured data so they can be
-compared across runs. Used by the benchmarking and regression testing
-tools to detect visual regressions in scene output.
+`engine-capture` serializes rendered buffers to disk and loads them back for
+comparison. It underpins visual regression tests and optimization checks where
+we need to detect whether two runs produced different terminal output.
 
-## Key Types
+## Main exports
 
-- `FrameCapture` — serializes a rendered buffer to a capture file
-- `FrameHeader` — metadata (scene ID, dimensions, timestamp) stored with each capture
-- `SerializedCell` — per-cell representation (char, fg, bg, attributes)
-- `compare_frames()` — diffs two captured frames and reports cell-level changes
-- `load_frame()` — deserializes a capture file back into memory
+- `FrameCapture` — writes frame data to capture files
+- `load_frame()` — loads a captured frame
+- `FrameHeader` — capture metadata
+- `SerializedCell` — serialized per-cell payload
 
-## Dependencies
+## Workflow
 
-- `engine-core` — buffer and cell types
-- `engine-error` — shared error types
-- `crossterm` — terminal style types used in cell serialization
+This crate is used by frame-capture tooling and tests rather than by normal
+gameplay.
 
-## Usage
+Typical usage flows through repository scripts and app flags such as:
 
 ```bash
-# Capture frames from a test run
-./capture-frames.sh
+cargo run -p app -- --capture-frames /tmp/frames --mod-source=mods/shell-quest-tests
 ```
+
+and comparison/reporting utilities built on top of the serialized format.
+
+## Working with this crate
+
+- keep the file format stable unless the whole regression workflow is updated,
+- if serialized cell contents change, update comparison logic and any docs that
+  describe the format,
+- optimize for deterministic output because this crate exists to make diffs trustworthy.

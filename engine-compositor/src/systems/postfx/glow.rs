@@ -2,9 +2,9 @@
 //! Underlay pass and the unified CRT composite pass.
 
 use super::{colour_luma, normalize_bg, rand01};
+use engine_core::color::Color;
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::effects::utils::color::colour_to_rgb;
-use crossterm::style::Color;
 use std::cell::RefCell;
 
 // ── Glow pixel ────────────────────────────────────────────────────────────
@@ -197,25 +197,53 @@ fn blur_glow3x3_into(src: &[GlowPixel], dst: &mut [GlowPixel], width: usize, hei
     for y in 1..height.saturating_sub(1) {
         for x in 1..width.saturating_sub(1) {
             let idx = y * width + x;
-            let c = src[idx];                           // center 0.34
-            let u = src[(y - 1) * width + x];           // up 0.11
-            let d = src[(y + 1) * width + x];           // down 0.11
-            let l = src[y * width + (x - 1)];           // left 0.11
-            let r = src[y * width + (x + 1)];           // right 0.11
-            let ul = src[(y - 1) * width + (x - 1)];    // up-left 0.06
-            let ur = src[(y - 1) * width + (x + 1)];    // up-right 0.06
-            let dl = src[(y + 1) * width + (x - 1)];    // down-left 0.06
-            let dr = src[(y + 1) * width + (x + 1)];    // down-right 0.06
+            let c = src[idx]; // center 0.34
+            let u = src[(y - 1) * width + x]; // up 0.11
+            let d = src[(y + 1) * width + x]; // down 0.11
+            let l = src[y * width + (x - 1)]; // left 0.11
+            let r = src[y * width + (x + 1)]; // right 0.11
+            let ul = src[(y - 1) * width + (x - 1)]; // up-left 0.06
+            let ur = src[(y - 1) * width + (x + 1)]; // up-right 0.06
+            let dl = src[(y + 1) * width + (x - 1)]; // down-left 0.06
+            let dr = src[(y + 1) * width + (x + 1)]; // down-right 0.06
 
             dst[idx] = GlowPixel {
-                r: c.r * 0.34 + u.r * 0.11 + d.r * 0.11 + l.r * 0.11 + r.r * 0.11
-                    + ul.r * 0.06 + ur.r * 0.06 + dl.r * 0.06 + dr.r * 0.06,
-                g: c.g * 0.34 + u.g * 0.11 + d.g * 0.11 + l.g * 0.11 + r.g * 0.11
-                    + ul.g * 0.06 + ur.g * 0.06 + dl.g * 0.06 + dr.g * 0.06,
-                b: c.b * 0.34 + u.b * 0.11 + d.b * 0.11 + l.b * 0.11 + r.b * 0.11
-                    + ul.b * 0.06 + ur.b * 0.06 + dl.b * 0.06 + dr.b * 0.06,
-                a: c.a * 0.34 + u.a * 0.11 + d.a * 0.11 + l.a * 0.11 + r.a * 0.11
-                    + ul.a * 0.06 + ur.a * 0.06 + dl.a * 0.06 + dr.a * 0.06,
+                r: c.r * 0.34
+                    + u.r * 0.11
+                    + d.r * 0.11
+                    + l.r * 0.11
+                    + r.r * 0.11
+                    + ul.r * 0.06
+                    + ur.r * 0.06
+                    + dl.r * 0.06
+                    + dr.r * 0.06,
+                g: c.g * 0.34
+                    + u.g * 0.11
+                    + d.g * 0.11
+                    + l.g * 0.11
+                    + r.g * 0.11
+                    + ul.g * 0.06
+                    + ur.g * 0.06
+                    + dl.g * 0.06
+                    + dr.g * 0.06,
+                b: c.b * 0.34
+                    + u.b * 0.11
+                    + d.b * 0.11
+                    + l.b * 0.11
+                    + r.b * 0.11
+                    + ul.b * 0.06
+                    + ur.b * 0.06
+                    + dl.b * 0.06
+                    + dr.b * 0.06,
+                a: c.a * 0.34
+                    + u.a * 0.11
+                    + d.a * 0.11
+                    + l.a * 0.11
+                    + r.a * 0.11
+                    + ul.a * 0.06
+                    + ur.a * 0.06
+                    + dl.a * 0.06
+                    + dr.a * 0.06,
             };
         }
     }

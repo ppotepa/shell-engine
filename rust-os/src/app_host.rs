@@ -1,6 +1,5 @@
-use engine_io::{IoEvent, IoRequest};
 use crate::app_stack::AppStack;
-use crate::apps::{ShellApp, FtpApp, MailApp};
+use crate::apps::{FtpApp, MailApp, ShellApp};
 use crate::boot;
 use crate::difficulty::{Difficulty, MachineSpec};
 use crate::hosts::RemoteHostIndex;
@@ -11,6 +10,7 @@ use crate::session::UserSession;
 use crate::state::{MachineState, QuestState, SessionMode};
 use crate::style;
 use crate::vfs::Vfs;
+use engine_io::{IoEvent, IoRequest};
 
 enum ActiveApp {
     Shell(ShellApp),
@@ -60,19 +60,18 @@ impl AppHost {
     /// Process one IoRequest. Returns zero or more IoEvents to send back to the engine.
     pub fn handle(&mut self, req: IoRequest) -> Vec<IoEvent> {
         match req {
-            IoRequest::Hello { cols, rows, boot_scene, difficulty } => {
-                self.handle_hello(cols, rows, boot_scene, difficulty)
-            }
-            IoRequest::Tick { dt_ms } => {
-                self.handle_tick(dt_ms)
-            }
+            IoRequest::Hello {
+                cols,
+                rows,
+                boot_scene,
+                difficulty,
+            } => self.handle_hello(cols, rows, boot_scene, difficulty),
+            IoRequest::Tick { dt_ms } => self.handle_tick(dt_ms),
             IoRequest::Resize { cols, rows } => {
                 self.screen.set_viewport(cols as usize, rows as usize);
                 vec![self.screen.send_frame()]
             }
-            IoRequest::Submit { line } => {
-                self.handle_submit(&line)
-            }
+            IoRequest::Submit { line } => self.handle_submit(&line),
             IoRequest::SetInput { text } => {
                 self.input_line = text.clone();
                 self.screen.set_input_line(&text);
@@ -84,12 +83,14 @@ impl AppHost {
 
     fn handle_hello(
         &mut self,
-        cols: u16, rows: u16,
+        cols: u16,
+        rows: u16,
         boot_scene: bool,
         difficulty: Option<String>,
     ) -> Vec<IoEvent> {
         // Re-initialize with the given difficulty
-        let diff = difficulty.as_deref()
+        let diff = difficulty
+            .as_deref()
             .map(Difficulty::from_label)
             .unwrap_or(Difficulty::ICanExitVim);
         let spec = MachineSpec::from_difficulty(diff);
@@ -110,7 +111,10 @@ impl AppHost {
             }
         } else {
             self.mode = SessionMode::LoginUser;
-            let motd = self.kernel.vfs.read_file("/etc/motd")
+            let motd = self
+                .kernel
+                .vfs
+                .read_file("/etc/motd")
                 .map(|s| s.to_string())
                 .unwrap_or_default();
             for line in motd.lines() {
@@ -197,7 +201,10 @@ impl AppHost {
         events.push(protocol::clear());
 
         // Show MOTD
-        let motd = self.kernel.vfs.read_file("/etc/motd")
+        let motd = self
+            .kernel
+            .vfs
+            .read_file("/etc/motd")
             .map(|s| s.to_string())
             .unwrap_or_default();
         let mut lines: Vec<String> = motd.lines().map(|s| s.to_string()).collect();
@@ -206,7 +213,10 @@ impl AppHost {
         // Show mail count
         let unread = self.kernel.mail.unread_count();
         if unread > 0 {
-            lines.push(format!("You have {unread} new message{}.", if unread == 1 { "" } else { "s" }));
+            lines.push(format!(
+                "You have {unread} new message{}.",
+                if unread == 1 { "" } else { "s" }
+            ));
             lines.push("".to_string());
         }
 
@@ -217,7 +227,9 @@ impl AppHost {
     }
 
     fn handle_shell_input(&mut self, input: &str, events: &mut Vec<IoEvent>) {
-        if self.session.is_none() { return; }
+        if self.session.is_none() {
+            return;
+        }
 
         // Dispatch to active sub-app if one is running
         match self.active_app.take() {
@@ -228,7 +240,9 @@ impl AppHost {
                 let now = self.kernel.uptime_ms();
                 self.app_stack.enqueue(now, lines);
                 let immediate = self.app_stack.drain_ready(now);
-                if !immediate.is_empty() { self.screen.append(&immediate); }
+                if !immediate.is_empty() {
+                    self.screen.append(&immediate);
+                }
                 if exit {
                     self.active_app = Some(ActiveApp::Shell(ShellApp::new()));
                 } else {
@@ -245,7 +259,9 @@ impl AppHost {
                 let now = self.kernel.uptime_ms();
                 self.app_stack.enqueue(now, lines);
                 let immediate = self.app_stack.drain_ready(now);
-                if !immediate.is_empty() { self.screen.append(&immediate); }
+                if !immediate.is_empty() {
+                    self.screen.append(&immediate);
+                }
                 if exit {
                     self.active_app = Some(ActiveApp::Shell(ShellApp::new()));
                 } else {
@@ -273,7 +289,8 @@ impl AppHost {
                     let host = host.to_string();
                     let session = self.session.as_mut().unwrap();
                     let quest = &mut self.state.quest;
-                    let (_, lines) = ftp.handle_input(&format!("open {host}"), session, quest, &mut self.kernel);
+                    let (_, lines) =
+                        ftp.handle_input(&format!("open {host}"), session, quest, &mut self.kernel);
                     self.app_stack.enqueue(self.kernel.uptime_ms(), lines);
                 }
                 self.active_app = Some(ActiveApp::Ftp(ftp));
@@ -308,7 +325,8 @@ impl AppHost {
 
         let session = self.session.as_mut().unwrap();
         let quest = &mut self.state.quest;
-        let (exit, lines) = app.handle_input(input, session, quest, &mut self.kernel, &self.host_index);
+        let (exit, lines) =
+            app.handle_input(input, session, quest, &mut self.kernel, &self.host_index);
         let now = self.kernel.uptime_ms();
         self.app_stack.enqueue(now, lines);
         // Drain immediate (0-delay) outputs right away
@@ -322,7 +340,8 @@ impl AppHost {
             self.mode = SessionMode::LoginUser;
             self.session = None;
             self.active_app = None;
-            self.screen.append(&["".to_string(), "logout".to_string(), "".to_string()]);
+            self.screen
+                .append(&["".to_string(), "logout".to_string(), "".to_string()]);
             self.screen.set_prompt("kruuna login: ");
             events.push(protocol::set_prompt("kruuna login: "));
         } else {
@@ -335,11 +354,10 @@ impl AppHost {
 
     fn update_prompt(&mut self, events: &mut Vec<IoEvent>) {
         let prompt = match &self.active_app {
-            Some(ActiveApp::Shell(s)) => {
-                self.session.as_ref().map(|session| {
-                    s.prompt(session, session.last_exit_code)
-                })
-            }
+            Some(ActiveApp::Shell(s)) => self
+                .session
+                .as_ref()
+                .map(|session| s.prompt(session, session.last_exit_code)),
             Some(ActiveApp::Ftp(f)) => Some(f.prompt()),
             Some(ActiveApp::Mail(m)) => Some(m.prompt().to_string()),
             None => None,
@@ -355,10 +373,7 @@ impl AppHost {
         let now = self.kernel.uptime_ms();
 
         // After first failed FTP upload, deliver ast hint
-        if !self.mail_delivered_ftp_hint
-            && quest.upload_attempted
-            && !quest.upload_success
-        {
+        if !self.mail_delivered_ftp_hint && quest.upload_attempted && !quest.upload_success {
             self.mail_delivered_ftp_hint = true;
             self.kernel.mail.deliver(
                 "ast@cs.vu.nl",

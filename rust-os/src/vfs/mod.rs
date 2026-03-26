@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use crate::state::FileStat;
+use std::collections::BTreeMap;
 
 pub mod seed;
 
@@ -42,14 +42,17 @@ impl Vfs {
         }
         let size = content.len() as u64;
         self.files.insert(p.clone(), Some(content.to_string()));
-        self.stats.insert(p, FileStat {
-            permissions: "-rw-r--r--".to_string(),
-            links: 1,
-            owner: owner.to_string(),
-            group: "staff".to_string(),
-            size,
-            modified: "Sep 17 21:12".to_string(),
-        });
+        self.stats.insert(
+            p,
+            FileStat {
+                permissions: "-rw-r--r--".to_string(),
+                links: 1,
+                owner: owner.to_string(),
+                group: "staff".to_string(),
+                size,
+                modified: "Sep 17 21:12".to_string(),
+            },
+        );
     }
 
     pub fn write_file_with_perms(&mut self, path: &str, content: &str, owner: &str, perms: &str) {
@@ -95,12 +98,20 @@ impl Vfs {
     /// List directory entries (immediate children only).
     pub fn readdir(&self, path: &str) -> Vec<String> {
         let p = normalize(path);
-        let prefix = if p == "/" { "/".to_string() } else { format!("{p}/") };
+        let prefix = if p == "/" {
+            "/".to_string()
+        } else {
+            format!("{p}/")
+        };
         let mut seen = std::collections::HashSet::new();
         let mut result = Vec::new();
         for key in self.files.keys() {
-            if key == &p { continue; }
-            if !key.starts_with(&prefix) { continue; }
+            if key == &p {
+                continue;
+            }
+            if !key.starts_with(&prefix) {
+                continue;
+            }
             let rest = &key[prefix.len()..];
             let name = rest.split('/').next().unwrap_or(rest);
             if !name.is_empty() && seen.insert(name.to_string()) {
@@ -116,7 +127,8 @@ impl Vfs {
             Some(c) => c.to_string(),
             None => return false,
         };
-        let owner = self.stat(src)
+        let owner = self
+            .stat(src)
             .map(|s| s.owner.clone())
             .unwrap_or_else(|| "root".to_string());
         self.write_file(dst, &content, &owner);
@@ -133,7 +145,8 @@ impl Vfs {
 
     /// Inject a subtle anomaly: append a stray line to a random file
     pub fn inject_data_bleed(&mut self, from_path: &str, to_path: &str) {
-        let bleed: Option<String> = self.read_file(from_path)
+        let bleed: Option<String> = self
+            .read_file(from_path)
             .and_then(|c| c.lines().next().map(|l| l.to_string()));
         if let Some(line) = bleed {
             if let Some(Some(content)) = self.files.get_mut(&normalize(to_path)) {
@@ -152,7 +165,9 @@ pub fn normalize(path: &str) -> String {
     for seg in path.split('/') {
         match seg {
             "" | "." => {}
-            ".." => { parts.pop(); }
+            ".." => {
+                parts.pop();
+            }
             s => parts.push(s),
         }
     }

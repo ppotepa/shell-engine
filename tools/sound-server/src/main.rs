@@ -8,10 +8,7 @@ use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "sound-server",
-    about = "Shell Quest audio playback server"
-)]
+#[command(name = "sound-server", about = "Shell Quest audio playback server")]
 struct Cli {
     /// Emit structured ack lines for each accepted command.
     #[arg(long)]
@@ -47,7 +44,10 @@ fn scan_assets(root: &Path) -> HashMap<String, PathBuf> {
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,
         Err(e) => {
-            eprintln!("[sound-server] cannot read assets dir {}: {e}", root.display());
+            eprintln!(
+                "[sound-server] cannot read assets dir {}: {e}",
+                root.display()
+            );
             return map;
         }
     };
@@ -91,8 +91,8 @@ struct AudioPlayer {
 
 impl AudioPlayer {
     fn new() -> Result<Self, String> {
-        let (stream, handle) = OutputStream::try_default()
-            .map_err(|e| format!("failed to open audio output: {e}"))?;
+        let (stream, handle) =
+            OutputStream::try_default().map_err(|e| format!("failed to open audio output: {e}"))?;
         Ok(Self {
             _stream: stream,
             stream_handle: handle,
@@ -105,11 +105,11 @@ impl AudioPlayer {
         // Stop existing playback of same cue
         self.sinks.remove(cue);
 
-        let file = fs::File::open(path)
-            .map_err(|e| format!("cannot open {}: {e}", path.display()))?;
+        let file =
+            fs::File::open(path).map_err(|e| format!("cannot open {}: {e}", path.display()))?;
         let reader = io::BufReader::new(file);
-        let source = Decoder::new(reader)
-            .map_err(|e| format!("cannot decode {}: {e}", path.display()))?;
+        let source =
+            Decoder::new(reader).map_err(|e| format!("cannot decode {}: {e}", path.display()))?;
 
         let sink = Sink::try_new(&self.stream_handle)
             .map_err(|e| format!("cannot create audio sink: {e}"))?;
@@ -124,8 +124,12 @@ impl AudioPlayer {
 
     fn stop(&mut self, cue: Option<&str>) {
         match cue {
-            Some(name) => { self.sinks.remove(name); }
-            None => { self.sinks.clear(); }
+            Some(name) => {
+                self.sinks.remove(name);
+            }
+            None => {
+                self.sinks.clear();
+            }
         }
     }
 
@@ -150,8 +154,11 @@ fn main() {
     let assets = scan_assets(Path::new(&cli.assets_root));
 
     if cli.verbose {
-        eprintln!("[sound-server] started — {} audio cues indexed from '{}'",
-            assets.len(), cli.assets_root);
+        eprintln!(
+            "[sound-server] started — {} audio cues indexed from '{}'",
+            assets.len(),
+            cli.assets_root
+        );
         for (cue, path) in &assets {
             eprintln!("  {cue} -> {}", path.display());
         }
@@ -235,10 +242,7 @@ fn main() {
                         eprintln!("[sound-server] {msg}");
                     }
                     if cli.ack {
-                        let _ = emit_ack(
-                            &mut stdout,
-                            &SoundServerResponse::Error { message: msg },
-                        );
+                        let _ = emit_ack(&mut stdout, &SoundServerResponse::Error { message: msg });
                     }
                 }
 

@@ -1,24 +1,32 @@
 # engine-error
 
-Shared error types for the engine crate family.
+Shared error type for startup and engine-adjacent workflows.
 
 ## Purpose
 
-Defines a unified error enum used across engine crates so that I/O,
-YAML parsing, zip extraction, configuration, and asset-not-found
-errors have a single, consistent representation.
+`engine-error` defines `EngineError`, the cross-crate error type used for mod
+loading, manifest validation, terminal requirement checks, startup validation,
+and related runtime setup failures.
 
-## Key Types
+## Main export
 
-- `EngineError` — enum with variants: `IoError`, `YamlError`, `ZipError`, `ConfigError`, `AssetNotFound`, and others
+- `EngineError`
 
-## Dependencies
+## Current scope
 
-- `thiserror` — derive macro for `std::error::Error` implementation
-- `zip` — error type for zip archive operations
-- `serde_yaml` — error type for YAML parse failures
+The enum currently covers:
 
-## Usage
+- missing or unsupported mod sources,
+- manifest read/parse failures,
+- zip archive errors,
+- missing required manifest fields,
+- missing scene entrypoints,
+- terminal requirement failures,
+- startup check failures,
+- render I/O failures.
 
-Engine crates return `Result<T, EngineError>` from fallible operations.
-Use the `?` operator to propagate errors across crate boundaries.
+## Working with this crate
+
+- keep user-facing startup errors explicit and actionable,
+- prefer adding structured variants over collapsing failures into generic strings,
+- when new startup validation paths are introduced, extend this crate instead of inventing local error enums.

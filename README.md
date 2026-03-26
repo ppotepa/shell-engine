@@ -64,43 +64,28 @@ difficulty selection affects simulated hardware — cpu speed, ram, nic bandwidt
 
 ## Documentation
 
-### Progress & Changelog
-- **[CHANGELOG.md](CHANGELOG.md)** — Daily development progress and feature additions
+### Root guides
 
-### Consolidated References (start here)
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Repo structure, dependency graph, systems design, strategy patterns
-- **[AUTHORING.md](AUTHORING.md)** — Content creation contract, assets, sprites, effects, PostFX, Rhai scripting
-- **[MODS.md](MODS.md)** — Mod structure and creation guide
-- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — 20 optimizations, strategy pattern, CLI flags
-- **[AGENTS.md](AGENTS.md)** — Build commands, schema generation, tooling, navigation hub
+- **[README.md](README.md)** — project overview and navigation
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — repository structure, dependency graph, systems, rendering pipeline
+- **[AUTHORING.md](AUTHORING.md)** — authored scene contract, assets, sprites, effects, PostFX, Rhai
+- **[BENCHMARKING.md](BENCHMARKING.md)** — benchmark workflow and regression capture
+- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — optimization flags, strategy pattern, invariants
 
-### Core Authoring
-- **[scene-centric-authoring.md](scene-centric-authoring.md)** — Complete YAML authoring contract (scenes, layers, sprites, timeline)
-- **[timeline-architecture.md](timeline-architecture.md)** — Sprite timeline system, visibility validation, architecture constraints
-- **[authoring.md](authoring.md)** — Metadata-first pipeline, effects, postFX, presets
+### Local technical READMEs
 
-### Features
-- **[obj-lighting.md](obj-lighting.md)** — 3D OBJ lighting: directional, point lights, orbit, snap teleport, cel shading
-- **[terminal-hud-authoring.md](terminal-hud-authoring.md)** — Terminal UI widgets (window, terminal-input, scroll-list)
-- **[inputs.md](inputs.md)** — Scene input profiles (menu, obj-viewer, terminal-shell)
-- **[assets.md](assets.md)** — Asset loading, mod structure, packaging
+Technical details are being moved into directory-local README files so knowledge
+lives next to the code it describes.
 
-### Tooling
-- **[editor.md](editor.md)** — TUI editor architecture and usage
-- **[logging.md](logging.md)** — Debug logging and overlay system
-
-### Sidecar & Gameplay
-- **[engine-io/README.md](engine-io/README.md)** — IPC protocol between engine and sidecar
-- **[cognitOS README](mods/shell-quest/os/cognitOS/README.md)** — Simulated OS sidecar architecture
-- **[quest scripts](mods/shell-quest/docs/scripts.md)** — Prologue design doc (ftp upload puzzle, 1991)
-
-### Local Knowledge Hubs (subsystem navigation)
-- **[/app/README.AGENTS.MD](app/README.AGENTS.MD)** — CLI flags, app startup, configuration
-- **[/editor/README.AGENTS.MD](editor/README.AGENTS.MD)** — Editor subsystem, architecture, hot-reload
-- **[/engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
-- **[/engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Core model, scene structure, strategy traits
-- **[/mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Main mod content, scenes, assets
-- **[/mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod structure, benchmarking
-- **[/tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Development tools, runners, schema validation
-- **[/schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — YAML schema system, generation, validation
-
+- `app/README.AGENTS.MD` — launcher flow and CLI configuration
+- `editor/README.AGENTS.MD` — editor architecture and hot reload
+- `engine/README.AGENTS.MD` — runtime orchestration and system order
+- `engine-core/README.md` and `engine-core/README.AGENTS.MD` — shared model layer
+- `engine-asset/README.md` — scene and asset repository abstraction
+- `engine-behavior/README.md` — behavior runtime and Rhai integration
+- `engine-compositor/README.md` — composition, rendering, PostFX, prerender
+- `engine-scene-runtime/README.md` — mutable scene runtime and control routing
+- `mods/shell-quest/README.AGENTS.MD` — main mod structure and content
+- `mods/shell-quest-tests/README.AGENTS.MD` — automated test mod and benchmarking usage
+- `tools/README.AGENTS.MD` — tooling entry points
+- `schemas/README.AGENTS.MD` — schema generation and validation

@@ -1,7 +1,7 @@
 use crate::commands::Command;
+use crate::hosts::HostKind;
 use crate::kernel::unit_of_work::UnitOfWork;
 use crate::kernel::Kernel;
-use crate::hosts::HostKind;
 
 pub struct PingCmd;
 impl Command for PingCmd {
@@ -15,21 +15,27 @@ impl Command for PingCmd {
         };
 
         // Check /etc/hosts first, then registry
-        let resolved = kernel.vfs.read_file("/etc/hosts")
-            .and_then(|content| {
-                let content = content.to_string();
-                for line in content.lines() {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 2 && parts[1..].contains(&host) {
-                        return Some(parts[0].to_string());
-                    }
+        let resolved = kernel.vfs.read_file("/etc/hosts").and_then(|content| {
+            let content = content.to_string();
+            for line in content.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 && parts[1..].contains(&host) {
+                    return Some(parts[0].to_string());
                 }
-                None
-            });
+            }
+            None
+        });
 
         let host_str = host.to_string();
 
-        if let Some(remote) = kernel.network.active_connections.values().next().cloned().or_else(|| None) {
+        if let Some(remote) = kernel
+            .network
+            .active_connections
+            .values()
+            .next()
+            .cloned()
+            .or_else(|| None)
+        {
             // placeholder
             let _ = remote;
         }
@@ -53,10 +59,16 @@ impl Command for PingCmd {
         if is_loopback {
             uow.print(format!("PING {host} ({ip}): 56 data bytes"));
             for i in 0..4 {
-                uow.schedule(format!("64 bytes from {ip}: icmp_seq={i} ttl=255 time=0.1 ms"), 10);
+                uow.schedule(
+                    format!("64 bytes from {ip}: icmp_seq={i} ttl=255 time=0.1 ms"),
+                    10,
+                );
             }
             uow.schedule(format!("--- {host} ping statistics ---"), 100);
-            uow.schedule("4 packets transmitted, 4 received, 0% packet loss".to_string(), 0);
+            uow.schedule(
+                "4 packets transmitted, 4 received, 0% packet loss".to_string(),
+                0,
+            );
             uow.schedule("round-trip min/avg/max = 0.1/0.1/0.1 ms".to_string(), 0);
         } else {
             // Generic real host response
@@ -64,12 +76,24 @@ impl Command for PingCmd {
             uow.print(format!("PING {host} ({ip}): 56 data bytes"));
             for i in 0..4 {
                 let t = base_ms + (i * 3) as u64;
-                uow.schedule(format!("64 bytes from {ip}: icmp_seq={i} ttl=52 time={t} ms"), 250);
+                uow.schedule(
+                    format!("64 bytes from {ip}: icmp_seq={i} ttl=52 time={t} ms"),
+                    250,
+                );
             }
             uow.schedule(format!("--- {host} ping statistics ---"), 150);
-            uow.schedule("4 packets transmitted, 4 received, 0% packet loss".to_string(), 0);
-            uow.schedule(format!("round-trip min/avg/max = {base_ms}/{}/{} ms",
-                base_ms + 4, base_ms + 8), 0);
+            uow.schedule(
+                "4 packets transmitted, 4 received, 0% packet loss".to_string(),
+                0,
+            );
+            uow.schedule(
+                format!(
+                    "round-trip min/avg/max = {base_ms}/{}/{} ms",
+                    base_ms + 4,
+                    base_ms + 8
+                ),
+                0,
+            );
         }
     }
 }
@@ -97,10 +121,16 @@ pub fn ping_with_registry(
             let ip = r.ip.clone();
             uow.print(format!("PING {host} ({ip}): 56 data bytes"));
             for i in 0..4 {
-                uow.schedule(format!("64 bytes from {ip}: icmp_seq={i} ttl=255 time=0.1 ms"), 5);
+                uow.schedule(
+                    format!("64 bytes from {ip}: icmp_seq={i} ttl=255 time=0.1 ms"),
+                    5,
+                );
             }
             uow.schedule(format!("--- {host} ping statistics ---"), 50);
-            uow.schedule("4 packets transmitted, 4 received, 0% packet loss".to_string(), 0);
+            uow.schedule(
+                "4 packets transmitted, 4 received, 0% packet loss".to_string(),
+                0,
+            );
             uow.schedule("round-trip min/avg/max = 0.1/0.1/0.1 ms".to_string(), 0);
         }
         Some(r) if r.kind == HostKind::EasterEgg => {
@@ -126,10 +156,16 @@ pub fn ping_with_registry(
 
             // Write to /usr/adm/net.trace
             let trace_entry = format!("{}  {}  {} [ANOMALY]", kernel.clock.time_str(), host, r.ip);
-            let existing = kernel.vfs.read_file("/usr/adm/net.trace")
+            let existing = kernel
+                .vfs
+                .read_file("/usr/adm/net.trace")
                 .map(|s| s.to_string())
                 .unwrap_or_default();
-            kernel.vfs.write_file("/usr/adm/net.trace", &format!("{existing}{trace_entry}\n"), "root");
+            kernel.vfs.write_file(
+                "/usr/adm/net.trace",
+                &format!("{existing}{trace_entry}\n"),
+                "root",
+            );
         }
         Some(r) => {
             let ip = r.ip.clone();
@@ -137,12 +173,24 @@ pub fn ping_with_registry(
             uow.print(format!("PING {host} ({ip}): 56 data bytes"));
             for i in 0..4 {
                 let t = base + (i * 2) as u64;
-                uow.schedule(format!("64 bytes from {ip}: icmp_seq={i} ttl=52 time={t} ms"), base + 50);
+                uow.schedule(
+                    format!("64 bytes from {ip}: icmp_seq={i} ttl=52 time={t} ms"),
+                    base + 50,
+                );
             }
             uow.schedule(format!("--- {host} ping statistics ---"), 150);
-            uow.schedule("4 packets transmitted, 4 received, 0% packet loss".to_string(), 0);
-            uow.schedule(format!("round-trip min/avg/max = {base}/{}/{} ms",
-                base + 3, base + 7), 0);
+            uow.schedule(
+                "4 packets transmitted, 4 received, 0% packet loss".to_string(),
+                0,
+            );
+            uow.schedule(
+                format!(
+                    "round-trip min/avg/max = {base}/{}/{} ms",
+                    base + 3,
+                    base + 7
+                ),
+                0,
+            );
         }
     }
 }
@@ -152,22 +200,26 @@ impl Command for NslookupCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
         let host = match args.get(1) {
             Some(h) => *h,
-            None => { uow.print("usage: nslookup host"); return; }
+            None => {
+                uow.print("usage: nslookup host");
+                return;
+            }
         };
 
         // Check /etc/hosts
-        let found = kernel.vfs.read_file("/etc/hosts")
-            .and_then(|content| {
-                let content = content.to_string();
-                for line in content.lines() {
-                    if line.starts_with('#') || line.is_empty() { continue; }
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 2 && parts[1..].iter().any(|&n| n == host) {
-                        return Some((parts[0].to_string(), parts[1].to_string()));
-                    }
+        let found = kernel.vfs.read_file("/etc/hosts").and_then(|content| {
+            let content = content.to_string();
+            for line in content.lines() {
+                if line.starts_with('#') || line.is_empty() {
+                    continue;
                 }
-                None
-            });
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 && parts[1..].iter().any(|&n| n == host) {
+                    return Some((parts[0].to_string(), parts[1].to_string()));
+                }
+            }
+            None
+        });
 
         uow.print(format!("Server:  localhost"));
         uow.print(format!("Address: 127.0.0.1"));
@@ -194,8 +246,14 @@ impl Command for NetstatCmd {
         uow.print("tcp    0.0.0.0:23             0.0.0.0:*              LISTEN");
 
         if ftp_connected {
-            let remote = uow.quest.ftp_remote_host.clone().unwrap_or_else(|| "nic.funet.fi".to_string());
-            uow.print(format!("tcp    kruuna:1024             {remote}:21            ESTABLISHED"));
+            let remote = uow
+                .quest
+                .ftp_remote_host
+                .clone()
+                .unwrap_or_else(|| "nic.funet.fi".to_string());
+            uow.print(format!(
+                "tcp    kruuna:1024             {remote}:21            ESTABLISHED"
+            ));
         }
 
         // Anomaly port appears at high decay
@@ -243,7 +301,9 @@ impl Command for FingerCmd {
         if let Some(user) = args.get(1) {
             // finger user
             let path = format!("/usr/{user}/.plan");
-            let plan = kernel.vfs.read_file(&path)
+            let plan = kernel
+                .vfs
+                .read_file(&path)
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "No plan.".to_string());
             uow.print(format!("Login: {user}"));
@@ -252,12 +312,18 @@ impl Command for FingerCmd {
         }
 
         uow.print("Login     Name                 Tty      Idle  Login  Time");
-        uow.print(format!("torvalds  Linus Torvalds       tty0        Sep 17 21:12"));
-        uow.print(format!("ast       A.S. Tanenbaum       tty1     14  Sep 17 21:12"));
+        uow.print(format!(
+            "torvalds  Linus Torvalds       tty0        Sep 17 21:12"
+        ));
+        uow.print(format!(
+            "ast       A.S. Tanenbaum       tty1     14  Sep 17 21:12"
+        ));
 
         if anomaly_count >= 2 && !upload_success {
             // (null) session visible — hides after upload success
-            uow.print(format!("(null)    ???                  tty2      0  Sep 17 21:12"));
+            uow.print(format!(
+                "(null)    ???                  tty2      0  Sep 17 21:12"
+            ));
         }
 
         // After tier 3, .plan for (null)
@@ -294,7 +360,10 @@ impl Command for TelnetCmd {
                 uow.schedule("<NEXTID N=\"55\">".to_string(), 0);
                 uow.schedule("<H1>World Wide Web</H1>".to_string(), 0);
                 uow.schedule("The WorldWideWeb (W3) is a wide-area hypermedia information retrieval initiative".to_string(), 0);
-                uow.schedule("aiming to give universal access to a large universe of documents.".to_string(), 0);
+                uow.schedule(
+                    "aiming to give universal access to a large universe of documents.".to_string(),
+                    0,
+                );
                 uow.schedule("".to_string(), 0);
                 uow.schedule("Connection closed by foreign host.".to_string(), 800);
             }
@@ -313,7 +382,10 @@ impl Command for TelnetCmd {
             _ => {
                 let h = host.to_string();
                 uow.print(format!("Trying {h}..."));
-                uow.schedule(format!("telnet: connect to address {h}: Connection refused"), 800);
+                uow.schedule(
+                    format!("telnet: connect to address {h}: Connection refused"),
+                    800,
+                );
             }
         }
     }

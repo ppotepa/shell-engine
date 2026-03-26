@@ -15,10 +15,10 @@ use super::registry::PostFxBuiltin;
 use super::{
     lerp_colour_local, normalize_bg, normalized_coords, rand01, scale_colour, PostFxContext,
 };
+use engine_core::color::Color;
 use engine_core::buffer::Buffer;
 use engine_core::effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
-use crossterm::style::Color;
 
 // ── Precomputed scan-glitch band ──────────────────────────────────────────
 
@@ -134,8 +134,7 @@ pub(super) fn apply(
         let margin_ctl = pass.params.transparency.unwrap_or(0.24).clamp(0.0, 1.0);
         let brightness = pass.params.brightness.unwrap_or(1.0).clamp(0.6, 1.4);
         let intensity01 = (intensity / 2.0).clamp(0.0, 1.0);
-        let strength =
-            (0.35 * curvature + 0.25 * intensity01 + 0.40 * distortion).clamp(0.0, 1.0);
+        let strength = (0.35 * curvature + 0.25 * intensity01 + 0.40 * distortion).clamp(0.0, 1.0);
         let inset_x = (0.001 + 0.008 * margin_ctl + 0.004 * strength).clamp(0.0, 0.02);
         let inset_y = (0.002 + 0.012 * margin_ctl + 0.006 * strength).clamp(0.0, 0.03);
         (strength, inset_x, inset_y, brightness)
@@ -151,12 +150,11 @@ pub(super) fn apply(
             let brightness = pass.params.brightness.unwrap_or(1.0).clamp(0.6, 1.5);
 
             let band_half = (1.0 + thickness * 3.0).round() as i32;
-            let extra =
-                if rand01(3, 11, frame.wrapping_add(97)) < (0.08 + speed * 0.16) {
-                    2
-                } else {
-                    1
-                };
+            let extra = if rand01(3, 11, frame.wrapping_add(97)) < (0.08 + speed * 0.16) {
+                2
+            } else {
+                1
+            };
 
             let mut result = Vec::new();
             for idx in 0..extra {
@@ -252,10 +250,8 @@ pub(super) fn apply(
                         } else {
                             (y as f32 / h) * 2.0 - 1.0
                         };
-                        let curve_x =
-                            (1.0 - (0.06 + 0.18 * strength) * uy * uy).clamp(0.72, 1.0);
-                        let curve_y =
-                            (1.0 - (0.04 + 0.14 * strength) * ux * ux).clamp(0.74, 1.0);
+                        let curve_x = (1.0 - (0.06 + 0.18 * strength) * uy * uy).clamp(0.72, 1.0);
+                        let curve_y = (1.0 - (0.04 + 0.14 * strength) * ux * ux).clamp(0.74, 1.0);
                         let su = (ux * curve_x).clamp(-1.0, 1.0);
                         let sv = (uy * curve_y).clamp(-1.0, 1.0);
                         let u = inset_x + ((su + 1.0) * 0.5) * (1.0 - 2.0 * inset_x);
@@ -265,8 +261,7 @@ pub(super) fn apply(
 
                         let sample = src.get(sx, sy).cloned().unwrap_or(orig.clone());
                         let edge = ux.abs().max(uy.abs()).clamp(0.0, 1.0);
-                        let shade =
-                            (1.0 - edge * (0.05 + 0.06 * strength)).clamp(0.82, 1.0);
+                        let shade = (1.0 - edge * (0.05 + 0.06 * strength)).clamp(0.82, 1.0);
                         (sample, shade, d_bright)
                     } else {
                         (orig.clone(), 1.0, 1.0)
@@ -289,8 +284,7 @@ pub(super) fn apply(
                 };
 
                 let mut fg = scale_colour(fg_source, distort_brightness * shade);
-                let mut bg =
-                    scale_colour(normalize_bg(sample.bg), (0.94 * shade).clamp(0.70, 1.0));
+                let mut bg = scale_colour(normalize_bg(sample.bg), (0.94 * shade).clamp(0.70, 1.0));
                 let mut symbol = orig.symbol;
 
                 // ── GLOW (empty cells only) ──────────────────────────
@@ -304,8 +298,7 @@ pub(super) fn apply(
                                     * ((t * (0.95 + glow_speed * 1.9) + y as f32 * 0.07).sin()
                                         * 0.5
                                         + 0.5);
-                            let shimmer =
-                                0.92 + 0.16 * rand01(x, y, frame.wrapping_add(4901));
+                            let shimmer = 0.92 + 0.16 * rand01(x, y, frame.wrapping_add(4901));
                             let aura = (pix.a * glow_brightness * pulse * shimmer * glow_alpha)
                                 .clamp(0.0, 1.0);
                             let glow_colour = Color::Rgb {
@@ -335,21 +328,16 @@ pub(super) fn apply(
 
                     let xi = x as i32;
                     let sx_r = (xi - shift).clamp(0, src.width as i32 - 1) as u16;
-                    let sx_g =
-                        (xi - shift + band.chroma / 2).clamp(0, src.width as i32 - 1) as u16;
-                    let sx_b =
-                        (xi - shift + band.chroma).clamp(0, src.width as i32 - 1) as u16;
+                    let sx_g = (xi - shift + band.chroma / 2).clamp(0, src.width as i32 - 1) as u16;
+                    let sx_b = (xi - shift + band.chroma).clamp(0, src.width as i32 - 1) as u16;
 
                     let base_cell = src.get(sx_r, y).cloned().unwrap_or(orig);
-                    let (rr, _, _) = colour_to_rgb(
-                        src.get(sx_r, y).map(|c| c.fg).unwrap_or(base_cell.fg),
-                    );
-                    let (_, gg, _) = colour_to_rgb(
-                        src.get(sx_g, y).map(|c| c.fg).unwrap_or(base_cell.fg),
-                    );
-                    let (_, _, bb) = colour_to_rgb(
-                        src.get(sx_b, y).map(|c| c.fg).unwrap_or(base_cell.fg),
-                    );
+                    let (rr, _, _) =
+                        colour_to_rgb(src.get(sx_r, y).map(|c| c.fg).unwrap_or(base_cell.fg));
+                    let (_, gg, _) =
+                        colour_to_rgb(src.get(sx_g, y).map(|c| c.fg).unwrap_or(base_cell.fg));
+                    let (_, _, bb) =
+                        colour_to_rgb(src.get(sx_b, y).map(|c| c.fg).unwrap_or(base_cell.fg));
                     let chroma_fg = Color::Rgb {
                         r: rr,
                         g: gg,
@@ -373,10 +361,7 @@ pub(super) fn apply(
                         lerp_colour_local(fg, r.ruby, r.tint),
                         center_dark * r.brightness,
                     );
-                    bg = scale_colour(
-                        lerp_colour_local(bg, r.ruby_bg, r.tint * 0.55),
-                        center_dark,
-                    );
+                    bg = scale_colour(lerp_colour_local(bg, r.ruby_bg, r.tint * 0.55), center_dark);
 
                     // Edge-reveal band.
                     let xn = if src.width <= 1 {
@@ -396,22 +381,18 @@ pub(super) fn apply(
                         let sx = (xi - r.shift).clamp(0, src.width as i32 - 1) as u16;
                         let sx_g =
                             (xi - r.shift + r.chroma / 2).clamp(0, src.width as i32 - 1) as u16;
-                        let sx_b =
-                            (xi - r.shift + r.chroma).clamp(0, src.width as i32 - 1) as u16;
+                        let sx_b = (xi - r.shift + r.chroma).clamp(0, src.width as i32 - 1) as u16;
 
                         if let Some(rsample) = src.get(sx, y).cloned() {
                             if symbol == ' ' && rsample.symbol != ' ' {
                                 symbol = rsample.symbol;
                             }
-                            let (rr, _, _) = colour_to_rgb(
-                                src.get(sx, y).map(|c| c.fg).unwrap_or(rsample.fg),
-                            );
-                            let (_, gg, _) = colour_to_rgb(
-                                src.get(sx_g, y).map(|c| c.fg).unwrap_or(rsample.fg),
-                            );
-                            let (_, _, bb) = colour_to_rgb(
-                                src.get(sx_b, y).map(|c| c.fg).unwrap_or(rsample.fg),
-                            );
+                            let (rr, _, _) =
+                                colour_to_rgb(src.get(sx, y).map(|c| c.fg).unwrap_or(rsample.fg));
+                            let (_, gg, _) =
+                                colour_to_rgb(src.get(sx_g, y).map(|c| c.fg).unwrap_or(rsample.fg));
+                            let (_, _, bb) =
+                                colour_to_rgb(src.get(sx_b, y).map(|c| c.fg).unwrap_or(rsample.fg));
                             let chroma_fg = Color::Rgb {
                                 r: rr,
                                 g: gg,

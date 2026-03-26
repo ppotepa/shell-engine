@@ -7,7 +7,7 @@ use crate::effects::metadata::{
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 use std::f32::consts::TAU;
 
 pub static METADATA_LIGHTNING_FLASH: EffectMetadata = EffectMetadata {
@@ -1504,7 +1504,7 @@ mod tests {
     use crate::buffer::Buffer;
     use crate::effects::Region;
     use crate::scene::EffectParams;
-    use crossterm::style::Color;
+    use crate::color::Color;
 
     fn lit_axes_coverage(buffer: &Buffer) -> (usize, usize) {
         let lit_x = (0..buffer.width)

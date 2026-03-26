@@ -97,27 +97,27 @@ pub enum SpriteSizePreset {
 impl SpriteSizePreset {
     pub const fn generic_mode(self) -> &'static str {
         match self {
-            Self::Small  => "1",
+            Self::Small => "1",
             Self::Medium => "2",
-            Self::Large  => "3",
+            Self::Large => "3",
             Self::XLarge => "4",
         }
     }
 
     pub const fn image_scale_ratio(self) -> (u16, u16) {
         match self {
-            Self::Small  => (1, 3),
+            Self::Small => (1, 3),
             Self::Medium => (1, 2),
-            Self::Large  => (2, 3),
+            Self::Large => (2, 3),
             Self::XLarge => (3, 4),
         }
     }
 
     pub const fn obj_dimensions(self) -> (u16, u16) {
         match self {
-            Self::Small  => (32, 12),
+            Self::Small => (32, 12),
             Self::Medium => (64, 24),
-            Self::Large  => (96, 36),
+            Self::Large => (96, 36),
             Self::XLarge => (128, 48),
         }
     }
@@ -755,13 +755,27 @@ impl Sprite {
 
     pub fn disappear_at_ms(&self) -> Option<u64> {
         match self {
-            Sprite::Text { disappear_at_ms, .. }
-            | Sprite::Image { disappear_at_ms, .. }
-            | Sprite::Obj { disappear_at_ms, .. }
-            | Sprite::Panel { disappear_at_ms, .. }
-            | Sprite::Grid { disappear_at_ms, .. }
-            | Sprite::Flex { disappear_at_ms, .. }
-            | Sprite::Scene3D { disappear_at_ms, .. } => *disappear_at_ms,
+            Sprite::Text {
+                disappear_at_ms, ..
+            }
+            | Sprite::Image {
+                disappear_at_ms, ..
+            }
+            | Sprite::Obj {
+                disappear_at_ms, ..
+            }
+            | Sprite::Panel {
+                disappear_at_ms, ..
+            }
+            | Sprite::Grid {
+                disappear_at_ms, ..
+            }
+            | Sprite::Flex {
+                disappear_at_ms, ..
+            }
+            | Sprite::Scene3D {
+                disappear_at_ms, ..
+            } => *disappear_at_ms,
         }
     }
 

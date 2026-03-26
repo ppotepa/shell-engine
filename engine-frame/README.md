@@ -1,25 +1,33 @@
 # engine-frame
 
-Frame ticket for render-thread generation tracking.
+Frame identity and freshness checks for threaded rendering.
 
 ## Purpose
 
-Provides a lightweight ticket type that pairs a render generation
-counter with a simulation frame ID. Used to detect stale frames and
-prevent the renderer from presenting outdated buffers after scene
-transitions.
+`engine-frame` provides `FrameTicket`, the shared identity token used to track
+which simulation frame a rendered result belongs to and whether it is still
+safe to present.
 
-## Key Types
+This crate is small by design, but it protects an important correctness
+boundary: stale render-thread frames must not be shown after scene-generation
+changes such as transitions or resizes.
 
-- `FrameTicket` — struct with `generation` and `sim_frame_id` fields
-- `is_acceptable()` — checks whether a ticket is still valid for the current render generation
+## Key type
 
-## Dependencies
+- `FrameTicket`
+  - `sim_frame_id` — monotonically increasing simulation frame counter
+  - `scene_generation` — bumped when scene identity changes
 
-None — this is a standalone data crate with no external dependencies.
+## Important semantics
 
-## Usage
+- `matches_generation()` checks cross-scene freshness
+- `is_newer_than()` compares tickets within a generation
+- `is_acceptable()` only checks frame ordering; generation filtering must happen
+  before calling it
 
-The runtime stamps each frame with a `FrameTicket`. The render thread
-calls `is_acceptable()` to discard frames from a previous generation
-after a scene transition.
+## Working with this crate
+
+- keep the semantics explicit and simple,
+- if freshness rules change, update the presenter/game-loop call sites together,
+- be careful not to hide generation checks inside the wrong helper; the current
+  split is intentional.

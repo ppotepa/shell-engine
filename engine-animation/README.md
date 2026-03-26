@@ -1,25 +1,31 @@
 # engine-animation
 
-Stage/step animator system for scene timeline progression.
+Scene animation timing, lifecycle stages, and menu-action evaluation.
 
 ## Purpose
 
-Drives timed stage and step advancement within scenes. The animator
-tracks elapsed time, manages animation state transitions, and signals
-when a stage's steps have completed so the runtime can advance.
+`engine-animation` owns scene progression mechanics: stage timing, step
+advancement, lifecycle transitions, and menu-action evaluation that happens as
+scenes animate and advance.
 
-## Key Types
+## Key modules
 
-- `Animator` — core driver that ticks animation state each frame
-- `AnimationState` — current stage index, step index, and elapsed time
-- `StageAdvancer` — logic for progressing through stage steps and handling completion
+- `animator` — `Animator` and `SceneStage`
+- `systems` — frame-driven animator system wiring
+- `menu` — menu action evaluation helpers
+- `provider` / `access` — traits used to decouple animation logic from concrete world types
 
-## Dependencies
+## Main exports
 
-- `engine-core` — scene model (stages, steps, timing definitions)
+- `Animator`
+- `SceneStage`
+- `animator_system()`
+- `MenuAction`
+- `evaluate_menu_action()`
+- `LifecycleProvider`
 
-## Usage
+## Working with this crate
 
-The runtime creates an `Animator` per scene and calls `tick()` each frame.
-The animator updates `AnimationState` and returns commands when steps or
-stages complete.
+- preserve stage/step progression semantics carefully, especially around zero-duration steps,
+- keep lifecycle abstractions generic so animation logic does not collapse back into `engine`,
+- when animation behavior changes, verify intro/menu pacing in real content and tests.

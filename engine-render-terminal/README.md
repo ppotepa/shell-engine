@@ -1,25 +1,27 @@
 # engine-render-terminal
 
-Crossterm-based terminal RenderBackend implementation.
+Terminal presentation backend and display strategies.
 
 ## Purpose
 
-Implements the `RenderBackend` trait using crossterm to write composed
-frames to the terminal. This is the default output backend used when
-running Shell Quest in a terminal emulator.
+`engine-render-terminal` owns the concrete terminal-output path: converting a
+prepared buffer into terminal writes, batching ANSI output, and optionally
+offloading display flush work.
 
-## Key Types
+## Key modules and exports
 
-- `TerminalRenderBackend` — struct implementing `RenderBackend` via crossterm
+- `renderer` — `TerminalRenderer`, `renderer_system()`, color resolution, flush helpers
+- `strategy` — sync/async display sink and batching strategies
+- `provider` — renderer provider integration
+- `rasterizer` — terminal-oriented rasterization helpers
+- `RendererProvider`
+- `AnsiBatchFlusher`
+- `AsyncDisplaySink`
+- `NaiveFlusher`
+- `SyncDisplaySink`
 
-## Dependencies
+## Working with this crate
 
-- `engine-core` — buffer and cell types
-- `engine-render` — `RenderBackend` trait definition
-- `crossterm` — terminal output, cursor control, and style commands
-
-## Usage
-
-Created automatically by the runtime when no alternative backend is
-specified. Handles raw mode setup, alternate screen, and cleanup on
-shutdown.
+- keep presentation concerns here instead of drifting back into the engine loop,
+- if terminal write behavior changes, verify startup/shutdown cleanup and async display paths,
+- coordinate changes with `engine-render` trait contracts and pipeline strategy wiring.

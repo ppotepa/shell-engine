@@ -1,136 +1,81 @@
-# Engine — Runtime Systems & Optimization
+# Engine — Runtime Orchestration
 
-## Strategy Pattern Architecture
+## Purpose
 
-All pipeline optimizations use trait-based strategy dispatch. No boolean branching in hot loops.
+`engine/` is the top-level runtime orchestrator. It wires subsystem crates
+together, owns the frame loop, and provides engine-specific world integration.
 
-### PipelineStrategies Container
+Most domain logic now lives in focused crates:
 
-```rust
-pub struct PipelineStrategies {
-    pub diff:      Box<dyn DiffStrategy>,
-    pub layer:     Box<dyn LayerCompositor>,
-    pub halfblock: Box<dyn HalfblockPacker>,
-    pub present:   Box<dyn VirtualPresenter>,
-    pub flush:     Box<dyn TerminalFlusher>,
-    pub display:   Box<dyn DisplaySink>,
-}
-```
+- `engine-core` — shared types, `World`, scene model, buffer types
+- `engine-scene-runtime` — mutable scene instance state
+- `engine-behavior` — behavior implementations and Rhai execution model
+- `engine-compositor` — composition, sprite rendering, PostFX, prerender helpers
 
-Registered once in `World` at startup. All systems call trait methods.
+This directory should mostly contain orchestration, provider impls, and systems
+that still need engine-only world access.
 
-### Per-Frame Systems (11 total)
+## Per-frame system order
 
-| System | Time Tracking | Purpose |
-|--------|---------------|---------|
-| input | input_us | Crossterm event polling |
-| lifecycle | lifecycle_us | Scene transitions, event drain |
-| animator | animator_us | Stage/step advancement |
-| hot_reload | hot_reload_us | Dev file scanning |
-| engine_io | engine_io_us | Sidecar IPC bridge |
-| behavior | behavior_us | Rhai script execution |
-| audio | audio_us | Audio playback tick |
-| compositor | compositor_us | Layer blitting + sprite rendering |
-| postfx | postfx_us | Post-processing effects |
-| renderer | renderer_us | Diff + flush pipeline |
-| sleep | sleep_us | Frame budget sleep |
+| System | Timing field | Purpose |
+|---|---|---|
+| input | `input_us` | Crossterm event polling |
+| lifecycle | `lifecycle_us` | Scene transitions, debug shortcuts, event routing |
+| animator | `animator_us` | Stage/step advancement |
+| hot_reload | `hot_reload_us` | Dev-mode file scanning |
+| engine_io | `engine_io_us` | Sidecar IPC bridge |
+| behavior | `behavior_us` | Behavior update and command application |
+| audio | `audio_us` | Audio playback tick |
+| compositor | `compositor_us` | Resource extraction + call into `engine-compositor` |
+| postfx | `postfx_us` | PostFX application |
+| renderer | `renderer_us` | Diff + flush pipeline |
+| sleep | `sleep_us` | Frame budget sleep |
 
-## Optimization Re-enablement Status
+Keep this order stable unless architecture is intentionally changing.
 
-| Flag | Status | Implementation |
-|------|--------|-----------------|
-| `--opt-comp` | ✅ Working | Layer scratch skip, dirty-region halfblock packing |
-| `--opt-present` | ✅ Working | Hash-based static frame skip, disables postfx cache |
-| `--opt-diff` | ⚠️ Experimental | DirtyRegionDiff instead of FullScanDiff |
-| `--opt-skip` | ✅ Working | FrameSkipOracle prevents redundant frames |
-| `--opt-rowdiff` | ✅ Working | Row-level dirty tracking, skip unchanged rows |
+## Strategy wiring
 
-All flags gate implementations in `PipelineStrategies::from_flags()`.
+Pipeline optimizations are selected once at startup and stored in
+`PipelineStrategies`. Systems should call trait methods, not branch on flags in
+hot paths.
 
-## Benchmark System
+Important flags:
 
-**FrameSample** (per-frame):
-- `scene_id: String` — current scene
-- `frame_us` — total wall-clock time
-- All 11 system timings
-- `diff_cells`, `dirty_cells`, `total_cells`
-- `write_ops` — buffer mutation count
+- `--opt-comp` — compositor and halfblock packing optimizations
+- `--opt-diff` — dirty-region diff
+- `--opt-present` — hash-based present skipping
+- `--opt-skip` — coordinated frame-skip oracle
+- `--opt-rowdiff` — row-level dirty diff skip
 
-**BenchResults**:
-- `samples: Vec<FrameSample>` — all per-frame data
-- `fps` statistics (avg, min, max, p50, p95, p99)
-- Per-metric stats (frame_us, compositor_us, etc.)
-- Per-scene breakdown (computed via `compute_per_scene()`)
+## Engine-owned responsibilities
 
-**Report output** (reports/benchmark/YYYYMMDD-HHMMSS.txt):
-- Score formula: `fps.avg × 10 + (1M / frame.p50) × 5 − frame.p99 / 100`
-- ASCII budget chart
-- Buffer pipeline stats
-- SCENE BREAKDOWN table
+This directory still owns the pieces that require engine-specific world access:
 
-## Render Pipeline & Invariants
+- game loop and frame timing
+- scene loading and scoped scene activation
+- debug overlays and engine-level shortcuts
+- hot reload
+- renderer thread integration and frame tickets
+- provider implementations that bridge `World` to subsystem crates
 
-### Buffer Management
+## Key invariants
 
-- **Double-buffer** architecture: back-buffer (current), front-buffer (last frame)
-- **Dirty tracking**: dirty region bounding box + per-row dirty bits
-- **Diff strategies**:
-  - FullScanDiff: compare all cells (safe, slow)
-  - DirtyRegionDiff: compare only dirty region (~90% savings)
-  - RowSkipDiff: row-level dirty skip (even faster)
+- On scene transition or resize generation changes, reset the last accepted
+  render ticket so new frames are not permanently rejected.
+- Preserve dirty-region correctness through compositor, PostFX, and renderer
+  handoff.
+- Clear scoped resources on scene transitions before registering the new scene
+  runtime and related prerender outputs.
+- Keep engine wrappers thin when logic can live in a focused subsystem crate.
 
-### Key Invariants
+## Working with this directory
 
-1. **Render thread safety**: Last accepted ticket MUST reset on scene transition
-2. **Dirty region preservation**: PostFX pass chain preserves combined dirty region
-3. **Fill() dirty region**: Preserve dirty bits when clearing buffer
-4. **Frame skip oracle**: Skip redundant frames by content hash, never create artifacts
+When changing orchestration:
 
-### Scene Transition Reset
+- prefer moving reusable domain logic into subsystem crates,
+- keep world/resource extraction here and pure logic elsewhere,
+- verify transition flow, scoped cleanup, and virtual-buffer resize behavior,
+- re-run `cargo test -p engine --lib`.
 
-When `scene_generation` bumps:
-- `last_accepted_ticket = FrameTicket { generation: new_gen, sim_frame_id: 0 }`
-- Ensures all render-thread frames re-evaluate `is_acceptable()`
-- Otherwise permanent rejection of all frames
-
-### PostFX Dirty Region
-
-Combined dirty region must carry through entire PostFX pass chain:
-1. Compositor sets dirty region
-2. Each PostFX pass: AND dirty region with effect bounds
-3. Final result: merged dirty region for renderer
-
-## Per-Frame Flow
-
-```
-1. Input system polls events
-2. Scene lifecycle processes transitions, drains events
-3. Animator advances stages/steps
-4. Hot-reload checks for file changes
-5. Engine-IO exchanges messages with sidecar
-6. Behavior system executes Rhai + built-in behaviors
-7. Audio system ticks playback
-8. Compositor blits layers → combined buffer
-9. PostFX pipeline applies effects on dirty region
-10. Renderer: DiffStrategy(back, front) → flush to terminal
-11. Sleep to maintain frame budget
-```
-
-Optional benchmarking: sample all timings + capture scene_id.
-
-## Buffer Dirty Tracking
-
-```rust
-pub struct Buffer {
-    cells: Vec<Cell>,
-    dirty_min: usize,     // Top-left dirty region
-    dirty_max: usize,     // Bottom-right dirty region
-    dirty_rows: BitSet,   // Per-row dirty flags
-    last_diff_count: usize,
-    write_count: usize,
-}
-```
-
-- `dirty_rows` enables RowSkipDiff strategy
-- Preserves across compositing pass
-- Reset at scene transition or manual clear
+When changing scene lifecycle input routing, prefer runtime-owned logic in
+`engine-scene-runtime` and leave engine responsible for high-level sequencing.

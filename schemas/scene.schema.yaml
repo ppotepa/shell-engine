@@ -291,7 +291,7 @@ $defs:
         type: object
         additionalProperties: false
         required: [command]
-        description: External sidecar process configuration used when `mode: sidecar`.
+        description: 'External sidecar process configuration used when `mode: sidecar`.'
         properties:
           command:
             type: string

@@ -1,6 +1,6 @@
 //! Checks that the current terminal satisfies any minimum capability requirements declared in `mod.yaml`.
 
-use engine_core::terminal_caps::{TerminalCaps, TerminalRequirements, TerminalViolation};
+use crate::terminal_caps::{TerminalCaps, TerminalRequirements, TerminalViolation};
 use engine_error::EngineError;
 use engine_runtime::{RuntimeSettings, VirtualPolicy};
 

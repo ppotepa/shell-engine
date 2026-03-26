@@ -1,21 +1,21 @@
-/// Layer compositor strategy (scratch vs direct).
-pub mod layer;
-/// Halfblock packer iteration strategy (full vs dirty-region).
-pub mod halfblock;
-/// Virtual-to-output present strategy (always vs hash-skip).
-pub mod present;
-/// Terminal flusher strategy trait.
-pub mod flush;
 /// Display sink strategy trait.
 pub mod display;
+/// Terminal flusher strategy trait.
+pub mod flush;
+/// Halfblock packer iteration strategy (full vs dirty-region).
+pub mod halfblock;
+/// Layer compositor strategy (scratch vs direct).
+pub mod layer;
+/// Virtual-to-output present strategy (always vs hash-skip).
+pub mod present;
 /// Frame-skip oracle strategy (unified coordination).
 pub mod skip;
 
-pub use layer::{DirectLayerCompositor, LayerCompositor, ScratchLayerCompositor};
-pub use halfblock::{DirtyRegionPacker, FullScanPacker, HalfblockPacker};
-pub use present::{AlwaysPresenter, HashSkipPresenter, VirtualPresenter};
-pub use flush::TerminalFlusher;
 pub use display::{DisplayFrame, DisplaySink};
+pub use flush::TerminalFlusher;
+pub use halfblock::{DirtyRegionPacker, FullScanPacker, HalfblockPacker};
+pub use layer::{DirectLayerCompositor, LayerCompositor, ScratchLayerCompositor};
+pub use present::{AlwaysPresenter, HashSkipPresenter, VirtualPresenter};
 pub use skip::{AlwaysRender, CoordinatedSkip, FrameSkipOracle};
 
 use engine_core::strategy::{DiffStrategy, DirtyRegionDiff, FullScanDiff, RowSkipDiff};
@@ -25,11 +25,11 @@ use engine_core::strategy::{DiffStrategy, DirtyRegionDiff, FullScanDiff, RowSkip
 /// Systems call the trait methods on these fields instead of branching on boolean flags.
 /// Swap any field at runtime for instant behaviour change without restarting.
 pub struct PipelineStrategies {
-    pub diff:      Box<dyn DiffStrategy>,
-    pub layer:     Box<dyn LayerCompositor>,
+    pub diff: Box<dyn DiffStrategy>,
+    pub layer: Box<dyn LayerCompositor>,
     pub halfblock: Box<dyn HalfblockPacker>,
-    pub present:   Box<dyn VirtualPresenter>,
-    pub flush:     Box<dyn TerminalFlusher>,
+    pub present: Box<dyn VirtualPresenter>,
+    pub flush: Box<dyn TerminalFlusher>,
 }
 
 impl PipelineStrategies {
@@ -37,10 +37,10 @@ impl PipelineStrategies {
     /// Caller provides the flusher since concrete impls live in the engine crate.
     pub fn new(flush: Box<dyn TerminalFlusher>) -> Self {
         Self {
-            diff:      Box::new(FullScanDiff),
-            layer:     Box::new(ScratchLayerCompositor),
+            diff: Box::new(FullScanDiff),
+            layer: Box::new(ScratchLayerCompositor),
             halfblock: Box::new(FullScanPacker),
-            present:   Box::new(AlwaysPresenter),
+            present: Box::new(AlwaysPresenter),
             flush,
         }
     }

@@ -18,7 +18,12 @@ impl Command for GrepCmd {
             return;
         }
         let pattern = args[1].to_lowercase();
-        let files: Vec<&str> = args.iter().skip(2).filter(|a| !a.starts_with('-')).copied().collect();
+        let files: Vec<&str> = args
+            .iter()
+            .skip(2)
+            .filter(|a| !a.starts_with('-'))
+            .copied()
+            .collect();
         let show_filename = files.len() > 1;
         for f in &files {
             let path = uow.session.resolve_path(Some(f));
@@ -35,7 +40,9 @@ impl Command for GrepCmd {
                         }
                     }
                 }
-                None => { uow.print(format!("grep: {f}: No such file or directory")); }
+                None => {
+                    uow.print(format!("grep: {f}: No such file or directory"));
+                }
             }
         }
     }
@@ -44,11 +51,17 @@ impl Command for GrepCmd {
 pub struct HeadCmd;
 impl Command for HeadCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
-        let n: usize = args.windows(2)
+        let n: usize = args
+            .windows(2)
             .find(|w| w[0] == "-n")
             .and_then(|w| w[1].parse().ok())
             .unwrap_or(10);
-        let files: Vec<&str> = args.iter().skip(1).filter(|a| !a.starts_with('-')).copied().collect();
+        let files: Vec<&str> = args
+            .iter()
+            .skip(1)
+            .filter(|a| !a.starts_with('-'))
+            .copied()
+            .collect();
         for f in &files {
             let path = uow.session.resolve_path(Some(f));
             match kernel.vfs.read_file(&path) {
@@ -58,7 +71,9 @@ impl Command for HeadCmd {
                         uow.print(line.to_string());
                     }
                 }
-                None => { uow.print(format!("head: {f}: No such file or directory")); }
+                None => {
+                    uow.print(format!("head: {f}: No such file or directory"));
+                }
             }
         }
     }
@@ -67,11 +82,17 @@ impl Command for HeadCmd {
 pub struct TailCmd;
 impl Command for TailCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
-        let n: usize = args.windows(2)
+        let n: usize = args
+            .windows(2)
             .find(|w| w[0] == "-n")
             .and_then(|w| w[1].parse().ok())
             .unwrap_or(10);
-        let files: Vec<&str> = args.iter().skip(1).filter(|a| !a.starts_with('-')).copied().collect();
+        let files: Vec<&str> = args
+            .iter()
+            .skip(1)
+            .filter(|a| !a.starts_with('-'))
+            .copied()
+            .collect();
         for f in &files {
             let path = uow.session.resolve_path(Some(f));
             match kernel.vfs.read_file(&path) {
@@ -83,7 +104,9 @@ impl Command for TailCmd {
                         uow.print(line.to_string());
                     }
                 }
-                None => { uow.print(format!("tail: {f}: No such file or directory")); }
+                None => {
+                    uow.print(format!("tail: {f}: No such file or directory"));
+                }
             }
         }
     }
@@ -92,7 +115,12 @@ impl Command for TailCmd {
 pub struct WcCmd;
 impl Command for WcCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
-        let files: Vec<&str> = args.iter().skip(1).filter(|a| !a.starts_with('-')).copied().collect();
+        let files: Vec<&str> = args
+            .iter()
+            .skip(1)
+            .filter(|a| !a.starts_with('-'))
+            .copied()
+            .collect();
         if files.is_empty() {
             uow.print("usage: wc file...");
             return;
@@ -110,13 +138,21 @@ impl Command for WcCmd {
                     let words: usize = content.split_whitespace().count();
                     let bytes = content.len();
                     let mut parts = Vec::new();
-                    if count_lines { parts.push(format!("{lines:6}")); }
-                    if count_words { parts.push(format!("{words:6}")); }
-                    if count_bytes { parts.push(format!("{bytes:6}")); }
+                    if count_lines {
+                        parts.push(format!("{lines:6}"));
+                    }
+                    if count_words {
+                        parts.push(format!("{words:6}"));
+                    }
+                    if count_bytes {
+                        parts.push(format!("{bytes:6}"));
+                    }
                     parts.push(f.to_string());
                     uow.print(parts.join(" "));
                 }
-                None => { uow.print(format!("wc: {f}: No such file or directory")); }
+                None => {
+                    uow.print(format!("wc: {f}: No such file or directory"));
+                }
             }
         }
     }

@@ -6,7 +6,7 @@ use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 
 /// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {

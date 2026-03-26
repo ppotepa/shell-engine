@@ -13,8 +13,8 @@ use crate::scene::Scene;
 use crate::scene_loader::SceneLoader;
 use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
-use engine_animation::Animator;
 use crate::world::World;
+use engine_animation::Animator;
 
 const DEFAULT_POLL_INTERVAL_MS: u64 = 350;
 
@@ -104,7 +104,10 @@ pub fn debug_scene_hot_reload_system(world: &mut World) {
         return;
     }
 
-    let Some(active_scene_id) = world.scene_runtime().map(|runtime| runtime.scene().id.clone()) else {
+    let Some(active_scene_id) = world
+        .scene_runtime()
+        .map(|runtime| runtime.scene().id.clone())
+    else {
         return;
     };
 
@@ -214,7 +217,8 @@ fn apply_virtual_size_override(world: &mut World, scene: &Scene) {
     let Some(size_override) = scene.virtual_size_override.as_deref() else {
         return;
     };
-    let Some((w, h, is_max)) = crate::runtime_settings::parse_virtual_size_str(size_override) else {
+    let Some((w, h, is_max)) = crate::runtime_settings::parse_virtual_size_str(size_override)
+    else {
         return;
     };
     let (new_width, new_height) = if is_max {
@@ -263,9 +267,16 @@ mod tests {
         let scenes = temp.path().join("scenes");
         fs::create_dir_all(scenes.join("pkg/layers")).expect("mkdir");
         fs::write(scenes.join("scene-a.yml"), "id: a\ntitle: A\nlayers: []\n").expect("write a");
-        fs::write(scenes.join("pkg/scene.yml"), "id: b\ntitle: B\nlayers: []\n").expect("write b");
-        fs::write(scenes.join("pkg/layers/main.yml"), "- name: main\nsprites: []\n")
-            .expect("write layer");
+        fs::write(
+            scenes.join("pkg/scene.yml"),
+            "id: b\ntitle: B\nlayers: []\n",
+        )
+        .expect("write b");
+        fs::write(
+            scenes.join("pkg/layers/main.yml"),
+            "- name: main\nsprites: []\n",
+        )
+        .expect("write layer");
         fs::write(scenes.join("pkg/layers/readme.txt"), "ignored").expect("write txt");
 
         let sig = scan_yaml_tree_signature(std::slice::from_ref(&scenes)).expect("signature");

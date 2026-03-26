@@ -7,7 +7,7 @@ use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::effects::utils::math::smoothstep;
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 use std::f32::consts::TAU;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
@@ -231,7 +231,7 @@ mod tests {
     use crate::buffer::Buffer;
     use crate::effects::effect::{Effect, EffectTargetMask, Region};
     use crate::scene::EffectParams;
-    use crossterm::style::Color;
+    use crate::color::Color;
 
     #[test]
     fn metadata_supports_scene_and_layer_only() {

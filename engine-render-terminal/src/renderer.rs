@@ -1,13 +1,15 @@
-use engine_core::buffer::{Buffer, Cell, TRUE_BLACK, VirtualBuffer};
-use engine_debug::DebugOverlayMode;
-use engine_runtime::{VirtualPolicy, RuntimeSettings};
+use crate::color_convert;
 use crate::provider::RendererProvider;
 use crate::strategy::{AnsiBatchFlusher, AsyncDisplaySink};
-use engine_pipeline::{DisplayFrame, DisplaySink, TerminalFlusher, PipelineStrategies};
-use engine_animation::SceneStage;
 use crossterm::{cursor, execute, queue, style, terminal};
+use engine_animation::SceneStage;
+use engine_core::buffer::{Buffer, Cell, VirtualBuffer, TRUE_BLACK};
+use engine_core::color::Color;
 use engine_core::logging;
 use engine_core::strategy::{DiffStrategy, FullScanDiff};
+use engine_debug::DebugOverlayMode;
+use engine_pipeline::{DisplayFrame, DisplaySink, PipelineStrategies, TerminalFlusher};
+use engine_runtime::{RuntimeSettings, VirtualPolicy};
 use std::cell::RefCell;
 use std::io::{self, Write};
 
@@ -17,7 +19,7 @@ pub struct TerminalRenderer {
 }
 
 thread_local! {
-    static DIFF_SCRATCH: RefCell<Vec<(u16, u16, char, style::Color, style::Color)>> =
+    static DIFF_SCRATCH: RefCell<Vec<(u16, u16, char, Color, Color)>> =
         RefCell::new(Vec::with_capacity(4096));
     /// Reusable run buffer for RLE batching — avoids per-frame heap allocation.
     static RUN_BUF: RefCell<String> = RefCell::new(String::with_capacity(256));
@@ -34,25 +36,25 @@ impl TerminalRenderer {
         terminal::enable_raw_mode()?;
         let mut stdout = io::BufWriter::with_capacity(65536, io::stdout());
         execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide)?;
-        
+
         let async_sink = if async_display {
             Some(AsyncDisplaySink::new())
         } else {
             None
         };
-        
+
         Ok(Self { stdout, async_sink })
     }
 
     /// Paint the entire screen true-black before the first game frame.
     pub fn clear_black(&mut self) -> io::Result<()> {
         let (w, h) = terminal::size()?;
-        let bg = style::Color::Rgb { r: 0, g: 0, b: 0 };
-        let fg = style::Color::Rgb { r: 0, g: 0, b: 0 };
+        let bg = Color::Rgb { r: 0, g: 0, b: 0 };
+        let fg = Color::Rgb { r: 0, g: 0, b: 0 };
         queue!(
             self.stdout,
-            style::SetForegroundColor(fg),
-            style::SetBackgroundColor(bg)
+            style::SetForegroundColor(color_convert::to_crossterm(fg)),
+            style::SetBackgroundColor(color_convert::to_crossterm(bg))
         )?;
         for y in 0..h {
             queue!(self.stdout, cursor::MoveTo(0, y))?;
@@ -104,14 +106,8 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
     // restore the last flushed frame (front) into the back buffer so the
     // compositor-cleared blank is replaced with the last visible content.
     // The debug overlay will render on top immediately after.
-    let has_script_errors = world
-        .debug_log()
-        .map(|log| log.has_errors)
-        .unwrap_or(false);
-    let debug_enabled = world
-        .debug_features()
-        .map(|d| d.enabled)
-        .unwrap_or(false);
+    let has_script_errors = world.debug_log().map(|log| log.has_errors).unwrap_or(false);
+    let debug_enabled = world.debug_features().map(|d| d.enabled).unwrap_or(false);
     if has_script_errors && debug_enabled {
         world.restore_front_to_back();
     }
@@ -126,12 +122,16 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
     let strats_ptr: *const PipelineStrategies = world.pipeline_strategies_ptr();
     static FALLBACK_DIFF: FullScanDiff = FullScanDiff;
     static FALLBACK_FLUSH: AnsiBatchFlusher = AnsiBatchFlusher;
-    let diff_strategy: &dyn DiffStrategy =
-        if strats_ptr.is_null() { &FALLBACK_DIFF }
-        else { unsafe { (*strats_ptr).diff.as_ref() } };
-    let flusher: &dyn TerminalFlusher =
-        if strats_ptr.is_null() { &FALLBACK_FLUSH }
-        else { unsafe { (*strats_ptr).flush.as_ref() } };
+    let diff_strategy: &dyn DiffStrategy = if strats_ptr.is_null() {
+        &FALLBACK_DIFF
+    } else {
+        unsafe { (*strats_ptr).diff.as_ref() }
+    };
+    let flusher: &dyn TerminalFlusher = if strats_ptr.is_null() {
+        &FALLBACK_FLUSH
+    } else {
+        unsafe { (*strats_ptr).flush.as_ref() }
+    };
 
     // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
     DIFF_SCRATCH.with(|scratch| {
@@ -156,12 +156,12 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
     if let Some(renderer) = world.renderer_mut() {
         DIFF_SCRATCH.with(|scratch| {
             let diffs = scratch.borrow().clone();
-            
+
             // Submit to async sink if available; otherwise flush inline
             if let Some(sink) = &mut renderer.async_sink {
                 sink.submit(DisplayFrame {
                     diffs,
-                    frame_id: 0,  // Currently unused
+                    frame_id: 0, // Currently unused
                 });
             } else {
                 flusher.flush(&mut renderer.stdout, &diffs);
@@ -210,9 +210,20 @@ fn apply_debug_overlay<T: RendererProvider>(world: &mut T) {
             .unwrap_or_default();
         let script_errors: Vec<String> = world
             .debug_log()
-            .map(|log| log.recent(usize::MAX).iter().map(|entry| entry.display_line()).collect())
+            .map(|log| {
+                log.recent(usize::MAX)
+                    .iter()
+                    .map(|entry| entry.display_line())
+                    .collect()
+            })
             .unwrap_or_default();
-        Some((scene_id, stage_info, virtual_info, timings_info, script_errors))
+        Some((
+            scene_id,
+            stage_info,
+            virtual_info,
+            timings_info,
+            script_errors,
+        ))
     } else {
         None
     };
@@ -223,14 +234,23 @@ fn apply_debug_overlay<T: RendererProvider>(world: &mut T) {
 
     match debug.overlay_mode {
         DebugOverlayMode::Stats => {
-            let Some((scene_id, stage_info, virtual_info, timings_info, mut script_errors)) = stats_data else {
+            let Some((scene_id, stage_info, virtual_info, timings_info, mut script_errors)) =
+                stats_data
+            else {
                 return;
             };
             let max_errors = buf.height.saturating_sub(5) as usize;
             if script_errors.len() > max_errors {
                 script_errors = script_errors.split_off(script_errors.len() - max_errors);
             }
-            apply_stats_overlay(buf, &scene_id, &stage_info, &virtual_info, &timings_info, &script_errors);
+            apply_stats_overlay(
+                buf,
+                &scene_id,
+                &stage_info,
+                &virtual_info,
+                &timings_info,
+                &script_errors,
+            );
         }
         DebugOverlayMode::Logs => {
             apply_logs_overlay(buf);
@@ -244,12 +264,8 @@ fn apply_perf_hud<T: RendererProvider>(world: &mut T) {
     use engine_core::scene::sprite::TextTransform;
     use std::fmt::Write;
 
-    let fps_val = world
-        .fps_counter()
-        .map(|c| c.fps.round() as u32);
-    let proc_stats = world
-        .process_stats()
-        .copied();
+    let fps_val = world.fps_counter().map(|c| c.fps.round() as u32);
+    let proc_stats = world.process_stats().copied();
 
     thread_local! {
         static HUD_STR: RefCell<String> = RefCell::new(String::with_capacity(64));
@@ -262,7 +278,9 @@ fn apply_perf_hud<T: RendererProvider>(world: &mut T) {
             let _ = write!(hud_text, "{fps} FPS");
         }
         if let Some(ps) = &proc_stats {
-            if !hud_text.is_empty() { hud_text.push_str("  "); }
+            if !hud_text.is_empty() {
+                hud_text.push_str("  ");
+            }
             let _ = write!(hud_text, "{:.0}% CPU  {:.1}MB", ps.cpu_percent, ps.rss_mb);
         }
         if hud_text.is_empty() {
@@ -274,7 +292,11 @@ fn apply_perf_hud<T: RendererProvider>(world: &mut T) {
         };
         let text_w = hud_text.len() as u16 * 6;
         let x = buf.width.saturating_sub(text_w);
-        let green = style::Color::Rgb { r: 0, g: 255, b: 80 };
+        let green = Color::Rgb {
+            r: 0,
+            g: 255,
+            b: 80,
+        };
         rasterize_generic_half(hud_text, green, x, 0, buf, &TextTransform::None);
     });
 }
@@ -296,8 +318,8 @@ fn apply_stats_overlay(
     ];
     lines.extend(script_errors.iter().cloned());
 
-    let fg = style::Color::White;
-    let bg = style::Color::DarkGrey;
+    let fg = Color::White;
+    let bg = Color::DarkGrey;
     for (row, line) in lines.iter().enumerate() {
         let y = row as u16;
         if y >= buf.height {
@@ -305,9 +327,13 @@ fn apply_stats_overlay(
         }
         // Error/warn lines get a distinct background.
         let line_bg = if line.starts_with("[ERR") {
-            style::Color::DarkRed
+            Color::DarkRed
         } else if line.starts_with("[WARN") {
-            style::Color::Rgb { r: 100, g: 80, b: 0 }
+            Color::Rgb {
+                r: 100,
+                g: 80,
+                b: 0,
+            }
         } else {
             bg
         };
@@ -354,7 +380,7 @@ fn format_virtual_info(settings: Option<&RuntimeSettings>, vbuf: Option<&Virtual
 fn apply_logs_overlay(buf: &mut Buffer) {
     let header = "LOG OVERLAY  [~ close] [F1 stats]";
     let height = buf.height as usize;
-    
+
     // Get recent log entries
     let logs = if height > 1 {
         logging::tail_recent(height.saturating_sub(1))
@@ -363,9 +389,9 @@ fn apply_logs_overlay(buf: &mut Buffer) {
     };
 
     // Render header
-    let fg = style::Color::White;
-    let bg = style::Color::DarkGrey;
-    
+    let fg = Color::White;
+    let bg = Color::DarkGrey;
+
     for x in 0..buf.width {
         buf.set(x, 0, ' ', fg, bg);
     }
@@ -402,9 +428,9 @@ fn apply_logs_overlay(buf: &mut Buffer) {
 
             // Determine color based on level
             let line_fg = match log_line.level {
-                "WARN " => style::Color::Yellow,
-                "ERROR" => style::Color::Red,
-                _ => style::Color::White,
+                "WARN " => Color::Yellow,
+                "ERROR" => Color::Red,
+                _ => Color::White,
             };
 
             // Format the line
@@ -431,11 +457,12 @@ fn apply_logs_overlay(buf: &mut Buffer) {
 }
 
 /// Resolve a color for output — `Color::Reset` is mapped to true black so that
+/// Resolve Color::Reset to TRUE_BLACK so
 /// terminal theme colours never bleed through transparent/unset pixels.
 #[inline]
 pub fn resolve_color(c: style::Color) -> style::Color {
     match c {
-        style::Color::Reset => TRUE_BLACK,
+        style::Color::Reset => style::Color::Rgb { r: 0, g: 0, b: 0 },
         other => other,
     }
 }
@@ -467,11 +494,7 @@ pub fn present_virtual_to_output<T: RendererProvider>(world: &mut T) {
             .unwrap_or(u64::MAX);
         world
             .frame_skip_oracle()
-            .and_then(|oracle| {
-                oracle.lock().ok().map(|mut o| {
-                    o.should_skip_present(hash)
-                })
-            })
+            .and_then(|oracle| oracle.lock().ok().map(|mut o| o.should_skip_present(hash)))
             .unwrap_or(false)
     };
 
@@ -504,11 +527,19 @@ pub fn present_virtual_to_output<T: RendererProvider>(world: &mut T) {
         if use_fit_lut {
             FIT_LUT_CACHE.with(|cache| {
                 let mut lut_opt = cache.borrow_mut();
-                if lut_opt.as_ref().map_or(true, |l| !l.matches(
-                    viewport.width, viewport.height, virtual_buf.0.width, virtual_buf.0.height
-                )) {
+                if lut_opt.as_ref().map_or(true, |l| {
+                    !l.matches(
+                        viewport.width,
+                        viewport.height,
+                        virtual_buf.0.width,
+                        virtual_buf.0.height,
+                    )
+                }) {
                     *lut_opt = Some(FitLut::build(
-                        viewport.width, viewport.height, virtual_buf.0.width, virtual_buf.0.height
+                        viewport.width,
+                        viewport.height,
+                        virtual_buf.0.width,
+                        virtual_buf.0.height,
                     ));
                 }
                 let lut = lut_opt.as_ref().unwrap();
@@ -516,7 +547,9 @@ pub fn present_virtual_to_output<T: RendererProvider>(world: &mut T) {
                     let sy = lut.y_map[oy as usize];
                     for ox in 0..viewport.width {
                         let sx = lut.x_map[ox as usize];
-                        let Some(cell) = virtual_buf.0.get(sx, sy) else { continue; };
+                        let Some(cell) = virtual_buf.0.get(sx, sy) else {
+                            continue;
+                        };
                         let dx = viewport.dst_offset_x.saturating_add(ox);
                         let dy = viewport.dst_offset_y.saturating_add(oy);
                         copy_cell(output_buf, dx, dy, cell);
@@ -530,7 +563,9 @@ pub fn present_virtual_to_output<T: RendererProvider>(world: &mut T) {
                         viewport.src_offset_x.saturating_add(ox),
                         viewport.src_offset_y.saturating_add(oy),
                     );
-                    let Some(cell) = virtual_buf.0.get(sx, sy) else { continue; };
+                    let Some(cell) = virtual_buf.0.get(sx, sy) else {
+                        continue;
+                    };
                     let dx = viewport.dst_offset_x.saturating_add(ox);
                     let dy = viewport.dst_offset_y.saturating_add(oy);
                     copy_cell(output_buf, dx, dy, cell);
@@ -631,12 +666,21 @@ impl FitLut {
         let y_map: Vec<u16> = (0..viewport_h)
             .map(|oy| ((oy as u32 * virtual_h as u32) / vh).min(vmax_y) as u16)
             .collect();
-        Self { x_map, y_map, viewport_w, viewport_h, virtual_w, virtual_h }
+        Self {
+            x_map,
+            y_map,
+            viewport_w,
+            viewport_h,
+            virtual_w,
+            virtual_h,
+        }
     }
 
     fn matches(&self, vw: u16, vh: u16, virt_w: u16, virt_h: u16) -> bool {
-        self.viewport_w == vw && self.viewport_h == vh
-            && self.virtual_w == virt_w && self.virtual_h == virt_h
+        self.viewport_w == vw
+            && self.viewport_h == vh
+            && self.virtual_w == virt_w
+            && self.virtual_h == virt_h
     }
 }
 
@@ -651,10 +695,22 @@ thread_local! {
 /// number of terminal I/O operations from O(cells) toward O(colour-runs).
 /// Diffs arrive in row-major order from `Buffer::diff_into`, so no sort is needed.
 /// Raw (pre-resolve) colours are accepted; `Color::Reset` is mapped to true black here.
-pub fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u16, u16, char, style::Color, style::Color)]) {
+pub fn flush_batched(
+    stdout: &mut io::BufWriter<io::Stdout>,
+    diffs: &[(u16, u16, char, Color, Color)],
+) {
     if diffs.is_empty() {
         return;
     }
+
+    // Convert engine colors to crossterm colors at the boundary
+    let crossterm_diffs: Vec<(u16, u16, char, style::Color, style::Color)> =
+        diffs
+            .iter()
+            .map(|(x, y, ch, fg, bg)| {
+                (*x, *y, *ch, color_convert::to_crossterm(*fg), color_convert::to_crossterm(*bg))
+            })
+            .collect();
 
     // #3 opt-term-ansibuf: write all ANSI into Vec<u8>, then single write_all.
     // #2 opt-term-colorstate: track last-emitted fg/bg to skip redundant SetColor commands.
@@ -667,9 +723,9 @@ pub fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u16, u16,
             ansi.clear();
             run.clear();
 
-            let (mut rx, mut ry, _, raw_fg0, raw_bg0) = diffs[0];
+            let (mut rx, mut ry, _, raw_fg0, raw_bg0) = crossterm_diffs[0];
             let (mut rfg, mut rbg) = (resolve_color(raw_fg0), resolve_color(raw_bg0));
-            run.push(diffs[0].2);
+            run.push(crossterm_diffs[0].2);
             let mut run_len: u16 = 1;
             let mut cursor_x = u16::MAX;
             let mut cursor_y = u16::MAX;
@@ -713,7 +769,7 @@ pub fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u16, u16,
                 };
             }
 
-            for &(x, y, ch, raw_fg, raw_bg) in &diffs[1..] {
+            for &(x, y, ch, raw_fg, raw_bg) in &crossterm_diffs[1..] {
                 let fg = resolve_color(raw_fg);
                 let bg = resolve_color(raw_bg);
                 let continues = y == ry && x == rx + run_len && fg == rfg && bg == rbg;
@@ -743,5 +799,3 @@ pub fn flush_batched(stdout: &mut io::BufWriter<io::Stdout>, diffs: &[(u16, u16,
 fn copy_cell(dst: &mut Buffer, x: u16, y: u16, src: &Cell) {
     dst.set(x, y, src.symbol, src.fg, src.bg);
 }
-
-

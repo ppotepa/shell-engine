@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use crate::color::Color;
 
 /// Convert a crossterm Color to its (r, g, b) components.
 pub fn colour_to_rgb(c: Color) -> (u8, u8, u8) {
@@ -21,7 +21,7 @@ pub fn colour_to_rgb(c: Color) -> (u8, u8, u8) {
         Color::Magenta => (255, 0, 255),
         Color::DarkMagenta => (128, 0, 128),
         // Reset has no meaningful RGB — treat as black so effects don't bleed white into transparent cells.
-        Color::AnsiValue(_) | Color::Reset => (0, 0, 0),
+        Color::Reset => (0, 0, 0),
     }
 }
 

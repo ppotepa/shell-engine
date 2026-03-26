@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use engine_core::color::Color;
 
 /// Controls how diff tuples are written to the terminal.
 ///

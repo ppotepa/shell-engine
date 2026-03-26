@@ -6,10 +6,12 @@
 
 use crate::buffer::Buffer;
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
-use crate::effects::metadata::{slider, EffectMetadata, ParamControl, ParamMetadata, P_EASING, P_INTENSITY, P_SPEED};
+use crate::effects::metadata::{
+    slider, EffectMetadata, ParamControl, ParamMetadata, P_EASING, P_INTENSITY, P_SPEED,
+};
 use crate::effects::utils::color::lerp_colour;
 use crate::scene::EffectParams;
-use crossterm::style::Color;
+use crate::color::Color;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "neon-edge-glow",
@@ -33,9 +35,14 @@ pub static METADATA: EffectMetadata = EffectMetadata {
 };
 
 const NEIGHBOURS: [(i32, i32); 8] = [
-    (-1, -1), (-1, 0), (-1, 1),
-    ( 0, -1),          ( 0, 1),
-    ( 1, -1), ( 1, 0), ( 1, 1),
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
 ];
 
 /// Maximum glow rings radiating outward from content edges.
@@ -61,7 +68,11 @@ impl Effect for NeonEdgeGlowEffect {
             .colour
             .as_ref()
             .map(Color::from)
-            .unwrap_or(Color::Rgb { r: 0, g: 204, b: 255 });
+            .unwrap_or(Color::Rgb {
+                r: 0,
+                g: 204,
+                b: 255,
+            });
 
         // Breathing pulse — completes a full sine cycle per loop so looping is seamless.
         let phase = progress * std::f32::consts::TAU * speed;
@@ -98,7 +109,10 @@ impl Effect for NeonEdgeGlowEffect {
                     for &(ndx, ndy) in &NEIGHBOURS {
                         let nx = dx as i32 + ndx;
                         let ny = dy as i32 + ndy;
-                        if nx >= 0 && nx < w as i32 && ny >= 0 && ny < h as i32
+                        if nx >= 0
+                            && nx < w as i32
+                            && ny >= 0
+                            && ny < h as i32
                             && dist[ny as usize * w + nx as usize] == prev
                         {
                             dist[idx] = ring;

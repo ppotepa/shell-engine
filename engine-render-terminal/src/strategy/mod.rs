@@ -1,5 +1,5 @@
-pub mod flush;
 pub mod display;
+pub mod flush;
 
-pub use flush::{AnsiBatchFlusher, NaiveFlusher};
 pub use display::{AsyncDisplaySink, SyncDisplaySink};
+pub use flush::{AnsiBatchFlusher, NaiveFlusher};
