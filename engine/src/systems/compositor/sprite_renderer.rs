@@ -778,7 +778,7 @@ fn render_sprite(
             let camera_state = id
                 .as_deref()
                 .and_then(|sid| ctx.obj_camera_states.get(sid))
-                .copied()
+                .cloned()
                 .unwrap_or_default();
 
             // Prerender fast path: check if this sprite has a cached frame.

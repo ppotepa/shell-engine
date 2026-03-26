@@ -10,7 +10,7 @@ use crate::effects::Region;
 use crate::game_object::{GameObject, GameObjectKind};
 use crate::rasterizer::generic::GenericMode;
 pub use engine_core::scene_runtime_types::{
-    ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
+    ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver, ObjCameraState,
 };
 use crate::scene::{
     resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite, TermColour,
@@ -79,19 +79,6 @@ pub struct SceneRuntime {
     /// `apply_mod_behavior_registry` can resolve them against mod-defined behaviors.
     pending_bindings: Vec<BehaviorBinding>,
 }
-
-#[derive(Debug, Clone, Copy, Default)]
-/// Mutable free-camera state tracked for interactive OBJ sprites.
-pub struct ObjCameraState {
-    pub pan_x: f32,
-    pub pan_y: f32,
-    pub look_yaw: f32,
-    pub look_pitch: f32,
-    pub last_mouse_pos: Option<(u16, u16)>,
-}
-
-// Note: TargetResolver moved to engine-core::scene_runtime_types
-// Note: ObjectRuntimeState moved to engine-core::scene_runtime_types (re-exported above)
 
 #[derive(Debug, Clone)]
 struct TerminalShellState {
@@ -610,7 +597,7 @@ impl SceneRuntime {
     pub fn obj_camera_state(&self, sprite_id: &str) -> ObjCameraState {
         self.obj_camera_states
             .get(sprite_id)
-            .copied()
+            .cloned()
             .unwrap_or_default()
     }
 

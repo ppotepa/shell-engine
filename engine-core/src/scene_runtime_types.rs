@@ -137,3 +137,13 @@ pub struct SidecarIoFrameState {
     pub screen_full_lines: Option<Vec<String>>,
     pub custom_events: Vec<String>,
 }
+
+/// 3D OBJ camera state: pan, look (yaw/pitch), mouse tracking.
+#[derive(Debug, Clone, Default)]
+pub struct ObjCameraState {
+    pub pan_x: f32,
+    pub pan_y: f32,
+    pub look_yaw: f32,
+    pub look_pitch: f32,
+    pub last_mouse_pos: Option<(u16, u16)>,
+}
