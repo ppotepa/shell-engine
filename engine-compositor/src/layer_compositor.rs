@@ -56,6 +56,15 @@ pub fn composite_layers(
         let total_origin_x = scene_origin_x.saturating_add(layer_state.offset_x);
         let total_origin_y = scene_origin_y.saturating_add(layer_state.offset_y);
 
+        // Fast-path: skip if layer is completely off-screen
+        // If layer starts beyond scene bounds and has no positive dimensions
+        if total_origin_x as u32 >= scene_w as u32 && total_origin_x >= 0 {
+            continue;
+        }
+        if total_origin_y as u32 >= scene_h as u32 && total_origin_y >= 0 {
+            continue;
+        }
+
         if let Some(object_id) = layer_object_id {
             object_regions.insert(
                 object_id.to_string(),
