@@ -27,6 +27,11 @@ impl AnimationDispatcher {
     /// Called frequently during sprite rendering — inline to optimize hot path.
     #[inline]
     pub fn compute_transform(&self, animations: &[Animation], elapsed_ms: u64) -> Transform {
+        // Fast-path: no animations = no transform
+        if animations.is_empty() {
+            return Transform::default();
+        }
+        
         let mut total = Transform::default();
         for anim in animations {
             if let Some(impl_) = self.registry.get(anim.name.as_str()) {
