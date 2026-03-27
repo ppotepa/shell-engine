@@ -78,7 +78,7 @@ pub fn compositor_system(world: &mut World) {
         let scene = world.scene_runtime().unwrap().scene();
         let target_resolver = world
             .scene_runtime()
-            .map(SceneRuntime::target_resolver)
+            .map(SceneRuntime::target_resolver_arc)
             .unwrap_or_default();
         let animator = world.animator();
         let stage = animator.map(|a| a.stage.clone()).unwrap_or_default();
@@ -174,7 +174,7 @@ pub fn compositor_system(world: &mut World) {
         ui_enabled,
         scene_rendered_mode: rendered_mode,
         asset_root: asset_root.as_ref(),
-        target_resolver: &target_resolver,
+        target_resolver: target_resolver.as_ref(),
         object_states: &object_states,
         obj_camera_states: &obj_camera_states,
         current_stage: &current_stage,

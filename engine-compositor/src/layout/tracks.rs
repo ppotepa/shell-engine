@@ -10,11 +10,12 @@ pub enum TrackSpec {
 
 /// Parses a track spec string (`"auto"`, `"2fr"`, `"12"`) into a [`TrackSpec`].
 pub fn parse_track_spec(input: &str) -> TrackSpec {
-    let spec = input.trim().to_ascii_lowercase();
-    if spec.is_empty() || spec == "auto" {
+    let spec = input.trim();
+    if spec.is_empty() || spec.eq_ignore_ascii_case("auto") {
         return TrackSpec::Auto;
     }
-    if let Some(weight) = spec.strip_suffix("fr") {
+    if spec.len() >= 2 && spec[spec.len() - 2..].eq_ignore_ascii_case("fr") {
+        let weight = &spec[..spec.len() - 2];
         let w = weight.trim().parse::<u16>().unwrap_or(1).max(1);
         return TrackSpec::Fr(w);
     }

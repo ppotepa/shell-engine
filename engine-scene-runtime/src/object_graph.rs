@@ -129,6 +129,10 @@ impl SceneRuntime {
         (*self.resolver_cache).clone()
     }
 
+    pub fn target_resolver_arc(&self) -> std::sync::Arc<TargetResolver> {
+        std::sync::Arc::clone(&self.resolver_cache)
+    }
+
     pub(crate) fn build_target_resolver(&self) -> TargetResolver {
         let mut aliases = HashMap::new();
 
