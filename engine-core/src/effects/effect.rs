@@ -12,6 +12,7 @@ pub struct Region {
 }
 
 impl Region {
+    #[inline]
     pub fn full(buffer: &Buffer) -> Self {
         Self {
             x: 0,
@@ -21,6 +22,7 @@ impl Region {
         }
     }
 
+    #[inline]
     pub fn row(y: u16, x: u16, width: u16) -> Self {
         Self {
             x,
