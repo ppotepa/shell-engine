@@ -72,24 +72,18 @@ pub fn render_text_content(
             let line_h = generic_mode_line_height(mode);
             for (line_idx, line) in content.split('\n').enumerate() {
                 let spans = parse_spans(line);
-                let colored_spans: Vec<(&str, Color)> = spans
-                    .iter()
-                    .map(|s| {
-                        (
-                            s.text.as_str(),
-                            s.colour.as_ref().map(Color::from).unwrap_or(fg),
-                        )
-                    })
-                    .collect();
+                let mut colored_spans: Vec<(&str, Color)> = Vec::with_capacity(spans.len());
+                let mut line_width = 0u16;
+                for span in &spans {
+                    let text = span.text.as_str();
+                    colored_spans.push((text, span.colour.as_ref().map(Color::from).unwrap_or(fg)));
+                    line_width =
+                        line_width.saturating_add(generic::generic_dimensions_mode(text, mode).0);
+                }
                 let line_y = y.saturating_add((line_idx as u16).saturating_mul(line_h));
-                let line_width = colored_spans
-                    .iter()
-                    .map(|(text, _)| generic::generic_dimensions_mode(text, mode).0)
-                    .fold(0u16, |acc: u16, w| acc.saturating_add(w))
-                    .max(1);
                 TEXT_LINE_BUF.with(|cell| {
                     let line_buf = &mut *cell.borrow_mut();
-                    line_buf.resize(line_width, line_h.max(1));
+                    line_buf.resize(line_width.max(1), line_h.max(1));
                     line_buf.fill(Color::Reset);
                     generic::rasterize_spans_mode(&colored_spans, mode, 0, 0, line_buf, transform);
                     blit_scaled(line_buf, buf, x, line_y, clip, scale_x, scale_y);
@@ -170,55 +164,41 @@ pub fn text_sprite_dimensions(
     let visible = strip_markup(content);
     let (w, h) = match font {
         None => {
-            let lines = split_lines_preserve_empty(&visible);
-            let width = lines
-                .iter()
-                .map(|line| line.chars().count() as u16)
-                .max()
-                .unwrap_or(0)
-                .max(1);
-            (width, lines.len() as u16)
+            let mut width = 0u16;
+            let mut line_count = 0u16;
+            for line in visible.split('\n') {
+                line_count = line_count.saturating_add(1);
+                width = width.max(line.chars().count() as u16);
+            }
+            (width.max(1), line_count.max(1))
         }
         Some(font_name) if font_name.starts_with("generic") => {
             let mode = generic::GenericMode::from_font_name(font_name);
-            let lines = split_lines_preserve_empty(&visible);
-            let width = lines
-                .iter()
-                .map(|line| generic::generic_dimensions_mode(line, mode).0)
-                .max()
-                .unwrap_or(0)
-                .max(1);
-            let height = generic_mode_line_height(mode).saturating_mul(lines.len() as u16);
-            (width, height.max(1))
+            let mut width = 0u16;
+            let mut line_count = 0u16;
+            for line in visible.split('\n') {
+                line_count = line_count.saturating_add(1);
+                width = width.max(generic::generic_dimensions_mode(line, mode).0);
+            }
+            let height = generic_mode_line_height(mode).saturating_mul(line_count.max(1));
+            (width.max(1), height.max(1))
         }
         Some(font_name) => {
-            let lines = split_lines_preserve_empty(&visible);
             let line_h = raster_line_height(mod_source, font_name, fg, bg);
-            let width = lines
-                .iter()
-                .map(|line| {
-                    rasterizer::rasterize_cached(mod_source, line, font_name, fg, bg)
-                        .width
-                        .max(1)
-                })
-                .max()
-                .unwrap_or(1);
-            let height = line_h.saturating_mul(lines.len() as u16).max(1);
+            let mut width = 1u16;
+            let mut line_count = 0u16;
+            for line in visible.split('\n') {
+                line_count = line_count.saturating_add(1);
+                width =
+                    width.max(rasterizer::rasterize_cached(mod_source, line, font_name, fg, bg).width.max(1));
+            }
+            let height = line_h.saturating_mul(line_count.max(1)).max(1);
             (width, height)
         }
     };
     let scaled_w = ((w as f32) * scale_x.max(0.01)).round() as u16;
     let scaled_h = ((h as f32) * scale_y.max(0.01)).round() as u16;
     (scaled_w.max(1), scaled_h.max(1))
-}
-
-#[inline]
-fn split_lines_preserve_empty(content: &str) -> Vec<&str> {
-    let mut lines: Vec<&str> = content.split('\n').collect();
-    if lines.is_empty() {
-        lines.push("");
-    }
-    lines
 }
 
 #[inline]

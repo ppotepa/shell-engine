@@ -20,7 +20,7 @@ impl SceneRuntime {
         self.cached_object_text = None;
         // sidecar_io: build Arc once if not already cached from a prior
         // mutation-free frame; invalidated at each sidecar write site.
-        let _sidecar_io = match &self.cached_sidecar_io {
+        let sidecar_io = match &self.cached_sidecar_io {
             Some(cached) => std::sync::Arc::clone(cached),
             None => {
                 let arc = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
@@ -35,7 +35,6 @@ impl SceneRuntime {
         let object_kinds = self.object_kind_snapshot();
         let object_props = self.object_props_snapshot();
         let object_text = self.object_text_snapshot();
-        let sidecar_io = std::sync::Arc::new(self.ui_state.sidecar_io.clone());
         // UI strings: build Arc<str> once, clone is a single atomic increment per behavior.
         let ui_focused_target_id: Option<std::sync::Arc<str>> =
             self.focused_ui_target_id().map(std::sync::Arc::from);
