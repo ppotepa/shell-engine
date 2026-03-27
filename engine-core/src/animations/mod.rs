@@ -24,6 +24,8 @@ impl AnimationDispatcher {
     }
 
     /// Compute combined transform from all active animations for a sprite.
+    /// Called frequently during sprite rendering — inline to optimize hot path.
+    #[inline]
     pub fn compute_transform(&self, animations: &[Animation], elapsed_ms: u64) -> Transform {
         let mut total = Transform::default();
         for anim in animations {

@@ -29,6 +29,8 @@ pub(crate) struct RenderCtx<'a> {
 }
 
 /// Returns `Some(appear_at)` when the sprite should be rendered, `None` to skip.
+/// Called per sprite per frame — inline to eliminate function call overhead.
+#[inline]
 pub(crate) fn check_visibility(
     hide_on_leave: bool,
     appear_at_ms: Option<u64>,
@@ -63,6 +65,8 @@ pub(crate) fn sprite_transform_offset(
 }
 
 /// Resolves the final draw position after animation and runtime object offsets.
+/// Called per sprite to compute position — inline for hot path.
+#[inline]
 pub(crate) fn compute_draw_pos(
     base_x: i32,
     base_y: i32,
