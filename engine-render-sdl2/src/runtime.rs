@@ -250,6 +250,8 @@ fn runtime_thread(
 }
 
 /// Linearly blend `fg` over `bg` at `alpha` (0.0 = all bg, 1.0 = all fg).
+/// NOTE: Inlined into rasterize_to_pixels for common alpha values (0.25, 0.5, 0.75).
+#[allow(dead_code)]
 #[inline(always)]
 fn blend_rgb(fg: (u8, u8, u8), bg: (u8, u8, u8), alpha: f32) -> (u8, u8, u8) {
     let a = alpha.clamp(0.0, 1.0);
@@ -266,14 +268,31 @@ fn rasterize_to_pixels(buffer: &Buffer, pixel_buffer: &mut Vec<u8>, logical_w: u
             };
             let fg = cell.fg.to_rgb();
             let bg = cell.bg.to_rgb();
+            // Pre-select blend function to avoid repeated clamp in blend_rgb inner loop
             let (top, bot) = match cell.symbol {
                 '▀' => (fg, bg),
                 '▄' => (bg, fg),
                 ' ' => (bg, bg),
                 // Shade chars: blend fg over bg at 25/50/75/100%
-                '░' => { let c = blend_rgb(fg, bg, 0.25); (c, c) }
-                '▒' => { let c = blend_rgb(fg, bg, 0.50); (c, c) }
-                '▓' => { let c = blend_rgb(fg, bg, 0.75); (c, c) }
+                // Use hard-coded alpha values for better inlining
+                '░' => {
+                    let r = ((bg.0 as f32 * 0.75) + (fg.0 as f32 * 0.25)).round() as u8;
+                    let g = ((bg.1 as f32 * 0.75) + (fg.1 as f32 * 0.25)).round() as u8;
+                    let b = ((bg.2 as f32 * 0.75) + (fg.2 as f32 * 0.25)).round() as u8;
+                    ((r, g, b), (r, g, b))
+                }
+                '▒' => {
+                    let r = ((bg.0 as f32 * 0.5) + (fg.0 as f32 * 0.5)).round() as u8;
+                    let g = ((bg.1 as f32 * 0.5) + (fg.1 as f32 * 0.5)).round() as u8;
+                    let b = ((bg.2 as f32 * 0.5) + (fg.2 as f32 * 0.5)).round() as u8;
+                    ((r, g, b), (r, g, b))
+                }
+                '▓' => {
+                    let r = ((bg.0 as f32 * 0.25) + (fg.0 as f32 * 0.75)).round() as u8;
+                    let g = ((bg.1 as f32 * 0.25) + (fg.1 as f32 * 0.75)).round() as u8;
+                    let b = ((bg.2 as f32 * 0.25) + (fg.2 as f32 * 0.75)).round() as u8;
+                    ((r, g, b), (r, g, b))
+                }
                 '█' => (fg, fg),
                 _ => (fg, fg),
             };

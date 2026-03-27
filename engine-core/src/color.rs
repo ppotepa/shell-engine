@@ -50,6 +50,7 @@ impl Color {
     };
 
     /// Resolve named color or RGB to (r, g, b) tuple.
+    #[inline]
     pub fn to_rgb(self) -> (u8, u8, u8) {
         match self {
             Color::Rgb { r, g, b } => (r, g, b),
