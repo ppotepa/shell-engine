@@ -471,6 +471,10 @@ fn render_sprite(
             children,
             ..
         } => {
+            // Fast-path: skip empty panels
+            if children.is_empty() {
+                return;
+            }
             let resolved_mode =
                 engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             let (auto_w, auto_h) = measure_sprite_for_layout(sprite, resolved_mode, ctx.asset_root);
@@ -594,6 +598,10 @@ fn render_sprite(
             children,
             ..
         } => {
+            // Fast-path: skip empty grids
+            if children.is_empty() {
+                return;
+            }
             let resolved_mode =
                 engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             let container_w = width.unwrap_or(area.width).max(1);
@@ -666,6 +674,10 @@ fn render_sprite(
             children,
             ..
         } => {
+            // Fast-path: skip empty flex containers
+            if children.is_empty() {
+                return;
+            }
             let resolved_mode =
                 engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             let container_w = width.unwrap_or(area.width).max(1);
