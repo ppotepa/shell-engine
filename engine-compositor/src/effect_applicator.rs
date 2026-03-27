@@ -30,6 +30,11 @@ pub fn apply_sprite_effects(
         SceneStage::Done => return,
     };
 
+    // Fast-path: skip if no steps defined
+    if current_stage.steps.is_empty() {
+        return;
+    }
+
     let (step, progress) = match stage {
         SceneStage::OnLeave => {
             match resolve_step_by_index_or_hold_last(current_stage, step_idx, elapsed_ms) {
@@ -70,6 +75,11 @@ pub fn apply_layer_effects(
         SceneStage::OnLeave => &layer.stages.on_leave,
         SceneStage::Done => return,
     };
+
+    // Fast-path: skip stage lookup if no steps defined
+    if current_stage.steps.is_empty() {
+        return;
+    }
 
     let (step, progress) = if matches!(stage, SceneStage::OnEnter) {
         match resolve_step_by_elapsed(current_stage, scene_elapsed_ms) {
