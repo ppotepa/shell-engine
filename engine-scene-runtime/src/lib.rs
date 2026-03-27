@@ -49,7 +49,7 @@ pub struct SceneRuntime {
     sprite_ids: HashMap<String, String>,
     behaviors: Vec<ObjectBehaviorRuntime>,
     resolver_cache: std::sync::Arc<TargetResolver>,
-    object_regions: HashMap<String, Region>,
+    object_regions: std::sync::Arc<HashMap<String, Region>>,
     cached_object_kinds: std::sync::Arc<HashMap<String, String>>,
     object_mutation_gen: u64,
     cached_object_states_gen: u64,

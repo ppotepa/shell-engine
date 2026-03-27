@@ -104,7 +104,7 @@ impl SceneRuntime {
             sprite_ids,
             behaviors: Vec::new(),
             resolver_cache: std::sync::Arc::new(TargetResolver::default()),
-            object_regions: HashMap::new(),
+            object_regions: std::sync::Arc::new(HashMap::new()),
             cached_object_kinds,
             object_mutation_gen: 0,
             cached_object_states_gen: 0,

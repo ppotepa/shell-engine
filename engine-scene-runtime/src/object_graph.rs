@@ -149,7 +149,8 @@ impl SceneRuntime {
     }
 
     pub fn set_object_regions(&mut self, object_regions: HashMap<String, Region>) {
-        self.cached_object_regions = std::sync::Arc::new(object_regions.clone());
+        let object_regions = std::sync::Arc::new(object_regions);
+        self.cached_object_regions = std::sync::Arc::clone(&object_regions);
         self.object_regions = object_regions;
     }
 }
