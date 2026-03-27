@@ -79,6 +79,7 @@ struct ProjectedVertex {
 thread_local! {
     static OBJ_CANVAS: RefCell<Vec<Option<[u8; 3]>>> = RefCell::new(Vec::new());
     static OBJ_DEPTH: RefCell<Vec<f32>> = RefCell::new(Vec::new());
+    static OBJ_PROJECTED: RefCell<Vec<Option<ProjectedVertex>>> = RefCell::new(Vec::new());
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -264,8 +265,14 @@ pub fn render_obj_to_canvas(
     // Parallel vertex projection: each vertex is independent.
     // Significant win for large meshes (>1K vertices).
     let center = mesh.center;
-    let projected: Vec<Option<ProjectedVertex>> = mesh
-        .vertices
+    let mut projected = OBJ_PROJECTED.with(|p| {
+        let mut v = p.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.reserve(mesh.vertices.len());
+        taken
+    });
+    mesh.vertices
         .par_iter()
         .map(|v| {
             let centered = [
@@ -301,7 +308,7 @@ pub fn render_obj_to_canvas(
                 view: panned,
             })
         })
-        .collect();
+        .collect_into_vec(&mut projected);
 
     // Use pooled buffers to avoid per-frame allocation.
     let canvas_size = virtual_w as usize * virtual_h as usize;
@@ -536,6 +543,7 @@ pub fn render_obj_to_canvas(
         OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
     }
 
+    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
     Some((canvas, virtual_w, virtual_h))
 }
 
@@ -635,8 +643,14 @@ fn render_mesh_projected(
     }
 
     let center = mesh.center;
-    let projected: Vec<Option<ProjectedVertex>> = mesh
-        .vertices
+    let mut projected = OBJ_PROJECTED.with(|p| {
+        let mut v = p.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.reserve(mesh.vertices.len());
+        taken
+    });
+    mesh.vertices
         .par_iter()
         .map(|v| {
             let centered = [
@@ -671,7 +685,7 @@ fn render_mesh_projected(
                 view: panned,
             })
         })
-        .collect();
+        .collect_into_vec(&mut projected);
 
     if wireframe {
         let line_color = color_to_rgb(fg);
@@ -845,6 +859,7 @@ fn render_mesh_projected(
             }
         }
     }
+    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
 }
 
 /// Render a mesh into pre-allocated shared canvas and depth buffers.
