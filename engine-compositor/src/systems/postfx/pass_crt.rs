@@ -22,6 +22,7 @@ use engine_core::scene::Effect;
 
 // ── Precomputed scan-glitch band ──────────────────────────────────────────
 
+#[derive(Clone, Copy)]
 struct GlitchBand {
     center: i32,
     half: i32,
@@ -51,72 +52,55 @@ pub(super) fn apply(
 
     // ── Collect sub-effect configs ────────────────────────────────────────
 
-    let underlay_effects: Vec<&Effect> = sub_passes
-        .iter()
-        .filter(|(k, _)| *k == PostFxBuiltin::Underlay)
-        .map(|(_, e)| e)
-        .collect();
-
-    let distort_effect = sub_passes
-        .iter()
-        .filter(|(k, _)| *k == PostFxBuiltin::Distort)
-        .map(|(_, e)| e)
-        .last();
-
-    let scan_effect = sub_passes
-        .iter()
-        .filter(|(k, _)| *k == PostFxBuiltin::ScanGlitch)
-        .map(|(_, e)| e)
-        .last();
-
-    let ruby_effect = sub_passes
-        .iter()
-        .filter(|(k, _)| *k == PostFxBuiltin::Ruby)
-        .map(|(_, e)| e)
-        .last();
+    let mut underlay_count = 0usize;
+    let mut glow_intensity_max = 0.0_f32;
+    let mut glow_alpha_sum = 0.0_f32;
+    let mut glow_brightness_sum = 0.0_f32;
+    let mut glow_speed_sum = 0.0_f32;
+    let mut glow_spread_max = 0.0_f32;
+    let mut distort_effect = None;
+    let mut scan_effect = None;
+    let mut ruby_effect = None;
+    for (kind, effect) in sub_passes {
+        match kind {
+            PostFxBuiltin::Underlay => {
+                underlay_count += 1;
+                glow_intensity_max = glow_intensity_max.max(effect.params.intensity.unwrap_or(1.05));
+                glow_alpha_sum += effect.params.alpha.unwrap_or(0.30);
+                glow_brightness_sum += effect.params.brightness.unwrap_or(1.08);
+                glow_speed_sum += effect.params.speed.unwrap_or(0.35);
+                glow_spread_max = glow_spread_max.max(effect.params.transparency.unwrap_or(0.32));
+            }
+            PostFxBuiltin::Distort => distort_effect = Some(effect),
+            PostFxBuiltin::ScanGlitch => scan_effect = Some(effect),
+            PostFxBuiltin::Ruby => ruby_effect = Some(effect),
+            _ => {}
+        }
+    }
 
     // ── 1. Glow pre-pass ─────────────────────────────────────────────────
 
-    let has_glow = !underlay_effects.is_empty();
-    let glow_intensity_max = underlay_effects
-        .iter()
-        .map(|e| e.params.intensity.unwrap_or(1.05))
-        .fold(0.0_f32, |a, b| a.max(b));
+    let has_glow = underlay_count != 0;
 
     let (glow_alpha, glow_brightness, glow_speed) = if has_glow {
-        let n = underlay_effects.len() as f32;
-        let alpha_sum: f32 = underlay_effects
-            .iter()
-            .map(|e| e.params.alpha.unwrap_or(0.30))
-            .sum();
-        let brightness_avg: f32 = underlay_effects
-            .iter()
-            .map(|e| e.params.brightness.unwrap_or(1.08))
-            .sum::<f32>()
-            / n;
-        let speed_avg: f32 = underlay_effects
-            .iter()
-            .map(|e| e.params.speed.unwrap_or(0.35))
-            .sum::<f32>()
-            / n;
-        (alpha_sum.clamp(0.0, 1.0), brightness_avg, speed_avg)
+        let n = underlay_count as f32;
+        (
+            glow_alpha_sum.clamp(0.0, 1.0),
+            glow_brightness_sum / n,
+            glow_speed_sum / n,
+        )
     } else {
         (0.0, 1.0, 0.35)
     };
 
     if has_glow {
-        let spread_max = underlay_effects
-            .iter()
-            .map(|e| e.params.transparency.unwrap_or(0.32))
-            .fold(0.0_f32, |a, b| a.max(b));
-
         GLOW_SCRATCH.with(|scratch| {
             let mut s = scratch.borrow_mut();
             let GlowScratch { a, b, out } = &mut *s;
             super::glow::build_glow_map_inplace(
                 src,
                 glow_intensity_max,
-                spread_max,
+                glow_spread_max,
                 frame,
                 a,
                 b,
@@ -142,8 +126,9 @@ pub(super) fn apply(
 
     // ── 3. Scan-glitch bands ─────────────────────────────────────────────
 
-    let bands: Vec<GlitchBand> = scan_effect
-        .map(|pass| {
+    let mut bands: [Option<GlitchBand>; 2] = [None, None];
+    let mut band_count = 0usize;
+    if let Some(pass) = scan_effect {
             let intensity = pass.params.intensity.unwrap_or(0.35).clamp(0.0, 2.0);
             let speed = pass.params.speed.unwrap_or(0.65).clamp(0.0, 2.0);
             let thickness = pass.params.transparency.unwrap_or(0.35).clamp(0.0, 1.0);
@@ -156,7 +141,6 @@ pub(super) fn apply(
                 1
             };
 
-            let mut result = Vec::new();
             for idx in 0..extra {
                 let roll = rand01(
                     17 + idx as u16 * 13,
@@ -168,7 +152,7 @@ pub(super) fn apply(
                 }
                 let center = (rand01(29 + idx as u16 * 7, 5, frame.wrapping_add(3331))
                     * src.height.max(1) as f32) as i32;
-                result.push(GlitchBand {
+                bands[band_count] = Some(GlitchBand {
                     center,
                     half: band_half,
                     shift_max: ((1.0 + intensity * 3.5) / 3.0).clamp(0.0, 8.0),
@@ -176,10 +160,9 @@ pub(super) fn apply(
                     blend_base: 0.16 + 0.30 * intensity,
                     brightness,
                 });
+                band_count += 1;
             }
-            result
-        })
-        .unwrap_or_default();
+    }
 
     // ── 4. Ruby params ───────────────────────────────────────────────────
 
@@ -316,7 +299,7 @@ pub(super) fn apply(
                 }
 
                 // ── SCAN GLITCH ──────────────────────────────────────
-                for band in &bands {
+                for band in bands[..band_count].iter().flatten() {
                     let dy = (y as i32) - band.center;
                     if dy.abs() > band.half {
                         continue;
