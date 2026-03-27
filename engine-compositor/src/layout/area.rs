@@ -21,6 +21,8 @@ pub struct GridCellRect {
 }
 
 /// Resolves horizontal alignment plus authored offset into a local x origin.
+/// Called per sprite during layout — inline for alignment optimization.
+#[inline]
 pub fn resolve_x(
     offset_x: i32,
     align_x: &Option<HorizontalAlign>,
@@ -36,6 +38,8 @@ pub fn resolve_x(
 }
 
 /// Resolves vertical alignment plus authored offset into a local y origin.
+/// Called per sprite during layout — inline for alignment optimization.
+#[inline]
 pub fn resolve_y(
     offset_y: i32,
     align_y: &Option<VerticalAlign>,
