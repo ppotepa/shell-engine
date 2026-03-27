@@ -23,6 +23,7 @@ pub struct ClipRect {
 }
 
 impl ClipRect {
+    #[inline]
     fn contains(self, cell_x: u16, cell_y: u16) -> bool {
         let x = i32::from(cell_x);
         let y = i32::from(cell_y);
