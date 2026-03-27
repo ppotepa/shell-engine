@@ -127,6 +127,9 @@ fn resolve_step_by_index_or_hold_last(
 }
 
 /// Find the active step and its normalized progress for a stage at `elapsed_ms`.
+/// Resolve which step is currently active and its progress (0.0-1.0).
+/// Called once per effect per frame, so keep it lean.
+#[inline]
 pub fn resolve_step_by_elapsed(stage: &Stage, elapsed_ms: u64) -> Option<(&Step, f32)> {
     if stage.steps.is_empty() {
         return None;

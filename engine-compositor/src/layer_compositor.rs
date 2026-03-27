@@ -41,8 +41,9 @@ pub fn composite_layers(
         if layer.ui && !ui_enabled {
             continue;
         }
-        let layer_state = target_resolver
-            .and_then(|resolver| resolver.layer_object_id(layer_idx))
+        let layer_object_id = target_resolver
+            .and_then(|resolver| resolver.layer_object_id(layer_idx));
+        let layer_state = layer_object_id
             .and_then(|object_id| object_states.get(object_id))
             .cloned()
             .unwrap_or_default();
@@ -55,9 +56,7 @@ pub fn composite_layers(
         let total_origin_x = scene_origin_x.saturating_add(layer_state.offset_x);
         let total_origin_y = scene_origin_y.saturating_add(layer_state.offset_y);
 
-        if let Some(object_id) =
-            target_resolver.and_then(|resolver| resolver.layer_object_id(layer_idx))
-        {
+        if let Some(object_id) = layer_object_id {
             object_regions.insert(
                 object_id.to_string(),
                 Region {
