@@ -13,6 +13,8 @@ pub enum Easing {
 
 impl Easing {
     /// Map linear progress (0.0..=1.0) to eased progress.
+    /// Called frequently during effect application — inline for hot path.
+    #[inline]
     pub fn apply(&self, t: f32) -> f32 {
         match self {
             Easing::Linear => t,
