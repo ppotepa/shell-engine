@@ -47,6 +47,9 @@ pub fn apply_sprite_effects(
             None => return,
         },
     };
+    if step.effects.is_empty() {
+        return;
+    }
 
     for effect in &step.effects {
         let target_region = target_resolver
@@ -104,6 +107,9 @@ pub fn apply_layer_effects(
         };
         (step, p)
     };
+    if step.effects.is_empty() {
+        return;
+    }
 
     let full_region = Region::full(buffer);
     for effect in &step.effects {

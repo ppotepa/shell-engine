@@ -258,6 +258,9 @@ pub fn render_obj_to_canvas(
         max_x: viewport.max_x,
         max_y: viewport.max_y.min(clip_row_max),
     };
+    if clipped_viewport.min_y > clipped_viewport.max_y {
+        return None;
+    }
     // Parallel vertex projection: each vertex is independent.
     // Significant win for large meshes (>1K vertices).
     let center = mesh.center;
@@ -627,6 +630,9 @@ fn render_mesh_projected(
         max_x: viewport.max_x,
         max_y: viewport.max_y.min(clip_row_max),
     };
+    if clipped_viewport.min_y > clipped_viewport.max_y {
+        return;
+    }
 
     let center = mesh.center;
     let projected: Vec<Option<ProjectedVertex>> = mesh
@@ -981,6 +987,9 @@ pub fn try_blit_prerendered(
 
     let clip_min_row = (clip_y_min.clamp(0.0, 1.0) * virtual_h as f32) as usize;
     let clip_max_row = (clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
+    if clip_max_row <= clip_min_row {
+        return true;
+    }
 
     blit_color_canvas(
         buf,

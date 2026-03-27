@@ -88,6 +88,9 @@ fn composite_scene(
     } else {
         (elapsed_ms as f32 / scene_step_dur as f32).clamp(0.0, 1.0)
     };
+    if scene_effects.is_empty() {
+        return object_regions;
+    }
     let full_region = Region::full(buffer);
     for effect in scene_effects {
         let region = target_resolver.effect_region(
