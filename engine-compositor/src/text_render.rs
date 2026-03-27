@@ -111,6 +111,7 @@ fn blit_with_clip(src: &Buffer, dst: &mut Buffer, dx: u16, dy: u16, clip: Option
     blit_scaled(src, dst, dx, dy, clip, 1.0, 1.0);
 }
 
+#[inline(always)]
 fn blit_scaled(
     src: &Buffer,
     dst: &mut Buffer,
