@@ -123,6 +123,12 @@ pub fn render_sprites(
         width: scene_w,
         height: scene_h,
     };
+    
+    // Fast-path: skip if layer has zero area
+    if scene_w == 0 || scene_h == 0 {
+        return;
+    }
+    
     // Reuse one path Vec across sprites; Grid extends/truncates it in-place per child.
     let mut sprite_path: Vec<usize> = Vec::with_capacity(8);
     with_pixel_backend(is_pixel_backend, || {
