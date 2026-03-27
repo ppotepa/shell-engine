@@ -1132,7 +1132,17 @@ impl Behavior for RhaiScriptBehavior {
                         match engine.compile(script) {
                             Ok(ast) => {
                                 let result = engine.eval_ast_with_scope::<RhaiDynamic>(scope, &ast);
-                                cache.borrow_mut().insert(hash, ast);
+                                let mut cache_mut = cache.borrow_mut();
+                                // Limit AST cache to 256 entries (typical game has ~20-50 scripts)
+                                // If full, clear oldest half to make room (simple eviction strategy)
+                                if cache_mut.len() >= 256 {
+                                    let to_remove = cache_mut.len() / 2;
+                                    let keys: Vec<_> = cache_mut.keys().take(to_remove).copied().collect();
+                                    for key in keys {
+                                        cache_mut.remove(&key);
+                                    }
+                                }
+                                cache_mut.insert(hash, ast);
                                 result
                             }
                             Err(err) => Err(err.into()),
