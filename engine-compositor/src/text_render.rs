@@ -212,6 +212,7 @@ pub fn text_sprite_dimensions(
     (scaled_w.max(1), scaled_h.max(1))
 }
 
+#[inline]
 fn split_lines_preserve_empty(content: &str) -> Vec<&str> {
     let mut lines: Vec<&str> = content.split('\n').collect();
     if lines.is_empty() {
@@ -220,6 +221,7 @@ fn split_lines_preserve_empty(content: &str) -> Vec<&str> {
     lines
 }
 
+#[inline]
 fn generic_mode_line_height(mode: generic::GenericMode) -> u16 {
     match mode {
         generic::GenericMode::Tiny => 5,
@@ -231,6 +233,7 @@ fn generic_mode_line_height(mode: generic::GenericMode) -> u16 {
     }
 }
 
+#[inline]
 fn raster_line_height(mod_source: Option<&Path>, font_name: &str, fg: Color, bg: Color) -> u16 {
     rasterizer::rasterize_cached(mod_source, "A", font_name, fg, bg)
         .height

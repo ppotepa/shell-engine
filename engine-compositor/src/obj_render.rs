@@ -28,6 +28,7 @@ pub fn with_prerender_frames<R>(frames: Option<&ObjPrerenderedFrames>, f: impl F
 }
 
 /// Borrow the current frame's `ObjPrerenderedFrames` if one was set.
+#[inline]
 fn current_prerender_frames<'a>() -> Option<&'a ObjPrerenderedFrames> {
     PRERENDER_FRAMES_PTR.with(|cell| {
         let ptr = cell.get();
@@ -1009,6 +1010,7 @@ struct Viewport {
     max_y: i32,
 }
 
+#[inline]
 pub fn virtual_dimensions(mode: SceneRenderedMode, target_w: u16, target_h: u16) -> (u16, u16) {
     match mode {
         SceneRenderedMode::Cell => (target_w, target_h),
@@ -1019,6 +1021,7 @@ pub fn virtual_dimensions(mode: SceneRenderedMode, target_w: u16, target_h: u16)
 }
 
 /// Interpolate depths at clipped line endpoints using parametric projection.
+#[inline]
 fn clipped_depths(
     x0: i32,
     y0: i32,
@@ -1200,6 +1203,7 @@ fn rasterize_triangle(
     }
 }
 
+#[inline]
 fn edge(ax: f32, ay: f32, bx: f32, by: f32, px: f32, py: f32) -> f32 {
     (px - ax) * (by - ay) - (py - ay) * (bx - ax)
 }
@@ -1631,6 +1635,7 @@ pub fn blit_color_canvas(
     }
 }
 
+#[inline]
 fn average_rgb(colours: &[[u8; 3]]) -> [u8; 3] {
     if colours.is_empty() {
         return [255, 255, 255];
@@ -1665,6 +1670,7 @@ fn color_to_rgb(color: Color) -> [u8; 3] {
     }
 }
 
+#[inline]
 fn rgb_to_color(rgb: [u8; 3]) -> Color {
     Color::Rgb {
         r: rgb[0],
@@ -1719,6 +1725,7 @@ const OUT_RIGHT: u8 = 2;
 const OUT_BOTTOM: u8 = 4;
 const OUT_TOP: u8 = 8;
 
+#[inline]
 fn out_code(x: i32, y: i32, vp: Viewport) -> u8 {
     let mut code = 0u8;
     if x < vp.min_x {
@@ -1734,6 +1741,7 @@ fn out_code(x: i32, y: i32, vp: Viewport) -> u8 {
     code
 }
 
+#[inline]
 fn intersect_vertical(x0: i32, y0: i32, x1: i32, y1: i32, x: i32) -> Option<(i32, i32)> {
     let dx = x1 - x0;
     if dx == 0 {
@@ -1744,6 +1752,7 @@ fn intersect_vertical(x0: i32, y0: i32, x1: i32, y1: i32, x: i32) -> Option<(i32
     Some((x, y.round() as i32))
 }
 
+#[inline]
 fn intersect_horizontal(x0: i32, y0: i32, x1: i32, y1: i32, y: i32) -> Option<(i32, i32)> {
     let dy = y1 - y0;
     if dy == 0 {
@@ -1754,6 +1763,7 @@ fn intersect_horizontal(x0: i32, y0: i32, x1: i32, y1: i32, y: i32) -> Option<(i
     Some((x.round() as i32, y))
 }
 
+#[inline]
 fn quadrant_char(mask: u8) -> Option<char> {
     match mask {
         0 => None,
@@ -1776,6 +1786,7 @@ fn quadrant_char(mask: u8) -> Option<char> {
     }
 }
 
+#[inline]
 fn braille_char(mask: u8) -> Option<char> {
     if mask == 0 {
         None

@@ -199,6 +199,7 @@ pub fn pack_halfblock_buffer(
     }
 }
 
+#[inline]
 fn offset_region(width: u16, height: u16, offset_x: i32, offset_y: i32) -> Region {
     let origin_x = offset_x.max(0) as u16;
     let origin_y = offset_y.max(0) as u16;
@@ -212,6 +213,7 @@ fn offset_region(width: u16, height: u16, offset_x: i32, offset_y: i32) -> Regio
     }
 }
 
+#[inline]
 fn cell_or_blank(buffer: &Buffer, x: u16, y: u16, fallback_bg: Color) -> Cell {
     buffer
         .get(x, y)
@@ -219,6 +221,7 @@ fn cell_or_blank(buffer: &Buffer, x: u16, y: u16, fallback_bg: Color) -> Cell {
         .unwrap_or_else(|| Cell::blank(fallback_bg))
 }
 
+#[inline]
 fn resolve_bg(colour: Color, fallback_bg: Color) -> Color {
     if matches!(colour, Color::Reset) {
         fallback_bg
@@ -227,6 +230,7 @@ fn resolve_bg(colour: Color, fallback_bg: Color) -> Color {
     }
 }
 
+#[inline]
 fn select_background(top: Color, bottom: Color, fallback_bg: Color) -> Color {
     if top != fallback_bg {
         top

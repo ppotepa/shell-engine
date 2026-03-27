@@ -94,6 +94,7 @@ struct PrerenderTarget {
     fg: Color,
 }
 
+#[inline]
 fn collect_targets(layers: &[Layer], scene_mode: SceneRenderedMode) -> Vec<PrerenderTarget> {
     let mut targets = Vec::new();
     for layer in layers {
@@ -102,6 +103,7 @@ fn collect_targets(layers: &[Layer], scene_mode: SceneRenderedMode) -> Vec<Prere
     targets
 }
 
+#[inline]
 fn collect_from_sprites(
     sprites: &[Sprite],
     mode: SceneRenderedMode,
