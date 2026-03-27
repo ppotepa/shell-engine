@@ -13,6 +13,7 @@ pub struct Cell {
 pub const TRUE_BLACK: Color = Color::BLACK;
 
 impl Cell {
+    #[inline]
     pub fn blank(bg: Color) -> Self {
         Self {
             symbol: ' ',
@@ -118,6 +119,7 @@ impl Buffer {
     }
 
     /// Write a single pixel to the back buffer, tracking dirty region.
+    #[inline]
     pub fn set(&mut self, x: u16, y: u16, symbol: char, fg: Color, bg: Color) {
         if x < self.width && y < self.height {
             let idx = y as usize * self.width as usize + x as usize;
@@ -143,6 +145,7 @@ impl Buffer {
     }
 
     /// Read a pixel from the back buffer.
+    #[inline]
     pub fn get(&self, x: u16, y: u16) -> Option<&Cell> {
         if x < self.width && y < self.height {
             self.back.get(y as usize * self.width as usize + x as usize)
@@ -298,6 +301,7 @@ impl Buffer {
 
     /// #5 opt-comp-halfblock: return dirty bounds (x_min, x_max, y_min, y_max).
     /// Returns None if no dirty region exists.
+    #[inline]
     pub fn dirty_bounds(&self) -> Option<(u16, u16, u16, u16)> {
         if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
             None
