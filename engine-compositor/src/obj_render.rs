@@ -200,9 +200,14 @@ pub fn render_obj_to_canvas(
         (h as f32 / u32::MAX as f32) * std::f32::consts::TAU
     }
 
+    // Pre-compute orbit radii to avoid repeated sqrt calls.
     let orbit_radius_1 = (params.light_point_x.powi(2) + params.light_point_z.powi(2))
         .sqrt()
         .max(0.0001);
+    let orbit_radius_2 = (params.light_point_2_x.powi(2) + params.light_point_2_z.powi(2))
+        .sqrt()
+        .max(0.0001);
+    
     let (light_1_x, light_1_z) = if params.light_point_snap_hz > f32::EPSILON {
         let angle = snap_angle(elapsed_s, params.light_point_snap_hz, 0x9e37_79b9);
         (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())
@@ -213,9 +218,6 @@ pub fn render_obj_to_canvas(
         (params.light_point_x, params.light_point_z)
     };
 
-    let orbit_radius_2 = (params.light_point_2_x.powi(2) + params.light_point_2_z.powi(2))
-        .sqrt()
-        .max(0.0001);
     let (light_2_x, light_2_z) = if params.light_point_2_snap_hz > f32::EPSILON {
         let angle = snap_angle(elapsed_s, params.light_point_2_snap_hz, 0x6c62_272d);
         (orbit_radius_2 * angle.sin(), orbit_radius_2 * angle.cos())
@@ -962,11 +964,11 @@ pub fn try_blit_prerendered(
         return false;
     };
 
-    // Pose tolerance check.
-    if (current_total_yaw - frame.rendered_yaw).abs() >= 1.0 {
+    // Pose tolerance check — wider tolerance increases cache hits.
+    if (current_total_yaw - frame.rendered_yaw).abs() >= 2.0 {
         return false;
     }
-    if (current_pitch - frame.rendered_pitch).abs() >= 0.5 {
+    if (current_pitch - frame.rendered_pitch).abs() >= 1.0 {
         return false;
     }
 
@@ -1164,6 +1166,7 @@ fn rasterize_triangle(
     if area.abs() < 1e-5 {
         return;
     }
+    let inv_area = 1.0 / area;
 
     let min_x = v0.x.min(v1.x).min(v2.x).floor().max(0.0) as i32;
     let max_x = v0.x.max(v1.x).max(v2.x).ceil().min((w - 1) as f32) as i32;
@@ -1172,14 +1175,18 @@ fn rasterize_triangle(
     let min_y = min_y.max(clip_min_y);
     let max_y = max_y.min(clip_max_y);
 
+    // Bounding box culling: skip if triangle is completely off-screen.
+    if min_x > max_x || min_y > max_y {
+        return;
+    }
     for py in min_y..=max_y {
         let y = py as f32 + 0.5;
         let row_start = py as usize * w as usize;
         for px in min_x..=max_x {
             let x = px as f32 + 0.5;
-            let w0 = edge(v1.x, v1.y, v2.x, v2.y, x, y) / area;
-            let w1 = edge(v2.x, v2.y, v0.x, v0.y, x, y) / area;
-            let w2 = edge(v0.x, v0.y, v1.x, v1.y, x, y) / area;
+            let w0 = edge(v1.x, v1.y, v2.x, v2.y, x, y) * inv_area;
+            let w1 = edge(v2.x, v2.y, v0.x, v0.y, x, y) * inv_area;
+            let w2 = edge(v0.x, v0.y, v1.x, v1.y, x, y) * inv_area;
             if w0 < -1e-5 || w1 < -1e-5 || w2 < -1e-5 {
                 continue;
             }
@@ -1527,30 +1534,35 @@ pub fn blit_color_canvas(
             for oy in 0..target_h {
                 for ox in 0..target_w {
                     let mut mask = 0u8;
-                    let mut cols = Vec::new();
+                    let mut cols: [[u8; 3]; 4] = [[0, 0, 0]; 4];
+                    let mut col_count = 0usize;
                     if let Some(c) = px(ox * 2, oy * 2) {
                         mask |= 0b0001;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(ox * 2 + 1, oy * 2) {
                         mask |= 0b0010;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(ox * 2, oy * 2 + 1) {
                         mask |= 0b0100;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(ox * 2 + 1, oy * 2 + 1) {
                         mask |= 0b1000;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     let Some(symbol) = quadrant_char(mask) else {
                         continue;
                     };
-                    let fg_out = if cols.is_empty() {
+                    let fg_out = if col_count == 0 {
                         fg
                     } else {
-                        rgb_to_color(average_rgb(&cols))
+                        rgb_to_color(average_rgb(&cols[..col_count]))
                     };
                     buf.set(x + ox, y + oy, symbol, fg_out, bg_color);
                 }
@@ -1562,46 +1574,55 @@ pub fn blit_color_canvas(
                     let sx = ox * 2;
                     let sy = oy * 4;
                     let mut mask = 0u8;
-                    let mut cols = Vec::new();
+                    let mut cols: [[u8; 3]; 8] = [[0, 0, 0]; 8];
+                    let mut col_count = 0usize;
                     if let Some(c) = px(sx, sy) {
                         mask |= 1 << 0;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(sx, sy + 1) {
                         mask |= 1 << 1;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(sx, sy + 2) {
                         mask |= 1 << 2;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(sx + 1, sy) {
                         mask |= 1 << 3;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(sx + 1, sy + 1) {
                         mask |= 1 << 4;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(sx + 1, sy + 2) {
                         mask |= 1 << 5;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(sx, sy + 3) {
                         mask |= 1 << 6;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     if let Some(c) = px(sx + 1, sy + 3) {
                         mask |= 1 << 7;
-                        cols.push(c);
+                        cols[col_count] = c;
+                        col_count += 1;
                     }
                     let Some(symbol) = braille_char(mask) else {
                         continue;
                     };
-                    let fg_out = if cols.is_empty() {
+                    let fg_out = if col_count == 0 {
                         fg
                     } else {
-                        rgb_to_color(average_rgb(&cols))
+                        rgb_to_color(average_rgb(&cols[..col_count]))
                     };
                     buf.set(x + ox, y + oy, symbol, fg_out, bg_color);
                 }
