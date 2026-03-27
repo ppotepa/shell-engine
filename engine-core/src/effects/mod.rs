@@ -88,6 +88,10 @@ pub fn shared_dispatcher() -> &'static EffectDispatcher {
 /// Convenience wrapper for call sites that already have a `&SceneEffect`.
 /// Applies easing, then dispatches to the effect registry.
 pub fn apply_effect(effect: &SceneEffect, progress: f32, region: Region, buffer: &mut Buffer) {
+    // Fast-path: skip zero-sized regions
+    if region.width == 0 || region.height == 0 {
+        return;
+    }
     let p = effect.params.easing.apply(progress);
     shared_dispatcher().apply(&effect.name, p, &effect.params, region, buffer);
 }
