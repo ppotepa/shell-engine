@@ -1008,6 +1008,10 @@ fn render_panel_box(
     shadow_x: i32,
     shadow_y: i32,
 ) {
+    // Fast-path: skip zero-sized panels
+    if width == 0 || height == 0 {
+        return;
+    }
     let rounded = corner_radius > 0 && width >= 4 && height >= 4;
     for py in 0..height {
         for px in 0..width {
