@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scene3DAtlas — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> Scene3DAtlas</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine-3d/scene3d_atlas.html">engine-3d::scene3d_atlas</a> / Scene3DAtlas</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-3d/src/scene3d_atlas.rs:Scene3DAtlas</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-3d/src/scene3d_atlas.rs:22</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-3d/src/scene3d_atlas.rs" href="../../../modules/engine-3d/scene3d_atlas.html"><code>engine-3d::scene3d_atlas</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>World resource: all prerendered Scene3D buffers for the active scene. Keyed by `(src_path, frame_id)` — two-level map avoids heap allocation on every lookup.</p>
+          <div class="signature-block"><pre><code>pub struct Scene3DAtlas {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>World resource: all prerendered Scene3D buffers for the active scene.</p>
+<p>Keyed by `(src_path, frame_id)` — two-level map avoids heap allocation on every lookup.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-frames"><code>frames</code></td><td><code>frames: HashMap&lt;String, HashMap&lt;String, Arc&lt;Buffer&gt;&gt;&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Buffer" href="../../engine-core/buffer/struct.Buffer.html"><code>Buffer</code></a></div></td><td><code>HashMap&lt;String, HashMap&lt;String, Arc&lt;Buffer&gt;&gt;&gt;</code></td><td>Outer key: `.scene3d.yml` source path. Inner key: named frame id.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-28"><code>new</code></td><td><code>pub fn new() -&gt; Self {</code></td><td></td></tr><tr><td id="method-insert-32"><code>insert</code></td><td><code>pub fn insert(&amp;mut self, src: &amp;str, frame_id: &amp;str, buf: Buffer) {</code></td><td></td></tr><tr><td id="method-get-40"><code>get</code></td><td><code>pub fn get(&amp;self, src: &amp;str, frame_id: &amp;str) -&gt; Option&lt;Arc&lt;Buffer&gt;&gt; {</code></td><td>Look up a frame. Uses `Borrow&lt;str&gt;` on both levels — no allocation.</td></tr><tr><td id="method-is-empty-44"><code>is_empty</code></td><td><code>pub fn is_empty(&amp;self) -&gt; bool {</code></td><td></td></tr><tr><td id="method-len-49"><code>len</code></td><td><code>pub fn len(&amp;self) -&gt; usize {</code></td><td>Total number of frames across all sources.</td></tr><tr><td id="method-current-get-76"><code>current_get</code></td><td><code>pub fn current_get(src: &amp;str, frame_id: &amp;str) -&gt; Option&lt;Arc&lt;Buffer&gt;&gt; {</code></td><td>Look up a frame from the thread-local atlas pointer (zero borrow overhead). Returns `None` if no atlas is set or the frame does not exist.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Buffer" href="../../engine-core/buffer/struct.Buffer.html"><code>Buffer</code></a> <span class="entity-meta">struct · engine-core/src/buffer.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

@@ -4,6 +4,9 @@ version: 0.1.0
 entrypoint: /scenes/menu/scene.yml
 terminal:
   min_colours: 256
-  use_virtual_buffer: true
-  virtual_size: max-available
-  virtual_policy: fit
+  # Compatibility exception: these comparison scenes intentionally exercise
+  # output-sized presentation instead of the fixed authored-canvas default.
+  render_size: match-output
+  presentation_policy: stretch
+  min_width: 320
+  min_height: 240

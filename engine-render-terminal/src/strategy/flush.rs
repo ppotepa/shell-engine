@@ -1,5 +1,5 @@
+use super::flush_trait::TerminalFlusher;
 use engine_core::color::Color;
-use engine_pipeline::TerminalFlusher;
 
 /// One command per cell — no batching. Useful as a correctness reference or debug sink.
 /// Always produces correct output regardless of diff ordering.

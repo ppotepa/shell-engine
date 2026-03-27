@@ -164,9 +164,9 @@ pub fn resolve_step_by_elapsed(stage: &Stage, elapsed_ms: u64) -> Option<(&Step,
 #[cfg(test)]
 mod tests {
     use super::{apply_layer_effects, apply_sprite_effects};
-    use engine_core::color::Color;
     use engine_animation::SceneStage;
     use engine_core::buffer::Buffer;
+    use engine_core::color::Color;
     use engine_core::effects::Region;
     use engine_core::scene::{Effect, EffectParams, Layer, LayerStages, Stage, Step, TermColour};
     use engine_scene_runtime::SceneRuntime;

@@ -1,7 +1,5 @@
 /// Display sink strategy trait.
 pub mod display;
-/// Terminal flusher strategy trait.
-pub mod flush;
 /// Halfblock packer iteration strategy (full vs dirty-region).
 pub mod halfblock;
 /// Layer compositor strategy (scratch vs direct).
@@ -12,7 +10,6 @@ pub mod present;
 pub mod skip;
 
 pub use display::{DisplayFrame, DisplaySink};
-pub use flush::TerminalFlusher;
 pub use halfblock::{DirtyRegionPacker, FullScanPacker, HalfblockPacker};
 pub use layer::{DirectLayerCompositor, LayerCompositor, ScratchLayerCompositor};
 pub use present::{AlwaysPresenter, HashSkipPresenter, VirtualPresenter};
@@ -29,19 +26,16 @@ pub struct PipelineStrategies {
     pub layer: Box<dyn LayerCompositor>,
     pub halfblock: Box<dyn HalfblockPacker>,
     pub present: Box<dyn VirtualPresenter>,
-    pub flush: Box<dyn TerminalFlusher>,
 }
 
 impl PipelineStrategies {
     /// Construct safe defaults — all strategies use the full-scan / always-present paths.
-    /// Caller provides the flusher since concrete impls live in the engine crate.
-    pub fn new(flush: Box<dyn TerminalFlusher>) -> Self {
+    pub fn new() -> Self {
         Self {
             diff: Box::new(FullScanDiff),
             layer: Box::new(ScratchLayerCompositor),
             halfblock: Box::new(FullScanPacker),
             present: Box::new(AlwaysPresenter),
-            flush,
         }
     }
 
@@ -59,7 +53,6 @@ impl PipelineStrategies {
         opt_present: bool,
         opt_rowdiff: bool,
         _opt_async_display: bool,
-        flush: Box<dyn TerminalFlusher>,
     ) -> Self {
         Self {
             diff: if opt_diff {
@@ -84,7 +77,6 @@ impl PipelineStrategies {
             } else {
                 Box::new(AlwaysPresenter)
             },
-            flush,
         }
     }
 }

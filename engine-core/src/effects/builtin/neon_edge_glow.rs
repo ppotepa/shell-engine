@@ -5,13 +5,13 @@
 //! `progress × speed` keeps the glow alive.
 
 use crate::buffer::Buffer;
+use crate::color::Color;
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{
     slider, EffectMetadata, ParamControl, ParamMetadata, P_EASING, P_INTENSITY, P_SPEED,
 };
 use crate::effects::utils::color::lerp_colour;
 use crate::scene::EffectParams;
-use crate::color::Color;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "neon-edge-glow",

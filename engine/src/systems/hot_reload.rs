@@ -208,28 +208,24 @@ fn is_yaml_path(path: &Path) -> bool {
 }
 
 fn apply_virtual_size_override(world: &mut World, scene: &Scene) {
-    let Some(settings) = world.runtime_settings() else {
+    let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
+    let new_size = {
+        let Some(settings) = world.runtime_settings() else {
+            return;
+        };
+        crate::runtime_settings::scene_render_size_override(
+            settings,
+            scene,
+            output_dimensions.0,
+            output_dimensions.1,
+        )
+    };
+    let Some((new_width, new_height)) = new_size else {
         return;
     };
-    if !settings.use_virtual_buffer {
-        return;
-    }
-    let Some(size_override) = scene.virtual_size_override.as_deref() else {
-        return;
-    };
-    let Some((w, h, is_max)) = crate::runtime_settings::parse_virtual_size_str(size_override)
-    else {
-        return;
-    };
-    let (new_width, new_height) = if is_max {
-        let (term_w, term_h) = crossterm::terminal::size().unwrap_or((80, 24));
-        (term_w.max(1), term_h.max(1))
-    } else {
-        (w, h)
-    };
-    if let Some(vbuf) = world.virtual_buffer_mut() {
-        if vbuf.0.width != new_width || vbuf.0.height != new_height {
-            vbuf.0.resize(new_width, new_height);
+    if let Some(buffer) = world.buffer_mut() {
+        if buffer.width != new_width || buffer.height != new_height {
+            buffer.resize(new_width, new_height);
         }
     }
 }

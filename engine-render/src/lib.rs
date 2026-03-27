@@ -5,7 +5,7 @@
 //! Core types:
 //! - `RenderBackend` trait: present frames, query capabilities, shutdown
 //! - `DisplaySink` trait: queue and flush frames (may be async)
-//! - `RenderFrame`: per-frame data (buffer, virtual size, present mode)
+//! - `RenderFrame`: per-frame data (buffer, render canvas size, present mode)
 //! - `RenderCaps`: capabilities (resolution, color depth, FPS)
 
 use engine_core::buffer::Buffer;
@@ -13,10 +13,12 @@ use engine_core::buffer::Buffer;
 mod font_loader;
 pub mod generic;
 pub mod image_loader;
+pub mod overlay;
 pub mod rasterizer;
 mod types;
 
 pub use generic::*;
+pub use overlay::{OverlayData, OverlayLine};
 pub use rasterizer::{blit, has_font_assets, missing_glyphs, rasterize, rasterize_cached};
 
 /// Error type for render backend operations
@@ -65,6 +67,7 @@ pub struct RenderCaps {
 /// Per-frame render data passed to `RenderBackend::present()`
 pub struct RenderFrame<'a> {
     pub buffer: &'a Buffer,
+    /// Render canvas size. The field name is legacy terminology.
     pub virtual_size: (u16, u16),
     pub present_mode: PresentMode,
 }
@@ -73,7 +76,7 @@ pub struct RenderFrame<'a> {
 ///
 /// Implementations handle all rendering details; the engine calls these methods
 /// each frame without knowing which backend is active.
-pub trait RenderBackend: Send {
+pub trait RenderBackend {
     /// Present the frame buffer to the render target.
     /// Backends may batch, async-queue, or block depending on implementation.
     fn present(&self, frame: &RenderFrame) -> Result<(), RenderError>;
@@ -82,6 +85,25 @@ pub trait RenderBackend: Send {
     fn capabilities(&self) -> RenderCaps;
 
     /// Gracefully shut down the backend, cleaning up resources and restoring state.
+    fn shutdown(&mut self) -> Result<(), RenderError>;
+}
+
+/// Minimal backend interface used by the live engine loop.
+///
+/// Unlike `RenderBackend`, this works on already-diffed cell output and is the
+/// abstraction point for interchangeable runtime backends.
+pub trait OutputBackend: Send {
+    fn present_buffer(&mut self, buffer: &Buffer);
+    /// Render a debug overlay on top of the last presented frame.
+    ///
+    /// Called after `present_buffer`. Lines are drawn directly onto the output
+    /// surface (terminal or window) at native resolution, bypassing the game
+    /// buffer so text is always readable regardless of game scaling.
+    fn present_overlay(&mut self, overlay: &OverlayData);
+    /// Returns the logical output grid size that the engine composes into before
+    /// backend-specific window/display presentation is applied.
+    fn output_size(&self) -> (u16, u16);
+    fn clear(&mut self) -> Result<(), RenderError>;
     fn shutdown(&mut self) -> Result<(), RenderError>;
 }
 

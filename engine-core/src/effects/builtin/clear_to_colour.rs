@@ -1,10 +1,10 @@
 //! Effect that fills a region with a solid terminal colour.
 
 use crate::buffer::{Buffer, TRUE_BLACK};
+use crate::color::Color;
 use crate::effects::effect::{Effect, Region};
 use crate::effects::metadata::{EffectMetadata, ParamControl, ParamMetadata, P_EASING};
 use crate::scene::EffectParams;
-use crate::color::Color;
 
 /// Static effect metadata exposed to the editor and effect registry.
 pub static METADATA: EffectMetadata = EffectMetadata {

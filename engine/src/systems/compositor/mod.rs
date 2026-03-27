@@ -6,18 +6,19 @@ use crate::scene3d_atlas::Scene3DAtlas;
 use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
-use engine_core::color::Color;
 use engine_animation::SceneStage;
+use engine_core::color::Color;
 
 /// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
     let asset_root = world.asset_root().cloned();
-    let runtime_mode_override = world
+    let (runtime_mode_override, is_pixel_backend) = world
         .runtime_settings()
-        .and_then(|s| s.renderer_mode_override);
+        .map(|s| (s.renderer_mode_override, s.is_pixel_backend))
+        .unwrap_or((None, false));
 
     // Extract raw pointer to PipelineStrategies to avoid a long-lived borrow that would
-    // conflict with the buffer/virtual_buffer borrows taken later in this function.
+    // conflict with the buffer borrow taken later in this function.
     // SAFETY: PipelineStrategies is registered at startup and never mutated or dropped
     // during frame processing. The pointer remains valid for the duration of compositor_system.
     let strats_ptr: *const crate::strategy::PipelineStrategies = world
@@ -41,9 +42,8 @@ pub fn compositor_system(world: &mut World) {
     // Extract a raw pointer to the scene layer slice to avoid deep-cloning the entire
     // layer tree (all Sprite::Obj fields, Strings, etc.) every frame.
     // SAFETY: SceneRuntime is stored under TypeId::of::<SceneRuntime>() in World::scoped.
-    // The mutable borrows taken later (buffer_mut / virtual_buffer_mut) target
-    // TypeId::of::<Buffer>() / TypeId::of::<VirtualBuffer>() — distinct HashMap entries.
-    // No aliasing occurs. The pointer remains valid for the duration of this function
+    // The mutable borrow taken later targets Buffer, so no aliasing occurs.
+    // The pointer remains valid for the duration of this function
     // because SceneRuntime is not dropped or mutated until scene_runtime_mut() is called
     // at the very end (after all rendering is complete).
     let layers_ptr: *const Vec<crate::scene::Layer> = world
@@ -127,11 +127,6 @@ pub fn compositor_system(world: &mut World) {
     // SAFETY: see comment above effects_ptr declaration (#6).
     let scene_effects: &[crate::scene::Effect] = unsafe { &*effects_ptr };
 
-    let use_virtual = world
-        .runtime_settings()
-        .map(|s| s.use_virtual_buffer)
-        .unwrap_or(false);
-
     // Determine if prerendering is complete and we can use the prerendered frame store.
     // We extract a raw pointer to avoid holding a borrow while also needing mut access to world.
     let prerender_ready = matches!(
@@ -147,8 +142,8 @@ pub fn compositor_system(world: &mut World) {
         std::ptr::null()
     };
     // SAFETY: ObjPrerenderedFrames is a singleton world resource (Send+Sync) that lives for the
-    // duration of this function. The mutable borrows below (buffer_mut / virtual_buffer_mut)
-    // do not alias the ObjPrerenderedFrames resource since World stores each type separately.
+    // duration of this function. The mutable buffer borrow below does not alias it because
+    // World stores each type separately.
     let prerender_frames: Option<&ObjPrerenderedFrames> = if prerender_frames_ptr.is_null() {
         None
     } else {
@@ -167,45 +162,6 @@ pub fn compositor_system(world: &mut World) {
     } else {
         Some(unsafe { &*atlas_ptr })
     };
-
-    if use_virtual {
-        let buffer = match world.virtual_buffer_mut() {
-            Some(v) => &mut v.0,
-            None => return,
-        };
-
-        let params = crate::strategy::CompositeParams {
-            bg,
-            layers,
-            ui_enabled,
-            scene_rendered_mode: rendered_mode,
-            asset_root: asset_root.as_ref(),
-            target_resolver: &target_resolver,
-            object_states: &object_states,
-            obj_camera_states: &obj_camera_states,
-            current_stage: &current_stage,
-            step_idx,
-            elapsed_ms,
-            scene_elapsed_ms,
-            scene_effects: &scene_effects,
-            scene_step_dur,
-        };
-        let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
-            engine_compositor::with_prerender_frames(prerender_frames, || {
-                engine_compositor::dispatch_composite(
-                    rendered_mode,
-                    &params,
-                    layer_strategy,
-                    halfblock_strategy,
-                    buffer,
-                )
-            })
-        });
-        if let Some(runtime) = world.scene_runtime_mut() {
-            runtime.set_object_regions(object_regions);
-        }
-        return;
-    }
 
     let buffer = match world.buffer_mut() {
         Some(b) => b,
@@ -227,6 +183,7 @@ pub fn compositor_system(world: &mut World) {
         scene_elapsed_ms,
         scene_effects: &scene_effects,
         scene_step_dur,
+        is_pixel_backend,
     };
     let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
         engine_compositor::with_prerender_frames(prerender_frames, || {
@@ -242,6 +199,7 @@ pub fn compositor_system(world: &mut World) {
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.set_object_regions(object_regions);
     }
+
 }
 
 #[cfg(test)]

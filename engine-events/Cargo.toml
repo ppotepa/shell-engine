@@ -6,5 +6,4 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-crossterm = "0.29"
 engine-core = { workspace = true }

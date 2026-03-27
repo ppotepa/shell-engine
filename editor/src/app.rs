@@ -13,6 +13,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use engine_core::logging;
+use engine_render_terminal::input::crossterm_key_to_engine;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
@@ -75,8 +76,10 @@ pub fn run(cli: Cli) -> Result<()> {
                                     .contains(crossterm::event::KeyModifiers::CONTROL)
                             {
                                 should_quit = true;
-                            } else {
+                            } else if let Some(key) = crossterm_key_to_engine(key) {
                                 app.enqueue_scene_run_key(key);
+                            } else {
+                                // Ignore unsupported terminal-only key events in run mode.
                             }
                         } else {
                             let cmd = map_key_event(key, app.mode);
@@ -87,11 +90,13 @@ pub fn run(cli: Cli) -> Result<()> {
                     }
                     Event::Resize(w, h) => {
                         if app.mode == AppMode::SceneRun {
+                            let inner_w = w.saturating_sub(2);
+                            let inner_h = h.saturating_sub(2);
                             app.ensure_scene_run_buffer_size(
-                                w.saturating_sub(2),
-                                h.saturating_sub(2),
+                                inner_w,
+                                inner_h,
                             );
-                            app.enqueue_scene_run_resize(w, h);
+                            app.enqueue_scene_run_resize(inner_w, inner_h);
                         }
                     }
                     _ => {}

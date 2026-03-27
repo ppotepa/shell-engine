@@ -19,7 +19,7 @@ contract without pulling in larger engine modules.
   - `SceneLoaded`
   - `SceneTransition`
   - `AudioCue`
-  - `TerminalResized`
+  - `OutputResized`
   - `Quit`
 - `EventQueue` — frame-local queue with `push`, `drain`, and `is_empty`
 

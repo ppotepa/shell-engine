@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SidecarProcess — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> SidecarProcess</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine-io/lib.html">engine-io::lib</a> / SidecarProcess</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-io/src/lib.rs:SidecarProcess</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-io/src/lib.rs:115</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-io/src/lib.rs" href="../../../modules/engine-io/lib.html"><code>engine-io::lib</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Handle to a running sidecar process. Writes requests as JSON lines to stdin and parses JSON lines from stdout.</p>
+          <div class="signature-block"><pre><code>pub struct SidecarProcess {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Handle to a running sidecar process.</p>
+<p>Writes requests as JSON lines to stdin and parses JSON lines from stdout.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-child"><code>child</code></td><td><code>child: Mutex&lt;Child&gt;</code></td><td><code>Mutex&lt;Child&gt;</code></td><td></td></tr><tr><td id="field-stdin-tx"><code>stdin_tx</code></td><td><code>stdin_tx: Sender&lt;String&gt;</code></td><td><code>Sender&lt;String&gt;</code></td><td></td></tr><tr><td id="field-event-rx"><code>event_rx</code></td><td><code>event_rx: Mutex&lt;Receiver&lt;IoEvent&gt;&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoEvent" href="enum.IoEvent.html"><code>IoEvent</code></a></div></td><td><code>Mutex&lt;Receiver&lt;IoEvent&gt;&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-spawn-205"><code>spawn</code></td><td><code>pub fn spawn( command: &amp;str, args: &amp;[String], cwd: Option&lt;&amp;std::path::Path&gt;, ) -&gt; Result&lt;Self, EngineIoError&gt; {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:EngineIoError" href="enum.EngineIoError.html"><code>EngineIoError</code></a></div></td><td></td></tr><tr><td id="method-send-238"><code>send</code></td><td><code>pub fn send(&amp;self, req: IoRequest) -&gt; Result&lt;(), EngineIoError&gt; {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoRequest" href="enum.IoRequest.html"><code>IoRequest</code></a></div></td><td></td></tr><tr><td id="method-try-drain-events-245"><code>try_drain_events</code></td><td><code>pub fn try_drain_events(&amp;self, max: usize) -&gt; Vec&lt;IoEvent&gt; {</code></td><td></td></tr><tr><td id="method-is-alive-260"><code>is_alive</code></td><td><code>pub fn is_alive(&amp;self) -&gt; bool {</code></td><td></td></tr><tr><td id="method-kill-267"><code>kill</code></td><td><code>pub fn kill(&amp;self) {</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="trait:engine-io/src/lib.rs:SidecarTransport" href="trait.SidecarTransport.html"><code>SidecarTransport</code></a> <span class="entity-meta">trait · engine-io/src/lib.rs</span></li></ul>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:EngineIoError" href="enum.EngineIoError.html"><code>EngineIoError</code></a> <span class="entity-meta">enum · engine-io/src/lib.rs</span></li><li><a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoEvent" href="enum.IoEvent.html"><code>IoEvent</code></a> <span class="entity-meta">enum · engine-io/src/lib.rs</span></li><li><a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoRequest" href="enum.IoRequest.html"><code>IoRequest</code></a> <span class="entity-meta">enum · engine-io/src/lib.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

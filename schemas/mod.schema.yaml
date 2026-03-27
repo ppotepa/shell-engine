@@ -24,11 +24,20 @@ properties:
     minLength: 1
     pattern: "^/.+\\.yml$"
     description: Absolute path (inside mod) to the first scene YAML file.
+  output_backend:
+    type: string
+    enum: [terminal, sdl2, prompt]
+    description: |
+      Startup output selection policy.
+      terminal - always launch in the terminal backend.
+      sdl2     - always launch in the SDL2 window backend.
+      prompt   - ask the player which backend to use before engine startup.
   terminal:
     type: object
     description: |
       Optional terminal requirements and render presentation settings.
-      Capability checks run at startup. Rendering may use a virtual buffer when enabled.
+      Capability checks run at startup. Rendering uses a single render canvas that is
+      presented to the active backend according to `presentation_policy`.
     additionalProperties: false
     properties:
       min_colours:
@@ -48,41 +57,47 @@ properties:
         minimum: 1
         maximum: 240
         description: Target engine framerate lock. Default 60 when omitted.
-      use_virtual_buffer:
-        type: boolean
-        description: |
-          Enable virtual-buffer rendering.
-          true  = compose into virtual_size first, then present to terminal.
-          false = compose directly into terminal-size output buffer.
-      virtual_size:
+      render_size:
         anyOf:
           - type: string
             pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
           - type: string
-            enum: [max-available]
+            enum: [match-output, max-available]
         description: |
-          Virtual framebuffer size in WIDTHxHEIGHT form (for example 320x240 or 220x55),
-          or "max-available" to use current terminal size.
-          Used only when use_virtual_buffer/use-virtual-buffer is true.
-      virtual_policy:
+          Preferred: a fixed authored render canvas in WIDTHxHEIGHT form
+          (for example 180x30, 320x180, or 320x240).
+          "match-output" tracks the current output size and is kept for
+          backward compatibility. `max-available` remains an alias for `match-output`.
+      virtual_size:
+        $ref: "#/properties/terminal/properties/render_size"
+      presentation_policy:
         type: string
-        enum: [strict, fit]
+        enum: [strict, fit, stretch]
         description: |
-          strict - require terminal >= virtual size in cells; no downscale.
-          fit    - adaptively scale virtual frame to current terminal with centered letterbox.
-          Policy is meaningful when virtual buffer is enabled.
+          strict  - require output >= render size in cells; no resampling.
+          fit     - preserve aspect ratio with centered letterbox.
+          stretch - scale authored render output to fill the current terminal/output buffer.
+      virtual_policy:
+        $ref: "#/properties/terminal/properties/presentation_policy"
       renderer_mode:
         type: string
         enum: [cell, halfblock, quadblock, braille]
         description: Optional global renderer mode override for all scenes.
     patternProperties:
+      "^render-size$":
+        $ref: "#/properties/terminal/properties/render_size"
+      "^presentation-policy$":
+        $ref: "#/properties/terminal/properties/presentation_policy"
       "^target-fps$":
         $ref: "#/properties/terminal/properties/target_fps"
-      "^use-virtual-buffer$":
-        $ref: "#/properties/terminal/properties/use_virtual_buffer"
       "^virtual-size$":
-        $ref: "#/properties/terminal/properties/virtual_size"
+        $ref: "#/properties/terminal/properties/render_size"
       "^virtual-policy$":
-        $ref: "#/properties/terminal/properties/virtual_policy"
+        $ref: "#/properties/terminal/properties/presentation_policy"
       "^renderer-mode$":
         $ref: "#/properties/terminal/properties/renderer_mode"
+patternProperties:
+  "^output-backend$":
+    $ref: "#/properties/output_backend"
+  "^output_backend$":
+    $ref: "#/properties/output_backend"

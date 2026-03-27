@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PipelineStrategies — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> PipelineStrategies</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine/strategy/mod.html">engine::strategy::mod</a> / PipelineStrategies</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/strategy/mod.rs:PipelineStrategies</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/strategy/mod.rs:37</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/strategy/mod.rs" href="../../../../modules/engine/strategy/mod.html"><code>engine::strategy::mod</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Aggregated render pipeline strategies, registered as a World resource at startup. Systems call the trait methods on these fields instead of branching on boolean flags. Swap any field at runtime for instant behaviour change without restarting.</p>
+          <div class="signature-block"><pre><code>pub struct PipelineStrategies {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Aggregated render pipeline strategies, registered as a World resource at startup.</p>
+<p>Systems call the trait methods on these fields instead of branching on boolean flags. Swap any field at runtime for instant behaviour change without restarting.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-diff"><code>diff</code></td><td><code>pub diff: Box&lt;dyn DiffStrategy&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="trait:engine-core/src/strategy/diff.rs:DiffStrategy" href="../../../engine-core/strategy/diff/trait.DiffStrategy.html"><code>DiffStrategy</code></a></div></td><td><code>Box&lt;dyn DiffStrategy&gt;</code></td><td></td></tr><tr><td id="field-layer"><code>layer</code></td><td><code>pub layer: Box&lt;dyn LayerCompositor&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="trait:engine/src/strategy/layer.rs:LayerCompositor" href="../layer/trait.LayerCompositor.html"><code>LayerCompositor</code></a></div></td><td><code>Box&lt;dyn LayerCompositor&gt;</code></td><td></td></tr><tr><td id="field-halfblock"><code>halfblock</code></td><td><code>pub halfblock: Box&lt;dyn HalfblockPacker&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="trait:engine/src/strategy/halfblock.rs:HalfblockPacker" href="../halfblock/trait.HalfblockPacker.html"><code>HalfblockPacker</code></a></div></td><td><code>Box&lt;dyn HalfblockPacker&gt;</code></td><td></td></tr><tr><td id="field-present"><code>present</code></td><td><code>pub present: Box&lt;dyn VirtualPresenter&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="trait:engine/src/strategy/present.rs:VirtualPresenter" href="../present/trait.VirtualPresenter.html"><code>VirtualPresenter</code></a></div></td><td><code>Box&lt;dyn VirtualPresenter&gt;</code></td><td></td></tr><tr><td id="field-flush"><code>flush</code></td><td><code>pub flush: Box&lt;dyn TerminalFlusher&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="trait:engine/src/strategy/flush.rs:TerminalFlusher" href="../flush/trait.TerminalFlusher.html"><code>TerminalFlusher</code></a></div></td><td><code>Box&lt;dyn TerminalFlusher&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-default-safe-47"><code>default_safe</code></td><td><code>pub fn default_safe() -&gt; Self {</code></td><td>Construct safe defaults — all strategies use the full-scan / always-present paths.</td></tr><tr><td id="method-from-flags-66"><code>from_flags</code></td><td><code>pub fn from_flags(opt_diff: bool, opt_comp: bool, opt_present: bool, opt_rowdiff: bool, _opt_async_display: bool) -&gt; Self {</code></td><td>Construct from CLI optimisation flags. | flag | effect | |----------------|-----------------------------------------------------| | `--opt-diff` | `DirtyRegionDiff` instead of `FullScanDiff` | | `--opt-rowdiff`| `RowSkipDiff` (row-level skip in full-scan) | | `--opt-comp` | `DirectLayerCompositor` + `DirtyRegionPacker` | | `--opt-present`| `HashSkipPresenter` instead of `AlwaysPresenter` | | `--opt-async` | Handled separately (display sink in renderer) |</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="trait:engine-core/src/strategy/diff.rs:DiffStrategy" href="../../../engine-core/strategy/diff/trait.DiffStrategy.html"><code>DiffStrategy</code></a> <span class="entity-meta">trait · engine-core/src/strategy/diff.rs</span></li><li><a class="entity-ref" data-entity-id="trait:engine/src/strategy/flush.rs:TerminalFlusher" href="../flush/trait.TerminalFlusher.html"><code>TerminalFlusher</code></a> <span class="entity-meta">trait · engine/src/strategy/flush.rs</span></li><li><a class="entity-ref" data-entity-id="trait:engine/src/strategy/halfblock.rs:HalfblockPacker" href="../halfblock/trait.HalfblockPacker.html"><code>HalfblockPacker</code></a> <span class="entity-meta">trait · engine/src/strategy/halfblock.rs</span></li><li><a class="entity-ref" data-entity-id="trait:engine/src/strategy/layer.rs:LayerCompositor" href="../layer/trait.LayerCompositor.html"><code>LayerCompositor</code></a> <span class="entity-meta">trait · engine/src/strategy/layer.rs</span></li><li><a class="entity-ref" data-entity-id="trait:engine/src/strategy/present.rs:VirtualPresenter" href="../present/trait.VirtualPresenter.html"><code>VirtualPresenter</code></a> <span class="entity-meta">trait · engine/src/strategy/present.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

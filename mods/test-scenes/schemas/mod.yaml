@@ -16,5 +16,7 @@ properties:
     anyOf:
     - $ref: ./catalog.yaml#/$defs/scene_paths
     - $ref: ../../../schemas/mod.schema.yaml#/properties/entrypoint
+  output_backend:
+    $ref: ../../../schemas/mod.schema.yaml#/properties/output_backend
   terminal:
     $ref: ../../../schemas/mod.schema.yaml#/properties/terminal

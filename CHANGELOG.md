@@ -36,6 +36,32 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 27-03-2026
+
+**SDL2 rendering optimizations & font pipeline** 🚀
+- **engine-render-sdl2**: implemented pixel-buffer rasterizer (streaming texture, single DMA upload per frame)
+- **engine-render-sdl2**: added shade character anti-aliasing (░▒▓█ → blended fg/bg at 25/50/75/100%)
+- **engine-render-sdl2**: FNV-1a static frame skip for flicker-free rendering
+- **engine-compositor**: added `scale-x`/`scale-y` fields to text sprites with nearest-neighbor blitting
+- **engine-render-policy**: backend-aware font resolution — SDL2 auto-selects `:raster` mode for named fonts
+- **engine-runtime**: propagated `is_pixel_backend` flag through compositor pipeline (8-file threading)
+- **testing**: 25 compositor tests pass, new font policy tests added, headless SDL smoke test passes
+- **result**: font rendering now backend-specific; SDL gets shade glyphs + stretch capability
+
+---
+
+## 26-03-2026
+
+**Crate rebalancing complete (28 commits)** 🏗️
+- **architecture**: extracted engine into 15 sub-crates: `engine-core`, `engine-pipeline`, `engine-mod`, `engine-render-terminal`, `engine-compositor`, `engine-behavior`, `engine-scene-runtime`, `engine-asset`, and more
+- **design**: domain `XxxAccess` traits (BufferAccess, GameStateAccess, AssetAccess, AnimatorAccess, EventAccess, DebugAccess, RuntimeAccess, AudioAccess) enable decoupled provider impls
+- **engine-core**: moved World, AssetRoot, AssetCache, GameState, runtime data types, and color system
+- **color**: decoupled Color type from crossterm dependency (migrated to engine-core)
+- **testing**: verified zero regressions — all 204 engine tests passing post-refactor
+- **result**: 15 focused crates with clear boundaries; terminal renderer now isolated in engine-render-terminal; orphan rule satisfied via newtype wrappers
+
+---
+
 ## 25-03-2026
 
 **Documentation consolidation complete** ✅

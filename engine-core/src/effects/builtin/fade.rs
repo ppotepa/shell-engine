@@ -1,11 +1,11 @@
 //! Fade-in and fade-out effects that linearly interpolate foreground brightness.
 
 use crate::buffer::{Buffer, TRUE_BLACK};
+use crate::color::Color;
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING};
 use crate::effects::utils::color::lerp_colour;
 use crate::scene::EffectParams;
-use crate::color::Color;
 
 /// Static effect metadata for the fade-in variant.
 pub static METADATA_FADE_IN: EffectMetadata = EffectMetadata {

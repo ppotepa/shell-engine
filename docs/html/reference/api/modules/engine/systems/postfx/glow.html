@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine::systems::postfx::glow — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine::systems::postfx::glow</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Modules</a> / engine::systems::postfx::glow</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Shared half-resolution glow/bloom pipeline used by both the standalone Underlay pass and the unified CRT composite pass.</p>
+        <p><strong>Source:</strong> <code>engine/src/systems/postfx/glow.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Shared half-resolution glow/bloom pipeline used by both the standalone Underlay pass and the unified CRT composite pass.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><em>No public types captured from this module.</em></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-build-glow-map-inplace"><code>build_glow_map_inplace</code></td><td><code>pub(super) fn build_glow_map_inplace( src: &amp;Buffer, intensity: f32, spread: f32, frame: u32, a: &amp;mut Vec&lt;GlowPixel&gt;, b: &amp;mut Vec&lt;GlowPixel&gt;, out: &amp;mut Vec&lt;GlowPixel&gt;, ) {</code></td><td>Builds the glow map in-place using pre-allocated ping-pong scratch buffers. **Full-resolution blur pipeline**: seed and blur run at native buffer resolution for tight, pixel-accurate phosphor glow (1–2 cell spread). Fewer blur passes keep the glow realistic — CRT phosphor bleeds into immediate neighbours only, not across half the screen.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

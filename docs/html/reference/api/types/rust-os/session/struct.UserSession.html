@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UserSession — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> UserSession</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/rust-os/session.html">rust-os::session</a> / UserSession</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:rust-os/src/session.rs:UserSession</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>rust-os/src/session.rs:3</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:rust-os/src/session.rs" href="../../../modules/rust-os/session.html"><code>rust-os::session</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Per-login session state: current working directory, user info.</p>
+          <div class="signature-block"><pre><code>pub struct UserSession {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Per-login session state: current working directory, user info.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-user"><code>user</code></td><td><code>pub user: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-hostname"><code>hostname</code></td><td><code>pub hostname: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-home"><code>home</code></td><td><code>pub home: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-cwd"><code>cwd</code></td><td><code>cwd: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-last-exit-code"><code>last_exit_code</code></td><td><code>pub last_exit_code: i32</code></td><td><code>i32</code></td><td></td></tr><tr><td id="field-command-history"><code>command_history</code></td><td><code>pub command_history: Vec&lt;String&gt;</code></td><td><code>Vec&lt;String&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-13"><code>new</code></td><td><code>pub fn new(user: impl Into&lt;String&gt;, hostname: impl Into&lt;String&gt;) -&gt; Self {</code></td><td></td></tr><tr><td id="method-cwd-27"><code>cwd</code></td><td><code>pub fn cwd(&amp;self) -&gt; &amp;str {</code></td><td></td></tr><tr><td id="method-set-cwd-31"><code>set_cwd</code></td><td><code>pub fn set_cwd(&amp;mut self, path: String) {</code></td><td></td></tr><tr><td id="method-resolve-path-36"><code>resolve_path</code></td><td><code>pub fn resolve_path(&amp;self, path: Option&lt;&amp;str&gt;) -&gt; String {</code></td><td>Resolve a path relative to cwd. Handles ~, .., ., absolute paths.</td></tr><tr><td id="method-display-cwd-49"><code>display_cwd</code></td><td><code>pub fn display_cwd(&amp;self) -&gt; String {</code></td><td>User-friendly display of cwd (tilde expansion).</td></tr><tr><td id="method-push-history-59"><code>push_history</code></td><td><code>pub fn push_history(&amp;mut self, cmd: &amp;str) {</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

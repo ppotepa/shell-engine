@@ -1,4 +1,5 @@
 use crate::buffer::{Buffer, TRUE_BLACK};
+use crate::color::Color;
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{
     select, text, EffectMetadata, P_EASING, P_GLOW, P_INTENSITY, P_OCTAVES, P_ORIENTATION, P_SPEED,
@@ -7,7 +8,6 @@ use crate::effects::metadata::{
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
-use crate::color::Color;
 use std::f32::consts::TAU;
 
 pub static METADATA_LIGHTNING_FLASH: EffectMetadata = EffectMetadata {
@@ -1502,9 +1502,9 @@ mod tests {
         LightningFbmEffect, LightningGrowthEffect, LightningNaturalEffect,
     };
     use crate::buffer::Buffer;
+    use crate::color::Color;
     use crate::effects::Region;
     use crate::scene::EffectParams;
-    use crate::color::Color;
 
     fn lit_axes_coverage(buffer: &Buffer) -> (usize, usize) {
         let lit_x = (0..buffer.width)

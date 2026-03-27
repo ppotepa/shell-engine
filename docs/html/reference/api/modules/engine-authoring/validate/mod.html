@@ -27,11 +27,11 @@
       </section>
       <section class="doc-section">
         <h2>Public types</h2>
-        <ul class="entity-list"><li><em>No public types captured from this module.</em></li></ul>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-authoring/src/validate/mod.rs:TimelineDiagnostic" href="../../../types/engine-authoring/validate/mod/enum.TimelineDiagnostic.html"><code>TimelineDiagnostic</code></a> <span class="entity-meta">enum</span></li></ul>
       </section>
       <section class="doc-section">
         <h2>Public functions</h2>
-        <p><em>No public items captured in this category.</em></p>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-validate-sprite-timeline"><code>validate_sprite_timeline</code></td><td><code>pub fn validate_sprite_timeline(scene: &amp;Scene) -&gt; Vec&lt;TimelineDiagnostic&gt; {</code></td><td>Validates sprite timeline against scene duration. Returns warnings for sprites that will never be visible during on_enter stage (the primary cutscene/intro timing for most scenes). # Checks - sprite `appear_at_ms` &gt;= on_enter duration → sprite never visible - sprite `disappear_at_ms` &lt;= `appear_at_ms` → sprite always hidden # Notes This validation focuses on on_enter because that&#x27;s where most authored sprite timing lives. Sprites visible only during on_idle or on_leave are uncommon and require runtime state control (layer.visible or Rhai).</td></tr></tbody></table>
       </section>
       <section class="doc-section">
         <h2>Public constants</h2>

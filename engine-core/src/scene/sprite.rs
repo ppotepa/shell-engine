@@ -75,6 +75,10 @@ fn default_panel_shadow_y() -> i32 {
     1
 }
 
+fn default_scale() -> f32 {
+    1.0
+}
+
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 /// Declares the main axis used by a flex container sprite.
@@ -211,6 +215,16 @@ pub enum Sprite {
         /// Default: `none` (preserve authored case).
         #[serde(default)]
         text_transform: TextTransform,
+        /// Horizontal scale factor applied when blitting the rasterized text.
+        /// 1.0 = no change, 1.5 = 50% wider, 0.5 = half width.
+        /// Only affects bitmap/raster font paths; has no effect on native terminal text.
+        #[serde(default = "default_scale", rename = "scale-x")]
+        scale_x: f32,
+        /// Vertical scale factor applied when blitting the rasterized text.
+        /// 1.0 = no change, 1.5 = 50% taller, 0.5 = half height.
+        /// Only affects bitmap/raster font paths; has no effect on native terminal text.
+        #[serde(default = "default_scale", rename = "scale-y")]
+        scale_y: f32,
     },
     /// Bitmap image sprite rendered on terminal grid in selected mode.
     Image {

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SidecarTransport — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge trait">trait</span> SidecarTransport</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine-io/lib.html">engine-io::lib</a> / SidecarTransport</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>trait:engine-io/src/lib.rs:SidecarTransport</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-io/src/lib.rs:87</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-io/src/lib.rs" href="../../../modules/engine-io/lib.html"><code>engine-io::lib</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Transport-agnostic interface for communicating with a running sidecar. Both `TcpSidecar` (localhost TCP) and `SidecarProcess` (stdio JSON-lines) implement this trait, making the transport selection a startup-time concern rather than a hard-coded call site.</p>
+          <div class="signature-block"><pre><code>pub trait SidecarTransport: Send + Sync {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Transport-agnostic interface for communicating with a running sidecar.</p>
+<p>Both `TcpSidecar` (localhost TCP) and `SidecarProcess` (stdio JSON-lines) implement this trait, making the transport selection a startup-time concern rather than a hard-coded call site.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-send"><code>send</code></td><td><code>fn send(&amp;self, req: IoRequest) -&gt; Result&lt;(), EngineIoError&gt;;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoRequest" href="enum.IoRequest.html"><code>IoRequest</code></a>, <a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:EngineIoError" href="enum.EngineIoError.html"><code>EngineIoError</code></a></div></td><td>Send a request to the sidecar. Non-blocking; queued on an internal channel.</td></tr><tr><td id="method-try-drain-events"><code>try_drain_events</code></td><td><code>fn try_drain_events(&amp;self, max: usize) -&gt; Vec&lt;IoEvent&gt;;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoEvent" href="enum.IoEvent.html"><code>IoEvent</code></a></div></td><td>Drain up to `max` pending inbound events without blocking.</td></tr><tr><td id="method-is-alive"><code>is_alive</code></td><td><code>fn is_alive(&amp;self) -&gt; bool;</code></td><td>`true` if the child process is still running.</td></tr><tr><td id="method-kill"><code>kill</code></td><td><code>fn kill(&amp;self);</code></td><td>Kill the child process.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implementors</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-io/src/lib.rs:NullTransport" href="struct.NullTransport.html"><code>NullTransport</code></a> <span class="entity-meta">struct · engine-io/src/lib.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-io/src/lib.rs:SidecarProcess" href="struct.SidecarProcess.html"><code>SidecarProcess</code></a> <span class="entity-meta">struct · engine-io/src/lib.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-io/src/lib.rs:TcpSidecar" href="struct.TcpSidecar.html"><code>TcpSidecar</code></a> <span class="entity-meta">struct · engine-io/src/lib.rs</span></li></ul>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:EngineIoError" href="enum.EngineIoError.html"><code>EngineIoError</code></a> <span class="entity-meta">enum · engine-io/src/lib.rs</span></li><li><a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoEvent" href="enum.IoEvent.html"><code>IoEvent</code></a> <span class="entity-meta">enum · engine-io/src/lib.rs</span></li><li><a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoRequest" href="enum.IoRequest.html"><code>IoRequest</code></a> <span class="entity-meta">enum · engine-io/src/lib.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

@@ -818,8 +818,8 @@ mod tests {
     #[test]
     fn rasterize_generic_lowercase_differs_from_uppercase() {
         use super::{rasterize_generic, TextTransform};
-        use engine_core::color::Color;
         use engine_core::buffer::Buffer;
+        use engine_core::color::Color;
 
         let mut buf_lower = Buffer::new(100, 10);
         buf_lower.fill(Color::Reset);

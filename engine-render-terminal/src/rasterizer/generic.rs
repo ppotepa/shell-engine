@@ -198,32 +198,84 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
             0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000,
         ]),
         // ── Lowercase a–z (distinct designs, 5×7 px) ────────────────────────
-        'a' => Some([0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b10011, 0b01101]),
-        'b' => Some([0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b11001, 0b10110]),
-        'c' => Some([0b00000, 0b01110, 0b10001, 0b10000, 0b10000, 0b10001, 0b01110]),
-        'd' => Some([0b00001, 0b00001, 0b01101, 0b10011, 0b10001, 0b10011, 0b01101]),
-        'e' => Some([0b00000, 0b01110, 0b10001, 0b11111, 0b10000, 0b10001, 0b01110]),
-        'f' => Some([0b00110, 0b01001, 0b01000, 0b11110, 0b01000, 0b01000, 0b01000]),
-        'g' => Some([0b00000, 0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110]),
-        'h' => Some([0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001]),
-        'i' => Some([0b00100, 0b00000, 0b01100, 0b00100, 0b00100, 0b00100, 0b01110]),
-        'j' => Some([0b00010, 0b00000, 0b00110, 0b00010, 0b00010, 0b10010, 0b01100]),
-        'k' => Some([0b10000, 0b10000, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010]),
-        'l' => Some([0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110]),
-        'm' => Some([0b00000, 0b00000, 0b11010, 0b10101, 0b10101, 0b10001, 0b10001]),
-        'n' => Some([0b00000, 0b00000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001]),
-        'o' => Some([0b00000, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01110]),
-        'p' => Some([0b00000, 0b00000, 0b11110, 0b10001, 0b11110, 0b10000, 0b10000]),
-        'q' => Some([0b00000, 0b00000, 0b01111, 0b10001, 0b01111, 0b00001, 0b00001]),
-        'r' => Some([0b00000, 0b00000, 0b10110, 0b11001, 0b10000, 0b10000, 0b10000]),
-        's' => Some([0b00000, 0b00000, 0b01110, 0b10000, 0b01110, 0b00001, 0b11110]),
-        't' => Some([0b00100, 0b00100, 0b01110, 0b00100, 0b00100, 0b00101, 0b00010]),
-        'u' => Some([0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101]),
-        'v' => Some([0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100]),
-        'w' => Some([0b00000, 0b00000, 0b10001, 0b10101, 0b10101, 0b11011, 0b01010]),
-        'x' => Some([0b00000, 0b00000, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001]),
-        'y' => Some([0b00000, 0b00000, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110]),
-        'z' => Some([0b00000, 0b00000, 0b11111, 0b00010, 0b00100, 0b01000, 0b11111]),
+        'a' => Some([
+            0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b10011, 0b01101,
+        ]),
+        'b' => Some([
+            0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b11001, 0b10110,
+        ]),
+        'c' => Some([
+            0b00000, 0b01110, 0b10001, 0b10000, 0b10000, 0b10001, 0b01110,
+        ]),
+        'd' => Some([
+            0b00001, 0b00001, 0b01101, 0b10011, 0b10001, 0b10011, 0b01101,
+        ]),
+        'e' => Some([
+            0b00000, 0b01110, 0b10001, 0b11111, 0b10000, 0b10001, 0b01110,
+        ]),
+        'f' => Some([
+            0b00110, 0b01001, 0b01000, 0b11110, 0b01000, 0b01000, 0b01000,
+        ]),
+        'g' => Some([
+            0b00000, 0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110,
+        ]),
+        'h' => Some([
+            0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001,
+        ]),
+        'i' => Some([
+            0b00100, 0b00000, 0b01100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ]),
+        'j' => Some([
+            0b00010, 0b00000, 0b00110, 0b00010, 0b00010, 0b10010, 0b01100,
+        ]),
+        'k' => Some([
+            0b10000, 0b10000, 0b10010, 0b10100, 0b11000, 0b10100, 0b10010,
+        ]),
+        'l' => Some([
+            0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110,
+        ]),
+        'm' => Some([
+            0b00000, 0b00000, 0b11010, 0b10101, 0b10101, 0b10001, 0b10001,
+        ]),
+        'n' => Some([
+            0b00000, 0b00000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001,
+        ]),
+        'o' => Some([
+            0b00000, 0b00000, 0b01110, 0b10001, 0b10001, 0b10001, 0b01110,
+        ]),
+        'p' => Some([
+            0b00000, 0b00000, 0b11110, 0b10001, 0b11110, 0b10000, 0b10000,
+        ]),
+        'q' => Some([
+            0b00000, 0b00000, 0b01111, 0b10001, 0b01111, 0b00001, 0b00001,
+        ]),
+        'r' => Some([
+            0b00000, 0b00000, 0b10110, 0b11001, 0b10000, 0b10000, 0b10000,
+        ]),
+        's' => Some([
+            0b00000, 0b00000, 0b01110, 0b10000, 0b01110, 0b00001, 0b11110,
+        ]),
+        't' => Some([
+            0b00100, 0b00100, 0b01110, 0b00100, 0b00100, 0b00101, 0b00010,
+        ]),
+        'u' => Some([
+            0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b10011, 0b01101,
+        ]),
+        'v' => Some([
+            0b00000, 0b00000, 0b10001, 0b10001, 0b10001, 0b01010, 0b00100,
+        ]),
+        'w' => Some([
+            0b00000, 0b00000, 0b10001, 0b10101, 0b10101, 0b11011, 0b01010,
+        ]),
+        'x' => Some([
+            0b00000, 0b00000, 0b10001, 0b01010, 0b00100, 0b01010, 0b10001,
+        ]),
+        'y' => Some([
+            0b00000, 0b00000, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110,
+        ]),
+        'z' => Some([
+            0b00000, 0b00000, 0b11111, 0b00010, 0b00100, 0b01000, 0b11111,
+        ]),
         c if c.is_ascii_control() => None,
         _ => Some([
             0b01110, 0b00001, 0b00110, 0b00100, 0b00000, 0b00100, 0b00000,
@@ -675,7 +727,9 @@ pub fn rasterize_spans_mode(
             GenericMode::Large => rasterize_generic(text, 2, *colour, x, draw_y, buf, transform),
             GenericMode::Half => rasterize_generic_half(text, *colour, x, draw_y, buf, transform),
             GenericMode::Quad => rasterize_generic_quad(text, *colour, x, draw_y, buf, transform),
-            GenericMode::Braille => rasterize_generic_braille(text, *colour, x, draw_y, buf, transform),
+            GenericMode::Braille => {
+                rasterize_generic_braille(text, *colour, x, draw_y, buf, transform)
+            }
         }
         x += w;
     }
@@ -744,7 +798,7 @@ mod tests {
 
     #[test]
     fn text_transform_none_preserves_lowercase_glyph_lookup() {
-        use super::{generic_glyph_rows, apply_transform, TextTransform};
+        use super::{apply_transform, generic_glyph_rows, TextTransform};
         // With None transform, 'h' stays 'h' and has its own distinct glyph.
         let c = apply_transform('h', &TextTransform::None);
         assert_eq!(c, 'h');
@@ -769,11 +823,27 @@ mod tests {
 
         let mut buf_lower = Buffer::new(100, 10);
         buf_lower.fill(Color::Reset);
-        rasterize_generic("hello", 1, Color::White, 0, 0, &mut buf_lower, &TextTransform::None);
+        rasterize_generic(
+            "hello",
+            1,
+            Color::White,
+            0,
+            0,
+            &mut buf_lower,
+            &TextTransform::None,
+        );
 
         let mut buf_upper = Buffer::new(100, 10);
         buf_upper.fill(Color::Reset);
-        rasterize_generic("HELLO", 1, Color::White, 0, 0, &mut buf_upper, &TextTransform::None);
+        rasterize_generic(
+            "HELLO",
+            1,
+            Color::White,
+            0,
+            0,
+            &mut buf_upper,
+            &TextTransform::None,
+        );
 
         // Lowercase and uppercase should render differently now that we have distinct glyphs.
         let mut any_diff = false;
@@ -784,6 +854,9 @@ mod tests {
                 }
             }
         }
-        assert!(any_diff, "lowercase and uppercase glyphs should look different");
+        assert!(
+            any_diff,
+            "lowercase and uppercase glyphs should look different"
+        );
     }
 }

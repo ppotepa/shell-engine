@@ -14,7 +14,7 @@
 //! `PreparedFrame` is the contract between phases 1→2 and 2→3. It owns the render buffers
 //! and carries the ticket + object regions needed by the simulation thread on the next frame.
 
-use crate::buffer::{Buffer, VirtualBuffer};
+use crate::buffer::Buffer;
 use crate::effects::Region;
 use crate::frame_ticket::FrameTicket;
 use std::collections::HashMap;
@@ -24,10 +24,8 @@ use std::collections::HashMap;
 /// Produced by the render thread after compositor → postfx. Validated by ticket
 /// before being staged into World for `renderer_system`.
 pub struct PreparedFrame {
-    /// Rendered terminal buffer (Cell / HalfBlock path).
+    /// Rendered frame buffer.
     pub buffer: Buffer,
-    /// Rendered virtual buffer (two-cell / virtual-present path).
-    pub virtual_buffer: VirtualBuffer,
     /// Identity token echoed from the `RenderFrameRequest` — used for stale-frame rejection.
     pub ticket: FrameTicket,
     /// Object bounding regions computed during compositor pass.

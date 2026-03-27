@@ -12,7 +12,6 @@ mod terminal_shell;
 mod ui_focus;
 
 pub use access::SceneRuntimeAccess;
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use engine_animation::SceneStage;
 use engine_behavior::{
     built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, RhaiScriptBehavior,
@@ -28,6 +27,7 @@ use engine_core::scene::{
 pub use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
 };
+use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 use engine_render_terminal::rasterizer::generic::GenericMode;
 pub use lifecycle_controls::TerminalShellRoute;
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};

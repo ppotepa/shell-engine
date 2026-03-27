@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EngineConfig — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> EngineConfig</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine/lib.html">engine::lib</a> / EngineConfig</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/lib.rs:EngineConfig</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/lib.rs:83</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/lib.rs" href="../../../modules/engine/lib.html"><code>engine::lib</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Runtime launch options passed explicitly from the launcher.</p>
+          <div class="signature-block"><pre><code>pub struct EngineConfig {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Runtime launch options passed explicitly from the launcher.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-renderer-mode"><code>renderer_mode</code></td><td><code>pub renderer_mode: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-debug-feature"><code>debug_feature</code></td><td><code>pub debug_feature: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-audio"><code>audio</code></td><td><code>pub audio: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-start-scene"><code>start_scene</code></td><td><code>pub start_scene: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td>Override the mod&#x27;s entrypoint — jump straight to this scene path.</td></tr><tr><td id="field-skip-splash"><code>skip_splash</code></td><td><code>pub skip_splash: bool</code></td><td><code>bool</code></td><td>Skip the engine splash screen on startup.</td></tr><tr><td id="field-opt-comp"><code>opt_comp</code></td><td><code>pub opt_comp: bool</code></td><td><code>bool</code></td><td>Enable compositor optimizations (#4 layer-scratch, #5 dirty-halfblock).</td></tr><tr><td id="field-opt-present"><code>opt_present</code></td><td><code>pub opt_present: bool</code></td><td><code>bool</code></td><td>Enable present optimizations (#13 hash-based frame skip).</td></tr><tr><td id="field-opt-diff"><code>opt_diff</code></td><td><code>pub opt_diff: bool</code></td><td><code>bool</code></td><td>Enable dirty-region diff scan (experimental — off by default).</td></tr><tr><td id="field-opt-skip"><code>opt_skip</code></td><td><code>pub opt_skip: bool</code></td><td><code>bool</code></td><td>Enable unified frame-skip coordination (PostFX cache + Presenter sync).</td></tr><tr><td id="field-opt-rowdiff"><code>opt_rowdiff</code></td><td><code>pub opt_rowdiff: bool</code></td><td><code>bool</code></td><td>Enable row-level dirty skip in diff scan (experimental — off by default).</td></tr><tr><td id="field-opt-async-display"><code>opt_async_display</code></td><td><code>pub opt_async_display: bool</code></td><td><code>bool</code></td><td>Enable async display sink: offload terminal I/O to background thread. Decouples main thread from write/flush latency (1-5ms/frame).</td></tr><tr><td id="field-bench-secs"><code>bench_secs</code></td><td><code>pub bench_secs: Option&lt;f32&gt;</code></td><td><code>Option&lt;f32&gt;</code></td><td>Run benchmark mode for N seconds, then show results and exit.</td></tr><tr><td id="field-capture-frames-dir"><code>capture_frames_dir</code></td><td><code>pub capture_frames_dir: Option&lt;PathBuf&gt;</code></td><td><code>Option&lt;PathBuf&gt;</code></td><td>Capture frames to this directory for visual regression testing.</td></tr><tr><td id="field-target-fps-override"><code>target_fps_override</code></td><td><code>pub target_fps_override: Option&lt;u16&gt;</code></td><td><code>Option&lt;u16&gt;</code></td><td>Override the mod&#x27;s target FPS (e.g. 240 for uncapped benchmarks).</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <p><em>No methods captured from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

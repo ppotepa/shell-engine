@@ -3,6 +3,11 @@ name = "app"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["sdl2"]
+sdl2 = ["engine/sdl2"]
+
 [dependencies]
 engine = { path = "../engine" }
+engine-mod = { path = "../engine-mod" }
 clap = { workspace = true }

@@ -3,6 +3,10 @@ name = "engine"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+sdl2 = ["dep:engine-render-sdl2"]
+
 [dependencies]
 engine-authoring = { workspace = true }
 engine-animation = { path = "../engine-animation" }
@@ -11,6 +15,7 @@ engine-3d = { path = "../engine-3d" }
 engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }
 engine-render = { path = "../engine-render" }
+engine-render-sdl2 = { path = "../engine-render-sdl2", optional = true }
 engine-render-policy = { path = "../engine-render-policy" }
 engine-render-terminal = { path = "../engine-render-terminal" }
 engine-runtime = { path = "../engine-runtime" }

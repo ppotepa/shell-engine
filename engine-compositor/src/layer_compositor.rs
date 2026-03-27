@@ -1,9 +1,9 @@
 use super::effect_applicator::apply_layer_effects;
 use super::sprite_renderer::render_sprites;
-use engine_core::color::Color;
 use engine_animation::SceneStage;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
+use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene::{Layer, SceneRenderedMode};
 use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
@@ -33,6 +33,7 @@ pub fn composite_layers(
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
+    is_pixel_backend: bool,
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
@@ -116,6 +117,7 @@ pub fn composite_layers(
                     step_idx,
                     elapsed_ms,
                     obj_camera_states,
+                    is_pixel_backend,
                     &mut *layer_buf,
                 );
 
@@ -153,6 +155,7 @@ pub fn composite_layers(
                 step_idx,
                 elapsed_ms,
                 obj_camera_states,
+                is_pixel_backend,
                 buffer,
             );
         }

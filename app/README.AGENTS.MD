@@ -9,6 +9,7 @@ All flags passed via command-line or environment variables:
 | `--mod-source <PATH>` | Load mod from directory instead of built-in | String |
 | `--bench <SECS>` | Benchmark mode, run for N seconds | Number |
 | `--capture-frames <DIR>` | Capture binary frames to directory | String |
+| `--output <terminal\|sdl2\|prompt>` | Override startup backend selection | String |
 | `--audio` | Enable audio output (default: off) | Boolean |
 | `--opt-comp` | Compositor optimizations | Boolean |
 | `--opt-diff` | Dirty-region diff scan | Boolean |
@@ -23,12 +24,24 @@ All flags passed via command-line or environment variables:
 **EngineConfig** (set from CLI flags):
 ```
 pub struct EngineConfig {
-    pub bench_secs: Option<u32>,           // --bench <N>
-    pub capture_frames: Option<String>,    // --capture-frames <DIR>
-    pub audio_enabled: bool,               // --audio
-    pub debug_feature: bool,               // --debug-feature
+    pub output_backend: BackendKind,       // resolved from --output or mod.yaml
+    pub renderer_mode: Option<String>,     // --renderer-mode <MODE>
+    pub bench_secs: Option<f32>,           // --bench <SECS>
+    pub capture_frames_dir: Option<PathBuf>, // --capture-frames <DIR>
+    pub audio: bool,                       // --audio
+    pub debug_feature: bool,               // --dev / --debug-feature
 }
 ```
+
+**Mod manifest startup output**:
+```yaml
+output_backend: prompt   # terminal | sdl2 | prompt
+```
+
+Precedence:
+1. CLI `--output` when provided
+2. mod.yaml `output_backend`
+3. fallback `terminal`
 
 **PipelineFlags** (optimization toggles):
 ```
@@ -44,7 +57,7 @@ pub struct PipelineFlags {
 ## App Startup Flow
 
 1. **Parse CLI args** (`cli.rs`)
-   - Extract `--mod-source`, `--bench`, `--capture-frames`, opt flags
+   - Extract `--mod-source`, `--output`, `--bench`, `--capture-frames`, opt flags
    - Set `EngineConfig` and `PipelineFlags`
 
 2. **Initialize audio** (if `--audio` enabled)
@@ -74,4 +87,4 @@ pub struct PipelineFlags {
 - **PipelineStrategies**: Created via `PipelineFlags::from_cli()` → strategies chosen per flag
 - **BenchmarkState**: Registered once, populated per frame
 - **World setup**: Subsystems added via `app.register_system()`
-- **Event loop**: Handled by crossterm for input, frame pacing via sleep
+- **Event loop**: Routed through `InputBackend` (`TerminalInputBackend` or `Sdl2InputBackend`), frame pacing via sleep

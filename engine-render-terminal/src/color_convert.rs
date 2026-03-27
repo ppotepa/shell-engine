@@ -83,7 +83,11 @@ mod tests {
 
     #[test]
     fn round_trip_rgb() {
-        let c = Color::Rgb { r: 100, g: 150, b: 200 };
+        let c = Color::Rgb {
+            r: 100,
+            g: 150,
+            b: 200,
+        };
         assert_eq!(from_crossterm(to_crossterm(c)), c);
     }
 

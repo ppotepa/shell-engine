@@ -33,6 +33,9 @@ properties:
   virtual-size-override:
     type: string
     pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
+    description: >
+      Optional scene-local render canvas override in WIDTHxHEIGHT form.
+      Compatibility-only: prefer setting `terminal.render_size` once at the mod level.
   bg_colour:
     $ref: "./scene.schema.yaml#/$defs/colour"
   bg:

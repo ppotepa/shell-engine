@@ -2,8 +2,8 @@
 //! Underlay pass and the unified CRT composite pass.
 
 use super::{colour_luma, normalize_bg, rand01};
-use engine_core::color::Color;
 use engine_core::buffer::{Buffer, Cell};
+use engine_core::color::Color;
 use engine_core::effects::utils::color::colour_to_rgb;
 use std::cell::RefCell;
 

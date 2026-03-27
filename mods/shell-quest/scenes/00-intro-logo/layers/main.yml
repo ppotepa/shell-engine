@@ -210,6 +210,7 @@
       at: cc
       font: "Abril Fatface:ascii"
       fg: white
+      scale-y: 1.5
       appear_at_ms: 0
       disappear_at_ms: 800
       stages:
@@ -232,6 +233,7 @@
       at: cc
       font: "Abril Fatface:raster"
       fg: gray
+      scale-y: 1.5
       appear_at_ms: 800
       stages:
         on_enter:

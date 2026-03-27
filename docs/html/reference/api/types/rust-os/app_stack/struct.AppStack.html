@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AppStack — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> AppStack</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/rust-os/app_stack.html">rust-os::app_stack</a> / AppStack</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:rust-os/src/app_stack.rs:AppStack</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>rust-os/src/app_stack.rs:10</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:rust-os/src/app_stack.rs" href="../../../modules/rust-os/app_stack.html"><code>rust-os::app_stack</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Stack-based application manager with delayed output drain.</p>
+          <div class="signature-block"><pre><code>pub struct AppStack {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Stack-based application manager with delayed output drain.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-pending"><code>pending</code></td><td><code>pending: Vec&lt;PendingLine&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:rust-os/src/app_stack.rs:PendingLine" href="struct.PendingLine.html"><code>PendingLine</code></a></div></td><td><code>Vec&lt;PendingLine&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-15"><code>new</code></td><td><code>pub fn new() -&gt; Self {</code></td><td></td></tr><tr><td id="method-enqueue-20"><code>enqueue</code></td><td><code>pub fn enqueue(&amp;mut self, base_ms: u64, lines: Vec&lt;ScheduledLine&gt;) {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/unit_of_work.rs:ScheduledLine" href="../kernel/unit_of_work/struct.ScheduledLine.html"><code>ScheduledLine</code></a></div></td><td>Enqueue scheduled lines from a command execution.</td></tr><tr><td id="method-drain-ready-32"><code>drain_ready</code></td><td><code>pub fn drain_ready(&amp;mut self, now_ms: u64) -&gt; Vec&lt;String&gt; {</code></td><td>Drain all lines that are due by `now_ms`. Returns them in order.</td></tr><tr><td id="method-has-pending-45"><code>has_pending</code></td><td><code>pub fn has_pending(&amp;self) -&gt; bool {</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:rust-os/src/app_stack.rs:PendingLine" href="struct.PendingLine.html"><code>PendingLine</code></a> <span class="entity-meta">struct · rust-os/src/app_stack.rs</span></li><li><a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/unit_of_work.rs:ScheduledLine" href="../kernel/unit_of_work/struct.ScheduledLine.html"><code>ScheduledLine</code></a> <span class="entity-meta">struct · rust-os/src/kernel/unit_of_work.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

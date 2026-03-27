@@ -1,2 +1,2 @@
-//! Re-exports renderer system from engine-render-terminal for backward compatibility.
-pub use engine_render_terminal::{flush_batched, renderer_system, resolve_color, TerminalRenderer};
+//! Minimal renderer re-exports used by the engine runtime.
+pub use engine_render_terminal::{renderer_system, TerminalRenderer};

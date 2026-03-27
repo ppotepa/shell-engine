@@ -261,9 +261,6 @@ impl SceneRuntime {
             let mut submit_event = None;
             let mut change_event = None;
             for key in key_presses {
-                if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
-                    continue;
-                }
                 match key.code {
                     KeyCode::Esc => {
                         if !state.input.value().is_empty() {
@@ -637,7 +634,6 @@ impl SceneRuntime {
 fn terminal_input_request(key: &KeyEvent) -> Option<InputRequest> {
     use InputRequest::*;
     match (key.code, key.modifiers) {
-        (_, _) if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => None,
         (KeyCode::Backspace, KeyModifiers::NONE) | (KeyCode::Char('h'), KeyModifiers::CONTROL) => {
             Some(DeletePrevChar)
         }

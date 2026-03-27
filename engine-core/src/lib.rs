@@ -11,10 +11,10 @@ pub mod asset_cache;
 pub mod assets;
 /// Authoring metadata and field catalogues for the editor.
 pub mod authoring;
-/// Platform-agnostic color abstraction (RGB + named colors).
-pub mod color;
 /// Terminal cell buffer for rendering.
 pub mod buffer;
+/// Platform-agnostic color abstraction (RGB + named colors).
+pub mod color;
 /// Visual effects system and built-in effect implementations.
 pub mod effects;
 /// Core scene-object types: [`GameObjectKind`] and [`GameObject`].

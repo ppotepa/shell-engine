@@ -21,10 +21,11 @@ shell-quest/
 ├── engine-game/               Persistent game state (key-value)
 ├── engine-io/                 Transport-agnostic IPC bridge (sidecar)
 ├── engine-mod/                Mod manifest loading (dir + zip)
-├── engine-pipeline/           PipelineFlags (pure data)
-├── engine-render/             RenderBackend trait
+├── engine-pipeline/           Backend-agnostic render pipeline strategies
+├── engine-render/             Shared render traits (`RenderBackend`, `OutputBackend`)
 ├── engine-render-policy/      Render scheduling policies
-├── engine-render-terminal/    Crossterm terminal presenter
+├── engine-render-terminal/    Crossterm terminal presenter + input backend
+├── engine-render-sdl2/        Optional SDL2 presenter + input backend
 ├── engine-runtime/            RuntimeSettings, virtual-size parsing
 ├── engine-terminal/           Terminal detection and configuration
 ├── mods/                      Content mods
@@ -83,16 +84,16 @@ Executed in this fixed order every frame inside `game_loop.rs`:
 
 | # | System | Timing Field | Purpose |
 |---|--------|-------------|---------|
-| 1 | input | `input_us` | Crossterm event polling (keyboard, mouse, resize) |
+| 1 | input | `input_us` | Active `InputBackend` polling (terminal or SDL2) |
 | 2 | lifecycle | `lifecycle_us` | Scene transitions, event drain |
 | 3 | animator | `animator_us` | Stage/step advancement via elapsed time |
 | 4 | hot_reload | `hot_reload_us` | Dev-mode file change scanning |
 | 5 | engine_io | `engine_io_us` | Sidecar IPC bridge (transport-agnostic) |
 | 6 | behavior | `behavior_us` | Rhai script execution per behavior |
 | 7 | audio | `audio_us` | Audio playback tick |
-| 8 | compositor | `compositor_us` | Layer blitting + sprite rendering to virtual buffer |
+| 8 | compositor | `compositor_us` | Layer blitting + sprite rendering to the render buffer |
 | 9 | postfx | `postfx_us` | Post-processing effects (scanline, glitch, etc.) |
-| 10 | renderer | `renderer_us` | Double-buffer diff + terminal flush pipeline |
+| 10 | renderer | `renderer_us` | Double-buffer diff + active output backend present |
 | 11 | sleep | `sleep_us` | Frame budget sleep (target FPS remainder) |
 
 After step 10, the frame-skip oracle is notified via `oracle.frame_advanced()`.
@@ -108,7 +109,6 @@ pub struct PipelineStrategies {
     pub layer:     Box<dyn LayerCompositor>,
     pub halfblock: Box<dyn HalfblockPacker>,
     pub present:   Box<dyn VirtualPresenter>,
-    pub flush:     Box<dyn TerminalFlusher>,
 }
 ```
 
@@ -121,12 +121,12 @@ pub struct PipelineStrategies {
 | `--opt-present` | `VirtualPresenter` | `AlwaysPresenter` | `HashSkipPresenter` |
 | `--opt-skip` | `FrameSkipOracle` | `AlwaysRender` | `CoordinatedSkip` |
 
-Additional non-flagged strategies:
+Additional non-flagged strategy families:
 
 | Trait | Implementations | Selection |
 |-------|----------------|-----------|
-| `TerminalFlusher` | `NaiveFlusher`, `AnsiBatchFlusher` | `AnsiBatchFlusher` is default |
 | `SceneCompositor` | `CellSceneCompositor`, `HalfblockSceneCompositor` | Auto from renderer mode |
+| `TerminalFlusher` | `NaiveFlusher`, `AnsiBatchFlusher` | Owned by `TerminalRenderer`, default is `AnsiBatchFlusher` |
 
 The umbrella flag `--opt` enables all optimizations at once.
 
@@ -294,7 +294,7 @@ editor, start screen, live refresh (~1.2s).
 |------------|----------------|
 | Scene model/fields | `engine-core` model, `engine-authoring` compile/normalize, schema surfaces, runtime consumption |
 | Effect params | Effect metadata, schema generation, editor consumption |
-| Render/compositor | Verify compositor + renderer + virtual buffer interactions |
+| Render/compositor | Verify compositor + renderer + backend presentation interactions |
 | Transitions/lifecycle | Verify scoped reset behavior, scene loader reference resolution |
 | Rhai script API | `BehaviorContext`, scope push block in `RhaiScriptBehavior::update`, `scene-centric-authoring.md` sec 13, regression test in `behavior::tests` |
 | Debug/diagnostics | Push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut` |

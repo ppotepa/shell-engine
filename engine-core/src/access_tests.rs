@@ -2,7 +2,7 @@
 mod access_trait_integration_tests {
     use crate::access::{AssetAccess, BufferAccess, GameStateAccess};
     use crate::assets::AssetRoot;
-    use crate::buffer::{Buffer, VirtualBuffer};
+    use crate::buffer::Buffer;
     use crate::game_state::GameState;
     use crate::world::World;
     use std::path::PathBuf;
@@ -13,15 +13,12 @@ mod access_trait_integration_tests {
 
         // Register resources from engine-core
         world.register(Buffer::new(80, 24));
-        world.register(VirtualBuffer::new(320, 200));
         world.register(GameState::new());
         world.register(AssetRoot::new(PathBuf::from("/tmp")));
 
         // Test BufferAccess
         assert!(world.buffer().is_some());
         assert!(world.buffer_mut().is_some());
-        assert!(world.virtual_buffer().is_some());
-        assert!(world.virtual_buffer_mut().is_some());
 
         // Test GameStateAccess
         assert!(world.game_state().is_some());
@@ -60,12 +57,10 @@ mod access_trait_integration_tests {
         world.register(GameState::new());
         world.register(Buffer::new(80, 24));
         world.register(AssetRoot::new(PathBuf::from("/")));
-        world.register(VirtualBuffer::new(160, 100));
 
         // All retrievable
         assert!(world.buffer().is_some());
         assert!(world.game_state().is_some());
         assert!(world.asset_root().is_some());
-        assert!(world.virtual_buffer().is_some());
     }
 }

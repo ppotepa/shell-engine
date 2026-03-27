@@ -74,7 +74,7 @@ fn glow_cache_key(
 
 use super::layout::{
     compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
-    RenderArea,
+    with_pixel_backend, RenderArea,
 };
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
@@ -104,6 +104,7 @@ pub fn render_sprites(
     step_idx: usize,
     elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
+    is_pixel_backend: bool,
     layer_buf: &mut Buffer,
 ) {
     let mut ctx = RenderCtx {
@@ -114,6 +115,7 @@ pub fn render_sprites(
         elapsed_ms,
         layer_buf,
         obj_camera_states,
+        is_pixel_backend,
     };
     let root_area = RenderArea {
         origin_x: root_origin_x,
@@ -123,22 +125,24 @@ pub fn render_sprites(
     };
     // Reuse one path Vec across sprites; Grid extends/truncates it in-place per child.
     let mut sprite_path: Vec<usize> = Vec::with_capacity(8);
-    for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
-        sprite_path.clear();
-        sprite_path.push(sprite_idx);
-        render_sprite(
-            layer_idx,
-            &mut sprite_path,
-            sprite,
-            root_area,
-            scene_rendered_mode,
-            None,
-            target_resolver,
-            object_regions,
-            object_states,
-            &mut ctx,
-        );
-    }
+    with_pixel_backend(is_pixel_backend, || {
+        for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
+            sprite_path.clear();
+            sprite_path.push(sprite_idx);
+            render_sprite(
+                layer_idx,
+                &mut sprite_path,
+                sprite,
+                root_area,
+                scene_rendered_mode,
+                None,
+                target_resolver,
+                object_regions,
+                object_states,
+                &mut ctx,
+            );
+        }
+    });
 }
 
 fn render_sprite(
@@ -191,6 +195,8 @@ fn render_sprite(
             reveal_ms,
             glow,
             text_transform,
+            scale_x,
+            scale_y,
             ..
         } => {
             let total_chars = content.chars().count();
@@ -222,6 +228,7 @@ fn render_sprite(
                 *size,
                 inherited_mode,
                 *force_renderer_mode,
+                ctx.is_pixel_backend,
             );
             let mod_source = ctx.asset_root.map(|root| root.mod_source());
             let (sprite_width, sprite_height) = text_sprite_dimensions(
@@ -230,6 +237,8 @@ fn render_sprite(
                 resolved_font.as_deref(),
                 fg,
                 sprite_bg,
+                *scale_x,
+                *scale_y,
             );
 
             let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
@@ -289,6 +298,8 @@ fn render_sprite(
                                 None,
                                 &mut scratch,
                                 text_transform,
+                                *scale_x,
+                                *scale_y,
                             );
                         }
                     }
@@ -339,6 +350,8 @@ fn render_sprite(
                 clip,
                 ctx.layer_buf,
                 text_transform,
+                *scale_x,
+                *scale_y,
             );
             let sprite_region = Region {
                 x: draw_x,

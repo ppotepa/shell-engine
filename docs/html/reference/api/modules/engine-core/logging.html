@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine-core::logging — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine-core::logging</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../index.html">Home</a> / <a href="../../index.html">API Reference</a> / <a href="../index.html">Modules</a> / engine-core::logging</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Run-scoped file logging shared by launcher, runtime, and editor. Directory layout (default): `logs/&lt;dd-mm-yy&gt;/run-XXX/run.log`</p>
+        <p><strong>Source:</strong> <code>engine-core/src/logging.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Run-scoped file logging shared by launcher, runtime, and editor.</p>
+<p>Directory layout (default): `logs/&lt;dd-mm-yy&gt;/run-XXX/run.log`</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-core/src/logging.rs:LogLevel" href="../../types/engine-core/logging/enum.LogLevel.html"><code>LogLevel</code></a> <span class="entity-meta">enum</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/logging.rs:LogOverlayLine" href="../../types/engine-core/logging/struct.LogOverlayLine.html"><code>LogOverlayLine</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/logging.rs:RunLogInfo" href="../../types/engine-core/logging/struct.RunLogInfo.html"><code>RunLogInfo</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/logging.rs:RunLoggerConfig" href="../../types/engine-core/logging/struct.RunLoggerConfig.html"><code>RunLoggerConfig</code></a> <span class="entity-meta">struct</span></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-resolve-enabled"><code>resolve_enabled</code></td><td><code>pub fn resolve_enabled(force_enabled: bool, force_disabled: bool) -&gt; bool {</code></td><td>Resolves default `enabled` state from explicit flags and environment. Priority: 1. `--no-logs` (`force_disabled`) 2. `--logs` (`force_enabled`) 3. debug build (`cfg!(debug_assertions)`) 4. `SHELL_QUEST_LOGS=1|true|yes|on`</td></tr><tr><td id="fn-init-run-logger"><code>init_run_logger</code></td><td><code>pub fn init_run_logger(config: RunLoggerConfig) -&gt; io::Result&lt;Option&lt;RunLogInfo&gt;&gt; {</code></td><td>Initializes the process-global run logger. Returns `Ok(None)` when logging is disabled. If logger is already initialized, returns the existing [`RunLogInfo`].</td></tr><tr><td id="fn-install-panic-hook"><code>install_panic_hook</code></td><td><code>pub fn install_panic_hook(target: &amp;&#x27;static str) {</code></td><td>Installs a panic hook that forwards panic diagnostics into the run log.</td></tr><tr><td id="fn-is-enabled"><code>is_enabled</code></td><td><code>pub fn is_enabled() -&gt; bool {</code></td><td>Returns `true` when a run logger is active for this process.</td></tr><tr><td id="fn-run-log-info"><code>run_log_info</code></td><td><code>pub fn run_log_info() -&gt; Option&lt;RunLogInfo&gt; {</code></td><td>Returns filesystem info for the active run logger, if initialized.</td></tr><tr><td id="fn-tail-recent"><code>tail_recent</code></td><td><code>pub fn tail_recent(limit: usize) -&gt; Vec&lt;LogOverlayLine&gt; {</code></td><td>Returns the most recent N log entries from the in-memory ring buffer.</td></tr><tr><td id="fn-log"><code>log</code></td><td><code>pub fn log(level: LogLevel, target: &amp;str, message: impl AsRef&lt;str&gt;) {</code></td><td>Writes a message at the given [`LogLevel`] and `target`.</td></tr><tr><td id="fn-debug"><code>debug</code></td><td><code>pub fn debug(target: &amp;str, message: impl AsRef&lt;str&gt;) {</code></td><td>Convenience logger at `DEBUG` level.</td></tr><tr><td id="fn-info"><code>info</code></td><td><code>pub fn info(target: &amp;str, message: impl AsRef&lt;str&gt;) {</code></td><td>Convenience logger at `INFO` level.</td></tr><tr><td id="fn-warn"><code>warn</code></td><td><code>pub fn warn(target: &amp;str, message: impl AsRef&lt;str&gt;) {</code></td><td>Convenience logger at `WARN` level.</td></tr><tr><td id="fn-error"><code>error</code></td><td><code>pub fn error(target: &amp;str, message: impl AsRef&lt;str&gt;) {</code></td><td>Convenience logger at `ERROR` level.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../codemap.js"></script>
+  <script defer src="../../../../docref.js" data-codemap-json="../../../../codemap.json"></script>
+</body>
+</html>

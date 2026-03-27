@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BenchmarkState — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> BenchmarkState</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine/bench.html">engine::bench</a> / BenchmarkState</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/bench.rs:BenchmarkState</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/bench.rs:37</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/bench.rs" href="../../../modules/engine/bench.html"><code>engine::bench</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Lives as a `World` resource while `--bench` is active.</p>
+          <div class="signature-block"><pre><code>pub struct BenchmarkState {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Lives as a `World` resource while `--bench` is active.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-duration"><code>duration</code></td><td><code>pub duration: Duration</code></td><td><code>Duration</code></td><td></td></tr><tr><td id="field-opt-comp"><code>opt_comp</code></td><td><code>pub opt_comp: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-opt-present"><code>opt_present</code></td><td><code>pub opt_present: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-opt-diff"><code>opt_diff</code></td><td><code>pub opt_diff: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-start"><code>start</code></td><td><code>start: Instant</code></td><td><code>Instant</code></td><td></td></tr><tr><td id="field-samples"><code>samples</code></td><td><code>samples: Vec&lt;FrameSample&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/bench.rs:FrameSample" href="struct.FrameSample.html"><code>FrameSample</code></a></div></td><td><code>Vec&lt;FrameSample&gt;</code></td><td></td></tr><tr><td id="field-results-shown"><code>results_shown</code></td><td><code>pub results_shown: bool</code></td><td><code>bool</code></td><td>Set once the results screen has been rendered.</td></tr><tr><td id="field-results-shown-at"><code>results_shown_at</code></td><td><code>results_shown_at: Option&lt;Instant&gt;</code></td><td><code>Option&lt;Instant&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-50"><code>new</code></td><td><code>pub fn new(duration_secs: f32, opt_comp: bool, opt_present: bool, opt_diff: bool) -&gt; Self {</code></td><td></td></tr><tr><td id="method-push-64"><code>push</code></td><td><code>pub fn push(&amp;mut self, sample: FrameSample) { self.samples.push(sample); }</code></td><td></td></tr><tr><td id="method-time-up-66"><code>time_up</code></td><td><code>pub fn time_up(&amp;self) -&gt; bool { self.start.elapsed() &gt;= self.duration } pub fn should_quit(&amp;self) -&gt; bool {</code></td><td></td></tr><tr><td id="method-mark-results-shown-74"><code>mark_results_shown</code></td><td><code>pub fn mark_results_shown(&amp;mut self) {</code></td><td></td></tr><tr><td id="method-results-81"><code>results</code></td><td><code>pub fn results(&amp;self) -&gt; BenchResults {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/bench.rs:BenchResults" href="struct.BenchResults.html"><code>BenchResults</code></a></div></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine/src/bench.rs:BenchResults" href="struct.BenchResults.html"><code>BenchResults</code></a> <span class="entity-meta">struct · engine/src/bench.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/bench.rs:FrameSample" href="struct.FrameSample.html"><code>FrameSample</code></a> <span class="entity-meta">struct · engine/src/bench.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

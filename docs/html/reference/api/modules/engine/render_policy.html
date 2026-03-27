@@ -17,12 +17,13 @@
     <main class="content">
       <section class="doc-section">
         <h2>Overview</h2>
-        <p>Renderer-mode and font-spec resolution helpers used by the compositor.</p>
+        <p>Render policy strategies for optimal frame presentation. This module re-exports types from engine-render-policy for backward compatibility.</p>
         <p><strong>Source:</strong> <code>engine/src/render_policy.rs</code></p>
       </section>
       <section class="doc-section">
         <h2>Module docs</h2>
-        <p>Renderer-mode and font-spec resolution helpers used by the compositor.</p>
+        <p>Render policy strategies for optimal frame presentation.</p>
+<p>This module re-exports types from engine-render-policy for backward compatibility.</p>
       </section>
       <section class="doc-section">
         <h2>Public types</h2>
@@ -30,7 +31,7 @@
       </section>
       <section class="doc-section">
         <h2>Public functions</h2>
-        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-resolve-renderer-mode"><code>resolve_renderer_mode</code></td><td><code>pub fn resolve_renderer_mode( scene_mode: SceneRenderedMode, force_renderer_mode: Option&lt;SceneRenderedMode&gt;, ) -&gt; SceneRenderedMode {</code></td><td>Returns the effective render mode, applying `force_renderer_mode` over `scene_mode` when set.</td></tr><tr><td id="fn-resolve-font-spec"><code>resolve_font_spec</code></td><td><code>pub fn resolve_font_spec( font: Option&lt;&amp;str&gt;, force_font_mode: Option&lt;&amp;str&gt;, scene_mode: SceneRenderedMode, force_renderer_mode: Option&lt;SceneRenderedMode&gt;, ) -&gt; Option&lt;String&gt; {</code></td><td>Resolves the final font spec string, applying force-font and generic-mode overrides.</td></tr><tr><td id="fn-resolve-text-font-spec"><code>resolve_text_font_spec</code></td><td><code>pub fn resolve_text_font_spec( font: Option&lt;&amp;str&gt;, force_font_mode: Option&lt;&amp;str&gt;, size: Option&lt;SpriteSizePreset&gt;, scene_mode: SceneRenderedMode, force_renderer_mode: Option&lt;SceneRenderedMode&gt;, ) -&gt; Option&lt;String&gt; {</code></td><td>Resolves the font spec for a text sprite, deriving a generic mode from `size` when appropriate.</td></tr></tbody></table>
+        <p><em>No public items captured in this category.</em></p>
       </section>
       <section class="doc-section">
         <h2>Public constants</h2>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScreenBuffer — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> ScreenBuffer</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/rust-os/screen_buffer.html">rust-os::screen_buffer</a> / ScreenBuffer</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:rust-os/src/screen_buffer.rs:ScreenBuffer</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>rust-os/src/screen_buffer.rs:4</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:rust-os/src/screen_buffer.rs" href="../../../modules/rust-os/screen_buffer.html"><code>rust-os::screen_buffer</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>ScreenBuffer is documented from the concat snapshot.</p>
+          <div class="signature-block"><pre><code>pub struct ScreenBuffer {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p><em>No doc comments were present in the concat snapshot.</em></p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-visible"><code>visible</code></td><td><code>visible: Vec&lt;String&gt;</code></td><td><code>Vec&lt;String&gt;</code></td><td></td></tr><tr><td id="field-viewport-rows"><code>viewport_rows</code></td><td><code>viewport_rows: usize</code></td><td><code>usize</code></td><td></td></tr><tr><td id="field-viewport-cols"><code>viewport_cols</code></td><td><code>viewport_cols: usize</code></td><td><code>usize</code></td><td></td></tr><tr><td id="field-prompt-prefix"><code>prompt_prefix</code></td><td><code>prompt_prefix: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-input-line"><code>input_line</code></td><td><code>input_line: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-cursor-x"><code>cursor_x</code></td><td><code>cursor_x: u16</code></td><td><code>u16</code></td><td></td></tr><tr><td id="field-cursor-y"><code>cursor_y</code></td><td><code>cursor_y: u16</code></td><td><code>u16</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-15"><code>new</code></td><td><code>pub fn new(cols: usize, rows: usize) -&gt; Self {</code></td><td></td></tr><tr><td id="method-set-viewport-27"><code>set_viewport</code></td><td><code>pub fn set_viewport(&amp;mut self, cols: usize, rows: usize) {</code></td><td></td></tr><tr><td id="method-set-prompt-32"><code>set_prompt</code></td><td><code>pub fn set_prompt(&amp;mut self, prefix: &amp;str) {</code></td><td></td></tr><tr><td id="method-set-input-line-36"><code>set_input_line</code></td><td><code>pub fn set_input_line(&amp;mut self, val: &amp;str) {</code></td><td></td></tr><tr><td id="method-append-45"><code>append</code></td><td><code>pub fn append(&amp;mut self, lines: &amp;[String]) {</code></td><td></td></tr><tr><td id="method-commit-input-line-58"><code>commit_input_line</code></td><td><code>pub fn commit_input_line(&amp;mut self) {</code></td><td></td></tr><tr><td id="method-send-frame-65"><code>send_frame</code></td><td><code>pub fn send_frame(&amp;self) -&gt; IoEvent {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoEvent" href="../../engine-io/lib/enum.IoEvent.html"><code>IoEvent</code></a></div></td><td></td></tr><tr><td id="method-clear-78"><code>clear</code></td><td><code>pub fn clear(&amp;mut self) {</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-io/src/lib.rs:IoEvent" href="../../engine-io/lib/enum.IoEvent.html"><code>IoEvent</code></a> <span class="entity-meta">enum · engine-io/src/lib.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

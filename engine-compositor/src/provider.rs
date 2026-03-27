@@ -5,7 +5,6 @@ use std::any::Any;
 /// Provides access to compositor-needed resources from World.
 pub trait CompositorProvider {
     fn buffer_mut(&mut self) -> Option<&mut dyn Any>;
-    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn Any>;
     fn scene_runtime(&self) -> Option<&dyn Any>;
     fn animator(&self) -> Option<&dyn Any>;
     fn asset_root(&self) -> Option<&dyn Any>;

@@ -35,9 +35,6 @@ impl SceneRuntime {
         }
         let mut changed = false;
         for key in key_presses {
-            if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
-                continue;
-            }
             match key.code {
                 KeyCode::BackTab => {
                     self.focus_prev();

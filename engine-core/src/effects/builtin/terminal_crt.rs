@@ -1,13 +1,13 @@
 //! Scene/layer post-process that emulates a classic CRT terminal look.
 
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
+use crate::color::Color;
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{slider, EffectMetadata, P_EASING};
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::effects::utils::math::smoothstep;
 use crate::effects::utils::noise::crt_hash;
 use crate::scene::EffectParams;
-use crate::color::Color;
 use std::f32::consts::TAU;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
@@ -229,9 +229,9 @@ fn scale_colour(base: Color, mul: f32) -> Color {
 mod tests {
     use super::{TerminalCrtEffect, METADATA};
     use crate::buffer::Buffer;
+    use crate::color::Color;
     use crate::effects::effect::{Effect, EffectTargetMask, Region};
     use crate::scene::EffectParams;
-    use crate::color::Color;
 
     #[test]
     fn metadata_supports_scene_and_layer_only() {

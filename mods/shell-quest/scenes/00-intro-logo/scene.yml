@@ -8,10 +8,11 @@
 id: 00.intro.logo
 title: 00 Intro Logo
 cutscene: true
+# The mod owns a fixed intro canvas globally, so this scene no longer overrides
+# render size locally.
 bg: black
 layers:
   - ref: main
-# Inherit mod-level `virtual_size: max-available` so the intro fills the terminal.
 stages:
   on_enter:
     steps:

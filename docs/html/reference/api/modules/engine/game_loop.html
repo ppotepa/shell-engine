@@ -30,7 +30,7 @@
       </section>
       <section class="doc-section">
         <h2>Public functions</h2>
-        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-game-loop"><code>game_loop</code></td><td><code>pub fn game_loop(world: &amp;mut World, target_fps: u16) -&gt; Result&lt;(), EngineError&gt; {</code></td><td>Runs the engine game loop for `world` at `target_fps` until the player quits.</td></tr></tbody></table>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-game-loop"><code>game_loop</code></td><td><code>pub fn game_loop( world: &amp;mut World, target_fps: u16, frame_capture: &amp;mut Option&lt;crate::frame_capture::FrameCapture&gt;, ) -&gt; Result&lt;(), EngineError&gt; {</code></td><td>Runs the engine game loop for `world` at `target_fps` until the player quits. If `frame_capture` is provided, captures each frame after rendering.</td></tr></tbody></table>
       </section>
       <section class="doc-section">
         <h2>Public constants</h2>

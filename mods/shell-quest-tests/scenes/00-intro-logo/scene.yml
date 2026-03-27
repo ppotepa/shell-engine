@@ -3,6 +3,7 @@
 id: 00.intro.logo
 title: 00 Intro Logo (Test)
 cutscene: true
+# Use the same fixed canvas as the main mod without a scene-local override.
 bg: black
 layers:
   - ref: main

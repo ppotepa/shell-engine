@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiffStrategy — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge trait">trait</span> DiffStrategy</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine-core/strategy/diff.html">engine-core::strategy::diff</a> / DiffStrategy</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>trait:engine-core/src/strategy/diff.rs:DiffStrategy</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-core/src/strategy/diff.rs:12</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-core/src/strategy/diff.rs" href="../../../../modules/engine-core/strategy/diff.html"><code>engine-core::strategy::diff</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Controls how the double-buffer diff is scanned each frame. `FullScanDiff` is the safe default: always scans the entire W×H grid. `DirtyRegionDiff` is an experimental optimisation: restricts the scan to the tracked dirty bounding box. Only safe when `fill()` is guaranteed to have run this frame with no `reset_dirty()` call after it. `RowSkipDiff` skips entire rows marked not dirty. Complements DirtyRegionDiff.</p>
+          <div class="signature-block"><pre><code>pub trait DiffStrategy: Send + Sync {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Controls how the double-buffer diff is scanned each frame.</p>
+<p>`FullScanDiff` is the safe default: always scans the entire W×H grid. `DirtyRegionDiff` is an experimental optimisation: restricts the scan to the tracked dirty bounding box. Only safe when `fill()` is guaranteed to have run this frame with no `reset_dirty()` call after it. `RowSkipDiff` skips entire rows marked not dirty. Complements DirtyRegionDiff.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-diff-into"><code>diff_into</code></td><td><code>fn diff_into(&amp;self, buf: &amp;Buffer, out: &amp;mut Vec&lt;(u16, u16, char, Color, Color)&gt;);</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Buffer" href="../../buffer/struct.Buffer.html"><code>Buffer</code></a></div></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implementors</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/strategy/diff.rs:DirtyRegionDiff" href="struct.DirtyRegionDiff.html"><code>DirtyRegionDiff</code></a> <span class="entity-meta">struct · engine-core/src/strategy/diff.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/strategy/diff.rs:FullScanDiff" href="struct.FullScanDiff.html"><code>FullScanDiff</code></a> <span class="entity-meta">struct · engine-core/src/strategy/diff.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine-core/src/strategy/diff.rs:RowSkipDiff" href="struct.RowSkipDiff.html"><code>RowSkipDiff</code></a> <span class="entity-meta">struct · engine-core/src/strategy/diff.rs</span></li></ul>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Buffer" href="../../buffer/struct.Buffer.html"><code>Buffer</code></a> <span class="entity-meta">struct · engine-core/src/buffer.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vfs — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> Vfs</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/rust-os/vfs/mod.html">rust-os::vfs::mod</a> / Vfs</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:rust-os/src/vfs/mod.rs:Vfs</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>rust-os/src/vfs/mod.rs:9</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:rust-os/src/vfs/mod.rs" href="../../../../modules/rust-os/vfs/mod.html"><code>rust-os::vfs::mod</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>In-memory virtual filesystem. Directories stored as BTreeMap entries with None content. Files stored with Some(content).</p>
+          <div class="signature-block"><pre><code>pub struct Vfs {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>In-memory virtual filesystem. Directories stored as BTreeMap entries with None content. Files stored with Some(content).</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-files"><code>files</code></td><td><code>files: BTreeMap&lt;String, Option&lt;String&gt;&gt;</code></td><td><code>BTreeMap&lt;String, Option&lt;String&gt;&gt;</code></td><td></td></tr><tr><td id="field-stats"><code>stats</code></td><td><code>stats: BTreeMap&lt;String, FileStat&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:rust-os/src/state.rs:FileStat" href="../../state/struct.FileStat.html"><code>FileStat</code></a></div></td><td><code>BTreeMap&lt;String, FileStat&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-15"><code>new</code></td><td><code>pub fn new() -&gt; Self {</code></td><td></td></tr><tr><td id="method-mkdir-24"><code>mkdir</code></td><td><code>pub fn mkdir(&amp;mut self, path: &amp;str) {</code></td><td></td></tr><tr><td id="method-write-file-37"><code>write_file</code></td><td><code>pub fn write_file(&amp;mut self, path: &amp;str, content: &amp;str, owner: &amp;str) {</code></td><td></td></tr><tr><td id="method-write-file-with-perms-55"><code>write_file_with_perms</code></td><td><code>pub fn write_file_with_perms(&amp;mut self, path: &amp;str, content: &amp;str, owner: &amp;str, perms: &amp;str) {</code></td><td></td></tr><tr><td id="method-read-file-62"><code>read_file</code></td><td><code>pub fn read_file(&amp;self, path: &amp;str) -&gt; Option&lt;&amp;str&gt; {</code></td><td></td></tr><tr><td id="method-exists-67"><code>exists</code></td><td><code>pub fn exists(&amp;self, path: &amp;str) -&gt; bool {</code></td><td></td></tr><tr><td id="method-is-dir-71"><code>is_dir</code></td><td><code>pub fn is_dir(&amp;self, path: &amp;str) -&gt; bool {</code></td><td></td></tr><tr><td id="method-is-file-76"><code>is_file</code></td><td><code>pub fn is_file(&amp;self, path: &amp;str) -&gt; bool {</code></td><td></td></tr><tr><td id="method-stat-81"><code>stat</code></td><td><code>pub fn stat(&amp;self, path: &amp;str) -&gt; Option&lt;&amp;FileStat&gt; {</code></td><td></td></tr><tr><td id="method-stat-mut-85"><code>stat_mut</code></td><td><code>pub fn stat_mut(&amp;mut self, path: &amp;str) -&gt; Option&lt;&amp;mut FileStat&gt; {</code></td><td></td></tr><tr><td id="method-delete-89"><code>delete</code></td><td><code>pub fn delete(&amp;mut self, path: &amp;str) {</code></td><td></td></tr><tr><td id="method-readdir-96"><code>readdir</code></td><td><code>pub fn readdir(&amp;self, path: &amp;str) -&gt; Vec&lt;String&gt; {</code></td><td>List directory entries (immediate children only).</td></tr><tr><td id="method-copy-file-114"><code>copy_file</code></td><td><code>pub fn copy_file(&amp;mut self, src: &amp;str, dst: &amp;str) -&gt; bool {</code></td><td></td></tr><tr><td id="method-move-file-126"><code>move_file</code></td><td><code>pub fn move_file(&amp;mut self, src: &amp;str, dst: &amp;str) -&gt; bool {</code></td><td></td></tr><tr><td id="method-inject-data-bleed-135"><code>inject_data_bleed</code></td><td><code>pub fn inject_data_bleed(&amp;mut self, from_path: &amp;str, to_path: &amp;str) {</code></td><td>Inject a subtle anomaly: append a stray line to a random file</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:rust-os/src/state.rs:FileStat" href="../../state/struct.FileStat.html"><code>FileStat</code></a> <span class="entity-meta">struct · rust-os/src/state.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

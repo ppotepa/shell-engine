@@ -3,6 +3,7 @@
 //! Reads and validates `mod.yaml` from a directory or `.zip` archive, and provides
 //! the pre-run startup check framework.
 
+pub mod output_backend;
 pub mod startup;
 pub mod terminal_caps;
 
@@ -16,6 +17,8 @@ use serde_yaml::Value;
 use zip::ZipArchive;
 
 use engine_error::EngineError;
+
+pub use output_backend::StartupOutputSetting;
 
 /// Reads, parses, and validates `mod.yaml` from `mod_source` (directory or `.zip`), returning the manifest value.
 pub fn load_mod_manifest(mod_source: &Path) -> Result<Value, EngineError> {

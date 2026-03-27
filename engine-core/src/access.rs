@@ -4,16 +4,15 @@
 //! Sub-crates define their own `XxxAccess` traits for their domain types.
 
 use crate::assets::AssetRoot;
-use crate::buffer::{Buffer, VirtualBuffer};
+use crate::buffer::Buffer;
 use crate::game_state::GameState;
 use crate::world::World;
 
-/// Typed access to the terminal and virtual frame buffers.
+
+/// Typed access to the frame buffer.
 pub trait BufferAccess {
     fn buffer(&self) -> Option<&Buffer>;
     fn buffer_mut(&mut self) -> Option<&mut Buffer>;
-    fn virtual_buffer(&self) -> Option<&VirtualBuffer>;
-    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer>;
 }
 
 impl BufferAccess for World {
@@ -22,12 +21,6 @@ impl BufferAccess for World {
     }
     fn buffer_mut(&mut self) -> Option<&mut Buffer> {
         self.get_mut::<Buffer>()
-    }
-    fn virtual_buffer(&self) -> Option<&VirtualBuffer> {
-        self.get::<VirtualBuffer>()
-    }
-    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer> {
-        self.get_mut::<VirtualBuffer>()
     }
 }
 

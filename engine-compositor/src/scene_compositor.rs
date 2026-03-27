@@ -1,7 +1,7 @@
-use engine_core::color::Color;
 use engine_animation::SceneStage;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
+use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_core::scene::{Effect, Layer, SceneRenderedMode};
 use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
@@ -27,6 +27,7 @@ pub struct CompositeParams<'a> {
     pub scene_elapsed_ms: u64,
     pub scene_effects: &'a [Effect],
     pub scene_step_dur: u64,
+    pub is_pixel_backend: bool,
 }
 
 /// Owns the rendered-mode-specific compositing path for a single frame.

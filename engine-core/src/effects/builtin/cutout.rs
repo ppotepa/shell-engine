@@ -1,9 +1,9 @@
 use crate::buffer::{Buffer, Cell, TRUE_BLACK};
+use crate::color::Color;
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{select, slider, EffectMetadata, P_EASING};
 use crate::effects::utils::color::{colour_to_rgb, lerp_colour};
 use crate::scene::EffectParams;
-use crate::color::Color;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Mutex, OnceLock};
@@ -478,9 +478,9 @@ fn normalize_reset(color: Color) -> Color {
 mod tests {
     use super::{CutoutEffect, METADATA};
     use crate::buffer::Buffer;
+    use crate::color::Color;
     use crate::effects::effect::{Effect, EffectTargetMask, Region};
     use crate::scene::EffectParams;
-    use crate::color::Color;
     use std::collections::BTreeSet;
 
     #[test]

@@ -45,6 +45,7 @@ impl StartupCheck for FontGlyphCoverageCheck {
                             *size,
                             sf.scene.rendered_mode,
                             *force_renderer_mode,
+                            false,
                         ) else {
                             return;
                         };

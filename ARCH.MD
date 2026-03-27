@@ -109,8 +109,6 @@ HOW:
          fn buffer(&self) -> Option<&Buffer>;
          fn buffer_mut(&mut self) -> Option<&mut Buffer>;
          fn output_buffer(&self) -> Option<&Buffer>;
-         fn virtual_buffer(&self) -> Option<&VirtualBuffer>;
-         fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer>;
          fn runtime_settings(&self) -> Option<&RuntimeSettings>;
          fn debug_features(&self) -> Option<&DebugFeatures>;
          fn debug_log_mut(&mut self) -> Option<&mut DebugLogBuffer>;
@@ -229,7 +227,6 @@ HOW:
          fn scene_runtime(&self) -> Option<&SceneRuntime>;
          fn animator(&self) -> Option<&Animator>;
          fn buffer_mut(&mut self) -> Option<&mut Buffer>;
-         fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer>;
          fn asset_root(&self) -> Option<&AssetRoot>;
          fn runtime_settings(&self) -> Option<&RuntimeSettings>;
      }
@@ -377,4 +374,3 @@ For each extraction, follow this pattern to avoid circular deps:
 Result: target_crate depends ONLY on engine-core and peer crates.
         Zero circular dependencies.
         World remains the ECS container (implements all provider traits).
-

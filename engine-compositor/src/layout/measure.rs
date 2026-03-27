@@ -1,5 +1,7 @@
 //! Measurement helpers that estimate sprite bounds before rasterization.
 
+use std::cell::Cell;
+
 use engine_core::color::Color;
 
 use crate::{
@@ -8,6 +10,22 @@ use crate::{
 };
 use engine_core::assets::AssetRoot;
 use engine_core::scene::{FlexDirection, SceneRenderedMode, Sprite};
+
+thread_local! {
+    /// Propagates the active backend flag to measurement helpers without
+    /// changing the `fn(&Sprite, ...) -> (u16, u16)` function-pointer signature
+    /// used by `compute_grid_cells` / `compute_flex_cells`.
+    static PIXEL_BACKEND: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Set the pixel-backend flag for all `measure_sprite_for_layout` calls on
+/// this thread during the given closure.  Called once per `render_sprites` invocation.
+pub(crate) fn with_pixel_backend<R>(is_pixel: bool, f: impl FnOnce() -> R) -> R {
+    PIXEL_BACKEND.with(|c| c.set(is_pixel));
+    let r = f();
+    PIXEL_BACKEND.with(|c| c.set(false));
+    r
+}
 
 /// Measures the approximate render size of a sprite for layout purposes.
 pub(crate) fn measure_sprite_for_layout(
@@ -24,6 +42,8 @@ pub(crate) fn measure_sprite_for_layout(
             force_font_mode,
             fg_colour,
             bg_colour,
+            scale_x,
+            scale_y,
             ..
         } => {
             let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
@@ -34,6 +54,7 @@ pub(crate) fn measure_sprite_for_layout(
                 *size,
                 inherited_mode,
                 *force_renderer_mode,
+                PIXEL_BACKEND.with(|c| c.get()),
             );
             text_sprite_dimensions(
                 asset_root.map(|root| root.mod_source()),
@@ -41,6 +62,8 @@ pub(crate) fn measure_sprite_for_layout(
                 resolved_font.as_deref(),
                 fg,
                 bg,
+                *scale_x,
+                *scale_y,
             )
         }
         Sprite::Image {

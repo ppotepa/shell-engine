@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine-capture::compare — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine-capture::compare</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../index.html">Home</a> / <a href="../../index.html">API Reference</a> / <a href="../index.html">Modules</a> / engine-capture::compare</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Frame comparison tool for regression testing — compares captured frames between two runs.</p>
+        <p><strong>Source:</strong> <code>engine-capture/src/compare.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Frame comparison tool for regression testing — compares captured frames between two runs.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-capture/src/compare.rs:FrameHeader" href="../../types/engine-capture/compare/struct.FrameHeader.html"><code>FrameHeader</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine-capture/src/compare.rs:SerializedCell" href="../../types/engine-capture/compare/struct.SerializedCell.html"><code>SerializedCell</code></a> <span class="entity-meta">struct</span></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-load-frame"><code>load_frame</code></td><td><code>pub fn load_frame(path: &amp;Path) -&gt; std::io::Result&lt;(FrameHeader, Vec&lt;SerializedCell&gt;)&gt; {</code></td><td>Load a single frame file and return header + cells</td></tr><tr><td id="fn-compare-frames"><code>compare_frames</code></td><td><code>pub fn compare_frames( path1: &amp;Path, path2: &amp;Path, ) -&gt; std::io::Result&lt;Option&lt;(usize, SerializedCell, SerializedCell)&gt;&gt; {</code></td><td>Compare two frame files and return the first differing cell index, or None if identical</td></tr><tr><td id="fn-list-frame-files"><code>list_frame_files</code></td><td><code>pub fn list_frame_files(dir: &amp;Path) -&gt; std::io::Result&lt;Vec&lt;std::fs::DirEntry&gt;&gt; {</code></td><td>List all frame files in a directory (sorted by frame number)</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../codemap.js"></script>
+  <script defer src="../../../../docref.js" data-codemap-json="../../../../codemap.json"></script>
+</body>
+</html>

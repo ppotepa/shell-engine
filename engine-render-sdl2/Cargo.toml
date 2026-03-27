@@ -1,0 +1,11 @@
+[package]
+name = "engine-render-sdl2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+engine-core = { path = "../engine-core" }
+engine-events = { path = "../engine-events" }
+engine-render = { path = "../engine-render" }
+engine-runtime = { path = "../engine-runtime" }
+sdl2 = { version = "0.38" }

@@ -12,6 +12,8 @@ use engine_core::scene::Scene;
 use engine_error::EngineError;
 use serde_yaml::Value;
 
+use crate::StartupOutputSetting;
+
 /// A parsed scene file alongside its path, used during startup validation.
 #[derive(Debug, Clone)]
 pub struct StartupSceneFile {
@@ -32,6 +34,7 @@ pub struct StartupContext<'a> {
     mod_source: &'a Path,
     manifest: &'a Value,
     entrypoint: &'a str,
+    selected_output: StartupOutputSetting,
     scene_cache: OnceLock<Vec<StartupSceneFile>>,
     scene_loader: &'a SceneLoaderFn,
     font_asset_checker: Option<&'a FontAssetCheckerFn>,
@@ -52,6 +55,7 @@ impl<'a> StartupContext<'a> {
             mod_source,
             manifest,
             entrypoint,
+            selected_output: StartupOutputSetting::Terminal,
             scene_cache: OnceLock::new(),
             scene_loader,
             font_asset_checker: None,
@@ -59,6 +63,12 @@ impl<'a> StartupContext<'a> {
             image_asset_checker: None,
             rhai_script_validator: None,
         }
+    }
+
+    /// Records the resolved startup output backend selected by the launcher.
+    pub fn with_selected_output(mut self, selected_output: StartupOutputSetting) -> Self {
+        self.selected_output = selected_output;
+        self
     }
 
     /// Registers a callback that checks whether a font's assets exist.
@@ -100,6 +110,11 @@ impl<'a> StartupContext<'a> {
     /// Returns the entrypoint scene path declared in the manifest.
     pub fn entrypoint(&self) -> &str {
         self.entrypoint
+    }
+
+    /// Returns the resolved startup output backend selected by the launcher.
+    pub fn selected_output(&self) -> StartupOutputSetting {
+        self.selected_output
     }
 
     /// Returns (and caches) every parsed scene in the mod, loading them on first call.

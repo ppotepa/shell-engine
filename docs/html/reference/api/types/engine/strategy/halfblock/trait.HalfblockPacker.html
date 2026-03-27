@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HalfblockPacker — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge trait">trait</span> HalfblockPacker</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine/strategy/halfblock.html">engine::strategy::halfblock</a> / HalfblockPacker</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>trait:engine/src/strategy/halfblock.rs:HalfblockPacker</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/strategy/halfblock.rs:4</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/strategy/halfblock.rs" href="../../../../modules/engine/strategy/halfblock.html"><code>engine::strategy::halfblock</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Controls how the virtual (2× height) buffer is packed into the terminal halfblock buffer.</p>
+          <div class="signature-block"><pre><code>pub trait HalfblockPacker: Send + Sync {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Controls how the virtual (2× height) buffer is packed into the terminal halfblock buffer.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-iteration-bounds"><code>iteration_bounds</code></td><td><code>fn iteration_bounds( &amp;self, source: &amp;Buffer, target_height: u16, ) -&gt; Option&lt;(u16, u16, u16, u16)&gt;;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Buffer" href="../../../engine-core/buffer/struct.Buffer.html"><code>Buffer</code></a></div></td><td></td></tr><tr><td id="method-prepare-source"><code>prepare_source</code></td><td><code>fn prepare_source(&amp;self, _buf: &amp;mut Buffer) {}</code></td><td>Called on the source buffer immediately after `fill()`, before sprite rendering. `DirtyRegionPacker` resets dirty tracking here so only subsequent sprite writes contribute to `dirty_bounds`, making the dirty-region narrowing effective. The default no-op is correct for `FullScanPacker`.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implementors</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine/src/strategy/halfblock.rs:DirtyRegionPacker" href="struct.DirtyRegionPacker.html"><code>DirtyRegionPacker</code></a> <span class="entity-meta">struct · engine/src/strategy/halfblock.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/strategy/halfblock.rs:FullScanPacker" href="struct.FullScanPacker.html"><code>FullScanPacker</code></a> <span class="entity-meta">struct · engine/src/strategy/halfblock.rs</span></li></ul>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/buffer.rs:Buffer" href="../../../engine-core/buffer/struct.Buffer.html"><code>Buffer</code></a> <span class="entity-meta">struct · engine-core/src/buffer.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

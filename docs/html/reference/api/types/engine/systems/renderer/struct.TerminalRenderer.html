@@ -22,7 +22,7 @@
         </div>
         <div class="sidebar-block">
           <h3>Source</h3>
-          <p><code>engine/src/systems/renderer.rs:10</code></p>
+          <p><code>engine/src/systems/renderer.rs:15</code></p>
         </div>
         <div class="sidebar-block">
           <h3>Module</h3>
@@ -42,11 +42,11 @@
     
         <section class="doc-section">
           <h2>Fields / properties</h2>
-          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-stdout"><code>stdout</code></td><td><code>stdout: io::Stdout</code></td><td><code>io::Stdout</code></td><td></td></tr></tbody></table>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-stdout"><code>stdout</code></td><td><code>stdout: io::BufWriter&lt;io::Stdout&gt;</code></td><td><code>io::BufWriter&lt;io::Stdout&gt;</code></td><td></td></tr><tr><td id="field-async-sink"><code>async_sink</code></td><td><code>async_sink: Option&lt;AsyncDisplaySink&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/strategy/display.rs:AsyncDisplaySink" href="../../strategy/display/struct.AsyncDisplaySink.html"><code>AsyncDisplaySink</code></a></div></td><td><code>Option&lt;AsyncDisplaySink&gt;</code></td><td></td></tr></tbody></table>
         </section>
         <section class="doc-section">
           <h2>Methods</h2>
-          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-20"><code>new</code></td><td><code>pub fn new() -&gt; io::Result&lt;Self&gt; {</code></td><td></td></tr><tr><td id="method-clear-black-28"><code>clear_black</code></td><td><code>pub fn clear_black(&amp;mut self) -&gt; io::Result&lt;()&gt; {</code></td><td>Paint the entire screen true-black before the first game frame.</td></tr><tr><td id="method-reset-console-47"><code>reset_console</code></td><td><code>pub fn reset_console(&amp;mut self) -&gt; io::Result&lt;()&gt; {</code></td><td>Hard refresh terminal surface before first frame.</td></tr><tr><td id="method-shutdown-57"><code>shutdown</code></td><td><code>pub fn shutdown(&amp;mut self) -&gt; io::Result&lt;()&gt; {</code></td><td></td></tr></tbody></table>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-30"><code>new</code></td><td><code>pub fn new() -&gt; io::Result&lt;Self&gt; {</code></td><td></td></tr><tr><td id="method-new-with-async-34"><code>new_with_async</code></td><td><code>pub fn new_with_async(async_display: bool) -&gt; io::Result&lt;Self&gt; {</code></td><td></td></tr><tr><td id="method-clear-black-49"><code>clear_black</code></td><td><code>pub fn clear_black(&amp;mut self) -&gt; io::Result&lt;()&gt; {</code></td><td>Paint the entire screen true-black before the first game frame.</td></tr><tr><td id="method-reset-console-68"><code>reset_console</code></td><td><code>pub fn reset_console(&amp;mut self) -&gt; io::Result&lt;()&gt; {</code></td><td>Hard refresh terminal surface before first frame.</td></tr><tr><td id="method-shutdown-78"><code>shutdown</code></td><td><code>pub fn shutdown(&amp;mut self) -&gt; io::Result&lt;()&gt; {</code></td><td></td></tr></tbody></table>
         </section>
         <section class="doc-section">
           <h2>Implements</h2>
@@ -55,7 +55,7 @@
         
         <section class="doc-section">
           <h2>Related types</h2>
-          <p><em>No related API entities resolved from the snapshot.</em></p>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine/src/strategy/display.rs:AsyncDisplaySink" href="../../strategy/display/struct.AsyncDisplaySink.html"><code>AsyncDisplaySink</code></a> <span class="entity-meta">struct · engine/src/strategy/display.rs</span></li></ul>
         </section>
         <section class="doc-section">
           <h2>See also</h2>

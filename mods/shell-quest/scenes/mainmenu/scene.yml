@@ -10,7 +10,6 @@ title: Main Menu
 bg: black
 layers:
   - ref: main
-# Inherit mod-level `virtual_size: max-available` so the menu fills the terminal.
 stages:
   on_enter:
     steps:

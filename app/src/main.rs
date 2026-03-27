@@ -1,6 +1,8 @@
 use clap::Parser;
-use engine::{logging, EngineConfig, ShellEngine};
-use std::path::PathBuf;
+use engine::{logging, BackendKind, EngineConfig, ShellEngine};
+use engine_mod::{load_mod_manifest, StartupOutputSetting};
+use std::io::{BufRead, Write};
+use std::path::{Path, PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(name = "shell-quest", about = "Shell Quest terminal engine launcher")]
@@ -14,6 +16,21 @@ struct Cli {
     /// Force renderer mode globally: cell | halfblock | quadblock | braille.
     #[arg(long = "renderer-mode")]
     renderer_mode: Option<String>,
+    /// Force output backend: terminal, sdl2, or prompt. Overrides mod.yaml when set.
+    #[arg(long = "output")]
+    output: Option<String>,
+    /// Shorthand for --output sdl2.
+    #[arg(long = "sdl2")]
+    sdl2: bool,
+    /// SDL window ratio for startup window sizing (e.g. 16:9, 4:3, free).
+    #[arg(long = "sdl-window-ratio", default_value = "16:9")]
+    sdl_window_ratio: String,
+    /// SDL startup pixel scale multiplier for logical render surface.
+    #[arg(long = "sdl-pixel-scale", default_value_t = 8)]
+    sdl_pixel_scale: u32,
+    /// Disable SDL VSync (can reduce latency, may increase tearing).
+    #[arg(long = "no-sdl-vsync")]
+    no_sdl_vsync: bool,
     /// Enable dev helpers (F1 overlay, F3/F4 scene navigation, debug controls).
     ///
     /// Defaults:
@@ -110,7 +127,42 @@ fn main() {
         .unwrap_or_else(|| format!("mods/{}/", cli.mod_name));
     logging::info("app.main", format!("resolved mod_source={mod_source}"));
 
+    let manifest = load_mod_manifest(Path::new(&mod_source)).unwrap_or_else(|error| {
+        logging::error("app.main", format!("failed to read mod manifest: {error}"));
+        eprintln!("Failed to read mod manifest: {error}");
+        std::process::exit(1);
+    });
+
+    let manifest_output = StartupOutputSetting::from_manifest(&manifest).unwrap_or_else(|error| {
+        logging::error("app.main", error.as_str());
+        eprintln!("Failed to resolve startup output: {error}");
+        std::process::exit(1);
+    });
+    let effective_output = if cli.sdl2 {
+        Some("sdl2".to_string())
+    } else {
+        cli.output
+    };
+    let requested_output = resolve_startup_output(effective_output.as_deref(), manifest_output)
+        .unwrap_or_else(|error| {
+            logging::error("app.main", error.as_str());
+            eprintln!("Failed to resolve startup output: {error}");
+            std::process::exit(1);
+        });
+    let output_backend = resolve_backend_kind(requested_output).unwrap_or_else(|error| {
+        logging::error("app.main", error.as_str());
+        eprintln!("Failed to select output backend: {error}");
+        std::process::exit(1);
+    });
+
+    let sdl_window_ratio = parse_ratio_arg(&cli.sdl_window_ratio).unwrap_or_else(|error| {
+        logging::error("app.main", error.as_str());
+        eprintln!("Invalid --sdl-window-ratio: {error}");
+        std::process::exit(2);
+    });
+
     let config = EngineConfig {
+        output_backend,
         renderer_mode: cli.renderer_mode,
         debug_feature,
         audio: cli.audio,
@@ -125,12 +177,15 @@ fn main() {
         bench_secs: cli.bench,
         capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
         target_fps_override: cli.target_fps,
+        sdl_window_ratio,
+        sdl_pixel_scale: cli.sdl_pixel_scale.max(1),
+        sdl_vsync: !cli.no_sdl_vsync,
     };
     logging::debug(
         "app.main",
         format!(
-            "engine config: dev={} audio={}",
-            config.debug_feature, config.audio,
+            "engine config: dev={} audio={} output={:?}",
+            config.debug_feature, config.audio, config.output_backend,
         ),
     );
 
@@ -161,6 +216,26 @@ fn main() {
         std::process::exit(1);
     }
     logging::info("app.main", "engine run finished successfully");
+}
+
+fn parse_ratio_arg(raw: &str) -> Result<Option<(u32, u32)>, String> {
+    let lowered = raw.trim().to_ascii_lowercase();
+    if lowered == "free" || lowered == "none" || lowered == "off" {
+        return Ok(None);
+    }
+    let (w, h) = lowered
+        .split_once(':')
+        .ok_or_else(|| String::from("expected WIDTH:HEIGHT or `free`"))?;
+    let width = w
+        .parse::<u32>()
+        .map_err(|_| String::from("ratio width must be a positive integer"))?;
+    let height = h
+        .parse::<u32>()
+        .map_err(|_| String::from("ratio height must be a positive integer"))?;
+    if width == 0 || height == 0 {
+        return Err(String::from("ratio width/height must be > 0"));
+    }
+    Ok(Some((width, height)))
 }
 
 fn resolve_dev_mode(cli: &Cli) -> bool {
@@ -196,10 +271,75 @@ fn env_flag_enabled(key: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn resolve_startup_output(
+    cli_output: Option<&str>,
+    manifest_output: Option<StartupOutputSetting>,
+) -> Result<StartupOutputSetting, String> {
+    if let Some(cli_output) = cli_output {
+        return StartupOutputSetting::parse(cli_output).ok_or_else(|| {
+            format!("invalid --output `{cli_output}`; expected terminal, sdl2, or prompt")
+        });
+    }
+
+    Ok(manifest_output.unwrap_or(StartupOutputSetting::Terminal))
+}
+
+fn resolve_backend_kind(setting: StartupOutputSetting) -> Result<BackendKind, String> {
+    match setting {
+        StartupOutputSetting::Terminal => Ok(BackendKind::Terminal),
+        StartupOutputSetting::Sdl2 => Ok(BackendKind::Sdl2),
+        StartupOutputSetting::Prompt => prompt_for_backend(),
+    }
+}
+
+fn prompt_for_backend() -> Result<BackendKind, String> {
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    let mut reader = stdin.lock();
+    let mut writer = stdout.lock();
+    prompt_for_backend_with_io(&mut reader, &mut writer)
+}
+
+fn prompt_for_backend_with_io<R: BufRead, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+) -> Result<BackendKind, String> {
+    writeln!(writer, "Choose output backend:").map_err(|error| error.to_string())?;
+    writeln!(writer, "  1) Terminal").map_err(|error| error.to_string())?;
+    writeln!(writer, "  2) SDL2 window").map_err(|error| error.to_string())?;
+    writeln!(writer, "     (requires an SDL2-enabled build)").map_err(|error| error.to_string())?;
+
+    loop {
+        write!(writer, "> ").map_err(|error| error.to_string())?;
+        writer.flush().map_err(|error| error.to_string())?;
+
+        let mut line = String::new();
+        let read = reader
+            .read_line(&mut line)
+            .map_err(|error| error.to_string())?;
+        if read == 0 {
+            return Err(String::from("no output backend selected"));
+        }
+
+        match line.trim().to_ascii_lowercase().as_str() {
+            "1" | "terminal" | "tty" => return Ok(BackendKind::Terminal),
+            "2" | "sdl2" | "window" => return Ok(BackendKind::Sdl2),
+            _ => {
+                writeln!(writer, "Please enter 1/terminal or 2/sdl2.")
+                    .map_err(|error| error.to_string())?;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{resolve_dev_mode, Cli};
+    use super::{
+        Cli, parse_ratio_arg, prompt_for_backend_with_io, resolve_dev_mode, resolve_startup_output,
+    };
     use clap::Parser;
+    use engine::BackendKind;
+    use engine_mod::StartupOutputSetting;
 
     #[test]
     fn dev_flag_enables_mode() {
@@ -217,5 +357,56 @@ mod tests {
     fn debug_feature_flag_is_compat_alias() {
         let cli = Cli::parse_from(["shell-quest", "--debug-feature"]);
         assert!(resolve_dev_mode(&cli));
+    }
+
+    #[test]
+    fn manifest_output_is_used_when_cli_output_missing() {
+        assert_eq!(
+            resolve_startup_output(None, Some(StartupOutputSetting::Prompt))
+                .expect("startup output"),
+            StartupOutputSetting::Prompt
+        );
+    }
+
+    #[test]
+    fn cli_output_overrides_manifest_output() {
+        assert_eq!(
+            resolve_startup_output(Some("terminal"), Some(StartupOutputSetting::Prompt))
+                .expect("startup output"),
+            StartupOutputSetting::Terminal
+        );
+    }
+
+    #[test]
+    fn invalid_cli_output_is_rejected() {
+        let error =
+            resolve_startup_output(Some("fancy"), Some(StartupOutputSetting::Prompt)).unwrap_err();
+        assert!(error.contains("invalid --output"));
+    }
+
+    #[test]
+    fn prompt_accepts_terminal_choice() {
+        let mut input = std::io::Cursor::new(b"1\n".as_slice());
+        let mut output = Vec::new();
+        let selected =
+            prompt_for_backend_with_io(&mut input, &mut output).expect("prompt selection");
+        assert_eq!(selected, BackendKind::Terminal);
+    }
+
+    #[test]
+    fn prompt_retries_until_valid_choice() {
+        let mut input = std::io::Cursor::new(b"bad\nsdl2\n".as_slice());
+        let mut output = Vec::new();
+        let selected =
+            prompt_for_backend_with_io(&mut input, &mut output).expect("prompt selection");
+        assert_eq!(selected, BackendKind::Sdl2);
+        let output = String::from_utf8(output).expect("utf8 output");
+        assert!(output.contains("Please enter 1/terminal or 2/sdl2."));
+    }
+
+    #[test]
+    fn parses_ratio_arg() {
+        assert_eq!(parse_ratio_arg("16:9").expect("ratio"), Some((16, 9)));
+        assert_eq!(parse_ratio_arg("free").expect("ratio"), None);
     }
 }

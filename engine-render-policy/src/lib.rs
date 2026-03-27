@@ -13,11 +13,14 @@ pub fn resolve_renderer_mode(
 }
 
 /// Resolves the final font spec string, applying force-font and generic-mode overrides.
+/// When `is_pixel_backend` is true (SDL2), named fonts without an explicit mode suffix
+/// default to `raster` (shade-char bitmaps look best once SDL blends them).
 pub fn resolve_font_spec(
     font: Option<&str>,
     force_font_mode: Option<&str>,
     scene_mode: SceneRenderedMode,
     force_renderer_mode: Option<SceneRenderedMode>,
+    is_pixel_backend: bool,
 ) -> Option<String> {
     let base = font?.trim();
     if base.is_empty() {
@@ -45,7 +48,15 @@ pub fn resolve_font_spec(
 
     Some(match force_font_mode {
         Some(mode) => apply_named_font_mode(base, normalize_named_font_mode(mode)),
-        None => base.to_string(),
+        None => {
+            // Named font without an explicit mode: default to `raster` on pixel backends
+            // so shade-char glyphs render with proper alpha blending.
+            if is_pixel_backend && !base.contains(':') {
+                apply_named_font_mode(base, "raster")
+            } else {
+                base.to_string()
+            }
+        }
     })
 }
 
@@ -56,6 +67,7 @@ pub fn resolve_text_font_spec(
     size: Option<SpriteSizePreset>,
     scene_mode: SceneRenderedMode,
     force_renderer_mode: Option<SceneRenderedMode>,
+    is_pixel_backend: bool,
 ) -> Option<String> {
     let sized_font = match (font.map(str::trim).filter(|f| !f.is_empty()), size) {
         (Some(base), Some(size)) if base.starts_with("generic") => {
@@ -71,6 +83,7 @@ pub fn resolve_text_font_spec(
         force_font_mode,
         scene_mode,
         force_renderer_mode,
+        is_pixel_backend,
     )
 }
 
@@ -137,6 +150,7 @@ mod tests {
             None,
             SceneRenderedMode::Cell,
             Some(SceneRenderedMode::QuadBlock),
+            false,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:quad");
@@ -149,6 +163,7 @@ mod tests {
             Some("braille"),
             SceneRenderedMode::Cell,
             Some(SceneRenderedMode::HalfBlock),
+            false,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:braille");
@@ -161,6 +176,7 @@ mod tests {
             Some("ascii"),
             SceneRenderedMode::Cell,
             None,
+            false,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:ascii");
@@ -174,6 +190,7 @@ mod tests {
             Some(SpriteSizePreset::Large),
             SceneRenderedMode::Cell,
             None,
+            false,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:3");
@@ -187,6 +204,7 @@ mod tests {
             Some(SpriteSizePreset::Medium),
             SceneRenderedMode::Cell,
             None,
+            false,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:2");
@@ -200,8 +218,35 @@ mod tests {
             Some(SpriteSizePreset::Small),
             SceneRenderedMode::Cell,
             None,
+            false,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface");
+    }
+
+    #[test]
+    fn pixel_backend_adds_raster_mode_to_bare_named_font() {
+        let resolved = resolve_font_spec(
+            Some("Abril Fatface"),
+            None,
+            SceneRenderedMode::Cell,
+            None,
+            true,
+        )
+        .expect("font should resolve");
+        assert_eq!(resolved, "Abril Fatface:raster");
+    }
+
+    #[test]
+    fn pixel_backend_does_not_override_explicit_mode() {
+        let resolved = resolve_font_spec(
+            Some("Abril Fatface:ascii"),
+            None,
+            SceneRenderedMode::Cell,
+            None,
+            true,
+        )
+        .expect("font should resolve");
+        assert_eq!(resolved, "Abril Fatface:ascii");
     }
 }

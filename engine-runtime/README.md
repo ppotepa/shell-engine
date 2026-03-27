@@ -9,25 +9,31 @@ Runtime settings parsed from mod manifests and environment overrides.
 the app and engine.
 
 It is intentionally narrow: this crate does not run the game loop; it defines
-how runtime options such as virtual-buffer usage, virtual size, and renderer
-mode overrides are interpreted.
+how runtime options such as render size, presentation policy, and renderer mode
+overrides are interpreted.
 
 ## Key types
 
-- `RuntimeSettings` — resolved runtime options used at startup and resize time
-- `VirtualPolicy` — how virtual rendering should react to terminal constraints
-- `parse_virtual_size_str()` — shared helper for CLI/config parsing
+- `RuntimeSettings` — resolved runtime options used at startup and presentation time
+- `RenderSize` — authored in-memory render size (`Fixed` or `MatchOutput`)
+- `PresentationPolicy` — how authored rendering maps into the active output buffer
+- `BufferLayout` — explicit render/output dimensions derived from runtime settings
+- `parse_render_size_str()` — shared helper for CLI/config parsing
 
 ## What it does
 
 - reads terminal settings from the manifest `terminal` block,
 - accepts both kebab-case and snake_case YAML keys,
 - applies environment overrides such as:
-  - `SHELL_QUEST_USE_VIRTUAL_BUFFER`
-  - `SHELL_QUEST_VIRTUAL_SIZE`
-  - `SHELL_QUEST_VIRTUAL_POLICY`
+  - `SHELL_QUEST_RENDER_SIZE`
+  - `SHELL_QUEST_PRESENTATION_POLICY`
   - `SHELL_QUEST_RENDERER_MODE`
-- resolves `max-available` virtual size against the current terminal dimensions.
+- prefers fixed authored render sizes and still resolves `match-output` / `max-available`
+  for compatibility when older content tracks the current output dimensions.
+- supports display policies:
+  - `strict` — 1:1 with centered crop/pad,
+  - `fit` — preserve aspect ratio with letterboxing,
+  - `stretch` — fill the whole output buffer by resampling.
 
 ## Working with this crate
 

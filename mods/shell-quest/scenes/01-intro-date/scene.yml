@@ -11,7 +11,6 @@ cutscene: true
 bg: black
 layers:
   - ref: main
-# Inherit mod-level `virtual_size: max-available` so the date card fills the terminal.
 stages:
   on_enter:
     steps:

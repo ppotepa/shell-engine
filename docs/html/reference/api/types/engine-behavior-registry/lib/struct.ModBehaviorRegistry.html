@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ModBehaviorRegistry — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> ModBehaviorRegistry</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine-behavior-registry/lib.html">engine-behavior-registry::lib</a> / ModBehaviorRegistry</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-behavior-registry/src/lib.rs:ModBehaviorRegistry</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-behavior-registry/src/lib.rs:7</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-behavior-registry/src/lib.rs" href="../../../modules/engine-behavior-registry/lib.html"><code>engine-behavior-registry::lib</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>World resource: holds mod-defined named behaviors loaded from `&lt;mod_source&gt;/behaviors/*.yml`.</p>
+          <div class="signature-block"><pre><code>pub struct ModBehaviorRegistry {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>World resource: holds mod-defined named behaviors loaded from `&lt;mod_source&gt;/behaviors/*.yml`.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-behaviors"><code>behaviors</code></td><td><code>behaviors: HashMap&lt;String, ModBehavior&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-behavior-registry/src/lib.rs:ModBehavior" href="struct.ModBehavior.html"><code>ModBehavior</code></a></div></td><td><code>HashMap&lt;String, ModBehavior&gt;</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-get-20"><code>get</code></td><td><code>pub fn get(&amp;self, name: &amp;str) -&gt; Option&lt;&amp;ModBehavior&gt; {</code></td><td>Returns the behavior registered under `name`, if any.</td></tr><tr><td id="method-insert-25"><code>insert</code></td><td><code>pub fn insert(&amp;mut self, b: ModBehavior) {</code></td><td>Inserts a behavior into the registry (keyed by `b.name`).</td></tr><tr><td id="method-is-empty-30"><code>is_empty</code></td><td><code>pub fn is_empty(&amp;self) -&gt; bool {</code></td><td>Returns `true` if no behaviors have been registered.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-behavior-registry/src/lib.rs:ModBehavior" href="struct.ModBehavior.html"><code>ModBehavior</code></a> <span class="entity-meta">struct · engine-behavior-registry/src/lib.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

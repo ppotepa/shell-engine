@@ -2,14 +2,13 @@
 
 use crate::assets::AssetRoot;
 use crate::audio::AudioRuntime;
-use crate::buffer::{Buffer, VirtualBuffer};
+use crate::buffer::Buffer;
 use crate::debug_features::DebugFeatures;
 use crate::debug_log::DebugLogBuffer;
 use crate::events::EventQueue;
 use crate::runtime_settings::RuntimeSettings;
 use crate::scene_loader::SceneLoader;
 use crate::scene_runtime::SceneRuntime;
-use crate::systems::renderer::TerminalRenderer;
 use crate::world::World;
 use engine_animation::Animator;
 use engine_animation::{AnimatorProvider, LifecycleProvider};
@@ -19,6 +18,7 @@ use engine_compositor::CompositorProvider;
 use engine_core::scene::Scene;
 use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
 use engine_pipeline::{FrameSkipOracle, PipelineStrategies};
+use engine_render::OutputBackend;
 use engine_render_terminal::RendererProvider;
 use std::sync::Mutex;
 
@@ -32,12 +32,11 @@ pub(crate) trait EngineWorldAccess {
     fn buffer(&self) -> Option<&Buffer>;
     fn buffer_mut(&mut self) -> Option<&mut Buffer>;
     fn output_buffer(&self) -> Option<&Buffer>;
-    fn virtual_buffer(&self) -> Option<&VirtualBuffer>;
-    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer>;
+    fn output_dimensions(&self) -> Option<(u16, u16)>;
     fn runtime_settings(&self) -> Option<&RuntimeSettings>;
     fn audio_runtime_mut(&mut self) -> Option<&mut AudioRuntime>;
     fn asset_root(&self) -> Option<&AssetRoot>;
-    fn renderer_mut(&mut self) -> Option<&mut TerminalRenderer>;
+    fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)>;
     fn scene_loader(&self) -> Option<&SceneLoader>;
 }
 
@@ -70,17 +69,18 @@ impl EngineWorldAccess for World {
         self.get_mut::<Buffer>()
     }
 
-    /// The terminal-sized output buffer (alias for `buffer`).
+    /// The active render buffer.
     fn output_buffer(&self) -> Option<&Buffer> {
         self.get::<Buffer>()
     }
 
-    fn virtual_buffer(&self) -> Option<&VirtualBuffer> {
-        self.get::<VirtualBuffer>()
-    }
-
-    fn virtual_buffer_mut(&mut self) -> Option<&mut VirtualBuffer> {
-        self.get_mut::<VirtualBuffer>()
+    fn output_dimensions(&self) -> Option<(u16, u16)> {
+        self.get::<Box<dyn OutputBackend>>()
+            .map(|renderer| renderer.output_size())
+            .or_else(|| {
+                self.get::<Buffer>()
+                    .map(|buffer| (buffer.width.max(1), buffer.height.max(1)))
+            })
     }
 
     fn runtime_settings(&self) -> Option<&RuntimeSettings> {
@@ -95,8 +95,9 @@ impl EngineWorldAccess for World {
         self.get::<AssetRoot>()
     }
 
-    fn renderer_mut(&mut self) -> Option<&mut TerminalRenderer> {
-        self.get_mut::<TerminalRenderer>()
+    fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)> {
+        let renderer = self.get_mut::<Box<dyn OutputBackend>>()?;
+        Some(renderer.as_mut())
     }
 
     fn scene_loader(&self) -> Option<&SceneLoader> {
@@ -161,10 +162,6 @@ impl RendererProvider for World {
         self.get_mut::<Buffer>()
     }
 
-    fn virtual_buffer(&self) -> Option<&VirtualBuffer> {
-        self.get::<VirtualBuffer>()
-    }
-
     fn runtime_settings(&self) -> Option<&RuntimeSettings> {
         self.get::<RuntimeSettings>()
     }
@@ -203,8 +200,9 @@ impl RendererProvider for World {
         self.get::<Mutex<Box<dyn FrameSkipOracle>>>()
     }
 
-    fn renderer_mut(&mut self) -> Option<&mut TerminalRenderer> {
-        self.get_mut::<TerminalRenderer>()
+    fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)> {
+        let renderer = self.get_mut::<Box<dyn OutputBackend>>()?;
+        Some(renderer.as_mut())
     }
 
     fn swap_buffers(&mut self) {
@@ -217,10 +215,6 @@ impl RendererProvider for World {
         if let Some(buf) = self.get_mut::<Buffer>() {
             buf.restore_front_to_back();
         }
-    }
-
-    fn with_virtual_and_output<F: FnOnce(&VirtualBuffer, &mut Buffer)>(&mut self, f: F) {
-        self.with_ref_and_mut::<VirtualBuffer, Buffer, _, _>(f);
     }
 
     fn pipeline_strategies_ptr(&self) -> *const PipelineStrategies {
@@ -253,11 +247,6 @@ impl LifecycleProvider for World {
 
     fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         self.get_mut::<Buffer>()
-            .map(|b| b as &mut dyn std::any::Any)
-    }
-
-    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<VirtualBuffer>()
             .map(|b| b as &mut dyn std::any::Any)
     }
 
@@ -340,11 +329,6 @@ impl CompositorProvider for World {
             .map(|b| b as &mut dyn std::any::Any)
     }
 
-    fn virtual_buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<VirtualBuffer>()
-            .map(|b| b as &mut dyn std::any::Any)
-    }
-
     fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
         self.get::<SceneRuntime>()
             .map(|sr| sr as &dyn std::any::Any)
@@ -382,10 +366,6 @@ impl engine_compositor::CompositorAccess for World {
     fn buffer_mut(&self) -> Option<&mut Buffer> {
         // Note: mutating through const ref won't compile, so this would be an issue.
         // In practice, the compositor system will take &mut World, not &World.
-        None
-    }
-
-    fn virtual_buffer_mut(&self) -> Option<&mut VirtualBuffer> {
         None
     }
 

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EngineIoRuntime — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> EngineIoRuntime</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine/systems/engine_io.html">engine::systems::engine_io</a> / EngineIoRuntime</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/systems/engine_io.rs:EngineIoRuntime</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/systems/engine_io.rs:15</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/systems/engine_io.rs" href="../../../../modules/engine/systems/engine_io.html"><code>engine::systems::engine_io</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>EngineIoRuntime is documented from the concat snapshot.</p>
+          <div class="signature-block"><pre><code>pub struct EngineIoRuntime {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p><em>No doc comments were present in the concat snapshot.</em></p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-sidecar"><code>sidecar</code></td><td><code>sidecar: Option&lt;Box&lt;dyn SidecarTransport&gt;&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="trait:engine-io/src/lib.rs:SidecarTransport" href="../../../engine-io/lib/trait.SidecarTransport.html"><code>SidecarTransport</code></a></div></td><td><code>Option&lt;Box&lt;dyn SidecarTransport&gt;&gt;</code></td><td></td></tr><tr><td id="field-last-submit-seq"><code>last_submit_seq</code></td><td><code>last_submit_seq: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-last-change-seq"><code>last_change_seq</code></td><td><code>last_change_seq: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-last-key-sent"><code>last_key_sent</code></td><td><code>last_key_sent: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-last-size"><code>last_size</code></td><td><code>last_size: Option&lt;(u16, u16)&gt;</code></td><td><code>Option&lt;(u16, u16)&gt;</code></td><td></td></tr><tr><td id="field-scene-id"><code>scene_id</code></td><td><code>scene_id: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-delayed-lines"><code>delayed_lines</code></td><td><code>delayed_lines: Vec&lt;(u64, String)&gt;</code></td><td><code>Vec&lt;(u64, String)&gt;</code></td><td>Queue of lines waiting to be emitted with their scheduled engine-io time.</td></tr><tr><td id="field-accumulated-ms"><code>accumulated_ms</code></td><td><code>accumulated_ms: u64</code></td><td><code>u64</code></td><td>Monotonic time used to schedule delayed sidecar output.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <p><em>No methods captured from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="trait:engine-io/src/lib.rs:SidecarTransport" href="../../../engine-io/lib/trait.SidecarTransport.html"><code>SidecarTransport</code></a> <span class="entity-meta">trait · engine-io/src/lib.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

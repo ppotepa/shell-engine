@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FtpApp — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> FtpApp</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/rust-os/apps/ftp.html">rust-os::apps::ftp</a> / FtpApp</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:rust-os/src/apps/ftp.rs:FtpApp</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>rust-os/src/apps/ftp.rs:13</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:rust-os/src/apps/ftp.rs" href="../../../../modules/rust-os/apps/ftp.html"><code>rust-os::apps::ftp</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>FtpApp is documented from the concat snapshot.</p>
+          <div class="signature-block"><pre><code>pub struct FtpApp {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p><em>No doc comments were present in the concat snapshot.</em></p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-state"><code>state</code></td><td><code>pub state: FtpState</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:rust-os/src/apps/ftp.rs:FtpState" href="enum.FtpState.html"><code>FtpState</code></a></div></td><td><code>FtpState</code></td><td></td></tr><tr><td id="field-transfer-mode"><code>transfer_mode</code></td><td><code>pub transfer_mode: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-remote-cwd"><code>remote_cwd</code></td><td><code>pub remote_cwd: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-transfer-counter"><code>transfer_counter</code></td><td><code>transfer_counter: u64</code></td><td><code>u64</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-21"><code>new</code></td><td><code>pub fn new() -&gt; Self {</code></td><td></td></tr><tr><td id="method-prompt-30"><code>prompt</code></td><td><code>pub fn prompt(&amp;self) -&gt; String {</code></td><td></td></tr><tr><td id="method-handle-input-38"><code>handle_input</code></td><td><code>pub fn handle_input( &amp;mut self, input: &amp;str, session: &amp;mut UserSession, quest: &amp;mut QuestState, kernel: &amp;mut Kernel, ) -&gt; (bool, Vec&lt;ScheduledLine&gt;) {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:rust-os/src/session.rs:UserSession" href="../../session/struct.UserSession.html"><code>UserSession</code></a>, <a class="entity-ref" data-entity-id="struct:rust-os/src/state.rs:QuestState" href="../../state/struct.QuestState.html"><code>QuestState</code></a>, <a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/mod.rs:Kernel" href="../../kernel/mod/struct.Kernel.html"><code>Kernel</code></a>, <a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/unit_of_work.rs:ScheduledLine" href="../../kernel/unit_of_work/struct.ScheduledLine.html"><code>ScheduledLine</code></a></div></td><td>Handle one FTP command. Returns (exit_requested, scheduled_lines).</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:rust-os/src/apps/ftp.rs:FtpState" href="enum.FtpState.html"><code>FtpState</code></a> <span class="entity-meta">enum · rust-os/src/apps/ftp.rs</span></li><li><a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/mod.rs:Kernel" href="../../kernel/mod/struct.Kernel.html"><code>Kernel</code></a> <span class="entity-meta">struct · rust-os/src/kernel/mod.rs</span></li><li><a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/unit_of_work.rs:ScheduledLine" href="../../kernel/unit_of_work/struct.ScheduledLine.html"><code>ScheduledLine</code></a> <span class="entity-meta">struct · rust-os/src/kernel/unit_of_work.rs</span></li><li><a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/unit_of_work.rs:UnitOfWork" href="../../kernel/unit_of_work/struct.UnitOfWork.html"><code>UnitOfWork</code></a> <span class="entity-meta">struct · rust-os/src/kernel/unit_of_work.rs</span></li><li><a class="entity-ref" data-entity-id="struct:rust-os/src/session.rs:UserSession" href="../../session/struct.UserSession.html"><code>UserSession</code></a> <span class="entity-meta">struct · rust-os/src/session.rs</span></li><li><a class="entity-ref" data-entity-id="struct:rust-os/src/state.rs:QuestState" href="../../state/struct.QuestState.html"><code>QuestState</code></a> <span class="entity-meta">struct · rust-os/src/state.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

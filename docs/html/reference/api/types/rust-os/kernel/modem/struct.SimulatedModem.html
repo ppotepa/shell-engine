@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SimulatedModem — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> SimulatedModem</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/rust-os/kernel/modem.html">rust-os::kernel::modem</a> / SimulatedModem</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:rust-os/src/kernel/modem.rs:SimulatedModem</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>rust-os/src/kernel/modem.rs:13</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:rust-os/src/kernel/modem.rs" href="../../../../modules/rust-os/kernel/modem.html"><code>rust-os::kernel::modem</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>SimulatedModem is documented from the concat snapshot.</p>
+          <div class="signature-block"><pre><code>pub struct SimulatedModem {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p><em>No doc comments were present in the concat snapshot.</em></p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-connected"><code>connected</code></td><td><code>pub connected: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-connected-to"><code>connected_to</code></td><td><code>pub connected_to: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-baud"><code>baud</code></td><td><code>pub baud: u32</code></td><td><code>u32</code></td><td></td></tr><tr><td id="field-handshake-ms"><code>handshake_ms</code></td><td><code>handshake_ms: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-noise-chance"><code>noise_chance</code></td><td><code>pub noise_chance: f64</code></td><td><code>f64</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-22"><code>new</code></td><td><code>pub fn new(hw: &amp;HardwareProfile) -&gt; Self {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:rust-os/src/hardware.rs:HardwareProfile" href="../../hardware/struct.HardwareProfile.html"><code>HardwareProfile</code></a></div></td><td></td></tr><tr><td id="method-dial-33"><code>dial</code></td><td><code>pub fn dial(&amp;mut self, host_ip: &amp;str, host_name: &amp;str, uow: &amp;mut UnitOfWork) {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/unit_of_work.rs:UnitOfWork" href="../unit_of_work/struct.UnitOfWork.html"><code>UnitOfWork</code></a></div></td><td>Simulate modem dial sequence, scheduling output lines.</td></tr><tr><td id="method-hangup-60"><code>hangup</code></td><td><code>pub fn hangup(&amp;mut self, uow: &amp;mut UnitOfWork) {</code></td><td></td></tr><tr><td id="method-apply-noise-83"><code>apply_noise</code></td><td><code>pub fn apply_noise(&amp;self, line: &amp;str, counter: u64) -&gt; Option&lt;String&gt; {</code></td><td>Inject line noise into a transfer status string.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:rust-os/src/hardware.rs:HardwareProfile" href="../../hardware/struct.HardwareProfile.html"><code>HardwareProfile</code></a> <span class="entity-meta">struct · rust-os/src/hardware.rs</span></li><li><a class="entity-ref" data-entity-id="struct:rust-os/src/kernel/unit_of_work.rs:UnitOfWork" href="../unit_of_work/struct.UnitOfWork.html"><code>UnitOfWork</code></a> <span class="entity-meta">struct · rust-os/src/kernel/unit_of_work.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

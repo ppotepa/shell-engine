@@ -958,6 +958,10 @@ fn build_mod_overlay_schema(mod_name: &str) -> Value {
         )),
     );
     props.insert(
+        Value::String("output_backend".to_string()),
+        schema_ref("../../../schemas/mod.schema.yaml#/properties/output_backend"),
+    );
+    props.insert(
         Value::String("terminal".to_string()),
         schema_ref("../../../schemas/mod.schema.yaml#/properties/terminal"),
     );
@@ -2903,7 +2907,9 @@ mod tests {
         let mut root = Mapping::new();
         root.insert(
             Value::String("description".to_string()),
-            Value::String("External sidecar process configuration used when `mode: sidecar`.".into()),
+            Value::String(
+                "External sidecar process configuration used when `mode: sidecar`.".into(),
+            ),
         );
 
         let yaml = render_schema_file(&Value::Mapping(root)).expect("render schema");

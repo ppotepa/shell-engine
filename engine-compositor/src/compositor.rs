@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use engine_core::color::Color;
 use engine_animation::SceneStage;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::{Buffer, Cell, TRUE_BLACK};
+use engine_core::color::Color;
 use engine_core::effects::{apply_effect, Region};
 use engine_core::scene::{Effect, Layer, SceneRenderedMode};
 use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
@@ -32,6 +32,7 @@ fn composite_scene(
     scene_elapsed_ms: u64,
     scene_effects: &[Effect],
     scene_step_dur: u64,
+    is_pixel_backend: bool,
     layer: &dyn LayerCompositor,
     halfblock: &dyn HalfblockPacker,
     buffer: &mut Buffer,
@@ -77,6 +78,7 @@ fn composite_scene(
         elapsed_ms,
         scene_elapsed_ms,
         obj_camera_states,
+        is_pixel_backend,
         layer,
         buffer,
     );
@@ -113,6 +115,7 @@ fn composite_scene_halfblock(
     scene_elapsed_ms: u64,
     scene_effects: &[Effect],
     scene_step_dur: u64,
+    is_pixel_backend: bool,
     layer: &dyn LayerCompositor,
     halfblock: &dyn HalfblockPacker,
     target: &mut Buffer,
@@ -139,6 +142,7 @@ fn composite_scene_halfblock(
             scene_elapsed_ms,
             scene_effects,
             scene_step_dur,
+            is_pixel_backend,
             layer,
             halfblock,
             &mut virtual_buf,
@@ -254,6 +258,7 @@ pub fn dispatch_composite(
             params.scene_elapsed_ms,
             params.scene_effects,
             params.scene_step_dur,
+            params.is_pixel_backend,
             layer,
             halfblock,
             buffer,
@@ -273,6 +278,7 @@ pub fn dispatch_composite(
             params.scene_elapsed_ms,
             params.scene_effects,
             params.scene_step_dur,
+            params.is_pixel_backend,
             layer,
             halfblock,
             buffer,

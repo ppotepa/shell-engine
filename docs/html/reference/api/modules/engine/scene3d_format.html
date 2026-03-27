@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine::scene3d_format — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine::scene3d_format</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../index.html">Home</a> / <a href="../../index.html">API Reference</a> / <a href="../index.html">Modules</a> / engine::scene3d_format</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Parser for `.scene3d.yml` — describes a complete 3D scene with objects, lights, materials, camera, and named frames (static or animated clips). The parsed [`Scene3DDefinition`] is consumed by [`Scene3DPrerenderStep`] to pre-render every named frame into the [`Scene3DAtlas`] before a scene loads.</p>
+        <p><strong>Source:</strong> <code>engine/src/scene3d_format.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Parser for `.scene3d.yml` — describes a complete 3D scene with objects, lights, materials, camera, and named frames (static or animated clips).</p>
+<p>The parsed [`Scene3DDefinition`] is consumed by [`Scene3DPrerenderStep`] to pre-render every named frame into the [`Scene3DAtlas`] before a scene loads.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine/src/scene3d_format.rs:Easing" href="../../types/engine/scene3d_format/enum.Easing.html"><code>Easing</code></a> <span class="entity-meta">enum</span></li><li><a class="entity-ref" data-entity-id="enum:engine/src/scene3d_format.rs:FrameDef" href="../../types/engine/scene3d_format/enum.FrameDef.html"><code>FrameDef</code></a> <span class="entity-meta">enum</span></li><li><a class="entity-ref" data-entity-id="enum:engine/src/scene3d_format.rs:LightKind" href="../../types/engine/scene3d_format/enum.LightKind.html"><code>LightKind</code></a> <span class="entity-meta">enum</span></li><li><a class="entity-ref" data-entity-id="enum:engine/src/scene3d_format.rs:ScaleDef" href="../../types/engine/scene3d_format/enum.ScaleDef.html"><code>ScaleDef</code></a> <span class="entity-meta">enum</span></li><li><a class="entity-ref" data-entity-id="enum:engine/src/scene3d_format.rs:SurfaceMode" href="../../types/engine/scene3d_format/enum.SurfaceMode.html"><code>SurfaceMode</code></a> <span class="entity-meta">enum</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:CameraDef" href="../../types/engine/scene3d_format/struct.CameraDef.html"><code>CameraDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ClipDef" href="../../types/engine/scene3d_format/struct.ClipDef.html"><code>ClipDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ClipFrameDef" href="../../types/engine/scene3d_format/struct.ClipFrameDef.html"><code>ClipFrameDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:LightDef" href="../../types/engine/scene3d_format/struct.LightDef.html"><code>LightDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:MaterialDef" href="../../types/engine/scene3d_format/struct.MaterialDef.html"><code>MaterialDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ObjectDef" href="../../types/engine/scene3d_format/struct.ObjectDef.html"><code>ObjectDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ObjectOverride" href="../../types/engine/scene3d_format/struct.ObjectOverride.html"><code>ObjectOverride</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:RotationDef" href="../../types/engine/scene3d_format/struct.RotationDef.html"><code>RotationDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:Scene3DDefinition" href="../../types/engine/scene3d_format/struct.Scene3DDefinition.html"><code>Scene3DDefinition</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:StaticFrameDef" href="../../types/engine/scene3d_format/struct.StaticFrameDef.html"><code>StaticFrameDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:TransformDef" href="../../types/engine/scene3d_format/struct.TransformDef.html"><code>TransformDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:TweenDef" href="../../types/engine/scene3d_format/struct.TweenDef.html"><code>TweenDef</code></a> <span class="entity-meta">struct</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ViewportDef" href="../../types/engine/scene3d_format/struct.ViewportDef.html"><code>ViewportDef</code></a> <span class="entity-meta">struct</span></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-load-scene3d"><code>load_scene3d</code></td><td><code>pub fn load_scene3d(path: &amp;str) -&gt; Result&lt;Scene3DDefinition, Box&lt;dyn std::error::Error + Send + Sync&gt;&gt; {</code></td><td>Load and parse a `.scene3d.yml` file from disk.</td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../codemap.js"></script>
+  <script defer src="../../../../docref.js" data-codemap-json="../../../../codemap.json"></script>
+</body>
+</html>

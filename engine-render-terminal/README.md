@@ -5,12 +5,13 @@ Terminal presentation backend and display strategies.
 ## Purpose
 
 `engine-render-terminal` owns the concrete terminal-output path: converting a
-prepared buffer into terminal writes, batching ANSI output, and optionally
-offloading display flush work.
+prepared buffer into terminal writes, batching ANSI output, and providing the
+terminal implementations of both `OutputBackend` and `InputBackend`.
 
 ## Key modules and exports
 
 - `renderer` — `TerminalRenderer`, `renderer_system()`, color resolution, flush helpers
+- `input` — `TerminalInputBackend`, crossterm-to-engine event conversion
 - `strategy` — sync/async display sink and batching strategies
 - `provider` — renderer provider integration
 - `rasterizer` — terminal-oriented rasterization helpers

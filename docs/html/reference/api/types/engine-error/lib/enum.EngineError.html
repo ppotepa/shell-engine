@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EngineError — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge enum">enum</span> EngineError</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine-error/lib.html">engine-error::lib</a> / EngineError</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>enum:engine-error/src/lib.rs:EngineError</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-error/src/lib.rs:7</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-error/src/lib.rs" href="../../../modules/engine-error/lib.html"><code>engine-error::lib</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Top-level error enum for all engine failure modes.</p>
+          <div class="signature-block"><pre><code>pub enum EngineError {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Top-level error enum for all engine failure modes.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Variants</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="variant-SourceNotFound"><code>SourceNotFound</code></td><td><code>SourceNotFound(PathBuf)</code></td><td><code></code></td><td></td></tr><tr><td id="variant-UnsupportedSource"><code>UnsupportedSource</code></td><td><code>UnsupportedSource(PathBuf)</code></td><td><code></code></td><td></td></tr><tr><td id="variant-ManifestRead"><code>ManifestRead</code></td><td><code>ManifestRead {</code></td><td><code></code></td><td></td></tr><tr><td id="variant-ZipArchive"><code>ZipArchive</code></td><td><code>ZipArchive {</code></td><td><code></code></td><td></td></tr><tr><td id="variant-MissingModEntrypoint"><code>MissingModEntrypoint</code></td><td><code>MissingModEntrypoint(PathBuf)</code></td><td><code></code></td><td></td></tr><tr><td id="variant-MissingManifestField"><code>MissingManifestField</code></td><td><code>MissingManifestField { path: PathBuf, field: String }</code></td><td><code></code></td><td></td></tr><tr><td id="variant-InvalidManifestFieldType"><code>InvalidManifestFieldType</code></td><td><code>InvalidManifestFieldType {</code></td><td><code></code></td><td></td></tr><tr><td id="variant-MissingSceneEntrypoint"><code>MissingSceneEntrypoint</code></td><td><code>MissingSceneEntrypoint {</code></td><td><code></code></td><td></td></tr><tr><td id="variant-InvalidModYaml"><code>InvalidModYaml</code></td><td><code>InvalidModYaml {</code></td><td><code></code></td><td></td></tr><tr><td id="variant-TerminalRequirementsNotMet"><code>TerminalRequirementsNotMet</code></td><td><code>TerminalRequirementsNotMet(String)</code></td><td><code></code></td><td></td></tr><tr><td id="variant-StartupCheckFailed"><code>StartupCheckFailed</code></td><td><code>StartupCheckFailed { check: String, details: String }</code></td><td><code></code></td><td></td></tr><tr><td id="variant-Render"><code>Render</code></td><td><code>Render(#[from] std::io::Error)</code></td><td><code></code></td><td></td></tr></tbody></table>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

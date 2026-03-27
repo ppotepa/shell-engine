@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine::systems::scene3d_prerender — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine::systems::scene3d_prerender</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Modules</a> / engine::systems::scene3d_prerender</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Scene preparation step: pre-renders all frames declared in `.scene3d.yml` files referenced by `Sprite::Scene3D` sprites in the active scene. Each named frame is rendered to a `Buffer` and stored in [`Scene3DAtlas`]. The atlas is registered as a scoped world resource so it lives for exactly one scene. Clip frames (animated) generate sub-frames named `{frame_id}-{n}` (0-indexed), where N = `clip.keyframes`. The caller (behavior) picks the frame by name. All frames across all `.scene3d.yml` files are rendered in parallel via rayon.</p>
+        <p><strong>Source:</strong> <code>engine/src/systems/scene3d_prerender.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Scene preparation step: pre-renders all frames declared in `.scene3d.yml` files referenced by `Sprite::Scene3D` sprites in the active scene.</p>
+<p>Each named frame is rendered to a `Buffer` and stored in [`Scene3DAtlas`]. The atlas is registered as a scoped world resource so it lives for exactly one scene.</p>
+<p>Clip frames (animated) generate sub-frames named `{frame_id}-{n}` (0-indexed), where N = `clip.keyframes`. The caller (behavior) picks the frame by name.</p>
+<p>All frames across all `.scene3d.yml` files are rendered in parallel via rayon.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine/src/systems/scene3d_prerender.rs:Scene3DPrerenderStep" href="../../../types/engine/systems/scene3d_prerender/struct.Scene3DPrerenderStep.html"><code>Scene3DPrerenderStep</code></a> <span class="entity-meta">struct</span></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

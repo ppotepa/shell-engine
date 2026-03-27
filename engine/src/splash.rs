@@ -1212,13 +1212,7 @@ fn draw_drip_tail(
         };
         buffer.set(col, 0, ' ', Color::Reset, paint_colour);
         if max_tail_rows > 0 {
-            buffer.set(
-                col,
-                1.min(max_tail_rows),
-                ' ',
-                Color::Reset,
-                paint_colour,
-            );
+            buffer.set(col, 1.min(max_tail_rows), ' ', Color::Reset, paint_colour);
         }
     }
 
@@ -1270,10 +1264,7 @@ fn render_buffer_overlay(
             let Some(cell) = buffer.get(x, y).copied() else {
                 continue;
             };
-            if cell.symbol == ' '
-                && cell.fg == Color::Reset
-                && cell.bg == Color::Reset
-            {
+            if cell.symbol == ' ' && cell.fg == Color::Reset && cell.bg == Color::Reset {
                 continue;
             }
             queue!(

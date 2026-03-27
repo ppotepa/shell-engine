@@ -22,7 +22,7 @@
         </div>
         <div class="sidebar-block">
           <h3>Source</h3>
-          <p><code>engine/src/lib.rs:50</code></p>
+          <p><code>engine/src/lib.rs:75</code></p>
         </div>
         <div class="sidebar-block">
           <h3>Module</h3>
@@ -42,11 +42,11 @@
     
         <section class="doc-section">
           <h2>Fields / properties</h2>
-          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-mod-source"><code>mod_source</code></td><td><code>mod_source: PathBuf</code></td><td><code>PathBuf</code></td><td></td></tr><tr><td id="field-mod-manifest"><code>mod_manifest</code></td><td><code>mod_manifest: Value</code></td><td><code>Value</code></td><td></td></tr></tbody></table>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-mod-source"><code>mod_source</code></td><td><code>mod_source: PathBuf</code></td><td><code>PathBuf</code></td><td></td></tr><tr><td id="field-mod-manifest"><code>mod_manifest</code></td><td><code>mod_manifest: Value</code></td><td><code>Value</code></td><td></td></tr><tr><td id="field-config"><code>config</code></td><td><code>config: EngineConfig</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/lib.rs:EngineConfig" href="struct.EngineConfig.html"><code>EngineConfig</code></a></div></td><td><code>EngineConfig</code></td><td></td></tr></tbody></table>
         </section>
         <section class="doc-section">
           <h2>Methods</h2>
-          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-57"><code>new</code></td><td><code>pub fn new(mod_source: impl Into&lt;PathBuf&gt;) -&gt; Result&lt;Self, EngineError&gt; {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine/src/error.rs:EngineError" href="../error/enum.EngineError.html"><code>EngineError</code></a></div></td><td>Loads and validates a mod from `mod_source` (directory or `.zip`).</td></tr><tr><td id="method-run-68"><code>run</code></td><td><code>pub fn run(&amp;self) -&gt; Result&lt;(), EngineError&gt; {</code></td><td>Runs startup checks, enters the alt-screen, and drives the game loop until the player quits.</td></tr><tr><td id="method-mod-source-129"><code>mod_source</code></td><td><code>pub fn mod_source(&amp;self) -&gt; &amp;Path {</code></td><td>Returns the path to the mod source used to initialise this engine.</td></tr><tr><td id="method-mod-manifest-134"><code>mod_manifest</code></td><td><code>pub fn mod_manifest(&amp;self) -&gt; &amp;Value {</code></td><td>Returns the parsed `mod.yaml` manifest value.</td></tr></tbody></table>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-135"><code>new</code></td><td><code>pub fn new(mod_source: impl Into&lt;PathBuf&gt;) -&gt; Result&lt;Self, EngineError&gt; {</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-error/src/lib.rs:EngineError" href="../../engine-error/lib/enum.EngineError.html"><code>EngineError</code></a></div></td><td>Loads and validates a mod from `mod_source` (directory or `.zip`).</td></tr><tr><td id="method-new-with-config-140"><code>new_with_config</code></td><td><code>pub fn new_with_config( mod_source: impl Into&lt;PathBuf&gt;, config: EngineConfig, ) -&gt; Result&lt;Self, EngineError&gt; {</code></td><td>Loads and validates a mod from `mod_source` with explicit runtime config.</td></tr><tr><td id="method-run-155"><code>run</code></td><td><code>pub fn run(&amp;self) -&gt; Result&lt;(), EngineError&gt; {</code></td><td>Runs startup checks, enters the alt-screen, and drives the game loop until the player quits.</td></tr><tr><td id="method-mod-source-341"><code>mod_source</code></td><td><code>pub fn mod_source(&amp;self) -&gt; &amp;Path {</code></td><td>Returns the path to the mod source used to initialise this engine.</td></tr><tr><td id="method-mod-manifest-346"><code>mod_manifest</code></td><td><code>pub fn mod_manifest(&amp;self) -&gt; &amp;Value {</code></td><td>Returns the parsed `mod.yaml` manifest value.</td></tr></tbody></table>
         </section>
         <section class="doc-section">
           <h2>Implements</h2>
@@ -55,7 +55,7 @@
         
         <section class="doc-section">
           <h2>Related types</h2>
-          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine/src/error.rs:EngineError" href="../error/enum.EngineError.html"><code>EngineError</code></a> <span class="entity-meta">enum · engine/src/error.rs</span></li></ul>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-error/src/lib.rs:EngineError" href="../../engine-error/lib/enum.EngineError.html"><code>EngineError</code></a> <span class="entity-meta">enum · engine-error/src/lib.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/lib.rs:EngineConfig" href="struct.EngineConfig.html"><code>EngineConfig</code></a> <span class="entity-meta">struct · engine/src/lib.rs</span></li></ul>
         </section>
         <section class="doc-section">
           <h2>See also</h2>

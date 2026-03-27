@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrerenderedFrame — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> PrerenderedFrame</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine/obj_prerender.html">engine::obj_prerender</a> / PrerenderedFrame</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/obj_prerender.rs:PrerenderedFrame</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/obj_prerender.rs:11</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/obj_prerender.rs" href="../../../modules/engine/obj_prerender.html"><code>engine::obj_prerender</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>One pre-rendered sprite frame with its virtual dimensions and the pose it was rendered at.</p>
+          <div class="signature-block"><pre><code>pub struct PrerenderedFrame {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>One pre-rendered sprite frame with its virtual dimensions and the pose it was rendered at.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-canvas"><code>canvas</code></td><td><code>pub canvas: Arc&lt;PrerenderedCanvas&gt;</code></td><td><code>Arc&lt;PrerenderedCanvas&gt;</code></td><td></td></tr><tr><td id="field-virtual-w"><code>virtual_w</code></td><td><code>pub virtual_w: u16</code></td><td><code>u16</code></td><td>Virtual pixel dimensions used when blitting.</td></tr><tr><td id="field-virtual-h"><code>virtual_h</code></td><td><code>pub virtual_h: u16</code></td><td><code>u16</code></td><td></td></tr><tr><td id="field-target-w"><code>target_w</code></td><td><code>pub target_w: u16</code></td><td><code>u16</code></td><td>Terminal cell dimensions.</td></tr><tr><td id="field-target-h"><code>target_h</code></td><td><code>pub target_h: u16</code></td><td><code>u16</code></td><td></td></tr><tr><td id="field-rendered-yaw"><code>rendered_yaw</code></td><td><code>pub rendered_yaw: f32</code></td><td><code>f32</code></td><td>Total yaw at render time (rotation_y + yaw_deg) — for cache-hit check.</td></tr><tr><td id="field-rendered-pitch"><code>rendered_pitch</code></td><td><code>pub rendered_pitch: f32</code></td><td><code>f32</code></td><td>Pitch at render time — for cache-hit check.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <p><em>No methods captured from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

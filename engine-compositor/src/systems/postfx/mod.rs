@@ -1,5 +1,4 @@
 //! Software post-process pipeline ("shader-like" passes) applied after compositing.
-use engine_runtime::access::RuntimeAccess;
 
 mod glow;
 mod pass_burn_in;
@@ -95,20 +94,9 @@ pub fn postfx_system(world: &mut World) {
         POSTFX_RUNTIME.with(|runtime| {
             let mut rt = runtime.borrow_mut();
             if let Some(cached) = rt.previous_output.as_ref() {
-                let use_virtual = world
-                    .runtime_settings()
-                    .map(|settings| settings.use_virtual_buffer)
-                    .unwrap_or(false);
-                let buffer = if use_virtual {
-                    match world.get_mut::<engine_core::buffer::VirtualBuffer>() {
-                        Some(v) => &mut v.0,
-                        None => return,
-                    }
-                } else {
-                    match world.get_mut::<engine_core::buffer::Buffer>() {
-                        Some(b) => b,
-                        None => return,
-                    }
+                let buffer = match world.get_mut::<engine_core::buffer::Buffer>() {
+                    Some(b) => b,
+                    None => return,
                 };
                 if cached.width == buffer.width && cached.height == buffer.height {
                     buffer.copy_back_from(cached);
@@ -120,20 +108,9 @@ pub fn postfx_system(world: &mut World) {
         return;
     }
 
-    let use_virtual = world
-        .runtime_settings()
-        .map(|settings| settings.use_virtual_buffer)
-        .unwrap_or(false);
-    let buffer = if use_virtual {
-        match world.get_mut::<engine_core::buffer::VirtualBuffer>() {
-            Some(v) => &mut v.0,
-            None => return,
-        }
-    } else {
-        match world.get_mut::<engine_core::buffer::Buffer>() {
-            Some(b) => b,
-            None => return,
-        }
+    let buffer = match world.get_mut::<engine_core::buffer::Buffer>() {
+        Some(b) => b,
+        None => return,
     };
 
     POSTFX_RUNTIME.with(|runtime| {
@@ -141,6 +118,7 @@ pub fn postfx_system(world: &mut World) {
             .borrow_mut()
             .apply(&scene_id, fingerprint, &passes, scene_elapsed_ms, buffer);
     });
+
 }
 
 impl PostFxRuntime {

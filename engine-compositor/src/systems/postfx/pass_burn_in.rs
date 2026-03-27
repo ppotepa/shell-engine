@@ -26,8 +26,8 @@
 //! | `decay_tint` | 0.8     | P31 colour shift (0=uniform, 1=full green)   |
 
 use super::{normalize_bg, PostFxContext};
-use engine_core::color::Color;
 use engine_core::buffer::{Buffer, Cell};
+use engine_core::color::Color;
 use engine_core::effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
 use std::cell::RefCell;

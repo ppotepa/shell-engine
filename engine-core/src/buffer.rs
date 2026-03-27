@@ -70,15 +70,7 @@ pub struct Buffer {
     pub last_diff_count: u32,
 }
 
-/// Optional off-screen fixed-resolution buffer used before presenting to terminal output.
-#[derive(Debug, Clone)]
-pub struct VirtualBuffer(pub Buffer);
 
-impl VirtualBuffer {
-    pub fn new(width: u16, height: u16) -> Self {
-        Self(Buffer::new(width, height))
-    }
-}
 
 impl Buffer {
     pub fn new(width: u16, height: u16) -> Self {
@@ -833,7 +825,7 @@ mod tests {
         let mut dst = Buffer::new(8, 6);
         dst.fill(bg);
 
-        let src = Buffer::new(8, 6); // default: space + TRUE_BLACK bg — NOT transparent!
+        let _src = Buffer::new(8, 6); // default: space + TRUE_BLACK bg — NOT transparent!
         let transparent_src = {
             let mut s = Buffer::new(8, 6);
             s.fill(Color::Reset); // all transparent

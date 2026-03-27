@@ -6,7 +6,7 @@ use engine::animation::{Animator, SceneStage};
 use engine::assets::AssetRoot;
 use engine::audio::AudioRuntime;
 use engine::buffer::Buffer;
-use engine::runtime_settings::RuntimeSettings;
+use engine::runtime_settings::{RenderSize, RuntimeSettings};
 use engine::scene::Scene;
 use engine::scene_runtime::SceneRuntime;
 use engine::systems::compositor::compositor_system;
@@ -38,7 +38,10 @@ pub fn render_scene_buffer(req: PreviewRenderRequest<'_>) -> Result<Buffer, Stri
     let mut world = World::new();
     world.register(Buffer::new(req.width, req.height));
     world.register(AudioRuntime::null());
-    world.register(RuntimeSettings::default());
+    world.register(RuntimeSettings {
+        render_size: RenderSize::MatchOutput,
+        ..RuntimeSettings::default()
+    });
     world.register(AssetRoot::new(req.asset_root.to_path_buf()));
     world.register_scoped(SceneRuntime::new(req.scene.clone()));
 
@@ -99,6 +102,5 @@ fn to_ratatui_color(color: engine_core::color::Color) -> Color {
         engine_core::color::Color::White => Color::White,
         engine_core::color::Color::Grey => Color::Gray,
         engine_core::color::Color::Rgb { r, g, b } => Color::Rgb(r, g, b),
-        engine_core::color::Color::AnsiValue(v) => Color::Indexed(v),
     }
 }

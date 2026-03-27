@@ -1,9 +1,9 @@
 use crate::buffer::Buffer;
+use crate::color::Color;
 use crate::effects::effect::{Effect, Region};
 use crate::effects::metadata::{EffectMetadata, P_EASING, P_INTENSITY};
 use crate::effects::utils::color::colour_to_rgb;
 use crate::scene::EffectParams;
-use crate::color::Color;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "brighten",

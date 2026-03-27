@@ -1,8 +1,11 @@
 //! Engine event types and the per-frame [`EventQueue`] that shuttles them between systems.
 
 pub mod access;
+pub mod input_backend;
+pub mod key;
 
-use crossterm::event::KeyEvent;
+pub use input_backend::InputBackend;
+pub use key::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Represents a discrete engine event produced by input, the game loop, or scene transitions.
 #[derive(Debug, Clone)]
@@ -13,7 +16,7 @@ pub enum EngineEvent {
     SceneLoaded { scene_id: String },
     SceneTransition { to_scene_id: String },
     AudioCue { cue: String, volume: Option<f32> },
-    TerminalResized { width: u16, height: u16 },
+    OutputResized { width: u16, height: u16 },
     Quit,
 }
 

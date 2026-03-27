@@ -6,36 +6,90 @@ use std::env;
 use engine_core::scene::SceneRenderedMode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum VirtualPolicy {
+pub enum PresentationPolicy {
     Strict,
     Fit,
+    Stretch,
 }
 
-impl Default for VirtualPolicy {
+pub type VirtualPolicy = PresentationPolicy;
+
+impl Default for PresentationPolicy {
     fn default() -> Self {
         Self::Fit
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenderSize {
+    Fixed { width: u16, height: u16 },
+    MatchOutput,
+}
+
+impl Default for RenderSize {
+    fn default() -> Self {
+        Self::Fixed {
+            width: 320,
+            height: 240,
+        }
+    }
+}
+
+impl RenderSize {
+    pub fn resolve(self, output_width: u16, output_height: u16) -> (u16, u16) {
+        match self {
+            Self::Fixed { width, height } => (width, height),
+            Self::MatchOutput => (output_width.max(1), output_height.max(1)),
+        }
+    }
+
+    pub fn matches_output(self) -> bool {
+        matches!(self, Self::MatchOutput)
+    }
+
+    pub fn fixed(self) -> Option<(u16, u16)> {
+        match self {
+            Self::Fixed { width, height } => Some((width, height)),
+            Self::MatchOutput => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BufferLayout {
+    pub render_width: u16,
+    pub render_height: u16,
+    pub output_width: u16,
+    pub output_height: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RuntimeSettings {
-    pub use_virtual_buffer: bool,
-    pub virtual_width: u16,
-    pub virtual_height: u16,
-    pub virtual_size_max_available: bool,
-    pub virtual_policy: VirtualPolicy,
+    pub render_size: RenderSize,
+    pub presentation_policy: PresentationPolicy,
     pub renderer_mode_override: Option<SceneRenderedMode>,
+    /// True when rendering to a pixel backend (SDL2), false for terminal.
+    /// Used by the compositor to select backend-appropriate font modes.
+    pub is_pixel_backend: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PresentationLayout {
+    pub dst_x: u32,
+    pub dst_y: u32,
+    pub dst_width: u32,
+    pub dst_height: u32,
+    pub src_x: u32,
+    pub src_y: u32,
 }
 
 impl Default for RuntimeSettings {
     fn default() -> Self {
         Self {
-            use_virtual_buffer: false,
-            virtual_width: 320,
-            virtual_height: 240,
-            virtual_size_max_available: false,
-            virtual_policy: VirtualPolicy::Fit,
+            render_size: RenderSize::default(),
+            presentation_policy: PresentationPolicy::Fit,
             renderer_mode_override: None,
+            is_pixel_backend: false,
         }
     }
 }
@@ -45,39 +99,31 @@ impl RuntimeSettings {
         let mut settings = Self::default();
 
         if let Some(block) = manifest.get("terminal") {
-            if let Some(enabled) = block
+            let _legacy_use_virtual_buffer = block
                 .get("use_virtual_buffer")
                 .or_else(|| block.get("use-virtual-buffer"))
-                .and_then(Value::as_bool)
-            {
-                settings.use_virtual_buffer = enabled;
-            }
+                .and_then(Value::as_bool);
 
             let size = block
-                .get("virtual_size")
+                .get("render_size")
+                .or_else(|| block.get("render-size"))
+                .or_else(|| block.get("virtual_size"))
                 .or_else(|| block.get("virtual-size"))
                 .and_then(Value::as_str)
-                .and_then(parse_virtual_size);
+                .and_then(parse_render_size);
             if let Some(size) = size {
-                match size {
-                    VirtualSizeSetting::Fixed(w, h) => {
-                        settings.virtual_width = w;
-                        settings.virtual_height = h;
-                        settings.virtual_size_max_available = false;
-                    }
-                    VirtualSizeSetting::MaxAvailable => {
-                        settings.virtual_size_max_available = true;
-                    }
-                }
+                settings.render_size = size;
             }
 
             let policy = block
-                .get("virtual_policy")
+                .get("presentation_policy")
+                .or_else(|| block.get("presentation-policy"))
+                .or_else(|| block.get("virtual_policy"))
                 .or_else(|| block.get("virtual-policy"))
                 .and_then(Value::as_str)
-                .and_then(parse_virtual_policy);
+                .and_then(parse_presentation_policy);
             if let Some(policy) = policy {
-                settings.virtual_policy = policy;
+                settings.presentation_policy = policy;
             }
 
             let renderer_mode = block
@@ -90,31 +136,20 @@ impl RuntimeSettings {
             }
         }
 
-        if let Ok(raw) = env::var("SHELL_QUEST_USE_VIRTUAL_BUFFER") {
-            if let Some(parsed) = parse_bool(&raw) {
-                settings.use_virtual_buffer = parsed;
-            }
+        if let Some(size) = env::var("SHELL_QUEST_RENDER_SIZE")
+            .ok()
+            .as_deref()
+            .and_then(parse_render_size)
+        {
+            settings.render_size = size;
         }
 
-        if let Ok(raw) = env::var("SHELL_QUEST_VIRTUAL_SIZE") {
-            if let Some(size) = parse_virtual_size(&raw) {
-                match size {
-                    VirtualSizeSetting::Fixed(w, h) => {
-                        settings.virtual_width = w;
-                        settings.virtual_height = h;
-                        settings.virtual_size_max_available = false;
-                    }
-                    VirtualSizeSetting::MaxAvailable => {
-                        settings.virtual_size_max_available = true;
-                    }
-                }
-            }
-        }
-
-        if let Ok(raw) = env::var("SHELL_QUEST_VIRTUAL_POLICY") {
-            if let Some(policy) = parse_virtual_policy(&raw) {
-                settings.virtual_policy = policy;
-            }
+        if let Some(policy) = env::var("SHELL_QUEST_PRESENTATION_POLICY")
+            .ok()
+            .as_deref()
+            .and_then(parse_presentation_policy)
+        {
+            settings.presentation_policy = policy;
         }
 
         if let Ok(raw) = env::var("SHELL_QUEST_RENDERER_MODE") {
@@ -126,26 +161,117 @@ impl RuntimeSettings {
         settings
     }
 
-    pub fn resolved_virtual_size(&self, terminal_width: u16, terminal_height: u16) -> (u16, u16) {
-        if self.virtual_size_max_available {
-            return (terminal_width.max(1), terminal_height.max(1));
+    pub fn resolved_render_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
+        self.render_size.resolve(output_width, output_height)
+    }
+
+    pub fn buffer_layout(&self, output_width: u16, output_height: u16) -> BufferLayout {
+        let output_width = output_width.max(1);
+        let output_height = output_height.max(1);
+        let (render_width, render_height) = self.resolved_render_size(output_width, output_height);
+        BufferLayout {
+            render_width,
+            render_height,
+            output_width,
+            output_height,
         }
-        (self.virtual_width, self.virtual_height)
+    }
+
+    pub fn render_size_matches_output(&self) -> bool {
+        self.render_size.matches_output()
+    }
+
+    pub fn fixed_render_size(&self) -> Option<(u16, u16)> {
+        self.render_size.fixed()
+    }
+
+    pub fn resolved_virtual_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
+        self.resolved_render_size(output_width, output_height)
     }
 }
 
-fn parse_bool(raw: &str) -> Option<bool> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "1" | "true" | "yes" | "on" => Some(true),
-        "0" | "false" | "no" | "off" => Some(false),
-        _ => None,
+pub fn compute_presentation_layout(
+    container_width: u32,
+    container_height: u32,
+    content_width: u32,
+    content_height: u32,
+    policy: PresentationPolicy,
+) -> PresentationLayout {
+    let container_width = container_width.max(1);
+    let container_height = container_height.max(1);
+    let content_width = content_width.max(1);
+    let content_height = content_height.max(1);
+
+    match policy {
+        PresentationPolicy::Stretch => PresentationLayout {
+            dst_x: 0,
+            dst_y: 0,
+            dst_width: container_width,
+            dst_height: container_height,
+            src_x: 0,
+            src_y: 0,
+        },
+        PresentationPolicy::Fit => {
+            let (dst_width, dst_height) = fit_size(
+                container_width,
+                container_height,
+                content_width,
+                content_height,
+            );
+            PresentationLayout {
+                dst_x: centered_offset(container_width, dst_width),
+                dst_y: centered_offset(container_height, dst_height),
+                dst_width,
+                dst_height,
+                src_x: 0,
+                src_y: 0,
+            }
+        }
+        PresentationPolicy::Strict => {
+            let dst_width = container_width.min(content_width);
+            let dst_height = container_height.min(content_height);
+            PresentationLayout {
+                dst_x: centered_offset(container_width, dst_width),
+                dst_y: centered_offset(container_height, dst_height),
+                dst_width,
+                dst_height,
+                src_x: centered_offset(content_width, dst_width),
+                src_y: centered_offset(content_height, dst_height),
+            }
+        }
     }
 }
 
-fn parse_virtual_policy(raw: &str) -> Option<VirtualPolicy> {
+fn fit_size(
+    container_width: u32,
+    container_height: u32,
+    content_width: u32,
+    content_height: u32,
+) -> (u32, u32) {
+    if container_width.saturating_mul(content_height)
+        <= container_height.saturating_mul(content_width)
+    {
+        (
+            container_width.max(1),
+            (container_width.saturating_mul(content_height) / content_width.max(1)).max(1),
+        )
+    } else {
+        (
+            (container_height.saturating_mul(content_width) / content_height.max(1)).max(1),
+            container_height.max(1),
+        )
+    }
+}
+
+fn centered_offset(container: u32, content: u32) -> u32 {
+    container.saturating_sub(content) / 2
+}
+
+fn parse_presentation_policy(raw: &str) -> Option<PresentationPolicy> {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "strict" => Some(VirtualPolicy::Strict),
-        "fit" => Some(VirtualPolicy::Fit),
+        "strict" => Some(PresentationPolicy::Strict),
+        "fit" => Some(PresentationPolicy::Fit),
+        "stretch" => Some(PresentationPolicy::Stretch),
         _ => None,
     }
 }
@@ -160,19 +286,18 @@ fn parse_renderer_mode(raw: &str) -> Option<SceneRenderedMode> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum VirtualSizeSetting {
-    Fixed(u16, u16),
-    MaxAvailable,
-}
-
-fn parse_virtual_size(raw: &str) -> Option<VirtualSizeSetting> {
+fn parse_render_size(raw: &str) -> Option<RenderSize> {
     let normalized = raw.trim().to_ascii_lowercase();
     if matches!(
         normalized.as_str(),
-        "max-available" | "max_available" | "maxavailable"
+        "match-output"
+            | "match_output"
+            | "matchoutput"
+            | "max-available"
+            | "max_available"
+            | "maxavailable"
     ) {
-        return Some(VirtualSizeSetting::MaxAvailable);
+        return Some(RenderSize::MatchOutput);
     }
     let mut parts = normalized.split('x');
     let w = parts.next()?.trim().parse::<u16>().ok()?;
@@ -180,46 +305,73 @@ fn parse_virtual_size(raw: &str) -> Option<VirtualSizeSetting> {
     if parts.next().is_some() || w == 0 || h == 0 {
         return None;
     }
-    Some(VirtualSizeSetting::Fixed(w, h))
+    Some(RenderSize::Fixed {
+        width: w,
+        height: h,
+    })
 }
 
-/// Parse a virtual size string and return (width, height, is_max_available).
+/// Parse a render size string and return (width, height, matches_output).
 /// Returns None if the string is invalid.
-pub fn parse_virtual_size_str(raw: &str) -> Option<(u16, u16, bool)> {
-    match parse_virtual_size(raw)? {
-        VirtualSizeSetting::Fixed(w, h) => Some((w, h, false)),
-        VirtualSizeSetting::MaxAvailable => Some((0, 0, true)),
+pub fn parse_render_size_str(raw: &str) -> Option<(u16, u16, bool)> {
+    match parse_render_size(raw)? {
+        RenderSize::Fixed { width, height } => Some((width, height, false)),
+        RenderSize::MatchOutput => Some((0, 0, true)),
     }
+}
+
+/// Backward-compatible alias for old virtual-size parsing terminology.
+pub fn parse_virtual_size_str(raw: &str) -> Option<(u16, u16, bool)> {
+    parse_render_size_str(raw)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{RuntimeSettings, VirtualPolicy};
+    use super::{
+        BufferLayout, PresentationLayout, PresentationPolicy, RenderSize, RuntimeSettings,
+        compute_presentation_layout,
+    };
 
     #[test]
     fn parses_runtime_settings_from_manifest_terminal_block() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  use-virtual-buffer: true\n  virtual-size: \"320x200\"\n  virtual-policy: strict\n",
+            "terminal:\n  use-virtual-buffer: true\n  render-size: \"320x200\"\n  presentation-policy: strict\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
-        assert!(settings.use_virtual_buffer);
-        assert_eq!(settings.virtual_width, 320);
-        assert_eq!(settings.virtual_height, 200);
-        assert!(!settings.virtual_size_max_available);
-        assert_eq!(settings.virtual_policy, VirtualPolicy::Strict);
+        assert_eq!(
+            settings.render_size,
+            RenderSize::Fixed {
+                width: 320,
+                height: 200
+            }
+        );
+        assert_eq!(settings.presentation_policy, PresentationPolicy::Strict);
         assert_eq!(settings.renderer_mode_override, None);
+    }
+
+    #[test]
+    fn parses_stretch_presentation_policy() {
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
+            "terminal:\n  use-virtual-buffer: true\n  render-size: \"120x30\"\n  presentation-policy: stretch\n",
+        )
+        .expect("yaml parse");
+        let settings = RuntimeSettings::from_manifest(&yaml);
+        assert_eq!(settings.presentation_policy, PresentationPolicy::Stretch);
     }
 
     #[test]
     fn keeps_defaults_when_block_absent() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>("name: test\n").expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
-        assert!(!settings.use_virtual_buffer);
-        assert_eq!(settings.virtual_width, 320);
-        assert_eq!(settings.virtual_height, 240);
-        assert!(!settings.virtual_size_max_available);
-        assert_eq!(settings.virtual_policy, VirtualPolicy::Fit);
+        assert_eq!(
+            settings.render_size,
+            RenderSize::Fixed {
+                width: 320,
+                height: 240
+            }
+        );
+        assert_eq!(settings.presentation_policy, PresentationPolicy::Fit);
         assert_eq!(settings.renderer_mode_override, None);
     }
 
@@ -238,12 +390,105 @@ mod tests {
     #[test]
     fn parses_max_available_virtual_size() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  use-virtual-buffer: true\n  virtual-size: max-available\n",
+            "terminal:\n  use-virtual-buffer: true\n  render-size: match-output\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
-        assert!(settings.use_virtual_buffer);
-        assert!(settings.virtual_size_max_available);
-        assert_eq!(settings.resolved_virtual_size(180, 52), (180, 52));
+        assert!(settings.render_size_matches_output());
+        assert_eq!(settings.resolved_render_size(180, 52), (180, 52));
+    }
+
+    #[test]
+    fn keeps_virtual_aliases_compatible() {
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
+            "terminal:\n  virtual-size: max-available\n  virtual-policy: fit\n",
+        )
+        .expect("yaml parse");
+        let settings = RuntimeSettings::from_manifest(&yaml);
+        assert!(settings.render_size_matches_output());
+        assert_eq!(settings.presentation_policy, PresentationPolicy::Fit);
+    }
+
+    #[test]
+    fn computes_buffer_layout_from_render_and_output_sizes() {
+        let settings = RuntimeSettings {
+            render_size: RenderSize::Fixed {
+                width: 120,
+                height: 30,
+            },
+            presentation_policy: PresentationPolicy::Stretch,
+            renderer_mode_override: None,
+            is_pixel_backend: false,
+        };
+
+        assert_eq!(
+            settings.buffer_layout(80, 24),
+            BufferLayout {
+                render_width: 120,
+                render_height: 30,
+                output_width: 80,
+                output_height: 24,
+            }
+        );
+    }
+
+    #[test]
+    fn presentation_layout_fit_preserves_aspect_ratio_for_letterboxing() {
+        assert_eq!(
+            compute_presentation_layout(960, 640, 960, 480, PresentationPolicy::Fit),
+            PresentationLayout {
+                dst_x: 0,
+                dst_y: 80,
+                dst_width: 960,
+                dst_height: 480,
+                src_x: 0,
+                src_y: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn presentation_layout_fit_upscales_proportionally() {
+        assert_eq!(
+            compute_presentation_layout(210, 109, 180, 30, PresentationPolicy::Fit),
+            PresentationLayout {
+                dst_x: 0,
+                dst_y: 37,
+                dst_width: 210,
+                dst_height: 35,
+                src_x: 0,
+                src_y: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn presentation_layout_strict_centers_and_crops_when_needed() {
+        assert_eq!(
+            compute_presentation_layout(800, 400, 960, 480, PresentationPolicy::Strict),
+            PresentationLayout {
+                dst_x: 0,
+                dst_y: 0,
+                dst_width: 800,
+                dst_height: 400,
+                src_x: 80,
+                src_y: 40,
+            }
+        );
+    }
+
+    #[test]
+    fn presentation_layout_stretch_fills_container() {
+        assert_eq!(
+            compute_presentation_layout(1200, 800, 960, 480, PresentationPolicy::Stretch),
+            PresentationLayout {
+                dst_x: 0,
+                dst_y: 0,
+                dst_width: 1200,
+                dst_height: 800,
+                src_x: 0,
+                src_y: 0,
+            }
+        );
     }
 }

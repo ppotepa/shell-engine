@@ -6,10 +6,10 @@ use crate::scene_runtime::{RawKeyEvent, SceneRuntime, TerminalShellRoute};
 use crate::services::EngineWorldAccess;
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::terminal::SetSize;
 use engine_animation::{Animator, SceneStage};
 use engine_core::logging;
+use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 use std::io::stdout;
 
 pub struct SceneLifecycleManager;
@@ -31,12 +31,15 @@ impl SceneLifecycleManager {
     pub fn process_events(world: &mut World, events: Vec<EngineEvent>) -> bool {
         let lifecycle = classify_events(events);
         for (width, height) in &lifecycle.resizes {
-            // Resize output buffer
-            if let Some(buf) = world.buffer_mut() {
-                buf.resize(*width, *height);
+            let should_resize_buffer = world
+                .runtime_settings()
+                .map(|settings| settings.render_size_matches_output())
+                .unwrap_or(true);
+            if should_resize_buffer {
+                if let Some(buf) = world.buffer_mut() {
+                    buf.resize(*width, *height);
+                }
             }
-            // Also resize virtual buffer if using max-available
-            Self::handle_virtual_buffer_resize(world, *width, *height);
         }
 
         if !lifecycle.key_presses.is_empty() {
@@ -47,25 +50,6 @@ impl SceneLifecycleManager {
         }
         let quit_from_transition = Self::apply_transitions(world, lifecycle.transitions);
         lifecycle.quit || quit_from_transition
-    }
-
-    fn handle_virtual_buffer_resize(world: &mut World, term_width: u16, term_height: u16) {
-        let Some(settings) = world.runtime_settings() else {
-            return;
-        };
-
-        if !settings.use_virtual_buffer || !settings.virtual_size_max_available {
-            return;
-        }
-
-        // Resize virtual buffer to match terminal when using max-available
-        if let Some(vbuf) = world.virtual_buffer_mut() {
-            let new_w = term_width.max(1);
-            let new_h = term_height.max(1);
-            if vbuf.0.width != new_w || vbuf.0.height != new_h {
-                vbuf.0.resize(new_w, new_h);
-            }
-        }
     }
 
     fn advance_on_any_key(world: &mut World, key_presses: &[KeyEvent]) {
@@ -198,28 +182,24 @@ impl SceneLifecycleManager {
     }
 
     fn apply_virtual_size_override(world: &mut World, scene: &scene::Scene) {
-        let Some(settings) = world.runtime_settings() else {
+        let output_dimensions = world.output_dimensions().unwrap_or((80, 24));
+        let new_size = {
+            let Some(settings) = world.runtime_settings() else {
+                return;
+            };
+            crate::runtime_settings::scene_render_size_override(
+                settings,
+                scene,
+                output_dimensions.0,
+                output_dimensions.1,
+            )
+        };
+        let Some((new_width, new_height)) = new_size else {
             return;
         };
-        if !settings.use_virtual_buffer {
-            return;
-        }
-        let Some(size_override) = scene.virtual_size_override.as_deref() else {
-            return;
-        };
-        let Some((w, h, is_max)) = crate::runtime_settings::parse_virtual_size_str(size_override)
-        else {
-            return;
-        };
-        let (new_width, new_height) = if is_max {
-            let (term_w, term_h) = crossterm::terminal::size().unwrap_or((80, 24));
-            (term_w.max(1), term_h.max(1))
-        } else {
-            (w, h)
-        };
-        if let Some(vbuf) = world.virtual_buffer_mut() {
-            if vbuf.0.width != new_width || vbuf.0.height != new_height {
-                vbuf.0.resize(new_width, new_height);
+        if let Some(buffer) = world.buffer_mut() {
+            if buffer.width != new_width || buffer.height != new_height {
+                buffer.resize(new_width, new_height);
             }
         }
     }
@@ -227,10 +207,6 @@ impl SceneLifecycleManager {
 
 fn is_focus_navigation_key(key: &KeyEvent) -> bool {
     matches!(key.code, KeyCode::Tab | KeyCode::BackTab)
-        && matches!(
-            key.kind,
-            crossterm::event::KeyEventKind::Press | crossterm::event::KeyEventKind::Repeat
-        )
 }
 
 fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
@@ -241,7 +217,7 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
             EngineEvent::KeyPressed(code) => lifecycle.key_presses.push(code),
             EngineEvent::MouseMoved { column, row } => lifecycle.mouse_moves.push((column, row)),
             EngineEvent::SceneTransition { to_scene_id } => lifecycle.transitions.push(to_scene_id),
-            EngineEvent::TerminalResized { width, height } => {
+            EngineEvent::OutputResized { width, height } => {
                 lifecycle.resizes.push((width, height));
             }
             _ => {}
@@ -334,38 +310,37 @@ fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
     let mut handled = false;
     for key in key_presses {
         match key.code {
-            KeyCode::F(1) => {
+            // ~ / ` toggles the debug console on/off.
+            KeyCode::Char('~') | KeyCode::Char('`') => {
                 if let Some(debug) = world.get_mut::<DebugFeatures>() {
                     debug.overlay_visible = !debug.overlay_visible;
-                    debug.overlay_mode = DebugOverlayMode::Stats;
+                    logging::debug(
+                        "engine.debug.input",
+                        &format!(
+                            "console toggled: {}",
+                            if debug.overlay_visible {
+                                "visible"
+                            } else {
+                                "hidden"
+                            }
+                        ),
+                    );
                     handled = true;
                 }
             }
-            KeyCode::Char('~') | KeyCode::Char('`') => {
+            // Tab switches between Stats and Logs panels while console is open.
+            KeyCode::Tab => {
                 if let Some(debug) = world.get_mut::<DebugFeatures>() {
-                    match (debug.overlay_visible, debug.overlay_mode) {
-                        // Hidden → show Logs
-                        (false, _) => {
-                            debug.overlay_visible = true;
-                            debug.overlay_mode = DebugOverlayMode::Logs;
-                            logging::debug("engine.debug.input", "overlay toggled: hidden → Logs");
-                            handled = true;
-                        }
-                        // Visible + Logs → hide
-                        (true, DebugOverlayMode::Logs) => {
-                            debug.overlay_visible = false;
-                            logging::debug("engine.debug.input", "overlay toggled: Logs → hidden");
-                            handled = true;
-                        }
-                        // Visible + Stats → switch to Logs
-                        (true, DebugOverlayMode::Stats) => {
-                            debug.overlay_mode = DebugOverlayMode::Logs;
-                            logging::debug(
-                                "engine.debug.input",
-                                "overlay mode switched: Stats → Logs",
-                            );
-                            handled = true;
-                        }
+                    if debug.overlay_visible {
+                        debug.overlay_mode = match debug.overlay_mode {
+                            DebugOverlayMode::Stats => DebugOverlayMode::Logs,
+                            DebugOverlayMode::Logs => DebugOverlayMode::Stats,
+                        };
+                        logging::debug(
+                            "engine.debug.input",
+                            &format!("console tab: {:?}", debug.overlay_mode),
+                        );
+                        handled = true;
                     }
                 }
             }
@@ -420,9 +395,6 @@ fn apply_terminal_size_change(world: &mut World, width: u16, height: u16) {
     let _ = crossterm::execute!(stdout(), SetSize(width, height));
     if let Some(buf) = world.buffer_mut() {
         buf.resize(width, height);
-    }
-    if let Some(vbuf) = world.virtual_buffer_mut() {
-        vbuf.0.resize(width, height);
     }
 }
 
@@ -501,7 +473,7 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
     }
 }
 
-/// Convert a crossterm `KeyEvent` into a domain-agnostic `RawKeyEvent` for Rhai scripts.
+/// Convert an engine `KeyEvent` into a domain-agnostic `RawKeyEvent` for Rhai scripts.
 fn key_event_to_raw(key: &KeyEvent) -> RawKeyEvent {
     let code = match key.code {
         KeyCode::Char(c) => c.to_string(),
@@ -533,8 +505,10 @@ fn key_event_to_raw(key: &KeyEvent) -> RawKeyEvent {
 #[cfg(test)]
 mod tests {
     use super::{classify_events, SceneLifecycleManager};
-    use crate::debug_features::DebugFeatures;
+    use crate::buffer::Buffer;
+    use crate::debug_features::{DebugFeatures, DebugOverlayMode};
     use crate::events::EngineEvent;
+    use crate::runtime_settings::{RenderSize, RuntimeSettings};
     use crate::scene::{
         MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage, StageTrigger,
         TermColour,
@@ -543,8 +517,8 @@ mod tests {
     use crate::scene_runtime::SceneRuntime;
     use crate::services::EngineWorldAccess;
     use crate::world::World;
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use engine_animation::{Animator, SceneStage};
+    use engine_events::{KeyCode, KeyEvent, KeyModifiers};
     use std::fs;
     use tempfile::tempdir;
 
@@ -756,6 +730,53 @@ layers:
         at: lb
         content: ""
 "#;
+
+    #[test]
+    fn fixed_render_size_ignores_output_resize_events() {
+        let mut world = World::new();
+        world.register(RuntimeSettings {
+            render_size: RenderSize::Fixed {
+                width: 180,
+                height: 30,
+            },
+            ..RuntimeSettings::default()
+        });
+        world.register(Buffer::new(180, 30));
+
+        let quit = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::OutputResized {
+                width: 210,
+                height: 109,
+            }],
+        );
+
+        assert!(!quit);
+        let buffer = world.get::<Buffer>().expect("buffer present");
+        assert_eq!((buffer.width, buffer.height), (180, 30));
+    }
+
+    #[test]
+    fn match_output_render_size_follows_output_resize_events() {
+        let mut world = World::new();
+        world.register(RuntimeSettings {
+            render_size: RenderSize::MatchOutput,
+            ..RuntimeSettings::default()
+        });
+        world.register(Buffer::new(80, 24));
+
+        let quit = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![EngineEvent::OutputResized {
+                width: 100,
+                height: 40,
+            }],
+        );
+
+        assert!(!quit);
+        let buffer = world.get::<Buffer>().expect("buffer present");
+        assert_eq!((buffer.width, buffer.height), (100, 40));
+    }
 
     #[test]
     fn any_key_moves_idle_scene_to_leave_when_trigger_is_any_key() {
@@ -1088,7 +1109,7 @@ layers:
     }
 
     #[test]
-    fn debug_f1_toggles_overlay_visibility() {
+    fn debug_tilde_toggles_overlay_visibility() {
         let mut world = World::new();
         world.register(DebugFeatures {
             enabled: true,
@@ -1098,7 +1119,8 @@ layers:
         world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", None)));
         world.register_scoped(make_idle_animator());
 
-        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::F(1))]);
+        let _ =
+            SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Char('`'))]);
 
         let debug = world
             .get::<DebugFeatures>()
@@ -1107,6 +1129,26 @@ layers:
         assert!(!debug.overlay_visible);
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.stage, SceneStage::OnIdle);
+    }
+
+    #[test]
+    fn debug_tab_switches_overlay_mode() {
+        let mut world = World::new();
+        world.register(DebugFeatures {
+            enabled: true,
+            overlay_visible: true,
+            overlay_mode: DebugOverlayMode::Stats,
+        });
+        world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", None)));
+        world.register_scoped(make_idle_animator());
+
+        let _ =
+            SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Tab)]);
+
+        let debug = world
+            .get::<DebugFeatures>()
+            .expect("debug settings present");
+        assert_eq!(debug.overlay_mode, DebugOverlayMode::Logs);
     }
 
     #[test]
@@ -1232,7 +1274,7 @@ layers:
     fn classifies_quit_resize_and_transitions() {
         let lifecycle = classify_events(vec![
             EngineEvent::Tick,
-            EngineEvent::TerminalResized {
+            EngineEvent::OutputResized {
                 width: 120,
                 height: 40,
             },

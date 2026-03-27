@@ -10,12 +10,13 @@
 pub use engine_pipeline::{
     AlwaysPresenter, AlwaysRender, CoordinatedSkip, DirectLayerCompositor, DirtyRegionPacker,
     DisplayFrame, DisplaySink, FrameSkipOracle, FullScanPacker, HalfblockPacker, HashSkipPresenter,
-    LayerCompositor, PipelineStrategies, ScratchLayerCompositor, TerminalFlusher, VirtualPresenter,
+    LayerCompositor, PipelineStrategies, ScratchLayerCompositor, VirtualPresenter,
 };
 
 // Re-export terminal-specific strategies from engine-render-terminal
 pub use engine_render_terminal::strategy::display::{AsyncDisplaySink, SyncDisplaySink};
 pub use engine_render_terminal::strategy::flush::{AnsiBatchFlusher, NaiveFlusher};
+pub use engine_render_terminal::TerminalFlusher;
 
 pub mod behavior_factory;
 pub mod scene_compositor;

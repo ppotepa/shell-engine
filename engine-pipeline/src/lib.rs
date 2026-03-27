@@ -24,7 +24,6 @@ pub use strategies::{
     // Aggregation
     PipelineStrategies,
     ScratchLayerCompositor,
-    TerminalFlusher,
     VirtualPresenter,
 };
 

@@ -1,9 +1,9 @@
 use crate::buffer::Buffer;
+use crate::color::Color;
 use crate::effects::effect::{Effect, EffectTargetMask, Region};
 use crate::effects::metadata::{slider, EffectMetadata, P_EASING};
 use crate::effects::utils::color::colour_to_rgb;
 use crate::scene::EffectParams;
-use crate::color::Color;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "posterize",
@@ -82,9 +82,9 @@ fn posterize_component(value: u8, levels: u8) -> u8 {
 mod tests {
     use super::{PosterizeEffect, METADATA};
     use crate::buffer::Buffer;
+    use crate::color::Color;
     use crate::effects::effect::{Effect, EffectTargetMask, Region};
     use crate::scene::EffectParams;
-    use crate::color::Color;
 
     #[test]
     fn metadata_is_any_target() {

@@ -3,8 +3,8 @@
 use crate::font_loader;
 use crate::generic;
 pub use crate::types::{GlyphManifest, LoadedFont, LoadedGlyph};
-use engine_core::color::Color;
 use engine_core::buffer::Buffer;
+use engine_core::color::Color;
 use engine_core::scene::sprite::TextTransform;
 use std::cell::RefCell;
 use std::collections::HashMap;

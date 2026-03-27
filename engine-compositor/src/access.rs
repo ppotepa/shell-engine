@@ -6,7 +6,7 @@
 
 use engine_animation::Animator;
 use engine_core::assets::AssetRoot;
-use engine_core::buffer::{Buffer, VirtualBuffer};
+use engine_core::buffer::Buffer;
 use engine_runtime::RuntimeSettings;
 
 /// Trait providing access to the resources needed by the compositor system.
@@ -20,10 +20,7 @@ pub trait CompositorAccess {
     /// Get mutable buffer (write target for compositing).
     fn buffer_mut(&self) -> Option<&mut Buffer>;
 
-    /// Get mutable virtual buffer (write target when using virtual mode).
-    fn virtual_buffer_mut(&self) -> Option<&mut VirtualBuffer>;
-
-    /// Get runtime settings (use_virtual_buffer flag, etc.).
+    /// Get runtime settings.
     fn runtime_settings(&self) -> Option<&RuntimeSettings>;
 
     /// Get asset root (mod directory/zip path).

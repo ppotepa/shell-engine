@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine-animation::systems — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine-animation::systems</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../index.html">Home</a> / <a href="../../index.html">API Reference</a> / <a href="../index.html">Modules</a> / engine-animation::systems</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Animation system — processes animator tick and returns scene transitions. Integration: engine-animation is decoupled from World and engine-core. The engine calls `animator_system()` once per frame with a provider that implements AnimatorProvider.</p>
+        <p><strong>Source:</strong> <code>engine-animation/src/systems.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Animation system — processes animator tick and returns scene transitions.</p>
+<p>Integration: engine-animation is decoupled from World and engine-core. The engine calls `animator_system()` once per frame with a provider that implements AnimatorProvider.</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><a class="entity-ref" data-entity-id="trait:engine-animation/src/systems.rs:AnimatorProvider" href="../../types/engine-animation/systems/trait.AnimatorProvider.html"><code>AnimatorProvider</code></a> <span class="entity-meta">trait</span></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-animator-system"><code>animator_system</code></td><td><code>pub fn animator_system&lt;T: AnimatorProvider&gt;(provider: &amp;mut T, tick_ms: u64) -&gt; Option&lt;String&gt; {</code></td><td></td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../codemap.js"></script>
+  <script defer src="../../../../docref.js" data-codemap-json="../../../../codemap.json"></script>
+</body>
+</html>

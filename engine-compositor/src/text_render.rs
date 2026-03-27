@@ -43,6 +43,8 @@ pub fn render_text_content(
     clip: Option<ClipRect>,
     buf: &mut Buffer,
     transform: &TextTransform,
+    scale_x: f32,
+    scale_y: f32,
 ) {
     match font {
         None => {
@@ -89,7 +91,7 @@ pub fn render_text_content(
                     line_buf.resize(line_width, line_h.max(1));
                     line_buf.fill(Color::Reset);
                     generic::rasterize_spans_mode(&colored_spans, mode, 0, 0, line_buf, transform);
-                    blit_with_clip(line_buf, buf, x, line_y, clip);
+                    blit_scaled(line_buf, buf, x, line_y, clip, scale_x, scale_y);
                 });
             }
         }
@@ -99,18 +101,42 @@ pub fn render_text_content(
             for (line_idx, line) in stripped.split('\n').enumerate() {
                 let text_buf = rasterizer::rasterize_cached(mod_source, line, font_name, fg, bg);
                 let line_y = y.saturating_add((line_idx as u16).saturating_mul(line_h));
-                blit_with_clip(&text_buf, buf, x, line_y, clip);
+                blit_scaled(&text_buf, buf, x, line_y, clip, scale_x, scale_y);
             }
         }
     }
 }
 
 fn blit_with_clip(src: &Buffer, dst: &mut Buffer, dx: u16, dy: u16, clip: Option<ClipRect>) {
-    for sy in 0..src.height {
-        for sx in 0..src.width {
-            let tx = dx.saturating_add(sx);
-            let ty = dy.saturating_add(sy);
-            if clip.is_some_and(|rect| !rect.contains(tx, ty)) {
+    blit_scaled(src, dst, dx, dy, clip, 1.0, 1.0);
+}
+
+fn blit_scaled(
+    src: &Buffer,
+    dst: &mut Buffer,
+    dx: u16,
+    dy: u16,
+    clip: Option<ClipRect>,
+    scale_x: f32,
+    scale_y: f32,
+) {
+    let scale_x = scale_x.max(0.01);
+    let scale_y = scale_y.max(0.01);
+    let dst_w = ((src.width as f32) * scale_x).round() as u16;
+    let dst_h = ((src.height as f32) * scale_y).round() as u16;
+    for ty in 0..dst_h {
+        let sy = ((ty as f32) / scale_y) as u16;
+        if sy >= src.height {
+            continue;
+        }
+        for tx in 0..dst_w {
+            let sx = ((tx as f32) / scale_x) as u16;
+            if sx >= src.width {
+                continue;
+            }
+            let out_x = dx.saturating_add(tx);
+            let out_y = dy.saturating_add(ty);
+            if clip.is_some_and(|rect| !rect.contains(out_x, out_y)) {
                 continue;
             }
             if let Some(cell) = src.get(sx, sy) {
@@ -118,13 +144,13 @@ fn blit_with_clip(src: &Buffer, dst: &mut Buffer, dx: u16, dy: u16, clip: Option
                     continue;
                 }
                 let bg = if cell.bg == Color::Reset {
-                    dst.get(tx, ty)
+                    dst.get(out_x, out_y)
                         .map(|under| under.bg)
                         .unwrap_or(Color::Reset)
                 } else {
                     cell.bg
                 };
-                dst.set(tx, ty, cell.symbol, cell.fg, bg);
+                dst.set(out_x, out_y, cell.symbol, cell.fg, bg);
             }
         }
     }
@@ -136,9 +162,11 @@ pub fn text_sprite_dimensions(
     font: Option<&str>,
     fg: Color,
     bg: Color,
+    scale_x: f32,
+    scale_y: f32,
 ) -> (u16, u16) {
     let visible = strip_markup(content);
-    match font {
+    let (w, h) = match font {
         None => {
             let lines = split_lines_preserve_empty(&visible);
             let width = lines
@@ -176,7 +204,10 @@ pub fn text_sprite_dimensions(
             let height = line_h.saturating_mul(lines.len() as u16).max(1);
             (width, height)
         }
-    }
+    };
+    let scaled_w = ((w as f32) * scale_x.max(0.01)).round() as u16;
+    let scaled_h = ((h as f32) * scale_y.max(0.01)).round() as u16;
+    (scaled_w.max(1), scaled_h.max(1))
 }
 
 fn split_lines_preserve_empty(content: &str) -> Vec<&str> {
@@ -217,8 +248,8 @@ pub fn dim_colour(c: Color) -> Color {
 #[cfg(test)]
 mod tests {
     use super::blit_with_clip;
-    use engine_core::color::Color;
     use engine_core::buffer::Buffer;
+    use engine_core::color::Color;
 
     #[test]
     fn blit_preserves_underlying_bg_for_reset_text_cells() {

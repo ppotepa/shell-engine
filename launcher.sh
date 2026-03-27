@@ -14,6 +14,7 @@ START_SCENE="${SHELL_QUEST_START_SCENE:-}"
 SKIP_SPLASH=0
 HOLD_ON_EXIT=1
 AUDIO=0
+SDL2=0
 
 print_usage() {
   cat <<'EOF'
@@ -30,6 +31,7 @@ Options:
   --no-hold               Do not wait for Enter after process exit
   --skip-splash           Skip the engine splash screen
   --audio                 Enable audio playback
+  --sdl2                  Use SDL2 output backend instead of terminal
   -h, --help              Show this help
 EOF
 }
@@ -96,6 +98,10 @@ while [[ $# -gt 0 ]]; do
       AUDIO=1
       shift
       ;;
+    --sdl2)
+      SDL2=1
+      shift
+      ;;
     -h|--help)
       print_usage
       exit 0
@@ -153,7 +159,7 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
     *) export TERM=xterm-256color ;;
   esac
 fi
-cargo run -q -p app -- --mod $shell_mod_name${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$AUDIO" == "1" ]] && echo " --audio" )
+cargo run -q -p app -- --mod $shell_mod_name${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$AUDIO" == "1" ]] && echo " --audio" )$( [[ "$SDL2" == "1" ]] && echo " --sdl2" )
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
 $hold_line

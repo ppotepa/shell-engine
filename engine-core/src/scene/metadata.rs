@@ -207,7 +207,8 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
         name: "virtual-size-override",
         value_kind: ValueKind::Text,
         requirement: Requirement::Optional,
-        description: "Optional virtual canvas override in WIDTHxHEIGHT form (e.g. 320x240).",
+        description:
+            "Optional scene-local render canvas override in WIDTHxHEIGHT form (compatibility-only; prefer mod-level terminal.render_size).",
         default_text: None,
         default_number: None,
         enum_options: None,

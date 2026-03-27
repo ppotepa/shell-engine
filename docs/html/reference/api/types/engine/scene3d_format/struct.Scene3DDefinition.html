@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scene3DDefinition — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> Scene3DDefinition</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine/scene3d_format.html">engine::scene3d_format</a> / Scene3DDefinition</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine/src/scene3d_format.rs:Scene3DDefinition</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/scene3d_format.rs:15</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/scene3d_format.rs" href="../../../modules/engine/scene3d_format.html"><code>engine::scene3d_format</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Parsed representation of a `.scene3d.yml` file.</p>
+          <div class="signature-block"><pre><code>pub struct Scene3DDefinition {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Parsed representation of a `.scene3d.yml` file.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-id"><code>id</code></td><td><code>pub id: String</code></td><td><code>String</code></td><td></td></tr><tr><td id="field-viewport"><code>viewport</code></td><td><code>pub viewport: ViewportDef</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ViewportDef" href="struct.ViewportDef.html"><code>ViewportDef</code></a></div></td><td><code>ViewportDef</code></td><td></td></tr><tr><td id="field-camera"><code>camera</code></td><td><code>pub camera: CameraDef</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:CameraDef" href="struct.CameraDef.html"><code>CameraDef</code></a></div></td><td><code>CameraDef</code></td><td></td></tr><tr><td id="field-lights"><code>lights</code></td><td><code>pub lights: Vec&lt;LightDef&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:LightDef" href="struct.LightDef.html"><code>LightDef</code></a></div></td><td><code>Vec&lt;LightDef&gt;</code></td><td></td></tr><tr><td id="field-materials"><code>materials</code></td><td><code>pub materials: HashMap&lt;String, MaterialDef&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:MaterialDef" href="struct.MaterialDef.html"><code>MaterialDef</code></a></div></td><td><code>HashMap&lt;String, MaterialDef&gt;</code></td><td></td></tr><tr><td id="field-objects"><code>objects</code></td><td><code>pub objects: Vec&lt;ObjectDef&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ObjectDef" href="struct.ObjectDef.html"><code>ObjectDef</code></a></div></td><td><code>Vec&lt;ObjectDef&gt;</code></td><td></td></tr><tr><td id="field-frames"><code>frames</code></td><td><code>pub frames: HashMap&lt;String, FrameDef&gt;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine/src/scene3d_format.rs:FrameDef" href="enum.FrameDef.html"><code>FrameDef</code></a></div></td><td><code>HashMap&lt;String, FrameDef&gt;</code></td><td>Named frames. Key = frame_id used in `Sprite::Scene3D.frame`.</td></tr><tr><td id="field-materials-ref"><code>materials_ref</code></td><td><code>pub materials_ref: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td>Path to a shared materials YAML (`HashMap&lt;name, MaterialDef&gt;`). Loaded and merged before rendering; local materials override ref materials.</td></tr><tr><td id="field-camera-ref"><code>camera_ref</code></td><td><code>pub camera_ref: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td>Path to a shared camera YAML (`CameraDef`). Replaces the local `camera` block.</td></tr><tr><td id="field-lights-ref"><code>lights_ref</code></td><td><code>pub lights_ref: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td>Path to a shared lights YAML (`Vec&lt;LightDef&gt;`). Applied when local `lights` is empty.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <p><em>No methods captured from the snapshot.</em></p>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine/src/scene3d_format.rs:FrameDef" href="enum.FrameDef.html"><code>FrameDef</code></a> <span class="entity-meta">enum · engine/src/scene3d_format.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:CameraDef" href="struct.CameraDef.html"><code>CameraDef</code></a> <span class="entity-meta">struct · engine/src/scene3d_format.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:LightDef" href="struct.LightDef.html"><code>LightDef</code></a> <span class="entity-meta">struct · engine/src/scene3d_format.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:MaterialDef" href="struct.MaterialDef.html"><code>MaterialDef</code></a> <span class="entity-meta">struct · engine/src/scene3d_format.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ObjectDef" href="struct.ObjectDef.html"><code>ObjectDef</code></a> <span class="entity-meta">struct · engine/src/scene3d_format.rs</span></li><li><a class="entity-ref" data-entity-id="struct:engine/src/scene3d_format.rs:ViewportDef" href="struct.ViewportDef.html"><code>ViewportDef</code></a> <span class="entity-meta">struct · engine/src/scene3d_format.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

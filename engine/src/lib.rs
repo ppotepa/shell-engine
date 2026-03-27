@@ -66,6 +66,7 @@ pub fn behavior_catalog() -> Vec<(
 
 use std::path::{Path, PathBuf};
 
+use engine_render::OutputBackend;
 use mod_loader::load_mod_manifest;
 use serde_yaml::Value;
 use services::EngineWorldAccess;
@@ -78,9 +79,16 @@ pub struct ShellEngine {
     config: EngineConfig,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackendKind {
+    Terminal,
+    Sdl2,
+}
+
 /// Runtime launch options passed explicitly from the launcher.
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
+    pub output_backend: BackendKind,
     pub renderer_mode: Option<String>,
     pub debug_feature: bool,
     pub audio: bool,
@@ -107,11 +115,36 @@ pub struct EngineConfig {
     pub capture_frames_dir: Option<PathBuf>,
     /// Override the mod's target FPS (e.g. 240 for uncapped benchmarks).
     pub target_fps_override: Option<u16>,
+    /// SDL startup window ratio constraint (None means free ratio).
+    pub sdl_window_ratio: Option<(u32, u32)>,
+    /// SDL startup pixel scale multiplier for logical surface.
+    pub sdl_pixel_scale: u32,
+    /// Enable SDL VSync at canvas creation time.
+    pub sdl_vsync: bool,
+}
+
+const SDL_DEFAULT_OUTPUT_WIDTH: u16 = 120;
+const SDL_DEFAULT_OUTPUT_HEIGHT: u16 = 40;
+
+fn sdl_startup_output_size(manifest: &Value) -> (u16, u16) {
+    let requirements =
+        terminal_caps::TerminalRequirements::from_manifest(manifest).unwrap_or_default();
+    (
+        requirements
+            .min_width
+            .unwrap_or(SDL_DEFAULT_OUTPUT_WIDTH)
+            .max(1),
+        requirements
+            .min_height
+            .unwrap_or(SDL_DEFAULT_OUTPUT_HEIGHT)
+            .max(1),
+    )
 }
 
 impl Default for EngineConfig {
     fn default() -> Self {
         Self {
+            output_backend: BackendKind::Terminal,
             renderer_mode: None,
             debug_feature: false,
             audio: false,
@@ -126,6 +159,9 @@ impl Default for EngineConfig {
             bench_secs: None,
             capture_frames_dir: None,
             target_fps_override: None,
+            sdl_window_ratio: Some((16, 9)),
+            sdl_pixel_scale: 8,
+            sdl_vsync: true,
         }
     }
 }
@@ -155,11 +191,13 @@ impl ShellEngine {
     pub fn run(&self) -> Result<(), EngineError> {
         use engine_animation::Animator;
         use engine_asset::SceneRepository;
+        use engine_events::InputBackend;
+        use engine_mod::StartupOutputSetting;
         use engine_mod::startup::{
             StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile,
         };
         use events::EventQueue;
-        use runtime_settings::RuntimeSettings;
+        use runtime_settings::{RenderSize, RuntimeSettings};
         use scene_loader::SceneLoader;
         use scene_runtime::SceneRuntime;
         use systems::renderer::TerminalRenderer;
@@ -215,6 +253,10 @@ impl ShellEngine {
             entrypoint,
             &scene_loader_fn,
         )
+        .with_selected_output(match self.config.output_backend {
+            BackendKind::Terminal => StartupOutputSetting::Terminal,
+            BackendKind::Sdl2 => StartupOutputSetting::Sdl2,
+        })
         .with_font_asset_checker(&font_checker)
         .with_glyph_coverage_checker(&glyph_checker)
         .with_image_asset_checker(&image_checker)
@@ -239,6 +281,12 @@ impl ShellEngine {
             .target_fps_override
             .unwrap_or_else(|| target_fps_from_manifest(&self.mod_manifest));
         let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
+        if matches!(self.config.output_backend, BackendKind::Terminal) {
+            runtime_settings.render_size = RenderSize::MatchOutput;
+        }
+        if matches!(self.config.output_backend, BackendKind::Sdl2) {
+            runtime_settings.is_pixel_backend = true;
+        }
         if let Some(mode) = self
             .config
             .renderer_mode
@@ -248,12 +296,42 @@ impl ShellEngine {
             runtime_settings.renderer_mode_override = Some(mode);
         }
 
-        let (term_w, term_h) = crossterm::terminal::size()?;
-        let (virtual_w, virtual_h) = runtime_settings.resolved_virtual_size(term_w, term_h);
+        let (output_w, output_h) = match self.config.output_backend {
+            BackendKind::Terminal => crossterm::terminal::size()?,
+            BackendKind::Sdl2 => sdl_startup_output_size(&self.mod_manifest),
+        };
+        let layout = runtime_settings::buffer_layout_for_scene(
+            &runtime_settings,
+            &scene,
+            output_w,
+            output_h,
+        );
+        logging::info(
+            "engine.runtime",
+            format!(
+                "output={} output_size={}x{} render_size={}x{} policy={:?} scene_override={}",
+                match self.config.output_backend {
+                    BackendKind::Terminal => "terminal",
+                    BackendKind::Sdl2 => "sdl2",
+                },
+                output_w,
+                output_h,
+                layout.render_width,
+                layout.render_height,
+                runtime_settings.presentation_policy,
+                scene
+                    .virtual_size_override
+                    .as_deref()
+                    .unwrap_or("none"),
+            ),
+        );
 
         let mut world = world::World::new();
         world.register(EventQueue::new());
-        world.register(buffer::Buffer::new(term_w, term_h));
+        world.register(buffer::Buffer::new(
+            layout.render_width,
+            layout.render_height,
+        ));
         world.register(audio::AudioRuntime::from_options(
             self.config.audio,
             &self.mod_source.to_string_lossy(),
@@ -285,7 +363,6 @@ impl ShellEngine {
             self.config.opt_present,
             self.config.opt_rowdiff,
             self.config.opt_async_display,
-            Box::new(strategy::AnsiBatchFlusher),
         ));
         if let Some(secs) = self.config.bench_secs {
             world.register(bench::BenchmarkState::new(
@@ -294,9 +371,6 @@ impl ShellEngine {
                 self.config.opt_present,
                 self.config.opt_diff,
             ));
-        }
-        if runtime_settings.use_virtual_buffer {
-            world.register(buffer::VirtualBuffer::new(virtual_w, virtual_h));
         }
 
         // Register frame-skip oracle (either AlwaysRender or CoordinatedSkip based on --opt-skip flag)
@@ -311,23 +385,59 @@ impl ShellEngine {
             ));
         }
 
-        // Enter alt-screen, hard-reset console surface, then paint black before first frame.
-        // This prevents the terminal's previous content from flashing on the first frame.
-        let mut renderer = TerminalRenderer::new_with_async(self.config.opt_async_display)?;
-        renderer.reset_console()?;
-        renderer.clear_black()?;
-        let splash_bg = scene
-            .bg_colour
-            .as_ref()
-            .map(|tc| {
-                let engine_color = engine_core::color::Color::from(tc);
-                engine_render_terminal::color_convert::to_crossterm(engine_color)
-            })
-            .unwrap_or(crossterm::style::Color::Black);
-        if !self.config.skip_splash {
-            splash::show_splash(splash_bg);
-        }
-        world.register(renderer);
+        let mut input_backend: Box<dyn InputBackend> = match self.config.output_backend {
+            BackendKind::Terminal => {
+                let mut renderer = TerminalRenderer::new_with_async(
+                    self.config.opt_async_display,
+                    Box::new(strategy::AnsiBatchFlusher),
+                    runtime_settings.presentation_policy,
+                )?;
+                renderer.clear().map_err(|error| {
+                    EngineError::Render(std::io::Error::other(error.to_string()))
+                })?;
+                let splash_bg = scene
+                    .bg_colour
+                    .as_ref()
+                    .map(|tc| {
+                        let engine_color = engine_core::color::Color::from(tc);
+                        engine_render_terminal::color_convert::to_crossterm(engine_color)
+                    })
+                    .unwrap_or(crossterm::style::Color::Black);
+                if !self.config.skip_splash {
+                    splash::show_splash(splash_bg);
+                }
+                world.register(Box::new(renderer) as Box<dyn OutputBackend>);
+                Box::new(engine_render_terminal::input::TerminalInputBackend::new(
+                    self.config.debug_feature,
+                )?)
+            }
+            BackendKind::Sdl2 => {
+                #[cfg(feature = "sdl2")]
+                {
+                    let (mut renderer, input) =
+                        engine_render_sdl2::renderer::Sdl2Backend::new_pair(
+                            layout.render_width,
+                            layout.render_height,
+                            runtime_settings.presentation_policy,
+                            self.config.sdl_window_ratio,
+                            self.config.sdl_pixel_scale,
+                            self.config.sdl_vsync,
+                        )
+                        .map_err(|error| EngineError::Render(std::io::Error::other(error)))?;
+                    renderer.clear().map_err(|error| {
+                        EngineError::Render(std::io::Error::other(error.to_string()))
+                    })?;
+                    world.register(Box::new(renderer) as Box<dyn OutputBackend>);
+                    Box::new(input)
+                }
+                #[cfg(not(feature = "sdl2"))]
+                {
+                    return Err(EngineError::Render(std::io::Error::other(
+                        "SDL2 backend requested but engine was built without the `sdl2` feature",
+                    )));
+                }
+            }
+        };
 
         world.register(SceneLoader::new(self.mod_source.clone())?);
         // Register the scene preparation pipeline as a world resource so that
@@ -350,7 +460,12 @@ impl ShellEngine {
             None
         };
 
-        let result = game_loop::game_loop(&mut world, target_fps, &mut frame_capture);
+        let result = game_loop::game_loop(
+            &mut world,
+            target_fps,
+            input_backend.as_mut(),
+            &mut frame_capture,
+        );
 
         // Write benchmark report if bench mode was active.
         if self.config.bench_secs.is_some() {
@@ -406,6 +521,7 @@ fn parse_renderer_mode(raw: &str) -> Option<scene::SceneRenderedMode> {
 #[cfg(test)]
 mod tests {
     use super::ShellEngine;
+    use super::{sdl_startup_output_size, SDL_DEFAULT_OUTPUT_HEIGHT, SDL_DEFAULT_OUTPUT_WIDTH};
     use crate::scene_loader;
     use crate::EngineError;
     use engine_asset::{create_scene_repository, SceneRepository};
@@ -414,6 +530,7 @@ mod tests {
         SceneGraphCheck,
     };
     use engine_mod::startup::{StartupContext, StartupRunner, StartupSceneFile};
+    use serde_yaml::Value;
     use std::{fs, path::PathBuf};
     use tempfile::tempdir;
 
@@ -487,6 +604,25 @@ mod tests {
     #[test]
     fn real_shell_quest_scenes_all_load() {
         assert_real_mod_scenes_load("shell-quest");
+    }
+
+    #[test]
+    fn sdl_startup_output_uses_manifest_minimums() {
+        let manifest =
+            serde_yaml::from_str::<Value>("terminal:\n  min_width: 132\n  min_height: 37\n")
+                .expect("manifest");
+
+        assert_eq!(sdl_startup_output_size(&manifest), (132, 37));
+    }
+
+    #[test]
+    fn sdl_startup_output_falls_back_to_defaults() {
+        let manifest = serde_yaml::from_str::<Value>("name: demo\n").expect("manifest");
+
+        assert_eq!(
+            sdl_startup_output_size(&manifest),
+            (SDL_DEFAULT_OUTPUT_WIDTH, SDL_DEFAULT_OUTPUT_HEIGHT)
+        );
     }
 
     fn assert_real_mod_starts(mod_name: &str) {

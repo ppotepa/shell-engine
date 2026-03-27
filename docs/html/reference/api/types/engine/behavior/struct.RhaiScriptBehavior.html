@@ -22,7 +22,7 @@
         </div>
         <div class="sidebar-block">
           <h3>Source</h3>
-          <p><code>engine/src/behavior.rs:471</code></p>
+          <p><code>engine/src/behavior.rs:611</code></p>
         </div>
         <div class="sidebar-block">
           <h3>Module</h3>
@@ -42,11 +42,11 @@
     
         <section class="doc-section">
           <h2>Fields / properties</h2>
-          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-params"><code>params</code></td><td><code>params: BehaviorParams</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:BehaviorParams" href="../../engine-core/scene/model/struct.BehaviorParams.html"><code>BehaviorParams</code></a></div></td><td><code>BehaviorParams</code></td><td></td></tr></tbody></table>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-params"><code>params</code></td><td><code>params: BehaviorParams</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:BehaviorParams" href="../../engine-core/scene/model/struct.BehaviorParams.html"><code>BehaviorParams</code></a></div></td><td><code>BehaviorParams</code></td><td></td></tr><tr><td id="field-state"><code>state</code></td><td><code>state: JsonValue</code></td><td><code>JsonValue</code></td><td></td></tr><tr><td id="field-compile-error"><code>compile_error</code></td><td><code>compile_error: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td>Compile-time error text stored here and emitted as ScriptError once.</td></tr><tr><td id="field-compile-error-reported"><code>compile_error_reported</code></td><td><code>compile_error_reported: bool</code></td><td><code>bool</code></td><td></td></tr><tr><td id="field-behavior-id"><code>behavior_id</code></td><td><code>behavior_id: usize</code></td><td><code>usize</code></td><td>Unique ID used to look up this behavior&#x27;s persistent Rhai scope in the thread-local BEHAVIOR_SCOPES map. Avoids storing non-Send `rhai::Scope` directly in the struct while still reusing the scope across frames (eliminates `Scope::new()` + ~30 pushes per frame).</td></tr></tbody></table>
         </section>
         <section class="doc-section">
           <h2>Methods</h2>
-          <p><em>No methods captured from the snapshot.</em></p>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-from-params-837"><code>from_params</code></td><td><code>pub(crate) fn from_params(params: &amp;BehaviorParams) -&gt; Self {</code></td><td></td></tr></tbody></table>
         </section>
         <section class="doc-section">
           <h2>Implements</h2>

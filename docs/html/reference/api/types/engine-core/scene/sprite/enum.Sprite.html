@@ -22,7 +22,7 @@
         </div>
         <div class="sidebar-block">
           <h3>Source</h3>
-          <p><code>engine-core/src/scene/sprite.rs:112</code></p>
+          <p><code>engine-core/src/scene/sprite.rs:153</code></p>
         </div>
         <div class="sidebar-block">
           <h3>Module</h3>
@@ -42,7 +42,7 @@
     
         <section class="doc-section">
           <h2>Variants</h2>
-          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="variant-Text"><code>Text</code></td><td><code>Text {</code></td><td><code></code></td><td>Terminal-native text sprite. If `font` is None: characters written directly to buffer (fast path). If `font` is Some: text is rasterized using a bitmap font definition (rasterizer path).</td></tr><tr><td id="variant-Image"><code>Image</code></td><td><code>Image {</code></td><td><code></code></td><td>Bitmap image sprite rendered on terminal grid in selected mode.</td></tr><tr><td id="variant-Obj"><code>Obj</code></td><td><code>Obj {</code></td><td><code></code></td><td>Wavefront OBJ mesh rendered as terminal wireframe.</td></tr><tr><td id="variant-Grid"><code>Grid</code></td><td><code>Grid {</code></td><td><code></code></td><td>Grid layout container. Children are renderable sprites arranged in rows/columns.</td></tr><tr><td id="variant-Flex"><code>Flex</code></td><td><code>Flex {</code></td><td><code></code></td><td>Flex layout container. Children are auto-stacked vertically (column) or horizontally (row).</td></tr></tbody></table>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="variant-Text"><code>Text</code></td><td><code>Text {</code></td><td><code></code></td><td>Terminal-native text sprite. If `font` is None: characters written directly to buffer (fast path). If `font` is Some: text is rasterized using a bitmap font definition (rasterizer path).</td></tr><tr><td id="variant-Image"><code>Image</code></td><td><code>Image {</code></td><td><code></code></td><td>Bitmap image sprite rendered on terminal grid in selected mode.</td></tr><tr><td id="variant-Obj"><code>Obj</code></td><td><code>Obj {</code></td><td><code></code></td><td>Wavefront OBJ mesh rendered as terminal wireframe/material.</td></tr><tr><td id="variant-Panel"><code>Panel</code></td><td><code>Panel {</code></td><td><code></code></td><td>UI panel container rendered as a themed box with optional border, corner radius and shadow.</td></tr><tr><td id="variant-Grid"><code>Grid</code></td><td><code>Grid {</code></td><td><code></code></td><td>Grid layout container. Children are renderable sprites arranged in rows/columns.</td></tr><tr><td id="variant-Flex"><code>Flex</code></td><td><code>Flex {</code></td><td><code></code></td><td>Flex layout container. Children are auto-stacked vertically (column) or horizontally (row).</td></tr><tr><td id="variant-Scene3D"><code>Scene3D</code></td><td><code>Scene3D {</code></td><td><code></code></td><td>A pre-rendered 3D scene blitted from the Scene3D atlas. The atlas is populated during scene preparation (before first frame) from a `.scene3d.yml`.</td></tr></tbody></table>
         </section>
         
         <section class="doc-section">

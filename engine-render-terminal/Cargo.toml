@@ -12,4 +12,5 @@ engine-render = { path = "../engine-render" }
 engine-runtime = { path = "../engine-runtime" }
 engine-debug = { path = "../engine-debug" }
 engine-pipeline = { path = "../engine-pipeline" }
+engine-events = { path = "../engine-events" }
 crossterm = "0.29"

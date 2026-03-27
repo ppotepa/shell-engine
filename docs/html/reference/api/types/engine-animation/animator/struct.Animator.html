@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animator — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge struct">struct</span> Animator</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../index.html">Home</a> / <a href="../../../index.html">API Reference</a> / <a href="../../index.html">Types</a> / <a href="../../../modules/engine-animation/animator.html">engine-animation::animator</a> / Animator</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>struct:engine-animation/src/animator.rs:Animator</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine-animation/src/animator.rs:15</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine-animation/src/animator.rs" href="../../../modules/engine-animation/animator.html"><code>engine-animation::animator</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Per-scene animation state. Scoped — reset on each scene transition.</p>
+          <div class="signature-block"><pre><code>pub struct Animator {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Per-scene animation state. Scoped — reset on each scene transition.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Fields / properties</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Type</th><th>Summary</th></tr></thead><tbody><tr><td id="field-stage"><code>stage</code></td><td><code>pub stage: SceneStage</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="enum:engine-animation/src/animator.rs:SceneStage" href="enum.SceneStage.html"><code>SceneStage</code></a></div></td><td><code>SceneStage</code></td><td></td></tr><tr><td id="field-step-idx"><code>step_idx</code></td><td><code>pub step_idx: usize</code></td><td><code>usize</code></td><td></td></tr><tr><td id="field-elapsed-ms"><code>elapsed_ms</code></td><td><code>pub elapsed_ms: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-stage-elapsed-ms"><code>stage_elapsed_ms</code></td><td><code>pub stage_elapsed_ms: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-scene-elapsed-ms"><code>scene_elapsed_ms</code></td><td><code>pub scene_elapsed_ms: u64</code></td><td><code>u64</code></td><td></td></tr><tr><td id="field-next-scene-override"><code>next_scene_override</code></td><td><code>pub next_scene_override: Option&lt;String&gt;</code></td><td><code>Option&lt;String&gt;</code></td><td></td></tr><tr><td id="field-menu-selected-index"><code>menu_selected_index</code></td><td><code>pub menu_selected_index: usize</code></td><td><code>usize</code></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-new-26"><code>new</code></td><td><code>pub fn new() -&gt; Self {</code></td><td></td></tr><tr><td id="method-step-progress-31"><code>step_progress</code></td><td><code>pub fn step_progress(&amp;self, step_duration_ms: u64) -&gt; f32 {</code></td><td>Progress of the current step as 0.0..=1.0.</td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implements</h2>
+          <p><em>No related API entities resolved from the snapshot.</em></p>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="enum:engine-animation/src/animator.rs:SceneStage" href="enum.SceneStage.html"><code>SceneStage</code></a> <span class="entity-meta">enum · engine-animation/src/animator.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../codemap.js"></script>
+  <script defer src="../../../../../docref.js" data-codemap-json="../../../../../codemap.json"></script>
+</body>
+</html>

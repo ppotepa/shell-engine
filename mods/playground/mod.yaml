@@ -6,6 +6,7 @@ terminal:
   min_colours: 256
   min_width: 379
   min_height: 109
-  use_virtual_buffer: true
-  virtual_size: max-available
-  virtual_policy: fit
+  # Compatibility exception: playground keeps output-tracking so resize-sensitive
+  # lab scenes can still exercise the live output path intentionally.
+  render_size: match-output
+  presentation_policy: fit

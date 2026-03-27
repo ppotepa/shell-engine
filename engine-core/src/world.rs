@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 /// A type-erased container for engine resources, split into persistent singletons and per-scene scoped entries.
 pub struct World {
-    singletons: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-    scoped: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+    singletons: HashMap<TypeId, Box<dyn Any + Send>>,
+    scoped: HashMap<TypeId, Box<dyn Any + Send>>,
 }
 
 impl World {
@@ -19,13 +19,13 @@ impl World {
     }
 
     /// Inserts `val` as a singleton resource of type `T`.
-    pub fn register<T: Any + Send + Sync + 'static>(&mut self, val: T) -> &mut Self {
+    pub fn register<T: Any + Send + 'static>(&mut self, val: T) -> &mut Self {
         self.singletons.insert(TypeId::of::<T>(), Box::new(val));
         self
     }
 
     /// Inserts `val` as a scoped resource of type `T` (cleared by [`clear_scoped`](Self::clear_scoped)).
-    pub fn register_scoped<T: Any + Send + Sync + 'static>(&mut self, val: T) -> &mut Self {
+    pub fn register_scoped<T: Any + Send + 'static>(&mut self, val: T) -> &mut Self {
         self.scoped.insert(TypeId::of::<T>(), Box::new(val));
         self
     }
@@ -64,8 +64,8 @@ impl World {
     /// Will not panic as long as `A != B` (enforced by distinct `TypeId`s).
     pub fn with_ref_and_mut<A, B, F, R>(&mut self, f: F) -> Option<R>
     where
-        A: Any + Send + Sync + 'static,
-        B: Any + Send + Sync + 'static,
+        A: Any + Send + 'static,
+        B: Any + Send + 'static,
         F: FnOnce(&A, &mut B) -> R,
     {
         assert_ne!(

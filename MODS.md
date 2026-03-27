@@ -129,9 +129,16 @@ terminal:
   min_colours: 256
   min_width: 120
   min_height: 30
-  use_virtual_buffer: true
-  virtual_size: max-available
+  render_size: 120x30
+  presentation_policy: stretch
 ```
+
+Use `render_size` for the authored in-memory canvas and `presentation_policy`
+for how that canvas is shown on the real terminal/window:
+
+- `stretch` fills the available output area,
+- `fit` preserves aspect ratio with letterboxing,
+- `strict` keeps 1:1 cells and centers/crops if needed.
 
 ### Running
 

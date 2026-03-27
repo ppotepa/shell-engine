@@ -8,9 +8,9 @@ engine-core = { path = "../engine-core" }
 engine-animation = { path = "../engine-animation" }
 engine-behavior = { path = "../engine-behavior" }
 engine-behavior-registry = { path = "../engine-behavior-registry" }
+engine-events = { path = "../engine-events" }
 engine-render-terminal = { path = "../engine-render-terminal" }
 engine-runtime = { path = "../engine-runtime" }
-crossterm = "0.29"
 tui-input = { version = "0.11", default-features = false }
 serde_json = "1"
 serde_yaml = "0.9"

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>engine::systems::postfx::pass_burn_in — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1>Module <code>engine::systems::postfx::pass_burn_in</code></h1>
+    <p class="page-subtitle">Canonical file-backed API module</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Modules</a> / engine::systems::postfx::pass_burn_in</nav>
+  </header>
+  <div class="container">
+    <main class="content">
+      <section class="doc-section">
+        <h2>Overview</h2>
+        <p>Phosphor persistence / afterglow (poświata luminoforu). Classic CRT phosphor model — on scene change the previous image lingers as an additive glow on top of the new scene and decays exponentially: ```text result[p] = scene2[p] + f(t) × blur(scene1[p]) f(t) = alpha × exp(-k × t) ``` Enhancements over bare formula: - **Phosphor bloom** — new scene overshoots ~30% brighter then settles - **P31 phosphor tint** — per-channel decay (green lingers, blue dies) - **3×3 blur** — phosphor spread simulation ## YAML parameters | param | default | meaning | |--------------|---------|----------------------------------------------| | `alpha` | 0.70 | initial ghost brightness (0–1) | | `speed` | 0.40 | decay time constant in seconds | | `brightness` | 1.0 | ghost luminance multiplier | | `intensity` | 1.0 | overall strength (0 = off) | | `pump` | 1.3 | bloom overshoot (1.0=none, 1.3=30% flash) | | `decay_tint` | 0.8 | P31 colour shift (0=uniform, 1=full green) |</p>
+        <p><strong>Source:</strong> <code>engine/src/systems/postfx/pass_burn_in.rs</code></p>
+      </section>
+      <section class="doc-section">
+        <h2>Module docs</h2>
+        <p>Phosphor persistence / afterglow (poświata luminoforu).</p>
+<p>Classic CRT phosphor model — on scene change the previous image lingers as an additive glow on top of the new scene and decays exponentially:</p>
+<p>```text result[p] = scene2[p] + f(t) × blur(scene1[p]) f(t) = alpha × exp(-k × t) ```</p>
+<p>Enhancements over bare formula: - **Phosphor bloom** — new scene overshoots ~30% brighter then settles - **P31 phosphor tint** — per-channel decay (green lingers, blue dies) - **3×3 blur** — phosphor spread simulation</p>
+<p>## YAML parameters</p>
+<p>| param | default | meaning | |--------------|---------|----------------------------------------------| | `alpha` | 0.70 | initial ghost brightness (0–1) | | `speed` | 0.40 | decay time constant in seconds | | `brightness` | 1.0 | ghost luminance multiplier | | `intensity` | 1.0 | overall strength (0 = off) | | `pump` | 1.3 | bloom overshoot (1.0=none, 1.3=30% flash) | | `decay_tint` | 0.8 | P31 colour shift (0=uniform, 1=full green) |</p>
+      </section>
+      <section class="doc-section">
+        <h2>Public types</h2>
+        <ul class="entity-list"><li><em>No public types captured from this module.</em></li></ul>
+      </section>
+      <section class="doc-section">
+        <h2>Public functions</h2>
+        <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="fn-apply"><code>apply</code></td><td><code>pub(super) fn apply(ctx: &amp;PostFxContext&lt;&#x27;_&gt;, src: &amp;Buffer, dst: &amp;mut Buffer, pass: &amp;Effect) {</code></td><td></td></tr></tbody></table>
+      </section>
+      <section class="doc-section">
+        <h2>Public constants</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public type aliases</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>Public submodules</h2>
+        <p><em>No public items captured in this category.</em></p>
+      </section>
+      <section class="doc-section">
+        <h2>See also</h2>
+        <ul>
+          <li><a href="../../../../types/index.html">Canonical type pages</a></li>
+          <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>

@@ -2,16 +2,15 @@
 
 use std::path::Path;
 
-use crossterm::event::KeyEvent;
 use engine::animation::{animator_system, Animator};
+use engine::asset::{create_scene_repository, SceneRepository};
 use engine::assets::AssetRoot;
 use engine::audio::audio_system;
 use engine::audio::AudioRuntime;
 use engine::buffer::Buffer;
 use engine::debug_features::DebugFeatures;
 use engine::events::{EngineEvent, EventQueue};
-use engine::asset::{create_scene_repository, SceneRepository};
-use engine::runtime_settings::RuntimeSettings;
+use engine::runtime_settings::{RenderSize, RuntimeSettings};
 use engine::scene::Scene;
 use engine::scene_runtime::SceneRuntime;
 use engine::systems::behavior::behavior_system;
@@ -20,6 +19,7 @@ use engine::systems::postfx::postfx_system;
 use engine::systems::scene_lifecycle::SceneLifecycleManager;
 use engine::world::World;
 use engine_core::logging;
+use engine_events::KeyEvent;
 
 use crate::input::commands::Command;
 
@@ -79,7 +79,10 @@ impl AppState {
         world.register(EventQueue::new());
         world.register(Buffer::new(2, 2));
         world.register(AudioRuntime::null());
-        world.register(RuntimeSettings::default());
+        world.register(RuntimeSettings {
+            render_size: RenderSize::MatchOutput,
+            ..RuntimeSettings::default()
+        });
         world.register(DebugFeatures::from_enabled(true));
         world.register(AssetRoot::new(Path::new(&self.mod_source).to_path_buf()));
         world.register_scoped(SceneRuntime::new(scene));
@@ -152,7 +155,7 @@ impl AppState {
             return;
         };
         if let Some(queue) = world.get_mut::<EventQueue>() {
-            queue.push(EngineEvent::TerminalResized { width, height });
+            queue.push(EngineEvent::OutputResized { width, height });
         }
     }
 
@@ -166,6 +169,13 @@ impl AppState {
 
         let target_w = width.max(2);
         let target_h = height.max(2);
+        let tracks_output = world
+            .get::<RuntimeSettings>()
+            .map(|settings| settings.render_size_matches_output())
+            .unwrap_or(true);
+        if !tracks_output {
+            return;
+        }
         let resize_needed = world
             .get::<Buffer>()
             .map(|buffer| buffer.width != target_w || buffer.height != target_h)

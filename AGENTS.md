@@ -162,7 +162,9 @@ Refer to **[AUTHORING.md](AUTHORING.md)** for comprehensive authoring contract. 
 - Preserve runtime system order unless explicitly changing architecture.
 - Keep resolver correctness for layer/sprite ordering.
 - Apply scene `virtual-size-override` on transitions.
-- Keep virtual buffer in sync with terminal resize (`max-available` policy).
+- Keep authored render size and output presentation semantics distinct:
+  fixed `render_size` defines the in-memory canvas; `match-output` /
+  `max-available` are only for intentionally output-tracking scenes.
 - Keep stage progression stable for empty/0ms steps.
 - Reset per-frame behavior runtime state before behavior execution.
 - Keep compatibility with existing mod YAML structure.

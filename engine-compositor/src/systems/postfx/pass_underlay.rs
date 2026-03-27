@@ -1,7 +1,7 @@
 use super::glow::{GlowScratch, GLOW_SCRATCH};
 use super::{lerp_colour_local, normalize_bg, rand01, PostFxContext};
-use engine_core::color::Color;
 use engine_core::buffer::Buffer;
+use engine_core::color::Color;
 use engine_core::scene::Effect;
 
 pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pass: &Effect) {

@@ -1,21 +1,26 @@
 use crate::color_convert;
 use crate::provider::RendererProvider;
-use crate::strategy::{AnsiBatchFlusher, AsyncDisplaySink};
+use crate::strategy::{AnsiBatchFlusher, AsyncDisplaySink, TerminalFlusher};
 use crossterm::{cursor, execute, queue, style, terminal};
 use engine_animation::SceneStage;
-use engine_core::buffer::{Buffer, Cell, VirtualBuffer, TRUE_BLACK};
+use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::logging;
 use engine_core::strategy::{DiffStrategy, FullScanDiff};
 use engine_debug::DebugOverlayMode;
-use engine_pipeline::{DisplayFrame, DisplaySink, PipelineStrategies, TerminalFlusher};
-use engine_runtime::{RuntimeSettings, VirtualPolicy};
+use engine_pipeline::{DisplayFrame, DisplaySink, PipelineStrategies};
+use engine_render::{OutputBackend, OverlayData, RenderError};
+use engine_runtime::{PresentationPolicy, RuntimeSettings, compute_presentation_layout};
 use std::cell::RefCell;
 use std::io::{self, Write};
 
 pub struct TerminalRenderer {
     stdout: io::BufWriter<io::Stdout>,
     async_sink: Option<AsyncDisplaySink>,
+    flusher: Box<dyn TerminalFlusher>,
+    presentation_policy: PresentationPolicy,
+    presented_output: Buffer,
+    pending_overlay: Option<OverlayData>,
 }
 
 thread_local! {
@@ -29,13 +34,18 @@ thread_local! {
 
 impl TerminalRenderer {
     pub fn new() -> io::Result<Self> {
-        Self::new_with_async(false)
+        Self::new_with_async(false, Box::new(AnsiBatchFlusher), PresentationPolicy::Fit)
     }
 
-    pub fn new_with_async(async_display: bool) -> io::Result<Self> {
+    pub fn new_with_async(
+        async_display: bool,
+        flusher: Box<dyn TerminalFlusher>,
+        presentation_policy: PresentationPolicy,
+    ) -> io::Result<Self> {
         terminal::enable_raw_mode()?;
         let mut stdout = io::BufWriter::with_capacity(65536, io::stdout());
         execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide)?;
+        let (output_w, output_h) = terminal::size().unwrap_or((80, 24));
 
         let async_sink = if async_display {
             Some(AsyncDisplaySink::new())
@@ -43,7 +53,14 @@ impl TerminalRenderer {
             None
         };
 
-        Ok(Self { stdout, async_sink })
+        Ok(Self {
+            stdout,
+            async_sink,
+            flusher,
+            presentation_policy,
+            presented_output: Buffer::new(output_w.max(1), output_h.max(1)),
+            pending_overlay: None,
+        })
     }
 
     /// Paint the entire screen true-black before the first game frame.
@@ -90,18 +107,135 @@ impl TerminalRenderer {
     }
 }
 
+impl OutputBackend for TerminalRenderer {
+    fn present_buffer(&mut self, buffer: &Buffer) {
+        let output_size = terminal::size().unwrap_or((80, 24));
+        self.ensure_output_buffer(output_size.0.max(1), output_size.1.max(1));
+        project_buffer_to_output(
+            buffer,
+            &mut self.presented_output,
+            self.presentation_policy,
+        );
+
+        // When overlay is active, dim the output buffer cells so the scene
+        // appears darker behind the console.
+        let overlay = self.pending_overlay.take();
+        if overlay.as_ref().map_or(false, |o| o.dim_scene) {
+            dim_output_buffer(&mut self.presented_output);
+        }
+
+        let mut diffs = Vec::new();
+        self.presented_output.diff_into(&mut diffs);
+
+        // Flush game buffer diffs first (or skip if nothing changed and no overlay).
+        if !diffs.is_empty() {
+            if let Some(sink) = &mut self.async_sink {
+                sink.submit(DisplayFrame { diffs, frame_id: 0 });
+            } else {
+                self.flusher.flush(&mut self.stdout, &diffs);
+            }
+        }
+        self.presented_output.swap();
+
+        // Render overlay AFTER the game buffer so it always appears on top.
+        if let Some(ref overlay_data) = overlay {
+            self.flush_overlay(overlay_data);
+        }
+    }
+
+    fn present_overlay(&mut self, overlay: &engine_render::OverlayData) {
+        self.pending_overlay = Some(overlay.clone());
+    }
+
+    fn output_size(&self) -> (u16, u16) {
+        terminal::size().unwrap_or((80, 24))
+    }
+
+    fn clear(&mut self) -> Result<(), RenderError> {
+        self.presented_output.invalidate();
+        self.reset_console()
+            .map_err(|e| RenderError::InitFailed(e.to_string()))?;
+        self.clear_black()
+            .map_err(|e| RenderError::InitFailed(e.to_string()))
+    }
+
+    fn shutdown(&mut self) -> Result<(), RenderError> {
+        TerminalRenderer::shutdown(self).map_err(|e| RenderError::ShutdownFailed(e.to_string()))
+    }
+}
+
 impl Drop for TerminalRenderer {
     fn drop(&mut self) {
         let _ = self.shutdown();
     }
 }
 
-/// Flush only changed pixels to the terminal via crossterm.
-pub fn renderer_system<T: RendererProvider>(world: &mut T) {
-    if should_use_virtual_buffer(world) {
-        present_virtual_to_output(world);
+impl TerminalRenderer {
+    fn ensure_output_buffer(&mut self, width: u16, height: u16) {
+        if self.presented_output.width != width || self.presented_output.height != height {
+            self.presented_output.resize(width, height);
+            self.presented_output.invalidate();
+        }
     }
 
+    /// Render overlay lines directly to the terminal via ANSI cursor commands.
+    /// Called AFTER game buffer has been flushed so overlay appears on top.
+    fn flush_overlay(&mut self, overlay: &OverlayData) {
+        if overlay.is_empty() {
+            return;
+        }
+        let (term_w, _term_h) = terminal::size().unwrap_or((80, 24));
+        for (row, line) in overlay.lines.iter().enumerate() {
+            let ct_fg = color_convert::to_crossterm(line.fg);
+            let ct_bg = color_convert::to_crossterm(line.bg);
+            let _ = queue!(
+                self.stdout,
+                cursor::MoveTo(0, row as u16),
+                style::SetForegroundColor(ct_fg),
+                style::SetBackgroundColor(ct_bg)
+            );
+            let text: String = if (line.text.len() as u16) < term_w {
+                format!("{:<width$}", line.text, width = term_w as usize)
+            } else {
+                line.text[..term_w as usize].to_string()
+            };
+            let _ = queue!(self.stdout, style::Print(text));
+        }
+        let _ = queue!(self.stdout, style::ResetColor);
+        let _ = self.stdout.flush();
+    }
+}
+
+/// Darken all cells in the output buffer by reducing RGB values.
+/// Used when the debug overlay is visible to visually separate the console
+/// from the game scene.
+fn dim_output_buffer(buf: &mut Buffer) {
+    const DIM_FACTOR: f32 = 0.35;
+    let w = buf.width;
+    let h = buf.height;
+    for y in 0..h {
+        for x in 0..w {
+            if let Some(cell) = buf.get(x, y) {
+                let symbol = cell.symbol;
+                let fg = dim_color(cell.fg, DIM_FACTOR);
+                let bg = dim_color(cell.bg, DIM_FACTOR);
+                buf.set(x, y, symbol, fg, bg);
+            }
+        }
+    }
+}
+
+fn dim_color(c: Color, factor: f32) -> Color {
+    let (r, g, b) = c.to_rgb();
+    Color::Rgb {
+        r: (r as f32 * factor) as u8,
+        g: (g as f32 * factor) as u8,
+        b: (b as f32 * factor) as u8,
+    }
+}
+
+/// Flush only changed pixels to the terminal via crossterm.
+pub fn renderer_system<T: RendererProvider>(world: &mut T) {
     // Last-good-frame fallback: when script errors are present in debug mode,
     // restore the last flushed frame (front) into the back buffer so the
     // compositor-cleared blank is replaced with the last visible content.
@@ -112,7 +246,9 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
         world.restore_front_to_back();
     }
 
-    apply_debug_overlay(world);
+    // Collect overlay data (rendered after present, directly to output surface).
+    let overlay_data = collect_debug_overlay(world);
+
     apply_perf_hud(world);
 
     // Extract raw pointer to avoid a long-lived PipelineStrategies borrow conflicting
@@ -121,16 +257,10 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
     // during frame processing. Pointer valid for duration of render_system.
     let strats_ptr: *const PipelineStrategies = world.pipeline_strategies_ptr();
     static FALLBACK_DIFF: FullScanDiff = FullScanDiff;
-    static FALLBACK_FLUSH: AnsiBatchFlusher = AnsiBatchFlusher;
     let diff_strategy: &dyn DiffStrategy = if strats_ptr.is_null() {
         &FALLBACK_DIFF
     } else {
         unsafe { (*strats_ptr).diff.as_ref() }
-    };
-    let flusher: &dyn TerminalFlusher = if strats_ptr.is_null() {
-        &FALLBACK_FLUSH
-    } else {
-        unsafe { (*strats_ptr).flush.as_ref() }
     };
 
     // Fill the reusable scratch Vec with raw diff data (no per-frame allocation).
@@ -148,114 +278,187 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
         buf.last_diff_count = diff_len;
     }
 
-    if diff_len == 0 {
-        world.swap_buffers();
-        return;
-    }
-
-    if let Some(renderer) = world.renderer_mut() {
-        DIFF_SCRATCH.with(|scratch| {
-            let diffs = scratch.borrow().clone();
-
-            // Submit to async sink if available; otherwise flush inline
-            if let Some(sink) = &mut renderer.async_sink {
-                sink.submit(DisplayFrame {
-                    diffs,
-                    frame_id: 0, // Currently unused
-                });
-            } else {
-                flusher.flush(&mut renderer.stdout, &diffs);
+    let buffer_ptr: *const Buffer = world
+        .buffer()
+        .map(|buffer| buffer as *const Buffer)
+        .unwrap_or(std::ptr::null());
+    if !buffer_ptr.is_null() {
+        if let Some(renderer) = world.renderer_mut() {
+            // Set overlay data first — backend uses it during present.
+            if let Some(ref overlay) = overlay_data {
+                renderer.present_overlay(overlay);
             }
-        });
+            // SAFETY: buffer_ptr points at the world Buffer resource, which remains valid
+            // while the renderer backend is borrowed mutably from a different resource slot.
+            let buffer = unsafe { &*buffer_ptr };
+            renderer.present_buffer(buffer);
+        }
     }
 
     world.swap_buffers();
 }
 
-fn apply_debug_overlay<T: RendererProvider>(world: &mut T) {
-    let Some(debug) = world.debug_features().copied() else {
-        return;
-    };
+fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayData> {
+    let debug = world.debug_features().copied()?;
     if !debug.enabled || !debug.overlay_visible {
-        return;
+        return None;
     }
 
-    let stats_data = if matches!(debug.overlay_mode, DebugOverlayMode::Stats) {
-        let scene_id = world.current_scene_id();
-        let stage_info = world
-            .animator()
-            .map(|anim| {
-                let stage = match anim.stage {
-                    SceneStage::OnEnter => "on_enter",
-                    SceneStage::OnIdle => "on_idle",
-                    SceneStage::OnLeave => "on_leave",
-                    SceneStage::Done => "done",
-                };
-                format!("stage: {} ({:.1}s)", stage, anim.elapsed_ms as f64 / 1000.0)
-            })
-            .unwrap_or_else(|| "stage: -".to_string());
-        let virtual_info = {
-            let settings = world.runtime_settings();
-            let vbuf = world.virtual_buffer();
-            format_virtual_info(settings, vbuf)
-        };
-        let timings_info = world
-            .system_timings()
-            .map(|st| {
-                format!(
-                    "beh:{:.0} comp:{:.0} pfx:{:.0} rend:{:.0} us",
-                    st.behavior_us, st.compositor_us, st.postfx_us, st.renderer_us
-                )
-            })
-            .unwrap_or_default();
-        let script_errors: Vec<String> = world
-            .debug_log()
-            .map(|log| {
-                log.recent(usize::MAX)
-                    .iter()
-                    .map(|entry| entry.display_line())
-                    .collect()
-            })
-            .unwrap_or_default();
-        Some((
-            scene_id,
-            stage_info,
-            virtual_info,
-            timings_info,
-            script_errors,
-        ))
-    } else {
-        None
-    };
+    use engine_render::OverlayLine;
 
-    let Some(buf) = world.buffer_mut() else {
-        return;
-    };
+    // Color palette for the overlay console.
+    let title_fg = Color::White;
+    let title_bg = Color::Rgb { r: 40, g: 40, b: 120 };
+    let sep_fg = Color::Rgb { r: 80, g: 80, b: 100 };
+    let sep_bg = Color::Rgb { r: 15, g: 15, b: 30 };
+    let label_fg = Color::Rgb { r: 140, g: 140, b: 160 };
+    let console_bg = Color::Rgb { r: 12, g: 12, b: 25 };
+    let console_alpha: u8 = 190;
+
+    let mut lines = Vec::new();
 
     match debug.overlay_mode {
         DebugOverlayMode::Stats => {
-            let Some((scene_id, stage_info, virtual_info, timings_info, mut script_errors)) =
-                stats_data
-            else {
-                return;
+            let scene_id = world.current_scene_id();
+            let stage_info = world
+                .animator()
+                .map(|anim| {
+                    let stage = match anim.stage {
+                        SceneStage::OnEnter => "on_enter",
+                        SceneStage::OnIdle => "on_idle",
+                        SceneStage::OnLeave => "on_leave",
+                        SceneStage::Done => "done",
+                    };
+                    format!("{} ({:.1}s)", stage, anim.elapsed_ms as f64 / 1000.0)
+                })
+                .unwrap_or_else(|| "-".to_string());
+            let virtual_info = {
+                let settings = world.runtime_settings();
+                format_render_info(settings)
             };
-            let max_errors = buf.height.saturating_sub(5) as usize;
-            if script_errors.len() > max_errors {
-                script_errors = script_errors.split_off(script_errors.len() - max_errors);
+            let timings_info = world
+                .system_timings()
+                .map(|st| {
+                    format!(
+                        "beh:{:.0}  comp:{:.0}  pfx:{:.0}  rend:{:.0} µs",
+                        st.behavior_us, st.compositor_us, st.postfx_us, st.renderer_us
+                    )
+                })
+                .unwrap_or_default();
+            let script_errors: Vec<String> = world
+                .debug_log()
+                .map(|log| {
+                    log.recent(usize::MAX)
+                        .iter()
+                        .map(|entry| entry.display_line())
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            // Title bar
+            lines.push(OverlayLine::with_alpha(
+                " ■ DEBUG CONSOLE          [~] toggle  [Tab] switch  [F3/F4] scene",
+                title_fg, title_bg, 220,
+            ));
+            // Separator
+            lines.push(OverlayLine::with_alpha(
+                "─────────────────────────────────────────────────────────────────────",
+                sep_fg, sep_bg, console_alpha,
+            ));
+            // Scene info
+            lines.push(OverlayLine::with_alpha(
+                format!("  scene   │ {scene_id}"),
+                Color::Cyan, console_bg, console_alpha,
+            ));
+            // Stage info
+            lines.push(OverlayLine::with_alpha(
+                format!("  stage   │ {stage_info}"),
+                Color::Green, console_bg, console_alpha,
+            ));
+            // Render info
+            lines.push(OverlayLine::with_alpha(
+                format!("  render  │ {virtual_info}"),
+                Color::Yellow, console_bg, console_alpha,
+            ));
+            // Timings
+            lines.push(OverlayLine::with_alpha(
+                format!("  timing  │ {timings_info}"),
+                Color::Magenta, console_bg, console_alpha,
+            ));
+
+            if !script_errors.is_empty() {
+                // Error separator
+                lines.push(OverlayLine::with_alpha(
+                    "─── messages ─────────────────────────────────────────────────────",
+                    sep_fg, sep_bg, console_alpha,
+                ));
+                for err in script_errors {
+                    let (line_fg, line_bg) = if err.starts_with("[ERR") {
+                        (Color::Rgb { r: 255, g: 100, b: 100 }, Color::Rgb { r: 60, g: 10, b: 10 })
+                    } else if err.starts_with("[WARN") {
+                        (Color::Rgb { r: 255, g: 200, b: 80 }, Color::Rgb { r: 50, g: 40, b: 5 })
+                    } else {
+                        (label_fg, console_bg)
+                    };
+                    lines.push(OverlayLine::with_alpha(
+                        format!("  {err}"), line_fg, line_bg, console_alpha,
+                    ));
+                }
             }
-            apply_stats_overlay(
-                buf,
-                &scene_id,
-                &stage_info,
-                &virtual_info,
-                &timings_info,
-                &script_errors,
-            );
+            // Bottom border
+            lines.push(OverlayLine::with_alpha(
+                "─────────────────────────────────────────────────────────────────────",
+                sep_fg, sep_bg, console_alpha,
+            ));
         }
         DebugOverlayMode::Logs => {
-            apply_logs_overlay(buf);
+            // Title bar
+            lines.push(OverlayLine::with_alpha(
+                " ■ LOG CONSOLE            [~] toggle  [Tab] switch",
+                title_fg, title_bg, 220,
+            ));
+            lines.push(OverlayLine::with_alpha(
+                "─────────────────────────────────────────────────────────────────────",
+                sep_fg, sep_bg, console_alpha,
+            ));
+            let logs = logging::tail_recent(40);
+            if logs.is_empty() {
+                lines.push(OverlayLine::with_alpha(
+                    "  (no log entries)", label_fg, console_bg, console_alpha,
+                ));
+            } else {
+                for log_line in &logs {
+                    let (line_fg, level_label) = match log_line.level.trim() {
+                        "TRACE" => (Color::DarkGrey, "TRC"),
+                        "DEBUG" => (Color::Rgb { r: 120, g: 120, b: 140 }, "DBG"),
+                        "INFO" => (Color::Rgb { r: 80, g: 200, b: 120 }, "INF"),
+                        "WARN" => (Color::Rgb { r: 255, g: 200, b: 80 }, "WRN"),
+                        "ERROR" => (Color::Rgb { r: 255, g: 100, b: 100 }, "ERR"),
+                        _ => (Color::White, "???"),
+                    };
+                    let line_bg = match log_line.level.trim() {
+                        "ERROR" => Color::Rgb { r: 40, g: 5, b: 5 },
+                        "WARN" => Color::Rgb { r: 35, g: 30, b: 5 },
+                        _ => console_bg,
+                    };
+                    let formatted = format!(
+                        "  [{level_label}] {} │ {}",
+                        log_line.target, log_line.message
+                    );
+                    lines.push(OverlayLine::with_alpha(
+                        formatted, line_fg, line_bg, console_alpha,
+                    ));
+                }
+            }
+            // Bottom border
+            lines.push(OverlayLine::with_alpha(
+                "─────────────────────────────────────────────────────────────────────",
+                sep_fg, sep_bg, console_alpha,
+            ));
         }
     }
+
+    Some(OverlayData { lines, dim_scene: true })
 }
 
 /// Always-on performance HUD: FPS / CPU% / MEM in the top-right corner.
@@ -301,156 +504,105 @@ fn apply_perf_hud<T: RendererProvider>(world: &mut T) {
     });
 }
 
-fn apply_stats_overlay(
-    buf: &mut Buffer,
-    scene_id: &str,
-    stage_info: &str,
-    virtual_info: &str,
-    timings_info: &str,
-    script_errors: &[String],
-) {
-    let mut lines = vec![
-        "DEBUG FEATURE MODE  [F1 overlay] [F3 prev] [F4 next]".to_string(),
-        format!("scene: {scene_id}"),
-        stage_info.to_string(),
-        virtual_info.to_string(),
-        timings_info.to_string(),
-    ];
-    lines.extend(script_errors.iter().cloned());
-
-    let fg = Color::White;
-    let bg = Color::DarkGrey;
-    for (row, line) in lines.iter().enumerate() {
-        let y = row as u16;
-        if y >= buf.height {
-            break;
-        }
-        // Error/warn lines get a distinct background.
-        let line_bg = if line.starts_with("[ERR") {
-            Color::DarkRed
-        } else if line.starts_with("[WARN") {
-            Color::Rgb {
-                r: 100,
-                g: 80,
-                b: 0,
-            }
-        } else {
-            bg
-        };
-        for x in 0..buf.width {
-            buf.set(x, y, ' ', fg, line_bg);
-        }
-        for (x, ch) in line.chars().enumerate() {
-            let x = x as u16;
-            if x >= buf.width {
-                break;
-            }
-            buf.set(x, y, ch, fg, line_bg);
-        }
-    }
-}
-
-fn format_virtual_info(settings: Option<&RuntimeSettings>, vbuf: Option<&VirtualBuffer>) -> String {
+fn format_render_info(settings: Option<&RuntimeSettings>) -> String {
     let Some(settings) = settings else {
-        return "virtual: unavailable".to_string();
-    };
-    if !settings.use_virtual_buffer {
-        return "virtual: disabled".to_string();
-    }
-
-    let policy = match settings.virtual_policy {
-        VirtualPolicy::Strict => "strict",
-        VirtualPolicy::Fit => "fit",
+        return "render: unavailable".to_string();
     };
 
-    if let Some(vbuf) = vbuf {
-        return format!("virtual: {}x{} ({policy})", vbuf.0.width, vbuf.0.height);
-    }
+    let policy = match settings.presentation_policy {
+        PresentationPolicy::Fit => "fit",
+        PresentationPolicy::Stretch => "stretch",
+        PresentationPolicy::Strict => "strict",
+    };
 
-    if settings.virtual_size_max_available {
-        "virtual: max-available".to_string()
+    if settings.render_size_matches_output() {
+        format!("render: match-output ({policy})")
     } else {
-        format!(
-            "virtual: {}x{} ({policy})",
-            settings.virtual_width, settings.virtual_height
-        )
+        let (width, height) = settings.fixed_render_size().unwrap_or((0, 0));
+        format!("render: {}x{} ({policy})", width, height)
     }
 }
 
-fn apply_logs_overlay(buf: &mut Buffer) {
-    let header = "LOG OVERLAY  [~ close] [F1 stats]";
-    let height = buf.height as usize;
+#[derive(Clone, Copy)]
+struct Viewport {
+    width: u16,
+    height: u16,
+    dst_offset_x: u16,
+    dst_offset_y: u16,
+    src_offset_x: u16,
+    src_offset_y: u16,
+}
 
-    // Get recent log entries
-    let logs = if height > 1 {
-        logging::tail_recent(height.saturating_sub(1))
-    } else {
-        Vec::new()
-    };
-
-    // Render header
-    let fg = Color::White;
-    let bg = Color::DarkGrey;
-
-    for x in 0..buf.width {
-        buf.set(x, 0, ' ', fg, bg);
+fn compute_viewport(
+    output_w: u16,
+    output_h: u16,
+    render_w: u16,
+    render_h: u16,
+    policy: PresentationPolicy,
+) -> Viewport {
+    let layout = compute_presentation_layout(
+        output_w as u32,
+        output_h as u32,
+        render_w as u32,
+        render_h as u32,
+        policy,
+    );
+    Viewport {
+        width: layout.dst_width as u16,
+        height: layout.dst_height as u16,
+        dst_offset_x: layout.dst_x as u16,
+        dst_offset_y: layout.dst_y as u16,
+        src_offset_x: layout.src_x as u16,
+        src_offset_y: layout.src_y as u16,
     }
-    for (x, ch) in header.chars().enumerate() {
-        let x = x as u16;
-        if x >= buf.width {
-            break;
-        }
-        buf.set(x, 0, ch, fg, bg);
+}
+
+fn project_buffer_to_output(source: &Buffer, output: &mut Buffer, policy: PresentationPolicy) {
+    output.fill(Color::BLACK);
+    if source.width == 0 || source.height == 0 || output.width == 0 || output.height == 0 {
+        return;
     }
 
-    // Render log lines
-    if logs.is_empty() {
-        let empty_msg = "  (no log entries)";
-        let y = 1u16;
-        if y < buf.height {
-            for x in 0..buf.width {
-                buf.set(x, y, ' ', fg, bg);
-            }
-            for (x, ch) in empty_msg.chars().enumerate() {
-                let x = x as u16;
-                if x >= buf.width {
-                    break;
+    let viewport = compute_viewport(
+        output.width,
+        output.height,
+        source.width,
+        source.height,
+        policy,
+    );
+
+    match policy {
+        PresentationPolicy::Strict => {
+            for oy in 0..viewport.height {
+                for ox in 0..viewport.width {
+                    let sx = viewport.src_offset_x.saturating_add(ox);
+                    let sy = viewport.src_offset_y.saturating_add(oy);
+                    let dx = viewport.dst_offset_x.saturating_add(ox);
+                    let dy = viewport.dst_offset_y.saturating_add(oy);
+                    let Some(cell) = source.get(sx, sy) else {
+                        continue;
+                    };
+                    output.set(dx, dy, cell.symbol, cell.fg, cell.bg);
                 }
-                buf.set(x, y, ch, fg, bg);
             }
         }
-    } else {
-        for (row, log_line) in logs.iter().enumerate() {
-            let y = (row + 1) as u16;
-            if y >= buf.height {
-                break;
-            }
-
-            // Determine color based on level
-            let line_fg = match log_line.level {
-                "WARN " => Color::Yellow,
-                "ERROR" => Color::Red,
-                _ => Color::White,
-            };
-
-            // Format the line
-            let formatted = format!(
-                "[{}] {} | {}",
-                log_line.level, log_line.target, log_line.message
-            );
-
-            // Clear row
-            for x in 0..buf.width {
-                buf.set(x, y, ' ', line_fg, bg);
-            }
-
-            // Write the formatted line, clipping to width
-            for (x, ch) in formatted.chars().enumerate() {
-                let x = x as u16;
-                if x >= buf.width {
-                    break;
+        PresentationPolicy::Fit | PresentationPolicy::Stretch => {
+            for oy in 0..viewport.height {
+                let sy = ((oy as u32).saturating_mul(source.height as u32)
+                    / viewport.height.max(1) as u32)
+                    .min(source.height.saturating_sub(1) as u32) as u16;
+                for ox in 0..viewport.width {
+                    let sx = ((ox as u32).saturating_mul(source.width as u32)
+                        / viewport.width.max(1) as u32)
+                        .min(source.width.saturating_sub(1) as u32)
+                        as u16;
+                    let dx = viewport.dst_offset_x.saturating_add(ox);
+                    let dy = viewport.dst_offset_y.saturating_add(oy);
+                    let Some(cell) = source.get(sx, sy) else {
+                        continue;
+                    };
+                    output.set(dx, dy, cell.symbol, cell.fg, cell.bg);
                 }
-                buf.set(x, y, ch, line_fg, bg);
             }
         }
     }
@@ -473,221 +625,6 @@ fn to_ct(c: crossterm::style::Color) -> style::Color {
     c
 }
 
-fn should_use_virtual_buffer<T: RendererProvider>(world: &T) -> bool {
-    world
-        .runtime_settings()
-        .map(|s| s.use_virtual_buffer)
-        .unwrap_or(false)
-        && world.virtual_buffer().is_some()
-}
-
-pub fn present_virtual_to_output<T: RendererProvider>(world: &mut T) {
-    let Some(settings) = world.runtime_settings().cloned() else {
-        return;
-    };
-
-    // Consult frame-skip oracle for Presenter skip decision
-    let should_skip_present = {
-        let hash = world
-            .virtual_buffer()
-            .map(|vbuf| vbuf.0.back_hash())
-            .unwrap_or(u64::MAX);
-        world
-            .frame_skip_oracle()
-            .and_then(|oracle| oracle.lock().ok().map(|mut o| o.should_skip_present(hash)))
-            .unwrap_or(false)
-    };
-
-    if should_skip_present {
-        return;
-    }
-
-    world.with_virtual_and_output(|vbuf, output_buf| {
-        let virtual_buf = vbuf;
-
-        output_buf.fill(TRUE_BLACK);
-        if virtual_buf.0.width == 0 || virtual_buf.0.height == 0 {
-            return;
-        }
-        if output_buf.width == 0 || output_buf.height == 0 {
-            return;
-        }
-
-        let viewport = compute_viewport(
-            output_buf.width,
-            output_buf.height,
-            virtual_buf.0.width,
-            virtual_buf.0.height,
-            settings.virtual_policy,
-        );
-
-        // #14 opt-present-fitlut: use precomputed LUT for Fit mode.
-        let use_fit_lut = matches!(settings.virtual_policy, VirtualPolicy::Fit);
-
-        if use_fit_lut {
-            FIT_LUT_CACHE.with(|cache| {
-                let mut lut_opt = cache.borrow_mut();
-                if lut_opt.as_ref().map_or(true, |l| {
-                    !l.matches(
-                        viewport.width,
-                        viewport.height,
-                        virtual_buf.0.width,
-                        virtual_buf.0.height,
-                    )
-                }) {
-                    *lut_opt = Some(FitLut::build(
-                        viewport.width,
-                        viewport.height,
-                        virtual_buf.0.width,
-                        virtual_buf.0.height,
-                    ));
-                }
-                let lut = lut_opt.as_ref().unwrap();
-                for oy in 0..viewport.height {
-                    let sy = lut.y_map[oy as usize];
-                    for ox in 0..viewport.width {
-                        let sx = lut.x_map[ox as usize];
-                        let Some(cell) = virtual_buf.0.get(sx, sy) else {
-                            continue;
-                        };
-                        let dx = viewport.dst_offset_x.saturating_add(ox);
-                        let dy = viewport.dst_offset_y.saturating_add(oy);
-                        copy_cell(output_buf, dx, dy, cell);
-                    }
-                }
-            });
-        } else {
-            for oy in 0..viewport.height {
-                for ox in 0..viewport.width {
-                    let (sx, sy) = (
-                        viewport.src_offset_x.saturating_add(ox),
-                        viewport.src_offset_y.saturating_add(oy),
-                    );
-                    let Some(cell) = virtual_buf.0.get(sx, sy) else {
-                        continue;
-                    };
-                    let dx = viewport.dst_offset_x.saturating_add(ox);
-                    let dy = viewport.dst_offset_y.saturating_add(oy);
-                    copy_cell(output_buf, dx, dy, cell);
-                }
-            }
-        }
-    });
-}
-
-#[derive(Clone, Copy)]
-struct Viewport {
-    width: u16,
-    height: u16,
-    dst_offset_x: u16,
-    dst_offset_y: u16,
-    src_offset_x: u16,
-    src_offset_y: u16,
-}
-
-fn compute_viewport(
-    output_w: u16,
-    output_h: u16,
-    virtual_w: u16,
-    virtual_h: u16,
-    policy: VirtualPolicy,
-) -> Viewport {
-    match policy {
-        VirtualPolicy::Strict => {
-            let width = output_w.min(virtual_w);
-            let height = output_h.min(virtual_h);
-            Viewport {
-                width,
-                height,
-                dst_offset_x: (output_w.saturating_sub(width)) / 2,
-                dst_offset_y: (output_h.saturating_sub(height)) / 2,
-                src_offset_x: (virtual_w.saturating_sub(width)) / 2,
-                src_offset_y: (virtual_h.saturating_sub(height)) / 2,
-            }
-        }
-        VirtualPolicy::Fit => {
-            let sw = output_w as f32 / virtual_w.max(1) as f32;
-            let sh = output_h as f32 / virtual_h.max(1) as f32;
-            let mut scale = sw.min(sh);
-            if scale >= 1.0 {
-                scale = scale.floor().max(1.0);
-            } else {
-                scale = scale.max(0.01);
-            }
-            let width = ((virtual_w as f32 * scale).floor() as u16).clamp(1, output_w.max(1));
-            let height = ((virtual_h as f32 * scale).floor() as u16).clamp(1, output_h.max(1));
-            Viewport {
-                width,
-                height,
-                dst_offset_x: (output_w.saturating_sub(width)) / 2,
-                dst_offset_y: (output_h.saturating_sub(height)) / 2,
-                src_offset_x: 0,
-                src_offset_y: 0,
-            }
-        }
-    }
-}
-
-#[allow(dead_code)]
-fn sample_fit_source(
-    ox: u16,
-    oy: u16,
-    viewport_w: u16,
-    viewport_h: u16,
-    virtual_w: u16,
-    virtual_h: u16,
-) -> (u16, u16) {
-    let sx = ((ox as u32).saturating_mul(virtual_w as u32) / viewport_w.max(1) as u32)
-        .min(virtual_w.saturating_sub(1) as u32) as u16;
-    let sy = ((oy as u32).saturating_mul(virtual_h as u32) / viewport_h.max(1) as u32)
-        .min(virtual_h.saturating_sub(1) as u32) as u16;
-    (sx, sy)
-}
-
-/// #14 opt-present-fitlut: precomputed coordinate LUT for Fit mode.
-struct FitLut {
-    x_map: Vec<u16>,
-    y_map: Vec<u16>,
-    viewport_w: u16,
-    viewport_h: u16,
-    virtual_w: u16,
-    virtual_h: u16,
-}
-
-impl FitLut {
-    fn build(viewport_w: u16, viewport_h: u16, virtual_w: u16, virtual_h: u16) -> Self {
-        let vw = viewport_w.max(1) as u32;
-        let vh = viewport_h.max(1) as u32;
-        let vmax_x = virtual_w.saturating_sub(1) as u32;
-        let vmax_y = virtual_h.saturating_sub(1) as u32;
-        let x_map: Vec<u16> = (0..viewport_w)
-            .map(|ox| ((ox as u32 * virtual_w as u32) / vw).min(vmax_x) as u16)
-            .collect();
-        let y_map: Vec<u16> = (0..viewport_h)
-            .map(|oy| ((oy as u32 * virtual_h as u32) / vh).min(vmax_y) as u16)
-            .collect();
-        Self {
-            x_map,
-            y_map,
-            viewport_w,
-            viewport_h,
-            virtual_w,
-            virtual_h,
-        }
-    }
-
-    fn matches(&self, vw: u16, vh: u16, virt_w: u16, virt_h: u16) -> bool {
-        self.viewport_w == vw
-            && self.viewport_h == vh
-            && self.virtual_w == virt_w
-            && self.virtual_h == virt_h
-    }
-}
-
-thread_local! {
-    static FIT_LUT_CACHE: RefCell<Option<FitLut>> = RefCell::new(None);
-}
-
 /// Batch-flush diffs to the terminal.
 ///
 /// Consecutive cells on the same row sharing the same fg+bg colour are merged
@@ -704,13 +641,18 @@ pub fn flush_batched(
     }
 
     // Convert engine colors to crossterm colors at the boundary
-    let crossterm_diffs: Vec<(u16, u16, char, style::Color, style::Color)> =
-        diffs
-            .iter()
-            .map(|(x, y, ch, fg, bg)| {
-                (*x, *y, *ch, color_convert::to_crossterm(*fg), color_convert::to_crossterm(*bg))
-            })
-            .collect();
+    let crossterm_diffs: Vec<(u16, u16, char, style::Color, style::Color)> = diffs
+        .iter()
+        .map(|(x, y, ch, fg, bg)| {
+            (
+                *x,
+                *y,
+                *ch,
+                color_convert::to_crossterm(*fg),
+                color_convert::to_crossterm(*bg),
+            )
+        })
+        .collect();
 
     // #3 opt-term-ansibuf: write all ANSI into Vec<u8>, then single write_all.
     // #2 opt-term-colorstate: track last-emitted fg/bg to skip redundant SetColor commands.
@@ -796,6 +738,26 @@ pub fn flush_batched(
     });
 }
 
-fn copy_cell(dst: &mut Buffer, x: u16, y: u16, src: &Cell) {
-    dst.set(x, y, src.symbol, src.fg, src.bg);
+#[cfg(test)]
+mod tests {
+    use super::compute_viewport;
+    use engine_runtime::PresentationPolicy;
+
+    #[test]
+    fn fit_viewport_uses_full_width_when_upscaling() {
+        let viewport = compute_viewport(210, 109, 180, 30, PresentationPolicy::Fit);
+        assert_eq!(viewport.width, 210);
+        assert_eq!(viewport.height, 35);
+        assert_eq!(viewport.dst_offset_x, 0);
+        assert_eq!(viewport.dst_offset_y, 37);
+    }
+
+    #[test]
+    fn fit_viewport_downscales_to_visible_full_frame() {
+        let viewport = compute_viewport(80, 24, 180, 30, PresentationPolicy::Fit);
+        assert_eq!(viewport.width, 80);
+        assert_eq!(viewport.height, 13);
+        assert_eq!(viewport.dst_offset_x, 0);
+        assert_eq!(viewport.dst_offset_y, 5);
+    }
 }

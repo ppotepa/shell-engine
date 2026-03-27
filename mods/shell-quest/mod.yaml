@@ -2,23 +2,19 @@
 name: Shell Quest
 version: 0.1.0
 entrypoint: /scenes/00-intro-logo/scene.yml
+# Ask the player whether to stay in the terminal or open the SDL2 window backend.
+# CLI `--output` still wins when explicitly provided.
+output_backend: prompt
 terminal:
-  # Hard minimum terminal capabilities required before startup.
-  # These values gate startup only; they do not scale or stretch the scene.
+  # Minimum terminal capabilities required before startup (cell units).
+  # With fit/stretch policy size checks are skipped; only min_colours is enforced.
   min_colours: 256
-  min_width: 120
-  min_height: 30
+  min_width: 320
+  min_height: 180
 
-  # Active runtime profile (STANDARD):
-  # - scenes run in default rendered-mode "cell"
-  # - intro ASCII -> raster transition is authored for this profile
-  use_virtual_buffer: true
+  # Fixed authored canvas for the whole mod. Resizing/fullscreen only changes
+  # presentation scale; the engine keeps rendering into this same buffer.
+  # render_size: 180x30
 
-  # `max-available` makes the virtual render target follow the real terminal size.
-  # With no scene override, shell-quest now fills the available terminal area while
-  # still requiring at least the authored minimum size above.
-  virtual_size: max-available
-
-  # `fit` keeps aspect ratio when a scene opts into a fixed virtual size override.
-  # When virtual_size resolves to the full terminal size, the viewport fills it.
-  virtual_policy: fit
+  # Preserve aspect ratio when projecting the authored canvas to terminal/SDL.
+  presentation_policy: stretch

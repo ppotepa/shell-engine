@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BehaviorFactory — Shell Quest Engine API Reference</title>
+  <link rel="stylesheet" href="../../../../../../styles.css" />
+</head>
+<body class="doc-page api-doc-page">
+
+  <header class="header">
+    <h1><span class="badge trait">trait</span> BehaviorFactory</h1>
+    <p class="page-subtitle">Canonical API page from concat snapshot</p>
+    <nav class="breadcrumb-path"><a href="../../../../../../index.html">Home</a> / <a href="../../../../index.html">API Reference</a> / <a href="../../../index.html">Types</a> / <a href="../../../../modules/engine/strategy/behavior_factory.html">engine::strategy::behavior_factory</a> / BehaviorFactory</nav>
+  </header>
+  <div class="container">
+    <div class="api-layout">
+      <aside class="sidebar">
+        <div class="sidebar-block">
+          <h3>Canonical ID</h3>
+          <p><code>trait:engine/src/strategy/behavior_factory.rs:BehaviorFactory</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Source</h3>
+          <p><code>engine/src/strategy/behavior_factory.rs:13</code></p>
+        </div>
+        <div class="sidebar-block">
+          <h3>Module</h3>
+          <p><a class="entity-ref" data-entity-id="module:engine/src/strategy/behavior_factory.rs" href="../../../../modules/engine/strategy/behavior_factory.html"><code>engine::strategy::behavior_factory</code></a></p>
+        </div>
+      </aside>
+      <main class="content">
+        <section class="doc-section">
+          <h2>Overview</h2>
+          <p>Resolves a `BehaviorSpec` into a boxed `Behavior` runtime instance. The default `BuiltInBehaviorFactory` handles all engine-defined behavior names. Mods or tests can provide an alternative or chained factory without touching the engine&#x27;s dispatch chain.</p>
+          <div class="signature-block"><pre><code>pub trait BehaviorFactory: Send + Sync {</code></pre></div>
+        </section>
+        <section class="doc-section">
+          <h2>Source evidence</h2>
+          <p>Resolves a `BehaviorSpec` into a boxed `Behavior` runtime instance.</p>
+<p>The default `BuiltInBehaviorFactory` handles all engine-defined behavior names. Mods or tests can provide an alternative or chained factory without touching the engine&#x27;s dispatch chain.</p>
+        </section>
+    
+        <section class="doc-section">
+          <h2>Methods</h2>
+          <table class="api-table"><thead><tr><th>Name</th><th>Signature</th><th>Summary</th></tr></thead><tbody><tr><td id="method-create"><code>create</code></td><td><code>fn create(&amp;self, spec: &amp;BehaviorSpec) -&gt; Option&lt;Box&lt;dyn Behavior + Send + Sync&gt;&gt;;</code><div class="member-related">Related: <a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:BehaviorSpec" href="../../../engine-core/scene/model/struct.BehaviorSpec.html"><code>BehaviorSpec</code></a>, <a class="entity-ref" data-entity-id="trait:engine/src/behavior.rs:Behavior" href="../../behavior/trait.Behavior.html"><code>Behavior</code></a></div></td><td></td></tr></tbody></table>
+        </section>
+        <section class="doc-section">
+          <h2>Implementors</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine/src/strategy/behavior_factory.rs:BuiltInBehaviorFactory" href="struct.BuiltInBehaviorFactory.html"><code>BuiltInBehaviorFactory</code></a> <span class="entity-meta">struct · engine/src/strategy/behavior_factory.rs</span></li></ul>
+        </section>
+        
+        <section class="doc-section">
+          <h2>Related types</h2>
+          <ul class="entity-list"><li><a class="entity-ref" data-entity-id="struct:engine-core/src/scene/model.rs:BehaviorSpec" href="../../../engine-core/scene/model/struct.BehaviorSpec.html"><code>BehaviorSpec</code></a> <span class="entity-meta">struct · engine-core/src/scene/model.rs</span></li><li><a class="entity-ref" data-entity-id="trait:engine/src/behavior.rs:Behavior" href="../../behavior/trait.Behavior.html"><code>Behavior</code></a> <span class="entity-meta">trait · engine/src/behavior.rs</span></li></ul>
+        </section>
+        <section class="doc-section">
+          <h2>See also</h2>
+          <ul>
+            <li><a href="../../../index.html">All canonical type pages</a></li>
+            <li><a href="../../../../../../codemap.json">codemap.json</a></li>
+            <li><a href="../../../../../../sitemap.html">Site map</a></li>
+          </ul>
+        </section>
+      </main>
+    </div>
+  </div>
+  <footer class="footer"><p>Shell Quest Engine API Reference</p></footer>
+    
+  <script src="../../../../../../codemap.js"></script>
+  <script defer src="../../../../../../docref.js" data-codemap-json="../../../../../../codemap.json"></script>
+</body>
+</html>
