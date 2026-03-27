@@ -1027,6 +1027,7 @@ fn render_panel_box(
     }
 }
 
+#[inline]
 fn intersect_clip_rect(a: Option<ClipRect>, b: Option<ClipRect>) -> Option<ClipRect> {
     match (a, b) {
         (None, other) | (other, None) => other,
