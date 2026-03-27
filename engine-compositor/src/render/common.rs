@@ -54,6 +54,7 @@ pub(crate) fn check_visibility(
 }
 
 /// Computes the aggregate animation offset for the current elapsed time.
+#[inline]
 pub(crate) fn sprite_transform_offset(
     animations: &[engine_core::scene::Animation],
     elapsed_ms: u64,
@@ -87,6 +88,7 @@ pub(crate) fn compute_draw_pos(
 }
 
 /// Stores the object region and applies stage effects for the rendered sprite.
+#[inline]
 pub(crate) fn finalize_sprite(
     object_id: Option<&str>,
     sprite_region: Region,

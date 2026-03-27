@@ -18,8 +18,10 @@ thread_local! {
     static PIXEL_BACKEND: Cell<bool> = const { Cell::new(false) };
 }
 
+
 /// Set the pixel-backend flag for all `measure_sprite_for_layout` calls on
 /// this thread during the given closure.  Called once per `render_sprites` invocation.
+#[inline]
 pub(crate) fn with_pixel_backend<R>(is_pixel: bool, f: impl FnOnce() -> R) -> R {
     PIXEL_BACKEND.with(|c| c.set(is_pixel));
     let r = f();

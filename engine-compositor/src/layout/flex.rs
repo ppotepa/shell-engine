@@ -22,6 +22,7 @@ pub(crate) fn invalidate_flex_cache() {
     FLEX_LAYOUT_CACHE.with(|c| c.borrow_mut().clear());
 }
 
+#[inline]
 fn flex_cache_key(
     measure_sprite: &impl Fn(&Sprite, SceneRenderedMode, Option<&AssetRoot>) -> (u16, u16),
     children: &[Sprite],

@@ -377,6 +377,8 @@ fn rasterize_image_braille(
     }
 }
 
+
+#[inline]
 fn sample_scaled(image: &ImageView, x: u32, y: u32, virtual_w: u32, virtual_h: u32) -> [u8; 4] {
     let vw = virtual_w.max(1);
     let vh = virtual_h.max(1);
@@ -387,6 +389,7 @@ fn sample_scaled(image: &ImageView, x: u32, y: u32, virtual_w: u32, virtual_h: u
     image.pixel(sx, sy).unwrap_or([0, 0, 0, 0])
 }
 
+#[inline]
 fn rgb_color(px: [u8; 4]) -> Color {
     Color::Rgb {
         r: px[0],
@@ -395,6 +398,7 @@ fn rgb_color(px: [u8; 4]) -> Color {
     }
 }
 
+#[inline]
 fn average_rgb(colours: &[[u8; 4]]) -> Color {
     if colours.is_empty() {
         return TRUE_BLACK;
