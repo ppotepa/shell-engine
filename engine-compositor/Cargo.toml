@@ -12,6 +12,7 @@ engine-animation = { path = "../engine-animation" }
 engine-asset = { path = "../engine-asset" }
 engine-pipeline = { path = "../engine-pipeline" }
 engine-render = { path = "../engine-render" }
+engine-vector = { workspace = true }
 engine-render-policy = { path = "../engine-render-policy" }
 engine-render-terminal = { path = "../engine-render-terminal" }
 engine-scene-runtime = { path = "../engine-scene-runtime" }

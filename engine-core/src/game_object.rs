@@ -8,6 +8,7 @@ pub enum GameObjectKind {
     TextSprite,
     ImageSprite,
     ObjSprite,
+    VectorSprite,
     PanelSprite,
     GridSprite,
     FlexSprite,

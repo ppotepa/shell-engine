@@ -280,6 +280,52 @@ pub enum Sprite {
         #[serde(default)]
         behaviors: Vec<BehaviorSpec>,
     },
+    /// Vector polyline/polygon sprite rendered as line segments.
+    Vector {
+        #[serde(default)]
+        id: Option<String>,
+        /// List of points in local sprite space.
+        #[serde(default)]
+        points: Vec<[i32; 2]>,
+        /// When true, closes the shape by connecting last->first.
+        #[serde(default)]
+        closed: bool,
+        /// Glyph used for line rasterization.
+        #[serde(default, rename = "draw-char")]
+        draw_char: Option<String>,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default)]
+        z_index: i32,
+        #[serde(default = "default_grid_line", rename = "grid-row")]
+        grid_row: u16,
+        #[serde(default = "default_grid_line", rename = "grid-col")]
+        grid_col: u16,
+        #[serde(default = "default_grid_span", rename = "row-span")]
+        row_span: u16,
+        #[serde(default = "default_grid_span", rename = "col-span")]
+        col_span: u16,
+        #[serde(default, rename = "force-renderer-mode")]
+        force_renderer_mode: Option<SceneRenderedMode>,
+        align_x: Option<HorizontalAlign>,
+        align_y: Option<VerticalAlign>,
+        fg_colour: Option<TermColour>,
+        bg_colour: Option<TermColour>,
+        #[serde(default)]
+        appear_at_ms: Option<u64>,
+        #[serde(default)]
+        disappear_at_ms: Option<u64>,
+        #[serde(default)]
+        hide_on_leave: bool,
+        #[serde(default)]
+        stages: LayerStages,
+        #[serde(default)]
+        animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
+    },
     /// Wavefront OBJ mesh rendered as terminal wireframe/material.
     Obj {
         #[serde(default)]
@@ -631,7 +677,8 @@ impl Sprite {
             | Sprite::Panel { id, .. }
             | Sprite::Grid { id, .. }
             | Sprite::Flex { id, .. }
-            | Sprite::Scene3D { id, .. } => id.as_deref(),
+            | Sprite::Scene3D { id, .. }
+            | Sprite::Vector { id, .. } => id.as_deref(),
         }
     }
 
@@ -643,7 +690,8 @@ impl Sprite {
             | Sprite::Panel { z_index, .. }
             | Sprite::Grid { z_index, .. }
             | Sprite::Flex { z_index, .. }
-            | Sprite::Scene3D { z_index, .. } => *z_index,
+            | Sprite::Scene3D { z_index, .. }
+            | Sprite::Vector { z_index, .. } => *z_index,
         }
     }
 
@@ -655,7 +703,8 @@ impl Sprite {
             | Sprite::Panel { stages, .. }
             | Sprite::Grid { stages, .. }
             | Sprite::Flex { stages, .. }
-            | Sprite::Scene3D { stages, .. } => stages,
+            | Sprite::Scene3D { stages, .. }
+            | Sprite::Vector { stages, .. } => stages,
         }
     }
 
@@ -709,6 +758,13 @@ impl Sprite {
                 row_span,
                 col_span,
                 ..
+            }
+            | Sprite::Vector {
+                grid_row,
+                grid_col,
+                row_span,
+                col_span,
+                ..
             } => (*grid_row, *grid_col, *row_span, *col_span),
         };
         (row.max(1), col.max(1), row_span.max(1), col_span.max(1))
@@ -739,7 +795,8 @@ impl Sprite {
             | Sprite::Panel { behaviors, .. }
             | Sprite::Grid { behaviors, .. }
             | Sprite::Flex { behaviors, .. }
-            | Sprite::Scene3D { behaviors, .. } => behaviors,
+            | Sprite::Scene3D { behaviors, .. }
+            | Sprite::Vector { behaviors, .. } => behaviors,
         }
     }
 
@@ -751,7 +808,8 @@ impl Sprite {
             | Sprite::Panel { hide_on_leave, .. }
             | Sprite::Grid { hide_on_leave, .. }
             | Sprite::Flex { hide_on_leave, .. }
-            | Sprite::Scene3D { hide_on_leave, .. } => *hide_on_leave,
+            | Sprite::Scene3D { hide_on_leave, .. }
+            | Sprite::Vector { hide_on_leave, .. } => *hide_on_leave,
         }
     }
 
@@ -763,7 +821,8 @@ impl Sprite {
             | Sprite::Panel { appear_at_ms, .. }
             | Sprite::Grid { appear_at_ms, .. }
             | Sprite::Flex { appear_at_ms, .. }
-            | Sprite::Scene3D { appear_at_ms, .. } => *appear_at_ms,
+            | Sprite::Scene3D { appear_at_ms, .. }
+            | Sprite::Vector { appear_at_ms, .. } => *appear_at_ms,
         }
     }
 
@@ -789,6 +848,9 @@ impl Sprite {
             }
             | Sprite::Scene3D {
                 disappear_at_ms, ..
+            }
+            | Sprite::Vector {
+                disappear_at_ms, ..
             } => *disappear_at_ms,
         }
     }
@@ -801,7 +863,8 @@ impl Sprite {
             | Sprite::Panel { animations, .. }
             | Sprite::Grid { animations, .. }
             | Sprite::Flex { animations, .. }
-            | Sprite::Scene3D { animations, .. } => animations,
+            | Sprite::Scene3D { animations, .. }
+            | Sprite::Vector { animations, .. } => animations,
         }
     }
 }

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: bullet-vector
+exports:
+  id: bullet
+  x: 0
+  y: 0
+  fg: yellow
+  draw_char: "."
+sprites:
+  - type: vector
+    id: "$id"
+    at: cc
+    x: "$x"
+    y: "$y"
+    points: [[0, 0], [0, 0]]
+    draw-char: "$draw_char"
+    fg: "$fg"
+    visible: false

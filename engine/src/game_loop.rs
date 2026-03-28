@@ -75,6 +75,10 @@ pub fn game_loop(
 
         // --- INPUT ---
         let t_input_start = Instant::now();
+        if let Some(runtime) = world.scene_runtime_mut() {
+            // Key scope is single-frame: clear previous key before ingesting fresh events.
+            runtime.clear_last_raw_key();
+        }
         for event in input.poll_events() {
             match event {
                 KeyPressed(key) if is_debug_fast_forward_toggle(key.code, key.modifiers) => {

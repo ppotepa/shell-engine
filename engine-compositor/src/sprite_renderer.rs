@@ -459,6 +459,72 @@ fn render_sprite(
                 object_regions,
             );
         }
+        Sprite::Vector {
+            points,
+            closed,
+            draw_char,
+            x,
+            y,
+            force_renderer_mode,
+            align_x,
+            align_y,
+            fg_colour,
+            bg_colour,
+            ..
+        } => {
+            let _resolved_mode =
+                engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
+            let Some(bounds) = engine_vector::bounds(points) else {
+                return;
+            };
+            let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
+            let bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
+            let glyph = draw_char
+                .as_deref()
+                .and_then(|value| value.chars().next())
+                .unwrap_or('*');
+
+            let base_x = area.origin_x + resolve_x(*x, align_x, area.width, bounds.width);
+            let base_y = area.origin_y + resolve_y(*y, align_y, area.height, bounds.height);
+            let (draw_x, draw_y) = compute_draw_pos(
+                base_x,
+                base_y,
+                sprite.animations(),
+                sprite_elapsed,
+                &object_state,
+            );
+            let origin_x = i32::from(draw_x).saturating_sub(bounds.min_x);
+            let origin_y = i32::from(draw_y).saturating_sub(bounds.min_y);
+            if *closed && !matches!(bg, Color::Reset) {
+                engine_vector::fill_polygon(ctx.layer_buf, points, origin_x, origin_y, '█', bg, bg);
+            }
+            engine_vector::draw_polyline(
+                ctx.layer_buf,
+                points,
+                *closed,
+                origin_x,
+                origin_y,
+                glyph,
+                fg,
+                bg,
+            );
+
+            let sprite_region = Region {
+                x: draw_x.max(0) as u16,
+                y: draw_y.max(0) as u16,
+                width: bounds.width,
+                height: bounds.height,
+            };
+            finalize_sprite(
+                object_id,
+                sprite_region,
+                sprite_elapsed,
+                sprite.stages(),
+                ctx,
+                target_resolver,
+                object_regions,
+            );
+        }
 
         Sprite::Panel {
             x,

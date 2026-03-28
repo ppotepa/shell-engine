@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: ship-vector
+exports:
+  id: ship
+  x: 0
+  y: 0
+  fg: white
+sprites:
+  - type: vector
+    id: "$id"
+    at: cc
+    x: "$x"
+    y: "$y"
+    points: [[0, -7], [4, 5], [0, 2], [-4, 5]]
+    closed: true
+    fg: "$fg"

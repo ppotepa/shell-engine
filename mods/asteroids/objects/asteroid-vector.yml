@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: asteroid-vector
+exports:
+  id: asteroid
+  x: 0
+  y: 0
+  fg: "#cccccc"
+sprites:
+  - type: vector
+    id: "$id"
+    at: cc
+    x: "$x"
+    y: "$y"
+    points: [[0, -10], [8, -6], [10, 1], [4, 9], [-4, 9], [-10, 2], [-8, -7]]
+    closed: true
+    fg: "$fg"

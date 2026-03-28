@@ -19,6 +19,7 @@ Current metadata maturity:
 ```
 mods/<mod>/
 +-- mod.yaml                 Mod manifest
++-- levels/                  Level payloads (*.yml|*.yaml|*.json)
 +-- assets/
 |   +-- images/              Image assets (PNG, GIF)
 |   +-- fonts/               Rasterized font manifests
@@ -195,6 +196,7 @@ all input processing and output rendering.
 | state      | Persistent key-value state                |
 | ui         | UI state (focus, visibility)              |
 | game       | Global game state                         |
+| level      | Active level payload + level catalog      |
 | key        | Current key event                         |
 
 ### Commands
@@ -211,6 +213,15 @@ Scripts emit commands to mutate the scene:
 ```
 scene.get(target)              // read a value
 scene.set(target, path, value) // write a value
+
+game.get(path)                 // read global game state
+game.set(path, value)          // write global game state
+persist.get(path)              // read on-disk persistent state
+persist.set(path, value)       // write on-disk persistent state
+level.current()                // active level id
+level.ids()                    // available level ids
+level.select(level_id)         // switch active level
+level.get(path)                // read active level payload
 ```
 
 **Important:** Always use backtick strings for multiline text in Rhai:

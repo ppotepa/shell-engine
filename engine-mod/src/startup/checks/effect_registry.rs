@@ -320,7 +320,9 @@ fn collect_sprite_target_kinds(
 fn sprite_target_kind(sprite: &Sprite) -> EffectTargetKind {
     match sprite {
         Sprite::Text { .. } => EffectTargetKind::SpriteText,
-        Sprite::Image { .. } | Sprite::Obj { .. } => EffectTargetKind::SpriteBitmap,
+        Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Vector { .. } => {
+            EffectTargetKind::SpriteBitmap
+        }
         Sprite::Grid { .. }
         | Sprite::Flex { .. }
         | Sprite::Panel { .. }

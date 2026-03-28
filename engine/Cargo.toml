@@ -33,6 +33,7 @@ engine-debug = { path = "../engine-debug" }
 engine-asset = { path = "../engine-asset" }
 engine-core = { workspace = true }
 engine-io = { workspace = true }
+engine-persistence = { workspace = true }
 crossterm = "0.29"
 tui-input = { version = "0.11", default-features = false }
 taffy = "0.7"

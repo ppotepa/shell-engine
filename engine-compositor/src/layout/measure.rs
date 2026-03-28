@@ -106,6 +106,9 @@ pub(crate) fn measure_sprite_for_layout(
                 asset_root,
             )
         }
+        Sprite::Vector { points, .. } => engine_vector::bounds(points)
+            .map(|b| (b.width.max(1), b.height.max(1)))
+            .unwrap_or((1, 1)),
         Sprite::Grid {
             width,
             height,

@@ -235,6 +235,11 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
             sprite_name("obj", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
+        Sprite::Vector { id, .. } => (
+            GameObjectKind::VectorSprite,
+            sprite_name("vector", id.as_deref(), sprite_idx),
+            sprite_aliases(id.as_deref()),
+        ),
         Sprite::Panel { id, .. } => (
             GameObjectKind::PanelSprite,
             sprite_name("panel", id.as_deref(), sprite_idx),
@@ -311,6 +316,7 @@ fn object_kind_name(kind: &GameObjectKind) -> &'static str {
         GameObjectKind::TextSprite => "text",
         GameObjectKind::ImageSprite => "image",
         GameObjectKind::ObjSprite => "obj",
+        GameObjectKind::VectorSprite => "vector",
         GameObjectKind::PanelSprite => "panel",
         GameObjectKind::GridSprite => "grid",
         GameObjectKind::FlexSprite => "flex",

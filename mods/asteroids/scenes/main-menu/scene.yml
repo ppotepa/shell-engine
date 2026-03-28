@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: asteroids.mainmenu
+title: Asteroids Main Menu
+bg: black
+layers:
+  - name: menu
+    z_index: 0
+    objects:
+      - ref: centered-endless-menu
+    sprites:
+      - {
+          type: text,
+          id: title,
+          content: "ASTEROIDS",
+          at: ct,
+          y: -10,
+          font: "generic:2",
+          fg: white,
+        }
+      - {
+          type: text,
+          id: subtitle,
+          content: "Engine Showcase Mod",
+          at: ct,
+          y: -7,
+          font: "generic:1",
+          fg: white,
+        }
+      - {
+          type: text,
+          id: mode-current,
+          content: "MODE: DEFAULT",
+          at: ct,
+          y: -5,
+          font: "generic:1",
+          fg: "#7bd1ff",
+        }
+      - {
+          type: text,
+          id: mode-hint,
+          content: "Q/F5 EASY | W/F6 DEFAULT | E/F7 HARD",
+          at: ct,
+          y: -3,
+          font: "generic:1",
+          fg: gray,
+        }
+      - {
+          type: text,
+          id: menu-help,
+          content: "A/D or arrows rotate, W/up thrust, space fire",
+          at: cb,
+          y: -2,
+          font: "generic:1",
+          fg: white,
+        }
+      - {
+          type: text,
+          id: menu-prompt,
+          content: "Arrows: navigate, Enter: select, [0]-[2]: shortcut",
+          at: cb,
+          y: -1,
+          font: "generic:1",
+          fg: white,
+          behaviors:
+            [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }],
+        }
+behaviors:
+  - name: rhai-script
+    params:
+      script: |
+        fn mode_label(level_id) {
+            if level_id == "asteroids.easy" { return "EASY"; }
+            if level_id == "asteroids.hard" { return "HARD"; }
+            "DEFAULT"
+        }
+
+        fn mode_colour(level_id) {
+            if level_id == "asteroids.easy" { return "#9de36f"; }
+            if level_id == "asteroids.hard" { return "#ff8a8a"; }
+            "#7bd1ff"
+        }
+
+        fn try_select(level_id) {
+            if level.select(level_id) {
+                diag.info(`menu mode selected ${level_id}`);
+            } else {
+                diag.warn(`menu mode select failed ${level_id}`);
+            }
+        }
+
+        if key.pressed == true {
+            let code = if key.code.type_of() == "string" { key.code } else { "" };
+            if code == "q" || code == "Q" || code == "F5" {
+                try_select("asteroids.easy");
+            } else if code == "w" || code == "W" || code == "F6" {
+                try_select("asteroids.default");
+            } else if code == "e" || code == "E" || code == "F7" {
+                try_select("asteroids.hard");
+            }
+        }
+
+        let current = level.current();
+        scene.set("mode-current", "text.content", `MODE: ${mode_label(current)}`);
+        scene.set("mode-current", "style.fg", mode_colour(current));
+menu-options:
+  - { key: "1", label: START GAME, to: asteroids.game }
+  - { key: "2", label: HIGH SCORES, to: asteroids.highscores }
+  - { key: "0", label: QUIT, to: playground-exit }
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 250 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 1000ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 180 }] }

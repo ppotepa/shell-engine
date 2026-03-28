@@ -88,14 +88,7 @@ pub fn rasterize(
                 let (width, height) = generic::generic_dimensions_tiny(text);
                 let mut out = Buffer::new(width.max(1), height.max(1));
                 out.fill(Color::Reset);
-                generic::rasterize_generic_tiny(
-                    text,
-                    fg,
-                    0,
-                    0,
-                    &mut out,
-                    &TextTransform::None,
-                );
+                generic::rasterize_generic_tiny(text, fg, 0, 0, &mut out, &TextTransform::None);
                 return out;
             }
             3 => {

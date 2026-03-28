@@ -1,0 +1,46 @@
+{
+  "asteroids": {
+    "highscores": [
+      {
+        "at_ms": 7232,
+        "score": 0,
+        "wave": 1
+      },
+      {
+        "at_ms": 7280,
+        "score": 0,
+        "wave": 1
+      },
+      {
+        "at_ms": 10704,
+        "score": 30,
+        "wave": 1
+      },
+      {
+        "at_ms": 7136,
+        "score": 0,
+        "wave": 1
+      },
+      {
+        "at_ms": 54032,
+        "score": 10,
+        "wave": 1
+      },
+      {
+        "at_ms": 8032,
+        "score": 0,
+        "wave": 1
+      },
+      {
+        "at_ms": 16288,
+        "score": 20,
+        "wave": 1
+      },
+      {
+        "at_ms": 6832,
+        "score": 25,
+        "wave": 1
+      }
+    ]
+  }
+}

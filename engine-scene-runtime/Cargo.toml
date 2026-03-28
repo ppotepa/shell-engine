@@ -9,6 +9,7 @@ engine-animation = { path = "../engine-animation" }
 engine-behavior = { path = "../engine-behavior" }
 engine-behavior-registry = { path = "../engine-behavior-registry" }
 engine-events = { path = "../engine-events" }
+engine-persistence = { path = "../engine-persistence" }
 engine-render-terminal = { path = "../engine-render-terminal" }
 engine-runtime = { path = "../engine-runtime" }
 tui-input = { version = "0.11", default-features = false }

@@ -2,7 +2,7 @@ use clap::Parser;
 use engine::{logging, BackendKind, EngineConfig, ShellEngine};
 use engine_mod::startup::checks::{
     EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
-    RhaiScriptsCheck, SceneGraphCheck,
+    LevelConfigCheck, RhaiScriptsCheck, SceneGraphCheck,
 };
 use engine_mod::startup::{
     StartupContext, StartupIssueLevel, StartupReport, StartupRunner, StartupSceneFile,
@@ -389,6 +389,7 @@ fn run_scene_checks(
     // focuses on authored content consistency for all discovered scenes.
     StartupRunner::with_checks(vec![
         Box::new(SceneGraphCheck),
+        Box::new(LevelConfigCheck),
         Box::new(RhaiScriptsCheck),
         Box::new(EffectRegistryCheck),
         Box::new(ImageAssetsCheck),

@@ -21,6 +21,8 @@ pub mod effects;
 pub mod game_object;
 /// Persistent game state singleton: generic JSON key-value store for cross-scene data.
 pub mod game_state;
+/// Active-level state and level catalog for level-scoped gameplay data.
+pub mod level_state;
 /// Run-scoped file logging for launchers, runtime, and editor.
 pub mod logging;
 /// Markup parsing and rendering utilities.

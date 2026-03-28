@@ -22,6 +22,8 @@ pub use engine_3d as rendering_3d;
 pub use engine_terminal as terminal;
 // Re-export game subsystem
 pub use engine_game as game;
+// Re-export persistence subsystem
+pub use engine_persistence as persistence;
 // Re-export pipeline subsystem
 pub use engine_pipeline as pipeline;
 // Re-export asset subsystem
@@ -35,6 +37,7 @@ pub mod events;
 pub mod game_object;
 pub mod game_state;
 pub mod image_loader;
+pub mod level_state;
 pub mod mod_behaviors;
 pub mod obj_prerender;
 pub mod pipeline_flags;
@@ -349,6 +352,18 @@ impl ShellEngine {
         let mod_behavior_registry = mod_behaviors::load_mod_behaviors(&self.mod_source);
         world.register(mod_behavior_registry);
         world.register(game_state::GameState::new());
+        world.register(level_state::load_level_state(
+            &self.mod_source,
+            &self.mod_manifest,
+        ));
+        let persistence_namespace = self
+            .mod_manifest
+            .get("name")
+            .and_then(serde_yaml::Value::as_str)
+            .unwrap_or("shell-quest");
+        world.register(engine_persistence::PersistenceStore::new(
+            persistence_namespace,
+        ));
         let mut pflags = pipeline_flags::PipelineFlags::default();
         pflags.opt_comp = self.config.opt_comp;
         pflags.opt_present = self.config.opt_present;

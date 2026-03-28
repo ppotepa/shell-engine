@@ -18,14 +18,18 @@ impl InputBackend for TerminalInputBackend {
         while event::poll(std::time::Duration::ZERO).unwrap_or(false) {
             match event::read() {
                 Ok(Event::Key(key)) => {
-                    if key.kind == KeyEventKind::Release {
-                        continue;
-                    }
                     if let Some(engine_key) = crossterm_key_to_engine(key) {
-                        if is_quit_key(engine_key.code, engine_key.modifiers) {
-                            events.push(EngineEvent::Quit);
-                        } else {
-                            events.push(EngineEvent::KeyPressed(engine_key));
+                        match key.kind {
+                            KeyEventKind::Release => {
+                                events.push(EngineEvent::KeyReleased(engine_key));
+                            }
+                            KeyEventKind::Press | KeyEventKind::Repeat => {
+                                if is_quit_key(engine_key.code, engine_key.modifiers) {
+                                    events.push(EngineEvent::Quit);
+                                } else {
+                                    events.push(EngineEvent::KeyPressed(engine_key));
+                                }
+                            }
                         }
                     }
                 }

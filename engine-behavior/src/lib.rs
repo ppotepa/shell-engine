@@ -13,11 +13,14 @@ use engine_core::authoring::metadata::FieldMetadata;
 use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
 use engine_core::game_state::GameState;
+use engine_core::level_state::LevelState;
 use engine_core::logging;
 use engine_core::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use engine_core::scene_runtime_types::{
     ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
 };
+use engine_persistence::PersistenceStore;
+use engine_physics::{point_in_polygon, polygons_intersect, segment_intersects_polygon};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 
@@ -46,9 +49,13 @@ pub struct BehaviorContext {
     pub ui_last_change_target_id: Option<Arc<str>>,
     pub ui_last_change_text: Option<Arc<str>>,
     pub game_state: Option<GameState>,
+    pub level_state: Option<LevelState>,
+    pub persistence: Option<PersistenceStore>,
     /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
     /// Arc-wrapped: shared across all behaviors in a frame, clone is O(1).
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
+    /// Held key set (normalized key codes), exposed to Rhai via `input.down(code)`.
+    pub keys_down: Arc<HashSet<String>>,
     /// Sidecar IO frame snapshot (output lines / clear / fullscreen / custom events).
     pub sidecar_io: Arc<SidecarIoFrameState>,
     /// Rhai maps built once per frame, shared across all behaviors via Arc.
@@ -99,12 +106,28 @@ pub enum BehaviorCommand {
         line: String,
     },
     TerminalClearOutput,
+    SceneTransition {
+        to_scene_id: String,
+    },
+    DebugLog {
+        scene_id: String,
+        source: Option<String>,
+        severity: DebugLogSeverity,
+        message: String,
+    },
     /// Rhai script error — consumed by the behavior system to push to DebugLogBuffer.
     ScriptError {
         scene_id: String,
         source: Option<String>,
         message: String,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DebugLogSeverity {
+    Info,
+    Warn,
+    Error,
 }
 
 /// Defines the per-tick update logic for a scene object behavior.
@@ -561,15 +584,26 @@ thread_local! {
     static RHAI_ENGINE: std::cell::RefCell<Option<RhaiEngine>> = std::cell::RefCell::new(None);
 }
 
+fn configure_rhai_limits(engine: &mut RhaiEngine) {
+    // Gameplay scripts with vector math and stateful loops can exceed Rhai's
+    // default parser complexity limit even when they are otherwise valid.
+    // Raise the parse-depth ceilings to keep legitimate mod behaviors working.
+    engine.set_max_expr_depths(128, 128);
+}
+
 fn init_rhai_engine() -> RhaiEngine {
     let mut engine = RhaiEngine::new();
+    configure_rhai_limits(&mut engine);
     engine.register_fn("is_blank", |value: &str| -> bool {
         value.chars().all(char::is_whitespace)
     });
     engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
     engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
     engine.register_type_with_name::<ScriptGameApi>("GameApi");
+    engine.register_type_with_name::<ScriptPersistenceApi>("PersistenceApi");
     engine.register_type_with_name::<ScriptTerminalApi>("TerminalApi");
+    engine.register_type_with_name::<ScriptInputApi>("InputApi");
+    engine.register_type_with_name::<ScriptDebugApi>("DebugApi");
     engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
         scene.get(target)
     });
@@ -594,6 +628,25 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("clear", |terminal: &mut ScriptTerminalApi| {
         terminal.clear();
     });
+    engine.register_fn("down", |input: &mut ScriptInputApi, code: &str| {
+        input.down(code)
+    });
+    engine.register_fn("is_down", |input: &mut ScriptInputApi, code: &str| {
+        input.down(code)
+    });
+    engine.register_fn("any_down", |input: &mut ScriptInputApi| input.any_down());
+    engine.register_fn("down_count", |input: &mut ScriptInputApi| {
+        input.down_count()
+    });
+    engine.register_fn("info", |debug: &mut ScriptDebugApi, message: &str| {
+        debug.info(message);
+    });
+    engine.register_fn("warn", |debug: &mut ScriptDebugApi, message: &str| {
+        debug.warn(message);
+    });
+    engine.register_fn("error", |debug: &mut ScriptDebugApi, message: &str| {
+        debug.error(message);
+    });
     engine.register_fn("get", |game: &mut ScriptGameApi, path: &str| game.get(path));
     engine.register_fn(
         "set",
@@ -606,6 +659,110 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn(
         "push",
         |game: &mut ScriptGameApi, path: &str, value: RhaiDynamic| game.push(path, value),
+    );
+    engine.register_fn("jump", |game: &mut ScriptGameApi, scene_id: &str| {
+        game.jump(scene_id)
+    });
+    engine.register_fn("get", |level: &mut ScriptLevelApi, path: &str| {
+        level.get(path)
+    });
+    engine.register_fn(
+        "set",
+        |level: &mut ScriptLevelApi, path: &str, value: RhaiDynamic| level.set(path, value),
+    );
+    engine.register_fn("has", |level: &mut ScriptLevelApi, path: &str| {
+        level.has(path)
+    });
+    engine.register_fn("remove", |level: &mut ScriptLevelApi, path: &str| {
+        level.remove(path)
+    });
+    engine.register_fn(
+        "push",
+        |level: &mut ScriptLevelApi, path: &str, value: RhaiDynamic| level.push(path, value),
+    );
+    engine.register_fn("select", |level: &mut ScriptLevelApi, level_id: &str| {
+        level.select(level_id)
+    });
+    engine.register_fn("current", |level: &mut ScriptLevelApi| level.current());
+    engine.register_fn("ids", |level: &mut ScriptLevelApi| level.ids());
+    engine.register_fn("get", |persist: &mut ScriptPersistenceApi, path: &str| {
+        persist.get(path)
+    });
+    engine.register_fn(
+        "set",
+        |persist: &mut ScriptPersistenceApi, path: &str, value: RhaiDynamic| {
+            persist.set(path, value)
+        },
+    );
+    engine.register_fn("has", |persist: &mut ScriptPersistenceApi, path: &str| {
+        persist.has(path)
+    });
+    engine.register_fn(
+        "remove",
+        |persist: &mut ScriptPersistenceApi, path: &str| persist.remove(path),
+    );
+    engine.register_fn(
+        "push",
+        |persist: &mut ScriptPersistenceApi, path: &str, value: RhaiDynamic| {
+            persist.push(path, value)
+        },
+    );
+    engine.register_fn("reload", |persist: &mut ScriptPersistenceApi| {
+        persist.reload()
+    });
+    engine.register_fn(
+        "poly_hit",
+        |poly_a: RhaiArray,
+         ax: rhai::INT,
+         ay: rhai::INT,
+         poly_b: RhaiArray,
+         bx: rhai::INT,
+         by: rhai::INT|
+         -> bool {
+            let points_a = rhai_array_to_points(&poly_a);
+            let points_b = rhai_array_to_points(&poly_b);
+            if points_a.len() < 2 || points_b.len() < 2 {
+                return false;
+            }
+            polygons_intersect(
+                &points_a,
+                [to_i32(ax), to_i32(ay)],
+                &points_b,
+                [to_i32(bx), to_i32(by)],
+            )
+        },
+    );
+    engine.register_fn(
+        "point_in_poly",
+        |px: rhai::INT, py: rhai::INT, poly: RhaiArray, ox: rhai::INT, oy: rhai::INT| -> bool {
+            let points = rhai_array_to_points(&poly);
+            if points.len() < 3 {
+                return false;
+            }
+            point_in_polygon([to_i32(px), to_i32(py)], &points, [to_i32(ox), to_i32(oy)])
+        },
+    );
+    engine.register_fn(
+        "segment_poly_hit",
+        |x0: rhai::INT,
+         y0: rhai::INT,
+         x1: rhai::INT,
+         y1: rhai::INT,
+         poly: RhaiArray,
+         ox: rhai::INT,
+         oy: rhai::INT|
+         -> bool {
+            let points = rhai_array_to_points(&poly);
+            if points.len() < 2 {
+                return false;
+            }
+            segment_intersects_polygon(
+                [to_i32(x0), to_i32(y0)],
+                [to_i32(x1), to_i32(y1)],
+                &points,
+                [to_i32(ox), to_i32(oy)],
+            )
+        },
     );
     engine
 }
@@ -652,10 +809,33 @@ struct ScriptObjectApi {
 #[derive(Clone)]
 struct ScriptGameApi {
     state: Option<GameState>,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
+#[derive(Clone)]
+struct ScriptLevelApi {
+    state: Option<LevelState>,
+}
+
+#[derive(Clone)]
+struct ScriptPersistenceApi {
+    store: Option<PersistenceStore>,
 }
 
 #[derive(Clone)]
 struct ScriptTerminalApi {
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
+#[derive(Clone)]
+struct ScriptInputApi {
+    keys_down: Arc<HashSet<String>>,
+}
+
+#[derive(Clone)]
+struct ScriptDebugApi {
+    scene_id: String,
+    source: Option<String>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -788,7 +968,68 @@ impl ScriptObjectApi {
 }
 
 impl ScriptGameApi {
-    fn new(state: Option<GameState>) -> Self {
+    fn new(state: Option<GameState>, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+        Self { state, queue }
+    }
+
+    fn get(&mut self, path: &str) -> RhaiDynamic {
+        self.state
+            .as_ref()
+            .and_then(|state| state.get(path))
+            .map(|value| json_to_rhai_dynamic(&value))
+            .unwrap_or_else(|| ().into())
+    }
+
+    fn set(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(state) = self.state.as_ref() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        state.set(path, value)
+    }
+
+    fn has(&mut self, path: &str) -> bool {
+        self.state
+            .as_ref()
+            .map(|state| state.has(path))
+            .unwrap_or(false)
+    }
+
+    fn remove(&mut self, path: &str) -> bool {
+        self.state
+            .as_ref()
+            .map(|state| state.remove(path))
+            .unwrap_or(false)
+    }
+
+    fn push(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(state) = self.state.as_ref() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        state.push(path, value)
+    }
+
+    fn jump(&mut self, to_scene_id: &str) -> bool {
+        if to_scene_id.trim().is_empty() {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::SceneTransition {
+            to_scene_id: to_scene_id.to_string(),
+        });
+        true
+    }
+}
+
+impl ScriptLevelApi {
+    fn new(state: Option<LevelState>) -> Self {
         Self { state }
     }
 
@@ -833,6 +1074,27 @@ impl ScriptGameApi {
         };
         state.push(path, value)
     }
+
+    fn select(&mut self, level_id: &str) -> bool {
+        self.state
+            .as_ref()
+            .map(|state| state.select(level_id))
+            .unwrap_or(false)
+    }
+
+    fn current(&mut self) -> String {
+        self.state
+            .as_ref()
+            .and_then(LevelState::current_id)
+            .unwrap_or_default()
+    }
+
+    fn ids(&mut self) -> RhaiArray {
+        self.state
+            .as_ref()
+            .map(|state| state.ids().into_iter().map(Into::into).collect())
+            .unwrap_or_default()
+    }
 }
 
 impl ScriptTerminalApi {
@@ -857,11 +1119,131 @@ impl ScriptTerminalApi {
     }
 }
 
+impl ScriptInputApi {
+    fn new(keys_down: Arc<HashSet<String>>) -> Self {
+        Self { keys_down }
+    }
+
+    fn down(&mut self, code: &str) -> bool {
+        let normalized = normalize_input_code(code);
+        if normalized.is_empty() {
+            return false;
+        }
+        self.keys_down.contains(&normalized)
+    }
+
+    fn any_down(&mut self) -> bool {
+        !self.keys_down.is_empty()
+    }
+
+    fn down_count(&mut self) -> rhai::INT {
+        self.keys_down.len() as rhai::INT
+    }
+}
+
+impl ScriptDebugApi {
+    fn new(
+        scene_id: String,
+        source: Option<String>,
+        queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    ) -> Self {
+        Self {
+            scene_id,
+            source,
+            queue,
+        }
+    }
+
+    fn info(&mut self, message: &str) {
+        self.push(DebugLogSeverity::Info, message);
+    }
+
+    fn warn(&mut self, message: &str) {
+        self.push(DebugLogSeverity::Warn, message);
+    }
+
+    fn error(&mut self, message: &str) {
+        self.push(DebugLogSeverity::Error, message);
+    }
+
+    fn push(&mut self, severity: DebugLogSeverity, message: &str) {
+        let trimmed = message.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::DebugLog {
+            scene_id: self.scene_id.clone(),
+            source: self.source.clone(),
+            severity,
+            message: trimmed.to_string(),
+        });
+    }
+}
+
+impl ScriptPersistenceApi {
+    fn new(store: Option<PersistenceStore>) -> Self {
+        Self { store }
+    }
+
+    fn get(&mut self, path: &str) -> RhaiDynamic {
+        self.store
+            .as_ref()
+            .and_then(|store| store.get(path))
+            .map(|value| json_to_rhai_dynamic(&value))
+            .unwrap_or_else(|| ().into())
+    }
+
+    fn set(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(store) = self.store.as_ref() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        store.set(path, value)
+    }
+
+    fn has(&mut self, path: &str) -> bool {
+        self.store
+            .as_ref()
+            .map(|store| store.has(path))
+            .unwrap_or(false)
+    }
+
+    fn remove(&mut self, path: &str) -> bool {
+        self.store
+            .as_ref()
+            .map(|store| store.remove(path))
+            .unwrap_or(false)
+    }
+
+    fn push(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(store) = self.store.as_ref() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        store.push(path, value)
+    }
+
+    fn reload(&mut self) -> bool {
+        self.store
+            .as_ref()
+            .map(PersistenceStore::reload)
+            .unwrap_or(false)
+    }
+}
+
 impl RhaiScriptBehavior {
     pub fn from_params(params: &BehaviorParams) -> Self {
         let compile_error = match params.script.as_deref() {
             Some(src) => {
-                let engine = RhaiEngine::new();
+                let mut engine = RhaiEngine::new();
+                configure_rhai_limits(&mut engine);
                 match engine.compile(src) {
                     Ok(ast) => {
                         // Pre-populate the thread-local AST cache so the first
@@ -1113,10 +1495,27 @@ impl Behavior for RhaiScriptBehavior {
                         Arc::clone(&helper_commands),
                     ),
                 );
-                scope.push("game", ScriptGameApi::new(ctx.game_state.clone()));
+                scope.push(
+                    "game",
+                    ScriptGameApi::new(ctx.game_state.clone(), Arc::clone(&helper_commands)),
+                );
+                scope.push("level", ScriptLevelApi::new(ctx.level_state.clone()));
                 scope.push(
                     "terminal",
                     ScriptTerminalApi::new(Arc::clone(&helper_commands)),
+                );
+                scope.push("input", ScriptInputApi::new(Arc::clone(&ctx.keys_down)));
+                scope.push(
+                    "diag",
+                    ScriptDebugApi::new(
+                        scene.id.clone(),
+                        self.params.src.clone(),
+                        Arc::clone(&helper_commands),
+                    ),
+                );
+                scope.push(
+                    "persist",
+                    ScriptPersistenceApi::new(ctx.persistence.clone()),
                 );
 
                 // OPT-4: Use thread-local engine + cached AST.
@@ -1252,7 +1651,10 @@ fn smoke_probe_context(
         ui_last_change_target_id: None,
         ui_last_change_text: None,
         game_state: Some(game_state),
+        level_state: None,
+        persistence: None,
         last_raw_key: None,
+        keys_down: Arc::new(HashSet::new()),
         sidecar_io: Arc::new(SidecarIoFrameState::default()),
         rhai_time_map: Arc::new(RhaiMap::new()),
         rhai_menu_map: Arc::new(RhaiMap::new()),
@@ -1387,6 +1789,41 @@ fn normalize_set_path(path: &str) -> String {
         .strip_prefix("props.")
         .unwrap_or(path.trim())
         .to_string()
+}
+
+fn normalize_input_code(code: &str) -> String {
+    if code == " " {
+        return " ".to_string();
+    }
+    let trimmed = code.trim();
+    if trimmed.len() == 1 {
+        return trimmed.to_ascii_lowercase();
+    }
+    trimmed.to_string()
+}
+
+fn to_i32(value: rhai::INT) -> i32 {
+    value.clamp(i32::MIN as rhai::INT, i32::MAX as rhai::INT) as i32
+}
+
+fn rhai_array_to_points(value: &RhaiArray) -> Vec<[i32; 2]> {
+    let mut points = Vec::with_capacity(value.len());
+    for item in value {
+        let Some(pair) = item.clone().try_cast::<RhaiArray>() else {
+            continue;
+        };
+        if pair.len() < 2 {
+            continue;
+        }
+        let Some(x) = pair[0].clone().try_cast::<rhai::INT>() else {
+            continue;
+        };
+        let Some(y) = pair[1].clone().try_cast::<rhai::INT>() else {
+            continue;
+        };
+        points.push([to_i32(x), to_i32(y)]);
+    }
+    points
 }
 
 /// Shows directional arrow sprites flanking the selected menu option.
@@ -1842,6 +2279,16 @@ fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>)
                     value,
                 });
             }
+            "transition" => {
+                let Some(to_scene_id) = map
+                    .get("to_scene_id")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                    .filter(|value| !value.trim().is_empty())
+                else {
+                    continue;
+                };
+                commands.push(BehaviorCommand::SceneTransition { to_scene_id });
+            }
             _ => {}
         }
     }
@@ -2024,6 +2471,7 @@ mod tests {
         key_map.insert("alt".into(), false.into());
         key_map.insert("shift".into(), false.into());
         key_map.insert("pressed".into(), false.into());
+        key_map.insert("released".into(), false.into());
         Arc::new(key_map)
     }
 
@@ -2034,7 +2482,10 @@ mod tests {
         engine_key.insert("alt".into(), false.into());
         engine_key.insert("shift".into(), false.into());
         engine_key.insert("pressed".into(), false.into());
+        engine_key.insert("released".into(), false.into());
         engine_key.insert("is_quit".into(), false.into());
+        engine_key.insert("any_down".into(), false.into());
+        engine_key.insert("down_count".into(), 0_i64.into());
         Arc::new(engine_key)
     }
 
@@ -2057,7 +2508,10 @@ mod tests {
             ui_last_change_target_id: None,
             ui_last_change_text: None,
             game_state: None,
+            level_state: None,
+            persistence: None,
             last_raw_key: None,
+            keys_down: Arc::new(HashSet::new()),
             sidecar_io: Arc::new(SidecarIoFrameState::default()),
             rhai_time_map: empty_rhai_time_map(),
             rhai_menu_map: empty_rhai_menu_map(),
@@ -3579,5 +4033,43 @@ let ok = game.has("/quests/first_message/completed");
                 .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
             "game.has after game.set should not produce a ScriptError"
         );
+    }
+
+    #[test]
+    fn rhai_script_behavior_level_api_selects_and_mutates_active_level() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+if level.select("asteroids.default") {
+  let lives = level.get("/player/lives");
+  if lives.type_of() == "i64" {
+    level.set("/player/lives", lives + 1);
+  }
+}
+#{}
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let level_state = LevelState::new();
+        assert!(level_state.register_level(
+            "asteroids.default",
+            serde_json::json!({
+                "player": {
+                    "lives": 3
+                }
+            }),
+        ));
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.level_state = Some(level_state.clone());
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "level api should not produce ScriptError"
+        );
+        assert_eq!(level_state.get("/player/lives"), Some(serde_json::json!(4)));
     }
 }

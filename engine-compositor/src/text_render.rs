@@ -230,7 +230,9 @@ fn generic_mode_line_gap(mode: generic::GenericMode) -> u16 {
         generic::GenericMode::Tiny
         | generic::GenericMode::Standard
         | generic::GenericMode::Large => 1,
-        generic::GenericMode::Half | generic::GenericMode::Quad | generic::GenericMode::Braille => 0,
+        generic::GenericMode::Half | generic::GenericMode::Quad | generic::GenericMode::Braille => {
+            0
+        }
     }
 }
 

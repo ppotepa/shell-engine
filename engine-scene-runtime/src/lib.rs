@@ -32,7 +32,7 @@ use engine_render_terminal::rasterizer::generic::GenericMode;
 pub use lifecycle_controls::TerminalShellRoute;
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 #[cfg(test)]
 pub(crate) use terminal_shell::wrap_text_to_width;
 use tui_input::{Input, InputRequest};
@@ -131,6 +131,7 @@ struct UiRuntimeState {
     submit_seq: u64,
     change_seq: u64,
     pub last_raw_key: Option<RawKeyEvent>,
+    pub keys_down: HashSet<String>,
     pub sidecar_io: SidecarIoFrameState,
 }
 

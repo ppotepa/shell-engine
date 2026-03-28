@@ -315,9 +315,7 @@ fn load_splash_scene(scene_path_override: Option<&Path>) -> Option<SplashScene> 
                     Err(fallback_error) => {
                         crate::logging::warn(
                             "engine.splash",
-                            format!(
-                                "cannot load fallback splash scene: {fallback_error}"
-                            ),
+                            format!("cannot load fallback splash scene: {fallback_error}"),
                         );
                         return None;
                     }
@@ -1653,10 +1651,9 @@ fn draw_drip_tail_to_buffer(
     opacity: f32,
     drip_t: f32,
 ) -> io::Result<()> {
-    let max_tail_rows =
-        target
-            .height
-            .saturating_sub(placement.origin_y.saturating_add(placement.render_rows));
+    let max_tail_rows = target
+        .height
+        .saturating_sub(placement.origin_y.saturating_add(placement.render_rows));
     if max_tail_rows == 0 || drip_t <= 0.0 || placement.render_cols == 0 {
         return Ok(());
     }

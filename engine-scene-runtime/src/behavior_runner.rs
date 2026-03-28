@@ -10,6 +10,8 @@ impl SceneRuntime {
         stage_elapsed_ms: u64,
         menu_selected_index: usize,
         game_state: Option<engine_core::game_state::GameState>,
+        level_state: Option<engine_core::level_state::LevelState>,
+        persistence: Option<engine_persistence::PersistenceStore>,
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
@@ -65,6 +67,7 @@ impl SceneRuntime {
             .last_raw_key
             .as_ref()
             .map(|k| std::sync::Arc::new(k.clone()));
+        let keys_down = std::sync::Arc::new(self.keys_down_snapshot());
 
         // Phase 7C: Build Rhai maps once per frame and wrap in Arc.
         // Behaviors will clone these Arc refs (O(1) refcount) instead of cloning maps (O(n_map)).
@@ -109,13 +112,15 @@ impl SceneRuntime {
                 key_map.insert("ctrl".into(), k.ctrl.into());
                 key_map.insert("alt".into(), k.alt.into());
                 key_map.insert("shift".into(), k.shift.into());
-                key_map.insert("pressed".into(), true.into());
+                key_map.insert("pressed".into(), k.pressed.into());
+                key_map.insert("released".into(), (!k.pressed).into());
             } else {
                 key_map.insert("code".into(), "".into());
                 key_map.insert("ctrl".into(), false.into());
                 key_map.insert("alt".into(), false.into());
                 key_map.insert("shift".into(), false.into());
                 key_map.insert("pressed".into(), false.into());
+                key_map.insert("released".into(), false.into());
             }
             std::sync::Arc::new(key_map)
         };
@@ -128,7 +133,8 @@ impl SceneRuntime {
                 engine_key.insert("ctrl".into(), k.ctrl.into());
                 engine_key.insert("alt".into(), k.alt.into());
                 engine_key.insert("shift".into(), k.shift.into());
-                engine_key.insert("pressed".into(), true.into());
+                engine_key.insert("pressed".into(), k.pressed.into());
+                engine_key.insert("released".into(), (!k.pressed).into());
                 // Mark quit keys so behaviors can check without handling them
                 let is_quit =
                     k.ctrl && (k.code == "q" || k.code == "Q" || k.code == "c" || k.code == "C");
@@ -139,8 +145,11 @@ impl SceneRuntime {
                 engine_key.insert("alt".into(), false.into());
                 engine_key.insert("shift".into(), false.into());
                 engine_key.insert("pressed".into(), false.into());
+                engine_key.insert("released".into(), false.into());
                 engine_key.insert("is_quit".into(), false.into());
             }
+            engine_key.insert("any_down".into(), (!keys_down.is_empty()).into());
+            engine_key.insert("down_count".into(), (keys_down.len() as rhai::INT).into());
             std::sync::Arc::new(engine_key)
         };
 
@@ -164,7 +173,10 @@ impl SceneRuntime {
             ui_last_change_target_id,
             ui_last_change_text,
             game_state,
+            level_state,
+            persistence,
             last_raw_key,
+            keys_down,
             sidecar_io,
             rhai_time_map,
             rhai_menu_map,
@@ -339,25 +351,70 @@ impl SceneRuntime {
                             let Some(next_colour) = parse_term_colour(value) else {
                                 continue;
                             };
-                            let _ = self.apply_text_property_for_target(
+                            let mut applied = self.apply_text_property_for_target(
                                 object_id,
                                 target,
                                 |runtime, alias| {
                                     runtime.set_text_sprite_fg_colour(alias, next_colour.clone())
                                 },
                             );
+                            if !applied {
+                                applied =
+                                    self.set_vector_sprite_property(target, "style.fg", value);
+                            }
+                            if !applied {
+                                for alias in self.object_alias_candidates(object_id, target) {
+                                    if self.set_vector_sprite_property(&alias, "style.fg", value) {
+                                        applied = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !applied {
+                                continue;
+                            }
                         }
                         "style.bg" | "text.bg" => {
                             let Some(next_colour) = parse_term_colour(value) else {
                                 continue;
                             };
-                            let _ = self.apply_text_property_for_target(
+                            let mut applied = self.apply_text_property_for_target(
                                 object_id,
                                 target,
                                 |runtime, alias| {
                                     runtime.set_text_sprite_bg_colour(alias, next_colour.clone())
                                 },
                             );
+                            if !applied {
+                                applied =
+                                    self.set_vector_sprite_property(target, "style.bg", value);
+                            }
+                            if !applied {
+                                for alias in self.object_alias_candidates(object_id, target) {
+                                    if self.set_vector_sprite_property(&alias, "style.bg", value) {
+                                        applied = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !applied {
+                                continue;
+                            }
+                        }
+                        "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg"
+                        | "vector.bg" => {
+                            let mut applied = self.set_vector_sprite_property(target, path, value);
+                            if !applied {
+                                for alias in self.object_alias_candidates(object_id, target) {
+                                    if self.set_vector_sprite_property(&alias, path, value) {
+                                        applied = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !applied {
+                                continue;
+                            }
                         }
                         "obj.scale" | "obj.yaw" | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
                         | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max" => {
@@ -419,6 +476,8 @@ impl SceneRuntime {
                 BehaviorCommand::TerminalClearOutput => {
                     self.terminal_clear_output();
                 }
+                BehaviorCommand::SceneTransition { .. } => {}
+                BehaviorCommand::DebugLog { .. } => {}
                 // ScriptError is consumed at the behavior system level (world access needed).
                 BehaviorCommand::ScriptError { .. } => {}
             }

@@ -1,8 +1,9 @@
 //! Behavior system — evaluates all scene-object behaviors and dispatches resulting commands each frame.
 
 use crate::audio::AudioCommand;
-use crate::behavior::BehaviorCommand;
+use crate::behavior::{BehaviorCommand, DebugLogSeverity as BehaviorDebugLogSeverity};
 use crate::debug_log::{DebugLogBuffer, DebugLogEntry, DebugSeverity};
+use crate::events::EngineEvent;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 use engine_core::logging;
@@ -18,6 +19,8 @@ pub fn behavior_system(world: &mut World) {
     let menu_selected_index = animator.menu_selected_index;
 
     let game_state = world.get::<crate::game_state::GameState>().cloned();
+    let level_state = world.get::<crate::level_state::LevelState>().cloned();
+    let persistence = world.get::<engine_persistence::PersistenceStore>().cloned();
 
     // Resolve any pending mod-behavior bindings on the first frame this scene is active.
     // The check for pending bindings avoids cloning the registry on every subsequent frame.
@@ -47,6 +50,8 @@ pub fn behavior_system(world: &mut World) {
             stage_elapsed_ms,
             menu_selected_index,
             game_state,
+            level_state,
+            persistence,
         )
     };
 
@@ -83,6 +88,64 @@ pub fn behavior_system(world: &mut World) {
                     });
                 }
             }
+            BehaviorCommand::SceneTransition { to_scene_id } => {
+                if let Some(events) = world.events_mut() {
+                    events.push(EngineEvent::SceneTransition {
+                        to_scene_id: to_scene_id.clone(),
+                    });
+                }
+            }
+            BehaviorCommand::DebugLog {
+                scene_id,
+                source,
+                severity,
+                message,
+            } => {
+                let target = "engine.gameplay";
+                match severity {
+                    BehaviorDebugLogSeverity::Info => logging::info(
+                        target,
+                        format!(
+                            "scene={} src={} {}",
+                            scene_id,
+                            source.as_deref().unwrap_or("-"),
+                            message
+                        ),
+                    ),
+                    BehaviorDebugLogSeverity::Warn => logging::warn(
+                        target,
+                        format!(
+                            "scene={} src={} {}",
+                            scene_id,
+                            source.as_deref().unwrap_or("-"),
+                            message
+                        ),
+                    ),
+                    BehaviorDebugLogSeverity::Error => logging::error(
+                        target,
+                        format!(
+                            "scene={} src={} {}",
+                            scene_id,
+                            source.as_deref().unwrap_or("-"),
+                            message
+                        ),
+                    ),
+                }
+                if let Some(log) = world.get_mut::<DebugLogBuffer>() {
+                    let severity = match severity {
+                        BehaviorDebugLogSeverity::Info => DebugSeverity::Info,
+                        BehaviorDebugLogSeverity::Warn => DebugSeverity::Warn,
+                        BehaviorDebugLogSeverity::Error => DebugSeverity::Error,
+                    };
+                    log.push(DebugLogEntry {
+                        severity,
+                        subsystem: "gameplay",
+                        scene_id: Some(scene_id.clone()),
+                        source: source.clone(),
+                        message: message.clone(),
+                    });
+                }
+            }
             _ => {}
         }
     }
@@ -95,7 +158,8 @@ mod tests {
     use crate::buffer::Buffer;
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene::Scene;
-    use crate::scene_runtime::SceneRuntime;
+    use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
+    use crate::services::EngineWorldAccess;
     use crate::systems::compositor::compositor_system;
     use crate::world::World;
     use engine_animation::{Animator, SceneStage};
@@ -134,6 +198,62 @@ layers: []
 
         let audio = world.get::<AudioRuntime>().expect("audio runtime");
         assert_eq!(audio.pending_len(), 1);
+    }
+
+    #[test]
+    fn behavior_system_preserves_raw_key_for_rhai_scope() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: key-scope
+title: Key Scope
+bg_colour: black
+layers:
+  - name: ui
+    sprites:
+      - type: text
+        id: title
+        content: idle
+        behaviors:
+          - name: rhai-script
+            params:
+              script: |
+                if key.pressed {
+                  scene.set("title", "text.content", key.code);
+                }
+"#,
+        )
+        .expect("scene should parse");
+
+        let mut world = World::new();
+        world.register(AudioRuntime::null());
+        world.register(Buffer::new(10, 2));
+        world.register(RuntimeSettings::default());
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(Animator {
+            stage: SceneStage::OnIdle,
+            step_idx: 0,
+            elapsed_ms: 0,
+            stage_elapsed_ms: 0,
+            scene_elapsed_ms: 0,
+            next_scene_override: None,
+            menu_selected_index: 0,
+        });
+
+        {
+            let runtime = world.scene_runtime_mut().expect("scene runtime");
+            runtime.set_last_raw_key(RawKeyEvent {
+                code: "x".to_string(),
+                ctrl: false,
+                alt: false,
+                shift: false,
+                pressed: true,
+            });
+        }
+
+        behavior_system(&mut world);
+
+        let runtime = world.scene_runtime().expect("scene runtime");
+        assert_eq!(runtime.text_sprite_content("title"), Some("x"));
     }
 
     #[test]

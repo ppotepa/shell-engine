@@ -23,6 +23,7 @@ const SPRITE_TYPE_OPTIONS: &[&str] = &[
     "panel",
     "grid",
     "flex",
+    "vector",
     "window",
     "scroll-list",
     "scene3_d",

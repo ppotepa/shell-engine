@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../schemas/object.yaml
+kind: object
+name: centered-endless-menu
+sprites:
+  - type: grid
+    id: menu-grid
+    at: cc
+    width: 36
+    height: 15
+    columns: ["1fr"]
+    rows: ["auto", "auto", "auto"]
+    gap-y: 1
+    children:
+      - { type: text, id: menu-item-0, content: "[1] START GAME", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: "#9de36f" }
+      - { type: text, id: menu-item-1, content: "[2] HIGH SCORES", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "#7bd1ff" }
+      - { type: text, id: menu-item-2, content: "[0] QUIT", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "#d9d9d9" }
+
+  - { type: text, id: sel0-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel0-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-0, index: 0, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+
+  - { type: text, id: sel1-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel1-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-1, index: 1, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+
+  - { type: text, id: sel2-left, content: ">", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: left, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }
+  - { type: text, id: sel2-right, content: "<", at: cc, font: "generic:1", fg: yellow, behaviors: [{ name: selected-arrows, params: { target: menu-item-2, index: 2, side: right, padding: 1, amplitude_x: 1, period_ms: 900, autoscale_height: true } }] }

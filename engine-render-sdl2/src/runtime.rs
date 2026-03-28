@@ -690,11 +690,11 @@ fn poll_input(
                 repeat,
                 ..
             } => {
-                if repeat {
-                    continue;
-                }
                 let key = KeyEvent::new(map_keycode(keycode), map_modifiers(keymod));
                 if is_fullscreen_toggle_key(key.code, key.modifiers) {
+                    if repeat {
+                        continue;
+                    }
                     let _ = toggle_fullscreen(canvas);
                     *window_pixel_size = current_window_pixel_size(canvas);
                     let _ = present_texture(
@@ -704,10 +704,25 @@ fn poll_input(
                         presentation_policy,
                     );
                 } else if is_quit_key(key.code, key.modifiers) {
+                    if repeat {
+                        continue;
+                    }
                     events.push(EngineEvent::Quit);
                 } else {
                     events.push(EngineEvent::KeyPressed(key));
                 }
+            }
+            Event::KeyUp {
+                keycode: Some(keycode),
+                keymod,
+                repeat,
+                ..
+            } => {
+                if repeat {
+                    continue;
+                }
+                let key = KeyEvent::new(map_keycode(keycode), map_modifiers(keymod));
+                events.push(EngineEvent::KeyReleased(key));
             }
             Event::MouseMotion { x, y, .. } => {
                 let present_rect =
@@ -727,6 +742,12 @@ fn poll_input(
                     content_pixel_size,
                     presentation_policy,
                 );
+            }
+            Event::Window {
+                win_event: WindowEvent::FocusLost,
+                ..
+            } => {
+                events.push(EngineEvent::InputFocusLost);
             }
             _ => {}
         }
@@ -908,16 +929,17 @@ fn draw_scene_dim(canvas: &mut sdl2::render::WindowCanvas) {
 /// a semi-transparent console look.
 fn draw_overlay(canvas: &mut sdl2::render::WindowCanvas, overlay: &OverlayData) {
     use engine_core::markup::parse_spans;
-    use engine_render::generic::{
-        generic_glyph_rows_tiny, GENERIC_TINY_GLYPH_GAP, GENERIC_TINY_GLYPH_HEIGHT,
-        GENERIC_TINY_GLYPH_WIDTH,
-    };
+    use engine_render::generic::generic_glyph_rows;
 
-    // Developer console readability: render at 2x the previous SDL overlay size.
-    const OVERLAY_SCALE: u32 = 4;
-    let glyph_w = u32::from(GENERIC_TINY_GLYPH_WIDTH);
-    let glyph_h = u32::from(GENERIC_TINY_GLYPH_HEIGHT);
-    let glyph_gap = u32::from(GENERIC_TINY_GLYPH_GAP);
+    // Use the standard 5x7 generic glyphs for the developer console.
+    // The tiny 4x5 set stays too ambiguous even when scaled up.
+    const OVERLAY_SCALE: u32 = 3;
+    const GLYPH_W: u32 = 5;
+    const GLYPH_H: u32 = 7;
+    const GLYPH_GAP: u32 = 1;
+    let glyph_w = GLYPH_W;
+    let glyph_h = GLYPH_H;
+    let glyph_gap = GLYPH_GAP;
     let char_advance = (glyph_w + glyph_gap).max(1) * OVERLAY_SCALE;
     let char_h = glyph_h * OVERLAY_SCALE;
 
@@ -961,7 +983,7 @@ fn draw_overlay(canvas: &mut sdl2::render::WindowCanvas, overlay: &OverlayData) 
                     break;
                 }
                 if ch != ' ' {
-                    let Some(bitmap) = generic_glyph_rows_tiny(ch) else {
+                    let Some(bitmap) = generic_glyph_rows(ch) else {
                         col_idx += 1;
                         continue;
                     };

@@ -5,7 +5,7 @@ use engine_error::EngineError;
 use super::check::StartupCheck;
 use super::checks::{
     EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
-    RhaiScriptsCheck, SceneGraphCheck, TerminalRequirementsCheck,
+    LevelConfigCheck, RhaiScriptsCheck, SceneGraphCheck, TerminalRequirementsCheck,
 };
 use super::context::StartupContext;
 use super::report::StartupReport;
@@ -36,6 +36,7 @@ impl Default for StartupRunner {
         Self::with_checks(vec![
             Box::new(TerminalRequirementsCheck),
             Box::new(SceneGraphCheck),
+            Box::new(LevelConfigCheck),
             Box::new(RhaiScriptsCheck),
             Box::new(EffectRegistryCheck),
             Box::new(ImageAssetsCheck),

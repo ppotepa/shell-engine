@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=./schemas/mod.yaml
+name: Asteroids
+version: 0.1.0
+entrypoint: /scenes/main-menu/scene.yml
+output_backend: sdl2
+level:
+  initial: asteroids.default
+terminal:
+  min_colours: 256
+  min_width: 3220
+  min_height: 180
+  default_font: "generic:2"
+  render_size: 640x480
+  presentation_policy: stretch

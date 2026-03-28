@@ -168,6 +168,19 @@ impl SceneRuntime {
         updated
     }
 
+    pub(crate) fn set_vector_sprite_property(
+        &mut self,
+        sprite_id: &str,
+        path: &str,
+        value: &JsonValue,
+    ) -> bool {
+        let mut updated = false;
+        for layer in &mut self.scene.layers {
+            set_vector_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+        }
+        updated
+    }
+
     pub(crate) fn set_scene3d_sprite_frame(&mut self, sprite_id: &str, next_frame: &str) -> bool {
         let mut updated = false;
         for layer in &mut self.scene.layers {
@@ -618,6 +631,82 @@ fn set_obj_property_recursive(
     }
 }
 
+fn set_vector_property_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    path: &str,
+    value: &JsonValue,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Vector {
+                id: Some(id),
+                points,
+                closed,
+                draw_char,
+                fg_colour,
+                bg_colour,
+                ..
+            } if id == sprite_id => match path {
+                "vector.points" => {
+                    let Some(next_points) = json_to_vector_points(value) else {
+                        continue;
+                    };
+                    if *points != next_points {
+                        *points = next_points;
+                        *updated = true;
+                    }
+                }
+                "vector.closed" => {
+                    let Some(next_closed) = value.as_bool() else {
+                        continue;
+                    };
+                    if *closed != next_closed {
+                        *closed = next_closed;
+                        *updated = true;
+                    }
+                }
+                "vector.draw_char" => {
+                    let Some(raw) = value.as_str() else {
+                        continue;
+                    };
+                    let next_draw = raw.chars().next().map(|ch| ch.to_string());
+                    if *draw_char != next_draw {
+                        *draw_char = next_draw;
+                        *updated = true;
+                    }
+                }
+                "vector.fg" | "style.fg" => {
+                    let Some(next_colour) = parse_term_colour(value) else {
+                        continue;
+                    };
+                    if fg_colour.as_ref() != Some(&next_colour) {
+                        *fg_colour = Some(next_colour);
+                        *updated = true;
+                    }
+                }
+                "vector.bg" | "style.bg" => {
+                    let Some(next_colour) = parse_term_colour(value) else {
+                        continue;
+                    };
+                    if bg_colour.as_ref() != Some(&next_colour) {
+                        *bg_colour = Some(next_colour);
+                        *updated = true;
+                    }
+                }
+                _ => {}
+            },
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_vector_property_recursive(children, sprite_id, path, value, updated);
+            }
+            _ => {}
+        }
+    }
+}
+
 pub(crate) fn parse_term_colour(value: &JsonValue) -> Option<TermColour> {
     let raw = value.as_str()?;
     let normalized = raw.trim().to_ascii_lowercase();
@@ -672,4 +761,35 @@ pub(crate) fn json_value_to_f32(value: &JsonValue) -> Option<f32> {
         .as_f64()
         .map(|number| number as f32)
         .or_else(|| value.as_i64().map(|number| number as f32))
+}
+
+fn json_value_to_i32(value: &JsonValue) -> Option<i32> {
+    if let Some(number) = value.as_i64() {
+        return i32::try_from(number).ok();
+    }
+    value.as_u64().and_then(|number| i32::try_from(number).ok())
+}
+
+fn json_to_vector_points(value: &JsonValue) -> Option<Vec<[i32; 2]>> {
+    let raw = value.as_array()?;
+    let mut points = Vec::with_capacity(raw.len());
+    for point in raw {
+        if let Some(pair) = point.as_array() {
+            if pair.len() != 2 {
+                return None;
+            }
+            let x = json_value_to_i32(&pair[0])?;
+            let y = json_value_to_i32(&pair[1])?;
+            points.push([x, y]);
+            continue;
+        }
+        if let Some(map) = point.as_object() {
+            let x = map.get("x").and_then(json_value_to_i32)?;
+            let y = map.get("y").and_then(json_value_to_i32)?;
+            points.push([x, y]);
+            continue;
+        }
+        return None;
+    }
+    Some(points)
 }

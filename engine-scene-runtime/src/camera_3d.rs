@@ -165,7 +165,10 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
                     return Some(result);
                 }
             }
-            Sprite::Text { .. } | Sprite::Image { .. } | Sprite::Scene3D { .. } => {}
+            Sprite::Text { .. }
+            | Sprite::Image { .. }
+            | Sprite::Scene3D { .. }
+            | Sprite::Vector { .. } => {}
         }
     }
     None

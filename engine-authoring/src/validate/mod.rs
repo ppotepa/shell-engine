@@ -59,6 +59,11 @@ pub fn validate_sprite_timeline(scene: &Scene) -> Vec<TimelineDiagnostic> {
                     disappear_at_ms,
                     ..
                 } => (*appear_at_ms, *disappear_at_ms),
+                Sprite::Vector {
+                    appear_at_ms,
+                    disappear_at_ms,
+                    ..
+                } => (*appear_at_ms, *disappear_at_ms),
                 // Panel, Grid, Flex, Scene3D don't have disappear_at_ms timeline validation
                 Sprite::Panel { .. }
                 | Sprite::Grid { .. }

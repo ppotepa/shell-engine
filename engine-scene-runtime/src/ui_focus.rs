@@ -19,6 +19,32 @@ impl SceneRuntime {
         self.ui_state.last_raw_key = None;
     }
 
+    /// Track a key-down in the held-key set for script-side polling (`input.down(...)`).
+    pub fn set_key_down(&mut self, key: &RawKeyEvent) {
+        let normalized = normalize_key_code(&key.code);
+        if !normalized.is_empty() {
+            self.ui_state.keys_down.insert(normalized);
+        }
+    }
+
+    /// Track a key-up in the held-key set for script-side polling (`input.down(...)`).
+    pub fn set_key_up(&mut self, key: &RawKeyEvent) {
+        let normalized = normalize_key_code(&key.code);
+        if !normalized.is_empty() {
+            self.ui_state.keys_down.remove(&normalized);
+        }
+    }
+
+    /// Clear all held keys (used on focus-loss to avoid stuck movement input).
+    pub fn clear_keys_down(&mut self) {
+        self.ui_state.keys_down.clear();
+    }
+
+    /// Returns a clone of the current held-key set for behavior context.
+    pub fn keys_down_snapshot(&self) -> std::collections::HashSet<String> {
+        self.ui_state.keys_down.clone()
+    }
+
     pub fn focused_ui_target_id(&self) -> Option<&str> {
         if self.ui_state.focus_order.is_empty() {
             return None;
@@ -82,7 +108,6 @@ impl SceneRuntime {
         for state in self.object_states.values_mut() {
             *state = ObjectRuntimeState::default();
         }
-        self.ui_state.last_raw_key = None;
         self.ui_state.sidecar_io = SidecarIoFrameState::default();
     }
 
@@ -154,6 +179,17 @@ fn normalize_focus_order(input: &[String]) -> Vec<String> {
     out
 }
 
+fn normalize_key_code(code: &str) -> String {
+    if code == " " {
+        return " ".to_string();
+    }
+    let trimmed = code.trim();
+    if trimmed.len() == 1 {
+        return trimmed.to_ascii_lowercase();
+    }
+    trimmed.to_string()
+}
+
 pub(crate) fn find_panel_layout_recursive(
     sprites: &[Sprite],
     panel_id: &str,
@@ -201,7 +237,8 @@ pub(crate) fn find_panel_layout_recursive(
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
-            | Sprite::Scene3D { .. } => {}
+            | Sprite::Scene3D { .. }
+            | Sprite::Vector { .. } => {}
         }
     }
     None
@@ -235,7 +272,8 @@ pub(crate) fn set_panel_height_recursive(
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
-            | Sprite::Scene3D { .. } => {}
+            | Sprite::Scene3D { .. }
+            | Sprite::Vector { .. } => {}
         }
     }
 }

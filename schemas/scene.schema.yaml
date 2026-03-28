@@ -625,9 +625,9 @@ $defs:
     properties:
       type:
         type: string
-        enum: [text, image, obj, grid, flex, window, scroll-list, scene3_d]
+        enum: [text, image, obj, vector, grid, flex, window, scroll-list, scene3_d]
         description: >
-          Sprite type. Runtime-native: text, image, obj, grid, flex, scene3_d.
+          Sprite type. Runtime-native: text, image, obj, vector, grid, flex, scene3_d.
           Authoring sugar: window, scroll-list (expanded to grid/text by compiler).
           scene3_d: blits a pre-rendered frame from a .scene3d.yml atlas.
       use:

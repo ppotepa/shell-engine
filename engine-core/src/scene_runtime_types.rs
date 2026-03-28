@@ -133,6 +133,8 @@ pub struct RawKeyEvent {
     pub ctrl: bool,
     pub alt: bool,
     pub shift: bool,
+    /// True for key-down, false for key-up.
+    pub pressed: bool,
 }
 
 /// Sidecar IO frame snapshot: output lines, clear events, fullscreen mode, custom events.

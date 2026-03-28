@@ -12,6 +12,8 @@ pub use key::{KeyCode, KeyEvent, KeyModifiers};
 pub enum EngineEvent {
     Tick,
     KeyPressed(KeyEvent),
+    KeyReleased(KeyEvent),
+    InputFocusLost,
     MouseMoved { column: u16, row: u16 },
     SceneLoaded { scene_id: String },
     SceneTransition { to_scene_id: String },

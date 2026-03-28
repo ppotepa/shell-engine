@@ -20,6 +20,9 @@ const PLAYGROUND_EXIT_ID: &str = "playground-exit";
 struct LifecycleEvents {
     quit: bool,
     key_presses: Vec<KeyEvent>,
+    key_releases: Vec<KeyEvent>,
+    input_focus_lost: bool,
+    last_key_snapshot: Option<RawKeyEvent>,
     transitions: Vec<String>,
     resizes: Vec<(u16, u16)>,
     mouse_moves: Vec<(u16, u16)>,
@@ -42,6 +45,13 @@ impl SceneLifecycleManager {
             }
         }
 
+        Self::update_frame_input_state(
+            world,
+            lifecycle.last_key_snapshot,
+            &lifecycle.key_presses,
+            &lifecycle.key_releases,
+            lifecycle.input_focus_lost,
+        );
         if !lifecycle.key_presses.is_empty() {
             Self::advance_on_any_key(world, &lifecycle.key_presses);
         }
@@ -52,13 +62,35 @@ impl SceneLifecycleManager {
         lifecycle.quit || quit_from_transition
     }
 
-    fn advance_on_any_key(world: &mut World, key_presses: &[KeyEvent]) {
-        // Bridge the first key press into SceneRuntime so Rhai scripts can read `key.*`.
-        if let Some(first_key) = key_presses.first() {
-            if let Some(runtime) = world.scene_runtime_mut() {
-                runtime.set_last_raw_key(key_event_to_raw(first_key));
-            }
+    fn update_frame_input_state(
+        world: &mut World,
+        snapshot: Option<RawKeyEvent>,
+        key_presses: &[KeyEvent],
+        key_releases: &[KeyEvent],
+        input_focus_lost: bool,
+    ) {
+        let Some(runtime) = world.scene_runtime_mut() else {
+            return;
+        };
+        if input_focus_lost {
+            runtime.clear_keys_down();
+            runtime.clear_last_raw_key();
+            return;
         }
+        for key in key_presses {
+            let raw = key_event_to_raw(key, true);
+            runtime.set_key_down(&raw);
+        }
+        for key in key_releases {
+            let raw = key_event_to_raw(key, false);
+            runtime.set_key_up(&raw);
+        }
+        if let Some(snapshot) = snapshot {
+            runtime.set_last_raw_key(snapshot);
+        }
+    }
+
+    fn advance_on_any_key(world: &mut World, key_presses: &[KeyEvent]) {
         if handle_debug_controls(world, key_presses) {
             return;
         }
@@ -214,7 +246,18 @@ fn classify_events(events: Vec<EngineEvent>) -> LifecycleEvents {
     for event in events {
         match event {
             EngineEvent::Quit => lifecycle.quit = true,
-            EngineEvent::KeyPressed(code) => lifecycle.key_presses.push(code),
+            EngineEvent::KeyPressed(code) => {
+                lifecycle.last_key_snapshot = Some(key_event_to_raw(&code, true));
+                lifecycle.key_presses.push(code);
+            }
+            EngineEvent::KeyReleased(code) => {
+                lifecycle.last_key_snapshot = Some(key_event_to_raw(&code, false));
+                lifecycle.key_releases.push(code);
+            }
+            EngineEvent::InputFocusLost => {
+                lifecycle.input_focus_lost = true;
+                lifecycle.last_key_snapshot = None;
+            }
             EngineEvent::MouseMoved { column, row } => lifecycle.mouse_moves.push((column, row)),
             EngineEvent::SceneTransition { to_scene_id } => lifecycle.transitions.push(to_scene_id),
             EngineEvent::OutputResized { width, height } => {
@@ -477,7 +520,7 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
 }
 
 /// Convert an engine `KeyEvent` into a domain-agnostic `RawKeyEvent` for Rhai scripts.
-fn key_event_to_raw(key: &KeyEvent) -> RawKeyEvent {
+fn key_event_to_raw(key: &KeyEvent, pressed: bool) -> RawKeyEvent {
     let code = match key.code {
         KeyCode::Char(c) => c.to_string(),
         KeyCode::Enter => "Enter".to_string(),
@@ -502,6 +545,7 @@ fn key_event_to_raw(key: &KeyEvent) -> RawKeyEvent {
         ctrl: key.modifiers.contains(KeyModifiers::CONTROL),
         alt: key.modifiers.contains(KeyModifiers::ALT),
         shift: key.modifiers.contains(KeyModifiers::SHIFT),
+        pressed,
     }
 }
 
@@ -527,6 +571,10 @@ mod tests {
 
     fn key_pressed(code: KeyCode) -> EngineEvent {
         EngineEvent::KeyPressed(KeyEvent::new(code, KeyModifiers::NONE))
+    }
+
+    fn key_released(code: KeyCode) -> EngineEvent {
+        EngineEvent::KeyReleased(KeyEvent::new(code, KeyModifiers::NONE))
     }
 
     fn key_pressed_with_modifiers(code: KeyCode, modifiers: KeyModifiers) -> EngineEvent {
@@ -1385,5 +1433,42 @@ layers:
         assert!(quit);
         let scene = world.get::<SceneRuntime>().expect("scene present");
         assert_eq!(scene.scene().id, "intro");
+    }
+
+    #[test]
+    fn key_release_clears_runtime_held_key_state() {
+        let scene = make_menu_scene(Vec::new());
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Left)]);
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.keys_down_snapshot().contains("Left"));
+
+        SceneLifecycleManager::process_events(&mut world, vec![key_released(KeyCode::Left)]);
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(!runtime.keys_down_snapshot().contains("Left"));
+    }
+
+    #[test]
+    fn input_focus_lost_clears_all_held_keys() {
+        let scene = make_menu_scene(Vec::new());
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed(KeyCode::Char('a')), key_pressed(KeyCode::Right)],
+        );
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.keys_down_snapshot().contains("a"));
+        assert!(runtime.keys_down_snapshot().contains("Right"));
+
+        SceneLifecycleManager::process_events(&mut world, vec![EngineEvent::InputFocusLost]);
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.keys_down_snapshot().is_empty());
+        assert!(runtime.last_raw_key_snapshot().is_none());
     }
 }
