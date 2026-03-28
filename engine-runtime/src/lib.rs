@@ -63,11 +63,14 @@ pub struct BufferLayout {
     pub output_height: u16,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeSettings {
     pub render_size: RenderSize,
     pub presentation_policy: PresentationPolicy,
     pub renderer_mode_override: Option<SceneRenderedMode>,
+    /// Optional mod-level default text font used when sprite `font` is set to
+    /// `default`. Supports both generic specs and named bitmap fonts.
+    pub default_font: Option<String>,
     /// True when rendering to a pixel backend (SDL2), false for terminal.
     /// Used by the compositor to select backend-appropriate font modes.
     pub is_pixel_backend: bool,
@@ -89,6 +92,7 @@ impl Default for RuntimeSettings {
             render_size: RenderSize::default(),
             presentation_policy: PresentationPolicy::Fit,
             renderer_mode_override: None,
+            default_font: None,
             is_pixel_backend: false,
         }
     }
@@ -134,6 +138,17 @@ impl RuntimeSettings {
             if renderer_mode.is_some() {
                 settings.renderer_mode_override = renderer_mode;
             }
+
+            let default_font = block
+                .get("default_font")
+                .or_else(|| block.get("default-font"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
+            if default_font.is_some() {
+                settings.default_font = default_font;
+            }
         }
 
         if let Some(size) = env::var("SHELL_QUEST_RENDER_SIZE")
@@ -156,6 +171,14 @@ impl RuntimeSettings {
             if let Some(mode) = parse_renderer_mode(&raw) {
                 settings.renderer_mode_override = Some(mode);
             }
+        }
+
+        if let Some(default_font) = env::var("SHELL_QUEST_DEFAULT_FONT")
+            .ok()
+            .map(|raw| raw.trim().to_string())
+            .filter(|raw| !raw.is_empty())
+        {
+            settings.default_font = Some(default_font);
         }
 
         settings
@@ -328,8 +351,8 @@ pub fn parse_virtual_size_str(raw: &str) -> Option<(u16, u16, bool)> {
 #[cfg(test)]
 mod tests {
     use super::{
-        BufferLayout, PresentationLayout, PresentationPolicy, RenderSize, RuntimeSettings,
-        compute_presentation_layout,
+        compute_presentation_layout, BufferLayout, PresentationLayout, PresentationPolicy,
+        RenderSize, RuntimeSettings,
     };
 
     #[test]
@@ -348,6 +371,7 @@ mod tests {
         );
         assert_eq!(settings.presentation_policy, PresentationPolicy::Strict);
         assert_eq!(settings.renderer_mode_override, None);
+        assert_eq!(settings.default_font, None);
     }
 
     #[test]
@@ -373,6 +397,7 @@ mod tests {
         );
         assert_eq!(settings.presentation_policy, PresentationPolicy::Fit);
         assert_eq!(settings.renderer_mode_override, None);
+        assert_eq!(settings.default_font, None);
     }
 
     #[test]
@@ -384,6 +409,19 @@ mod tests {
         assert_eq!(
             settings.renderer_mode_override,
             Some(engine_core::scene::SceneRenderedMode::Braille)
+        );
+    }
+
+    #[test]
+    fn parses_default_font_from_manifest_terminal_block() {
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
+            "terminal:\n  default-font: DejaVuSans-BoldOblique\n",
+        )
+        .expect("yaml parse");
+        let settings = RuntimeSettings::from_manifest(&yaml);
+        assert_eq!(
+            settings.default_font.as_deref(),
+            Some("DejaVuSans-BoldOblique")
         );
     }
 
@@ -418,6 +456,7 @@ mod tests {
             },
             presentation_policy: PresentationPolicy::Stretch,
             renderer_mode_override: None,
+            default_font: None,
             is_pixel_backend: false,
         };
 

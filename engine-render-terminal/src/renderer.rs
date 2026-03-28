@@ -10,7 +10,7 @@ use engine_core::strategy::{DiffStrategy, FullScanDiff};
 use engine_debug::DebugOverlayMode;
 use engine_pipeline::{DisplayFrame, DisplaySink, PipelineStrategies};
 use engine_render::{OutputBackend, OverlayData, RenderError};
-use engine_runtime::{PresentationPolicy, RuntimeSettings, compute_presentation_layout};
+use engine_runtime::{compute_presentation_layout, PresentationPolicy, RuntimeSettings};
 use std::cell::RefCell;
 use std::io::{self, Write};
 
@@ -111,11 +111,7 @@ impl OutputBackend for TerminalRenderer {
     fn present_buffer(&mut self, buffer: &Buffer) {
         let output_size = terminal::size().unwrap_or((80, 24));
         self.ensure_output_buffer(output_size.0.max(1), output_size.1.max(1));
-        project_buffer_to_output(
-            buffer,
-            &mut self.presented_output,
-            self.presentation_policy,
-        );
+        project_buffer_to_output(buffer, &mut self.presented_output, self.presentation_policy);
 
         // When overlay is active, dim the output buffer cells so the scene
         // appears darker behind the console.
@@ -181,25 +177,54 @@ impl TerminalRenderer {
     /// Render overlay lines directly to the terminal via ANSI cursor commands.
     /// Called AFTER game buffer has been flushed so overlay appears on top.
     fn flush_overlay(&mut self, overlay: &OverlayData) {
+        use engine_core::markup::parse_spans;
+
         if overlay.is_empty() {
             return;
         }
         let (term_w, _term_h) = terminal::size().unwrap_or((80, 24));
         for (row, line) in overlay.lines.iter().enumerate() {
-            let ct_fg = color_convert::to_crossterm(line.fg);
             let ct_bg = color_convert::to_crossterm(line.bg);
             let _ = queue!(
                 self.stdout,
                 cursor::MoveTo(0, row as u16),
-                style::SetForegroundColor(ct_fg),
                 style::SetBackgroundColor(ct_bg)
             );
-            let text: String = if (line.text.len() as u16) < term_w {
-                format!("{:<width$}", line.text, width = term_w as usize)
-            } else {
-                line.text[..term_w as usize].to_string()
-            };
-            let _ = queue!(self.stdout, style::Print(text));
+
+            let mut printed_cols: u16 = 0;
+            let spans = parse_spans(&line.text);
+            for span in spans {
+                if printed_cols >= term_w {
+                    break;
+                }
+                let span_fg = span.colour.as_ref().map(Color::from).unwrap_or(line.fg);
+                let mut chunk = String::new();
+                for ch in span.text.chars() {
+                    if printed_cols >= term_w {
+                        break;
+                    }
+                    chunk.push(ch);
+                    printed_cols = printed_cols.saturating_add(1);
+                }
+                if !chunk.is_empty() {
+                    let _ = queue!(
+                        self.stdout,
+                        style::SetForegroundColor(color_convert::to_crossterm(span_fg)),
+                        style::Print(chunk)
+                    );
+                }
+            }
+
+            if printed_cols < term_w {
+                let pad_len = (term_w - printed_cols) as usize;
+                if pad_len > 0 {
+                    let _ = queue!(
+                        self.stdout,
+                        style::SetForegroundColor(color_convert::to_crossterm(line.fg)),
+                        style::Print(" ".repeat(pad_len))
+                    );
+                }
+            }
         }
         let _ = queue!(self.stdout, style::ResetColor);
         let _ = self.stdout.flush();
@@ -308,11 +333,31 @@ fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayDa
 
     // Color palette for the overlay console.
     let title_fg = Color::White;
-    let title_bg = Color::Rgb { r: 40, g: 40, b: 120 };
-    let sep_fg = Color::Rgb { r: 80, g: 80, b: 100 };
-    let sep_bg = Color::Rgb { r: 15, g: 15, b: 30 };
-    let label_fg = Color::Rgb { r: 140, g: 140, b: 160 };
-    let console_bg = Color::Rgb { r: 12, g: 12, b: 25 };
+    let title_bg = Color::Rgb {
+        r: 40,
+        g: 40,
+        b: 120,
+    };
+    let sep_fg = Color::Rgb {
+        r: 80,
+        g: 80,
+        b: 100,
+    };
+    let sep_bg = Color::Rgb {
+        r: 15,
+        g: 15,
+        b: 30,
+    };
+    let label_fg = Color::Rgb {
+        r: 140,
+        g: 140,
+        b: 160,
+    };
+    let console_bg = Color::Rgb {
+        r: 12,
+        g: 12,
+        b: 25,
+    };
     let console_alpha: u8 = 190;
 
     let mut lines = Vec::new();
@@ -358,83 +403,134 @@ fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayDa
             // Title bar
             lines.push(OverlayLine::with_alpha(
                 " ■ DEBUG CONSOLE          [~] toggle  [Tab] switch  [F3/F4] scene",
-                title_fg, title_bg, 220,
+                title_fg,
+                title_bg,
+                220,
             ));
             // Separator
             lines.push(OverlayLine::with_alpha(
                 "─────────────────────────────────────────────────────────────────────",
-                sep_fg, sep_bg, console_alpha,
+                sep_fg,
+                sep_bg,
+                console_alpha,
             ));
             // Scene info
             lines.push(OverlayLine::with_alpha(
-                format!("  scene   │ {scene_id}"),
-                Color::Cyan, console_bg, console_alpha,
+                format!("  [#8c8ca0]scene   │[/] [#66d9ef]{scene_id}[/]"),
+                label_fg,
+                console_bg,
+                console_alpha,
             ));
             // Stage info
             lines.push(OverlayLine::with_alpha(
-                format!("  stage   │ {stage_info}"),
-                Color::Green, console_bg, console_alpha,
+                format!("  [#8c8ca0]stage   │[/] [#78dca0]{stage_info}[/]"),
+                label_fg,
+                console_bg,
+                console_alpha,
             ));
             // Render info
             lines.push(OverlayLine::with_alpha(
-                format!("  render  │ {virtual_info}"),
-                Color::Yellow, console_bg, console_alpha,
+                format!("  [#8c8ca0]render  │[/] [#ffd166]{virtual_info}[/]"),
+                label_fg,
+                console_bg,
+                console_alpha,
             ));
             // Timings
             lines.push(OverlayLine::with_alpha(
-                format!("  timing  │ {timings_info}"),
-                Color::Magenta, console_bg, console_alpha,
+                format!("  [#8c8ca0]timing  │[/] [#d39bff]{timings_info}[/]"),
+                label_fg,
+                console_bg,
+                console_alpha,
             ));
 
             if !script_errors.is_empty() {
                 // Error separator
                 lines.push(OverlayLine::with_alpha(
                     "─── messages ─────────────────────────────────────────────────────",
-                    sep_fg, sep_bg, console_alpha,
+                    sep_fg,
+                    sep_bg,
+                    console_alpha,
                 ));
                 for err in script_errors {
                     let (line_fg, line_bg) = if err.starts_with("[ERR") {
-                        (Color::Rgb { r: 255, g: 100, b: 100 }, Color::Rgb { r: 60, g: 10, b: 10 })
+                        (
+                            Color::Rgb {
+                                r: 255,
+                                g: 100,
+                                b: 100,
+                            },
+                            Color::Rgb {
+                                r: 60,
+                                g: 10,
+                                b: 10,
+                            },
+                        )
                     } else if err.starts_with("[WARN") {
-                        (Color::Rgb { r: 255, g: 200, b: 80 }, Color::Rgb { r: 50, g: 40, b: 5 })
+                        (
+                            Color::Rgb {
+                                r: 255,
+                                g: 200,
+                                b: 80,
+                            },
+                            Color::Rgb { r: 50, g: 40, b: 5 },
+                        )
                     } else {
                         (label_fg, console_bg)
                     };
                     lines.push(OverlayLine::with_alpha(
-                        format!("  {err}"), line_fg, line_bg, console_alpha,
+                        format!("  {err}"),
+                        line_fg,
+                        line_bg,
+                        console_alpha,
                     ));
                 }
+            } else {
+                lines.push(OverlayLine::with_alpha(
+                    "  [green]all systems nominal[/]",
+                    label_fg,
+                    console_bg,
+                    console_alpha,
+                ));
             }
             // Bottom border
             lines.push(OverlayLine::with_alpha(
                 "─────────────────────────────────────────────────────────────────────",
-                sep_fg, sep_bg, console_alpha,
+                sep_fg,
+                sep_bg,
+                console_alpha,
             ));
         }
         DebugOverlayMode::Logs => {
             // Title bar
             lines.push(OverlayLine::with_alpha(
                 " ■ LOG CONSOLE            [~] toggle  [Tab] switch",
-                title_fg, title_bg, 220,
+                title_fg,
+                title_bg,
+                220,
             ));
             lines.push(OverlayLine::with_alpha(
                 "─────────────────────────────────────────────────────────────────────",
-                sep_fg, sep_bg, console_alpha,
+                sep_fg,
+                sep_bg,
+                console_alpha,
             ));
             let logs = logging::tail_recent(40);
             if logs.is_empty() {
                 lines.push(OverlayLine::with_alpha(
-                    "  (no log entries)", label_fg, console_bg, console_alpha,
+                    "  [green](no log entries)[/]",
+                    label_fg,
+                    console_bg,
+                    console_alpha,
                 ));
             } else {
                 for log_line in &logs {
-                    let (line_fg, level_label) = match log_line.level.trim() {
-                        "TRACE" => (Color::DarkGrey, "TRC"),
-                        "DEBUG" => (Color::Rgb { r: 120, g: 120, b: 140 }, "DBG"),
-                        "INFO" => (Color::Rgb { r: 80, g: 200, b: 120 }, "INF"),
-                        "WARN" => (Color::Rgb { r: 255, g: 200, b: 80 }, "WRN"),
-                        "ERROR" => (Color::Rgb { r: 255, g: 100, b: 100 }, "ERR"),
-                        _ => (Color::White, "???"),
+                    let (level_label, level_tag) = match log_line.level.trim() {
+                        "TRACE" => ("TRC", "#7f7f7f"),
+                        "DEBUG" => ("DBG", "#7c7c8f"),
+                        "INFO" => ("INF", "#50c878"),
+                        "WARN" => ("WRN", "#ffc850"),
+                        "ERROR" => ("ERR", "#ff6464"),
+                        _ => ("???", "white"),
                     };
                     let line_bg = match log_line.level.trim() {
                         "ERROR" => Color::Rgb { r: 40, g: 5, b: 5 },
@@ -442,23 +538,31 @@ fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayDa
                         _ => console_bg,
                     };
                     let formatted = format!(
-                        "  [{level_label}] {} │ {}",
+                        "  [{level_tag}]{level_label}[/] [#8c8ca0]{}[/] │ {}",
                         log_line.target, log_line.message
                     );
                     lines.push(OverlayLine::with_alpha(
-                        formatted, line_fg, line_bg, console_alpha,
+                        formatted,
+                        label_fg,
+                        line_bg,
+                        console_alpha,
                     ));
                 }
             }
             // Bottom border
             lines.push(OverlayLine::with_alpha(
                 "─────────────────────────────────────────────────────────────────────",
-                sep_fg, sep_bg, console_alpha,
+                sep_fg,
+                sep_bg,
+                console_alpha,
             ));
         }
     }
 
-    Some(OverlayData { lines, dim_scene: true })
+    Some(OverlayData {
+        lines,
+        dim_scene: true,
+    })
 }
 
 /// Always-on performance HUD: FPS / CPU% / MEM in the top-right corner.

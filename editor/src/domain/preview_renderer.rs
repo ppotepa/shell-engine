@@ -38,10 +38,7 @@ pub fn render_scene_buffer(req: PreviewRenderRequest<'_>) -> Result<Buffer, Stri
     let mut world = World::new();
     world.register(Buffer::new(req.width, req.height));
     world.register(AudioRuntime::null());
-    world.register(RuntimeSettings {
-        render_size: RenderSize::MatchOutput,
-        ..RuntimeSettings::default()
-    });
+    world.register(load_runtime_settings(req.asset_root));
     world.register(AssetRoot::new(req.asset_root.to_path_buf()));
     world.register_scoped(SceneRuntime::new(req.scene.clone()));
 
@@ -58,6 +55,17 @@ pub fn render_scene_buffer(req: PreviewRenderRequest<'_>) -> Result<Buffer, Stri
         .get::<Buffer>()
         .cloned()
         .ok_or_else(|| String::from("Preview render did not produce a buffer"))
+}
+
+fn load_runtime_settings(mod_root: &Path) -> RuntimeSettings {
+    let manifest_path = mod_root.join("mod.yaml");
+    let mut settings = std::fs::read_to_string(&manifest_path)
+        .ok()
+        .and_then(|raw| serde_yaml::from_str::<serde_yaml::Value>(&raw).ok())
+        .map(|manifest| RuntimeSettings::from_manifest(&manifest))
+        .unwrap_or_default();
+    settings.render_size = RenderSize::MatchOutput;
+    settings
 }
 
 pub fn buffer_to_lines(buffer: &Buffer) -> Vec<Line<'static>> {

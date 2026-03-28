@@ -10,8 +10,8 @@
       gap-y: 1
       children:
         - { type: text, content: "▓▓▓  SECURITY ALERT  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: red }
-        - { type: text, content: "SCREEN 04 — RED/MAGENTA — amber warning ghosts through...", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(255,80,80)" }
-        - { type: text, content: "High-contrast red alert — watch the amber text fade behind.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(220,60,60)" }
+        - { type: text, content: "SCREEN 04 — RED/MAGENTA — amber warning ghosts through...", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: "rgb(255,80,80)" }
+        - { type: text, content: "High-contrast red alert — watch the amber text fade behind.", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(220,60,60)" }
         - type: grid
           id: crt04-shell
           grid-col: 1
@@ -21,9 +21,9 @@
           gap-x: 2
           gap-y: 1
           children:
-            - { type: text, content: "╔══ INTRUDER ══╗", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: red }
-            - { type: text, content: "╔══ FIREWALL ══╗", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: "rgb(255,50,100)" }
-            - { type: text, content: "╔═══ AUDIT ════╗", grid-col: 3, grid-row: 1, at: cc, font: "generic:1", fg: magenta }
+            - { type: text, content: "╔══ INTRUDER ══╗", grid-col: 1, grid-row: 1, at: cc, font: "default", fg: red }
+            - { type: text, content: "╔══ FIREWALL ══╗", grid-col: 2, grid-row: 1, at: cc, font: "default", fg: "rgb(255,50,100)" }
+            - { type: text, content: "╔═══ AUDIT ════╗", grid-col: 3, grid-row: 1, at: cc, font: "default", fg: magenta }
             - type: flex
               direction: column
               grid-col: 1
@@ -31,10 +31,10 @@
               gap: 1
               align_x: center
               children:
-                - { type: text, content: "IP: 10.13.37.1", font: "generic:1", fg: "rgb(255,100,100)" }
-                - { type: text, content: "PORT: 22 (SSH)", font: "generic:1", fg: "rgb(255,80,80)" }
-                - { type: text, content: "ATTEMPTS: 847", font: "generic:1", fg: "rgb(255,60,60)" }
-                - { type: text, content: "STATUS: BLOCKED", font: "generic:1", fg: "rgb(200,40,40)" }
+                - { type: text, content: "IP: 10.13.37.1", font: "default", fg: "rgb(255,100,100)" }
+                - { type: text, content: "PORT: 22 (SSH)", font: "default", fg: "rgb(255,80,80)" }
+                - { type: text, content: "ATTEMPTS: 847", font: "default", fg: "rgb(255,60,60)" }
+                - { type: text, content: "STATUS: BLOCKED", font: "default", fg: "rgb(200,40,40)" }
             - type: flex
               direction: column
               grid-col: 2
@@ -42,10 +42,10 @@
               gap: 1
               align_x: center
               children:
-                - { type: text, content: "RULES: 2,341", font: "generic:1", fg: "rgb(255,80,120)" }
-                - { type: text, content: "DROPS: 12,847/s", font: "generic:1", fg: "rgb(240,60,100)" }
-                - { type: text, content: "ACCEPTS: 342/s", font: "generic:1", fg: "rgb(220,40,80)" }
-                - { type: text, content: "LOAD: HIGH ▲", font: "generic:1", fg: "rgb(200,20,60)" }
+                - { type: text, content: "RULES: 2,341", font: "default", fg: "rgb(255,80,120)" }
+                - { type: text, content: "DROPS: 12,847/s", font: "default", fg: "rgb(240,60,100)" }
+                - { type: text, content: "ACCEPTS: 342/s", font: "default", fg: "rgb(220,40,80)" }
+                - { type: text, content: "LOAD: HIGH ▲", font: "default", fg: "rgb(200,20,60)" }
             - type: flex
               direction: column
               grid-col: 3
@@ -53,9 +53,9 @@
               gap: 1
               align_x: center
               children:
-                - { type: text, content: "EVENTS: 48,291", font: "generic:1", fg: "rgb(200,80,200)" }
-                - { type: text, content: "ALERTS: 17 NEW", font: "generic:1", fg: "rgb(180,60,180)" }
-                - { type: text, content: "SIEM: CONNECTED", font: "generic:1", fg: "rgb(160,40,160)" }
-                - { type: text, content: "LOG: STREAMING", font: "generic:1", fg: "rgb(140,20,140)" }
-            - { type: text, content: "═══════════════ THREAT LEVEL: ELEVATED ═══════════════", grid-col: 1, grid-row: 3, col-span: 3, at: cc, font: "generic:1", fg: "rgb(255,40,40)" }
-        - { type: text, content: "Screen 4/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+                - { type: text, content: "EVENTS: 48,291", font: "default", fg: "rgb(200,80,200)" }
+                - { type: text, content: "ALERTS: 17 NEW", font: "default", fg: "rgb(180,60,180)" }
+                - { type: text, content: "SIEM: CONNECTED", font: "default", fg: "rgb(160,40,160)" }
+                - { type: text, content: "LOG: STREAMING", font: "default", fg: "rgb(140,20,140)" }
+            - { type: text, content: "═══════════════ THREAT LEVEL: ELEVATED ═══════════════", grid-col: 1, grid-row: 3, col-span: 3, at: cc, font: "default", fg: "rgb(255,40,40)" }
+        - { type: text, content: "Screen 4/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "default", fg: gray, hide_on_leave: true }

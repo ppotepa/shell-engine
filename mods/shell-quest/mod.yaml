@@ -11,10 +11,14 @@ terminal:
   min_colours: 256
   min_width: 320
   min_height: 180
+  # Canonical font for in-world terminal text. Sprites can use
+  # `font: default` to inherit this and stay centrally configurable.
+  default_font: "generic:2"
 
-  # Fixed authored canvas for the whole mod. Resizing/fullscreen only changes
-  # presentation scale; the engine keeps rendering into this same buffer.
-  # render_size: 180x30
+  # Fixed authored virtual canvas for SDL runtime.
+  # Window/fullscreen size only changes presentation scale;
+  # game rendering stays in this virtual resolution.
+  render_size: 320x180
 
   # Preserve aspect ratio when projecting the authored canvas to terminal/SDL.
   presentation_policy: stretch

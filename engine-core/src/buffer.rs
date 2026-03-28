@@ -71,8 +71,6 @@ pub struct Buffer {
     pub last_diff_count: u32,
 }
 
-
-
 impl Buffer {
     pub fn new(width: u16, height: u16) -> Self {
         let size = width as usize * height as usize;
@@ -152,6 +150,20 @@ impl Buffer {
         } else {
             None
         }
+    }
+
+    /// Expose immutable back-buffer cells for hot paths that need tight indexed loops.
+    #[inline]
+    pub fn back_cells(&self) -> &[Cell] {
+        &self.back
+    }
+
+    /// Expose mutable back-buffer cells for hot paths that write full-frame passes.
+    ///
+    /// Callers must update dirty tracking afterwards (`mark_all_dirty` or equivalent).
+    #[inline]
+    pub fn back_cells_mut(&mut self) -> &mut [Cell] {
+        &mut self.back
     }
 
     /// Return cells that differ between back and front within dirty region — minimal render set.
@@ -478,6 +490,12 @@ impl Buffer {
         debug_assert_eq!(self.width, src.width);
         debug_assert_eq!(self.height, src.height);
         self.back.copy_from_slice(&src.back);
+        self.mark_all_dirty();
+    }
+
+    /// Mark the entire buffer as dirty (used by full-frame post-processing paths).
+    #[inline]
+    pub fn mark_all_dirty(&mut self) {
         self.dirty_x_min = 0;
         self.dirty_x_max = self.width.saturating_sub(1);
         self.dirty_y_min = 0;

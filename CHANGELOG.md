@@ -36,6 +36,19 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 28-03-2026
+
+**SDL splash unification, readability pass, and startup controls**
+- **splash**: unified startup splash flow across terminal and SDL2; removed backend divergence
+- **splash**: added dedicated SDL splash presentation mode (aspect-preserving fit) plus centered scale handling
+- **splash**: improved timeline behavior so authored splash stages (including fade) are not cut by short audio
+- **splash**: added mod-level splash config in `mod.yaml` (`splash.enabled`, `splash.scene`) with safe fallback to engine default
+- **schemas**: extended `mod.schema.yaml` and mod overlay schema generator with splash config support
+- **engine-render-sdl2**: splash letterbox clear now matches splash background instead of hard black
+- **testing**: added splash config parser tests and verified engine/app compile paths
+
+---
+
 ## 27-03-2026
 
 **SDL2 rendering optimizations & font pipeline** 🚀

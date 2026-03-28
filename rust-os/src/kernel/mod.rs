@@ -13,7 +13,6 @@ pub mod users;
 
 use crate::difficulty::MachineSpec;
 use crate::hardware::HardwareProfile;
-use crate::state::{FileStat, MachineState, QuestState};
 use crate::vfs::Vfs;
 use clock::SimulatedClock;
 use disk::SimulatedDisk;
@@ -47,7 +46,7 @@ pub struct Kernel {
 impl Kernel {
     pub fn new(spec: MachineSpec, vfs: Vfs) -> Self {
         let hw = HardwareProfile::from_spec(&spec);
-        let resources = ResourceState::new(&spec);
+        let resources = ResourceState::new(&spec, &hw);
         let clock = SimulatedClock::new();
         let disk = SimulatedDisk::new();
         let network = SimulatedNetwork::new();

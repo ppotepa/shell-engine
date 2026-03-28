@@ -79,10 +79,7 @@ impl AppState {
         world.register(EventQueue::new());
         world.register(Buffer::new(2, 2));
         world.register(AudioRuntime::null());
-        world.register(RuntimeSettings {
-            render_size: RenderSize::MatchOutput,
-            ..RuntimeSettings::default()
-        });
+        world.register(load_runtime_settings(Path::new(&self.mod_source)));
         world.register(DebugFeatures::from_enabled(true));
         world.register(AssetRoot::new(Path::new(&self.mod_source).to_path_buf()));
         world.register_scoped(SceneRuntime::new(scene));
@@ -328,6 +325,17 @@ impl AppState {
             _ => false,
         }
     }
+}
+
+fn load_runtime_settings(mod_root: &Path) -> RuntimeSettings {
+    let manifest_path = mod_root.join("mod.yaml");
+    let mut settings = std::fs::read_to_string(&manifest_path)
+        .ok()
+        .and_then(|raw| serde_yaml::from_str::<serde_yaml::Value>(&raw).ok())
+        .map(|manifest| RuntimeSettings::from_manifest(&manifest))
+        .unwrap_or_default();
+    settings.render_size = RenderSize::MatchOutput;
+    settings
 }
 
 fn split_transition_events(events: Vec<EngineEvent>) -> (Vec<EngineEvent>, Vec<String>) {

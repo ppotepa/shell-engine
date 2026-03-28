@@ -55,7 +55,7 @@ fn parse_simple(input: &str) -> SimpleCommand {
     let mut tokens = Vec::new();
     let mut redirect_file = None;
     let mut redirect_append = false;
-    let mut parts = tokenize_words(input);
+    let parts = tokenize_words(input);
 
     let mut i = 0;
     while i < parts.len() {

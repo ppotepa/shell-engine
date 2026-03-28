@@ -1,6 +1,6 @@
 //! Measurement helpers that estimate sprite bounds before rasterization.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use engine_core::color::Color;
 
@@ -16,16 +16,27 @@ thread_local! {
     /// changing the `fn(&Sprite, ...) -> (u16, u16)` function-pointer signature
     /// used by `compute_grid_cells` / `compute_flex_cells`.
     static PIXEL_BACKEND: Cell<bool> = const { Cell::new(false) };
+    /// Optional mod-level default font used by `font: default` resolution.
+    static DEFAULT_FONT_SPEC: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
-
-/// Set the pixel-backend flag for all `measure_sprite_for_layout` calls on
-/// this thread during the given closure.  Called once per `render_sprites` invocation.
+/// Set backend/font context for all `measure_sprite_for_layout` calls on this
+/// thread during the given closure. Called once per `render_sprites` invocation.
 #[inline]
-pub(crate) fn with_pixel_backend<R>(is_pixel: bool, f: impl FnOnce() -> R) -> R {
+pub(crate) fn with_render_context<R>(
+    is_pixel: bool,
+    default_font: Option<&str>,
+    f: impl FnOnce() -> R,
+) -> R {
     PIXEL_BACKEND.with(|c| c.set(is_pixel));
+    DEFAULT_FONT_SPEC.with(|slot| {
+        *slot.borrow_mut() = default_font.map(str::to_string);
+    });
     let r = f();
     PIXEL_BACKEND.with(|c| c.set(false));
+    DEFAULT_FONT_SPEC.with(|slot| {
+        *slot.borrow_mut() = None;
+    });
     r
 }
 
@@ -50,6 +61,7 @@ pub(crate) fn measure_sprite_for_layout(
         } => {
             let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
             let bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
+            let default_font = DEFAULT_FONT_SPEC.with(|slot| slot.borrow().clone());
             let resolved_font = engine_render_policy::resolve_text_font_spec(
                 font.as_deref(),
                 force_font_mode.as_deref(),
@@ -57,6 +69,7 @@ pub(crate) fn measure_sprite_for_layout(
                 inherited_mode,
                 *force_renderer_mode,
                 PIXEL_BACKEND.with(|c| c.get()),
+                default_font.as_deref(),
             );
             text_sprite_dimensions(
                 asset_root.map(|root| root.mod_source()),

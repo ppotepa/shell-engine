@@ -2,16 +2,6 @@ use crate::commands::Command;
 use crate::kernel::unit_of_work::UnitOfWork;
 use crate::kernel::Kernel;
 
-fn format_size(size: u64) -> String {
-    if size >= 1024 * 1024 {
-        format!("{}M", size / 1024 / 1024)
-    } else if size >= 1024 {
-        format!("{}K", size / 1024)
-    } else {
-        size.to_string()
-    }
-}
-
 pub struct LsCmd;
 impl Command for LsCmd {
     fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {

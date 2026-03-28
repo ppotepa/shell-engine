@@ -218,7 +218,7 @@ impl Command for DmesgCmd {
 
 pub struct LastCmd;
 impl Command for LastCmd {
-    fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
+    fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, _kernel: &mut Kernel) {
         let anomaly_count = uow.quest.anomaly_count();
         uow.print(format!(
             "{:<10}{:<8}{:<20}{}",

@@ -22,8 +22,9 @@ stages:
           effects:
             [{ name: crt-on, duration: 400, params: { easing: ease-out } }],
         }
-      # Align enter duration with prompt visibility (appear_at_ms: 2000) so the first key press works immediately.
-      - pause: 1400ms
+      # Keep enter duration slightly longer than prompt appear_at_ms=2000
+      # so the prompt is actually visible before on_idle begins.
+      - pause: 1450ms
 
   on_idle:
     trigger: any-key

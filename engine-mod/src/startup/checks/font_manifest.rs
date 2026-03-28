@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use engine_core::scene::Sprite;
 use engine_error::EngineError;
 use engine_render_policy;
+use engine_runtime::RuntimeSettings;
 
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
@@ -20,6 +21,8 @@ impl StartupCheck for FontManifestCheck {
 
     fn run(&self, ctx: &StartupContext, report: &mut StartupReport) -> Result<(), EngineError> {
         let scenes = ctx.all_scenes()?;
+        let runtime_settings = RuntimeSettings::from_manifest(ctx.manifest());
+        let default_font = runtime_settings.default_font.as_deref();
         let mut fonts: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
         for sf in scenes {
@@ -43,6 +46,7 @@ impl StartupCheck for FontManifestCheck {
                             sf.scene.rendered_mode,
                             *force_renderer_mode,
                             false,
+                            default_font,
                         ) else {
                             return;
                         };

@@ -15,6 +15,7 @@ SKIP_SPLASH=0
 HOLD_ON_EXIT=1
 AUDIO=0
 SDL2=0
+CHECK_SCENES=0
 
 print_usage() {
   cat <<'EOF'
@@ -32,6 +33,7 @@ Options:
   --skip-splash           Skip the engine splash screen
   --audio                 Enable audio playback
   --sdl2                  Use SDL2 output backend instead of terminal
+  --check-scenes          Validate all mod scenes and exit (no game loop)
   -h, --help              Show this help
 EOF
 }
@@ -102,6 +104,10 @@ while [[ $# -gt 0 ]]; do
       SDL2=1
       shift
       ;;
+    --check-scenes)
+      CHECK_SCENES=1
+      shift
+      ;;
     -h|--help)
       print_usage
       exit 0
@@ -141,8 +147,8 @@ MIN_HEIGHT="${MIN_HEIGHT:-40}"
 MIN_COLOURS="${MIN_COLOURS:-256}"
 
 build_game_cmd() {
-  local shell_mod_name shell_root hold_line
-  shell_mod_name="$(printf "%q" "$MOD_NAME")"
+  local shell_mod_source shell_root hold_line
+  shell_mod_source="$(printf "%q" "$MOD_SOURCE")"
   shell_root="$(printf "%q" "$ROOT_DIR")"
   hold_line=""
   if [[ "$HOLD_ON_EXIT" == "1" ]]; then
@@ -159,7 +165,7 @@ elif [[ ${MIN_COLOURS} -ge 256 ]]; then
     *) export TERM=xterm-256color ;;
   esac
 fi
-cargo run -q -p app -- --mod $shell_mod_name${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$AUDIO" == "1" ]] && echo " --audio" )$( [[ "$SDL2" == "1" ]] && echo " --sdl2" )
+cargo run -q -p app -- --mod-source $shell_mod_source${START_SCENE:+ --start-scene "$START_SCENE"}$( [[ "$SKIP_SPLASH" == "1" ]] && echo " --skip-splash" )$( [[ "$AUDIO" == "1" ]] && echo " --audio" )$( [[ "$SDL2" == "1" ]] && echo " --sdl2" )$( [[ "$CHECK_SCENES" == "1" ]] && echo " --check-scenes" )
 status=\$?
 printf "\\n[launcher] Shell Quest exited with code %s\\n" "\$status"
 $hold_line

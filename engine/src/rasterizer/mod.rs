@@ -76,7 +76,7 @@ pub fn rasterize(
     bg: Color,
 ) -> Buffer {
     // Handle built-in generic pixel font: "generic" or "generic:N"
-    // preset 1 = 3×5 tiny, preset 2 = 5×7 (default), preset 3 = 5×7 ×2 scale
+    // preset 1 = compact 4×5 tiny, preset 2 = 5×7 (default), preset 3 = 5×7 ×2 scale
     if font.starts_with("generic") {
         let preset: u16 = font
             .strip_prefix("generic")
@@ -94,7 +94,7 @@ pub fn rasterize(
                     0,
                     0,
                     &mut out,
-                    &TextTransform::Uppercase,
+                    &TextTransform::None,
                 );
                 return out;
             }
@@ -102,14 +102,14 @@ pub fn rasterize(
                 let (width, height) = generic::generic_dimensions(text, 2);
                 let mut out = Buffer::new(width.max(1), height.max(1));
                 out.fill(Color::Reset);
-                generic::rasterize_generic(text, 2, fg, 0, 0, &mut out, &TextTransform::Uppercase);
+                generic::rasterize_generic(text, 2, fg, 0, 0, &mut out, &TextTransform::None);
                 return out;
             }
             _ => {
                 let (width, height) = generic::generic_dimensions(text, 1);
                 let mut out = Buffer::new(width.max(1), height.max(1));
                 out.fill(Color::Reset);
-                generic::rasterize_generic(text, 1, fg, 0, 0, &mut out, &TextTransform::Uppercase);
+                generic::rasterize_generic(text, 1, fg, 0, 0, &mut out, &TextTransform::None);
                 return out;
             }
         }
@@ -118,7 +118,7 @@ pub fn rasterize(
     let glyph_font = match mod_source.and_then(|source| font_loader::load_font_assets(source, font))
     {
         Some(f) => f,
-        None => return rasterize_native(text, fg, bg),
+        None => return rasterize_engine_fallback(text, fg),
     };
 
     let mut width: u16 = 0;
@@ -188,14 +188,37 @@ pub fn missing_glyphs(mod_source: Option<&Path>, font: &str, text: &str) -> Opti
     Some(missing)
 }
 
-fn rasterize_native(text: &str, fg: Color, bg: Color) -> Buffer {
-    let width = text.chars().count() as u16;
-    let mut buf = Buffer::new(width.max(1), 1);
-    buf.fill(Color::Reset);
-    for (i, ch) in text.chars().enumerate() {
-        buf.set(i as u16, 0, ch, fg, bg);
+/// Engine-level fallback used when named font assets are missing.
+///
+/// Uses the engine-wide generic fallback spec so SDL and terminal backends both
+/// keep readable glyph shapes instead of raw cell symbols.
+fn rasterize_engine_fallback(text: &str, fg: Color) -> Buffer {
+    let mode =
+        generic::GenericMode::from_font_name(engine_render::generic::ENGINE_FALLBACK_FONT_SPEC);
+    let (width, height) = generic::generic_dimensions_mode(text, mode);
+    let mut out = Buffer::new(width.max(1), height.max(1));
+    out.fill(Color::Reset);
+    match mode {
+        generic::GenericMode::Tiny => {
+            generic::rasterize_generic_tiny(text, fg, 0, 0, &mut out, &TextTransform::None);
+        }
+        generic::GenericMode::Standard => {
+            generic::rasterize_generic(text, 1, fg, 0, 0, &mut out, &TextTransform::None);
+        }
+        generic::GenericMode::Large => {
+            generic::rasterize_generic(text, 2, fg, 0, 0, &mut out, &TextTransform::None);
+        }
+        generic::GenericMode::Half => {
+            generic::rasterize_generic_half(text, fg, 0, 0, &mut out, &TextTransform::None);
+        }
+        generic::GenericMode::Quad => {
+            generic::rasterize_generic_quad(text, fg, 0, 0, &mut out, &TextTransform::None);
+        }
+        generic::GenericMode::Braille => {
+            generic::rasterize_generic_braille(text, fg, 0, 0, &mut out, &TextTransform::None);
+        }
     }
-    buf
+    out
 }
 
 /// Blit `src` buffer onto `dst` buffer at position (dx, dy).
@@ -207,5 +230,31 @@ pub fn blit(src: &Buffer, dst: &mut Buffer, dx: u16, dy: u16) {
                 dst.set(dx + x, dy + y, cell.symbol, cell.fg, cell.bg);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rasterize;
+    use engine_core::buffer::Buffer;
+    use engine_core::color::Color;
+
+    fn symbol_fingerprint(buf: &Buffer) -> String {
+        let mut out = String::new();
+        for y in 0..buf.height {
+            for x in 0..buf.width {
+                let ch = buf.get(x, y).map(|c| c.symbol).unwrap_or(' ');
+                out.push(ch);
+            }
+            out.push('\n');
+        }
+        out
+    }
+
+    #[test]
+    fn generic_font_preserves_case_in_rasterizer_path() {
+        let lower = rasterize(None, "g", "generic:2", Color::White, Color::Reset);
+        let upper = rasterize(None, "G", "generic:2", Color::White, Color::Reset);
+        assert_ne!(symbol_fingerprint(&lower), symbol_fingerprint(&upper));
     }
 }

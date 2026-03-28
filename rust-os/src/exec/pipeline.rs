@@ -65,7 +65,6 @@ impl MinixPipeline {
 }
 
 fn try_one_liner(name: &str, args: &[String], uow: &mut UnitOfWork, kernel: &Kernel) -> bool {
-    use crate::style;
     let difficulty = &kernel.spec.difficulty;
     let quest = &*uow.quest;
 

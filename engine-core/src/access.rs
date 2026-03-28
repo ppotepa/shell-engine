@@ -8,7 +8,6 @@ use crate::buffer::Buffer;
 use crate::game_state::GameState;
 use crate::world::World;
 
-
 /// Typed access to the frame buffer.
 pub trait BufferAccess {
     fn buffer(&self) -> Option<&Buffer>;

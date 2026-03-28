@@ -1,5 +1,4 @@
 use crate::commands::Command;
-use crate::hosts::HostKind;
 use crate::kernel::unit_of_work::UnitOfWork;
 use crate::kernel::Kernel;
 
@@ -26,8 +25,6 @@ impl Command for PingCmd {
             None
         });
 
-        let host_str = host.to_string();
-
         if let Some(remote) = kernel
             .network
             .active_connections
@@ -39,16 +36,6 @@ impl Command for PingCmd {
             // placeholder
             let _ = remote;
         }
-
-        // Look up in registry
-        let hosts_clone = {
-            // We need to borrow hosts from the hosts registry
-            // Since we can't store it in kernel easily, use the imported registry directly
-            use crate::hosts::RemoteHostIndex;
-            // We'll pass registry separately — for now, build it inline
-            // (in the real integration, the registry should be stored in AppHost)
-            None::<crate::hosts::RemoteHost>
-        };
 
         // For now use a simplified ping implementation
         let ip = resolved.unwrap_or_else(|| format!("{}.0.1", host.len()));
@@ -236,7 +223,7 @@ impl Command for NslookupCmd {
 
 pub struct NetstatCmd;
 impl Command for NetstatCmd {
-    fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
+    fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, _kernel: &mut Kernel) {
         let anomaly_count = uow.quest.anomaly_count();
         let ftp_connected = uow.quest.ftp_connected;
 
@@ -270,7 +257,7 @@ impl Command for NetstatCmd {
 
 pub struct IfconfigCmd;
 impl Command for IfconfigCmd {
-    fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
+    fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, _kernel: &mut Kernel) {
         uow.print("eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500");
         uow.print("      inet 128.214.220.32  netmask 255.255.255.0  broadcast 128.214.220.255");
         uow.print("      ether 00:60:97:1a:2b:3c  txqueuelen 100");
@@ -282,7 +269,7 @@ impl Command for IfconfigCmd {
 
 pub struct FtpCmd;
 impl Command for FtpCmd {
-    fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
+    fn execute(&self, args: &[&str], uow: &mut UnitOfWork, _kernel: &mut Kernel) {
         // FTP is handled as an Application; this command just hints at it
         let host = args.get(1).copied().unwrap_or("nic.funet.fi");
         uow.print(format!("Connected to {host}."));
@@ -337,7 +324,7 @@ impl Command for FingerCmd {
 
 pub struct TelnetCmd;
 impl Command for TelnetCmd {
-    fn execute(&self, args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
+    fn execute(&self, args: &[&str], uow: &mut UnitOfWork, _kernel: &mut Kernel) {
         let host = args.get(1).copied().unwrap_or("localhost");
         let port = args.get(2).and_then(|p| p.parse::<u16>().ok());
         let anomaly_count = uow.quest.anomaly_count();

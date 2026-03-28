@@ -7,7 +7,7 @@
       id: placeholder-lab-enter
       content: "PLACEHOLDER SCENE - INTRO-LAB-ENTER"
       at: cc
-      font: "generic:1"
+      font: "default"
       fg: white
       text-transform: uppercase
       glow: { radius: 1, colour: "#6f8bff" }

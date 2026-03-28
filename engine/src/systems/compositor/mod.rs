@@ -12,10 +12,16 @@ use engine_core::color::Color;
 /// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
     let asset_root = world.asset_root().cloned();
-    let (runtime_mode_override, is_pixel_backend) = world
+    let (runtime_mode_override, is_pixel_backend, default_font) = world
         .runtime_settings()
-        .map(|s| (s.renderer_mode_override, s.is_pixel_backend))
-        .unwrap_or((None, false));
+        .map(|s| {
+            (
+                s.renderer_mode_override,
+                s.is_pixel_backend,
+                s.default_font.clone(),
+            )
+        })
+        .unwrap_or((None, false, None));
 
     // Extract raw pointer to PipelineStrategies to avoid a long-lived borrow that would
     // conflict with the buffer borrow taken later in this function.
@@ -184,6 +190,7 @@ pub fn compositor_system(world: &mut World) {
         scene_effects: &scene_effects,
         scene_step_dur,
         is_pixel_backend,
+        default_font: default_font.as_deref(),
     };
     let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
         engine_compositor::with_prerender_frames(prerender_frames, || {
@@ -199,7 +206,6 @@ pub fn compositor_system(world: &mut World) {
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.set_object_regions(object_regions);
     }
-
 }
 
 #[cfg(test)]

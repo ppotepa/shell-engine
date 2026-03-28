@@ -137,7 +137,10 @@ fn append_virtual_buffer_violations(
     if caps.width < required_cols || caps.height < required_rows {
         violations.push(TerminalViolation {
             requirement: "render_size(strict+halfblock)".to_string(),
-            required: format!("{}x{} cells (render {}x{} px)", required_cols, required_rows, render_w, render_h),
+            required: format!(
+                "{}x{} cells (render {}x{} px)",
+                required_cols, required_rows, render_w, render_h
+            ),
             detected: format!("{}x{}", caps.width, caps.height),
         });
     }
@@ -150,7 +153,9 @@ mod tests {
     use crate::StartupOutputSetting;
     use std::path::Path;
 
-    fn scene_loader(_mod_source: &std::path::Path) -> Result<Vec<crate::startup::StartupSceneFile>, engine_error::EngineError> {
+    fn scene_loader(
+        _mod_source: &std::path::Path,
+    ) -> Result<Vec<crate::startup::StartupSceneFile>, engine_error::EngineError> {
         Ok(Vec::new())
     }
 
@@ -168,10 +173,9 @@ mod tests {
             .run(&ctx, &mut report)
             .expect("sdl output should skip terminal validation");
 
-        assert!(report
-            .issues()
-            .iter()
-            .any(|issue| issue.message.contains("skipped terminal capability validation")));
+        assert!(report.issues().iter().any(|issue| issue
+            .message
+            .contains("skipped terminal capability validation")));
     }
 
     #[test]
@@ -188,7 +192,11 @@ mod tests {
         // This should NOT fail even though no real terminal has 9999 cells,
         // because stretch policy skips size checks.
         let result = TerminalRequirementsCheck.run(&ctx, &mut report);
-        assert!(result.is_ok(), "stretch policy should skip terminal size checks: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "stretch policy should skip terminal size checks: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -202,6 +210,10 @@ mod tests {
         let mut report = StartupReport::default();
 
         let result = TerminalRequirementsCheck.run(&ctx, &mut report);
-        assert!(result.is_ok(), "fit policy should skip terminal size checks: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "fit policy should skip terminal size checks: {:?}",
+            result
+        );
     }
 }

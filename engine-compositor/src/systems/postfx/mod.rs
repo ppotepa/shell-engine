@@ -118,7 +118,6 @@ pub fn postfx_system(world: &mut World) {
             .borrow_mut()
             .apply(&scene_id, fingerprint, &passes, scene_elapsed_ms, buffer);
     });
-
 }
 
 impl PostFxRuntime {

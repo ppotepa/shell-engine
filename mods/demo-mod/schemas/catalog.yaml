@@ -83,6 +83,7 @@ $defs:
   font_specs:
     type: string
     enum:
+    - default
     - generic
     - generic:1
     - generic:2

@@ -10,8 +10,8 @@
       gap-y: 1
       children:
         - { type: text, content: "▓▓▓  ALL CLEAR  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
-        - { type: text, content: "SCREEN 05 — WHITE/SILVER — red alert ghosts away...", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(200,200,220)" }
-        - { type: text, content: "Clean white on black — the red security data fades like a real CRT.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(180,180,200)" }
+        - { type: text, content: "SCREEN 05 — WHITE/SILVER — red alert ghosts away...", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: "rgb(200,200,220)" }
+        - { type: text, content: "Clean white on black — the red security data fades like a real CRT.", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(180,180,200)" }
         - type: grid
           id: crt05-summary
           grid-col: 1
@@ -21,15 +21,15 @@
           gap-x: 4
           gap-y: 1
           children:
-            - { type: text, content: "┌── BURN-IN PARAMS ───┐", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: white }
-            - { type: text, content: "┌── COLOUR SEQUENCE ──┐", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: white }
-            - { type: text, content: "│ alpha:  0.30 (30%)  │", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: silver }
-            - { type: text, content: "│ 01: GREEN  (BIOS)   │", grid-col: 2, grid-row: 2, at: cc, font: "generic:1", fg: green }
-            - { type: text, content: "│ speed:  0.35s fade  │", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: silver }
-            - { type: text, content: "│ 02: CYAN   (NET)    │", grid-col: 2, grid-row: 3, at: cc, font: "generic:1", fg: cyan }
-            - { type: text, content: "│ bright: 1.0x        │", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: silver }
-            - { type: text, content: "│ 03: AMBER  (WARN)   │", grid-col: 2, grid-row: 4, at: cc, font: "generic:1", fg: yellow }
-            - { type: text, content: "│ intens: 1.0 (full)  │", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: silver }
-            - { type: text, content: "│ 04: RED    (ALERT)  │", grid-col: 2, grid-row: 5, at: cc, font: "generic:1", fg: red }
-        - { type: text, content: "Screen 5/5 — BURN-IN TOUR COMPLETE", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: "rgb(180,220,255)" }
-        - { type: text, content: "ENTER: menu  |  2: restart tour  |  0: menu", grid-col: 1, grid-row: 6, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+            - { type: text, content: "┌── BURN-IN PARAMS ───┐", grid-col: 1, grid-row: 1, at: cc, font: "default", fg: white }
+            - { type: text, content: "┌── COLOUR SEQUENCE ──┐", grid-col: 2, grid-row: 1, at: cc, font: "default", fg: white }
+            - { type: text, content: "│ alpha:  0.30 (30%)  │", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: silver }
+            - { type: text, content: "│ 01: GREEN  (BIOS)   │", grid-col: 2, grid-row: 2, at: cc, font: "default", fg: green }
+            - { type: text, content: "│ speed:  0.35s fade  │", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: silver }
+            - { type: text, content: "│ 02: CYAN   (NET)    │", grid-col: 2, grid-row: 3, at: cc, font: "default", fg: cyan }
+            - { type: text, content: "│ bright: 1.0x        │", grid-col: 1, grid-row: 4, at: cc, font: "default", fg: silver }
+            - { type: text, content: "│ 03: AMBER  (WARN)   │", grid-col: 2, grid-row: 4, at: cc, font: "default", fg: yellow }
+            - { type: text, content: "│ intens: 1.0 (full)  │", grid-col: 1, grid-row: 5, at: cc, font: "default", fg: silver }
+            - { type: text, content: "│ 04: RED    (ALERT)  │", grid-col: 2, grid-row: 5, at: cc, font: "default", fg: red }
+        - { type: text, content: "Screen 5/5 — BURN-IN TOUR COMPLETE", grid-col: 1, grid-row: 5, at: cc, font: "default", fg: "rgb(180,220,255)" }
+        - { type: text, content: "ENTER: menu  |  2: restart tour  |  0: menu", grid-col: 1, grid-row: 6, at: cc, font: "default", fg: gray, hide_on_leave: true }

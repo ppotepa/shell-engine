@@ -6,6 +6,7 @@ use engine_core::markup::strip_markup;
 use engine_core::scene::Sprite;
 use engine_error::EngineError;
 use engine_render_policy;
+use engine_runtime::RuntimeSettings;
 
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
@@ -21,6 +22,8 @@ impl StartupCheck for FontGlyphCoverageCheck {
 
     fn run(&self, ctx: &StartupContext, report: &mut StartupReport) -> Result<(), EngineError> {
         let scenes = ctx.all_scenes()?;
+        let runtime_settings = RuntimeSettings::from_manifest(ctx.manifest());
+        let default_font = runtime_settings.default_font.as_deref();
         let mut required_chars: BTreeMap<String, BTreeSet<char>> = BTreeMap::new();
         let mut used_in_scenes: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
@@ -46,6 +49,7 @@ impl StartupCheck for FontGlyphCoverageCheck {
                             sf.scene.rendered_mode,
                             *force_renderer_mode,
                             false,
+                            default_font,
                         ) else {
                             return;
                         };

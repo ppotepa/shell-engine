@@ -4,13 +4,11 @@ use crossterm::event::{self, Event, KeyEventKind};
 use engine_events::{EngineEvent, InputBackend, KeyCode, KeyEvent, KeyModifiers};
 
 /// Crossterm-based terminal input backend.
-pub struct TerminalInputBackend {
-    debug_feature: bool,
-}
+pub struct TerminalInputBackend;
 
 impl TerminalInputBackend {
-    pub fn new(debug_feature: bool) -> std::io::Result<Self> {
-        Ok(Self { debug_feature })
+    pub fn new(_debug_feature: bool) -> std::io::Result<Self> {
+        Ok(Self)
     }
 }
 
@@ -86,10 +84,7 @@ pub fn crossterm_key_to_engine(key: crossterm::event::KeyEvent) -> Option<KeyEve
     {
         modifiers |= KeyModifiers::CONTROL;
     }
-    if key
-        .modifiers
-        .contains(crossterm::event::KeyModifiers::ALT)
-    {
+    if key.modifiers.contains(crossterm::event::KeyModifiers::ALT) {
         modifiers |= KeyModifiers::ALT;
     }
     Some(KeyEvent::new(code, modifiers))

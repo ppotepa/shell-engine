@@ -19,7 +19,7 @@ impl AppStack {
     }
 
     /// Enqueue scheduled lines from a command execution.
-    pub fn enqueue(&mut self, base_ms: u64, lines: Vec<ScheduledLine>) {
+    pub fn enqueue(&mut self, _base_ms: u64, lines: Vec<ScheduledLine>) {
         for line in lines {
             self.pending.push(PendingLine {
                 due_at_ms: line.due_ms,

@@ -161,6 +161,8 @@ mod tests {
             behaviors: vec![],
             glow: None,
             text_transform: Default::default(),
+            scale_x: 1.0,
+            scale_y: 1.0,
         }
     }
 

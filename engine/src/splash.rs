@@ -15,11 +15,76 @@ use crate::scene::{HorizontalAlign, TermColour, VerticalAlign};
 use base64::Engine as _;
 use crossterm::{cursor, queue, style, terminal};
 use engine_core::color::Color;
+#[cfg(feature = "sdl2")]
+use engine_render::OutputBackend;
 use engine_render_terminal::color_convert;
 use image::{imageops, load_from_memory};
 use serde::Deserialize;
+use serde_yaml::{Mapping, Value};
 
 const SPLASH_SCENE_PATH: &str = "assets/scenes/splash/scene.yml";
+#[cfg(feature = "sdl2")]
+const SDL_SPLASH_SCALE_FACTOR: f32 = 0.5;
+
+#[derive(Debug, Clone)]
+pub struct SplashConfig {
+    pub enabled: bool,
+    pub scene_path: Option<PathBuf>,
+}
+
+impl Default for SplashConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            scene_path: None,
+        }
+    }
+}
+
+/// Resolve splash startup configuration from `mod.yaml`.
+///
+/// Supported keys:
+/// - `splash.enabled` (bool, default true)
+/// - `splash.scene` (path to splash scene YAML, absolute from mod root or relative)
+///   aliases: `scene-path`, `scene_path`
+pub fn config_from_manifest(mod_source: &Path, manifest: &Value) -> SplashConfig {
+    let Some(root) = manifest.as_mapping() else {
+        return SplashConfig::default();
+    };
+    let Some(splash) = map_get(root, "splash").and_then(Value::as_mapping) else {
+        return SplashConfig::default();
+    };
+
+    let enabled = map_get(splash, "enabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let scene_path = map_get(splash, "scene")
+        .or_else(|| map_get(splash, "scene-path"))
+        .or_else(|| map_get(splash, "scene_path"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|raw| !raw.is_empty())
+        .map(|raw| resolve_mod_path(mod_source, raw));
+
+    SplashConfig {
+        enabled,
+        scene_path,
+    }
+}
+
+fn map_get<'a>(map: &'a Mapping, key: &str) -> Option<&'a Value> {
+    map.get(Value::String(key.to_string()))
+}
+
+fn resolve_mod_path(mod_source: &Path, raw: &str) -> PathBuf {
+    let p = Path::new(raw);
+    if p.is_absolute() {
+        let trimmed = raw.trim_start_matches('/');
+        mod_source.join(trimmed)
+    } else {
+        mod_source.join(p)
+    }
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -127,8 +192,10 @@ enum ImageColourMode {
 }
 
 impl SplashScene {
-    fn load() -> io::Result<Self> {
-        let scene_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(SPLASH_SCENE_PATH);
+    fn load(scene_path_override: Option<&Path>) -> io::Result<Self> {
+        let scene_path = scene_path_override
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(SPLASH_SCENE_PATH));
         let scene_raw = fs::read_to_string(&scene_path)?;
         let definition: SplashSceneDefinition = serde_yaml::from_str(&scene_raw)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
@@ -175,7 +242,8 @@ impl SplashScene {
 
     fn total_ms(&self) -> u64 {
         splash_audio_duration_ms(&self.audio_path)
-            .unwrap_or_else(|| self.minimum_timeline_ms())
+            .unwrap_or(0)
+            .max(self.minimum_timeline_ms())
             .saturating_add(self.audio_pad_ms)
     }
 
@@ -196,21 +264,71 @@ impl SplashScene {
 /// Must be called after the alternate screen has been entered and the console
 /// cleared. This blocks the calling thread while the splash is shown and plays
 /// the splash audio in a background thread.
-pub fn show_splash(target_bg: style::Color) {
-    let splash_scene = match SplashScene::load() {
-        Ok(scene) => scene,
-        Err(error) => {
-            crate::logging::warn(
-                "engine.splash",
-                format!("cannot load splash scene: {error}"),
-            );
-            return;
-        }
+pub fn show_splash(target_bg: style::Color, scene_path_override: Option<&Path>) {
+    let Some(splash_scene) = load_splash_scene(scene_path_override) else {
+        return;
     };
 
     start_splash_audio(&splash_scene);
     if let Err(error) = try_show_splash(&splash_scene, target_bg) {
         crate::logging::warn("engine.splash", format!("splash display skipped: {error}"));
+    }
+}
+
+/// Display splash content through the active render backend (SDL path).
+///
+/// This keeps splash rendering in the selected target window instead of using
+/// terminal ANSI drawing.
+#[cfg(feature = "sdl2")]
+pub fn show_splash_on_output(
+    output: &mut dyn OutputBackend,
+    target_bg: style::Color,
+    fit_size: (u16, u16),
+    scene_path_override: Option<&Path>,
+) {
+    let Some(splash_scene) = load_splash_scene(scene_path_override) else {
+        return;
+    };
+
+    start_splash_audio(&splash_scene);
+    if let Err(error) = try_show_splash_on_output(output, &splash_scene, target_bg, fit_size) {
+        crate::logging::warn(
+            "engine.splash",
+            format!("output splash display skipped: {error}"),
+        );
+    }
+}
+
+fn load_splash_scene(scene_path_override: Option<&Path>) -> Option<SplashScene> {
+    match SplashScene::load(scene_path_override) {
+        Ok(scene) => Some(scene),
+        Err(primary_error) => {
+            if scene_path_override.is_some() {
+                crate::logging::warn(
+                    "engine.splash",
+                    format!(
+                        "cannot load custom splash scene (falling back to engine default): {primary_error}"
+                    ),
+                );
+                match SplashScene::load(None) {
+                    Ok(scene) => return Some(scene),
+                    Err(fallback_error) => {
+                        crate::logging::warn(
+                            "engine.splash",
+                            format!(
+                                "cannot load fallback splash scene: {fallback_error}"
+                            ),
+                        );
+                        return None;
+                    }
+                }
+            }
+            crate::logging::warn(
+                "engine.splash",
+                format!("cannot load splash scene: {primary_error}"),
+            );
+            None
+        }
     }
 }
 
@@ -358,6 +476,98 @@ fn try_show_splash(splash_scene: &SplashScene, target_bg: style::Color) -> io::R
             total_ms,
         )?;
         stdout.flush()?;
+
+        if elapsed_ms >= total_ms {
+            break;
+        }
+
+        std::thread::sleep(frame_interval);
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "sdl2")]
+fn try_show_splash_on_output(
+    output: &mut dyn OutputBackend,
+    splash_scene: &SplashScene,
+    target_bg: style::Color,
+    fit_size: (u16, u16),
+) -> io::Result<()> {
+    let SplashVisuals {
+        logo,
+        splatter,
+        preserve_layer_alignment,
+    } = load_splash_visuals(splash_scene)?;
+    let black_logo = build_flood_filled_silhouette(&logo);
+
+    let (term_w, term_h) = output.output_size();
+    let term_w = term_w.max(1);
+    let term_h = term_h.max(1);
+    let fit_w = fit_size.0.max(1).min(term_w);
+    let fit_h = fit_size.1.max(1).min(term_h);
+    let logo_layout = placement_for_terminal(&logo, fit_w, fit_h)
+        .map(|layout| scale_placement(layout, splash_scene.logo_scale, term_w, term_h))
+        .map(|layout| scale_placement(layout, SDL_SPLASH_SCALE_FACTOR, term_w, term_h))
+        .map(|layout| {
+            align_placement(
+                layout,
+                term_w,
+                term_h,
+                &splash_scene.logo_align_x,
+                &splash_scene.logo_align_y,
+                splash_scene.logo_offset_x_cells,
+                splash_scene.logo_offset_y_cells,
+            )
+        });
+    let splatter_layout = splatter.as_ref().and_then(|img| {
+        if preserve_layer_alignment {
+            logo_layout
+        } else {
+            logo_layout.map(|logo_layout| {
+                let layout = scaled_placement(
+                    logo_layout,
+                    img,
+                    splash_scene.splatter_scale,
+                    term_w,
+                    term_h,
+                );
+                align_placement(
+                    layout,
+                    term_w,
+                    term_h,
+                    &splash_scene.splatter_align_x,
+                    &splash_scene.splatter_align_y,
+                    splash_scene.splatter_offset_x_cells,
+                    splash_scene.splatter_offset_y_cells,
+                )
+            })
+        }
+    });
+
+    let total_ms = splash_scene.total_ms().max(1);
+    let frame_interval = Duration::from_millis(16);
+    let start = Instant::now();
+    let mut frame_buffer = Buffer::new(term_w, term_h);
+
+    loop {
+        let elapsed_ms = u64::try_from(start.elapsed().as_millis())
+            .unwrap_or(u64::MAX)
+            .min(total_ms);
+        render_splash_frame_to_buffer(
+            &mut frame_buffer,
+            &logo,
+            &black_logo,
+            logo_layout,
+            splatter.as_ref(),
+            splatter_layout,
+            splash_scene,
+            target_bg,
+            elapsed_ms,
+            total_ms,
+        )?;
+        output.present_buffer(&frame_buffer);
+        frame_buffer.swap();
 
         if elapsed_ms >= total_ms {
             break;
@@ -744,6 +954,131 @@ fn render_splash_frame(
     Ok(())
 }
 
+#[cfg(feature = "sdl2")]
+fn render_splash_frame_to_buffer(
+    target: &mut Buffer,
+    logo: &image::RgbaImage,
+    black_logo: &image::RgbaImage,
+    logo_layout: Option<ImagePlacement>,
+    splatter: Option<&image::RgbaImage>,
+    splatter_layout: Option<ImagePlacement>,
+    splash_scene: &SplashScene,
+    target_bg: style::Color,
+    elapsed_ms: u64,
+    total_ms: u64,
+) -> io::Result<()> {
+    let fade_start_ms = total_ms.saturating_sub(splash_scene.fade_ms);
+    let fade_t = if splash_scene.fade_ms == 0 || elapsed_ms <= fade_start_ms {
+        0.0
+    } else {
+        (elapsed_ms.saturating_sub(fade_start_ms) as f32 / splash_scene.fade_ms as f32)
+            .clamp(0.0, 1.0)
+    };
+    let bg = lerp_colour(splash_scene.bg_colour, target_bg, fade_t);
+    fill_solid_buffer(target, bg);
+
+    let (shake_x, shake_y, _shake_scale, rotation_deg) = shake_transform(
+        elapsed_ms,
+        splash_scene.shake_delay_ms,
+        splash_scene.shake_ms,
+        splash_scene.shake_amplitude_cells,
+        splash_scene.shake_rotate_deg,
+        splash_scene.shake_punch_scale,
+    );
+
+    if let (Some(splatter), Some(layout)) = (splatter, splatter_layout) {
+        let reveal_t = phase_progress(
+            elapsed_ms,
+            splash_scene.splatter_delay_ms,
+            splash_scene.splatter_reveal_ms,
+        );
+        let splatter_opacity = if splash_scene.splatter_reveal_ms == 0 {
+            if elapsed_ms >= splash_scene.splatter_delay_ms {
+                1.0 - fade_t
+            } else {
+                0.0
+            }
+        } else {
+            let reveal = ease_out_cubic(reveal_t);
+            (0.2 + reveal * 0.8) * (1.0 - fade_t)
+        };
+        let clip_y = if splash_scene.splatter_reveal_ms == 0 {
+            1.0
+        } else {
+            ease_out_cubic(reveal_t)
+        };
+        let drip_t = phase_progress(
+            elapsed_ms,
+            splash_scene.splatter_delay_ms,
+            splash_scene.splatter_drip_ms,
+        );
+        let drip_motion_t = ease_out_quad(drip_t);
+        if splatter_opacity > 0.0 {
+            let splatter_placement = ImagePlacement {
+                origin_x: offset_cell(layout.origin_x, shake_x),
+                origin_y: offset_cell(layout.origin_y, shake_y),
+                ..layout
+            };
+            draw_image_to_buffer(
+                target,
+                splatter,
+                splatter_placement,
+                ImageColourMode::Source,
+                bg,
+                splash_scene.alpha_threshold,
+                splatter_opacity,
+                clip_y,
+                rotation_deg,
+                drip_motion_t,
+            );
+            draw_drip_tail_to_buffer(
+                target,
+                splatter,
+                splatter_placement,
+                splatter_opacity,
+                drip_motion_t,
+            )?;
+        }
+    }
+
+    if let Some(layout) = logo_layout {
+        let logo_opacity = phase_progress(
+            elapsed_ms,
+            splash_scene.blank_ms,
+            splash_scene.logo_fade_in_ms,
+        ) * (1.0 - fade_t);
+
+        if logo_opacity <= 0.0 {
+            return Ok(());
+        }
+
+        let (logo_image, logo_colour_mode) = if elapsed_ms >= splash_scene.splatter_delay_ms {
+            (logo, ImageColourMode::Source)
+        } else {
+            (black_logo, ImageColourMode::Source)
+        };
+
+        draw_image_to_buffer(
+            target,
+            logo_image,
+            ImagePlacement {
+                origin_x: offset_cell(layout.origin_x, shake_x),
+                origin_y: offset_cell(layout.origin_y, shake_y),
+                ..layout
+            },
+            logo_colour_mode,
+            bg,
+            splash_scene.alpha_threshold,
+            logo_opacity,
+            1.0,
+            rotation_deg,
+            0.0,
+        );
+    }
+
+    Ok(())
+}
+
 fn fill_solid(stdout: &mut io::Stdout, w: u16, h: u16, bg: style::Color) -> io::Result<()> {
     queue!(
         stdout,
@@ -757,6 +1092,11 @@ fn fill_solid(stdout: &mut io::Stdout, w: u16, h: u16, bg: style::Color) -> io::
         }
     }
     Ok(())
+}
+
+#[cfg(feature = "sdl2")]
+fn fill_solid_buffer(target: &mut Buffer, bg: style::Color) {
+    target.fill(color_convert::from_crossterm(bg));
 }
 
 fn draw_image(
@@ -820,6 +1160,68 @@ fn draw_image(
     }
 
     Ok(())
+}
+
+#[cfg(feature = "sdl2")]
+fn draw_image_to_buffer(
+    target: &mut Buffer,
+    img: &image::RgbaImage,
+    placement: ImagePlacement,
+    colour_mode: ImageColourMode,
+    bg: style::Color,
+    alpha_threshold: u8,
+    opacity: f32,
+    clip_y: f32,
+    rotation_deg: f32,
+    drip_t: f32,
+) {
+    let virtual_h = placement.render_rows as u32 * 2;
+    let bg_rgb = to_rgb(bg);
+
+    for row in 0..placement.render_rows {
+        for col in 0..placement.render_cols {
+            let top = sample_transformed_clipped(
+                img,
+                col as u32,
+                row as u32 * 2,
+                placement.render_cols as u32,
+                virtual_h,
+                clip_y,
+                rotation_deg,
+                drip_t,
+            );
+            let bot = sample_transformed_clipped(
+                img,
+                col as u32,
+                row as u32 * 2 + 1,
+                placement.render_cols as u32,
+                virtual_h,
+                clip_y,
+                rotation_deg,
+                drip_t,
+            );
+
+            let (sym, cell_fg, cell_bg) = match render_halfblock_cell(
+                top,
+                bot,
+                colour_mode,
+                bg_rgb,
+                alpha_threshold,
+                opacity,
+            ) {
+                Some(v) => v,
+                None => continue,
+            };
+
+            target.set(
+                placement.origin_x.saturating_add(col),
+                placement.origin_y.saturating_add(row),
+                sym,
+                color_convert::from_crossterm(cell_fg),
+                color_convert::from_crossterm(cell_bg),
+            );
+        }
+    }
 }
 
 fn render_halfblock_cell(
@@ -1243,6 +1645,66 @@ fn draw_drip_tail(
     Ok(())
 }
 
+#[cfg(feature = "sdl2")]
+fn draw_drip_tail_to_buffer(
+    target: &mut Buffer,
+    img: &image::RgbaImage,
+    placement: ImagePlacement,
+    opacity: f32,
+    drip_t: f32,
+) -> io::Result<()> {
+    let max_tail_rows =
+        target
+            .height
+            .saturating_sub(placement.origin_y.saturating_add(placement.render_rows));
+    if max_tail_rows == 0 || drip_t <= 0.0 || placement.render_cols == 0 {
+        return Ok(());
+    }
+
+    let mut buffer = transparent_buffer(placement.render_cols, max_tail_rows.saturating_add(1));
+    for col in 0..placement.render_cols {
+        let u = (col as f32 + 0.5) / placement.render_cols as f32;
+        let Some(paint) = sample_drip_colour(img, u) else {
+            continue;
+        };
+        let paint_colour = Color::Rgb {
+            r: paint.0,
+            g: paint.1,
+            b: paint.2,
+        };
+        buffer.set(col, 0, ' ', Color::Reset, paint_colour);
+        if max_tail_rows > 0 {
+            buffer.set(col, 1.min(max_tail_rows), ' ', Color::Reset, paint_colour);
+        }
+    }
+
+    let params = crate::scene::EffectParams {
+        colour: None,
+        intensity: Some(1.0),
+        speed: Some(1.0),
+        thickness: Some(1.25),
+        alpha: Some(opacity.clamp(0.0, 1.0)),
+        distortion: Some(0.3),
+        brightness: Some(0.18),
+        falloff: Some(1.35),
+        ..crate::scene::EffectParams::default()
+    };
+    shared_dispatcher().apply(
+        "paint-splatter",
+        drip_t,
+        &params,
+        Region::full(&buffer),
+        &mut buffer,
+    );
+    blit_buffer_overlay(
+        target,
+        &buffer,
+        placement.origin_x,
+        placement.origin_y + placement.render_rows.saturating_sub(1),
+    );
+    Ok(())
+}
+
 fn transparent_buffer(width: u16, height: u16) -> Buffer {
     let mut buffer = Buffer::new(width, height);
     for y in 0..height {
@@ -1251,6 +1713,27 @@ fn transparent_buffer(width: u16, height: u16) -> Buffer {
         }
     }
     buffer
+}
+
+#[cfg(feature = "sdl2")]
+fn blit_buffer_overlay(target: &mut Buffer, overlay: &Buffer, origin_x: u16, origin_y: u16) {
+    for y in 0..overlay.height {
+        for x in 0..overlay.width {
+            let Some(cell) = overlay.get(x, y).copied() else {
+                continue;
+            };
+            if cell.symbol == ' ' && cell.fg == Color::Reset && cell.bg == Color::Reset {
+                continue;
+            }
+            target.set(
+                origin_x.saturating_add(x),
+                origin_y.saturating_add(y),
+                cell.symbol,
+                cell.fg,
+                cell.bg,
+            );
+        }
+    }
 }
 
 fn render_buffer_overlay(
@@ -1294,4 +1777,48 @@ fn sample_drip_colour(img: &image::RgbaImage, u: f32) -> Option<(u8, u8, u8)> {
 /// Convert engine_core::color::Color to crossterm::style::Color.
 fn convert_to_crossterm(c: Color) -> style::Color {
     color_convert::to_crossterm(c)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::config_from_manifest;
+    use std::path::Path;
+
+    #[test]
+    fn splash_config_defaults_when_missing() {
+        let manifest: serde_yaml::Value =
+            serde_yaml::from_str("name: test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n")
+                .expect("manifest parses");
+        let cfg = config_from_manifest(Path::new("mods/demo"), &manifest);
+        assert!(cfg.enabled);
+        assert!(cfg.scene_path.is_none());
+    }
+
+    #[test]
+    fn splash_config_parses_enabled_and_absolute_scene_path() {
+        let manifest: serde_yaml::Value = serde_yaml::from_str(
+            "name: test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\nsplash:\n  enabled: false\n  scene: /scenes/splash/scene.yml\n",
+        )
+        .expect("manifest parses");
+        let cfg = config_from_manifest(Path::new("mods/demo"), &manifest);
+        assert!(!cfg.enabled);
+        assert_eq!(
+            cfg.scene_path.as_deref(),
+            Some(Path::new("mods/demo/scenes/splash/scene.yml"))
+        );
+    }
+
+    #[test]
+    fn splash_config_parses_relative_scene_path_alias() {
+        let manifest: serde_yaml::Value = serde_yaml::from_str(
+            "name: test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\nsplash:\n  scene-path: config/splash.yml\n",
+        )
+        .expect("manifest parses");
+        let cfg = config_from_manifest(Path::new("mods/demo"), &manifest);
+        assert!(cfg.enabled);
+        assert_eq!(
+            cfg.scene_path.as_deref(),
+            Some(Path::new("mods/demo/config/splash.yml"))
+        );
+    }
 }

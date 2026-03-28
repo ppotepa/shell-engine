@@ -92,10 +92,7 @@ pub fn run(cli: Cli) -> Result<()> {
                         if app.mode == AppMode::SceneRun {
                             let inner_w = w.saturating_sub(2);
                             let inner_h = h.saturating_sub(2);
-                            app.ensure_scene_run_buffer_size(
-                                inner_w,
-                                inner_h,
-                            );
+                            app.ensure_scene_run_buffer_size(inner_w, inner_h);
                             app.enqueue_scene_run_resize(inner_w, inner_h);
                         }
                     }

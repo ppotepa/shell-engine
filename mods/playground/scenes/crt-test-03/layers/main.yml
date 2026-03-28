@@ -10,8 +10,8 @@
       gap-y: 1
       children:
         - { type: text, content: "▓▓▓  AMBER WARNING  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: yellow }
-        - { type: text, content: "SCREEN 03 — AMBER/GOLD — blue ghost fading behind...", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(255,200,60)" }
-        - { type: text, content: "Classic amber phosphor monitor — the cyan network data ghosts away.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(220,170,40)" }
+        - { type: text, content: "SCREEN 03 — AMBER/GOLD — blue ghost fading behind...", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: "rgb(255,200,60)" }
+        - { type: text, content: "Classic amber phosphor monitor — the cyan network data ghosts away.", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(220,170,40)" }
         - type: flex
           id: crt03-stack
           direction: column
@@ -21,12 +21,12 @@
           align_x: center
           align_y: center
           children:
-            - { type: text, content: "████████████████████████████████████████████████", font: "generic:1", fg: "rgb(255,180,0)" }
-            - { type: text, content: "██  WARNING: CORE TEMPERATURE ELEVATED         ██", font: "generic:1", fg: "rgb(255,200,40)" }
-            - { type: text, content: "██  SECTOR 7-G: CONTAINMENT BREACH POSSIBLE    ██", font: "generic:1", fg: "rgb(240,180,30)" }
-            - { type: text, content: "██  REACTOR STATUS: NOMINAL (97.3%)            ██", font: "generic:1", fg: "rgb(220,160,20)" }
-            - { type: text, content: "██  COOLANT FLOW: 412 L/min ▼                  ██", font: "generic:1", fg: "rgb(200,140,10)" }
-            - { type: text, content: "██  RADIATION: 0.42 mSv/h — WITHIN LIMITS      ██", font: "generic:1", fg: "rgb(180,120,0)" }
-            - { type: text, content: "██  NEXT INSPECTION: T-14:22:08                ██", font: "generic:1", fg: "rgb(160,100,0)" }
-            - { type: text, content: "████████████████████████████████████████████████", font: "generic:1", fg: "rgb(255,180,0)" }
-        - { type: text, content: "Screen 3/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+            - { type: text, content: "████████████████████████████████████████████████", font: "default", fg: "rgb(255,180,0)" }
+            - { type: text, content: "██  WARNING: CORE TEMPERATURE ELEVATED         ██", font: "default", fg: "rgb(255,200,40)" }
+            - { type: text, content: "██  SECTOR 7-G: CONTAINMENT BREACH POSSIBLE    ██", font: "default", fg: "rgb(240,180,30)" }
+            - { type: text, content: "██  REACTOR STATUS: NOMINAL (97.3%)            ██", font: "default", fg: "rgb(220,160,20)" }
+            - { type: text, content: "██  COOLANT FLOW: 412 L/min ▼                  ██", font: "default", fg: "rgb(200,140,10)" }
+            - { type: text, content: "██  RADIATION: 0.42 mSv/h — WITHIN LIMITS      ██", font: "default", fg: "rgb(180,120,0)" }
+            - { type: text, content: "██  NEXT INSPECTION: T-14:22:08                ██", font: "default", fg: "rgb(160,100,0)" }
+            - { type: text, content: "████████████████████████████████████████████████", font: "default", fg: "rgb(255,180,0)" }
+        - { type: text, content: "Screen 3/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "default", fg: gray, hide_on_leave: true }

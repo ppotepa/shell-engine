@@ -122,7 +122,6 @@ pub fn apply_layer_effects(
     }
 }
 
-
 #[inline]
 fn resolve_step_by_index_or_hold_last(
     stage: &Stage,

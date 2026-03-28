@@ -10,8 +10,8 @@
       gap-y: 1
       children:
         - { type: text, content: "▓▓▓  NETWORK MONITOR  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: cyan }
-        - { type: text, content: "SCREEN 02 — CYAN/BLUE — watch for green ghost from screen 01", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(100,200,255)" }
-        - { type: text, content: "The green BIOS text persists as a fading phosphor afterimage.", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(80,180,240)" }
+        - { type: text, content: "SCREEN 02 — CYAN/BLUE — watch for green ghost from screen 01", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: "rgb(100,200,255)" }
+        - { type: text, content: "The green BIOS text persists as a fading phosphor afterimage.", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(80,180,240)" }
         - type: grid
           id: crt02-dash
           grid-col: 1
@@ -21,14 +21,14 @@
           gap-x: 4
           gap-y: 1
           children:
-            - { type: text, content: "┌─ INCOMING ──────────┐", grid-col: 1, grid-row: 1, at: cc, font: "generic:1", fg: cyan }
-            - { type: text, content: "┌─ OUTGOING ──────────┐", grid-col: 2, grid-row: 1, at: cc, font: "generic:1", fg: blue }
-            - { type: text, content: "│ 192.168.1.42:8080   │", grid-col: 1, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(0,200,255)" }
-            - { type: text, content: "│ 10.0.0.1:443  >>>   │", grid-col: 2, grid-row: 2, at: cc, font: "generic:1", fg: "rgb(0,150,255)" }
-            - { type: text, content: "│ tcp SYN_RECV  12ms  │", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(0,180,230)" }
-            - { type: text, content: "│ tls ESTABLISHED 3ms │", grid-col: 2, grid-row: 3, at: cc, font: "generic:1", fg: "rgb(0,130,220)" }
-            - { type: text, content: "│ bytes: 1.2M ▲       │", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: "rgb(0,160,200)" }
-            - { type: text, content: "│ bytes: 340K ▼       │", grid-col: 2, grid-row: 4, at: cc, font: "generic:1", fg: "rgb(0,110,190)" }
-            - { type: text, content: "└──────────────────────┘", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: cyan }
-            - { type: text, content: "└──────────────────────┘", grid-col: 2, grid-row: 5, at: cc, font: "generic:1", fg: blue }
-        - { type: text, content: "Screen 2/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "generic:1", fg: gray, hide_on_leave: true }
+            - { type: text, content: "┌─ INCOMING ──────────┐", grid-col: 1, grid-row: 1, at: cc, font: "default", fg: cyan }
+            - { type: text, content: "┌─ OUTGOING ──────────┐", grid-col: 2, grid-row: 1, at: cc, font: "default", fg: blue }
+            - { type: text, content: "│ 192.168.1.42:8080   │", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: "rgb(0,200,255)" }
+            - { type: text, content: "│ 10.0.0.1:443  >>>   │", grid-col: 2, grid-row: 2, at: cc, font: "default", fg: "rgb(0,150,255)" }
+            - { type: text, content: "│ tcp SYN_RECV  12ms  │", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(0,180,230)" }
+            - { type: text, content: "│ tls ESTABLISHED 3ms │", grid-col: 2, grid-row: 3, at: cc, font: "default", fg: "rgb(0,130,220)" }
+            - { type: text, content: "│ bytes: 1.2M ▲       │", grid-col: 1, grid-row: 4, at: cc, font: "default", fg: "rgb(0,160,200)" }
+            - { type: text, content: "│ bytes: 340K ▼       │", grid-col: 2, grid-row: 4, at: cc, font: "default", fg: "rgb(0,110,190)" }
+            - { type: text, content: "└──────────────────────┘", grid-col: 1, grid-row: 5, at: cc, font: "default", fg: cyan }
+            - { type: text, content: "└──────────────────────┘", grid-col: 2, grid-row: 5, at: cc, font: "default", fg: blue }
+        - { type: text, content: "Screen 2/5  |  ENTER: next  |  0: menu", grid-col: 1, grid-row: 5, at: cc, font: "default", fg: gray, hide_on_leave: true }

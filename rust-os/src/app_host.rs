@@ -7,8 +7,7 @@ use crate::kernel::Kernel;
 use crate::protocol;
 use crate::screen_buffer::ScreenBuffer;
 use crate::session::UserSession;
-use crate::state::{MachineState, QuestState, SessionMode};
-use crate::style;
+use crate::state::{MachineState, SessionMode};
 use crate::vfs::Vfs;
 use engine_io::{IoEvent, IoRequest};
 
@@ -318,7 +317,7 @@ impl AppHost {
         }
 
         // Normal shell execution
-        let mut app = match self.active_app.take() {
+        let app = match self.active_app.take() {
             Some(ActiveApp::Shell(s)) => s,
             _ => ShellApp::new(),
         };
@@ -370,7 +369,6 @@ impl AppHost {
 
     fn check_timed_mail(&mut self) {
         let quest = &self.state.quest;
-        let now = self.kernel.uptime_ms();
 
         // After first failed FTP upload, deliver ast hint
         if !self.mail_delivered_ftp_hint && quest.upload_attempted && !quest.upload_success {

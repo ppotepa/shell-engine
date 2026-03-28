@@ -377,7 +377,6 @@ fn rasterize_image_braille(
     }
 }
 
-
 #[inline]
 fn sample_scaled(image: &ImageView, x: u32, y: u32, virtual_w: u32, virtual_h: u32) -> [u8; 4] {
     let vw = virtual_w.max(1);

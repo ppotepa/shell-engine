@@ -334,8 +334,8 @@
       id: press-any-key
       content: "[#808080]PRESS[/] ANY [#808080]KEY[/]"
       at: cc
-      y: 12
-      font: "generic:1"
+      y: 20
+      font: "default"
       fg: white
       glow: { radius: 1 }
       text-transform: uppercase

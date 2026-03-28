@@ -6,5 +6,6 @@ terminal:
   min_colours: 256
   min_width: 80
   min_height: 24
+  default_font: "generic:2"
   render_size: 180x30
   presentation_policy: fit

@@ -7,8 +7,8 @@ Covers performance benchmarking, the test mod, and frame capture regression test
 ## 1. Quick Start
 
 ```bash
-# Baseline, 10 seconds
-cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10
+# Baseline (disable default comp+rowdiff), 10 seconds
+cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --no-opt-comp --no-opt-rowdiff
 
 # With all optimizations
 cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
@@ -23,14 +23,14 @@ cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 
 | Flag | Description |
 |------|-------------|
-| `--opt-comp` | Compositor: layer scratch skip, dirty-halfblock |
+| `--opt-comp` | Compositor: layer scratch skip, dirty-halfblock (enabled by default; use `--no-opt-comp` to disable) |
 | `--opt-diff` | Dirty-region diff (experimental) |
 | `--opt-present` | Hash-based static frame skip |
 | `--opt-skip` | Unified frame-skip oracle |
-| `--opt-rowdiff` | Row-level dirty skip |
+| `--opt-rowdiff` | Row-level dirty skip (enabled by default; use `--no-opt-rowdiff` to disable) |
 | `--opt` | All optimizations combined |
 
-Recommendations: `--opt-skip` always (prevents flickering), `--opt` for release builds.
+Recommendations: keep default `opt-comp` + `opt-rowdiff`, add `--opt-skip` for release builds, and use `--opt` when you want every optimization path.
 
 ---
 
@@ -164,3 +164,15 @@ comparison test. Useful for CI and pre-merge visual regression checks.
 | Frame count mismatch | Ensure both captures use the same `--bench N` value |
 | Color divergence | Run both captures in the same terminal; prefer `Color::Rgb` in test scenes |
 | CSV empty | Verify `ls reports/benchmark/*.txt`; run `python3 collect-benchmarks.py` |
+
+### SDL2 Pipeline Profiling
+
+For SDL2 backend stage timings (diff/build, runtime apply, texture upload, present),
+enable profiling logs:
+
+```bash
+SHELL_QUEST_SDL_PROFILE=1 cargo run -p app -- --sdl2
+```
+
+When run logging is enabled, look for `sdl2.backend` and `sdl2.runtime`
+entries in `logs/<date>/run-XXX/run.log` (emitted roughly once per second).

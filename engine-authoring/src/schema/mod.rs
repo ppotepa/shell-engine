@@ -962,6 +962,10 @@ fn build_mod_overlay_schema(mod_name: &str) -> Value {
         schema_ref("../../../schemas/mod.schema.yaml#/properties/output_backend"),
     );
     props.insert(
+        Value::String("splash".to_string()),
+        schema_ref("../../../schemas/mod.schema.yaml#/properties/splash"),
+    );
+    props.insert(
         Value::String("terminal".to_string()),
         schema_ref("../../../schemas/mod.schema.yaml#/properties/terminal"),
     );
@@ -2418,7 +2422,12 @@ fn collect_font_names(mod_root: &Path) -> Result<BTreeSet<String>> {
         }
         if let Ok(raw) = fs::read_to_string(&manifest_file) {
             if let Ok(v) = serde_yaml::from_str::<Value>(&raw) {
-                if let Some(name) = v.get("name").and_then(Value::as_str) {
+                if let Some(name) = v
+                    .get("font_label")
+                    .or_else(|| v.get("font_family"))
+                    .or_else(|| v.get("name"))
+                    .and_then(Value::as_str)
+                {
                     names.insert(name.to_string());
                 }
             }
@@ -2429,6 +2438,7 @@ fn collect_font_names(mod_root: &Path) -> Result<BTreeSet<String>> {
 
 fn collect_font_specs(font_names: &BTreeSet<String>) -> BTreeSet<String> {
     let mut specs = BTreeSet::from([
+        "default".to_string(),
         "generic".to_string(),
         "generic:1".to_string(),
         "generic:tiny".to_string(),

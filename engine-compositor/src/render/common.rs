@@ -26,6 +26,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) layer_buf: &'a mut Buffer,
     pub(crate) obj_camera_states: &'a HashMap<String, ObjCameraState>,
     pub(crate) is_pixel_backend: bool,
+    pub(crate) default_font: Option<&'a str>,
 }
 
 /// Returns `Some(appear_at)` when the sprite should be rendered, `None` to skip.

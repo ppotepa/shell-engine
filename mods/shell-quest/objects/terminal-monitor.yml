@@ -7,7 +7,7 @@ exports:
   x: 2
   output_y: 2
   prompt_y: 3
-  font: "generic:half"
+  font: "default"
   fg: silver
   output_appear_at_ms: 0
   prompt_appear_at_ms: 0

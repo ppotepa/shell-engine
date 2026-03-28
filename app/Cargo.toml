@@ -11,3 +11,4 @@ sdl2 = ["engine/sdl2"]
 engine = { path = "../engine" }
 engine-mod = { path = "../engine-mod" }
 clap = { workspace = true }
+serde_yaml = { workspace = true }

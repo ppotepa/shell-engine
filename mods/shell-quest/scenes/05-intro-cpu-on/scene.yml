@@ -44,7 +44,8 @@ audio:
 stages:
   on_enter:
     steps:
-      - { pause: 6000ms }
+      # Keep the BIOS device list visible long enough to read before transition.
+      - { pause: 7600ms }
   on_idle:
     trigger: timeout
     steps: [{ pause: 1ms }]

@@ -1,5 +1,12 @@
 use engine_core::scene::sprite::TextTransform;
 
+/// Compact tiny-font metrics used by `generic:1`.
+///
+/// Uses a one-cell gap to keep tiny glyphs legible on SDL/terminal surfaces.
+pub const GENERIC_TINY_GLYPH_WIDTH: u16 = 4;
+pub const GENERIC_TINY_GLYPH_HEIGHT: u16 = 5;
+pub const GENERIC_TINY_GLYPH_GAP: u16 = 1;
+
 fn apply_transform(c: char, transform: &TextTransform) -> char {
     match transform {
         TextTransform::Uppercase => c.to_ascii_uppercase(),
@@ -217,7 +224,7 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
             0b00110, 0b01001, 0b01000, 0b11110, 0b01000, 0b01000, 0b01000,
         ]),
         'g' => Some([
-            0b00000, 0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b01110,
+            0b00000, 0b00000, 0b01110, 0b10001, 0b01111, 0b00001, 0b01110,
         ]),
         'h' => Some([
             0b10000, 0b10000, 0b10110, 0b11001, 0b10001, 0b10001, 0b10001,
@@ -349,33 +356,60 @@ pub fn generic_dimensions(content: &str, scale: u16) -> (u16, u16) {
     (width, height)
 }
 
-/// 3×5 minimal bitmaps. Each row is a 3-bit mask (bit 2 = leftmost pixel).
+/// Compact 4×5 minimal bitmaps. Each row is a 4-bit mask (bit 3 = leftmost).
 pub fn generic_glyph_rows_tiny(ch: char) -> Option<[u8; 5]> {
     match ch {
-        ' ' => return Some([0b000, 0b000, 0b000, 0b000, 0b000]),
-        '.' => return Some([0b000, 0b000, 0b000, 0b000, 0b010]),
-        ',' => return Some([0b000, 0b000, 0b000, 0b010, 0b100]),
-        ':' => return Some([0b000, 0b010, 0b000, 0b010, 0b000]),
-        ';' => return Some([0b000, 0b010, 0b000, 0b010, 0b100]),
-        '-' => return Some([0b000, 0b000, 0b111, 0b000, 0b000]),
-        '_' => return Some([0b000, 0b000, 0b000, 0b000, 0b111]),
-        '!' => return Some([0b010, 0b010, 0b010, 0b000, 0b010]),
-        '?' => return Some([0b111, 0b001, 0b010, 0b000, 0b010]),
-        '/' => return Some([0b001, 0b001, 0b010, 0b100, 0b100]),
-        '\\' => return Some([0b100, 0b100, 0b010, 0b001, 0b001]),
-        '>' => return Some([0b100, 0b010, 0b001, 0b010, 0b100]),
-        '<' => return Some([0b001, 0b010, 0b100, 0b010, 0b001]),
+        // Hand-tuned 4x5 overrides for readability where block-OR downsample
+        // collapses distinct 5x7 glyphs into ambiguous shapes.
+        'A' => return Some([0b0110, 0b1001, 0b1111, 0b1001, 0b1001]),
+        'R' => return Some([0b1110, 0b1001, 0b1110, 0b1010, 0b1001]),
+        'a' => return Some([0b0000, 0b0110, 0b0001, 0b0111, 0b0111]),
+        'r' => return Some([0b0000, 0b1110, 0b1001, 0b1000, 0b1000]),
+        ' ' => return Some([0b0000, 0b0000, 0b0000, 0b0000, 0b0000]),
+        '.' => return Some([0b0000, 0b0000, 0b0000, 0b0000, 0b0010]),
+        ',' => return Some([0b0000, 0b0000, 0b0000, 0b0010, 0b0100]),
+        ':' => return Some([0b0000, 0b0010, 0b0000, 0b0010, 0b0000]),
+        ';' => return Some([0b0000, 0b0010, 0b0000, 0b0010, 0b0100]),
+        '-' => return Some([0b0000, 0b0000, 0b1111, 0b0000, 0b0000]),
+        '_' => return Some([0b0000, 0b0000, 0b0000, 0b0000, 0b1111]),
+        '!' => return Some([0b0010, 0b0010, 0b0010, 0b0000, 0b0010]),
+        '?' => return Some([0b1111, 0b0001, 0b0010, 0b0000, 0b0010]),
+        '/' => return Some([0b0001, 0b0001, 0b0010, 0b0100, 0b0100]),
+        '\\' => return Some([0b1000, 0b1000, 0b0100, 0b0010, 0b0010]),
+        '>' => return Some([0b1000, 0b0100, 0b0010, 0b0100, 0b1000]),
+        '<' => return Some([0b0001, 0b0010, 0b0100, 0b0010, 0b0001]),
+        // Common TUI / box-drawing symbols used by debug overlays.
+        '■' | '█' | '◼' => return Some([0b1111, 0b1111, 0b1111, 0b1111, 0b1111]),
+        '▪' => return Some([0b0000, 0b0110, 0b0110, 0b0110, 0b0000]),
+        '─' | '━' | '═' => return Some([0b0000, 0b0000, 0b1111, 0b0000, 0b0000]),
+        '│' | '┃' | '║' => return Some([0b0010, 0b0010, 0b0010, 0b0010, 0b0010]),
+        '┌' | '╭' => return Some([0b1111, 0b1000, 0b1000, 0b1000, 0b1000]),
+        '┐' | '╮' => return Some([0b1111, 0b0001, 0b0001, 0b0001, 0b0001]),
+        '└' | '╰' => return Some([0b1000, 0b1000, 0b1000, 0b1000, 0b1111]),
+        '┘' | '╯' => return Some([0b0001, 0b0001, 0b0001, 0b0001, 0b1111]),
+        '├' => return Some([0b1000, 0b1000, 0b1111, 0b1000, 0b1000]),
+        '┤' => return Some([0b0001, 0b0001, 0b1111, 0b0001, 0b0001]),
+        '┬' => return Some([0b1111, 0b0010, 0b0010, 0b0010, 0b0010]),
+        '┴' => return Some([0b0010, 0b0010, 0b0010, 0b0010, 0b1111]),
+        '┼' => return Some([0b0010, 0b0010, 0b1111, 0b0010, 0b0010]),
+        '·' => return Some([0b0000, 0b0000, 0b0010, 0b0000, 0b0000]),
+        '•' => return Some([0b0000, 0b0110, 0b0110, 0b0000, 0b0000]),
+        '…' => return Some([0b0000, 0b0000, 0b0000, 0b1010, 0b0000]),
+        '→' => return Some([0b0010, 0b0001, 0b1111, 0b0001, 0b0010]),
+        '←' => return Some([0b0100, 0b1000, 0b1111, 0b1000, 0b0100]),
+        '↑' => return Some([0b0010, 0b0111, 0b0010, 0b0010, 0b0010]),
+        '↓' => return Some([0b0010, 0b0010, 0b0010, 0b0111, 0b0010]),
         _ => {}
     }
     let rows_5x7 = generic_glyph_rows(ch)?;
-    Some(shrink_5x7_to_3x5(rows_5x7))
+    Some(shrink_5x7_to_4x5(rows_5x7))
 }
 
-fn shrink_5x7_to_3x5(rows_5x7: [u8; 7]) -> [u8; 5] {
+fn shrink_5x7_to_4x5(rows_5x7: [u8; 7]) -> [u8; 5] {
     // Pixel-preserving downsample (block OR), no smoothing/anti-aliasing.
-    // 5×7 -> 3×5 with fixed source blocks.
+    // 5×7 -> 4×5 with fixed source blocks.
     let y_blocks = [(0usize, 1usize), (2, 2), (3, 4), (5, 5), (6, 6)];
-    let x_blocks = [(0usize, 1usize), (2, 2), (3, 4)];
+    let x_blocks = [(0usize, 1usize), (2, 2), (3, 3), (4, 4)];
     let mut out = [0u8; 5];
 
     for (oy, &(y0, y1)) in y_blocks.iter().enumerate() {
@@ -395,7 +429,7 @@ fn shrink_5x7_to_3x5(rows_5x7: [u8; 7]) -> [u8; 5] {
             }
 
             if on {
-                mask |= 1 << (2 - ox);
+                mask |= 1 << (3 - ox);
             }
         }
         out[oy] = mask;
@@ -403,7 +437,8 @@ fn shrink_5x7_to_3x5(rows_5x7: [u8; 7]) -> [u8; 5] {
     out
 }
 
-/// Rasterize a string using the 3×5 tiny generic pixel font into a layer buffer.
+/// Rasterize a string using the compact 4×5 tiny generic pixel font into a
+/// layer buffer.
 /// Each ON pixel = solid cell glyph with transparent background.
 /// OFF pixels = transparent (unchanged).
 pub fn rasterize_generic_tiny(
@@ -414,8 +449,8 @@ pub fn rasterize_generic_tiny(
     buffer: &mut engine_core::buffer::Buffer,
     transform: &TextTransform,
 ) {
-    let glyph_w = 3u16;
-    let gap = 1u16;
+    let glyph_w = GENERIC_TINY_GLYPH_WIDTH;
+    let gap = GENERIC_TINY_GLYPH_GAP;
 
     let mut cursor_x = draw_x;
     for ch in content.chars().map(|c| apply_transform(c, transform)) {
@@ -429,7 +464,7 @@ pub fn rasterize_generic_tiny(
         }
         for (row_idx, &row_bits) in rows.iter().enumerate() {
             for col in 0..glyph_w {
-                let bit = (row_bits >> (2 - col)) & 1;
+                let bit = (row_bits >> (glyph_w - 1 - col)) & 1;
                 if bit == 1 {
                     let cx = cursor_x + col;
                     let cy = draw_y + row_idx as u16;
@@ -441,12 +476,13 @@ pub fn rasterize_generic_tiny(
     }
 }
 
-/// Compute the pixel dimensions of a string rendered with the 3×5 tiny generic font.
+/// Compute the pixel dimensions of a string rendered with the compact 4×5 tiny
+/// generic font.
 /// Returns (width_cells, height_cells).
 pub fn generic_dimensions_tiny(content: &str) -> (u16, u16) {
-    let glyph_w = 3u16;
-    let glyph_h = 5u16;
-    let gap = 1u16;
+    let glyph_w = GENERIC_TINY_GLYPH_WIDTH;
+    let glyph_h = GENERIC_TINY_GLYPH_HEIGHT;
+    let gap = GENERIC_TINY_GLYPH_GAP;
 
     let char_count = content
         .chars()
@@ -465,7 +501,8 @@ pub fn span_width(text: &str, scale: u16) -> u16 {
     generic_dimensions(text, scale).0
 }
 
-/// Width in cells for a text string rendered with the 3×5 tiny generic font.
+/// Width in cells for a text string rendered with the compact 4×5 tiny generic
+/// font.
 pub fn span_width_tiny(text: &str) -> u16 {
     generic_dimensions_tiny(text).0
 }
@@ -507,7 +544,7 @@ pub fn generic_dimensions_mode(content: &str, mode: GenericMode) -> (u16, u16) {
 
     if char_count == 0 {
         return match mode {
-            GenericMode::Tiny => (1, 5),
+            GenericMode::Tiny => (1, GENERIC_TINY_GLYPH_HEIGHT),
             GenericMode::Standard => (1, 7),
             GenericMode::Large => (1, 14),
             GenericMode::Half => (1, 4),
@@ -517,7 +554,10 @@ pub fn generic_dimensions_mode(content: &str, mode: GenericMode) -> (u16, u16) {
     }
 
     match mode {
-        GenericMode::Tiny => (char_count * 4, 5),
+        GenericMode::Tiny => (
+            char_count * (GENERIC_TINY_GLYPH_WIDTH + GENERIC_TINY_GLYPH_GAP),
+            GENERIC_TINY_GLYPH_HEIGHT,
+        ),
         GenericMode::Standard => (char_count * 6, 7),
         GenericMode::Large => (char_count * 12, 14),
         GenericMode::Half => (char_count * 6, 4),
@@ -735,8 +775,9 @@ pub fn rasterize_spans_mode(
     }
 }
 
-/// Rasterize a list of (text, colour) spans using the generic font at the given preset.
-/// preset 1 = 3×5 tiny, preset 3 = 5×7 ×2 scale, default = 5×7 ×1 scale.
+/// Rasterize a list of (text, colour) spans using the generic font at the
+/// given preset.
+/// preset 1 = compact 4×5 tiny, preset 3 = 5×7 ×2 scale, default = 5×7 ×1.
 pub fn rasterize_spans(
     spans: &[(&str, engine_core::color::Color)],
     preset: u16,
@@ -755,7 +796,7 @@ pub fn rasterize_spans(
 
 #[cfg(test)]
 mod tests {
-    use super::{generic_dimensions_mode, GenericMode};
+    use super::{generic_dimensions_mode, generic_glyph_rows_tiny, GenericMode};
 
     #[test]
     fn parses_generic_mode_from_font_name() {
@@ -785,7 +826,7 @@ mod tests {
 
     #[test]
     fn computes_dimensions_for_all_modes() {
-        assert_eq!(generic_dimensions_mode("AB", GenericMode::Tiny), (8, 5));
+        assert_eq!(generic_dimensions_mode("AB", GenericMode::Tiny), (10, 5));
         assert_eq!(
             generic_dimensions_mode("AB", GenericMode::Standard),
             (12, 7)
@@ -794,6 +835,35 @@ mod tests {
         assert_eq!(generic_dimensions_mode("AB", GenericMode::Half), (12, 4));
         assert_eq!(generic_dimensions_mode("AB", GenericMode::Quad), (6, 4));
         assert_eq!(generic_dimensions_mode("AB", GenericMode::Braille), (6, 2));
+    }
+
+    #[test]
+    fn tiny_glyphs_keep_a_and_r_distinct() {
+        assert_ne!(generic_glyph_rows_tiny('A'), generic_glyph_rows_tiny('R'));
+        assert_ne!(generic_glyph_rows_tiny('a'), generic_glyph_rows_tiny('r'));
+    }
+
+    #[test]
+    fn tiny_glyph_shapes_for_a_and_r_are_stable() {
+        assert_eq!(
+            generic_glyph_rows_tiny('A'),
+            Some([0b0110, 0b1001, 0b1111, 0b1001, 0b1001])
+        );
+        assert_eq!(
+            generic_glyph_rows_tiny('R'),
+            Some([0b1110, 0b1001, 0b1110, 0b1010, 0b1001])
+        );
+    }
+
+    #[test]
+    fn tiny_glyphs_include_common_tui_symbols() {
+        assert_ne!(generic_glyph_rows_tiny('─'), generic_glyph_rows_tiny('?'));
+        assert_ne!(generic_glyph_rows_tiny('│'), generic_glyph_rows_tiny('?'));
+        assert_ne!(generic_glyph_rows_tiny('■'), generic_glyph_rows_tiny('?'));
+        assert_eq!(
+            generic_glyph_rows_tiny('┼'),
+            Some([0b0010, 0b0010, 0b1111, 0b0010, 0b0010])
+        );
     }
 
     #[test]
@@ -813,6 +883,22 @@ mod tests {
         assert_eq!(apply_transform('h', &TextTransform::Uppercase), 'H');
         assert_eq!(apply_transform('z', &TextTransform::Uppercase), 'Z');
         assert_eq!(apply_transform('A', &TextTransform::Uppercase), 'A');
+    }
+
+    #[test]
+    fn lowercase_g_aligns_with_lowercase_o_top_height() {
+        use super::generic_glyph_rows;
+        let g = generic_glyph_rows('g').expect("g glyph");
+        let o = generic_glyph_rows('o').expect("o glyph");
+        let g_top = g
+            .iter()
+            .position(|&row| row != 0)
+            .expect("g has visible pixels");
+        let o_top = o
+            .iter()
+            .position(|&row| row != 0)
+            .expect("o has visible pixels");
+        assert_eq!(g_top, o_top);
     }
 
     #[test]

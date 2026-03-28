@@ -24,6 +24,6 @@ splatter-align-x: center
 splatter-align-y: center
 splatter-offset-x-cells: 0
 splatter-offset-y-cells: 0
-fade-ms: 0
+fade-ms: 450
 audio-pad-ms: 0
 audio-volume: 0.7

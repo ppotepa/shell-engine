@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODS_DIR="${ROOT_DIR}/mods"
+MENU_CONF="${ROOT_DIR}/.menu.conf"
 
 if [[ ! -d "${MODS_DIR}" ]]; then
   echo "[menu] missing mods directory: ${MODS_DIR}" >&2
@@ -35,6 +36,93 @@ declare -a MOD_NAMES_LIST=()
 SEARCH_QUERY=""
 declare -a FILTERED_IDX=()  # indices into ITEMS[] that match current query
 
+# Persistent launch flags (saved to .menu.conf)
+FLAG_SDL2=1
+FLAG_SKIP_SPLASH=0
+FLAG_AUDIO=0
+FLAG_CHECK_SCENES=0
+
+parse_bool() {
+  case "${1,,}" in
+    1|true|yes|on) echo 1 ;;
+    0|false|no|off) echo 0 ;;
+    *) echo "" ;;
+  esac
+}
+
+load_config() {
+  [[ -f "${MENU_CONF}" ]] || return 0
+
+  local line key value parsed
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "${line}" || "${line:0:1}" == "#" ]] && continue
+    [[ "${line}" == *=* ]] || continue
+
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+
+    parsed="$(parse_bool "${value}")"
+    [[ -z "${parsed}" ]] && continue
+
+    case "${key}" in
+      MENU_FLAG_SDL2) FLAG_SDL2="${parsed}" ;;
+      MENU_FLAG_SKIP_SPLASH) FLAG_SKIP_SPLASH="${parsed}" ;;
+      MENU_FLAG_AUDIO) FLAG_AUDIO="${parsed}" ;;
+      MENU_FLAG_CHECK_SCENES) FLAG_CHECK_SCENES="${parsed}" ;;
+    esac
+  done < "${MENU_CONF}"
+}
+
+save_config() {
+  cat > "${MENU_CONF}" <<EOF
+# Shell Quest menu launch flags
+MENU_FLAG_SDL2=${FLAG_SDL2}
+MENU_FLAG_SKIP_SPLASH=${FLAG_SKIP_SPLASH}
+MENU_FLAG_AUDIO=${FLAG_AUDIO}
+MENU_FLAG_CHECK_SCENES=${FLAG_CHECK_SCENES}
+EOF
+}
+
+toggle_flag_by_key() {
+  case "$1" in
+    1)
+      FLAG_SDL2=$((1 - FLAG_SDL2))
+      save_config
+      return 0
+      ;;
+    2)
+      FLAG_SKIP_SPLASH=$((1 - FLAG_SKIP_SPLASH))
+      save_config
+      return 0
+      ;;
+    3)
+      FLAG_AUDIO=$((1 - FLAG_AUDIO))
+      save_config
+      return 0
+      ;;
+    4)
+      FLAG_CHECK_SCENES=$((1 - FLAG_CHECK_SCENES))
+      save_config
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+checkbox() {
+  if (( "$1" )); then
+    echo "x"
+  else
+    echo " "
+  fi
+}
+
 build_tree() {
   ITEMS=()
   ITEM_TYPES=()
@@ -44,8 +132,22 @@ build_tree() {
 
   local mod_idx=0
   local dir manifest display_name
-
+  local -a mod_dirs=()
   while IFS= read -r dir; do
+    mod_dirs+=("${dir}")
+  done < <(find "${MODS_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
+
+  local preferred_main="${MODS_DIR}/shell-quest"
+  if [[ -d "${preferred_main}" ]]; then
+    local -a ordered=("${preferred_main}")
+    for dir in "${mod_dirs[@]}"; do
+      [[ "${dir}" == "${preferred_main}" ]] && continue
+      ordered+=("${dir}")
+    done
+    mod_dirs=("${ordered[@]}")
+  fi
+
+  for dir in "${mod_dirs[@]}"; do
     manifest="${dir}/mod.yaml"
     [[ -f "${manifest}" ]] || continue
 
@@ -124,7 +226,7 @@ build_tree() {
     fi
 
     (( mod_idx++ )) || true
-  done < <(find "${MODS_DIR}" -mindepth 1 -maxdepth 1 -type d | sort)
+  done
 }
 
 # ── apply search filter ─────────────────────────────────────────────
@@ -187,14 +289,20 @@ get_mod_index_for_row() {
 draw_menu() {
   local cur=$1  # cursor into FILTERED_IDX
   local total=${#FILTERED_IDX[@]}
+  local sdl2_box skip_box audio_box check_box
+  sdl2_box="$(checkbox "${FLAG_SDL2}")"
+  skip_box="$(checkbox "${FLAG_SKIP_SPLASH}")"
+  audio_box="$(checkbox "${FLAG_AUDIO}")"
+  check_box="$(checkbox "${FLAG_CHECK_SCENES}")"
 
   printf '\e[H\e[J'
 
   echo "${BOLD}${CYAN}  Shell Quest — Mod & Scene Launcher${RESET}"
+  echo "  ${DIM}Flags:${RESET} [${sdl2_box}] SDL2 ${DIM}(1)${RESET}  [${skip_box}] SkipSplash ${DIM}(2)${RESET}  [${audio_box}] Audio ${DIM}(3)${RESET}  [${check_box}] CheckScenes ${DIM}(4)${RESET}"
   if [[ -n "${SEARCH_QUERY}" ]]; then
-    echo "${DIM}  ↑↓ navigate  Enter launch  Esc clear search  Backspace delete${RESET}"
+    echo "${DIM}  ↑↓ navigate  Enter launch  Esc clear search  Backspace delete  1-4 toggle flags${RESET}"
   else
-    echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  / search  q quit${RESET}"
+    echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  / search  1-4 toggle flags  q quit${RESET}"
   fi
   echo ""
 
@@ -260,21 +368,63 @@ launch_scene() {
   local mod_dir="${ITEM_MOD[$real_idx]}"
   local scene_yml="${ITEM_PATHS[$real_idx]}"
   local rel_scene="${scene_yml#"${mod_dir}"/}"
+  local -a args=(
+    --mod-source "${mod_dir}"
+    --start-scene "/${rel_scene}"
+    --no-hold
+  )
+
+  if (( FLAG_SKIP_SPLASH )); then
+    args+=(--skip-splash)
+  fi
+  if (( FLAG_AUDIO )); then
+    args+=(--audio)
+  fi
+  if (( FLAG_SDL2 )); then
+    args+=(--sdl2)
+  fi
+  if (( FLAG_CHECK_SCENES )); then
+    args+=(--check-scenes)
+  fi
+  if (( ! FLAG_SDL2 )); then
+    args+=(--in-place)
+  fi
 
   printf '\e[?25h\e[?1049l'
   trap - EXIT
   echo "[menu] launching scene: ${rel_scene} from $(basename "${mod_dir}")"
-  "${ROOT_DIR}/launcher.sh" --mod-source "${mod_dir}" --start-scene "/${rel_scene}" --skip-splash --in-place --no-hold
+  "${ROOT_DIR}/launcher.sh" "${args[@]}"
   printf '\e[?25l\e[?1049h'
   trap 'printf "\e[?25h\e[?1049l"' EXIT
 }
 
 launch_mod() {
   local real_idx=$1
+  local -a args=(
+    --mod-source "${ITEM_PATHS[$real_idx]}"
+    --no-hold
+  )
+
+  if (( FLAG_SKIP_SPLASH )); then
+    args+=(--skip-splash)
+  fi
+  if (( FLAG_AUDIO )); then
+    args+=(--audio)
+  fi
+  if (( FLAG_SDL2 )); then
+    args+=(--sdl2)
+  fi
+  if (( FLAG_CHECK_SCENES )); then
+    args+=(--check-scenes)
+  fi
+  if (( ! FLAG_SDL2 )); then
+    args+=(--in-place)
+  fi
+
   printf '\e[?25h\e[?1049l'
   trap - EXIT
   echo "[menu] launching mod: ${ITEM_PATHS[$real_idx]}"
-  "${ROOT_DIR}/launcher.sh" --mod-source "${ITEM_PATHS[$real_idx]}" --in-place --no-hold
+  "${ROOT_DIR}/launcher.sh" "${args[@]}"
   printf '\e[?25l\e[?1049h'
   trap 'printf "\e[?25h\e[?1049l"' EXIT
 }
@@ -285,6 +435,8 @@ main() {
 
   printf '\e[?25l\e[?1049h'
   trap 'printf "\e[?25h\e[?1049l"' EXIT
+  load_config
+  [[ -f "${MENU_CONF}" ]] || save_config
 
   build_tree
 
@@ -315,6 +467,9 @@ main() {
 
     local key
     key="$(read_key)"
+    if toggle_flag_by_key "${key}"; then
+      continue
+    fi
 
     # ── search mode: typing characters ──────────────────────────────
     if [[ -n "${SEARCH_QUERY}" ]]; then

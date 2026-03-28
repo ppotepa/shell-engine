@@ -209,7 +209,7 @@ pub fn render_obj_to_canvas(
     let orbit_radius_2 = (params.light_point_2_x.powi(2) + params.light_point_2_z.powi(2))
         .sqrt()
         .max(0.0001);
-    
+
     let (light_1_x, light_1_z) = if params.light_point_snap_hz > f32::EPSILON {
         let angle = snap_angle(elapsed_s, params.light_point_snap_hz, 0x9e37_79b9);
         (orbit_radius_1 * angle.sin(), orbit_radius_1 * angle.cos())

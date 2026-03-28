@@ -228,7 +228,6 @@ impl FtpApp {
             uow.print("Not connected.".to_string());
             return;
         }
-        let cwd = self.remote_cwd.clone();
         uow.schedule(format!("227 Entering Passive Mode."), 200);
         uow.schedule(
             format!("150 Opening ASCII mode data connection for file list."),

@@ -14,6 +14,9 @@ stages:
   on_enter:
     steps:
       - { effects: [{ name: fade-in, duration: 800, params: { easing: ease-in } }] }
+      # Keep on_enter active through the entire card sequence in layers/main.yml:
+      # last card appears at 5000ms and fades out by ~7400ms.
+      - pause: 6700ms
   on_idle:
     trigger: any-key
     steps: []

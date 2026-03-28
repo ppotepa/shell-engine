@@ -31,7 +31,7 @@ impl AnimationDispatcher {
         if animations.is_empty() {
             return Transform::default();
         }
-        
+
         let mut total = Transform::default();
         for anim in animations {
             if let Some(impl_) = self.registry.get(anim.name.as_str()) {

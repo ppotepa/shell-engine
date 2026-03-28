@@ -37,8 +37,8 @@ fn main() {
         // Initialize host on Hello
         if let IoRequest::Hello {
             ref difficulty,
-            cols,
-            rows,
+            cols: _,
+            rows: _,
             ..
         } = req
         {

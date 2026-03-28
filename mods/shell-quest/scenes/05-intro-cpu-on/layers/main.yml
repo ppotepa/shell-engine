@@ -22,7 +22,7 @@
       at: lt
       x: 2
       y: 1
-      font: "generic:half"
+      font: "default"
       fg: gray
       appear_at_ms: 100
       disappear_at_ms: 1500
@@ -50,10 +50,10 @@
       at: lt
       x: 2
       y: 1
-      font: "generic:half"
+      font: "default"
       fg: "#A3A3A3"
       appear_at_ms: 2000
-      disappear_at_ms: 5800
+      disappear_at_ms: 7600
 
     - type: text
       id: bios-footer
@@ -61,7 +61,7 @@
       at: cb
       x: 0
       y: -1
-      font: "generic:half"
+      font: "default"
       fg: gray
       appear_at_ms: 2000
       disappear_at_ms: 5800

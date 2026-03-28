@@ -117,10 +117,26 @@ $defs:
     enum: []
   font_names:
     type: string
-    enum: []
+    enum:
+    - Abril Fatface
+    - DejaVuSans-BoldOblique
+    - DejaVuSans-BoldOblique-Small
   font_specs:
     type: string
     enum:
+    - Abril Fatface
+    - Abril Fatface:ascii
+    - Abril Fatface:raster
+    - Abril Fatface:terminal-pixels
+    - DejaVuSans-BoldOblique
+    - DejaVuSans-BoldOblique-Small
+    - DejaVuSans-BoldOblique-Small:ascii
+    - DejaVuSans-BoldOblique-Small:raster
+    - DejaVuSans-BoldOblique-Small:terminal-pixels
+    - DejaVuSans-BoldOblique:ascii
+    - DejaVuSans-BoldOblique:raster
+    - DejaVuSans-BoldOblique:terminal-pixels
+    - default
     - generic
     - generic:1
     - generic:2

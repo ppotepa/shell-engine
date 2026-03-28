@@ -34,6 +34,7 @@ pub fn composite_layers(
     scene_elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
     is_pixel_backend: bool,
+    default_font: Option<&str>,
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
@@ -41,8 +42,8 @@ pub fn composite_layers(
         if layer.ui && !ui_enabled {
             continue;
         }
-        let layer_object_id = target_resolver
-            .and_then(|resolver| resolver.layer_object_id(layer_idx));
+        let layer_object_id =
+            target_resolver.and_then(|resolver| resolver.layer_object_id(layer_idx));
         let layer_state = layer_object_id
             .and_then(|object_id| object_states.get(object_id))
             .cloned()
@@ -126,6 +127,7 @@ pub fn composite_layers(
                     elapsed_ms,
                     obj_camera_states,
                     is_pixel_backend,
+                    default_font,
                     &mut *layer_buf,
                 );
 
@@ -164,6 +166,7 @@ pub fn composite_layers(
                 elapsed_ms,
                 obj_camera_states,
                 is_pixel_backend,
+                default_font,
                 buffer,
             );
         }

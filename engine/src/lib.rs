@@ -97,6 +97,7 @@ pub struct EngineConfig {
     /// Skip the engine splash screen on startup.
     pub skip_splash: bool,
     /// Enable compositor optimizations (#4 layer-scratch, #5 dirty-halfblock).
+    /// Enabled by default in the launcher.
     pub opt_comp: bool,
     /// Enable present optimizations (#13 hash-based frame skip).
     pub opt_present: bool,
@@ -104,7 +105,8 @@ pub struct EngineConfig {
     pub opt_diff: bool,
     /// Enable unified frame-skip coordination (PostFX cache + Presenter sync).
     pub opt_skip: bool,
-    /// Enable row-level dirty skip in diff scan (experimental — off by default).
+    /// Enable row-level dirty skip in diff scan.
+    /// Enabled by default in the launcher.
     pub opt_rowdiff: bool,
     /// Enable async display sink: offload terminal I/O to background thread.
     /// Decouples main thread from write/flush latency (1-5ms/frame).
@@ -150,11 +152,11 @@ impl Default for EngineConfig {
             audio: false,
             start_scene: None,
             skip_splash: false,
-            opt_comp: false,
+            opt_comp: true,
             opt_present: false,
             opt_diff: false,
             opt_skip: false,
-            opt_rowdiff: false,
+            opt_rowdiff: true,
             opt_async_display: false,
             bench_secs: None,
             capture_frames_dir: None,
@@ -192,10 +194,10 @@ impl ShellEngine {
         use engine_animation::Animator;
         use engine_asset::SceneRepository;
         use engine_events::InputBackend;
-        use engine_mod::StartupOutputSetting;
         use engine_mod::startup::{
             StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile,
         };
+        use engine_mod::StartupOutputSetting;
         use events::EventQueue;
         use runtime_settings::{RenderSize, RuntimeSettings};
         use scene_loader::SceneLoader;
@@ -319,14 +321,12 @@ impl ShellEngine {
                 layout.render_width,
                 layout.render_height,
                 runtime_settings.presentation_policy,
-                scene
-                    .virtual_size_override
-                    .as_deref()
-                    .unwrap_or("none"),
+                scene.virtual_size_override.as_deref().unwrap_or("none"),
             ),
         );
 
         let mut world = world::World::new();
+        let presentation_policy = runtime_settings.presentation_policy;
         world.register(EventQueue::new());
         world.register(buffer::Buffer::new(
             layout.render_width,
@@ -385,26 +385,30 @@ impl ShellEngine {
             ));
         }
 
+        let splash_bg = scene
+            .bg_colour
+            .as_ref()
+            .map(|tc| {
+                let engine_color = engine_core::color::Color::from(tc);
+                engine_render_terminal::color_convert::to_crossterm(engine_color)
+            })
+            .unwrap_or(crossterm::style::Color::Black);
+        let splash_config = splash::config_from_manifest(&self.mod_source, &self.mod_manifest);
+        let splash_enabled = !self.config.skip_splash && splash_config.enabled;
+        let splash_scene_path = splash_config.scene_path.as_deref();
+
         let mut input_backend: Box<dyn InputBackend> = match self.config.output_backend {
             BackendKind::Terminal => {
                 let mut renderer = TerminalRenderer::new_with_async(
                     self.config.opt_async_display,
                     Box::new(strategy::AnsiBatchFlusher),
-                    runtime_settings.presentation_policy,
+                    presentation_policy,
                 )?;
                 renderer.clear().map_err(|error| {
                     EngineError::Render(std::io::Error::other(error.to_string()))
                 })?;
-                let splash_bg = scene
-                    .bg_colour
-                    .as_ref()
-                    .map(|tc| {
-                        let engine_color = engine_core::color::Color::from(tc);
-                        engine_render_terminal::color_convert::to_crossterm(engine_color)
-                    })
-                    .unwrap_or(crossterm::style::Color::Black);
-                if !self.config.skip_splash {
-                    splash::show_splash(splash_bg);
+                if splash_enabled {
+                    splash::show_splash(splash_bg, splash_scene_path);
                 }
                 world.register(Box::new(renderer) as Box<dyn OutputBackend>);
                 Box::new(engine_render_terminal::input::TerminalInputBackend::new(
@@ -418,7 +422,7 @@ impl ShellEngine {
                         engine_render_sdl2::renderer::Sdl2Backend::new_pair(
                             layout.render_width,
                             layout.render_height,
-                            runtime_settings.presentation_policy,
+                            presentation_policy,
                             self.config.sdl_window_ratio,
                             self.config.sdl_pixel_scale,
                             self.config.sdl_vsync,
@@ -427,6 +431,20 @@ impl ShellEngine {
                     renderer.clear().map_err(|error| {
                         EngineError::Render(std::io::Error::other(error.to_string()))
                     })?;
+                    if splash_enabled {
+                        renderer.set_splash_mode(true).map_err(|error| {
+                            EngineError::Render(std::io::Error::other(error.to_string()))
+                        })?;
+                        splash::show_splash_on_output(
+                            &mut renderer,
+                            splash_bg,
+                            (output_w, output_h),
+                            splash_scene_path,
+                        );
+                        renderer.set_splash_mode(false).map_err(|error| {
+                            EngineError::Render(std::io::Error::other(error.to_string()))
+                        })?;
+                    }
                     world.register(Box::new(renderer) as Box<dyn OutputBackend>);
                     Box::new(input)
                 }

@@ -299,20 +299,16 @@ fn handle_playground_escape_to_menu(world: &mut World, key_presses: &[KeyEvent])
 }
 
 fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
-    let debug_enabled = world
-        .get::<DebugFeatures>()
-        .map(|debug| debug.enabled)
-        .unwrap_or(false);
-    if !debug_enabled {
-        return false;
-    }
-
     let mut handled = false;
     for key in key_presses {
         match key.code {
             // ~ / ` toggles the debug console on/off.
             KeyCode::Char('~') | KeyCode::Char('`') => {
                 if let Some(debug) = world.get_mut::<DebugFeatures>() {
+                    // Make the overlay accessible without requiring --dev.
+                    if !debug.enabled {
+                        debug.enabled = true;
+                    }
                     debug.overlay_visible = !debug.overlay_visible;
                     logging::debug(
                         "engine.debug.input",
@@ -331,7 +327,7 @@ fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
             // Tab switches between Stats and Logs panels while console is open.
             KeyCode::Tab => {
                 if let Some(debug) = world.get_mut::<DebugFeatures>() {
-                    if debug.overlay_visible {
+                    if debug.enabled && debug.overlay_visible {
                         debug.overlay_mode = match debug.overlay_mode {
                             DebugOverlayMode::Stats => DebugOverlayMode::Logs,
                             DebugOverlayMode::Logs => DebugOverlayMode::Stats,
@@ -345,6 +341,13 @@ fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
                 }
             }
             KeyCode::F(3) | KeyCode::F(4) => {
+                let debug_enabled = world
+                    .get::<DebugFeatures>()
+                    .map(|debug| debug.enabled)
+                    .unwrap_or(false);
+                if !debug_enabled {
+                    continue;
+                }
                 if !is_scene_idle(world) {
                     continue;
                 }
@@ -1119,8 +1122,10 @@ layers:
         world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", None)));
         world.register_scoped(make_idle_animator());
 
-        let _ =
-            SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Char('`'))]);
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed(KeyCode::Char('`'))],
+        );
 
         let debug = world
             .get::<DebugFeatures>()
@@ -1129,6 +1134,29 @@ layers:
         assert!(!debug.overlay_visible);
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.stage, SceneStage::OnIdle);
+    }
+
+    #[test]
+    fn debug_tilde_enables_debug_features_when_disabled() {
+        let mut world = World::new();
+        world.register(DebugFeatures {
+            enabled: false,
+            overlay_visible: false,
+            overlay_mode: Default::default(),
+        });
+        world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", None)));
+        world.register_scoped(make_idle_animator());
+
+        let _ = SceneLifecycleManager::process_events(
+            &mut world,
+            vec![key_pressed(KeyCode::Char('`'))],
+        );
+
+        let debug = world
+            .get::<DebugFeatures>()
+            .expect("debug settings present");
+        assert!(debug.enabled);
+        assert!(debug.overlay_visible);
     }
 
     #[test]
@@ -1142,8 +1170,7 @@ layers:
         world.register_scoped(SceneRuntime::new(make_cutscene("scene-a", None)));
         world.register_scoped(make_idle_animator());
 
-        let _ =
-            SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Tab)]);
+        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Tab)]);
 
         let debug = world
             .get::<DebugFeatures>()

@@ -3,6 +3,10 @@
 use engine_core::scene::SceneRenderedMode;
 use engine_core::scene::SpriteSizePreset;
 
+/// Built-in engine fallback used when `font: "default"` is authored but the
+/// mod does not provide `terminal.default_font`.
+pub const ENGINE_DEFAULT_FONT_SPEC: &str = "generic:2";
+
 /// Returns the effective render mode, applying `force_renderer_mode` over `scene_mode` when set.
 #[inline(always)]
 pub fn resolve_renderer_mode(
@@ -21,8 +25,17 @@ pub fn resolve_font_spec(
     scene_mode: SceneRenderedMode,
     force_renderer_mode: Option<SceneRenderedMode>,
     is_pixel_backend: bool,
+    default_font: Option<&str>,
 ) -> Option<String> {
-    let base = font?.trim();
+    let authored = font?.trim();
+    let base = if authored.eq_ignore_ascii_case("default") {
+        default_font
+            .map(str::trim)
+            .filter(|font_name| !font_name.is_empty())
+            .unwrap_or(ENGINE_DEFAULT_FONT_SPEC)
+    } else {
+        authored
+    };
     if base.is_empty() {
         return None;
     }
@@ -68,6 +81,7 @@ pub fn resolve_text_font_spec(
     scene_mode: SceneRenderedMode,
     force_renderer_mode: Option<SceneRenderedMode>,
     is_pixel_backend: bool,
+    default_font: Option<&str>,
 ) -> Option<String> {
     let sized_font = match (font.map(str::trim).filter(|f| !f.is_empty()), size) {
         (Some(base), Some(size)) if base.starts_with("generic") => {
@@ -84,6 +98,7 @@ pub fn resolve_text_font_spec(
         scene_mode,
         force_renderer_mode,
         is_pixel_backend,
+        default_font,
     )
 }
 
@@ -133,7 +148,9 @@ fn normalize_named_font_mode(mode: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_font_spec, resolve_renderer_mode, resolve_text_font_spec};
+    use super::{
+        resolve_font_spec, resolve_renderer_mode, resolve_text_font_spec, ENGINE_DEFAULT_FONT_SPEC,
+    };
     use engine_core::scene::{SceneRenderedMode, SpriteSizePreset};
 
     #[test]
@@ -151,6 +168,7 @@ mod tests {
             SceneRenderedMode::Cell,
             Some(SceneRenderedMode::QuadBlock),
             false,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:quad");
@@ -164,6 +182,7 @@ mod tests {
             SceneRenderedMode::Cell,
             Some(SceneRenderedMode::HalfBlock),
             false,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:braille");
@@ -177,6 +196,7 @@ mod tests {
             SceneRenderedMode::Cell,
             None,
             false,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:ascii");
@@ -191,6 +211,7 @@ mod tests {
             SceneRenderedMode::Cell,
             None,
             false,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:3");
@@ -205,6 +226,7 @@ mod tests {
             SceneRenderedMode::Cell,
             None,
             false,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "generic:2");
@@ -219,6 +241,7 @@ mod tests {
             SceneRenderedMode::Cell,
             None,
             false,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface");
@@ -232,6 +255,7 @@ mod tests {
             SceneRenderedMode::Cell,
             None,
             true,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:raster");
@@ -245,8 +269,37 @@ mod tests {
             SceneRenderedMode::Cell,
             None,
             true,
+            None,
         )
         .expect("font should resolve");
         assert_eq!(resolved, "Abril Fatface:ascii");
+    }
+
+    #[test]
+    fn default_font_alias_uses_mod_default_when_available() {
+        let resolved = resolve_font_spec(
+            Some("default"),
+            None,
+            SceneRenderedMode::Cell,
+            None,
+            false,
+            Some("Abril Fatface"),
+        )
+        .expect("font should resolve");
+        assert_eq!(resolved, "Abril Fatface");
+    }
+
+    #[test]
+    fn default_font_alias_uses_engine_fallback_when_mod_default_missing() {
+        let resolved = resolve_font_spec(
+            Some("default"),
+            None,
+            SceneRenderedMode::Cell,
+            None,
+            false,
+            None,
+        )
+        .expect("font should resolve");
+        assert_eq!(resolved, ENGINE_DEFAULT_FONT_SPEC);
     }
 }

@@ -2,7 +2,7 @@
 
 Pipeline: `simulate -> composite -> postfx -> present -> flush_to_terminal`
 
-Optimizations are either always-on (safe) or gated behind CLI flags (experimental).
+Optimizations are either always-on (safe) or configurable via CLI flags.
 22 of 24 optimizations complete. 2 deferred.
 
 ---
@@ -11,11 +11,11 @@ Optimizations are either always-on (safe) or gated behind CLI flags (experimenta
 
 | Flag           | Scope       | What it gates                                | Default |
 |----------------|-------------|----------------------------------------------|---------|
-| `--opt-comp`   | Compositor  | Layer scratch skip, dirty-halfblock narrowing | OFF     |
+| `--opt-comp`   | Compositor  | Layer scratch skip, dirty-halfblock narrowing | ON      |
 | `--opt-present`| Present     | Hash-based static frame skip                 | OFF     |
 | `--opt-diff`   | Buffer diff | DirtyRegionDiff (experimental)               | OFF     |
 | `--opt-skip`   | Frame skip  | Unified FrameSkipOracle                      | OFF     |
-| `--opt-rowdiff`| Buffer diff | Row-level dirty skip                         | OFF     |
+| `--opt-rowdiff`| Buffer diff | Row-level dirty skip                         | ON      |
 | `--opt-async`  | I/O         | Async display sink                           | OFF     |
 | `--opt`        | All         | Enables all above                            | OFF     |
 
@@ -92,8 +92,8 @@ Selected at startup via `PipelineStrategies::from_flags()`.
 # All optimizations
 cargo run -p app -- --opt
 
-# Specific flags
-cargo run -p app -- --opt-comp --opt-rowdiff
+# Disable defaults for A/B comparison
+cargo run -p app -- --no-opt-comp --no-opt-rowdiff
 
 # Benchmark with optimizations
 cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt

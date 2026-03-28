@@ -1,5 +1,12 @@
 use clap::Parser;
 use engine::{logging, BackendKind, EngineConfig, ShellEngine};
+use engine_mod::startup::checks::{
+    EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck,
+    RhaiScriptsCheck, SceneGraphCheck,
+};
+use engine_mod::startup::{
+    StartupContext, StartupIssueLevel, StartupReport, StartupRunner, StartupSceneFile,
+};
 use engine_mod::{load_mod_manifest, StartupOutputSetting};
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -63,8 +70,12 @@ struct Cli {
     #[arg(long = "skip-splash")]
     skip_splash: bool,
     /// Enable compositor optimizations (layer-scratch skip, dirty-halfblock narrowing).
+    /// Enabled by default; use --no-opt-comp to disable.
     #[arg(long = "opt-comp")]
     opt_comp: bool,
+    /// Disable compositor optimizations enabled by default.
+    #[arg(long = "no-opt-comp")]
+    no_opt_comp: bool,
     /// Enable present optimizations (hash-based frame skip for static scenes).
     #[arg(long = "opt-present")]
     opt_present: bool,
@@ -75,15 +86,20 @@ struct Cli {
     /// Prevents desynchronization-related flickering from independent skip mechanisms.
     #[arg(long = "opt-skip")]
     opt_skip: bool,
-    /// Enable row-level dirty skip in diff scan (experimental).
-    /// Skips entire rows marked not dirty, ~10-20% faster on static regions.
+    /// Enable row-level dirty skip in diff scan.
+    /// Enabled by default; use --no-opt-rowdiff to disable.
     #[arg(long = "opt-rowdiff")]
     opt_rowdiff: bool,
+    /// Disable row-level dirty skip enabled by default.
+    #[arg(long = "no-opt-rowdiff")]
+    no_opt_rowdiff: bool,
     /// Enable async display sink: offload terminal I/O to background thread.
     /// Decouples main thread from terminal write/flush latency (1-5ms/frame).
     #[arg(long = "opt-async")]
     opt_async_display: bool,
-    /// Enable ALL optimizations at once (equivalent to --opt-comp --opt-present --opt-diff --opt-skip --opt-rowdiff --opt-async).
+    /// Enable ALL optional optimizations at once.
+    /// Equivalent to --opt-present --opt-diff --opt-skip --opt-async,
+    /// and also re-enables --opt-comp/--opt-rowdiff if they were disabled.
     #[arg(long = "opt")]
     opt_all: bool,
     /// Run benchmark: play demo for N seconds, display score, save report to reports/benchmark/.
@@ -95,12 +111,17 @@ struct Cli {
     /// Override target FPS (e.g. 240 for uncapped benchmarks). Default: from mod manifest (60).
     #[arg(long = "target-fps", value_name = "FPS")]
     target_fps: Option<u16>,
+    /// Run startup scene checks for the selected mod and exit (no game loop).
+    #[arg(long = "check-scenes")]
+    check_scenes: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
     let debug_feature = resolve_dev_mode(&cli);
     let logs_enabled = resolve_logs_enabled(&cli);
+    let opt_comp = resolve_opt_comp(&cli);
+    let opt_rowdiff = resolve_opt_rowdiff(&cli);
 
     match logging::init_run_logger(logging::RunLoggerConfig {
         app_name: String::from("app"),
@@ -149,6 +170,24 @@ fn main() {
             eprintln!("Failed to resolve startup output: {error}");
             std::process::exit(1);
         });
+    if cli.check_scenes {
+        let entrypoint = cli
+            .start_scene
+            .as_deref()
+            .or_else(|| manifest.get("entrypoint").and_then(|value| value.as_str()))
+            .unwrap_or("");
+        let check_output = output_for_scene_checks(requested_output);
+        let report = run_scene_checks(Path::new(&mod_source), &manifest, entrypoint, check_output)
+            .unwrap_or_else(|error| {
+                logging::error("app.main", format!("scene checks failed: {error}"));
+                eprintln!("Scene check error: {error}");
+                std::process::exit(1);
+            });
+        print_scene_check_report(&report);
+        logging::info("app.main", "scene checks finished");
+        return;
+    }
+
     let output_backend = resolve_backend_kind(requested_output).unwrap_or_else(|error| {
         logging::error("app.main", error.as_str());
         eprintln!("Failed to select output backend: {error}");
@@ -160,7 +199,6 @@ fn main() {
         eprintln!("Invalid --sdl-window-ratio: {error}");
         std::process::exit(2);
     });
-
     let config = EngineConfig {
         output_backend,
         renderer_mode: cli.renderer_mode,
@@ -168,11 +206,11 @@ fn main() {
         audio: cli.audio,
         start_scene: cli.start_scene,
         skip_splash: cli.skip_splash || cli.bench.is_some(),
-        opt_comp: cli.opt_comp || cli.opt_all,
+        opt_comp,
         opt_present: cli.opt_present || cli.opt_all,
         opt_diff: cli.opt_diff || cli.opt_all,
         opt_skip: cli.opt_skip || cli.opt_all,
-        opt_rowdiff: cli.opt_rowdiff || cli.opt_all,
+        opt_rowdiff,
         opt_async_display: cli.opt_async_display || cli.opt_all,
         bench_secs: cli.bench,
         capture_frames_dir: cli.capture_frames.clone().map(std::path::PathBuf::from),
@@ -259,6 +297,14 @@ fn resolve_logs_enabled(cli: &Cli) -> bool {
     logging::resolve_enabled(cli.logs, cli.no_logs)
 }
 
+fn resolve_opt_comp(cli: &Cli) -> bool {
+    !cli.no_opt_comp
+}
+
+fn resolve_opt_rowdiff(cli: &Cli) -> bool {
+    !cli.no_opt_rowdiff
+}
+
 fn env_flag_enabled(key: &str) -> bool {
     std::env::var(key)
         .ok()
@@ -290,6 +336,90 @@ fn resolve_backend_kind(setting: StartupOutputSetting) -> Result<BackendKind, St
         StartupOutputSetting::Sdl2 => Ok(BackendKind::Sdl2),
         StartupOutputSetting::Prompt => prompt_for_backend(),
     }
+}
+
+fn output_for_scene_checks(setting: StartupOutputSetting) -> StartupOutputSetting {
+    match setting {
+        StartupOutputSetting::Prompt => StartupOutputSetting::Terminal,
+        other => other,
+    }
+}
+
+fn run_scene_checks(
+    mod_source: &Path,
+    manifest: &serde_yaml::Value,
+    entrypoint: &str,
+    selected_output: StartupOutputSetting,
+) -> Result<StartupReport, engine::EngineError> {
+    use engine::asset::{create_scene_repository, SceneRepository};
+
+    let scene_loader_fn =
+        |mod_root: &std::path::Path| -> Result<Vec<StartupSceneFile>, engine::EngineError> {
+            let repo = create_scene_repository(mod_root)?;
+            let paths = repo.discover_scene_paths()?;
+            let mut scenes = Vec::with_capacity(paths.len());
+            for path in paths {
+                let scene = repo.load_scene(&path)?;
+                scenes.push(StartupSceneFile { path, scene });
+            }
+            Ok(scenes)
+        };
+    let font_checker = |mod_src: Option<&std::path::Path>, font: &str| -> bool {
+        engine::rasterizer::has_font_assets(mod_src, font)
+    };
+    let glyph_checker =
+        |mod_src: Option<&std::path::Path>, font: &str, text: &str| -> Option<Vec<char>> {
+            engine::rasterizer::missing_glyphs(mod_src, font, text)
+        };
+    let image_checker = |mod_src: &std::path::Path, source: &str| -> bool {
+        engine::image_loader::has_image_asset(mod_src, source)
+    };
+    let rhai_validator =
+        |script: &str, src: Option<&str>, scene: &engine::scene::Scene| -> Result<(), String> {
+            engine::behavior::smoke_validate_rhai_script(script, src, scene)
+        };
+    let startup_ctx = StartupContext::new(mod_source, manifest, entrypoint, &scene_loader_fn)
+        .with_selected_output(selected_output)
+        .with_font_asset_checker(&font_checker)
+        .with_glyph_coverage_checker(&glyph_checker)
+        .with_image_asset_checker(&image_checker)
+        .with_rhai_script_validator(&rhai_validator);
+
+    // Scene diagnostics mode intentionally skips terminal-capability checks and
+    // focuses on authored content consistency for all discovered scenes.
+    StartupRunner::with_checks(vec![
+        Box::new(SceneGraphCheck),
+        Box::new(RhaiScriptsCheck),
+        Box::new(EffectRegistryCheck),
+        Box::new(ImageAssetsCheck),
+        Box::new(FontManifestCheck),
+        Box::new(FontGlyphCoverageCheck),
+    ])
+    .run(&startup_ctx)
+}
+
+fn print_scene_check_report(report: &StartupReport) {
+    let mut warnings = 0usize;
+    let mut infos = 0usize;
+
+    for issue in report.issues() {
+        match issue.level {
+            StartupIssueLevel::Warning => {
+                warnings += 1;
+                println!("⚠️  [{}] {}", issue.check, issue.message);
+            }
+            StartupIssueLevel::Info => {
+                infos += 1;
+                println!("ℹ️  [{}] {}", issue.check, issue.message);
+            }
+        }
+    }
+
+    println!();
+    println!(
+        "Scene checks completed: {} warning(s), {} info item(s).",
+        warnings, infos
+    );
 }
 
 fn prompt_for_backend() -> Result<BackendKind, String> {
@@ -335,7 +465,8 @@ fn prompt_for_backend_with_io<R: BufRead, W: Write>(
 #[cfg(test)]
 mod tests {
     use super::{
-        Cli, parse_ratio_arg, prompt_for_backend_with_io, resolve_dev_mode, resolve_startup_output,
+        parse_ratio_arg, prompt_for_backend_with_io, resolve_dev_mode, resolve_opt_comp,
+        resolve_opt_rowdiff, resolve_startup_output, Cli,
     };
     use clap::Parser;
     use engine::BackendKind;
@@ -408,5 +539,47 @@ mod tests {
     fn parses_ratio_arg() {
         assert_eq!(parse_ratio_arg("16:9").expect("ratio"), Some((16, 9)));
         assert_eq!(parse_ratio_arg("free").expect("ratio"), None);
+    }
+
+    #[test]
+    fn opt_comp_is_enabled_by_default() {
+        let cli = Cli::parse_from(["shell-quest"]);
+        assert!(resolve_opt_comp(&cli));
+    }
+
+    #[test]
+    fn no_opt_comp_disables_default() {
+        let cli = Cli::parse_from(["shell-quest", "--no-opt-comp"]);
+        assert!(!resolve_opt_comp(&cli));
+    }
+
+    #[test]
+    fn no_opt_comp_overrides_opt() {
+        let cli = Cli::parse_from(["shell-quest", "--opt", "--no-opt-comp"]);
+        assert!(!resolve_opt_comp(&cli));
+    }
+
+    #[test]
+    fn opt_rowdiff_is_enabled_by_default() {
+        let cli = Cli::parse_from(["shell-quest"]);
+        assert!(resolve_opt_rowdiff(&cli));
+    }
+
+    #[test]
+    fn no_opt_rowdiff_disables_default() {
+        let cli = Cli::parse_from(["shell-quest", "--no-opt-rowdiff"]);
+        assert!(!resolve_opt_rowdiff(&cli));
+    }
+
+    #[test]
+    fn no_opt_rowdiff_overrides_opt() {
+        let cli = Cli::parse_from(["shell-quest", "--opt", "--no-opt-rowdiff"]);
+        assert!(!resolve_opt_rowdiff(&cli));
+    }
+
+    #[test]
+    fn parses_check_scenes_flag() {
+        let cli = Cli::parse_from(["shell-quest", "--check-scenes"]);
+        assert!(cli.check_scenes);
     }
 }

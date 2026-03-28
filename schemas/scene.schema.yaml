@@ -727,8 +727,12 @@ $defs:
         description: >
           Font for rasterized rendering. Three forms are supported:
 
+          Mod/engine default alias:
+            "default"    — resolve to `terminal.default_font` from mod.yaml.
+                           If unset, engine fallback font is used.
+
           Built-in generic pixel font (no asset files required):
-            "generic:1"  — 3×5 tiny bitmaps (minimum readable, 3 cells wide × 5 tall per glyph).
+            "generic:1"  — compact 4×5 tiny bitmaps (minimum readable, 4 cells wide × 5 tall per glyph).
             "generic:2"  — 5×7 standard bitmaps (5 cells wide × 7 tall per glyph). Default.
             "generic:3"  — 5×7 bitmaps × 2 cell scale (10×14 cells — large pixel art).
             "generic:half"    — 5×7 compressed with upper/lower half blocks (6×4 cells per glyph).

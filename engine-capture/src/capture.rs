@@ -99,44 +99,6 @@ fn color_to_rgb(color: engine_core::color::Color) -> (u8, u8, u8) {
     }
 }
 
-fn ansi_to_rgb(val: u8) -> (u8, u8, u8) {
-    // Basic ANSI 256 color palette mapping
-    if val < 16 {
-        // Standard colors
-        match val {
-            0 => (0, 0, 0),
-            1 => (128, 0, 0),
-            2 => (0, 128, 0),
-            3 => (128, 128, 0),
-            4 => (0, 0, 128),
-            5 => (128, 0, 128),
-            6 => (0, 128, 128),
-            7 => (192, 192, 192),
-            8 => (128, 128, 128),
-            9 => (255, 0, 0),
-            10 => (0, 255, 0),
-            11 => (255, 255, 0),
-            12 => (0, 0, 255),
-            13 => (255, 0, 255),
-            14 => (0, 255, 255),
-            15 => (255, 255, 255),
-            _ => (0, 0, 0),
-        }
-    } else if val < 232 {
-        // 6×6×6 RGB cube (216 colors)
-        let idx = (val - 16) as usize;
-        let r_idx = idx / 36;
-        let g_idx = (idx % 36) / 6;
-        let b_idx = idx % 6;
-        let to_rgb = |i| if i == 0 { 0 } else { 95 + i as u8 * 40 };
-        (to_rgb(r_idx), to_rgb(g_idx), to_rgb(b_idx))
-    } else {
-        // Grayscale (24 levels)
-        let gray = 8 + ((val - 232) as u8) * 10;
-        (gray, gray, gray)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

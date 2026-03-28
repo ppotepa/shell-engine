@@ -137,6 +137,7 @@ dependencies = [
  "clap",
  "engine",
  "engine-mod",
+ "serde_yaml",
 ]
 
 [[package]]

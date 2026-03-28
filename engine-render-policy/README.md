@@ -19,6 +19,7 @@ overrides, and sprite sizing rules.
 - forced renderer-mode overrides,
 - generic font-mode derivation from render mode,
 - text font derivation from sprite size presets,
+- `font: default` alias resolution via mod-level `terminal.default_font`,
 - normalization of named and generic font-mode aliases.
 
 ## Working with this crate

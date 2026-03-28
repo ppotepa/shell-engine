@@ -66,6 +66,9 @@ paths work for both unpacked directories and zip-packaged mods.
 | OBJ meshes   | assets/3d/ or scenes/ | obj_loader.rs     | Wavefront OBJ + MTL           |
 | YAML prefabs | objects/, layers/  | engine-authoring     | Reusable authored resources    |
 
+`mod.yaml` can define `terminal.default_font`. Then any text sprite using
+`font: "default"` resolves to that spec; if unset, engine fallback generic is used.
+
 ---
 
 ## Sprite Types

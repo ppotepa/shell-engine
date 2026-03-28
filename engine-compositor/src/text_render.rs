@@ -70,6 +70,8 @@ pub fn render_text_content(
         Some(font_name) if font_name.starts_with("generic") => {
             let mode = generic::GenericMode::from_font_name(font_name);
             let line_h = generic_mode_line_height(mode);
+            let line_gap = generic_mode_line_gap(mode);
+            let line_step = line_h.saturating_add(line_gap);
             for (line_idx, line) in content.split('\n').enumerate() {
                 let spans = parse_spans(line);
                 let mut colored_spans: Vec<(&str, Color)> = Vec::with_capacity(spans.len());
@@ -80,7 +82,7 @@ pub fn render_text_content(
                     line_width =
                         line_width.saturating_add(generic::generic_dimensions_mode(text, mode).0);
                 }
-                let line_y = y.saturating_add((line_idx as u16).saturating_mul(line_h));
+                let line_y = y.saturating_add((line_idx as u16).saturating_mul(line_step));
                 TEXT_LINE_BUF.with(|cell| {
                     let line_buf = &mut *cell.borrow_mut();
                     line_buf.resize(line_width.max(1), line_h.max(1));
@@ -102,6 +104,7 @@ pub fn render_text_content(
     }
 }
 
+#[cfg(test)]
 fn blit_with_clip(src: &Buffer, dst: &mut Buffer, dx: u16, dy: u16, clip: Option<ClipRect>) {
     blit_scaled(src, dst, dx, dy, clip, 1.0, 1.0);
 }
@@ -180,7 +183,12 @@ pub fn text_sprite_dimensions(
                 line_count = line_count.saturating_add(1);
                 width = width.max(generic::generic_dimensions_mode(line, mode).0);
             }
-            let height = generic_mode_line_height(mode).saturating_mul(line_count.max(1));
+            let line_count = line_count.max(1);
+            let line_h = generic_mode_line_height(mode);
+            let line_gap = generic_mode_line_gap(mode);
+            let height = line_h
+                .saturating_mul(line_count)
+                .saturating_add(line_gap.saturating_mul(line_count.saturating_sub(1)));
             (width.max(1), height.max(1))
         }
         Some(font_name) => {
@@ -189,8 +197,11 @@ pub fn text_sprite_dimensions(
             let mut line_count = 0u16;
             for line in visible.split('\n') {
                 line_count = line_count.saturating_add(1);
-                width =
-                    width.max(rasterizer::rasterize_cached(mod_source, line, font_name, fg, bg).width.max(1));
+                width = width.max(
+                    rasterizer::rasterize_cached(mod_source, line, font_name, fg, bg)
+                        .width
+                        .max(1),
+                );
             }
             let height = line_h.saturating_mul(line_count.max(1)).max(1);
             (width, height)
@@ -214,6 +225,16 @@ fn generic_mode_line_height(mode: generic::GenericMode) -> u16 {
 }
 
 #[inline]
+fn generic_mode_line_gap(mode: generic::GenericMode) -> u16 {
+    match mode {
+        generic::GenericMode::Tiny
+        | generic::GenericMode::Standard
+        | generic::GenericMode::Large => 1,
+        generic::GenericMode::Half | generic::GenericMode::Quad | generic::GenericMode::Braille => 0,
+    }
+}
+
+#[inline]
 fn raster_line_height(mod_source: Option<&Path>, font_name: &str, fg: Color, bg: Color) -> u16 {
     rasterizer::rasterize_cached(mod_source, "A", font_name, fg, bg)
         .height
@@ -232,9 +253,10 @@ pub fn dim_colour(c: Color) -> Color {
 
 #[cfg(test)]
 mod tests {
-    use super::blit_with_clip;
+    use super::{blit_with_clip, render_text_content, text_sprite_dimensions};
     use engine_core::buffer::Buffer;
     use engine_core::color::Color;
+    use engine_core::scene::sprite::TextTransform;
 
     #[test]
     fn blit_preserves_underlying_bg_for_reset_text_cells() {
@@ -266,5 +288,60 @@ mod tests {
         assert_eq!(out.symbol, 'P');
         assert_eq!(out.fg, Color::Yellow);
         assert_eq!(out.bg, Color::DarkGrey);
+    }
+
+    #[test]
+    fn generic_multiline_dimensions_include_line_gap() {
+        let (w, h) = text_sprite_dimensions(
+            None,
+            "A\nA",
+            Some("generic:2"),
+            Color::White,
+            Color::Reset,
+            1.0,
+            1.0,
+        );
+        assert_eq!(w, 6);
+        assert_eq!(h, 15);
+    }
+
+    #[test]
+    fn generic_multiline_render_inserts_blank_separator_row() {
+        let mut buf = Buffer::new(24, 20);
+        buf.fill(Color::Reset);
+        render_text_content(
+            None,
+            "A\nA",
+            Some("generic:2"),
+            Color::White,
+            Color::Reset,
+            0,
+            0,
+            None,
+            &mut buf,
+            &TextTransform::None,
+            1.0,
+            1.0,
+        );
+
+        let mut separator_row_has_pixels = false;
+        let mut second_line_top_has_pixels = false;
+        for x in 0..24u16 {
+            if buf.get(x, 7).is_some_and(|c| c.symbol != ' ') {
+                separator_row_has_pixels = true;
+            }
+            if buf.get(x, 8).is_some_and(|c| c.symbol != ' ') {
+                second_line_top_has_pixels = true;
+            }
+        }
+
+        assert!(
+            !separator_row_has_pixels,
+            "row 7 should remain empty as line separator"
+        );
+        assert!(
+            second_line_top_has_pixels,
+            "row 8 should contain second line glyph pixels"
+        );
     }
 }

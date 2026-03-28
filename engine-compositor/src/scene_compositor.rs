@@ -28,6 +28,7 @@ pub struct CompositeParams<'a> {
     pub scene_effects: &'a [Effect],
     pub scene_step_dur: u64,
     pub is_pixel_backend: bool,
+    pub default_font: Option<&'a str>,
 }
 
 /// Owns the rendered-mode-specific compositing path for a single frame.

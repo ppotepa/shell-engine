@@ -1137,7 +1137,8 @@ impl Behavior for RhaiScriptBehavior {
                                 // If full, clear oldest half to make room (simple eviction strategy)
                                 if cache_mut.len() >= 256 {
                                     let to_remove = cache_mut.len() / 2;
-                                    let keys: Vec<_> = cache_mut.keys().take(to_remove).copied().collect();
+                                    let keys: Vec<_> =
+                                        cache_mut.keys().take(to_remove).copied().collect();
                                     for key in keys {
                                         cache_mut.remove(&key);
                                     }

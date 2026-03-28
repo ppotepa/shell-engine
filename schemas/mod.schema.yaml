@@ -32,6 +32,30 @@ properties:
       terminal - always launch in the terminal backend.
       sdl2     - always launch in the SDL2 window backend.
       prompt   - ask the player which backend to use before engine startup.
+  splash:
+    type: object
+    description: |
+      Optional splash startup override.
+      When omitted, engine built-in splash scene is used.
+    additionalProperties: false
+    properties:
+      enabled:
+        type: boolean
+        description: |
+          Whether to show splash at startup.
+          CLI `--skip-splash` still overrides this and disables splash.
+      scene:
+        type: string
+        minLength: 1
+        description: |
+          Path to splash scene YAML.
+          Absolute paths are resolved from mod root (for example `/scenes/splash/scene.yml`).
+          Relative paths are resolved against mod root.
+    patternProperties:
+      "^scene-path$":
+        $ref: "#/properties/splash/properties/scene"
+      "^scene_path$":
+        $ref: "#/properties/splash/properties/scene"
   terminal:
     type: object
     description: |
@@ -83,6 +107,13 @@ properties:
         type: string
         enum: [cell, halfblock, quadblock, braille]
         description: Optional global renderer mode override for all scenes.
+      default_font:
+        type: string
+        minLength: 1
+        description: |
+          Optional mod-level text font alias used by sprite `font: default`.
+          Can point to either a built-in generic spec (for example `generic:2`)
+          or a named font (for example `Abril Fatface`).
     patternProperties:
       "^render-size$":
         $ref: "#/properties/terminal/properties/render_size"
@@ -96,6 +127,8 @@ properties:
         $ref: "#/properties/terminal/properties/presentation_policy"
       "^renderer-mode$":
         $ref: "#/properties/terminal/properties/renderer_mode"
+      "^default-font$":
+        $ref: "#/properties/terminal/properties/default_font"
 patternProperties:
   "^output-backend$":
     $ref: "#/properties/output_backend"

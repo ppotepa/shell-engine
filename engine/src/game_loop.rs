@@ -178,10 +178,17 @@ pub fn game_loop(
         }
 
         let elapsed = frame_start.elapsed();
+        let t_sleep_start = Instant::now();
+        if elapsed < frame_budget {
+            std::thread::sleep(frame_budget - elapsed);
+        }
+        let t_sleep = t_sleep_start.elapsed();
 
-        // Update smoothed FPS counter (EMA, α=0.15).
-        let actual_fps = if elapsed.as_micros() > 0 {
-            1_000_000.0 / elapsed.as_micros() as f32
+        // Update smoothed FPS counter (EMA, α=0.15) using full frame time
+        // including pacing sleep so the visible FPS matches what players see.
+        let frame_elapsed = frame_start.elapsed();
+        let actual_fps = if frame_elapsed.as_micros() > 0 {
+            1_000_000.0 / frame_elapsed.as_micros() as f32
         } else {
             fps as f32
         };
@@ -192,12 +199,6 @@ pub fn game_loop(
                 counter.fps = counter.fps * 0.85 + actual_fps * 0.15;
             }
         }
-
-        let t_sleep_start = Instant::now();
-        if elapsed < frame_budget {
-            std::thread::sleep(frame_budget - elapsed);
-        }
-        let t_sleep = t_sleep_start.elapsed();
 
         // ── Benchmark: record frame sample ──────────────────────────
         if world.get::<BenchmarkState>().is_some() {

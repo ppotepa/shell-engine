@@ -74,7 +74,7 @@ fn glow_cache_key(
 
 use super::layout::{
     compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
-    with_pixel_backend, RenderArea,
+    with_render_context, RenderArea,
 };
 use super::render::{
     check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
@@ -105,6 +105,7 @@ pub fn render_sprites(
     elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
     is_pixel_backend: bool,
+    default_font: Option<&str>,
     layer_buf: &mut Buffer,
 ) {
     let mut ctx = RenderCtx {
@@ -116,6 +117,7 @@ pub fn render_sprites(
         layer_buf,
         obj_camera_states,
         is_pixel_backend,
+        default_font,
     };
     let root_area = RenderArea {
         origin_x: root_origin_x,
@@ -123,15 +125,15 @@ pub fn render_sprites(
         width: scene_w,
         height: scene_h,
     };
-    
+
     // Fast-path: skip if layer has zero area
     if scene_w == 0 || scene_h == 0 {
         return;
     }
-    
+
     // Reuse one path Vec across sprites; Grid extends/truncates it in-place per child.
     let mut sprite_path: Vec<usize> = Vec::with_capacity(8);
-    with_pixel_backend(is_pixel_backend, || {
+    with_render_context(is_pixel_backend, default_font, || {
         for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
             sprite_path.clear();
             sprite_path.push(sprite_idx);
@@ -235,6 +237,7 @@ fn render_sprite(
                 inherited_mode,
                 *force_renderer_mode,
                 ctx.is_pixel_backend,
+                ctx.default_font,
             );
             let mod_source = ctx.asset_root.map(|root| root.mod_source());
             let (sprite_width, sprite_height) = text_sprite_dimensions(

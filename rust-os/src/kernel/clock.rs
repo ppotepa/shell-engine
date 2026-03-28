@@ -55,7 +55,6 @@ impl SimulatedClock {
     pub fn uptime_str(&self) -> String {
         let total_secs = self.elapsed_ms / 1000;
         let m = total_secs / 60;
-        let s = total_secs % 60;
         if m < 60 {
             format!("{m} min")
         } else {

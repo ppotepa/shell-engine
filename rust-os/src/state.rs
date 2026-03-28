@@ -1,5 +1,3 @@
-use crate::difficulty::MachineSpec;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum SessionMode {
     Booting,
