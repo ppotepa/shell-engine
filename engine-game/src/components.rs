@@ -264,6 +264,51 @@ impl Health {
     }
 }
 
+/// Configures how an entity splits into child entities when destroyed.
+///
+/// When the entity takes damage and reaches 0 HP, this component triggers
+/// spawning of child entities with configured parameters.
+#[derive(Clone, Debug)]
+pub struct SplitOnDestroy {
+    /// Delay in milliseconds before spawning children (allows split animation).
+    pub delay_ms: u32,
+    /// How many child entities to spawn.
+    pub child_count: u32,
+    /// Size modifier for children (e.g., -1 = one size category smaller).
+    pub size_delta: i32,
+    /// Velocity magnitude for spawned children.
+    pub velocity_factor: f32,
+    /// Whether the split has been triggered (used for animation delay).
+    pub triggered: bool,
+    /// Accumulated time since triggered.
+    pub elapsed_ms: u32,
+}
+
+impl SplitOnDestroy {
+    /// Create a new split-on-destroy configuration.
+    pub fn new(delay_ms: u32, child_count: u32, size_delta: i32, velocity_factor: f32) -> Self {
+        Self {
+            delay_ms,
+            child_count,
+            size_delta,
+            velocity_factor,
+            triggered: false,
+            elapsed_ms: 0,
+        }
+    }
+
+    /// Check if the split is ready to occur.
+    pub fn is_ready(&self) -> bool {
+        self.triggered && self.elapsed_ms >= self.delay_ms
+    }
+}
+
+impl Default for SplitOnDestroy {
+    fn default() -> Self {
+        Self::new(0, 2, -1, 1.0)
+    }
+}
+
 /// Gameplay events emitted during frame processing.
 ///
 /// Events accumulate during a frame and can be polled by scripts via the world API.

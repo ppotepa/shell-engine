@@ -7,6 +7,7 @@ use crate::services::EngineWorldAccess;
 use crate::systems;
 use crate::world::World;
 use engine_events::{EngineEvent::KeyPressed, InputBackend};
+use engine_game::GameplayWorld;
 use engine_render_terminal::input::is_debug_fast_forward_toggle;
 
 /// Runs the engine game loop for `world` at `target_fps` until the player quits.
@@ -146,6 +147,12 @@ pub fn game_loop(
         let t0 = Instant::now();
         systems::behavior::behavior_system(world);
         let t1 = Instant::now();
+
+        // Process destructibles (entities that died and need children spawned)
+        if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+            systems::destructible::destructible_system(&gameplay_world, tick_ms);
+        }
+
         systems::audio_sequencer::audio_sequencer_system(world, tick_ms);
         engine_audio::audio_system(world);
         let t1b = Instant::now();

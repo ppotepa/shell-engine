@@ -23,7 +23,7 @@ use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
 };
-use engine_game::components::{DespawnVisual, TopDownShipController};
+use engine_game::components::{DespawnVisual, SplitOnDestroy, TopDownShipController};
 use engine_persistence::PersistenceStore;
 use engine_physics::{point_in_polygon, polygons_intersect, segment_intersects_polygon};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
@@ -1221,6 +1221,12 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("damage_apply",
         |world: &mut ScriptGameplayApi, target: rhai::INT, source: rhai::INT, amount: rhai::INT| -> bool {
             world.damage_apply(target, source, amount)
+        },
+    );
+
+    engine.register_fn("destructible_configure",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| -> bool {
+            world.destructible_configure(id, config)
         },
     );
 
@@ -2751,6 +2757,32 @@ impl ScriptGameplayApi {
         let target_uid = target as u64;
         let source_uid = source as u64;
         world.apply_damage(target_uid, source_uid, amount as i32)
+    }
+
+    fn destructible_configure(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+
+        // Extract config fields with defaults
+        let delay_ms = config
+            .get("delay_ms")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(0) as u32;
+        let child_count = config
+            .get("child_count")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(2) as u32;
+        let size_delta = config
+            .get("size_delta")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(-1) as i32;
+        let velocity_factor = config
+            .get("velocity_factor")
+            .and_then(|v| v.clone().try_cast::<f64>())
+            .unwrap_or(1.0) as f32;
+
+        let split_config = SplitOnDestroy::new(delay_ms, child_count, size_delta, velocity_factor);
+        world.set_split_on_destroy(uid, split_config)
     }
 }
 
