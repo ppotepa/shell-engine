@@ -6,7 +6,6 @@ exports:
   x: 0
   y: 0
   fg: "#aaaaaa"
-  bg: "#333333"
   visible: false
 sprites:
   - type: vector
@@ -17,5 +16,4 @@ sprites:
     points: [[0, -10], [8, -6], [10, 1], [4, 9], [-4, 9], [-10, 2], [-8, -7]]
     closed: true
     fg: "$fg"
-    bg: "$bg"
     visible: "$visible"

@@ -5,8 +5,7 @@ exports:
   id: ship
   x: 0
   y: 0
-  fg: "#d0d0d0"
-  bg: white
+  fg: white
 sprites:
   - type: vector
     id: "$id"
@@ -16,4 +15,3 @@ sprites:
     points: [[0, -7], [4, 5], [0, 2], [-4, 5]]
     closed: true
     fg: "$fg"
-    bg: "$bg"
