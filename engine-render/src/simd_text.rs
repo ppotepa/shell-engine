@@ -344,7 +344,7 @@ mod tests {
         render_glyph_line("A B", 0, 0, Color::White, Color::Reset, 10, 5, &mut buf);
 
         assert_eq!(buf.get(0, 0).map(|c| c.symbol), Some('A'));
-        assert_eq!(buf.get(1, 0).map(|c| c.symbol), None); // space
+        assert_eq!(buf.get(1, 0).map(|c| c.symbol), Some(' ')); // space was rendered
         assert_eq!(buf.get(2, 0).map(|c| c.symbol), Some('B'));
     }
 }
