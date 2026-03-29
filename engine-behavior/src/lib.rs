@@ -2275,7 +2275,7 @@ impl ScriptGameplayApi {
                 let layer = data
                     .get("collider_layer")
                     .and_then(|v| v.clone().try_cast::<rhai::INT>())
-                    .unwrap_or(0) as u32;
+                    .unwrap_or(-1) as u32;
                 let mask = data
                     .get("collider_mask")
                     .and_then(|v| v.clone().try_cast::<rhai::INT>())
@@ -2317,7 +2317,7 @@ impl ScriptGameplayApi {
                     let layer = data
                         .get("collider_layer")
                         .and_then(|v| v.clone().try_cast::<rhai::INT>())
-                        .unwrap_or(0) as u32;
+                        .unwrap_or(-1) as u32;
                     let mask = data
                         .get("collider_mask")
                         .and_then(|v| v.clone().try_cast::<rhai::INT>())
