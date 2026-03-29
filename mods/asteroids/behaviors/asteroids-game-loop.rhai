@@ -260,8 +260,10 @@ if world.exists(ship_id) {
     if thrust_down {
         let fx = to_float(sin32(ship_h)) / 1024.0;
         let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
-        let accel = cfg["ship_thrust"] * dt / 1000.0;
-        ship_ref.set_acceleration(fx * accel, fy * accel);
+        // cfg["ship_thrust"] is in velocity-scale units; multiply again to get acceleration/sec²
+        // Engine does v += a * dt_sec, so a = thrust * VELOCITY_SCALE gives same dv/frame as old code
+        let thrust = cfg["ship_thrust"] * h::velocity_scale();
+        ship_ref.set_acceleration(fx * thrust, fy * thrust);
         if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
             spawn_smoke(world, tx - (fx * 6.0), ty - (fy * 6.0),
                        vx / h::velocity_scale() - (fx * 0.35), vy / h::velocity_scale() - (fy * 0.35), 520, 3);
@@ -351,7 +353,9 @@ for ast_id in world.query_kind("asteroid") {
             audio.event("gameplay.asteroid.split", 1.0);
             for child_id in world.query_kind("asteroid") {
                 if !world.exists(child_id) { continue; }
-                if world.entity(child_id).get_b("/crack_visual_0", false) { continue; }
+                // crack_visual_0 is a string key — use data().contains() not get_b()
+                let cd = world.entity(child_id).data();
+                if cd.contains("crack_visual_0") { continue; }
                 for i in 0..3 {
                     let cv = `asteroid-${child_id}-crack-${i}`;
                     scene.spawn_object("asteroid-template", cv);
