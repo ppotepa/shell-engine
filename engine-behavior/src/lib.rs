@@ -1095,6 +1095,13 @@ fn init_rhai_engine() -> RhaiEngine {
             v
         }
     });
+    engine.register_fn("abs_i", |v: rhai::FLOAT| -> rhai::INT {
+        if v < 0.0 {
+            (-v) as rhai::INT
+        } else {
+            v as rhai::INT
+        }
+    });
     engine.register_fn("sign_i", |v: rhai::INT, fallback: rhai::INT| -> rhai::INT {
         if v < 0 {
             -1
@@ -1104,6 +1111,9 @@ fn init_rhai_engine() -> RhaiEngine {
             fallback
         }
     });
+    // Basic numeric casts for scripts
+    engine.register_fn("to_i", |v: rhai::INT| -> rhai::INT { v });
+    engine.register_fn("to_i", |v: rhai::FLOAT| -> rhai::INT { v as rhai::INT });
     engine.register_fn(
         "clamp_i",
         |v: rhai::INT, min_v: rhai::INT, max_v: rhai::INT| -> rhai::INT {

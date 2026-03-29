@@ -149,6 +149,8 @@ pub fn game_loop(
         systems::audio_sequencer::audio_sequencer_system(world, tick_ms);
         engine_audio::audio_system(world);
         let t1b = Instant::now();
+        // Sync Transform2D → scene positions before compositing
+        systems::visual_sync::visual_sync_system(world);
         systems::compositor::compositor_system(world);
         let t2 = Instant::now();
         systems::postfx::postfx_system(world);

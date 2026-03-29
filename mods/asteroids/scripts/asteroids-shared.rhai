@@ -1,18 +1,10 @@
 // Asteroids shared helpers
-// This module is imported by asteroids-game-loop.rhai and asteroids-render-sync.rhai
+// Imported by asteroids-game-loop.rhai and asteroids-render-sync.rhai
 
-// Game timing constants
-fn crack_duration_ms() {
-    1000
-}
+// ── Constants ──────────────────────────────────────────────
+fn crack_duration_ms() { 1000 }
 
-// Heading arithmetic (0-31 on 32-step circle)
-fn fragment_heading_offset(idx) {
-    if idx == 0 { return 0; }
-    if idx == 1 { return 11; }
-    21
-}
-
+// ── Heading arithmetic (0-31 on 32-step circle) ───────────
 fn wrap_heading32(v) {
     let out = v % 32;
     if out < 0 { out + 32 } else { out }
@@ -22,7 +14,13 @@ fn heading32_to_rad(h) {
     to_float(h) * (6.283185307179586 / 32.0)
 }
 
-// Visual helpers for rendering
+fn fragment_heading_offset(idx) {
+    if idx == 0 { return 0; }
+    if idx == 1 { return 11; }
+    21
+}
+
+// ── Visual colour helpers ─────────────────────────────────
 fn flash_fill_hex(flash_ms, flash_total_ms) {
     if flash_ms <= 0 { return "black"; }
     let total = if flash_total_ms <= 0 { 1 } else { flash_total_ms };
@@ -64,27 +62,15 @@ fn smoke_points(radius, ttl_ms, max_ttl_ms) {
     [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]]
 }
 
-// Wrappers for engine-level functions (since render-sync uses them directly)
-fn rotate_points(points, heading) {
-    // Delegate to engine - just call it directly
-    rotate_points(points, heading)
+// ── Crack visual management ───────────────────────────────
+fn crack_visual_id(ast_data, idx) {
+    let key = `crack_visual_${idx}`;
+    if ast_data.contains(key) { ast_data[key] } else { () }
 }
 
-fn asteroid_points(shape, size) {
-    // Delegate to engine
-    asteroid_points(shape, size)
-}
-
-// Crack visual management
-fn crack_visual_id(ast, idx) {
-    if idx == 0 { return ast["crack_visual_0"]; }
-    if idx == 1 { return ast["crack_visual_1"]; }
-    ast["crack_visual_2"]
-}
-
-fn hide_crack_visuals(scene, ast) {
-    for frag_idx in 0..3 {
-        let frag_id = crack_visual_id(ast, frag_idx);
+fn hide_crack_visuals(scene, ast_data) {
+    for i in 0..3 {
+        let frag_id = crack_visual_id(ast_data, i);
         if frag_id.type_of() == "string" {
             scene.set(frag_id, "vector.visible", false);
         }

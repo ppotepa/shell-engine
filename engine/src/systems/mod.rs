@@ -8,6 +8,7 @@ pub mod gameplay;
 pub mod collision;
 pub mod gameplay_events;
 pub mod visual_binding;
+pub mod visual_sync;
 pub mod hot_reload;
 pub mod prerender;
 pub mod scene3d_prerender;

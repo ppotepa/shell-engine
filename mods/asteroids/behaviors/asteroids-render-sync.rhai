@@ -1,99 +1,91 @@
 import "asteroids-shared" as h;
 
-// Find ship entity — FAIL FAST if doesn't exist
+// visual_sync_system now handles Transform2D → scene position auto-sync.
+// Render-sync only needs to sync visual properties and game-logic state.
+
+// ── Ship visual ────────────────────────────────────────────
 let ship_id = world.first_kind("ship");
-if ship_id <= 0 {
-    return ();
-}
+if ship_id > 0 {
+    let ship = world.entity(ship_id);
+    if ship.exists() {
+        // Invulnerability flash
+        let invuln_ms = ship.get_i("/invuln_ms", 0);
+        let respawn_ms = game.get("/ast/ship_respawn_ms");
+        if respawn_ms > 0 {
+            scene.set("ship", "vector.visible", false);
+        } else if invuln_ms > 0 {
+            let flash_phase = (time.scene_elapsed_ms / 100) % 2;
+            scene.set("ship", "vector.visible", flash_phase == 0);
+        } else {
+            scene.set("ship", "vector.visible", true);
+        }
 
-let ship_ref = world.entity(ship_id);
-if !ship_ref.exists() {
-    return ();
-}
-
-// Ship visibility (invuln flash)
-let invuln_ms = ship_ref.get_i("/invuln_ms", 0);
-if invuln_ms > 0 {
-    let flash_phase = (time.scene_elapsed_ms / 100) % 2;
-    scene.set("ship", "vector.visible", flash_phase == 0);
-} else {
-    scene.set("ship", "vector.visible", true);
-}
-
-// Ship heading (rotate vector.points)
-let ship_heading = ship_ref.get_i("/h", 0);
-let heading_rad = h::heading32_to_rad(ship_heading);
-let ship_points = [[0, -7], [4, 5], [0, 2], [-4, 5]];
-scene.set("ship", "vector.points", rotate_points(ship_points, ship_heading));
-
-// Asteroids: rotation + flash color + crack visuals
-let ast_ids = world.query_kind("asteroid");
-for ast_id in ast_ids {
-    let ast = world.get(ast_id, "/");
-    if ast.type_of() != "map" {
-        continue;
+        // Heading rotation
+        let heading = ship.get_i("/h", 0);
+        scene.set("ship", "vector.points", rotate_points(
+            [[0, -7], [4, 5], [0, 2], [-4, 5]], heading
+        ));
     }
-    
-    let rot_phase = if ast.contains("rot_phase") { ast["rot_phase"] } else { 0 };
-    let flash_ms = if ast.contains("flash_ms") { ast["flash_ms"] } else { 0 };
-    let flash_total_ms = if ast.contains("flash_total_ms") { ast["flash_total_ms"] } else { 0 };
-    
-    scene.set(`asteroid-${ast_id}`, "vector.visible", ast["active"]);
-    scene.set(`asteroid-${ast_id}`, "vector.points", rotate_points(
-        asteroid_points(ast["shape"], ast["size"]), 
-        rot_phase
-    ));
-    
+}
+
+// ── Asteroids visual ───────────────────────────────────────
+for ast_id in world.query_kind("asteroid") {
+    let e = world.entity(ast_id);
+    if !e.exists() { continue; }
+    let d = e.data();
+    let vid = if d.contains("visual_id") { d["visual_id"] } else { continue; };
+
+    let active = if d.contains("active") { d["active"] } else { false };
+    let rot_phase = if d.contains("rot_phase") { d["rot_phase"] } else { 0 };
+    let flash_ms = if d.contains("flash_ms") { d["flash_ms"] } else { 0 };
+    let flash_total = if d.contains("flash_total_ms") { d["flash_total_ms"] } else { 0 };
+    let shape = if d.contains("shape") { d["shape"] } else { 0 };
+    let size = if d.contains("size") { d["size"] } else { 1 };
+
+    scene.set(vid, "vector.visible", active);
+    scene.set(vid, "vector.points", rotate_points(asteroid_points(shape, size), rot_phase));
     if flash_ms > 0 {
-        scene.set(`asteroid-${ast_id}`, "vector.fg", h::flash_fill_hex(flash_ms, flash_total_ms));
+        scene.set(vid, "vector.fg", h::flash_fill_hex(flash_ms, flash_total));
     } else {
-        scene.set(`asteroid-${ast_id}`, "vector.fg", h::asteroid_stroke_hex(flash_ms, flash_total_ms));
+        scene.set(vid, "vector.fg", h::asteroid_stroke_hex(flash_ms, flash_total));
     }
-    
-    let split_visible = ast.contains("active") && ast["active"] && flash_ms > 0;
-    if split_visible {
-        for frag_idx in 0..3 {
-            let frag_id = h::crack_visual_id(ast, frag_idx);
+
+    // Crack overlays
+    let show_cracks = active && flash_ms > 0;
+    if show_cracks {
+        for i in 0..3 {
+            let frag_id = h::crack_visual_id(d, i);
             if frag_id.type_of() == "string" {
                 scene.set(frag_id, "vector.visible", true);
             }
         }
     } else {
-        h::hide_crack_visuals(scene, ast);
+        h::hide_crack_visuals(scene, d);
     }
 }
 
-// Bullets: visible if active
-let bullet_ids = world.query_kind("bullet");
-for bullet_id in bullet_ids {
-    let bullet = world.get(bullet_id, "/");
-    if bullet.type_of() != "map" {
-        continue;
-    }
-    scene.set(`bullet-${bullet_id}`, "vector.visible", bullet["active"]);
+// ── Bullets visual ─────────────────────────────────────────
+for bid in world.query_kind("bullet") {
+    let e = world.entity(bid);
+    if !e.exists() { continue; }
+    scene.set(`bullet-${bid}`, "vector.visible", true);
 }
 
-// Smoke: only update vector.points (fade) + vector.fg (color)
-let smoke_ids = world.query_kind("smoke");
-for smoke_id in smoke_ids {
-    let smoke = world.get(smoke_id, "/");
-    if smoke.type_of() != "map" {
-        continue;
-    }
-    
-    let ttl_ms = if smoke.contains("ttl_ms") { smoke["ttl_ms"] } else { 0 };
-    let max_ttl_ms = if smoke.contains("max_ttl_ms") { smoke["max_ttl_ms"] } else { 1 };
-    let radius = if smoke.contains("radius") { smoke["radius"] } else { 2 };
-    
-    scene.set(`smoke-${smoke_id}`, "vector.visible", smoke["active"]);
-    scene.set(`smoke-${smoke_id}`, "vector.points", h::smoke_points(radius, ttl_ms, max_ttl_ms));
-    scene.set(`smoke-${smoke_id}`, "vector.fg", h::smoke_colour_hex(ttl_ms, max_ttl_ms));
+// ── Smoke visual ───────────────────────────────────────────
+for sid in world.query_kind("smoke") {
+    let e = world.entity(sid);
+    if !e.exists() { continue; }
+    let d = e.data();
+    let ttl = if d.contains("ttl_ms") { d["ttl_ms"] } else { 0 };
+    let max_ttl = if d.contains("max_ttl_ms") { d["max_ttl_ms"] } else { 1 };
+    let radius = if d.contains("radius") { d["radius"] } else { 2 };
+
+    scene.set(`smoke-${sid}`, "vector.visible", true);
+    scene.set(`smoke-${sid}`, "vector.points", h::smoke_points(radius, ttl, max_ttl));
+    scene.set(`smoke-${sid}`, "vector.fg", h::smoke_colour_hex(ttl, max_ttl));
 }
 
-// HUD (score, lives, wave)
-let score = game.get("/ast/score");
-let lives = game.get("/ast/lives");
-let wave = game.get("/ast/wave");
-scene.set("hud-score", "text.content", `SCORE: ${score}`);
-scene.set("hud-lives", "text.content", `LIVES: ${lives}`);
-scene.set("hud-wave", "text.content", `WAVE: ${wave}`);
+// ── HUD ────────────────────────────────────────────────────
+scene.set("hud-score", "text.content", `SCORE: ${game.get("/ast/score")}`);
+scene.set("hud-lives", "text.content", `LIVES: ${game.get("/ast/lives")}`);
+scene.set("hud-wave",  "text.content", `WAVE: ${game.get("/ast/wave")}`);
