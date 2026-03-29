@@ -254,13 +254,15 @@ if world.exists(ship_id) {
 
     let t = ship_ref.transform();
     let phys = ship_ref.physics();
-    let vx = phys.vx;
-    let vy = phys.vy;
+    let vx = if phys.type_of() == "map" && phys.contains("vx") { phys.vx } else { 0.0 };
+    let vy = if phys.type_of() == "map" && phys.contains("vy") { phys.vy } else { 0.0 };
+    
     if thrust_down {
         let fx = to_float(sin32(ship_h)) / 1024.0;
         let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
-        vx = clamp_f(vx + (fx * cfg["ship_thrust"] * 0.001), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
-        vy = clamp_f(vy + (fy * cfg["ship_thrust"] * 0.001), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
+        let accel = cfg["ship_thrust"] * dt / 1000.0;
+        vx = clamp_f(vx + (fx * accel), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
+        vy = clamp_f(vy + (fy * accel), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
         if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
             spawn_smoke(world, t.x - (fx * 6.0), t.y - (fy * 6.0),
                        vx / 62.5 - (fx * 0.35), vy / 62.5 - (fy * 0.35), 520, 3);
