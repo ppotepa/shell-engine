@@ -64,6 +64,8 @@ pub struct BehaviorContext {
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
     /// Held key set (normalized key codes), exposed to Rhai via `input.down(code)`.
     pub keys_down: Arc<HashSet<String>>,
+    /// Action bindings: action name → list of bound key codes (from `input.bind_action`).
+    pub action_bindings: Arc<HashMap<String, Vec<String>>>,
     /// Sidecar IO frame snapshot (output lines / clear / fullscreen / custom events).
     pub sidecar_io: Arc<SidecarIoFrameState>,
     /// Rhai maps built once per frame, shared across all behaviors via Arc.
@@ -143,6 +145,11 @@ pub enum BehaviorCommand {
         scene_id: String,
         source: Option<String>,
         message: String,
+    },
+    /// Register or overwrite an input action binding (name → list of key codes).
+    BindInputAction {
+        action: String,
+        keys: Vec<String>,
     },
 }
 
@@ -711,6 +718,12 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("down_count", |input: &mut ScriptInputApi| {
         input.down_count()
     });
+    engine.register_fn("action_down", |input: &mut ScriptInputApi, action: &str| {
+        input.action_down(action)
+    });
+    engine.register_fn("bind_action", |input: &mut ScriptInputApi, action: &str, keys: rhai::Array| {
+        input.bind_action(action, keys)
+    });
     engine.register_fn("info", |debug: &mut ScriptDebugApi, message: &str| {
         debug.info(message);
     });
@@ -1034,6 +1047,57 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("despawn", |entity: &mut ScriptGameplayEntityApi| {
         entity.despawn()
     });
+
+    // ── Cooldown API ──────────────────────────────────────────────────────
+    engine.register_fn("cooldown_start",
+        |entity: &mut ScriptGameplayEntityApi, name: &str, ms: rhai::INT| {
+            entity.cooldown_start(name, ms)
+        },
+    );
+    engine.register_fn("cooldown_ready",
+        |entity: &mut ScriptGameplayEntityApi, name: &str| {
+            entity.cooldown_ready(name)
+        },
+    );
+    engine.register_fn("cooldown_remaining",
+        |entity: &mut ScriptGameplayEntityApi, name: &str| -> rhai::INT {
+            entity.cooldown_remaining(name)
+        },
+    );
+
+    // ── Status API ────────────────────────────────────────────────────────
+    engine.register_fn("status_add",
+        |entity: &mut ScriptGameplayEntityApi, name: &str, ms: rhai::INT| {
+            entity.status_add(name, ms)
+        },
+    );
+    engine.register_fn("status_has",
+        |entity: &mut ScriptGameplayEntityApi, name: &str| {
+            entity.status_has(name)
+        },
+    );
+    engine.register_fn("status_remaining",
+        |entity: &mut ScriptGameplayEntityApi, name: &str| -> rhai::INT {
+            entity.status_remaining(name)
+        },
+    );
+
+    // ── Wrap API ──────────────────────────────────────────────────────────
+    engine.register_fn(
+        "enable_wrap",
+        |world: &mut ScriptGameplayApi,
+         id: rhai::INT,
+         min_x: rhai::FLOAT, max_x: rhai::FLOAT,
+         min_y: rhai::FLOAT, max_y: rhai::FLOAT| {
+            world.enable_wrap(id, min_x, max_x, min_y, max_y)
+        },
+    );
+    engine.register_fn(
+        "disable_wrap",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| {
+            world.disable_wrap(id)
+        },
+    );
     engine.register_fn(
         "poly_hit",
         |poly_a: RhaiArray,
@@ -1326,6 +1390,8 @@ struct ScriptTerminalApi {
 #[derive(Clone)]
 struct ScriptInputApi {
     keys_down: Arc<HashSet<String>>,
+    action_bindings: Arc<HashMap<String, Vec<String>>>,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
 #[derive(Clone)]
@@ -1648,8 +1714,12 @@ impl ScriptTerminalApi {
 }
 
 impl ScriptInputApi {
-    fn new(keys_down: Arc<HashSet<String>>) -> Self {
-        Self { keys_down }
+    fn new(
+        keys_down: Arc<HashSet<String>>,
+        action_bindings: Arc<HashMap<String, Vec<String>>>,
+        queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    ) -> Self {
+        Self { keys_down, action_bindings, queue }
     }
 
     fn down(&mut self, code: &str) -> bool {
@@ -1666,6 +1736,30 @@ impl ScriptInputApi {
 
     fn down_count(&mut self) -> rhai::INT {
         self.keys_down.len() as rhai::INT
+    }
+
+    /// Returns `true` if any key bound to `action` is currently held.
+    fn action_down(&mut self, action: &str) -> bool {
+        let Some(keys) = self.action_bindings.get(action) else { return false };
+        keys.iter().any(|k| {
+            let n = normalize_input_code(k);
+            !n.is_empty() && self.keys_down.contains(&n)
+        })
+    }
+
+    /// Bind an action to a list of key codes. Emits a `BindInputAction` command.
+    fn bind_action(&mut self, action: &str, keys: rhai::Array) -> bool {
+        let key_strs: Vec<String> = keys
+            .into_iter()
+            .filter_map(|v| v.into_string().ok())
+            .collect();
+        if let Ok(mut q) = self.queue.lock() {
+            q.push(BehaviorCommand::BindInputAction {
+                action: action.to_string(),
+                keys: key_strs,
+            });
+        }
+        true
     }
 }
 
@@ -2441,6 +2535,21 @@ impl ScriptGameplayApi {
             })
             .collect()
     }
+
+    fn enable_wrap(&mut self, id: rhai::INT, min_x: rhai::FLOAT, max_x: rhai::FLOAT,
+                   min_y: rhai::FLOAT, max_y: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+        let bounds = engine_game::WrapBounds::new(min_x as f32, max_x as f32, min_y as f32, max_y as f32);
+        world.set_wrap_bounds(uid, bounds)
+    }
+
+    fn disable_wrap(&mut self, id: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+        world.remove_wrap_bounds(uid);
+        true
+    }
 }
 
 impl ScriptGameplayEntityApi {
@@ -2831,6 +2940,40 @@ impl ScriptGameplayEntityApi {
             .try_cast::<String>()
             .unwrap_or_else(|| fallback.to_string())
     }
+
+    // ── Cooldown API ──────────────────────────────────────────────────────
+
+    fn cooldown_start(&mut self, name: &str, ms: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.cooldown_start(self.id, name, ms as i32)
+    }
+
+    fn cooldown_ready(&mut self, name: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return true };
+        world.cooldown_ready(self.id, name)
+    }
+
+    fn cooldown_remaining(&mut self, name: &str) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        world.cooldown_remaining(self.id, name) as rhai::INT
+    }
+
+    // ── Status API ────────────────────────────────────────────────────────
+
+    fn status_add(&mut self, name: &str, ms: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.status_add(self.id, name, ms as i32)
+    }
+
+    fn status_has(&mut self, name: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.status_has(self.id, name)
+    }
+
+    fn status_remaining(&mut self, name: &str) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        world.status_remaining(self.id, name) as rhai::INT
+    }
 }
 
 
@@ -3112,7 +3255,14 @@ impl Behavior for RhaiScriptBehavior {
                     "terminal",
                     ScriptTerminalApi::new(Arc::clone(&helper_commands)),
                 );
-                scope.push("input", ScriptInputApi::new(Arc::clone(&ctx.keys_down)));
+                scope.push(
+                    "input",
+                    ScriptInputApi::new(
+                        Arc::clone(&ctx.keys_down),
+                        Arc::clone(&ctx.action_bindings),
+                        Arc::clone(&helper_commands),
+                    ),
+                );
                 scope.push(
                     "diag",
                     ScriptDebugApi::new(
@@ -3281,6 +3431,7 @@ fn smoke_probe_context(
         collisions: Arc::new(Vec::new()),
         last_raw_key: None,
         keys_down: Arc::new(HashSet::new()),
+        action_bindings: Arc::new(HashMap::new()),
         sidecar_io: Arc::new(SidecarIoFrameState::default()),
         rhai_time_map: Arc::new(RhaiMap::new()),
         rhai_menu_map: Arc::new(RhaiMap::new()),
@@ -4314,6 +4465,7 @@ mod tests {
             collisions: Arc::new(Vec::new()),
             last_raw_key: None,
             keys_down: Arc::new(HashSet::new()),
+            action_bindings: Arc::new(HashMap::new()),
             sidecar_io: Arc::new(SidecarIoFrameState::default()),
             rhai_time_map: empty_rhai_time_map(),
             rhai_menu_map: empty_rhai_menu_map(),

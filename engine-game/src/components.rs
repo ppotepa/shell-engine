@@ -1,5 +1,7 @@
 //! Typed gameplay components used by engine systems and scripts.
 
+use std::collections::HashMap;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Transform2D {
     pub x: f32,
@@ -98,4 +100,49 @@ impl Default for DespawnVisual {
 pub struct Lifetime {
     pub ttl_ms: i32,
     pub on_expire: DespawnVisual,
+}
+
+/// Per-entity named timers for cooldowns and timed status effects.
+///
+/// **Cooldowns** count down to 0 and stay there (ready when 0 or absent).
+/// **Statuses** count down to 0 and are removed (active while > 0).
+#[derive(Clone, Debug, Default)]
+pub struct EntityTimers {
+    pub cooldowns: HashMap<String, i32>,
+    pub statuses: HashMap<String, i32>,
+}
+
+/// World-wrap bounds. When set on an entity, the physics system clamps
+/// its transform to the toroidal region after each integration step.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WrapBounds {
+    pub min_x: f32,
+    pub max_x: f32,
+    pub min_y: f32,
+    pub max_y: f32,
+}
+
+impl WrapBounds {
+    pub fn new(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Self {
+        Self { min_x, max_x, min_y, max_y }
+    }
+
+    /// Wrap a single value in [min, max] toroidally.
+    #[inline]
+    pub fn wrap_x(&self, x: f32) -> f32 {
+        let range = self.max_x - self.min_x;
+        if range <= 0.0 { return x; }
+        if x < self.min_x { self.max_x }
+        else if x > self.max_x { self.min_x }
+        else { x }
+    }
+
+    #[inline]
+    pub fn wrap_y(&self, y: f32) -> f32 {
+        let range = self.max_y - self.min_y;
+        if range <= 0.0 { return y; }
+        if y < self.min_y { self.max_y }
+        else if y > self.max_y { self.min_y }
+        else { y }
+    }
 }

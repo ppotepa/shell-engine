@@ -17,7 +17,8 @@ pub use game_object::{GameObject, GameObjectKind};
 pub use game_state::GameState;
 pub use gameplay::{GameplayEntity, GameplayWorld};
 pub use components::{
-    Collider2D, ColliderShape, Lifetime, PhysicsBody2D, Transform2D, VisualBinding,
+    Collider2D, ColliderShape, EntityTimers, Lifetime, PhysicsBody2D, Transform2D,
+    VisualBinding, WrapBounds,
 };
 pub use strategy::{GameplayStrategies, PhysicsIntegrationStrategy, SimpleEulerIntegration};
 pub use collision::{CollisionStrategies, CollisionHit, BroadphaseKind, NarrowphaseKind, WrapStrategy};

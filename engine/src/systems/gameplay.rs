@@ -1,6 +1,6 @@
 use engine_game::{GameplayStrategies, GameplayWorld};
 
-/// Gameplay driver: runs physics and lifetime systems over gameplay components.
+/// Gameplay driver: runs physics, wrap, timer, and lifetime systems over gameplay components.
 pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
     // Run physics integration
     if let (Some(strategies), Some(gameplay_world)) = (
@@ -8,6 +8,16 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         world.get::<GameplayWorld>(),
     ) {
         strategies.physics.step(gameplay_world, dt_ms);
+    }
+
+    // Apply toroidal wrap after physics (entities with WrapBounds)
+    if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+        gameplay_world.apply_wrap();
+    }
+
+    // Tick entity timers (cooldowns + statuses)
+    if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+        gameplay_world.tick_timers(dt_ms);
     }
 
     // Lifetime decrement and cleanup

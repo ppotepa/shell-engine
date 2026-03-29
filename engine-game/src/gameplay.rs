@@ -8,7 +8,7 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
-use crate::components::{Collider2D, Lifetime, PhysicsBody2D, Transform2D, VisualBinding};
+use crate::components::{Collider2D, EntityTimers, Lifetime, PhysicsBody2D, Transform2D, VisualBinding, WrapBounds};
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -28,6 +28,8 @@ struct GameplayStore {
     colliders: BTreeMap<u64, Collider2D>,
     lifetimes: BTreeMap<u64, Lifetime>,
     visuals: BTreeMap<u64, VisualBinding>,
+    timers: BTreeMap<u64, EntityTimers>,
+    wrap_bounds: BTreeMap<u64, WrapBounds>,
 }
 
 /// Thread-safe gameplay entity store.
@@ -105,6 +107,8 @@ impl GameplayWorld {
         store.colliders.remove(&id);
         store.lifetimes.remove(&id);
         store.visuals.remove(&id);
+        store.timers.remove(&id);
+        store.wrap_bounds.remove(&id);
         removed
     }
 
@@ -366,6 +370,126 @@ impl GameplayWorld {
     pub fn remove_lifetime(&self, id: u64) {
         if let Ok(mut store) = self.store.lock() {
             store.lifetimes.remove(&id);
+        }
+    }
+
+    // ── Timers (cooldowns + statuses) ────────────────────────────────────
+
+    /// Start or reset a named cooldown for `id`. Counts down to 0 (ready).
+    pub fn cooldown_start(&self, id: u64, name: &str, ms: i32) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        if !store.entities.contains_key(&id) { return false; }
+        store.timers.entry(id).or_default().cooldowns.insert(name.to_string(), ms.max(0));
+        true
+    }
+
+    /// Returns `true` if the named cooldown has expired (or was never started).
+    pub fn cooldown_ready(&self, id: u64, name: &str) -> bool {
+        let Ok(store) = self.store.lock() else { return true };
+        store.timers.get(&id)
+            .and_then(|t| t.cooldowns.get(name))
+            .map(|&ms| ms <= 0)
+            .unwrap_or(true)
+    }
+
+    /// Returns remaining ms for a cooldown, or 0 if ready/absent.
+    pub fn cooldown_remaining(&self, id: u64, name: &str) -> i32 {
+        let Ok(store) = self.store.lock() else { return 0 };
+        store.timers.get(&id)
+            .and_then(|t| t.cooldowns.get(name))
+            .copied()
+            .unwrap_or(0)
+            .max(0)
+    }
+
+    /// Add or refresh a named status effect for `id`. Active while remaining > 0.
+    pub fn status_add(&self, id: u64, name: &str, ms: i32) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        if !store.entities.contains_key(&id) { return false; }
+        store.timers.entry(id).or_default().statuses.insert(name.to_string(), ms.max(1));
+        true
+    }
+
+    /// Returns `true` if the named status is active (remaining > 0).
+    pub fn status_has(&self, id: u64, name: &str) -> bool {
+        let Ok(store) = self.store.lock() else { return false };
+        store.timers.get(&id)
+            .and_then(|t| t.statuses.get(name))
+            .map(|&ms| ms > 0)
+            .unwrap_or(false)
+    }
+
+    /// Returns remaining ms for a status, or 0 if inactive/absent.
+    pub fn status_remaining(&self, id: u64, name: &str) -> i32 {
+        let Ok(store) = self.store.lock() else { return 0 };
+        store.timers.get(&id)
+            .and_then(|t| t.statuses.get(name))
+            .copied()
+            .unwrap_or(0)
+            .max(0)
+    }
+
+    pub fn ids_with_timers(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else { return Vec::new() };
+        store.timers.keys().copied().collect()
+    }
+
+    /// Tick all timers by `dt_ms`. Cooldowns clamp at 0; expired statuses are removed.
+    pub fn tick_timers(&self, dt_ms: u64) {
+        let dt = dt_ms as i32;
+        let Ok(mut store) = self.store.lock() else { return };
+        store.timers.retain(|_, timers| {
+            for v in timers.cooldowns.values_mut() {
+                *v = (*v - dt).max(0);
+            }
+            timers.statuses.retain(|_, v| {
+                *v -= dt;
+                *v > 0
+            });
+            // Keep the entry as long as there are any cooldowns (even at 0)
+            !timers.cooldowns.is_empty() || !timers.statuses.is_empty()
+        });
+    }
+
+    // ── WrapBounds ────────────────────────────────────────────────────────
+
+    /// Enable toroidal position wrap for `id` within `bounds`.
+    pub fn set_wrap_bounds(&self, id: u64, bounds: WrapBounds) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        if !store.entities.contains_key(&id) { return false; }
+        store.wrap_bounds.insert(id, bounds);
+        true
+    }
+
+    pub fn wrap_bounds_for(&self, id: u64) -> Option<WrapBounds> {
+        let Ok(store) = self.store.lock() else { return None };
+        store.wrap_bounds.get(&id).copied()
+    }
+
+    pub fn remove_wrap_bounds(&self, id: u64) {
+        if let Ok(mut store) = self.store.lock() {
+            store.wrap_bounds.remove(&id);
+        }
+    }
+
+    pub fn ids_with_wrap(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else { return Vec::new() };
+        store.wrap_bounds.keys().copied().collect()
+    }
+
+    /// Apply toroidal wrap for all entities with WrapBounds after physics integration.
+    pub fn apply_wrap(&self) {
+        let ids = self.ids_with_wrap();
+        for id in ids {
+            let Some(bounds) = self.wrap_bounds_for(id) else { continue };
+            let Some(mut xf) = self.transform(id) else { continue };
+            let nx = bounds.wrap_x(xf.x);
+            let ny = bounds.wrap_y(xf.y);
+            if nx != xf.x || ny != xf.y {
+                xf.x = nx;
+                xf.y = ny;
+                let _ = self.set_transform(id, xf);
+            }
         }
     }
 
