@@ -878,6 +878,12 @@ fn init_rhai_engine() -> RhaiEngine {
             world.set_visual(id, visual_id)
         },
     );
+    engine.register_fn(
+        "bind_visual",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, visual_id: &str| {
+            world.bind_visual(id, visual_id)
+        },
+    );
     engine.register_fn("collisions", |world: &mut ScriptGameplayApi| {
         world.collisions()
     });
@@ -946,6 +952,9 @@ fn init_rhai_engine() -> RhaiEngine {
     });
     engine.register_fn("lifetime_remaining", |entity: &mut ScriptGameplayEntityApi| {
         entity.lifetime_remaining()
+    });
+    engine.register_fn("despawn", |entity: &mut ScriptGameplayEntityApi| {
+        entity.despawn()
     });
     engine.register_fn(
         "poly_hit",
@@ -1690,17 +1699,30 @@ impl ScriptPersistenceApi {
 }
 
 impl ScriptGameplayApi {
-    fn new(world: Option<GameplayWorld>, collisions: std::sync::Arc<Vec<CollisionHit>>) -> Self {
-        Self { world, collisions }
+    fn new(
+        world: Option<GameplayWorld>,
+        collisions: std::sync::Arc<Vec<CollisionHit>>,
+        queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    ) -> Self {
+        Self {
+            world,
+            collisions,
+            queue,
+        }
     }
 
     fn entity(&mut self, id: rhai::INT) -> ScriptGameplayEntityApi {
         if id < 0 {
-            return ScriptGameplayEntityApi { world: None, id: 0 };
+            return ScriptGameplayEntityApi {
+                world: None,
+                id: 0,
+                queue: Arc::clone(&self.queue),
+            };
         }
         ScriptGameplayEntityApi {
             world: self.world.clone(),
             id: id as u64,
+            queue: Arc::clone(&self.queue),
         }
     }
 
@@ -1767,7 +1789,27 @@ impl ScriptGameplayApi {
         if id < 0 {
             return false;
         }
-        world.despawn(id as u64)
+        let uid = id as u64;
+        if let Some(binding) = world.visual(uid) {
+            if let Ok(mut commands) = self.queue.lock() {
+                for vid in binding.all_visual_ids() {
+                    commands.push(BehaviorCommand::SceneDespawn {
+                        target: vid.to_string(),
+                    });
+                }
+            }
+        }
+        world.despawn(uid)
+    }
+
+    fn bind_visual(&mut self, id: rhai::INT, visual_id: &str) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 || visual_id.trim().is_empty() {
+            return false;
+        }
+        world.add_visual(id as u64, visual_id.to_string())
     }
 
     fn exists(&mut self, id: rhai::INT) -> bool {
@@ -2029,6 +2071,7 @@ impl ScriptGameplayApi {
                 } else {
                     Some(visual_id.to_string())
                 },
+                additional_visuals: Vec::new(),
             },
         )
     }
@@ -2052,6 +2095,22 @@ impl ScriptGameplayEntityApi {
             return false;
         };
         world.exists(self.id)
+    }
+
+    fn despawn(&mut self) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if let Some(binding) = world.visual(self.id) {
+            if let Ok(mut commands) = self.queue.lock() {
+                for vid in binding.all_visual_ids() {
+                    commands.push(BehaviorCommand::SceneDespawn {
+                        target: vid.to_string(),
+                    });
+                }
+            }
+        }
+        world.despawn(self.id)
     }
 
     fn get(&mut self, path: &str) -> RhaiDynamic {
@@ -2171,6 +2230,14 @@ impl ScriptGameplayEntityApi {
             if let Some(visual_id) = &visual.visual_id {
                 metadata.insert("visual_id".into(), visual_id.clone().into());
             }
+            if !visual.additional_visuals.is_empty() {
+                let extras: RhaiArray = visual
+                    .additional_visuals
+                    .iter()
+                    .map(|v| v.clone().into())
+                    .collect();
+                metadata.insert("additional_visuals".into(), extras.into());
+            }
         }
 
         metadata
@@ -2237,6 +2304,14 @@ impl ScriptGameplayEntityApi {
         if let Some(visual) = world.visual(self.id) {
             if let Some(visual_id) = &visual.visual_id {
                 components.insert("visual_id".into(), visual_id.clone().into());
+            }
+            if !visual.additional_visuals.is_empty() {
+                let extras: RhaiArray = visual
+                    .additional_visuals
+                    .iter()
+                    .map(|v| v.clone().into())
+                    .collect();
+                components.insert("additional_visuals".into(), extras.into());
             }
         }
 
@@ -2664,6 +2739,7 @@ impl Behavior for RhaiScriptBehavior {
                     ScriptGameplayApi::new(
                         ctx.gameplay_world.clone(),
                         std::sync::Arc::clone(&ctx.collisions),
+                        Arc::clone(&helper_commands),
                     ),
                 );
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));

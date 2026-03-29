@@ -65,6 +65,21 @@ impl Default for Collider2D {
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct VisualBinding {
     pub visual_id: Option<String>,
+    pub additional_visuals: Vec<String>,
+}
+
+impl VisualBinding {
+    /// Returns all bound visual IDs (primary + additional).
+    pub fn all_visual_ids(&self) -> Vec<&str> {
+        let mut ids = Vec::new();
+        if let Some(ref vid) = self.visual_id {
+            ids.push(vid.as_str());
+        }
+        for vid in &self.additional_visuals {
+            ids.push(vid.as_str());
+        }
+        ids
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -18,8 +18,11 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
                 lt.ttl_ms -= dt_ms as i32;
                 if lt.ttl_ms <= 0 {
                     if let Some(binding) = gameplay_world.visual(id) {
-                        if let Some(target) = binding.visual_id {
-                            super::visual_binding::queue_visual_despawn(world, target);
+                        for target in binding.all_visual_ids() {
+                            super::visual_binding::queue_visual_despawn(
+                                world,
+                                target.to_string(),
+                            );
                         }
                     }
                     let _ = gameplay_world.despawn(id);

@@ -294,6 +294,22 @@ impl GameplayWorld {
         store.visuals.get(&id).cloned()
     }
 
+    pub fn add_visual(&self, id: u64, visual_id: String) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store
+            .visuals
+            .entry(id)
+            .or_default()
+            .additional_visuals
+            .push(visual_id);
+        true
+    }
+
     pub fn ids_with_physics(&self) -> Vec<u64> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
@@ -313,6 +329,13 @@ impl GameplayWorld {
             return Vec::new();
         };
         store.colliders.keys().copied().collect()
+    }
+
+    pub fn ids_with_visual_binding(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.visuals.keys().copied().collect()
     }
 
     pub fn remove_lifetime(&self, id: u64) {
