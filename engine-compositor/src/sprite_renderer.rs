@@ -13,6 +13,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+// OPT-36: Sprite culling acceleration - skip rendering sprites completely outside viewport
+
 // OPT-7: Thread-local cache for pre-rendered text glow buffers.
 // Stores Arc<Buffer> so cache hits are a refcount increment, not a full Buffer clone.
 type GlowCacheKey = u64;
@@ -52,6 +54,7 @@ fn hash_color<H: Hasher>(col: Color, h: &mut H) {
     }
 }
 
+#[inline(always)]
 fn glow_cache_key(
     content: &str,
     radius: i32,
@@ -72,12 +75,13 @@ fn glow_cache_key(
     h.finish()
 }
 
+
 use super::layout::{
     compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
     with_render_context, RenderArea,
 };
 use super::render::{
-    check_visibility, compute_draw_pos, finalize_sprite, render_children_in_cells,
+    check_visibility, compute_draw_pos, finalize_sprite, is_sprite_offscreen, render_children_in_cells,
     sprite_transform_offset, RenderCtx,
 };
 use crate::{
@@ -153,6 +157,7 @@ pub fn render_sprites(
     });
 }
 
+#[inline]
 fn render_sprite(
     layer_idx: usize,
     sprite_path: &mut Vec<usize>,
@@ -259,6 +264,12 @@ fn render_sprite(
                 sprite_elapsed,
                 &object_state,
             );
+            
+            // OPT-36: Cull sprites completely outside viewport
+            if is_sprite_offscreen(draw_x as i32, draw_y as i32, sprite_width, sprite_height, ctx.layer_buf.width, ctx.layer_buf.height) {
+                return;
+            }
+            
             let clip = clip_rect;
 
             if let Some(glow_opts) = glow.as_ref() {
@@ -1063,6 +1074,7 @@ fn render_sprite(
     }
 }
 
+#[inline]
 fn render_panel_box(
     buffer: &mut Buffer,
     draw_x: i32,

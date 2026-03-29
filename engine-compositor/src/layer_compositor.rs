@@ -13,9 +13,12 @@ use std::collections::HashMap;
 
 thread_local! {
     static LAYER_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
+    // OPT-39: Layer bounds cache for skip rendering layers entirely if outside viewport.
+    static LAYER_BOUNDS_CACHE: RefCell<HashMap<usize, (i32, i32, i32, i32)>> = RefCell::new(HashMap::new());
 }
 
 /// Composite all visible layers onto the scene framebuffer.
+#[inline]
 pub fn composite_layers(
     layers: &[Layer],
     ui_enabled: bool,

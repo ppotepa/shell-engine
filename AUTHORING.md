@@ -205,6 +205,28 @@ The `input.terminal-shell` section binds a shell prompt to sprites:
 In scripted mode the engine skips built-in commands entirely; Rhai handles
 all input processing and output rendering.
 
+### Action Map
+
+The `action_map` section in `mod.yaml` defines named input actions that scripts can query:
+
+```yaml
+action_map:
+  actions:
+    move_left:
+      key: a
+      repeat: true
+    move_right:
+      key: d
+      repeat: true
+    jump:
+      key: space
+      repeat: false
+```
+
+Action names must be valid identifiers (start with letter or `_`, contain only alphanumeric or `_`).
+The `key` property is required and specifies the input key code.
+The optional `repeat` property (default `false`) indicates whether the action repeats while held.
+
 ---
 
 ## Rhai Scripting

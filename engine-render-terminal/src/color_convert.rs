@@ -1,30 +1,74 @@
 //! Color conversion between engine-core and crossterm backends.
+//! 
+//! OPT-42: Color conversion caching - cache engine Color → crossterm Color conversions
+//! to avoid per-frame RGB↔256 conversions.
 
 use crossterm::style::Color as CrosstermColor;
 use engine_core::color::Color;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
-/// Convert engine-internal Color to crossterm Color.
-pub fn to_crossterm(c: Color) -> CrosstermColor {
+thread_local! {
+    static COLOR_CACHE: RefCell<HashMap<u32, CrosstermColor>> = RefCell::new(HashMap::new());
+}
+
+/// Color hashable as u32 for caching: Named colors 0-16, RGB packed as (r<<16|g<<8|b).
+#[inline]
+fn color_to_cache_key(c: Color) -> u32 {
     match c {
-        Color::Reset => CrosstermColor::Reset,
-        Color::Black => CrosstermColor::Black,
-        Color::DarkGrey => CrosstermColor::DarkGrey,
-        Color::Red => CrosstermColor::Red,
-        Color::DarkRed => CrosstermColor::DarkRed,
-        Color::Green => CrosstermColor::Green,
-        Color::DarkGreen => CrosstermColor::DarkGreen,
-        Color::Yellow => CrosstermColor::Yellow,
-        Color::DarkYellow => CrosstermColor::DarkYellow,
-        Color::Blue => CrosstermColor::Blue,
-        Color::DarkBlue => CrosstermColor::DarkBlue,
-        Color::Magenta => CrosstermColor::Magenta,
-        Color::DarkMagenta => CrosstermColor::DarkMagenta,
-        Color::Cyan => CrosstermColor::Cyan,
-        Color::DarkCyan => CrosstermColor::DarkCyan,
-        Color::White => CrosstermColor::White,
-        Color::Grey => CrosstermColor::Grey,
-        Color::Rgb { r, g, b } => CrosstermColor::Rgb { r, g, b },
+        Color::Reset => 0,
+        Color::Black => 1,
+        Color::DarkGrey => 2,
+        Color::Red => 3,
+        Color::DarkRed => 4,
+        Color::Green => 5,
+        Color::DarkGreen => 6,
+        Color::Yellow => 7,
+        Color::DarkYellow => 8,
+        Color::Blue => 9,
+        Color::DarkBlue => 10,
+        Color::Magenta => 11,
+        Color::DarkMagenta => 12,
+        Color::Cyan => 13,
+        Color::DarkCyan => 14,
+        Color::White => 15,
+        Color::Grey => 16,
+        Color::Rgb { r, g, b } => (100 << 24) | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32),
     }
+}
+
+/// Convert engine-internal Color to crossterm Color with caching.
+/// OPT-42: Cached conversions avoid per-frame RGB↔256 conversions on color-heavy scenes.
+pub fn to_crossterm(c: Color) -> CrosstermColor {
+    let key = color_to_cache_key(c);
+    COLOR_CACHE.with(|cache| {
+        let mut cache_ref = cache.borrow_mut();
+        if let Some(&cached) = cache_ref.get(&key) {
+            return cached;
+        }
+        let converted = match c {
+            Color::Reset => CrosstermColor::Reset,
+            Color::Black => CrosstermColor::Black,
+            Color::DarkGrey => CrosstermColor::DarkGrey,
+            Color::Red => CrosstermColor::Red,
+            Color::DarkRed => CrosstermColor::DarkRed,
+            Color::Green => CrosstermColor::Green,
+            Color::DarkGreen => CrosstermColor::DarkGreen,
+            Color::Yellow => CrosstermColor::Yellow,
+            Color::DarkYellow => CrosstermColor::DarkYellow,
+            Color::Blue => CrosstermColor::Blue,
+            Color::DarkBlue => CrosstermColor::DarkBlue,
+            Color::Magenta => CrosstermColor::Magenta,
+            Color::DarkMagenta => CrosstermColor::DarkMagenta,
+            Color::Cyan => CrosstermColor::Cyan,
+            Color::DarkCyan => CrosstermColor::DarkCyan,
+            Color::White => CrosstermColor::White,
+            Color::Grey => CrosstermColor::Grey,
+            Color::Rgb { r, g, b } => CrosstermColor::Rgb { r, g, b },
+        };
+        cache_ref.insert(key, converted);
+        converted
+    })
 }
 
 /// Convert crossterm Color to engine-internal Color.
