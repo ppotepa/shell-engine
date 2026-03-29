@@ -83,7 +83,7 @@ fn spawn_bullet(world, x, y, vx, vy, ttl_ms) {
 fn spawn_smoke(world, x, y, vx, vy, ttl_ms, radius) {
     let VELOCITY_SCALE = 60.0;
     let id = world.spawn_visual("smoke", "smoke-template", #{
-        x: x, y: y, heading: 0.0, collider_radius: 2.0, lifetime_ms: ttl_ms
+        x: x, y: y, heading: 0.0, lifetime_ms: ttl_ms
     });
     if id > 0 {
         world.set_physics(id, vx * VELOCITY_SCALE, vy * VELOCITY_SCALE, 0.0, 0.0, 0.04, 0.0);
@@ -347,8 +347,8 @@ for ast_id in world.query_kind("asteroid") {
                 spawn_asteroid(world,
                     wrap(t.x + (to_float(split_sin * spawn_offset) / 1024.0), min_x, max_x),
                     wrap(t.y - (to_float(split_cos * spawn_offset) / 1024.0), min_y, max_y),
-                    to_float(dir_x * (next_size + 2)) / 1000.0,
-                    to_float(dir_y * (next_size + 2)) / 1000.0,
+                    to_float(dir_x * (next_size + 2)),
+                    to_float(dir_y * (next_size + 2)),
                     (rng / 17) % 4,
                     next_size
                 );
