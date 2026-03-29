@@ -590,7 +590,7 @@ for _s in 0..steps {
     let ship_x = ship_x_fp / scale;
     let ship_y = ship_y_fp / scale;
     sync_transform(world, ship_id, ship_x_fp, ship_y_fp, ship_h);
-    sync_physics(world, ship_id, vx_fp, vy_fp);
+    sync_physics(world, ship_id, to_float(vx_fp) / 1024.0, to_float(vy_fp) / 1024.0, 0.0, 0.0);
     let ship_ref = world.entity(ship_id);
     ship_ref.set("/h", ship_h);
     ship_ref.set("/invuln_ms", ship_invuln_ms);
