@@ -6,6 +6,7 @@ exports:
   x: 0
   y: 0
   fg: white
+  bg: "#1a1a1a"
 sprites:
   - type: vector
     id: "$id"
@@ -15,3 +16,4 @@ sprites:
     points: [[0, -7], [4, 5], [0, 2], [-4, 5]]
     closed: true
     fg: "$fg"
+    bg: "$bg"

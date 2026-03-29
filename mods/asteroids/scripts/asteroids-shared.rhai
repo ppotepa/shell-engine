@@ -3,6 +3,7 @@
 
 // ── Constants ──────────────────────────────────────────────
 fn crack_duration_ms() { 1000 }
+fn velocity_scale() { 60.0 }
 
 // ── Heading arithmetic (0-31 on 32-step circle) ───────────
 fn wrap_heading32(v) {

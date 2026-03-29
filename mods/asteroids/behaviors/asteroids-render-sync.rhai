@@ -10,6 +10,7 @@ if ship_id > 0 {
         scene.set("ship", "vector.visible", visible);
         scene.set("ship", "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
         scene.set("ship", "vector.fg", "white");
+        scene.set("ship", "vector.bg", "#1a1a1a");
     }
 }
 
@@ -19,19 +20,21 @@ for ast_id in world.query_kind("asteroid") {
     let d = ast_ref.data();
     let vid = `asteroid-${ast_id}`;
 
-    let active = if d.contains("active") { d["active"] } else { true };
-    let rot_phase = if d.contains("rot_phase") { d["rot_phase"] } else { 0 };
-    let flash_ms = if d.contains("flash_ms") { d["flash_ms"] } else { 0 };
-    let flash_total = if d.contains("flash_total_ms") { d["flash_total_ms"] } else { 0 };
-    let shape = if d.contains("shape") { d["shape"] } else { 0 };
-    let size = if d.contains("size") { d["size"] } else { 1 };
+    let active = ast_ref.get_b("/active", true);
+    let rot_phase = ast_ref.get_i("/rot_phase", 0);
+    let flash_ms = ast_ref.get_i("/flash_ms", 0);
+    let flash_total = ast_ref.get_i("/flash_total_ms", 0);
+    let shape = ast_ref.get_i("/shape", 0);
+    let size = ast_ref.get_i("/size", 1);
 
     scene.set(vid, "vector.visible", active);
     scene.set(vid, "vector.points", rotate_points(asteroid_points(shape, size), rot_phase));
     if flash_ms > 0 {
         scene.set(vid, "vector.fg", h::asteroid_stroke_hex(flash_ms, flash_total));
+        scene.set(vid, "vector.bg", h::flash_fill_hex(flash_ms, flash_total));
     } else {
         scene.set(vid, "vector.fg", "#aaaaaa");
+        scene.set(vid, "vector.bg", "#333333");
     }
 
     let show_cracks = active && flash_ms > 0;
@@ -56,10 +59,9 @@ for bid in world.query_kind("bullet") {
 for sid in world.query_kind("smoke") {
     let sref = world.entity(sid);
     if !sref.exists() { continue; }
-    let d = sref.data();
-    let ttl = if d.contains("ttl_ms") { d["ttl_ms"] } else { 0 };
-    let max_ttl = if d.contains("max_ttl_ms") { d["max_ttl_ms"] } else { 1 };
-    let radius = if d.contains("radius") { d["radius"] } else { 2 };
+    let ttl = sref.get_i("/ttl_ms", 0);
+    let max_ttl = sref.get_i("/max_ttl_ms", 1);
+    let radius = sref.get_i("/radius", 2);
 
     scene.set(`smoke-${sid}`, "vector.visible", true);
     scene.set(`smoke-${sid}`, "vector.points", h::smoke_points(radius, ttl, max_ttl));
