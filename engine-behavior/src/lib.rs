@@ -1073,15 +1073,18 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("sin32", |idx: rhai::INT| -> rhai::INT {
         sin32_i32(to_i32(idx)) as rhai::INT
     });
+    // TODO: Move to mod-level shared script once Rhai module system is added (A4)
     engine.register_fn("ship_points", |heading: rhai::INT| -> RhaiArray {
         points_to_rhai_array(ship_points_i32(to_i32(heading)))
     });
+    // TODO: Move to mod-level shared script once Rhai module system is added (A4)
     engine.register_fn(
         "asteroid_points",
         |shape: rhai::INT, size: rhai::INT| -> RhaiArray {
             points_to_rhai_array(asteroid_points_i32(to_i32(shape), to_i32(size)))
         },
     );
+    // TODO: Move to mod-level shared script once Rhai module system is added (A4)
     engine.register_fn(
         "rotate_points",
         |points: RhaiArray, heading: rhai::INT| -> RhaiArray {
@@ -1089,6 +1092,7 @@ fn init_rhai_engine() -> RhaiEngine {
             points_to_rhai_array(rotate_points_i32(&points, to_i32(heading)))
         },
     );
+    // TODO: Move to mod-level shared script once Rhai module system is added (A4)
     engine.register_fn(
         "asteroid_fragment_points",
         |shape: rhai::INT, size: rhai::INT, fragment: rhai::INT| -> RhaiArray {
@@ -1099,9 +1103,11 @@ fn init_rhai_engine() -> RhaiEngine {
             ))
         },
     );
+    // TODO: Move to mod-level shared script once Rhai module system is added (A4)
     engine.register_fn("asteroid_radius", |size: rhai::INT| -> rhai::INT {
         asteroid_radius_i32(to_i32(size)) as rhai::INT
     });
+    // TODO: Move to mod-level shared script once Rhai module system is added (A4)
     engine.register_fn("asteroid_score", |size: rhai::INT| -> rhai::INT {
         asteroid_score_i32(to_i32(size)) as rhai::INT
     });
@@ -1167,12 +1173,14 @@ struct ScriptPersistenceApi {
 struct ScriptGameplayApi {
     world: Option<GameplayWorld>,
     collisions: std::sync::Arc<Vec<CollisionHit>>,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
 #[derive(Clone)]
 struct ScriptGameplayEntityApi {
     world: Option<GameplayWorld>,
     id: u64,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
 #[derive(Clone)]
@@ -2879,16 +2887,6 @@ fn rhai_dynamic_to_json(value: &RhaiDynamic) -> Option<JsonValue> {
         return Some(JsonValue::Object(out));
     }
     None
-}
-
-fn rhai_map_to_json(map: &RhaiMap) -> JsonValue {
-    let mut out = JsonMap::new();
-    for (key, item) in map {
-        if let Some(value) = rhai_dynamic_to_json(&item) {
-            out.insert(key.clone().into(), value);
-        }
-    }
-    JsonValue::Object(out)
 }
 
 fn map_get_path_dynamic(map: &RhaiMap, path: &str) -> Option<RhaiDynamic> {
