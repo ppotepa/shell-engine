@@ -1,69 +1,4 @@
-fn flash_fill_hex(flash_ms, flash_total_ms) {
-    if flash_ms <= 0 { return "black"; }
-    let total = if flash_total_ms <= 0 { 1 } else { flash_total_ms };
-    let ratio = (flash_ms * 100) / total;
-    if ratio > 66 { return "#808080"; }
-    if ratio > 33 { return "#555555"; }
-    "#2a2a2a"
-}
-
-fn asteroid_stroke_hex(flash_ms, flash_total_ms) {
-    if flash_ms <= 0 { return "#cccccc"; }
-    let total = if flash_total_ms <= 0 { 1 } else { flash_total_ms };
-    let ratio = (flash_ms * 100) / total;
-    if ratio > 66 { return "#ffffff"; }
-    if ratio > 33 { return "#e2e2e2"; }
-    "#d0d0d0"
-}
-
-fn smoke_colour_hex(ttl_ms, max_ttl_ms) {
-    if ttl_ms <= 0 { return "#101010"; }
-    let total = if max_ttl_ms <= 0 { 1 } else { max_ttl_ms };
-    let ratio = (ttl_ms * 100) / total;
-    if ratio > 75 { return "#8f8f8f"; }
-    if ratio > 50 { return "#6f6f6f"; }
-    if ratio > 25 { return "#4a4a4a"; }
-    "#262626"
-}
-
-fn smoke_points(radius, ttl_ms, max_ttl_ms) {
-    let total = if max_ttl_ms <= 0 { 1 } else { max_ttl_ms };
-    let r = (radius * ttl_ms) / total;
-    if r < 1 { r = 1; }
-    if r == 1 {
-        return [[0, -1], [1, 0], [0, 1], [-1, 0]];
-    }
-    if r == 2 {
-        return [[0, -2], [1, -1], [2, 0], [1, 1], [0, 2], [-1, 1], [-2, 0], [-1, -1]];
-    }
-    [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]]
-}
-
-fn wrap_heading32(v) {
-    let out = v % 32;
-    if out < 0 { out + 32 } else { out }
-}
-
-fn fragment_heading_offset(idx) {
-    if idx == 0 { return 0; }
-    if idx == 1 { return 11; }
-    21
-}
-
-fn crack_visual_id(ast, idx) {
-    if idx == 0 { return ast["crack_visual_0"]; }
-    if idx == 1 { return ast["crack_visual_1"]; }
-    ast["crack_visual_2"]
-}
-
-fn hide_crack_visuals(scene, ast) {
-    for frag_idx in 0..3 {
-        let frag_id = crack_visual_id(ast, frag_idx);
-        if frag_id.type_of() == "string" {
-            scene.set(frag_id, "visible", false);
-        }
-    }
-}
+import "asteroids-shared" as h;
 
 let scale = 1024;
 let ship_id = world.first_kind("ship");
@@ -111,7 +46,7 @@ for ast_id in asteroid_ids {
     }
     if ast.contains("x") == false || ast.contains("y") == false {
         scene.set(asteroid_id, "visible", false);
-        hide_crack_visuals(scene, ast);
+        h::hide_crack_visuals(scene, ast);
         continue;
     }
     let flash_ms = if ast.contains("flash_ms") { ast["flash_ms"] } else { 0 };
@@ -131,11 +66,11 @@ for ast_id in asteroid_ids {
         "vector.points",
         rotate_points(asteroid_points(ast["shape"], ast["size"]), rot_phase)
     );
-    scene.set(asteroid_id, "vector.fg", asteroid_stroke_hex(flash_ms, flash_total_ms));
+    scene.set(asteroid_id, "vector.fg", h::asteroid_stroke_hex(flash_ms, flash_total_ms));
     scene.set(asteroid_id, "vector.bg", "black");
     if split_visible {
         for frag_idx in 0..3 {
-            let frag_id = crack_visual_id(ast, frag_idx);
+            let frag_id = h::crack_visual_id(ast, frag_idx);
             if frag_id.type_of() != "string" {
                 continue;
             }
@@ -155,7 +90,7 @@ for ast_id in asteroid_ids {
             scene.set(frag_id, "vector.bg", "black");
         }
     } else {
-        hide_crack_visuals(scene, ast);
+        h::hide_crack_visuals(scene, ast);
     }
 }
 
@@ -194,8 +129,8 @@ for smoke_id in smoke_ids {
     scene.set(sprite_id, "visible", sref.get_b("/active", false));
     scene.set(sprite_id, "position.x", x_fp / scale);
     scene.set(sprite_id, "position.y", y_fp / scale);
-    scene.set(sprite_id, "vector.points", smoke_points(radius, ttl_ms, max_ttl_ms));
-    scene.set(sprite_id, "vector.fg", smoke_colour_hex(ttl_ms, max_ttl_ms));
+    scene.set(sprite_id, "vector.points", h::smoke_points(radius, ttl_ms, max_ttl_ms));
+    scene.set(sprite_id, "vector.fg", h::smoke_colour_hex(ttl_ms, max_ttl_ms));
     scene.set(sprite_id, "vector.bg", "black");
 }
 

@@ -1,19 +1,81 @@
 // Asteroids shared helpers
 // This module is imported by asteroids-game-loop.rhai and asteroids-render-sync.rhai
 
-// TODO: Extract from game-loop.rhai:
-// - wrap_heading32(heading)
-// - fragment_heading_offset(fragment_idx)
-// - asteroid_radius(size)
-// - asteroid_score(size)
-
-// TODO: Extract from render-sync.rhai:
-// - sync_transform(entity_ref, scene, sprite_id)
-// - sync_physics(entity_ref, scene, sprite_id)
-
-// Example helper function to verify module loading works
-pub fn test_module_loading() {
-    print("Asteroids shared module loaded successfully!");
+// Game timing constants
+fn crack_duration_ms() {
+    1000
 }
 
-// Placeholder for now - will be filled in during script migration (phase 5)
+// Heading arithmetic (0-31 on 32-step circle)
+fn fragment_heading_offset(idx) {
+    if idx == 0 { return 0; }
+    if idx == 1 { return 11; }
+    21
+}
+
+fn wrap_heading32(v) {
+    let out = v % 32;
+    if out < 0 { out + 32 } else { out }
+}
+
+fn heading32_to_rad(h) {
+    to_float(h) * (6.283185307179586 / 32.0)
+}
+
+// Visual helpers for rendering
+fn flash_fill_hex(flash_ms, flash_total_ms) {
+    if flash_ms <= 0 { return "black"; }
+    let total = if flash_total_ms <= 0 { 1 } else { flash_total_ms };
+    let ratio = (flash_ms * 100) / total;
+    if ratio > 66 { return "#808080"; }
+    if ratio > 33 { return "#555555"; }
+    "#2a2a2a"
+}
+
+fn asteroid_stroke_hex(flash_ms, flash_total_ms) {
+    if flash_ms <= 0 { return "#cccccc"; }
+    let total = if flash_total_ms <= 0 { 1 } else { flash_total_ms };
+    let ratio = (flash_ms * 100) / total;
+    if ratio > 66 { return "#ffffff"; }
+    if ratio > 33 { return "#e2e2e2"; }
+    "#d0d0d0"
+}
+
+fn smoke_colour_hex(ttl_ms, max_ttl_ms) {
+    if ttl_ms <= 0 { return "#101010"; }
+    let total = if max_ttl_ms <= 0 { 1 } else { max_ttl_ms };
+    let ratio = (ttl_ms * 100) / total;
+    if ratio > 75 { return "#8f8f8f"; }
+    if ratio > 50 { return "#6f6f6f"; }
+    if ratio > 25 { return "#4a4a4a"; }
+    "#262626"
+}
+
+fn smoke_points(radius, ttl_ms, max_ttl_ms) {
+    let total = if max_ttl_ms <= 0 { 1 } else { max_ttl_ms };
+    let r = (radius * ttl_ms) / total;
+    if r < 1 { r = 1; }
+    if r == 1 {
+        return [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    }
+    if r == 2 {
+        return [[0, -2], [1, -1], [2, 0], [1, 1], [0, 2], [-1, 1], [-2, 0], [-1, -1]];
+    }
+    [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]]
+}
+
+// Crack visual management
+fn crack_visual_id(ast, idx) {
+    if idx == 0 { return ast["crack_visual_0"]; }
+    if idx == 1 { return ast["crack_visual_1"]; }
+    ast["crack_visual_2"]
+}
+
+fn hide_crack_visuals(scene, ast) {
+    for frag_idx in 0..3 {
+        let frag_id = crack_visual_id(ast, frag_idx);
+        if frag_id.type_of() == "string" {
+            scene.set(frag_id, "visible", false);
+        }
+    }
+}

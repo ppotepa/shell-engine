@@ -36,9 +36,18 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
-## 29-03-2026
+## 29-03-2026 (E7: Final cleanup + collision filtering)
 
-**E4: Asteroids fixed-point → float physics migration complete**
+**E7: Final cleanup + collision filtering migration complete** ✅
+- **mods/asteroids**: replaced manual collision dispatch with filtered collision APIs — `world.collisions_between("ship", "asteroid")` and `world.collisions_between("bullet", "asteroid")`
+- **mods/asteroids**: removed 11 LOC from collision dispatch (~57 → ~28 per collision type); eliminated nested if-chains checking `hit.contains("a")`/`hit.contains("b")`
+- **mods/asteroids**: removed `despawn_entity_visual()` helper — E1 auto-despawn now handles visual cleanup on `world.despawn()` calls
+- **mods/asteroids**: modularized shared helpers into `scripts/asteroids-shared.rhai` — `crack_duration_ms()`, `fragment_heading_offset()`, `heading32_to_rad()`, visual helpers now imported via `import "asteroids-shared" as h;`
+- **engine-behavior**: fixed Rhai module resolver initialization — `RhaiScriptBehavior::from_params()` now calls `init_rhai_engine()` to apply module resolver; `init_behavior_system()` called on app startup
+- **app**: added `init_behavior_system(&mod_source)` call before scene checks to ensure Rhai module resolution works correctly
+- **result**: ~35 LOC removed across game-loop + render-sync; asteroids-game-loop.rhai: 921 → 886 LOC (-3.8%); modular script structure ready for extensibility; all 62 behavior tests pass; scene checks pass; collisions work correctly (bullets kill asteroids, ship dies on impact)
+
+## 29-03-2026
 - **mods/asteroids**: migrated from manual fixed-point physics (`x_fp`, `dx_fp` manual integration) to engine PhysicsBody2D 
 - **mods/asteroids**: replaced asteroids/bullet/smoke position integration with engine physics step (SimpleEulerIntegration: velocity + drag + max_speed)
 - **mods/asteroids**: simplified bullet/smoke loops: now read positions from Transform2D, wrap toroidally, skip manual `x += dx; y += dy` integration

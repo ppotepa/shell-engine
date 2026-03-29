@@ -1,4 +1,5 @@
 use clap::Parser;
+use engine::behavior::init_behavior_system;
 use engine::{logging, BackendKind, EngineConfig, ShellEngine};
 use engine_mod::startup::checks::{
     AudioSequencerCheck, EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck,
@@ -147,6 +148,9 @@ fn main() {
         .mod_source
         .unwrap_or_else(|| format!("mods/{}/", cli.mod_name));
     logging::info("app.main", format!("resolved mod_source={mod_source}"));
+    
+    // Initialize the behavior system with the mod source so Rhai module resolution works
+    init_behavior_system(&mod_source);
 
     let manifest = load_mod_manifest(Path::new(&mod_source)).unwrap_or_else(|error| {
         logging::error("app.main", format!("failed to read mod manifest: {error}"));
@@ -352,6 +356,10 @@ fn run_scene_checks(
     selected_output: StartupOutputSetting,
 ) -> Result<StartupReport, engine::EngineError> {
     use engine::asset::{create_scene_repository, SceneRepository};
+    use engine::behavior::init_behavior_system;
+
+    // Initialize behavior system with mod source for Rhai module resolution
+    init_behavior_system(mod_source.to_str().expect("mod_source path is valid UTF-8"));
 
     let scene_loader_fn =
         |mod_root: &std::path::Path| -> Result<Vec<StartupSceneFile>, engine::EngineError> {

@@ -1,12 +1,4 @@
-fn crack_duration_ms() {
-    1000
-}
-
-fn fragment_heading_offset(idx) {
-    if idx == 0 { return 0; }
-    if idx == 1 { return 11; }
-    21
-}
+import "asteroids-shared" as h;
 
 fn level_i(level_api, path, fallback) {
     if level_api.has(path) {
@@ -22,18 +14,14 @@ fn next_seed(seed) {
     ((seed * 1103515245) + 12345) % 2147483647
 }
 
-fn heading32_to_rad(h) {
-    to_float(h) * (6.283185307179586 / 32.0)
-}
-
 fn sync_transform(world, id, x_fp, y_fp, heading32) {
     let px = to_float(x_fp) / 1024.0;
     let py = to_float(y_fp) / 1024.0;
-    world.set_transform(id, px, py, heading32_to_rad(heading32));
+    world.set_transform(id, px, py, h::heading32_to_rad(heading32));
 }
 
 fn sync_transform_xy(world, id, x, y, heading32) {
-    world.set_transform(id, to_float(x), to_float(y), heading32_to_rad(heading32));
+    world.set_transform(id, to_float(x), to_float(y), h::heading32_to_rad(heading32));
 }
 
 fn sync_physics(world, id, vx, vy, drag, max_speed) {
@@ -297,18 +285,7 @@ fn spawn_ship_disintegration(world, scene, x, y) {
     }
 }
 
-fn maybe_despawn_visual(scene, visual_id) {
-    if visual_id.type_of() == "string" {
-        scene.despawn_object(visual_id);
-    }
-}
 
-fn despawn_entity_visual(world, scene, entity_id) {
-    maybe_despawn_visual(scene, world.get(entity_id, "/visual_id"));
-    maybe_despawn_visual(scene, world.get(entity_id, "/crack_visual_0"));
-    maybe_despawn_visual(scene, world.get(entity_id, "/crack_visual_1"));
-    maybe_despawn_visual(scene, world.get(entity_id, "/crack_visual_2"));
-}
 
 fn load_game_config(level) {
     let base_lives = level_i(level, "/player/lives", 3);
@@ -627,7 +604,7 @@ for _s in 0..steps {
 
         ast["rot_accum_ms"] = ast["rot_accum_ms"] + step_ms;
         while ast["rot_accum_ms"] >= ast["rot_step_ms"] {
-            ast["rot_phase"] = wrap_heading32(ast["rot_phase"] + ast["rot_speed"]);
+            ast["rot_phase"] = h::wrap_heading32(ast["rot_phase"] + ast["rot_speed"]);
             ast["rot_accum_ms"] = ast["rot_accum_ms"] - ast["rot_step_ms"];
         }
 
@@ -651,7 +628,7 @@ for _s in 0..steps {
                             rng = next_seed(rng + now + (ast_id * 41) + to_i(ast["x"]) + to_i(ast["y"]) + frag_idx * 67);
                             game.set("/ast/rng", rng);
                             let seed = rng;
-                            let split_heading = wrap_heading32(base_heading + fragment_heading_offset(frag_idx));
+                            let split_heading = h::wrap_heading32(base_heading + h::fragment_heading_offset(frag_idx));
                             let split_sin = sin32(split_heading);
                             let split_cos = sin32(split_heading + 8);
                             let dir_x = sign_i(split_sin, if frag_idx == 1 { 1 } else { -1 });
@@ -772,33 +749,20 @@ for _s in 0..steps {
         ship_invuln_ms = ship_invuln_ms - step_ms;
     }
 
-    // Collision handling via engine collision buffer
-    let hits = world.collisions();
-    for hit in hits {
-        let a_id = if hit.contains("a") { hit["a"] } else { 0 };
-        let b_id = if hit.contains("b") { hit["b"] } else { 0 };
-        if a_id <= 0 || b_id <= 0 {
-            continue;
-        }
-        let a_kind = world.kind(a_id);
-        let b_kind = world.kind(b_id);
-
-        let ship_vs_ast =
-            (a_kind == "ship" && b_kind == "asteroid") || (a_kind == "asteroid" && b_kind == "ship");
-        let bullet_vs_ast =
-            (a_kind == "bullet" && b_kind == "asteroid") || (a_kind == "asteroid" && b_kind == "bullet");
-
-        if ship_vs_ast && ship_invuln_ms <= 0 && ship_respawn_ms <= 0 {
-            let ship_id_hit = if a_kind == "ship" { a_id } else { b_id };
-            let ast_id_hit = if a_kind == "asteroid" { a_id } else { b_id };
+    // Collision handling: ship vs asteroid
+    let ship_ast_hits = world.collisions_between("ship", "asteroid");
+    for hit in ship_ast_hits {
+        if ship_invuln_ms <= 0 && ship_respawn_ms <= 0 {
+            let ship_id_hit = hit.entity_a;
+            let ast_id_hit = hit.entity_b;
             let ship_x = game.get("/ast/ship_x_fp") / to_float(scale);
             let ship_y = game.get("/ast/ship_y_fp") / to_float(scale);
             spawn_ship_disintegration(world, scene, ship_x, ship_y);
             audio.event("gameplay.ship.hit", 1.0);
             let hit_ref = world.entity(ast_id_hit);
             if hit_ref.exists() {
-                hit_ref.set("/flash_ms", crack_duration_ms());
-                hit_ref.set("/flash_total_ms", crack_duration_ms());
+                hit_ref.set("/flash_ms", h::crack_duration_ms());
+                hit_ref.set("/flash_total_ms", h::crack_duration_ms());
                 hit_ref.set("/split_pending", true);
                 let old_vx = hit_ref.get_f("/vx", 0.0);
                 let old_vy = hit_ref.get_f("/vy", 0.0);
@@ -813,27 +777,28 @@ for _s in 0..steps {
             ship_invuln_ms = 0;
             game.set("/ast/msg_ttl_ms", 450);
             scene.set("game-message", "text.content", "HIT!");
-        } else if bullet_vs_ast {
-            let bullet_id = if a_kind == "bullet" { a_id } else { b_id };
-            let ast_id = if a_kind == "asteroid" { a_id } else { b_id };
-            if world.exists(bullet_id) {
-                despawn_entity_visual(world, scene, bullet_id);
-                world.despawn_object(bullet_id);
-            }
-            let hit_ref = world.entity(ast_id);
-            if hit_ref.exists() && hit_ref.get_b("/active", false) {
-                score = score + asteroid_score(hit_ref.get_i("/size", 0));
-                hit_ref.set("/flash_ms", crack_duration_ms());
-                hit_ref.set("/flash_total_ms", crack_duration_ms());
-                hit_ref.set("/split_pending", true);
-                game.set("/ast/msg_ttl_ms", 250);
-                scene.set("game-message", "text.content", "HIT");
-                diag.info(`hit asteroid=${ast_id} size=${hit_ref.get_i("/size", 0)} score=${score}`);
-            }
         }
     }
 
-    // ship collision handled via collisions buffer
+    // Collision handling: bullet vs asteroid
+    let bullet_ast_hits = world.collisions_between("bullet", "asteroid");
+    for hit in bullet_ast_hits {
+        let bullet_id = hit.entity_a;
+        let ast_id = hit.entity_b;
+        if world.exists(bullet_id) {
+            world.despawn_object(bullet_id);
+        }
+        let hit_ref = world.entity(ast_id);
+        if hit_ref.exists() && hit_ref.get_b("/active", false) {
+            score = score + asteroid_score(hit_ref.get_i("/size", 0));
+            hit_ref.set("/flash_ms", h::crack_duration_ms());
+            hit_ref.set("/flash_total_ms", h::crack_duration_ms());
+            hit_ref.set("/split_pending", true);
+            game.set("/ast/msg_ttl_ms", 250);
+            scene.set("game-message", "text.content", "HIT");
+            diag.info(`hit asteroid=${ast_id} size=${hit_ref.get_i("/size", 0)} score=${score}`);
+        }
+    }
 
     game.set("/ast/score", score);
     game.set("/ast/lives", lives);

@@ -2707,8 +2707,7 @@ impl RhaiScriptBehavior {
     pub fn from_params(params: &BehaviorParams) -> Self {
         let compile_error = match params.script.as_deref() {
             Some(src) => {
-                let mut engine = RhaiEngine::new();
-                configure_rhai_limits(&mut engine);
+                let engine = init_rhai_engine();
                 match engine.compile(src) {
                     Ok(ast) => {
                         // Pre-populate the thread-local AST cache so the first

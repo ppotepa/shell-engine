@@ -197,6 +197,7 @@ impl ShellEngine {
     pub fn run(&self) -> Result<(), EngineError> {
         use engine_animation::Animator;
         use engine_asset::SceneRepository;
+        use engine_behavior::init_behavior_system;
         use engine_events::InputBackend;
         use engine_mod::startup::{
             StartupContext, StartupIssueLevel, StartupRunner, StartupSceneFile,
@@ -208,6 +209,9 @@ impl ShellEngine {
         use scene_runtime::SceneRuntime;
         use systems::renderer::TerminalRenderer;
         use terminal_caps::target_fps_from_manifest;
+
+        // Initialize behavior system with mod source for Rhai module resolution
+        init_behavior_system(self.mod_source.to_str().expect("mod_source path is valid UTF-8"));
 
         let manifest_entrypoint = self.mod_manifest["entrypoint"]
             .as_str()
