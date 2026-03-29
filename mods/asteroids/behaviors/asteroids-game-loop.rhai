@@ -1,6 +1,6 @@
 import "asteroids-shared" as h;
 
-let VELOCITY_SCALE = 62.5;
+let VELOCITY_SCALE = 60.0;
 let DRAG_PER_SEC = 0.04;
 
 fn next_seed(seed) {
@@ -18,15 +18,15 @@ fn level_i(level_api, path, fallback) {
 fn load_game_config(level) {
     let base_lives = level_i(level, "/player/lives", 3);
     let shot_cooldown_ms = clamp_i(level_i(level, "/player/shot_cooldown_ms", 200), 200, 1000);
-    let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 170), 60, 600)) / 1024.0 * 62.5;
-    let ship_max_speed = to_float(clamp_i(level_i(level, "/player/max_speed_fp", 4608), 1024, 14000)) / 1024.0 * 62.5;
+    let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 170), 60, 600)) / 1024.0 * VELOCITY_SCALE;
+    let ship_max_speed = to_float(clamp_i(level_i(level, "/player/max_speed_fp", 4608), 1024, 14000)) / 1024.0 * VELOCITY_SCALE;
     let turn_step_ms = clamp_i(level_i(level, "/player/turn_step_ms", 40), 16, 150);
     let wave_base_spawn_count = clamp_i(level_i(level, "/waves/base_spawn_count", 4), 1, 20);
     let wave_min_spawn_count = clamp_i(level_i(level, "/waves/min_spawn_count", 5), 1, 30);
     let wave_max_spawn_count = clamp_i(level_i(level, "/waves/max_spawn_count", 10), 1, 40);
     if wave_min_spawn_count > wave_max_spawn_count { wave_min_spawn_count = wave_max_spawn_count; }
     let bullet_ttl_ms = clamp_i(level_i(level, "/combat/bullet_ttl_ms", 900), 100, 6000);
-    let bullet_speed = to_float(clamp_i(level_i(level, "/combat/bullet_speed_fp", 4200), 1000, 18000)) / 1024.0 * 62.5;
+    let bullet_speed = to_float(clamp_i(level_i(level, "/combat/bullet_speed_fp", 4200), 1000, 18000)) / 1024.0 * VELOCITY_SCALE;
     #{
         base_lives: base_lives,
         shot_cooldown_ms: shot_cooldown_ms,
@@ -58,7 +58,7 @@ fn spawn_asteroid(world, x, y, vx, vy, shape, size) {
         x: x, y: y, heading: 0.0, collider_radius: asteroid_radius(size)
     });
     if id > 0 {
-        world.set_physics(id, vx * 62.5, vy * 62.5, 0.0, 0.0, 0.0, 0.0);
+        world.set_physics(id, vx * VELOCITY_SCALE, vy * VELOCITY_SCALE, 0.0, 0.0, 0.0, 0.0);
         world.entity(id).set_many(#{
             shape: shape, size: size, flash_ms: 0, flash_total_ms: 0, split_pending: false,
             collide_cd_ms: 0, rot_phase: spin_seed % 32,
@@ -74,7 +74,7 @@ fn spawn_bullet(world, x, y, vx, vy, ttl_ms) {
         x: x, y: y, heading: 0.0, collider_radius: 3.0, lifetime_ms: ttl_ms
     });
     if id > 0 {
-        world.set_physics(id, vx * 62.5, vy * 62.5, 0.0, 0.0, 0.0, 0.0);
+        world.set_physics(id, vx * VELOCITY_SCALE, vy * VELOCITY_SCALE, 0.0, 0.0, 0.0, 0.0);
     }
     id
 }
@@ -84,7 +84,7 @@ fn spawn_smoke(world, x, y, vx, vy, ttl_ms, radius) {
         x: x, y: y, heading: 0.0, collider_radius: 2.0, lifetime_ms: ttl_ms
     });
     if id > 0 {
-        world.set_physics(id, vx * 62.5, vy * 62.5, 0.0, 0.0, 0.04, 0.0);
+        world.set_physics(id, vx * VELOCITY_SCALE, vy * VELOCITY_SCALE, 0.0, 0.0, 0.04, 0.0);
         world.entity(id).set_many(#{ttl_ms: ttl_ms, max_ttl_ms: ttl_ms, radius: radius});
     }
     id
@@ -265,7 +265,7 @@ if world.exists(ship_id) {
         vy = clamp_f(vy + (fy * accel), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
         if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
             spawn_smoke(world, t.x - (fx * 6.0), t.y - (fy * 6.0),
-                       vx / 62.5 - (fx * 0.35), vy / 62.5 - (fy * 0.35), 520, 3);
+                       vx  / VELOCITY_SCALE - (fx * 0.35), vy  / VELOCITY_SCALE - (fy * 0.35), 520, 3);
             smoke_cd = 48;
         }
     }
@@ -275,8 +275,8 @@ if world.exists(ship_id) {
         let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
         let bspeed = cfg["bullet_speed"];
         spawn_bullet(world, t.x + (fx * 9.0), t.y + (fy * 9.0),
-                    vx / 62.5 + (fx * bspeed / 62.5),
-                    vy / 62.5 + (fy * bspeed / 62.5),
+                    vx  / VELOCITY_SCALE + (fx * bspeed  / VELOCITY_SCALE),
+                    vy  / VELOCITY_SCALE + (fy * bspeed  / VELOCITY_SCALE),
                     cfg["bullet_ttl_ms"]);
         shot_cd_ms = cfg["shot_cooldown_ms"];
         audio.event("gameplay.ship.shoot", 1.0);
@@ -393,8 +393,8 @@ for hit in world.collisions_between("ship", "asteroid") {
             hit_ref.set_many(#{
                 flash_ms: h::crack_duration_ms(), flash_total_ms: h::crack_duration_ms(), split_pending: true
             });
-            hit_ref.set_velocity(clamp_f(-phys.vx, -4.0 * 62.5, 4.0 * 62.5),
-                                clamp_f(-phys.vy, -4.0 * 62.5, 4.0 * 62.5));
+            hit_ref.set_velocity(clamp_f(-phys.vx, -4.0 * VELOCITY_SCALE, 4.0 * VELOCITY_SCALE),
+                                clamp_f(-phys.vy, -4.0 * VELOCITY_SCALE, 4.0 * VELOCITY_SCALE));
             hit_ref.set("/collide_cd_ms", 180);
         }
         lives -= 1;
