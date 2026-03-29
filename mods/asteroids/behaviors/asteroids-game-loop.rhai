@@ -43,13 +43,10 @@ fn spawn_ship(world) {
     let id = world.spawn_object("ship", #{});
     if id > 0 {
         world.set_visual(id, "ship");
-        let ship_ref = world.entity(id);
-        ship_ref.set_position(0.0, 0.0);
-        ship_ref.set_heading(0.0);
-        ship_ref.set_velocity(0.0, 0.0);
-        world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
+        world.set_transform(id, 0.0, 0.0, 0.0);
         world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-        ship_ref.set_many(#{h: 0, invuln_ms: 3000});
+        world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
+        world.entity(id).set_many(#{h: 0, invuln_ms: 3000});
     }
     id
 }
