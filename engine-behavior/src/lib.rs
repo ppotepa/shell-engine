@@ -1107,8 +1107,46 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
     engine.register_fn(
+        "clamp_f",
+        |v: rhai::FLOAT, min_v: rhai::FLOAT, max_v: rhai::FLOAT| -> rhai::FLOAT {
+            if v < min_v {
+                min_v
+            } else if v > max_v {
+                max_v
+            } else {
+                v
+            }
+        },
+    );
+    engine.register_fn(
         "wrap",
         |v: rhai::INT, min_v: rhai::INT, max_v: rhai::INT| -> rhai::INT {
+            if v < min_v {
+                max_v
+            } else if v > max_v {
+                min_v
+            } else {
+                v
+            }
+        },
+    );
+    engine.register_fn(
+        "wrap",
+        |v: rhai::FLOAT, min_v: rhai::INT, max_v: rhai::INT| -> rhai::FLOAT {
+            let min_f = min_v as rhai::FLOAT;
+            let max_f = max_v as rhai::FLOAT;
+            if v < min_f {
+                max_f
+            } else if v > max_f {
+                min_f
+            } else {
+                v
+            }
+        },
+    );
+    engine.register_fn(
+        "wrap",
+        |v: rhai::FLOAT, min_v: rhai::FLOAT, max_v: rhai::FLOAT| -> rhai::FLOAT {
             if v < min_v {
                 max_v
             } else if v > max_v {
