@@ -202,6 +202,31 @@ impl GameplayWorld {
         store.entities.get(&id).cloned()
     }
 
+    /// Returns the entire data JSON blob of an entity, or None if the entity doesn't exist.
+    pub fn data(&self, id: u64) -> Option<JsonValue> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.entities.get(&id).map(|entity| entity.data.clone())
+    }
+
+    /// Bulk writes multiple properties into an entity using a map of key-value pairs.
+    /// Each key is treated as a JSON pointer path (prefixed with /).
+    pub fn set_many(&self, id: u64, map: &std::collections::BTreeMap<String, JsonValue>) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(entity) = store.entities.get_mut(&id) else {
+            return false;
+        };
+        for (key, value) in map {
+            if !set_path(&mut entity.data, &format!("/{}", key), value.clone()) {
+                return false;
+            }
+        }
+        true
+    }
+
     // --- Component accessors -------------------------------------------------
 
     pub fn set_transform(&self, id: u64, xf: Transform2D) -> bool {

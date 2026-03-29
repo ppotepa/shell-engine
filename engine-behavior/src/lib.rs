@@ -1000,6 +1000,27 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("lifetime_remaining", |entity: &mut ScriptGameplayEntityApi| {
         entity.lifetime_remaining()
     });
+    engine.register_fn(
+        "set_many",
+        |entity: &mut ScriptGameplayEntityApi, map: RhaiMap| {
+            entity.set_many(map)
+        },
+    );
+    engine.register_fn("data", |entity: &mut ScriptGameplayEntityApi| {
+        entity.data()
+    });
+    engine.register_fn(
+        "get_f",
+        |entity: &mut ScriptGameplayEntityApi, path: &str, fallback: rhai::FLOAT| {
+            entity.get_f(path, fallback)
+        },
+    );
+    engine.register_fn(
+        "get_s",
+        |entity: &mut ScriptGameplayEntityApi, path: &str, fallback: &str| {
+            entity.get_s(path, fallback)
+        },
+    );
     engine.register_fn("despawn", |entity: &mut ScriptGameplayEntityApi| {
         entity.despawn()
     });
@@ -2633,7 +2654,7 @@ impl ScriptGameplayEntityApi {
         result
     }
 
-    fn lifetime_remaining(&mut self) -> rhai::INT {
+     fn lifetime_remaining(&mut self) -> rhai::INT {
         let Some(world) = self.world.as_ref() else {
             return 0;
         };
@@ -2642,7 +2663,45 @@ impl ScriptGameplayEntityApi {
         };
         lifetime.ttl_ms as rhai::INT
     }
+
+    fn set_many(&mut self, map: RhaiMap) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        for (key, value) in map {
+            let Some(json_value) = rhai_dynamic_to_json(&value) else {
+                return false;
+            };
+            if !world.set(self.id, &format!("/{}", key), json_value) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn data(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
+        let Some(entity) = world.get_entity(self.id) else {
+            return RhaiMap::new();
+        };
+        json_to_rhai_dynamic(&entity.data)
+            .try_cast::<RhaiMap>()
+            .unwrap_or_default()
+    }
+
+    fn get_f(&mut self, path: &str, fallback: rhai::FLOAT) -> rhai::FLOAT {
+        self.get(path).try_cast::<rhai::FLOAT>().unwrap_or(fallback)
+    }
+
+    fn get_s(&mut self, path: &str, fallback: &str) -> String {
+        self.get(path)
+            .try_cast::<String>()
+            .unwrap_or_else(|| fallback.to_string())
+    }
 }
+
 
 impl RhaiScriptBehavior {
     pub fn from_params(params: &BehaviorParams) -> Self {
@@ -4298,6 +4357,58 @@ if e.exists() && e.get_bool("/active", false) {
         let id = ids[0];
         assert_eq!(gameplay_world.get(id, "/score"), Some(json!(13)));
         assert_eq!(gameplay_world.get(id, "/active"), Some(json!(true)));
+    }
+
+    #[test]
+    fn rhai_script_behavior_gameplay_entity_api_supports_bulk_operations() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let id = world.spawn_object("ship", #{ x: 1.5, y: 2.5, name: "player" });
+let e = world.entity(id);
+
+// Test set_many
+let updates = #{
+  x: 10.5,
+  y: 20.5,
+  score: 42
+};
+e.set_many(updates);
+
+// Test data() - should return entire entity data blob
+let data = e.data();
+
+// Test get_f and get_s
+let x = e.get_f("/x", 0.0);
+let name = e.get_s("/name", "");
+
+if x == 10.5 && name == "player" {
+  e.set("/success", true);
+}
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "bulk operations should not produce ScriptError: {commands:?}"
+        );
+        let ids = gameplay_world.ids();
+        assert_eq!(ids.len(), 1);
+        let id = ids[0];
+        assert_eq!(gameplay_world.get(id, "/x"), Some(json!(10.5)));
+        assert_eq!(gameplay_world.get(id, "/y"), Some(json!(20.5)));
+        assert_eq!(gameplay_world.get(id, "/score"), Some(json!(42)));
+        assert_eq!(gameplay_world.get(id, "/name"), Some(json!("player")));
+        assert_eq!(gameplay_world.get(id, "/success"), Some(json!(true)));
     }
 
     fn region(x: u16, y: u16, width: u16, height: u16) -> Region {

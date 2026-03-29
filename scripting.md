@@ -605,33 +605,41 @@ let pts = h::smoke_points(radius, ttl, max_ttl);
 
 Each task is self-contained and can be assigned to one agent. Dependencies are noted.
 
-### TASK 1: `entity.set_many()` + `entity.data()` + `entity.get_f/get_s`
+### TASK 1: `entity.set_many()` + `entity.data()` + `entity.get_f/get_s` ✅
+**Status**: **COMPLETE** (E1 agent, 349s)
 **Depends on**: nothing
-**Files to modify**:
-- `engine-behavior/src/lib.rs`: Add `set_many`, `data`, `get_f`, `get_s` methods to `ScriptGameplayEntityApi` impl block (~line 2283). Register as Rhai functions (~line 896).
-- `engine-game/src/gameplay.rs`: Add `data(id) → Option<JsonValue>` and `set_many(id, map) → bool` to `GameplayWorld`.
-**Test**: `cargo test -p engine-behavior --lib && cargo test -p engine --lib`
-**Verify**: `cargo run -p app -- --mod-source=mods/asteroids --check-scenes`
-**Expected LOC**: ~60 lines engine code
+**Files modified**:
+- `engine-behavior/src/lib.rs`: Added `set_many`, `data`, `get_f`, `get_s` methods to `ScriptGameplayEntityApi` impl block. Registered as Rhai functions.
+- `engine-game/src/gameplay.rs`: Added `data(id) → Option<JsonValue>` and `set_many(id, map) → bool` to `GameplayWorld`.
+**Tests**: ✅ All 62 tests pass (engine-behavior)
+**Verify**: ✅ `cargo run -p app -- --mod-source=mods/asteroids --check-scenes` passes
+**Actual LOC**: ~65 lines engine code
 
-### TASK 2: `world.collisions_between()` + `world.collisions_of()`
+### TASK 2: `world.collisions_between()` + `world.collisions_of()` ✅
+**Status**: **COMPLETE** (E2 agent, 169s)
 **Depends on**: nothing
-**Files to modify**:
-- `engine-behavior/src/lib.rs`: Add `collisions_between(kind_a, kind_b) → RhaiArray` and `collisions_of(kind) → RhaiArray` methods to `ScriptGameplayApi`. Register as Rhai functions.
-- Implementation: iterate `self.collisions`, look up kinds via `self.world.kind_of(id)`, filter and normalize.
-**Test**: `cargo test -p engine-behavior --lib`
-**Expected LOC**: ~40 lines engine code
+**Files modified**:
+- `engine-behavior/src/lib.rs`: Added `collisions_between(kind_a, kind_b) → RhaiArray` and `collisions_of(kind) → RhaiArray` methods to `ScriptGameplayApi`. Registered as Rhai functions.
+- Implementation: iterates `self.collisions`, looks up kinds via `self.world.kind_of(id)`, filters and normalizes.
+**Tests**: ✅ All 63 tests pass (engine-behavior, including 2 new tests)
+**Verify**: ✅ `cargo run -p app -- --mod-source=mods/asteroids --check-scenes` passes
+**Actual LOC**: ~60 lines engine code
 
-### TASK 3: Toroidal wrap in physics step + verify drag
+### TASK 3: Toroidal wrap in physics step + verify drag ✅
+**Status**: **COMPLETE** (E3 agent, 133s)
 **Depends on**: nothing
-**Files to modify**:
-- `engine/src/systems/gameplay.rs`: After physics integration, if `WrapStrategy::Toroid` is active, wrap all entity positions. Verify drag is applied during physics step (check `engine-game/src/physics.rs` or wherever `PhysicsBody2D` integration lives).
-- `engine-game/src/collision.rs`: Expose `WrapStrategy` for reading.
-**Test**: `cargo test -p engine --lib && cargo test -p engine-game --lib`
-**Expected LOC**: ~30 lines engine code
+**Files modified**:
+- `engine/src/systems/gameplay.rs`: Integrated toroidal wrapping after physics integration step. Added `wrap_f32()` helper for modulo wrapping.
+- `engine-game/src/collision.rs`: Added `ToroidBounds` struct and `toroid()` method on `CollisionStrategies` for safe wrap bounds access.
+- `engine-game/src/lib.rs`: Exported `ToroidBounds` type.
+**Verification**: 
+- ✅ Drag coefficient confirmed already correctly applied in `SimpleEulerIntegration` (velocity *= (1.0 - drag * dt_sec))
+- ✅ All 81 tests pass (engine), 14 tests pass (engine-game)
+**Actual LOC**: ~35 lines engine code
 
-### TASK 4: Migrate asteroids to engine physics (float math)
-**Depends on**: TASK 3 (toroidal wrap must work)
+### TASK 4: Migrate asteroids to engine physics (float math) 🔄
+**Status**: **IN PROGRESS** (E4 agent)
+**Depends on**: TASK 3 ✅ (toroidal wrap confirmed working)
 **Files to modify**:
 - `mods/asteroids/behaviors/asteroids-game-loop.rhai`: Replace ALL fixed-point math with float.
   - Remove `let scale = 1024;` and all `_fp` variables
@@ -644,8 +652,9 @@ Each task is self-contained and can be assigned to one agent. Dependencies are n
 **Test**: `cargo run -p app -- --mod-source=mods/asteroids --check-scenes`
 **Expected reduction**: game-loop ~887 → ~400 LOC, render-sync ~204 → ~80 LOC
 
-### TASK 5: Session entity → game/level API
-**Depends on**: TASK 1 (set_many for efficient state writes)
+### TASK 5: Session entity → game/level API 🔄
+**Status**: **IN PROGRESS** (E5 agent)
+**Depends on**: TASK 1 ✅ (set_many confirmed working)
 **Files to modify**:
 - `mods/asteroids/behaviors/asteroids-game-loop.rhai`:
   - Remove `spawn_session_entity()` (52 LOC)
@@ -656,7 +665,8 @@ Each task is self-contained and can be assigned to one agent. Dependencies are n
 **Test**: `cargo run -p app -- --mod-source=mods/asteroids --check-scenes`
 **Expected reduction**: ~100 LOC eliminated (session spawn + read + write blocks)
 
-### TASK 6: Shared module extraction
+### TASK 6: Shared module extraction ⏳
+**Status**: **QUEUED** (pending TASK 4 ✅)
 **Depends on**: TASK 4 (scripts should be migrated first, then extract helpers)
 **Files to modify**:
 - `mods/asteroids/scripts/asteroids-shared.rhai`: Populate with extracted helper functions
@@ -665,8 +675,9 @@ Each task is self-contained and can be assigned to one agent. Dependencies are n
 **Test**: `cargo run -p app -- --mod-source=mods/asteroids --check-scenes`
 **Expected reduction**: ~80 LOC moved to shared module, both scripts become shorter
 
-### TASK 7: Final cleanup + collision filtering migration
-**Depends on**: TASK 2 + TASK 4
+### TASK 7: Final cleanup + collision filtering migration ⏳
+**Status**: **QUEUED** (pending TASK 2 ✅ + TASK 4 ✅)
+**Depends on**: TASK 2 ✅ + TASK 4 🔄
 **Files to modify**:
 - `mods/asteroids/behaviors/asteroids-game-loop.rhai`:
   - Replace `world.collisions()` + manual kind-check → `world.collisions_between("bullet", "asteroid")`
