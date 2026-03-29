@@ -38,7 +38,15 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ## 29-03-2026
 
-**Scripting modernization: A1-A4 engine features + full API contract**
+**E4: Asteroids fixed-point → float physics migration complete**
+- **mods/asteroids**: migrated from manual fixed-point physics (`x_fp`, `dx_fp` manual integration) to engine PhysicsBody2D 
+- **mods/asteroids**: replaced asteroids/bullet/smoke position integration with engine physics step (SimpleEulerIntegration: velocity + drag + max_speed)
+- **mods/asteroids**: simplified bullet/smoke loops: now read positions from Transform2D, wrap toroidally, skip manual `x += dx; y += dy` integration
+- **mods/asteroids**: toroid wrapping now handled consistently: script wraps engine-integrated positions (collision detection still via WrapStrategy::None + manual wrap)
+- **mods/asteroids**: smoke drag (0.96 factor per frame) mapped to PhysicsBody2D drag coefficient (0.04); all velocity parameters now float instead of fixed-point integers
+- **result**: ~30 LOC removed from physics update loops; all entity types (asteroids/bullets/smoke) use consistent PhysicsBody2D integration; preflight validation passes; visual behavior unchanged (acceptance tests OK)
+
+**Scripting modernization (A1-A4 continuation)**
 - **engine**: A1 — auto-despawn visuals on `world.despawn(id)` and `entity.despawn()`; multi-visual binding via `world.bind_visual()` and `VisualBinding.additional_visuals`
 - **engine**: A2 — unified `world.spawn_visual(kind, template, data)` atomic spawn (entity + visual + binding + transform + collider in one call)
 - **engine**: A3 — `visual_sync_system` auto-copies Transform2D → scene position.x/y after behavior step, before compositor
@@ -49,7 +57,7 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 - **mods**: asteroids entity-ref migration — replaced all session-map bulk reads/writes with `session_ref.get_i/set` (world.get 18→8, world.set 17→7)
 - **docs**: rewrote `scripting.md` as canonical 832-line contract + enhancement roadmap (107 Rhai functions, 7 component types, 7 implementation tasks, target 1091→330 LOC)
 - **docs**: updated engine-behavior, engine-game, engine README module docs for new APIs
-- **result**: engine-side scripting infra complete (A1-A4); next phase is script migration to use new APIs (E1-E7 in scripting.md)
+- **result**: E1-E4 scripting migration tasks complete; engine-side infra ready for E5-E7 (physics, audio, rendering tasks in dependent mods)
 
 ## 29-03-2026 (earlier)
 
