@@ -28,6 +28,7 @@ Shared game-state, runtime object types, and component-backed gameplay world dat
 - `GameplayWorld`
 - `Transform2D`, `PhysicsBody2D`, `Collider2D`, `Lifetime`, `VisualBinding`
 - `GameplayStrategies`, `CollisionStrategies`
+- `DespawnVisual` — controls visual cleanup on entity despawn
 
 ## Working with this crate
 
@@ -36,4 +37,7 @@ Shared game-state, runtime object types, and component-backed gameplay world dat
 - if object graph behavior changes, coordinate with `engine-scene-runtime`,
 - keep component APIs stable when exposed to Rhai (`world.set_*` / `world.*`),
 - keep strategy contracts swappable (physics/collision implementations),
+- `VisualBinding` supports primary + additional visuals (`additional_visuals: Vec<String>`) — use `all_visual_ids()` for cleanup,
+- `GameplayWorld::add_visual(id, visual_id)` registers additional visual bindings,
+- `GameplayWorld::ids_with_visual_binding()` queries entities for visual sync system,
 - if script-visible state APIs change, verify Rhai integration and authoring docs.

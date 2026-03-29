@@ -38,6 +38,21 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ## 29-03-2026
 
+**Scripting modernization: A1-A4 engine features + full API contract**
+- **engine**: A1 — auto-despawn visuals on `world.despawn(id)` and `entity.despawn()`; multi-visual binding via `world.bind_visual()` and `VisualBinding.additional_visuals`
+- **engine**: A2 — unified `world.spawn_visual(kind, template, data)` atomic spawn (entity + visual + binding + transform + collider in one call)
+- **engine**: A3 — `visual_sync_system` auto-copies Transform2D → scene position.x/y after behavior step, before compositor
+- **engine**: A4 — Rhai `FileModuleResolver` for shared script modules; `import "module" as m;` resolves from `{mod}/scripts/`
+- **engine**: added `entity.get_b()` alias for `get_bool()`, `entity.despawn()` method, `world.bind_visual()` function
+- **engine**: legacy cleanup — removed unused `ScriptTimerApi`, `ScriptPrefabApi`, `ScriptSpawnerApi` stubs; removed `input.is_down()` duplicate; removed dead `rhai_map_to_json`
+- **engine**: marked 6 asteroids-specific geometry functions (ship_points, asteroid_points, etc.) for extraction to mod-level shared module
+- **mods**: asteroids entity-ref migration — replaced all session-map bulk reads/writes with `session_ref.get_i/set` (world.get 18→8, world.set 17→7)
+- **docs**: rewrote `scripting.md` as canonical 832-line contract + enhancement roadmap (107 Rhai functions, 7 component types, 7 implementation tasks, target 1091→330 LOC)
+- **docs**: updated engine-behavior, engine-game, engine README module docs for new APIs
+- **result**: engine-side scripting infra complete (A1-A4); next phase is script migration to use new APIs (E1-E7 in scripting.md)
+
+## 29-03-2026 (earlier)
+
 **Audio sequencing, Asteroids modularization, and startup validation**
 - **audio**: added YAML-driven audio sequencer with semantic SFX bank, song library, and synth note-sheet generation from `audio/synth/`
 - **audio**: switched Asteroids to synth-first cue playback with in-memory generated tones plus scene-driven menu/game/highscore song playback

@@ -14,6 +14,8 @@ and the systems that still require direct access to engine-owned resources.
 - scene loading and lifecycle sequencing
 - world/provider wiring between subsystem crates
 - gameplay/collision/event bridge wiring for component-backed entities
+- visual sync system (`visual_sync.rs` — auto-copies Transform2D → scene position after behavior step)
+- visual binding cleanup (`visual_binding.rs` — processes despawn queue at end of frame)
 - audio sequencer orchestration (`audio/sfx.yaml`, `audio/songs`, `audio/synth`)
 - engine-side hot reload, debug, and render-thread integration
 - thin system wrappers that delegate core domain logic to extracted crates

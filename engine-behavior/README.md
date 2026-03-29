@@ -52,11 +52,17 @@ with the runtime behavior system and authored YAML expectations.
 
 Current script-facing API surface includes:
 
-- gameplay world helpers (`world.spawn_object`, `world.entity`, query/count APIs),
+- gameplay world helpers (`world.spawn_object`, `world.spawn_visual`, `world.entity`, query/count APIs),
 - typed gameplay component helpers (`world.set_transform`, `world.set_physics`,
-  `world.set_collider_circle`, `world.set_lifetime`, `world.set_visual`),
+  `world.set_collider_circle`, `world.set_lifetime`, `world.set_visual`, `world.bind_visual`),
+- atomic spawn (`world.spawn_visual(kind, template, data)` — creates entity + visual + binding + transform + collider in one call),
+- auto-despawn (`world.despawn_object(id)` and `entity.despawn()` auto-clean all bound scene visuals via A1),
+- entity ref API (`world.entity(id)` returns typed handle with `get_i`, `get_b`, `set`, `set_position`, `set_velocity`, `despawn`, etc.),
 - per-frame collision reads (`world.collisions()`),
-- audio controls (`audio.cue`, `audio.event`, `audio.play_song`, `audio.stop_song`).
+- audio controls (`audio.cue`, `audio.event`, `audio.play_song`, `audio.stop_song`),
+- Rhai module system (`import "module-name" as alias;` resolves from `{mod}/scripts/` directory).
+
+See `scripting.md` at repo root for the full 107-function API reference and enhancement roadmap.
 
 ## Integration points
 
