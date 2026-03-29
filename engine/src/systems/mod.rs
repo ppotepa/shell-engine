@@ -7,6 +7,7 @@ pub mod engine_io;
 pub mod gameplay;
 pub mod collision;
 pub mod gameplay_events;
+pub mod ship_controller;
 pub mod visual_binding;
 pub mod visual_sync;
 pub mod hot_reload;

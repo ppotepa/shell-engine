@@ -45,8 +45,16 @@ fn spawn_ship(world) {
         world.set_transform(id, 0.0, 0.0, 0.0);
         world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.02, h::velocity_scale() * 4.5);
         world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
+
+        // Attach ship controller with game config
+        world.attach_ship_controller(id, #{
+            turn_step_ms: 40,
+            thrust_power: 170.0 * h::velocity_scale(),
+            max_speed: 4.5 * h::velocity_scale(),
+            heading_bits: 32
+        });
+
         let ship_ref = world.entity(id);
-        ship_ref.set_many(#{h: 0});
         ship_ref.status_add("invulnerable", 3000);
     }
     id
@@ -229,25 +237,13 @@ let fire_down = input.down(" ") || input.down("f") || (key_pressed && (key_code 
 
 if world.exists(ship_id) {
     let ship_ref = world.entity(ship_id);
-    let ship_h = ship_ref.get_i("/h", 0);
     let cfg = if local.contains("cfg") { local["cfg"] } else { load_game_config(level) };
-    let turn_accum = if local.contains("turn_accum") { local["turn_accum"] } else { 0 };
     let smoke_cd = if local.contains("smoke_cd") { local["smoke_cd"] } else { 0 };
 
-    if left_down != right_down {
-        turn_accum += dt;
-        while turn_accum >= cfg["turn_step_ms"] {
-            if left_down {
-                ship_h = (ship_h + 31) % 32;
-            } else {
-                ship_h = (ship_h + 1) % 32;
-            }
-            turn_accum -= cfg["turn_step_ms"];
-        }
-    } else {
-        turn_accum = 0;
-    }
-    local["turn_accum"] = turn_accum;
+    // Use TopDownShipController API
+    let turn_dir = if left_down { -1 } else if right_down { 1 } else { 0 };
+    world.ship_set_turn(ship_id, turn_dir);
+    world.ship_set_thrust(ship_id, thrust_down);
 
     let t = ship_ref.transform();
     let tx = t.x;
@@ -255,6 +251,7 @@ if world.exists(ship_id) {
     let phys = ship_ref.physics();
     let vx = phys.vx;
     let vy = phys.vy;
+    let ship_h = world.ship_heading(ship_id);
 
     // Periodic ship state diagnostic (every ~2 seconds)
     let diag_tick = to_i(now / 2000);
@@ -264,36 +261,23 @@ if world.exists(ship_id) {
         let invuln_remaining = ship_ref.status_remaining("invulnerable");
         diag.info(`ship pos=(${tx},${ty}) vel=(${vx},${vy}) h=${ship_h} invuln=${invuln_remaining}`);
     }
-    
+
+    // Thrust generates smoke particles
     if thrust_down {
-        let fx = to_float(sin32(ship_h)) / 1024.0;
-        let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
-        // cfg["ship_thrust"] is in velocity-scale units; multiply again to get acceleration/sec²
-        // Engine does v += a * dt_sec, so a = thrust * VELOCITY_SCALE gives same dv/frame as old code
-        let thrust = cfg["ship_thrust"] * h::velocity_scale();
-        ship_ref.set_acceleration(fx * thrust, fy * thrust);
-        // Log thrust on first application
-        if !local.contains("thrust_log") {
-            local["thrust_log"] = true;
-            diag.info(`thrust ACTIVE: thrust=${thrust} dir=(${fx},${fy}) cfg_thrust=${cfg["ship_thrust"]}`);
-        }
+        let heading_vec = world.ship_heading_vector(ship_id);
         if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
-            spawn_smoke(world, tx - (fx * 6.0), ty - (fy * 6.0),
-                       vx / h::velocity_scale() - (fx * 0.35), vy / h::velocity_scale() - (fy * 0.35), 520, 3);
+            spawn_smoke(world, tx - (heading_vec.x * 6.0), ty - (heading_vec.y * 6.0),
+                       vx / h::velocity_scale() - (heading_vec.x * 0.35), vy / h::velocity_scale() - (heading_vec.y * 0.35), 520, 3);
             smoke_cd = 48;
         }
-    } else {
-        ship_ref.set_acceleration(0.0, 0.0);
-        local.remove("thrust_log");
     }
 
     if fire_down && ship_ref.cooldown_ready("shot") && world.count_kind("bullet") < 8 {
-        let fx = to_float(sin32(ship_h)) / 1024.0;
-        let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
+        let heading_vec = world.ship_heading_vector(ship_id);
         let bspeed = cfg["bullet_speed"];
-        spawn_bullet(world, tx + (fx * 9.0), ty + (fy * 9.0),
-                    vx / h::velocity_scale() + (fx * bspeed / h::velocity_scale()),
-                    vy / h::velocity_scale() + (fy * bspeed / h::velocity_scale()),
+        spawn_bullet(world, tx + (heading_vec.x * 9.0), ty + (heading_vec.y * 9.0),
+                    vx / h::velocity_scale() + (heading_vec.x * bspeed / h::velocity_scale()),
+                    vy / h::velocity_scale() + (heading_vec.y * bspeed / h::velocity_scale()),
                     cfg["bullet_ttl_ms"]);
         ship_ref.cooldown_start("shot", cfg["shot_cooldown_ms"]);
         audio.event("gameplay.ship.shoot", 1.0);
@@ -302,8 +286,6 @@ if world.exists(ship_id) {
     let new_x = wrap(tx, min_x, max_x);
     let new_y = wrap(ty, min_y, max_y);
     ship_ref.set_position(new_x, new_y);
-    ship_ref.set_heading(h::heading32_to_rad(ship_h));
-    ship_ref.set("/h", ship_h);
 
     if smoke_cd > 0 { smoke_cd -= dt; }
 

@@ -8,7 +8,7 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
-use crate::components::{Collider2D, EntityTimers, Lifetime, PhysicsBody2D, Transform2D, VisualBinding, WrapBounds};
+use crate::components::{Collider2D, EntityTimers, Lifetime, PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -30,6 +30,7 @@ struct GameplayStore {
     visuals: BTreeMap<u64, VisualBinding>,
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
+    ship_controllers: BTreeMap<u64, TopDownShipController>,
 }
 
 /// Thread-safe gameplay entity store.
@@ -109,6 +110,7 @@ impl GameplayWorld {
         store.visuals.remove(&id);
         store.timers.remove(&id);
         store.wrap_bounds.remove(&id);
+        store.ship_controllers.remove(&id);
         removed
     }
 
@@ -490,6 +492,47 @@ impl GameplayWorld {
                 xf.y = ny;
                 let _ = self.set_transform(id, xf);
             }
+        }
+    }
+
+    /// Attach a TopDownShipController to an entity.
+    pub fn attach_controller(&self, id: u64, controller: TopDownShipController) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        if !store.entities.contains_key(&id) { return false; }
+        store.ship_controllers.insert(id, controller);
+        true
+    }
+
+    /// Retrieve a ship controller for an entity.
+    pub fn controller(&self, id: u64) -> Option<TopDownShipController> {
+        let Ok(store) = self.store.lock() else { return None };
+        store.ship_controllers.get(&id).cloned()
+    }
+
+    /// Mutate a ship controller. Returns false if entity has no controller.
+    pub fn with_controller<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut TopDownShipController),
+    {
+        let Ok(mut store) = self.store.lock() else { return false };
+        if let Some(ctrl) = store.ship_controllers.get_mut(&id) {
+            f(ctrl);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get all entity IDs with controllers.
+    pub fn ids_with_controller(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else { return Vec::new() };
+        store.ship_controllers.keys().copied().collect()
+    }
+
+    /// Remove a ship controller from an entity.
+    pub fn remove_controller(&self, id: u64) {
+        if let Ok(mut store) = self.store.lock() {
+            store.ship_controllers.remove(&id);
         }
     }
 

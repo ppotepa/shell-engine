@@ -23,7 +23,7 @@ use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
 };
-use engine_game::components::DespawnVisual;
+use engine_game::components::{DespawnVisual, TopDownShipController};
 use engine_persistence::PersistenceStore;
 use engine_physics::{point_in_polygon, polygons_intersect, segment_intersects_polygon};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
@@ -1152,6 +1152,39 @@ fn init_rhai_engine() -> RhaiEngine {
             )
         },
     );
+
+    // ── Ship Controller API ────────────────────────────────────────────────
+    engine.register_fn("attach_ship_controller",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| {
+            world.attach_ship_controller(id, config)
+        },
+    );
+    engine.register_fn("ship_set_turn",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, dir: rhai::INT| {
+            world.ship_set_turn(id, dir)
+        },
+    );
+    engine.register_fn("ship_set_thrust",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, on: bool| {
+            world.ship_set_thrust(id, on)
+        },
+    );
+    engine.register_fn("ship_heading",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> rhai::INT {
+            world.ship_heading(id) as rhai::INT
+        },
+    );
+    engine.register_fn("ship_heading_vector",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> RhaiMap {
+            world.ship_heading_vector(id)
+        },
+    );
+    engine.register_fn("ship_velocity",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> RhaiMap {
+            world.ship_velocity(id)
+        },
+    );
+
     engine.register_fn("abs_i", |v: rhai::INT| -> rhai::INT {
         if v < 0 {
             -v
@@ -2549,6 +2582,86 @@ impl ScriptGameplayApi {
         let uid = id as u64;
         world.remove_wrap_bounds(uid);
         true
+    }
+
+    fn attach_ship_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+
+        // Extract config values with defaults
+        let turn_step_ms = config
+            .get("turn_step_ms")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(40) as u32;
+
+        let thrust_power = config
+            .get("thrust_power")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(170.0) as f32;
+
+        let max_speed = config
+            .get("max_speed")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(4.5) as f32;
+
+        let heading_bits = config
+            .get("heading_bits")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(32) as u8;
+
+        let controller = TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
+        world.attach_controller(uid, controller)
+    }
+
+    fn ship_set_turn(&mut self, id: rhai::INT, dir: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+        world.with_controller(uid, |ctrl| {
+            ctrl.set_turn(dir.clamp(-1, 1) as i8);
+        })
+    }
+
+    fn ship_set_thrust(&mut self, id: rhai::INT, on: bool) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+        world.with_controller(uid, |ctrl| {
+            ctrl.set_thrust(on);
+        })
+    }
+
+    fn ship_heading(&mut self, id: rhai::INT) -> i32 {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        let uid = id as u64;
+        world.controller(uid).map(|c| c.current_heading).unwrap_or(0)
+    }
+
+    fn ship_heading_vector(&mut self, id: rhai::INT) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        let uid = id as u64;
+        match world.controller(uid) {
+            Some(ctrl) => {
+                let (x, y) = ctrl.heading_vector();
+                let mut map = RhaiMap::new();
+                map.insert("x".into(), (x as rhai::FLOAT).into());
+                map.insert("y".into(), (y as rhai::FLOAT).into());
+                map
+            }
+            None => RhaiMap::new(),
+        }
+    }
+
+    fn ship_velocity(&mut self, id: rhai::INT) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        let uid = id as u64;
+        match world.physics(uid) {
+            Some(body) => {
+                let mut map = RhaiMap::new();
+                map.insert("vx".into(), (body.vx as rhai::FLOAT).into());
+                map.insert("vy".into(), (body.vy as rhai::FLOAT).into());
+                map
+            }
+            None => RhaiMap::new(),
+        }
     }
 }
 

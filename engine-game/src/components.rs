@@ -146,3 +146,89 @@ impl WrapBounds {
         else { y }
     }
 }
+
+/// Arcade-style 2D ship controller (Asteroids/Robotron style).
+///
+/// Manages heading on a discrete 32-step (or configurable) circle,
+/// turn accumulation for frame-rate independent rotation, and thrust input.
+/// The system integrates heading changes and applies thrust acceleration to a
+/// paired PhysicsBody2D each frame.
+#[derive(Clone, Debug)]
+pub struct TopDownShipController {
+    /// Current heading on the circle (0 to heading_bits-1).
+    pub current_heading: i32,
+    /// Number of steps in the heading circle. Common values: 8, 16, 32.
+    pub heading_bits: u8,
+    /// Milliseconds between rotation steps for discrete heading updates.
+    pub turn_step_ms: u32,
+    /// Accumulated time since last heading change (internal).
+    pub turn_accumulator: u32,
+    /// Current turn input: -1 (left), 0 (stopped), +1 (right).
+    pub turn_direction: i8,
+
+    /// Is the ship currently thrusting (input state).
+    pub is_thrusting: bool,
+    /// Acceleration magnitude when thrusting (in velocity_scale units).
+    pub thrust_power: f32,
+    /// Maximum speed magnitude when clamped (in velocity_scale units). 0 = unclamped.
+    pub max_speed: f32,
+}
+
+impl TopDownShipController {
+    /// Create a new controller with given configuration.
+    pub fn new(turn_step_ms: u32, thrust_power: f32, max_speed: f32, heading_bits: u8) -> Self {
+        Self {
+            current_heading: 0,
+            heading_bits,
+            turn_step_ms: turn_step_ms.max(1),
+            turn_accumulator: 0,
+            turn_direction: 0,
+            is_thrusting: false,
+            thrust_power,
+            max_speed,
+        }
+    }
+
+    /// Set the turn direction (-1, 0, or +1).
+    pub fn set_turn(&mut self, dir: i8) {
+        self.turn_direction = dir.max(-1).min(1);
+    }
+
+    /// Set thrusting state.
+    pub fn set_thrust(&mut self, on: bool) {
+        self.is_thrusting = on;
+    }
+
+    /// Get heading as a unit vector (x, y).
+    /// Uses sin32 approximation for 32-step heading.
+    pub fn heading_vector(&self) -> (f32, f32) {
+        let sin_val = sin32(self.current_heading) as f32;
+        let cos_val = sin32((self.current_heading + (self.heading_bits as i32) / 4) % (self.heading_bits as i32)) as f32;
+        (sin_val / 1024.0, -cos_val / 1024.0)
+    }
+
+    /// Convert heading to radians for Transform2D.
+    pub fn heading_radians(&self) -> f32 {
+        (self.current_heading as f32) * (std::f32::consts::TAU / (self.heading_bits as f32))
+    }
+}
+
+impl Default for TopDownShipController {
+    fn default() -> Self {
+        Self::new(40, 170.0, 4.5, 32)
+    }
+}
+
+/// Precomputed sin32 lookup table for fast heading-based direction calculation.
+/// sin32(i) gives the sine of (i / 32) * 2π, scaled to i16 range.
+/// Used for 2D direction vectors in discrete heading systems.
+#[inline]
+fn sin32(i: i32) -> i32 {
+    const SIN_TABLE: [i32; 32] = [
+        0, 201, 401, 601, 797, 989, 1176, 1356,
+        1530, 1696, 1853, 1999, 2135, 2259, 2370, 2467,
+        2549, 2616, 2665, 2697, 2711, 2707, 2685, 2644,
+        2585, 2508, 2413, 2300, 2169, 2021, 1856, 1674,
+    ];
+    SIN_TABLE[((i % 32).abs()) as usize]
+}

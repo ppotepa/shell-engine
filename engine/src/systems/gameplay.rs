@@ -1,7 +1,12 @@
 use engine_game::{GameplayStrategies, GameplayWorld};
 
-/// Gameplay driver: runs physics, wrap, timer, and lifetime systems over gameplay components.
+/// Gameplay driver: runs ship controllers, physics, wrap, timer, and lifetime systems over gameplay components.
 pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
+    // Run ship controller logic BEFORE physics (controller sets acceleration)
+    if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+        super::ship_controller::ship_controller_system(&gameplay_world, dt_ms);
+    }
+
     // Run physics integration
     if let (Some(strategies), Some(gameplay_world)) = (
         world.get::<GameplayStrategies>(),
