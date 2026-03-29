@@ -265,7 +265,7 @@ if world.exists(ship_id) {
     if thrust_down {
         let fx = to_float(sin32(ship_h)) / 1024.0;
         let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
-        let accel = cfg["ship_thrust"] * dt / 1000.0;
+        let accel = cfg["ship_thrust"] * VELOCITY_SCALE * dt / 1000.0;
         vx = clamp_f(vx + (fx * accel), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
         vy = clamp_f(vy + (fy * accel), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
         if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
@@ -355,6 +355,17 @@ for ast_id in world.query_kind("asteroid") {
             }
             ast_ref.despawn();
             audio.event("gameplay.asteroid.split", 1.0);
+            for child_id in world.query_kind("asteroid") {
+                if !world.exists(child_id) { continue; }
+                let cd = world.entity(child_id).data();
+                if cd.contains("crack_visual_0") { continue; }
+                for i in 0..3 {
+                    let cv = `asteroid-${child_id}-crack-${i}`;
+                    scene.spawn_object("asteroid-template", cv);
+                    world.bind_visual(child_id, cv);
+                    world.set(child_id, `/crack_visual_${i}`, cv);
+                }
+            }
             continue;
         }
     }
@@ -448,13 +459,8 @@ if active_count <= 0 {
     scene.set("game-message", "text.content", `WAVE ${wave}`);
     diag.info(`wave start wave=${wave}`);
 
-    let wave_base = level.get("/wave_base_spawn_count");
-    if wave_base == () { wave_base = 4; }
-    let wave_min = level.get("/wave_min_spawn_count");
-    if wave_min == () { wave_min = 5; }
-    let wave_max = level.get("/wave_max_spawn_count");
-    if wave_max == () { wave_max = 10; }
-    let spawn_count = clamp_i(wave_base + wave, wave_min, wave_max);
+    let cfg = if local.contains("cfg") { local["cfg"] } else { load_game_config(level) };
+    let spawn_count = clamp_i(cfg["wave_base_spawn_count"] + wave, cfg["wave_min_spawn_count"], cfg["wave_max_spawn_count"]);
 
     let ship_t = if ship_ref.exists() { ship_ref.transform() } else { #{x: 0, y: 0} };
     for idx in 0..spawn_count {
