@@ -39,6 +39,11 @@ fn respawn_y(seed, min_y, max_y, ship_y) {
     y
 }
 
+fn spawn_and_bind_visual(scene, world, template, entity_id, visual_id) {
+    scene.spawn_object(template, visual_id);
+    world.bind_visual(entity_id, visual_id);
+}
+
 fn spawn_ship_entity(world) {
     let id = world.spawn_object("ship", #{
         tags: ["ship"],
@@ -50,8 +55,11 @@ fn spawn_ship_entity(world) {
         invuln_ms: 3000
     });
     if id > 0 {
-        world.set_transform(id, 0.0, 0.0, h::heading32_to_rad(0));
-        world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        let ship_ref = world.entity(id);
+        ship_ref.set_position(0.0, 0.0);
+        ship_ref.set_heading(h::heading32_to_rad(0));
+        ship_ref.set_velocity(0.0, 0.0);
+        ship_ref.set_acceleration(0.0, 0.0);
         world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
     }
     id
@@ -82,17 +90,20 @@ fn spawn_asteroid_entity(world, scene, x, y, vx, vy, shape, size) {
         let crack_visual_0 = `asteroid-${entity_id}-crack-0`;
         let crack_visual_1 = `asteroid-${entity_id}-crack-1`;
         let crack_visual_2 = `asteroid-${entity_id}-crack-2`;
-        scene.spawn_object("asteroid-template", visual_id);
-        scene.spawn_object("asteroid-template", crack_visual_0);
-        scene.spawn_object("asteroid-template", crack_visual_1);
-        scene.spawn_object("asteroid-template", crack_visual_2);
+        spawn_and_bind_visual(scene, world, "asteroid-template", entity_id, visual_id);
+        spawn_and_bind_visual(scene, world, "asteroid-template", entity_id, crack_visual_0);
+        spawn_and_bind_visual(scene, world, "asteroid-template", entity_id, crack_visual_1);
+        spawn_and_bind_visual(scene, world, "asteroid-template", entity_id, crack_visual_2);
         world.set(entity_id, "/visual_id", visual_id);
         world.set(entity_id, "/crack_visual_0", crack_visual_0);
         world.set(entity_id, "/crack_visual_1", crack_visual_1);
         world.set(entity_id, "/crack_visual_2", crack_visual_2);
         world.set_visual(entity_id, visual_id);
-        world.set_transform(entity_id, to_float(x), to_float(y), h::heading32_to_rad(0));
-        world.set_physics(entity_id, to_float(vx), to_float(vy), 0.0, 0.0, 0.0, 0.0);
+        let asteroid_ref = world.entity(entity_id);
+        asteroid_ref.set_position(to_float(x), to_float(y));
+        asteroid_ref.set_heading(h::heading32_to_rad(0));
+        asteroid_ref.set_velocity(to_float(vx), to_float(vy));
+        asteroid_ref.set_acceleration(0.0, 0.0);
         world.set_collider_circle(entity_id, to_float(asteroid_radius(size)), 0xFFFF, 0xFFFF);
     }
     entity_id
@@ -113,8 +124,11 @@ fn spawn_bullet_entity(world, scene, x, y, vx, vy, ttl_ms) {
         scene.spawn_object("bullet-template", visual_id);
         world.set(entity_id, "/visual_id", visual_id);
         world.set_visual(entity_id, visual_id);
-        world.set_transform(entity_id, to_float(x), to_float(y), h::heading32_to_rad(0));
-        world.set_physics(entity_id, to_float(vx), to_float(vy), 0.0, 0.0, 0.0, 0.0);
+        let bullet_ref = world.entity(entity_id);
+        bullet_ref.set_position(to_float(x), to_float(y));
+        bullet_ref.set_heading(h::heading32_to_rad(0));
+        bullet_ref.set_velocity(to_float(vx), to_float(vy));
+        bullet_ref.set_acceleration(0.0, 0.0);
         world.set_collider_circle(entity_id, 3.0, 0xFFFF, 0xFFFF);
         world.set_lifetime(entity_id, ttl_ms);
     }
@@ -138,7 +152,11 @@ fn spawn_smoke_entity(world, scene, x, y, vx, vy, ttl_ms, radius) {
         scene.spawn_object("smoke-template", visual_id);
         world.set(entity_id, "/visual_id", visual_id);
         world.set_visual(entity_id, visual_id);
-        world.set_transform(entity_id, to_float(x), to_float(y), h::heading32_to_rad(0));
+        let smoke_ref = world.entity(entity_id);
+        smoke_ref.set_position(to_float(x), to_float(y));
+        smoke_ref.set_heading(h::heading32_to_rad(0));
+        smoke_ref.set_velocity(to_float(vx), to_float(vy));
+        smoke_ref.set_acceleration(0.0, 0.0);
         // Drag factor: 0.04 ≈ (1 - 0.96) per second, similar to (vel * 96) / 100
         world.set_physics(entity_id, to_float(vx), to_float(vy), 0.0, 0.0, 0.04, 0.0);
         world.set_collider_circle(entity_id, 2.0, 0xFFFF, 0xFFFF);
