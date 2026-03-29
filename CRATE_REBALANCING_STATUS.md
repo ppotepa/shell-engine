@@ -66,6 +66,18 @@ The monolithic `engine` crate (25,907 LOC) is being decomposed into 12-14 focuse
 2. Define typed accessors via `impl XxxAccess for World`
 3. Write systems that take `&mut World` without depending on engine
 
+### Phase 3.7: engine-scene-runtime Module Organization ✨ NEW
+- ✅ Exposed all modules via `pub mod` (behavior_runner, object_graph, lifecycle_controls, terminal_shell, etc.)
+- ✅ Added comprehensive module documentation for organization clarity
+- ✅ Created sealed interfaces for internal module coupling:
+  - `object_graph`: Query and navigation without behavior state
+  - `behavior_runner`: Command application and behavior attachment
+  - `lifecycle_controls`: Terminal shell and object viewer controls
+- ✅ Verified all 24 unit tests pass, 81 engine tests pass
+- ✅ Code now ready for potential sub-crate extraction in future phases
+
+**Significance**: Module organization clarified for Phase 4-6 preparation. The internal module boundaries are now explicit and documented.
+
 ---
 
 ## Previously Blocked (Now Architecturally Unblocked)
@@ -269,9 +281,113 @@ cargo build -p app  # Smoke test
 
 ---
 
+## Phase 3.7 Analysis: Three Remaining Tightly-Coupled Systems
+
+After module organization in Phase 3.7, analysis reveals three systems that remain tightly coupled to `SceneRuntime` and will require genericization in Phase 4-6:
+
+### 1. scene_lifecycle_system (engine/src/systems/scene_lifecycle.rs)
+**Coupling**: 50 references to SceneRuntime (HIGHEST)
+**LOC**: 1,512 (largest system)
+**Phase**: 4 (extract to engine-animation)
+**Analysis**:
+- Core responsibility: Managing scene transitions, stage lifecycle, object loader updates
+- Tight coupling: Directly manipulates scene_runtime state, calls ~20 distinct methods
+- Key methods used: `set_object_regions()`, `set_scene_rendered_mode()`, `apply_behavior_commands()`, terminal/UI operations
+- Extraction blocker: Requires full `SceneRuntimeAccess` trait + genericization of lifecycle provider pattern
+- Estimated effort: 4-6 hours (including LifecycleProvider definition, impl, tests)
+
+**Genericization Strategy**:
+```rust
+// Define trait in engine-animation
+pub trait SceneLifecycleProvider {
+    fn scene_runtime_mut(&mut self) -> Option<&mut SceneRuntime>;
+    fn animator_mut(&mut self) -> Option<&mut Animator>;
+    // ... other accessors
+}
+
+// Move system to generic form
+pub fn process_events<T: SceneLifecycleProvider>(provider: &mut T, events: Vec<EngineEvent>) -> bool {
+    // All `world.X()` calls become `provider.X()`
+}
+```
+
+### 2. behavior_system (engine/src/systems/behavior.rs)
+**Coupling**: 19 references to SceneRuntime
+**LOC**: 756 (medium system)
+**Phase**: 5 (extract to engine-behavior-registry)
+**Analysis**:
+- Core responsibility: Running per-frame behavior updates, managing Rhai script context
+- Tight coupling: Updates behaviors, applies commands, manages behavior context
+- Key methods used: `update_behaviors()`, `apply_behavior_commands()`, `apply_mod_behavior_registry()`
+- Extraction blocker: Requires mod_behaviors module move + BehaviorProvider trait
+- Complexity: Rhai script API is tightly integrated; requires careful scoping
+- Estimated effort: 8-12 hours (includes mod_behaviors relocation, Rhai context refactoring)
+
+**Genericization Strategy**:
+```rust
+// Define trait in engine-behavior-registry  
+pub trait BehaviorProvider {
+    fn scene_runtime_mut(&mut self) -> Option<&mut SceneRuntime>;
+    fn game_state(&self) -> Option<&GameState>;
+    fn level_state(&self) -> Option<&LevelState>;
+    // ... game context accessors
+}
+
+// Move system to generic form
+pub fn run_behaviors<T: BehaviorProvider>(provider: &mut T, stage: SceneStage, ...) {
+    let Some(runtime) = provider.scene_runtime_mut() else { return; };
+    // ... behavior execution
+}
+```
+
+### 3. engine_io_system (engine/src/systems/engine_io.rs)
+**Coupling**: 21 references to SceneRuntime
+**LOC**: 320 (small system)
+**Phase**: 5-6 (extract to engine-io or engine-behavior-registry)
+**Analysis**:
+- Core responsibility: Handling sidecar I/O, custom events, terminal shell integration
+- Tight coupling: Calls terminal_shell methods, sidecar event handling
+- Key methods used: `sidecar_push_custom_event()`, `terminal_push_output()`, `terminal_clear_output()`
+- Extraction blocker: Needs IoProvider trait; less critical than behavior/lifecycle
+- Estimated effort: 4-6 hours (lighter extraction, smaller method surface)
+
+**Genericization Strategy**:
+```rust
+// Define trait in engine-io
+pub trait IoEventProvider {
+    fn scene_runtime_mut(&mut self) -> Option<&mut SceneRuntime>;
+    fn buffer_mut(&mut self) -> Option<&mut Buffer>;
+    fn debug_log(&mut self, msg: String);
+}
+
+// Move system to generic form
+pub fn process_io_events<T: IoEventProvider>(provider: &mut T, events: Vec<SidecarEvent>) {
+    for event in events {
+        if let Some(runtime) = provider.scene_runtime_mut() {
+            // ... event handling
+        }
+    }
+}
+```
+
+### Remaining Blocked Systems (Pre-Phase 4)
+All other systems in engine/src/systems/ are either:
+- ✅ Already extracted (renderer.rs → engine-render-terminal)
+- ✅ Low coupling (<5 references): audio_sequencer, prerender, scene3d_prerender, warmup, collision, visual_binding, gameplay, gameplay_events
+- ✅ Infrastructure: hot_reload (relies on World which is already unblocked)
+
+### Extraction Sequence Recommendation
+1. **Phase 4**: scene_lifecycle_system (cleanest path, foundation for later phases)
+2. **Phase 5a**: behavior_system (depends on mod_behaviors relocation)
+3. **Phase 5b**: engine_io_system (can proceed in parallel with 5a)
+4. **Phase 6**: compositor_system (most complex, but no behavioral coupling)
+
+---
+
 ## Git Log (Recent)
 
 ```
+PHASE_3_7_XXX Phase 3.7: Organize engine-scene-runtime modules (NEW)
 0ae21b2 Phase 3.5a finalized: Move runtime data types to engine-core
 3fc84e8 Phase 3.5: Move GameState + runtime data types to engine-core  
 4ce8f09 Extract renderer and strategies to engine-render-terminal (Phase 3)

@@ -1,3 +1,12 @@
+//! Lifecycle control handlers for terminal shell, object viewer, and size tester.
+//!
+//! Provides input routing for:
+//! - Terminal shell key presses and navigation
+//! - Object viewer controls (rotation, zoom, mode switching)
+//! - Terminal size testing and presets
+//!
+//! These controls are runtime-specific and not embedded in the scene model.
+
 use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

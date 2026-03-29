@@ -1,3 +1,14 @@
+//! Object graph query and navigation interface.
+//!
+//! Provides read-only access to the materialized scene object hierarchy, including:
+//! - Object lookup by ID or alias
+//! - Target resolution (object aliases, layer indices, sprite paths)
+//! - Object state snapshots and effective state calculation
+//! - Region and camera state management
+//!
+//! This module is decoupled from behavior state and can be used by rendering,
+//! debugging, and lifecycle systems without circular dependencies.
+
 use super::*;
 
 impl SceneRuntime {

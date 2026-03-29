@@ -1,3 +1,12 @@
+//! Terminal shell state and command input handling.
+//!
+//! Manages the interactive terminal shell including:
+//! - Shell output buffer and history
+//! - Command input and masking
+//! - Layout and rendering state for terminal UI elements
+//!
+//! This module encapsulates the state for the REPL-like shell interface.
+
 use super::*;
 
 impl TerminalShellState {

@@ -1,3 +1,13 @@
+//! Behavior runtime and command application.
+//!
+//! Handles:
+//! - Attaching behaviors to objects (built-in and mod-defined)
+//! - Updating behavior state each frame
+//! - Applying behavior-generated commands to scene state
+//!
+//! Note: This module contains the mutable state update logic for behaviors.
+//! It is tightly coupled to behavior types and command processing.
+
 use super::*;
 
 impl SceneRuntime {

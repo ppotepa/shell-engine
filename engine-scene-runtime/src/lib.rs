@@ -1,15 +1,28 @@
 //! Runtime scene materialization and object graph helpers derived from the
 //! authored scene model.
+//!
+//! # Module Organization
+//!
+//! - **`SceneRuntime`**: Main runtime struct managing scene state, objects, and behaviors
+//! - **`behavior_runner`**: Behavior attachment and update lifecycle
+//! - **`object_graph`**: Object lookup and target resolution (TargetResolver)
+//! - **`lifecycle_controls`**: Terminal shell, object viewer, and size tester controls
+//! - **`terminal_shell`**: Terminal UI state and command input handling
+//! - **`construction`**: Scene runtime initialization and object materialization
+//! - **`materialization`**: Sprite and text rendering helpers
+//! - **`camera_3d`**: 3D camera state management for object sprites
+//! - **`ui_focus`**: UI panel focus and navigation tracking
+//! - **`access`**: Public trait interface for external access to scene runtime
 
 pub mod access;
-mod behavior_runner;
-mod camera_3d;
-mod construction;
-mod lifecycle_controls;
-mod materialization;
-mod object_graph;
-mod terminal_shell;
-mod ui_focus;
+pub mod behavior_runner;
+pub mod camera_3d;
+pub mod construction;
+pub mod lifecycle_controls;
+pub mod materialization;
+pub mod object_graph;
+pub mod terminal_shell;
+pub mod ui_focus;
 
 pub use access::SceneRuntimeAccess;
 use engine_animation::SceneStage;
