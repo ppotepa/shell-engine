@@ -526,6 +526,33 @@ layers:
     }
 
     #[test]
+    fn apply_behavior_commands_set_property_accepts_float_positions() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "position.x".to_string(),
+                    value: serde_json::json!(9.8),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "title".to_string(),
+                    path: "position.y".to_string(),
+                    value: serde_json::json!(-2.4),
+                },
+            ],
+        );
+        let title_id = resolver.resolve_alias("title").expect("title id");
+        let state = runtime
+            .object_state(title_id)
+            .expect("object runtime state");
+        assert_eq!(state.offset_x, 9);
+        assert_eq!(state.offset_y, -2);
+    }
+
+    #[test]
     fn apply_behavior_commands_set_property_updates_obj_paths() {
         let mut runtime = SceneRuntime::new(obj_scene(""));
         let resolver = runtime.target_resolver();

@@ -325,7 +325,9 @@ impl SceneRuntime {
                             }
                         }
                         "offset.x" | "position.x" => {
-                            let Some(next_x) = value.as_i64() else {
+                            let Some(next_x) =
+                                value.as_i64().or_else(|| value.as_f64().map(|number| number as i64))
+                            else {
                                 continue;
                             };
                             if let Some(state) = self.object_states.get_mut(object_id) {
@@ -333,7 +335,9 @@ impl SceneRuntime {
                             }
                         }
                         "offset.y" | "position.y" => {
-                            let Some(next_y) = value.as_i64() else {
+                            let Some(next_y) =
+                                value.as_i64().or_else(|| value.as_f64().map(|number| number as i64))
+                            else {
                                 continue;
                             };
                             if let Some(state) = self.object_states.get_mut(object_id) {

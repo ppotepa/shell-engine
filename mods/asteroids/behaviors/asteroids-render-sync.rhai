@@ -8,6 +8,12 @@ let ship_id = world.first_kind("ship");
 if ship_id > 0 {
     let ship = world.entity(ship_id);
     if ship.exists() {
+        let t = ship.transform();
+        if t.len() > 0 {
+            scene.set("ship", "position.x", to_i(t.x));
+            scene.set("ship", "position.y", to_i(t.y));
+        }
+
         // Invulnerability flash
         let invuln_ms = ship.get_i("/invuln_ms", 0);
         let respawn_ms = game.get("/ast/ship_respawn_ms");
@@ -41,6 +47,21 @@ for ast_id in world.query_kind("asteroid") {
     let flash_total = if d.contains("flash_total_ms") { d["flash_total_ms"] } else { 0 };
     let shape = if d.contains("shape") { d["shape"] } else { 0 };
     let size = if d.contains("size") { d["size"] } else { 1 };
+
+    let t = e.transform();
+    if t.len() > 0 {
+        let px = to_i(t.x);
+        let py = to_i(t.y);
+        scene.set(vid, "position.x", px);
+        scene.set(vid, "position.y", py);
+        for i in 0..3 {
+            let frag_id = h::crack_visual_id(d, i);
+            if frag_id.type_of() == "string" {
+                scene.set(frag_id, "position.x", px);
+                scene.set(frag_id, "position.y", py);
+            }
+        }
+    }
 
     scene.set(vid, "vector.visible", active);
     scene.set(vid, "vector.points", rotate_points(asteroid_points(shape, size), rot_phase));

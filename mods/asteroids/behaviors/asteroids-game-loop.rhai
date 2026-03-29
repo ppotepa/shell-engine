@@ -82,6 +82,8 @@ fn spawn_ship(world) {
         invuln_ms: 3000
     });
     if id > 0 {
+        world.set_visual(id, "ship");
+        world.set(id, "/visual_id", "ship");
         world.set_transform(id, 0.0, 0.0, 0.0);
         world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
     }
