@@ -4,13 +4,16 @@ let ship_id = world.first_kind("ship");
 if ship_id > 0 {
     let ship_ref = world.entity(ship_id);
     if ship_ref.exists() {
-        let invuln_ms = ship_ref.get_i("/invuln_ms", 0);
-        let visible = if invuln_ms > 0 { (time.scene_elapsed_ms / 120) % 2 == 0 } else { true };
+        let is_invulnerable = ship_ref.status_has("invulnerable");
+        let visible = if is_invulnerable { (time.scene_elapsed_ms / 120) % 2 == 0 } else { true };
         let heading = ship_ref.get_i("/h", 0);
+        let t = ship_ref.transform();
         scene.set("ship", "vector.visible", visible);
         scene.set("ship", "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
         scene.set("ship", "vector.fg", "white");
         scene.set("ship", "vector.bg", "#1a1a1a");
+        scene.set("ship", "position.x", to_i(t.x));
+        scene.set("ship", "position.y", to_i(t.y));
     }
 }
 

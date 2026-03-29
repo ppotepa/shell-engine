@@ -45,7 +45,9 @@ fn spawn_ship(world) {
         world.set_transform(id, 0.0, 0.0, 0.0);
         world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.02, h::velocity_scale() * 4.5);
         world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
-        world.entity(id).set_many(#{h: 0, invuln_ms: 3000});
+        let ship_ref = world.entity(id);
+        ship_ref.set_many(#{h: 0});
+        ship_ref.status_add("invulnerable", 3000);
     }
     id
 }
@@ -145,7 +147,6 @@ fn reset_game_state(game, level, local, now) {
     game.set("/ast/score", 0);
     game.set("/ast/lives", cfg["base_lives"]);
     game.set("/ast/wave", 1);
-    game.set("/ast/shot_cd_ms", 0);
     game.set("/ast/rng", local["rng"]);
     game.set("/ast/msg_ttl_ms", 0);
     game.set("/ast/last_ms", now);
@@ -229,8 +230,6 @@ let fire_down = input.down(" ") || input.down("f") || (key_pressed && (key_code 
 if world.exists(ship_id) {
     let ship_ref = world.entity(ship_id);
     let ship_h = ship_ref.get_i("/h", 0);
-    let invuln_ms = ship_ref.get_i("/invuln_ms", 0);
-    let shot_cd_ms = to_i(game.get("/ast/shot_cd_ms"));
     let cfg = if local.contains("cfg") { local["cfg"] } else { load_game_config(level) };
     let turn_accum = if local.contains("turn_accum") { local["turn_accum"] } else { 0 };
     let smoke_cd = if local.contains("smoke_cd") { local["smoke_cd"] } else { 0 };
@@ -287,7 +286,7 @@ if world.exists(ship_id) {
         local.remove("thrust_log");
     }
 
-    if fire_down && shot_cd_ms <= 0 && world.count_kind("bullet") < 8 {
+    if fire_down && ship_ref.cooldown_ready("shot") && world.count_kind("bullet") < 8 {
         let fx = to_float(sin32(ship_h)) / 1024.0;
         let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
         let bspeed = cfg["bullet_speed"];
@@ -295,7 +294,7 @@ if world.exists(ship_id) {
                     vx / h::velocity_scale() + (fx * bspeed / h::velocity_scale()),
                     vy / h::velocity_scale() + (fy * bspeed / h::velocity_scale()),
                     cfg["bullet_ttl_ms"]);
-        shot_cd_ms = cfg["shot_cooldown_ms"];
+        ship_ref.cooldown_start("shot", cfg["shot_cooldown_ms"]);
         audio.event("gameplay.ship.shoot", 1.0);
     }
 
@@ -305,13 +304,9 @@ if world.exists(ship_id) {
     ship_ref.set_heading(h::heading32_to_rad(ship_h));
     ship_ref.set("/h", ship_h);
 
-    if shot_cd_ms > 0 { shot_cd_ms -= dt; }
     if smoke_cd > 0 { smoke_cd -= dt; }
-    if invuln_ms > 0 { invuln_ms -= dt; }
 
-    game.set("/ast/shot_cd_ms", shot_cd_ms);
     local["smoke_cd"] = smoke_cd;
-    ship_ref.set("/invuln_ms", invuln_ms);
 }
 
 for ast_id in world.query_kind("asteroid") {
@@ -410,11 +405,11 @@ let ship_invuln = if ship_ref.exists() { ship_ref.get_i("/invuln_ms", 0) } else 
 for hit in world.collisions_between("ship", "asteroid") {
     let ast_hit_id = hit["asteroid"];
     let hit_ref = world.entity(ast_hit_id);
-    
+
     // Skip if asteroid is already being split (avoid double-hits)
     if hit_ref.exists() && hit_ref.get_b("/split_pending", false) { continue; }
-    
-    if ship_invuln <= 0 && world.exists(ship_id) {
+
+    if !ship_ref.status_has("invulnerable") && world.exists(ship_id) {
         let t = ship_ref.transform();
         spawn_disintegration(world, t.x, t.y);
         audio.event("gameplay.ship.hit", 1.0);
@@ -430,7 +425,7 @@ for hit in world.collisions_between("ship", "asteroid") {
         }
         lives -= 1;
         ship_ref.set_velocity(0.0, 0.0);
-        ship_ref.set("/invuln_ms", 3000);
+        ship_ref.status_add("invulnerable", 3000);
         game.set("/ast/msg_ttl_ms", 450);
         scene.set("game-message", "text.content", "HIT!");
     }
