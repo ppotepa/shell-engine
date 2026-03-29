@@ -232,3 +232,14 @@ fn sin32(i: i32) -> i32 {
     ];
     SIN_TABLE[((i % 32).abs()) as usize]
 }
+
+/// Gameplay events emitted during frame processing.
+///
+/// Events accumulate during a frame and can be polled by scripts via the world API.
+/// Events are cleared at the start of the next frame.
+#[derive(Clone, Debug, PartialEq)]
+pub enum GameplayEvent {
+    /// Two entities collided this frame (a, b).
+    /// Emitted for both (a, b) and (b, a) directions for script convenience.
+    CollisionEnter { a: u64, b: u64 },
+}

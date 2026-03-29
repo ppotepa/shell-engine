@@ -1,6 +1,6 @@
 //! Collision traits and a simple circle-circle default.
 
-use crate::components::{Collider2D, ColliderShape, Transform2D};
+use crate::components::{Collider2D, ColliderShape, GameplayEvent, Transform2D};
 use crate::GameplayWorld;
 
 #[derive(Default)]
@@ -52,6 +52,9 @@ pub fn collision_system(world: &GameplayWorld, strategies: &CollisionStrategies)
             }
             if intersects(&a_col.shape, &a_xf, &b_col.shape, &b_xf, strategies.wrap_strategy) {
                 hits.push(CollisionHit { a: a_id, b: b_id });
+                // Emit collision enter events (bidirectional for script convenience)
+                world.emit_event(GameplayEvent::CollisionEnter { a: a_id, b: b_id });
+                world.emit_event(GameplayEvent::CollisionEnter { a: b_id, b: a_id });
             }
         }
     }

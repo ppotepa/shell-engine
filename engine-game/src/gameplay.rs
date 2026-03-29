@@ -8,7 +8,7 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
-use crate::components::{Collider2D, EntityTimers, Lifetime, PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
+use crate::components::{Collider2D, EntityTimers, GameplayEvent, Lifetime, PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -19,7 +19,7 @@ pub struct GameplayEntity {
     pub data: JsonValue,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 struct GameplayStore {
     next_id: u64,
     entities: BTreeMap<u64, GameplayEntity>,
@@ -31,6 +31,26 @@ struct GameplayStore {
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
     ship_controllers: BTreeMap<u64, TopDownShipController>,
+    /// Gameplay events accumulated this frame (cleared each frame start).
+    events: Vec<GameplayEvent>,
+}
+
+impl Default for GameplayStore {
+    fn default() -> Self {
+        Self {
+            next_id: 0,
+            entities: BTreeMap::new(),
+            transforms: BTreeMap::new(),
+            physics: BTreeMap::new(),
+            colliders: BTreeMap::new(),
+            lifetimes: BTreeMap::new(),
+            visuals: BTreeMap::new(),
+            timers: BTreeMap::new(),
+            wrap_bounds: BTreeMap::new(),
+            ship_controllers: BTreeMap::new(),
+            events: Vec::new(),
+        }
+    }
 }
 
 /// Thread-safe gameplay entity store.
@@ -533,6 +553,42 @@ impl GameplayWorld {
     pub fn remove_controller(&self, id: u64) {
         if let Ok(mut store) = self.store.lock() {
             store.ship_controllers.remove(&id);
+        }
+    }
+
+    /// Emit a gameplay event to be collected and polled by scripts.
+    pub fn emit_event(&self, event: GameplayEvent) {
+        if let Ok(mut store) = self.store.lock() {
+            store.events.push(event);
+        }
+    }
+
+    /// Get all events of a specific type and clear the event buffer.
+    ///
+    /// Note: This consumes/clears all events. Call once per frame in game logic.
+    pub fn poll_events(&self, event_type: &str) -> Vec<(u64, u64)> {
+        let Ok(mut store) = self.store.lock() else {
+            return Vec::new();
+        };
+
+        let mut results = Vec::new();
+        match event_type {
+            "collision_enter" => {
+                for event in &store.events {
+                    if let GameplayEvent::CollisionEnter { a, b } = event {
+                        results.push((*a, *b));
+                    }
+                }
+            }
+            _ => {}
+        }
+        results
+    }
+
+    /// Clear all accumulated events (call at start of frame before polling).
+    pub fn clear_events(&self) {
+        if let Ok(mut store) = self.store.lock() {
+            store.events.clear();
         }
     }
 

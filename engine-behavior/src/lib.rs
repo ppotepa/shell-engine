@@ -1185,6 +1185,18 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
 
+    // ── Event API ──────────────────────────────────────────────────────
+    engine.register_fn("poll_collisions",
+        |world: &mut ScriptGameplayApi| -> RhaiArray {
+            world.poll_collision_events()
+        },
+    );
+    engine.register_fn("clear_events",
+        |world: &mut ScriptGameplayApi| {
+            world.clear_events();
+        },
+    );
+
     engine.register_fn("abs_i", |v: rhai::INT| -> rhai::INT {
         if v < 0 {
             -v
@@ -2661,6 +2673,25 @@ impl ScriptGameplayApi {
                 map
             }
             None => RhaiMap::new(),
+        }
+    }
+
+    fn poll_collision_events(&mut self) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else { return RhaiArray::new() };
+        let collisions = world.poll_events("collision_enter");
+        let mut array = RhaiArray::new();
+        for (a, b) in collisions {
+            let mut event = RhaiMap::new();
+            event.insert("a".into(), (a as rhai::INT).into());
+            event.insert("b".into(), (b as rhai::INT).into());
+            array.push(RhaiDynamic::from(event));
+        }
+        array
+    }
+
+    fn clear_events(&mut self) {
+        if let Some(world) = self.world.as_ref() {
+            world.clear_events();
         }
     }
 }
