@@ -8,7 +8,7 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
-use crate::components::{Collider2D, EntityTimers, GameplayEvent, Lifetime, PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
+use crate::components::{Collider2D, EntityTimers, GameplayEvent, Health, Lifetime, PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -31,6 +31,7 @@ struct GameplayStore {
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
     ship_controllers: BTreeMap<u64, TopDownShipController>,
+    health: BTreeMap<u64, Health>,
     /// Gameplay events accumulated this frame (cleared each frame start).
     events: Vec<GameplayEvent>,
 }
@@ -48,6 +49,7 @@ impl Default for GameplayStore {
             timers: BTreeMap::new(),
             wrap_bounds: BTreeMap::new(),
             ship_controllers: BTreeMap::new(),
+            health: BTreeMap::new(),
             events: Vec::new(),
         }
     }
@@ -131,6 +133,7 @@ impl GameplayWorld {
         store.timers.remove(&id);
         store.wrap_bounds.remove(&id);
         store.ship_controllers.remove(&id);
+        store.health.remove(&id);
         removed
     }
 
@@ -590,6 +593,59 @@ impl GameplayWorld {
         if let Ok(mut store) = self.store.lock() {
             store.events.clear();
         }
+    }
+
+    /// Set health on an entity.
+    pub fn set_health(&self, id: u64, hp: i32, max_hp: i32) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        if !store.entities.contains_key(&id) { return false; }
+        store.health.insert(id, Health::new(hp, max_hp));
+        true
+    }
+
+    /// Get health component for an entity.
+    pub fn health(&self, id: u64) -> Option<Health> {
+        let Ok(store) = self.store.lock() else { return None };
+        store.health.get(&id).copied()
+    }
+
+    /// Apply damage to an entity and emit events. Returns true if entity died.
+    pub fn apply_damage(&self, target_id: u64, source_id: u64, amount: i32) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+
+        if let Some(health) = store.health.get_mut(&target_id) {
+            let died = health.take_damage(amount);
+
+            // Emit events
+            store.events.push(GameplayEvent::DamageApplied {
+                target: target_id,
+                source: source_id,
+                amount,
+            });
+
+            if died {
+                store.events.push(GameplayEvent::HealthZero {
+                    entity: target_id,
+                    killer: source_id,
+                });
+            }
+
+            died
+        } else {
+            false
+        }
+    }
+
+    /// Check if entity is dead.
+    pub fn is_dead(&self, id: u64) -> bool {
+        let Ok(store) = self.store.lock() else { return false };
+        store.health.get(&id).map(|h| h.is_dead()).unwrap_or(false)
+    }
+
+    /// Get all entity IDs with health components.
+    pub fn ids_with_health(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else { return Vec::new() };
+        store.health.keys().copied().collect()
     }
 
     /// Reads a value from an entity payload using JSON pointer notation.

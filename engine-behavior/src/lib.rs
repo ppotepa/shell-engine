@@ -1197,6 +1197,33 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
 
+    // ── Health & Damage API ────────────────────────────────────────────
+    engine.register_fn("health_set",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, hp: rhai::INT, max_hp: rhai::INT| -> bool {
+            world.health_set(id, hp, max_hp)
+        },
+    );
+    engine.register_fn("health_get",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> rhai::INT {
+            world.health_get(id)
+        },
+    );
+    engine.register_fn("health_max",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> rhai::INT {
+            world.health_max(id)
+        },
+    );
+    engine.register_fn("health_dead",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> bool {
+            world.health_dead(id)
+        },
+    );
+    engine.register_fn("damage_apply",
+        |world: &mut ScriptGameplayApi, target: rhai::INT, source: rhai::INT, amount: rhai::INT| -> bool {
+            world.damage_apply(target, source, amount)
+        },
+    );
+
     engine.register_fn("abs_i", |v: rhai::INT| -> rhai::INT {
         if v < 0 {
             -v
@@ -2693,6 +2720,37 @@ impl ScriptGameplayApi {
         if let Some(world) = self.world.as_ref() {
             world.clear_events();
         }
+    }
+
+    fn health_set(&mut self, id: rhai::INT, hp: rhai::INT, max_hp: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+        world.set_health(uid, hp as i32, max_hp as i32)
+    }
+
+    fn health_get(&mut self, id: rhai::INT) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        let uid = id as u64;
+        world.health(uid).map(|h| h.hp as rhai::INT).unwrap_or(0)
+    }
+
+    fn health_max(&mut self, id: rhai::INT) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        let uid = id as u64;
+        world.health(uid).map(|h| h.max_hp as rhai::INT).unwrap_or(0)
+    }
+
+    fn health_dead(&mut self, id: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let uid = id as u64;
+        world.is_dead(uid)
+    }
+
+    fn damage_apply(&mut self, target: rhai::INT, source: rhai::INT, amount: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let target_uid = target as u64;
+        let source_uid = source as u64;
+        world.apply_damage(target_uid, source_uid, amount as i32)
     }
 }
 
