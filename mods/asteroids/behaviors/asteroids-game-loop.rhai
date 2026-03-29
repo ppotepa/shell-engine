@@ -438,8 +438,10 @@ for _s in 0..steps {
         if thrust_down {
             let fx = sin32(ship_h);
             let fy = -sin32(ship_h + 8);
-            let thrust_fp = (cfg["ship_thrust"] * 1024.0) as i64;
-            let max_speed_fp = (cfg["ship_max_speed"] * 1024.0) as i64;
+            let thrust_f = cfg["ship_thrust"] * 1024.0;
+            let max_speed_f = cfg["ship_max_speed"] * 1024.0;
+            let thrust_fp = int(thrust_f);
+            let max_speed_fp = int(max_speed_f);
             vx_fp = clamp_i(vx_fp + ((fx * thrust_fp) / 1024), -max_speed_fp, max_speed_fp);
             vy_fp = clamp_i(vy_fp + ((fy * thrust_fp) / 1024), -max_speed_fp, max_speed_fp);
             if smoke_cd_ms <= 0 && world.count_kind("smoke") < smoke_max_count {
@@ -461,7 +463,8 @@ for _s in 0..steps {
             let fx = sin32(ship_h);
             let fy = -sin32(ship_h + 8);
             if world.count_kind("bullet") < 8 {
-                let bullet_speed_fp = (cfg["bullet_speed"] * 1024.0) as i64;
+                let bullet_speed_f = cfg["bullet_speed"] * 1024.0;
+                let bullet_speed_fp = int(bullet_speed_f);
                 spawn_bullet_entity(
                     world,
                     scene,
