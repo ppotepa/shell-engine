@@ -1,8 +1,5 @@
 import "asteroids-shared" as h;
 
-let VELOCITY_SCALE = 60.0;
-let DRAG_PER_SEC = 0.04;
-
 fn next_seed(seed) {
     ((seed * 1103515245) + 12345) % 2147483647
 }
@@ -16,6 +13,7 @@ fn level_i(level_api, path, fallback) {
 }
 
 fn load_game_config(level) {
+    let VELOCITY_SCALE = 60.0;
     let base_lives = level_i(level, "/player/lives", 3);
     let shot_cooldown_ms = clamp_i(level_i(level, "/player/shot_cooldown_ms", 200), 200, 1000);
     let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 170), 60, 600)) / 1024.0 * VELOCITY_SCALE;
@@ -53,6 +51,7 @@ fn spawn_ship(world) {
 }
 
 fn spawn_asteroid(world, x, y, vx, vy, shape, size) {
+    let VELOCITY_SCALE = 60.0;
     let spin_seed = abs_i(to_i(x * 31) + to_i(y * 17) + to_i(vx * 13) + to_i(vy * 19) + (shape * 23) + (size * 29));
     let id = world.spawn_visual("asteroid", "asteroid-template", #{
         x: x, y: y, heading: 0.0, collider_radius: asteroid_radius(size)
@@ -70,6 +69,7 @@ fn spawn_asteroid(world, x, y, vx, vy, shape, size) {
 }
 
 fn spawn_bullet(world, x, y, vx, vy, ttl_ms) {
+    let VELOCITY_SCALE = 60.0;
     let id = world.spawn_visual("bullet", "bullet-template", #{
         x: x, y: y, heading: 0.0, collider_radius: 3.0, lifetime_ms: ttl_ms
     });
@@ -80,6 +80,7 @@ fn spawn_bullet(world, x, y, vx, vy, ttl_ms) {
 }
 
 fn spawn_smoke(world, x, y, vx, vy, ttl_ms, radius) {
+    let VELOCITY_SCALE = 60.0;
     let id = world.spawn_visual("smoke", "smoke-template", #{
         x: x, y: y, heading: 0.0, collider_radius: 2.0, lifetime_ms: ttl_ms
     });
@@ -174,6 +175,7 @@ if !local.contains("init") {
 }
 
 let now = if time.contains("scene_elapsed_ms") { time.scene_elapsed_ms } else { 0 };
+let VELOCITY_SCALE = 60.0;
 let min_x = -320.0;
 let max_x = 320.0;
 let min_y = -240.0;
