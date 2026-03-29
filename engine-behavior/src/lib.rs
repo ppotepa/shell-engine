@@ -907,6 +907,42 @@ fn init_rhai_engine() -> RhaiEngine {
             entity.set(path, value)
         },
     );
+    engine.register_fn("kind", |entity: &mut ScriptGameplayEntityApi| {
+        entity.kind()
+    });
+    engine.register_fn("tags", |entity: &mut ScriptGameplayEntityApi| {
+        entity.tags()
+    });
+    engine.register_fn("get_metadata", |entity: &mut ScriptGameplayEntityApi| {
+        entity.get_metadata()
+    });
+    engine.register_fn("get_components", |entity: &mut ScriptGameplayEntityApi| {
+        entity.get_components()
+    });
+    engine.register_fn("transform", |entity: &mut ScriptGameplayEntityApi| {
+        entity.transform()
+    });
+    engine.register_fn("set_position", |entity: &mut ScriptGameplayEntityApi, x: rhai::FLOAT, y: rhai::FLOAT| {
+        entity.set_position(x, y)
+    });
+    engine.register_fn("set_heading", |entity: &mut ScriptGameplayEntityApi, heading: rhai::FLOAT| {
+        entity.set_heading(heading)
+    });
+    engine.register_fn("physics", |entity: &mut ScriptGameplayEntityApi| {
+        entity.physics()
+    });
+    engine.register_fn("set_velocity", |entity: &mut ScriptGameplayEntityApi, vx: rhai::FLOAT, vy: rhai::FLOAT| {
+        entity.set_velocity(vx, vy)
+    });
+    engine.register_fn("set_acceleration", |entity: &mut ScriptGameplayEntityApi, ax: rhai::FLOAT, ay: rhai::FLOAT| {
+        entity.set_acceleration(ax, ay)
+    });
+    engine.register_fn("collider", |entity: &mut ScriptGameplayEntityApi| {
+        entity.collider()
+    });
+    engine.register_fn("lifetime_remaining", |entity: &mut ScriptGameplayEntityApi| {
+        entity.lifetime_remaining()
+    });
     engine.register_fn(
         "poly_hit",
         |poly_a: RhaiArray,
@@ -2037,6 +2073,290 @@ impl ScriptGameplayEntityApi {
             return false;
         };
         world.set(self.id, path, value)
+    }
+
+    fn kind(&mut self) -> String {
+        let Some(world) = self.world.as_ref() else {
+            return String::new();
+        };
+        world.kind_of(self.id).unwrap_or_default()
+    }
+
+    fn tags(&mut self) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        world
+            .tags(self.id)
+            .into_iter()
+            .map(|tag| tag.into())
+            .collect()
+    }
+
+    fn get_metadata(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
+        let Some(entity) = world.get_entity(self.id) else {
+            return RhaiMap::new();
+        };
+
+        let mut metadata = RhaiMap::new();
+        metadata.insert("id".into(), (self.id as rhai::INT).into());
+        metadata.insert("kind".into(), entity.kind.into());
+        
+        let tags: RhaiArray = entity.tags.iter().map(|t| t.clone().into()).collect();
+        metadata.insert("tags".into(), tags.into());
+
+        // Include all components
+        if let Some(transform) = world.transform(self.id) {
+            let mut xf = RhaiMap::new();
+            xf.insert("x".into(), (transform.x as rhai::FLOAT).into());
+            xf.insert("y".into(), (transform.y as rhai::FLOAT).into());
+            xf.insert("heading".into(), (transform.heading as rhai::FLOAT).into());
+            metadata.insert("transform".into(), xf.into());
+        }
+
+        if let Some(physics) = world.physics(self.id) {
+            let mut phys = RhaiMap::new();
+            phys.insert("vx".into(), (physics.vx as rhai::FLOAT).into());
+            phys.insert("vy".into(), (physics.vy as rhai::FLOAT).into());
+            phys.insert("ax".into(), (physics.ax as rhai::FLOAT).into());
+            phys.insert("ay".into(), (physics.ay as rhai::FLOAT).into());
+            phys.insert("drag".into(), (physics.drag as rhai::FLOAT).into());
+            phys.insert("max_speed".into(), (physics.max_speed as rhai::FLOAT).into());
+            metadata.insert("physics".into(), phys.into());
+        }
+
+        if let Some(collider) = world.collider(self.id) {
+            let mut coll = RhaiMap::new();
+            match &collider.shape {
+                ColliderShape::Circle { radius } => {
+                    coll.insert("shape".into(), "circle".into());
+                    coll.insert("radius".into(), (*radius as rhai::FLOAT).into());
+                }
+                ColliderShape::Polygon { points } => {
+                    coll.insert("shape".into(), "polygon".into());
+                    let pts: RhaiArray = points
+                        .iter()
+                        .map(|p| {
+                            let mut point = RhaiMap::new();
+                            point.insert("x".into(), (p[0] as rhai::FLOAT).into());
+                            point.insert("y".into(), (p[1] as rhai::FLOAT).into());
+                            point.into()
+                        })
+                        .collect();
+                    coll.insert("points".into(), pts.into());
+                }
+            }
+            coll.insert("layer".into(), (collider.layer as rhai::INT).into());
+            coll.insert("mask".into(), (collider.mask as rhai::INT).into());
+            metadata.insert("collider".into(), coll.into());
+        }
+
+        if let Some(lifetime) = world.lifetime(self.id) {
+            let mut life = RhaiMap::new();
+            life.insert("ttl_ms".into(), (lifetime.ttl_ms as rhai::INT).into());
+            metadata.insert("lifetime".into(), life.into());
+        }
+
+        if let Some(visual) = world.visual(self.id) {
+            if let Some(visual_id) = &visual.visual_id {
+                metadata.insert("visual_id".into(), visual_id.clone().into());
+            }
+        }
+
+        metadata
+    }
+
+    fn get_components(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
+
+        let mut components = RhaiMap::new();
+
+        if let Some(transform) = world.transform(self.id) {
+            let mut xf = RhaiMap::new();
+            xf.insert("x".into(), (transform.x as rhai::FLOAT).into());
+            xf.insert("y".into(), (transform.y as rhai::FLOAT).into());
+            xf.insert("heading".into(), (transform.heading as rhai::FLOAT).into());
+            components.insert("transform".into(), xf.into());
+        }
+
+        if let Some(physics) = world.physics(self.id) {
+            let mut phys = RhaiMap::new();
+            phys.insert("vx".into(), (physics.vx as rhai::FLOAT).into());
+            phys.insert("vy".into(), (physics.vy as rhai::FLOAT).into());
+            phys.insert("ax".into(), (physics.ax as rhai::FLOAT).into());
+            phys.insert("ay".into(), (physics.ay as rhai::FLOAT).into());
+            phys.insert("drag".into(), (physics.drag as rhai::FLOAT).into());
+            phys.insert("max_speed".into(), (physics.max_speed as rhai::FLOAT).into());
+            components.insert("physics".into(), phys.into());
+        }
+
+        if let Some(collider) = world.collider(self.id) {
+            let mut coll = RhaiMap::new();
+            match &collider.shape {
+                ColliderShape::Circle { radius } => {
+                    coll.insert("shape".into(), "circle".into());
+                    coll.insert("radius".into(), (*radius as rhai::FLOAT).into());
+                }
+                ColliderShape::Polygon { points } => {
+                    coll.insert("shape".into(), "polygon".into());
+                    let pts: RhaiArray = points
+                        .iter()
+                        .map(|p| {
+                            let mut point = RhaiMap::new();
+                            point.insert("x".into(), (p[0] as rhai::FLOAT).into());
+                            point.insert("y".into(), (p[1] as rhai::FLOAT).into());
+                            point.into()
+                        })
+                        .collect();
+                    coll.insert("points".into(), pts.into());
+                }
+            }
+            coll.insert("layer".into(), (collider.layer as rhai::INT).into());
+            coll.insert("mask".into(), (collider.mask as rhai::INT).into());
+            components.insert("collider".into(), coll.into());
+        }
+
+        if let Some(lifetime) = world.lifetime(self.id) {
+            let mut life = RhaiMap::new();
+            life.insert("ttl_ms".into(), (lifetime.ttl_ms as rhai::INT).into());
+            components.insert("lifetime".into(), life.into());
+        }
+
+        if let Some(visual) = world.visual(self.id) {
+            if let Some(visual_id) = &visual.visual_id {
+                components.insert("visual_id".into(), visual_id.clone().into());
+            }
+        }
+
+        components
+    }
+
+    fn transform(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
+        let Some(xf) = world.transform(self.id) else {
+            return RhaiMap::new();
+        };
+
+        let mut result = RhaiMap::new();
+        result.insert("x".into(), (xf.x as rhai::FLOAT).into());
+        result.insert("y".into(), (xf.y as rhai::FLOAT).into());
+        result.insert("heading".into(), (xf.heading as rhai::FLOAT).into());
+        result
+    }
+
+    fn set_position(&mut self, x: rhai::FLOAT, y: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        let Some(mut xf) = world.transform(self.id) else {
+            return false;
+        };
+        xf.x = x as f32;
+        xf.y = y as f32;
+        world.set_transform(self.id, xf)
+    }
+
+    fn set_heading(&mut self, heading: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        let Some(mut xf) = world.transform(self.id) else {
+            return false;
+        };
+        xf.heading = heading as f32;
+        world.set_transform(self.id, xf)
+    }
+
+    fn physics(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
+        let Some(phys) = world.physics(self.id) else {
+            return RhaiMap::new();
+        };
+
+        let mut result = RhaiMap::new();
+        result.insert("vx".into(), (phys.vx as rhai::FLOAT).into());
+        result.insert("vy".into(), (phys.vy as rhai::FLOAT).into());
+        result.insert("ax".into(), (phys.ax as rhai::FLOAT).into());
+        result.insert("ay".into(), (phys.ay as rhai::FLOAT).into());
+        result.insert("drag".into(), (phys.drag as rhai::FLOAT).into());
+        result.insert("max_speed".into(), (phys.max_speed as rhai::FLOAT).into());
+        result
+    }
+
+    fn set_velocity(&mut self, vx: rhai::FLOAT, vy: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        let Some(mut phys) = world.physics(self.id) else {
+            return false;
+        };
+        phys.vx = vx as f32;
+        phys.vy = vy as f32;
+        world.set_physics(self.id, phys)
+    }
+
+    fn set_acceleration(&mut self, ax: rhai::FLOAT, ay: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        let Some(mut phys) = world.physics(self.id) else {
+            return false;
+        };
+        phys.ax = ax as f32;
+        phys.ay = ay as f32;
+        world.set_physics(self.id, phys)
+    }
+
+    fn collider(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
+        let Some(coll) = world.collider(self.id) else {
+            return RhaiMap::new();
+        };
+
+        let mut result = RhaiMap::new();
+        match &coll.shape {
+            ColliderShape::Circle { radius } => {
+                result.insert("shape".into(), "circle".into());
+                result.insert("radius".into(), (*radius as rhai::FLOAT).into());
+            }
+            ColliderShape::Polygon { points } => {
+                result.insert("shape".into(), "polygon".into());
+                let pts: RhaiArray = points
+                    .iter()
+                    .map(|p| {
+                        let mut point = RhaiMap::new();
+                        point.insert("x".into(), (p[0] as rhai::FLOAT).into());
+                        point.insert("y".into(), (p[1] as rhai::FLOAT).into());
+                        point.into()
+                    })
+                    .collect();
+                result.insert("points".into(), pts.into());
+            }
+        }
+        result.insert("layer".into(), (coll.layer as rhai::INT).into());
+        result.insert("mask".into(), (coll.mask as rhai::INT).into());
+        result
+    }
+
+    fn lifetime_remaining(&mut self) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else {
+            return 0;
+        };
+        let Some(lifetime) = world.lifetime(self.id) else {
+            return 0;
+        };
+        lifetime.ttl_ms as rhai::INT
     }
 }
 
