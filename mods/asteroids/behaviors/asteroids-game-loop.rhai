@@ -40,12 +40,16 @@ fn load_game_config(level) {
 }
 
 fn spawn_ship(world) {
-    let id = world.spawn_visual("ship", "ship-vector", #{
-        x: 0.0, y: 0.0, heading: 0.0, collider_radius: 10.0
-    });
+    let id = world.spawn_object("ship", #{});
     if id > 0 {
+        world.set_visual(id, "ship");
+        let ship_ref = world.entity(id);
+        ship_ref.set_position(0.0, 0.0);
+        ship_ref.set_heading(0.0);
+        ship_ref.set_velocity(0.0, 0.0);
+        world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
         world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-        world.entity(id).set_many(#{h: 0, invuln_ms: 3000});
+        ship_ref.set_many(#{h: 0, invuln_ms: 3000});
     }
     id
 }
@@ -255,6 +259,8 @@ if world.exists(ship_id) {
     local["turn_accum"] = turn_accum;
 
     let t = ship_ref.transform();
+    let tx = if t.type_of() == "map" && t.contains("x") { t.x } else { 0.0 };
+    let ty = if t.type_of() == "map" && t.contains("y") { t.y } else { 0.0 };
     let phys = ship_ref.physics();
     let vx = if phys.type_of() == "map" && phys.contains("vx") { phys.vx } else { 0.0 };
     let vy = if phys.type_of() == "map" && phys.contains("vy") { phys.vy } else { 0.0 };
@@ -266,7 +272,7 @@ if world.exists(ship_id) {
         vx = clamp_f(vx + (fx * accel), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
         vy = clamp_f(vy + (fy * accel), -cfg["ship_max_speed"], cfg["ship_max_speed"]);
         if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
-            spawn_smoke(world, t.x - (fx * 6.0), t.y - (fy * 6.0),
+            spawn_smoke(world, tx - (fx * 6.0), ty - (fy * 6.0),
                        vx  / VELOCITY_SCALE - (fx * 0.35), vy  / VELOCITY_SCALE - (fy * 0.35), 520, 3);
             smoke_cd = 48;
         }
@@ -276,7 +282,7 @@ if world.exists(ship_id) {
         let fx = to_float(sin32(ship_h)) / 1024.0;
         let fy = -to_float(sin32(ship_h + 8)) / 1024.0;
         let bspeed = cfg["bullet_speed"];
-        spawn_bullet(world, t.x + (fx * 9.0), t.y + (fy * 9.0),
+        spawn_bullet(world, tx + (fx * 9.0), ty + (fy * 9.0),
                     vx  / VELOCITY_SCALE + (fx * bspeed  / VELOCITY_SCALE),
                     vy  / VELOCITY_SCALE + (fy * bspeed  / VELOCITY_SCALE),
                     cfg["bullet_ttl_ms"]);
@@ -284,8 +290,8 @@ if world.exists(ship_id) {
         audio.event("gameplay.ship.shoot", 1.0);
     }
 
-    let new_x = wrap(t.x, min_x, max_x);
-    let new_y = wrap(t.y, min_y, max_y);
+    let new_x = wrap(tx, min_x, max_x);
+    let new_y = wrap(ty, min_y, max_y);
     ship_ref.set_position(new_x, new_y);
     ship_ref.set_velocity(vx, vy);
     ship_ref.set_heading(h::heading32_to_rad(ship_h));

@@ -16,7 +16,7 @@ for ast_id in world.query_kind("asteroid") {
     let ast_ref = world.entity(ast_id);
     if !ast_ref.exists() { continue; }
     let d = ast_ref.data();
-    let vid = if d.contains("visual_id") { d["visual_id"] } else { continue; };
+    let vid = `asteroid-${ast_id}`;
 
     let active = if d.contains("active") { d["active"] } else { true };
     let rot_phase = if d.contains("rot_phase") { d["rot_phase"] } else { 0 };
