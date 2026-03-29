@@ -20,6 +20,10 @@ Current metadata maturity:
 mods/<mod>/
 +-- mod.yaml                 Mod manifest
 +-- levels/                  Level payloads (*.yml|*.yaml|*.json)
++-- audio/
+|   +-- sfx.yaml             Semantic SFX bank (events -> cue variants)
+|   +-- songs/               Sequenced song files (*.yml|*.yaml)
+|   +-- synth/               Note-sheet cue definitions (*.yml|*.yaml)
 +-- assets/
 |   +-- images/              Image assets (PNG, GIF)
 |   +-- fonts/               Rasterized font manifests
@@ -27,7 +31,7 @@ mods/<mod>/
 |   +-- raw/                 Local staging (gitignored)
 +-- objects/                 Reusable prefabs (*.yml)
 +-- stages/                  Reusable stage presets
-+-- behaviors/               Mod-level behaviors
++-- behaviors/               Mod-level behaviors (`script:` inline or `src:` external Rhai)
 +-- scenes/
     +-- <scene>.yml          Single-file scene
     +-- <scene>/             Scene package
@@ -40,6 +44,22 @@ mods/<mod>/
 
 A scene is either a single YAML file or a package directory containing
 `scene.yml` plus partials. Both forms are interchangeable at runtime.
+
+Object instances support both explicit entries and a repeat shorthand. The
+`repeat` form expands at compile time and supports `{i}` token substitution
+in `as`/`id` and string values inside `with`.
+
+```yaml
+objects:
+  - repeat:
+      count: 8
+      ref: bullet-vector
+      as: bullet-{i}
+      with:
+        id: bullet-{i}
+        x: 0
+        y: 0
+```
 
 ---
 
@@ -69,6 +89,11 @@ paths work for both unpacked directories and zip-packaged mods.
 
 `mod.yaml` can define `terminal.default_font`. Then any text sprite using
 `font: "default"` resolves to that spec; if unset, engine fallback generic is used.
+
+Audio authoring is mod-root based:
+- `audio/sfx.yaml` defines semantic events such as `ui.menu.select`
+- `audio/songs/*.yml` defines sequenced tracks/patterns
+- `audio/synth/*.yml` defines generated cues; the engine synthesizes these into in-memory buffers at startup
 
 ---
 
@@ -197,7 +222,17 @@ all input processing and output rendering.
 | ui         | UI state (focus, visibility)              |
 | game       | Global game state                         |
 | level      | Active level payload + level catalog      |
+| world      | Gameplay entity world                     |
 | key        | Current key event                         |
+| collisions | Collision hits for the current frame      |
+
+Gameplay helpers on `world` (component-backed):
+- `world.set_transform(id, x, y, heading_rad)` and `world.transform(id)`
+- `world.set_physics(id, vx, vy, ax, ay, drag, max_speed)` and `world.physics(id)`
+- `world.set_collider_circle(id, radius, layer, mask)`
+- `world.set_lifetime(id, ttl_ms)`
+- `world.set_visual(id, visual_id)` to bind scene runtime target for cleanup on entity expiration
+- `world.collisions()` → array of `{ a, b }` entity id pairs detected this frame
 
 ### Commands
 
@@ -213,6 +248,14 @@ Scripts emit commands to mutate the scene:
 ```
 scene.get(target)              // read a value
 scene.set(target, path, value) // write a value
+scene.spawn_object(template, target)   // clone a scene object/layer template at runtime
+scene.despawn_object(target)           // soft-despawn (hide) a scene object/layer
+audio.cue(cue_id)              // play direct cue id (asset stem)
+audio.cue(cue_id, volume)      // play direct cue id with volume scale
+audio.event(event_id)          // play semantic sfx event from audio/sfx.yaml
+audio.event(event_id, gain)    // semantic event with gain scale
+audio.play_song(song_id)       // start sequenced song from audio/songs/*.yml
+audio.stop_song()              // stop currently active sequenced song
 
 game.get(path)                 // read global game state
 game.set(path, value)          // write global game state
@@ -222,7 +265,63 @@ level.current()                // active level id
 level.ids()                    // available level ids
 level.select(level_id)         // switch active level
 level.get(path)                // read active level payload
+
+world.spawn_object(kind, payload) // create a gameplay entity and return its id
+world.despawn_object(id)       // remove a gameplay entity
+world.clear()                  // remove all gameplay entities
+world.count()                  // number of gameplay entities
+world.count_kind(kind)         // count entities by kind
+world.count_tag(tag)           // count entities by tag
+world.first_kind(kind)         // first entity id by kind
+world.first_tag(tag)           // first entity id by tag
+world.exists(id)               // check if an entity exists
+world.kind(id)                 // read entity kind
+world.tags(id)                 // read entity tags
+world.ids()                    // list gameplay entity ids
+world.query_kind(kind)         // find ids by kind
+world.query_tag(tag)           // find ids by tag
+world.get(id, path)            // read entity payload by JSON pointer
+world.set(id, path, value)     // write entity payload by JSON pointer
+world.has(id, path)            // test entity payload path
+world.remove(id, path)         // delete entity payload path
+world.push(id, path, value)    // append entity payload path
+world.entity(id)               // entity handle API for cleaner repeated access
+
+// entity handle API
+entity.exists()                // check entity existence
+entity.get(path)               // read path
+entity.get_i(path, fallback)   // read integer with fallback
+entity.get_bool(path, fallback)// read bool with fallback
+entity.set(path, value)        // write path
+
+// Math / geometry helpers (engine-provided, useful for gameplay scripts)
+abs_i(v)                       // absolute value for integers
+sign_i(v, fallback)            // sign with fallback when v == 0
+clamp_i(v, min_v, max_v)       // clamp integer
+wrap(v, min_v, max_v)          // toroidal integer wrap
+wrap_fp(v, min_v, max_v, scale)// toroidal fixed-point wrap
+wrap_heading32(v)              // wrap heading to [0, 31]
+rng_next_i(seed, modulus)      // deterministic integer RNG helper
+
+// Geometry helpers
+sin32(idx)                     // 32-step integer sine lookup (-1024..1024)
+ship_points(heading)           // ship polygon points for heading [ [x,y], ... ]
+asteroid_points(shape, size)   // asteroid polygon points for shape/size
+rotate_points(points, heading) // rotate a point array around 0,0 using 32-step heading
+asteroid_fragment_points(shape, size, fragment_idx) // one of three closed asteroid wedges
+asteroid_radius(size)          // helper radius by asteroid size tier
+asteroid_score(size)           // score value by asteroid size tier
 ```
+
+Mod-level named behaviors can live in `behaviors/*.yml` and reference external Rhai:
+
+```yaml
+kind: behavior
+name: asteroids-game-loop
+src: ./asteroids-game-loop.rhai
+```
+
+Use `script:` for short inline behaviors and `src:` for reusable or larger scripts.
 
 **Important:** Always use backtick strings for multiline text in Rhai:
 
@@ -263,6 +362,7 @@ let msg = "line one\nline two";
 4. `./refresh-schemas.sh` and `cargo run -p schema-gen -- --all-mods --check` pass.
 5. Sprite timing falls within scene duration.
 6. A smoke run (`cargo run -p app`) starts without compile errors.
+7. `cargo run -p app -- --mod-source=mods/<mod> --check-scenes` reports zero warnings before merge.
 
 ---
 

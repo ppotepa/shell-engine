@@ -32,6 +32,7 @@ pub use engine_asset as asset;
 pub mod asset_cache;
 pub mod asset_source;
 pub mod assets;
+pub mod audio_sequencer;
 pub mod behavior;
 pub mod events;
 pub mod game_object;
@@ -335,9 +336,19 @@ impl ShellEngine {
             layout.render_width,
             layout.render_height,
         ));
-        world.register(audio::AudioRuntime::from_options(
+        let synth_cues =
+            audio_sequencer::AudioSequencerState::synthesize_note_sheets_if_any(&self.mod_source)
+                .unwrap_or_default();
+        let mut audio_runtime = audio::AudioRuntime::from_options(
             self.config.audio,
             &self.mod_source.to_string_lossy(),
+        );
+        for (cue, (sr, samples)) in synth_cues {
+            audio_runtime.register_memory_cue(&cue, sr, samples);
+        }
+        world.register(audio_runtime);
+        world.register(audio_sequencer::AudioSequencerState::from_mod_source(
+            &self.mod_source,
         ));
         world.register(runtime_settings);
         world.register(debug_features::DebugFeatures::from_enabled(
@@ -356,6 +367,9 @@ impl ShellEngine {
             &self.mod_source,
             &self.mod_manifest,
         ));
+        world.register(game::GameplayWorld::new());
+        world.register(game::GameplayStrategies::default());
+        world.register(game::CollisionStrategies::default());
         let persistence_namespace = self
             .mod_manifest
             .get("name")

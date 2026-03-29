@@ -107,7 +107,7 @@ properties:
       Each entry references an object prefab by path (ref), optionally assigns a scene-local
       id (as), overrides exports (with), seeds runtime state (state), and attaches role tags (tags).
     items:
-      $ref: "#/$defs/object_instance"
+      $ref: "#/$defs/object_instance_entry"
 
 patternProperties:
   "^cutscene_ref$":
@@ -477,6 +477,11 @@ $defs:
       on_leave:
         $ref: "#/$defs/stage"
 
+  object_instance_entry:
+    anyOf:
+      - $ref: "#/$defs/object_instance"
+      - $ref: "#/$defs/object_repeat_instance"
+
   # ── Object instance ─────────────────────────────────────────────────────────
   object_instance:
     type: object
@@ -515,6 +520,44 @@ $defs:
         items:
           type: string
         description: Optional role/group tags for the instance.
+
+  object_repeat_instance:
+    type: object
+    additionalProperties: false
+    required: [repeat]
+    properties:
+      repeat:
+        type: object
+        additionalProperties: false
+        required: [count]
+        oneOf:
+          - required: [ref]
+          - required: [use]
+        properties:
+          count:
+            type: integer
+            minimum: 1
+            description: Number of object instances to generate.
+          ref:
+            type: string
+            minLength: 1
+            description: Object prefab/blueprint reference path.
+          use:
+            type: string
+            minLength: 1
+            description: "Deprecated: use 'ref' instead. Object template/prefab reference."
+          as:
+            type: string
+            minLength: 1
+            description: Instance alias template. Supports `{i}` token.
+          id:
+            type: string
+            minLength: 1
+            description: "Deprecated: use 'as' instead. Supports `{i}` token."
+          with:
+            type: object
+            default: {}
+            description: Optional parameter overrides template. String values support `{i}` token.
 
   # ── Layer reference instance ───────────────────────────────────────────────
   layer_ref_instance:
@@ -605,9 +648,10 @@ $defs:
         default: []
         description: >
           Optional object instances local to this layer.
-          Uses the same ref/as/with/state/tags contract as scene-level `objects`.
+          Uses the same ref/as/with/state/tags contract as scene-level `objects`,
+          including the `repeat` shorthand.
         items:
-          $ref: "#/$defs/object_instance"
+          $ref: "#/$defs/object_instance_entry"
       sprites:
         type: array
         description: Drawable objects within this layer.

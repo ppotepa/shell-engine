@@ -3,6 +3,9 @@
 pub mod provider;
 
 use std::collections::HashMap;
+use std::path::{Component, Path, PathBuf};
+
+use serde::Deserialize;
 
 pub use provider::BehaviorProvider;
 
@@ -17,6 +20,7 @@ pub struct ModBehaviorRegistry {
 pub struct ModBehavior {
     pub name: String,
     pub script: String,
+    pub src: Option<String>,
 }
 
 impl ModBehaviorRegistry {
@@ -36,30 +40,87 @@ impl ModBehaviorRegistry {
     }
 }
 
-/// Parses a single behavior YAML document.
-/// Expected fields: `kind: behavior`, `name: String`, `script: String`.
-/// Returns `None` if the document is missing required fields or has wrong `kind`.
-fn parse_behavior_yml(src: &str) -> Option<ModBehavior> {
-    let value: serde_yaml::Value = serde_yaml::from_str(src).ok()?;
-    let map = value.as_mapping()?;
-    let kind = map.get("kind")?.as_str()?;
-    if kind != "behavior" {
-        return None;
-    }
-    let name = map.get("name")?.as_str()?.to_string();
-    let script = map.get("script")?.as_str()?.to_string();
-    Some(ModBehavior { name, script })
+#[derive(Debug, Deserialize)]
+struct RawModBehavior {
+    kind: String,
+    name: String,
+    #[serde(default)]
+    script: Option<String>,
+    #[serde(default)]
+    src: Option<String>,
 }
 
-/// Scans `<mod_source>/behaviors/*.yml`, parses each file, and returns a populated registry.
-pub fn load_mod_behaviors(mod_source: &std::path::Path) -> ModBehaviorRegistry {
+fn normalize_mod_path(mod_source: &Path, path: &Path) -> String {
+    let display_path = path.strip_prefix(mod_source).unwrap_or(path);
+    let mut parts = Vec::new();
+    for component in display_path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                let _ = parts.pop();
+            }
+            Component::Normal(part) => parts.push(part.to_string_lossy().to_string()),
+            Component::RootDir | Component::Prefix(_) => {}
+        }
+    }
+    let normalized = parts.join("/");
+    if normalized.starts_with('/') {
+        normalized
+    } else {
+        format!("/{normalized}")
+    }
+}
+
+fn resolve_behavior_src_path(mod_source: &Path, behavior_path: &Path, script_ref: &str) -> PathBuf {
+    if script_ref.starts_with('/') {
+        return mod_source.join(script_ref.trim_start_matches('/'));
+    }
+    if script_ref.starts_with("./") || script_ref.starts_with("../") {
+        let base = behavior_path.parent().unwrap_or(mod_source);
+        return base.join(script_ref);
+    }
+    mod_source.join("scripts").join(script_ref)
+}
+
+fn parse_behavior_yml(path: &Path, src: &str, mod_source: &Path) -> Result<ModBehavior, String> {
+    let raw: RawModBehavior =
+        serde_yaml::from_str(src).map_err(|err| format!("yaml parse failed: {err}"))?;
+    if raw.kind != "behavior" {
+        return Err(format!("expected kind=behavior, got `{}`", raw.kind));
+    }
+
+    match (raw.script, raw.src) {
+        (Some(script), None) => Ok(ModBehavior {
+            name: raw.name,
+            script,
+            src: Some(normalize_mod_path(mod_source, path)),
+        }),
+        (None, Some(script_ref)) => {
+            let resolved = resolve_behavior_src_path(mod_source, path, script_ref.trim());
+            let script = std::fs::read_to_string(&resolved)
+                .map_err(|err| format!("failed to read script {}: {err}", resolved.display()))?;
+            Ok(ModBehavior {
+                name: raw.name,
+                script,
+                src: Some(normalize_mod_path(mod_source, &resolved)),
+            })
+        }
+        (Some(_), Some(_)) => Err("expected exactly one of `script` or `src`".to_string()),
+        (None, None) => Err("missing required `script` or `src` field".to_string()),
+    }
+}
+
+/// Scans `<mod_source>/behaviors/*.yml`, parses each file, and returns a populated registry
+/// alongside any load errors encountered.
+pub fn load_mod_behaviors_with_errors(mod_source: &Path) -> (ModBehaviorRegistry, Vec<String>) {
     let mut registry = ModBehaviorRegistry::default();
+    let mut errors = Vec::new();
     let behaviors_dir = mod_source.join("behaviors");
     let read_dir = match std::fs::read_dir(&behaviors_dir) {
         Ok(d) => d,
         Err(_) => {
             // Directory simply doesn't exist — this is normal for mods with no behaviors.
-            return registry;
+            return (registry, errors);
         }
     };
     for entry in read_dir.flatten() {
@@ -75,31 +136,31 @@ pub fn load_mod_behaviors(mod_source: &std::path::Path) -> ModBehaviorRegistry {
         let src = match std::fs::read_to_string(&path) {
             Ok(s) => s,
             Err(err) => {
-                engine_core::logging::warn(
-                    "mod_behaviors",
-                    format!("failed to read {}: {err}", path.display()),
-                );
+                errors.push(format!("failed to read {}: {err}", path.display()));
                 continue;
             }
         };
-        match parse_behavior_yml(&src) {
-            Some(behavior) => {
+        match parse_behavior_yml(&path, &src, mod_source) {
+            Ok(behavior) => {
                 engine_core::logging::info(
                     "mod_behaviors",
                     format!("loaded mod behavior '{}'", behavior.name),
                 );
                 registry.insert(behavior);
             }
-            None => {
-                engine_core::logging::warn(
-                    "mod_behaviors",
-                    format!(
-                        "skipped {}: missing or invalid kind/name/script",
-                        path.display()
-                    ),
-                );
+            Err(err) => {
+                errors.push(format!("skipped {}: {err}", path.display()));
             }
         }
+    }
+    (registry, errors)
+}
+
+/// Scans `<mod_source>/behaviors/*.yml`, parses each file, and returns a populated registry.
+pub fn load_mod_behaviors(mod_source: &Path) -> ModBehaviorRegistry {
+    let (registry, errors) = load_mod_behaviors_with_errors(mod_source);
+    for err in errors {
+        engine_core::logging::warn("mod_behaviors", err);
     }
     registry
 }
@@ -111,21 +172,44 @@ mod tests {
     #[test]
     fn parse_behavior_yml_returns_none_for_wrong_kind() {
         let src = "kind: scene\nname: foo\nscript: |\n  let x = 1;\n";
-        assert!(parse_behavior_yml(src).is_none());
+        let temp = tempfile::tempdir().expect("temp dir");
+        let path = temp.path().join("foo.yml");
+        assert!(parse_behavior_yml(&path, src, temp.path()).is_err());
     }
 
     #[test]
     fn parse_behavior_yml_returns_none_for_missing_name() {
         let src = "kind: behavior\nscript: |\n  let x = 1;\n";
-        assert!(parse_behavior_yml(src).is_none());
+        let temp = tempfile::tempdir().expect("temp dir");
+        let path = temp.path().join("foo.yml");
+        assert!(parse_behavior_yml(&path, src, temp.path()).is_err());
     }
 
     #[test]
     fn parse_behavior_yml_returns_behavior_for_valid_doc() {
         let src = "kind: behavior\nname: my-anim\nscript: |\n  let x = 1;\n";
-        let b = parse_behavior_yml(src).expect("should parse");
+        let temp = tempfile::tempdir().expect("temp dir");
+        let path = temp.path().join("foo.yml");
+        let b = parse_behavior_yml(&path, src, temp.path()).expect("should parse");
         assert_eq!(b.name, "my-anim");
         assert!(b.script.contains("let x = 1;"));
+        assert_eq!(b.src.as_deref(), Some("/foo.yml"));
+    }
+
+    #[test]
+    fn parse_behavior_yml_loads_external_rhai_script() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let mod_dir = temp.path();
+        let behavior_path = mod_dir.join("behaviors").join("test.yml");
+        let script_path = mod_dir.join("behaviors").join("test.rhai");
+        std::fs::create_dir_all(behavior_path.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&script_path, "let x = 1;").expect("write script");
+
+        let src = "kind: behavior\nname: my-anim\nsrc: ./test.rhai\n";
+        let b = parse_behavior_yml(&behavior_path, src, mod_dir).expect("should parse");
+        assert_eq!(b.name, "my-anim");
+        assert_eq!(b.script, "let x = 1;");
+        assert_eq!(b.src.as_deref(), Some("/behaviors/test.rhai"));
     }
 
     #[test]
@@ -134,6 +218,7 @@ mod tests {
         reg.insert(ModBehavior {
             name: "foo".into(),
             script: "1 + 1".into(),
+            src: None,
         });
         assert!(reg.get("foo").is_some());
         assert!(reg.get("bar").is_none());

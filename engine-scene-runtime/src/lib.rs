@@ -357,6 +357,60 @@ layers: []
     }
 
     #[test]
+    fn scene_spawn_clones_only_target_sprite_subtree() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: spawn-clone
+title: Spawn Clone
+layers:
+  - name: main
+    sprites:
+      - type: vector
+        id: rock-template
+        points: [[0, 0], [2, 0], [1, 1]]
+      - type: text
+        id: hud
+        content: HUD
+"#,
+        )
+        .expect("scene should parse");
+        let mut runtime = SceneRuntime::new(scene);
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SceneSpawn {
+                template: "rock-template".to_string(),
+                target: "rock-live".to_string(),
+            }],
+        );
+
+        assert_eq!(runtime.scene().layers.len(), 1);
+        assert_eq!(
+            runtime
+                .scene()
+                .layers
+                .iter()
+                .map(|layer| layer.sprites.len())
+                .sum::<usize>(),
+            3
+        );
+        assert_eq!(
+            runtime
+                .objects()
+                .filter(|object| matches!(object.kind, GameObjectKind::Layer))
+                .count(),
+            1
+        );
+        let live_id = runtime
+            .target_resolver()
+            .resolve_alias("rock-live")
+            .expect("spawned sprite alias should resolve")
+            .to_string();
+        let live_object = runtime.object(&live_id).expect("spawned object");
+        assert!(matches!(live_object.kind, GameObjectKind::VectorSprite));
+    }
+
+    #[test]
     fn apply_behavior_commands_set_props_updates_state_and_text() {
         let mut runtime = SceneRuntime::new(intro_scene());
         let resolver = runtime.target_resolver();

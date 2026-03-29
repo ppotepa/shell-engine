@@ -19,6 +19,11 @@ use engine_core::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use engine_core::scene_runtime_types::{
     ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
 };
+use engine_game::{
+    Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
+    VisualBinding,
+};
+use engine_game::components::DespawnVisual;
 use engine_persistence::PersistenceStore;
 use engine_physics::{point_in_polygon, polygons_intersect, segment_intersects_polygon};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
@@ -51,6 +56,9 @@ pub struct BehaviorContext {
     pub game_state: Option<GameState>,
     pub level_state: Option<LevelState>,
     pub persistence: Option<PersistenceStore>,
+    pub gameplay_world: Option<GameplayWorld>,
+    /// Collision events collected for this frame (gameplay entities).
+    pub collisions: std::sync::Arc<Vec<CollisionHit>>,
     /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
     /// Arc-wrapped: shared across all behaviors in a frame, clone is O(1).
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
@@ -77,6 +85,14 @@ pub enum BehaviorCommand {
         cue: String,
         volume: Option<f32>,
     },
+    PlayAudioEvent {
+        event: String,
+        gain: Option<f32>,
+    },
+    PlaySong {
+        song_id: String,
+    },
+    StopSong,
     SetVisibility {
         target: String,
         visible: bool,
@@ -101,6 +117,13 @@ pub enum BehaviorCommand {
         target: String,
         path: String,
         value: JsonValue,
+    },
+    SceneSpawn {
+        template: String,
+        target: String,
+    },
+    SceneDespawn {
+        target: String,
     },
     TerminalPushOutput {
         line: String,
@@ -601,9 +624,12 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
     engine.register_type_with_name::<ScriptGameApi>("GameApi");
     engine.register_type_with_name::<ScriptPersistenceApi>("PersistenceApi");
+    engine.register_type_with_name::<ScriptGameplayApi>("GameplayApi");
+    engine.register_type_with_name::<ScriptGameplayEntityApi>("GameplayEntityApi");
     engine.register_type_with_name::<ScriptTerminalApi>("TerminalApi");
     engine.register_type_with_name::<ScriptInputApi>("InputApi");
     engine.register_type_with_name::<ScriptDebugApi>("DebugApi");
+    engine.register_type_with_name::<ScriptAudioApi>("AudioApi");
     engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
         scene.get(target)
     });
@@ -612,6 +638,14 @@ fn init_rhai_engine() -> RhaiEngine {
         |scene: &mut ScriptSceneApi, target: &str, path: &str, value: RhaiDynamic| {
             scene.set(target, path, value);
         },
+    );
+    engine.register_fn(
+        "spawn_object",
+        |scene: &mut ScriptSceneApi, template: &str, target: &str| scene.spawn(template, target),
+    );
+    engine.register_fn(
+        "despawn_object",
+        |scene: &mut ScriptSceneApi, target: &str| scene.despawn(target),
     );
     engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
         object.get(path)
@@ -647,6 +681,28 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("error", |debug: &mut ScriptDebugApi, message: &str| {
         debug.error(message);
     });
+    engine.register_fn("cue", |audio: &mut ScriptAudioApi, cue: &str| {
+        audio.cue(cue, None)
+    });
+    engine.register_fn(
+        "cue",
+        |audio: &mut ScriptAudioApi, cue: &str, volume: rhai::FLOAT| {
+            audio.cue(cue, Some(volume as f32))
+        },
+    );
+    engine.register_fn("event", |audio: &mut ScriptAudioApi, event: &str| {
+        audio.event(event, None)
+    });
+    engine.register_fn(
+        "event",
+        |audio: &mut ScriptAudioApi, event: &str, gain_scale: rhai::FLOAT| {
+            audio.event(event, Some(gain_scale as f32))
+        },
+    );
+    engine.register_fn("play_song", |audio: &mut ScriptAudioApi, song_id: &str| {
+        audio.play_song(song_id)
+    });
+    engine.register_fn("stop_song", |audio: &mut ScriptAudioApi| audio.stop_song());
     engine.register_fn("get", |game: &mut ScriptGameApi, path: &str| game.get(path));
     engine.register_fn(
         "set",
@@ -710,6 +766,147 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("reload", |persist: &mut ScriptPersistenceApi| {
         persist.reload()
     });
+    engine.register_fn("clear", |world: &mut ScriptGameplayApi| {
+        world.clear();
+    });
+    engine.register_fn("count", |world: &mut ScriptGameplayApi| world.count());
+    engine.register_fn("count_kind", |world: &mut ScriptGameplayApi, kind: &str| {
+        world.count_kind(kind)
+    });
+    engine.register_fn("count_tag", |world: &mut ScriptGameplayApi, tag: &str| {
+        world.count_tag(tag)
+    });
+    engine.register_fn("first_kind", |world: &mut ScriptGameplayApi, kind: &str| {
+        world.first_kind(kind)
+    });
+    engine.register_fn("first_tag", |world: &mut ScriptGameplayApi, tag: &str| {
+        world.first_tag(tag)
+    });
+    engine.register_fn(
+        "spawn_object",
+        |world: &mut ScriptGameplayApi, kind: &str, payload: RhaiDynamic| {
+            world.spawn(kind, payload)
+        },
+    );
+    engine.register_fn(
+        "despawn_object",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.despawn(id),
+    );
+    engine.register_fn("exists", |world: &mut ScriptGameplayApi, id: rhai::INT| {
+        world.exists(id)
+    });
+    engine.register_fn("kind", |world: &mut ScriptGameplayApi, id: rhai::INT| {
+        world.kind(id)
+    });
+    engine.register_fn("tags", |world: &mut ScriptGameplayApi, id: rhai::INT| {
+        world.tags(id)
+    });
+    engine.register_fn("ids", |world: &mut ScriptGameplayApi| world.ids());
+    engine.register_fn("entity", |world: &mut ScriptGameplayApi, id: rhai::INT| {
+        world.entity(id)
+    });
+    engine.register_fn("query_kind", |world: &mut ScriptGameplayApi, kind: &str| {
+        world.query_kind(kind)
+    });
+    engine.register_fn("query_tag", |world: &mut ScriptGameplayApi, tag: &str| {
+        world.query_tag(tag)
+    });
+    engine.register_fn(
+        "get",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, path: &str| world.get(id, path),
+    );
+    engine.register_fn(
+        "set",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, path: &str, value: RhaiDynamic| {
+            world.set(id, path, value)
+        },
+    );
+    engine.register_fn(
+        "has",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, path: &str| world.has(id, path),
+    );
+    engine.register_fn(
+        "remove",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, path: &str| world.remove(id, path),
+    );
+    engine.register_fn(
+        "push",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, path: &str, value: RhaiDynamic| {
+            world.push(id, path, value)
+        },
+    );
+    engine.register_fn(
+        "set_transform",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, x: rhai::FLOAT, y: rhai::FLOAT, heading: rhai::FLOAT| {
+            world.set_transform(id, x, y, heading)
+        },
+    );
+    engine.register_fn(
+        "transform",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.transform(id),
+    );
+    engine.register_fn(
+        "set_physics",
+        |world: &mut ScriptGameplayApi,
+         id: rhai::INT,
+         vx: rhai::FLOAT,
+         vy: rhai::FLOAT,
+         ax: rhai::FLOAT,
+         ay: rhai::FLOAT,
+         drag: rhai::FLOAT,
+         max_speed: rhai::FLOAT| { world.set_physics(id, vx, vy, ax, ay, drag, max_speed) },
+    );
+    engine.register_fn(
+        "physics",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.physics(id),
+    );
+    engine.register_fn(
+        "set_collider_circle",
+        |world: &mut ScriptGameplayApi,
+         id: rhai::INT,
+         radius: rhai::FLOAT,
+         layer: rhai::INT,
+         mask: rhai::INT| { world.set_collider_circle(id, radius, layer, mask) },
+    );
+    engine.register_fn(
+        "set_lifetime",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, ttl_ms: rhai::INT| {
+            world.set_lifetime(id, ttl_ms)
+        },
+    );
+    engine.register_fn(
+        "set_visual",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, visual_id: &str| {
+            world.set_visual(id, visual_id)
+        },
+    );
+    engine.register_fn("collisions", |world: &mut ScriptGameplayApi| {
+        world.collisions()
+    });
+    engine.register_fn("exists", |entity: &mut ScriptGameplayEntityApi| {
+        entity.exists()
+    });
+    engine.register_fn("get", |entity: &mut ScriptGameplayEntityApi, path: &str| {
+        entity.get(path)
+    });
+    engine.register_fn(
+        "get_i",
+        |entity: &mut ScriptGameplayEntityApi, path: &str, fallback: rhai::INT| {
+            entity.get_i(path, fallback)
+        },
+    );
+    engine.register_fn(
+        "get_bool",
+        |entity: &mut ScriptGameplayEntityApi, path: &str, fallback: bool| {
+            entity.get_bool(path, fallback)
+        },
+    );
+    engine.register_fn(
+        "set",
+        |entity: &mut ScriptGameplayEntityApi, path: &str, value: RhaiDynamic| {
+            entity.set(path, value)
+        },
+    );
     engine.register_fn(
         "poly_hit",
         |poly_a: RhaiArray,
@@ -764,6 +961,110 @@ fn init_rhai_engine() -> RhaiEngine {
             )
         },
     );
+    engine.register_fn("abs_i", |v: rhai::INT| -> rhai::INT {
+        if v < 0 {
+            -v
+        } else {
+            v
+        }
+    });
+    engine.register_fn("sign_i", |v: rhai::INT, fallback: rhai::INT| -> rhai::INT {
+        if v < 0 {
+            -1
+        } else if v > 0 {
+            1
+        } else {
+            fallback
+        }
+    });
+    engine.register_fn(
+        "clamp_i",
+        |v: rhai::INT, min_v: rhai::INT, max_v: rhai::INT| -> rhai::INT {
+            if v < min_v {
+                min_v
+            } else if v > max_v {
+                max_v
+            } else {
+                v
+            }
+        },
+    );
+    engine.register_fn(
+        "wrap",
+        |v: rhai::INT, min_v: rhai::INT, max_v: rhai::INT| -> rhai::INT {
+            if v < min_v {
+                max_v
+            } else if v > max_v {
+                min_v
+            } else {
+                v
+            }
+        },
+    );
+    engine.register_fn(
+        "wrap_fp",
+        |v: rhai::INT, min_v: rhai::INT, max_v: rhai::INT, scale: rhai::INT| -> rhai::INT {
+            let min_fp = min_v * scale;
+            let max_fp = max_v * scale;
+            if v < min_fp {
+                max_fp
+            } else if v > max_fp {
+                min_fp
+            } else {
+                v
+            }
+        },
+    );
+    engine.register_fn("wrap_heading32", |v: rhai::INT| -> rhai::INT {
+        let out = v % 32;
+        if out < 0 {
+            out + 32
+        } else {
+            out
+        }
+    });
+    engine.register_fn(
+        "rng_next_i",
+        |seed: rhai::INT, modulus: rhai::INT| -> rhai::INT {
+            let m = if modulus > 0 { modulus } else { 2_147_483_647 };
+            ((seed * 1_103_515_245) + 12_345) % m
+        },
+    );
+    engine.register_fn("sin32", |idx: rhai::INT| -> rhai::INT {
+        sin32_i32(to_i32(idx)) as rhai::INT
+    });
+    engine.register_fn("ship_points", |heading: rhai::INT| -> RhaiArray {
+        points_to_rhai_array(ship_points_i32(to_i32(heading)))
+    });
+    engine.register_fn(
+        "asteroid_points",
+        |shape: rhai::INT, size: rhai::INT| -> RhaiArray {
+            points_to_rhai_array(asteroid_points_i32(to_i32(shape), to_i32(size)))
+        },
+    );
+    engine.register_fn(
+        "rotate_points",
+        |points: RhaiArray, heading: rhai::INT| -> RhaiArray {
+            let points = rhai_array_to_points(&points);
+            points_to_rhai_array(rotate_points_i32(&points, to_i32(heading)))
+        },
+    );
+    engine.register_fn(
+        "asteroid_fragment_points",
+        |shape: rhai::INT, size: rhai::INT, fragment: rhai::INT| -> RhaiArray {
+            points_to_rhai_array(asteroid_fragment_points_i32(
+                to_i32(shape),
+                to_i32(size),
+                to_i32(fragment),
+            ))
+        },
+    );
+    engine.register_fn("asteroid_radius", |size: rhai::INT| -> rhai::INT {
+        asteroid_radius_i32(to_i32(size)) as rhai::INT
+    });
+    engine.register_fn("asteroid_score", |size: rhai::INT| -> rhai::INT {
+        asteroid_score_i32(to_i32(size)) as rhai::INT
+    });
     engine
 }
 
@@ -823,6 +1124,18 @@ struct ScriptPersistenceApi {
 }
 
 #[derive(Clone)]
+struct ScriptGameplayApi {
+    world: Option<GameplayWorld>,
+    collisions: std::sync::Arc<Vec<CollisionHit>>,
+}
+
+#[derive(Clone)]
+struct ScriptGameplayEntityApi {
+    world: Option<GameplayWorld>,
+    id: u64,
+}
+
+#[derive(Clone)]
 struct ScriptTerminalApi {
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
@@ -836,6 +1149,11 @@ struct ScriptInputApi {
 struct ScriptDebugApi {
     scene_id: String,
     source: Option<String>,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
+#[derive(Clone)]
+struct ScriptAudioApi {
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -938,6 +1256,33 @@ impl ScriptSceneApi {
             path: normalized_path,
             value,
         });
+    }
+
+    fn spawn(&mut self, template: &str, target: &str) -> bool {
+        if template.trim().is_empty() || target.trim().is_empty() {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::SceneSpawn {
+            template: template.to_string(),
+            target: target.to_string(),
+        });
+        true
+    }
+
+    fn despawn(&mut self, target: &str) -> bool {
+        if target.trim().is_empty() {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::SceneDespawn {
+            target: target.to_string(),
+        });
+        true
     }
 }
 
@@ -1183,6 +1528,64 @@ impl ScriptDebugApi {
     }
 }
 
+impl ScriptAudioApi {
+    fn new(queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+        Self { queue }
+    }
+
+    fn cue(&mut self, cue: &str, volume: Option<f32>) -> bool {
+        let cue = cue.trim();
+        if cue.is_empty() {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::PlayAudioCue {
+            cue: cue.to_string(),
+            volume,
+        });
+        true
+    }
+
+    fn event(&mut self, event: &str, gain: Option<f32>) -> bool {
+        let event = event.trim();
+        if event.is_empty() {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::PlayAudioEvent {
+            event: event.to_string(),
+            gain,
+        });
+        true
+    }
+
+    fn play_song(&mut self, song_id: &str) -> bool {
+        let song_id = song_id.trim();
+        if song_id.is_empty() {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::PlaySong {
+            song_id: song_id.to_string(),
+        });
+        true
+    }
+
+    fn stop_song(&mut self) -> bool {
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::StopSong);
+        true
+    }
+}
+
 impl ScriptPersistenceApi {
     fn new(store: Option<PersistenceStore>) -> Self {
         Self { store }
@@ -1235,6 +1638,400 @@ impl ScriptPersistenceApi {
             .as_ref()
             .map(PersistenceStore::reload)
             .unwrap_or(false)
+    }
+}
+
+impl ScriptGameplayApi {
+    fn new(world: Option<GameplayWorld>, collisions: std::sync::Arc<Vec<CollisionHit>>) -> Self {
+        Self { world, collisions }
+    }
+
+    fn entity(&mut self, id: rhai::INT) -> ScriptGameplayEntityApi {
+        if id < 0 {
+            return ScriptGameplayEntityApi { world: None, id: 0 };
+        }
+        ScriptGameplayEntityApi {
+            world: self.world.clone(),
+            id: id as u64,
+        }
+    }
+
+    fn clear(&mut self) {
+        if let Some(world) = self.world.as_ref() {
+            world.clear();
+        }
+    }
+
+    fn count(&mut self) -> rhai::INT {
+        self.world
+            .as_ref()
+            .map(|world| world.count() as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    fn count_kind(&mut self, kind: &str) -> rhai::INT {
+        self.world
+            .as_ref()
+            .map(|world| world.count_kind(kind) as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    fn count_tag(&mut self, tag: &str) -> rhai::INT {
+        self.world
+            .as_ref()
+            .map(|world| world.count_tag(tag) as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    fn first_kind(&mut self, kind: &str) -> rhai::INT {
+        self.world
+            .as_ref()
+            .and_then(|world| world.first_kind(kind))
+            .map(|id| id as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    fn first_tag(&mut self, tag: &str) -> rhai::INT {
+        self.world
+            .as_ref()
+            .and_then(|world| world.first_tag(tag))
+            .map(|id| id as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    fn spawn(&mut self, kind: &str, payload: RhaiDynamic) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else {
+            return 0;
+        };
+        let Some(payload) = rhai_dynamic_to_json(&payload) else {
+            return 0;
+        };
+        world
+            .spawn(kind, payload)
+            .map(|id| id as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    fn despawn(&mut self, id: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.despawn(id as u64)
+    }
+
+    fn exists(&mut self, id: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.exists(id as u64)
+    }
+
+    fn kind(&mut self, id: rhai::INT) -> String {
+        let Some(world) = self.world.as_ref() else {
+            return String::new();
+        };
+        if id < 0 {
+            return String::new();
+        }
+        world.kind_of(id as u64).unwrap_or_default()
+    }
+
+    fn tags(&mut self, id: rhai::INT) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        if id < 0 {
+            return RhaiArray::new();
+        }
+        world.tags(id as u64).into_iter().map(Into::into).collect()
+    }
+
+    fn ids(&mut self) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        world
+            .ids()
+            .into_iter()
+            .map(|id| (id as rhai::INT).into())
+            .collect()
+    }
+
+    fn query_kind(&mut self, kind: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        world
+            .query_kind(kind)
+            .into_iter()
+            .map(|id| (id as rhai::INT).into())
+            .collect()
+    }
+
+    fn query_tag(&mut self, tag: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        world
+            .query_tag(tag)
+            .into_iter()
+            .map(|id| (id as rhai::INT).into())
+            .collect()
+    }
+
+    fn get(&mut self, id: rhai::INT, path: &str) -> RhaiDynamic {
+        let Some(world) = self.world.as_ref() else {
+            return ().into();
+        };
+        if id < 0 {
+            return ().into();
+        }
+        world
+            .get(id as u64, path)
+            .map(|value| json_to_rhai_dynamic(&value))
+            .unwrap_or_else(|| ().into())
+    }
+
+    fn set(&mut self, id: rhai::INT, path: &str, value: RhaiDynamic) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        world.set(id as u64, path, value)
+    }
+
+    fn has(&mut self, id: rhai::INT, path: &str) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.has(id as u64, path)
+    }
+
+    fn remove(&mut self, id: rhai::INT, path: &str) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.remove(id as u64, path)
+    }
+
+    fn push(&mut self, id: rhai::INT, path: &str, value: RhaiDynamic) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        world.push(id as u64, path, value)
+    }
+
+    fn set_transform(&mut self, id: rhai::INT, x: rhai::FLOAT, y: rhai::FLOAT, heading: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.set_transform(
+            id as u64,
+            Transform2D {
+                x: x as f32,
+                y: y as f32,
+                heading: heading as f32,
+            },
+        )
+    }
+
+    fn transform(&mut self, id: rhai::INT) -> RhaiDynamic {
+        let Some(world) = self.world.as_ref() else {
+            return ().into();
+        };
+        if id < 0 {
+            return ().into();
+        }
+        if let Some(xf) = world.transform(id as u64) {
+            let mut map = RhaiMap::new();
+            map.insert("x".into(), (xf.x as rhai::FLOAT).into());
+            map.insert("y".into(), (xf.y as rhai::FLOAT).into());
+            map.insert("heading".into(), (xf.heading as rhai::FLOAT).into());
+            return map.into();
+        }
+        ().into()
+    }
+
+    fn set_physics(
+        &mut self,
+        id: rhai::INT,
+        vx: rhai::FLOAT,
+        vy: rhai::FLOAT,
+        ax: rhai::FLOAT,
+        ay: rhai::FLOAT,
+        drag: rhai::FLOAT,
+        max_speed: rhai::FLOAT,
+    ) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.set_physics(
+            id as u64,
+            PhysicsBody2D {
+                vx: vx as f32,
+                vy: vy as f32,
+                ax: ax as f32,
+                ay: ay as f32,
+                drag: drag as f32,
+                max_speed: max_speed as f32,
+            },
+        )
+    }
+
+    fn physics(&mut self, id: rhai::INT) -> RhaiDynamic {
+        let Some(world) = self.world.as_ref() else {
+            return ().into();
+        };
+        if id < 0 {
+            return ().into();
+        }
+        if let Some(body) = world.physics(id as u64) {
+            let mut map = RhaiMap::new();
+            map.insert("vx".into(), (body.vx as rhai::FLOAT).into());
+            map.insert("vy".into(), (body.vy as rhai::FLOAT).into());
+            map.insert("ax".into(), (body.ax as rhai::FLOAT).into());
+            map.insert("ay".into(), (body.ay as rhai::FLOAT).into());
+            map.insert("drag".into(), (body.drag as rhai::FLOAT).into());
+            map.insert("max_speed".into(), (body.max_speed as rhai::FLOAT).into());
+            return map.into();
+        }
+        ().into()
+    }
+
+    fn set_collider_circle(
+        &mut self,
+        id: rhai::INT,
+        radius: rhai::FLOAT,
+        layer: rhai::INT,
+        mask: rhai::INT,
+    ) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.set_collider(
+            id as u64,
+            Collider2D {
+                shape: ColliderShape::Circle { radius: radius as f32 },
+                layer: layer as u32,
+                mask: mask as u32,
+            },
+        )
+    }
+
+    fn set_lifetime(&mut self, id: rhai::INT, ttl_ms: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.set_lifetime(
+            id as u64,
+            Lifetime {
+                ttl_ms: ttl_ms as i32,
+                on_expire: DespawnVisual::None,
+            },
+        )
+    }
+
+    fn set_visual(&mut self, id: rhai::INT, visual_id: &str) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.set_visual(
+            id as u64,
+            VisualBinding {
+                visual_id: if visual_id.trim().is_empty() {
+                    None
+                } else {
+                    Some(visual_id.to_string())
+                },
+            },
+        )
+    }
+
+    fn collisions(&mut self) -> RhaiArray {
+        self.collisions
+            .iter()
+            .map(|hit| {
+                let mut map = RhaiMap::new();
+                map.insert("a".into(), (hit.a as rhai::INT).into());
+                map.insert("b".into(), (hit.b as rhai::INT).into());
+                map.into()
+            })
+            .collect()
+    }
+}
+
+impl ScriptGameplayEntityApi {
+    fn exists(&mut self) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        world.exists(self.id)
+    }
+
+    fn get(&mut self, path: &str) -> RhaiDynamic {
+        let Some(world) = self.world.as_ref() else {
+            return ().into();
+        };
+        world
+            .get(self.id, path)
+            .map(|value| json_to_rhai_dynamic(&value))
+            .unwrap_or_else(|| ().into())
+    }
+
+    fn get_i(&mut self, path: &str, fallback: rhai::INT) -> rhai::INT {
+        self.get(path).try_cast::<rhai::INT>().unwrap_or(fallback)
+    }
+
+    fn get_bool(&mut self, path: &str, fallback: bool) -> bool {
+        self.get(path).try_cast::<bool>().unwrap_or(fallback)
+    }
+
+    fn set(&mut self, path: &str, value: RhaiDynamic) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        let Some(value) = rhai_dynamic_to_json(&value) else {
+            return false;
+        };
+        world.set(self.id, path, value)
     }
 }
 
@@ -1441,6 +2238,19 @@ impl Behavior for RhaiScriptBehavior {
                 // Engine-level key state (separate namespace to prevent behavior interference)
                 scope.push_dynamic("engine", (*ctx.engine_key_map).clone().into());
 
+                // Gameplay collision events (array of {a, b} maps).
+                let collisions: RhaiArray = ctx
+                    .collisions
+                    .iter()
+                    .map(|hit| {
+                        let mut map = RhaiMap::new();
+                        map.insert("a".into(), (hit.a as rhai::INT).into());
+                        map.insert("b".into(), (hit.b as rhai::INT).into());
+                        map.into()
+                    })
+                    .collect();
+                scope.push_dynamic("collisions", collisions.into());
+
                 // External sidecar bridge exposed as object-shaped `ipc.*`.
                 {
                     let mut ipc_map = RhaiMap::new();
@@ -1517,6 +2327,14 @@ impl Behavior for RhaiScriptBehavior {
                     "persist",
                     ScriptPersistenceApi::new(ctx.persistence.clone()),
                 );
+                scope.push(
+                    "world",
+                    ScriptGameplayApi::new(
+                        ctx.gameplay_world.clone(),
+                        std::sync::Arc::clone(&ctx.collisions),
+                    ),
+                );
+                scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
 
                 // OPT-4: Use thread-local engine + cached AST.
                 RHAI_ENGINE.with(|cell| {
@@ -1605,6 +2423,7 @@ pub fn smoke_validate_rhai_script(
         children: Vec::new(),
     };
     let game_state = GameState::new();
+    let gameplay_world = GameplayWorld::new();
 
     let frames = [
         (0_u64, None),
@@ -1615,7 +2434,12 @@ pub fn smoke_validate_rhai_script(
     ];
 
     for (elapsed_ms, submit_text) in frames {
-        let ctx = smoke_probe_context(elapsed_ms, submit_text, game_state.clone());
+        let ctx = smoke_probe_context(
+            elapsed_ms,
+            submit_text,
+            game_state.clone(),
+            gameplay_world.clone(),
+        );
         let mut commands = Vec::new();
         behavior.update(&probe_object, scene, &ctx, &mut commands);
         if let Some(message) = commands.into_iter().find_map(|command| match command {
@@ -1632,6 +2456,7 @@ fn smoke_probe_context(
     elapsed_ms: u64,
     submit_text: Option<&str>,
     game_state: GameState,
+    gameplay_world: GameplayWorld,
 ) -> BehaviorContext {
     BehaviorContext {
         stage: SceneStage::OnIdle,
@@ -1653,6 +2478,8 @@ fn smoke_probe_context(
         game_state: Some(game_state),
         level_state: None,
         persistence: None,
+        gameplay_world: Some(gameplay_world),
+        collisions: Arc::new(Vec::new()),
         last_raw_key: None,
         keys_down: Arc::new(HashSet::new()),
         sidecar_io: Arc::new(SidecarIoFrameState::default()),
@@ -1804,6 +2631,176 @@ fn normalize_input_code(code: &str) -> String {
 
 fn to_i32(value: rhai::INT) -> i32 {
     value.clamp(i32::MIN as rhai::INT, i32::MAX as rhai::INT) as i32
+}
+
+fn base_sin_i32(step: i32) -> i32 {
+    match step {
+        0 => 0,
+        1 => 200,
+        2 => 392,
+        3 => 569,
+        4 => 724,
+        5 => 851,
+        6 => 946,
+        7 => 1004,
+        _ => 1024,
+    }
+}
+
+fn sin32_i32(idx: i32) -> i32 {
+    let i = idx.rem_euclid(32);
+    let q = i / 8;
+    let o = i % 8;
+    match q {
+        0 => base_sin_i32(o),
+        1 => base_sin_i32(8 - o),
+        2 => -base_sin_i32(o),
+        _ => -base_sin_i32(8 - o),
+    }
+}
+
+fn ship_points_i32(heading: i32) -> Vec<[i32; 2]> {
+    let fx = sin32_i32(heading);
+    let fy = -sin32_i32(heading + 8);
+    let rx = -fy;
+    let ry = fx;
+    vec![
+        [(fx * 7) / 1024, (fy * 7) / 1024],
+        [((-fx * 3) - (rx * 3)) / 1024, ((-fy * 3) - (ry * 3)) / 1024],
+        [(-fx) / 1024, (-fy) / 1024],
+        [((-fx * 3) + (rx * 3)) / 1024, ((-fy * 3) + (ry * 3)) / 1024],
+    ]
+}
+
+fn asteroid_shape_i32(shape: i32) -> &'static [[i32; 2]] {
+    match shape.rem_euclid(4) {
+        0 => &[
+            [0, -10],
+            [8, -6],
+            [10, 1],
+            [4, 9],
+            [-4, 9],
+            [-10, 2],
+            [-8, -7],
+        ],
+        1 => &[
+            [-2, -10],
+            [6, -10],
+            [11, -5],
+            [10, 1],
+            [11, 8],
+            [2, 10],
+            [-7, 9],
+            [-11, 2],
+            [-8, -6],
+        ],
+        2 => &[
+            [0, -11],
+            [7, -8],
+            [10, -1],
+            [8, 7],
+            [1, 11],
+            [-6, 9],
+            [-10, 3],
+            [-9, -4],
+            [-4, -10],
+        ],
+        _ => &[
+            [1, -10],
+            [8, -9],
+            [11, -2],
+            [9, 5],
+            [4, 9],
+            [-2, 10],
+            [-9, 8],
+            [-11, 1],
+            [-10, -6],
+            [-4, -10],
+        ],
+    }
+}
+
+fn asteroid_scale_i32(size: i32) -> i32 {
+    match size {
+        i32::MIN..=0 => 3,
+        1 => 5,
+        2 => 8,
+        _ => 12,
+    }
+}
+
+fn asteroid_points_i32(shape: i32, size: i32) -> Vec<[i32; 2]> {
+    let scale = asteroid_scale_i32(size);
+    asteroid_shape_i32(shape)
+        .iter()
+        .map(|p| [(p[0] * scale) / 10, (p[1] * scale) / 10])
+        .collect()
+}
+
+fn rotate_points_i32(points: &[[i32; 2]], heading: i32) -> Vec<[i32; 2]> {
+    let sin = i64::from(sin32_i32(heading));
+    let cos = i64::from(sin32_i32(heading + 8));
+    points
+        .iter()
+        .map(|p| {
+            let x = i64::from(p[0]);
+            let y = i64::from(p[1]);
+            [
+                ((x * cos) - (y * sin)).div_euclid(1024) as i32,
+                ((x * sin) + (y * cos)).div_euclid(1024) as i32,
+            ]
+        })
+        .collect()
+}
+
+fn asteroid_fragment_points_i32(shape: i32, size: i32, fragment: i32) -> Vec<[i32; 2]> {
+    let points = asteroid_points_i32(shape, size);
+    let count = points.len();
+    if count < 3 {
+        return points;
+    }
+    let fragment = fragment.rem_euclid(3) as usize;
+    let cuts = [0, count / 3, (count * 2) / 3, count];
+    let start = cuts[fragment];
+    let end = cuts[fragment + 1];
+    let mut out = Vec::with_capacity((end - start) + 3);
+    out.push([0, 0]);
+    for idx in start..=end {
+        let wrapped = if idx == count { 0 } else { idx };
+        out.push(points[wrapped]);
+    }
+    out.push([0, 0]);
+    out
+}
+
+fn asteroid_radius_i32(size: i32) -> i32 {
+    match size {
+        i32::MIN..=0 => 4,
+        1 => 7,
+        2 => 11,
+        _ => 15,
+    }
+}
+
+fn asteroid_score_i32(size: i32) -> i32 {
+    match size {
+        i32::MIN..=0 => 35,
+        1 => 25,
+        2 => 15,
+        _ => 10,
+    }
+}
+
+fn points_to_rhai_array(points: Vec<[i32; 2]>) -> RhaiArray {
+    points
+        .into_iter()
+        .map(|[x, y]| {
+            let mut pair = RhaiArray::with_capacity(2);
+            pair.push((x as rhai::INT).into());
+            pair.push((y as rhai::INT).into());
+            pair.into()
+        })
+        .collect()
 }
 
 fn rhai_array_to_points(value: &RhaiArray) -> Vec<[i32; 2]> {
@@ -2374,15 +3371,17 @@ impl BehaviorContext {
 #[cfg(test)]
 mod tests {
     use super::{
-        built_in_behavior, Behavior, BehaviorCommand, BehaviorContext, BlinkBehavior, BobBehavior,
-        FollowBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior, MenuSelectedBehavior,
-        RhaiScriptBehavior, SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
-        TimedVisibilityBehavior,
+        asteroid_fragment_points_i32, asteroid_points_i32, built_in_behavior, rotate_points_i32,
+        smoke_validate_rhai_script, Behavior, BehaviorCommand, BehaviorContext, BlinkBehavior,
+        BobBehavior, FollowBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior,
+        MenuSelectedBehavior, RhaiScriptBehavior, SceneAudioBehavior, SelectedArrowsBehavior,
+        StageVisibilityBehavior, TimedVisibilityBehavior,
     };
     use engine_animation::SceneStage;
     use engine_core::effects::Region;
     use engine_core::game_object::{GameObject, GameObjectKind};
     use engine_core::game_state::GameState;
+    use engine_core::level_state::LevelState;
     use engine_core::scene::{
         AudioCue, BehaviorParams, BehaviorSpec, MenuOption, Scene, SceneAudio, SceneRenderedMode,
         SceneStages, TermColour,
@@ -2390,9 +3389,11 @@ mod tests {
     use engine_core::scene_runtime_types::{
         ObjectRuntimeState, SidecarIoFrameState, TargetResolver,
     };
+    use engine_game::GameplayWorld;
     use rhai::Map as RhaiMap;
+    use serde_json::json;
     use serde_json::Value as JsonValue;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
     use std::sync::Arc;
 
     fn scene_object() -> GameObject {
@@ -2510,6 +3511,7 @@ mod tests {
             game_state: None,
             level_state: None,
             persistence: None,
+            gameplay_world: None,
             last_raw_key: None,
             keys_down: Arc::new(HashSet::new()),
             sidecar_io: Arc::new(SidecarIoFrameState::default()),
@@ -2618,6 +3620,73 @@ out
                 }
             ]
         );
+    }
+
+    #[test]
+    fn rhai_script_behavior_can_spawn_gameplay_entities() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let id = world.spawn_object("asteroid", #{ tags: ["enemy", "rock"], x: 12, nested: #{ hp: 3 } });
+if id > 0 && world.exists(id) {
+  world.set(id, "/nested/hp", 7);
+}
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "world api should not produce ScriptError: {commands:?}"
+        );
+        let ids = gameplay_world.ids();
+        assert_eq!(ids.len(), 1);
+        let id = ids[0];
+        assert_eq!(gameplay_world.kind_of(id).as_deref(), Some("asteroid"));
+        assert_eq!(gameplay_world.query_tag("enemy"), vec![id]);
+        assert_eq!(gameplay_world.get(id, "/nested/hp"), Some(json!(7)));
+    }
+
+    #[test]
+    fn rhai_script_behavior_gameplay_entity_api_supports_typed_getters_and_set() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let id = world.spawn_object("ship", #{ active: true, score: 4 });
+let e = world.entity(id);
+if e.exists() && e.get_bool("/active", false) {
+  let next = e.get_i("/score", 0) + 9;
+  e.set("/score", next);
+}
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "world entity api should not produce ScriptError: {commands:?}"
+        );
+        let ids = gameplay_world.ids();
+        assert_eq!(ids.len(), 1);
+        let id = ids[0];
+        assert_eq!(gameplay_world.get(id, "/score"), Some(json!(13)));
+        assert_eq!(gameplay_world.get(id, "/active"), Some(json!(true)));
     }
 
     fn region(x: u16, y: u16, width: u16, height: u16) -> Region {
@@ -3324,6 +4393,79 @@ scene.set("menu-item-0", "props.position.y", 6);
     }
 
     #[test]
+    fn rhai_script_behavior_scene_spawn_and_despawn_emit_commands() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+scene.spawn_object("bullet-0", "bullet-99");
+scene.despawn_object("bullet-99");
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SceneSpawn {
+                    template: "bullet-0".to_string(),
+                    target: "bullet-99".to_string()
+                },
+                BehaviorCommand::SceneDespawn {
+                    target: "bullet-99".to_string()
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_geometry_helpers_are_available() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ship = ship_points(8);
+let rocks = asteroid_points(2, 3);
+let score = asteroid_score(0);
+let radius = asteroid_radius(2);
+let wave = sin32(0);
+let out = [];
+out.push(#{ op: "set", target: "menu-item-0", path: "position.x", value: ship.len() + rocks.len() });
+out.push(#{ op: "set", target: "menu-item-0", path: "position.y", value: score + radius + wave });
+out
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::SetProperty {
+                    target: "menu-item-0".to_string(),
+                    path: "position.x".to_string(),
+                    value: JsonValue::Number(13.into()),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "menu-item-0".to_string(),
+                    path: "position.y".to_string(),
+                    value: JsonValue::Number(46.into()),
+                },
+            ]
+        );
+    }
+
+    #[test]
     fn rhai_script_behavior_persists_state_between_updates() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
@@ -3965,6 +5107,45 @@ out
         assert!(
             !has_script_error,
             "should not emit ScriptError for valid script"
+        );
+    }
+
+    #[test]
+    fn rotate_points_i32_rotates_points_by_quarter_turn() {
+        assert_eq!(
+            rotate_points_i32(&[[0, -10], [10, 0]], 8),
+            vec![[10, 0], [0, 10]]
+        );
+    }
+
+    #[test]
+    fn asteroid_fragment_points_i32_returns_three_closed_wedges() {
+        let base = asteroid_points_i32(0, 2);
+        for fragment_idx in 0..3 {
+            let fragment = asteroid_fragment_points_i32(0, 2, fragment_idx);
+            assert!(
+                fragment.len() >= 5,
+                "fragment {fragment_idx} should include centroid plus boundary points"
+            );
+            assert_eq!(fragment.first().copied(), Some([0, 0]));
+            assert_eq!(fragment.last().copied(), Some([0, 0]));
+        }
+        assert_eq!(base.first().copied(), Some([0, -8]));
+    }
+
+    #[test]
+    fn smoke_validate_rhai_script_supports_world_api() {
+        let scene = base_scene();
+        let script = r#"
+let id = world.spawn_object("probe", #{ tags: ["probe"] });
+if id > 0 {
+  world.despawn_object(id);
+}
+#{}
+"#;
+        assert!(
+            smoke_validate_rhai_script(script, Some("./probe.rhai"), &scene).is_ok(),
+            "world API scripts should pass smoke validation"
         );
     }
 

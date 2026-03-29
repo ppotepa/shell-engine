@@ -1,0 +1,19 @@
+id: asteroids.highscores-loop
+tempo_bpm: 92
+time_signature: [4, 4]
+loop_region:
+  start_beat: 0
+  end_beat: 8
+tracks:
+  - id: pulse
+    gain: 0.68
+    clips:
+      - at_beat: 0
+        pattern: pulse.a
+patterns:
+  pulse.a:
+    steps:
+      - { at_beat: 0.0, event: music.highscores.pulse, gain: 0.9 }
+      - { at_beat: 2.0, event: music.highscores.pulse, gain: 0.7 }
+      - { at_beat: 4.0, event: music.highscores.pulse, gain: 0.9 }
+      - { at_beat: 6.0, event: music.highscores.pulse, gain: 0.7 }

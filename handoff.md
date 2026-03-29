@@ -1,5 +1,41 @@
 # SDL2 Rendering Optimization Handoff
 
+## 2026-03-29 Current State
+
+### Since the SDL2 optimization pass
+
+1. **Startup validation path added**
+   - `cargo run -p app -- --mod-source=mods/<mod> --check-scenes`
+   - Covers scene graph, levels, Rhai scripts, image/font assets, effect names, and audio sequencer config.
+
+2. **Audio domain expanded**
+   - `engine-audio-sequencer` now loads `audio/sfx.yaml`, `audio/songs/**/*.yml`, and synth note sheets from `audio/synth/*.yml`.
+   - Song playback is sequenced at runtime; synth cues are generated into memory at startup.
+
+3. **Asteroids mod added**
+   - SDL-focused showcase mod at `mods/asteroids/`.
+   - Uses level payloads, named mod behaviors with external `src`, dynamic runtime entities, and synth-driven menu/game/highscore music.
+
+4. **Launcher/menu flow updated**
+   - `./menu` persists SDL2, audio, splash-skip, scene-check, and release flags in `.menu.conf`.
+   - Audio defaults on; release mode now shows cargo build progress.
+
+5. **Current gameplay direction**
+   - Next planned architecture step is a componentized gameplay layer (`transform`, `physics`, `collider`, `lifetime`, `visual_binding`, etc.) with swappable strategies for physics and collision, while keeping the scene/render model intact.
+
+### Recommended current entry points
+
+```bash
+# Validate authored data before runtime work
+cargo run -p app -- --mod-source=mods/asteroids --check-scenes
+
+# Asteroids in SDL2 with audio
+cargo run -p app -- --mod-source=mods/asteroids --sdl2 --audio
+
+# Release helper
+./run-release.sh --mod-source=mods/asteroids --audio
+```
+
 ## 2026-03-28 Continuation (Latest)
 
 ### Completed in this pass

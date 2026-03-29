@@ -138,9 +138,15 @@ pub fn game_loop(
             break;
         }
 
+        // Gameplay systems (physics/lifetime) run before script behaviors.
+        systems::gameplay::gameplay_system(world, tick_ms);
+        let collision_hits = systems::collision::collision_system(world);
+        systems::gameplay_events::push_collisions(world, collision_hits);
+
         let t0 = Instant::now();
         systems::behavior::behavior_system(world);
         let t1 = Instant::now();
+        systems::audio_sequencer::audio_sequencer_system(world, tick_ms);
         engine_audio::audio_system(world);
         let t1b = Instant::now();
         systems::compositor::compositor_system(world);
@@ -149,6 +155,8 @@ pub fn game_loop(
         let t3 = Instant::now();
         systems::renderer::renderer_system(world);
         let t4 = Instant::now();
+        systems::gameplay_events::clear(world);
+        systems::visual_binding::cleanup_visuals(world);
 
         // Notify frame-skip oracle that frame has advanced
         if let Some(oracle) =

@@ -141,6 +141,12 @@ pub fn debug_scene_hot_reload_system(world: &mut World) {
 
     apply_virtual_size_override(world, &reloaded_scene);
     world.clear_scoped();
+    if let Some(sequencer) = world.get_mut::<crate::audio_sequencer::AudioSequencerState>() {
+        sequencer.stop_song();
+    }
+    if let Some(gameplay_world) = world.get_mut::<crate::game::GameplayWorld>() {
+        gameplay_world.clear();
+    }
     world.register_scoped(SceneRuntime::new(reloaded_scene));
     world.register_scoped(Animator::new());
     logging::info(

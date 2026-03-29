@@ -20,6 +20,7 @@ pub struct AudioCommand {
 /// Abstracts an audio playback sink; implement this to integrate a real audio library.
 pub trait AudioBackend: Send + Sync {
     fn play(&mut self, command: &AudioCommand);
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
 }
 
 /// A no-op [`AudioBackend`] that silently discards all commands, used in tests and headless runs.
@@ -28,6 +29,9 @@ pub struct NullAudioBackend;
 
 impl AudioBackend for NullAudioBackend {
     fn play(&mut self, _command: &AudioCommand) {}
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 /// In-process audio backend using rodio for direct WAV/MP3 playback.
@@ -39,6 +43,7 @@ pub struct RodioAudioBackend {
     stream_handle: OutputStreamHandle,
     sinks: HashMap<String, Sink>,
     assets: HashMap<String, PathBuf>,
+    memory_assets: HashMap<String, (u32, Vec<i16>)>,
     master_volume: f32,
 }
 
@@ -74,8 +79,14 @@ impl RodioAudioBackend {
             stream_handle: handle,
             sinks: HashMap::new(),
             assets,
+            memory_assets: HashMap::new(),
             master_volume: 1.0,
         })
+    }
+
+    pub fn register_memory_cue(&mut self, cue: &str, sample_rate: u32, samples: Vec<i16>) {
+        self.memory_assets
+            .insert(cue.to_string(), (sample_rate, samples));
     }
 }
 
@@ -83,6 +94,22 @@ impl AudioBackend for RodioAudioBackend {
     fn play(&mut self, command: &AudioCommand) {
         // GC finished sinks.
         self.sinks.retain(|_, sink| !sink.empty());
+
+        // First try memory-backed cue
+        if let Some((sample_rate, samples)) = self.memory_assets.get(&command.cue) {
+            if let Err(e) = play_from_memory(
+                &self.stream_handle,
+                &mut self.sinks,
+                &command.cue,
+                *sample_rate,
+                samples,
+                command.volume,
+                self.master_volume,
+            ) {
+                logging::warn("engine.audio", e);
+            }
+            return;
+        }
 
         let Some(path) = self.assets.get(&command.cue) else {
             logging::warn(
@@ -141,50 +168,81 @@ impl AudioBackend for RodioAudioBackend {
 
         self.sinks.insert(command.cue.clone(), sink);
     }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+fn play_from_memory(
+    handle: &OutputStreamHandle,
+    sinks: &mut HashMap<String, Sink>,
+    cue: &str,
+    sample_rate: u32,
+    samples: &[i16],
+    volume: Option<f32>,
+    master_volume: f32,
+) -> Result<(), String> {
+    let sink = Sink::try_new(handle).map_err(|e| format!("cannot create audio sink: {e}"))?;
+    let vol = volume.unwrap_or(1.0) * master_volume;
+    sink.set_volume(vol);
+    let source = rodio::buffer::SamplesBuffer::new(1, sample_rate, samples.to_vec());
+    sink.append(source);
+    logging::info(
+        "engine.audio",
+        format!(
+            "playing mem cue='{}' samples={} sr={} volume={:.2}",
+            cue,
+            samples.len(),
+            sample_rate,
+            vol
+        ),
+    );
+    sinks.insert(cue.to_string(), sink);
+    Ok(())
 }
 
 /// Scan a directory (+ one level of subdirs) for WAV/MP3/OGG files.
 /// Returns a map of filename stem → path.
 fn scan_audio_assets(root: &Path) -> HashMap<String, PathBuf> {
     let mut map = HashMap::new();
-    let entries = match fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(e) => {
-            logging::debug(
-                "engine.audio",
-                format!("cannot read assets dir {}: {e}", root.display()),
-            );
-            return map;
-        }
-    };
-
-    let mut dirs_to_scan = vec![root.to_path_buf()];
-    for entry in entries.flatten() {
-        if entry.path().is_dir() {
-            dirs_to_scan.push(entry.path());
-        }
+    if !root.is_dir() {
+        logging::debug(
+            "engine.audio",
+            format!("cannot read assets dir {}: not a directory", root.display()),
+        );
+        return map;
     }
-
-    for dir in dirs_to_scan {
-        let entries = match fs::read_dir(&dir) {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if !matches!(ext, "wav" | "mp3" | "ogg") {
-                continue;
-            }
-            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                map.insert(stem.to_string(), path);
-            }
-        }
-    }
+    scan_audio_assets_recursive(root, &mut map);
     map
+}
+
+fn scan_audio_assets_recursive(dir: &Path, out: &mut HashMap<String, PathBuf>) {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            scan_audio_assets_recursive(&path, out);
+            continue;
+        }
+        if !path.is_file() {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if !matches!(ext.as_str(), "wav" | "mp3" | "ogg") {
+            continue;
+        }
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            out.insert(stem.to_string(), path);
+        }
+    }
 }
 
 /// Buffers [`AudioCommand`]s each frame and flushes them to the active [`AudioBackend`].
@@ -247,6 +305,17 @@ impl AudioRuntime {
     /// Enqueues `command` for playback on the next [`flush`](Self::flush) call.
     pub fn queue(&mut self, command: AudioCommand) {
         self.pending.push(command);
+    }
+
+    /// Registers a memory-backed cue (mono 16-bit PCM).
+    pub fn register_memory_cue(&mut self, cue: &str, sample_rate: u32, samples: Vec<i16>) {
+        if let Some(backend) = self
+            .backend
+            .as_any_mut()
+            .downcast_mut::<RodioAudioBackend>()
+        {
+            backend.register_memory_cue(cue, sample_rate, samples);
+        }
     }
 
     /// Sends all pending commands to the backend and moves them to the played history.

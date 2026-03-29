@@ -21,6 +21,14 @@ input, validates it, and exposes schema-generation metadata consumed by tooling.
 
 - `AuthoringResult<T>`
 
+## Recent authoring features
+
+- `objects.repeat` shorthand expansion (`count`, tokenized `as`/`id`/`with`)
+  for compile-time prefab replication.
+- named behavior definitions with `src` support so large Rhai scripts can live
+  in external files (`behaviors/*.yml` wrappers).
+- stricter startup-path compatibility with runtime checks (`--check-scenes`).
+
 ## Integration points
 
 - `tools/schema-gen` uses this crate to write shared and mod-local YAML schemas

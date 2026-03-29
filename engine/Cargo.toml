@@ -11,6 +11,7 @@ sdl2 = ["dep:engine-render-sdl2"]
 engine-authoring = { workspace = true }
 engine-animation = { path = "../engine-animation" }
 engine-audio = { path = "../engine-audio" }
+engine-audio-sequencer = { path = "../engine-audio-sequencer" }
 engine-3d = { path = "../engine-3d" }
 engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }

@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=../../schemas/scenes.yaml
 id: asteroids.game
 title: Asteroids Game
+virtual-size-override: 640x480
 bg: black
 layers:
   - name: gameplay
@@ -16,41 +17,12 @@ layers:
       - { type: text, id: game-message, content: "", at: cb, y: -1, font: "generic:1", fg: "#ffb86c" }
 objects:
   - { ref: ship-vector, as: ship, with: { id: ship, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-0, with: { id: bullet-0, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-1, with: { id: bullet-1, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-2, with: { id: bullet-2, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-3, with: { id: bullet-3, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-4, with: { id: bullet-4, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-5, with: { id: bullet-5, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-6, with: { id: bullet-6, x: 0, y: 0 } }
-  - { ref: bullet-vector, as: bullet-7, with: { id: bullet-7, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-0, with: { id: asteroid-0, x: -220, y: -120 } }
-  - { ref: asteroid-vector, as: asteroid-1, with: { id: asteroid-1, x: 180, y: -90 } }
-  - { ref: asteroid-vector, as: asteroid-2, with: { id: asteroid-2, x: 220, y: 120 } }
-  - { ref: asteroid-vector, as: asteroid-3, with: { id: asteroid-3, x: -180, y: 140 } }
-  - { ref: asteroid-vector, as: asteroid-4, with: { id: asteroid-4, x: -260, y: -30 } }
-  - { ref: asteroid-vector, as: asteroid-5, with: { id: asteroid-5, x: -110, y: -170 } }
-  - { ref: asteroid-vector, as: asteroid-6, with: { id: asteroid-6, x: 40, y: -150 } }
-  - { ref: asteroid-vector, as: asteroid-7, with: { id: asteroid-7, x: 275, y: -10 } }
-  - { ref: asteroid-vector, as: asteroid-8, with: { id: asteroid-8, x: 130, y: 175 } }
-  - { ref: asteroid-vector, as: asteroid-9, with: { id: asteroid-9, x: -70, y: 190 } }
-  - { ref: asteroid-vector, as: asteroid-10, with: { id: asteroid-10, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-11, with: { id: asteroid-11, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-12, with: { id: asteroid-12, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-13, with: { id: asteroid-13, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-14, with: { id: asteroid-14, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-15, with: { id: asteroid-15, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-16, with: { id: asteroid-16, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-17, with: { id: asteroid-17, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-18, with: { id: asteroid-18, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-19, with: { id: asteroid-19, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-20, with: { id: asteroid-20, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-21, with: { id: asteroid-21, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-22, with: { id: asteroid-22, x: 0, y: 0 } }
-  - { ref: asteroid-vector, as: asteroid-23, with: { id: asteroid-23, x: 0, y: 0 } }
-logic:
-  kind: native
-  behavior: asteroids-game-loop
+  - { ref: bullet-vector, as: bullet-template, with: { id: bullet-template, x: 0, y: 0 } }
+  - { ref: smoke-vector, as: smoke-template, with: { id: smoke-template, x: 0, y: 0, visible: false } }
+  - { ref: asteroid-vector, as: asteroid-template, with: { id: asteroid-template, x: 0, y: 0, visible: false } }
+behaviors:
+  - name: asteroids-game-loop
+  - name: asteroids-render-sync
 stages:
   on_enter:
     steps:

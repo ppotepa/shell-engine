@@ -19,7 +19,7 @@ emits commands for higher-level systems to apply.
 ## Key Types
 
 - `Behavior` — per-tick behavior interface
-- `BehaviorContext` — frame-local read-only snapshot of stage, timing, object state, UI state, key state, and game state
+- `BehaviorContext` — frame-local snapshot of stage, timing, object state, UI state, key state, game state, gameplay world, and collision hits
 - `BehaviorCommand` — side-effect envelope such as `SetVisibility`, `SetOffset`, `SetText`, terminal output commands, and script errors
 - `RhaiScriptBehavior` — mod or scene-defined scripted behavior
 - `SceneAudioBehavior` — built-in scene audio cue emitter
@@ -49,6 +49,14 @@ When adding or changing a built-in behavior:
 
 When changing Rhai scope variables or command shapes, keep the contract aligned
 with the runtime behavior system and authored YAML expectations.
+
+Current script-facing API surface includes:
+
+- gameplay world helpers (`world.spawn_object`, `world.entity`, query/count APIs),
+- typed gameplay component helpers (`world.set_transform`, `world.set_physics`,
+  `world.set_collider_circle`, `world.set_lifetime`, `world.set_visual`),
+- per-frame collision reads (`world.collisions()`),
+- audio controls (`audio.cue`, `audio.event`, `audio.play_song`, `audio.stop_song`).
 
 ## Integration points
 

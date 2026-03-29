@@ -1,6 +1,9 @@
 ARCH.MD — CRATE REBALANCING PLAN (REFINED)
 ==========================================
 
+NOTE: historical planning snapshot from the crate-rebalancing pass.
+Use `ARCHITECTURE.md` for the current runtime structure and crate inventory.
+
 STATUS: REFINED FOR DEPENDENCY SAFETY — Ready for execution
 CONTEXT: Shell Quest engine was split into 20 sub-crates, but extraction moved
          only type definitions, leaving ~30K LOC of systems/logic in engine/.

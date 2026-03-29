@@ -39,8 +39,10 @@ declare -a FILTERED_IDX=()  # indices into ITEMS[] that match current query
 # Persistent launch flags (saved to .menu.conf)
 FLAG_SDL2=1
 FLAG_SKIP_SPLASH=0
-FLAG_AUDIO=0
+# Default audio on so menu launches with sound unless user toggles it off.
+FLAG_AUDIO=1
 FLAG_CHECK_SCENES=0
+FLAG_RELEASE=0
 
 parse_bool() {
   case "${1,,}" in
@@ -75,6 +77,7 @@ load_config() {
       MENU_FLAG_SKIP_SPLASH) FLAG_SKIP_SPLASH="${parsed}" ;;
       MENU_FLAG_AUDIO) FLAG_AUDIO="${parsed}" ;;
       MENU_FLAG_CHECK_SCENES) FLAG_CHECK_SCENES="${parsed}" ;;
+      MENU_FLAG_RELEASE) FLAG_RELEASE="${parsed}" ;;
     esac
   done < "${MENU_CONF}"
 }
@@ -86,6 +89,7 @@ MENU_FLAG_SDL2=${FLAG_SDL2}
 MENU_FLAG_SKIP_SPLASH=${FLAG_SKIP_SPLASH}
 MENU_FLAG_AUDIO=${FLAG_AUDIO}
 MENU_FLAG_CHECK_SCENES=${FLAG_CHECK_SCENES}
+MENU_FLAG_RELEASE=${FLAG_RELEASE}
 EOF
 }
 
@@ -108,6 +112,11 @@ toggle_flag_by_key() {
       ;;
     4)
       FLAG_CHECK_SCENES=$((1 - FLAG_CHECK_SCENES))
+      save_config
+      return 0
+      ;;
+    5)
+      FLAG_RELEASE=$((1 - FLAG_RELEASE))
       save_config
       return 0
       ;;
@@ -289,20 +298,21 @@ get_mod_index_for_row() {
 draw_menu() {
   local cur=$1  # cursor into FILTERED_IDX
   local total=${#FILTERED_IDX[@]}
-  local sdl2_box skip_box audio_box check_box
+  local sdl2_box skip_box audio_box check_box release_box
   sdl2_box="$(checkbox "${FLAG_SDL2}")"
   skip_box="$(checkbox "${FLAG_SKIP_SPLASH}")"
   audio_box="$(checkbox "${FLAG_AUDIO}")"
   check_box="$(checkbox "${FLAG_CHECK_SCENES}")"
+  release_box="$(checkbox "${FLAG_RELEASE}")"
 
   printf '\e[H\e[J'
 
   echo "${BOLD}${CYAN}  Shell Quest — Mod & Scene Launcher${RESET}"
-  echo "  ${DIM}Flags:${RESET} [${sdl2_box}] SDL2 ${DIM}(1)${RESET}  [${skip_box}] SkipSplash ${DIM}(2)${RESET}  [${audio_box}] Audio ${DIM}(3)${RESET}  [${check_box}] CheckScenes ${DIM}(4)${RESET}"
+  echo "  ${DIM}Flags:${RESET} [${sdl2_box}] SDL2 ${DIM}(1)${RESET}  [${skip_box}] SkipSplash ${DIM}(2)${RESET}  [${audio_box}] Audio ${DIM}(3)${RESET}  [${check_box}] CheckScenes ${DIM}(4)${RESET}  [${release_box}] Release ${DIM}(5)${RESET}"
   if [[ -n "${SEARCH_QUERY}" ]]; then
-    echo "${DIM}  ↑↓ navigate  Enter launch  Esc clear search  Backspace delete  1-4 toggle flags${RESET}"
+    echo "${DIM}  ↑↓ navigate  Enter launch  Esc clear search  Backspace delete  1-5 toggle flags${RESET}"
   else
-    echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  / search  1-4 toggle flags  q quit${RESET}"
+    echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  / search  1-5 toggle flags  q quit${RESET}"
   fi
   echo ""
 
@@ -386,6 +396,9 @@ launch_scene() {
   if (( FLAG_CHECK_SCENES )); then
     args+=(--check-scenes)
   fi
+  if (( FLAG_RELEASE )); then
+    args+=(--release)
+  fi
   if (( ! FLAG_SDL2 )); then
     args+=(--in-place)
   fi
@@ -416,6 +429,9 @@ launch_mod() {
   fi
   if (( FLAG_CHECK_SCENES )); then
     args+=(--check-scenes)
+  fi
+  if (( FLAG_RELEASE )); then
+    args+=(--release)
   fi
   if (( ! FLAG_SDL2 )); then
     args+=(--in-place)

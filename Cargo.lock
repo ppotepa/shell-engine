@@ -713,6 +713,7 @@ dependencies = [
  "engine-animation",
  "engine-asset",
  "engine-audio",
+ "engine-audio-sequencer",
  "engine-authoring",
  "engine-behavior",
  "engine-behavior-registry",
@@ -791,6 +792,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-audio-sequencer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_yaml",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "engine-authoring"
 version = "0.1.0"
 dependencies = [
@@ -807,12 +817,14 @@ dependencies = [
  "base64",
  "engine-animation",
  "engine-core",
+ "engine-game",
  "engine-persistence",
  "engine-physics",
  "rhai",
  "serde",
  "serde_json",
  "serde_yaml",
+ "tempfile",
 ]
 
 [[package]]
@@ -921,6 +933,8 @@ name = "engine-mod"
 version = "0.1.0"
 dependencies = [
  "crossterm 0.29.0",
+ "engine-audio-sequencer",
+ "engine-behavior-registry",
  "engine-core",
  "engine-error",
  "engine-render-policy",
@@ -1019,6 +1033,7 @@ dependencies = [
  "engine-behavior-registry",
  "engine-core",
  "engine-events",
+ "engine-game",
  "engine-persistence",
  "engine-render-terminal",
  "engine-runtime",

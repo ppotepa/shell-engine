@@ -13,6 +13,8 @@ and the systems that still require direct access to engine-owned resources.
 - game-loop orchestration
 - scene loading and lifecycle sequencing
 - world/provider wiring between subsystem crates
+- gameplay/collision/event bridge wiring for component-backed entities
+- audio sequencer orchestration (`audio/sfx.yaml`, `audio/songs`, `audio/synth`)
 - engine-side hot reload, debug, and render-thread integration
 - thin system wrappers that delegate core domain logic to extracted crates
 

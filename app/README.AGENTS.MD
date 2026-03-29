@@ -7,15 +7,26 @@ All flags passed via command-line or environment variables:
 | Flag | Purpose | Type |
 |------|---------|------|
 | `--mod-source <PATH>` | Load mod from directory instead of built-in | String |
+| `--sdl2` | Shorthand for `--output sdl2` | Boolean |
+| `--sdl-window-ratio <RATIO>` | SDL startup ratio (`16:9`, `4:3`, `free`) | String |
+| `--sdl-pixel-scale <N>` | SDL startup logical pixel scale | Number |
+| `--no-sdl-vsync` | Disable SDL VSync | Boolean |
 | `--bench <SECS>` | Benchmark mode, run for N seconds | Number |
 | `--capture-frames <DIR>` | Capture binary frames to directory | String |
 | `--output <terminal\|sdl2\|prompt>` | Override startup backend selection | String |
 | `--audio` | Enable audio output (default: off) | Boolean |
+| `--start-scene <SCENE>` | Jump directly to a scene path | String |
+| `--skip-splash` | Skip splash screen (auto-on for `--bench`) | Boolean |
+| `--target-fps <FPS>` | Override target FPS | Number |
+| `--check-scenes` | Run startup validation and exit | Boolean |
 | `--opt-comp` | Compositor optimizations | Boolean |
+| `--no-opt-comp` | Disable default compositor optimizations | Boolean |
 | `--opt-diff` | Dirty-region diff scan | Boolean |
 | `--opt-present` | Hash-based frame skip | Boolean |
 | `--opt-skip` | FrameSkipOracle (frame dedup) | Boolean |
 | `--opt-rowdiff` | Row-level dirty skip | Boolean |
+| `--no-opt-rowdiff` | Disable default row diff optimization | Boolean |
+| `--opt-async` | Async display sink | Boolean |
 | `--opt` | Enable ALL optimizations | Boolean |
 | `--debug-feature` | Enable debug overlays (F1, ~, F3/F4) | Boolean |
 
@@ -60,21 +71,26 @@ pub struct PipelineFlags {
    - Extract `--mod-source`, `--output`, `--bench`, `--capture-frames`, opt flags
    - Set `EngineConfig` and `PipelineFlags`
 
-2. **Initialize audio** (if `--audio` enabled)
-   - Select audio backend (RodioAudioBackend or NullAudioBackend)
-   - Scan mod assets for WAV/MP3/OGG files
+2. **Optional startup validation** (`--check-scenes`)
+   - Run scene graph, level config, Rhai script, effect/font/image, and audio sequencer checks
+   - Print report and exit before engine boot
 
-3. **Load mod** (if `--mod-source` provided)
+3. **Initialize audio**
+   - Select audio backend (RodioAudioBackend or NullAudioBackend)
+   - Synthesize mod `audio/synth/*.yml` note sheets into in-memory cue buffers
+   - Load optional `audio/sfx.yaml` and `audio/songs/**/*.yml`
+
+4. **Load mod** (if `--mod-source` provided)
    - Otherwise use built-in shell-quest mod
    - Load scenes, assets, schemas
 
-4. **Create World** (engine registry)
+5. **Create World** (engine registry)
    - Register all systems
    - Register `PipelineStrategies` (optimization strategy implementations)
    - Register `BenchmarkState` if `--bench` active
 
-5. **Run main loop** (game_loop.rs)
-   - Per-frame: input → lifecycle → animate → compose → postfx → render
+6. **Run main loop** (`game_loop.rs`)
+   - Per-frame: input → lifecycle → animate → hot_reload → engine_io → behavior → audio_sequencer → audio → compose → postfx → render
    - Optional: capture frames (if `--capture-frames`)
    - Optional: benchmark sampling (if `--bench`)
 

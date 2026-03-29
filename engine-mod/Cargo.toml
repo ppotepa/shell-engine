@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+engine-audio-sequencer = { path = "../engine-audio-sequencer" }
+engine-behavior-registry = { path = "../engine-behavior-registry" }
 engine-core = { workspace = true }
 engine-error = { path = "../engine-error" }
 engine-render-policy = { path = "../engine-render-policy" }

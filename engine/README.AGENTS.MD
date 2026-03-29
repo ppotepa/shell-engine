@@ -24,11 +24,17 @@ that still need engine-only world access.
 | animator | `animator_us` | Stage/step advancement |
 | hot_reload | `hot_reload_us` | Dev-mode file scanning |
 | engine_io | `engine_io_us` | Sidecar IPC bridge |
+| gameplay | `-` | Physics/lifetime component update |
+| collision | `-` | Gameplay collision detection |
+| gameplay_events (push) | `-` | Publish collision hits for scripts |
 | behavior | `behavior_us` | Behavior update and command application |
+| audio_sequencer | `audio_us` | Semantic SFX/song tick and synth cue scheduling |
 | audio | `audio_us` | Audio playback tick |
 | compositor | `compositor_us` | Resource extraction + call into `engine-compositor` |
 | postfx | `postfx_us` | PostFX application |
 | renderer | `renderer_us` | Diff + flush pipeline |
+| gameplay_events (clear) | `-` | Clear per-frame collision buffer |
+| visual_binding | `-` | Despawn bound visuals for expired entities |
 | sleep | `sleep_us` | Frame budget sleep |
 
 Keep this order stable unless architecture is intentionally changing.
@@ -53,6 +59,7 @@ This directory still owns the pieces that require engine-specific world access:
 
 - game loop and frame timing
 - scene loading and scoped scene activation
+- audio sequencer bridge wiring (`audio/sfx.yaml`, `audio/songs`, `audio/synth`)
 - debug overlays and engine-level shortcuts
 - hot reload
 - renderer thread integration and frame tickets

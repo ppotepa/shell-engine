@@ -1,12 +1,14 @@
 //! Behavior system — evaluates all scene-object behaviors and dispatches resulting commands each frame.
 
 use crate::audio::AudioCommand;
+use crate::audio_sequencer::AudioSequencerState;
 use crate::behavior::{BehaviorCommand, DebugLogSeverity as BehaviorDebugLogSeverity};
 use crate::debug_log::{DebugLogBuffer, DebugLogEntry, DebugSeverity};
 use crate::events::EngineEvent;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 use engine_core::logging;
+use crate::systems::gameplay_events::GameplayEventBuffer;
 
 /// Runs all registered behaviors against the current scene runtime state and dispatches their commands.
 pub fn behavior_system(world: &mut World) {
@@ -21,6 +23,11 @@ pub fn behavior_system(world: &mut World) {
     let game_state = world.get::<crate::game_state::GameState>().cloned();
     let level_state = world.get::<crate::level_state::LevelState>().cloned();
     let persistence = world.get::<engine_persistence::PersistenceStore>().cloned();
+    let gameplay_world = world.get::<crate::game::GameplayWorld>().cloned();
+    let collisions = world
+        .get::<GameplayEventBuffer>()
+        .map(|buf| std::sync::Arc::new(buf.collisions.clone()))
+        .unwrap_or_else(|| std::sync::Arc::new(Vec::new()));
 
     // Resolve any pending mod-behavior bindings on the first frame this scene is active.
     // The check for pending bindings avoids cloning the registry on every subsequent frame.
@@ -52,6 +59,8 @@ pub fn behavior_system(world: &mut World) {
             game_state,
             level_state,
             persistence,
+            gameplay_world,
+            collisions,
         )
     };
 
@@ -63,6 +72,29 @@ pub fn behavior_system(world: &mut World) {
                         cue: cue.clone(),
                         volume: *volume,
                     });
+                }
+            }
+            BehaviorCommand::PlayAudioEvent { event, gain } => {
+                let resolved = world
+                    .get_mut::<AudioSequencerState>()
+                    .and_then(|sequencer| sequencer.trigger_event(event, scene_elapsed_ms, *gain));
+                if let (Some((cue, volume)), Some(audio_runtime)) =
+                    (resolved, world.audio_runtime_mut())
+                {
+                    audio_runtime.queue(AudioCommand {
+                        cue,
+                        volume: Some(volume),
+                    });
+                }
+            }
+            BehaviorCommand::PlaySong { song_id } => {
+                if let Some(sequencer) = world.get_mut::<AudioSequencerState>() {
+                    let _ = sequencer.play_song(song_id);
+                }
+            }
+            BehaviorCommand::StopSong => {
+                if let Some(sequencer) = world.get_mut::<AudioSequencerState>() {
+                    sequencer.stop_song();
                 }
             }
             BehaviorCommand::ScriptError {

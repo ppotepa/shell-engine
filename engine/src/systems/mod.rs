@@ -1,8 +1,13 @@
 //! Engine ECS-style systems: behavior, prerender, compositor, menu, renderer, and scene-lifecycle.
 
+pub mod audio_sequencer;
 pub mod behavior;
 pub mod compositor;
 pub mod engine_io;
+pub mod gameplay;
+pub mod collision;
+pub mod gameplay_events;
+pub mod visual_binding;
 pub mod hot_reload;
 pub mod prerender;
 pub mod scene3d_prerender;

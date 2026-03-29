@@ -18,8 +18,10 @@ initializes logging, builds `EngineConfig`, and starts `ShellEngine`.
 
 ```bash
 cargo run -p app
-cargo run -p app -- --mod shell-quest-tests --bench 5
-cargo run -p app -- --mod-source=mods/playground --dev
+cargo run -p app -- --mod shell-quest-tests --bench 5 --opt
+cargo run -p app -- --mod-source=mods/playground --debug-feature
+cargo run -p app -- --mod-source=mods/asteroids --sdl2 --audio
+cargo run -p app -- --mod-source=mods/asteroids --check-scenes
 ```
 
 ## Related docs

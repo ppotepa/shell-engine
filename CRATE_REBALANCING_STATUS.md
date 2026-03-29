@@ -1,5 +1,9 @@
 # Crate Rebalancing Project - Current Status
 
+> Historical note: this file captures the March 26 crate-splitting effort.
+> The rebalancing milestone has since moved forward; current runtime docs live in
+> `ARCHITECTURE.md`, `engine/README.AGENTS.MD`, and the crate-local READMEs.
+
 **Date**: March 26, 2026  
 **Progress**: ~70% infrastructure complete (Phase 0-3.6 done, Phases 4-6 unblocked architecturally)
 
@@ -318,4 +322,3 @@ STEPS:
 
 6. Test: cargo test -p engine -p engine-animation
 ```
-

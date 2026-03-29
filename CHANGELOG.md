@@ -36,6 +36,24 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 29-03-2026
+
+**Audio sequencing, Asteroids modularization, and startup validation**
+- **audio**: added YAML-driven audio sequencer with semantic SFX bank, song library, and synth note-sheet generation from `audio/synth/`
+- **audio**: switched Asteroids to synth-first cue playback with in-memory generated tones plus scene-driven menu/game/highscore song playback
+- **engine**: inserted audio sequencer tick into frame loop and exposed `audio.event`, `audio.cue`, `audio.play_song`, and `audio.stop_song` to Rhai
+- **engine**: exposed typed gameplay Rhai API (transform/physics/collider/lifetime, collision buffer) and wired collision events into behavior context
+- **engine**: added `world.set_visual(...)` Rhai API plus runtime visual cleanup queue for lifetime-based despawns
+- **engine**: collision system now applies toroidal wrap bounds from active render buffer dimensions
+- **startup**: added `--check-scenes` runner with scene graph, level config, Rhai script, font/image, and audio sequencer checks
+- **authoring**: mod behaviors now support external Rhai via `src`; Asteroids gameplay/render logic moved out of inline YAML wrappers
+- **launcher**: `./menu` now persists SDL2, audio, splash-skip, scene-check, and release flags; audio defaults on and release launches show cargo build progress
+- **mods**: added `mods/asteroids` showcase mod with levels, dynamic runtime entities, synth audio, and SDL-oriented launcher flow
+- **mods**: Asteroids gameplay migrated to component-backed spawns (transform/physics/collider/lifetime) and collision-buffer handling
+- **docs**: refreshed architecture/authoring/mod/runtime docs for scene checks, synth audio, behavior `src`, and current launcher flow
+
+---
+
 ## 28-03-2026
 
 **SDL splash unification, readability pass, and startup controls**

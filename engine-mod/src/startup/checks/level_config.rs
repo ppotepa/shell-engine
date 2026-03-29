@@ -153,10 +153,12 @@ fn discover_level_assets_from_zip(mod_source: &Path) -> Result<Vec<LevelAsset>, 
 
     let mut out = Vec::new();
     for idx in 0..archive.len() {
-        let mut entry = archive.by_index(idx).map_err(|source| EngineError::ZipArchive {
-            path: mod_source.to_path_buf(),
-            source,
-        })?;
+        let mut entry = archive
+            .by_index(idx)
+            .map_err(|source| EngineError::ZipArchive {
+                path: mod_source.to_path_buf(),
+                source,
+            })?;
         if !entry.is_file() {
             continue;
         }

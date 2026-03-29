@@ -1,3 +1,4 @@
+use crate::audio::AudioCommand;
 use crate::debug_features::{DebugFeatures, DebugOverlayMode};
 use crate::debug_log::DebugLogBuffer;
 use crate::events::EngineEvent;
@@ -138,16 +139,30 @@ impl SceneLifecycleManager {
             return;
         }
 
+        let mut play_move = false;
+        let mut play_select = false;
         if let Some(animator) = world.animator_mut() {
             match menu_action {
-                MenuAction::Navigate(index) => animator.menu_selected_index = index,
+                MenuAction::Navigate(index) => {
+                    if animator.menu_selected_index != index {
+                        animator.menu_selected_index = index;
+                        play_move = true;
+                    }
+                }
                 MenuAction::Activate(next_scene) => {
                     animator.next_scene_override = Some(next_scene);
                     begin_leave(animator);
+                    play_select = true;
                 }
                 MenuAction::None if menu_options.is_empty() => begin_leave(animator),
                 MenuAction::None => {}
             }
+        }
+        if play_move {
+            emit_ui_menu_audio_event(world, "ui.menu.move");
+        }
+        if play_select {
+            emit_ui_menu_audio_event(world, "ui.menu.select");
         }
     }
 
@@ -180,6 +195,13 @@ impl SceneLifecycleManager {
             // 1. Discard every scoped resource from the outgoing scene (SceneRuntime,
             //    prerendered frames, any future scoped resources).
             world.clear_scoped();
+            if let Some(sequencer) = world.get_mut::<crate::audio_sequencer::AudioSequencerState>()
+            {
+                sequencer.stop_song();
+            }
+            if let Some(gameplay_world) = world.get_mut::<crate::game::GameplayWorld>() {
+                gameplay_world.clear();
+            }
             // 1b. Invalidate buffer dirty region so the first frame of the new scene
             //     gets a full diff (required for dirty-region diff correctness).
             if let Some(buf) = world.buffer_mut() {
@@ -307,6 +329,22 @@ fn reset_timeout_idle_clock(world: &mut World) {
     if let Some(animator) = world.animator_mut() {
         animator.elapsed_ms = 0;
         animator.stage_elapsed_ms = 0;
+    }
+}
+
+fn emit_ui_menu_audio_event(world: &mut World, event: &str) {
+    let now_ms = world
+        .animator()
+        .map(|animator| animator.scene_elapsed_ms)
+        .unwrap_or(0);
+    let hit = world
+        .get_mut::<crate::audio_sequencer::AudioSequencerState>()
+        .and_then(|sequencer| sequencer.trigger_event(event, now_ms, Some(1.0)));
+    if let (Some((cue, gain)), Some(audio_runtime)) = (hit, world.audio_runtime_mut()) {
+        audio_runtime.queue(AudioCommand {
+            cue,
+            volume: Some(gain),
+        });
     }
 }
 

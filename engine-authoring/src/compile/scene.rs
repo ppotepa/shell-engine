@@ -644,14 +644,15 @@ where
     let Some(scene_map) = root.as_mapping_mut() else {
         return;
     };
-    let object_instances = scene_map
+    let object_instances_raw = scene_map
         .get(Value::String("objects".to_string()))
         .and_then(Value::as_sequence)
         .cloned()
         .unwrap_or_default();
-    if object_instances.is_empty() {
+    if object_instances_raw.is_empty() {
         return;
     }
+    let object_instances = expand_object_instances(&object_instances_raw);
 
     let layers_value = scene_map
         .entry(Value::String("layers".to_string()))
@@ -749,14 +750,15 @@ where
         let Some(layer_map) = layer.as_mapping_mut() else {
             continue;
         };
-        let object_instances = layer_map
+        let object_instances_raw = layer_map
             .get(Value::String("objects".to_string()))
             .and_then(Value::as_sequence)
             .cloned()
             .unwrap_or_default();
-        if object_instances.is_empty() {
+        if object_instances_raw.is_empty() {
             continue;
         }
+        let object_instances = expand_object_instances(&object_instances_raw);
 
         for instance in object_instances {
             let Some(instance_map) = instance.as_mapping() else {
@@ -814,6 +816,126 @@ where
         }
 
         layer_map.remove(Value::String("objects".to_string()));
+    }
+}
+
+fn expand_object_instances(instances: &[Value]) -> Vec<Value> {
+    let mut out = Vec::new();
+    for instance in instances {
+        let Some(instance_map) = instance.as_mapping() else {
+            out.push(instance.clone());
+            continue;
+        };
+
+        let Some(repeat_map) = instance_map
+            .get(Value::String("repeat".to_string()))
+            .and_then(Value::as_mapping)
+        else {
+            out.push(instance.clone());
+            continue;
+        };
+
+        let Some(count) = repeat_map
+            .get(Value::String("count".to_string()))
+            .and_then(Value::as_i64)
+        else {
+            continue;
+        };
+        if count <= 0 || count > 4096 {
+            continue;
+        }
+
+        let (ref_key, ref_template) = if let Some(v) = repeat_map
+            .get(Value::String("ref".to_string()))
+            .and_then(Value::as_str)
+        {
+            ("ref", v)
+        } else if let Some(v) = repeat_map
+            .get(Value::String("use".to_string()))
+            .and_then(Value::as_str)
+        {
+            ("use", v)
+        } else {
+            continue;
+        };
+
+        let alias_template = repeat_map
+            .get(Value::String("as".to_string()))
+            .or_else(|| repeat_map.get(Value::String("id".to_string())))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let with_template = repeat_map
+            .get(Value::String("with".to_string()))
+            .cloned()
+            .unwrap_or_else(|| Value::Mapping(Mapping::new()));
+
+        for idx in 0..count {
+            let mut expanded = Mapping::new();
+            expanded.insert(
+                Value::String(ref_key.to_string()),
+                Value::String(render_repeat_token(ref_template, idx)),
+            );
+            if let Some(alias_template) = alias_template.as_deref() {
+                expanded.insert(
+                    Value::String("as".to_string()),
+                    Value::String(render_repeat_token(alias_template, idx)),
+                );
+            } else {
+                let fallback_alias = format!("{}-{idx}", object_ref_stem(ref_template));
+                expanded.insert(
+                    Value::String("as".to_string()),
+                    Value::String(fallback_alias),
+                );
+            }
+            let mut with_value = with_template.clone();
+            substitute_repeat_token(&mut with_value, idx);
+            if let Some(with_map) = with_value.as_mapping() {
+                if !with_map.is_empty() {
+                    expanded.insert(Value::String("with".to_string()), with_value);
+                }
+            }
+            out.push(Value::Mapping(expanded));
+        }
+    }
+    out
+}
+
+fn render_repeat_token(template: &str, idx: i64) -> String {
+    template.replace("{i}", &idx.to_string())
+}
+
+fn substitute_repeat_token(value: &mut Value, idx: i64) {
+    match value {
+        Value::String(s) => {
+            *s = render_repeat_token(s, idx);
+        }
+        Value::Sequence(seq) => {
+            for entry in seq {
+                substitute_repeat_token(entry, idx);
+            }
+        }
+        Value::Mapping(map) => {
+            let keys: Vec<Value> = map.keys().cloned().collect();
+            for key in keys {
+                if let Some(v) = map.get_mut(&key) {
+                    substitute_repeat_token(v, idx);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn object_ref_stem(reference: &str) -> String {
+    let name = reference.rsplit('/').next().unwrap_or(reference).trim();
+    let no_ext = name
+        .strip_suffix(".yml")
+        .or_else(|| name.strip_suffix(".yaml"))
+        .unwrap_or(name);
+    if no_ext.is_empty() {
+        "object".to_string()
+    } else {
+        no_ext.to_string()
     }
 }
 
@@ -1689,6 +1811,94 @@ sprites:
         assert_eq!(scene.layers[0].name, "monkey-b");
         match &scene.layers[0].sprites[0] {
             Sprite::Text { content, .. } => assert_eq!(content, "MONKEY"),
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn expands_scene_object_repeat_entries() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+layers: []
+objects:
+  - repeat:
+      count: 3
+      ref: bullet
+      as: bullet-{i}
+      with:
+        id: bullet-{i}
+        content: "B{i}"
+"#;
+        let object_raw = r#"
+name: bullet
+exports:
+  id: default-id
+  content: default
+sprites:
+  - type: text
+    id: "$id"
+    content: "$content"
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/bullet.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+        assert_eq!(scene.layers.len(), 3);
+        assert_eq!(scene.layers[0].name, "bullet-0");
+        assert_eq!(scene.layers[1].name, "bullet-1");
+        assert_eq!(scene.layers[2].name, "bullet-2");
+        match &scene.layers[2].sprites[0] {
+            Sprite::Text { id, content, .. } => {
+                assert_eq!(id.as_deref(), Some("bullet-2"));
+                assert_eq!(content, "B2");
+            }
+            _ => panic!("expected text sprite"),
+        }
+    }
+
+    #[test]
+    fn expands_layer_object_repeat_entries() {
+        let scene_raw = r#"
+id: playground
+title: Playground
+layers:
+  - name: game
+    objects:
+      - repeat:
+          count: 2
+          ref: marker
+          as: marker-{i}
+          with:
+            label: "M{i}"
+"#;
+        let object_raw = r#"
+name: marker
+sprites:
+  - type: text
+    content: "$label"
+"#;
+        let scene = compile_scene_document_with_loader(scene_raw, |path| {
+            if path == "/objects/marker.yml" {
+                Some(object_raw.to_string())
+            } else {
+                None
+            }
+        })
+        .expect("scene compile");
+        assert_eq!(scene.layers.len(), 1);
+        assert_eq!(scene.layers[0].name, "game");
+        assert_eq!(scene.layers[0].sprites.len(), 2);
+        match &scene.layers[0].sprites[0] {
+            Sprite::Text { content, .. } => assert_eq!(content, "M0"),
+            _ => panic!("expected text sprite"),
+        }
+        match &scene.layers[0].sprites[1] {
+            Sprite::Text { content, .. } => assert_eq!(content, "M1"),
             _ => panic!("expected text sprite"),
         }
     }

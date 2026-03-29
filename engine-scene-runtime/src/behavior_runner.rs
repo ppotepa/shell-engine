@@ -12,6 +12,8 @@ impl SceneRuntime {
         game_state: Option<engine_core::game_state::GameState>,
         level_state: Option<engine_core::level_state::LevelState>,
         persistence: Option<engine_persistence::PersistenceStore>,
+        gameplay_world: Option<engine_game::GameplayWorld>,
+        collisions: std::sync::Arc<Vec<engine_game::CollisionHit>>,
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
@@ -175,6 +177,8 @@ impl SceneRuntime {
             game_state,
             level_state,
             persistence,
+            gameplay_world,
+            collisions,
             last_raw_key,
             keys_down,
             sidecar_io,
@@ -230,6 +234,9 @@ impl SceneRuntime {
         for command in commands {
             match command {
                 BehaviorCommand::PlayAudioCue { .. } => {}
+                BehaviorCommand::PlayAudioEvent { .. } => {}
+                BehaviorCommand::PlaySong { .. } => {}
+                BehaviorCommand::StopSong => {}
                 BehaviorCommand::SetVisibility { target, visible } => {
                     let Some(object_id) = resolver.resolve_alias(target) else {
                         continue;
@@ -470,6 +477,12 @@ impl SceneRuntime {
                         _ => {}
                     }
                 }
+                BehaviorCommand::SceneSpawn { template, target } => {
+                    let _ = self.spawn_runtime_clone(resolver, template, target);
+                }
+                BehaviorCommand::SceneDespawn { target } => {
+                    let _ = self.soft_despawn_target(resolver, target);
+                }
                 BehaviorCommand::TerminalPushOutput { line } => {
                     self.terminal_push_output(line.clone());
                 }
@@ -514,7 +527,10 @@ impl SceneRuntime {
                         if let Some(mod_behavior) = registry.get(spec.name.trim()) {
                             let mut params = spec.params.clone();
                             params.script = Some(mod_behavior.script.clone());
-                            params.src = Some(format!("mod:{}", mod_behavior.name));
+                            params.src = mod_behavior
+                                .src
+                                .clone()
+                                .or_else(|| Some(format!("mod:{}", mod_behavior.name)));
                             let behavior = Box::new(RhaiScriptBehavior::from_params(&params));
                             self.behaviors.push(ObjectBehaviorRuntime {
                                 object_id: binding.object_id.clone(),
@@ -570,4 +586,401 @@ fn has_scene_audio(scene: &Scene) -> bool {
     !scene.audio.on_enter.is_empty()
         || !scene.audio.on_idle.is_empty()
         || !scene.audio.on_leave.is_empty()
+}
+
+impl SceneRuntime {
+    fn spawn_runtime_clone(
+        &mut self,
+        resolver: &TargetResolver,
+        template: &str,
+        target: &str,
+    ) -> bool {
+        if template.trim().is_empty() || target.trim().is_empty() {
+            return false;
+        }
+        let current_resolver = self.build_target_resolver();
+        let existing = resolver
+            .resolve_alias(target)
+            .or_else(|| current_resolver.resolve_alias(target))
+            .map(str::to_string);
+        if let Some(object_id) = existing {
+            self.set_target_visibility_recursive(&object_id, true);
+            return true;
+        }
+
+        let template_id = if let Some(id) = resolver.resolve_alias(template) {
+            id.to_string()
+        } else if let Some(id) = current_resolver.resolve_alias(template) {
+            id.to_string()
+        } else {
+            return false;
+        };
+        let Some(template_object) = self.objects.get(&template_id).cloned() else {
+            return false;
+        };
+        if matches!(template_object.kind, GameObjectKind::Layer) {
+            return self.spawn_layer_clone_from_object(template_object, target);
+        }
+
+        self.spawn_sprite_clone(&template_object, target)
+    }
+
+    fn spawn_layer_clone_from_object(&mut self, template_object: GameObject, target: &str) -> bool {
+        let layer_object_id = if matches!(template_object.kind, GameObjectKind::Layer) {
+            template_object.id
+        } else {
+            let Some(parent_id) = template_object.parent_id else {
+                return false;
+            };
+            let Some(parent_object) = self.objects.get(&parent_id) else {
+                return false;
+            };
+            if !matches!(parent_object.kind, GameObjectKind::Layer) {
+                return false;
+            }
+            parent_id
+        };
+
+        let Some((template_layer_idx, _)) = self
+            .layer_ids
+            .iter()
+            .find(|(_, object_id)| *object_id == &layer_object_id)
+            .map(|(idx, object_id)| (*idx, object_id.clone()))
+        else {
+            return false;
+        };
+        if template_layer_idx >= self.scene.layers.len() {
+            return false;
+        }
+
+        let mut cloned_layer = self.scene.layers[template_layer_idx].clone();
+        cloned_layer.name = target.to_string();
+        let mut id_counter: usize = 0;
+        for sprite in &mut cloned_layer.sprites {
+            retag_sprite_ids(sprite, target, &mut id_counter);
+        }
+
+        let new_layer_idx = self.scene.layers.len();
+        self.scene.layers.push(cloned_layer.clone());
+        let new_layer_object_id = format!(
+            "{}/layer:{}:{}",
+            self.root_id,
+            new_layer_idx,
+            sanitize_fragment_runtime(target)
+        );
+        self.objects.insert(
+            new_layer_object_id.clone(),
+            GameObject {
+                id: new_layer_object_id.clone(),
+                name: target.to_string(),
+                kind: GameObjectKind::Layer,
+                aliases: vec![target.to_string()],
+                parent_id: Some(self.root_id.clone()),
+                children: Vec::new(),
+            },
+        );
+        self.object_states
+            .insert(new_layer_object_id.clone(), ObjectRuntimeState::default());
+        self.layer_ids
+            .insert(new_layer_idx, new_layer_object_id.clone());
+        if let Some(root) = self.objects.get_mut(&self.root_id) {
+            root.children.push(new_layer_object_id.clone());
+        }
+
+        for (sprite_idx, sprite) in cloned_layer.sprites.iter().enumerate() {
+            register_runtime_sprite(
+                &mut self.objects,
+                &mut self.object_states,
+                &mut self.sprite_ids,
+                new_layer_idx,
+                &[sprite_idx],
+                &new_layer_object_id,
+                sprite,
+                sprite_idx,
+            );
+        }
+
+        self.refresh_runtime_caches();
+        true
+    }
+
+    fn spawn_sprite_clone(&mut self, template_object: &GameObject, target: &str) -> bool {
+        let Some((layer_idx, sprite_path)) = self.find_sprite_path_for_object(&template_object.id)
+        else {
+            return false;
+        };
+        let Some(parent_id) = template_object.parent_id.as_deref() else {
+            return false;
+        };
+        let Some(mut cloned_sprite) = self.sprite_clone_at_path(layer_idx, &sprite_path) else {
+            return false;
+        };
+
+        let mut id_counter = 0usize;
+        retag_sprite_ids(&mut cloned_sprite, target, &mut id_counter);
+
+        let parent_path = &sprite_path[..sprite_path.len().saturating_sub(1)];
+        let Some(siblings) =
+            sprite_children_mut_at_path(&mut self.scene.layers[layer_idx].sprites, parent_path)
+        else {
+            return false;
+        };
+        let new_index = siblings.len();
+        siblings.push(cloned_sprite.clone());
+
+        let mut new_path = parent_path.to_vec();
+        new_path.push(new_index);
+        register_runtime_sprite(
+            &mut self.objects,
+            &mut self.object_states,
+            &mut self.sprite_ids,
+            layer_idx,
+            &new_path,
+            parent_id,
+            &cloned_sprite,
+            new_index,
+        );
+        self.refresh_runtime_caches();
+        true
+    }
+
+    fn find_sprite_path_for_object(&self, object_id: &str) -> Option<(usize, Vec<usize>)> {
+        self.sprite_ids.iter().find_map(|(path_key, runtime_id)| {
+            if runtime_id != object_id {
+                return None;
+            }
+            parse_path_key_runtime(path_key)
+        })
+    }
+
+    fn sprite_clone_at_path(&self, layer_idx: usize, sprite_path: &[usize]) -> Option<Sprite> {
+        let sprites = self.scene.layers.get(layer_idx)?.sprites.as_slice();
+        sprite_at_path(sprites, sprite_path).cloned()
+    }
+
+    fn refresh_runtime_caches(&mut self) {
+        self.cached_object_kinds = std::sync::Arc::new(
+            self.objects
+                .iter()
+                .map(|(id, object)| (id.clone(), runtime_kind_name(&object.kind).to_string()))
+                .collect(),
+        );
+        self.resolver_cache = std::sync::Arc::new(self.build_target_resolver());
+    }
+
+    fn soft_despawn_target(&mut self, resolver: &TargetResolver, target: &str) -> bool {
+        let current_resolver = self.build_target_resolver();
+        let object_id = if let Some(id) = resolver.resolve_alias(target) {
+            id.to_string()
+        } else if let Some(id) = current_resolver.resolve_alias(target) {
+            id.to_string()
+        } else {
+            return false;
+        };
+        self.set_target_visibility_recursive(&object_id, false)
+    }
+
+    fn set_target_visibility_recursive(&mut self, root_id: &str, visible: bool) -> bool {
+        let mut queue = vec![root_id.to_string()];
+        let mut any = false;
+        while let Some(id) = queue.pop() {
+            if let Some(state) = self.object_states.get_mut(&id) {
+                state.visible = visible;
+                any = true;
+            }
+            if let Some(object) = self.objects.get(&id) {
+                for child_id in &object.children {
+                    queue.push(child_id.clone());
+                }
+            }
+        }
+        any
+    }
+}
+
+fn sanitize_fragment_runtime(value: &str) -> String {
+    let mut out = String::new();
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.is_empty() {
+        "_".to_string()
+    } else {
+        out
+    }
+}
+
+fn path_key_runtime(layer_idx: usize, sprite_path: &[usize]) -> String {
+    let mut key = layer_idx.to_string();
+    for idx in sprite_path {
+        key.push('/');
+        key.push_str(&idx.to_string());
+    }
+    key
+}
+
+fn parse_path_key_runtime(path_key: &str) -> Option<(usize, Vec<usize>)> {
+    let mut parts = path_key.split('/');
+    let layer_idx = parts.next()?.parse::<usize>().ok()?;
+    let mut sprite_path = Vec::new();
+    for part in parts {
+        sprite_path.push(part.parse::<usize>().ok()?);
+    }
+    Some((layer_idx, sprite_path))
+}
+
+fn sprite_at_path<'a>(sprites: &'a [Sprite], sprite_path: &[usize]) -> Option<&'a Sprite> {
+    let (first, rest) = sprite_path.split_first()?;
+    let sprite = sprites.get(*first)?;
+    if rest.is_empty() {
+        return Some(sprite);
+    }
+    match sprite {
+        Sprite::Grid { children, .. }
+        | Sprite::Flex { children, .. }
+        | Sprite::Panel { children, .. } => sprite_at_path(children, rest),
+        _ => None,
+    }
+}
+
+fn sprite_children_mut_at_path<'a>(
+    sprites: &'a mut Vec<Sprite>,
+    sprite_path: &[usize],
+) -> Option<&'a mut Vec<Sprite>> {
+    let (first, rest) = match sprite_path.split_first() {
+        Some(parts) => parts,
+        None => return Some(sprites),
+    };
+    let sprite = sprites.get_mut(*first)?;
+    match sprite {
+        Sprite::Grid { children, .. }
+        | Sprite::Flex { children, .. }
+        | Sprite::Panel { children, .. } => sprite_children_mut_at_path(children, rest),
+        _ => None,
+    }
+}
+
+fn runtime_kind_name(kind: &GameObjectKind) -> &'static str {
+    match kind {
+        GameObjectKind::Scene => "scene",
+        GameObjectKind::Layer => "layer",
+        GameObjectKind::TextSprite => "text",
+        GameObjectKind::ImageSprite => "image",
+        GameObjectKind::ObjSprite => "obj",
+        GameObjectKind::PanelSprite => "panel",
+        GameObjectKind::GridSprite => "grid",
+        GameObjectKind::FlexSprite => "flex",
+        GameObjectKind::VectorSprite => "vector",
+    }
+}
+
+fn sprite_descriptor_runtime(
+    sprite: &Sprite,
+    sprite_idx: usize,
+) -> (GameObjectKind, String, Vec<String>) {
+    let id = sprite.id().unwrap_or_default().to_string();
+    let name = if id.trim().is_empty() {
+        format!("sprite-{sprite_idx}")
+    } else {
+        id.clone()
+    };
+    let aliases = if id.trim().is_empty() {
+        vec![]
+    } else {
+        vec![id]
+    };
+    let kind = match sprite {
+        Sprite::Text { .. } => GameObjectKind::TextSprite,
+        Sprite::Image { .. } => GameObjectKind::ImageSprite,
+        Sprite::Obj { .. } | Sprite::Scene3D { .. } => GameObjectKind::ObjSprite,
+        Sprite::Panel { .. } => GameObjectKind::PanelSprite,
+        Sprite::Grid { .. } => GameObjectKind::GridSprite,
+        Sprite::Flex { .. } => GameObjectKind::FlexSprite,
+        Sprite::Vector { .. } => GameObjectKind::VectorSprite,
+    };
+    (kind, name, aliases)
+}
+
+fn register_runtime_sprite(
+    objects: &mut HashMap<String, GameObject>,
+    object_states: &mut HashMap<String, ObjectRuntimeState>,
+    sprite_ids: &mut HashMap<String, String>,
+    layer_idx: usize,
+    sprite_path: &[usize],
+    parent_id: &str,
+    sprite: &Sprite,
+    sprite_idx: usize,
+) {
+    let (kind, name, aliases) = sprite_descriptor_runtime(sprite, sprite_idx);
+    let sprite_id = format!("{parent_id}/{name}");
+    objects.insert(
+        sprite_id.clone(),
+        GameObject {
+            id: sprite_id.clone(),
+            name,
+            kind,
+            aliases,
+            parent_id: Some(parent_id.to_string()),
+            children: Vec::new(),
+        },
+    );
+    object_states.insert(sprite_id.clone(), ObjectRuntimeState::default());
+    sprite_ids.insert(path_key_runtime(layer_idx, sprite_path), sprite_id.clone());
+    if let Some(parent) = objects.get_mut(parent_id) {
+        parent.children.push(sprite_id.clone());
+    }
+    if let Sprite::Grid { children, .. }
+    | Sprite::Flex { children, .. }
+    | Sprite::Panel { children, .. } = sprite
+    {
+        for (child_idx, child) in children.iter().enumerate() {
+            let mut child_path = sprite_path.to_vec();
+            child_path.push(child_idx);
+            register_runtime_sprite(
+                objects,
+                object_states,
+                sprite_ids,
+                layer_idx,
+                &child_path,
+                &sprite_id,
+                child,
+                child_idx,
+            );
+        }
+    }
+}
+
+fn retag_sprite_ids(sprite: &mut Sprite, base: &str, counter: &mut usize) {
+    let next_id = if *counter == 0 {
+        base.to_string()
+    } else {
+        format!("{base}-{}", *counter)
+    };
+    *counter += 1;
+    match sprite {
+        Sprite::Text { id, .. }
+        | Sprite::Image { id, .. }
+        | Sprite::Obj { id, .. }
+        | Sprite::Panel { id, .. }
+        | Sprite::Grid { id, .. }
+        | Sprite::Flex { id, .. }
+        | Sprite::Scene3D { id, .. }
+        | Sprite::Vector { id, .. } => {
+            *id = Some(next_id);
+        }
+    }
+    match sprite {
+        Sprite::Grid { children, .. }
+        | Sprite::Flex { children, .. }
+        | Sprite::Panel { children, .. } => {
+            for child in children {
+                retag_sprite_ids(child, base, counter);
+            }
+        }
+        _ => {}
+    }
 }

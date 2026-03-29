@@ -12,6 +12,7 @@ shell-quest/
 ├── engine-3d/                 OBJ mesh loading, Scene3D definitions
 ├── engine-animation/          Stage/step animator
 ├── engine-audio/              Audio playback (rodio backend)
+├── engine-audio-sequencer/    YAML song/SFX runtime + synth note-sheet generation
 ├── engine-behavior-registry/  Behavior definition registry
 ├── engine-capture/            Frame capture for regression testing
 ├── engine-debug/              Debug overlays, log buffer, memory stats
@@ -24,11 +25,13 @@ shell-quest/
 ├── engine-pipeline/           Backend-agnostic render pipeline strategies
 ├── engine-render/             Shared render traits (`RenderBackend`, `OutputBackend`)
 ├── engine-render-policy/      Render scheduling policies
+├── engine-scene-runtime/      Mutable scene instance state + runtime cloning
 ├── engine-render-terminal/    Crossterm terminal presenter + input backend
 ├── engine-render-sdl2/        Optional SDL2 presenter + input backend
 ├── engine-runtime/            RuntimeSettings, virtual-size parsing
 ├── engine-terminal/           Terminal detection and configuration
 ├── mods/                      Content mods
+│   ├── asteroids/             SDL-focused showcase mod (vector arcade gameplay)
 │   ├── shell-quest/           Main game mod
 │   ├── shell-quest-tests/     Automated test mod (no user input)
 │   └── playground/            Development playground
@@ -89,14 +92,21 @@ Executed in this fixed order every frame inside `game_loop.rs`:
 | 3 | animator | `animator_us` | Stage/step advancement via elapsed time |
 | 4 | hot_reload | `hot_reload_us` | Dev-mode file change scanning |
 | 5 | engine_io | `engine_io_us` | Sidecar IPC bridge (transport-agnostic) |
-| 6 | behavior | `behavior_us` | Rhai script execution per behavior |
-| 7 | audio | `audio_us` | Audio playback tick |
-| 8 | compositor | `compositor_us` | Layer blitting + sprite rendering to the render buffer |
-| 9 | postfx | `postfx_us` | Post-processing effects (scanline, glitch, etc.) |
-| 10 | renderer | `renderer_us` | Double-buffer diff + active output backend present |
-| 11 | sleep | `sleep_us` | Frame budget sleep (target FPS remainder) |
+| 6 | gameplay | `-` | Physics integration, lifetime ticks, component updates |
+| 7 | collision | `-` | Collision detection over gameplay entities |
+| 8 | gameplay_events (push) | `-` | Publish collision hits to script-visible buffer |
+| 9 | behavior | `behavior_us` | Rhai script execution per behavior |
+| 10 | audio_sequencer | `audio_us` | Semantic SFX/song sequencing and synth cue scheduling |
+| 11 | audio | `audio_us` | Audio backend tick + cue dispatch |
+| 12 | compositor | `compositor_us` | Layer blitting + sprite rendering to the render buffer |
+| 13 | postfx | `postfx_us` | Post-processing effects (scanline, glitch, etc.) |
+| 14 | renderer | `renderer_us` | Double-buffer diff + active output backend present |
+| 15 | gameplay_events (clear) | `-` | Clear per-frame collision buffer |
+| 16 | visual_binding cleanup | `-` | Despawn scene visuals bound to expired entities |
+| 17 | sleep | `sleep_us` | Frame budget sleep (target FPS remainder) |
 
-After step 10, the frame-skip oracle is notified via `oracle.frame_advanced()`.
+After renderer (step 14), the frame-skip oracle is notified via
+`oracle.frame_advanced()`.
 
 ## 4. Strategy Pattern Architecture
 
@@ -310,12 +320,17 @@ editor, start screen, live refresh (~1.2s).
 | `--renderer-mode <MODE>` | Force renderer: `cell`, `halfblock`, `quadblock`, `braille` |
 | `--dev` | Enable dev helpers (overlays, scene nav). Auto in debug builds |
 | `--no-dev` | Disable dev helpers even in debug builds |
+| `--sdl2` | Shorthand for `--output sdl2` |
+| `--sdl-window-ratio <RATIO>` | SDL startup window ratio (`16:9`, `4:3`, `free`) |
+| `--sdl-pixel-scale <N>` | SDL startup pixel scale multiplier |
+| `--no-sdl-vsync` | Disable SDL VSync |
 | `--audio` | Enable audio playback |
 | `--logs` | Force-enable run logging |
 | `--no-logs` | Force-disable run logging |
 | `--log-root <DIR>` | Override log root directory (default: `./logs`) |
 | `--start-scene <SCENE>` | Jump to a specific scene |
 | `--skip-splash` | Skip engine splash screen |
+| `--check-scenes` | Run startup validation for the selected mod and exit |
 | `--target-fps <FPS>` | Override target FPS (default: from mod manifest, 60) |
 | `--opt` | Enable ALL optimizations |
 | `--opt-comp` | Compositor optimizations (layer skip, dirty halfblock) |
@@ -327,7 +342,7 @@ editor, start screen, live refresh (~1.2s).
 | `--bench [SECS]` | Benchmark mode (default 5s), saves report |
 | `--capture-frames <DIR>` | Capture frames for visual regression testing |
 
-**Environment variables**: `SHELL_QUEST_DEV`, `SHELL_QUEST_MOD_SOURCE`
+**Environment variables**: `SHELL_QUEST_DEV`, `SHELL_QUEST_DEBUG_FEATURE`, `SHELL_QUEST_MOD_SOURCE`
 
 ### Editor (`cargo run -p editor`)
 

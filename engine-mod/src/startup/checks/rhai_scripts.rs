@@ -1,5 +1,6 @@
 //! Validates that all `rhai-script` behavior payloads compile before runtime starts.
 
+use engine_behavior_registry::{load_mod_behaviors_with_errors, ModBehaviorRegistry};
 use engine_core::scene::{BehaviorSpec, Scene, Sprite};
 use engine_error::EngineError;
 
@@ -17,14 +18,19 @@ impl StartupCheck for RhaiScriptsCheck {
 
     fn run(&self, ctx: &StartupContext, report: &mut StartupReport) -> Result<(), EngineError> {
         let scenes = ctx.all_scenes()?;
+        let (mod_registry, mod_behavior_errors) = load_mod_behaviors_with_errors(ctx.mod_source());
         let mut checked = 0usize;
-        let mut failures = Vec::new();
+        let mut failures: Vec<String> = mod_behavior_errors
+            .into_iter()
+            .map(|err| format!("mod behaviors: {err}"))
+            .collect();
 
         for scene_file in scenes {
             collect_scene_failures(
                 ctx,
                 &scene_file.scene,
                 &scene_file.path,
+                &mod_registry,
                 &mut checked,
                 &mut failures,
             );
@@ -49,6 +55,7 @@ fn collect_scene_failures(
     ctx: &StartupContext,
     scene: &Scene,
     path: &str,
+    mod_registry: &ModBehaviorRegistry,
     checked: &mut usize,
     failures: &mut Vec<String>,
 ) {
@@ -60,6 +67,7 @@ fn collect_scene_failures(
             path,
             &scene.id,
             &format!("scene.behaviors[{idx}]"),
+            mod_registry,
             checked,
             failures,
         );
@@ -74,6 +82,7 @@ fn collect_scene_failures(
                 path,
                 &scene.id,
                 &format!("layer[{layer_idx}].behaviors[{behavior_idx}]"),
+                mod_registry,
                 checked,
                 failures,
             );
@@ -87,6 +96,7 @@ fn collect_scene_failures(
                 path,
                 &scene.id,
                 &format!("layer[{layer_idx}].sprite[{sprite_idx}]"),
+                mod_registry,
                 checked,
                 failures,
             );
@@ -101,6 +111,7 @@ fn collect_sprite_failures(
     path: &str,
     scene_id: &str,
     scope: &str,
+    mod_registry: &ModBehaviorRegistry,
     checked: &mut usize,
     failures: &mut Vec<String>,
 ) {
@@ -112,6 +123,7 @@ fn collect_sprite_failures(
             path,
             scene_id,
             &format!("{scope}.behaviors[{behavior_idx}]"),
+            mod_registry,
             checked,
             failures,
         );
@@ -129,6 +141,7 @@ fn collect_sprite_failures(
                     path,
                     scene_id,
                     &format!("{scope}.child[{child_idx}]"),
+                    mod_registry,
                     checked,
                     failures,
                 );
@@ -145,24 +158,43 @@ fn collect_behavior_failure(
     path: &str,
     scene_id: &str,
     scope: &str,
+    mod_registry: &ModBehaviorRegistry,
     checked: &mut usize,
     failures: &mut Vec<String>,
 ) {
-    if !behavior.name.eq_ignore_ascii_case("rhai-script") {
+    if behavior.name.eq_ignore_ascii_case("rhai-script") {
+        *checked += 1;
+
+        let src = behavior.params.src.as_deref().unwrap_or("<inline>");
+        let Some(script) = behavior.params.script.as_deref() else {
+            failures.push(format!(
+                "{path} (scene `{scene_id}`, {scope}): src `{src}` missing params.script payload"
+            ));
+            return;
+        };
+
+        if let Err(error) = ctx.validate_rhai_script(script, behavior.params.src.as_deref(), scene)
+        {
+            failures.push(format!(
+                "{path} (scene `{scene_id}`, {scope}): src `{src}` preflight failed: {error}"
+            ));
+        }
         return;
     }
 
-    *checked += 1;
-
-    let src = behavior.params.src.as_deref().unwrap_or("<inline>");
-    let Some(script) = behavior.params.script.as_deref() else {
-        failures.push(format!(
-            "{path} (scene `{scene_id}`, {scope}): src `{src}` missing params.script payload"
-        ));
+    let Some(mod_behavior) = mod_registry.get(behavior.name.trim()) else {
         return;
     };
 
-    if let Err(error) = ctx.validate_rhai_script(script, behavior.params.src.as_deref(), scene) {
+    *checked += 1;
+
+    let src = mod_behavior
+        .src
+        .as_deref()
+        .unwrap_or("<inline mod behavior>");
+    let script = mod_behavior.script.as_str();
+
+    if let Err(error) = ctx.validate_rhai_script(script, mod_behavior.src.as_deref(), scene) {
         failures.push(format!(
             "{path} (scene `{scene_id}`, {scope}): src `{src}` preflight failed: {error}"
         ));
@@ -299,5 +331,67 @@ layers: []
             }
             other => panic!("unexpected error variant: {other}"),
         }
+    }
+
+    #[test]
+    fn validates_external_mod_behavior_sources() {
+        let temp = tempdir().expect("temp dir");
+        let mod_dir = temp.path().join("mod");
+        fs::create_dir_all(mod_dir.join("scenes")).expect("create scenes");
+        fs::create_dir_all(mod_dir.join("behaviors")).expect("create behaviors");
+
+        fs::write(
+            mod_dir.join("scenes/main.yml"),
+            r#"
+id: main
+title: Main
+behaviors:
+  - name: my-mod-behavior
+layers: []
+"#,
+        )
+        .expect("write scene");
+
+        fs::write(
+            mod_dir.join("behaviors/my-mod-behavior.yml"),
+            r#"
+kind: behavior
+name: my-mod-behavior
+src: ./my-mod-behavior.rhai
+"#,
+        )
+        .expect("write behavior yml");
+
+        fs::write(
+            mod_dir.join("behaviors/my-mod-behavior.rhai"),
+            "let _value = 1;\n",
+        )
+        .expect("write behavior script");
+
+        let manifest: Value =
+            serde_yaml::from_str("name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\n")
+                .expect("manifest");
+
+        let validator = |script: &str,
+                         src: Option<&str>,
+                         _scene: &engine_core::scene::Scene|
+         -> Result<(), String> {
+            assert_eq!(src, Some("/behaviors/my-mod-behavior.rhai"));
+            assert!(script.contains("let _value = 1;"));
+            Ok(())
+        };
+
+        let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml", &scene_loader)
+            .with_rhai_script_validator(&validator);
+        let mut report = StartupReport::default();
+        RhaiScriptsCheck
+            .run(&ctx, &mut report)
+            .expect("external mod behavior script should pass");
+
+        assert!(report.issues().iter().any(|issue| {
+            issue.level == StartupIssueLevel::Info
+                && issue.check == "rhai-scripts"
+                && issue.message.contains("preflight ok")
+        }));
     }
 }

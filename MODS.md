@@ -11,6 +11,9 @@ which mod to load via:
 
 If neither is set, the default mod (`mods/shell-quest`) is used.
 
+The repo also includes `mods/asteroids`, a small SDL-oriented showcase mod used
+to exercise gameplay, dynamic runtime entities, audio sequencing, and launcher flow.
+
 ## Shell Quest (Main Mod)
 
 The primary game content. Contains all intro sequences, menus, gameplay
@@ -104,6 +107,44 @@ SHELL_QUEST_MOD_SOURCE=mods/playground cargo run -p app
 Navigation: Esc returns to the playground menu (does not quit the app).
 Use Ctrl+C for hard quit.
 
+## Asteroids (Showcase Mod)
+
+Vector-style arcade showcase focused on runtime gameplay systems, Rhai-authored
+logic, SDL2 presentation, and synth-driven audio sequencing.
+
+Gameplay uses the new component API (`world.set_transform/physics/collider/lifetime`,
+`world.collisions()`) with runtime-instanced visuals spawned from templates.
+
+### Structure
+
+```
+mods/asteroids/
++-- mod.yaml
++-- levels/                  difficulty payloads (easy/default/hard)
++-- audio/
+|   +-- sfx.yaml             semantic SFX bank
+|   +-- songs/               menu/game/highscore song files
+|   +-- synth/               generated note-sheet cues
++-- objects/                 runtime-instanced vector prefabs
++-- behaviors/               named behaviors with external Rhai via `src`
++-- scenes/
+    +-- main-menu/
+    +-- game/
+    +-- highscores/
+```
+
+### Running
+
+```bash
+cargo run -p app -- --mod-source=mods/asteroids --sdl2 --audio
+```
+
+### Validation
+
+```bash
+cargo run -p app -- --mod-source=mods/asteroids --check-scenes
+```
+
 ## Creating a Custom Mod
 
 ### Minimum Structure
@@ -151,7 +192,7 @@ cargo run -p app -- --mod-source=mods/my-mod
 - Paths use a leading `/`, resolved relative to the mod root.
 - The same paths work for both directory and zip-packaged mods.
 - `assets/raw/` is a gitignored staging area for work-in-progress assets.
-- Behavior scripts are discovered recursively under `behaviors/` directories.
+- Named mod behaviors are loaded from top-level `behaviors/*.yml`; those YAML wrappers may point at external Rhai via `src`.
 
 ### Path Resolution Example
 

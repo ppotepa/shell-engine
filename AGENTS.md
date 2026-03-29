@@ -20,7 +20,7 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - **[editor/README.AGENTS.MD](editor/README.AGENTS.MD)** — Editor architecture, hot-reload, subsystems
 - **[engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
 - **[engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Scene model, buffer management, strategy traits
-- **[engine-*/README.md](engine-3d/README.md)** — 20 crate-specific READMEs (purpose, key types, dependencies, usage)
+- **[engine-*/README.md](engine-3d/README.md)** — crate-specific READMEs (purpose, key types, dependencies, usage)
 - **[mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Content structure, scenes, assets
 - **[mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
 - **[tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Benchmark runners, frame capture, schema tools
@@ -85,6 +85,12 @@ Run app:
 
 ```bash
 cargo run -p app
+```
+
+Run startup validation for a mod:
+
+```bash
+cargo run -p app -- --mod-source=mods/asteroids --check-scenes
 ```
 
 Run editor:
@@ -199,8 +205,16 @@ When changing Rhai script API (scope variables, commands):
 
 - update `BehaviorContext` in `engine/src/behavior.rs`,
 - update scope push block in `RhaiScriptBehavior::update`,
-- update `AUTHORING.md` section 9,
+- update the Rhai scripting section in `AUTHORING.md`,
 - add regression test in `behavior::tests`.
+
+When changing audio sequencing or generated synth cues:
+
+- update `engine-audio-sequencer`,
+- update `engine/src/audio_sequencer.rs`,
+- update startup checks in `engine-mod/src/startup/checks/audio_sequencer.rs`,
+- update `AUTHORING.md` audio section,
+- verify `cargo run -p app -- --mod-source=mods/<mod> --check-scenes`.
 
 When adding new debug/diagnostic features:
 

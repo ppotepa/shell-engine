@@ -1,5 +1,6 @@
 if local.contains("loaded") == false {
     local["loaded"] = true;
+    audio.play_song("asteroids.highscores-loop");
     let saved = persist.get("/asteroids/highscores");
     if saved.type_of() == "array" {
         let output = "";
