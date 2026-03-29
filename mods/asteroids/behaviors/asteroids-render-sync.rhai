@@ -9,6 +9,8 @@ if ship_id > 0 {
         let heading = ship_ref.get_i("/h", 0);
         scene.set("ship", "vector.visible", visible);
         scene.set("ship", "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
+        scene.set("ship", "vector.fg", "#d0d0d0");
+        scene.set("ship", "vector.bg", "white");
     }
 }
 
@@ -28,9 +30,11 @@ for ast_id in world.query_kind("asteroid") {
     scene.set(vid, "vector.visible", active);
     scene.set(vid, "vector.points", rotate_points(asteroid_points(shape, size), rot_phase));
     if flash_ms > 0 {
-        scene.set(vid, "vector.fg", h::flash_fill_hex(flash_ms, flash_total));
-    } else {
         scene.set(vid, "vector.fg", h::asteroid_stroke_hex(flash_ms, flash_total));
+        scene.set(vid, "vector.bg", h::flash_fill_hex(flash_ms, flash_total));
+    } else {
+        scene.set(vid, "vector.fg", "#aaaaaa");
+        scene.set(vid, "vector.bg", "#333333");
     }
 
     let show_cracks = active && flash_ms > 0;
