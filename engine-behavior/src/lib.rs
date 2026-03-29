@@ -2250,15 +2250,27 @@ impl ScriptGameplayApi {
         // Step 5: Set transform from data
         let x = data
             .get("x")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .and_then(|v| {
+                v.clone()
+                    .try_cast::<rhai::FLOAT>()
+                    .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
+            })
             .unwrap_or(0.0) as f32;
         let y = data
             .get("y")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .and_then(|v| {
+                v.clone()
+                    .try_cast::<rhai::FLOAT>()
+                    .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
+            })
             .unwrap_or(0.0) as f32;
         let heading = data
             .get("heading")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .and_then(|v| {
+                v.clone()
+                    .try_cast::<rhai::FLOAT>()
+                    .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
+            })
             .unwrap_or(0.0) as f32;
 
         if !world.set_transform(
@@ -2271,7 +2283,16 @@ impl ScriptGameplayApi {
 
         // Step 6: Set collider if provided
         if let Some(radius_val) = data.get("collider_radius") {
-            if let Some(radius) = radius_val.clone().try_cast::<rhai::FLOAT>() {
+            let radius_opt = radius_val
+                .clone()
+                .try_cast::<rhai::FLOAT>()
+                .or_else(|| {
+                    radius_val
+                        .clone()
+                        .try_cast::<rhai::INT>()
+                        .map(|i| i as rhai::FLOAT)
+                });
+            if let Some(radius) = radius_opt {
                 let layer = data
                     .get("collider_layer")
                     .and_then(|v| v.clone().try_cast::<rhai::INT>())
