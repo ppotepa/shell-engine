@@ -753,8 +753,8 @@ for _s in 0..steps {
     let ship_ast_hits = world.collisions_between("ship", "asteroid");
     for hit in ship_ast_hits {
         if ship_invuln_ms <= 0 && ship_respawn_ms <= 0 {
-            let ship_id_hit = hit.entity_a;
-            let ast_id_hit = hit.entity_b;
+            let ship_id_hit = hit["ship"];
+            let ast_id_hit = hit["asteroid"];
             let ship_x = game.get("/ast/ship_x_fp") / to_float(scale);
             let ship_y = game.get("/ast/ship_y_fp") / to_float(scale);
             spawn_ship_disintegration(world, scene, ship_x, ship_y);
@@ -783,8 +783,8 @@ for _s in 0..steps {
     // Collision handling: bullet vs asteroid
     let bullet_ast_hits = world.collisions_between("bullet", "asteroid");
     for hit in bullet_ast_hits {
-        let bullet_id = hit.entity_a;
-        let ast_id = hit.entity_b;
+        let bullet_id = hit["bullet"];
+        let ast_id = hit["asteroid"];
         if world.exists(bullet_id) {
             world.despawn_object(bullet_id);
         }

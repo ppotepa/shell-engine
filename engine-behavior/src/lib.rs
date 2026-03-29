@@ -934,6 +934,16 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("collisions", |world: &mut ScriptGameplayApi| {
         world.collisions()
     });
+    engine.register_fn(
+        "collisions_between",
+        |world: &mut ScriptGameplayApi, kind_a: &str, kind_b: &str| {
+            world.collisions_between(kind_a, kind_b)
+        },
+    );
+    engine.register_fn(
+        "collisions_of",
+        |world: &mut ScriptGameplayApi, kind: &str| world.collisions_of(kind),
+    );
     engine.register_fn("exists", |entity: &mut ScriptGameplayEntityApi| {
         entity.exists()
     });
@@ -2345,6 +2355,58 @@ impl ScriptGameplayApi {
                 map.insert("a".into(), (hit.a as rhai::INT).into());
                 map.insert("b".into(), (hit.b as rhai::INT).into());
                 map.into()
+            })
+            .collect()
+    }
+
+    fn collisions_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return vec![];
+        };
+        self.collisions
+            .iter()
+            .filter_map(|hit| {
+                let ka = world.kind_of(hit.a).unwrap_or_default();
+                let kb = world.kind_of(hit.b).unwrap_or_default();
+                if ka == kind_a && kb == kind_b {
+                    let mut map = RhaiMap::new();
+                    map.insert(kind_a.into(), (hit.a as rhai::INT).into());
+                    map.insert(kind_b.into(), (hit.b as rhai::INT).into());
+                    Some(map.into())
+                } else if ka == kind_b && kb == kind_a {
+                    let mut map = RhaiMap::new();
+                    map.insert(kind_a.into(), (hit.b as rhai::INT).into());
+                    map.insert(kind_b.into(), (hit.a as rhai::INT).into());
+                    Some(map.into())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn collisions_of(&mut self, kind: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else {
+            return vec![];
+        };
+        self.collisions
+            .iter()
+            .filter_map(|hit| {
+                let ka = world.kind_of(hit.a).unwrap_or_default();
+                let kb = world.kind_of(hit.b).unwrap_or_default();
+                if ka == kind {
+                    let mut map = RhaiMap::new();
+                    map.insert("self".into(), (hit.a as rhai::INT).into());
+                    map.insert("other".into(), (hit.b as rhai::INT).into());
+                    Some(map.into())
+                } else if kb == kind {
+                    let mut map = RhaiMap::new();
+                    map.insert("self".into(), (hit.b as rhai::INT).into());
+                    map.insert("other".into(), (hit.a as rhai::INT).into());
+                    Some(map.into())
+                } else {
+                    None
+                }
             })
             .collect()
     }
