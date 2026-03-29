@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use engine_core::color::Color;
 use engine_events::{EngineEvent, KeyCode, KeyEvent, KeyModifiers};
-use engine_render::OverlayData;
+use engine_render::{OverlayData, VectorOverlay};
 use engine_runtime::{compute_presentation_layout, PresentationPolicy};
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::{Keycode, Mod};
@@ -23,6 +23,7 @@ pub(crate) enum RuntimeCommand {
         height: u16,
         patches: Vec<CellPatch>,
         overlay: Option<OverlayData>,
+        vectors: Option<VectorOverlay>,
     },
     SetSplashMode(bool),
     PollInput,
@@ -273,6 +274,7 @@ fn runtime_thread(
                 height,
                 patches,
                 overlay,
+                vectors,
             } => {
                 let t_cmd = Instant::now();
                 if width != current_output_width || height != current_output_height {
@@ -338,7 +340,7 @@ fn runtime_thread(
                     upload_dur = t_upload.elapsed();
                 }
 
-                let should_present = dirty.has_updates || overlay.is_some();
+                let should_present = dirty.has_updates || overlay.is_some() || vectors.is_some();
                 let mut present_dur = Duration::ZERO;
                 if should_present {
                     let active_policy = if splash_mode {
@@ -365,6 +367,17 @@ fn runtime_thread(
                     {
                         let _ = response_tx.send(RuntimeResponse::Ack);
                         break;
+                    }
+
+                    if let Some(ref vector_data) = vectors {
+                        if !vector_data.is_empty() {
+                            draw_vectors(
+                                &mut canvas,
+                                vector_data,
+                                present_rect,
+                                content_pixel_size,
+                            );
+                        }
                     }
 
                     if let Some(ref overlay_data) = overlay {
@@ -1010,6 +1023,96 @@ fn draw_overlay(canvas: &mut sdl2::render::WindowCanvas, overlay: &OverlayData) 
     }
     // Reset blend mode to default.
     canvas.set_blend_mode(sdl2::render::BlendMode::None);
+}
+
+/// Draw vector primitives directly on the SDL2 canvas at native resolution.
+///
+/// Converts buffer cell coordinates to canvas pixel coordinates using the
+/// presentation rect and content pixel size, then draws outlines and fills.
+fn draw_vectors(
+    canvas: &mut sdl2::render::WindowCanvas,
+    vectors: &VectorOverlay,
+    present_rect: Rect,
+    content_pixel_size: (u32, u32),
+) {
+    let (cpw, cph) = content_pixel_size;
+    if cpw == 0 || cph == 0 {
+        return;
+    }
+    let pr_x = present_rect.x() as f32;
+    let pr_y = present_rect.y() as f32;
+    let pr_w = present_rect.width() as f32;
+    let pr_h = present_rect.height() as f32;
+    let cpw_f = cpw as f32;
+    let cph_f = cph as f32;
+
+    for prim in &vectors.primitives {
+        if prim.points.len() < 2 {
+            continue;
+        }
+        // Map buffer cell coords → logical pixel → canvas pixel.
+        // Buffer cell (bx, by) → logical pixel (bx * CELL_W, by * CELL_H).
+        let canvas_pts: Vec<(i32, i32)> = prim
+            .points
+            .iter()
+            .map(|p| {
+                let lx = p[0] * LOGICAL_CELL_WIDTH as f32;
+                let ly = p[1] * LOGICAL_CELL_HEIGHT as f32;
+                let cx = pr_x + lx * pr_w / cpw_f;
+                let cy = pr_y + ly * pr_h / cph_f;
+                (cx as i32, cy as i32)
+            })
+            .collect();
+
+        // Fill polygon if bg is set.
+        if let Some((r, g, b)) = prim.bg {
+            canvas.set_draw_color(SdlColor::RGB(r, g, b));
+            scanline_fill_polygon(canvas, &canvas_pts);
+        }
+
+        // Draw outline.
+        let (r, g, b) = prim.fg;
+        canvas.set_draw_color(SdlColor::RGB(r, g, b));
+        for i in 0..canvas_pts.len() - 1 {
+            let _ = canvas.draw_line(canvas_pts[i], canvas_pts[i + 1]);
+        }
+        if prim.closed && canvas_pts.len() >= 3 {
+            let _ = canvas.draw_line(
+                canvas_pts[canvas_pts.len() - 1],
+                canvas_pts[0],
+            );
+        }
+    }
+}
+
+/// Scanline polygon fill using even-odd rule.
+fn scanline_fill_polygon(canvas: &mut sdl2::render::WindowCanvas, points: &[(i32, i32)]) {
+    if points.len() < 3 {
+        return;
+    }
+    let min_y = points.iter().map(|p| p.1).min().unwrap();
+    let max_y = points.iter().map(|p| p.1).max().unwrap();
+    let n = points.len();
+
+    for y in min_y..=max_y {
+        let mut intersections: Vec<i32> = Vec::with_capacity(8);
+        for i in 0..n {
+            let j = (i + 1) % n;
+            let (x1, y1) = (points[i].0 as f32, points[i].1 as f32);
+            let (x2, y2) = (points[j].0 as f32, points[j].1 as f32);
+            let yf = y as f32;
+            if (y1 <= yf && y2 > yf) || (y2 <= yf && y1 > yf) {
+                let x = x1 + (yf - y1) / (y2 - y1) * (x2 - x1);
+                intersections.push(x as i32);
+            }
+        }
+        intersections.sort_unstable();
+        for pair in intersections.chunks(2) {
+            if pair.len() == 2 {
+                let _ = canvas.draw_line((pair[0], y), (pair[1], y));
+            }
+        }
+    }
 }
 
 #[cfg(test)]

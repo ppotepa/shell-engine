@@ -1,4 +1,4 @@
-use engine_render::{OutputBackend, OverlayData, RenderError};
+use engine_render::{OutputBackend, OverlayData, RenderError, VectorOverlay};
 use engine_runtime::PresentationPolicy;
 
 use crate::input::Sdl2InputBackend;
@@ -17,6 +17,7 @@ pub struct Sdl2Backend {
     width: u16,
     height: u16,
     pending_overlay: Option<OverlayData>,
+    pending_vectors: Option<VectorOverlay>,
     profile: Option<BackendProfile>,
 }
 
@@ -102,6 +103,7 @@ impl Sdl2Backend {
                 width,
                 height,
                 pending_overlay: None,
+                pending_vectors: None,
                 profile: if sdl_profile_enabled() {
                     Some(BackendProfile::new())
                 } else {
@@ -134,11 +136,12 @@ impl Sdl2Backend {
 impl OutputBackend for Sdl2Backend {
     fn present_buffer(&mut self, buffer: &engine_core::buffer::Buffer) {
         let overlay = self.pending_overlay.take();
+        let vectors = self.pending_vectors.take();
         let t_diff = Instant::now();
         let mut patches = Vec::<CellPatch>::new();
         buffer.diff_into(&mut patches);
         let diff_dur = t_diff.elapsed();
-        if patches.is_empty() && overlay.is_none() {
+        if patches.is_empty() && overlay.is_none() && vectors.is_none() {
             if let Some(profile) = self.profile.as_mut() {
                 profile.record(0, diff_dur, Duration::ZERO, false);
             }
@@ -151,6 +154,7 @@ impl OutputBackend for Sdl2Backend {
             height: buffer.height,
             patches,
             overlay,
+            vectors,
         });
         if let Some(profile) = self.profile.as_mut() {
             profile.record(patch_count, diff_dur, t_req.elapsed(), true);
@@ -159,6 +163,10 @@ impl OutputBackend for Sdl2Backend {
 
     fn present_overlay(&mut self, overlay: &OverlayData) {
         self.pending_overlay = Some(overlay.clone());
+    }
+
+    fn present_vectors(&mut self, vectors: &VectorOverlay) {
+        self.pending_vectors = Some(vectors.clone());
     }
 
     fn output_size(&self) -> (u16, u16) {
@@ -204,6 +212,7 @@ mod tests {
             width: 120,
             height: 40,
             pending_overlay: None,
+            pending_vectors: None,
             profile: None,
         };
         assert_eq!(backend.output_size(), (120, 40));

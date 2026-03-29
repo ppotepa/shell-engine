@@ -9,6 +9,7 @@ use engine_core::effects::Region;
 use engine_core::markup::strip_markup;
 use engine_core::scene::{Layer, SceneRenderedMode, Sprite};
 use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
+use engine_render::VectorPrimitive;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -22,6 +23,9 @@ type GlowCacheKey = u64;
 thread_local! {
     static GLOW_CACHE: RefCell<HashMap<GlowCacheKey, Arc<Buffer>>> =
         RefCell::new(HashMap::new());
+    /// Collected vector primitives for the current frame (SDL2 native rendering).
+    pub(crate) static VECTOR_PRIMITIVES: RefCell<Vec<VectorPrimitive>> =
+        RefCell::new(Vec::new());
 }
 
 /// Hash a `engine_core::color::Color` without allocating (avoids `format!("{:?}", col)`).
@@ -519,6 +523,26 @@ fn render_sprite(
                 fg,
                 bg,
             );
+
+            // Collect resolved vector for SDL2 native rendering.
+            VECTOR_PRIMITIVES.with(|v| {
+                v.borrow_mut().push(VectorPrimitive {
+                    points: points
+                        .iter()
+                        .map(|p| [
+                            (origin_x + p[0]) as f32,
+                            (origin_y + p[1]) as f32,
+                        ])
+                        .collect(),
+                    closed: *closed,
+                    fg: fg.to_rgb(),
+                    bg: if *closed && !matches!(bg, Color::Reset) {
+                        Some(bg.to_rgb())
+                    } else {
+                        None
+                    },
+                });
+            });
 
             let sprite_region = Region {
                 x: draw_x.max(0) as u16,

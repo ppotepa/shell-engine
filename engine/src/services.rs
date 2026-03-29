@@ -18,7 +18,7 @@ use engine_compositor::CompositorProvider;
 use engine_core::scene::Scene;
 use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
 use engine_pipeline::{FrameSkipOracle, PipelineStrategies};
-use engine_render::OutputBackend;
+use engine_render::{OutputBackend, VectorOverlay};
 use engine_render_terminal::RendererProvider;
 use std::sync::Mutex;
 
@@ -222,6 +222,10 @@ impl RendererProvider for World {
         self.get::<PipelineStrategies>()
             .map(|ps| ps as *const PipelineStrategies)
             .unwrap_or(std::ptr::null())
+    }
+
+    fn vector_overlay(&self) -> Option<&VectorOverlay> {
+        self.get::<VectorOverlay>()
     }
 }
 

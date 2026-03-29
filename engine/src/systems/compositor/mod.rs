@@ -173,6 +173,8 @@ pub fn compositor_system(world: &mut World) {
         Some(b) => b,
         None => return,
     };
+    let buf_w = buffer.width;
+    let buf_h = buffer.height;
 
     let params = crate::strategy::CompositeParams {
         bg,
@@ -192,6 +194,7 @@ pub fn compositor_system(world: &mut World) {
         is_pixel_backend,
         default_font: default_font.as_deref(),
     };
+    engine_compositor::clear_vector_primitives();
     let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
         engine_compositor::with_prerender_frames(prerender_frames, || {
             engine_compositor::dispatch_composite(
@@ -203,6 +206,18 @@ pub fn compositor_system(world: &mut World) {
             )
         })
     });
+    // Collect vector primitives produced during compositing for SDL2 native rendering.
+    // `buffer` borrow is dropped here; use saved dimensions.
+    let vector_prims = engine_compositor::take_vector_primitives();
+    if !vector_prims.is_empty() {
+        world.register(engine_render::VectorOverlay {
+            buffer_width: buf_w,
+            buffer_height: buf_h,
+            primitives: vector_prims,
+        });
+    } else {
+        world.remove::<engine_render::VectorOverlay>();
+    }
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.set_object_regions(object_regions);
     }

@@ -17,11 +17,13 @@ pub mod overlay;
 pub mod rasterizer;
 pub mod simd_text;
 mod types;
+pub mod vector_overlay;
 
 pub use generic::*;
 pub use overlay::{OverlayData, OverlayLine};
 pub use rasterizer::{blit, has_font_assets, missing_glyphs, rasterize, rasterize_cached};
 pub use simd_text::{stage_glyph_placement, rasterize_staged_glyphs, GlyphBatch};
+pub use vector_overlay::{VectorOverlay, VectorPrimitive};
 
 /// Error type for render backend operations
 #[derive(Debug, thiserror::Error)]
@@ -102,6 +104,12 @@ pub trait OutputBackend: Send {
     /// surface (terminal or window) at native resolution, bypassing the game
     /// buffer so text is always readable regardless of game scaling.
     fn present_overlay(&mut self, overlay: &OverlayData);
+    /// Stage vector primitives for native-resolution rendering on the next present.
+    ///
+    /// Pixel backends (SDL2) draw these directly on the canvas, bypassing the
+    /// character-cell buffer for smooth polygon/line output. Terminal backends
+    /// ignore this (vectors are already rasterized to glyphs by the compositor).
+    fn present_vectors(&mut self, _vectors: &VectorOverlay) {}
     /// Returns the logical output grid size that the engine composes into before
     /// backend-specific window/display presentation is applied.
     fn output_size(&self) -> (u16, u16);

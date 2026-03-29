@@ -55,6 +55,11 @@ impl World {
         self.scoped.clear();
     }
 
+    /// Removes a singleton resource of type `T`, returning whether it existed.
+    pub fn remove<T: Any + 'static>(&mut self) -> bool {
+        self.singletons.remove(&TypeId::of::<T>()).is_some()
+    }
+
     /// Calls `f` with simultaneous shared access to `A` and exclusive access to `B`.
     ///
     /// Both resources must be registered as singletons (not scoped). Avoids the need

@@ -51,3 +51,13 @@ pub use scene_compositor::{
 pub use systems::postfx;
 pub use text_render::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};
 pub use warmup::warmup_scene_meshes;
+
+/// Clear the per-frame vector primitive collector (call before compositing).
+pub fn clear_vector_primitives() {
+    sprite_renderer::VECTOR_PRIMITIVES.with(|v| v.borrow_mut().clear());
+}
+
+/// Take collected vector primitives (call after compositing).
+pub fn take_vector_primitives() -> Vec<engine_render::VectorPrimitive> {
+    sprite_renderer::VECTOR_PRIMITIVES.with(|v| std::mem::take(&mut *v.borrow_mut()))
+}

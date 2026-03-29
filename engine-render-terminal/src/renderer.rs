@@ -307,11 +307,21 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
         .buffer()
         .map(|buffer| buffer as *const Buffer)
         .unwrap_or(std::ptr::null());
+    // SAFETY: VectorOverlay is a separate World resource slot, never mutated during present.
+    let vectors_ptr: *const engine_render::VectorOverlay = world
+        .vector_overlay()
+        .map(|v| v as *const _)
+        .unwrap_or(std::ptr::null());
     if !buffer_ptr.is_null() {
         if let Some(renderer) = world.renderer_mut() {
             // Set overlay data first — backend uses it during present.
             if let Some(ref overlay) = overlay_data {
                 renderer.present_overlay(overlay);
+            }
+            // Stage vector primitives for native rendering on pixel backends.
+            if !vectors_ptr.is_null() {
+                let vectors = unsafe { &*vectors_ptr };
+                renderer.present_vectors(vectors);
             }
             // SAFETY: buffer_ptr points at the world Buffer resource, which remains valid
             // while the renderer backend is borrowed mutably from a different resource slot.

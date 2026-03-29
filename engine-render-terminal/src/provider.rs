@@ -4,7 +4,7 @@ use engine_core::buffer::Buffer;
 use engine_debug::DebugLogBuffer;
 use engine_debug::{DebugFeatures, FpsCounter, ProcessStats, SystemTimings};
 use engine_pipeline::{FrameSkipOracle, PipelineStrategies};
-use engine_render::OutputBackend;
+use engine_render::{OutputBackend, VectorOverlay};
 use engine_runtime::RuntimeSettings;
 use std::sync::Mutex;
 
@@ -25,4 +25,8 @@ pub trait RendererProvider {
     fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)>;
     fn swap_buffers(&mut self);
     fn restore_front_to_back(&mut self);
+    /// Returns vector overlay data collected during compositing (for SDL2 native rendering).
+    fn vector_overlay(&self) -> Option<&VectorOverlay> {
+        None
+    }
 }
