@@ -72,20 +72,21 @@ if ship_id <= 0 || session_id <= 0 {
     return ();
 }
 
-let session_ref = world.entity(session_id);
-if !session_ref.exists() || !world.exists(ship_id) {
+let ship = world.get(ship_id, "/");
+let session = world.get(session_id, "/");
+if ship.type_of() != "map" || session.type_of() != "map" {
     return ();
 }
 
-let ship_h = session_ref.get_i("/ship_h", 0);
-let ship_x_fp = session_ref.get_i("/ship_x_fp", 0);
-let ship_y_fp = session_ref.get_i("/ship_y_fp", 0);
-let ship_invuln_ms = session_ref.get_i("/ship_invuln_ms", 0);
-let ship_respawn_ms = session_ref.get_i("/ship_respawn_ms", 0);
-let score = session_ref.get_i("/score", 0);
-let lives = session_ref.get_i("/lives", 0);
-let wave = session_ref.get_i("/wave", 1);
-let hit_flash_ms = session_ref.get_i("/hit_flash_ms", 150);
+let ship_h = if session.contains("ship_h") { session["ship_h"] } else { 0 };
+let ship_x_fp = if session.contains("ship_x_fp") { session["ship_x_fp"] } else { 0 };
+let ship_y_fp = if session.contains("ship_y_fp") { session["ship_y_fp"] } else { 0 };
+let ship_invuln_ms = if session.contains("ship_invuln_ms") { session["ship_invuln_ms"] } else { 0 };
+let ship_respawn_ms = if session.contains("ship_respawn_ms") { session["ship_respawn_ms"] } else { 0 };
+let score = if session.contains("score") { session["score"] } else { 0 };
+let lives = if session.contains("lives") { session["lives"] } else { 0 };
+let wave = if session.contains("wave") { session["wave"] } else { 1 };
+let hit_flash_ms = if session.contains("hit_flash_ms") { session["hit_flash_ms"] } else { 150 };
 
 let ship_visible = if ship_respawn_ms > 0 {
     false
@@ -161,39 +162,43 @@ for ast_id in asteroid_ids {
 
 let bullet_ids = world.query_kind("bullet");
 for bullet_id in bullet_ids {
-    let bref = world.entity(bullet_id);
-    if !bref.exists() { continue; }
-    let sprite_id = bref.get("/visual_id");
-    if sprite_id.type_of() != "string" { continue; }
-    let x_fp = bref.get_i("/x_fp", -99999);
-    let y_fp = bref.get_i("/y_fp", -99999);
-    if x_fp == -99999 || y_fp == -99999 {
+    let bullet = world.get(bullet_id, "/");
+    if bullet.type_of() != "map" || bullet.contains("visual_id") == false {
+        continue;
+    }
+    let sprite_id = bullet["visual_id"];
+    if sprite_id.type_of() != "string" {
+        continue;
+    }
+    if bullet.contains("x_fp") == false || bullet.contains("y_fp") == false {
         scene.set(sprite_id, "visible", false);
         continue;
     }
-    scene.set(sprite_id, "visible", bref.get_b("/active", false));
-    scene.set(sprite_id, "position.x", x_fp / scale);
-    scene.set(sprite_id, "position.y", y_fp / scale);
+    scene.set(sprite_id, "visible", bullet["active"]);
+    scene.set(sprite_id, "position.x", bullet["x_fp"] / scale);
+    scene.set(sprite_id, "position.y", bullet["y_fp"] / scale);
 }
 
 let smoke_ids = world.query_kind("smoke");
 for smoke_id in smoke_ids {
-    let sref = world.entity(smoke_id);
-    if !sref.exists() { continue; }
-    let sprite_id = sref.get("/visual_id");
-    if sprite_id.type_of() != "string" { continue; }
-    let x_fp = sref.get_i("/x_fp", -99999);
-    let y_fp = sref.get_i("/y_fp", -99999);
-    if x_fp == -99999 || y_fp == -99999 {
+    let smoke = world.get(smoke_id, "/");
+    if smoke.type_of() != "map" || smoke.contains("visual_id") == false {
+        continue;
+    }
+    let sprite_id = smoke["visual_id"];
+    if sprite_id.type_of() != "string" {
+        continue;
+    }
+    if smoke.contains("x_fp") == false || smoke.contains("y_fp") == false {
         scene.set(sprite_id, "visible", false);
         continue;
     }
-    let ttl_ms = sref.get_i("/ttl_ms", 0);
-    let max_ttl_ms = sref.get_i("/max_ttl_ms", 1);
-    let radius = sref.get_i("/radius", 2);
-    scene.set(sprite_id, "visible", sref.get_b("/active", false));
-    scene.set(sprite_id, "position.x", x_fp / scale);
-    scene.set(sprite_id, "position.y", y_fp / scale);
+    let ttl_ms = if smoke.contains("ttl_ms") { smoke["ttl_ms"] } else { 0 };
+    let max_ttl_ms = if smoke.contains("max_ttl_ms") { smoke["max_ttl_ms"] } else { 1 };
+    let radius = if smoke.contains("radius") { smoke["radius"] } else { 2 };
+    scene.set(sprite_id, "visible", smoke["active"]);
+    scene.set(sprite_id, "position.x", smoke["x_fp"] / scale);
+    scene.set(sprite_id, "position.y", smoke["y_fp"] / scale);
     scene.set(sprite_id, "vector.points", smoke_points(radius, ttl_ms, max_ttl_ms));
     scene.set(sprite_id, "vector.fg", smoke_colour_hex(ttl_ms, max_ttl_ms));
     scene.set(sprite_id, "vector.bg", "black");

@@ -441,10 +441,9 @@ if key.pressed == true {
         );
         local["ship_id"] = spawn_ship_entity(world);
         spawn_initial_asteroids(world, scene);
-        let session = world.get(local["session_id"], "/");
-        if session.type_of() == "map" {
-            session["msg_ttl_ms"] = 500;
-            world.set(local["session_id"], "/", session);
+        let reset_ref = world.entity(local["session_id"]);
+        if reset_ref.exists() {
+            reset_ref.set("/msg_ttl_ms", 500);
         }
         scene.set("game-message", "text.content", reset_label);
         diag.warn(`reset requested mode=${reset_label}`);
@@ -478,14 +477,12 @@ let thrust_down = input.down("Up") || input.down("w") || thrust_event;
 let fire_down = input.down(" ") || input.down("f") || fire_event;
 
 for _s in 0..steps {
-    let session = world.get(session_id, "/");
     let session_ref = world.entity(session_id);
-    if session.type_of() != "map" || !session_ref.exists() {
+    if !session_ref.exists() {
         continue;
     }
 
-    let ship = world.get(ship_id, "/");
-    if ship.type_of() != "map" {
+    if !world.exists(ship_id) {
         continue;
     }
 
@@ -524,7 +521,7 @@ for _s in 0..steps {
             vy_fp = 0;
             ship_h = 0;
             ship_invuln_ms = 3000;
-            session["msg_ttl_ms"] = 450;
+            session_ref.set("/msg_ttl_ms", 450);
             scene.set("game-message", "text.content", "REBOOT");
         }
     } else {
@@ -575,7 +572,7 @@ for _s in 0..steps {
                     vy_fp + ((fy * session_bullet_speed_fp) / 1024),
                     session_bullet_ttl_ms
                 );
-                shot_cd_ms = session["shot_cooldown_ms"];
+                shot_cd_ms = session_ref.get_i("/shot_cooldown_ms", 200);
                 audio.event("gameplay.ship.shoot", 1.0);
             }
         }
@@ -587,10 +584,9 @@ for _s in 0..steps {
     let ship_y = ship_y_fp / scale;
     sync_transform(world, ship_id, ship_x_fp, ship_y_fp, ship_h);
     sync_physics(world, ship_id, vx_fp, vy_fp);
-    world.set(ship_id, "/", #{
-        h: ship_h,
-        invuln_ms: ship_invuln_ms
-    });
+    let ship_ref = world.entity(ship_id);
+    ship_ref.set("/h", ship_h);
+    ship_ref.set("/invuln_ms", ship_invuln_ms);
 
     let asteroid_ids = world.query_kind("asteroid");
     for ast_id in asteroid_ids {
@@ -621,9 +617,10 @@ for _s in 0..steps {
                         let next_size = ast["size"] - 1;
                         let base_heading = ast["rot_phase"];
                         for frag_idx in 0..3 {
-                            session["rng"] =
-                                next_seed(session["rng"] + now + (ast_id * 41) + ast["x"] + ast["y"] + frag_idx * 67);
-                            let seed = session["rng"];
+                            let rng = session_ref.get_i("/rng", 1337);
+                            rng = next_seed(rng + now + (ast_id * 41) + ast["x"] + ast["y"] + frag_idx * 67);
+                            session_ref.set("/rng", rng);
+                            let seed = rng;
                             let split_heading = wrap_heading32(base_heading + fragment_heading_offset(frag_idx));
                             let split_sin = sin32(split_heading);
                             let split_cos = sin32(split_heading + 8);
@@ -658,27 +655,17 @@ for _s in 0..steps {
         }
         sync_transform_xy(world, ast_id, ast["x"], ast["y"], ast["rot_phase"]);
         sync_physics(world, ast_id, ast["dx"] * 64, ast["dy"] * 64);
-        world.set(ast_id, "/", #{
-            active: ast["active"],
-            x: ast["x"],
-            y: ast["y"],
-            dx: ast["dx"],
-            dy: ast["dy"],
-            shape: ast["shape"],
-            size: ast["size"],
-            visual_id: if ast.contains("visual_id") { ast["visual_id"] } else { () },
-            crack_visual_0: if ast.contains("crack_visual_0") { ast["crack_visual_0"] } else { () },
-            crack_visual_1: if ast.contains("crack_visual_1") { ast["crack_visual_1"] } else { () },
-            crack_visual_2: if ast.contains("crack_visual_2") { ast["crack_visual_2"] } else { () },
-            flash_ms: ast["flash_ms"],
-            flash_total_ms: ast["flash_total_ms"],
-            split_pending: ast["split_pending"],
-            collide_cd_ms: if ast.contains("collide_cd_ms") { ast["collide_cd_ms"] } else { 0 },
-            rot_phase: ast["rot_phase"],
-            rot_speed: ast["rot_speed"],
-            rot_step_ms: ast["rot_step_ms"],
-            rot_accum_ms: ast["rot_accum_ms"]
-        });
+        let ast_ref = world.entity(ast_id);
+        ast_ref.set("/x", ast["x"]);
+        ast_ref.set("/y", ast["y"]);
+        ast_ref.set("/flash_ms", ast["flash_ms"]);
+        ast_ref.set("/flash_total_ms", ast["flash_total_ms"]);
+        ast_ref.set("/split_pending", ast["split_pending"]);
+        ast_ref.set("/rot_phase", ast["rot_phase"]);
+        ast_ref.set("/rot_accum_ms", ast["rot_accum_ms"]);
+        if ast.contains("collide_cd_ms") && ast["collide_cd_ms"] > 0 {
+            ast_ref.set("/collide_cd_ms", ast["collide_cd_ms"]);
+        }
     }
 
     // asteroid-asteroid bounce handled via collisions buffer later (was manual polygon check)
@@ -709,15 +696,10 @@ for _s in 0..steps {
 
         // bullet collision handled via collisions buffer
         if world.exists(bullet_id) {
-            world.set(bullet_id, "/", #{
-                active: true,
-                ttl_ms: ttl,
-                x_fp: bx,
-                y_fp: by,
-                dx_fp: bullet["dx_fp"],
-                dy_fp: bullet["dy_fp"],
-                visual_id: if bullet.contains("visual_id") { bullet["visual_id"] } else { () }
-            });
+            let bref = world.entity(bullet_id);
+            bref.set("/ttl_ms", ttl);
+            bref.set("/x_fp", bx);
+            bref.set("/y_fp", by);
         }
     }
 
@@ -740,17 +722,12 @@ for _s in 0..steps {
             world.despawn_object(smoke_id);
             continue;
         }
-        world.set(smoke_id, "/", #{
-            active: true,
-            x_fp: sx,
-            y_fp: sy,
-            dx_fp: sdx,
-            dy_fp: sdy,
-            ttl_ms: ttl,
-            max_ttl_ms: if smoke.contains("max_ttl_ms") { smoke["max_ttl_ms"] } else { ttl },
-            radius: if smoke.contains("radius") { smoke["radius"] } else { 2 },
-            visual_id: if smoke.contains("visual_id") { smoke["visual_id"] } else { () }
-        });
+        let sref = world.entity(smoke_id);
+        sref.set("/x_fp", sx);
+        sref.set("/y_fp", sy);
+        sref.set("/dx_fp", sdx);
+        sref.set("/dy_fp", sdy);
+        sref.set("/ttl_ms", ttl);
     }
 
     if shot_cd_ms > 0 {
@@ -784,22 +761,23 @@ for _s in 0..steps {
             let ast_id_hit = if a_kind == "asteroid" { a_id } else { b_id };
             spawn_ship_disintegration(world, scene, ship_x_fp, ship_y_fp);
             audio.event("gameplay.ship.hit", 1.0);
-            let mut_ast = world.get(ast_id_hit, "/");
-            if mut_ast.type_of() == "map" {
-                mut_ast["flash_ms"] = crack_duration_ms();
-                mut_ast["flash_total_ms"] = crack_duration_ms();
-                mut_ast["split_pending"] = true;
-                mut_ast["dx"] = clamp_i(-mut_ast["dx"], -4, 4);
-                mut_ast["dy"] = clamp_i(-mut_ast["dy"], -4, 4);
-                mut_ast["collide_cd_ms"] = 180;
-                world.set(ast_id_hit, "/", mut_ast);
+            let hit_ref = world.entity(ast_id_hit);
+            if hit_ref.exists() {
+                hit_ref.set("/flash_ms", crack_duration_ms());
+                hit_ref.set("/flash_total_ms", crack_duration_ms());
+                hit_ref.set("/split_pending", true);
+                let old_dx = hit_ref.get_i("/dx", 0);
+                let old_dy = hit_ref.get_i("/dy", 0);
+                hit_ref.set("/dx", clamp_i(-old_dx, -4, 4));
+                hit_ref.set("/dy", clamp_i(-old_dy, -4, 4));
+                hit_ref.set("/collide_cd_ms", 180);
             }
             lives = lives - 1;
             vx_fp = 0;
             vy_fp = 0;
             ship_respawn_ms = 750;
             ship_invuln_ms = 0;
-            session["msg_ttl_ms"] = 450;
+            session_ref.set("/msg_ttl_ms", 450);
             scene.set("game-message", "text.content", "HIT!");
         } else if bullet_vs_ast {
             let bullet_id = if a_kind == "bullet" { a_id } else { b_id };
@@ -808,94 +786,79 @@ for _s in 0..steps {
                 despawn_entity_visual(world, scene, bullet_id);
                 world.despawn_object(bullet_id);
             }
-            let ast = world.get(ast_id, "/");
-            if ast.type_of() == "map" && ast["active"] {
-                score = score + asteroid_score(ast["size"]);
-                let mut_ast = ast;
-                mut_ast["flash_ms"] = crack_duration_ms();
-                mut_ast["flash_total_ms"] = crack_duration_ms();
-                mut_ast["split_pending"] = true;
-                world.set(ast_id, "/", mut_ast);
-                session["msg_ttl_ms"] = 250;
+            let hit_ref = world.entity(ast_id);
+            if hit_ref.exists() && hit_ref.get_b("/active", false) {
+                score = score + asteroid_score(hit_ref.get_i("/size", 0));
+                hit_ref.set("/flash_ms", crack_duration_ms());
+                hit_ref.set("/flash_total_ms", crack_duration_ms());
+                hit_ref.set("/split_pending", true);
+                session_ref.set("/msg_ttl_ms", 250);
                 scene.set("game-message", "text.content", "HIT");
-                diag.info(`hit asteroid=${ast_id} size=${ast["size"]} score=${score}`);
+                diag.info(`hit asteroid=${ast_id} size=${hit_ref.get_i("/size", 0)} score=${score}`);
             }
         }
     }
 
     // ship collision handled via collisions buffer
 
-    session["score"] = score;
-    session["lives"] = lives;
-    session["wave"] = wave;
-    session["shot_cd_ms"] = shot_cd_ms;
-    ship["h"] = ship_h;
-    ship["x_fp"] = ship_x_fp;
-    ship["y_fp"] = ship_y_fp;
-    ship["vx_fp"] = vx_fp;
-    ship["vy_fp"] = vy_fp;
-    ship["invuln_ms"] = ship_invuln_ms;
-    world.set(ship_id, "/", ship);
-    session["ship_h"] = ship_h;
-    session["ship_x_fp"] = ship_x_fp;
-    session["ship_y_fp"] = ship_y_fp;
-    session["vx_fp"] = vx_fp;
-    session["vy_fp"] = vy_fp;
-    session["ship_invuln_ms"] = ship_invuln_ms;
-    session["ship_respawn_ms"] = ship_respawn_ms;
-    session["turn_accum_ms"] = turn_accum_ms;
-    session["shot_cd_ms"] = shot_cd_ms;
-    session["smoke_cd_ms"] = smoke_cd_ms;
-    world.set(session_id, "/", session);
+    session_ref.set("/score", score);
+    session_ref.set("/lives", lives);
+    session_ref.set("/wave", wave);
+    session_ref.set("/shot_cd_ms", shot_cd_ms);
+    session_ref.set("/ship_h", ship_h);
+    session_ref.set("/ship_x_fp", ship_x_fp);
+    session_ref.set("/ship_y_fp", ship_y_fp);
+    session_ref.set("/vx_fp", vx_fp);
+    session_ref.set("/vy_fp", vy_fp);
+    session_ref.set("/ship_invuln_ms", ship_invuln_ms);
+    session_ref.set("/ship_respawn_ms", ship_respawn_ms);
+    session_ref.set("/turn_accum_ms", turn_accum_ms);
+    session_ref.set("/smoke_cd_ms", smoke_cd_ms);
+    let ship_ref = world.entity(ship_id);
+    ship_ref.set("/h", ship_h);
+    ship_ref.set("/invuln_ms", ship_invuln_ms);
 }
 
-let session = if world.exists(session_id) { world.get(session_id, "/") } else { #{} };
-if session.type_of() == "map" && session.contains("msg_ttl_ms") && session["msg_ttl_ms"] > 0 {
-    session["msg_ttl_ms"] = session["msg_ttl_ms"] - dt;
-    if session["msg_ttl_ms"] <= 0 {
+let session_ref = world.entity(session_id);
+let msg_ttl = if session_ref.exists() { session_ref.get_i("/msg_ttl_ms", 0) } else { 0 };
+if msg_ttl > 0 {
+    let new_ttl = msg_ttl - dt;
+    if new_ttl <= 0 {
         scene.set("game-message", "text.content", "");
     }
+    session_ref.set("/msg_ttl_ms", new_ttl);
 }
-let score = if session.type_of() == "map" && session.contains("score") { session["score"] } else { 0 };
-let lives = if session.type_of() == "map" && session.contains("lives") { session["lives"] } else { 0 };
-let wave = if session.type_of() == "map" && session.contains("wave") { session["wave"] } else { 1 };
-let ship_x_fp = if session.type_of() == "map" && session.contains("ship_x_fp") { session["ship_x_fp"] } else { 0 };
-let ship_y_fp = if session.type_of() == "map" && session.contains("ship_y_fp") { session["ship_y_fp"] } else { 0 };
-let vx_fp = if session.type_of() == "map" && session.contains("vx_fp") { session["vx_fp"] } else { 0 };
-let vy_fp = if session.type_of() == "map" && session.contains("vy_fp") { session["vy_fp"] } else { 0 };
+let score = session_ref.get_i("/score", 0);
+let lives = session_ref.get_i("/lives", 0);
+let wave = session_ref.get_i("/wave", 1);
+let ship_x_fp = session_ref.get_i("/ship_x_fp", 0);
+let ship_y_fp = session_ref.get_i("/ship_y_fp", 0);
+let vx_fp = session_ref.get_i("/vx_fp", 0);
+let vy_fp = session_ref.get_i("/vy_fp", 0);
 
 let active_count = world.count_kind("asteroid");
-let last_diag_ms =
-    if session.type_of() == "map" && session.contains("last_diag_ms") && session["last_diag_ms"].type_of() == "i64" {
-        session["last_diag_ms"]
-    } else {
-        0
-    };
+let last_diag_ms = session_ref.get_i("/last_diag_ms", 0);
 if now - last_diag_ms >= 1000 {
-    if session.type_of() == "map" {
-        session["last_diag_ms"] = now;
-    }
+    session_ref.set("/last_diag_ms", now);
     diag.info(
         `stats lives=${lives} wave=${wave} score=${score} active=${active_count} bullets=${world.count_kind("bullet")} ship=(${ship_x_fp / scale},${ship_y_fp / scale}) vel=(${vx_fp},${vy_fp})`
     );
 }
 if active_count <= 0 {
     wave = wave + 1;
-    if session.type_of() == "map" {
-        session["msg_ttl_ms"] = 650;
-        session["wave"] = wave;
-    }
+    session_ref.set("/msg_ttl_ms", 650);
+    session_ref.set("/wave", wave);
     scene.set("game-message", "text.content", `WAVE ${wave}`);
     diag.info(`wave start wave=${wave}`);
-    let wave_base = if session.type_of() == "map" && session.contains("wave_base_spawn_count") { session["wave_base_spawn_count"] } else { 4 };
-    let wave_min = if session.type_of() == "map" && session.contains("wave_min_spawn_count") { session["wave_min_spawn_count"] } else { 5 };
-    let wave_max = if session.type_of() == "map" && session.contains("wave_max_spawn_count") { session["wave_max_spawn_count"] } else { 10 };
+    let wave_base = session_ref.get_i("/wave_base_spawn_count", 4);
+    let wave_min = session_ref.get_i("/wave_min_spawn_count", 5);
+    let wave_max = session_ref.get_i("/wave_max_spawn_count", 10);
     let spawn_count = clamp_i(wave_base + wave, wave_min, wave_max);
     for idx in 0..spawn_count {
-        if session.type_of() == "map" {
-            session["rng"] = next_seed(session["rng"] + now + idx * 53 + wave);
-        }
-        let seed = if session.type_of() == "map" { session["rng"] } else { next_seed(now + idx * 53 + wave) };
+        let rng = session_ref.get_i("/rng", 1337);
+        rng = next_seed(rng + now + idx * 53 + wave);
+        session_ref.set("/rng", rng);
+        let seed = rng;
         spawn_asteroid_entity(
             world,
             scene,
@@ -907,9 +870,6 @@ if active_count <= 0 {
             if idx < 2 { 3 } else if idx < 5 { 2 } else { 1 }
         );
     }
-}
-if session.type_of() == "map" {
-    world.set(session_id, "/", session);
 }
 
 if lives <= 0 {
