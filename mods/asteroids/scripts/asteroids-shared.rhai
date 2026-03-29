@@ -64,6 +64,17 @@ fn smoke_points(radius, ttl_ms, max_ttl_ms) {
     [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]]
 }
 
+// Wrappers for engine-level functions (since render-sync uses them directly)
+fn rotate_points(points, heading) {
+    // Delegate to engine - just call it directly
+    rotate_points(points, heading)
+}
+
+fn asteroid_points(shape, size) {
+    // Delegate to engine
+    asteroid_points(shape, size)
+}
+
 // Crack visual management
 fn crack_visual_id(ast, idx) {
     if idx == 0 { return ast["crack_visual_0"]; }
@@ -75,7 +86,7 @@ fn hide_crack_visuals(scene, ast) {
     for frag_idx in 0..3 {
         let frag_id = crack_visual_id(ast, frag_idx);
         if frag_id.type_of() == "string" {
-            scene.set(frag_id, "visible", false);
+            scene.set(frag_id, "vector.visible", false);
         }
     }
 }

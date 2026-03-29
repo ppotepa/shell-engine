@@ -14,36 +14,6 @@ fn next_seed(seed) {
     ((seed * 1103515245) + 12345) % 2147483647
 }
 
-fn sync_transform(world, id, x_fp, y_fp, heading32) {
-    let px = to_float(x_fp) / 1024.0;
-    let py = to_float(y_fp) / 1024.0;
-    world.set_transform(id, px, py, h::heading32_to_rad(heading32));
-}
-
-fn sync_transform_xy(world, id, x, y, heading32) {
-    world.set_transform(id, to_float(x), to_float(y), h::heading32_to_rad(heading32));
-}
-
-fn sync_physics(world, id, vx, vy, drag, max_speed) {
-    world.set_physics(id, to_float(vx), to_float(vy), 0.0, 0.0, to_float(drag), to_float(max_speed));
-}
-
-fn set_collider_for_asteroid(world, id, size) {
-    world.set_collider_circle(id, to_float(asteroid_radius(size)), 0xFFFF, 0xFFFF);
-}
-
-fn set_collider_for_bullet(world, id) {
-    world.set_collider_circle(id, 3.0, 0xFFFF, 0xFFFF);
-}
-
-fn set_collider_for_ship(world, id) {
-    world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
-}
-
-fn set_collider_for_smoke(world, id) {
-    world.set_collider_circle(id, 2.0, 0xFFFF, 0xFFFF);
-}
-
 fn speed_for_seed(seed) {
     let v = (seed % 3) + 1;
     if ((seed / 7) % 2) == 0 { v } else { -v }
@@ -80,101 +50,11 @@ fn spawn_ship_entity(world) {
         invuln_ms: 3000
     });
     if id > 0 {
-        sync_transform_xy(world, id, 0.0, 0.0, 0);
-        sync_physics(world, id, 0.0, 0.0, 0.0, 0.0);
-        set_collider_for_ship(world, id);
+        world.set_transform(id, 0.0, 0.0, h::heading32_to_rad(0));
+        world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
     }
     id
-}
-
-fn spawn_asteroid_from_fp(world, scene, x_fp, y_fp, dx_int, dy_int, shape, size) {
-    let spin_seed = abs_i((x_fp * 31) + (y_fp * 17) + (dx_int * 13) + (dy_int * 19) + (shape * 23) + (size * 29));
-    let entity_id = world.spawn_object("asteroid", #{
-        tags: ["asteroid"],
-        active: true,
-        x: to_float(x_fp) / 1024.0,
-        y: to_float(y_fp) / 1024.0,
-        vx: to_float(dx_int),
-        vy: to_float(dy_int),
-        shape: shape,
-        size: size,
-        flash_ms: 0,
-        flash_total_ms: 0,
-        split_pending: false,
-        collide_cd_ms: 0,
-        rot_phase: spin_seed % 32,
-        rot_speed: if (spin_seed % 2) == 0 { 1 } else { -1 },
-        rot_step_ms: 72 + ((spin_seed % 3) * 16),
-        rot_accum_ms: 0
-    });
-    if entity_id > 0 {
-        let visual_id = `asteroid-${entity_id}`;
-        let crack_visual_0 = `asteroid-${entity_id}-crack-0`;
-        let crack_visual_1 = `asteroid-${entity_id}-crack-1`;
-        let crack_visual_2 = `asteroid-${entity_id}-crack-2`;
-        scene.spawn_object("asteroid-template", visual_id);
-        scene.spawn_object("asteroid-template", crack_visual_0);
-        scene.spawn_object("asteroid-template", crack_visual_1);
-        scene.spawn_object("asteroid-template", crack_visual_2);
-        world.set(entity_id, "/visual_id", visual_id);
-        world.set(entity_id, "/crack_visual_0", crack_visual_0);
-        world.set(entity_id, "/crack_visual_1", crack_visual_1);
-        world.set(entity_id, "/crack_visual_2", crack_visual_2);
-        world.set_visual(entity_id, visual_id);
-        sync_transform_xy(world, entity_id, to_float(x_fp) / 1024.0, to_float(y_fp) / 1024.0, 0);
-        sync_physics(world, entity_id, to_float(dx_int), to_float(dy_int), 0.0, 0.0);
-        set_collider_for_asteroid(world, entity_id, size);
-    }
-    entity_id
-}
-
-fn spawn_bullet_from_fp(world, scene, x_fp, y_fp, dx_fp, dy_fp, ttl_ms) {
-    let entity_id = world.spawn_object("bullet", #{
-        tags: ["bullet"],
-        active: true,
-        x: to_float(x_fp) / 1024.0,
-        y: to_float(y_fp) / 1024.0,
-        vx: to_float(dx_fp) / 1024.0,
-        vy: to_float(dy_fp) / 1024.0,
-        ttl_ms: ttl_ms
-    });
-    if entity_id > 0 {
-        let visual_id = `bullet-${entity_id}`;
-        scene.spawn_object("bullet-template", visual_id);
-        world.set(entity_id, "/visual_id", visual_id);
-        world.set_visual(entity_id, visual_id);
-        sync_transform_xy(world, entity_id, to_float(x_fp) / 1024.0, to_float(y_fp) / 1024.0, 0);
-        sync_physics(world, entity_id, to_float(dx_fp) / 1024.0, to_float(dy_fp) / 1024.0, 0.0, 0.0);
-        set_collider_for_bullet(world, entity_id);
-        world.set_lifetime(entity_id, ttl_ms);
-    }
-    entity_id
-}
-
-fn spawn_smoke_from_fp(world, scene, x_fp, y_fp, dx_fp, dy_fp, ttl_ms, radius) {
-    let entity_id = world.spawn_object("smoke", #{
-        tags: ["smoke"],
-        active: true,
-        x: to_float(x_fp) / 1024.0,
-        y: to_float(y_fp) / 1024.0,
-        vx: to_float(dx_fp) / 1024.0,
-        vy: to_float(dy_fp) / 1024.0,
-        ttl_ms: ttl_ms,
-        max_ttl_ms: ttl_ms,
-        radius: radius
-    });
-    if entity_id > 0 {
-        let visual_id = `smoke-${entity_id}`;
-        scene.spawn_object("smoke-template", visual_id);
-        world.set(entity_id, "/visual_id", visual_id);
-        world.set_visual(entity_id, visual_id);
-        sync_transform_xy(world, entity_id, to_float(x_fp) / 1024.0, to_float(y_fp) / 1024.0, 0);
-        // Drag factor: 0.04 ≈ (1 - 0.96) per second, similar to (vel * 96) / 100
-        sync_physics(world, entity_id, to_float(dx_fp) / 1024.0, to_float(dy_fp) / 1024.0, 0.04, 0.0);
-        set_collider_for_smoke(world, entity_id);
-        world.set_lifetime(entity_id, ttl_ms);
-    }
-    entity_id
 }
 
 fn spawn_asteroid_entity(world, scene, x, y, vx, vy, shape, size) {
@@ -211,9 +91,9 @@ fn spawn_asteroid_entity(world, scene, x, y, vx, vy, shape, size) {
         world.set(entity_id, "/crack_visual_1", crack_visual_1);
         world.set(entity_id, "/crack_visual_2", crack_visual_2);
         world.set_visual(entity_id, visual_id);
-        sync_transform_xy(world, entity_id, to_float(x), to_float(y), 0);
-        sync_physics(world, entity_id, to_float(vx), to_float(vy), 0.0, 0.0);
-        set_collider_for_asteroid(world, entity_id, size);
+        world.set_transform(entity_id, to_float(x), to_float(y), h::heading32_to_rad(0));
+        world.set_physics(entity_id, to_float(vx), to_float(vy), 0.0, 0.0, 0.0, 0.0);
+        world.set_collider_circle(entity_id, to_float(asteroid_radius(size)), 0xFFFF, 0xFFFF);
     }
     entity_id
 }
@@ -233,9 +113,9 @@ fn spawn_bullet_entity(world, scene, x, y, vx, vy, ttl_ms) {
         scene.spawn_object("bullet-template", visual_id);
         world.set(entity_id, "/visual_id", visual_id);
         world.set_visual(entity_id, visual_id);
-        sync_transform_xy(world, entity_id, x, y, 0);
-        sync_physics(world, entity_id, vx, vy, 0.0, 0.0);
-        set_collider_for_bullet(world, entity_id);
+        world.set_transform(entity_id, to_float(x), to_float(y), h::heading32_to_rad(0));
+        world.set_physics(entity_id, to_float(vx), to_float(vy), 0.0, 0.0, 0.0, 0.0);
+        world.set_collider_circle(entity_id, 3.0, 0xFFFF, 0xFFFF);
         world.set_lifetime(entity_id, ttl_ms);
     }
     entity_id
@@ -258,10 +138,10 @@ fn spawn_smoke_entity(world, scene, x, y, vx, vy, ttl_ms, radius) {
         scene.spawn_object("smoke-template", visual_id);
         world.set(entity_id, "/visual_id", visual_id);
         world.set_visual(entity_id, visual_id);
-        sync_transform_xy(world, entity_id, x, y, 0);
+        world.set_transform(entity_id, to_float(x), to_float(y), h::heading32_to_rad(0));
         // Drag factor: 0.04 ≈ (1 - 0.96) per second, similar to (vel * 96) / 100
-        sync_physics(world, entity_id, vx, vy, 0.04, 0.0);
-        set_collider_for_smoke(world, entity_id);
+        world.set_physics(entity_id, to_float(vx), to_float(vy), 0.0, 0.0, 0.04, 0.0);
+        world.set_collider_circle(entity_id, 2.0, 0xFFFF, 0xFFFF);
         world.set_lifetime(entity_id, ttl_ms);
     }
     entity_id
@@ -333,9 +213,10 @@ fn spawn_initial_asteroids(world, scene) {
 if local.contains("init") == false {
     let init_now = if time.contains("scene_elapsed_ms") { time.scene_elapsed_ms } else { 0 };
     let cfg = load_game_config(level);
+    local["cfg"] = cfg;
     let clear_ids = world.ids();
     for entity_id in clear_ids {
-        despawn_entity_visual(world, scene, entity_id);
+        world.entity(entity_id).despawn();
     }
     world.clear();
     local["rng"] = next_seed(1337 + init_now + 101);
@@ -369,7 +250,6 @@ if local.contains("init") == false {
 }
 
 let now = if time.contains("scene_elapsed_ms") { time.scene_elapsed_ms } else { 0 };
-let scale = 1024;
 let min_x = -320;
 let max_x = 320;
 let min_y = -240;
@@ -428,10 +308,11 @@ if key.pressed == true {
                 1337
             };
         let cfg = load_game_config(level);
+        local["cfg"] = cfg;
         local["rng"] = next_seed(current_rng + now + 101);
         let clear_ids = world.ids();
         for entity_id in clear_ids {
-            despawn_entity_visual(world, scene, entity_id);
+            world.entity(entity_id).despawn();
         }
         world.clear();
         
@@ -497,19 +378,9 @@ for _s in 0..steps {
     let vx_fp = game.get("/ast/vx_fp");
     let vy_fp = game.get("/ast/vy_fp");
     let ship_invuln_ms = game.get("/ast/ship_invuln_ms");
-    let session_ship_thrust_fp = level.get("/ship_thrust_fp");
-    if session_ship_thrust_fp == () { session_ship_thrust_fp = 170; }
-    let session_max_speed_fp = level.get("/ship_max_speed_fp");
-    if session_max_speed_fp == () { session_max_speed_fp = 4608; }
-    let session_turn_step_ms = level.get("/turn_step_ms");
-    if session_turn_step_ms == () { session_turn_step_ms = 40; }
+    let cfg = if local.contains("cfg") { local["cfg"] } else { load_game_config(level) };
+    let session_turn_step_ms = cfg["turn_step_ms"];
     let turn_accum_ms = game.get("/ast/turn_accum_ms");
-    let session_bullet_ttl_ms = level.get("/bullet_ttl_ms");
-    if session_bullet_ttl_ms == () { session_bullet_ttl_ms = 900; }
-    let session_bullet_speed_fp = level.get("/bullet_speed_fp");
-    if session_bullet_speed_fp == () { session_bullet_speed_fp = 4200; }
-    let session_hit_flash_ms = level.get("/hit_flash_ms");
-    if session_hit_flash_ms == () { session_hit_flash_ms = 150; }
     let ship_respawn_ms = game.get("/ast/ship_respawn_ms");
     let smoke_emit_interval_ms = 48;
     let smoke_ttl_ms = 520;
@@ -549,14 +420,16 @@ for _s in 0..steps {
         if thrust_down {
             let fx = sin32(ship_h);
             let fy = -sin32(ship_h + 8);
-            vx_fp = clamp_i(vx_fp + ((fx * session_ship_thrust_fp) / 1024), -session_max_speed_fp, session_max_speed_fp);
-            vy_fp = clamp_i(vy_fp + ((fy * session_ship_thrust_fp) / 1024), -session_max_speed_fp, session_max_speed_fp);
+            let thrust_fp = to_i(cfg["ship_thrust"] * 1024.0);
+            let max_speed_fp = to_i(cfg["ship_max_speed"] * 1024.0);
+            vx_fp = clamp_i(vx_fp + ((fx * thrust_fp) / 1024), -max_speed_fp, max_speed_fp);
+            vy_fp = clamp_i(vy_fp + ((fy * thrust_fp) / 1024), -max_speed_fp, max_speed_fp);
             if smoke_cd_ms <= 0 && world.count_kind("smoke") < smoke_max_count {
                 spawn_smoke_entity(
                     world,
                     scene,
-                    ship_x_fp - (((fx * 6) / 1024) * scale),
-                    ship_y_fp - (((fy * 6) / 1024) * scale),
+                    ship_x_fp - (fx * 6),
+                    ship_y_fp - (fy * 6),
                     vx_fp - ((fx * smoke_drift_fp) / 1024),
                     vy_fp - ((fy * smoke_drift_fp) / 1024),
                     smoke_ttl_ms,
@@ -570,14 +443,15 @@ for _s in 0..steps {
             let fx = sin32(ship_h);
             let fy = -sin32(ship_h + 8);
             if world.count_kind("bullet") < 8 {
+                let bullet_speed_fp = to_i(cfg["bullet_speed"] * 1024.0);
                 spawn_bullet_entity(
                     world,
                     scene,
-                    ship_x_fp + ((fx * 9) / 1024) * scale,
-                    ship_y_fp + ((fy * 9) / 1024) * scale,
-                    vx_fp + ((fx * session_bullet_speed_fp) / 1024),
-                    vy_fp + ((fy * session_bullet_speed_fp) / 1024),
-                    session_bullet_ttl_ms
+                    ship_x_fp + (fx * 9),
+                    ship_y_fp + (fy * 9),
+                    vx_fp + ((fx * bullet_speed_fp) / 1024),
+                    vy_fp + ((fy * bullet_speed_fp) / 1024),
+                    cfg["bullet_ttl_ms"]
                 );
                 shot_cd_ms = game.get("/ast/shot_cooldown_ms");
                 audio.event("gameplay.ship.shoot", 1.0);
@@ -585,12 +459,12 @@ for _s in 0..steps {
         }
     }
 
-    ship_x_fp = wrap_fp(ship_x_fp + vx_fp, min_x, max_x, scale);
-    ship_y_fp = wrap_fp(ship_y_fp + vy_fp, min_y, max_y, scale);
-    let ship_x = ship_x_fp / scale;
-    let ship_y = ship_y_fp / scale;
-    sync_transform(world, ship_id, ship_x_fp, ship_y_fp, ship_h);
-    sync_physics(world, ship_id, to_float(vx_fp) / 1024.0, to_float(vy_fp) / 1024.0, 0.0, 0.0);
+    ship_x_fp = wrap_fp(ship_x_fp + vx_fp, min_x, max_x, 1024);
+    ship_y_fp = wrap_fp(ship_y_fp + vy_fp, min_y, max_y, 1024);
+    let ship_x = ship_x_fp / 1024;
+    let ship_y = ship_y_fp / 1024;
+    world.set_transform(ship_id, to_float(ship_x_fp) / 1024.0, to_float(ship_y_fp) / 1024.0, h::heading32_to_rad(ship_h));
+    world.set_physics(ship_id, to_float(vx_fp) / 1024.0, to_float(vy_fp) / 1024.0, 0.0, 0.0, 0.0, 0.0);
     let ship_ref = world.entity(ship_id);
     ship_ref.set("/h", ship_h);
     ship_ref.set("/invuln_ms", ship_invuln_ms);
@@ -616,8 +490,7 @@ for _s in 0..steps {
                 if ast["split_pending"] {
                     ast["split_pending"] = false;
                     if ast["size"] <= 0 {
-                        despawn_entity_visual(world, scene, ast_id);
-                        world.despawn_object(ast_id);
+                        world.entity(ast_id).despawn();
                         diag.info(`asteroid removed id=${ast_id}`);
                         continue;
                     } else {
@@ -648,32 +521,27 @@ for _s in 0..steps {
                                 world.set(child_id, "/collide_cd_ms", 180);
                             }
                         }
-                        despawn_entity_visual(world, scene, ast_id);
-                        world.despawn_object(ast_id);
+                        world.entity(ast_id).despawn();
                         audio.event("gameplay.asteroid.split", 1.0);
                         diag.info(`asteroid split id=${ast_id} pieces=3 size=${next_size}`);
                         continue;
                     }
                 }
             }
-        } else {
-            let ast_xf = world.transform(ast_id);
-            if ast_xf.type_of() == "map" {
-                ast["x"] = wrap(to_float(ast_xf["x"]), min_x, max_x);
-                ast["y"] = wrap(to_float(ast_xf["y"]), min_y, max_y);
-            }
         }
-        sync_transform_xy(world, ast_id, ast["x"], ast["y"], ast["rot_phase"]);
+        world.set_transform(ast_id, to_float(ast["x"]), to_float(ast["y"]), h::heading32_to_rad(ast["rot_phase"]));
         let ast_ref = world.entity(ast_id);
-        ast_ref.set("/x", ast["x"]);
-        ast_ref.set("/y", ast["y"]);
-        ast_ref.set("/vx", ast["vx"]);
-        ast_ref.set("/vy", ast["vy"]);
-        ast_ref.set("/flash_ms", ast["flash_ms"]);
-        ast_ref.set("/flash_total_ms", ast["flash_total_ms"]);
-        ast_ref.set("/split_pending", ast["split_pending"]);
-        ast_ref.set("/rot_phase", ast["rot_phase"]);
-        ast_ref.set("/rot_accum_ms", ast["rot_accum_ms"]);
+        ast_ref.set_many(#{
+            x: ast["x"],
+            y: ast["y"],
+            vx: ast["vx"],
+            vy: ast["vy"],
+            flash_ms: ast["flash_ms"],
+            flash_total_ms: ast["flash_total_ms"],
+            split_pending: ast["split_pending"],
+            rot_phase: ast["rot_phase"],
+            rot_accum_ms: ast["rot_accum_ms"]
+        });
         if ast.contains("collide_cd_ms") && ast["collide_cd_ms"] > 0 {
             ast_ref.set("/collide_cd_ms", ast["collide_cd_ms"]);
         }
@@ -681,63 +549,6 @@ for _s in 0..steps {
 
     // asteroid-asteroid bounce handled via collisions buffer later (was manual polygon check)
 
-    let bullet_ids = world.query_kind("bullet");
-    for bullet_id in bullet_ids {
-        let bullet = world.get(bullet_id, "/");
-        if bullet["active"] == false {
-            continue;
-        }
-
-        let bullet_xf = world.transform(bullet_id);
-        if bullet_xf.type_of() != "map" {
-            continue;
-        }
-        
-        let bx = wrap(to_float(bullet_xf["x"]), min_x, max_x);
-        let by = wrap(to_float(bullet_xf["y"]), min_y, max_y);
-        
-        let ttl = bullet["ttl_ms"] - step_ms;
-        sync_transform_xy(world, bullet_id, bx, by, 0);
-        if ttl <= 0 {
-            despawn_entity_visual(world, scene, bullet_id);
-            world.despawn_object(bullet_id);
-            continue;
-        }
-
-        // bullet collision handled via collisions buffer
-        if world.exists(bullet_id) {
-            let bref = world.entity(bullet_id);
-            bref.set("/ttl_ms", ttl);
-            bref.set("/x", bx);
-            bref.set("/y", by);
-        }
-    }
-
-    let smoke_ids = world.query_kind("smoke");
-    for smoke_id in smoke_ids {
-        let smoke = world.get(smoke_id, "/");
-        if smoke["active"] == false {
-            continue;
-        }
-        
-        let smoke_xf = world.transform(smoke_id);
-        if smoke_xf.type_of() != "map" {
-            continue;
-        }
-        let sx = to_float(smoke_xf["x"]);
-        let sy = to_float(smoke_xf["y"]);
-        
-        let ttl = smoke["ttl_ms"] - step_ms;
-        if ttl <= 0 {
-            despawn_entity_visual(world, scene, smoke_id);
-            world.despawn_object(smoke_id);
-            continue;
-        }
-        
-        sync_transform_xy(world, smoke_id, sx, sy, 0);
-        let sref = world.entity(smoke_id);
-        sref.set("/ttl_ms", ttl);
-    }
 
     if shot_cd_ms > 0 {
         shot_cd_ms = shot_cd_ms - step_ms;
@@ -755,8 +566,8 @@ for _s in 0..steps {
         if ship_invuln_ms <= 0 && ship_respawn_ms <= 0 {
             let ship_id_hit = hit["ship"];
             let ast_id_hit = hit["asteroid"];
-            let ship_x = game.get("/ast/ship_x_fp") / to_float(scale);
-            let ship_y = game.get("/ast/ship_y_fp") / to_float(scale);
+            let ship_x = game.get("/ast/ship_x_fp") / 1024.0;
+            let ship_y = game.get("/ast/ship_y_fp") / 1024.0;
             spawn_ship_disintegration(world, scene, ship_x, ship_y);
             audio.event("gameplay.ship.hit", 1.0);
             let hit_ref = world.entity(ast_id_hit);
@@ -839,7 +650,7 @@ let last_diag_ms = game.get("/ast/last_diag_ms");
 if now - last_diag_ms >= 1000 {
     game.set("/ast/last_diag_ms", now);
     diag.info(
-        `stats lives=${lives} wave=${wave} score=${score} active=${active_count} bullets=${world.count_kind("bullet")} ship=(${ship_x_fp / scale},${ship_y_fp / scale}) vel=(${vx_fp},${vy_fp})`
+        `stats lives=${lives} wave=${wave} score=${score} active=${active_count} bullets=${world.count_kind("bullet")} ship=(${ship_x_fp / 1024},${ship_y_fp / 1024}) vel=(${vx_fp},${vy_fp})`
     );
 }
 if active_count <= 0 {
@@ -863,8 +674,8 @@ if active_count <= 0 {
         spawn_asteroid_entity(
             world,
             scene,
-            respawn_x(seed, min_x, max_x, ship_x_fp / scale),
-            respawn_y(seed / 3, min_y, max_y, ship_y_fp / scale),
+            respawn_x(seed, min_x, max_x, ship_x_fp / 1024),
+            respawn_y(seed / 3, min_y, max_y, ship_y_fp / 1024),
             speed_for_seed(seed + 5),
             speed_for_seed(seed + 13),
             (seed / 11) % 4,
