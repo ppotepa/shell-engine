@@ -15,11 +15,13 @@ pub mod generic;
 pub mod image_loader;
 pub mod overlay;
 pub mod rasterizer;
+pub mod simd_text;
 mod types;
 
 pub use generic::*;
 pub use overlay::{OverlayData, OverlayLine};
 pub use rasterizer::{blit, has_font_assets, missing_glyphs, rasterize, rasterize_cached};
+pub use simd_text::{stage_glyph_placement, rasterize_staged_glyphs, GlyphBatch};
 
 /// Error type for render backend operations
 #[derive(Debug, thiserror::Error)]

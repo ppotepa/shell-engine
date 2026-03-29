@@ -2,8 +2,13 @@
 
 pub mod access;
 pub mod log;
+pub mod profiling;
 
 pub use log::DebugLogBuffer;
+pub use profiling::{
+    begin_span, end_span, finish_frame, get_stats, is_enabled, mark, set_enabled, export_flamegraph_stacks,
+    Profiler, ProfilingFrame, ProfileSpan, ProfileStats, TimingMarker,
+};
 
 /// Smoothed real-time FPS tracked by the game loop.
 #[derive(Debug, Clone, Copy)]

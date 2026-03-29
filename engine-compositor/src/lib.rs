@@ -5,8 +5,10 @@
 //! - OBJ prerender frame store and Scene3D atlas
 //! - Scene compositor strategy pattern types (Cell vs Halfblock)
 //! - CompositorProvider trait for decoupling from engine's World type
+//! - BufferPool: reusable buffer allocation for efficient frame rendering
 
 pub mod access;
+pub mod buffer_pool;
 pub mod compositor;
 pub mod effect_applicator;
 pub mod image_render;
@@ -27,6 +29,7 @@ pub mod text_render;
 pub mod warmup;
 
 pub use access::CompositorAccess;
+pub use buffer_pool::{acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PooledBuffer, PoolStats};
 pub use compositor::{dispatch_composite, pack_halfblock_buffer};
 pub use image_render::{image_sprite_dimensions, render_image_content};
 pub use layout::{

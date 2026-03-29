@@ -10,6 +10,7 @@ use engine_core::scene::{Effect, Layer, SceneRenderedMode};
 use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
 use engine_pipeline::{HalfblockPacker, LayerCompositor};
 
+use crate::buffer_pool::acquire_buffer;
 use crate::layer_compositor::composite_layers;
 use crate::CompositeParams;
 
@@ -128,35 +129,33 @@ fn composite_scene_halfblock(
 ) -> HashMap<String, Region> {
     let needed_w = target.width;
     let needed_h = target.height.saturating_mul(2);
-    HALFBLOCK_SCRATCH.with(|scratch| {
-        let mut virtual_buf = scratch.borrow_mut();
-        if virtual_buf.width != needed_w || virtual_buf.height != needed_h {
-            virtual_buf.resize(needed_w, needed_h);
-        }
-        let object_regions = composite_scene(
-            bg,
-            layers,
-            ui_enabled,
-            scene_rendered_mode,
-            asset_root,
-            target_resolver,
-            object_states,
-            obj_camera_states,
-            current_stage,
-            step_idx,
-            elapsed_ms,
-            scene_elapsed_ms,
-            scene_effects,
-            scene_step_dur,
-            is_pixel_backend,
-            default_font,
-            layer,
-            halfblock,
-            &mut virtual_buf,
-        );
-        pack_halfblock_buffer(&virtual_buf, target, bg, halfblock);
-        object_regions
-    })
+    
+    // Use buffer pool for temporary virtual buffer (faster than thread-local allocation)
+    let mut virtual_buf = acquire_buffer(needed_w, needed_h);
+    
+    let object_regions = composite_scene(
+        bg,
+        layers,
+        ui_enabled,
+        scene_rendered_mode,
+        asset_root,
+        target_resolver,
+        object_states,
+        obj_camera_states,
+        current_stage,
+        step_idx,
+        elapsed_ms,
+        scene_elapsed_ms,
+        scene_effects,
+        scene_step_dur,
+        is_pixel_backend,
+        default_font,
+        layer,
+        halfblock,
+        virtual_buf.as_mut(),
+    );
+    pack_halfblock_buffer(&virtual_buf, target, bg, halfblock);
+    object_regions
 }
 
 pub fn pack_halfblock_buffer(
