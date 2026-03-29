@@ -261,7 +261,8 @@ if world.exists(ship_id) {
     let last_diag = if local.contains("diag_tick") { local["diag_tick"] } else { -1 };
     if diag_tick != last_diag {
         local["diag_tick"] = diag_tick;
-        diag.info(`ship pos=(${tx},${ty}) vel=(${vx},${vy}) h=${ship_h} invuln=${invuln_ms}`);
+        let invuln_remaining = ship_ref.status_remaining("invulnerable");
+        diag.info(`ship pos=(${tx},${ty}) vel=(${vx},${vy}) h=${ship_h} invuln=${invuln_remaining}`);
     }
     
     if thrust_down {
