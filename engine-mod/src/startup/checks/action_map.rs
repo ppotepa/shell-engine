@@ -4,13 +4,16 @@
 //! that action names are valid identifiers that can be consistently
 //! referenced in scripts.
 
-use super::super::check::{StartupCheck, StartupContext, StartupReport};
-use crate::error::EngineError;
+use engine_error::EngineError;
+
+use super::super::check::StartupCheck;
+use super::super::context::StartupContext;
+use super::super::report::StartupReport;
 
 /// Validates optional action map definitions in mod.yaml.
 ///
 /// Ensures:
-/// - action_map.actions is an object (if present)
+/// - action_map.actions is a mapping (if present)
 /// - Each action name is a valid identifier
 /// - Each action has a "key" property (required)
 /// - No duplicate action names
@@ -18,7 +21,7 @@ pub struct ActionMapCheck;
 
 impl StartupCheck for ActionMapCheck {
     fn name(&self) -> &'static str {
-        "ActionMapCheck"
+        "action-map"
     }
 
     fn run(&self, ctx: &StartupContext, report: &mut StartupReport) -> Result<(), EngineError> {
@@ -36,25 +39,26 @@ impl StartupCheck for ActionMapCheck {
 
 /// Validates the action_map section of mod.yaml.
 fn validate_action_map(action_map: &serde_yaml::Value, report: &mut StartupReport) -> Result<(), EngineError> {
-    use serde_yaml::Value;
-
     // action_map should be a mapping
     if !action_map.is_mapping() {
-        report.warning(format!(
-            "action_map should be a mapping/object, got {:?}",
-            action_map.tag()
-        ));
+        report.add_warning(
+            "ActionMapCheck",
+            "action_map should be a mapping/object",
+        );
         return Ok(());
     }
 
     // Check if actions sub-property exists
     let Some(actions) = action_map.get("actions") else {
-        report.info("action_map defined but no 'actions' property found");
+        report.add_info(
+            "ActionMapCheck",
+            "action_map defined but no 'actions' property found",
+        );
         return Ok(());
     };
 
     if !actions.is_mapping() {
-        report.warning("action_map.actions should be a mapping/object");
+        report.add_warning("ActionMapCheck", "action_map.actions should be a mapping/object");
         return Ok(());
     }
 
@@ -68,28 +72,34 @@ fn validate_action_map(action_map: &serde_yaml::Value, report: &mut StartupRepor
 
         // Validate action name is a valid identifier
         if !is_valid_identifier(action_name) {
-            report.warning(format!(
-                "action name '{}' is not a valid identifier (must start with letter or _, contain only alphanumeric or _)",
-                action_name
-            ));
+            report.add_warning(
+                "ActionMapCheck",
+                format!(
+                    "action name '{}' is not a valid identifier (must start with letter or _, contain only alphanumeric or _)",
+                    action_name
+                ),
+            );
             continue;
         }
 
         // Action definition should be a mapping
         if !action_def.is_mapping() {
-            report.warning(format!(
-                "action '{}' definition should be a mapping/object",
-                action_name
-            ));
+            report.add_warning(
+                "ActionMapCheck",
+                format!("action '{}' definition should be a mapping/object", action_name),
+            );
             continue;
         }
 
         // Check required 'key' property
         if !action_def.get("key").map_or(false, |v| v.is_string()) {
-            report.warning(format!(
-                "action '{}' is missing 'key' property (must be a string)",
-                action_name
-            ));
+            report.add_warning(
+                "ActionMapCheck",
+                format!(
+                    "action '{}' is missing 'key' property (must be a string)",
+                    action_name
+                ),
+            );
         }
     }
 

@@ -1,5 +1,6 @@
 //! Built-in startup checks — re-exports all concrete [`StartupCheck`](super::check::StartupCheck) implementations.
 
+mod action_map;
 mod audio_sequencer;
 mod effect_registry;
 mod font_glyph_coverage;
@@ -10,6 +11,7 @@ mod rhai_scripts;
 mod scene_graph;
 mod terminal_requirements;
 
+pub use action_map::ActionMapCheck;
 pub use audio_sequencer::AudioSequencerCheck;
 pub use effect_registry::EffectRegistryCheck;
 pub use font_glyph_coverage::FontGlyphCoverageCheck;

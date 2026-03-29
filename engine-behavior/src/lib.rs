@@ -1157,6 +1157,11 @@ struct ScriptAudioApi {
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
+#[derive(Clone)]
+struct ScriptTimerApi {
+    gameplay_world: Option<GameplayWorld>,
+}
+
 impl ScriptSceneApi {
     fn new(
         object_states: Arc<HashMap<String, ObjectRuntimeState>>,
