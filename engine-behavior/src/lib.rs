@@ -630,6 +630,7 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_type_with_name::<ScriptInputApi>("InputApi");
     engine.register_type_with_name::<ScriptDebugApi>("DebugApi");
     engine.register_type_with_name::<ScriptAudioApi>("AudioApi");
+
     engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
         scene.get(target)
     });
@@ -663,9 +664,6 @@ fn init_rhai_engine() -> RhaiEngine {
         terminal.clear();
     });
     engine.register_fn("down", |input: &mut ScriptInputApi, code: &str| {
-        input.down(code)
-    });
-    engine.register_fn("is_down", |input: &mut ScriptInputApi, code: &str| {
         input.down(code)
     });
     engine.register_fn("any_down", |input: &mut ScriptInputApi| input.any_down());
@@ -897,6 +895,12 @@ fn init_rhai_engine() -> RhaiEngine {
     );
     engine.register_fn(
         "get_bool",
+        |entity: &mut ScriptGameplayEntityApi, path: &str, fallback: bool| {
+            entity.get_bool(path, fallback)
+        },
+    );
+    engine.register_fn(
+        "get_b",
         |entity: &mut ScriptGameplayEntityApi, path: &str, fallback: bool| {
             entity.get_bool(path, fallback)
         },
@@ -1191,11 +1195,6 @@ struct ScriptDebugApi {
 #[derive(Clone)]
 struct ScriptAudioApi {
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
-}
-
-#[derive(Clone)]
-struct ScriptTimerApi {
-    gameplay_world: Option<GameplayWorld>,
 }
 
 impl ScriptSceneApi {
@@ -2882,6 +2881,16 @@ fn rhai_dynamic_to_json(value: &RhaiDynamic) -> Option<JsonValue> {
     None
 }
 
+fn rhai_map_to_json(map: &RhaiMap) -> JsonValue {
+    let mut out = JsonMap::new();
+    for (key, item) in map {
+        if let Some(value) = rhai_dynamic_to_json(&item) {
+            out.insert(key.clone().into(), value);
+        }
+    }
+    JsonValue::Object(out)
+}
+
 fn map_get_path_dynamic(map: &RhaiMap, path: &str) -> Option<RhaiDynamic> {
     let mut segments = path.split('.').filter(|segment| !segment.is_empty());
     let first = segments.next()?;
@@ -3837,6 +3846,7 @@ mod tests {
             level_state: None,
             persistence: None,
             gameplay_world: None,
+            collisions: Arc::new(Vec::new()),
             last_raw_key: None,
             keys_down: Arc::new(HashSet::new()),
             sidecar_io: Arc::new(SidecarIoFrameState::default()),

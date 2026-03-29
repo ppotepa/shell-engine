@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 usage() {
   cat <<'USAGE'
-Usage: ./concat [--output <file>] [--stdout] [--include-generated]
+Usage: ./concat [--output <file>] [--stdout] [--include-generated] [-rs|--rust-only]
 
 Concatenates tracked source-code files with metadata:
 - file path
@@ -20,12 +20,18 @@ At the end, appends a list of ignored non-source files (paths only).
 Ignored non-source includes:
 - *.yml, *.yaml
 - *.blend, *.blend1
+
+Modes:
+- default: tracked `.rs`, `.rhai`, `.sh`, `.py`
+- `-rs` / `--rust-only`: tracked first-party `.rs` only, excluding mods/docs/artifacts
 USAGE
 }
 
 OUTPUT_FILE="concat-report.txt"
 WRITE_STDOUT=0
 INCLUDE_GENERATED=0
+RUST_ONLY=0
+OUTPUT_FILE_EXPLICIT=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +41,7 @@ while [[ $# -gt 0 ]]; do
         echo "[concat] --output requires a path" >&2
         exit 2
       fi
+      OUTPUT_FILE_EXPLICIT=1
       shift 2
       ;;
     --stdout)
@@ -43,6 +50,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --include-generated)
       INCLUDE_GENERATED=1
+      shift
+      ;;
+    -rs|--rust-only)
+      RUST_ONLY=1
       shift
       ;;
     -h|--help)
@@ -57,15 +68,30 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# In rust-only mode, keep a separate default report file unless user overrode it.
+if (( RUST_ONLY == 1 )) && (( OUTPUT_FILE_EXPLICIT == 0 )); then
+  OUTPUT_FILE="concat.rs.txt"
+fi
+
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "[concat] this script must run inside a git repository" >&2
   exit 1
 fi
 
-mapfile -t ALL_FILES < <(git ls-files '*.rs' '*.rhai' '*.sh' '*.py' | sort)
 FILES=()
 SKIPPED_GENERATED=0
 mapfile -t IGNORED_NON_SOURCE < <(git ls-files '*.yml' '*.yaml' '*.blend' '*.blend1' | sort)
+
+if (( RUST_ONLY == 1 )); then
+  # "-rs" mode: keep first-party Rust only; exclude content/docs/artifacts trees.
+  mapfile -t ALL_FILES < <(
+    git ls-files '*.rs' \
+      | rg -v '^(mods/|docs/|assets/|benchmark-results/|reports/|logs/|target/|rust-os/)' \
+      | sort
+  )
+else
+  mapfile -t ALL_FILES < <(git ls-files '*.rs' '*.rhai' '*.sh' '*.py' | sort)
+fi
 
 if (( INCLUDE_GENERATED == 1 )); then
   FILES=("${ALL_FILES[@]}")
@@ -77,7 +103,11 @@ else
 fi
 
 if (( ${#FILES[@]} == 0 )); then
-  echo "[concat] no tracked source-code files found (.rs/.rhai/.sh/.py)" >&2
+  if (( RUST_ONLY == 1 )); then
+    echo "[concat] no tracked first-party Rust files found for -rs mode" >&2
+  else
+    echo "[concat] no tracked source-code files found (.rs/.rhai/.sh/.py)" >&2
+  fi
   exit 1
 fi
 
@@ -98,6 +128,7 @@ render_report() {
   printf 'files: %s\n' "$total_files"
   printf 'lines_total: %s\n' "$total_lines"
   printf 'include_generated: %s\n' "$INCLUDE_GENERATED"
+  printf 'rust_only: %s\n' "$RUST_ONLY"
   printf 'skipped_generated_files: %s\n' "$SKIPPED_GENERATED"
   printf 'ignored_non_source_files: %s\n' "${#IGNORED_NON_SOURCE[@]}"
   printf '\n'

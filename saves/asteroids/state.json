@@ -210,6 +210,41 @@
         "at_ms": 34864,
         "score": 140,
         "wave": 1
+      },
+      {
+        "at_ms": 11936,
+        "score": 0,
+        "wave": 1
+      },
+      {
+        "at_ms": 35808,
+        "score": 160,
+        "wave": 1
+      },
+      {
+        "at_ms": 20896,
+        "score": 25,
+        "wave": 1
+      },
+      {
+        "at_ms": 21280,
+        "score": 0,
+        "wave": 1
+      },
+      {
+        "at_ms": 29520,
+        "score": 40,
+        "wave": 1
+      },
+      {
+        "at_ms": 30304,
+        "score": 25,
+        "wave": 1
+      },
+      {
+        "at_ms": 21104,
+        "score": 145,
+        "wave": 1
       }
     ]
   }
