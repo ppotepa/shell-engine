@@ -256,6 +256,14 @@ if world.exists(ship_id) {
     let phys = ship_ref.physics();
     let vx = phys.vx;
     let vy = phys.vy;
+
+    // Periodic ship state diagnostic (every ~2 seconds)
+    let diag_tick = to_i(now / 2000);
+    let last_diag = if local.contains("diag_tick") { local["diag_tick"] } else { -1 };
+    if diag_tick != last_diag {
+        local["diag_tick"] = diag_tick;
+        diag.info(`ship pos=(${tx},${ty}) vel=(${vx},${vy}) h=${ship_h} invuln=${invuln_ms}`);
+    }
     
     if thrust_down {
         let fx = to_float(sin32(ship_h)) / 1024.0;
@@ -264,6 +272,11 @@ if world.exists(ship_id) {
         // Engine does v += a * dt_sec, so a = thrust * VELOCITY_SCALE gives same dv/frame as old code
         let thrust = cfg["ship_thrust"] * h::velocity_scale();
         ship_ref.set_acceleration(fx * thrust, fy * thrust);
+        // Log thrust on first application
+        if !local.contains("thrust_log") {
+            local["thrust_log"] = true;
+            diag.info(`thrust ACTIVE: thrust=${thrust} dir=(${fx},${fy}) cfg_thrust=${cfg["ship_thrust"]}`);
+        }
         if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
             spawn_smoke(world, tx - (fx * 6.0), ty - (fy * 6.0),
                        vx / h::velocity_scale() - (fx * 0.35), vy / h::velocity_scale() - (fy * 0.35), 520, 3);
@@ -271,6 +284,7 @@ if world.exists(ship_id) {
         }
     } else {
         ship_ref.set_acceleration(0.0, 0.0);
+        local.remove("thrust_log");
     }
 
     if fire_down && shot_cd_ms <= 0 && world.count_kind("bullet") < 8 {

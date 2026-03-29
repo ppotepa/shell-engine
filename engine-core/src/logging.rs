@@ -45,6 +45,9 @@ pub struct RunLoggerConfig {
     pub app_name: String,
     pub enabled: bool,
     pub root_dir: Option<PathBuf>,
+    /// Also write log lines to stderr in real time (for console diagnostics).
+    /// Automatically true when `SHELL_QUEST_CONSOLE_LOG=1` is set.
+    pub also_stderr: bool,
 }
 
 /// Resolved file-system location for the current run logs.
@@ -62,6 +65,7 @@ struct RunLogger {
     info: RunLogInfo,
     file: Mutex<File>,
     cached_pid: u32,
+    also_stderr: bool,
 }
 
 impl RunLogger {
@@ -79,6 +83,11 @@ impl RunLogger {
             if matches!(level, LogLevel::Warn | LogLevel::Error) {
                 let _ = file.flush();
             }
+        }
+
+        if self.also_stderr {
+            let stderr_line = format!("[{}] [{}] {message}\n", level.as_str(), target);
+            let _ = std::io::stderr().write_all(stderr_line.as_bytes());
         }
 
         // Append to in-memory ring buffer for overlay
@@ -139,6 +148,8 @@ pub fn init_run_logger(config: RunLoggerConfig) -> io::Result<Option<RunLogInfo>
         return Ok(Some(existing.info.clone()));
     }
 
+    let also_stderr = config.also_stderr || env_flag_enabled("SHELL_QUEST_CONSOLE_LOG");
+
     let root_dir = config.root_dir.unwrap_or_else(|| PathBuf::from("logs"));
     let run_info = create_run_layout(&root_dir)?;
     let file = OpenOptions::new()
@@ -150,6 +161,7 @@ pub fn init_run_logger(config: RunLoggerConfig) -> io::Result<Option<RunLogInfo>
         info: run_info.clone(),
         file: Mutex::new(file),
         cached_pid: std::process::id(),
+        also_stderr,
     };
 
     let _ = LOGGER.set(logger);

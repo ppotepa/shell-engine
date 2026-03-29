@@ -30,6 +30,7 @@ fn init_logging(cli: &cli::Cli) {
         app_name: String::from("editor"),
         enabled,
         root_dir: cli.log_root.as_ref().map(PathBuf::from),
+        also_stderr: false,
     }) {
         Ok(Some(info)) => {
             println!("Logs: {}", info.file_path.display());

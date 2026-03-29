@@ -61,6 +61,10 @@ struct Cli {
     /// Force-disable run logging.
     #[arg(long = "no-logs")]
     no_logs: bool,
+    /// Also print log output to stderr in real time (useful for diagnostics in a separate terminal).
+    /// Can also be enabled via SHELL_QUEST_CONSOLE_LOG=1 env var.
+    #[arg(long = "console-log")]
+    console_log: bool,
     /// Override run log root directory (default: ./logs).
     #[arg(long = "log-root")]
     log_root: Option<String>,
@@ -128,6 +132,7 @@ fn main() {
         app_name: String::from("app"),
         enabled: logs_enabled,
         root_dir: cli.log_root.clone().map(PathBuf::from),
+        also_stderr: cli.console_log,
     }) {
         Ok(Some(info)) => {
             println!("Logs: {}", info.file_path.display());
