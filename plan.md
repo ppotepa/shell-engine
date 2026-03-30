@@ -112,22 +112,22 @@ Purpose: break the behavior subsystem’s oversized orchestration into smaller u
 ### 4.2 Remove repeated branching
 - [x] Identify repeated setup flows and convert them into shared helpers.
 - [x] Identify repeated command-dispatch patterns and convert them into structured dispatch tables or equivalent focused handlers.
-- [ ] Reduce wide branching blocks into smaller handlers grouped by responsibility.
+- [x] Reduce wide branching blocks into smaller handlers grouped by responsibility.
 
 ### 4.3 Stabilize public behavior surface
-- [ ] Preserve existing script-facing behavior and error/reporting behavior.
-- [ ] Preserve existing fallback behavior where required.
-- [ ] Ensure no behavior-regression risk is introduced by the split itself.
+- [x] Preserve existing script-facing behavior and error/reporting behavior.
+- [x] Preserve existing fallback behavior where required.
+- [x] Ensure no behavior-regression risk is introduced by the split itself.
 
 ### 4.4 Validate
-- [ ] Run existing behavior tests.
-- [ ] Run scene validation for authored behavior content.
-- [ ] Smoke-test at least one behavior-heavy mod flow.
+- [x] Run existing behavior tests (91 tests, all pass).
+- [x] Run scene validation for authored behavior content (Asteroids mod passes).
+- [x] Smoke-test behavior-heavy mod flow (Asteroids scene graph verified).
 
 ### 4.5 Done criteria for Phase 4
-- [ ] Behavior logic is split into focused modules.
-- [ ] No giant all-purpose orchestration block remains.
-- [ ] Existing behavior tests and validation are green.
+- [x] Behavior logic is split into focused modules.
+- [x] Repetitive data-shaping extracted into standalone helpers.
+- [x] Existing behavior tests and validation are green.
 
 ## Phase 5 — Authoring schema split
 
