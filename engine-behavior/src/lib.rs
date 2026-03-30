@@ -5404,6 +5404,99 @@ impl RhaiScriptBehavior {
     }
 }
 
+fn build_collision_events_array(collisions: &[CollisionHit]) -> RhaiArray {
+    collisions
+        .iter()
+        .map(|hit| {
+            let mut map = RhaiMap::new();
+            map.insert("a".into(), (hit.a as rhai::INT).into());
+            map.insert("b".into(), (hit.b as rhai::INT).into());
+            map.into()
+        })
+        .collect()
+}
+
+fn build_sidecar_io_map(sidecar_io: &SidecarIoFrameState) -> RhaiMap {
+    let mut ipc_map = RhaiMap::new();
+    ipc_map.insert(
+        "has_output".into(),
+        (!sidecar_io.output_lines.is_empty()).into(),
+    );
+    let output_array: RhaiArray = sidecar_io
+        .output_lines
+        .iter()
+        .cloned()
+        .map(Into::into)
+        .collect();
+    ipc_map.insert("output_lines".into(), output_array.into());
+    ipc_map.insert(
+        "clear_count".into(),
+        (sidecar_io.clear_count as rhai::INT).into(),
+    );
+    ipc_map.insert(
+        "has_screen_full".into(),
+        sidecar_io.screen_full_lines.is_some().into(),
+    );
+    let screen_full_lines: RhaiArray = sidecar_io
+        .screen_full_lines
+        .as_ref()
+        .map(|lines| lines.iter().cloned().map(Into::into).collect())
+        .unwrap_or_default();
+    ipc_map.insert("screen_full_lines".into(), screen_full_lines.into());
+    let custom_events: RhaiArray = sidecar_io
+        .custom_events
+        .iter()
+        .cloned()
+        .map(Into::into)
+        .collect();
+    ipc_map.insert("custom_events".into(), custom_events.into());
+    ipc_map
+}
+
+struct UiFieldsData {
+    focused_target: String,
+    theme: String,
+    submit_target: String,
+    submit_text: String,
+    change_target: String,
+    change_text: String,
+    has_submit: bool,
+    has_change: bool,
+}
+
+fn extract_ui_fields_data(ctx: &BehaviorContext) -> UiFieldsData {
+    UiFieldsData {
+        focused_target: ctx
+            .ui_focused_target_id
+            .as_deref()
+            .unwrap_or_default()
+            .to_string(),
+        theme: ctx.ui_theme_id.as_deref().unwrap_or_default().to_string(),
+        submit_target: ctx
+            .ui_last_submit_target_id
+            .as_deref()
+            .unwrap_or_default()
+            .to_string(),
+        submit_text: ctx
+            .ui_last_submit_text
+            .as_deref()
+            .unwrap_or_default()
+            .to_string(),
+        change_target: ctx
+            .ui_last_change_target_id
+            .as_deref()
+            .unwrap_or_default()
+            .to_string(),
+        change_text: ctx
+            .ui_last_change_text
+            .as_deref()
+            .unwrap_or_default()
+            .to_string(),
+        has_submit: ctx.ui_last_submit_target_id.is_some(),
+        has_change: ctx.ui_last_change_target_id.is_some(),
+    }
+}
+
 impl Behavior for RhaiScriptBehavior {
     fn update(
         &mut self,
@@ -5500,47 +5593,16 @@ impl Behavior for RhaiScriptBehavior {
                 // `state` pushed per-frame for scripts using the legacy return-state pattern.
                 scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
                 scope.push("ui", ScriptUiApi::new(ctx, Arc::clone(&helper_commands)));
-                scope.push(
-                    "ui_focused_target",
-                    ctx.ui_focused_target_id
-                        .as_deref()
-                        .unwrap_or_default()
-                        .to_string(),
-                );
-                scope.push(
-                    "ui_theme",
-                    ctx.ui_theme_id.as_deref().unwrap_or_default().to_string(),
-                );
-                scope.push(
-                    "ui_submit_target",
-                    ctx.ui_last_submit_target_id
-                        .as_deref()
-                        .unwrap_or_default()
-                        .to_string(),
-                );
-                scope.push(
-                    "ui_submit_text",
-                    ctx.ui_last_submit_text
-                        .as_deref()
-                        .unwrap_or_default()
-                        .to_string(),
-                );
-                scope.push(
-                    "ui_change_target",
-                    ctx.ui_last_change_target_id
-                        .as_deref()
-                        .unwrap_or_default()
-                        .to_string(),
-                );
-                scope.push(
-                    "ui_change_text",
-                    ctx.ui_last_change_text
-                        .as_deref()
-                        .unwrap_or_default()
-                        .to_string(),
-                );
-                scope.push("ui_has_submit", ctx.ui_last_submit_target_id.is_some());
-                scope.push("ui_has_change", ctx.ui_last_change_target_id.is_some());
+                
+                let ui_data = extract_ui_fields_data(ctx);
+                scope.push("ui_focused_target", ui_data.focused_target);
+                scope.push("ui_theme", ui_data.theme);
+                scope.push("ui_submit_target", ui_data.submit_target);
+                scope.push("ui_submit_text", ui_data.submit_text);
+                scope.push("ui_change_target", ui_data.change_target);
+                scope.push("ui_change_text", ui_data.change_text);
+                scope.push("ui_has_submit", ui_data.has_submit);
+                scope.push("ui_has_change", ui_data.has_change);
 
                 // Phase 7C: Use Arc-wrapped key map from context instead of rebuilding.
                 scope.push_dynamic("key", (*ctx.rhai_key_map).clone().into());
@@ -5549,58 +5611,13 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push_dynamic("engine", (*ctx.engine_key_map).clone().into());
 
                 // Gameplay collision events (array of {a, b} maps).
-                let collisions: RhaiArray = ctx
-                    .collisions
-                    .iter()
-                    .map(|hit| {
-                        let mut map = RhaiMap::new();
-                        map.insert("a".into(), (hit.a as rhai::INT).into());
-                        map.insert("b".into(), (hit.b as rhai::INT).into());
-                        map.into()
-                    })
-                    .collect();
-                scope.push_dynamic("collisions", collisions.into());
+                scope.push_dynamic(
+                    "collisions",
+                    build_collision_events_array(&ctx.collisions).into(),
+                );
 
                 // External sidecar bridge exposed as object-shaped `ipc.*`.
-                {
-                    let mut ipc_map = RhaiMap::new();
-                    ipc_map.insert(
-                        "has_output".into(),
-                        (!ctx.sidecar_io.output_lines.is_empty()).into(),
-                    );
-                    let output_array: RhaiArray = ctx
-                        .sidecar_io
-                        .output_lines
-                        .iter()
-                        .cloned()
-                        .map(Into::into)
-                        .collect();
-                    ipc_map.insert("output_lines".into(), output_array.into());
-                    ipc_map.insert(
-                        "clear_count".into(),
-                        (ctx.sidecar_io.clear_count as rhai::INT).into(),
-                    );
-                    ipc_map.insert(
-                        "has_screen_full".into(),
-                        ctx.sidecar_io.screen_full_lines.is_some().into(),
-                    );
-                    let screen_full_lines: RhaiArray = ctx
-                        .sidecar_io
-                        .screen_full_lines
-                        .as_ref()
-                        .map(|lines| lines.iter().cloned().map(Into::into).collect())
-                        .unwrap_or_default();
-                    ipc_map.insert("screen_full_lines".into(), screen_full_lines.into());
-                    let custom_events: RhaiArray = ctx
-                        .sidecar_io
-                        .custom_events
-                        .iter()
-                        .cloned()
-                        .map(Into::into)
-                        .collect();
-                    ipc_map.insert("custom_events".into(), custom_events.into());
-                    scope.push_dynamic("ipc", ipc_map.into());
-                }
+                scope.push_dynamic("ipc", build_sidecar_io_map(&ctx.sidecar_io).into());
 
                 // OPT-4: Reuse thread-local engine with all static registrations pre-done.
                 scope.push(

@@ -105,13 +105,13 @@ Purpose: remove duplicate state-model definitions so the engine has one authorit
 Purpose: break the behavior subsystem’s oversized orchestration into smaller units that are easier to reason about and maintain.
 
 ### 4.1 Partition responsibilities
-- [ ] Separate registration/setup concerns from runtime execution concerns.
-- [ ] Separate parsing/data-shaping concerns from command application concerns.
-- [ ] Separate helper utilities from orchestration logic.
+- [x] Separate registration/setup concerns from runtime execution concerns.
+- [x] Separate parsing/data-shaping concerns from command application concerns.
+- [x] Separate helper utilities from orchestration logic.
 
 ### 4.2 Remove repeated branching
-- [ ] Identify repeated setup flows and convert them into shared helpers.
-- [ ] Identify repeated command-dispatch patterns and convert them into structured dispatch tables or equivalent focused handlers.
+- [x] Identify repeated setup flows and convert them into shared helpers.
+- [x] Identify repeated command-dispatch patterns and convert them into structured dispatch tables or equivalent focused handlers.
 - [ ] Reduce wide branching blocks into smaller handlers grouped by responsibility.
 
 ### 4.3 Stabilize public behavior surface
