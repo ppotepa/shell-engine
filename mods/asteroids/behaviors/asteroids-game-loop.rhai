@@ -6,7 +6,7 @@ fn spawn_ship(world, cfg) {
         let ship = world.entity(id);
         world.set_visual(id, "ship");
         world.set_transform(id, 0.0, 0.0, 0.0);
-        world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.02, cfg["ship_max_speed"]);
+        world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.10, cfg["ship_max_speed"]);
         world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
         ship.attach_ship_controller(#{
             turn_step_ms: cfg["turn_step_ms"],

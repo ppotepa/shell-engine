@@ -6,7 +6,7 @@ if ship_id > 0 {
     if ship_ref.exists() {
         let is_invulnerable = ship_ref.status_has("invulnerable");
         let visible = if is_invulnerable { (time.scene_elapsed_ms / 120) % 2 == 0 } else { true };
-        let heading = ship_ref.get_i("/h", 0);
+        let heading = ship_ref.heading();
         let t = ship_ref.transform();
         scene.set_visible("ship", visible);
         scene.set("ship", "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
@@ -41,7 +41,7 @@ for ast_id in world.query_kind("asteroid") {
         for i in 0..3 {
             let frag_id = h::crack_visual_id(d, i);
             if frag_id.type_of() == "string" {
-                scene.set(frag_id, "vector.visible", true);
+                scene.set_visible(frag_id, true);
             }
         }
     } else {

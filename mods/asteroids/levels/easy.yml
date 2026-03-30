@@ -2,7 +2,7 @@ id: asteroids.easy
 player:
   lives: 5
   shot_cooldown_ms: 160
-  thrust_fp: 185
+  thrust_fp: 1800
   max_speed_fp: 5000
   turn_step_ms: 34
 combat:

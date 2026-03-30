@@ -73,7 +73,7 @@ fn hide_crack_visuals(scene, ast_data) {
     for i in 0..3 {
         let frag_id = crack_visual_id(ast_data, i);
         if frag_id.type_of() == "string" {
-            scene.set(frag_id, "vector.visible", false);
+            scene.set_visible(frag_id, false);
         }
     }
 }
@@ -94,7 +94,7 @@ fn next_seed(seed) {
 fn load_game_config(level) {
     let base_lives = level_i(level, "/player/lives", 3);
     let shot_cooldown_ms = clamp_i(level_i(level, "/player/shot_cooldown_ms", 200), 200, 1000);
-    let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 170), 60, 600)) / 1024.0 * velocity_scale();
+    let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 2048), 60, 10000)) / 1024.0 * velocity_scale();
     let ship_max_speed = to_float(clamp_i(level_i(level, "/player/max_speed_fp", 4608), 1024, 14000)) / 1024.0 * velocity_scale();
     let turn_step_ms = clamp_i(level_i(level, "/player/turn_step_ms", 40), 16, 150);
     let wave_base_spawn_count = clamp_i(level_i(level, "/waves/base_spawn_count", 4), 1, 20);
@@ -123,10 +123,15 @@ fn show_message(scene, game, text, ttl_ms) {
 }
 
 fn spawn_crack_visuals(world, scene, ast_id) {
+    // Guard: skip if crack visuals already spawned for this asteroid
+    // (prevents re-activating crack visuals for existing asteroids when others split)
+    let e = world.entity(ast_id);
+    if e.get_b("/cracks_spawned", false) { return; }
     for i in 0..3 {
         let cv = `asteroid-${ast_id}-crack-${i}`;
         scene.spawn_object("asteroid-template", cv);
         world.bind_visual(ast_id, cv);
         world.set(ast_id, `/crack_visual_${i}`, cv);
     }
+    world.set(ast_id, "/cracks_spawned", true);
 }
