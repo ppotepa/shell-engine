@@ -4,7 +4,7 @@ player:
   shot_cooldown_ms: 200
   thrust_fp: 2048
   max_speed_fp: 4608
-  turn_step_ms: 40
+  turn_step_ms: 25
 combat:
   bullet_ttl_ms: 900
   bullet_speed_fp: 4200
