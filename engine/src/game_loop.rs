@@ -7,7 +7,6 @@ use crate::services::EngineWorldAccess;
 use crate::systems;
 use crate::world::World;
 use engine_events::{EngineEvent::KeyPressed, InputBackend};
-use engine_game::GameplayWorld;
 use engine_render_terminal::input::is_debug_fast_forward_toggle;
 
 /// Runs the engine game loop for `world` at `target_fps` until the player quits.

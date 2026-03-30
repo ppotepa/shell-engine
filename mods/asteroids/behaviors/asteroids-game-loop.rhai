@@ -175,6 +175,11 @@ if !local.contains("init") {
             world.set(ast_id, `/crack_visual_${i}`, cv);
         }
     }
+    // Bind input actions once — scripts use action_down() instead of raw key polling
+    input.bind_action("turn_left",  ["Left",  "a", "A"]);
+    input.bind_action("turn_right", ["Right", "d", "D"]);
+    input.bind_action("thrust",     ["Up",    "w", "W"]);
+    input.bind_action("fire",       [" ",     "f", "F"]);
     audio.play_song("asteroids.game-loop");
     local["init"] = true;
     diag.info("asteroids session init");
@@ -228,17 +233,14 @@ if key.pressed == true {
     }
 }
 
-let key_code = if key.code.type_of() == "string" { key.code } else { "" };
-let key_pressed = key.pressed == true;
-let left_down = input.down("Left") || input.down("a") || (key_pressed && (key_code == "Left" || key_code == "a" || key_code == "A"));
-let right_down = input.down("Right") || input.down("d") || (key_pressed && (key_code == "Right" || key_code == "d" || key_code == "D"));
-let thrust_down = input.down("Up") || input.down("w") || (key_pressed && (key_code == "Up" || key_code == "w" || key_code == "W"));
-let fire_down = input.down(" ") || input.down("f") || (key_pressed && (key_code == " " || key_code == "f" || key_code == "F"));
+let left_down  = input.action_down("turn_left");
+let right_down = input.action_down("turn_right");
+let thrust_down = input.action_down("thrust");
+let fire_down  = input.action_down("fire");
 
 if world.exists(ship_id) {
     let ship_ref = world.entity(ship_id);
     let cfg = if local.contains("cfg") { local["cfg"] } else { load_game_config(level) };
-    let smoke_cd = if local.contains("smoke_cd") { local["smoke_cd"] } else { 0 };
 
     // Use TopDownShipController API
     let turn_dir = if left_down { -1 } else if right_down { 1 } else { 0 };
@@ -265,10 +267,10 @@ if world.exists(ship_id) {
     // Thrust generates smoke particles
     if thrust_down {
         let heading_vec = world.ship_heading_vector(ship_id);
-        if smoke_cd <= 0 && world.count_kind("smoke") < 40 {
+        if ship_ref.cooldown_ready("smoke") && world.count_kind("smoke") < 40 {
             spawn_smoke(world, tx - (heading_vec.x * 6.0), ty - (heading_vec.y * 6.0),
                        vx / h::velocity_scale() - (heading_vec.x * 0.35), vy / h::velocity_scale() - (heading_vec.y * 0.35), 520, 3);
-            smoke_cd = 48;
+            ship_ref.cooldown_start("smoke", 48);
         }
     }
 
@@ -286,10 +288,6 @@ if world.exists(ship_id) {
     let new_x = wrap(tx, min_x, max_x);
     let new_y = wrap(ty, min_y, max_y);
     ship_ref.set_position(new_x, new_y);
-
-    if smoke_cd > 0 { smoke_cd -= dt; }
-
-    local["smoke_cd"] = smoke_cd;
 }
 
 for ast_id in world.query_kind("asteroid") {
@@ -383,7 +381,7 @@ for bid in world.query_kind("bullet") {
 let score = to_i(game.get("/ast/score"));
 let lives = to_i(game.get("/ast/lives"));
 let ship_ref = world.entity(ship_id);
-let ship_invuln = if ship_ref.exists() { ship_ref.get_i("/invuln_ms", 0) } else { 0 };
+let ship_invuln = if ship_ref.exists() { ship_ref.status_has("invulnerable") } else { false };
 
 for hit in world.collisions_between("ship", "asteroid") {
     let ast_hit_id = hit["asteroid"];

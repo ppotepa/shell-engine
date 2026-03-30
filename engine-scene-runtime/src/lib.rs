@@ -83,6 +83,7 @@ pub struct SceneRuntime {
     terminal_shell_scene_elapsed_ms: u64,
     ui_state: UiRuntimeState,
     pending_bindings: Vec<BehaviorBinding>,
+    action_bindings: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Clone)]

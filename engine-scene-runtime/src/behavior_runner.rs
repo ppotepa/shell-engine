@@ -196,7 +196,7 @@ impl SceneRuntime {
             rhai_menu_map,
             rhai_key_map,
             engine_key_map,
-            action_bindings: std::sync::Arc::new(HashMap::new()),
+            action_bindings: std::sync::Arc::new(self.action_bindings.clone()),
         };
         let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {
@@ -506,10 +506,8 @@ impl SceneRuntime {
                 }
                 BehaviorCommand::SceneTransition { .. } => {}
                 BehaviorCommand::DebugLog { .. } => {}
-                BehaviorCommand::BindInputAction { action: _, keys: _ } => {
-                    // action_bindings is Arc, so we can't mutate it directly.
-                    // This would need to be handled at the behavior system level if mutation is needed.
-                    // For now, this is a no-op at the scene runtime level.
+                BehaviorCommand::BindInputAction { action, keys } => {
+                    self.action_bindings.insert(action.clone(), keys.clone());
                 }
                 // ScriptError is consumed at the behavior system level (world access needed).
                 BehaviorCommand::ScriptError { .. } => {}

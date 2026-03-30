@@ -125,6 +125,7 @@ impl SceneRuntime {
             terminal_shell_scene_elapsed_ms: 0,
             ui_state: UiRuntimeState::default(),
             pending_bindings: Vec::new(),
+            action_bindings: HashMap::new(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime
