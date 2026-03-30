@@ -233,82 +233,6 @@ fn sin32(i: i32) -> i32 {
     SIN_TABLE[((i % 32).abs()) as usize]
 }
 
-/// Health component for entities that can take damage.
-///
-/// When hp reaches 0 or below, a health_zero event is emitted.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Health {
-    pub hp: i32,
-    pub max_hp: i32,
-}
-
-impl Health {
-    /// Create a new health component.
-    pub fn new(hp: i32, max_hp: i32) -> Self {
-        Self {
-            hp: hp.min(max_hp),
-            max_hp: max_hp.max(1),
-        }
-    }
-
-    /// Check if the entity is dead.
-    pub fn is_dead(&self) -> bool {
-        self.hp <= 0
-    }
-
-    /// Apply damage and return whether the entity just died.
-    pub fn take_damage(&mut self, amount: i32) -> bool {
-        let was_alive = !self.is_dead();
-        self.hp -= amount;
-        was_alive && self.is_dead()
-    }
-}
-
-/// Configures how an entity splits into child entities when destroyed.
-///
-/// When the entity takes damage and reaches 0 HP, this component triggers
-/// spawning of child entities with configured parameters.
-#[derive(Clone, Debug)]
-pub struct SplitOnDestroy {
-    /// Delay in milliseconds before spawning children (allows split animation).
-    pub delay_ms: u32,
-    /// How many child entities to spawn.
-    pub child_count: u32,
-    /// Size modifier for children (e.g., -1 = one size category smaller).
-    pub size_delta: i32,
-    /// Velocity magnitude for spawned children.
-    pub velocity_factor: f32,
-    /// Whether the split has been triggered (used for animation delay).
-    pub triggered: bool,
-    /// Accumulated time since triggered.
-    pub elapsed_ms: u32,
-}
-
-impl SplitOnDestroy {
-    /// Create a new split-on-destroy configuration.
-    pub fn new(delay_ms: u32, child_count: u32, size_delta: i32, velocity_factor: f32) -> Self {
-        Self {
-            delay_ms,
-            child_count,
-            size_delta,
-            velocity_factor,
-            triggered: false,
-            elapsed_ms: 0,
-        }
-    }
-
-    /// Check if the split is ready to occur.
-    pub fn is_ready(&self) -> bool {
-        self.triggered && self.elapsed_ms >= self.delay_ms
-    }
-}
-
-impl Default for SplitOnDestroy {
-    fn default() -> Self {
-        Self::new(0, 2, -1, 1.0)
-    }
-}
-
 /// Gameplay events emitted during frame processing.
 ///
 /// Events accumulate during a frame and can be polled by scripts via the world API.
@@ -318,8 +242,4 @@ pub enum GameplayEvent {
     /// Two entities collided this frame (a, b).
     /// Emitted for both (a, b) and (b, a) directions for script convenience.
     CollisionEnter { a: u64, b: u64 },
-    /// Damage was applied to a target from a source.
-    DamageApplied { target: u64, source: u64, amount: i32 },
-    /// Entity's health reached 0.
-    HealthZero { entity: u64, killer: u64 },
 }

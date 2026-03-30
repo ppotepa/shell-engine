@@ -23,7 +23,7 @@ use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
 };
-use engine_game::components::{DespawnVisual, SplitOnDestroy, TopDownShipController};
+use engine_game::components::{DespawnVisual, TopDownShipController};
 use engine_persistence::PersistenceStore;
 use engine_physics::{point_in_polygon, polygons_intersect, segment_intersects_polygon};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
@@ -1147,33 +1147,6 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
 
-    // ── Health & Damage API (on entity ref) ───────────────────────────────
-    engine.register_fn("health_set",
-        |entity: &mut ScriptGameplayEntityApi, hp: rhai::INT, max_hp: rhai::INT| -> bool {
-            entity.health_set(hp, max_hp)
-        },
-    );
-    engine.register_fn("health_get",
-        |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
-            entity.health_get()
-        },
-    );
-    engine.register_fn("health_max",
-        |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
-            entity.health_max()
-        },
-    );
-    engine.register_fn("health_dead",
-        |entity: &mut ScriptGameplayEntityApi| -> bool {
-            entity.health_dead()
-        },
-    );
-    engine.register_fn("damage",
-        |entity: &mut ScriptGameplayEntityApi, source: rhai::INT, amount: rhai::INT| -> bool {
-            entity.damage(source, amount)
-        },
-    );
-
     // ── Wrap API ──────────────────────────────────────────────────────────
     engine.register_fn(
         "enable_wrap",
@@ -1286,39 +1259,6 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("clear_events",
         |world: &mut ScriptGameplayApi| {
             world.clear_events();
-        },
-    );
-
-    // ── Health & Damage API ────────────────────────────────────────────
-    engine.register_fn("health_set",
-        |world: &mut ScriptGameplayApi, id: rhai::INT, hp: rhai::INT, max_hp: rhai::INT| -> bool {
-            world.health_set(id, hp, max_hp)
-        },
-    );
-    engine.register_fn("health_get",
-        |world: &mut ScriptGameplayApi, id: rhai::INT| -> rhai::INT {
-            world.health_get(id)
-        },
-    );
-    engine.register_fn("health_max",
-        |world: &mut ScriptGameplayApi, id: rhai::INT| -> rhai::INT {
-            world.health_max(id)
-        },
-    );
-    engine.register_fn("health_dead",
-        |world: &mut ScriptGameplayApi, id: rhai::INT| -> bool {
-            world.health_dead(id)
-        },
-    );
-    engine.register_fn("damage_apply",
-        |world: &mut ScriptGameplayApi, target: rhai::INT, source: rhai::INT, amount: rhai::INT| -> bool {
-            world.damage_apply(target, source, amount)
-        },
-    );
-
-    engine.register_fn("destructible_configure",
-        |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| -> bool {
-            world.destructible_configure(id, config)
         },
     );
 
@@ -2893,62 +2833,6 @@ impl ScriptGameplayApi {
         }
     }
 
-    fn health_set(&mut self, id: rhai::INT, hp: rhai::INT, max_hp: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
-        let uid = id as u64;
-        world.set_health(uid, hp as i32, max_hp as i32)
-    }
-
-    fn health_get(&mut self, id: rhai::INT) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return 0 };
-        let uid = id as u64;
-        world.health(uid).map(|h| h.hp as rhai::INT).unwrap_or(0)
-    }
-
-    fn health_max(&mut self, id: rhai::INT) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return 0 };
-        let uid = id as u64;
-        world.health(uid).map(|h| h.max_hp as rhai::INT).unwrap_or(0)
-    }
-
-    fn health_dead(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
-        let uid = id as u64;
-        world.is_dead(uid)
-    }
-
-    fn damage_apply(&mut self, target: rhai::INT, source: rhai::INT, amount: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
-        let target_uid = target as u64;
-        let source_uid = source as u64;
-        world.apply_damage(target_uid, source_uid, amount as i32)
-    }
-
-    fn destructible_configure(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
-        let uid = id as u64;
-
-        // Extract config fields with defaults
-        let delay_ms = config
-            .get("delay_ms")
-            .and_then(|v| v.clone().try_cast::<rhai::INT>())
-            .unwrap_or(0) as u32;
-        let child_count = config
-            .get("child_count")
-            .and_then(|v| v.clone().try_cast::<rhai::INT>())
-            .unwrap_or(2) as u32;
-        let size_delta = config
-            .get("size_delta")
-            .and_then(|v| v.clone().try_cast::<rhai::INT>())
-            .unwrap_or(-1) as i32;
-        let velocity_factor = config
-            .get("velocity_factor")
-            .and_then(|v| v.clone().try_cast::<f64>())
-            .unwrap_or(1.0) as f32;
-
-        let split_config = SplitOnDestroy::new(delay_ms, child_count, size_delta, velocity_factor);
-        world.set_split_on_destroy(uid, split_config)
-    }
 }
 
 impl ScriptGameplayEntityApi {
@@ -3431,32 +3315,6 @@ impl ScriptGameplayEntityApi {
         }
     }
 
-    // ── Health & Damage API ───────────────────────────────────────────────
-
-    fn health_set(&mut self, hp: rhai::INT, max_hp: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
-        world.set_health(self.id, hp as i32, max_hp as i32)
-    }
-
-    fn health_get(&mut self) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return 0 };
-        world.health(self.id).map(|h| h.hp as rhai::INT).unwrap_or(0)
-    }
-
-    fn health_max(&mut self) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return 0 };
-        world.health(self.id).map(|h| h.max_hp as rhai::INT).unwrap_or(0)
-    }
-
-    fn health_dead(&mut self) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
-        world.is_dead(self.id)
-    }
-
-    fn damage(&mut self, source: rhai::INT, amount: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
-        world.apply_damage(self.id, source as u64, amount as i32)
-    }
 }
 
 
