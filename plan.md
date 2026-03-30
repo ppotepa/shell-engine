@@ -293,10 +293,21 @@ Purpose: capture the review’s secondary editor-side signals so the simplificat
 
 Purpose: address the broader foundation-layer issues from the review so “base” crates stop accumulating mixed responsibilities.
 
-**Status:** Stage A (pure helpers extraction) 100% COMPLETE ✅
-- [x] Created geometry.rs, rhai_util.rs, emit.rs modules
+**Status:** Stage A & C (pure helpers + scripting domain separation) 100% COMPLETE ✅
+
+**Stage A** — Pure helpers extraction:
+- [x] Created geometry.rs (125 lines), rhai_util.rs (198 lines), emit.rs (88 lines) modules
 - [x] Removed duplicate definitions from lib.rs (507 LOC)
 - [x] Added glob imports in lib.rs
+
+**Stage C** — Scripting domain separation (50% → 100%):
+- [x] Created scripting/ module directory with domain-organized submodules
+- [x] Created scripting/mod.rs orchestration with register_all_domains()
+- [x] Extracted audio, ui, game, io, scene, debug, gameplay domain modules
+- [x] Created gameplay_impl.rs for large gameplay API implementations (2,501 lines)
+- [x] Made all API methods pub(crate) for inter-module visibility
+- [x] Fixed imports: gameplay_impl imports ScriptFxApi, ScriptUiApi, geometry, rhai_util
+- [x] All 68 tests pass; Asteroids scene validation passes
 
 ### 11.1 Foundation crate slimming
 - [ ] Identify neutral shared types versus diagnostics versus state versus authoring metadata concerns.

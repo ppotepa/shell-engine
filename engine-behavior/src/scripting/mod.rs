@@ -7,6 +7,7 @@ pub mod audio;
 pub mod debug;
 pub mod game;
 pub mod gameplay;
+pub mod gameplay_impl;
 pub mod helpers;
 pub mod io;
 pub mod scene;

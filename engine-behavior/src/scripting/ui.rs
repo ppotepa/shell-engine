@@ -24,9 +24,9 @@ pub(crate) struct ScriptUiApi {
 }
 
 impl ScriptUiApi {
-    const FLASH_TEXT_PATH: &'static str = "/__ui/game_message/text";
-    const FLASH_UNTIL_MS_PATH: &'static str = "/__ui/game_message/until_ms";
-    const FLASH_TARGET: &'static str = "game-message";
+    pub(crate) const FLASH_TEXT_PATH: &'static str = "/__ui/game_message/text";
+    pub(crate) const FLASH_UNTIL_MS_PATH: &'static str = "/__ui/game_message/until_ms";
+    pub(crate) const FLASH_TARGET: &'static str = "game-message";
 
     pub(crate) fn new(ctx: &BehaviorContext, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
         Self {

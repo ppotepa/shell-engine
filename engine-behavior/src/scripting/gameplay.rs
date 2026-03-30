@@ -413,8 +413,4 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "set_thrust",
         |entity: &mut ScriptGameplayEntityApi, on: bool| entity.set_thrust(on),
     );
-    engine.register_fn(
-        "set_fire",
-        |entity: &mut ScriptGameplayEntityApi, on: bool| entity.set_fire(on),
-    );
 }

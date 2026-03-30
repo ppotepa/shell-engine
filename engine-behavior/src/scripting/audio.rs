@@ -94,13 +94,13 @@ impl ScriptFxApi {
         }
     }
 
-    fn emit(&mut self, effect_name: &str, _args: RhaiMap) -> bool {
+    pub(crate) fn emit(&mut self, effect_name: &str, _args: RhaiMap) -> bool {
         let effect_name = effect_name.trim();
         if effect_name.is_empty() {
             return false;
         }
         // Check if effect exists in catalog
-        if !self.catalogs.effects.contains_key(effect_name) {
+        if !self.catalogs.emitters.contains_key(effect_name) {
             return false;
         }
         // In a full implementation, we would emit the effect to the gameplay world.
