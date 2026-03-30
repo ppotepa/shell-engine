@@ -1,12 +1,15 @@
-# Weapon configurations for Asteroids
+# Weapon configurations for Asteroids gameplay
 # Loaded via: world.try_fire_weapon("asteroids.ship", ship_id, cfg)
+#
+# Defines projectile spawning rules: cooldown, max bullets, speed, offset.
+# Loaded once at weapon init; cooldown tracked per-entity via state.
 
 weapons:
   asteroids.ship:
-    max_bullets: 8
-    bullet_kind: "bullet"
-    bullet_ttl_ms: 900
-    cooldown_ms: 120
-    cooldown_name: "fire"
-    spawn_offset: 20.0
-    speed_scale: 60.0
+    max_bullets: 8            # Max bullets on screen (older bullets despawn if exceeded)
+    bullet_kind: "bullet"     # Prefab to spawn
+    bullet_ttl_ms: 900        # Bullet lifetime in milliseconds
+    cooldown_ms: 120          # Minimum ms between fire attempts
+    cooldown_name: "fire"     # State key for cooldown tracking
+    spawn_offset: 20.0        # Distance from ship center to bullet spawn point
+    speed_scale: 60.0         # Bullet speed multiplier (pixels/ms)

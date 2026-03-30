@@ -1,20 +1,26 @@
-# Emitter configurations for Asteroids
+# Emitter configurations for Asteroids gameplay
 # Loaded via: fx.emit("asteroids.ship_thrust_smoke", args)
+#            fx.emit("asteroids.ship_disintegration", args)
+#
+# Emitters spawn transient particles (smoke, sparks, etc) at regular intervals.
+# Tracked by cooldown_name; particles auto-despawn after ttl_ms.
 
 emitters:
   asteroids.ship_thrust_smoke:
-    max_count: 40
-    cooldown_name: "smoke"
-    cooldown_ms: 48
-    spawn_offset: 6.0
-    backward_speed: 0.35
-    ttl_ms: 520
-    radius: 3
-    velocity_scale: 60.0
+    # Spawned every frame while thruster is active
+    max_count: 40           # Max particles in the pool
+    cooldown_name: "smoke"  # State key for spawn throttle
+    cooldown_ms: 48         # Emit every 48ms (when active)
+    spawn_offset: 6.0       # Distance from ship center
+    backward_speed: 0.35    # Particles move opposite to ship velocity
+    ttl_ms: 520             # Particle lifetime
+    radius: 3               # Visual particle size
+    velocity_scale: 60.0    # Particle speed multiplier
     
   asteroids.ship_disintegration:
-    max_count: 20
-    spawn_offset: 0.0
-    ttl_ms: 800
-    radius: 4
-    velocity_scale: 60.0
+    # Spawned once when ship is destroyed
+    max_count: 20           # Smaller burst pool for explosion
+    spawn_offset: 0.0       # Spawn at exact center (ship position)
+    ttl_ms: 800             # Longer-lived explosion particles
+    radius: 4               # Slightly larger particles
+    velocity_scale: 60.0    # Explosion spread speed

@@ -63,6 +63,193 @@ objects:
 
 ---
 
+## Gameplay Catalogs
+
+Gameplay catalogs define reusable data templates for a mod's entities and actions.
+Instead of hardcoding behavior logic in Rust, mod authors can declare gameplay
+configs in YAML and reference them from Rhai scripts.
+
+### Catalog Structure
+
+Catalogs live in `mods/<mod>/catalogs/`:
+
+```
+mods/<mod>/catalogs/
++-- input-profiles.yaml     Player input key bindings
++-- prefabs.yaml            Entity templates (ship, asteroid, bullet, etc.)
++-- weapons.yaml            Weapon configs (bullets, cooldown, speed)
++-- emitters.yaml           Particle emitter configs (smoke, sparks, etc.)
++-- spawners.yaml           Spawn groups and waves (initial setup, split behavior)
+```
+
+All files are optional. If a catalog is missing, scripts fall back to hardcoded defaults.
+Catalogs are loaded during mod initialization and cached as a World resource.
+
+### Loading Catalogs from Scripts
+
+#### Input Profiles
+
+```rhai
+// Load player input key bindings
+let profile = input.load_profile("asteroids.default");
+// Emits BindInputAction commands; engine input system receives bindings
+```
+
+**Catalog format:**
+
+```yaml
+# mods/asteroids/catalogs/input-profiles.yaml
+profiles:
+  default:
+    bindings:
+      turn_left: ["Left", "a", "A"]
+      turn_right: ["Right", "d", "D"]
+      thrust: ["Up", "w", "W"]
+      fire: [" ", "f", "F"]
+```
+
+#### Prefabs
+
+```rhai
+// Spawn entity from template
+let ship_id = world.spawn_prefab("ship", { x: 100, y: 100, heading: 0 });
+```
+
+**Catalog format:**
+
+```yaml
+# mods/asteroids/catalogs/prefabs.yaml
+prefabs:
+  ship:
+    kind: "ship"
+    sprite_template: "ship"
+    init_fields:
+      x: 0
+      y: 0
+  asteroid:
+    kind: "asteroid"
+    sprite_template: "asteroid-template"
+    init_fields:
+      x: 0
+      y: 0
+      vx: 0
+      vy: 0
+      shape: 0
+      size: 1
+```
+
+#### Spawn Groups
+
+```rhai
+// Spawn batch of entities (e.g., initial asteroids)
+world.spawn_group("asteroids.initial", "asteroid");
+```
+
+**Catalog format:**
+
+```yaml
+# mods/asteroids/catalogs/spawners.yaml
+groups:
+  asteroids.initial:
+    prefab: "asteroid"
+    spawns:
+      - {x: -300, y: -210, vx: 2.0, vy: 0.0, shape: 0, size: 2}
+      - {x: 300, y: -210, vx: 0.0, vy: 2.0, shape: 1, size: 3}
+      # ... more spawn specs
+```
+
+#### Spawn Waves
+
+```rhai
+// Dynamic spawn wave (e.g., asteroid fragments from destroyed parent)
+world.spawn_wave("asteroids.dynamic", {
+  parent_x: 100,
+  parent_y: 100,
+  count: 2,
+  ship_id: some_ship_id
+});
+```
+
+**Catalog format:**
+
+```yaml
+# mods/asteroids/catalogs/spawners.yaml
+waves:
+  asteroids.dynamic:
+    prefab: "asteroid"
+    size_distribution:
+      # Large asteroids (idx 0-2) split into 2 medium asteroids (size 3)
+      - {min_idx: 0, max_idx: 2, size: 3}
+      # Medium asteroids (idx 2-5) split into 2 small asteroids (size 2)
+      - {min_idx: 2, max_idx: 5, size: 2}
+      # Small asteroids (idx 5+) don't split
+      - {min_idx: 5, size: 1}
+```
+
+#### Weapons
+
+```rhai
+// Fire weapon with catalog-defined projectile rules
+world.try_fire_weapon("asteroids.ship", ship_id, {
+  // Optional overrides (all fields have catalog defaults)
+  max_bullets: 8,
+  bullet_ttl_ms: 900,
+  cooldown_ms: 120
+});
+```
+
+**Catalog format:**
+
+```yaml
+# mods/asteroids/catalogs/weapons.yaml
+weapons:
+  asteroids.ship:
+    max_bullets: 8           # Max bullets on screen
+    bullet_kind: "bullet"    # Prefab to spawn
+    bullet_ttl_ms: 900       # Bullet lifetime (ms)
+    cooldown_ms: 120         # Fire rate (ms between shots)
+    cooldown_name: "fire"    # State key for cooldown tracking
+    spawn_offset: 20.0       # Distance from ship center
+    speed_scale: 60.0        # Bullet speed multiplier
+```
+
+#### Emitters
+
+```rhai
+// Emit particles (smoke, sparks, explosion, etc.)
+fx.emit("asteroids.ship_thrust_smoke", {
+  x: ship_x,
+  y: ship_y,
+  vx: ship_vx,
+  vy: ship_vy
+});
+```
+
+**Catalog format:**
+
+```yaml
+# mods/asteroids/catalogs/emitters.yaml
+emitters:
+  asteroids.ship_thrust_smoke:
+    max_count: 40            # Max particles in pool
+    cooldown_name: "smoke"   # State key for spawn throttle
+    cooldown_ms: 48          # Emit every Nms
+    spawn_offset: 6.0        # Distance from entity
+    backward_speed: 0.35     # Relative speed to entity
+    ttl_ms: 520              # Particle lifetime (ms)
+    radius: 3                # Visual particle size
+    velocity_scale: 60.0     # Speed multiplier
+```
+
+### Backward Compatibility
+
+All gameplay functions (spawn_prefab, try_fire_weapon, emit, etc.) retain
+hardcoded fallbacks. If a catalog entry is not found, the function falls back
+to its hardcoded Rust implementation. This allows gradual migration from
+hardcoded gameplay to catalog-driven gameplay.
+
+---
+
 ## Asset System
 
 Mental model (each level builds on the previous):

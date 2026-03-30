@@ -1,10 +1,17 @@
-# Prefab templates for Asteroids
+# Prefab templates for Asteroids gameplay
 # Loaded via: world.spawn_prefab("ship", args)
+#            world.spawn_prefab("asteroid", args)
+#
+# Each prefab defines a reusable entity template with:
+#  - kind: Internal type identifier (used by behavior scripts)
+#  - sprite_template: Name of the sprite to attach
+#  - init_fields: Default properties (can be overridden per spawn)
 
 prefabs:
   ship:
     kind: "ship"
     sprite_template: "ship"
+    # Ship spawns at origin; position set by behavior
     init_fields:
       x: 0
       y: 0
@@ -12,13 +19,14 @@ prefabs:
   asteroid:
     kind: "asteroid"
     sprite_template: "asteroid-template"
+    # Asteroids have shape variant and size tier
     init_fields:
       x: 0
       y: 0
-      vx: 0
-      vy: 0
-      shape: 0
-      size: 1
+      vx: 0    # velocity: horizontal
+      vy: 0    # velocity: vertical
+      shape: 0 # visual shape variant (0-3)
+      size: 1  # size tier (1-3, where 1=largest, 3=smallest)
       
   bullet:
     kind: "bullet"
@@ -26,15 +34,16 @@ prefabs:
     init_fields:
       x: 0
       y: 0
-      vx: 0
-      vy: 0
+      vx: 0  # velocity: horizontal (set by fire_weapon)
+      vy: 0  # velocity: vertical (set by fire_weapon)
       
   smoke:
     kind: "smoke"
     sprite_template: "smoke-template"
+    # Smoke particles are spawned by emitters with automatic TTL
     init_fields:
       x: 0
       y: 0
-      ttl_ms: 520
-      max_ttl_ms: 520
-      radius: 3
+      ttl_ms: 520       # time-to-live in milliseconds
+      max_ttl_ms: 520   # max TTL for animation
+      radius: 3         # visual size (affects particle appearance)

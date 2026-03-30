@@ -1,10 +1,14 @@
-# Spawn groups and waves for Asteroids
+# Spawn groups and waves for Asteroids gameplay
 # Loaded via: world.spawn_group("asteroids.initial", "asteroid")
-#             world.spawn_wave("asteroids.dynamic", args)
+#            world.spawn_wave("asteroids.dynamic", args)
+#
+# Groups: One-time spawn batches (e.g., initial asteroids setup).
+# Waves:  Dynamic spawners that generate asteroids based on size distribution.
 
 groups:
   asteroids.initial:
     prefab: "asteroid"
+    # 10 initial asteroids scattered around the arena
     spawns:
       - {x: -300, y: -210, vx: 2.0, vy: 0.0, shape: 0, size: 2}
       - {x: 300, y: -210, vx: 0.0, vy: 2.0, shape: 1, size: 3}
@@ -19,8 +23,12 @@ groups:
 
 waves:
   asteroids.dynamic:
+    # Wave spawner for destroyed asteroid fragments
     prefab: "asteroid"
     size_distribution:
+      # Large asteroids split into 2 medium asteroids
       - {min_idx: 0, max_idx: 2, size: 3}
+      # Medium asteroids split into 2 small asteroids
       - {min_idx: 2, max_idx: 5, size: 2}
+      # Small asteroids disappear (spawn nothing)
       - {min_idx: 5, size: 1}
