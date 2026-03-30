@@ -1800,6 +1800,7 @@ struct ScriptGameplayApi {
     collision_enters: std::sync::Arc<Vec<CollisionHit>>,
     collision_stays: std::sync::Arc<Vec<CollisionHit>>,
     collision_exits: std::sync::Arc<Vec<CollisionHit>>,
+    catalogs: Arc<catalog::ModCatalogs>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -2582,6 +2583,7 @@ impl ScriptFxApi {
             Arc::new(Vec::new()),
             Arc::new(Vec::new()),
             Arc::new(Vec::new()),
+            Arc::new(catalog::ModCatalogs::default()),
             Arc::clone(&self.queue),
         )
     }
@@ -2793,6 +2795,7 @@ impl ScriptGameplayApi {
         collision_enters: std::sync::Arc<Vec<CollisionHit>>,
         collision_stays: std::sync::Arc<Vec<CollisionHit>>,
         collision_exits: std::sync::Arc<Vec<CollisionHit>>,
+        catalogs: Arc<catalog::ModCatalogs>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
         Self {
@@ -2803,6 +2806,7 @@ impl ScriptGameplayApi {
             collision_enters,
             collision_stays,
             collision_exits,
+            catalogs,
             queue,
         }
     }
@@ -3346,6 +3350,9 @@ impl ScriptGameplayApi {
     }
 
     fn spawn_prefab(&mut self, name: &str, args: RhaiMap) -> rhai::INT {
+        // Check if prefab exists in catalog; fall back to hardcoded
+        let prefab_exists_in_catalog = self.catalogs.prefabs.contains_key(name);
+        
         match name {
             "ship" => {
                 let cfg = Self::map_map(&args, "cfg").unwrap_or_default();
@@ -5330,6 +5337,7 @@ impl Behavior for RhaiScriptBehavior {
                         std::sync::Arc::clone(&ctx.collision_enters),
                         std::sync::Arc::clone(&ctx.collision_stays),
                         std::sync::Arc::clone(&ctx.collision_exits),
+                        Arc::clone(&ctx.catalogs),
                         Arc::clone(&helper_commands),
                     ),
                 );
