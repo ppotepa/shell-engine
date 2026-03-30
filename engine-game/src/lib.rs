@@ -10,6 +10,7 @@ pub mod game_object;
 pub mod game_state;
 pub mod gameplay;
 pub mod components;
+pub mod prefabs;
 pub mod strategy;
 pub mod collision;
 
@@ -20,5 +21,6 @@ pub use components::{
     Collider2D, ColliderShape, EntityTimers, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding, WrapBounds,
 };
+pub use prefabs::{PrefabSpec, SpawnParams};
 pub use strategy::{GameplayStrategies, PhysicsIntegrationStrategy, SimpleEulerIntegration};
 pub use collision::{CollisionStrategies, CollisionHit, BroadphaseKind, NarrowphaseKind, WrapStrategy};

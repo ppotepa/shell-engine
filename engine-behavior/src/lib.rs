@@ -1230,6 +1230,18 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
 
+    engine.register_fn("spawn_prefab",
+        |world: &mut ScriptGameplayApi, prefab_id: &str, params: RhaiMap| -> rhai::INT {
+            world.spawn_prefab(prefab_id, params) as rhai::INT
+        },
+    );
+
+    engine.register_fn("register_prefab",
+        |world: &mut ScriptGameplayApi, prefab_id: &str, spec: RhaiMap| -> bool {
+            world.register_prefab(prefab_id, spec)
+        },
+    );
+
     engine.register_fn("abs_i", |v: rhai::INT| -> rhai::INT {
         if v < 0 {
             -v
@@ -2783,6 +2795,72 @@ impl ScriptGameplayApi {
 
         let split_config = SplitOnDestroy::new(delay_ms, child_count, size_delta, velocity_factor);
         world.set_split_on_destroy(uid, split_config)
+    }
+
+    fn spawn_prefab(&mut self, prefab_id: &str, params: RhaiMap) -> u64 {
+        let Some(world) = self.world.as_ref() else { return 0 };
+
+        // Extract spawn parameters
+        use engine_game::SpawnParams;
+        let mut spawn_params = SpawnParams::new();
+
+        // Position
+        if let Some(pos) = params.get("position") {
+            if let Some(arr) = pos.clone().try_cast::<rhai::Array>() {
+                if arr.len() >= 2 {
+                    let x = arr[0].clone().try_cast::<f64>().unwrap_or(0.0) as f32;
+                    let y = arr[1].clone().try_cast::<f64>().unwrap_or(0.0) as f32;
+                    spawn_params = spawn_params.with_position(x, y);
+                }
+            }
+        }
+
+        // Velocity
+        if let Some(vel) = params.get("velocity") {
+            if let Some(arr) = vel.clone().try_cast::<rhai::Array>() {
+                if arr.len() >= 2 {
+                    let vx = arr[0].clone().try_cast::<f64>().unwrap_or(0.0) as f32;
+                    let vy = arr[1].clone().try_cast::<f64>().unwrap_or(0.0) as f32;
+                    spawn_params = spawn_params.with_velocity(vx, vy);
+                }
+            }
+        }
+
+        // Heading
+        if let Some(heading) = params.get("heading") {
+            if let Some(h) = heading.clone().try_cast::<f64>() {
+                spawn_params = spawn_params.with_heading(h as f32);
+            }
+        }
+
+        // Size delta
+        if let Some(delta) = params.get("size_delta") {
+            if let Some(d) = delta.clone().try_cast::<rhai::INT>() {
+                spawn_params = spawn_params.with_size_delta(d as i32);
+            }
+        }
+
+        world.spawn_from_prefab(prefab_id, spawn_params).unwrap_or(0)
+    }
+
+    fn register_prefab(&mut self, prefab_id: &str, spec: RhaiMap) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+
+        use engine_game::PrefabSpec;
+        let mut prefab = PrefabSpec::new(prefab_id);
+
+        // Extract kind from spec if provided
+        if let Some(kind) = spec.get("kind") {
+            if let Some(k) = kind.clone().try_cast::<String>() {
+                prefab.kind = k;
+            }
+        }
+
+        // We could extract more components here, but for Phase 2.2,
+        // minimal implementation: just register the prefab ID as-is
+        // Full component setup would be done in scene YAML or builder API
+
+        world.register_prefab(prefab_id, prefab)
     }
 }
 
