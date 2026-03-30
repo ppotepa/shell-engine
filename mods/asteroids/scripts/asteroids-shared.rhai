@@ -2,7 +2,7 @@
 // Imported by asteroids-game-loop.rhai and asteroids-render-sync.rhai
 
 // ── Constants ──────────────────────────────────────────────
-fn crack_duration_ms() { 1000 }
+const CRACK_DURATION_MS = 1000;
 fn velocity_scale() { 60.0 }
 
 // ── Heading arithmetic (0-31 on 32-step circle) ───────────
@@ -115,6 +115,11 @@ fn load_game_config(level) {
         bullet_ttl_ms: bullet_ttl_ms,
         bullet_speed: bullet_speed
     }
+}
+
+fn show_message(scene, game, text, ttl_ms) {
+    game.set("/ast/msg_ttl_ms", ttl_ms);
+    scene.set("game-message", "text.content", text);
 }
 
 fn spawn_crack_visuals(world, scene, ast_id) {

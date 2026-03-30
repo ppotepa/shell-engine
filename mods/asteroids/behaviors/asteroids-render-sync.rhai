@@ -8,12 +8,10 @@ if ship_id > 0 {
         let visible = if is_invulnerable { (time.scene_elapsed_ms / 120) % 2 == 0 } else { true };
         let heading = ship_ref.get_i("/h", 0);
         let t = ship_ref.transform();
-        scene.set("ship", "vector.visible", visible);
+        scene.set_visible("ship", visible);
         scene.set("ship", "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
         scene.set("ship", "vector.fg", "white");
         scene.set("ship", "vector.bg", "#1a1a1a");
-        scene.set("ship", "position.x", to_i(t.x));
-        scene.set("ship", "position.y", to_i(t.y));
     }
 }
 
@@ -30,14 +28,12 @@ for ast_id in world.query_kind("asteroid") {
     let shape = ast_ref.get_i("/shape", 0);
     let size = ast_ref.get_i("/size", 1);
 
-    scene.set(vid, "vector.visible", active);
-    scene.set(vid, "vector.points", rotate_points(asteroid_points(shape, size), rot_phase));
+    scene.set_visible(vid, active);
+    let pts = rotate_points(asteroid_points(shape, size), rot_phase);
     if flash_ms > 0 {
-        scene.set(vid, "vector.fg", h::asteroid_stroke_hex(flash_ms, flash_total));
-        scene.set(vid, "vector.bg", h::flash_fill_hex(flash_ms, flash_total));
+        scene.set_vector(vid, pts, h::asteroid_stroke_hex(flash_ms, flash_total), h::flash_fill_hex(flash_ms, flash_total));
     } else {
-        scene.set(vid, "vector.fg", "#aaaaaa");
-        scene.set(vid, "vector.bg", "#333333");
+        scene.set_vector(vid, pts, "#aaaaaa", "#333333");
     }
 
     let show_cracks = active && flash_ms > 0;
@@ -56,7 +52,7 @@ for ast_id in world.query_kind("asteroid") {
 for bid in world.query_kind("bullet") {
     let bref = world.entity(bid);
     if !bref.exists() { continue; }
-    scene.set(`bullet-${bid}`, "vector.visible", true);
+    scene.set_visible(`bullet-${bid}`, true);
 }
 
 for sid in world.query_kind("smoke") {
@@ -66,7 +62,7 @@ for sid in world.query_kind("smoke") {
     let max_ttl = sref.get_i("/max_ttl_ms", 1);
     let radius = sref.get_i("/radius", 2);
 
-    scene.set(`smoke-${sid}`, "vector.visible", true);
+    scene.set_visible(`smoke-${sid}`, true);
     scene.set(`smoke-${sid}`, "vector.points", h::smoke_points(radius, ttl, max_ttl));
     scene.set(`smoke-${sid}`, "vector.fg", h::smoke_colour_hex(ttl, max_ttl));
 }

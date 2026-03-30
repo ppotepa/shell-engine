@@ -1,6 +1,6 @@
 import "asteroids-shared" as h;
 
-fn spawn_ship(world, min_x, max_x, min_y, max_y, cfg) {
+fn spawn_ship(world, cfg) {
     let id = world.spawn_object("ship", #{});
     if id > 0 {
         let ship = world.entity(id);
@@ -14,37 +14,37 @@ fn spawn_ship(world, min_x, max_x, min_y, max_y, cfg) {
             max_speed: cfg["ship_max_speed"],
             heading_bits: 32
         });
-        world.enable_wrap(id, min_x, max_x, min_y, max_y);
+        world.enable_wrap_bounds(id);
         ship.status_add("invulnerable", 3000);
     }
     id
 }
 
-fn spawn_asteroid(world, x, y, vx, vy, shape, size, min_x, max_x, min_y, max_y) {
-    let spin_seed = abs_i(to_i(x * 31) + to_i(y * 17) + to_i(vx * 13) + to_i(vy * 19) + (shape * 23) + (size * 29));
+fn spawn_asteroid(world, x, y, vx, vy, shape, size) {
     let id = world.spawn_visual("asteroid", "asteroid-template", #{
         x: x, y: y, heading: 0.0, collider_radius: asteroid_radius(size)
     });
     if id > 0 {
         world.set_physics(id, vx * h::velocity_scale(), vy * h::velocity_scale(), 0.0, 0.0, 0.0, 0.0);
-        world.enable_wrap(id, min_x, max_x, min_y, max_y);
+        world.enable_wrap_bounds(id);
+        let rot_phase = world.rand_i(0, 31);
+        let rot_speed = if world.rand_i(0, 1) == 0 { 1 } else { -1 };
+        let rot_step = 72 + world.rand_i(0, 2) * 16;
         world.entity(id).set_many(#{
             shape: shape, size: size, flash_ms: 0, flash_total_ms: 0, split_pending: false,
-            rot_phase: spin_seed % 32,
-            rot_speed: if (spin_seed % 2) == 0 { 1 } else { -1 },
-            rot_step_ms: 72 + ((spin_seed % 3) * 16), rot_accum_ms: 0
+            rot_phase: rot_phase, rot_speed: rot_speed, rot_step_ms: rot_step, rot_accum_ms: 0
         });
     }
     id
 }
 
-fn spawn_bullet(world, x, y, vx, vy, ttl_ms, min_x, max_x, min_y, max_y) {
+fn spawn_bullet(world, x, y, vx, vy, ttl_ms) {
     let id = world.spawn_visual("bullet", "bullet-template", #{
         x: x, y: y, heading: 0.0, collider_radius: 3.0, lifetime_ms: ttl_ms
     });
     if id > 0 {
         world.set_physics(id, vx * h::velocity_scale(), vy * h::velocity_scale(), 0.0, 0.0, 0.0, 0.0);
-        world.enable_wrap(id, min_x, max_x, min_y, max_y);
+        world.enable_wrap_bounds(id);
     }
     id
 }
@@ -62,24 +62,22 @@ fn spawn_smoke(world, x, y, vx, vy, ttl_ms, radius) {
 
 fn spawn_disintegration(world, x, y) {
     for idx in 0..12 {
-        let ang = (idx * 3) % 32;
-        let dx = to_float(sin32(ang)) * 0.879;
-        let dy = -to_float(sin32(ang + 8)) * 0.879;
-        spawn_smoke(world, x, y, dx, dy, 700, 3);
+        let uv = unit_vec32((idx * 3) % 32);
+        spawn_smoke(world, x, y, uv.x * 0.879, uv.y * 0.879, 700, 3);
     }
 }
 
-fn spawn_initial_asteroids(world, min_x, max_x, min_y, max_y) {
-    spawn_asteroid(world, -300.0, -210.0, 2, 0, 0, 2, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world,  300.0, -210.0, 0, 2, 1, 3, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world,  300.0,  210.0,-2, 0, 2, 2, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world, -300.0,  210.0, 0,-2, 3, 1, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world, -290.0,  -40.0, 2, 1, 0, 2, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world, -140.0, -230.0, 2, 1, 1, 1, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world,  140.0, -230.0,-2, 1, 2, 2, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world,  290.0,   30.0,-2,-1, 3, 3, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world,  120.0,  230.0,-2,-1, 1, 2, min_x, max_x, min_y, max_y);
-    spawn_asteroid(world, -120.0,  230.0, 2,-1, 0, 1, min_x, max_x, min_y, max_y);
+fn spawn_initial_asteroids(world) {
+    spawn_asteroid(world, -300.0, -210.0, 2, 0, 0, 2);
+    spawn_asteroid(world,  300.0, -210.0, 0, 2, 1, 3);
+    spawn_asteroid(world,  300.0,  210.0,-2, 0, 2, 2);
+    spawn_asteroid(world, -300.0,  210.0, 0,-2, 3, 1);
+    spawn_asteroid(world, -290.0,  -40.0, 2, 1, 0, 2);
+    spawn_asteroid(world, -140.0, -230.0, 2, 1, 1, 1);
+    spawn_asteroid(world,  140.0, -230.0,-2, 1, 2, 2);
+    spawn_asteroid(world,  290.0,   30.0,-2,-1, 3, 3);
+    spawn_asteroid(world,  120.0,  230.0,-2,-1, 1, 2);
+    spawn_asteroid(world, -120.0,  230.0, 2,-1, 0, 1);
 }
 
 fn respawn_x(seed, min_x, max_x, ship_x) {
@@ -109,15 +107,13 @@ fn clear_all_entities(world) {
     for id in world.ids() { world.entity(id).despawn(); }
 }
 
-fn reset_game_state(game, level, local, now) {
+fn reset_game_state(world, game, level, local, now) {
     let cfg = h::load_game_config(level);
     local["cfg"] = cfg;
-    let current_rng = if local.contains("rng") && local["rng"].type_of() == "i64" { local["rng"] } else { 1337 };
-    local["rng"] = h::next_seed(current_rng + now + 101);
+    world.rand_seed(now);
     game.set("/ast/score", 0);
     game.set("/ast/lives", cfg["base_lives"]);
     game.set("/ast/wave", 1);
-    game.set("/ast/rng", local["rng"]);
     game.set("/ast/msg_ttl_ms", 0);
     game.set("/ast/last_ms", now);
     cfg
@@ -131,17 +127,18 @@ let WORLD_MAX_Y =  240.0;
 if !local.contains("init") {
     let now = if time.contains("scene_elapsed_ms") { time.scene_elapsed_ms } else { 0 };
     clear_all_entities(world);
-    let cfg = reset_game_state(game, level, local, now);
-    local["ship_id"] = spawn_ship(world, WORLD_MIN_X, WORLD_MAX_X, WORLD_MIN_Y, WORLD_MAX_Y, cfg);
-    spawn_initial_asteroids(world, WORLD_MIN_X, WORLD_MAX_X, WORLD_MIN_Y, WORLD_MAX_Y);
+    world.set_world_bounds(WORLD_MIN_X, WORLD_MAX_X, WORLD_MIN_Y, WORLD_MAX_Y);
+    let cfg = reset_game_state(world, game, level, local, now);
+    local["ship_id"] = spawn_ship(world, cfg);
+    spawn_initial_asteroids(world);
     for ast_id in world.query_kind("asteroid") {
         h::spawn_crack_visuals(world, scene, ast_id);
     }
     // Bind input actions once — scripts use action_down() instead of raw key polling
-    input.bind_action("turn_left",  ["Left",  "a", "A"]);
-    input.bind_action("turn_right", ["Right", "d", "D"]);
-    input.bind_action("thrust",     ["Up",    "w", "W"]);
-    input.bind_action("fire",       [" ",     "f", "F"]);
+    input.bind_action("turn_left",  [KEY_LEFT,  "a", "A"]);
+    input.bind_action("turn_right", [KEY_RIGHT, "d", "D"]);
+    input.bind_action("thrust",     [KEY_UP,    "w", "W"]);
+    input.bind_action("fire",       [KEY_SPACE, "f", "F"]);
     audio.play_song("asteroids.game-loop");
     local["init"] = true;
     diag.info("asteroids session init");
@@ -160,7 +157,7 @@ game.set("/ast/last_ms", now);
 
 if key.pressed == true {
     let code = if key.code.type_of() == "string" { key.code } else { "" };
-    if code == "Esc" {
+    if code == KEY_ESC {
         audio.stop_song();
         game.jump("asteroids.mainmenu");
         return ();
@@ -178,14 +175,13 @@ if key.pressed == true {
     }
     if reset_requested {
         clear_all_entities(world);
-        let cfg = reset_game_state(game, level, local, now);
-        local["ship_id"] = spawn_ship(world, min_x, max_x, min_y, max_y, cfg);
-        spawn_initial_asteroids(world, min_x, max_x, min_y, max_y);
+        let cfg = reset_game_state(world, game, level, local, now);
+        local["ship_id"] = spawn_ship(world, cfg);
+        spawn_initial_asteroids(world);
         for ast_id in world.query_kind("asteroid") {
             h::spawn_crack_visuals(world, scene, ast_id);
         }
-        game.set("/ast/msg_ttl_ms", 500);
-        scene.set("game-message", "text.content", reset_label);
+        h::show_message(scene, game, reset_label, 500);
         diag.warn(`reset mode=${reset_label}`);
     }
 }
@@ -222,23 +218,22 @@ if world.exists(ship_id) {
     }
 
     // Thrust generates smoke particles
+    let hv = ship_ref.heading_vector();
     if thrust_down {
-        let heading_vec = ship_ref.heading_vector();
         if ship_ref.cooldown_ready("smoke") && world.count_kind("smoke") < 40 {
-            spawn_smoke(world, tx - (heading_vec.x * 6.0), ty - (heading_vec.y * 6.0),
-                       vx / h::velocity_scale() - (heading_vec.x * 0.35), vy / h::velocity_scale() - (heading_vec.y * 0.35), 520, 3);
+            spawn_smoke(world, tx - (hv.x * 6.0), ty - (hv.y * 6.0),
+                       vx / h::velocity_scale() - (hv.x * 0.35), vy / h::velocity_scale() - (hv.y * 0.35), 520, 3);
             ship_ref.cooldown_start("smoke", 48);
         }
     }
 
     if fire_down && ship_ref.cooldown_ready("shot") && world.count_kind("bullet") < 8 {
-        let heading_vec = ship_ref.heading_vector();
         let bspeed = cfg["bullet_speed"];
         spawn_bullet(world,
-            tx + (heading_vec.x * 9.0), ty + (heading_vec.y * 9.0),
-            vx / h::velocity_scale() + (heading_vec.x * bspeed / h::velocity_scale()),
-            vy / h::velocity_scale() + (heading_vec.y * bspeed / h::velocity_scale()),
-            cfg["bullet_ttl_ms"], min_x, max_x, min_y, max_y);
+            tx + (hv.x * 9.0), ty + (hv.y * 9.0),
+            vx / h::velocity_scale() + (hv.x * bspeed / h::velocity_scale()),
+            vy / h::velocity_scale() + (hv.y * bspeed / h::velocity_scale()),
+            cfg["bullet_ttl_ms"]);
         ship_ref.cooldown_start("shot", cfg["shot_cooldown_ms"]);
         audio.event("gameplay.ship.shoot", 1.0);
     }
@@ -261,7 +256,7 @@ for ast_id in world.query_kind("asteroid") {
 
     let flash_ms = ast_ref.get_i("/flash_ms", 0);
     let flash_total = ast_ref.get_i("/flash_total_ms", 0);
-    let split_pending = ast_ref.get_b("/split_pending", false);
+    let split_pending = ast_ref.flag("split_pending");
     let ast_size = ast_ref.get_i("/size", 1);
 
     if flash_ms > 0 {
@@ -275,9 +270,6 @@ for ast_id in world.query_kind("asteroid") {
             let base_heading = rot_phase;
             let t = ast_ref.transform();
             for frag_idx in 0..3 {
-                let rng = game.get("/ast/rng");
-                rng = h::next_seed(rng + now + (ast_id * 41) + to_i(t.x) + to_i(t.y) + frag_idx * 67);
-                game.set("/ast/rng", rng);
                 let split_heading = h::wrap_heading32(base_heading + h::fragment_heading_offset(frag_idx));
                 let split_sin = sin32(split_heading);
                 let split_cos = sin32(split_heading + 8);
@@ -289,9 +281,8 @@ for ast_id in world.query_kind("asteroid") {
                     t.y - (to_float(split_cos * spawn_offset) / 1024.0),
                     to_float(dir_x * (next_size + 2)),
                     to_float(dir_y * (next_size + 2)),
-                    (rng / 17) % 4,
-                    next_size,
-                    min_x, max_x, min_y, max_y
+                    world.rand_i(0, 3),
+                    next_size
                 );
             }
             ast_ref.despawn();
@@ -312,8 +303,8 @@ for ast_id in world.query_kind("asteroid") {
 
 // Bullets wrap automatically via engine (enable_wrap set at spawn)
 
-let score = to_i(game.get("/ast/score"));
-let lives = to_i(game.get("/ast/lives"));
+let score = game.get_i("/ast/score", 0);
+let lives = game.get_i("/ast/lives", 0);
 let ship_ref = world.entity(ship_id);
 let ship_invuln = if ship_ref.exists() { ship_ref.status_has("invulnerable") } else { false };
 
@@ -321,8 +312,7 @@ for hit in world.collision_enters("ship", "asteroid") {
     let ast_hit_id = hit["asteroid"];
     let hit_ref = world.entity(ast_hit_id);
 
-    // collision_enters fires once per new contact; split_pending guard covers re-entry after rebound
-    if hit_ref.exists() && hit_ref.get_b("/split_pending", false) { continue; }
+    if hit_ref.exists() && hit_ref.flag("split_pending") { continue; }
 
     if !ship_ref.status_has("invulnerable") && world.exists(ship_id) {
         let t = ship_ref.transform();
@@ -332,7 +322,7 @@ for hit in world.collision_enters("ship", "asteroid") {
         if hit_ref.exists() {
             let phys = hit_ref.physics();
             hit_ref.set_many(#{
-                flash_ms: h::crack_duration_ms(), flash_total_ms: h::crack_duration_ms(), split_pending: true
+                flash_ms: h::CRACK_DURATION_MS, flash_total_ms: h::CRACK_DURATION_MS, split_pending: true
             });
             hit_ref.set_velocity(clamp_f(-phys.vx, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()),
                                 clamp_f(-phys.vy, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()));
@@ -340,8 +330,7 @@ for hit in world.collision_enters("ship", "asteroid") {
         lives -= 1;
         ship_ref.set_velocity(0.0, 0.0);
         ship_ref.status_add("invulnerable", 3000);
-        game.set("/ast/msg_ttl_ms", 450);
-        scene.set("game-message", "text.content", "HIT!");
+        h::show_message(scene, game, "HIT!", 450);
     }
 }
 
@@ -351,7 +340,7 @@ for hit in world.collision_enters("bullet", "asteroid") {
     let hit_ref = world.entity(ast_hit_id);
 
     // collision_enters fires once per new contact; split_pending avoids double-scoring
-    if hit_ref.exists() && hit_ref.get_b("/split_pending", false) { continue; }
+    if hit_ref.exists() && hit_ref.flag("split_pending") { continue; }
 
     if world.exists(bullet_id) {
         world.entity(bullet_id).despawn();
@@ -359,10 +348,9 @@ for hit in world.collision_enters("bullet", "asteroid") {
     if hit_ref.exists() {
         score += asteroid_score(hit_ref.get_i("/size", 0));
         hit_ref.set_many(#{
-            flash_ms: h::crack_duration_ms(), flash_total_ms: h::crack_duration_ms(), split_pending: true
+            flash_ms: h::CRACK_DURATION_MS, flash_total_ms: h::CRACK_DURATION_MS, split_pending: true
         });
-        game.set("/ast/msg_ttl_ms", 250);
-        scene.set("game-message", "text.content", "HIT");
+        h::show_message(scene, game, "HIT", 250);
         diag.info(`hit asteroid=${ast_hit_id}`);
     }
 }
@@ -370,21 +358,18 @@ for hit in world.collision_enters("bullet", "asteroid") {
 game.set("/ast/score", score);
 game.set("/ast/lives", lives);
 
-let msg_ttl = to_i(game.get("/ast/msg_ttl_ms"));
+let msg_ttl = game.get_i("/ast/msg_ttl_ms", 0);
 if msg_ttl > 0 {
     let new_ttl = msg_ttl - dt;
     if new_ttl <= 0 { scene.set("game-message", "text.content", ""); }
     game.set("/ast/msg_ttl_ms", new_ttl);
 }
 
-let active_count = world.count_kind("asteroid");
-
-if active_count <= 0 {
-    let wave = to_i(game.get("/ast/wave"));
+if !world.any_alive("asteroid") {
+    let wave = game.get_i("/ast/wave", 0);
     wave += 1;
-    game.set("/ast/msg_ttl_ms", 650);
     game.set("/ast/wave", wave);
-    scene.set("game-message", "text.content", `WAVE ${wave}`);
+    h::show_message(scene, game, `WAVE ${wave}`, 650);
     diag.info(`wave start wave=${wave}`);
 
     let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
@@ -392,17 +377,15 @@ if active_count <= 0 {
 
     let ship_t = if ship_ref.exists() { ship_ref.transform() } else { #{x: 0, y: 0} };
     for idx in 0..spawn_count {
-        let rng = game.get("/ast/rng");
-        rng = h::next_seed(rng + now + idx * 53 + wave);
-        game.set("/ast/rng", rng);
+        let rx = world.rand_i(0, 2147483646);
+        let ry = world.rand_i(0, 2147483646);
         spawn_asteroid(world,
-            respawn_x(rng, min_x, max_x, ship_t.x),
-            respawn_y(rng / 3, min_y, max_y, ship_t.y),
-            speed_for_seed(rng + 5),
-            speed_for_seed(rng + 13),
-            (rng / 11) % 4,
-            if idx < 2 { 3 } else if idx < 5 { 2 } else { 1 },
-            min_x, max_x, min_y, max_y
+            respawn_x(rx, min_x, max_x, ship_t.x),
+            respawn_y(ry, min_y, max_y, ship_t.y),
+            speed_for_seed(world.rand_i(0, 2147483646)),
+            speed_for_seed(world.rand_i(0, 2147483646)),
+            world.rand_i(0, 3),
+            if idx < 2 { 3 } else if idx < 5 { 2 } else { 1 }
         );
     }
     for new_ast_id in world.query_kind("asteroid") {
@@ -412,8 +395,8 @@ if active_count <= 0 {
 }
 
 if lives <= 0 {
-    diag.warn(`game over score=${score} wave=${to_i(game.get("/ast/wave"))}`);
-    persist.push("/asteroids/highscores", #{ score: score, wave: to_i(game.get("/ast/wave")), at_ms: now });
+    diag.warn(`game over score=${score} wave=${game.get_i("/ast/wave", 0)}`);
+    persist.push("/asteroids/highscores", #{ score: score, wave: game.get_i("/ast/wave", 0), at_ms: now });
     game.jump("asteroids.highscores");
     return ();
 }
