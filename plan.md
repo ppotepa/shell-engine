@@ -293,7 +293,7 @@ Purpose: capture the review’s secondary editor-side signals so the simplificat
 
 Purpose: address the broader foundation-layer issues from the review so “base” crates stop accumulating mixed responsibilities.
 
-**Status:** Stages A, B, C (pure helpers + builtin behaviors + scripting domain separation) 100% COMPLETE ✅
+**Status:** Stages A, B, C, D (pure helpers + builtin behaviors + scripting domain separation + Rhai integration) 100% COMPLETE ✅
 
 **Stage A** — Pure helpers extraction:
 - [x] Created geometry.rs (125 lines), rhai_util.rs (198 lines), emit.rs (88 lines) modules
@@ -335,6 +335,17 @@ Purpose: address the broader foundation-layer issues from the review so “base�
 - [x] Public re-exports maintain API compatibility
 - [x] All 68 tests pass; Asteroids scene validation passes
 - [x] Behaviors easier to understand and modify independently
+
+**Stage D** — Rhai engine integration (100% COMPLETE):
+- [x] Refactored init_rhai_engine() to replace ~1,000 lines of manual registrations with domain calls
+- [x] Removed all duplicate Script API type definitions from lib.rs
+- [x] Added imports from scripting modules for unified type definitions
+- [x] Added geometry utility functions (rotate_points, asteroid_fragment_points, asteroid_radius, asteroid_score) to gameplay domain
+- [x] Added missing numeric utilities (to_i, clamp_i) to gameplay domain
+- [x] Deleted 3,599 lines of old struct definitions and implementations from lib.rs
+- [x] All 68 tests pass; Asteroids scenes validate successfully
+- [x] 100% behavioral compatibility maintained
+- **Result:** lib.rs reduced from 9,080 lines to 4,496 lines (50.5% reduction)
 
 ### 11.1 Foundation crate slimming
 - [ ] Identify neutral shared types versus diagnostics versus state versus authoring metadata concerns.
