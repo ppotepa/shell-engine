@@ -10,6 +10,7 @@ pub mod gameplay;
 pub mod gameplay_impl;
 pub mod helpers;
 pub mod io;
+pub mod physics;
 pub mod scene;
 pub mod ui;
 
@@ -26,6 +27,7 @@ pub(crate) fn register_all_domains(engine: &mut RhaiEngine) {
     game::register_with_rhai(engine);
     gameplay::register_with_rhai(engine);
     io::register_with_rhai(engine);
+    physics::register_with_rhai(engine);
     scene::register_with_rhai(engine);
     ui::register_with_rhai(engine);
 }
