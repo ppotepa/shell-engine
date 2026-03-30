@@ -204,9 +204,9 @@ if world.exists(ship_id) {
     let tx = t.x;
     let ty = t.y;
     let phys = ship_ref.physics();
+    let ship_h = ship_ref.heading();
     let vx = phys.vx;
     let vy = phys.vy;
-    let ship_h = ship_ref.heading();
 
     // Periodic ship state diagnostic (every ~2 seconds)
     let diag_tick = to_i(now / 2000);
@@ -214,7 +214,7 @@ if world.exists(ship_id) {
     if diag_tick != last_diag {
         local["diag_tick"] = diag_tick;
         let invuln_remaining = ship_ref.status_remaining("invulnerable");
-        diag.info(`ship pos=(${tx},${ty}) vel=(${vx},${vy}) h=${ship_h} invuln=${invuln_remaining}`);
+        diag.info(`ship pos=(${tx},${ty}) vel=(${vx},${vy}) h=${ship_h} turn=${turn_dir} L=${left_down} R=${right_down}`);
     }
 
     // Thrust generates smoke particles
