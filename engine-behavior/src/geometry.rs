@@ -110,7 +110,7 @@ pub(crate) fn asteroid_points_i32(shape: i32, size: i32) -> Vec<[i32; 2]> {
         .collect()
 }
 
-fn rotate_points_i32(points: &[[i32; 2]], heading: i32) -> Vec<[i32; 2]> {
+pub(crate) fn rotate_points_i32(points: &[[i32; 2]], heading: i32) -> Vec<[i32; 2]> {
     let sin = i64::from(sin32_i32(heading));
     let cos = i64::from(sin32_i32(heading + 8));
     points
