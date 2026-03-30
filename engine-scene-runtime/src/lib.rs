@@ -84,6 +84,7 @@ pub struct SceneRuntime {
     ui_state: UiRuntimeState,
     pending_bindings: Vec<BehaviorBinding>,
     action_bindings: HashMap<String, Vec<String>>,
+    cached_action_bindings: Option<std::sync::Arc<HashMap<String, Vec<String>>>>,
     /// Previous frame's normalized collision pairs for enter/stay/exit computation.
     prev_collision_pairs: std::collections::HashSet<(u64, u64)>,
     /// Previous frame's held-key set — used to compute `keys_just_pressed`.

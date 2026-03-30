@@ -126,6 +126,7 @@ impl SceneRuntime {
             ui_state: UiRuntimeState::default(),
             pending_bindings: Vec::new(),
             action_bindings: HashMap::new(),
+            cached_action_bindings: None,
             prev_collision_pairs: std::collections::HashSet::new(),
             prev_keys_down: std::collections::HashSet::new(),
         };

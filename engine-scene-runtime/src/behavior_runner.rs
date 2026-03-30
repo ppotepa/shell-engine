@@ -127,46 +127,20 @@ impl SceneRuntime {
         };
 
         let rhai_key_map = {
-            let mut key_map = RhaiMap::new();
-            if let Some(k) = &self.ui_state.last_raw_key {
-                key_map.insert("code".into(), k.code.clone().into());
-                key_map.insert("ctrl".into(), k.ctrl.into());
-                key_map.insert("alt".into(), k.alt.into());
-                key_map.insert("shift".into(), k.shift.into());
-                key_map.insert("pressed".into(), k.pressed.into());
-                key_map.insert("released".into(), (!k.pressed).into());
-            } else {
-                key_map.insert("code".into(), "".into());
-                key_map.insert("ctrl".into(), false.into());
-                key_map.insert("alt".into(), false.into());
-                key_map.insert("shift".into(), false.into());
-                key_map.insert("pressed".into(), false.into());
-                key_map.insert("released".into(), false.into());
-            }
+            let mut key_map = rhai::Map::new();
+            build_base_key_fields(&mut key_map, self.ui_state.last_raw_key.as_ref());
             std::sync::Arc::new(key_map)
         };
 
         // Engine-level key metadata for Rhai scope (separate `engine` namespace)
         let engine_key_map = {
-            let mut engine_key = RhaiMap::new();
+            let mut engine_key = rhai::Map::new();
+            build_base_key_fields(&mut engine_key, self.ui_state.last_raw_key.as_ref());
             if let Some(k) = &self.ui_state.last_raw_key {
-                engine_key.insert("code".into(), k.code.clone().into());
-                engine_key.insert("ctrl".into(), k.ctrl.into());
-                engine_key.insert("alt".into(), k.alt.into());
-                engine_key.insert("shift".into(), k.shift.into());
-                engine_key.insert("pressed".into(), k.pressed.into());
-                engine_key.insert("released".into(), (!k.pressed).into());
-                // Mark quit keys so behaviors can check without handling them
                 let is_quit =
                     k.ctrl && (k.code == "q" || k.code == "Q" || k.code == "c" || k.code == "C");
                 engine_key.insert("is_quit".into(), is_quit.into());
             } else {
-                engine_key.insert("code".into(), "".into());
-                engine_key.insert("ctrl".into(), false.into());
-                engine_key.insert("alt".into(), false.into());
-                engine_key.insert("shift".into(), false.into());
-                engine_key.insert("pressed".into(), false.into());
-                engine_key.insert("released".into(), false.into());
                 engine_key.insert("is_quit".into(), false.into());
             }
             engine_key.insert("any_down".into(), (!keys_down.is_empty()).into());
@@ -239,7 +213,14 @@ impl SceneRuntime {
             rhai_menu_map,
             rhai_key_map,
             engine_key_map,
-            action_bindings: std::sync::Arc::new(self.action_bindings.clone()),
+            action_bindings: match &self.cached_action_bindings {
+                Some(cached) => std::sync::Arc::clone(cached),
+                None => {
+                    let arc = std::sync::Arc::new(self.action_bindings.clone());
+                    self.cached_action_bindings = Some(std::sync::Arc::clone(&arc));
+                    arc
+                }
+            },
         };
         let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {
@@ -555,6 +536,7 @@ impl SceneRuntime {
                 BehaviorCommand::DebugLog { .. } => {}
                 BehaviorCommand::BindInputAction { action, keys } => {
                     self.action_bindings.insert(action.clone(), keys.clone());
+                    self.cached_action_bindings = None; // invalidate cache
                 }
                 // ScriptError is consumed at the behavior system level (world access needed).
                 BehaviorCommand::ScriptError { .. } => {}
@@ -860,6 +842,25 @@ impl SceneRuntime {
             }
         }
         any
+    }
+}
+
+/// Build the shared key fields (code/ctrl/alt/shift/pressed/released) for Rhai key maps.
+fn build_base_key_fields(map: &mut rhai::Map, key: Option<&RawKeyEvent>) {
+    if let Some(k) = key {
+        map.insert("code".into(), k.code.clone().into());
+        map.insert("ctrl".into(), k.ctrl.into());
+        map.insert("alt".into(), k.alt.into());
+        map.insert("shift".into(), k.shift.into());
+        map.insert("pressed".into(), k.pressed.into());
+        map.insert("released".into(), (!k.pressed).into());
+    } else {
+        map.insert("code".into(), "".into());
+        map.insert("ctrl".into(), false.into());
+        map.insert("alt".into(), false.into());
+        map.insert("shift".into(), false.into());
+        map.insert("pressed".into(), false.into());
+        map.insert("released".into(), false.into());
     }
 }
 
