@@ -1,11 +1,10 @@
 //! Overlay and conditional patch builders for schema generation.
 
 use engine_core::authoring::catalog::behavior_catalog;
-use engine_core::authoring::metadata::FieldMetadata;
 use serde_yaml::{Mapping, Value};
 
 use super::helpers::{
-    array_items_ref, field_metadata_to_schema, mapping_with, non_empty_string_schema, null_schema,
+    array_items_ref, field_metadata_to_schema, mapping_with,
     nullable_suggested_string_refs, object_additional_properties_ref, object_schema, schema_ref,
     suggested_enum_strings, suggested_string_refs,
 };

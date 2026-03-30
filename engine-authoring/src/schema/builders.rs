@@ -7,13 +7,11 @@ use std::collections::BTreeSet;
 
 use super::GeneratedSchemaFile;
 use super::helpers::{
-    array_items_ref, enum_schema, field_metadata_to_schema, mapping_with, non_empty_string_schema,
-    null_schema, nullable_suggested_string_refs, object_additional_properties_ref, object_schema,
-    schema_ref, suggested_enum_strings, suggested_string_refs,
+    mapping_with, non_empty_string_schema, object_schema,
+    schema_ref,
 };
 use super::overlays::{
-    object_doc_overlay_patch, object_instance_overlay_patch, object_logic_overlay_def,
-    scene_logic_overlay_def, scene_overlay_patch, shared_overlay_defs,
+    object_doc_overlay_patch, object_instance_overlay_patch, object_logic_overlay_def, scene_overlay_patch, shared_overlay_defs,
 };
 
 /// Renders one schema document as YAML with a trailing newline.

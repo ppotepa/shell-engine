@@ -19,7 +19,6 @@ mod tests;
 use builders::*;
 use collectors::*;
 use helpers::*;
-use overlays::*;
 
 pub use builders::render_schema_file;
 
