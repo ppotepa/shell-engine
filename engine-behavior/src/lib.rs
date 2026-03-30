@@ -1840,6 +1840,7 @@ struct ScriptAudioApi {
 #[derive(Clone)]
 struct ScriptFxApi {
     world: Option<GameplayWorld>,
+    catalogs: Arc<catalog::ModCatalogs>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -2570,8 +2571,16 @@ impl ScriptAudioApi {
 }
 
 impl ScriptFxApi {
-    fn new(world: Option<GameplayWorld>, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
-        Self { world, queue }
+    fn new(
+        world: Option<GameplayWorld>,
+        catalogs: Arc<catalog::ModCatalogs>,
+        queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    ) -> Self {
+        Self {
+            world,
+            catalogs,
+            queue,
+        }
     }
 
     fn gameplay_api(&self) -> ScriptGameplayApi {
@@ -2583,7 +2592,7 @@ impl ScriptFxApi {
             Arc::new(Vec::new()),
             Arc::new(Vec::new()),
             Arc::new(Vec::new()),
-            Arc::new(catalog::ModCatalogs::default()),
+            Arc::clone(&self.catalogs),
             Arc::clone(&self.queue),
         )
     }
@@ -2593,6 +2602,90 @@ impl ScriptFxApi {
             return RhaiArray::new();
         };
 
+        // Try to load from catalog first
+        if let Some(emitter) = self.catalogs.emitters.get(effect_name) {
+            let ship_id = ScriptGameplayApi::map_int(&args, "ship_id", 0);
+            if ship_id <= 0 {
+                return RhaiArray::new();
+            }
+            let ship_id = ship_id as u64;
+            if !world.exists(ship_id) {
+                return RhaiArray::new();
+            }
+
+            match effect_name {
+                "asteroids.ship_thrust_smoke" | "asteroids.ship_disintegration" => {
+                    // Use emitter config from catalog
+                    let max_count = ScriptGameplayApi::map_int(&args, "max_count", 40).max(0);
+                    if world.count_kind("smoke") as rhai::INT >= max_count {
+                        return RhaiArray::new();
+                    }
+
+                    let cooldown_name = ScriptGameplayApi::map_string(&args, "cooldown_name")
+                        .or_else(|| emitter.cooldown_name.clone())
+                        .unwrap_or_else(|| "smoke".to_string());
+                    if !world.cooldown_ready(ship_id, &cooldown_name) {
+                        return RhaiArray::new();
+                    }
+
+                    let Some(transform) = world.transform(ship_id) else {
+                        return RhaiArray::new();
+                    };
+                    let Some(physics) = world.physics(ship_id) else {
+                        return RhaiArray::new();
+                    };
+                    let Some(controller) = world.controller(ship_id) else {
+                        return RhaiArray::new();
+                    };
+
+                    let velocity_scale = ScriptGameplayApi::map_number(&args, "velocity_scale", emitter.velocity_scale.unwrap_or(60.0)) as f32;
+                    if velocity_scale.abs() <= f32::EPSILON {
+                        return RhaiArray::new();
+                    }
+                    let spawn_offset = ScriptGameplayApi::map_number(&args, "spawn_offset", emitter.spawn_offset.unwrap_or(6.0)) as f32;
+                    let backward_speed = ScriptGameplayApi::map_number(&args, "backward_speed", emitter.backward_speed.unwrap_or(0.35)) as f32;
+                    let ttl_ms = ScriptGameplayApi::map_int(&args, "ttl_ms", emitter.ttl_ms.unwrap_or(520));
+                    let radius = ScriptGameplayApi::map_int(&args, "radius", emitter.radius.unwrap_or(3));
+                    let cooldown_ms = ScriptGameplayApi::map_int(&args, "cooldown_ms", emitter.cooldown_ms.unwrap_or(48)).max(0);
+
+                    let (dir_x, dir_y) = controller.heading_vector();
+
+                    let mut smoke_args = RhaiMap::new();
+                    smoke_args.insert(
+                        "x".into(),
+                        ((transform.x - (dir_x * spawn_offset)) as rhai::FLOAT).into(),
+                    );
+                    smoke_args.insert(
+                        "y".into(),
+                        ((transform.y - (dir_y * spawn_offset)) as rhai::FLOAT).into(),
+                    );
+                    smoke_args.insert(
+                        "vx".into(),
+                        (((physics.vx / velocity_scale) - (dir_x * backward_speed)) as rhai::FLOAT).into(),
+                    );
+                    smoke_args.insert(
+                        "vy".into(),
+                        (((physics.vy / velocity_scale) - (dir_y * backward_speed)) as rhai::FLOAT).into(),
+                    );
+                    smoke_args.insert("ttl_ms".into(), ttl_ms.into());
+                    smoke_args.insert("radius".into(), radius.into());
+
+                    let mut gameplay = self.gameplay_api();
+                    let smoke_id = gameplay.spawn_prefab("smoke", smoke_args);
+                    if smoke_id <= 0 {
+                        return RhaiArray::new();
+                    }
+                    if cooldown_ms > 0 && !world.cooldown_start(ship_id, &cooldown_name, cooldown_ms as i32) {
+                        let _ = gameplay.despawn(smoke_id);
+                        return RhaiArray::new();
+                    }
+                    return vec![smoke_id.into()];
+                }
+                _ => {}
+            }
+        }
+
+        // Fall back to hardcoded emitters
         match effect_name {
             "asteroids.ship_thrust_smoke" => {
                 let ship_id = ScriptGameplayApi::map_int(&args, "ship_id", 0);
@@ -3351,7 +3444,7 @@ impl ScriptGameplayApi {
 
     fn spawn_prefab(&mut self, name: &str, args: RhaiMap) -> rhai::INT {
         // Check if prefab exists in catalog; fall back to hardcoded
-        let prefab_exists_in_catalog = self.catalogs.prefabs.contains_key(name);
+        let _prefab_exists_in_catalog = self.catalogs.prefabs.contains_key(name);
         
         match name {
             "ship" => {
@@ -3570,6 +3663,92 @@ impl ScriptGameplayApi {
             return 0;
         }
 
+        // Try to load from catalog first
+        if let Some(weapon) = self.catalogs.weapons.get(weapon_name) {
+            let bullet_kind = Self::map_string(&args, "bullet_kind")
+                .or_else(|| weapon.bullet_kind.clone())
+                .unwrap_or_else(|| "bullet".to_string());
+            let max_bullets = Self::map_int(&args, "max_bullets", weapon.max_bullets).max(0);
+            if world.count_kind(&bullet_kind) as rhai::INT >= max_bullets {
+                return 0;
+            }
+
+            let cooldown_name = Self::map_string(&args, "cooldown_name")
+                .or_else(|| weapon.cooldown_name.clone())
+                .unwrap_or_else(|| "shot".to_string());
+            if !world.cooldown_ready(source_id, &cooldown_name) {
+                return 0;
+            }
+
+            let Some(transform) = world.transform(source_id) else {
+                return 0;
+            };
+            let Some(physics) = world.physics(source_id) else {
+                return 0;
+            };
+            let Some(controller) = world.controller(source_id) else {
+                return 0;
+            };
+            let (dir_x, dir_y) = controller.heading_vector();
+
+            let spawn_offset = Self::map_number(&args, "spawn_offset", weapon.spawn_offset.unwrap_or(9.0)) as f32;
+            let bullet_speed = Self::map_number(&args, "bullet_speed", 0.0) as f32;
+            let bullet_ttl_ms = Self::map_int(&args, "bullet_ttl_ms", weapon.bullet_ttl_ms.unwrap_or(0));
+            let shot_cooldown_ms = Self::map_int(&args, "shot_cooldown_ms", weapon.cooldown_ms.unwrap_or(0)).max(0);
+
+            let mut bullet_args = RhaiMap::new();
+            bullet_args.insert(
+                "x".into(),
+                ((transform.x + (dir_x * spawn_offset)) as rhai::FLOAT).into(),
+            );
+            bullet_args.insert(
+                "y".into(),
+                ((transform.y + (dir_y * spawn_offset)) as rhai::FLOAT).into(),
+            );
+            bullet_args.insert(
+                "vx".into(),
+                (((physics.vx / ASTEROIDS_VELOCITY_SCALE)
+                    + (dir_x * bullet_speed / ASTEROIDS_VELOCITY_SCALE))
+                    as rhai::FLOAT)
+                    .into(),
+            );
+            bullet_args.insert(
+                "vy".into(),
+                (((physics.vy / ASTEROIDS_VELOCITY_SCALE)
+                    + (dir_y * bullet_speed / ASTEROIDS_VELOCITY_SCALE))
+                    as rhai::FLOAT)
+                    .into(),
+            );
+            bullet_args.insert("ttl_ms".into(), bullet_ttl_ms.into());
+
+            let bullet_prefab = Self::map_string(&args, "bullet_prefab")
+                .unwrap_or_else(|| "bullet".to_string());
+            let bullet_id = self.spawn_prefab(&bullet_prefab, bullet_args);
+            if bullet_id <= 0 {
+                return 0;
+            }
+
+            if shot_cooldown_ms > 0
+                && !world.cooldown_start(source_id, &cooldown_name, shot_cooldown_ms as i32)
+            {
+                let _ = self.despawn(bullet_id);
+                return 0;
+            }
+
+            let audio_event = Self::map_string(&args, "audio_event")
+                .unwrap_or_else(|| "gameplay.ship.shoot".to_string());
+            let gain = Self::map_number(&args, "audio_gain", 1.0) as f32;
+            if let Ok(mut queue) = self.queue.lock() {
+                queue.push(BehaviorCommand::PlayAudioEvent {
+                    event: audio_event,
+                    gain: Some(gain),
+                });
+            }
+
+            return bullet_id;
+        }
+
+        // Fall back to hardcoded weapons
         match weapon_name {
             "asteroids.ship" => {
                 let bullet_kind =
@@ -3736,7 +3915,7 @@ impl ScriptGameplayApi {
             .unwrap_or_else(|| "gameplay.ship.hit".to_string());
         let audio_gain = ScriptGameplayApi::map_number(&args, "audio_gain", 1.0) as f32;
 
-        let mut fx = ScriptFxApi::new(self.world.clone(), Arc::clone(&self.queue));
+        let mut fx = ScriptFxApi::new(self.world.clone(), Arc::clone(&self.catalogs), Arc::clone(&self.queue));
         let mut fx_args = RhaiMap::new();
         fx_args.insert("x".into(), (ship_x as rhai::FLOAT).into());
         fx_args.insert("y".into(), (ship_y as rhai::FLOAT).into());
@@ -5454,7 +5633,11 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
                 scope.push(
                     "fx",
-                    ScriptFxApi::new(ctx.gameplay_world.clone(), Arc::clone(&helper_commands)),
+                    ScriptFxApi::new(
+                        ctx.gameplay_world.clone(),
+                        Arc::clone(&ctx.catalogs),
+                        Arc::clone(&helper_commands),
+                    ),
                 );
 
                 // OPT-4: Use thread-local engine + cached AST.
