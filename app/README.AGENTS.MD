@@ -30,6 +30,10 @@ All flags passed via command-line or environment variables:
 | `--opt` | Enable ALL optimizations | Boolean |
 | `--debug-feature` | Enable debug overlays (F1, ~, F3/F4) | Boolean |
 
+### Debug overlay (F1, Tab, ~)
+
+Visible when `--debug-feature` is on. The Stats panel shows scene id, stage, render sizing, per-system timings, and the live object count; recent script errors are listed when present. Tab switches Stats/Logs, `~` toggles visibility.
+
 ## Configuration
 
 **EngineConfig** (set from CLI flags):
