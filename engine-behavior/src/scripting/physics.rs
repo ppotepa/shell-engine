@@ -6,9 +6,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
+use rhai::{Array as RhaiArray, Engine as RhaiEngine, Map as RhaiMap};
 
-use engine_game::{GameplayWorld, PhysicsBody2D, Collider2D, ColliderShape};
+use engine_game::{GameplayWorld, Collider2D, ColliderShape};
 
 use crate::BehaviorCommand;
 

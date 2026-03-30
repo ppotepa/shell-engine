@@ -7,8 +7,6 @@ pub(super) mod scene_logic;
 use super::cutscene::{expand_scene_cutscene_ref_with_filters, CutsceneFilterRegistry};
 use crate::document::{LogicKind, ObjectDocument, SceneDocument};
 use engine_core::scene::Scene;
-use serde::de::Error as _;
-use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeMap;
 use scene_effects::*;

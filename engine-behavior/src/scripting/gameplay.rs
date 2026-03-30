@@ -1,14 +1,9 @@
 //! Gameplay domain APIs: ScriptGameplayApi for world management, ScriptGameplayEntityApi for entity interaction.
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 
-use engine_game::{GameplayWorld, CollisionHit, Lifetime, PhysicsBody2D, Transform2D};
-use engine_core::game_state::GameState;
 
-use crate::{BehaviorCommand, catalog};
 use crate::geometry::{asteroid_fragment_points_i32, asteroid_radius_i32, asteroid_score_i32, rotate_points_i32, to_i32, rhai_array_to_points, points_to_rhai_array};
 
 pub(crate) use super::gameplay_impl::{ScriptGameplayApi, ScriptGameplayEntityApi};

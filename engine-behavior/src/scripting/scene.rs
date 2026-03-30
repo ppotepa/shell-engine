@@ -8,7 +8,7 @@ use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde_json::Value as JsonValue;
 
-use crate::{BehaviorCommand, BehaviorContext};
+use crate::BehaviorCommand;
 use crate::rhai_util::{
     json_to_rhai_dynamic, rhai_dynamic_to_json, map_get_path_dynamic, map_set_path_dynamic,
     normalize_set_path, merge_rhai_maps,

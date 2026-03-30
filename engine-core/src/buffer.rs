@@ -405,7 +405,7 @@ impl Buffer {
     /// - glitch: +0 cell expansion (glitch only modifies glitched cells)
     /// - crt_on: +2 cell expansion (distortion can reach nearby cells)
     #[inline]
-    pub fn narrow_for_effect(&mut self, effect_name: &str, max_expansion: u16) {
+    pub fn narrow_for_effect(&mut self, _effect_name: &str, max_expansion: u16) {
         // Only narrow if we have a dirty region
         if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
             return;

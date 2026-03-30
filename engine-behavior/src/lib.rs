@@ -15,8 +15,7 @@ pub use builtins::{
     MenuCarouselObjectBehavior, MenuSelectedBehavior, SceneAudioBehavior,
     SelectedArrowsBehavior, StageVisibilityBehavior, TimedVisibilityBehavior,
 };
-use builtins::*;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -26,33 +25,27 @@ use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
 use engine_core::game_state::GameState;
 use engine_core::level_state::LevelState;
-use engine_core::logging;
 use engine_core::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use engine_core::scene_runtime_types::{
     ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
 };
-use engine_game::components::{DespawnVisual, TopDownShipController};
 use engine_game::{
-    Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
-    VisualBinding,
+    CollisionHit, GameplayWorld,
 };
 use engine_persistence::PersistenceStore;
-use engine_physics::{point_in_polygon, polygons_intersect, segment_intersects_polygon};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
-use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
+use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use factory::BehaviorFactory;
 use emit::*;
-use geometry::*;
 use rhai_util::*;
 use scripting::{
-    scene::{ScriptSceneApi, ScriptObjectApi},
+    scene::ScriptSceneApi,
     ui::ScriptUiApi,
     game::{ScriptGameApi, ScriptLevelApi},
     game::ScriptTimeApi,
     game::ScriptPersistenceApi,
     gameplay::ScriptGameplayApi,
-    gameplay_impl::ScriptGameplayEntityApi,
     io::ScriptTerminalApi,
     io::ScriptInputApi,
     debug::ScriptDebugApi,

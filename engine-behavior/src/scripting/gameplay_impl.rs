@@ -1,7 +1,6 @@
 //! ScriptGameplayApi and ScriptGameplayEntityApi implementation - large standalone module.
 //! This module contains the full impl blocks extracted from lib.rs.
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
@@ -12,7 +11,7 @@ use engine_core::game_state::GameState;
 use engine_game::components::{DespawnVisual, TopDownShipController};
 
 use crate::{BehaviorCommand, catalog};
-use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json, region_to_rhai_map};
+use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json};
 use crate::geometry::{asteroid_radius_i32, sin32_i32};
 use crate::scripting::audio::ScriptFxApi;
 use crate::scripting::ui::ScriptUiApi;
