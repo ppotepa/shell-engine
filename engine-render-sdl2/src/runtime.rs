@@ -232,8 +232,7 @@ fn runtime_thread(
         return;
     };
     let texture_creator = canvas.texture_creator();
-    let mut pixel_buffer: Vec<u8> =
-        vec![0u8; (content_pixel_size.0 * content_pixel_size.1 * 4) as usize];
+    let mut pixel_buffer: Vec<u8> = vec![0u8; pixel_buffer_size(content_pixel_size.0, content_pixel_size.1)];
     let Ok(mut frame_texture) = texture_creator.create_texture_streaming(
         PixelFormatEnum::RGBA32,
         content_pixel_size.0,
@@ -283,7 +282,7 @@ fn runtime_thread(
                     content_pixel_size =
                         logical_dimensions(current_output_width, current_output_height);
                     pixel_buffer.resize(
-                        (content_pixel_size.0 * content_pixel_size.1 * 4) as usize,
+                        pixel_buffer_size(content_pixel_size.0, content_pixel_size.1),
                         0,
                     );
                     let Ok(new_texture) = texture_creator.create_texture_streaming(
@@ -343,11 +342,7 @@ fn runtime_thread(
                 let should_present = dirty.has_updates || overlay.is_some() || vectors.is_some();
                 let mut present_dur = Duration::ZERO;
                 if should_present {
-                    let active_policy = if splash_mode {
-                        PresentationPolicy::Fit
-                    } else {
-                        presentation_policy
-                    };
+                    let active_policy = get_active_presentation_policy(splash_mode, presentation_policy);
                     let present_rect = presentation_rect(
                         current_window_pixel_size(&canvas),
                         content_pixel_size,
@@ -356,7 +351,7 @@ fn runtime_thread(
                     let t_present = Instant::now();
                     if splash_mode {
                         let (r, g, b) = splash_clear_rgb(&pixel_buffer);
-                        canvas.set_draw_color(SdlColor::RGB(r, g, b));
+                        clear_canvas(&mut canvas, SdlColor::RGB(r, g, b));
                     } else {
                         canvas.set_draw_color(SdlColor::RGB(0, 0, 0));
                     }
@@ -425,11 +420,7 @@ fn runtime_thread(
             }
             RuntimeCommand::Clear => {
                 pixel_buffer.fill(0);
-                let active_policy = if splash_mode {
-                    PresentationPolicy::Fit
-                } else {
-                    presentation_policy
-                };
+                let active_policy = get_active_presentation_policy(splash_mode, presentation_policy);
                 if frame_texture
                     .update(None, &pixel_buffer, content_pixel_size.0 as usize * 4)
                     .is_err()
@@ -1080,6 +1071,33 @@ fn draw_vectors(
             let _ = canvas.draw_line(canvas_pts[canvas_pts.len() - 1], canvas_pts[0]);
         }
     }
+}
+
+fn pixel_buffer_size(content_width: u32, content_height: u32) -> usize {
+    (content_width * content_height * 4) as usize
+}
+
+fn get_active_presentation_policy(
+    splash_mode: bool,
+    presentation_policy: PresentationPolicy,
+) -> PresentationPolicy {
+    if splash_mode {
+        PresentationPolicy::Fit
+    } else {
+        presentation_policy
+    }
+}
+
+fn write_pixel_rgba(buf: &mut [u8], idx: usize, rgb: (u8, u8, u8)) {
+    buf[idx] = rgb.0;
+    buf[idx + 1] = rgb.1;
+    buf[idx + 2] = rgb.2;
+    buf[idx + 3] = 255;
+}
+
+fn clear_canvas(canvas: &mut sdl2::render::WindowCanvas, color: SdlColor) {
+    canvas.set_draw_color(color);
+    canvas.clear();
 }
 
 /// Scanline polygon fill using even-odd rule.
