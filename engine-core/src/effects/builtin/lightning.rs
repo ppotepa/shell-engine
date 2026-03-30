@@ -276,6 +276,46 @@ fn parse_anchor(anchor: Option<&str>, w: u16, seed: u32) -> f32 {
     }
 }
 
+fn in_region_i32(x: i32, y: i32, region: Region) -> bool {
+    x >= region.x as i32
+        && y >= region.y as i32
+        && x < (region.x + region.width) as i32
+        && y < (region.y + region.height) as i32
+}
+
+fn in_region_i32_x(x: i32, region: Region) -> bool {
+    x >= region.x as i32 && x < (region.x + region.width) as i32
+}
+
+fn apply_to_neighborhood_3x3<F>(region: Region, cx: u16, cy: u16, mut f: F)
+where
+    F: FnMut(u16, u16),
+{
+    for gy in cy.saturating_sub(1)..=cy.saturating_add(1) {
+        if gy < region.y || gy >= region.y + region.height {
+            continue;
+        }
+        for gx in cx.saturating_sub(1)..=cx.saturating_add(1) {
+            if gx < region.x || gx >= region.x + region.width {
+                continue;
+            }
+            f(gx, gy);
+        }
+    }
+}
+
+fn get_effect_color(params: &EffectParams, default_r: u8, default_g: u8, default_b: u8) -> Color {
+    params
+        .colour
+        .as_ref()
+        .map(Color::from)
+        .unwrap_or(Color::Rgb {
+            r: default_r,
+            g: default_g,
+            b: default_b,
+        })
+}
+
 #[derive(Clone, Copy)]
 enum LightningOrientation {
     Vertical,
@@ -320,25 +360,13 @@ fn bolt_symbol(intensity: f32) -> char {
 }
 
 fn apply_glow(buffer: &mut Buffer, region: Region, x: u16, y: u16, decay: f32) {
-    for gy in y.saturating_sub(1)..=y.saturating_add(1) {
-        if gy < region.y || gy >= region.y + region.height {
-            continue;
+    apply_to_neighborhood_3x3(region, x, y, |gx, gy| {
+        if let Some(cell) = buffer.get(gx, gy).cloned() {
+            let fg = lerp_colour(cell.fg, Color::White, 0.28 * decay);
+            let sym = if cell.symbol == ' ' { '░' } else { cell.symbol };
+            buffer.set(gx, gy, sym, fg, cell.bg);
         }
-        for gx in x.saturating_sub(1)..=x.saturating_add(1) {
-            if gx < region.x || gx >= region.x + region.width {
-                continue;
-            }
-            if let Some(cell) = buffer.get(gx, gy).cloned() {
-                let fg = lerp_colour(cell.fg, Color::White, 0.28 * decay);
-                let sym = if cell.symbol == ' ' {
-                    '░'
-                } else {
-                    cell.symbol
-                };
-                buffer.set(gx, gy, sym, fg, cell.bg);
-            }
-        }
-    }
+    });
 }
 
 fn blend_cell_to(
@@ -370,11 +398,7 @@ fn render_growth_core(
     effect_color: Color,
     glow: bool,
 ) {
-    if x < region.x as i32
-        || y < region.y as i32
-        || x >= (region.x + region.width) as i32
-        || y >= (region.y + region.height) as i32
-    {
+    if !in_region_i32(x, y, region) {
         return;
     }
 
@@ -387,11 +411,7 @@ fn render_growth_core(
         for ox in -halo_radius..=halo_radius {
             let xx = x + ox;
             let yy = y + oy;
-            if xx < region.x as i32
-                || yy < region.y as i32
-                || xx >= (region.x + region.width) as i32
-                || yy >= (region.y + region.height) as i32
-            {
+            if !in_region_i32(xx, yy, region) {
                 continue;
             }
 
@@ -491,15 +511,7 @@ impl Effect for LightningGrowthEffect {
         let freq_coeff = params.freq_coeff.unwrap_or(2.0).clamp(1.0, 5.0);
         let speed = params.speed.unwrap_or(0.6).clamp(0.0, 8.0);
         let orientation = LightningOrientation::from_params(params);
-        let effect_color = params
-            .colour
-            .as_ref()
-            .map(Color::from)
-            .unwrap_or(Color::Rgb {
-                r: 132,
-                g: 172,
-                b: 255,
-            });
+        let effect_color = get_effect_color(params, 132, 172, 255);
 
         let growth_progress = smoothstep01((p / 0.58).clamp(0.0, 1.0));
         let leader_intensity = (0.22 + 0.42 * smoothstep01((p / 0.42).clamp(0.0, 1.0))) * intensity;
@@ -722,7 +734,7 @@ impl Effect for LightningBranchEffect {
                         let radius = thickness.round() as i32 - 1;
                         for tx in -radius..=radius {
                             let xx = abs_x as i32 + tx;
-                            if xx < region.x as i32 || xx >= (region.x + region.width) as i32 {
+                            if !in_region_i32_x(xx, region) {
                                 continue;
                             }
                             let x_cell = xx as u16;
@@ -748,11 +760,7 @@ impl Effect for LightningBranchEffect {
                             for bi in 1..=len {
                                 let bx_i = abs_x as i32 + dir * bi;
                                 let by_i = y as i32 + (bi / 2);
-                                if bx_i < region.x as i32
-                                    || bx_i >= (region.x + region.width) as i32
-                                    || by_i < region.y as i32
-                                    || by_i >= (region.y + region.height) as i32
-                                {
+                                if !in_region_i32(bx_i, by_i, region) {
                                     break;
                                 }
                                 let bx = bx_i as u16;
@@ -831,11 +839,7 @@ impl Effect for LightningBranchEffect {
                             for bi in 1..=len {
                                 let bx_i = x as i32 + (bi / 2);
                                 let by_i = abs_y as i32 + dir * bi;
-                                if bx_i < region.x as i32
-                                    || bx_i >= (region.x + region.width) as i32
-                                    || by_i < region.y as i32
-                                    || by_i >= (region.y + region.height) as i32
-                                {
+                                if !in_region_i32(bx_i, by_i, region) {
                                     break;
                                 }
                                 let bx = bx_i as u16;
@@ -977,15 +981,7 @@ impl Effect for LightningFbmEffect {
             return;
         }
         let p = progress.clamp(0.0, 1.0);
-        let effect_color = params
-            .colour
-            .as_ref()
-            .map(Color::from)
-            .unwrap_or(Color::Rgb {
-                r: 51,
-                g: 77,
-                b: 204,
-            });
+        let effect_color = get_effect_color(params, 51, 77, 204);
         let octaves = params.octave_count.unwrap_or(10).clamp(1, 20);
         let amp_start = params.amp_start.unwrap_or(0.5).clamp(0.0, 4.0);
         let amp_coeff = params.amp_coeff.unwrap_or(0.5).clamp(0.0, 1.0);
@@ -1056,15 +1052,7 @@ impl Effect for LightningNaturalEffect {
         let p = progress.clamp(0.0, 1.0);
         let frame = (p * 12_000.0) as u32;
         let orientation = LightningOrientation::from_params(params);
-        let effect_color = params
-            .colour
-            .as_ref()
-            .map(Color::from)
-            .unwrap_or(Color::Rgb {
-                r: 124,
-                g: 170,
-                b: 255,
-            });
+        let effect_color = get_effect_color(params, 124, 170, 255);
         let intensity = params.intensity.unwrap_or(1.0).clamp(0.1, 2.5);
         let thickness = params.thickness.unwrap_or(1.2).clamp(0.35, 3.0);
         let strikes = params.strikes.unwrap_or(2).clamp(1, 4) as usize;
@@ -1174,11 +1162,7 @@ impl Effect for LightningNaturalEffect {
                         for branch_idx in 1..=branch_len.min((strikes as i32) + 2) {
                             let bx_i = x as i32 + branch_idx / 2;
                             let by_i = core_axis.round() as i32 + branch_dir * branch_idx;
-                            if bx_i < region.x as i32
-                                || bx_i >= (region.x + region.width) as i32
-                                || by_i < region.y as i32
-                                || by_i >= (region.y + region.height) as i32
-                            {
+                            if !in_region_i32(bx_i, by_i, region) {
                                 break;
                             }
                             let local = (envelope - branch_idx as f32 * 0.11).clamp(0.12, 0.9);
@@ -1228,7 +1212,7 @@ impl Effect for LightningNaturalEffect {
                     for ox in -halo_radius..=halo_radius {
                         let xx = core_axis + ox as f32;
                         let xi = xx.round() as i32;
-                        if xi < region.x as i32 || xi >= (region.x + region.width) as i32 {
+                        if !in_region_i32_x(xi, region) {
                             continue;
                         }
                         let x = xi as u16;
@@ -1281,11 +1265,7 @@ impl Effect for LightningNaturalEffect {
                         for branch_idx in 1..=branch_len.min((strikes as i32) + 2) {
                             let bx_i = core_axis.round() as i32 + branch_dir * branch_idx;
                             let by_i = y as i32 + branch_idx / 2;
-                            if bx_i < region.x as i32
-                                || bx_i >= (region.x + region.width) as i32
-                                || by_i < region.y as i32
-                                || by_i >= (region.y + region.height) as i32
-                            {
+                            if !in_region_i32(bx_i, by_i, region) {
                                 break;
                             }
                             let local = (envelope - branch_idx as f32 * 0.11).clamp(0.12, 0.9);
@@ -1398,11 +1378,7 @@ impl Effect for TeslaOrbEffect {
                 }
                 let xi = x.round() as i32;
                 let yi = y.round() as i32;
-                if xi < region.x as i32
-                    || yi < region.y as i32
-                    || xi >= (region.x + region.width) as i32
-                    || yi >= (region.y + region.height) as i32
-                {
+                if !in_region_i32(xi, yi, region) {
                     continue;
                 }
                 let xx = xi as u16;
@@ -1461,11 +1437,7 @@ impl Effect for TeslaOrbEffect {
                 let y = start_y + dy * t + jy;
                 let xi = x.round() as i32;
                 let yi = y.round() as i32;
-                if xi < region.x as i32
-                    || yi < region.y as i32
-                    || xi >= (region.x + region.width) as i32
-                    || yi >= (region.y + region.height) as i32
-                {
+                if !in_region_i32(xi, yi, region) {
                     continue;
                 }
                 let xx = xi as u16;
