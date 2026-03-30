@@ -72,7 +72,7 @@ fn spawn_asteroid(world, x, y, vx, vy, shape, size, min_x, max_x, min_y, max_y) 
         world.enable_wrap(id, min_x, max_x, min_y, max_y);
         world.entity(id).set_many(#{
             shape: shape, size: size, flash_ms: 0, flash_total_ms: 0, split_pending: false,
-            collide_cd_ms: 0, rot_phase: spin_seed % 32,
+            rot_phase: spin_seed % 32,
             rot_speed: if (spin_seed % 2) == 0 { 1 } else { -1 },
             rot_step_ms: 72 + ((spin_seed % 3) * 16), rot_accum_ms: 0
         });
@@ -364,12 +364,9 @@ for ast_id in world.query_kind("asteroid") {
         }
     }
 
-    let cd = ast_ref.get_i("/collide_cd_ms", 0);
-    if cd > 0 { cd -= dt; }
-
     ast_ref.set_many(#{
         flash_ms: flash_ms, flash_total_ms: if flash_ms <= 0 { 0 } else { flash_total },
-        split_pending: split_pending, rot_phase: rot_phase, rot_accum_ms: rot_accum, collide_cd_ms: cd
+        split_pending: split_pending, rot_phase: rot_phase, rot_accum_ms: rot_accum
     });
 }
 
@@ -384,8 +381,8 @@ for hit in world.collisions_between("ship", "asteroid") {
     let ast_hit_id = hit["asteroid"];
     let hit_ref = world.entity(ast_hit_id);
 
-    // Skip if asteroid is already being split (avoid double-hits)
-    if hit_ref.exists() && hit_ref.get_b("/split_pending", false) { continue; }
+    // Skip if asteroid is already being split or in post-hit cooldown (avoid double-hits)
+    if hit_ref.exists() && (hit_ref.get_b("/split_pending", false) || !hit_ref.cooldown_ready("collide")) { continue; }
 
     if !ship_ref.status_has("invulnerable") && world.exists(ship_id) {
         let t = ship_ref.transform();
@@ -399,7 +396,7 @@ for hit in world.collisions_between("ship", "asteroid") {
             });
             hit_ref.set_velocity(clamp_f(-phys.vx, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()),
                                 clamp_f(-phys.vy, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()));
-            hit_ref.set("/collide_cd_ms", 180);
+            world.entity(ast_hit_id).cooldown_start("collide", 180);
         }
         lives -= 1;
         ship_ref.set_velocity(0.0, 0.0);
@@ -414,8 +411,8 @@ for hit in world.collisions_between("bullet", "asteroid") {
     let ast_hit_id = hit["asteroid"];
     let hit_ref = world.entity(ast_hit_id);
     
-    // Skip if asteroid is already being split (avoid double-hits)
-    if hit_ref.exists() && hit_ref.get_b("/split_pending", false) { continue; }
+    // Skip if asteroid is already being split or in post-hit cooldown (avoid double-hits)
+    if hit_ref.exists() && (hit_ref.get_b("/split_pending", false) || !hit_ref.cooldown_ready("collide")) { continue; }
     
     if world.exists(bullet_id) {
         world.entity(bullet_id).despawn();
