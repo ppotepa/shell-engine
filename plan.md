@@ -293,6 +293,11 @@ Purpose: capture the review’s secondary editor-side signals so the simplificat
 
 Purpose: address the broader foundation-layer issues from the review so “base” crates stop accumulating mixed responsibilities.
 
+**Status:** Started - Stage A (pure helpers extraction) 50% complete
+- [x] Created geometry.rs, rhai_util.rs, emit.rs modules
+- [ ] Removed duplicate definitions from lib.rs
+- [ ] Added glob imports in lib.rs
+
 ### 11.1 Foundation crate slimming
 - [ ] Identify neutral shared types versus diagnostics versus state versus authoring metadata concerns.
 - [ ] Move mixed responsibilities toward clearer ownership boundaries.
