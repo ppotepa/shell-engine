@@ -29,7 +29,9 @@ pub mod text_render;
 pub mod warmup;
 
 pub use access::CompositorAccess;
-pub use buffer_pool::{acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PooledBuffer, PoolStats};
+pub use buffer_pool::{
+    acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
+};
 pub use compositor::{dispatch_composite, pack_halfblock_buffer};
 pub use image_render::{image_sprite_dimensions, render_image_content};
 pub use layout::{

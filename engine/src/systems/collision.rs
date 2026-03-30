@@ -1,9 +1,7 @@
 use engine_game::{CollisionHit, CollisionStrategies, GameplayWorld, WrapStrategy};
 
 /// Runs collision detection for gameplay entities and returns the hits.
-pub fn collision_system(
-    world: &mut engine_core::world::World,
-) -> Vec<CollisionHit> {
+pub fn collision_system(world: &mut engine_core::world::World) -> Vec<CollisionHit> {
     // Keep collision wrap in sync with the active render buffer so games that
     // use centered coordinates (e.g. -W/2..W/2) get toroidal edge collisions.
     if let Some((w, h)) = world

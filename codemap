@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${ROOT_DIR}"
+
+OUTPUT="${ROOT_DIR}/CODEMAP.json"
+MODE="compact"
+
+for arg in "$@"; do
+  case "${arg}" in
+    --full) MODE="full"; OUTPUT="${ROOT_DIR}/CODEMAP.FULL.MD" ;;
+    *) echo "[codemap] unknown option: ${arg}" >&2; exit 2 ;;
+  esac
+done
+
+# ── top-level crate/package directories ─────────────────────────────
+CRATE_DIRS=(
+  app editor engine cine rust-os tools
+  engine-3d engine-animation engine-asset engine-audio engine-audio-sequencer
+  engine-authoring engine-behavior engine-behavior-registry engine-capture
+  engine-compositor engine-core engine-debug engine-error engine-events
+  engine-frame engine-game engine-io engine-mod engine-persistence engine-physics
+  engine-pipeline engine-render engine-render-policy engine-render-sdl2
+  engine-render-terminal engine-runtime engine-scene-runtime engine-terminal
+  engine-vector mods schemas docs
+)
+
+python3 - "${OUTPUT}" "${MODE}" "${ROOT_DIR}" "${CRATE_DIRS[@]}" <<'PYEOF'
+import sys, json, re, os, subprocess
+from datetime import datetime, timezone
+from collections import defaultdict
+
+out_path   = sys.argv[1]
+mode       = sys.argv[2]   # "compact" | "full"
+root       = sys.argv[3]
+crate_dirs = sys.argv[4:]
+
+# ── kind → single char ───────────────────────────────────────────────
+KIND_CHAR = {
+    'fn': 'f', 'struct': 's', 'enum': 'e', 'trait': 't',
+    'impl': 'i', 'type': 'y', 'const': 'c', 'static': 'S',
+    'mod': 'm', 'macro_rules!': 'M',
+}
+
+# ── symbol patterns ──────────────────────────────────────────────────
+RS_SYMBOL = re.compile(
+    r'^(?P<indent>\s*)'
+    r'(?P<vis>pub(?:\([^)]*\))?\s+)?'
+    r'(?:async\s+)?(?:unsafe\s+)?(?:extern\s+"[^"]+"\s+)?'
+    r'(?P<kind>fn|struct|enum|trait|type|const|static|mod|impl|macro_rules!)'
+    r'\s+(?P<name>\w+)'
+)
+RHAI_FN = re.compile(r'^\s*(?:pub\s+)?fn\s+(?P<name>\w+)\s*\(')
+
+# Common names so generic their usages are noise
+SKIP_USAGES = {
+    'new', 'default', 'fmt', 'clone', 'drop', 'into', 'from', 'as_ref',
+    'as_mut', 'iter', 'len', 'is_empty', 'get', 'set', 'update', 'run',
+    'init', 'build', 'with', 'push', 'pop', 'clear', 'next', 'poll',
+    'send', 'recv', 'read', 'write', 'close', 'open', 'load', 'save',
+    'encode', 'decode', 'parse', 'format', 'hash', 'eq', 'cmp',
+    'deref', 'index', 'add', 'sub', 'mul', 'div', 'neg', 'not',
+    'partial_cmp', 'partial_eq', 'id', 'ok', 'err',
+}
+
+# Private symbols of these kinds are dropped when they have no usages
+DROP_IF_PRIVATE = {'fn', 'const', 'static', 'type'}
+
+def crate_for(path):
+    top = path.split('/')[0]
+    return top if top in crate_dirs else '.'
+
+def file_key_for(rel, crate):
+    if crate != '.' and rel.startswith(crate + '/'):
+        return rel[len(crate)+1:]
+    return rel
+
+def collect_rs(filepath):
+    symbols = []
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as fh:
+            for lineno, raw in enumerate(fh, 1):
+                m = RS_SYMBOL.match(raw)
+                if not m:
+                    continue
+                kind = m.group('kind')
+                entry = {
+                    'l': lineno,
+                    'k': KIND_CHAR.get(kind, kind),
+                    'n': m.group('name'),
+                    'pub': bool(m.group('vis')),
+                    'kind_raw': kind,
+                }
+                if kind == 'impl':
+                    hint = raw.strip().rstrip('{').strip()
+                    if hint:
+                        entry['h'] = hint
+                symbols.append(entry)
+    except OSError:
+        pass
+    return symbols
+
+def collect_rhai(filepath):
+    symbols = []
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as fh:
+            for lineno, raw in enumerate(fh, 1):
+                m = RHAI_FN.match(raw)
+                if m:
+                    symbols.append({'l': lineno, 'k': 'f', 'n': m.group('name'),
+                                    'pub': False, 'kind_raw': 'fn'})
+    except OSError:
+        pass
+    return symbols
+
+# ── gather tracked files ─────────────────────────────────────────────
+proc = subprocess.run(
+    ['git', 'ls-files', '*.rs', '*.rhai'],
+    capture_output=True, text=True, cwd=root
+)
+all_files = [f for f in proc.stdout.splitlines() if os.path.isfile(f)]
+
+# ── build crate map ──────────────────────────────────────────────────
+crates = {}
+defined_in = defaultdict(list)
+
+for rel in sorted(all_files):
+    crate = crate_for(rel)
+    fkey  = file_key_for(rel, crate)
+    syms  = collect_rhai(rel) if rel.endswith('.rhai') else collect_rs(rel)
+    if not syms:
+        continue
+    if crate not in crates:
+        crates[crate] = {'files': {}}
+    crates[crate]['files'][fkey] = syms
+    for sym in syms:
+        defined_in[sym['n']].append(f"{crate}/{fkey}")
+
+# ── build usage index (single scan) ──────────────────────────────────
+tracked_names = {
+    sym['n']
+    for crate_data in crates.values()
+    for fkey, syms in crate_data['files'].items()
+    for sym in syms
+    if sym['pub']
+    and len(sym['n']) >= 4
+    and sym['n'] not in SKIP_USAGES
+    and (sym['n'][0].isupper() or sym['kind_raw'] in ('fn', 'mod', 'trait', 'macro_rules!'))
+}
+
+_pat = re.compile(r'\b(' + '|'.join(re.escape(n) for n in sorted(tracked_names)) + r')\b')
+usage_index = defaultdict(set)
+
+print(f'[codemap] scanning {len(all_files)} files for usages of {len(tracked_names)} public symbols...',
+      file=sys.stderr)
+
+for rel in all_files:
+    if not rel.endswith('.rs'):
+        continue
+    crate = crate_for(rel)
+    fkey  = file_key_for(rel, crate)
+    ref   = f"{crate}/{fkey}"
+    try:
+        content = open(rel, encoding='utf-8', errors='replace').read()
+    except OSError:
+        continue
+    for m in _pat.finditer(content):
+        usage_index[m.group(1)].add(ref)
+
+# ── build file ID table ───────────────────────────────────────────────
+file_list = sorted({
+    f"{crate_name}/{fkey}"
+    for crate_name, crate_data in crates.items()
+    for fkey in crate_data['files']
+})
+file_id = {f: i for i, f in enumerate(file_list)}
+
+# ── finalize: filter, attach usages, convert to compact arrays ────────
+# Symbol array layout:
+#   [line, kind, name]                       private, no usages
+#   [line, kind, name, 1]                    pub, no usages
+#   [line, kind, name, 1, [ids...]]          pub + usages  (no impl hint)
+#   [line, kind, name, 0, "hint"]            impl private + hint
+#   [line, kind, name, 1, "hint"]            impl pub + hint, no usages
+#   [line, kind, name, 1, "hint", [ids...]]  impl pub + hint + usages
+total_symbols = 0
+total_with_usages = 0
+
+for crate_name, crate_data in crates.items():
+    for fkey, syms in crate_data['files'].items():
+        out_syms = []
+        for sym in syms:
+            name    = sym['n']
+            is_pub  = sym['pub']
+            exclude = set(defined_in.get(name, []))
+            use_ids = [file_id[f]
+                       for f in sorted(usage_index.get(name, set()) - exclude)
+                       if f in file_id]
+
+            # Drop private fn/const/static/type with no tracked usages
+            if not is_pub and not use_ids and sym['kind_raw'] in DROP_IF_PRIVATE:
+                continue
+
+            arr = [sym['l'], sym['k'], name]
+            if is_pub:
+                arr.append(1)
+                if sym.get('h'):
+                    arr.append(sym['h'])
+                    if use_ids:
+                        arr.append(use_ids)
+                        total_with_usages += 1
+                elif use_ids:
+                    arr.append(use_ids)
+                    total_with_usages += 1
+            else:
+                if sym.get('h'):
+                    arr.append(0)
+                    arr.append(sym['h'])
+
+            out_syms.append(arr)
+            total_symbols += 1
+
+        crate_data['files'][fkey] = out_syms
+
+# ── write output ─────────────────────────────────────────────────────
+if mode == 'full':
+    CHAR_KIND = {v: k for k, v in KIND_CHAR.items()}  # reverse lookup
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    lines = []
+    lines.append(f'# CODEMAP — Full Symbol Reference')
+    lines.append(f'')
+    lines.append(f'Generated: {now} | {sum(len(c["files"]) for c in crates.values())} files'
+                 f' | {total_symbols} symbols | {len(crates)} crates')
+    lines.append(f'')
+    lines.append(f'> Symbol columns: `line` · `kind` · `name` · visibility · usages')
+    lines.append(f'')
+
+    for crate_name in sorted(crates):
+        crate_data = crates[crate_name]
+        if not crate_data['files']:
+            continue
+        lines.append(f'---')
+        lines.append(f'')
+        lines.append(f'## {crate_name}')
+        lines.append(f'')
+
+        for fkey in sorted(crate_data['files']):
+            syms = crate_data['files'][fkey]
+            if not syms:
+                continue
+            lines.append(f'### `{fkey}`')
+            lines.append(f'')
+
+            for arr in syms:
+                line_no  = arr[0]
+                kind_ch  = arr[1]
+                name     = arr[2]
+                kind_str = CHAR_KIND.get(kind_ch, kind_ch)
+                pub_flag = len(arr) > 3 and arr[3] == 1
+                hint     = None
+                use_ids  = []
+
+                # parse optional positions
+                if len(arr) > 4:
+                    if isinstance(arr[4], str):
+                        hint = arr[4]
+                        if len(arr) > 5 and isinstance(arr[5], list):
+                            use_ids = arr[5]
+                    elif isinstance(arr[4], list):
+                        use_ids = arr[4]
+
+                pub_marker = ' `pub`' if pub_flag else ''
+                hint_str   = f' — *{hint}*' if hint else ''
+
+                if use_ids:
+                    use_paths = ', '.join(f'`{file_list[i]}`' for i in use_ids)
+                    usage_str = f'<br>↳ used in: {use_paths}'
+                else:
+                    usage_str = ''
+
+                lines.append(f'- **{line_no}** `{kind_str}` **{name}**{pub_marker}{hint_str}{usage_str}')
+
+            lines.append(f'')
+
+    with open(out_path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines))
+
+else:
+    output = {
+        'v': 2,
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'total_files': sum(len(c['files']) for c in crates.values()),
+        'total_symbols': total_symbols,
+        'legend': {
+            'symbol': '[line, kind, name, pub=1?, hint_or_usages?, usages?]',
+            'kinds': KIND_CHAR,
+            'files': 'integer index into top-level "files" array',
+        },
+        'files': file_list,
+        'crates': crates,
+    }
+    with open(out_path, 'w', encoding='utf-8') as fh:
+        json.dump(output, fh, separators=(',', ':'))
+
+size_kb = os.path.getsize(out_path) // 1024
+print(f'[codemap] wrote {out_path}  ({size_kb} KB)')
+print(f'[codemap] {sum(len(c["files"]) for c in crates.values())} files  |  {total_symbols} symbols  |  {len(crates)} crates  |  {total_with_usages} symbols with usages')
+PYEOF

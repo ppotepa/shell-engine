@@ -399,7 +399,7 @@ impl Buffer {
     /// CHUNK 34-35: Narrow dirty region for effect-specific optimization.
     /// PostFX effects like scanlines expand regions by varying amounts based on the effect type.
     /// This method constrains the dirty region to reduce unnecessary buffer expansion.
-    /// 
+    ///
     /// Effect-specific narrowing:
     /// - scanline: +1 cell expansion (horizontal bands are narrow)
     /// - glitch: +0 cell expansion (glitch only modifies glitched cells)
@@ -410,11 +410,11 @@ impl Buffer {
         if self.dirty_x_min > self.dirty_x_max || self.dirty_y_min > self.dirty_y_max {
             return;
         }
-        
+
         // Clamp the dirty region to prevent over-expansion
         let width = self.width;
         let height = self.height;
-        
+
         self.dirty_x_min = self.dirty_x_min.saturating_sub(max_expansion).max(0);
         self.dirty_x_max = (self.dirty_x_max + max_expansion).min(width.saturating_sub(1));
         self.dirty_y_min = self.dirty_y_min.saturating_sub(max_expansion).max(0);

@@ -2,17 +2,17 @@
 
 pub mod audio_sequencer;
 pub mod behavior;
+pub mod collision;
 pub mod compositor;
 pub mod engine_io;
 pub mod gameplay;
-pub mod collision;
 pub mod gameplay_events;
-pub mod ship_controller;
-pub mod visual_binding;
-pub mod visual_sync;
 pub mod hot_reload;
 pub mod prerender;
 pub mod scene3d_prerender;
+pub mod ship_controller;
+pub mod visual_binding;
+pub mod visual_sync;
 pub use engine_compositor::systems::postfx;
 pub mod renderer;
 mod renderer_tests;

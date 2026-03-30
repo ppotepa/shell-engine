@@ -1,5 +1,5 @@
-if local.contains("loaded") == false {
-    local["loaded"] = true;
+// on_enter: Load high scores on scene load
+if time.stage == "on_enter" {
     audio.play_song("asteroids.highscores-loop");
     let saved = persist.get("/asteroids/highscores");
     if saved.type_of() == "array" {
@@ -25,13 +25,16 @@ if local.contains("loaded") == false {
     }
 }
 
-if key.pressed == false {
-    return ();
-}
+// on_idle: Per-frame input handling
+if time.stage == "on_idle" {
+    if key.pressed == false {
+        return ();
+    }
 
-let code = if key.code.type_of() == "string" { key.code } else { "" };
-if code == "Enter" || code == "Esc" {
-    game.jump("asteroids.mainmenu");
-} else if code == "r" || code == "R" {
-    game.jump("asteroids.game");
+    let code = if key.code.type_of() == "string" { key.code } else { "" };
+    if code == "Enter" || code == "Esc" {
+        game.jump("asteroids.mainmenu");
+    } else if code == "r" || code == "R" {
+        game.jump("asteroids.game");
+    }
 }

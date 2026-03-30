@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 usage() {
   cat <<'USAGE'
-Usage: ./concat [--output <file>] [--stdout] [--include-generated] [-rs|--rust-only]
+Usage: ./concat [--output <file>] [--stdout] [--include-generated] [-rs|--rust-only] [--md-only]
 
 Concatenates tracked source-code files with metadata:
 - file path
@@ -24,6 +24,7 @@ Ignored non-source includes:
 Modes:
 - default: tracked `.rs`, `.rhai`, `.sh`, `.py`
 - `-rs` / `--rust-only`: tracked first-party `.rs` only, excluding mods/docs/artifacts
+- `--md-only`: tracked `*.md` only
 USAGE
 }
 
@@ -31,6 +32,7 @@ OUTPUT_FILE="concat-report.txt"
 WRITE_STDOUT=0
 INCLUDE_GENERATED=0
 RUST_ONLY=0
+MD_ONLY=0
 OUTPUT_FILE_EXPLICIT=0
 
 while [[ $# -gt 0 ]]; do
@@ -56,6 +58,10 @@ while [[ $# -gt 0 ]]; do
       RUST_ONLY=1
       shift
       ;;
+    --md-only)
+      MD_ONLY=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -71,6 +77,11 @@ done
 # In rust-only mode, keep a separate default report file unless user overrode it.
 if (( RUST_ONLY == 1 )) && (( OUTPUT_FILE_EXPLICIT == 0 )); then
   OUTPUT_FILE="concat.rs.txt"
+fi
+
+# In md-only mode, keep a separate default report file unless user overrode it.
+if (( MD_ONLY == 1 )) && (( OUTPUT_FILE_EXPLICIT == 0 )); then
+  OUTPUT_FILE="concat.md.txt"
 fi
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -89,6 +100,8 @@ if (( RUST_ONLY == 1 )); then
       | rg -v '^(mods/|docs/|assets/|benchmark-results/|reports/|logs/|target/|rust-os/)' \
       | sort
   )
+elif (( MD_ONLY == 1 )); then
+  mapfile -t ALL_FILES < <(git ls-files '*.md' | while IFS= read -r f; do [[ -f "$f" ]] && echo "$f"; done | sort)
 else
   mapfile -t ALL_FILES < <(git ls-files '*.rs' '*.rhai' '*.sh' '*.py' | sort)
 fi
@@ -105,6 +118,8 @@ fi
 if (( ${#FILES[@]} == 0 )); then
   if (( RUST_ONLY == 1 )); then
     echo "[concat] no tracked first-party Rust files found for -rs mode" >&2
+  elif (( MD_ONLY == 1 )); then
+    echo "[concat] no tracked Markdown files found for --md-only mode" >&2
   else
     echo "[concat] no tracked source-code files found (.rs/.rhai/.sh/.py)" >&2
   fi
@@ -129,6 +144,7 @@ render_report() {
   printf 'lines_total: %s\n' "$total_lines"
   printf 'include_generated: %s\n' "$INCLUDE_GENERATED"
   printf 'rust_only: %s\n' "$RUST_ONLY"
+  printf 'md_only: %s\n' "$MD_ONLY"
   printf 'skipped_generated_files: %s\n' "$SKIPPED_GENERATED"
   printf 'ignored_non_source_files: %s\n' "${#IGNORED_NON_SOURCE[@]}"
   printf '\n'

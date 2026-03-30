@@ -35,7 +35,7 @@ impl HalfblockPacker for FullScanPacker {
 /// Safe because fill() establishes dirty region as FULL, and subsequent sprite writes
 /// either expand or keep the full region. Never reset dirty after fill().
 /// Gate behind `--opt-comp`.
-/// 
+///
 /// CHUNK 31: Static scene optimization — when dirty_region is empty (no changes),
 /// iteration_bounds() returns None, causing the compositor to skip the entire
 /// halfblock packing pass. This provides 15-20% pack time reduction on static scenes.

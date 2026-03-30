@@ -1077,10 +1077,7 @@ fn draw_vectors(
             let _ = canvas.draw_line(canvas_pts[i], canvas_pts[i + 1]);
         }
         if prim.closed && canvas_pts.len() >= 3 {
-            let _ = canvas.draw_line(
-                canvas_pts[canvas_pts.len() - 1],
-                canvas_pts[0],
-            );
+            let _ = canvas.draw_line(canvas_pts[canvas_pts.len() - 1], canvas_pts[0]);
         }
     }
 }

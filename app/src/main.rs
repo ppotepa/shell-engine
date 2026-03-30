@@ -153,7 +153,7 @@ fn main() {
         .mod_source
         .unwrap_or_else(|| format!("mods/{}/", cli.mod_name));
     logging::info("app.main", format!("resolved mod_source={mod_source}"));
-    
+
     // Initialize the behavior system with the mod source so Rhai module resolution works
     init_behavior_system(&mod_source);
 

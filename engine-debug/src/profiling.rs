@@ -6,8 +6,8 @@
 //!
 //! Markers are collected with zero-copy stacking and can be exported for offline analysis.
 
-use std::time::Instant;
 use std::collections::VecDeque;
+use std::time::Instant;
 
 /// A timing marker capturing function name, elapsed time, and hierarchy.
 #[derive(Debug, Clone)]

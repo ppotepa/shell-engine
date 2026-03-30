@@ -38,13 +38,13 @@ impl StartupCheck for ActionMapCheck {
 }
 
 /// Validates the action_map section of mod.yaml.
-fn validate_action_map(action_map: &serde_yaml::Value, report: &mut StartupReport) -> Result<(), EngineError> {
+fn validate_action_map(
+    action_map: &serde_yaml::Value,
+    report: &mut StartupReport,
+) -> Result<(), EngineError> {
     // action_map should be a mapping
     if !action_map.is_mapping() {
-        report.add_warning(
-            "ActionMapCheck",
-            "action_map should be a mapping/object",
-        );
+        report.add_warning("ActionMapCheck", "action_map should be a mapping/object");
         return Ok(());
     }
 
@@ -58,7 +58,10 @@ fn validate_action_map(action_map: &serde_yaml::Value, report: &mut StartupRepor
     };
 
     if !actions.is_mapping() {
-        report.add_warning("ActionMapCheck", "action_map.actions should be a mapping/object");
+        report.add_warning(
+            "ActionMapCheck",
+            "action_map.actions should be a mapping/object",
+        );
         return Ok(());
     }
 
@@ -86,7 +89,10 @@ fn validate_action_map(action_map: &serde_yaml::Value, report: &mut StartupRepor
         if !action_def.is_mapping() {
             report.add_warning(
                 "ActionMapCheck",
-                format!("action '{}' definition should be a mapping/object", action_name),
+                format!(
+                    "action '{}' definition should be a mapping/object",
+                    action_name
+                ),
             );
             continue;
         }
@@ -114,7 +120,7 @@ fn is_valid_identifier(name: &str) -> bool {
 
     let mut chars = name.chars();
     let first = chars.next().unwrap();
-    
+
     // First char must be letter or underscore
     if !first.is_alphabetic() && first != '_' {
         return false;

@@ -124,26 +124,43 @@ pub struct WrapBounds {
 
 impl WrapBounds {
     pub fn new(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Self {
-        Self { min_x, max_x, min_y, max_y }
+        Self {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+        }
     }
 
     /// Wrap a single value in [min, max] toroidally.
     #[inline]
     pub fn wrap_x(&self, x: f32) -> f32 {
         let range = self.max_x - self.min_x;
-        if range <= 0.0 { return x; }
-        if x < self.min_x { self.max_x }
-        else if x > self.max_x { self.min_x }
-        else { x }
+        if range <= 0.0 {
+            return x;
+        }
+        if x < self.min_x {
+            self.max_x
+        } else if x > self.max_x {
+            self.min_x
+        } else {
+            x
+        }
     }
 
     #[inline]
     pub fn wrap_y(&self, y: f32) -> f32 {
         let range = self.max_y - self.min_y;
-        if range <= 0.0 { return y; }
-        if y < self.min_y { self.max_y }
-        else if y > self.max_y { self.min_y }
-        else { y }
+        if range <= 0.0 {
+            return y;
+        }
+        if y < self.min_y {
+            self.max_y
+        } else if y > self.max_y {
+            self.min_y
+        } else {
+            y
+        }
     }
 }
 
@@ -203,7 +220,9 @@ impl TopDownShipController {
     /// Uses sin32 approximation for 32-step heading.
     pub fn heading_vector(&self) -> (f32, f32) {
         let sin_val = sin32(self.current_heading) as f32;
-        let cos_val = sin32((self.current_heading + (self.heading_bits as i32) / 4) % (self.heading_bits as i32)) as f32;
+        let cos_val = sin32(
+            (self.current_heading + (self.heading_bits as i32) / 4) % (self.heading_bits as i32),
+        ) as f32;
         (sin_val / 1024.0, -cos_val / 1024.0)
     }
 
@@ -225,10 +244,9 @@ impl Default for TopDownShipController {
 #[inline]
 fn sin32(i: i32) -> i32 {
     const SIN_TABLE: [i32; 32] = [
-        0, 201, 401, 601, 797, 989, 1176, 1356,
-        1530, 1696, 1853, 1999, 2135, 2259, 2370, 2467,
-        2549, 2616, 2665, 2697, 2711, 2707, 2685, 2644,
-        2585, 2508, 2413, 2300, 2169, 2021, 1856, 1674,
+        0, 201, 401, 601, 797, 989, 1176, 1356, 1530, 1696, 1853, 1999, 2135, 2259, 2370, 2467,
+        2549, 2616, 2665, 2697, 2711, 2707, 2685, 2644, 2585, 2508, 2413, 2300, 2169, 2021, 1856,
+        1674,
     ];
     SIN_TABLE[((i % 32).abs()) as usize]
 }

@@ -19,11 +19,11 @@ use engine_core::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use engine_core::scene_runtime_types::{
     ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
 };
+use engine_game::components::{DespawnVisual, TopDownShipController};
 use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
 };
-use engine_game::components::{DespawnVisual, TopDownShipController};
 use engine_persistence::PersistenceStore;
 use engine_physics::{point_in_polygon, polygons_intersect, segment_intersects_polygon};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
@@ -665,7 +665,7 @@ fn configure_rhai_limits(engine: &mut RhaiEngine) {
 fn init_rhai_engine() -> RhaiEngine {
     let mut engine = RhaiEngine::new();
     configure_rhai_limits(&mut engine);
-    
+
     // Set up module resolver for `import "module-name" as name;` statements.
     // Modules are loaded from {MOD_SOURCE}/scripts/ directory.
     let mod_source = get_mod_source();
@@ -682,29 +682,36 @@ fn init_rhai_engine() -> RhaiEngine {
     // without any scope injection per call.
     {
         let mut m = rhai::Module::new();
-        m.set_var("KEY_LEFT",     "Left");
-        m.set_var("KEY_RIGHT",    "Right");
-        m.set_var("KEY_UP",       "Up");
-        m.set_var("KEY_DOWN",     "Down");
-        m.set_var("KEY_SPACE",    " ");
-        m.set_var("KEY_ESC",      "Esc");
-        m.set_var("KEY_ENTER",    "Enter");
-        m.set_var("KEY_BACKSPACE","Backspace");
-        m.set_var("KEY_TAB",      "Tab");
-        m.set_var("KEY_F1",  "F1");  m.set_var("KEY_F2",  "F2");
-        m.set_var("KEY_F3",  "F3");  m.set_var("KEY_F4",  "F4");
-        m.set_var("KEY_F5",  "F5");  m.set_var("KEY_F6",  "F6");
-        m.set_var("KEY_F7",  "F7");  m.set_var("KEY_F8",  "F8");
-        m.set_var("KEY_F9",  "F9");  m.set_var("KEY_F10", "F10");
-        m.set_var("KEY_F11", "F11"); m.set_var("KEY_F12", "F12");
-        m.set_var("LAYER_ALL",     0xFFFF_i64);
-        m.set_var("LAYER_NONE",    0_i64);
+        m.set_var("KEY_LEFT", "Left");
+        m.set_var("KEY_RIGHT", "Right");
+        m.set_var("KEY_UP", "Up");
+        m.set_var("KEY_DOWN", "Down");
+        m.set_var("KEY_SPACE", " ");
+        m.set_var("KEY_ESC", "Esc");
+        m.set_var("KEY_ENTER", "Enter");
+        m.set_var("KEY_BACKSPACE", "Backspace");
+        m.set_var("KEY_TAB", "Tab");
+        m.set_var("KEY_F1", "F1");
+        m.set_var("KEY_F2", "F2");
+        m.set_var("KEY_F3", "F3");
+        m.set_var("KEY_F4", "F4");
+        m.set_var("KEY_F5", "F5");
+        m.set_var("KEY_F6", "F6");
+        m.set_var("KEY_F7", "F7");
+        m.set_var("KEY_F8", "F8");
+        m.set_var("KEY_F9", "F9");
+        m.set_var("KEY_F10", "F10");
+        m.set_var("KEY_F11", "F11");
+        m.set_var("KEY_F12", "F12");
+        m.set_var("LAYER_ALL", 0xFFFF_i64);
+        m.set_var("LAYER_NONE", 0_i64);
         m.set_var("LAYER_DEFAULT", 0xFFFF_i64);
         engine.register_global_module(m.into());
     }
 
     engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
     engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
+    engine.register_type_with_name::<ScriptUiApi>("UiApi");
     engine.register_type_with_name::<ScriptGameApi>("GameApi");
     engine.register_type_with_name::<ScriptPersistenceApi>("PersistenceApi");
     engine.register_type_with_name::<ScriptGameplayApi>("GameplayApi");
@@ -713,10 +720,46 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_type_with_name::<ScriptInputApi>("InputApi");
     engine.register_type_with_name::<ScriptDebugApi>("DebugApi");
     engine.register_type_with_name::<ScriptAudioApi>("AudioApi");
+    engine.register_type_with_name::<ScriptFxApi>("FxApi");
+    engine.register_type_with_name::<ScriptTimeApi>("TimeApi");
+
+    engine.register_get("scene_elapsed_ms", |time: &mut ScriptTimeApi| {
+        time.scene_elapsed_ms()
+    });
+    engine.register_get("stage_elapsed_ms", |time: &mut ScriptTimeApi| {
+        time.stage_elapsed_ms()
+    });
+    engine.register_get("stage", |time: &mut ScriptTimeApi| time.stage());
+    engine.register_fn("contains", |time: &mut ScriptTimeApi, path: &str| {
+        time.contains(path)
+    });
+    engine.register_fn("get", |time: &mut ScriptTimeApi, path: &str| time.get(path));
+    engine.register_fn(
+        "get_i",
+        |time: &mut ScriptTimeApi, path: &str, fallback: rhai::INT| time.get_i(path, fallback),
+    );
+    engine.register_fn(
+        "delta_ms",
+        |time: &mut ScriptTimeApi, max_ms: rhai::INT, state_path: &str| {
+            time.delta_ms(max_ms, state_path)
+        },
+    );
 
     engine.register_fn("get", |scene: &mut ScriptSceneApi, target: &str| {
         scene.get(target)
     });
+    engine.register_get("focused_target", |ui: &mut ScriptUiApi| ui.focused_target());
+    engine.register_get("theme", |ui: &mut ScriptUiApi| ui.theme());
+    engine.register_get("has_submit", |ui: &mut ScriptUiApi| ui.has_submit());
+    engine.register_get("submit_target", |ui: &mut ScriptUiApi| ui.submit_target());
+    engine.register_get("submit_text", |ui: &mut ScriptUiApi| ui.submit_text());
+    engine.register_get("has_change", |ui: &mut ScriptUiApi| ui.has_change());
+    engine.register_get("change_target", |ui: &mut ScriptUiApi| ui.change_target());
+    engine.register_get("change_text", |ui: &mut ScriptUiApi| ui.change_text());
+    engine.register_fn(
+        "flash_message",
+        |ui: &mut ScriptUiApi, text: &str, ttl_ms: rhai::INT| ui.flash_message(text, ttl_ms),
+    );
     engine.register_fn(
         "set",
         |scene: &mut ScriptSceneApi, target: &str, path: &str, value: RhaiDynamic| {
@@ -777,11 +820,18 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("action_down", |input: &mut ScriptInputApi, action: &str| {
         input.action_down(action)
     });
-    engine.register_fn("action_just_pressed", |input: &mut ScriptInputApi, action: &str| {
-        input.action_just_pressed(action)
-    });
-    engine.register_fn("bind_action", |input: &mut ScriptInputApi, action: &str, keys: rhai::Array| {
-        input.bind_action(action, keys)
+    engine.register_fn(
+        "action_just_pressed",
+        |input: &mut ScriptInputApi, action: &str| input.action_just_pressed(action),
+    );
+    engine.register_fn(
+        "bind_action",
+        |input: &mut ScriptInputApi, action: &str, keys: rhai::Array| {
+            input.bind_action(action, keys)
+        },
+    );
+    engine.register_fn("load_profile", |input: &mut ScriptInputApi, name: &str| {
+        input.load_profile(name)
     });
     engine.register_fn("info", |debug: &mut ScriptDebugApi, message: &str| {
         debug.info(message);
@@ -814,6 +864,10 @@ fn init_rhai_engine() -> RhaiEngine {
         audio.play_song(song_id)
     });
     engine.register_fn("stop_song", |audio: &mut ScriptAudioApi| audio.stop_song());
+    engine.register_fn(
+        "emit",
+        |fx: &mut ScriptFxApi, effect_name: &str, args: RhaiMap| fx.emit(effect_name, args),
+    );
     engine.register_fn("get", |game: &mut ScriptGameApi, path: &str| game.get(path));
     engine.register_fn(
         "set",
@@ -830,18 +884,22 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("jump", |game: &mut ScriptGameApi, scene_id: &str| {
         game.jump(scene_id)
     });
-    engine.register_fn("get_i", |game: &mut ScriptGameApi, path: &str, fallback: rhai::INT| {
-        game.get_i(path, fallback)
-    });
-    engine.register_fn("get_s", |game: &mut ScriptGameApi, path: &str, fallback: &str| {
-        game.get_s(path, fallback)
-    });
-    engine.register_fn("get_b", |game: &mut ScriptGameApi, path: &str, fallback: bool| {
-        game.get_b(path, fallback)
-    });
-    engine.register_fn("get_f", |game: &mut ScriptGameApi, path: &str, fallback: rhai::FLOAT| {
-        game.get_f(path, fallback)
-    });
+    engine.register_fn(
+        "get_i",
+        |game: &mut ScriptGameApi, path: &str, fallback: rhai::INT| game.get_i(path, fallback),
+    );
+    engine.register_fn(
+        "get_s",
+        |game: &mut ScriptGameApi, path: &str, fallback: &str| game.get_s(path, fallback),
+    );
+    engine.register_fn(
+        "get_b",
+        |game: &mut ScriptGameApi, path: &str, fallback: bool| game.get_b(path, fallback),
+    );
+    engine.register_fn(
+        "get_f",
+        |game: &mut ScriptGameApi, path: &str, fallback: rhai::FLOAT| game.get_f(path, fallback),
+    );
     engine.register_fn("get", |level: &mut ScriptLevelApi, path: &str| {
         level.get(path)
     });
@@ -960,9 +1018,11 @@ fn init_rhai_engine() -> RhaiEngine {
     );
     engine.register_fn(
         "set_transform",
-        |world: &mut ScriptGameplayApi, id: rhai::INT, x: rhai::FLOAT, y: rhai::FLOAT, heading: rhai::FLOAT| {
-            world.set_transform(id, x, y, heading)
-        },
+        |world: &mut ScriptGameplayApi,
+         id: rhai::INT,
+         x: rhai::FLOAT,
+         y: rhai::FLOAT,
+         heading: rhai::FLOAT| { world.set_transform(id, x, y, heading) },
     );
     engine.register_fn(
         "transform",
@@ -979,10 +1039,9 @@ fn init_rhai_engine() -> RhaiEngine {
          drag: rhai::FLOAT,
          max_speed: rhai::FLOAT| { world.set_physics(id, vx, vy, ax, ay, drag, max_speed) },
     );
-    engine.register_fn(
-        "physics",
-        |world: &mut ScriptGameplayApi, id: rhai::INT| world.physics(id),
-    );
+    engine.register_fn("physics", |world: &mut ScriptGameplayApi, id: rhai::INT| {
+        world.physics(id)
+    });
     engine.register_fn(
         "set_collider_circle",
         |world: &mut ScriptGameplayApi,
@@ -1013,6 +1072,60 @@ fn init_rhai_engine() -> RhaiEngine {
         "spawn_visual",
         |world: &mut ScriptGameplayApi, kind: &str, template: &str, data: RhaiMap| {
             world.spawn_visual(kind, template, data)
+        },
+    );
+    engine.register_fn(
+        "spawn_prefab",
+        |world: &mut ScriptGameplayApi, name: &str, args: RhaiMap| world.spawn_prefab(name, args),
+    );
+    engine.register_fn(
+        "spawn_group",
+        |world: &mut ScriptGameplayApi, group_name: &str, prefab_name: &str| {
+            world.spawn_group(group_name, prefab_name)
+        },
+    );
+    engine.register_fn(
+        "try_fire_weapon",
+        |world: &mut ScriptGameplayApi, weapon_name: &str, source_id: rhai::INT, args: RhaiMap| {
+            world.try_fire_weapon(weapon_name, source_id, args)
+        },
+    );
+    engine.register_fn(
+        "tick_heading_anim",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, dt_ms: rhai::INT| {
+            world.tick_heading_anim(id, dt_ms)
+        },
+    );
+    engine.register_fn(
+        "handle_ship_hit",
+        |world: &mut ScriptGameplayApi,
+         ship_id: rhai::INT,
+         asteroid_id: rhai::INT,
+         args: RhaiMap| { world.handle_ship_hit(ship_id, asteroid_id, args) },
+    );
+    engine.register_fn(
+        "handle_bullet_hit",
+        |world: &mut ScriptGameplayApi,
+         bullet_id: rhai::INT,
+         asteroid_id: rhai::INT,
+         args: RhaiMap| { world.handle_bullet_hit(bullet_id, asteroid_id, args) },
+    );
+    engine.register_fn(
+        "handle_asteroid_split",
+        |world: &mut ScriptGameplayApi, asteroid_id: rhai::INT, args: RhaiMap| {
+            world.handle_asteroid_split(asteroid_id, args)
+        },
+    );
+    engine.register_fn(
+        "spawn_wave",
+        |world: &mut ScriptGameplayApi, wave_name: &str, args: RhaiMap| {
+            world.spawn_wave(wave_name, args)
+        },
+    );
+    engine.register_fn(
+        "ensure_crack_visuals",
+        |world: &mut ScriptGameplayApi, asteroid_id: rhai::INT| {
+            world.ensure_crack_visuals(asteroid_id)
         },
     );
     engine.register_fn("collisions", |world: &mut ScriptGameplayApi| {
@@ -1050,15 +1163,15 @@ fn init_rhai_engine() -> RhaiEngine {
     // ── Child entity API ──────────────────────────────────────────────────
     engine.register_fn(
         "spawn_child",
-        |world: &mut ScriptGameplayApi, parent_id: rhai::INT, kind: &str, template: &str, data: RhaiMap| {
-            world.spawn_child_entity(parent_id, kind, template, data)
-        },
+        |world: &mut ScriptGameplayApi,
+         parent_id: rhai::INT,
+         kind: &str,
+         template: &str,
+         data: RhaiMap| { world.spawn_child_entity(parent_id, kind, template, data) },
     );
     engine.register_fn(
         "despawn_children",
-        |world: &mut ScriptGameplayApi, parent_id: rhai::INT| {
-            world.despawn_children_of(parent_id)
-        },
+        |world: &mut ScriptGameplayApi, parent_id: rhai::INT| world.despawn_children_of(parent_id),
     );
     engine.register_fn(
         "distance",
@@ -1066,9 +1179,10 @@ fn init_rhai_engine() -> RhaiEngine {
             world.distance(a, b)
         },
     );
-    engine.register_fn("any_alive", |world: &mut ScriptGameplayApi, kind: &str| -> bool {
-        world.any_alive(kind)
-    });
+    engine.register_fn(
+        "any_alive",
+        |world: &mut ScriptGameplayApi, kind: &str| -> bool { world.any_alive(kind) },
+    );
     engine.register_fn("exists", |entity: &mut ScriptGameplayEntityApi| {
         entity.exists()
     });
@@ -1099,12 +1213,8 @@ fn init_rhai_engine() -> RhaiEngine {
             entity.set(path, value)
         },
     );
-    engine.register_fn("kind", |entity: &mut ScriptGameplayEntityApi| {
-        entity.kind()
-    });
-    engine.register_fn("tags", |entity: &mut ScriptGameplayEntityApi| {
-        entity.tags()
-    });
+    engine.register_fn("kind", |entity: &mut ScriptGameplayEntityApi| entity.kind());
+    engine.register_fn("tags", |entity: &mut ScriptGameplayEntityApi| entity.tags());
     engine.register_fn("get_metadata", |entity: &mut ScriptGameplayEntityApi| {
         entity.get_metadata()
     });
@@ -1114,36 +1224,43 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("transform", |entity: &mut ScriptGameplayEntityApi| {
         entity.transform()
     });
-    engine.register_fn("set_position", |entity: &mut ScriptGameplayEntityApi, x: rhai::FLOAT, y: rhai::FLOAT| {
-        entity.set_position(x, y)
-    });
-    engine.register_fn("set_heading", |entity: &mut ScriptGameplayEntityApi, heading: rhai::FLOAT| {
-        entity.set_heading(heading)
-    });
+    engine.register_fn(
+        "set_position",
+        |entity: &mut ScriptGameplayEntityApi, x: rhai::FLOAT, y: rhai::FLOAT| {
+            entity.set_position(x, y)
+        },
+    );
+    engine.register_fn(
+        "set_heading",
+        |entity: &mut ScriptGameplayEntityApi, heading: rhai::FLOAT| entity.set_heading(heading),
+    );
     engine.register_fn("physics", |entity: &mut ScriptGameplayEntityApi| {
         entity.physics()
     });
-    engine.register_fn("set_velocity", |entity: &mut ScriptGameplayEntityApi, vx: rhai::FLOAT, vy: rhai::FLOAT| {
-        entity.set_velocity(vx, vy)
-    });
-    engine.register_fn("set_acceleration", |entity: &mut ScriptGameplayEntityApi, ax: rhai::FLOAT, ay: rhai::FLOAT| {
-        entity.set_acceleration(ax, ay)
-    });
+    engine.register_fn(
+        "set_velocity",
+        |entity: &mut ScriptGameplayEntityApi, vx: rhai::FLOAT, vy: rhai::FLOAT| {
+            entity.set_velocity(vx, vy)
+        },
+    );
+    engine.register_fn(
+        "set_acceleration",
+        |entity: &mut ScriptGameplayEntityApi, ax: rhai::FLOAT, ay: rhai::FLOAT| {
+            entity.set_acceleration(ax, ay)
+        },
+    );
     engine.register_fn("collider", |entity: &mut ScriptGameplayEntityApi| {
         entity.collider()
     });
-    engine.register_fn("lifetime_remaining", |entity: &mut ScriptGameplayEntityApi| {
-        entity.lifetime_remaining()
-    });
+    engine.register_fn(
+        "lifetime_remaining",
+        |entity: &mut ScriptGameplayEntityApi| entity.lifetime_remaining(),
+    );
     engine.register_fn(
         "set_many",
-        |entity: &mut ScriptGameplayEntityApi, map: RhaiMap| {
-            entity.set_many(map)
-        },
+        |entity: &mut ScriptGameplayEntityApi, map: RhaiMap| entity.set_many(map),
     );
-    engine.register_fn("data", |entity: &mut ScriptGameplayEntityApi| {
-        entity.data()
-    });
+    engine.register_fn("data", |entity: &mut ScriptGameplayEntityApi| entity.data());
     engine.register_fn(
         "get_f",
         |entity: &mut ScriptGameplayEntityApi, path: &str, fallback: rhai::FLOAT| {
@@ -1162,9 +1279,10 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("id", |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
         entity.id()
     });
-    engine.register_fn("flag", |entity: &mut ScriptGameplayEntityApi, name: &str| -> bool {
-        entity.flag(name)
-    });
+    engine.register_fn(
+        "flag",
+        |entity: &mut ScriptGameplayEntityApi, name: &str| -> bool { entity.flag(name) },
+    );
     engine.register_fn(
         "set_flag",
         |entity: &mut ScriptGameplayEntityApi, name: &str, value: bool| -> bool {
@@ -1173,64 +1291,63 @@ fn init_rhai_engine() -> RhaiEngine {
     );
 
     // ── Cooldown API ──────────────────────────────────────────────────────
-    engine.register_fn("cooldown_start",
+    engine.register_fn(
+        "cooldown_start",
         |entity: &mut ScriptGameplayEntityApi, name: &str, ms: rhai::INT| {
             entity.cooldown_start(name, ms)
         },
     );
-    engine.register_fn("cooldown_ready",
-        |entity: &mut ScriptGameplayEntityApi, name: &str| {
-            entity.cooldown_ready(name)
-        },
+    engine.register_fn(
+        "cooldown_ready",
+        |entity: &mut ScriptGameplayEntityApi, name: &str| entity.cooldown_ready(name),
     );
-    engine.register_fn("cooldown_remaining",
+    engine.register_fn(
+        "cooldown_remaining",
         |entity: &mut ScriptGameplayEntityApi, name: &str| -> rhai::INT {
             entity.cooldown_remaining(name)
         },
     );
 
     // ── Status API ────────────────────────────────────────────────────────
-    engine.register_fn("status_add",
+    engine.register_fn(
+        "status_add",
         |entity: &mut ScriptGameplayEntityApi, name: &str, ms: rhai::INT| {
             entity.status_add(name, ms)
         },
     );
-    engine.register_fn("status_has",
-        |entity: &mut ScriptGameplayEntityApi, name: &str| {
-            entity.status_has(name)
-        },
+    engine.register_fn(
+        "status_has",
+        |entity: &mut ScriptGameplayEntityApi, name: &str| entity.status_has(name),
     );
-    engine.register_fn("status_remaining",
+    engine.register_fn(
+        "status_remaining",
         |entity: &mut ScriptGameplayEntityApi, name: &str| -> rhai::INT {
             entity.status_remaining(name)
         },
     );
 
     // ── Ship Controller API (on entity ref) ───────────────────────────────
-    engine.register_fn("attach_ship_controller",
+    engine.register_fn(
+        "attach_ship_controller",
         |entity: &mut ScriptGameplayEntityApi, config: RhaiMap| {
             entity.attach_ship_controller(config)
         },
     );
-    engine.register_fn("set_turn",
-        |entity: &mut ScriptGameplayEntityApi, dir: rhai::INT| {
-            entity.set_turn(dir)
-        },
+    engine.register_fn(
+        "set_turn",
+        |entity: &mut ScriptGameplayEntityApi, dir: rhai::INT| entity.set_turn(dir),
     );
-    engine.register_fn("set_thrust",
-        |entity: &mut ScriptGameplayEntityApi, on: bool| {
-            entity.set_thrust(on)
-        },
+    engine.register_fn(
+        "set_thrust",
+        |entity: &mut ScriptGameplayEntityApi, on: bool| entity.set_thrust(on),
     );
-    engine.register_fn("heading",
-        |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
-            entity.heading()
-        },
+    engine.register_fn(
+        "heading",
+        |entity: &mut ScriptGameplayEntityApi| -> rhai::INT { entity.heading() },
     );
-    engine.register_fn("heading_vector",
-        |entity: &mut ScriptGameplayEntityApi| -> RhaiMap {
-            entity.heading_vector()
-        },
+    engine.register_fn(
+        "heading_vector",
+        |entity: &mut ScriptGameplayEntityApi| -> RhaiMap { entity.heading_vector() },
     );
 
     // ── Wrap API ──────────────────────────────────────────────────────────
@@ -1238,82 +1355,90 @@ fn init_rhai_engine() -> RhaiEngine {
         "enable_wrap",
         |world: &mut ScriptGameplayApi,
          id: rhai::INT,
-         min_x: rhai::FLOAT, max_x: rhai::FLOAT,
-         min_y: rhai::FLOAT, max_y: rhai::FLOAT| {
-            world.enable_wrap(id, min_x, max_x, min_y, max_y)
-        },
+         min_x: rhai::FLOAT,
+         max_x: rhai::FLOAT,
+         min_y: rhai::FLOAT,
+         max_y: rhai::FLOAT| { world.enable_wrap(id, min_x, max_x, min_y, max_y) },
     );
     engine.register_fn(
         "disable_wrap",
-        |world: &mut ScriptGameplayApi, id: rhai::INT| {
-            world.disable_wrap(id)
-        },
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.disable_wrap(id),
     );
     engine.register_fn(
         "set_world_bounds",
         |world: &mut ScriptGameplayApi,
-         min_x: rhai::FLOAT, max_x: rhai::FLOAT,
-         min_y: rhai::FLOAT, max_y: rhai::FLOAT| {
-            world.set_world_bounds(min_x, max_x, min_y, max_y)
-        },
+         min_x: rhai::FLOAT,
+         max_x: rhai::FLOAT,
+         min_y: rhai::FLOAT,
+         max_y: rhai::FLOAT| { world.set_world_bounds(min_x, max_x, min_y, max_y) },
     );
     engine.register_fn("world_bounds", |world: &mut ScriptGameplayApi| -> RhaiMap {
         world.world_bounds()
     });
-    engine.register_fn("enable_wrap_bounds", |world: &mut ScriptGameplayApi, id: rhai::INT| -> bool {
-        world.enable_wrap_bounds(id)
-    });
+    engine.register_fn(
+        "enable_wrap_bounds",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> bool { world.enable_wrap_bounds(id) },
+    );
 
     // ── RNG API ────────────────────────────────────────────────────────────
-    engine.register_fn("rand_i",
+    engine.register_fn(
+        "rand_i",
         |world: &mut ScriptGameplayApi, min: rhai::INT, max: rhai::INT| -> rhai::INT {
             world.rand_i(min, max)
         },
     );
-    engine.register_fn("rand_seed",
-        |world: &mut ScriptGameplayApi, seed: rhai::INT| {
-            world.rand_seed(seed)
-        },
+    engine.register_fn(
+        "rand_seed",
+        |world: &mut ScriptGameplayApi, seed: rhai::INT| world.rand_seed(seed),
     );
 
     // ── Tag API ────────────────────────────────────────────────────────────
-    engine.register_fn("tag_add",
+    engine.register_fn(
+        "tag_add",
         |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| -> bool {
             world.tag_add(id, tag)
         },
     );
-    engine.register_fn("tag_remove",
+    engine.register_fn(
+        "tag_remove",
         |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| -> bool {
             world.tag_remove(id, tag)
         },
     );
-    engine.register_fn("tag_has",
+    engine.register_fn(
+        "tag_has",
         |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| -> bool {
             world.tag_has(id, tag)
         },
     );
 
     // ── World timer API ────────────────────────────────────────────────────
-    engine.register_fn("after_ms",
+    engine.register_fn(
+        "after_ms",
         |world: &mut ScriptGameplayApi, label: &str, delay_ms: rhai::INT| {
             world.after_ms(label, delay_ms)
         },
     );
-    engine.register_fn("timer_fired",
-        |world: &mut ScriptGameplayApi, label: &str| -> bool {
-            world.timer_fired(label)
-        },
+    engine.register_fn(
+        "timer_fired",
+        |world: &mut ScriptGameplayApi, label: &str| -> bool { world.timer_fired(label) },
     );
-    engine.register_fn("cancel_timer",
-        |world: &mut ScriptGameplayApi, label: &str| -> bool {
-            world.cancel_timer(label)
-        },
+    engine.register_fn(
+        "cancel_timer",
+        |world: &mut ScriptGameplayApi, label: &str| -> bool { world.cancel_timer(label) },
     );
 
     // ── Bulk spawn API ─────────────────────────────────────────────────────
-    engine.register_fn("spawn_group",
+    engine.register_fn(
+        "spawn_group",
         |world: &mut ScriptGameplayApi, specs: rhai::Array| -> rhai::Array {
-            world.spawn_group(specs)
+            world.spawn_batch(specs)
+        },
+    );
+    engine.register_fn(
+        "spawn_batch",
+        |world: &mut ScriptGameplayApi, specs: rhai::Array| -> rhai::Array {
+            world.spawn_batch(specs)
         },
     );
     engine.register_fn(
@@ -1372,48 +1497,43 @@ fn init_rhai_engine() -> RhaiEngine {
     );
 
     // ── Ship Controller API ────────────────────────────────────────────────
-    engine.register_fn("attach_ship_controller",
+    engine.register_fn(
+        "attach_ship_controller",
         |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| {
             world.attach_ship_controller(id, config)
         },
     );
-    engine.register_fn("ship_set_turn",
-        |world: &mut ScriptGameplayApi, id: rhai::INT, dir: rhai::INT| {
-            world.ship_set_turn(id, dir)
-        },
+    engine.register_fn(
+        "ship_set_turn",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, dir: rhai::INT| world.ship_set_turn(id, dir),
     );
-    engine.register_fn("ship_set_thrust",
-        |world: &mut ScriptGameplayApi, id: rhai::INT, on: bool| {
-            world.ship_set_thrust(id, on)
-        },
+    engine.register_fn(
+        "ship_set_thrust",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, on: bool| world.ship_set_thrust(id, on),
     );
-    engine.register_fn("ship_heading",
+    engine.register_fn(
+        "ship_heading",
         |world: &mut ScriptGameplayApi, id: rhai::INT| -> rhai::INT {
             world.ship_heading(id) as rhai::INT
         },
     );
-    engine.register_fn("ship_heading_vector",
-        |world: &mut ScriptGameplayApi, id: rhai::INT| -> RhaiMap {
-            world.ship_heading_vector(id)
-        },
+    engine.register_fn(
+        "ship_heading_vector",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> RhaiMap { world.ship_heading_vector(id) },
     );
-    engine.register_fn("ship_velocity",
-        |world: &mut ScriptGameplayApi, id: rhai::INT| -> RhaiMap {
-            world.ship_velocity(id)
-        },
+    engine.register_fn(
+        "ship_velocity",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| -> RhaiMap { world.ship_velocity(id) },
     );
 
     // ── Event API ──────────────────────────────────────────────────────
-    engine.register_fn("poll_collisions",
-        |world: &mut ScriptGameplayApi| -> RhaiArray {
-            world.poll_collision_events()
-        },
+    engine.register_fn(
+        "poll_collisions",
+        |world: &mut ScriptGameplayApi| -> RhaiArray { world.poll_collision_events() },
     );
-    engine.register_fn("clear_events",
-        |world: &mut ScriptGameplayApi| {
-            world.clear_events();
-        },
-    );
+    engine.register_fn("clear_events", |world: &mut ScriptGameplayApi| {
+        world.clear_events();
+    });
 
     engine.register_fn("abs_i", |v: rhai::INT| -> rhai::INT {
         if v < 0 {
@@ -1538,10 +1658,10 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("unit_vec32", |heading: rhai::INT| -> RhaiMap {
         let h = ((heading % 32 + 32) % 32) as usize;
         const SIN32: [f32; 32] = [
-             0.0,    0.1951, 0.3827, 0.5556, 0.7071, 0.8315, 0.9239, 0.9808,
-             1.0,    0.9808, 0.9239, 0.8315, 0.7071, 0.5556, 0.3827, 0.1951,
-             0.0,   -0.1951,-0.3827,-0.5556,-0.7071,-0.8315,-0.9239,-0.9808,
-            -1.0,   -0.9808,-0.9239,-0.8315,-0.7071,-0.5556,-0.3827,-0.1951,
+            0.0, 0.1951, 0.3827, 0.5556, 0.7071, 0.8315, 0.9239, 0.9808, 1.0, 0.9808, 0.9239,
+            0.8315, 0.7071, 0.5556, 0.3827, 0.1951, 0.0, -0.1951, -0.3827, -0.5556, -0.7071,
+            -0.8315, -0.9239, -0.9808, -1.0, -0.9808, -0.9239, -0.8315, -0.7071, -0.5556, -0.3827,
+            -0.1951,
         ];
         let sin_v = SIN32[h];
         let cos_v = SIN32[(h + 8) % 32];
@@ -1631,6 +1751,21 @@ struct ScriptObjectApi {
 }
 
 #[derive(Clone)]
+struct ScriptUiApi {
+    focused_target: String,
+    theme: String,
+    has_submit: bool,
+    submit_target: String,
+    submit_text: String,
+    has_change: bool,
+    change_target: String,
+    change_text: String,
+    scene_elapsed_ms: u64,
+    game_state: Option<GameState>,
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
+#[derive(Clone)]
 struct ScriptGameApi {
     state: Option<GameState>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
@@ -1642,6 +1777,14 @@ struct ScriptLevelApi {
 }
 
 #[derive(Clone)]
+struct ScriptTimeApi {
+    scene_elapsed_ms: u64,
+    stage_elapsed_ms: u64,
+    stage: String,
+    game_state: Option<GameState>,
+}
+
+#[derive(Clone)]
 struct ScriptPersistenceApi {
     store: Option<PersistenceStore>,
 }
@@ -1649,6 +1792,8 @@ struct ScriptPersistenceApi {
 #[derive(Clone)]
 struct ScriptGameplayApi {
     world: Option<GameplayWorld>,
+    game_state: Option<GameState>,
+    scene_elapsed_ms: u64,
     collisions: std::sync::Arc<Vec<CollisionHit>>,
     collision_enters: std::sync::Arc<Vec<CollisionHit>>,
     collision_stays: std::sync::Arc<Vec<CollisionHit>>,
@@ -1685,6 +1830,12 @@ struct ScriptDebugApi {
 
 #[derive(Clone)]
 struct ScriptAudioApi {
+    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+}
+
+#[derive(Clone)]
+struct ScriptFxApi {
+    world: Option<GameplayWorld>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -1859,6 +2010,103 @@ impl ScriptObjectApi {
     }
 }
 
+impl ScriptUiApi {
+    const FLASH_TEXT_PATH: &'static str = "/__ui/game_message/text";
+    const FLASH_UNTIL_MS_PATH: &'static str = "/__ui/game_message/until_ms";
+    const FLASH_TARGET: &'static str = "game-message";
+
+    fn new(ctx: &BehaviorContext, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+        Self {
+            focused_target: ctx
+                .ui_focused_target_id
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
+            theme: ctx.ui_theme_id.as_deref().unwrap_or_default().to_string(),
+            has_submit: ctx.ui_last_submit_target_id.is_some(),
+            submit_target: ctx
+                .ui_last_submit_target_id
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
+            submit_text: ctx
+                .ui_last_submit_text
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
+            has_change: ctx.ui_last_change_target_id.is_some(),
+            change_target: ctx
+                .ui_last_change_target_id
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
+            change_text: ctx
+                .ui_last_change_text
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
+            scene_elapsed_ms: ctx.scene_elapsed_ms,
+            game_state: ctx.game_state.clone(),
+            queue,
+        }
+    }
+
+    fn focused_target(&mut self) -> String {
+        self.focused_target.clone()
+    }
+    fn theme(&mut self) -> String {
+        self.theme.clone()
+    }
+    fn has_submit(&mut self) -> bool {
+        self.has_submit
+    }
+    fn submit_target(&mut self) -> String {
+        self.submit_target.clone()
+    }
+    fn submit_text(&mut self) -> String {
+        self.submit_text.clone()
+    }
+    fn has_change(&mut self) -> bool {
+        self.has_change
+    }
+    fn change_target(&mut self) -> String {
+        self.change_target.clone()
+    }
+    fn change_text(&mut self) -> String {
+        self.change_text.clone()
+    }
+
+    fn flash_message(&mut self, text: &str, ttl_ms: rhai::INT) -> bool {
+        let Some(state) = self.game_state.as_ref() else {
+            return false;
+        };
+        let trimmed = text.trim();
+        let ttl_ms = ttl_ms.max(0) as u64;
+        let until_ms = self.scene_elapsed_ms.saturating_add(ttl_ms) as i64;
+
+        if !state.set(
+            Self::FLASH_TEXT_PATH,
+            JsonValue::String(trimmed.to_string()),
+        ) {
+            return false;
+        }
+        if !state.set(
+            Self::FLASH_UNTIL_MS_PATH,
+            JsonValue::Number(JsonNumber::from(until_ms)),
+        ) {
+            return false;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::SetText {
+            target: Self::FLASH_TARGET.to_string(),
+            text: trimmed.to_string(),
+        });
+        true
+    }
+}
+
 impl ScriptGameApi {
     fn new(state: Option<GameState>, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
         Self { state, queue }
@@ -1924,7 +2172,9 @@ impl ScriptGameApi {
     }
 
     fn get_s(&mut self, path: &str, fallback: &str) -> String {
-        self.get(path).try_cast::<String>().unwrap_or_else(|| fallback.to_string())
+        self.get(path)
+            .try_cast::<String>()
+            .unwrap_or_else(|| fallback.to_string())
     }
 
     fn get_b(&mut self, path: &str, fallback: bool) -> bool {
@@ -2005,6 +2255,76 @@ impl ScriptLevelApi {
     }
 }
 
+impl ScriptTimeApi {
+    fn new(
+        scene_elapsed_ms: u64,
+        stage_elapsed_ms: u64,
+        stage: SceneStage,
+        game_state: Option<GameState>,
+    ) -> Self {
+        Self {
+            scene_elapsed_ms,
+            stage_elapsed_ms,
+            stage: match stage {
+                SceneStage::OnEnter => "on_enter",
+                SceneStage::OnIdle => "on_idle",
+                SceneStage::OnLeave => "on_leave",
+                SceneStage::Done => "done",
+            }
+            .to_string(),
+            game_state,
+        }
+    }
+
+    fn scene_elapsed_ms(&mut self) -> rhai::INT {
+        self.scene_elapsed_ms as rhai::INT
+    }
+
+    fn stage_elapsed_ms(&mut self) -> rhai::INT {
+        self.stage_elapsed_ms as rhai::INT
+    }
+
+    fn stage(&mut self) -> String {
+        self.stage.clone()
+    }
+
+    fn contains(&mut self, path: &str) -> bool {
+        matches!(path, "scene_elapsed_ms" | "stage_elapsed_ms" | "stage")
+    }
+
+    fn get(&mut self, path: &str) -> RhaiDynamic {
+        match path {
+            "scene_elapsed_ms" => self.scene_elapsed_ms().into(),
+            "stage_elapsed_ms" => self.stage_elapsed_ms().into(),
+            "stage" => self.stage().into(),
+            _ => ().into(),
+        }
+    }
+
+    fn get_i(&mut self, path: &str, fallback: rhai::INT) -> rhai::INT {
+        self.get(path).try_cast::<rhai::INT>().unwrap_or(fallback)
+    }
+
+    fn delta_ms(&mut self, max_ms: rhai::INT, state_path: &str) -> rhai::INT {
+        let now = self.scene_elapsed_ms as rhai::INT;
+        let max_ms = max_ms.max(0);
+        let Some(state) = self.game_state.as_ref() else {
+            return 0;
+        };
+
+        let last = state
+            .get(state_path)
+            .and_then(|value| value.as_i64())
+            .map(|value| value as rhai::INT)
+            .unwrap_or(now);
+
+        let raw = now - last;
+        let dt = raw.clamp(0, max_ms);
+        let _ = state.set(state_path, JsonValue::Number(JsonNumber::from(now)));
+        dt
+    }
+}
+
 impl ScriptTerminalApi {
     fn new(queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
         Self { queue }
@@ -2034,7 +2354,12 @@ impl ScriptInputApi {
         action_bindings: Arc<HashMap<String, Vec<String>>>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
-        Self { keys_down, keys_just_pressed, action_bindings, queue }
+        Self {
+            keys_down,
+            keys_just_pressed,
+            action_bindings,
+            queue,
+        }
     }
 
     fn down(&mut self, code: &str) -> bool {
@@ -2064,7 +2389,9 @@ impl ScriptInputApi {
 
     /// Returns `true` if any key bound to `action` is currently held.
     fn action_down(&mut self, action: &str) -> bool {
-        let Some(keys) = self.action_bindings.get(action) else { return false };
+        let Some(keys) = self.action_bindings.get(action) else {
+            return false;
+        };
         keys.iter().any(|k| {
             let n = normalize_input_code(k);
             !n.is_empty() && self.keys_down.contains(&n)
@@ -2073,7 +2400,9 @@ impl ScriptInputApi {
 
     /// Returns `true` only on the first frame any key bound to `action` is pressed.
     fn action_just_pressed(&mut self, action: &str) -> bool {
-        let Some(keys) = self.action_bindings.get(action) else { return false };
+        let Some(keys) = self.action_bindings.get(action) else {
+            return false;
+        };
         keys.iter().any(|k| {
             let n = normalize_input_code(k);
             !n.is_empty() && self.keys_just_pressed.contains(&n)
@@ -2090,6 +2419,29 @@ impl ScriptInputApi {
             q.push(BehaviorCommand::BindInputAction {
                 action: action.to_string(),
                 keys: key_strs,
+            });
+        }
+        true
+    }
+
+    fn load_profile(&mut self, name: &str) -> bool {
+        let bindings: &[(&str, &[&str])] = match name {
+            "asteroids.default" => &[
+                ("turn_left", &["Left", "a", "A"]),
+                ("turn_right", &["Right", "d", "D"]),
+                ("thrust", &["Up", "w", "W"]),
+                ("fire", &[" ", "f", "F"]),
+            ],
+            _ => return false,
+        };
+
+        let Ok(mut q) = self.queue.lock() else {
+            return false;
+        };
+        for (action, keys) in bindings {
+            q.push(BehaviorCommand::BindInputAction {
+                action: (*action).to_string(),
+                keys: keys.iter().map(|key| (*key).to_string()).collect(),
             });
         }
         true
@@ -2196,6 +2548,136 @@ impl ScriptAudioApi {
     }
 }
 
+impl ScriptFxApi {
+    fn new(world: Option<GameplayWorld>, queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
+        Self { world, queue }
+    }
+
+    fn gameplay_api(&self) -> ScriptGameplayApi {
+        ScriptGameplayApi::new(
+            self.world.clone(),
+            None,
+            0,
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            Arc::new(Vec::new()),
+            Arc::clone(&self.queue),
+        )
+    }
+
+    fn emit(&mut self, effect_name: &str, args: RhaiMap) -> RhaiArray {
+        let Some(world) = self.world.clone() else {
+            return RhaiArray::new();
+        };
+
+        match effect_name {
+            "asteroids.ship_thrust_smoke" => {
+                let ship_id = ScriptGameplayApi::map_int(&args, "ship_id", 0);
+                if ship_id <= 0 {
+                    return RhaiArray::new();
+                }
+                let ship_id = ship_id as u64;
+                if !world.exists(ship_id) {
+                    return RhaiArray::new();
+                }
+                let max_count = ScriptGameplayApi::map_int(&args, "max_count", 40).max(0);
+                if world.count_kind("smoke") as rhai::INT >= max_count {
+                    return RhaiArray::new();
+                }
+                let cooldown_name = ScriptGameplayApi::map_string(&args, "cooldown_name")
+                    .unwrap_or_else(|| "smoke".to_string());
+                if !world.cooldown_ready(ship_id, &cooldown_name) {
+                    return RhaiArray::new();
+                }
+                let Some(transform) = world.transform(ship_id) else {
+                    return RhaiArray::new();
+                };
+                let Some(physics) = world.physics(ship_id) else {
+                    return RhaiArray::new();
+                };
+                let Some(controller) = world.controller(ship_id) else {
+                    return RhaiArray::new();
+                };
+                let velocity_scale =
+                    ScriptGameplayApi::map_number(&args, "velocity_scale", 60.0) as f32;
+                if velocity_scale.abs() <= f32::EPSILON {
+                    return RhaiArray::new();
+                }
+                let spawn_offset = ScriptGameplayApi::map_number(&args, "spawn_offset", 6.0) as f32;
+                let backward_speed =
+                    ScriptGameplayApi::map_number(&args, "backward_speed", 0.35) as f32;
+                let ttl_ms = ScriptGameplayApi::map_int(&args, "ttl_ms", 520);
+                let radius = ScriptGameplayApi::map_int(&args, "radius", 3);
+                let cooldown_ms = ScriptGameplayApi::map_int(&args, "cooldown_ms", 48).max(0);
+                let (dir_x, dir_y) = controller.heading_vector();
+
+                let mut smoke_args = RhaiMap::new();
+                smoke_args.insert(
+                    "x".into(),
+                    ((transform.x - (dir_x * spawn_offset)) as rhai::FLOAT).into(),
+                );
+                smoke_args.insert(
+                    "y".into(),
+                    ((transform.y - (dir_y * spawn_offset)) as rhai::FLOAT).into(),
+                );
+                smoke_args.insert(
+                    "vx".into(),
+                    (((physics.vx / velocity_scale) - (dir_x * backward_speed)) as rhai::FLOAT)
+                        .into(),
+                );
+                smoke_args.insert(
+                    "vy".into(),
+                    (((physics.vy / velocity_scale) - (dir_y * backward_speed)) as rhai::FLOAT)
+                        .into(),
+                );
+                smoke_args.insert("ttl_ms".into(), ttl_ms.into());
+                smoke_args.insert("radius".into(), radius.into());
+
+                let mut gameplay = self.gameplay_api();
+                let smoke_id = gameplay.spawn_prefab("smoke", smoke_args);
+                if smoke_id <= 0 {
+                    return RhaiArray::new();
+                }
+                if cooldown_ms > 0
+                    && !world.cooldown_start(ship_id, &cooldown_name, cooldown_ms as i32)
+                {
+                    let _ = gameplay.despawn(smoke_id);
+                    return RhaiArray::new();
+                }
+                vec![smoke_id.into()]
+            }
+            "asteroids.ship_disintegration" => {
+                let x = ScriptGameplayApi::map_number(&args, "x", 0.0) as f32;
+                let y = ScriptGameplayApi::map_number(&args, "y", 0.0) as f32;
+                let ttl_ms = ScriptGameplayApi::map_int(&args, "ttl_ms", 700);
+                let radius = ScriptGameplayApi::map_int(&args, "radius", 3);
+                let speed = ScriptGameplayApi::map_number(&args, "speed", 0.879) as f32;
+                let mut gameplay = self.gameplay_api();
+                let mut out = RhaiArray::new();
+
+                for idx in 0..12_i32 {
+                    let angle = ((idx * 3) as f32) * (std::f32::consts::TAU / 32.0);
+                    let mut smoke_args = RhaiMap::new();
+                    smoke_args.insert("x".into(), (x as rhai::FLOAT).into());
+                    smoke_args.insert("y".into(), (y as rhai::FLOAT).into());
+                    smoke_args.insert("vx".into(), ((angle.sin() * speed) as rhai::FLOAT).into());
+                    smoke_args.insert("vy".into(), ((-angle.cos() * speed) as rhai::FLOAT).into());
+                    smoke_args.insert("ttl_ms".into(), ttl_ms.into());
+                    smoke_args.insert("radius".into(), radius.into());
+                    let smoke_id = gameplay.spawn_prefab("smoke", smoke_args);
+                    if smoke_id > 0 {
+                        out.push(smoke_id.into());
+                    }
+                }
+
+                out
+            }
+            _ => RhaiArray::new(),
+        }
+    }
+}
+
 impl ScriptPersistenceApi {
     fn new(store: Option<PersistenceStore>) -> Self {
         Self { store }
@@ -2252,8 +2734,41 @@ impl ScriptPersistenceApi {
 }
 
 impl ScriptGameplayApi {
+    fn map_number(args: &RhaiMap, key: &str, fallback: rhai::FLOAT) -> rhai::FLOAT {
+        args.get(key)
+            .and_then(|v| {
+                v.clone()
+                    .try_cast::<rhai::FLOAT>()
+                    .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
+            })
+            .unwrap_or(fallback)
+    }
+
+    fn map_int(args: &RhaiMap, key: &str, fallback: rhai::INT) -> rhai::INT {
+        args.get(key)
+            .and_then(|v| {
+                v.clone()
+                    .try_cast::<rhai::INT>()
+                    .or_else(|| v.clone().try_cast::<rhai::FLOAT>().map(|f| f as rhai::INT))
+            })
+            .unwrap_or(fallback)
+    }
+
+    fn map_map(args: &RhaiMap, key: &str) -> Option<RhaiMap> {
+        args.get(key).and_then(|v| v.clone().try_cast::<RhaiMap>())
+    }
+
+    fn map_string(args: &RhaiMap, key: &str) -> Option<String> {
+        args.get(key)
+            .and_then(|v| v.clone().try_cast::<String>())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    }
+
     fn new(
         world: Option<GameplayWorld>,
+        game_state: Option<GameState>,
+        scene_elapsed_ms: u64,
         collisions: std::sync::Arc<Vec<CollisionHit>>,
         collision_enters: std::sync::Arc<Vec<CollisionHit>>,
         collision_stays: std::sync::Arc<Vec<CollisionHit>>,
@@ -2262,6 +2777,8 @@ impl ScriptGameplayApi {
     ) -> Self {
         Self {
             world,
+            game_state,
+            scene_elapsed_ms,
             collisions,
             collision_enters,
             collision_stays,
@@ -2329,7 +2846,7 @@ impl ScriptGameplayApi {
     }
 
     fn spawn(&mut self, kind: &str, payload: RhaiDynamic) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.world.clone() else {
             return 0;
         };
         let Some(payload) = rhai_dynamic_to_json(&payload) else {
@@ -2493,7 +3010,13 @@ impl ScriptGameplayApi {
         world.push(id as u64, path, value)
     }
 
-    fn set_transform(&mut self, id: rhai::INT, x: rhai::FLOAT, y: rhai::FLOAT, heading: rhai::FLOAT) -> bool {
+    fn set_transform(
+        &mut self,
+        id: rhai::INT,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        heading: rhai::FLOAT,
+    ) -> bool {
         let Some(world) = self.world.as_ref() else {
             return false;
         };
@@ -2592,7 +3115,9 @@ impl ScriptGameplayApi {
         world.set_collider(
             id as u64,
             Collider2D {
-                shape: ColliderShape::Circle { radius: radius as f32 },
+                shape: ColliderShape::Circle {
+                    radius: radius as f32,
+                },
                 layer: layer as u32,
                 mask: mask as u32,
             },
@@ -2635,13 +3160,8 @@ impl ScriptGameplayApi {
         )
     }
 
-    fn spawn_visual(
-        &mut self,
-        kind: &str,
-        template: &str,
-        data: RhaiMap,
-    ) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+    fn spawn_visual(&mut self, kind: &str, template: &str, data: RhaiMap) -> rhai::INT {
+        let Some(world) = self.world.clone() else {
             return 0;
         };
 
@@ -2706,25 +3226,19 @@ impl ScriptGameplayApi {
             })
             .unwrap_or(0.0) as f32;
 
-        if !world.set_transform(
-            entity_id,
-            Transform2D { x, y, heading },
-        ) {
+        if !world.set_transform(entity_id, Transform2D { x, y, heading }) {
             world.despawn(entity_id);
             return 0;
         }
 
         // Step 6: Set collider if provided
         if let Some(radius_val) = data.get("collider_radius") {
-            let radius_opt = radius_val
-                .clone()
-                .try_cast::<rhai::FLOAT>()
-                .or_else(|| {
-                    radius_val
-                        .clone()
-                        .try_cast::<rhai::INT>()
-                        .map(|i| i as rhai::FLOAT)
-                });
+            let radius_opt = radius_val.clone().try_cast::<rhai::FLOAT>().or_else(|| {
+                radius_val
+                    .clone()
+                    .try_cast::<rhai::INT>()
+                    .map(|i| i as rhai::FLOAT)
+            });
             if let Some(radius) = radius_opt {
                 let layer = data
                     .get("collider_layer")
@@ -2809,6 +3323,708 @@ impl ScriptGameplayApi {
         }
 
         entity_id as rhai::INT
+    }
+
+    fn spawn_prefab(&mut self, name: &str, args: RhaiMap) -> rhai::INT {
+        match name {
+            "ship" => {
+                let cfg = Self::map_map(&args, "cfg").unwrap_or_default();
+                let x = Self::map_number(&args, "x", 0.0);
+                let y = Self::map_number(&args, "y", 0.0);
+                let heading = Self::map_number(&args, "heading", 0.0);
+                let id = self.spawn("ship", RhaiMap::new().into());
+                if id <= 0 {
+                    return 0;
+                }
+                let mut controller_cfg = RhaiMap::new();
+                controller_cfg.insert(
+                    "turn_step_ms".into(),
+                    Self::map_int(&cfg, "turn_step_ms", 40).into(),
+                );
+                controller_cfg.insert(
+                    "thrust_power".into(),
+                    Self::map_number(&cfg, "ship_thrust", 170.0).into(),
+                );
+                controller_cfg.insert(
+                    "max_speed".into(),
+                    Self::map_number(&cfg, "ship_max_speed", 4.5).into(),
+                );
+                controller_cfg.insert("heading_bits".into(), 32_i64.into());
+                if !self.set_visual(id, "ship")
+                    || !self.set_transform(id, x, y, heading)
+                    || !self.set_physics(
+                        id,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.10,
+                        Self::map_number(&cfg, "ship_max_speed", 0.0),
+                    )
+                    || !self.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF)
+                    || !self.attach_ship_controller(id, controller_cfg)
+                    || !self.enable_wrap_bounds(id)
+                {
+                    let _ = self.despawn(id);
+                    return 0;
+                }
+
+                let invulnerable_ms = Self::map_int(&args, "invulnerable_ms", 0);
+                if invulnerable_ms > 0 {
+                    let _ = self.entity(id).status_add("invulnerable", invulnerable_ms);
+                }
+                id
+            }
+            "asteroid" => {
+                let x = Self::map_number(&args, "x", 0.0);
+                let y = Self::map_number(&args, "y", 0.0);
+                let vx = Self::map_number(&args, "vx", 0.0);
+                let vy = Self::map_number(&args, "vy", 0.0);
+                let shape = Self::map_int(&args, "shape", 0);
+                let size = Self::map_int(&args, "size", 1);
+                let mut visual_args = RhaiMap::new();
+                visual_args.insert("x".into(), x.into());
+                visual_args.insert("y".into(), y.into());
+                visual_args.insert("heading".into(), 0.0.into());
+                visual_args.insert(
+                    "collider_radius".into(),
+                    (asteroid_radius_i32(size as i32) as rhai::INT).into(),
+                );
+                let id = self.spawn_visual("asteroid", "asteroid-template", visual_args);
+                if id <= 0
+                    || !self.set_physics(id, vx * 60.0, vy * 60.0, 0.0, 0.0, 0.0, 0.0)
+                    || !self.enable_wrap_bounds(id)
+                {
+                    let _ = self.despawn(id);
+                    return 0;
+                }
+                let rot_phase = self.rand_i(0, 31);
+                let rot_speed = if self.rand_i(0, 1) == 0 { 1 } else { -1 };
+                let rot_step = 72 + self.rand_i(0, 2) * 16;
+                let mut asteroid_data = RhaiMap::new();
+                asteroid_data.insert("shape".into(), shape.into());
+                asteroid_data.insert("size".into(), size.into());
+                asteroid_data.insert("flash_ms".into(), 0_i64.into());
+                asteroid_data.insert("flash_total_ms".into(), 0_i64.into());
+                asteroid_data.insert("split_pending".into(), false.into());
+                asteroid_data.insert("rot_phase".into(), rot_phase.into());
+                asteroid_data.insert("rot_speed".into(), rot_speed.into());
+                asteroid_data.insert("rot_step_ms".into(), rot_step.into());
+                asteroid_data.insert("rot_accum_ms".into(), 0_i64.into());
+                let _ = self.entity(id).set_many(asteroid_data);
+                id
+            }
+            "bullet" => {
+                let x = Self::map_number(&args, "x", 0.0);
+                let y = Self::map_number(&args, "y", 0.0);
+                let vx = Self::map_number(&args, "vx", 0.0);
+                let vy = Self::map_number(&args, "vy", 0.0);
+                let ttl_ms = Self::map_int(&args, "ttl_ms", 0);
+                let mut visual_args = RhaiMap::new();
+                visual_args.insert("x".into(), x.into());
+                visual_args.insert("y".into(), y.into());
+                visual_args.insert("heading".into(), 0.0.into());
+                visual_args.insert("collider_radius".into(), 3.0.into());
+                visual_args.insert("lifetime_ms".into(), ttl_ms.into());
+                let id = self.spawn_visual("bullet", "bullet-template", visual_args);
+                if id <= 0
+                    || !self.set_physics(id, vx * 60.0, vy * 60.0, 0.0, 0.0, 0.0, 0.0)
+                    || !self.enable_wrap_bounds(id)
+                {
+                    let _ = self.despawn(id);
+                    return 0;
+                }
+                id
+            }
+            "smoke" => {
+                let x = Self::map_number(&args, "x", 0.0);
+                let y = Self::map_number(&args, "y", 0.0);
+                let vx = Self::map_number(&args, "vx", 0.0);
+                let vy = Self::map_number(&args, "vy", 0.0);
+                let ttl_ms = Self::map_int(&args, "ttl_ms", 0);
+                let radius = Self::map_int(&args, "radius", 1);
+                let mut visual_args = RhaiMap::new();
+                visual_args.insert("x".into(), x.into());
+                visual_args.insert("y".into(), y.into());
+                visual_args.insert("heading".into(), 0.0.into());
+                visual_args.insert("lifetime_ms".into(), ttl_ms.into());
+                let id = self.spawn_visual("smoke", "smoke-template", visual_args);
+                if id <= 0 || !self.set_physics(id, vx * 60.0, vy * 60.0, 0.0, 0.0, 0.04, 0.0) {
+                    let _ = self.despawn(id);
+                    return 0;
+                }
+                let mut smoke_data = RhaiMap::new();
+                smoke_data.insert("ttl_ms".into(), ttl_ms.into());
+                smoke_data.insert("max_ttl_ms".into(), ttl_ms.into());
+                smoke_data.insert("radius".into(), radius.into());
+                let _ = self.entity(id).set_many(smoke_data);
+                id
+            }
+            _ => 0,
+        }
+    }
+
+    fn spawn_group(&mut self, group_name: &str, prefab_name: &str) -> RhaiArray {
+        let spawns: &[(
+            rhai::FLOAT,
+            rhai::FLOAT,
+            rhai::FLOAT,
+            rhai::FLOAT,
+            rhai::INT,
+            rhai::INT,
+        )] = match (group_name, prefab_name) {
+            ("asteroids.initial", "asteroid") => &[
+                (-300.0, -210.0, 2.0, 0.0, 0, 2),
+                (300.0, -210.0, 0.0, 2.0, 1, 3),
+                (300.0, 210.0, -2.0, 0.0, 2, 2),
+                (-300.0, 210.0, 0.0, -2.0, 3, 1),
+                (-290.0, -40.0, 2.0, 1.0, 0, 2),
+                (-140.0, -230.0, 2.0, 1.0, 1, 1),
+                (140.0, -230.0, -2.0, 1.0, 2, 2),
+                (290.0, 30.0, -2.0, -1.0, 3, 3),
+                (120.0, 230.0, -2.0, -1.0, 1, 2),
+                (-120.0, 230.0, 2.0, -1.0, 0, 1),
+            ],
+            _ => return RhaiArray::new(),
+        };
+
+        spawns
+            .iter()
+            .map(|(x, y, vx, vy, shape, size)| {
+                let mut args = RhaiMap::new();
+                args.insert("x".into(), (*x).into());
+                args.insert("y".into(), (*y).into());
+                args.insert("vx".into(), (*vx).into());
+                args.insert("vy".into(), (*vy).into());
+                args.insert("shape".into(), (*shape).into());
+                args.insert("size".into(), (*size).into());
+                self.spawn_prefab(prefab_name, args).into()
+            })
+            .collect()
+    }
+
+    fn try_fire_weapon(
+        &mut self,
+        weapon_name: &str,
+        source_id: rhai::INT,
+        args: RhaiMap,
+    ) -> rhai::INT {
+        const ASTEROIDS_VELOCITY_SCALE: f32 = 60.0;
+
+        let Some(world) = self.world.clone() else {
+            return 0;
+        };
+        if source_id <= 0 {
+            return 0;
+        }
+        let source_id = source_id as u64;
+        if !world.exists(source_id) {
+            return 0;
+        }
+
+        match weapon_name {
+            "asteroids.ship" => {
+                let bullet_kind =
+                    Self::map_string(&args, "bullet_kind").unwrap_or_else(|| "bullet".to_string());
+                let max_bullets = Self::map_int(&args, "max_bullets", 8).max(0);
+                if world.count_kind(&bullet_kind) as rhai::INT >= max_bullets {
+                    return 0;
+                }
+
+                let cooldown_name =
+                    Self::map_string(&args, "cooldown_name").unwrap_or_else(|| "shot".to_string());
+                if !world.cooldown_ready(source_id, &cooldown_name) {
+                    return 0;
+                }
+
+                let Some(transform) = world.transform(source_id) else {
+                    return 0;
+                };
+                let Some(physics) = world.physics(source_id) else {
+                    return 0;
+                };
+                let Some(controller) = world.controller(source_id) else {
+                    return 0;
+                };
+                let (dir_x, dir_y) = controller.heading_vector();
+
+                let spawn_offset = Self::map_number(&args, "spawn_offset", 9.0) as f32;
+                let bullet_speed = Self::map_number(&args, "bullet_speed", 0.0) as f32;
+                let bullet_ttl_ms = Self::map_int(&args, "bullet_ttl_ms", 0);
+                let shot_cooldown_ms = Self::map_int(&args, "shot_cooldown_ms", 0).max(0);
+
+                let mut bullet_args = RhaiMap::new();
+                bullet_args.insert(
+                    "x".into(),
+                    ((transform.x + (dir_x * spawn_offset)) as rhai::FLOAT).into(),
+                );
+                bullet_args.insert(
+                    "y".into(),
+                    ((transform.y + (dir_y * spawn_offset)) as rhai::FLOAT).into(),
+                );
+                bullet_args.insert(
+                    "vx".into(),
+                    (((physics.vx / ASTEROIDS_VELOCITY_SCALE)
+                        + (dir_x * bullet_speed / ASTEROIDS_VELOCITY_SCALE))
+                        as rhai::FLOAT)
+                        .into(),
+                );
+                bullet_args.insert(
+                    "vy".into(),
+                    (((physics.vy / ASTEROIDS_VELOCITY_SCALE)
+                        + (dir_y * bullet_speed / ASTEROIDS_VELOCITY_SCALE))
+                        as rhai::FLOAT)
+                        .into(),
+                );
+                bullet_args.insert("ttl_ms".into(), bullet_ttl_ms.into());
+
+                let bullet_prefab = Self::map_string(&args, "bullet_prefab")
+                    .unwrap_or_else(|| "bullet".to_string());
+                let bullet_id = self.spawn_prefab(&bullet_prefab, bullet_args);
+                if bullet_id <= 0 {
+                    return 0;
+                }
+
+                if shot_cooldown_ms > 0
+                    && !world.cooldown_start(source_id, &cooldown_name, shot_cooldown_ms as i32)
+                {
+                    let _ = self.despawn(bullet_id);
+                    return 0;
+                }
+
+                let audio_event = Self::map_string(&args, "audio_event")
+                    .unwrap_or_else(|| "gameplay.ship.shoot".to_string());
+                let gain = Self::map_number(&args, "audio_gain", 1.0) as f32;
+                if let Ok(mut queue) = self.queue.lock() {
+                    queue.push(BehaviorCommand::PlayAudioEvent {
+                        event: audio_event,
+                        gain: Some(gain),
+                    });
+                }
+
+                bullet_id
+            }
+            _ => 0,
+        }
+    }
+
+    fn tick_heading_anim(&mut self, id: rhai::INT, dt_ms: rhai::INT) -> RhaiMap {
+        let mut out = RhaiMap::new();
+        if id <= 0 {
+            out.insert("rot_phase".into(), 0_i64.into());
+            out.insert("rot_accum_ms".into(), 0_i64.into());
+            return out;
+        }
+        let mut entity = self.entity(id);
+        if !entity.exists() {
+            out.insert("rot_phase".into(), 0_i64.into());
+            out.insert("rot_accum_ms".into(), 0_i64.into());
+            return out;
+        }
+
+        let mut rot_accum = entity.get_i("/rot_accum_ms", 0);
+        let mut rot_phase = entity.get_i("/rot_phase", 0);
+        let rot_speed = entity.get_i("/rot_speed", 1);
+        let rot_step = entity.get_i("/rot_step_ms", 72);
+        let dt_ms = dt_ms.max(0);
+
+        if rot_step > 0 {
+            rot_accum += dt_ms;
+            while rot_accum >= rot_step {
+                let next = (rot_phase + rot_speed) % 32;
+                rot_phase = if next < 0 { next + 32 } else { next };
+                rot_accum -= rot_step;
+            }
+        }
+
+        let mut updates = RhaiMap::new();
+        updates.insert("rot_phase".into(), rot_phase.into());
+        updates.insert("rot_accum_ms".into(), rot_accum.into());
+        let _ = entity.set_many(updates);
+
+        out.insert("rot_phase".into(), rot_phase.into());
+        out.insert("rot_accum_ms".into(), rot_accum.into());
+        out
+    }
+
+    fn handle_ship_hit(
+        &mut self,
+        ship_id: rhai::INT,
+        asteroid_id: rhai::INT,
+        args: RhaiMap,
+    ) -> bool {
+        const ASTEROIDS_VELOCITY_SCALE: f32 = 60.0;
+
+        if ship_id <= 0 {
+            return false;
+        }
+        let Some(world) = self.world.clone() else {
+            return false;
+        };
+        let ship_id = ship_id as u64;
+        if !world.exists(ship_id) || world.status_has(ship_id, "invulnerable") {
+            return false;
+        }
+
+        let (ship_x, ship_y) = match world.transform(ship_id) {
+            Some(transform) => (transform.x, transform.y),
+            None => return false,
+        };
+
+        let ship_reset_vx = ScriptGameplayApi::map_number(&args, "ship_reset_vx", 0.0);
+        let ship_reset_vy = ScriptGameplayApi::map_number(&args, "ship_reset_vy", 0.0);
+        let ship_invulnerable_ms =
+            ScriptGameplayApi::map_int(&args, "ship_invulnerable_ms", 3000).max(0);
+        let ui_text =
+            ScriptGameplayApi::map_string(&args, "ui_text").unwrap_or_else(|| "HIT!".to_string());
+        let ui_ttl_ms = ScriptGameplayApi::map_int(&args, "ui_ttl_ms", 450).max(0);
+        let crack_duration_ms = ScriptGameplayApi::map_int(&args, "crack_duration_ms", 1000).max(0);
+        let asteroid_velocity_limit = ScriptGameplayApi::map_number(
+            &args,
+            "asteroid_velocity_limit",
+            4.0 * ASTEROIDS_VELOCITY_SCALE as rhai::FLOAT,
+        ) as f32;
+        let audio_event = ScriptGameplayApi::map_string(&args, "audio_event")
+            .unwrap_or_else(|| "gameplay.ship.hit".to_string());
+        let audio_gain = ScriptGameplayApi::map_number(&args, "audio_gain", 1.0) as f32;
+
+        let mut fx = ScriptFxApi::new(self.world.clone(), Arc::clone(&self.queue));
+        let mut fx_args = RhaiMap::new();
+        fx_args.insert("x".into(), (ship_x as rhai::FLOAT).into());
+        fx_args.insert("y".into(), (ship_y as rhai::FLOAT).into());
+        let _ = fx.emit("asteroids.ship_disintegration", fx_args);
+
+        if let Ok(mut queue) = self.queue.lock() {
+            queue.push(BehaviorCommand::PlayAudioEvent {
+                event: audio_event,
+                gain: Some(audio_gain),
+            });
+        }
+
+        if asteroid_id > 0 {
+            let asteroid_id = asteroid_id as u64;
+            if world.exists(asteroid_id) {
+                let mut asteroid = self.entity(asteroid_id as rhai::INT);
+                let asteroid_phys = world.physics(asteroid_id);
+                let mut asteroid_updates = RhaiMap::new();
+                asteroid_updates.insert("flash_ms".into(), crack_duration_ms.into());
+                asteroid_updates.insert("flash_total_ms".into(), crack_duration_ms.into());
+                asteroid_updates.insert("split_pending".into(), true.into());
+                let _ = asteroid.set_many(asteroid_updates);
+                if let Some(phys) = asteroid_phys {
+                    let clamped_vx =
+                        (-(phys.vx)).clamp(-asteroid_velocity_limit, asteroid_velocity_limit);
+                    let clamped_vy =
+                        (-(phys.vy)).clamp(-asteroid_velocity_limit, asteroid_velocity_limit);
+                    let _ =
+                        asteroid.set_velocity(clamped_vx as rhai::FLOAT, clamped_vy as rhai::FLOAT);
+                }
+            }
+        }
+
+        let mut ship = self.entity(ship_id as rhai::INT);
+        let _ = ship.set_velocity(ship_reset_vx, ship_reset_vy);
+        if ship_invulnerable_ms > 0 {
+            let _ = ship.status_add("invulnerable", ship_invulnerable_ms);
+        }
+
+        let _ = self.flash_ui_message(&ui_text, ui_ttl_ms);
+
+        true
+    }
+
+    fn handle_bullet_hit(
+        &mut self,
+        bullet_id: rhai::INT,
+        asteroid_id: rhai::INT,
+        args: RhaiMap,
+    ) -> RhaiMap {
+        let mut out = RhaiMap::new();
+        out.insert("handled".into(), false.into());
+        out.insert("asteroid_size".into(), 0_i64.into());
+
+        if bullet_id > 0 {
+            let _ = self.despawn(bullet_id);
+        }
+
+        if asteroid_id <= 0 {
+            return out;
+        }
+        let Some(world) = self.world.clone() else {
+            return out;
+        };
+        let asteroid_id = asteroid_id as u64;
+        if !world.exists(asteroid_id) {
+            return out;
+        }
+        let mut asteroid = self.entity(asteroid_id as rhai::INT);
+        if asteroid.flag("split_pending") {
+            return out;
+        }
+
+        let crack_duration_ms = ScriptGameplayApi::map_int(&args, "crack_duration_ms", 1000).max(0);
+        let ui_text =
+            ScriptGameplayApi::map_string(&args, "ui_text").unwrap_or_else(|| "HIT".to_string());
+        let ui_ttl_ms = ScriptGameplayApi::map_int(&args, "ui_ttl_ms", 250).max(0);
+
+        let asteroid_size = asteroid.get_i("/size", 0);
+        let mut asteroid_updates = RhaiMap::new();
+        asteroid_updates.insert("flash_ms".into(), crack_duration_ms.into());
+        asteroid_updates.insert("flash_total_ms".into(), crack_duration_ms.into());
+        asteroid_updates.insert("split_pending".into(), true.into());
+        let _ = asteroid.set_many(asteroid_updates);
+        let _ = self.flash_ui_message(&ui_text, ui_ttl_ms);
+
+        out.insert("handled".into(), true.into());
+        out.insert("asteroid_size".into(), asteroid_size.into());
+        out
+    }
+
+    fn handle_asteroid_split(&mut self, asteroid_id: rhai::INT, args: RhaiMap) -> RhaiMap {
+        let mut out = RhaiMap::new();
+        let child_ids = RhaiArray::new();
+        out.insert("handled".into(), false.into());
+        out.insert("despawned".into(), false.into());
+        out.insert("children".into(), child_ids.clone().into());
+
+        if asteroid_id <= 0 {
+            return out;
+        }
+        let Some(world) = self.world.clone() else {
+            return out;
+        };
+        let asteroid_id = asteroid_id as u64;
+        if !world.exists(asteroid_id) {
+            return out;
+        }
+
+        let asteroid = self.entity(asteroid_id as rhai::INT);
+        let ast_size = asteroid.clone().get_i("/size", 1);
+        if ast_size <= 0 {
+            let _ = self.despawn(asteroid_id as rhai::INT);
+            out.insert("handled".into(), true.into());
+            out.insert("despawned".into(), true.into());
+            return out;
+        }
+
+        let base_heading = asteroid.clone().get_i("/rot_phase", 0);
+        let Some(transform) = world.transform(asteroid_id) else {
+            return out;
+        };
+        let next_size = ast_size - 1;
+        let mut children = RhaiArray::new();
+
+        for (frag_idx, offset) in [0_i64, 11, 21].into_iter().enumerate() {
+            let split_heading = {
+                let next = (base_heading + offset) % 32;
+                if next < 0 {
+                    next + 32
+                } else {
+                    next
+                }
+            };
+            let split_sin = sin32_i32(split_heading as i32);
+            let split_cos = sin32_i32((split_heading + 8) as i32);
+            let dir_x = match frag_idx {
+                1 => 1,
+                _ => {
+                    if split_sin < 0 {
+                        -1
+                    } else {
+                        1
+                    }
+                }
+            };
+            let dir_y = if -split_cos < 0 { -1 } else { 1 };
+            let spawn_offset = asteroid_radius_i32(next_size as i32) + 4;
+            let spawn_x = transform.x + ((split_sin * spawn_offset) as f32 / 1024.0_f32);
+            let spawn_y = transform.y - ((split_cos * spawn_offset) as f32 / 1024.0_f32);
+            let mut spawn_args = RhaiMap::new();
+            spawn_args.insert("x".into(), (spawn_x as rhai::FLOAT).into());
+            spawn_args.insert("y".into(), (spawn_y as rhai::FLOAT).into());
+            spawn_args.insert(
+                "vx".into(),
+                ((dir_x * (next_size + 2)) as rhai::FLOAT).into(),
+            );
+            spawn_args.insert(
+                "vy".into(),
+                ((dir_y * (next_size + 2)) as rhai::FLOAT).into(),
+            );
+            spawn_args.insert("shape".into(), self.rand_i(0, 3).into());
+            spawn_args.insert("size".into(), next_size.into());
+
+            let child_id = self.spawn_prefab("asteroid", spawn_args);
+            if child_id > 0 {
+                children.push(child_id.into());
+            }
+        }
+
+        let _ = self.despawn(asteroid_id as rhai::INT);
+        if let Ok(mut queue) = self.queue.lock() {
+            queue.push(BehaviorCommand::PlayAudioEvent {
+                event: ScriptGameplayApi::map_string(&args, "audio_event")
+                    .unwrap_or_else(|| "gameplay.asteroid.split".to_string()),
+                gain: Some(ScriptGameplayApi::map_number(&args, "audio_gain", 1.0) as f32),
+            });
+        }
+
+        out.insert("handled".into(), true.into());
+        out.insert("despawned".into(), true.into());
+        out.insert("children".into(), children.into());
+        out
+    }
+
+    fn spawn_wave(&mut self, wave_name: &str, args: RhaiMap) -> RhaiArray {
+        fn respawn_x(seed: i64, min_x: i64, max_x: i64, ship_x: i64) -> i64 {
+            let mut x = if (seed % 2) == 0 {
+                min_x + 10
+            } else {
+                max_x - 10
+            };
+            if (x - ship_x).abs() < 90 {
+                x = if x < 0 { max_x - 10 } else { min_x + 10 };
+            }
+            x
+        }
+
+        fn respawn_y(seed: i64, min_y: i64, max_y: i64, ship_y: i64) -> i64 {
+            let span = (max_y - min_y) - 20;
+            if span <= 0 {
+                return min_y + 10;
+            }
+            let mut y = min_y + 10 + seed.rem_euclid(span);
+            if (y - ship_y).abs() < 70 {
+                y += 76;
+                if y > max_y - 10 {
+                    y = min_y + 10;
+                }
+            }
+            y
+        }
+
+        fn speed_for_seed(seed: i64) -> i64 {
+            let v = seed.rem_euclid(3) + 1;
+            if ((seed / 7) % 2) == 0 {
+                v
+            } else {
+                -v
+            }
+        }
+
+        match wave_name {
+            "asteroids.dynamic" => {
+                let spawn_count = Self::map_int(&args, "spawn_count", 0).max(0);
+                let ship_x = Self::map_number(&args, "ship_x", 0.0) as i64;
+                let ship_y = Self::map_number(&args, "ship_y", 0.0) as i64;
+                let min_x = Self::map_number(&args, "min_x", -320.0) as i64;
+                let max_x = Self::map_number(&args, "max_x", 320.0) as i64;
+                let min_y = Self::map_number(&args, "min_y", -240.0) as i64;
+                let max_y = Self::map_number(&args, "max_y", 240.0) as i64;
+
+                (0..spawn_count)
+                    .filter_map(|idx| {
+                        let rx = self.rand_i(0, 2_147_483_646);
+                        let ry = self.rand_i(0, 2_147_483_646);
+                        let mut spawn_args = RhaiMap::new();
+                        spawn_args.insert(
+                            "x".into(),
+                            (respawn_x(rx, min_x, max_x, ship_x) as rhai::FLOAT).into(),
+                        );
+                        spawn_args.insert(
+                            "y".into(),
+                            (respawn_y(ry, min_y, max_y, ship_y) as rhai::FLOAT).into(),
+                        );
+                        spawn_args.insert(
+                            "vx".into(),
+                            (speed_for_seed(self.rand_i(0, 2_147_483_646)) as rhai::FLOAT).into(),
+                        );
+                        spawn_args.insert(
+                            "vy".into(),
+                            (speed_for_seed(self.rand_i(0, 2_147_483_646)) as rhai::FLOAT).into(),
+                        );
+                        spawn_args.insert("shape".into(), self.rand_i(0, 3).into());
+                        let size = if idx < 2 {
+                            3
+                        } else if idx < 5 {
+                            2
+                        } else {
+                            1
+                        };
+                        spawn_args.insert("size".into(), size.into());
+
+                        let asteroid_id = self.spawn_prefab("asteroid", spawn_args);
+                        (asteroid_id > 0).then(|| asteroid_id.into())
+                    })
+                    .collect()
+            }
+            _ => RhaiArray::new(),
+        }
+    }
+
+    fn ensure_crack_visuals(&mut self, asteroid_id: rhai::INT) -> RhaiArray {
+        let mut out = RhaiArray::new();
+        if asteroid_id <= 0 {
+            return out;
+        }
+        let Some(world) = self.world.clone() else {
+            return out;
+        };
+        let asteroid_id_u64 = asteroid_id as u64;
+        if !world.exists(asteroid_id_u64) {
+            return out;
+        }
+        let mut asteroid = self.entity(asteroid_id);
+        if asteroid.get_bool("/cracks_spawned", false) {
+            return out;
+        }
+
+        for i in 0..3_i64 {
+            let visual_id = format!("asteroid-{}-crack-{}", asteroid_id_u64, i);
+            if let Ok(mut queue) = self.queue.lock() {
+                queue.push(BehaviorCommand::SceneSpawn {
+                    template: "asteroid-template".to_string(),
+                    target: visual_id.clone(),
+                });
+            } else {
+                return RhaiArray::new();
+            }
+            let _ = self.bind_visual(asteroid_id, &visual_id);
+            let _ = self.set(
+                asteroid_id,
+                &format!("/crack_visual_{}", i),
+                visual_id.clone().into(),
+            );
+            out.push(visual_id.into());
+        }
+        let _ = self.set(asteroid_id, "/cracks_spawned", true.into());
+        out
+    }
+
+    fn flash_ui_message(&self, text: &str, ttl_ms: rhai::INT) -> bool {
+        let text = text.trim();
+        if text.is_empty() {
+            return false;
+        }
+        let ttl_ms = ttl_ms.max(0);
+        if let Some(game_state) = self.game_state.as_ref() {
+            let until_ms = self.scene_elapsed_ms.saturating_add(ttl_ms as u64) as i64;
+            let _ = game_state.set(
+                ScriptUiApi::FLASH_TEXT_PATH,
+                JsonValue::String(text.to_string()),
+            );
+            let _ = game_state.set(
+                ScriptUiApi::FLASH_UNTIL_MS_PATH,
+                JsonValue::Number(JsonNumber::from(until_ms)),
+            );
+        }
+        if let Ok(mut queue) = self.queue.lock() {
+            queue.push(BehaviorCommand::SetText {
+                target: ScriptUiApi::FLASH_TARGET.to_string(),
+                text: text.to_string(),
+            });
+            return true;
+        }
+        false
     }
 
     fn collisions(&mut self) -> RhaiArray {
@@ -2904,26 +4120,46 @@ impl ScriptGameplayApi {
     }
 
     fn collision_enters_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else { return vec![] };
+        let Some(world) = self.world.as_ref() else {
+            return vec![];
+        };
         Self::filter_hits_by_kind(&self.collision_enters.clone(), world, kind_a, kind_b)
     }
 
     fn collision_stays_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else { return vec![] };
+        let Some(world) = self.world.as_ref() else {
+            return vec![];
+        };
         Self::filter_hits_by_kind(&self.collision_stays.clone(), world, kind_a, kind_b)
     }
 
     fn collision_exits_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else { return vec![] };
+        let Some(world) = self.world.as_ref() else {
+            return vec![];
+        };
         Self::filter_hits_by_kind(&self.collision_exits.clone(), world, kind_a, kind_b)
     }
 
-    fn spawn_child_entity(&mut self, parent_id: rhai::INT, kind: &str, template: &str, data: RhaiMap) -> rhai::INT {
-        if parent_id < 0 { return 0; }
+    fn spawn_child_entity(
+        &mut self,
+        parent_id: rhai::INT,
+        kind: &str,
+        template: &str,
+        data: RhaiMap,
+    ) -> rhai::INT {
+        if parent_id < 0 {
+            return 0;
+        }
         // Check parent exists before taking &mut self via spawn_visual
         let parent_uid = parent_id as u64;
-        let parent_exists = self.world.as_ref().map(|w| w.exists(parent_uid)).unwrap_or(false);
-        if !parent_exists { return 0; }
+        let parent_exists = self
+            .world
+            .as_ref()
+            .map(|w| w.exists(parent_uid))
+            .unwrap_or(false);
+        if !parent_exists {
+            return 0;
+        }
         let child_id = self.spawn_visual(kind, template, data);
         if child_id > 0 {
             if let Some(world) = self.world.as_ref() {
@@ -2934,34 +4170,58 @@ impl ScriptGameplayApi {
     }
 
     fn despawn_children_of(&mut self, parent_id: rhai::INT) {
-        if parent_id < 0 { return; }
-        let Some(world) = self.world.as_ref() else { return };
+        if parent_id < 0 {
+            return;
+        }
+        let Some(world) = self.world.as_ref() else {
+            return;
+        };
         world.despawn_children(parent_id as u64);
     }
 
-    fn enable_wrap(&mut self, id: rhai::INT, min_x: rhai::FLOAT, max_x: rhai::FLOAT,
-                   min_y: rhai::FLOAT, max_y: rhai::FLOAT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+    fn enable_wrap(
+        &mut self,
+        id: rhai::INT,
+        min_x: rhai::FLOAT,
+        max_x: rhai::FLOAT,
+        min_y: rhai::FLOAT,
+        max_y: rhai::FLOAT,
+    ) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         let uid = id as u64;
-        let bounds = engine_game::WrapBounds::new(min_x as f32, max_x as f32, min_y as f32, max_y as f32);
+        let bounds =
+            engine_game::WrapBounds::new(min_x as f32, max_x as f32, min_y as f32, max_y as f32);
         world.set_wrap_bounds(uid, bounds)
     }
 
     fn disable_wrap(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         let uid = id as u64;
         world.remove_wrap_bounds(uid);
         true
     }
 
-    fn set_world_bounds(&mut self, min_x: rhai::FLOAT, max_x: rhai::FLOAT,
-                        min_y: rhai::FLOAT, max_y: rhai::FLOAT) {
-        let Some(world) = self.world.as_ref() else { return };
+    fn set_world_bounds(
+        &mut self,
+        min_x: rhai::FLOAT,
+        max_x: rhai::FLOAT,
+        min_y: rhai::FLOAT,
+        max_y: rhai::FLOAT,
+    ) {
+        let Some(world) = self.world.as_ref() else {
+            return;
+        };
         world.set_world_bounds(min_x as f32, max_x as f32, min_y as f32, max_y as f32);
     }
 
     fn world_bounds(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
         match world.world_bounds() {
             Some(b) => {
                 let mut map = RhaiMap::new();
@@ -2976,68 +4236,93 @@ impl ScriptGameplayApi {
     }
 
     fn enable_wrap_bounds(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.enable_wrap_bounds(id as u64)
     }
 
     fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return min };
+        let Some(world) = self.world.as_ref() else {
+            return min;
+        };
         world.rand_i(min as i32, max as i32) as rhai::INT
     }
 
     fn rand_seed(&mut self, seed: rhai::INT) {
-        let Some(world) = self.world.as_ref() else { return };
+        let Some(world) = self.world.as_ref() else {
+            return;
+        };
         world.rand_seed(seed as i64);
     }
 
     fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.tag_add(id as u64, tag)
     }
 
     fn tag_remove(&mut self, id: rhai::INT, tag: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.tag_remove(id as u64, tag)
     }
 
     fn tag_has(&mut self, id: rhai::INT, tag: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.tag_has(id as u64, tag)
     }
 
     fn after_ms(&mut self, label: &str, delay_ms: rhai::INT) {
-        let Some(world) = self.world.as_ref() else { return };
+        let Some(world) = self.world.as_ref() else {
+            return;
+        };
         world.after_ms(label, delay_ms as i64);
     }
 
     fn timer_fired(&mut self, label: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.timer_fired(label)
     }
 
     fn cancel_timer(&mut self, label: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.cancel_timer(label)
     }
 
     /// Spawn multiple entities from an array of spec maps.
     /// Each map should have `kind: String` and optionally `data: Map`.
     /// Returns an array of spawned entity IDs.
-    fn spawn_group(&mut self, specs: rhai::Array) -> rhai::Array {
-        let Some(world) = self.world.as_ref() else { return rhai::Array::new() };
-        specs.into_iter().filter_map(|spec| {
-            let map = spec.try_cast::<RhaiMap>()?;
-            let kind = map.get("kind")?.clone().try_cast::<String>()?;
-            let data_dyn = map.get("data").cloned().unwrap_or_default();
-            let data_json = rhai_dynamic_to_json(&data_dyn)
-                .unwrap_or(serde_json::Value::Object(Default::default()));
-            let id = world.spawn(&kind, data_json)?;
-            Some((id as rhai::INT).into())
-        }).collect()
+    fn spawn_batch(&mut self, specs: rhai::Array) -> rhai::Array {
+        let Some(world) = self.world.as_ref() else {
+            return rhai::Array::new();
+        };
+        specs
+            .into_iter()
+            .filter_map(|spec| {
+                let map = spec.try_cast::<RhaiMap>()?;
+                let kind = map.get("kind")?.clone().try_cast::<String>()?;
+                let data_dyn = map.get("data").cloned().unwrap_or_default();
+                let data_json = rhai_dynamic_to_json(&data_dyn)
+                    .unwrap_or(serde_json::Value::Object(Default::default()));
+                let id = world.spawn(&kind, data_json)?;
+                Some((id as rhai::INT).into())
+            })
+            .collect()
     }
 
     fn attach_ship_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         let uid = id as u64;
 
         // Extract config values with defaults
@@ -3061,12 +4346,15 @@ impl ScriptGameplayApi {
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
             .unwrap_or(32) as u8;
 
-        let controller = TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
+        let controller =
+            TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
         world.attach_controller(uid, controller)
     }
 
     fn ship_set_turn(&mut self, id: rhai::INT, dir: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         let uid = id as u64;
         world.with_controller(uid, |ctrl| {
             ctrl.set_turn(dir.clamp(-1, 1) as i8);
@@ -3074,7 +4362,9 @@ impl ScriptGameplayApi {
     }
 
     fn ship_set_thrust(&mut self, id: rhai::INT, on: bool) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         let uid = id as u64;
         world.with_controller(uid, |ctrl| {
             ctrl.set_thrust(on);
@@ -3082,13 +4372,20 @@ impl ScriptGameplayApi {
     }
 
     fn ship_heading(&mut self, id: rhai::INT) -> i32 {
-        let Some(world) = self.world.as_ref() else { return 0 };
+        let Some(world) = self.world.as_ref() else {
+            return 0;
+        };
         let uid = id as u64;
-        world.controller(uid).map(|c| c.current_heading).unwrap_or(0)
+        world
+            .controller(uid)
+            .map(|c| c.current_heading)
+            .unwrap_or(0)
     }
 
     fn ship_heading_vector(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
         let uid = id as u64;
         match world.controller(uid) {
             Some(ctrl) => {
@@ -3103,7 +4400,9 @@ impl ScriptGameplayApi {
     }
 
     fn ship_velocity(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
         let uid = id as u64;
         match world.physics(uid) {
             Some(body) => {
@@ -3117,7 +4416,9 @@ impl ScriptGameplayApi {
     }
 
     fn poll_collision_events(&mut self) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else { return RhaiArray::new() };
+        let Some(world) = self.world.as_ref() else {
+            return RhaiArray::new();
+        };
         let collisions = world.poll_events("collision_enter");
         let mut array = RhaiArray::new();
         for (a, b) in collisions {
@@ -3136,7 +4437,9 @@ impl ScriptGameplayApi {
     }
 
     fn distance(&mut self, a: rhai::INT, b: rhai::INT) -> rhai::FLOAT {
-        let Some(world) = self.world.as_ref() else { return 0.0 };
+        let Some(world) = self.world.as_ref() else {
+            return 0.0;
+        };
         let ta = world.transform(a as u64);
         let tb = world.transform(b as u64);
         match (ta, tb) {
@@ -3150,10 +4453,11 @@ impl ScriptGameplayApi {
     }
 
     fn any_alive(&mut self, kind: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.count_kind(kind) > 0
     }
-
 }
 
 impl ScriptGameplayEntityApi {
@@ -3251,7 +4555,7 @@ impl ScriptGameplayEntityApi {
         let mut metadata = RhaiMap::new();
         metadata.insert("id".into(), (self.id as rhai::INT).into());
         metadata.insert("kind".into(), entity.kind.into());
-        
+
         let tags: RhaiArray = entity.tags.iter().map(|t| t.clone().into()).collect();
         metadata.insert("tags".into(), tags.into());
 
@@ -3271,7 +4575,10 @@ impl ScriptGameplayEntityApi {
             phys.insert("ax".into(), (physics.ax as rhai::FLOAT).into());
             phys.insert("ay".into(), (physics.ay as rhai::FLOAT).into());
             phys.insert("drag".into(), (physics.drag as rhai::FLOAT).into());
-            phys.insert("max_speed".into(), (physics.max_speed as rhai::FLOAT).into());
+            phys.insert(
+                "max_speed".into(),
+                (physics.max_speed as rhai::FLOAT).into(),
+            );
             metadata.insert("physics".into(), phys.into());
         }
 
@@ -3346,7 +4653,10 @@ impl ScriptGameplayEntityApi {
             phys.insert("ax".into(), (physics.ax as rhai::FLOAT).into());
             phys.insert("ay".into(), (physics.ay as rhai::FLOAT).into());
             phys.insert("drag".into(), (physics.drag as rhai::FLOAT).into());
-            phys.insert("max_speed".into(), (physics.max_speed as rhai::FLOAT).into());
+            phys.insert(
+                "max_speed".into(),
+                (physics.max_speed as rhai::FLOAT).into(),
+            );
             components.insert("physics".into(), phys.into());
         }
 
@@ -3512,7 +4822,7 @@ impl ScriptGameplayEntityApi {
         result
     }
 
-     fn lifetime_remaining(&mut self) -> rhai::INT {
+    fn lifetime_remaining(&mut self) -> rhai::INT {
         let Some(world) = self.world.as_ref() else {
             return 0;
         };
@@ -3562,41 +4872,55 @@ impl ScriptGameplayEntityApi {
     // ── Cooldown API ──────────────────────────────────────────────────────
 
     fn cooldown_start(&mut self, name: &str, ms: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.cooldown_start(self.id, name, ms as i32)
     }
 
     fn cooldown_ready(&mut self, name: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return true };
+        let Some(world) = self.world.as_ref() else {
+            return true;
+        };
         world.cooldown_ready(self.id, name)
     }
 
     fn cooldown_remaining(&mut self, name: &str) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return 0 };
+        let Some(world) = self.world.as_ref() else {
+            return 0;
+        };
         world.cooldown_remaining(self.id, name) as rhai::INT
     }
 
     // ── Status API ────────────────────────────────────────────────────────
 
     fn status_add(&mut self, name: &str, ms: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.status_add(self.id, name, ms as i32)
     }
 
     fn status_has(&mut self, name: &str) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.status_has(self.id, name)
     }
 
     fn status_remaining(&mut self, name: &str) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return 0 };
+        let Some(world) = self.world.as_ref() else {
+            return 0;
+        };
         world.status_remaining(self.id, name) as rhai::INT
     }
 
     // ── Ship Controller API ───────────────────────────────────────────────
 
     fn attach_ship_controller(&mut self, config: RhaiMap) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         let turn_step_ms = config
             .get("turn_step_ms")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
@@ -3613,31 +4937,43 @@ impl ScriptGameplayEntityApi {
             .get("heading_bits")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
             .unwrap_or(32) as u8;
-        let controller = TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
+        let controller =
+            TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
         world.attach_controller(self.id, controller)
     }
 
     fn set_turn(&mut self, dir: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.with_controller(self.id, |ctrl| {
             ctrl.set_turn(dir.clamp(-1, 1) as i8);
         })
     }
 
     fn set_thrust(&mut self, on: bool) -> bool {
-        let Some(world) = self.world.as_ref() else { return false };
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
         world.with_controller(self.id, |ctrl| {
             ctrl.set_thrust(on);
         })
     }
 
     fn heading(&mut self) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else { return 0 };
-        world.controller(self.id).map(|c| c.current_heading as rhai::INT).unwrap_or(0)
+        let Some(world) = self.world.as_ref() else {
+            return 0;
+        };
+        world
+            .controller(self.id)
+            .map(|c| c.current_heading as rhai::INT)
+            .unwrap_or(0)
     }
 
     fn heading_vector(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
         match world.controller(self.id) {
             Some(ctrl) => {
                 let (x, y) = ctrl.heading_vector();
@@ -3649,9 +4985,7 @@ impl ScriptGameplayEntityApi {
             None => RhaiMap::new(),
         }
     }
-
 }
-
 
 impl RhaiScriptBehavior {
     pub fn from_params(params: &BehaviorParams) -> Self {
@@ -3759,6 +5093,11 @@ impl Behavior for RhaiScriptBehavior {
             None
         };
         let helper_commands = Arc::new(Mutex::new(Vec::<BehaviorCommand>::new()));
+        expire_ui_flash_message(
+            ctx.scene_elapsed_ms,
+            ctx.game_state.as_ref(),
+            helper_commands.as_ref(),
+        );
 
         let eval_result: Result<RhaiDynamic, Box<rhai::EvalAltResult>> =
             BEHAVIOR_SCOPES.with(|scopes| {
@@ -3786,7 +5125,15 @@ impl Behavior for RhaiScriptBehavior {
                 // Phase 7C: Use Arc-wrapped maps from context instead of rebuilding.
                 // Each push_dynamic clones the Arc (O(1) refcount), not the map (O(n)).
                 scope.push_dynamic("menu", (*ctx.rhai_menu_map).clone().into());
-                scope.push_dynamic("time", (*ctx.rhai_time_map).clone().into());
+                scope.push(
+                    "time",
+                    ScriptTimeApi::new(
+                        ctx.scene_elapsed_ms,
+                        ctx.stage_elapsed_ms,
+                        ctx.stage,
+                        ctx.game_state.clone(),
+                    ),
+                );
 
                 // Compatibility layer for existing scripts; prefer `menu.*` and `time.*`.
                 scope.push("selected_index", ctx.menu_selected_index as rhai::INT);
@@ -3806,7 +5153,7 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push_dynamic("objects", RhaiMap::new().into());
                 // `state` pushed per-frame for scripts using the legacy return-state pattern.
                 scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
-                scope.push_dynamic("ui", ui_context_to_rhai_map(ctx).into());
+                scope.push("ui", ScriptUiApi::new(ctx, Arc::clone(&helper_commands)));
                 scope.push(
                     "ui_focused_target",
                     ctx.ui_focused_target_id
@@ -3956,6 +5303,8 @@ impl Behavior for RhaiScriptBehavior {
                     "world",
                     ScriptGameplayApi::new(
                         ctx.gameplay_world.clone(),
+                        ctx.game_state.clone(),
+                        ctx.scene_elapsed_ms,
                         std::sync::Arc::clone(&ctx.collisions),
                         std::sync::Arc::clone(&ctx.collision_enters),
                         std::sync::Arc::clone(&ctx.collision_stays),
@@ -3964,6 +5313,10 @@ impl Behavior for RhaiScriptBehavior {
                     ),
                 );
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
+                scope.push(
+                    "fx",
+                    ScriptFxApi::new(ctx.gameplay_world.clone(), Arc::clone(&helper_commands)),
+                );
 
                 // OPT-4: Use thread-local engine + cached AST.
                 RHAI_ENGINE.with(|cell| {
@@ -4755,35 +6108,38 @@ fn kind_capabilities(kind: Option<&str>) -> RhaiArray {
     caps.into_iter().map(Into::into).collect()
 }
 
-fn ui_context_to_rhai_map(ctx: &BehaviorContext) -> RhaiMap {
-    let mut out = RhaiMap::new();
-    if let Some(value) = ctx.ui_focused_target_id.as_deref() {
-        out.insert("focused_target".into(), value.to_string().into());
+fn expire_ui_flash_message(
+    scene_elapsed_ms: u64,
+    game_state: Option<&GameState>,
+    helper_commands: &Mutex<Vec<BehaviorCommand>>,
+) {
+    let Some(state) = game_state else {
+        return;
+    };
+    let until_ms = state
+        .get(ScriptUiApi::FLASH_UNTIL_MS_PATH)
+        .and_then(|value| value.as_i64());
+    let Some(until_ms) = until_ms else {
+        return;
+    };
+    if (scene_elapsed_ms as i64) < until_ms {
+        return;
     }
-    if let Some(value) = ctx.ui_theme_id.as_deref() {
-        out.insert("theme".into(), value.to_string().into());
+    let current_text = state
+        .get(ScriptUiApi::FLASH_TEXT_PATH)
+        .and_then(|value| value.as_str().map(ToString::to_string))
+        .unwrap_or_default();
+    state.remove(ScriptUiApi::FLASH_UNTIL_MS_PATH);
+    state.remove(ScriptUiApi::FLASH_TEXT_PATH);
+    if current_text.is_empty() {
+        return;
     }
-    out.insert(
-        "has_submit".into(),
-        ctx.ui_last_submit_target_id.is_some().into(),
-    );
-    if let Some(value) = ctx.ui_last_submit_target_id.as_deref() {
-        out.insert("submit_target".into(), value.to_string().into());
+    if let Ok(mut queue) = helper_commands.lock() {
+        queue.push(BehaviorCommand::SetText {
+            target: ScriptUiApi::FLASH_TARGET.to_string(),
+            text: String::new(),
+        });
     }
-    if let Some(value) = ctx.ui_last_submit_text.as_deref() {
-        out.insert("submit_text".into(), value.to_string().into());
-    }
-    out.insert(
-        "has_change".into(),
-        ctx.ui_last_change_target_id.is_some().into(),
-    );
-    if let Some(value) = ctx.ui_last_change_target_id.as_deref() {
-        out.insert("change_target".into(), value.to_string().into());
-    }
-    if let Some(value) = ctx.ui_last_change_text.as_deref() {
-        out.insert("change_text".into(), value.to_string().into());
-    }
-    out
 }
 
 fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>) {
@@ -5147,6 +6503,9 @@ mod tests {
             persistence: None,
             gameplay_world: None,
             collisions: Arc::new(Vec::new()),
+            collision_enters: Arc::new(Vec::new()),
+            collision_stays: Arc::new(Vec::new()),
+            collision_exits: Arc::new(Vec::new()),
             last_raw_key: None,
             keys_down: Arc::new(HashSet::new()),
             keys_just_pressed: Arc::new(HashSet::new()),
@@ -5937,6 +7296,80 @@ out
                     target: "menu-item-0".to_string(),
                     dx: 1,
                     dy: 2
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_time_delta_ms_clamps_and_persists() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let dt = time.delta_ms(220, "/ast/last_ms");
+game.set("/ast/dt", dt);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let mut test_ctx = ctx(SceneStage::OnIdle, 480, 120);
+        let state = GameState::new();
+        test_ctx.game_state = Some(state.clone());
+
+        let _ = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
+        assert_eq!(state.get("/ast/dt").and_then(|v| v.as_i64()), Some(0));
+        assert_eq!(
+            state.get("/ast/last_ms").and_then(|v| v.as_i64()),
+            Some(480)
+        );
+
+        let mut second_ctx = ctx(SceneStage::OnIdle, 830, 120);
+        second_ctx.game_state = Some(state.clone());
+        let _ = run_behavior(&mut behavior, &scene_with_menu_options(1), second_ctx);
+        assert_eq!(state.get("/ast/dt").and_then(|v| v.as_i64()), Some(220));
+        assert_eq!(
+            state.get("/ast/last_ms").and_then(|v| v.as_i64()),
+            Some(830)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_input_load_profile_emits_bindings() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+input.load_profile("asteroids.default");
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let commands = run_behavior(
+            &mut behavior,
+            &scene_with_menu_options(1),
+            ctx(SceneStage::OnIdle, 0, 0),
+        );
+        assert_eq!(
+            commands,
+            vec![
+                BehaviorCommand::BindInputAction {
+                    action: "turn_left".to_string(),
+                    keys: vec!["Left".to_string(), "a".to_string(), "A".to_string()],
+                },
+                BehaviorCommand::BindInputAction {
+                    action: "turn_right".to_string(),
+                    keys: vec!["Right".to_string(), "d".to_string(), "D".to_string()],
+                },
+                BehaviorCommand::BindInputAction {
+                    action: "thrust".to_string(),
+                    keys: vec!["Up".to_string(), "w".to_string(), "W".to_string()],
+                },
+                BehaviorCommand::BindInputAction {
+                    action: "fire".to_string(),
+                    keys: vec![" ".to_string(), "f".to_string(), "F".to_string()],
                 }
             ]
         );
@@ -6906,6 +8339,74 @@ let ok = game.has("/quests/first_message/completed");
     }
 
     #[test]
+    fn rhai_script_behavior_ui_flash_message_sets_text_and_expiry() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(r#"ui.flash_message("READY", 500); []"#.to_string()),
+            ..BehaviorParams::default()
+        });
+        let game_state = GameState::new();
+        let mut test_ctx = ctx(SceneStage::OnIdle, 1200, 0);
+        test_ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "ui.flash_message should not produce ScriptError: {commands:?}"
+        );
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::SetText { target, text }
+                    if target == "game-message" && text == "READY"
+            )),
+            "ui.flash_message should emit SetText: {commands:?}"
+        );
+        assert_eq!(
+            game_state.get("/__ui/game_message/text"),
+            Some(serde_json::json!("READY"))
+        );
+        assert_eq!(
+            game_state
+                .get("/__ui/game_message/until_ms")
+                .and_then(|value| value.as_i64()),
+            Some(1700)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_ui_flash_message_auto_clears_after_expiry() {
+        let game_state = GameState::new();
+        let mut set_behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(r#"ui.flash_message("READY", 500); []"#.to_string()),
+            ..BehaviorParams::default()
+        });
+        let mut set_ctx = ctx(SceneStage::OnIdle, 1200, 0);
+        set_ctx.game_state = Some(game_state.clone());
+        let _ = run_behavior(&mut set_behavior, &base_scene(), set_ctx);
+
+        let mut clear_behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some("[]".to_string()),
+            ..BehaviorParams::default()
+        });
+        let mut clear_ctx = ctx(SceneStage::OnIdle, 1700, 0);
+        clear_ctx.game_state = Some(game_state.clone());
+        let commands = run_behavior(&mut clear_behavior, &base_scene(), clear_ctx);
+
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::SetText { target, text }
+                    if target == "game-message" && text.is_empty()
+            )),
+            "expired flash should clear the target text: {commands:?}"
+        );
+        assert_eq!(game_state.get("/__ui/game_message/text"), None);
+        assert_eq!(game_state.get("/__ui/game_message/until_ms"), None);
+    }
+
+    #[test]
     fn rhai_script_behavior_level_api_selects_and_mutates_active_level() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
@@ -6971,7 +8472,7 @@ if id > 0 && world.exists(id) {
         ctx.gameplay_world = Some(gameplay_world.clone());
 
         let commands = run_behavior(&mut behavior, &base_scene(), ctx);
-        
+
         // Check no script errors
         assert!(
             !commands
@@ -6979,27 +8480,29 @@ if id > 0 && world.exists(id) {
                 .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
             "spawn_visual should not produce ScriptError: {commands:?}"
         );
-        
+
         // Check that SceneSpawn command was emitted
         assert!(
-            commands.iter().any(|c| matches!(c, BehaviorCommand::SceneSpawn { 
-                template, 
-                target 
+            commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::SceneSpawn {
+                template,
+                target
             } if template == "bullet-template" && target.starts_with("bullet-"))),
             "spawn_visual should emit SceneSpawn command: {commands:?}"
         );
-        
+
         // Check entity was created and has correct transform
         let ids = gameplay_world.ids();
         assert!(!ids.is_empty(), "spawn_visual should create an entity");
-        
+
         if let Some(entity_id) = ids.first() {
             let entity_id = *entity_id;
             assert!(
                 gameplay_world.exists(entity_id),
                 "created entity should exist"
             );
-            
+
             if let Some(xf) = gameplay_world.transform(entity_id) {
                 assert!((xf.x - 10.5).abs() < 0.01, "x position should match");
                 assert!((xf.y - 20.3).abs() < 0.01, "y position should match");
@@ -7031,7 +8534,7 @@ let id = world.spawn_visual("asteroid", "asteroid-template", #{
         ctx.gameplay_world = Some(gameplay_world.clone());
 
         let commands = run_behavior(&mut behavior, &base_scene(), ctx);
-        
+
         // Check no script errors
         assert!(
             !commands
@@ -7039,16 +8542,18 @@ let id = world.spawn_visual("asteroid", "asteroid-template", #{
                 .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
             "spawn_visual with polygon should not produce ScriptError: {commands:?}"
         );
-        
+
         // Check that SceneSpawn command was emitted
         assert!(
-            commands.iter().any(|c| matches!(c, BehaviorCommand::SceneSpawn { 
-                template, 
-                target 
+            commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::SceneSpawn {
+                template,
+                target
             } if template == "asteroid-template" && target.starts_with("asteroid-"))),
             "spawn_visual should emit SceneSpawn command"
         );
-        
+
         // Check entity was created
         let ids = gameplay_world.ids();
         assert!(!ids.is_empty(), "spawn_visual should create an entity");
@@ -7076,13 +8581,1177 @@ let id = world.spawn_visual("item", "item-template", #{
         ctx.gameplay_world = Some(gameplay_world.clone());
 
         let commands = run_behavior(&mut behavior, &base_scene(), ctx);
-        
+
         // Should have created an entity with defaults
         assert!(
             !commands
                 .iter()
                 .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
             "spawn_visual with minimal data should work"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_prefab_creates_ship_and_asteroid() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let ship = world.spawn_prefab("ship", #{
+  cfg: #{
+    turn_step_ms: 40,
+    ship_thrust: 120.0,
+    ship_max_speed: 300.0
+  },
+  invulnerable_ms: 3000
+});
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2
+});
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_prefab should not produce ScriptError: {commands:?}"
+        );
+        assert!(
+            commands.iter().any(
+                |c| matches!(c, BehaviorCommand::SceneSpawn { template, target }
+                if template == "asteroid-template" && target.starts_with("asteroid-"))
+            ),
+            "asteroid prefab should emit SceneSpawn"
+        );
+
+        let ship_ids = gameplay_world.query_kind("ship");
+        assert_eq!(ship_ids.len(), 1, "ship prefab should create one ship");
+        let ship_id = ship_ids[0];
+        assert_eq!(
+            gameplay_world.visual(ship_id).and_then(|v| v.visual_id),
+            Some("ship".to_string())
+        );
+        assert!(
+            gameplay_world.controller(ship_id).is_some(),
+            "ship should have controller"
+        );
+        assert!(gameplay_world.status_has(ship_id, "invulnerable"));
+
+        let asteroid_ids = gameplay_world.query_kind("asteroid");
+        assert_eq!(
+            asteroid_ids.len(),
+            1,
+            "asteroid prefab should create one asteroid"
+        );
+        let asteroid_id = asteroid_ids[0];
+        let xf = gameplay_world
+            .transform(asteroid_id)
+            .expect("asteroid transform");
+        assert!((xf.x - 12.0).abs() < 0.01);
+        assert!((xf.y - 18.0).abs() < 0.01);
+        let phys = gameplay_world
+            .physics(asteroid_id)
+            .expect("asteroid physics");
+        assert!((phys.vx - 120.0).abs() < 0.01);
+        assert!((phys.vy + 60.0).abs() < 0.01);
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/size")
+                .and_then(|v| v.as_i64()),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_prefab_unknown_returns_zero() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let id = world.spawn_prefab("missing", #{});
+game.set("/test/prefab_id", id);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "unknown prefab should fail gracefully"
+        );
+        assert_eq!(
+            game_state.get("/test/prefab_id").and_then(|v| v.as_i64()),
+            Some(0)
+        );
+        assert_eq!(gameplay_world.count(), 0);
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_group_creates_initial_asteroids() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let ids = world.spawn_group("asteroids.initial", "asteroid");
+game.set("/test/spawn_count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_group should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state.get("/test/spawn_count").and_then(|v| v.as_i64()),
+            Some(10)
+        );
+        assert_eq!(gameplay_world.query_kind("asteroid").len(), 10);
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_group_unknown_returns_empty() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ids = world.spawn_group("missing.group", "asteroid");
+game.set("/test/spawn_count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "unknown spawn_group should fail gracefully"
+        );
+        assert_eq!(
+            game_state.get("/test/spawn_count").and_then(|v| v.as_i64()),
+            Some(0)
+        );
+        assert_eq!(gameplay_world.count(), 0);
+    }
+
+    #[test]
+    fn rhai_script_behavior_try_fire_weapon_spawns_bullet_and_audio() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let ship = world.spawn_prefab("ship", #{
+  cfg: #{
+    turn_step_ms: 40,
+    ship_thrust: 120.0,
+    ship_max_speed: 300.0
+  }
+});
+world.set_physics(ship, 60.0, 120.0, 0.0, 0.0, 0.10, 300.0);
+let bullet = world.try_fire_weapon("asteroids.ship", ship, #{
+  bullet_speed: 300.0,
+  bullet_ttl_ms: 900,
+  shot_cooldown_ms: 200
+});
+game.set("/test/bullet_id", bullet);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "try_fire_weapon should not produce ScriptError: {commands:?}"
+        );
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::SceneSpawn { template, target }
+                    if template == "bullet-template" && target.starts_with("bullet-")
+            )),
+            "try_fire_weapon should emit bullet SceneSpawn: {commands:?}"
+        );
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::PlayAudioEvent { event, gain }
+                    if event == "gameplay.ship.shoot" && *gain == Some(1.0)
+            )),
+            "try_fire_weapon should emit shoot audio event: {commands:?}"
+        );
+
+        let bullet_id = game_state
+            .get("/test/bullet_id")
+            .and_then(|value| value.as_i64())
+            .expect("stored bullet id") as u64;
+        assert!(gameplay_world.exists(bullet_id));
+
+        let ship_id = gameplay_world.query_kind("ship")[0];
+        let ship_xf = gameplay_world.transform(ship_id).expect("ship transform");
+        let ship_ctrl = gameplay_world.controller(ship_id).expect("ship controller");
+        let (dir_x, dir_y) = ship_ctrl.heading_vector();
+        let bullet_xf = gameplay_world
+            .transform(bullet_id)
+            .expect("bullet transform");
+        assert!((bullet_xf.x - (ship_xf.x + (dir_x * 9.0))).abs() < 0.01);
+        assert!((bullet_xf.y - (ship_xf.y + (dir_y * 9.0))).abs() < 0.01);
+
+        let bullet_phys = gameplay_world.physics(bullet_id).expect("bullet physics");
+        assert!((bullet_phys.vx - (60.0 + dir_x * 300.0)).abs() < 0.01);
+        assert!((bullet_phys.vy - (120.0 + dir_y * 300.0)).abs() < 0.01);
+
+        assert!(gameplay_world.cooldown_remaining(ship_id, "shot") > 0);
+    }
+
+    #[test]
+    fn rhai_script_behavior_try_fire_weapon_respects_cooldown() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let ship = world.spawn_prefab("ship", #{
+  cfg: #{
+    turn_step_ms: 40,
+    ship_thrust: 120.0,
+    ship_max_speed: 300.0
+  }
+});
+let first = world.try_fire_weapon("asteroids.ship", ship, #{
+  bullet_speed: 300.0,
+  bullet_ttl_ms: 900,
+  shot_cooldown_ms: 200
+});
+let second = world.try_fire_weapon("asteroids.ship", ship, #{
+  bullet_speed: 300.0,
+  bullet_ttl_ms: 900,
+  shot_cooldown_ms: 200
+});
+game.set("/test/first", first);
+game.set("/test/second", second);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "try_fire_weapon cooldown path should not produce ScriptError: {commands:?}"
+        );
+        assert!(
+            game_state
+                .get("/test/first")
+                .and_then(|value| value.as_i64())
+                .unwrap_or(0)
+                > 0,
+            "first fire should succeed"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/second")
+                .and_then(|value| value.as_i64()),
+            Some(0),
+            "second fire should be blocked by cooldown"
+        );
+        assert_eq!(gameplay_world.query_kind("bullet").len(), 1);
+        assert_eq!(
+            commands
+                .iter()
+                .filter(|c| matches!(c, BehaviorCommand::PlayAudioEvent { event, .. } if event == "gameplay.ship.shoot"))
+                .count(),
+            1,
+            "only the successful shot should emit audio"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_fx_emit_ship_thrust_smoke_spawns_one_particle() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let ship = world.spawn_prefab("ship", #{
+  cfg: #{
+    turn_step_ms: 40,
+    ship_thrust: 120.0,
+    ship_max_speed: 300.0
+  }
+});
+world.set_physics(ship, 60.0, 120.0, 0.0, 0.0, 0.10, 300.0);
+let ids = fx.emit("asteroids.ship_thrust_smoke", #{ ship_id: ship });
+game.set("/test/count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "fx thrust smoke should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/count")
+                .and_then(|value| value.as_i64()),
+            Some(1)
+        );
+
+        let ship_id = gameplay_world.query_kind("ship")[0];
+        let smoke_id = gameplay_world.query_kind("smoke")[0];
+        let ship_xf = gameplay_world.transform(ship_id).expect("ship transform");
+        let ship_ctrl = gameplay_world.controller(ship_id).expect("ship controller");
+        let (dir_x, dir_y) = ship_ctrl.heading_vector();
+        let smoke_xf = gameplay_world.transform(smoke_id).expect("smoke transform");
+        assert!((smoke_xf.x - (ship_xf.x - (dir_x * 6.0))).abs() < 0.01);
+        assert!((smoke_xf.y - (ship_xf.y - (dir_y * 6.0))).abs() < 0.01);
+
+        let smoke_phys = gameplay_world.physics(smoke_id).expect("smoke physics");
+        assert!((smoke_phys.vx - (60.0 - dir_x * 21.0)).abs() < 0.01);
+        assert!((smoke_phys.vy - (120.0 - dir_y * 21.0)).abs() < 0.01);
+        assert!(gameplay_world.cooldown_remaining(ship_id, "smoke") > 0);
+    }
+
+    #[test]
+    fn rhai_script_behavior_fx_emit_ship_disintegration_spawns_twelve_smokes() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ids = fx.emit("asteroids.ship_disintegration", #{ x: 10.0, y: 20.0 });
+game.set("/test/count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "fx disintegration should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/count")
+                .and_then(|value| value.as_i64()),
+            Some(12)
+        );
+        assert_eq!(gameplay_world.query_kind("smoke").len(), 12);
+    }
+
+    #[test]
+    fn rhai_script_behavior_tick_heading_anim_advances_phase_and_accumulator() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 0.0, y: 0.0, vx: 0.0, vy: 0.0, shape: 1, size: 2
+});
+world.set(asteroid, "/rot_phase", 5);
+world.set(asteroid, "/rot_speed", 2);
+world.set(asteroid, "/rot_step_ms", 72);
+world.set(asteroid, "/rot_accum_ms", 20);
+let anim = world.tick_heading_anim(asteroid, 160);
+game.set("/test/phase", anim["rot_phase"]);
+game.set("/test/accum", anim["rot_accum_ms"]);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "tick_heading_anim should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/phase")
+                .and_then(|value| value.as_i64()),
+            Some(9)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/accum")
+                .and_then(|value| value.as_i64()),
+            Some(36)
+        );
+
+        let asteroid_id = gameplay_world.query_kind("asteroid")[0];
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/rot_phase")
+                .and_then(|value| value.as_i64()),
+            Some(9)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/rot_accum_ms")
+                .and_then(|value| value.as_i64()),
+            Some(36)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_tick_heading_anim_ignores_nonpositive_step() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 0.0, y: 0.0, vx: 0.0, vy: 0.0, shape: 1, size: 2
+});
+world.set(asteroid, "/rot_phase", 7);
+world.set(asteroid, "/rot_step_ms", 0);
+world.set(asteroid, "/rot_accum_ms", 11);
+let anim = world.tick_heading_anim(asteroid, 160);
+game.set("/test/phase", anim["rot_phase"]);
+game.set("/test/accum", anim["rot_accum_ms"]);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "tick_heading_anim zero-step path should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/phase")
+                .and_then(|value| value.as_i64()),
+            Some(7)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/accum")
+                .and_then(|value| value.as_i64()),
+            Some(11)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_handle_ship_hit_applies_ship_and_asteroid_reaction() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let ship = world.spawn_prefab("ship", #{
+  cfg: #{
+    turn_step_ms: 40,
+    ship_thrust: 120.0,
+    ship_max_speed: 300.0
+  }
+});
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2
+});
+let handled = world.handle_ship_hit(ship, asteroid, #{
+  crack_duration_ms: 1000,
+  asteroid_velocity_limit: 240.0,
+  ship_invulnerable_ms: 3000,
+  ui_text: "HIT!",
+  ui_ttl_ms: 450
+});
+game.set("/test/handled", handled);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 1200, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "handle_ship_hit should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/handled")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::PlayAudioEvent { event, gain }
+                    if event == "gameplay.ship.hit" && *gain == Some(1.0)
+            )),
+            "handle_ship_hit should emit hit audio: {commands:?}"
+        );
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::SetText { target, text }
+                    if target == "game-message" && text == "HIT!"
+            )),
+            "handle_ship_hit should emit ui text: {commands:?}"
+        );
+
+        let ship_id = gameplay_world.query_kind("ship")[0];
+        let asteroid_id = gameplay_world.query_kind("asteroid")[0];
+        let ship_phys = gameplay_world.physics(ship_id).expect("ship physics");
+        assert!(ship_phys.vx.abs() < 0.01);
+        assert!(ship_phys.vy.abs() < 0.01);
+        assert!(gameplay_world.status_has(ship_id, "invulnerable"));
+
+        let asteroid_phys = gameplay_world
+            .physics(asteroid_id)
+            .expect("asteroid physics");
+        assert!((asteroid_phys.vx + 120.0).abs() < 0.01);
+        assert!((asteroid_phys.vy - 60.0).abs() < 0.01);
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/flash_ms")
+                .and_then(|value| value.as_i64()),
+            Some(1000)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/flash_total_ms")
+                .and_then(|value| value.as_i64()),
+            Some(1000)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/split_pending")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state.get("/__ui/game_message/text"),
+            Some(serde_json::json!("HIT!"))
+        );
+        assert_eq!(
+            game_state
+                .get("/__ui/game_message/until_ms")
+                .and_then(|value| value.as_i64()),
+            Some(1650)
+        );
+        assert_eq!(gameplay_world.query_kind("smoke").len(), 12);
+    }
+
+    #[test]
+    fn rhai_script_behavior_handle_ship_hit_noops_when_invulnerable() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let ship = world.spawn_prefab("ship", #{
+  cfg: #{
+    turn_step_ms: 40,
+    ship_thrust: 120.0,
+    ship_max_speed: 300.0
+  },
+  invulnerable_ms: 3000
+});
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2
+});
+let handled = world.handle_ship_hit(ship, asteroid, #{});
+game.set("/test/handled", handled);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 1200, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "handle_ship_hit invulnerable path should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/handled")
+                .and_then(|value| value.as_bool()),
+            Some(false)
+        );
+        assert!(!commands.iter().any(
+            |c| matches!(c, BehaviorCommand::PlayAudioEvent { event, .. } if event == "gameplay.ship.hit")
+        ));
+        assert_eq!(gameplay_world.query_kind("smoke").len(), 0);
+    }
+
+    #[test]
+    fn rhai_script_behavior_handle_bullet_hit_despawns_bullet_and_marks_asteroid() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2
+});
+let bullet = world.spawn_prefab("bullet", #{
+  x: 10.0, y: 20.0, vx: 1.0, vy: 0.0, ttl_ms: 900
+});
+let result = world.handle_bullet_hit(bullet, asteroid, #{
+  crack_duration_ms: 1000,
+  ui_text: "HIT",
+  ui_ttl_ms: 250
+});
+game.set("/test/handled", result["handled"]);
+game.set("/test/size", result["asteroid_size"]);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 1200, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "handle_bullet_hit should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/handled")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/size")
+                .and_then(|value| value.as_i64()),
+            Some(2)
+        );
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::SetText { target, text }
+                    if target == "game-message" && text == "HIT"
+            )),
+            "handle_bullet_hit should emit ui text: {commands:?}"
+        );
+
+        assert_eq!(gameplay_world.query_kind("bullet").len(), 0);
+        let asteroid_id = gameplay_world.query_kind("asteroid")[0];
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/flash_ms")
+                .and_then(|value| value.as_i64()),
+            Some(1000)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/flash_total_ms")
+                .and_then(|value| value.as_i64()),
+            Some(1000)
+        );
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/split_pending")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state.get("/__ui/game_message/text"),
+            Some(serde_json::json!("HIT"))
+        );
+        assert_eq!(
+            game_state
+                .get("/__ui/game_message/until_ms")
+                .and_then(|value| value.as_i64()),
+            Some(1450)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_handle_bullet_hit_noops_for_split_pending_asteroid() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2
+});
+world.set(asteroid, "/split_pending", true);
+let bullet = world.spawn_prefab("bullet", #{
+  x: 10.0, y: 20.0, vx: 1.0, vy: 0.0, ttl_ms: 900
+});
+let result = world.handle_bullet_hit(bullet, asteroid, #{});
+game.set("/test/handled", result["handled"]);
+game.set("/test/size", result["asteroid_size"]);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 1200, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "handle_bullet_hit split-pending path should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/handled")
+                .and_then(|value| value.as_bool()),
+            Some(false)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/size")
+                .and_then(|value| value.as_i64()),
+            Some(0)
+        );
+        assert_eq!(gameplay_world.query_kind("bullet").len(), 0);
+        assert!(!commands.iter().any(
+            |c| matches!(c, BehaviorCommand::SetText { target, text } if target == "game-message" && text == "HIT")
+        ));
+    }
+
+    #[test]
+    fn rhai_script_behavior_handle_asteroid_split_spawns_three_children() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 0.0, vy: 0.0, shape: 3, size: 2
+});
+world.set(asteroid, "/rot_phase", 5);
+let result = world.handle_asteroid_split(asteroid, #{});
+game.set("/test/handled", result["handled"]);
+game.set("/test/despawned", result["despawned"]);
+game.set("/test/child_count", result["children"].len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "handle_asteroid_split should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/handled")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/despawned")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/child_count")
+                .and_then(|value| value.as_i64()),
+            Some(3)
+        );
+        assert_eq!(gameplay_world.query_kind("asteroid").len(), 3);
+        assert!(
+            commands.iter().any(|c| matches!(
+                c,
+                BehaviorCommand::PlayAudioEvent { event, gain }
+                    if event == "gameplay.asteroid.split" && *gain == Some(1.0)
+            )),
+            "handle_asteroid_split should emit split audio: {commands:?}"
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_handle_asteroid_split_despawns_smallest_asteroid() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 0.0, vy: 0.0, shape: 3, size: 0
+});
+let result = world.handle_asteroid_split(asteroid, #{});
+game.set("/test/handled", result["handled"]);
+game.set("/test/despawned", result["despawned"]);
+game.set("/test/child_count", result["children"].len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "handle_asteroid_split terminal path should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/handled")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/despawned")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/child_count")
+                .and_then(|value| value.as_i64()),
+            Some(0)
+        );
+        assert_eq!(gameplay_world.query_kind("asteroid").len(), 0);
+        assert!(!commands.iter().any(
+            |c| matches!(c, BehaviorCommand::PlayAudioEvent { event, .. } if event == "gameplay.asteroid.split")
+        ));
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_wave_dynamic_creates_requested_asteroids() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+world.rand_seed(42);
+let ids = world.spawn_wave("asteroids.dynamic", #{
+  spawn_count: 6,
+  ship_x: 0.0,
+  ship_y: 0.0,
+  min_x: -320.0,
+  max_x: 320.0,
+  min_y: -240.0,
+  max_y: 240.0
+});
+game.set("/test/count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_wave should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/count")
+                .and_then(|value| value.as_i64()),
+            Some(6)
+        );
+        let asteroid_ids = gameplay_world.query_kind("asteroid");
+        assert_eq!(asteroid_ids.len(), 6);
+        for asteroid_id in asteroid_ids {
+            let xf = gameplay_world
+                .transform(asteroid_id)
+                .expect("asteroid transform");
+            assert!(
+                (xf.x - -310.0).abs() < 0.01 || (xf.x - 310.0).abs() < 0.01,
+                "wave asteroid should spawn on left/right edge: {xf:?}"
+            );
+            assert!(xf.y >= -230.0 && xf.y <= 230.0);
+        }
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_wave_dynamic_supports_zero_ship_fallback() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+world.rand_seed(7);
+let ids = world.spawn_wave("asteroids.dynamic", #{
+  spawn_count: 2,
+  min_x: -320.0,
+  max_x: 320.0,
+  min_y: -240.0,
+  max_y: 240.0
+});
+game.set("/test/count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_wave fallback path should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/count")
+                .and_then(|value| value.as_i64()),
+            Some(2)
+        );
+        assert_eq!(gameplay_world.query_kind("asteroid").len(), 2);
+    }
+
+    #[test]
+    fn rhai_script_behavior_ensure_crack_visuals_spawns_and_marks_once() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 0.0, vy: 0.0, shape: 3, size: 2
+});
+let ids = world.ensure_crack_visuals(asteroid);
+game.set("/test/count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "ensure_crack_visuals should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/count")
+                .and_then(|value| value.as_i64()),
+            Some(3)
+        );
+        assert_eq!(
+            commands
+                .iter()
+                .filter(|c| matches!(
+                    c,
+                    BehaviorCommand::SceneSpawn { template, target }
+                        if template == "asteroid-template" && target.contains("-crack-")
+                ))
+                .count(),
+            3
+        );
+        let asteroid_id = gameplay_world.query_kind("asteroid")[0];
+        assert_eq!(
+            gameplay_world
+                .get(asteroid_id, "/cracks_spawned")
+                .and_then(|value| value.as_bool()),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_ensure_crack_visuals_is_idempotent() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 0.0, vy: 0.0, shape: 3, size: 2
+});
+let first = world.ensure_crack_visuals(asteroid);
+let second = world.ensure_crack_visuals(asteroid);
+game.set("/test/first", first.len);
+game.set("/test/second", second.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "ensure_crack_visuals idempotent path should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/first")
+                .and_then(|value| value.as_i64()),
+            Some(3)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/second")
+                .and_then(|value| value.as_i64()),
+            Some(0)
+        );
+        assert_eq!(
+            commands
+                .iter()
+                .filter(|c| matches!(
+                    c,
+                    BehaviorCommand::SceneSpawn { template, target }
+                        if template == "asteroid-template" && target.contains("-crack-")
+                ))
+                .count(),
+            3
         );
     }
 

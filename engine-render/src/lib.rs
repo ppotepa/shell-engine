@@ -22,7 +22,7 @@ pub mod vector_overlay;
 pub use generic::*;
 pub use overlay::{OverlayData, OverlayLine};
 pub use rasterizer::{blit, has_font_assets, missing_glyphs, rasterize, rasterize_cached};
-pub use simd_text::{stage_glyph_placement, rasterize_staged_glyphs, GlyphBatch};
+pub use simd_text::{rasterize_staged_glyphs, stage_glyph_placement, GlyphBatch};
 pub use vector_overlay::{VectorOverlay, VectorPrimitive};
 
 /// Error type for render backend operations

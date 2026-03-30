@@ -1,5 +1,5 @@
 //! Color conversion between engine-core and crossterm backends.
-//! 
+//!
 //! OPT-42: Color conversion caching - cache engine Color → crossterm Color conversions
 //! to avoid per-frame RGB↔256 conversions.
 

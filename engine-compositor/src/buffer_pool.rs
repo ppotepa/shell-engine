@@ -60,7 +60,10 @@ impl BufferPool {
     pub fn acquire(&self, width: u16, height: u16) -> PooledBuffer {
         let mut available = self.available.borrow_mut();
         let mut buf = if let Some(mut b) = available.pop() {
-            b.resize(width.min(self.config.max_width), height.min(self.config.max_height));
+            b.resize(
+                width.min(self.config.max_width),
+                height.min(self.config.max_height),
+            );
             b
         } else {
             Buffer::new(

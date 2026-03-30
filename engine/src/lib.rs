@@ -211,7 +211,11 @@ impl ShellEngine {
         use terminal_caps::target_fps_from_manifest;
 
         // Initialize behavior system with mod source for Rhai module resolution
-        init_behavior_system(self.mod_source.to_str().expect("mod_source path is valid UTF-8"));
+        init_behavior_system(
+            self.mod_source
+                .to_str()
+                .expect("mod_source path is valid UTF-8"),
+        );
 
         let manifest_entrypoint = self.mod_manifest["entrypoint"]
             .as_str()

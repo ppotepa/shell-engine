@@ -8,8 +8,10 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
-use crate::components::{Collider2D, EntityTimers, GameplayEvent, Lifetime, PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
-
+use crate::components::{
+    Collider2D, EntityTimers, GameplayEvent, Lifetime, PhysicsBody2D, TopDownShipController,
+    Transform2D, VisualBinding, WrapBounds,
+};
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -160,8 +162,12 @@ impl GameplayWorld {
     /// Registers `child` as a child of `parent`. When `parent` is despawned,
     /// `child` is automatically despawned too.
     pub fn register_child(&self, parent: u64, child: u64) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        if !store.entities.contains_key(&parent) { return false; }
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&parent) {
+            return false;
+        }
         store.children.entry(parent).or_default().push(child);
         true
     }
@@ -169,7 +175,9 @@ impl GameplayWorld {
     /// Despawns all children registered under `parent` without despawning the parent itself.
     pub fn despawn_children(&self, parent: u64) {
         let child_ids = {
-            let Ok(mut store) = self.store.lock() else { return };
+            let Ok(mut store) = self.store.lock() else {
+                return;
+            };
             store.children.remove(&parent).unwrap_or_default()
         };
         for child_id in child_ids {
@@ -442,16 +450,29 @@ impl GameplayWorld {
 
     /// Start or reset a named cooldown for `id`. Counts down to 0 (ready).
     pub fn cooldown_start(&self, id: u64, name: &str, ms: i32) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        if !store.entities.contains_key(&id) { return false; }
-        store.timers.entry(id).or_default().cooldowns.insert(name.to_string(), ms.max(0));
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store
+            .timers
+            .entry(id)
+            .or_default()
+            .cooldowns
+            .insert(name.to_string(), ms.max(0));
         true
     }
 
     /// Returns `true` if the named cooldown has expired (or was never started).
     pub fn cooldown_ready(&self, id: u64, name: &str) -> bool {
-        let Ok(store) = self.store.lock() else { return true };
-        store.timers.get(&id)
+        let Ok(store) = self.store.lock() else {
+            return true;
+        };
+        store
+            .timers
+            .get(&id)
             .and_then(|t| t.cooldowns.get(name))
             .map(|&ms| ms <= 0)
             .unwrap_or(true)
@@ -459,8 +480,12 @@ impl GameplayWorld {
 
     /// Returns remaining ms for a cooldown, or 0 if ready/absent.
     pub fn cooldown_remaining(&self, id: u64, name: &str) -> i32 {
-        let Ok(store) = self.store.lock() else { return 0 };
-        store.timers.get(&id)
+        let Ok(store) = self.store.lock() else {
+            return 0;
+        };
+        store
+            .timers
+            .get(&id)
             .and_then(|t| t.cooldowns.get(name))
             .copied()
             .unwrap_or(0)
@@ -469,16 +494,29 @@ impl GameplayWorld {
 
     /// Add or refresh a named status effect for `id`. Active while remaining > 0.
     pub fn status_add(&self, id: u64, name: &str, ms: i32) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        if !store.entities.contains_key(&id) { return false; }
-        store.timers.entry(id).or_default().statuses.insert(name.to_string(), ms.max(1));
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store
+            .timers
+            .entry(id)
+            .or_default()
+            .statuses
+            .insert(name.to_string(), ms.max(1));
         true
     }
 
     /// Returns `true` if the named status is active (remaining > 0).
     pub fn status_has(&self, id: u64, name: &str) -> bool {
-        let Ok(store) = self.store.lock() else { return false };
-        store.timers.get(&id)
+        let Ok(store) = self.store.lock() else {
+            return false;
+        };
+        store
+            .timers
+            .get(&id)
             .and_then(|t| t.statuses.get(name))
             .map(|&ms| ms > 0)
             .unwrap_or(false)
@@ -486,8 +524,12 @@ impl GameplayWorld {
 
     /// Returns remaining ms for a status, or 0 if inactive/absent.
     pub fn status_remaining(&self, id: u64, name: &str) -> i32 {
-        let Ok(store) = self.store.lock() else { return 0 };
-        store.timers.get(&id)
+        let Ok(store) = self.store.lock() else {
+            return 0;
+        };
+        store
+            .timers
+            .get(&id)
             .and_then(|t| t.statuses.get(name))
             .copied()
             .unwrap_or(0)
@@ -495,14 +537,18 @@ impl GameplayWorld {
     }
 
     pub fn ids_with_timers(&self) -> Vec<u64> {
-        let Ok(store) = self.store.lock() else { return Vec::new() };
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
         store.timers.keys().copied().collect()
     }
 
     /// Tick all timers by `dt_ms`. Cooldowns clamp at 0; expired statuses are removed.
     pub fn tick_timers(&self, dt_ms: u64) {
         let dt = dt_ms as i32;
-        let Ok(mut store) = self.store.lock() else { return };
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
         store.timers.retain(|_, timers| {
             for v in timers.cooldowns.values_mut() {
                 *v = (*v - dt).max(0);
@@ -520,7 +566,9 @@ impl GameplayWorld {
     /// `fired_world_timers` and consumed by [`timer_fired`].
     pub fn tick_world_timers(&self, dt_ms: u64) {
         let dt = dt_ms as i64;
-        let Ok(mut store) = self.store.lock() else { return };
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
         store.fired_world_timers.clear();
         let mut fired = Vec::new();
         store.world_timers.retain(|label, remaining| {
@@ -539,19 +587,27 @@ impl GameplayWorld {
     /// When it fires, `world.timer_fired(label)` returns `true` exactly once.
     /// Calling `after_ms` again with the same label resets the countdown.
     pub fn after_ms(&self, label: &str, delay_ms: i64) {
-        let Ok(mut store) = self.store.lock() else { return };
-        store.world_timers.insert(label.to_string(), delay_ms.max(1));
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
+        store
+            .world_timers
+            .insert(label.to_string(), delay_ms.max(1));
     }
 
     /// Returns `true` exactly once when the named timer scheduled with `after_ms` fires.
     pub fn timer_fired(&self, label: &str) -> bool {
-        let Ok(store) = self.store.lock() else { return false };
+        let Ok(store) = self.store.lock() else {
+            return false;
+        };
         store.fired_world_timers.contains(&label.to_string())
     }
 
     /// Cancel a pending world timer. Returns `true` if it was pending.
     pub fn cancel_timer(&self, label: &str) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
         store.world_timers.remove(label).is_some()
     }
 
@@ -559,14 +615,20 @@ impl GameplayWorld {
 
     /// Enable toroidal position wrap for `id` within `bounds`.
     pub fn set_wrap_bounds(&self, id: u64, bounds: WrapBounds) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        if !store.entities.contains_key(&id) { return false; }
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
         store.wrap_bounds.insert(id, bounds);
         true
     }
 
     pub fn wrap_bounds_for(&self, id: u64) -> Option<WrapBounds> {
-        let Ok(store) = self.store.lock() else { return None };
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
         store.wrap_bounds.get(&id).copied()
     }
 
@@ -577,7 +639,9 @@ impl GameplayWorld {
     }
 
     pub fn ids_with_wrap(&self) -> Vec<u64> {
-        let Ok(store) = self.store.lock() else { return Vec::new() };
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
         store.wrap_bounds.keys().copied().collect()
     }
 
@@ -585,8 +649,12 @@ impl GameplayWorld {
     pub fn apply_wrap(&self) {
         let ids = self.ids_with_wrap();
         for id in ids {
-            let Some(bounds) = self.wrap_bounds_for(id) else { continue };
-            let Some(mut xf) = self.transform(id) else { continue };
+            let Some(bounds) = self.wrap_bounds_for(id) else {
+                continue;
+            };
+            let Some(mut xf) = self.transform(id) else {
+                continue;
+            };
             let nx = bounds.wrap_x(xf.x);
             let ny = bounds.wrap_y(xf.y);
             if nx != xf.x || ny != xf.y {
@@ -599,15 +667,21 @@ impl GameplayWorld {
 
     /// Attach a TopDownShipController to an entity.
     pub fn attach_controller(&self, id: u64, controller: TopDownShipController) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        if !store.entities.contains_key(&id) { return false; }
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
         store.ship_controllers.insert(id, controller);
         true
     }
 
     /// Retrieve a ship controller for an entity.
     pub fn controller(&self, id: u64) -> Option<TopDownShipController> {
-        let Ok(store) = self.store.lock() else { return None };
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
         store.ship_controllers.get(&id).cloned()
     }
 
@@ -616,7 +690,9 @@ impl GameplayWorld {
     where
         F: FnOnce(&mut TopDownShipController),
     {
-        let Ok(mut store) = self.store.lock() else { return false };
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
         if let Some(ctrl) = store.ship_controllers.get_mut(&id) {
             f(ctrl);
             true
@@ -627,7 +703,9 @@ impl GameplayWorld {
 
     /// Get all entity IDs with controllers.
     pub fn ids_with_controller(&self) -> Vec<u64> {
-        let Ok(store) = self.store.lock() else { return Vec::new() };
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
         store.ship_controllers.keys().copied().collect()
     }
 
@@ -730,7 +808,9 @@ impl GameplayWorld {
 
     /// LCG random int in [min, max] inclusive. Advances internal seed.
     pub fn rand_i(&self, min: i32, max: i32) -> i32 {
-        let Ok(mut store) = self.store.lock() else { return min };
+        let Ok(mut store) = self.store.lock() else {
+            return min;
+        };
         store.rng_seed = store.rng_seed.wrapping_mul(1103515245).wrapping_add(12345) & 0x7fff_ffff;
         let range = (max - min).abs() as u64 + 1;
         min + (store.rng_seed % range) as i32
@@ -738,7 +818,9 @@ impl GameplayWorld {
 
     /// Reset the RNG seed.
     pub fn rand_seed(&self, seed: i64) {
-        let Ok(mut store) = self.store.lock() else { return };
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
         store.rng_seed = seed as u64 & 0x7fff_ffff;
     }
 
@@ -746,21 +828,36 @@ impl GameplayWorld {
 
     /// Store global world bounds (used by enable_wrap_bounds).
     pub fn set_world_bounds(&self, min_x: f32, max_x: f32, min_y: f32, max_y: f32) {
-        let Ok(mut store) = self.store.lock() else { return };
-        store.world_bounds = Some(WrapBounds { min_x, max_x, min_y, max_y });
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
+        store.world_bounds = Some(WrapBounds {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+        });
     }
 
     /// Read global world bounds.
     pub fn world_bounds(&self) -> Option<WrapBounds> {
-        let Ok(store) = self.store.lock() else { return None };
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
         store.world_bounds
     }
 
     /// Enable wrap on entity using stored world bounds. No-op if world bounds not set.
     pub fn enable_wrap_bounds(&self, id: u64) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        let Some(bounds) = store.world_bounds else { return false };
-        if !store.entities.contains_key(&id) { return false }
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(bounds) = store.world_bounds else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
         store.wrap_bounds.insert(id, bounds);
         true
     }
@@ -769,23 +866,37 @@ impl GameplayWorld {
 
     /// Add a runtime tag to an entity. Returns false if entity does not exist.
     pub fn tag_add(&self, id: u64, tag: &str) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        let Some(entity) = store.entities.get_mut(&id) else { return false };
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(entity) = store.entities.get_mut(&id) else {
+            return false;
+        };
         entity.tags.insert(tag.to_string());
         true
     }
 
     /// Remove a runtime tag from an entity.
     pub fn tag_remove(&self, id: u64, tag: &str) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false };
-        let Some(entity) = store.entities.get_mut(&id) else { return false };
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(entity) = store.entities.get_mut(&id) else {
+            return false;
+        };
         entity.tags.remove(tag)
     }
 
     /// Check if an entity has a specific runtime tag.
     pub fn tag_has(&self, id: u64, tag: &str) -> bool {
-        let Ok(store) = self.store.lock() else { return false };
-        store.entities.get(&id).map(|e| e.tags.contains(tag)).unwrap_or(false)
+        let Ok(store) = self.store.lock() else {
+            return false;
+        };
+        store
+            .entities
+            .get(&id)
+            .map(|e| e.tags.contains(tag))
+            .unwrap_or(false)
     }
 }
 

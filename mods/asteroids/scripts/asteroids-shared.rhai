@@ -116,22 +116,3 @@ fn load_game_config(level) {
         bullet_speed: bullet_speed
     }
 }
-
-fn show_message(scene, game, text, ttl_ms) {
-    game.set("/ast/msg_ttl_ms", ttl_ms);
-    scene.set("game-message", "text.content", text);
-}
-
-fn spawn_crack_visuals(world, scene, ast_id) {
-    // Guard: skip if crack visuals already spawned for this asteroid
-    // (prevents re-activating crack visuals for existing asteroids when others split)
-    let e = world.entity(ast_id);
-    if e.get_b("/cracks_spawned", false) { return; }
-    for i in 0..3 {
-        let cv = `asteroid-${ast_id}-crack-${i}`;
-        scene.spawn_object("asteroid-template", cv);
-        world.bind_visual(ast_id, cv);
-        world.set(ast_id, `/crack_visual_${i}`, cv);
-    }
-    world.set(ast_id, "/cracks_spawned", true);
-}

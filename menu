@@ -312,7 +312,7 @@ draw_menu() {
   if [[ -n "${SEARCH_QUERY}" ]]; then
     echo "${DIM}  ↑↓ navigate  Enter launch  Esc clear search  Backspace delete  1-5 toggle flags${RESET}"
   else
-    echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  / search  1-5 toggle flags  q quit${RESET}"
+    echo "${DIM}  ↑↓ navigate  →/Enter expand/launch  ←/Esc collapse  / search  1-5 toggle flags  c concat-md  m codemap  q quit${RESET}"
   fi
   echo ""
 
@@ -618,6 +618,26 @@ main() {
           build_tree
           apply_filter
           cursor=0
+          ;;
+        c|C)
+          printf '\e[?25h\e[?1049l'
+          trap - EXIT
+          echo "[menu] running: ./concat --md-only"
+          "${ROOT_DIR}/concat" --md-only
+          echo "[menu] press any key to return"
+          read -rsn1
+          printf '\e[?25l\e[?1049h'
+          trap 'printf "\e[?25h\e[?1049l"' EXIT
+          ;;
+        m|M)
+          printf '\e[?25h\e[?1049l'
+          trap - EXIT
+          echo "[menu] running: ./codemap"
+          "${ROOT_DIR}/codemap"
+          echo "[menu] press any key to return"
+          read -rsn1
+          printf '\e[?25l\e[?1049h'
+          trap 'printf "\e[?25h\e[?1049l"' EXIT
           ;;
         q|Q)
           exit 0

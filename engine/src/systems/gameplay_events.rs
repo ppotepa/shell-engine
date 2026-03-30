@@ -6,10 +6,7 @@ pub struct GameplayEventBuffer {
     pub collisions: Vec<CollisionHit>,
 }
 
-pub fn push_collisions(
-    world: &mut engine_core::world::World,
-    hits: Vec<CollisionHit>,
-) {
+pub fn push_collisions(world: &mut engine_core::world::World, hits: Vec<CollisionHit>) {
     if hits.is_empty() {
         return;
     }

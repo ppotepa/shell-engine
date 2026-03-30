@@ -6,9 +6,9 @@ use crate::behavior::{BehaviorCommand, DebugLogSeverity as BehaviorDebugLogSever
 use crate::debug_log::{DebugLogBuffer, DebugLogEntry, DebugSeverity};
 use crate::events::EngineEvent;
 use crate::services::EngineWorldAccess;
+use crate::systems::gameplay_events::GameplayEventBuffer;
 use crate::world::World;
 use engine_core::logging;
-use crate::systems::gameplay_events::GameplayEventBuffer;
 
 /// Runs all registered behaviors against the current scene runtime state and dispatches their commands.
 pub fn behavior_system(world: &mut World) {

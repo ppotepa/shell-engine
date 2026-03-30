@@ -79,14 +79,13 @@ fn glow_cache_key(
     h.finish()
 }
 
-
 use super::layout::{
     compute_flex_cells, compute_grid_cells, measure_sprite_for_layout, resolve_x, resolve_y,
     with_render_context, RenderArea,
 };
 use super::render::{
-    check_visibility, compute_draw_pos, finalize_sprite, is_sprite_offscreen, render_children_in_cells,
-    sprite_transform_offset, RenderCtx,
+    check_visibility, compute_draw_pos, finalize_sprite, is_sprite_offscreen,
+    render_children_in_cells, sprite_transform_offset, RenderCtx,
 };
 use crate::{
     dim_colour, image_sprite_dimensions, obj_sprite_dimensions, render_image_content,
@@ -268,12 +267,19 @@ fn render_sprite(
                 sprite_elapsed,
                 &object_state,
             );
-            
+
             // OPT-36: Cull sprites completely outside viewport
-            if is_sprite_offscreen(draw_x as i32, draw_y as i32, sprite_width, sprite_height, ctx.layer_buf.width, ctx.layer_buf.height) {
+            if is_sprite_offscreen(
+                draw_x as i32,
+                draw_y as i32,
+                sprite_width,
+                sprite_height,
+                ctx.layer_buf.width,
+                ctx.layer_buf.height,
+            ) {
                 return;
             }
-            
+
             let clip = clip_rect;
 
             if let Some(glow_opts) = glow.as_ref() {
@@ -529,10 +535,7 @@ fn render_sprite(
                 v.borrow_mut().push(VectorPrimitive {
                     points: points
                         .iter()
-                        .map(|p| [
-                            (origin_x + p[0]) as f32,
-                            (origin_y + p[1]) as f32,
-                        ])
+                        .map(|p| [(origin_x + p[0]) as f32, (origin_y + p[1]) as f32])
                         .collect(),
                     closed: *closed,
                     fg: fg.to_rgb(),

@@ -31,8 +31,12 @@ impl PhysicsIntegrationStrategy for SimpleEulerIntegration {
         let dt_sec = dt_ms as f32 / 1000.0;
         let ids = world.ids_with_physics();
         for id in ids {
-            let Some(mut body) = world.physics(id) else { continue };
-            let Some(mut xf) = world.transform(id) else { continue };
+            let Some(mut body) = world.physics(id) else {
+                continue;
+            };
+            let Some(mut xf) = world.transform(id) else {
+                continue;
+            };
 
             body.vx += body.ax * dt_sec;
             body.vy += body.ay * dt_sec;

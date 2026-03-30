@@ -57,7 +57,14 @@ pub(crate) fn check_visibility(
 /// Checks if sprite bounds are completely outside viewport.
 /// Used for OPT-36: sprite culling acceleration.
 #[inline(always)]
-pub(crate) fn is_sprite_offscreen(x: i32, y: i32, w: u16, h: u16, scene_w: u16, scene_h: u16) -> bool {
+pub(crate) fn is_sprite_offscreen(
+    x: i32,
+    y: i32,
+    w: u16,
+    h: u16,
+    scene_w: u16,
+    scene_h: u16,
+) -> bool {
     let x_end = x + w as i32;
     let y_end = y + h as i32;
     x_end <= 0 || x >= scene_w as i32 || y_end <= 0 || y >= scene_h as i32

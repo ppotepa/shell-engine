@@ -129,10 +129,10 @@ fn composite_scene_halfblock(
 ) -> HashMap<String, Region> {
     let needed_w = target.width;
     let needed_h = target.height.saturating_mul(2);
-    
+
     // Use buffer pool for temporary virtual buffer (faster than thread-local allocation)
     let mut virtual_buf = acquire_buffer(needed_w, needed_h);
-    
+
     let object_regions = composite_scene(
         bg,
         layers,

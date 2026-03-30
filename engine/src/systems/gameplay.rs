@@ -35,10 +35,7 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
                 if lt.ttl_ms <= 0 {
                     if let Some(binding) = gameplay_world.visual(id) {
                         for target in binding.all_visual_ids() {
-                            super::visual_binding::queue_visual_despawn(
-                                world,
-                                target.to_string(),
-                            );
+                            super::visual_binding::queue_visual_despawn(world, target.to_string());
                         }
                     }
                     let _ = gameplay_world.despawn(id);

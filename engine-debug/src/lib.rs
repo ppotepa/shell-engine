@@ -6,8 +6,8 @@ pub mod profiling;
 
 pub use log::DebugLogBuffer;
 pub use profiling::{
-    begin_span, end_span, finish_frame, get_stats, is_enabled, mark, set_enabled, export_flamegraph_stacks,
-    Profiler, ProfilingFrame, ProfileSpan, ProfileStats, TimingMarker,
+    begin_span, end_span, export_flamegraph_stacks, finish_frame, get_stats, is_enabled, mark,
+    set_enabled, ProfileSpan, ProfileStats, Profiler, ProfilingFrame, TimingMarker,
 };
 
 /// Smoothed real-time FPS tracked by the game loop.

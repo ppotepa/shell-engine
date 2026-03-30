@@ -81,7 +81,10 @@ impl SceneRuntime {
             .map(|k| std::sync::Arc::new(k.clone()));
         let keys_down = std::sync::Arc::new(self.keys_down_snapshot());
         let keys_just_pressed = std::sync::Arc::new(
-            keys_down.difference(&self.prev_keys_down).cloned().collect::<std::collections::HashSet<_>>(),
+            keys_down
+                .difference(&self.prev_keys_down)
+                .cloned()
+                .collect::<std::collections::HashSet<_>>(),
         );
         // Save current snapshot as previous before we move keys_down into context.
         let keys_down_for_prev = std::sync::Arc::clone(&keys_down);
@@ -178,19 +181,22 @@ impl SceneRuntime {
             .map(|h| (h.a.min(h.b), h.a.max(h.b)))
             .collect();
         let collision_enters: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
-            current_pairs.iter()
+            current_pairs
+                .iter()
                 .filter(|p| !self.prev_collision_pairs.contains(p))
                 .map(|&(a, b)| engine_game::CollisionHit { a, b })
                 .collect(),
         );
         let collision_stays: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
-            current_pairs.iter()
+            current_pairs
+                .iter()
                 .filter(|p| self.prev_collision_pairs.contains(p))
                 .map(|&(a, b)| engine_game::CollisionHit { a, b })
                 .collect(),
         );
         let collision_exits: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
-            self.prev_collision_pairs.iter()
+            self.prev_collision_pairs
+                .iter()
                 .filter(|p| !current_pairs.contains(p))
                 .map(|&(a, b)| engine_game::CollisionHit { a, b })
                 .collect(),
@@ -363,8 +369,9 @@ impl SceneRuntime {
                             }
                         }
                         "offset.x" | "position.x" => {
-                            let Some(next_x) =
-                                value.as_i64().or_else(|| value.as_f64().map(|number| number as i64))
+                            let Some(next_x) = value
+                                .as_i64()
+                                .or_else(|| value.as_f64().map(|number| number as i64))
                             else {
                                 continue;
                             };
@@ -373,8 +380,9 @@ impl SceneRuntime {
                             }
                         }
                         "offset.y" | "position.y" => {
-                            let Some(next_y) =
-                                value.as_i64().or_else(|| value.as_f64().map(|number| number as i64))
+                            let Some(next_y) = value
+                                .as_i64()
+                                .or_else(|| value.as_f64().map(|number| number as i64))
                             else {
                                 continue;
                             };

@@ -17,21 +17,26 @@ fn try_select(level_api, level_id) {
     }
 }
 
-if key.pressed == true {
-    let code = if key.code.type_of() == "string" { key.code } else { "" };
-    if code == "q" || code == "Q" || code == "F5" {
-        try_select(level, "asteroids.easy");
-    } else if code == "w" || code == "W" || code == "F6" {
-        try_select(level, "asteroids.default");
-    } else if code == "e" || code == "E" || code == "F7" {
-        try_select(level, "asteroids.hard");
-    }
-}
-
-let current = level.current();
-if local.contains("menu_song_started") == false {
+// on_enter: Initialize on scene load
+if time.stage == "on_enter" {
     audio.play_song("asteroids.menu-loop");
     local["menu_song_started"] = true;
 }
-scene.set("mode-current", "text.content", `MODE: ${mode_label(current)}`);
-scene.set("mode-current", "style.fg", mode_colour(current));
+
+// on_idle: Per-frame menu logic
+if time.stage == "on_idle" {
+    if key.pressed == true {
+        let code = if key.code.type_of() == "string" { key.code } else { "" };
+        if code == "q" || code == "Q" || code == "F5" {
+            try_select(level, "asteroids.easy");
+        } else if code == "w" || code == "W" || code == "F6" {
+            try_select(level, "asteroids.default");
+        } else if code == "e" || code == "E" || code == "F7" {
+            try_select(level, "asteroids.hard");
+        }
+    }
+
+    let current = level.current();
+    scene.set("mode-current", "text.content", `MODE: ${mode_label(current)}`);
+    scene.set("mode-current", "style.fg", mode_colour(current));
+}
