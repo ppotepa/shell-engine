@@ -113,10 +113,10 @@ if time.stage == "on_idle" {
         let t = ship_ref.transform();
         let tx = t.x;
         let ty = t.y;
-        let phys = ship_ref.physics();
+        let vel = ship_ref.physics.velocity();
         let ship_h = ship_ref.heading();
-        let vx = phys.vx;
-        let vy = phys.vy;
+        let vx = vel[0];
+        let vy = vel[1];
 
         let diag_tick = to_i(now / 2000);
         let last_diag = if local.contains("diag_tick") { local["diag_tick"] } else { -1 };

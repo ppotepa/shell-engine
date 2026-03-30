@@ -98,28 +98,7 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "transform",
         |world: &mut ScriptGameplayApi, id: rhai::INT| world.transform(id),
     );
-    engine.register_fn(
-        "set_physics",
-        |world: &mut ScriptGameplayApi,
-         id: rhai::INT,
-         vx: rhai::FLOAT,
-         vy: rhai::FLOAT,
-         ax: rhai::FLOAT,
-         ay: rhai::FLOAT,
-         drag: rhai::FLOAT,
-         max_speed: rhai::FLOAT| { world.set_physics(id, vx, vy, ax, ay, drag, max_speed) },
-    );
-    engine.register_fn("physics", |world: &mut ScriptGameplayApi, id: rhai::INT| {
-        world.physics(id)
-    });
-    engine.register_fn(
-        "set_collider_circle",
-        |world: &mut ScriptGameplayApi,
-         id: rhai::INT,
-         radius: rhai::FLOAT,
-         layer: rhai::INT,
-         mask: rhai::INT| { world.set_collider_circle(id, radius, layer, mask) },
-    );
+    // Physics operations now exclusively through ScriptPhysicsApi domain
     engine.register_fn(
         "set_lifetime",
         |world: &mut ScriptGameplayApi, id: rhai::INT, ttl_ms: rhai::INT| {
@@ -306,24 +285,12 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "set_heading",
         |entity: &mut ScriptGameplayEntityApi, heading: rhai::FLOAT| entity.set_heading(heading),
     );
-    engine.register_fn("physics", |entity: &mut ScriptGameplayEntityApi| {
-        entity.physics()
+
+    // Physics as a property: ship.physics.velocity(), ship.physics.set_velocity(), etc.
+    engine.register_get("physics", |entity: &mut ScriptGameplayEntityApi| {
+        entity.physics.clone()
     });
-    engine.register_fn(
-        "set_velocity",
-        |entity: &mut ScriptGameplayEntityApi, vx: rhai::FLOAT, vy: rhai::FLOAT| {
-            entity.set_velocity(vx, vy)
-        },
-    );
-    engine.register_fn(
-        "set_acceleration",
-        |entity: &mut ScriptGameplayEntityApi, ax: rhai::FLOAT, ay: rhai::FLOAT| {
-            entity.set_acceleration(ax, ay)
-        },
-    );
-    engine.register_fn("collider", |entity: &mut ScriptGameplayEntityApi| {
-        entity.collider()
-    });
+
     engine.register_fn(
         "lifetime_remaining",
         |entity: &mut ScriptGameplayEntityApi| entity.lifetime_remaining(),

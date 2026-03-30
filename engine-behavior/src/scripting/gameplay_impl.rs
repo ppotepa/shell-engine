@@ -16,6 +16,7 @@ use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json, region_to_rha
 use crate::geometry::{asteroid_radius_i32, sin32_i32};
 use crate::scripting::audio::ScriptFxApi;
 use crate::scripting::ui::ScriptUiApi;
+use crate::scripting::physics::ScriptEntityPhysicsApi;
 
 // ── Struct Definitions ───────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ pub(crate) struct ScriptGameplayEntityApi {
     pub(crate) world: Option<GameplayWorld>,
     pub(crate) id: u64,
     pub(crate) queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    pub(crate) physics: ScriptEntityPhysicsApi,
 }
 
 // ── ScriptGameplayApi Implementation ──────────────────────────────────────
@@ -97,16 +99,12 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn entity(&mut self, id: rhai::INT) -> ScriptGameplayEntityApi {
-        if id < 0 {
-            return ScriptGameplayEntityApi {
-                world: None,
-                id: 0,
-                queue: Arc::clone(&self.queue),
-            };
-        }
+        let id_u64 = if id < 0 { 0 } else { id as u64 };
+        let world = self.world.clone();
         ScriptGameplayEntityApi {
-            world: self.world.clone(),
-            id: id as u64,
+            physics: ScriptEntityPhysicsApi::new(world.clone(), id_u64),
+            world,
+            id: id_u64,
             queue: Arc::clone(&self.queue),
         }
     }
