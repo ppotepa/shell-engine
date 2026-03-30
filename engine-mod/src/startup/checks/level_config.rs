@@ -9,6 +9,7 @@ use engine_error::EngineError;
 use serde_yaml::{Mapping, Value};
 use zip::ZipArchive;
 
+use super::asset_utils::{is_zip_file, normalize_relative_asset_path};
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
@@ -191,19 +192,6 @@ fn is_level_asset_path(path: &str) -> bool {
         return false;
     }
     normalized.ends_with(".yml") || normalized.ends_with(".yaml") || normalized.ends_with(".json")
-}
-
-fn is_zip_file(path: &Path) -> bool {
-    path.is_file()
-        && path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
-}
-
-fn normalize_relative_asset_path(mod_source: &Path, full_path: &Path) -> String {
-    let rel = full_path.strip_prefix(mod_source).unwrap_or(full_path);
-    format!("/{}", rel.display().to_string().replace('\\', "/"))
 }
 
 fn level_id_from_doc(doc: &Value, path: &str) -> String {

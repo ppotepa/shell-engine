@@ -1,6 +1,7 @@
 //! Built-in startup checks — re-exports all concrete [`StartupCheck`](super::check::StartupCheck) implementations.
 
 mod action_map;
+mod asset_utils;
 mod audio_sequencer;
 mod catalogs;
 mod effect_registry;

@@ -9,6 +9,7 @@ use engine_audio_sequencer::{validate_sfx_bank, validate_song_file, SfxBank, Son
 use engine_error::EngineError;
 use zip::ZipArchive;
 
+use super::asset_utils::{is_yaml_file, is_zip_file, normalize_relative_asset_path};
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
@@ -303,24 +304,3 @@ fn song_events(song: &SongFile) -> BTreeSet<String> {
     events
 }
 
-fn normalize_relative_asset_path(mod_source: &Path, full_path: &Path) -> String {
-    let rel = full_path.strip_prefix(mod_source).unwrap_or(full_path);
-    format!("/{}", rel.display().to_string().replace('\\', "/"))
-}
-
-fn is_yaml_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| {
-            let ext = ext.to_ascii_lowercase();
-            ext == "yml" || ext == "yaml"
-        })
-}
-
-fn is_zip_file(path: &Path) -> bool {
-    path.is_file()
-        && path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
-}
