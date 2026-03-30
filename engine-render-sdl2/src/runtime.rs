@@ -353,9 +353,8 @@ fn runtime_thread(
                         let (r, g, b) = splash_clear_rgb(&pixel_buffer);
                         clear_canvas(&mut canvas, SdlColor::RGB(r, g, b));
                     } else {
-                        canvas.set_draw_color(SdlColor::RGB(0, 0, 0));
+                        clear_canvas(&mut canvas, SdlColor::RGB(0, 0, 0));
                     }
-                    canvas.clear();
                     if canvas
                         .copy(&frame_texture, None, Some(present_rect))
                         .is_err()
@@ -407,11 +406,7 @@ fn runtime_thread(
                 current_output_width,
                 current_output_height,
                 content_pixel_size,
-                if splash_mode {
-                    PresentationPolicy::Fit
-                } else {
-                    presentation_policy
-                },
+                get_active_presentation_policy(splash_mode, presentation_policy),
                 &mut window_pixel_size,
             )),
             RuntimeCommand::SetSplashMode(enabled) => {
@@ -565,14 +560,9 @@ fn apply_patch_to_pixels(
     if i1 + 3 >= pixel_buffer.len() {
         return;
     }
-    pixel_buffer[i0] = top.0;
-    pixel_buffer[i0 + 1] = top.1;
-    pixel_buffer[i0 + 2] = top.2;
-    pixel_buffer[i0 + 3] = 255;
-    pixel_buffer[i1] = bottom.0;
-    pixel_buffer[i1 + 1] = bottom.1;
-    pixel_buffer[i1 + 2] = bottom.2;
-    pixel_buffer[i1 + 3] = 255;
+    write_pixel_rgba(pixel_buffer, i0, top);
+    write_pixel_rgba(pixel_buffer, i1, bottom);
+    dirty.include_cell(x, y);
     dirty.include_cell(x, y);
 }
 
@@ -651,8 +641,7 @@ fn present_texture(
     content_pixel_size: (u32, u32),
     presentation_policy: PresentationPolicy,
 ) -> Result<(), String> {
-    canvas.set_draw_color(SdlColor::RGB(0, 0, 0));
-    canvas.clear();
+    clear_canvas(canvas, SdlColor::RGB(0, 0, 0));
     let present_rect = presentation_rect(
         current_window_pixel_size(canvas),
         content_pixel_size,
@@ -919,8 +908,7 @@ fn draw_scene_dim(canvas: &mut sdl2::render::WindowCanvas) {
     let (win_w, win_h) = canvas
         .output_size()
         .unwrap_or_else(|_| canvas.window().size());
-    canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-    canvas.set_draw_color(SdlColor::RGBA(0, 0, 0, 140));
+    set_canvas_color_blended(canvas, 0, 0, 0, 140);
     let _ = canvas.fill_rect(Rect::new(0, 0, win_w, win_h));
     canvas.set_blend_mode(sdl2::render::BlendMode::None);
 }
@@ -957,13 +945,7 @@ fn draw_overlay(canvas: &mut sdl2::render::WindowCanvas, overlay: &OverlayData) 
         let (bg_r, bg_g, bg_b) = line.bg.to_rgb();
 
         // Fill background with alpha blending for semi-transparency.
-        if line.bg_alpha < 255 {
-            canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-            canvas.set_draw_color(SdlColor::RGBA(bg_r, bg_g, bg_b, line.bg_alpha));
-        } else {
-            canvas.set_blend_mode(sdl2::render::BlendMode::None);
-            canvas.set_draw_color(SdlColor::RGB(bg_r, bg_g, bg_b));
-        }
+        set_canvas_color_blended(canvas, bg_r, bg_g, bg_b, line.bg_alpha);
         let _ = canvas.fill_rect(Rect::new(0, y_origin, win_w, char_h));
 
         // Render each character glyph (always opaque), supporting inline
@@ -1098,6 +1080,22 @@ fn write_pixel_rgba(buf: &mut [u8], idx: usize, rgb: (u8, u8, u8)) {
 fn clear_canvas(canvas: &mut sdl2::render::WindowCanvas, color: SdlColor) {
     canvas.set_draw_color(color);
     canvas.clear();
+}
+
+fn set_canvas_color_blended(
+    canvas: &mut sdl2::render::WindowCanvas,
+    r: u8,
+    g: u8,
+    b: u8,
+    alpha: u8,
+) {
+    if alpha < 255 {
+        canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+        canvas.set_draw_color(SdlColor::RGBA(r, g, b, alpha));
+    } else {
+        canvas.set_blend_mode(sdl2::render::BlendMode::None);
+        canvas.set_draw_color(SdlColor::RGB(r, g, b));
+    }
 }
 
 /// Scanline polygon fill using even-odd rule.
