@@ -84,6 +84,8 @@ pub struct SceneRuntime {
     ui_state: UiRuntimeState,
     pending_bindings: Vec<BehaviorBinding>,
     action_bindings: HashMap<String, Vec<String>>,
+    /// Previous frame's normalized collision pairs for enter/stay/exit computation.
+    prev_collision_pairs: std::collections::HashSet<(u64, u64)>,
 }
 
 #[derive(Debug, Clone)]

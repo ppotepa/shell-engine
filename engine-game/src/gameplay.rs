@@ -34,6 +34,8 @@ struct GameplayStore {
     ship_controllers: BTreeMap<u64, TopDownShipController>,
     health: BTreeMap<u64, Health>,
     split_on_destroy: BTreeMap<u64, SplitOnDestroy>,
+    /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
+    children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
     events: Vec<GameplayEvent>,
 }
@@ -53,6 +55,7 @@ impl Default for GameplayStore {
             ship_controllers: BTreeMap::new(),
             health: BTreeMap::new(),
             split_on_destroy: BTreeMap::new(),
+            children: BTreeMap::new(),
             events: Vec::new(),
         }
     }
@@ -122,23 +125,52 @@ impl GameplayWorld {
         Some(id)
     }
 
-    /// Removes an entity by id.
+    /// Removes an entity by id. Any children registered via `register_child` are
+    /// also despawned recursively.
     pub fn despawn(&self, id: u64) -> bool {
-        let Ok(mut store) = self.store.lock() else {
-            return false;
+        let (removed, child_ids) = {
+            let Ok(mut store) = self.store.lock() else {
+                return false;
+            };
+            let removed = store.entities.remove(&id).is_some();
+            store.transforms.remove(&id);
+            store.physics.remove(&id);
+            store.colliders.remove(&id);
+            store.lifetimes.remove(&id);
+            store.visuals.remove(&id);
+            store.timers.remove(&id);
+            store.wrap_bounds.remove(&id);
+            store.ship_controllers.remove(&id);
+            store.health.remove(&id);
+            store.split_on_destroy.remove(&id);
+            let child_ids = store.children.remove(&id).unwrap_or_default();
+            (removed, child_ids)
         };
-        let removed = store.entities.remove(&id).is_some();
-        store.transforms.remove(&id);
-        store.physics.remove(&id);
-        store.colliders.remove(&id);
-        store.lifetimes.remove(&id);
-        store.visuals.remove(&id);
-        store.timers.remove(&id);
-        store.wrap_bounds.remove(&id);
-        store.ship_controllers.remove(&id);
-        store.health.remove(&id);
-        store.split_on_destroy.remove(&id);
+        // Recursively despawn children after releasing the lock.
+        for child_id in child_ids {
+            self.despawn(child_id);
+        }
         removed
+    }
+
+    /// Registers `child` as a child of `parent`. When `parent` is despawned,
+    /// `child` is automatically despawned too.
+    pub fn register_child(&self, parent: u64, child: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        if !store.entities.contains_key(&parent) { return false; }
+        store.children.entry(parent).or_default().push(child);
+        true
+    }
+
+    /// Despawns all children registered under `parent` without despawning the parent itself.
+    pub fn despawn_children(&self, parent: u64) {
+        let child_ids = {
+            let Ok(mut store) = self.store.lock() else { return };
+            store.children.remove(&parent).unwrap_or_default()
+        };
+        for child_id in child_ids {
+            self.despawn(child_id);
+        }
     }
 
     /// Returns `true` if the entity exists.

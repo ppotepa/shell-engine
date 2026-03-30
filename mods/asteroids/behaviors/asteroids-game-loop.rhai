@@ -1,43 +1,5 @@
 import "asteroids-shared" as h;
 
-fn next_seed(seed) {
-    ((seed * 1103515245) + 12345) % 2147483647
-}
-
-fn level_i(level_api, path, fallback) {
-    if level_api.has(path) {
-        let value = level_api.get(path);
-        if value.type_of() == "i64" { return value; }
-    }
-    fallback
-}
-
-fn load_game_config(level) {
-    let base_lives = level_i(level, "/player/lives", 3);
-    let shot_cooldown_ms = clamp_i(level_i(level, "/player/shot_cooldown_ms", 200), 200, 1000);
-    let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 170), 60, 600)) / 1024.0 * h::velocity_scale();
-    let ship_max_speed = to_float(clamp_i(level_i(level, "/player/max_speed_fp", 4608), 1024, 14000)) / 1024.0 * h::velocity_scale();
-    let turn_step_ms = clamp_i(level_i(level, "/player/turn_step_ms", 40), 16, 150);
-    let wave_base_spawn_count = clamp_i(level_i(level, "/waves/base_spawn_count", 4), 1, 20);
-    let wave_min_spawn_count = clamp_i(level_i(level, "/waves/min_spawn_count", 5), 1, 30);
-    let wave_max_spawn_count = clamp_i(level_i(level, "/waves/max_spawn_count", 10), 1, 40);
-    if wave_min_spawn_count > wave_max_spawn_count { wave_min_spawn_count = wave_max_spawn_count; }
-    let bullet_ttl_ms = clamp_i(level_i(level, "/combat/bullet_ttl_ms", 900), 100, 6000);
-    let bullet_speed = to_float(clamp_i(level_i(level, "/combat/bullet_speed_fp", 4200), 1000, 18000)) / 1024.0 * h::velocity_scale();
-    #{
-        base_lives: base_lives,
-        shot_cooldown_ms: shot_cooldown_ms,
-        ship_thrust: ship_thrust,
-        ship_max_speed: ship_max_speed,
-        turn_step_ms: turn_step_ms,
-        wave_base_spawn_count: wave_base_spawn_count,
-        wave_min_spawn_count: wave_min_spawn_count,
-        wave_max_spawn_count: wave_max_spawn_count,
-        bullet_ttl_ms: bullet_ttl_ms,
-        bullet_speed: bullet_speed
-    }
-}
-
 fn spawn_ship(world, min_x, max_x, min_y, max_y) {
     let id = world.spawn_object("ship", #{});
     if id > 0 {
@@ -152,10 +114,10 @@ fn clear_all_entities(world) {
 }
 
 fn reset_game_state(game, level, local, now) {
-    let cfg = load_game_config(level);
+    let cfg = h::load_game_config(level);
     local["cfg"] = cfg;
     let current_rng = if local.contains("rng") && local["rng"].type_of() == "i64" { local["rng"] } else { 1337 };
-    local["rng"] = next_seed(current_rng + now + 101);
+    local["rng"] = h::next_seed(current_rng + now + 101);
     game.set("/ast/score", 0);
     game.set("/ast/lives", cfg["base_lives"]);
     game.set("/ast/wave", 1);
@@ -249,7 +211,7 @@ let fire_down  = input.action_down("fire");
 
 if world.exists(ship_id) {
     let ship_ref = world.entity(ship_id);
-    let cfg = if local.contains("cfg") { local["cfg"] } else { load_game_config(level) };
+    let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
 
     // Use TopDownShipController API
     let turn_dir = if left_down { -1 } else if right_down { 1 } else { 0 };
@@ -328,7 +290,7 @@ for ast_id in world.query_kind("asteroid") {
             let t = ast_ref.transform();
             for frag_idx in 0..3 {
                 let rng = game.get("/ast/rng");
-                rng = next_seed(rng + now + (ast_id * 41) + to_i(t.x) + to_i(t.y) + frag_idx * 67);
+                rng = h::next_seed(rng + now + (ast_id * 41) + to_i(t.x) + to_i(t.y) + frag_idx * 67);
                 game.set("/ast/rng", rng);
                 let split_heading = h::wrap_heading32(base_heading + h::fragment_heading_offset(frag_idx));
                 let split_sin = sin32(split_heading);
@@ -448,13 +410,13 @@ if active_count <= 0 {
     scene.set("game-message", "text.content", `WAVE ${wave}`);
     diag.info(`wave start wave=${wave}`);
 
-    let cfg = if local.contains("cfg") { local["cfg"] } else { load_game_config(level) };
+    let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
     let spawn_count = clamp_i(cfg["wave_base_spawn_count"] + wave, cfg["wave_min_spawn_count"], cfg["wave_max_spawn_count"]);
 
     let ship_t = if ship_ref.exists() { ship_ref.transform() } else { #{x: 0, y: 0} };
     for idx in 0..spawn_count {
         let rng = game.get("/ast/rng");
-        rng = next_seed(rng + now + idx * 53 + wave);
+        rng = h::next_seed(rng + now + idx * 53 + wave);
         game.set("/ast/rng", rng);
         spawn_asteroid(world,
             respawn_x(rng, min_x, max_x, ship_t.x),

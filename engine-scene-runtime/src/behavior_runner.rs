@@ -166,6 +166,32 @@ impl SceneRuntime {
         };
 
         let mut commands = Vec::new();
+
+        // Compute collision enter/stay/exit from current vs previous frame pairs.
+        let current_pairs: std::collections::HashSet<(u64, u64)> = collisions
+            .iter()
+            .map(|h| (h.a.min(h.b), h.a.max(h.b)))
+            .collect();
+        let collision_enters: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
+            current_pairs.iter()
+                .filter(|p| !self.prev_collision_pairs.contains(p))
+                .map(|&(a, b)| engine_game::CollisionHit { a, b })
+                .collect(),
+        );
+        let collision_stays: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
+            current_pairs.iter()
+                .filter(|p| self.prev_collision_pairs.contains(p))
+                .map(|&(a, b)| engine_game::CollisionHit { a, b })
+                .collect(),
+        );
+        let collision_exits: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
+            self.prev_collision_pairs.iter()
+                .filter(|p| !current_pairs.contains(p))
+                .map(|&(a, b)| engine_game::CollisionHit { a, b })
+                .collect(),
+        );
+        self.prev_collision_pairs = current_pairs;
+
         // Construct context once; only `object_states` mutates between iterations.
         let mut ctx = BehaviorContext {
             stage,
@@ -189,6 +215,9 @@ impl SceneRuntime {
             persistence,
             gameplay_world,
             collisions,
+            collision_enters,
+            collision_stays,
+            collision_exits,
             last_raw_key,
             keys_down,
             sidecar_io,

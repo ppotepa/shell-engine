@@ -77,3 +77,42 @@ fn hide_crack_visuals(scene, ast_data) {
         }
     }
 }
+
+// ── Level config helpers ──────────────────────────────────
+fn level_i(level_api, path, fallback) {
+    if level_api.has(path) {
+        let value = level_api.get(path);
+        if value.type_of() == "i64" { return value; }
+    }
+    fallback
+}
+
+fn next_seed(seed) {
+    ((seed * 1103515245) + 12345) % 2147483647
+}
+
+fn load_game_config(level) {
+    let base_lives = level_i(level, "/player/lives", 3);
+    let shot_cooldown_ms = clamp_i(level_i(level, "/player/shot_cooldown_ms", 200), 200, 1000);
+    let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 170), 60, 600)) / 1024.0 * velocity_scale();
+    let ship_max_speed = to_float(clamp_i(level_i(level, "/player/max_speed_fp", 4608), 1024, 14000)) / 1024.0 * velocity_scale();
+    let turn_step_ms = clamp_i(level_i(level, "/player/turn_step_ms", 40), 16, 150);
+    let wave_base_spawn_count = clamp_i(level_i(level, "/waves/base_spawn_count", 4), 1, 20);
+    let wave_min_spawn_count = clamp_i(level_i(level, "/waves/min_spawn_count", 5), 1, 30);
+    let wave_max_spawn_count = clamp_i(level_i(level, "/waves/max_spawn_count", 10), 1, 40);
+    if wave_min_spawn_count > wave_max_spawn_count { wave_min_spawn_count = wave_max_spawn_count; }
+    let bullet_ttl_ms = clamp_i(level_i(level, "/combat/bullet_ttl_ms", 900), 100, 6000);
+    let bullet_speed = to_float(clamp_i(level_i(level, "/combat/bullet_speed_fp", 4200), 1000, 18000)) / 1024.0 * velocity_scale();
+    #{
+        base_lives: base_lives,
+        shot_cooldown_ms: shot_cooldown_ms,
+        ship_thrust: ship_thrust,
+        ship_max_speed: ship_max_speed,
+        turn_step_ms: turn_step_ms,
+        wave_base_spawn_count: wave_base_spawn_count,
+        wave_min_spawn_count: wave_min_spawn_count,
+        wave_max_spawn_count: wave_max_spawn_count,
+        bullet_ttl_ms: bullet_ttl_ms,
+        bullet_speed: bullet_speed
+    }
+}

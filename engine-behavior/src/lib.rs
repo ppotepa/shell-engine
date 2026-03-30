@@ -59,6 +59,12 @@ pub struct BehaviorContext {
     pub gameplay_world: Option<GameplayWorld>,
     /// Collision events collected for this frame (gameplay entities).
     pub collisions: std::sync::Arc<Vec<CollisionHit>>,
+    /// Collision enter: pairs that started overlapping this frame (not present last frame).
+    pub collision_enters: std::sync::Arc<Vec<CollisionHit>>,
+    /// Collision stay: pairs that were overlapping last frame and still are.
+    pub collision_stays: std::sync::Arc<Vec<CollisionHit>>,
+    /// Collision exit: pairs that were overlapping last frame but no longer are.
+    pub collision_exits: std::sync::Arc<Vec<CollisionHit>>,
     /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
     /// Arc-wrapped: shared across all behaviors in a frame, clone is O(1).
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
@@ -957,6 +963,38 @@ fn init_rhai_engine() -> RhaiEngine {
         "collisions_of",
         |world: &mut ScriptGameplayApi, kind: &str| world.collisions_of(kind),
     );
+    // ── Collision enter/stay/exit events ──────────────────────────────────
+    engine.register_fn(
+        "collision_enters",
+        |world: &mut ScriptGameplayApi, kind_a: &str, kind_b: &str| {
+            world.collision_enters_between(kind_a, kind_b)
+        },
+    );
+    engine.register_fn(
+        "collision_stays",
+        |world: &mut ScriptGameplayApi, kind_a: &str, kind_b: &str| {
+            world.collision_stays_between(kind_a, kind_b)
+        },
+    );
+    engine.register_fn(
+        "collision_exits",
+        |world: &mut ScriptGameplayApi, kind_a: &str, kind_b: &str| {
+            world.collision_exits_between(kind_a, kind_b)
+        },
+    );
+    // ── Child entity API ──────────────────────────────────────────────────
+    engine.register_fn(
+        "spawn_child",
+        |world: &mut ScriptGameplayApi, parent_id: rhai::INT, kind: &str, template: &str, data: RhaiMap| {
+            world.spawn_child_entity(parent_id, kind, template, data)
+        },
+    );
+    engine.register_fn(
+        "despawn_children",
+        |world: &mut ScriptGameplayApi, parent_id: rhai::INT| {
+            world.despawn_children_of(parent_id)
+        },
+    );
     engine.register_fn("exists", |entity: &mut ScriptGameplayEntityApi| {
         entity.exists()
     });
@@ -1450,6 +1488,9 @@ struct ScriptPersistenceApi {
 struct ScriptGameplayApi {
     world: Option<GameplayWorld>,
     collisions: std::sync::Arc<Vec<CollisionHit>>,
+    collision_enters: std::sync::Arc<Vec<CollisionHit>>,
+    collision_stays: std::sync::Arc<Vec<CollisionHit>>,
+    collision_exits: std::sync::Arc<Vec<CollisionHit>>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -2000,11 +2041,17 @@ impl ScriptGameplayApi {
     fn new(
         world: Option<GameplayWorld>,
         collisions: std::sync::Arc<Vec<CollisionHit>>,
+        collision_enters: std::sync::Arc<Vec<CollisionHit>>,
+        collision_stays: std::sync::Arc<Vec<CollisionHit>>,
+        collision_exits: std::sync::Arc<Vec<CollisionHit>>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
         Self {
             world,
             collisions,
+            collision_enters,
+            collision_stays,
+            collision_exits,
             queue,
         }
     }
@@ -2612,6 +2659,70 @@ impl ScriptGameplayApi {
                 }
             })
             .collect()
+    }
+
+    /// Filters a collision hit slice by kind pair, returning `{kind_a: id, kind_b: id}` maps.
+    fn filter_hits_by_kind(
+        hits: &[CollisionHit],
+        world: &GameplayWorld,
+        kind_a: &str,
+        kind_b: &str,
+    ) -> RhaiArray {
+        hits.iter()
+            .filter_map(|hit| {
+                let ka = world.kind_of(hit.a).unwrap_or_default();
+                let kb = world.kind_of(hit.b).unwrap_or_default();
+                if ka == kind_a && kb == kind_b {
+                    let mut map = RhaiMap::new();
+                    map.insert(kind_a.into(), (hit.a as rhai::INT).into());
+                    map.insert(kind_b.into(), (hit.b as rhai::INT).into());
+                    Some(map.into())
+                } else if ka == kind_b && kb == kind_a {
+                    let mut map = RhaiMap::new();
+                    map.insert(kind_a.into(), (hit.b as rhai::INT).into());
+                    map.insert(kind_b.into(), (hit.a as rhai::INT).into());
+                    Some(map.into())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn collision_enters_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else { return vec![] };
+        Self::filter_hits_by_kind(&self.collision_enters.clone(), world, kind_a, kind_b)
+    }
+
+    fn collision_stays_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else { return vec![] };
+        Self::filter_hits_by_kind(&self.collision_stays.clone(), world, kind_a, kind_b)
+    }
+
+    fn collision_exits_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
+        let Some(world) = self.world.as_ref() else { return vec![] };
+        Self::filter_hits_by_kind(&self.collision_exits.clone(), world, kind_a, kind_b)
+    }
+
+    fn spawn_child_entity(&mut self, parent_id: rhai::INT, kind: &str, template: &str, data: RhaiMap) -> rhai::INT {
+        if parent_id < 0 { return 0; }
+        // Check parent exists before taking &mut self via spawn_visual
+        let parent_uid = parent_id as u64;
+        let parent_exists = self.world.as_ref().map(|w| w.exists(parent_uid)).unwrap_or(false);
+        if !parent_exists { return 0; }
+        let child_id = self.spawn_visual(kind, template, data);
+        if child_id > 0 {
+            if let Some(world) = self.world.as_ref() {
+                world.register_child(parent_uid, child_id as u64);
+            }
+        }
+        child_id
+    }
+
+    fn despawn_children_of(&mut self, parent_id: rhai::INT) {
+        if parent_id < 0 { return; }
+        let Some(world) = self.world.as_ref() else { return };
+        world.despawn_children(parent_id as u64);
     }
 
     fn enable_wrap(&mut self, id: rhai::INT, min_x: rhai::FLOAT, max_x: rhai::FLOAT,
@@ -3514,6 +3625,9 @@ impl Behavior for RhaiScriptBehavior {
                     ScriptGameplayApi::new(
                         ctx.gameplay_world.clone(),
                         std::sync::Arc::clone(&ctx.collisions),
+                        std::sync::Arc::clone(&ctx.collision_enters),
+                        std::sync::Arc::clone(&ctx.collision_stays),
+                        std::sync::Arc::clone(&ctx.collision_exits),
                         Arc::clone(&helper_commands),
                     ),
                 );
@@ -3663,6 +3777,9 @@ fn smoke_probe_context(
         persistence: None,
         gameplay_world: Some(gameplay_world),
         collisions: Arc::new(Vec::new()),
+        collision_enters: Arc::new(Vec::new()),
+        collision_stays: Arc::new(Vec::new()),
+        collision_exits: Arc::new(Vec::new()),
         last_raw_key: None,
         keys_down: Arc::new(HashSet::new()),
         action_bindings: Arc::new(HashMap::new()),
