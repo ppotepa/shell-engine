@@ -1120,6 +1120,60 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
 
+    // ── Ship Controller API (on entity ref) ───────────────────────────────
+    engine.register_fn("attach_ship_controller",
+        |entity: &mut ScriptGameplayEntityApi, config: RhaiMap| {
+            entity.attach_ship_controller(config)
+        },
+    );
+    engine.register_fn("set_turn",
+        |entity: &mut ScriptGameplayEntityApi, dir: rhai::INT| {
+            entity.set_turn(dir)
+        },
+    );
+    engine.register_fn("set_thrust",
+        |entity: &mut ScriptGameplayEntityApi, on: bool| {
+            entity.set_thrust(on)
+        },
+    );
+    engine.register_fn("heading",
+        |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
+            entity.heading()
+        },
+    );
+    engine.register_fn("heading_vector",
+        |entity: &mut ScriptGameplayEntityApi| -> RhaiMap {
+            entity.heading_vector()
+        },
+    );
+
+    // ── Health & Damage API (on entity ref) ───────────────────────────────
+    engine.register_fn("health_set",
+        |entity: &mut ScriptGameplayEntityApi, hp: rhai::INT, max_hp: rhai::INT| -> bool {
+            entity.health_set(hp, max_hp)
+        },
+    );
+    engine.register_fn("health_get",
+        |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
+            entity.health_get()
+        },
+    );
+    engine.register_fn("health_max",
+        |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
+            entity.health_max()
+        },
+    );
+    engine.register_fn("health_dead",
+        |entity: &mut ScriptGameplayEntityApi| -> bool {
+            entity.health_dead()
+        },
+    );
+    engine.register_fn("damage",
+        |entity: &mut ScriptGameplayEntityApi, source: rhai::INT, amount: rhai::INT| -> bool {
+            entity.damage(source, amount)
+        },
+    );
+
     // ── Wrap API ──────────────────────────────────────────────────────────
     engine.register_fn(
         "enable_wrap",
@@ -3318,6 +3372,90 @@ impl ScriptGameplayEntityApi {
     fn status_remaining(&mut self, name: &str) -> rhai::INT {
         let Some(world) = self.world.as_ref() else { return 0 };
         world.status_remaining(self.id, name) as rhai::INT
+    }
+
+    // ── Ship Controller API ───────────────────────────────────────────────
+
+    fn attach_ship_controller(&mut self, config: RhaiMap) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        let turn_step_ms = config
+            .get("turn_step_ms")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(40) as u32;
+        let thrust_power = config
+            .get("thrust_power")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(170.0) as f32;
+        let max_speed = config
+            .get("max_speed")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(4.5) as f32;
+        let heading_bits = config
+            .get("heading_bits")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(32) as u8;
+        let controller = TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
+        world.attach_controller(self.id, controller)
+    }
+
+    fn set_turn(&mut self, dir: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.with_controller(self.id, |ctrl| {
+            ctrl.set_turn(dir.clamp(-1, 1) as i8);
+        })
+    }
+
+    fn set_thrust(&mut self, on: bool) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.with_controller(self.id, |ctrl| {
+            ctrl.set_thrust(on);
+        })
+    }
+
+    fn heading(&mut self) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        world.controller(self.id).map(|c| c.current_heading as rhai::INT).unwrap_or(0)
+    }
+
+    fn heading_vector(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        match world.controller(self.id) {
+            Some(ctrl) => {
+                let (x, y) = ctrl.heading_vector();
+                let mut map = RhaiMap::new();
+                map.insert("x".into(), (x as rhai::FLOAT).into());
+                map.insert("y".into(), (y as rhai::FLOAT).into());
+                map
+            }
+            None => RhaiMap::new(),
+        }
+    }
+
+    // ── Health & Damage API ───────────────────────────────────────────────
+
+    fn health_set(&mut self, hp: rhai::INT, max_hp: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.set_health(self.id, hp as i32, max_hp as i32)
+    }
+
+    fn health_get(&mut self) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        world.health(self.id).map(|h| h.hp as rhai::INT).unwrap_or(0)
+    }
+
+    fn health_max(&mut self) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return 0 };
+        world.health(self.id).map(|h| h.max_hp as rhai::INT).unwrap_or(0)
+    }
+
+    fn health_dead(&mut self) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.is_dead(self.id)
+    }
+
+    fn damage(&mut self, source: rhai::INT, amount: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.apply_damage(self.id, source as u64, amount as i32)
     }
 }
 

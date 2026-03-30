@@ -3,22 +3,19 @@ import "asteroids-shared" as h;
 fn spawn_ship(world, min_x, max_x, min_y, max_y, cfg) {
     let id = world.spawn_object("ship", #{});
     if id > 0 {
+        let ship = world.entity(id);
         world.set_visual(id, "ship");
         world.set_transform(id, 0.0, 0.0, 0.0);
         world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.02, cfg["ship_max_speed"]);
         world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
-
-        world.attach_ship_controller(id, #{
+        ship.attach_ship_controller(#{
             turn_step_ms: cfg["turn_step_ms"],
             thrust_power: cfg["ship_thrust"],
             max_speed: cfg["ship_max_speed"],
             heading_bits: 32
         });
-
         world.enable_wrap(id, min_x, max_x, min_y, max_y);
-
-        let ship_ref = world.entity(id);
-        ship_ref.status_add("invulnerable", 3000);
+        ship.status_add("invulnerable", 3000);
     }
     id
 }
@@ -204,8 +201,8 @@ if world.exists(ship_id) {
 
     // Use TopDownShipController API
     let turn_dir = if left_down { -1 } else if right_down { 1 } else { 0 };
-    world.ship_set_turn(ship_id, turn_dir);
-    world.ship_set_thrust(ship_id, thrust_down);
+    ship_ref.set_turn(turn_dir);
+    ship_ref.set_thrust(thrust_down);
 
     let t = ship_ref.transform();
     let tx = t.x;
@@ -213,7 +210,7 @@ if world.exists(ship_id) {
     let phys = ship_ref.physics();
     let vx = phys.vx;
     let vy = phys.vy;
-    let ship_h = world.ship_heading(ship_id);
+    let ship_h = ship_ref.heading();
 
     // Periodic ship state diagnostic (every ~2 seconds)
     let diag_tick = to_i(now / 2000);
@@ -226,7 +223,7 @@ if world.exists(ship_id) {
 
     // Thrust generates smoke particles
     if thrust_down {
-        let heading_vec = world.ship_heading_vector(ship_id);
+        let heading_vec = ship_ref.heading_vector();
         if ship_ref.cooldown_ready("smoke") && world.count_kind("smoke") < 40 {
             spawn_smoke(world, tx - (heading_vec.x * 6.0), ty - (heading_vec.y * 6.0),
                        vx / h::velocity_scale() - (heading_vec.x * 0.35), vy / h::velocity_scale() - (heading_vec.y * 0.35), 520, 3);
@@ -235,7 +232,7 @@ if world.exists(ship_id) {
     }
 
     if fire_down && ship_ref.cooldown_ready("shot") && world.count_kind("bullet") < 8 {
-        let heading_vec = world.ship_heading_vector(ship_id);
+        let heading_vec = ship_ref.heading_vector();
         let bspeed = cfg["bullet_speed"];
         spawn_bullet(world,
             tx + (heading_vec.x * 9.0), ty + (heading_vec.y * 9.0),
