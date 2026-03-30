@@ -116,3 +116,12 @@ fn load_game_config(level) {
         bullet_speed: bullet_speed
     }
 }
+
+fn spawn_crack_visuals(world, scene, ast_id) {
+    for i in 0..3 {
+        let cv = `asteroid-${ast_id}-crack-${i}`;
+        scene.spawn_object("asteroid-template", cv);
+        world.bind_visual(ast_id, cv);
+        world.set(ast_id, `/crack_visual_${i}`, cv);
+    }
+}

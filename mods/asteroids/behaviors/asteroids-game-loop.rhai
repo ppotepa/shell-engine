@@ -1,18 +1,17 @@
 import "asteroids-shared" as h;
 
-fn spawn_ship(world, min_x, max_x, min_y, max_y) {
+fn spawn_ship(world, min_x, max_x, min_y, max_y, cfg) {
     let id = world.spawn_object("ship", #{});
     if id > 0 {
         world.set_visual(id, "ship");
         world.set_transform(id, 0.0, 0.0, 0.0);
-        world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.02, h::velocity_scale() * 4.5);
+        world.set_physics(id, 0.0, 0.0, 0.0, 0.0, 0.02, cfg["ship_max_speed"]);
         world.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF);
 
-        // Attach ship controller with game config
         world.attach_ship_controller(id, #{
-            turn_step_ms: 40,
-            thrust_power: 170.0 * h::velocity_scale(),
-            max_speed: 4.5 * h::velocity_scale(),
+            turn_step_ms: cfg["turn_step_ms"],
+            thrust_power: cfg["ship_thrust"],
+            max_speed: cfg["ship_max_speed"],
             heading_bits: 32
         });
 
@@ -135,16 +134,11 @@ let WORLD_MAX_Y =  240.0;
 if !local.contains("init") {
     let now = if time.contains("scene_elapsed_ms") { time.scene_elapsed_ms } else { 0 };
     clear_all_entities(world);
-    reset_game_state(game, level, local, now);
-    local["ship_id"] = spawn_ship(world, WORLD_MIN_X, WORLD_MAX_X, WORLD_MIN_Y, WORLD_MAX_Y);
+    let cfg = reset_game_state(game, level, local, now);
+    local["ship_id"] = spawn_ship(world, WORLD_MIN_X, WORLD_MAX_X, WORLD_MIN_Y, WORLD_MAX_Y, cfg);
     spawn_initial_asteroids(world, WORLD_MIN_X, WORLD_MAX_X, WORLD_MIN_Y, WORLD_MAX_Y);
     for ast_id in world.query_kind("asteroid") {
-        for i in 0..3 {
-            let cv = `asteroid-${ast_id}-crack-${i}`;
-            scene.spawn_object("asteroid-template", cv);
-            world.bind_visual(ast_id, cv);
-            world.set(ast_id, `/crack_visual_${i}`, cv);
-        }
+        h::spawn_crack_visuals(world, scene, ast_id);
     }
     // Bind input actions once — scripts use action_down() instead of raw key polling
     input.bind_action("turn_left",  ["Left",  "a", "A"]);
@@ -187,16 +181,11 @@ if key.pressed == true {
     }
     if reset_requested {
         clear_all_entities(world);
-        reset_game_state(game, level, local, now);
-        local["ship_id"] = spawn_ship(world, min_x, max_x, min_y, max_y);
+        let cfg = reset_game_state(game, level, local, now);
+        local["ship_id"] = spawn_ship(world, min_x, max_x, min_y, max_y, cfg);
         spawn_initial_asteroids(world, min_x, max_x, min_y, max_y);
         for ast_id in world.query_kind("asteroid") {
-            for i in 0..3 {
-                let cv = `asteroid-${ast_id}-crack-${i}`;
-                scene.spawn_object("asteroid-template", cv);
-                world.bind_visual(ast_id, cv);
-                world.set(ast_id, `/crack_visual_${i}`, cv);
-            }
+            h::spawn_crack_visuals(world, scene, ast_id);
         }
         game.set("/ast/msg_ttl_ms", 500);
         scene.set("game-message", "text.content", reset_label);
@@ -312,15 +301,7 @@ for ast_id in world.query_kind("asteroid") {
             audio.event("gameplay.asteroid.split", 1.0);
             for child_id in world.query_kind("asteroid") {
                 if !world.exists(child_id) { continue; }
-                // crack_visual_0 is a string key — use data().contains() not get_b()
-                let cd = world.entity(child_id).data();
-                if cd.contains("crack_visual_0") { continue; }
-                for i in 0..3 {
-                    let cv = `asteroid-${child_id}-crack-${i}`;
-                    scene.spawn_object("asteroid-template", cv);
-                    world.bind_visual(child_id, cv);
-                    world.set(child_id, `/crack_visual_${i}`, cv);
-                }
+                h::spawn_crack_visuals(world, scene, child_id);
             }
             continue;
         }
@@ -339,12 +320,12 @@ let lives = to_i(game.get("/ast/lives"));
 let ship_ref = world.entity(ship_id);
 let ship_invuln = if ship_ref.exists() { ship_ref.status_has("invulnerable") } else { false };
 
-for hit in world.collisions_between("ship", "asteroid") {
+for hit in world.collision_enters("ship", "asteroid") {
     let ast_hit_id = hit["asteroid"];
     let hit_ref = world.entity(ast_hit_id);
 
-    // Skip if asteroid is already being split or in post-hit cooldown (avoid double-hits)
-    if hit_ref.exists() && (hit_ref.get_b("/split_pending", false) || !hit_ref.cooldown_ready("collide")) { continue; }
+    // collision_enters fires once per new contact; split_pending guard covers re-entry after rebound
+    if hit_ref.exists() && hit_ref.get_b("/split_pending", false) { continue; }
 
     if !ship_ref.status_has("invulnerable") && world.exists(ship_id) {
         let t = ship_ref.transform();
@@ -358,7 +339,6 @@ for hit in world.collisions_between("ship", "asteroid") {
             });
             hit_ref.set_velocity(clamp_f(-phys.vx, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()),
                                 clamp_f(-phys.vy, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()));
-            world.entity(ast_hit_id).cooldown_start("collide", 180);
         }
         lives -= 1;
         ship_ref.set_velocity(0.0, 0.0);
@@ -368,14 +348,14 @@ for hit in world.collisions_between("ship", "asteroid") {
     }
 }
 
-for hit in world.collisions_between("bullet", "asteroid") {
+for hit in world.collision_enters("bullet", "asteroid") {
     let bullet_id = hit["bullet"];
     let ast_hit_id = hit["asteroid"];
     let hit_ref = world.entity(ast_hit_id);
-    
-    // Skip if asteroid is already being split or in post-hit cooldown (avoid double-hits)
-    if hit_ref.exists() && (hit_ref.get_b("/split_pending", false) || !hit_ref.cooldown_ready("collide")) { continue; }
-    
+
+    // collision_enters fires once per new contact; split_pending avoids double-scoring
+    if hit_ref.exists() && hit_ref.get_b("/split_pending", false) { continue; }
+
     if world.exists(bullet_id) {
         world.entity(bullet_id).despawn();
     }
@@ -430,14 +410,7 @@ if active_count <= 0 {
     }
     for new_ast_id in world.query_kind("asteroid") {
         if !world.exists(new_ast_id) { continue; }
-        for i in 0..3 {
-            let cv = `asteroid-${new_ast_id}-crack-${i}`;
-            if !scene.get(cv).exists() {
-                scene.spawn_object("asteroid-template", cv);
-                world.bind_visual(new_ast_id, cv);
-                world.set(new_ast_id, `/crack_visual_${i}`, cv);
-            }
-        }
+        h::spawn_crack_visuals(world, scene, new_ast_id);
     }
 }
 
