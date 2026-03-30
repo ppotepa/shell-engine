@@ -233,6 +233,16 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "any_alive",
         |world: &mut ScriptGameplayApi, kind: &str| -> bool { world.any_alive(kind) },
     );
+    engine.register_fn(
+        "set_world_bounds",
+        |world: &mut ScriptGameplayApi, min_x: rhai::FLOAT, min_y: rhai::FLOAT, max_x: rhai::FLOAT, max_y: rhai::FLOAT| {
+            world.set_world_bounds(min_x, min_y, max_x, max_y)
+        },
+    );
+    engine.register_fn(
+        "world_bounds",
+        |world: &mut ScriptGameplayApi| -> RhaiMap { world.world_bounds() },
+    );
 
     // Gameplay Entity API
     engine.register_fn("exists", |entity: &mut ScriptGameplayEntityApi| {
