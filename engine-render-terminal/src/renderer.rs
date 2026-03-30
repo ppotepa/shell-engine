@@ -391,6 +391,7 @@ fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayDa
                 let settings = world.runtime_settings();
                 format_render_info(settings)
             };
+            let object_count = world.object_count();
             let timings_info = world
                 .system_timings()
                 .map(|st| {
@@ -448,6 +449,15 @@ fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayDa
             // Timings
             lines.push(OverlayLine::with_alpha(
                 format!("  [#8c8ca0]timing  │[/] [#d39bff]{timings_info}[/]"),
+                label_fg,
+                console_bg,
+                console_alpha,
+            ));
+            let object_info = object_count
+                .map(|count| count.to_string())
+                .unwrap_or_else(|| "-".to_string());
+            lines.push(OverlayLine::with_alpha(
+                format!("  [#8c8ca0]objects │[/] [#f0b990]{object_info}[/]"),
                 label_fg,
                 console_bg,
                 console_alpha,

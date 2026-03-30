@@ -187,6 +187,10 @@ impl RendererProvider for World {
         self.get::<ProcessStats>()
     }
 
+    fn object_count(&self) -> Option<usize> {
+        EngineWorldAccess::scene_runtime(self).map(|sr| sr.object_count())
+    }
+
     fn system_timings(&self) -> Option<&SystemTimings> {
         self.get::<SystemTimings>()
     }

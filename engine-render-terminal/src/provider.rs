@@ -17,6 +17,10 @@ pub trait RendererProvider {
     fn animator(&self) -> Option<&Animator>;
     fn fps_counter(&self) -> Option<&FpsCounter>;
     fn process_stats(&self) -> Option<&ProcessStats>;
+    /// Optional hook to expose the current object count for debug overlays.
+    fn object_count(&self) -> Option<usize> {
+        None
+    }
     fn system_timings(&self) -> Option<&SystemTimings>;
     fn current_scene_id(&self) -> String;
     /// Returns a raw pointer to PipelineStrategies (safe: singleton, never dropped during frame).
