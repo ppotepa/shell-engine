@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::components::{Collider2D, EntityTimers, GameplayEvent, Health, Lifetime, PhysicsBody2D, SplitOnDestroy, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
 use crate::prefabs::{PrefabSpec, SpawnParams};
+use crate::particles::{ParticleEffectType, ParticleFxFactory};
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -848,6 +849,30 @@ impl GameplayWorld {
         // rather than as a bulk component, since they're typically per-entity state
 
         Some(entity_id)
+    }
+
+    // ─── Particle Effects ───
+
+    /// Spawn a particle effect at the given position.
+    ///
+    /// Creates a visual effect entity (explosion, smoke, etc.) at (x, y) with optional velocity.
+    /// Effects are short-lived and automatically despawned when their lifetime expires.
+    pub fn spawn_effect(&self, effect_type: ParticleEffectType, x: f32, y: f32, _velocity_scale: f32) -> Option<u64> {
+        // Register the effect prefab if not already registered
+        let prefab_id = format!("particle_{}", effect_type.as_str());
+        if !self.has_prefab(&prefab_id) {
+            let prefab = ParticleFxFactory::get_prefab(effect_type);
+            let _ = self.register_prefab(&prefab_id, prefab);
+        }
+
+        // Create spawn parameters with position
+        let params = SpawnParams::new().with_position(x, y);
+
+        // Apply velocity scaling if requested
+        // Random velocity spread would be applied at scene level or in behaviors
+        // _velocity_scale parameter reserved for future use
+
+        self.spawn_from_prefab(&prefab_id, params)
     }
 }
 

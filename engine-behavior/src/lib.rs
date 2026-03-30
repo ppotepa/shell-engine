@@ -1242,6 +1242,12 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
 
+    engine.register_fn("spawn_effect",
+        |world: &mut ScriptGameplayApi, effect_type: &str, x: rhai::FLOAT, y: rhai::FLOAT, velocity_scale: rhai::FLOAT| -> rhai::INT {
+            world.spawn_effect(effect_type, x as f32, y as f32, velocity_scale as f32) as rhai::INT
+        },
+    );
+
     engine.register_fn("abs_i", |v: rhai::INT| -> rhai::INT {
         if v < 0 {
             -v
@@ -2861,6 +2867,17 @@ impl ScriptGameplayApi {
         // Full component setup would be done in scene YAML or builder API
 
         world.register_prefab(prefab_id, prefab)
+    }
+
+    fn spawn_effect(&mut self, effect_type: &str, x: f32, y: f32, velocity_scale: f32) -> u64 {
+        let Some(world) = self.world.as_ref() else { return 0 };
+
+        // Map string to ParticleEffectType
+        use engine_game::particles::ParticleEffectType;
+        match ParticleEffectType::from_str(effect_type) {
+            Some(et) => world.spawn_effect(et, x, y, velocity_scale).unwrap_or(0),
+            None => 0,
+        }
     }
 }
 

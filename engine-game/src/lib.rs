@@ -11,6 +11,7 @@ pub mod game_state;
 pub mod gameplay;
 pub mod components;
 pub mod prefabs;
+pub mod particles;
 pub mod strategy;
 pub mod collision;
 
