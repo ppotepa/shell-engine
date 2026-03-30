@@ -5,6 +5,7 @@
 
 mod object;
 mod scene;
+mod scene_helpers;
 mod value;
 
 pub use object::{LogicKind, LogicSpec, ObjectDocument};
