@@ -57,6 +57,7 @@ pub struct BehaviorContext {
     pub game_state: Option<GameState>,
     pub level_state: Option<LevelState>,
     pub persistence: Option<PersistenceStore>,
+    pub catalogs: Arc<catalog::ModCatalogs>,
     pub gameplay_world: Option<GameplayWorld>,
     /// Collision events collected for this frame (gameplay entities).
     pub collisions: std::sync::Arc<Vec<CollisionHit>>,
@@ -1819,6 +1820,7 @@ struct ScriptInputApi {
     keys_down: Arc<HashSet<String>>,
     keys_just_pressed: Arc<HashSet<String>>,
     action_bindings: Arc<HashMap<String, Vec<String>>>,
+    catalogs: Arc<catalog::ModCatalogs>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
@@ -2353,12 +2355,14 @@ impl ScriptInputApi {
         keys_down: Arc<HashSet<String>>,
         keys_just_pressed: Arc<HashSet<String>>,
         action_bindings: Arc<HashMap<String, Vec<String>>>,
+        catalogs: Arc<catalog::ModCatalogs>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
         Self {
             keys_down,
             keys_just_pressed,
             action_bindings,
+            catalogs,
             queue,
         }
     }
@@ -2426,6 +2430,21 @@ impl ScriptInputApi {
     }
 
     fn load_profile(&mut self, name: &str) -> bool {
+        // Try to load from catalog first
+        if let Some(profile) = self.catalogs.input_profiles.get(name) {
+            let Ok(mut q) = self.queue.lock() else {
+                return false;
+            };
+            for (action, keys) in &profile.bindings {
+                q.push(BehaviorCommand::BindInputAction {
+                    action: action.clone(),
+                    keys: keys.clone(),
+                });
+            }
+            return true;
+        }
+
+        // Fall back to hardcoded profiles for backward compatibility
         let bindings: &[(&str, &[&str])] = match name {
             "asteroids.default" => &[
                 ("turn_left", &["Left", "a", "A"]),
@@ -5285,6 +5304,7 @@ impl Behavior for RhaiScriptBehavior {
                         Arc::clone(&ctx.keys_down),
                         Arc::clone(&ctx.keys_just_pressed),
                         Arc::clone(&ctx.action_bindings),
+                        Arc::clone(&ctx.catalogs),
                         Arc::clone(&helper_commands),
                     ),
                 );
@@ -5461,6 +5481,7 @@ fn smoke_probe_context(
         game_state: Some(game_state),
         level_state: None,
         persistence: None,
+        catalogs: Arc::new(catalog::ModCatalogs::default()),
         gameplay_world: Some(gameplay_world),
         collisions: Arc::new(Vec::new()),
         collision_enters: Arc::new(Vec::new()),
@@ -6366,7 +6387,7 @@ mod tests {
         smoke_validate_rhai_script, Behavior, BehaviorCommand, BehaviorContext, BlinkBehavior,
         BobBehavior, FollowBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior,
         MenuSelectedBehavior, RhaiScriptBehavior, SceneAudioBehavior, SelectedArrowsBehavior,
-        StageVisibilityBehavior, TimedVisibilityBehavior,
+        StageVisibilityBehavior, TimedVisibilityBehavior, catalog,
     };
     use engine_animation::SceneStage;
     use engine_core::effects::Region;
@@ -6502,6 +6523,7 @@ mod tests {
             game_state: None,
             level_state: None,
             persistence: None,
+            catalogs: Arc::new(catalog::ModCatalogs::default()),
             gameplay_world: None,
             collisions: Arc::new(Vec::new()),
             collision_enters: Arc::new(Vec::new()),

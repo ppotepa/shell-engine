@@ -28,6 +28,10 @@ pub fn behavior_system(world: &mut World) {
         .get::<GameplayEventBuffer>()
         .map(|buf| std::sync::Arc::new(buf.collisions.clone()))
         .unwrap_or_else(|| std::sync::Arc::new(Vec::new()));
+    let catalogs = world
+        .get::<engine_behavior::catalog::ModCatalogs>()
+        .map(|cat| std::sync::Arc::new(cat.clone()))
+        .unwrap_or_else(|| std::sync::Arc::new(engine_behavior::catalog::ModCatalogs::default()));
 
     // Resolve any pending mod-behavior bindings on the first frame this scene is active.
     // The check for pending bindings avoids cloning the registry on every subsequent frame.
@@ -61,6 +65,7 @@ pub fn behavior_system(world: &mut World) {
             persistence,
             gameplay_world,
             collisions,
+            catalogs,
         )
     };
 

@@ -24,6 +24,7 @@ impl SceneRuntime {
         persistence: Option<engine_persistence::PersistenceStore>,
         gameplay_world: Option<engine_game::GameplayWorld>,
         collisions: std::sync::Arc<Vec<engine_game::CollisionHit>>,
+        catalogs: std::sync::Arc<engine_behavior::catalog::ModCatalogs>,
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
@@ -224,6 +225,7 @@ impl SceneRuntime {
             game_state,
             level_state,
             persistence,
+            catalogs,
             gameplay_world,
             collisions,
             collision_enters,
