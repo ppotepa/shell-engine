@@ -1242,6 +1242,49 @@ fn init_rhai_engine() -> RhaiEngine {
         },
     );
     engine.register_fn(
+        "set_world_bounds",
+        |world: &mut ScriptGameplayApi,
+         min_x: rhai::FLOAT, max_x: rhai::FLOAT,
+         min_y: rhai::FLOAT, max_y: rhai::FLOAT| {
+            world.set_world_bounds(min_x, max_x, min_y, max_y)
+        },
+    );
+    engine.register_fn("world_bounds", |world: &mut ScriptGameplayApi| -> RhaiMap {
+        world.world_bounds()
+    });
+    engine.register_fn("enable_wrap_bounds", |world: &mut ScriptGameplayApi, id: rhai::INT| -> bool {
+        world.enable_wrap_bounds(id)
+    });
+
+    // ── RNG API ────────────────────────────────────────────────────────────
+    engine.register_fn("rand_i",
+        |world: &mut ScriptGameplayApi, min: rhai::INT, max: rhai::INT| -> rhai::INT {
+            world.rand_i(min, max)
+        },
+    );
+    engine.register_fn("rand_seed",
+        |world: &mut ScriptGameplayApi, seed: rhai::INT| {
+            world.rand_seed(seed)
+        },
+    );
+
+    // ── Tag API ────────────────────────────────────────────────────────────
+    engine.register_fn("tag_add",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| -> bool {
+            world.tag_add(id, tag)
+        },
+    );
+    engine.register_fn("tag_remove",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| -> bool {
+            world.tag_remove(id, tag)
+        },
+    );
+    engine.register_fn("tag_has",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| -> bool {
+            world.tag_has(id, tag)
+        },
+    );
+    engine.register_fn(
         "poly_hit",
         |poly_a: RhaiArray,
          ax: rhai::INT,
@@ -2857,6 +2900,57 @@ impl ScriptGameplayApi {
         let uid = id as u64;
         world.remove_wrap_bounds(uid);
         true
+    }
+
+    fn set_world_bounds(&mut self, min_x: rhai::FLOAT, max_x: rhai::FLOAT,
+                        min_y: rhai::FLOAT, max_y: rhai::FLOAT) {
+        let Some(world) = self.world.as_ref() else { return };
+        world.set_world_bounds(min_x as f32, max_x as f32, min_y as f32, max_y as f32);
+    }
+
+    fn world_bounds(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else { return RhaiMap::new() };
+        match world.world_bounds() {
+            Some(b) => {
+                let mut map = RhaiMap::new();
+                map.insert("min_x".into(), (b.min_x as rhai::FLOAT).into());
+                map.insert("max_x".into(), (b.max_x as rhai::FLOAT).into());
+                map.insert("min_y".into(), (b.min_y as rhai::FLOAT).into());
+                map.insert("max_y".into(), (b.max_y as rhai::FLOAT).into());
+                map
+            }
+            None => RhaiMap::new(),
+        }
+    }
+
+    fn enable_wrap_bounds(&mut self, id: rhai::INT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.enable_wrap_bounds(id as u64)
+    }
+
+    fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else { return min };
+        world.rand_i(min as i32, max as i32) as rhai::INT
+    }
+
+    fn rand_seed(&mut self, seed: rhai::INT) {
+        let Some(world) = self.world.as_ref() else { return };
+        world.rand_seed(seed as i64);
+    }
+
+    fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.tag_add(id as u64, tag)
+    }
+
+    fn tag_remove(&mut self, id: rhai::INT, tag: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.tag_remove(id as u64, tag)
+    }
+
+    fn tag_has(&mut self, id: rhai::INT, tag: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.tag_has(id as u64, tag)
     }
 
     fn attach_ship_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
