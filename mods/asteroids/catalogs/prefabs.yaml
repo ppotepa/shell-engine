@@ -1,0 +1,40 @@
+# Prefab templates for Asteroids
+# Loaded via: world.spawn_prefab("ship", args)
+
+prefabs:
+  ship:
+    kind: "ship"
+    sprite_template: "ship"
+    init_fields:
+      x: 0
+      y: 0
+      
+  asteroid:
+    kind: "asteroid"
+    sprite_template: "asteroid-template"
+    init_fields:
+      x: 0
+      y: 0
+      vx: 0
+      vy: 0
+      shape: 0
+      size: 1
+      
+  bullet:
+    kind: "bullet"
+    sprite_template: "bullet-template"
+    init_fields:
+      x: 0
+      y: 0
+      vx: 0
+      vy: 0
+      
+  smoke:
+    kind: "smoke"
+    sprite_template: "smoke-template"
+    init_fields:
+      x: 0
+      y: 0
+      ttl_ms: 520
+      max_ttl_ms: 520
+      radius: 3

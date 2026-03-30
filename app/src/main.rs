@@ -2,8 +2,8 @@ use clap::Parser;
 use engine::behavior::init_behavior_system;
 use engine::{logging, BackendKind, EngineConfig, ShellEngine};
 use engine_mod::startup::checks::{
-    AudioSequencerCheck, EffectRegistryCheck, FontGlyphCoverageCheck, FontManifestCheck,
-    ImageAssetsCheck, LevelConfigCheck, RhaiScriptsCheck, SceneGraphCheck,
+    AudioSequencerCheck, CatalogsCheck, EffectRegistryCheck, FontGlyphCoverageCheck,
+    FontManifestCheck, ImageAssetsCheck, LevelConfigCheck, RhaiScriptsCheck, SceneGraphCheck,
 };
 use engine_mod::startup::{
     StartupContext, StartupIssueLevel, StartupReport, StartupRunner, StartupSceneFile,
@@ -403,6 +403,7 @@ fn run_scene_checks(
     StartupRunner::with_checks(vec![
         Box::new(SceneGraphCheck),
         Box::new(LevelConfigCheck),
+        Box::new(CatalogsCheck),
         Box::new(AudioSequencerCheck),
         Box::new(RhaiScriptsCheck),
         Box::new(EffectRegistryCheck),

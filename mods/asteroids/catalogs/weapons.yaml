@@ -1,0 +1,12 @@
+# Weapon configurations for Asteroids
+# Loaded via: world.try_fire_weapon("asteroids.ship", ship_id, cfg)
+
+weapons:
+  asteroids.ship:
+    max_bullets: 8
+    bullet_kind: "bullet"
+    bullet_ttl_ms: 900
+    cooldown_ms: 120
+    cooldown_name: "fire"
+    spawn_offset: 20.0
+    speed_scale: 60.0

@@ -1,0 +1,20 @@
+# Emitter configurations for Asteroids
+# Loaded via: fx.emit("asteroids.ship_thrust_smoke", args)
+
+emitters:
+  asteroids.ship_thrust_smoke:
+    max_count: 40
+    cooldown_name: "smoke"
+    cooldown_ms: 48
+    spawn_offset: 6.0
+    backward_speed: 0.35
+    ttl_ms: 520
+    radius: 3
+    velocity_scale: 60.0
+    
+  asteroids.ship_disintegration:
+    max_count: 20
+    spawn_offset: 0.0
+    ttl_ms: 800
+    radius: 4
+    velocity_scale: 60.0

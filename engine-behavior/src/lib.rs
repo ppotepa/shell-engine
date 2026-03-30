@@ -1,5 +1,6 @@
 //! Behavior system types: the [`Behavior`] trait, built-in behavior structs, and the [`BehaviorContext`] passed each tick.
 
+pub mod catalog;
 pub mod factory;
 pub mod registry;
 

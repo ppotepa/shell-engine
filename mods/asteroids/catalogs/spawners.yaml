@@ -1,0 +1,26 @@
+# Spawn groups and waves for Asteroids
+# Loaded via: world.spawn_group("asteroids.initial", "asteroid")
+#             world.spawn_wave("asteroids.dynamic", args)
+
+groups:
+  asteroids.initial:
+    prefab: "asteroid"
+    spawns:
+      - {x: -300, y: -210, vx: 2.0, vy: 0.0, shape: 0, size: 2}
+      - {x: 300, y: -210, vx: 0.0, vy: 2.0, shape: 1, size: 3}
+      - {x: 300, y: 210, vx: -2.0, vy: 0.0, shape: 2, size: 2}
+      - {x: -300, y: 210, vx: 0.0, vy: -2.0, shape: 3, size: 1}
+      - {x: -290, y: -40, vx: 2.0, vy: 1.0, shape: 0, size: 2}
+      - {x: -140, y: -230, vx: 2.0, vy: 1.0, shape: 1, size: 1}
+      - {x: 140, y: -230, vx: -2.0, vy: 1.0, shape: 2, size: 2}
+      - {x: 290, y: 30, vx: -2.0, vy: -1.0, shape: 3, size: 3}
+      - {x: 120, y: 230, vx: -2.0, vy: -1.0, shape: 1, size: 2}
+      - {x: -120, y: 230, vx: 2.0, vy: -1.0, shape: 0, size: 1}
+
+waves:
+  asteroids.dynamic:
+    prefab: "asteroid"
+    size_distribution:
+      - {min_idx: 0, max_idx: 2, size: 3}
+      - {min_idx: 2, max_idx: 5, size: 2}
+      - {min_idx: 5, size: 1}
