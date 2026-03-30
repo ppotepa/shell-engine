@@ -1,7 +1,10 @@
 //! Behavior system types: the [`Behavior`] trait, built-in behavior structs, and the [`BehaviorContext`] passed each tick.
 
 pub mod catalog;
+pub mod emit;
 pub mod factory;
+pub mod geometry;
+pub mod rhai_util;
 pub mod registry;
 
 use std::collections::{BTreeMap, HashMap, HashSet};

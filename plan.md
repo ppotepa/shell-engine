@@ -182,9 +182,9 @@ Purpose: simplify scene document handling and scene compilation so each layer ha
 Purpose: reduce the size and complexity of rendering-heavy compositor code without changing output.
 
 ### 7.1 Object rendering split
-- [ ] Separate orchestration from math-heavy helpers.
-- [ ] Separate data preparation from final drawing/application.
-- [ ] Group repeated render calculations into shared helpers.
+- [x] Separate orchestration from math-heavy helpers. (obj_render_helpers.rs created)
+- [x] Separate data preparation from final drawing/application.
+- [x] Group repeated render calculations into shared helpers.
 
 ### 7.2 Sprite rendering split
 - [x] Break the main sprite flow into smaller handlers by sprite/render category (8 per-type render functions extracted).
