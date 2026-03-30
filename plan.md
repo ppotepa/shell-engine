@@ -134,48 +134,48 @@ Purpose: break the behavior subsystem’s oversized orchestration into smaller u
 Purpose: separate schema generation/validation/emission concerns so the authoring layer is easier to evolve.
 
 ### 5.1 Separate responsibilities
-- [ ] Split schema input interpretation from schema output generation.
-- [ ] Split validation rules from assembly/orchestration logic.
-- [ ] Group reusable schema helpers into focused units.
+- [x] Split schema input interpretation from schema output generation.
+- [x] Split validation rules from assembly/orchestration logic.
+- [x] Group reusable schema helpers into focused units.
 
 ### 5.2 Remove repeated decision trees
-- [ ] Identify repeated schema-building patterns.
-- [ ] Convert repeated structures into shared builders or reusable schema fragments.
-- [ ] Replace broad branching with declarative mappings where appropriate.
+- [x] Identify repeated schema-building patterns.
+- [x] Convert repeated structures into shared builders or reusable schema fragments.
+- [x] Replace broad branching with declarative mappings where appropriate.
 
 ### 5.3 Validate
-- [ ] Run schema generation.
-- [ ] Run schema drift/check mode.
-- [ ] Confirm generated surfaces stay consistent.
+- [x] Run schema generation.
+- [x] Run schema drift/check mode.
+- [x] Confirm generated surfaces stay consistent.
 
 ### 5.4 Done criteria for Phase 5
-- [ ] Schema parsing, validation, and emission are clearly separated.
-- [ ] Repeated schema-building logic is centralized.
-- [ ] Schema commands still pass.
+- [x] Schema parsing, validation, and emission are clearly separated (helpers/collectors/overlays/builders/tests).
+- [x] Repeated schema-building logic is centralized (helpers.rs).
+- [x] Schema commands still pass.
 
 ## Phase 6 — Authoring scene pipeline split
 
 Purpose: simplify scene document handling and scene compilation so each layer has a narrow responsibility.
 
 ### 6.1 Scene document handling
-- [ ] Separate document reading/model shaping from downstream transformation logic.
-- [ ] Extract reusable object/scene helpers out of branch-heavy flows.
-- [ ] Reduce repeated traversal and normalization patterns.
+- [x] Separate document reading/model shaping from downstream transformation logic.
+- [x] Extract reusable object/scene helpers out of branch-heavy flows (scene_helpers.rs: 18 utility functions).
+- [x] Reduce repeated traversal and normalization patterns.
 
 ### 6.2 Scene compilation
-- [ ] Separate compilation stages into clear passes.
-- [ ] Move repeated conversion and fallback logic into shared helpers.
-- [ ] Replace large conditional blocks with stage-specific handlers.
+- [x] Separate compilation stages into clear passes.
+- [x] Move repeated conversion and fallback logic into shared helpers (scene_effects.rs: 10 functions, scene_logic.rs: 12 items).
+- [x] Replace large conditional blocks with stage-specific handlers.
 
 ### 6.3 Validate
-- [ ] Run scene-related validation.
-- [ ] Verify authored scenes still compile and load correctly.
-- [ ] Confirm no schema/compile drift was introduced.
+- [x] Run scene-related validation.
+- [x] Verify authored scenes still compile and load correctly.
+- [x] Confirm no schema/compile drift was introduced.
 
 ### 6.4 Done criteria for Phase 6
-- [ ] Scene document handling is easier to follow and more modular.
-- [ ] Scene compilation is expressed as clear stages instead of one large branch-heavy flow.
-- [ ] Scene validation remains green.
+- [x] Scene document handling is easier to follow and more modular (document/scene.rs 2605→2338 lines).
+- [x] Scene compilation is expressed as clear stages instead of one large branch-heavy flow (compile/scene.rs 2386→1820 lines).
+- [x] Scene validation remains green.
 
 ## Phase 7 — Compositor rendering split
 
@@ -187,7 +187,7 @@ Purpose: reduce the size and complexity of rendering-heavy compositor code witho
 - [ ] Group repeated render calculations into shared helpers.
 
 ### 7.2 Sprite rendering split
-- [ ] Break the main sprite flow into smaller handlers by sprite/render category.
+- [ ] Break the main sprite flow into smaller handlers by sprite/render category (IN PROGRESS — background agent sprite-split running).
 - [ ] Extract common visibility, bounds, and setup logic.
 - [ ] Remove repeated per-branch setup and cleanup patterns.
 
@@ -206,9 +206,9 @@ Purpose: reduce the size and complexity of rendering-heavy compositor code witho
 Purpose: slim down lifecycle orchestration by extracting debug/input-specific helpers from the main sequencing path.
 
 ### 8.1 Lifecycle simplification
-- [ ] Separate scene transition concerns from debug-console concerns.
-- [ ] Separate input-routing concerns from lifecycle state changes.
-- [ ] Reduce mixed-responsibility functions into smaller focused helpers.
+- [x] Separate scene transition concerns from debug-console concerns.
+- [x] Separate input-routing concerns from lifecycle state changes (debug_controls.rs extracted).
+- [x] Reduce mixed-responsibility functions into smaller focused helpers.
 
 ### 8.2 Debug overlay and debug input handling
 - [x] Isolate overlay state transitions into dedicated helpers.
@@ -216,14 +216,14 @@ Purpose: slim down lifecycle orchestration by extracting debug/input-specific he
 - [x] Keep current debug behavior unchanged while reducing branching in the main lifecycle flow.
 
 ### 8.3 Validate
-- [ ] Verify normal lifecycle behavior still works.
+- [x] Verify normal lifecycle behavior still works (68 engine tests pass).
 - [x] Verify debug overlay and debug shortcuts still behave identically.
 - [x] Verify scene switching/debug controls still work in debug mode.
 
 ### 8.4 Done criteria for Phase 8
-- [ ] Lifecycle flow is easier to read and no longer mixes too many unrelated concerns.
-- [ ] Debug routing is isolated and reusable.
-- [ ] Existing behavior is preserved.
+- [x] Lifecycle flow is easier to read and no longer mixes too many unrelated concerns (scene_lifecycle/mod.rs 1522 → 1428 lines).
+- [x] Debug routing is isolated and reusable (debug_controls.rs: 5 functions extracted).
+- [x] Existing behavior is preserved.
 
 ## Phase 9 — Targeted cleanup set
 
@@ -246,19 +246,19 @@ Purpose: finish smaller, high-value simplifications that are not large enough to
 - Progress: 18 LOC added for helpers; established patterns for further consolidation; runtime 1216 → 1234 LOC (framework cost).
 
 ### 9.3 Behavior runner allocation cleanup
-- [ ] Identify avoidable clones and repeated allocations.
-- [ ] Replace them with borrowing, shared ownership, or reusable scratch storage where safe.
-- [ ] Confirm performance and semantics remain stable.
+- [x] Identify avoidable clones and repeated allocations.
+- [x] Replace them with borrowing, shared ownership, or reusable scratch storage where safe (cached_action_bindings + build_base_key_fields helper).
+- [x] Confirm performance and semantics remain stable.
 
 ### 9.4 Startup check cleanup
-- [ ] Remove duplicated startup validation patterns introduced over time.
-- [ ] Reuse shared reporting and shared check helpers.
-- [ ] Keep error messaging and validation coverage intact.
+- [x] Remove duplicated startup validation patterns introduced over time.
+- [x] Reuse shared reporting and shared check helpers (asset_utils.rs: normalize_relative_asset_path, is_zip_file, is_yaml_file).
+- [x] Keep error messaging and validation coverage intact.
 
 ### 9.5 Done criteria for Phase 9
-- [ ] Repeated helper logic is centralized.
-- [ ] Allocation-heavy hot paths are cleaner where safe.
-- [ ] Startup validation remains complete and readable.
+- [x] Repeated helper logic is centralized.
+- [x] Allocation-heavy hot paths are cleaner where safe.
+- [x] Startup validation remains complete and readable.
 
 ## Phase 10 — Editor and authoring workflow cleanup
 
@@ -270,8 +270,8 @@ Purpose: capture the review’s secondary editor-side signals so the simplificat
 - [ ] Keep indexing behavior identical while reducing flow complexity.
 
 ### 10.2 Editor state cleanup
-- [ ] Break large editor session/state handling into smaller responsibility groups.
-- [ ] Separate browser/navigation state from effect/preview state from startup/session state.
+- [x] Break large editor session/state handling into smaller responsibility groups (types.rs extracted).
+- [x] Separate browser/navigation state from effect/preview state from startup/session state.
 - [ ] Replace large command/state switching blocks with structured handlers where appropriate.
 
 ### 10.3 Editor start-screen cleanup
@@ -285,8 +285,8 @@ Purpose: capture the review’s secondary editor-side signals so the simplificat
 - [ ] Do the same for other editor-side short forwarding APIs when touched.
 
 ### 10.5 Done criteria for Phase 10
-- [ ] Editor flows are split into smaller pieces without UI behavior changes.
-- [ ] Large editor state modules are easier to understand.
+- [x] Editor flows are split into smaller pieces without UI behavior changes (state/types.rs: 238 lines extracted).
+- [x] Large editor state modules are easier to understand (state/mod.rs 938 → 700 lines).
 - [ ] Wrapper boilerplate is reduced where safe.
 
 ## Phase 11 — Foundation and domain model cleanup
