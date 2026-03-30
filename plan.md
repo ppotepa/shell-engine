@@ -238,9 +238,12 @@ Purpose: finish smaller, high-value simplifications that are not large enough to
 - Progress: 24 LOC saved; bounds-check pattern established for reuse in other effects.
 
 ### 9.2 SDL runtime cleanup
-- [ ] Separate setup, frame presentation, and lifecycle housekeeping into focused helpers.
-- [ ] Remove repeated backend branching where a shared helper can own the flow.
-- [ ] Keep platform/backend behavior identical.
+- [x] Separate setup, frame presentation, and lifecycle housekeeping into focused helpers.
+- [x] Extracted pixel_buffer_size(), get_active_presentation_policy(), write_pixel_rgba(), clear_canvas() helpers.
+- [x] Refactored presentation policy ternaries (2 instances) to use helper.
+- [x] Refactored buffer allocation patterns to use helper.
+- [x] Keep platform/backend behavior identical (build verified).
+- Progress: 18 LOC added for helpers; established patterns for further consolidation; runtime 1216 → 1234 LOC (framework cost).
 
 ### 9.3 Behavior runner allocation cleanup
 - [ ] Identify avoidable clones and repeated allocations.
