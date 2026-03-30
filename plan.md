@@ -187,19 +187,19 @@ Purpose: reduce the size and complexity of rendering-heavy compositor code witho
 - [ ] Group repeated render calculations into shared helpers.
 
 ### 7.2 Sprite rendering split
-- [ ] Break the main sprite flow into smaller handlers by sprite/render category (IN PROGRESS — background agent sprite-split running).
-- [ ] Extract common visibility, bounds, and setup logic.
-- [ ] Remove repeated per-branch setup and cleanup patterns.
+- [x] Break the main sprite flow into smaller handlers by sprite/render category (8 per-type render functions extracted).
+- [x] Extract common visibility, bounds, and setup logic (render_sprite dispatcher simplified).
+- [x] Remove repeated per-branch setup and cleanup patterns.
 
 ### 7.3 Validate
-- [ ] Run compositor-related tests if available.
-- [ ] Run terminal rendering smoke checks.
-- [ ] Run SDL rendering smoke checks if the touched path affects SDL behavior.
+- [x] Run compositor-related tests if available.
+- [x] Run terminal rendering smoke checks (Asteroids mod scene checks pass).
+- [x] Run SDL rendering smoke checks if the touched path affects SDL behavior.
 
 ### 7.4 Done criteria for Phase 7
-- [ ] No rendering mega-function remains.
-- [ ] Shared render helpers are reused instead of duplicated across branches.
-- [ ] Output behavior remains stable.
+- [x] No rendering mega-function remains (render_sprite → thin dispatcher + 8 per-type functions).
+- [x] Shared render helpers are reused instead of duplicated across branches.
+- [x] Output behavior remains stable.
 
 ## Phase 8 — Lifecycle and debug-routing split
 
