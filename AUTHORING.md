@@ -249,12 +249,16 @@ The optional `repeat` property (default `false`) indicates whether the action re
 | collisions | Collision hits for the current frame      |
 
 Gameplay helpers on `world` (component-backed):
-- `world.set_transform(id, x, y, heading_rad)` and `world.transform(id)`
+- `world.set_transform(id, x, y, heading)` and `world.transform(id)`
 - `world.set_physics(id, vx, vy, ax, ay, drag, max_speed)` and `world.physics(id)`
 - `world.set_collider_circle(id, radius, layer, mask)`
 - `world.set_lifetime(id, ttl_ms)`
 - `world.set_visual(id, visual_id)` to bind scene runtime target for cleanup on entity expiration
-- `world.collisions()` → array of `{ a, b }` entity id pairs detected this frame
+- `world.collision_enters/stays/exits(kind_a, kind_b)` → kind-filtered, named-field maps
+- `world.enable_wrap_bounds(id)` / `world.set_world_bounds(...)` — toroidal wrap
+- `world.rand_i(min, max)` — engine-managed RNG
+- `world.any_alive(kind)` — sugar for count > 0
+- `world.distance(a, b)` — distance between entity transforms
 
 ### Commands
 
@@ -270,8 +274,11 @@ Scripts emit commands to mutate the scene:
 ```
 scene.get(target)              // read a value
 scene.set(target, path, value) // write a value
+scene.set_vector(id, points, fg, bg) // set all vector props at once
+scene.set_visible(id, bool)    // sugar for set(id,"vector.visible",bool)
+scene.batch(id, map)           // set multiple props: #{fg:.., bg:.., points:..}
 scene.spawn_object(template, target)   // clone a scene object/layer template at runtime
-scene.despawn_object(target)           // soft-despawn (hide) a scene object/layer
+scene.despawn_object(target)           // soft-despawn a scene object/layer
 audio.cue(cue_id)              // play direct cue id (asset stem)
 audio.cue(cue_id, volume)      // play direct cue id with volume scale
 audio.event(event_id)          // play semantic sfx event from audio/sfx.yaml
@@ -281,6 +288,11 @@ audio.stop_song()              // stop currently active sequenced song
 
 game.get(path)                 // read global game state
 game.set(path, value)          // write global game state
+game.get_i(path, fallback)     // typed int getter
+game.get_s(path, fallback)     // typed string getter
+game.get_b(path, fallback)     // typed bool getter
+game.get_f(path, fallback)     // typed float getter
+game.jump(scene_id)            // scene transition
 persist.get(path)              // read on-disk persistent state
 persist.set(path, value)       // write on-disk persistent state
 level.current()                // active level id
@@ -288,49 +300,45 @@ level.ids()                    // available level ids
 level.select(level_id)         // switch active level
 level.get(path)                // read active level payload
 
-world.spawn_object(kind, payload) // create a gameplay entity and return its id
-world.despawn_object(id)       // remove a gameplay entity
-world.clear()                  // remove all gameplay entities
-world.count()                  // number of gameplay entities
-world.count_kind(kind)         // count entities by kind
-world.count_tag(tag)           // count entities by tag
-world.first_kind(kind)         // first entity id by kind
-world.first_tag(tag)           // first entity id by tag
-world.exists(id)               // check if an entity exists
-world.kind(id)                 // read entity kind
-world.tags(id)                 // read entity tags
-world.ids()                    // list gameplay entity ids
+world.spawn_visual(kind, template, data)  // atomic: create entity + visual + binding
+world.entity(id)               // entity handle API for cleaner repeated access
 world.query_kind(kind)         // find ids by kind
 world.query_tag(tag)           // find ids by tag
-world.get(id, path)            // read entity payload by JSON pointer
-world.set(id, path, value)     // write entity payload by JSON pointer
-world.has(id, path)            // test entity payload path
-world.remove(id, path)         // delete entity payload path
-world.push(id, path, value)    // append entity payload path
-world.entity(id)               // entity handle API for cleaner repeated access
 
 // entity handle API
+entity.id()                    // numeric id
 entity.exists()                // check entity existence
-entity.get(path)               // read path
+entity.get(path)               // read path (JSON pointer)
 entity.get_i(path, fallback)   // read integer with fallback
-entity.get_bool(path, fallback)// read bool with fallback
+entity.get_f(path, fallback)   // read float with fallback
+entity.get_s(path, fallback)   // read string with fallback
+entity.get_b(path, fallback)   // read bool with fallback
+entity.flag(name)              // sugar: get_b("/name", false)
+entity.set_flag(name, bool)    // sugar: set("/name", val)
 entity.set(path, value)        // write path
+entity.set_many(map)           // bulk write
+entity.data()                  // full JSON data map
+entity.despawn()               // despawn + auto-clean all bound visuals
 
-// Math / geometry helpers (engine-provided, useful for gameplay scripts)
+// Input
+input.bind_action(name, keys)  // register named action binding
+input.action_down(name)        // query named action
+
+// Key constants for bind_action
+// KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_ESC, KEY_ENTER, KEY_F1..F12
+input.bind_action("thrust", [KEY_UP, "w"]);
+input.bind_action("fire",   [KEY_SPACE, "f"]);
+
+// Math / geometry helpers
 abs_i(v)                       // absolute value for integers
 sign_i(v, fallback)            // sign with fallback when v == 0
 clamp_i(v, min_v, max_v)       // clamp integer
-wrap(v, min_v, max_v)          // toroidal integer wrap
-wrap_fp(v, min_v, max_v, scale)// toroidal fixed-point wrap
-wrap_heading32(v)              // wrap heading to [0, 31]
-rng_next_i(seed, modulus)      // deterministic integer RNG helper
-
-// Geometry helpers
+clamp_f(v, min_v, max_v)       // clamp float
+to_i(v) / to_float(v)          // type conversions
 sin32(idx)                     // 32-step integer sine lookup (-1024..1024)
-ship_points(heading)           // ship polygon points for heading [ [x,y], ... ]
-asteroid_points(shape, size)   // asteroid polygon points for shape/size
+unit_vec32(heading)            // #{x, y} unit vector for heading 0-31
+asteroid_points(shape, size)   // asteroid polygon points
 rotate_points(points, heading) // rotate a point array around 0,0 using 32-step heading
-asteroid_fragment_points(shape, size, fragment_idx) // one of three closed asteroid wedges
 asteroid_radius(size)          // helper radius by asteroid size tier
 asteroid_score(size)           // score value by asteroid size tier
 ```

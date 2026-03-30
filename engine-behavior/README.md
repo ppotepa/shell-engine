@@ -52,17 +52,26 @@ with the runtime behavior system and authored YAML expectations.
 
 Current script-facing API surface includes:
 
-- gameplay world helpers (`world.spawn_object`, `world.spawn_visual`, `world.entity`, query/count APIs),
+- gameplay world helpers (`world.spawn_visual`, `world.spawn_object`, `world.entity`, query/count APIs, `world.any_alive`, `world.distance`),
 - typed gameplay component helpers (`world.set_transform`, `world.set_physics`,
-  `world.set_collider_circle`, `world.set_lifetime`, `world.set_visual`, `world.bind_visual`),
+  `world.set_collider_circle`, `world.set_lifetime`, `world.set_visual`, `world.bind_visual`,
+  `world.attach_ship_controller`),
 - atomic spawn (`world.spawn_visual(kind, template, data)` — creates entity + visual + binding + transform + collider in one call),
-- auto-despawn (`world.despawn_object(id)` and `entity.despawn()` auto-clean all bound scene visuals via A1),
-- entity ref API (`world.entity(id)` returns typed handle with `get_i`, `get_b`, `set`, `set_position`, `set_velocity`, `despawn`, etc.),
-- per-frame collision reads (`world.collisions()`),
+- auto-despawn (`world.despawn_object(id)` and `entity.despawn()` auto-clean all bound scene visuals),
+- entity ref API (`world.entity(id)` returns typed handle with `get_i`, `get_f`, `get_s`, `get_b`, `flag`, `set_flag`, `set_many`, `data`, `set_position`, `set_velocity`, `despawn`, `id`, cooldown/status timers, ship controller, etc.),
+- collision events (`world.collision_enters/stays/exits(kind_a, kind_b)`) — kind-filtered, named-field maps,
+- toroidal wrap (`world.enable_wrap_bounds`, `world.set_world_bounds`, `world.enable_wrap`, `world.disable_wrap`),
+- RNG (`world.rand_i`, `world.rand_seed`),
+- tags (`world.tag_add`, `world.tag_remove`, `world.tag_has`),
+- children (`world.spawn_child`, `world.despawn_children`),
+- input actions (`input.bind_action`, `input.action_down`) with `KEY_*` constants,
+- scene helpers (`scene.set_vector`, `scene.set_visible`, `scene.batch`),
+- game state typed getters (`game.get_i/s/b/f`),
 - audio controls (`audio.cue`, `audio.event`, `audio.play_song`, `audio.stop_song`),
-- Rhai module system (`import "module-name" as alias;` resolves from `{mod}/scripts/` directory).
+- Rhai module system (`import "module-name" as alias;` resolves from `{mod}/scripts/` directory),
+- standalone math/geometry functions (`unit_vec32`, `sin32`, `clamp_i`, `clamp_f`, `asteroid_*`, `rotate_points`, etc.).
 
-See `scripting.md` at repo root for the full 107-function API reference and enhancement roadmap.
+See `scripting.md` at repo root for the full API reference.
 
 ## Integration points
 

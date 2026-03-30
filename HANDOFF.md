@@ -1,6 +1,19 @@
 # Sprint 1: Gameplay Runtime APIs — Handoff
 
-**Status:** ~90% complete. Engine APIs fully implemented and engine-behavior compiles. Only scene_runtime integration needed, then asteroids script refactor.
+## Status as of this session
+
+**Everything is complete.** All work described in this document has been implemented and merged:
+
+- engine-scene-runtime integration (behavior_runner.rs fixes) ✅
+- asteroids script refactor ✅
+- Sprint 2 additions (collision events, spawn_child, action bindings) ✅
+- Full API polish (KEY_* constants, entity.flag/set_flag, scene.set_vector/batch, world.rand_i, game.get_i/s/b/f, world.any_alive, world.distance, unit_vec32) ✅
+
+See `scripting.md` for the current API reference. This document is kept for historical context only.
+
+---
+
+
 
 **Goal:** Reduce asteroids game-loop.rhai boilerplate by moving cooldowns, timers, input actions, and world wrap into engine systems.
 
