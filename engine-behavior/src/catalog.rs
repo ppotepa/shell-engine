@@ -3,8 +3,8 @@
 //! via YAML instead of hardcoding in Rust.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use serde_json::Value as JsonValue;
+use std::collections::HashMap;
 
 /// Complete set of catalogs for a mod.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -127,7 +127,7 @@ impl ModCatalogs {
                 .map_err(|e| format!("Failed to read input-profiles.yaml: {}", e))?;
             let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
                 .map_err(|e| format!("Failed to parse input-profiles.yaml: {}", e))?;
-            
+
             if let Some(profiles) = parsed.get("profiles").and_then(|v| v.as_mapping()) {
                 for (key, value) in profiles.iter() {
                     if let Some(key_str) = key.as_str() {
@@ -146,11 +146,12 @@ impl ModCatalogs {
                 .map_err(|e| format!("Failed to read prefabs.yaml: {}", e))?;
             let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
                 .map_err(|e| format!("Failed to parse prefabs.yaml: {}", e))?;
-            
+
             if let Some(prefabs) = parsed.get("prefabs").and_then(|v| v.as_mapping()) {
                 for (key, value) in prefabs.iter() {
                     if let Some(key_str) = key.as_str() {
-                        if let Ok(prefab) = serde_yaml::from_value::<PrefabTemplate>(value.clone()) {
+                        if let Ok(prefab) = serde_yaml::from_value::<PrefabTemplate>(value.clone())
+                        {
                             catalogs.prefabs.insert(key_str.to_string(), prefab);
                         }
                     }
@@ -165,7 +166,7 @@ impl ModCatalogs {
                 .map_err(|e| format!("Failed to read weapons.yaml: {}", e))?;
             let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
                 .map_err(|e| format!("Failed to parse weapons.yaml: {}", e))?;
-            
+
             if let Some(weapons) = parsed.get("weapons").and_then(|v| v.as_mapping()) {
                 for (key, value) in weapons.iter() {
                     if let Some(key_str) = key.as_str() {
@@ -184,11 +185,12 @@ impl ModCatalogs {
                 .map_err(|e| format!("Failed to read emitters.yaml: {}", e))?;
             let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
                 .map_err(|e| format!("Failed to parse emitters.yaml: {}", e))?;
-            
+
             if let Some(emitters) = parsed.get("emitters").and_then(|v| v.as_mapping()) {
                 for (key, value) in emitters.iter() {
                     if let Some(key_str) = key.as_str() {
-                        if let Ok(emitter) = serde_yaml::from_value::<EmitterConfig>(value.clone()) {
+                        if let Ok(emitter) = serde_yaml::from_value::<EmitterConfig>(value.clone())
+                        {
                             catalogs.emitters.insert(key_str.to_string(), emitter);
                         }
                     }
@@ -203,7 +205,7 @@ impl ModCatalogs {
                 .map_err(|e| format!("Failed to read spawners.yaml: {}", e))?;
             let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
                 .map_err(|e| format!("Failed to parse spawners.yaml: {}", e))?;
-            
+
             if let Some(groups) = parsed.get("groups").and_then(|v| v.as_mapping()) {
                 for (key, value) in groups.iter() {
                     if let Some(key_str) = key.as_str() {
@@ -256,7 +258,7 @@ profiles:
         let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
         let profile_val = parsed.get("profiles").unwrap().get("default").unwrap();
         let profile: InputProfile = serde_yaml::from_value(profile_val.clone()).unwrap();
-        
+
         assert_eq!(profile.bindings.get("turn_left").unwrap().len(), 3);
         assert_eq!(profile.bindings.get("turn_right").unwrap().len(), 3);
     }
@@ -275,7 +277,7 @@ prefabs:
         let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
         let prefab_val = parsed.get("prefabs").unwrap().get("ship").unwrap();
         let prefab: PrefabTemplate = serde_yaml::from_value(prefab_val.clone()).unwrap();
-        
+
         assert_eq!(prefab.kind, "ship");
         assert_eq!(prefab.sprite_template, Some("ship".to_string()));
         assert!(!prefab.init_fields.is_empty());
@@ -292,9 +294,13 @@ groups:
       - {x: 300, y: -210, vx: 0.0, vy: 2.0, shape: 1, size: 3}
 "#;
         let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-        let group_val = parsed.get("groups").unwrap().get("asteroids.initial").unwrap();
+        let group_val = parsed
+            .get("groups")
+            .unwrap()
+            .get("asteroids.initial")
+            .unwrap();
         let group: GroupTemplate = serde_yaml::from_value(group_val.clone()).unwrap();
-        
+
         assert_eq!(group.prefab, "asteroid");
         assert_eq!(group.spawns.len(), 2);
         assert_eq!(group.spawns[0].x, -300.0);
@@ -312,9 +318,13 @@ waves:
       - {min_idx: 5, size: 1}
 "#;
         let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-        let wave_val = parsed.get("waves").unwrap().get("asteroids.dynamic").unwrap();
+        let wave_val = parsed
+            .get("waves")
+            .unwrap()
+            .get("asteroids.dynamic")
+            .unwrap();
         let wave: WaveTemplate = serde_yaml::from_value(wave_val.clone()).unwrap();
-        
+
         assert_eq!(wave.prefab, "asteroid");
         assert_eq!(wave.size_distribution.len(), 3);
     }

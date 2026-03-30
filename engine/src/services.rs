@@ -20,7 +20,33 @@ use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
 use engine_pipeline::{FrameSkipOracle, PipelineStrategies};
 use engine_render::{OutputBackend, VectorOverlay};
 use engine_render_terminal::RendererProvider;
+use std::any::Any;
 use std::sync::Mutex;
+
+trait WorldResourceAccess {
+    fn resource<T: Any + 'static>(&self) -> Option<&T>;
+    fn resource_mut<T: Any + 'static>(&mut self) -> Option<&mut T>;
+    fn resource_any<T: Any + 'static>(&self) -> Option<&dyn Any>;
+    fn resource_any_mut<T: Any + 'static>(&mut self) -> Option<&mut dyn Any>;
+}
+
+impl WorldResourceAccess for World {
+    fn resource<T: Any + 'static>(&self) -> Option<&T> {
+        self.get::<T>()
+    }
+
+    fn resource_mut<T: Any + 'static>(&mut self) -> Option<&mut T> {
+        self.get_mut::<T>()
+    }
+
+    fn resource_any<T: Any + 'static>(&self) -> Option<&dyn Any> {
+        self.resource::<T>().map(|value| value as &dyn Any)
+    }
+
+    fn resource_any_mut<T: Any + 'static>(&mut self) -> Option<&mut dyn Any> {
+        self.resource_mut::<T>().map(|value| value as &mut dyn Any)
+    }
+}
 
 /// Typed accessor trait for all engine-managed resources stored in [`World`].
 pub(crate) trait EngineWorldAccess {
@@ -42,57 +68,57 @@ pub(crate) trait EngineWorldAccess {
 
 impl EngineWorldAccess for World {
     fn events_mut(&mut self) -> Option<&mut EventQueue> {
-        self.get_mut::<EventQueue>()
+        self.resource_mut::<EventQueue>()
     }
 
     fn scene_runtime(&self) -> Option<&SceneRuntime> {
-        self.get::<SceneRuntime>()
+        self.resource::<SceneRuntime>()
     }
 
     fn scene_runtime_mut(&mut self) -> Option<&mut SceneRuntime> {
-        self.get_mut::<SceneRuntime>()
+        self.resource_mut::<SceneRuntime>()
     }
 
     fn animator(&self) -> Option<&Animator> {
-        self.get::<Animator>()
+        self.resource::<Animator>()
     }
 
     fn animator_mut(&mut self) -> Option<&mut Animator> {
-        self.get_mut::<Animator>()
+        self.resource_mut::<Animator>()
     }
 
     fn buffer(&self) -> Option<&Buffer> {
-        self.get::<Buffer>()
+        self.resource::<Buffer>()
     }
 
     fn buffer_mut(&mut self) -> Option<&mut Buffer> {
-        self.get_mut::<Buffer>()
+        self.resource_mut::<Buffer>()
     }
 
     /// The active render buffer.
     fn output_buffer(&self) -> Option<&Buffer> {
-        self.get::<Buffer>()
+        self.resource::<Buffer>()
     }
 
     fn output_dimensions(&self) -> Option<(u16, u16)> {
-        self.get::<Box<dyn OutputBackend>>()
+        self.resource::<Box<dyn OutputBackend>>()
             .map(|renderer| renderer.output_size())
             .or_else(|| {
-                self.get::<Buffer>()
+                self.resource::<Buffer>()
                     .map(|buffer| (buffer.width.max(1), buffer.height.max(1)))
             })
     }
 
     fn runtime_settings(&self) -> Option<&RuntimeSettings> {
-        self.get::<RuntimeSettings>()
+        self.resource::<RuntimeSettings>()
     }
 
     fn audio_runtime_mut(&mut self) -> Option<&mut AudioRuntime> {
-        self.get_mut::<AudioRuntime>()
+        self.resource_mut::<AudioRuntime>()
     }
 
     fn asset_root(&self) -> Option<&AssetRoot> {
-        self.get::<AssetRoot>()
+        self.resource::<AssetRoot>()
     }
 
     fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)> {
@@ -101,14 +127,14 @@ impl EngineWorldAccess for World {
     }
 
     fn scene_loader(&self) -> Option<&SceneLoader> {
-        self.get::<SceneLoader>()
+        self.resource::<SceneLoader>()
     }
 }
 
 // Implement AudioProvider for World to work with engine-audio
 impl AudioProvider for World {
     fn audio_runtime_mut(&mut self) -> Option<&mut AudioRuntime> {
-        self.get_mut::<AudioRuntime>()
+        self.resource_mut::<AudioRuntime>()
     }
 }
 
@@ -119,11 +145,11 @@ impl AnimatorProvider for World {
     }
 
     fn animator(&self) -> Option<&Animator> {
-        self.get::<Animator>()
+        self.resource::<Animator>()
     }
 
     fn animator_mut(&mut self) -> Option<&mut Animator> {
-        self.get_mut::<Animator>()
+        self.resource_mut::<Animator>()
     }
 }
 
@@ -137,7 +163,7 @@ pub trait Asset3DProvider {
 
 impl Asset3DProvider for World {
     fn asset_root_mut(&mut self) -> Option<&mut AssetRoot> {
-        self.get_mut::<AssetRoot>()
+        self.resource_mut::<AssetRoot>()
     }
 }
 
@@ -156,35 +182,35 @@ impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
 // Implement RendererProvider for World to work with engine-render-terminal
 impl RendererProvider for World {
     fn buffer(&self) -> Option<&Buffer> {
-        self.get::<Buffer>()
+        self.resource::<Buffer>()
     }
 
     fn buffer_mut(&mut self) -> Option<&mut Buffer> {
-        self.get_mut::<Buffer>()
+        self.resource_mut::<Buffer>()
     }
 
     fn runtime_settings(&self) -> Option<&RuntimeSettings> {
-        self.get::<RuntimeSettings>()
+        self.resource::<RuntimeSettings>()
     }
 
     fn debug_features(&self) -> Option<&DebugFeatures> {
-        self.get::<DebugFeatures>()
+        self.resource::<DebugFeatures>()
     }
 
     fn debug_log(&self) -> Option<&DebugLogBuffer> {
-        self.get::<DebugLogBuffer>()
+        self.resource::<DebugLogBuffer>()
     }
 
     fn animator(&self) -> Option<&Animator> {
-        self.get::<Animator>()
+        self.resource::<Animator>()
     }
 
     fn fps_counter(&self) -> Option<&FpsCounter> {
-        self.get::<FpsCounter>()
+        self.resource::<FpsCounter>()
     }
 
     fn process_stats(&self) -> Option<&ProcessStats> {
-        self.get::<ProcessStats>()
+        self.resource::<ProcessStats>()
     }
 
     fn object_count(&self) -> Option<usize> {
@@ -192,7 +218,7 @@ impl RendererProvider for World {
     }
 
     fn system_timings(&self) -> Option<&SystemTimings> {
-        self.get::<SystemTimings>()
+        self.resource::<SystemTimings>()
     }
 
     fn current_scene_id(&self) -> String {
@@ -202,7 +228,7 @@ impl RendererProvider for World {
     }
 
     fn frame_skip_oracle(&self) -> Option<&Mutex<Box<dyn FrameSkipOracle>>> {
-        self.get::<Mutex<Box<dyn FrameSkipOracle>>>()
+        self.resource::<Mutex<Box<dyn FrameSkipOracle>>>()
     }
 
     fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)> {
@@ -229,84 +255,73 @@ impl RendererProvider for World {
     }
 
     fn vector_overlay(&self) -> Option<&VectorOverlay> {
-        self.get::<VectorOverlay>()
+        self.resource::<VectorOverlay>()
     }
 }
 
 // Implement LifecycleProvider for World to work with engine-animation
 impl LifecycleProvider for World {
     fn animator(&self) -> Option<&dyn std::any::Any> {
-        self.get::<Animator>().map(|a| a as &dyn std::any::Any)
+        self.resource_any::<Animator>()
     }
 
     fn animator_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<Animator>()
-            .map(|a| a as &mut dyn std::any::Any)
+        self.resource_any_mut::<Animator>()
     }
 
     fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
-        self.get::<SceneRuntime>()
-            .map(|sr| sr as &dyn std::any::Any)
+        self.resource_any::<SceneRuntime>()
     }
 
     fn scene_runtime_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<SceneRuntime>()
-            .map(|sr| sr as &mut dyn std::any::Any)
+        self.resource_any_mut::<SceneRuntime>()
     }
 
     fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<Buffer>()
-            .map(|b| b as &mut dyn std::any::Any)
+        self.resource_any_mut::<Buffer>()
     }
 
     fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
-        self.get::<RuntimeSettings>()
-            .map(|r| r as &dyn std::any::Any)
+        self.resource_any::<RuntimeSettings>()
     }
 
     fn debug_features(&self) -> Option<&dyn std::any::Any> {
-        self.get::<DebugFeatures>().map(|d| d as &dyn std::any::Any)
+        self.resource_any::<DebugFeatures>()
     }
 
     fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<DebugLogBuffer>()
-            .map(|d| d as &mut dyn std::any::Any)
+        self.resource_any_mut::<DebugLogBuffer>()
     }
 
     fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<EventQueue>()
-            .map(|e| e as &mut dyn std::any::Any)
+        self.resource_any_mut::<EventQueue>()
     }
 }
 
 // Implement BehaviorProvider for World
 impl BehaviorProvider for World {
     fn scene(&self) -> Option<&dyn std::any::Any> {
-        self.get::<Scene>().map(|s| s as &dyn std::any::Any)
+        self.resource_any::<Scene>()
     }
 
     fn animator(&self) -> Option<&dyn std::any::Any> {
-        self.get::<Animator>().map(|a| a as &dyn std::any::Any)
+        self.resource_any::<Animator>()
     }
 
     fn scene_runtime_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<SceneRuntime>()
-            .map(|sr| sr as &mut dyn std::any::Any)
+        self.resource_any_mut::<SceneRuntime>()
     }
 
     fn game_state(&self) -> Option<&dyn std::any::Any> {
-        self.get::<crate::game_state::GameState>()
-            .map(|gs| gs as &dyn std::any::Any)
+        self.resource_any::<crate::game_state::GameState>()
     }
 
     fn mod_behaviors(&self) -> Option<&dyn std::any::Any> {
-        self.get::<engine_behavior_registry::ModBehaviorRegistry>()
-            .map(|mb| mb as &dyn std::any::Any)
+        self.resource_any::<engine_behavior_registry::ModBehaviorRegistry>()
     }
 
     fn debug_log_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<DebugLogBuffer>()
-            .map(|d| d as &mut dyn std::any::Any)
+        self.resource_any_mut::<DebugLogBuffer>()
     }
 
     fn dispatch_audio_command(&mut self, _cmd: Box<dyn std::any::Any>) {
@@ -326,50 +341,45 @@ impl BehaviorProvider for World {
     }
 
     fn events_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<EventQueue>()
-            .map(|e| e as &mut dyn std::any::Any)
+        self.resource_any_mut::<EventQueue>()
     }
 }
 
 // Implement CompositorProvider for World
 impl CompositorProvider for World {
     fn buffer_mut(&mut self) -> Option<&mut dyn std::any::Any> {
-        self.get_mut::<Buffer>()
-            .map(|b| b as &mut dyn std::any::Any)
+        self.resource_any_mut::<Buffer>()
     }
 
     fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
-        self.get::<SceneRuntime>()
-            .map(|sr| sr as &dyn std::any::Any)
+        self.resource_any::<SceneRuntime>()
     }
 
     fn animator(&self) -> Option<&dyn std::any::Any> {
-        self.get::<Animator>().map(|a| a as &dyn std::any::Any)
+        self.resource_any::<Animator>()
     }
 
     fn asset_root(&self) -> Option<&dyn std::any::Any> {
-        self.get::<AssetRoot>().map(|ar| ar as &dyn std::any::Any)
+        self.resource_any::<AssetRoot>()
     }
 
     fn runtime_settings(&self) -> Option<&dyn std::any::Any> {
-        self.get::<RuntimeSettings>()
-            .map(|r| r as &dyn std::any::Any)
+        self.resource_any::<RuntimeSettings>()
     }
 
     fn debug_features(&self) -> Option<&dyn std::any::Any> {
-        self.get::<DebugFeatures>().map(|d| d as &dyn std::any::Any)
+        self.resource_any::<DebugFeatures>()
     }
 }
 
 // Implement CompositorAccess for World
 impl engine_compositor::CompositorAccess for World {
     fn scene_runtime(&self) -> Option<&dyn std::any::Any> {
-        self.get::<SceneRuntime>()
-            .map(|sr| sr as &dyn std::any::Any)
+        self.resource_any::<SceneRuntime>()
     }
 
     fn animator(&self) -> Option<&Animator> {
-        self.get::<Animator>()
+        self.resource::<Animator>()
     }
 
     fn buffer_mut(&self) -> Option<&mut Buffer> {
@@ -379,21 +389,19 @@ impl engine_compositor::CompositorAccess for World {
     }
 
     fn runtime_settings(&self) -> Option<&RuntimeSettings> {
-        self.get::<RuntimeSettings>()
+        self.resource::<RuntimeSettings>()
     }
 
     fn asset_root(&self) -> Option<&AssetRoot> {
-        self.get::<AssetRoot>()
+        self.resource::<AssetRoot>()
     }
 
     fn scene3d_atlas(&self) -> Option<&dyn std::any::Any> {
-        self.get::<engine_compositor::scene3d_atlas::Scene3DAtlas>()
-            .map(|atlas| atlas as &dyn std::any::Any)
+        self.resource_any::<engine_compositor::scene3d_atlas::Scene3DAtlas>()
     }
 
     fn obj_prerender_frames(&self) -> Option<&dyn std::any::Any> {
-        self.get::<engine_compositor::obj_prerender::ObjPrerenderedFrames>()
-            .map(|frames| frames as &dyn std::any::Any)
+        self.resource_any::<engine_compositor::obj_prerender::ObjPrerenderedFrames>()
     }
 
     fn layer_compositor(&self) -> Option<&dyn std::any::Any> {
@@ -410,10 +418,10 @@ impl engine_compositor::CompositorAccess for World {
 // Implement SceneRuntimeAccess for World
 impl engine_scene_runtime::SceneRuntimeAccess for World {
     fn scene_runtime(&self) -> Option<&engine_scene_runtime::SceneRuntime> {
-        self.get::<engine_scene_runtime::SceneRuntime>()
+        self.resource::<engine_scene_runtime::SceneRuntime>()
     }
 
     fn scene_runtime_mut(&mut self) -> Option<&mut engine_scene_runtime::SceneRuntime> {
-        self.get_mut::<engine_scene_runtime::SceneRuntime>()
+        self.resource_mut::<engine_scene_runtime::SceneRuntime>()
     }
 }

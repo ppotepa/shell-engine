@@ -44,6 +44,14 @@ pub struct StartupContext<'a> {
 }
 
 impl<'a> StartupContext<'a> {
+    fn load_scenes_if_needed(&self) -> Result<(), EngineError> {
+        if self.scene_cache.get().is_none() {
+            let loaded = (self.scene_loader)(self.mod_source)?;
+            let _ = self.scene_cache.set(loaded);
+        }
+        Ok(())
+    }
+
     /// Creates a new context with a scene loader callback.
     pub fn new(
         mod_source: &'a Path,
@@ -119,11 +127,7 @@ impl<'a> StartupContext<'a> {
 
     /// Returns (and caches) every parsed scene in the mod, loading them on first call.
     pub fn all_scenes(&self) -> Result<&[StartupSceneFile], EngineError> {
-        if let Some(cached) = self.scene_cache.get() {
-            return Ok(cached.as_slice());
-        }
-        let loaded = (self.scene_loader)(self.mod_source)?;
-        let _ = self.scene_cache.set(loaded);
+        self.load_scenes_if_needed()?;
         Ok(self.scene_cache.get().map(Vec::as_slice).unwrap_or(&[]))
     }
 
@@ -133,7 +137,7 @@ impl<'a> StartupContext<'a> {
     /// Always returns `false` when no font asset checker is registered.
     pub fn has_font_assets(&self, font_name: &str) -> bool {
         self.font_asset_checker
-            .map_or(false, |f| f(Some(self.mod_source), font_name))
+            .is_some_and(|f| f(Some(self.mod_source), font_name))
     }
 
     /// Returns the set of glyphs in `text` that are missing from `font_name`.
@@ -147,7 +151,7 @@ impl<'a> StartupContext<'a> {
     /// Always returns `false` when no image checker is registered.
     pub fn has_image_asset(&self, source: &str) -> bool {
         self.image_asset_checker
-            .map_or(false, |f| f(self.mod_source, source))
+            .is_some_and(|f| f(self.mod_source, source))
     }
 
     /// Smoke-validates a Rhai script. Returns `Ok(())` on success or an error description.

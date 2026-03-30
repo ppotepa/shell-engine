@@ -221,16 +221,17 @@ impl TopDownShipController {
     /// heading 0 = UP (0, -1), heading 8 = RIGHT (1, 0), heading 16 = DOWN (0, 1), heading 24 = LEFT (-1, 0)
     pub fn heading_vector(&self) -> (f32, f32) {
         let h = self.current_heading % (self.heading_bits as i32);
-        
+
         // sin32 returns 0-2711 for indices 0-31 (one quadrant of sine curve)
         // We need full sine wave: apply sign based on which half of the circle we're in
         let sin_raw = sin32(h) as f32;
-        let cos_raw = sin32((h + (self.heading_bits as i32) / 4) % (self.heading_bits as i32)) as f32;
-        
+        let cos_raw =
+            sin32((h + (self.heading_bits as i32) / 4) % (self.heading_bits as i32)) as f32;
+
         // Apply sign for lower half of circle (heading 16-31)
         let sin_val = if h < 16 { sin_raw } else { -sin_raw };
         let cos_val = if h < 8 || h >= 24 { cos_raw } else { -cos_raw };
-        
+
         // Normalize by max value (2711) to get approximate unit vector
         (sin_val / 2711.0, -cos_val / 2711.0)
     }

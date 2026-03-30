@@ -27,7 +27,10 @@ impl StartupCheck for CatalogsCheck {
         let catalogs_dir = ctx.mod_source().join("catalogs");
 
         if !catalogs_dir.exists() {
-            report.add_info(self.name(), "catalogs check skipped (no /catalogs directory)");
+            report.add_info(
+                self.name(),
+                "catalogs check skipped (no /catalogs directory)",
+            );
             return Ok(());
         }
 

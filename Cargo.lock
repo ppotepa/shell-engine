@@ -915,6 +915,7 @@ version = "0.1.0"
 name = "engine-game"
 version = "0.1.0"
 dependencies = [
+ "engine-core",
  "serde",
  "serde_json",
 ]

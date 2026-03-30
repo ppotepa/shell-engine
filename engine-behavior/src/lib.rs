@@ -2638,15 +2638,34 @@ impl ScriptFxApi {
                         return RhaiArray::new();
                     };
 
-                    let velocity_scale = ScriptGameplayApi::map_number(&args, "velocity_scale", emitter.velocity_scale.unwrap_or(60.0)) as f32;
+                    let velocity_scale = ScriptGameplayApi::map_number(
+                        &args,
+                        "velocity_scale",
+                        emitter.velocity_scale.unwrap_or(60.0),
+                    ) as f32;
                     if velocity_scale.abs() <= f32::EPSILON {
                         return RhaiArray::new();
                     }
-                    let spawn_offset = ScriptGameplayApi::map_number(&args, "spawn_offset", emitter.spawn_offset.unwrap_or(6.0)) as f32;
-                    let backward_speed = ScriptGameplayApi::map_number(&args, "backward_speed", emitter.backward_speed.unwrap_or(0.35)) as f32;
-                    let ttl_ms = ScriptGameplayApi::map_int(&args, "ttl_ms", emitter.ttl_ms.unwrap_or(520));
-                    let radius = ScriptGameplayApi::map_int(&args, "radius", emitter.radius.unwrap_or(3));
-                    let cooldown_ms = ScriptGameplayApi::map_int(&args, "cooldown_ms", emitter.cooldown_ms.unwrap_or(48)).max(0);
+                    let spawn_offset = ScriptGameplayApi::map_number(
+                        &args,
+                        "spawn_offset",
+                        emitter.spawn_offset.unwrap_or(6.0),
+                    ) as f32;
+                    let backward_speed = ScriptGameplayApi::map_number(
+                        &args,
+                        "backward_speed",
+                        emitter.backward_speed.unwrap_or(0.35),
+                    ) as f32;
+                    let ttl_ms =
+                        ScriptGameplayApi::map_int(&args, "ttl_ms", emitter.ttl_ms.unwrap_or(520));
+                    let radius =
+                        ScriptGameplayApi::map_int(&args, "radius", emitter.radius.unwrap_or(3));
+                    let cooldown_ms = ScriptGameplayApi::map_int(
+                        &args,
+                        "cooldown_ms",
+                        emitter.cooldown_ms.unwrap_or(48),
+                    )
+                    .max(0);
 
                     let (dir_x, dir_y) = controller.heading_vector();
 
@@ -2661,11 +2680,13 @@ impl ScriptFxApi {
                     );
                     smoke_args.insert(
                         "vx".into(),
-                        (((physics.vx / velocity_scale) - (dir_x * backward_speed)) as rhai::FLOAT).into(),
+                        (((physics.vx / velocity_scale) - (dir_x * backward_speed)) as rhai::FLOAT)
+                            .into(),
                     );
                     smoke_args.insert(
                         "vy".into(),
-                        (((physics.vy / velocity_scale) - (dir_y * backward_speed)) as rhai::FLOAT).into(),
+                        (((physics.vy / velocity_scale) - (dir_y * backward_speed)) as rhai::FLOAT)
+                            .into(),
                     );
                     smoke_args.insert("ttl_ms".into(), ttl_ms.into());
                     smoke_args.insert("radius".into(), radius.into());
@@ -2675,7 +2696,9 @@ impl ScriptFxApi {
                     if smoke_id <= 0 {
                         return RhaiArray::new();
                     }
-                    if cooldown_ms > 0 && !world.cooldown_start(ship_id, &cooldown_name, cooldown_ms as i32) {
+                    if cooldown_ms > 0
+                        && !world.cooldown_start(ship_id, &cooldown_name, cooldown_ms as i32)
+                    {
                         let _ = gameplay.despawn(smoke_id);
                         return RhaiArray::new();
                     }
@@ -3445,7 +3468,7 @@ impl ScriptGameplayApi {
     fn spawn_prefab(&mut self, name: &str, args: RhaiMap) -> rhai::INT {
         // Check if prefab exists in catalog; fall back to hardcoded
         let _prefab_exists_in_catalog = self.catalogs.prefabs.contains_key(name);
-        
+
         match name {
             "ship" => {
                 let cfg = Self::map_map(&args, "cfg").unwrap_or_default();
@@ -3691,10 +3714,13 @@ impl ScriptGameplayApi {
             };
             let (dir_x, dir_y) = controller.heading_vector();
 
-            let spawn_offset = Self::map_number(&args, "spawn_offset", weapon.spawn_offset.unwrap_or(9.0)) as f32;
+            let spawn_offset =
+                Self::map_number(&args, "spawn_offset", weapon.spawn_offset.unwrap_or(9.0)) as f32;
             let bullet_speed = Self::map_number(&args, "bullet_speed", 0.0) as f32;
-            let bullet_ttl_ms = Self::map_int(&args, "bullet_ttl_ms", weapon.bullet_ttl_ms.unwrap_or(0));
-            let shot_cooldown_ms = Self::map_int(&args, "shot_cooldown_ms", weapon.cooldown_ms.unwrap_or(0)).max(0);
+            let bullet_ttl_ms =
+                Self::map_int(&args, "bullet_ttl_ms", weapon.bullet_ttl_ms.unwrap_or(0));
+            let shot_cooldown_ms =
+                Self::map_int(&args, "shot_cooldown_ms", weapon.cooldown_ms.unwrap_or(0)).max(0);
 
             let mut bullet_args = RhaiMap::new();
             bullet_args.insert(
@@ -3721,8 +3747,8 @@ impl ScriptGameplayApi {
             );
             bullet_args.insert("ttl_ms".into(), bullet_ttl_ms.into());
 
-            let bullet_prefab = Self::map_string(&args, "bullet_prefab")
-                .unwrap_or_else(|| "bullet".to_string());
+            let bullet_prefab =
+                Self::map_string(&args, "bullet_prefab").unwrap_or_else(|| "bullet".to_string());
             let bullet_id = self.spawn_prefab(&bullet_prefab, bullet_args);
             if bullet_id <= 0 {
                 return 0;
@@ -3915,7 +3941,11 @@ impl ScriptGameplayApi {
             .unwrap_or_else(|| "gameplay.ship.hit".to_string());
         let audio_gain = ScriptGameplayApi::map_number(&args, "audio_gain", 1.0) as f32;
 
-        let mut fx = ScriptFxApi::new(self.world.clone(), Arc::clone(&self.catalogs), Arc::clone(&self.queue));
+        let mut fx = ScriptFxApi::new(
+            self.world.clone(),
+            Arc::clone(&self.catalogs),
+            Arc::clone(&self.queue),
+        );
         let mut fx_args = RhaiMap::new();
         fx_args.insert("x".into(), (ship_x as rhai::FLOAT).into());
         fx_args.insert("y".into(), (ship_y as rhai::FLOAT).into());
@@ -6684,11 +6714,11 @@ impl BehaviorContext {
 #[cfg(test)]
 mod tests {
     use super::{
-        asteroid_fragment_points_i32, asteroid_points_i32, built_in_behavior, rotate_points_i32,
-        smoke_validate_rhai_script, Behavior, BehaviorCommand, BehaviorContext, BlinkBehavior,
-        BobBehavior, FollowBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior,
-        MenuSelectedBehavior, RhaiScriptBehavior, SceneAudioBehavior, SelectedArrowsBehavior,
-        StageVisibilityBehavior, TimedVisibilityBehavior, catalog,
+        asteroid_fragment_points_i32, asteroid_points_i32, built_in_behavior, catalog,
+        rotate_points_i32, smoke_validate_rhai_script, Behavior, BehaviorCommand, BehaviorContext,
+        BlinkBehavior, BobBehavior, FollowBehavior, MenuCarouselBehavior,
+        MenuCarouselObjectBehavior, MenuSelectedBehavior, RhaiScriptBehavior, SceneAudioBehavior,
+        SelectedArrowsBehavior, StageVisibilityBehavior, TimedVisibilityBehavior,
     };
     use engine_animation::SceneStage;
     use engine_core::effects::Region;

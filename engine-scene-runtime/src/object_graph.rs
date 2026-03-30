@@ -11,6 +11,38 @@
 
 use super::*;
 
+fn cached_arc<T, F>(cache: &mut Option<std::sync::Arc<T>>, build: F) -> std::sync::Arc<T>
+where
+    F: FnOnce() -> T,
+{
+    if let Some(cached) = cache {
+        return std::sync::Arc::clone(cached);
+    }
+    let value = std::sync::Arc::new(build());
+    *cache = Some(std::sync::Arc::clone(&value));
+    value
+}
+
+fn cached_arc_with_gen<T, F>(
+    cache: &mut Option<std::sync::Arc<T>>,
+    cache_gen: &mut u64,
+    current_gen: u64,
+    build: F,
+) -> std::sync::Arc<T>
+where
+    F: FnOnce() -> T,
+{
+    if let Some(cached) = cache {
+        if *cache_gen == current_gen {
+            return std::sync::Arc::clone(cached);
+        }
+    }
+    let value = std::sync::Arc::new(build());
+    *cache = Some(std::sync::Arc::clone(&value));
+    *cache_gen = current_gen;
+    value
+}
+
 impl SceneRuntime {
     /// Returns the runtime scene model after load-time normalization and sorting.
     pub fn scene(&self) -> &Scene {
@@ -53,15 +85,12 @@ impl SceneRuntime {
     pub fn object_states_snapshot(
         &mut self,
     ) -> std::sync::Arc<HashMap<String, ObjectRuntimeState>> {
-        if let Some(cached) = &self.cached_object_states {
-            if self.cached_object_states_gen == self.object_mutation_gen {
-                return std::sync::Arc::clone(cached);
-            }
-        }
-        let arc = std::sync::Arc::new(self.object_states.clone());
-        self.cached_object_states = Some(std::sync::Arc::clone(&arc));
-        self.cached_object_states_gen = self.object_mutation_gen;
-        arc
+        cached_arc_with_gen(
+            &mut self.cached_object_states,
+            &mut self.cached_object_states_gen,
+            self.object_mutation_gen,
+            || self.object_states.clone(),
+        )
     }
 
     pub fn object_kind_snapshot(&self) -> std::sync::Arc<HashMap<String, String>> {
@@ -71,12 +100,9 @@ impl SceneRuntime {
     pub fn obj_camera_states_snapshot(
         &mut self,
     ) -> std::sync::Arc<HashMap<String, ObjCameraState>> {
-        if let Some(cached) = &self.cached_obj_camera_states {
-            return std::sync::Arc::clone(cached);
-        }
-        let arc = std::sync::Arc::new(self.obj_camera_states.clone());
-        self.cached_obj_camera_states = Some(std::sync::Arc::clone(&arc));
-        arc
+        cached_arc(&mut self.cached_obj_camera_states, || {
+            self.obj_camera_states.clone()
+        })
     }
 
     /// Returns the effective object state after inheriting visibility and
@@ -112,11 +138,13 @@ impl SceneRuntime {
     pub fn effective_object_states_snapshot(
         &mut self,
     ) -> std::sync::Arc<HashMap<String, ObjectRuntimeState>> {
-        if !self.effective_states_dirty {
-            if let Some(cached) = &self.cached_effective_states {
-                if self.cached_effective_states_gen == self.object_mutation_gen {
-                    return std::sync::Arc::clone(cached);
-                }
+        if self.effective_states_dirty {
+            self.cached_effective_states = None;
+        }
+        if let Some(cached) = &self.cached_effective_states {
+            if self.cached_effective_states_gen == self.object_mutation_gen {
+                self.effective_states_dirty = false;
+                return std::sync::Arc::clone(cached);
             }
         }
         let snapshot = std::sync::Arc::new(
