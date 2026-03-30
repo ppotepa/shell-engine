@@ -321,8 +321,9 @@ for hit in world.collision_enters("ship", "asteroid") {
 
         if hit_ref.exists() {
             let phys = hit_ref.physics();
+            let crack_dur = h::CRACK_DURATION_MS();
             hit_ref.set_many(#{
-                flash_ms: h::CRACK_DURATION_MS, flash_total_ms: h::CRACK_DURATION_MS, split_pending: true
+                flash_ms: crack_dur, flash_total_ms: crack_dur, split_pending: true
             });
             hit_ref.set_velocity(clamp_f(-phys.vx, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()),
                                 clamp_f(-phys.vy, -4.0 * h::velocity_scale(), 4.0 * h::velocity_scale()));
@@ -347,8 +348,9 @@ for hit in world.collision_enters("bullet", "asteroid") {
     }
     if hit_ref.exists() {
         score += asteroid_score(hit_ref.get_i("/size", 0));
+        let crack_dur = h::CRACK_DURATION_MS();
         hit_ref.set_many(#{
-            flash_ms: h::CRACK_DURATION_MS, flash_total_ms: h::CRACK_DURATION_MS, split_pending: true
+            flash_ms: crack_dur, flash_total_ms: crack_dur, split_pending: true
         });
         h::show_message(scene, game, "HIT", 250);
         diag.info(`hit asteroid=${ast_hit_id}`);

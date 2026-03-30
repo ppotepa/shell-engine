@@ -2,7 +2,7 @@
 // Imported by asteroids-game-loop.rhai and asteroids-render-sync.rhai
 
 // ── Constants ──────────────────────────────────────────────
-const CRACK_DURATION_MS = 1000;
+fn CRACK_DURATION_MS() { 1000 }
 fn velocity_scale() { 60.0 }
 
 // ── Heading arithmetic (0-31 on 32-step circle) ───────────
