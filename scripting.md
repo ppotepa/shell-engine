@@ -160,6 +160,39 @@ The engine enforces separation between three data planes. Scripts bridge them.
 | `world.tag_remove(id, tag)` | Remove tag |
 | `world.tag_has(id, tag)` | Check tag |
 
+#### World Timers
+One-shot named timers that fire after a delay. No closures needed — poll with `timer_fired` each frame.
+
+| Function | Description |
+|---|---|
+| `world.after_ms(label, delay_ms)` | Schedule a named timer; fires once after `delay_ms` ms |
+| `world.timer_fired(label)` | Returns `true` exactly once when the timer fires |
+| `world.cancel_timer(label)` | Cancel a pending timer; returns `true` if it existed |
+
+```rhai
+// Start a respawn countdown
+world.after_ms("respawn_player", 2000);
+
+// Each frame: check if it fired
+if world.timer_fired("respawn_player") {
+    let id = world.spawn_object("ship", #{ x: 40, y: 12 });
+}
+```
+
+#### Bulk Spawn
+| Function | Description |
+|---|---|
+| `world.spawn_group(specs)` | Spawn multiple entities; returns array of IDs |
+
+Each spec map needs `kind: String` and optionally `data: Map`:
+```rhai
+let ids = world.spawn_group([
+    #{ kind: "asteroid", data: #{ size: 3, x: 10, y: 5 } },
+    #{ kind: "asteroid", data: #{ size: 2, x: 30, y: 8 } },
+    #{ kind: "asteroid", data: #{ size: 1, x: 50, y: 3 } },
+]);
+```
+
 #### Components
 | Function | Description |
 |---|---|
@@ -246,8 +279,10 @@ Each hit map: `#{ "kind_a_name": id_a, "kind_b_name": id_b }`
 
 **Input**:
 - `input.down(code)` → bool, `input.any_down()` → bool, `input.down_count()` → int
+- `input.just_pressed(code)` → bool — true only on the **first frame** a key is pressed (not while held)
 - `input.bind_action(name, keys)` — register named action binding (e.g. `input.bind_action("turn_left", [KEY_LEFT, "a", "A"])`)
-- `input.action_down(name)` → bool — query named action
+- `input.action_down(name)` → bool — true while any bound key is held
+- `input.action_just_pressed(name)` → bool — true only on the first frame any bound key is pressed
 
 **Audio**: `audio.cue(name)`, `audio.cue(name, vol)`, `audio.event(name)`, `audio.event(name, gain)`, `audio.play_song(id)`, `audio.stop_song()`
 
@@ -422,6 +457,9 @@ All planned enhancements are complete. The asteroids mod (~1,100 LOC across thre
 - ✅ E7: Collision filtering (`world.collision_enters/stays/exits`)
 - ✅ Sprint 2: `spawn_child`, collision events, action bindings
 - ✅ API polish: `entity.id`, `entity.flag`, `entity.set_flag`, `scene.set_vector`, `scene.set_visible`, `scene.batch`, `world.rand_i`, `world.rand_seed`, `world.set_world_bounds`, `world.enable_wrap_bounds`, `KEY_*` and `LAYER_*` constants, `unit_vec32`, `game.get_i/s/b/f`, `world.any_alive`, `world.distance`
+- ✅ Input edge detection: `input.just_pressed(code)`, `input.action_just_pressed(name)` — fire once per press
+- ✅ World timers: `world.after_ms(label, ms)`, `world.timer_fired(label)`, `world.cancel_timer(label)` — one-shot named delays
+- ✅ Bulk spawn: `world.spawn_group([...])` — spawn array of entities in one call
 
 ### Architecture
 - Engine layer = generic typed systems. Scripts never re-implement physics/collision/timing.

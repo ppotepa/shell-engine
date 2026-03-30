@@ -38,6 +38,10 @@ struct GameplayStore {
     events: Vec<GameplayEvent>,
     rng_seed: u64,
     world_bounds: Option<WrapBounds>,
+    /// Named world-level one-shot timers. Value is remaining milliseconds.
+    world_timers: std::collections::HashMap<String, i64>,
+    /// Labels of world timers that fired this tick (cleared at start of next tick).
+    fired_world_timers: Vec<String>,
 }
 
 impl Default for GameplayStore {
@@ -57,6 +61,8 @@ impl Default for GameplayStore {
             events: Vec::new(),
             rng_seed: 1337,
             world_bounds: None,
+            world_timers: std::collections::HashMap::new(),
+            fired_world_timers: Vec::new(),
         }
     }
 }
@@ -508,6 +514,45 @@ impl GameplayWorld {
             // Keep the entry as long as there are any cooldowns (even at 0)
             !timers.cooldowns.is_empty() || !timers.statuses.is_empty()
         });
+    }
+
+    /// Tick world-level one-shot timers by `dt_ms`. Expired labels are moved to
+    /// `fired_world_timers` and consumed by [`timer_fired`].
+    pub fn tick_world_timers(&self, dt_ms: u64) {
+        let dt = dt_ms as i64;
+        let Ok(mut store) = self.store.lock() else { return };
+        store.fired_world_timers.clear();
+        let mut fired = Vec::new();
+        store.world_timers.retain(|label, remaining| {
+            *remaining -= dt;
+            if *remaining <= 0 {
+                fired.push(label.clone());
+                false
+            } else {
+                true
+            }
+        });
+        store.fired_world_timers = fired;
+    }
+
+    /// Schedule a named one-shot timer that fires after `delay_ms` milliseconds.
+    /// When it fires, `world.timer_fired(label)` returns `true` exactly once.
+    /// Calling `after_ms` again with the same label resets the countdown.
+    pub fn after_ms(&self, label: &str, delay_ms: i64) {
+        let Ok(mut store) = self.store.lock() else { return };
+        store.world_timers.insert(label.to_string(), delay_ms.max(1));
+    }
+
+    /// Returns `true` exactly once when the named timer scheduled with `after_ms` fires.
+    pub fn timer_fired(&self, label: &str) -> bool {
+        let Ok(store) = self.store.lock() else { return false };
+        store.fired_world_timers.contains(&label.to_string())
+    }
+
+    /// Cancel a pending world timer. Returns `true` if it was pending.
+    pub fn cancel_timer(&self, label: &str) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        store.world_timers.remove(label).is_some()
     }
 
     // ── WrapBounds ────────────────────────────────────────────────────────

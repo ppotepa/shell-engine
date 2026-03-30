@@ -70,6 +70,8 @@ pub struct BehaviorContext {
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
     /// Held key set (normalized key codes), exposed to Rhai via `input.down(code)`.
     pub keys_down: Arc<HashSet<String>>,
+    /// Keys that were NOT held last frame but ARE held this frame — fires once per press.
+    pub keys_just_pressed: Arc<HashSet<String>>,
     /// Action bindings: action name → list of bound key codes (from `input.bind_action`).
     pub action_bindings: Arc<HashMap<String, Vec<String>>>,
     /// Sidecar IO frame snapshot (output lines / clear / fullscreen / custom events).
@@ -765,12 +767,18 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("down", |input: &mut ScriptInputApi, code: &str| {
         input.down(code)
     });
+    engine.register_fn("just_pressed", |input: &mut ScriptInputApi, code: &str| {
+        input.just_pressed(code)
+    });
     engine.register_fn("any_down", |input: &mut ScriptInputApi| input.any_down());
     engine.register_fn("down_count", |input: &mut ScriptInputApi| {
         input.down_count()
     });
     engine.register_fn("action_down", |input: &mut ScriptInputApi, action: &str| {
         input.action_down(action)
+    });
+    engine.register_fn("action_just_pressed", |input: &mut ScriptInputApi, action: &str| {
+        input.action_just_pressed(action)
     });
     engine.register_fn("bind_action", |input: &mut ScriptInputApi, action: &str, keys: rhai::Array| {
         input.bind_action(action, keys)
@@ -1284,6 +1292,30 @@ fn init_rhai_engine() -> RhaiEngine {
             world.tag_has(id, tag)
         },
     );
+
+    // ── World timer API ────────────────────────────────────────────────────
+    engine.register_fn("after_ms",
+        |world: &mut ScriptGameplayApi, label: &str, delay_ms: rhai::INT| {
+            world.after_ms(label, delay_ms)
+        },
+    );
+    engine.register_fn("timer_fired",
+        |world: &mut ScriptGameplayApi, label: &str| -> bool {
+            world.timer_fired(label)
+        },
+    );
+    engine.register_fn("cancel_timer",
+        |world: &mut ScriptGameplayApi, label: &str| -> bool {
+            world.cancel_timer(label)
+        },
+    );
+
+    // ── Bulk spawn API ─────────────────────────────────────────────────────
+    engine.register_fn("spawn_group",
+        |world: &mut ScriptGameplayApi, specs: rhai::Array| -> rhai::Array {
+            world.spawn_group(specs)
+        },
+    );
     engine.register_fn(
         "poly_hit",
         |poly_a: RhaiArray,
@@ -1639,6 +1671,7 @@ struct ScriptTerminalApi {
 #[derive(Clone)]
 struct ScriptInputApi {
     keys_down: Arc<HashSet<String>>,
+    keys_just_pressed: Arc<HashSet<String>>,
     action_bindings: Arc<HashMap<String, Vec<String>>>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
@@ -1997,10 +2030,11 @@ impl ScriptTerminalApi {
 impl ScriptInputApi {
     fn new(
         keys_down: Arc<HashSet<String>>,
+        keys_just_pressed: Arc<HashSet<String>>,
         action_bindings: Arc<HashMap<String, Vec<String>>>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
-        Self { keys_down, action_bindings, queue }
+        Self { keys_down, keys_just_pressed, action_bindings, queue }
     }
 
     fn down(&mut self, code: &str) -> bool {
@@ -2009,6 +2043,15 @@ impl ScriptInputApi {
             return false;
         }
         self.keys_down.contains(&normalized)
+    }
+
+    /// Returns `true` only on the first frame a key is pressed (not while held).
+    fn just_pressed(&mut self, code: &str) -> bool {
+        let normalized = normalize_input_code(code);
+        if normalized.is_empty() {
+            return false;
+        }
+        self.keys_just_pressed.contains(&normalized)
     }
 
     fn any_down(&mut self) -> bool {
@@ -2025,6 +2068,15 @@ impl ScriptInputApi {
         keys.iter().any(|k| {
             let n = normalize_input_code(k);
             !n.is_empty() && self.keys_down.contains(&n)
+        })
+    }
+
+    /// Returns `true` only on the first frame any key bound to `action` is pressed.
+    fn action_just_pressed(&mut self, action: &str) -> bool {
+        let Some(keys) = self.action_bindings.get(action) else { return false };
+        keys.iter().any(|k| {
+            let n = normalize_input_code(k);
+            !n.is_empty() && self.keys_just_pressed.contains(&n)
         })
     }
 
@@ -2953,6 +3005,37 @@ impl ScriptGameplayApi {
         world.tag_has(id as u64, tag)
     }
 
+    fn after_ms(&mut self, label: &str, delay_ms: rhai::INT) {
+        let Some(world) = self.world.as_ref() else { return };
+        world.after_ms(label, delay_ms as i64);
+    }
+
+    fn timer_fired(&mut self, label: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.timer_fired(label)
+    }
+
+    fn cancel_timer(&mut self, label: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.cancel_timer(label)
+    }
+
+    /// Spawn multiple entities from an array of spec maps.
+    /// Each map should have `kind: String` and optionally `data: Map`.
+    /// Returns an array of spawned entity IDs.
+    fn spawn_group(&mut self, specs: rhai::Array) -> rhai::Array {
+        let Some(world) = self.world.as_ref() else { return rhai::Array::new() };
+        specs.into_iter().filter_map(|spec| {
+            let map = spec.try_cast::<RhaiMap>()?;
+            let kind = map.get("kind")?.clone().try_cast::<String>()?;
+            let data_dyn = map.get("data").cloned().unwrap_or_default();
+            let data_json = rhai_dynamic_to_json(&data_dyn)
+                .unwrap_or(serde_json::Value::Object(Default::default()));
+            let id = world.spawn(&kind, data_json)?;
+            Some((id as rhai::INT).into())
+        }).collect()
+    }
+
     fn attach_ship_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
         let Some(world) = self.world.as_ref() else { return false };
         let uid = id as u64;
@@ -3852,6 +3935,7 @@ impl Behavior for RhaiScriptBehavior {
                     "input",
                     ScriptInputApi::new(
                         Arc::clone(&ctx.keys_down),
+                        Arc::clone(&ctx.keys_just_pressed),
                         Arc::clone(&ctx.action_bindings),
                         Arc::clone(&helper_commands),
                     ),
@@ -4030,6 +4114,7 @@ fn smoke_probe_context(
         collision_exits: Arc::new(Vec::new()),
         last_raw_key: None,
         keys_down: Arc::new(HashSet::new()),
+        keys_just_pressed: Arc::new(HashSet::new()),
         action_bindings: Arc::new(HashMap::new()),
         sidecar_io: Arc::new(SidecarIoFrameState::default()),
         rhai_time_map: Arc::new(RhaiMap::new()),
@@ -5064,6 +5149,7 @@ mod tests {
             collisions: Arc::new(Vec::new()),
             last_raw_key: None,
             keys_down: Arc::new(HashSet::new()),
+            keys_just_pressed: Arc::new(HashSet::new()),
             action_bindings: Arc::new(HashMap::new()),
             sidecar_io: Arc::new(SidecarIoFrameState::default()),
             rhai_time_map: empty_rhai_time_map(),

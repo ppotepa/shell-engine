@@ -127,6 +127,7 @@ impl SceneRuntime {
             pending_bindings: Vec::new(),
             action_bindings: HashMap::new(),
             prev_collision_pairs: std::collections::HashSet::new(),
+            prev_keys_down: std::collections::HashSet::new(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime

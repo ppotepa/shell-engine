@@ -20,9 +20,10 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         gameplay_world.apply_wrap();
     }
 
-    // Tick entity timers (cooldowns + statuses)
+    // Tick entity timers (cooldowns + statuses) and world-level one-shot timers.
     if let Some(gameplay_world) = world.get::<GameplayWorld>() {
         gameplay_world.tick_timers(dt_ms);
+        gameplay_world.tick_world_timers(dt_ms);
     }
 
     // Lifetime decrement and cleanup

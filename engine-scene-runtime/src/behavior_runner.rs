@@ -80,6 +80,11 @@ impl SceneRuntime {
             .as_ref()
             .map(|k| std::sync::Arc::new(k.clone()));
         let keys_down = std::sync::Arc::new(self.keys_down_snapshot());
+        let keys_just_pressed = std::sync::Arc::new(
+            keys_down.difference(&self.prev_keys_down).cloned().collect::<std::collections::HashSet<_>>(),
+        );
+        // Save current snapshot as previous before we move keys_down into context.
+        let keys_down_for_prev = std::sync::Arc::clone(&keys_down);
 
         // Phase 7C: Build Rhai maps once per frame and wrap in Arc.
         // Behaviors will clone these Arc refs (O(1) refcount) instead of cloning maps (O(n_map)).
@@ -220,6 +225,7 @@ impl SceneRuntime {
             collision_exits,
             last_raw_key,
             keys_down,
+            keys_just_pressed,
             sidecar_io,
             rhai_time_map,
             rhai_menu_map,
@@ -253,6 +259,8 @@ impl SceneRuntime {
         self.cached_effective_states = None;
         self.ui_state.last_submit = None;
         self.ui_state.last_change = None;
+        // Carry forward current keys as previous for next-frame just_pressed computation.
+        self.prev_keys_down = (*keys_down_for_prev).clone();
         commands
     }
 
