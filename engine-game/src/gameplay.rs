@@ -36,6 +36,8 @@ struct GameplayStore {
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
     events: Vec<GameplayEvent>,
+    rng_seed: u64,
+    world_bounds: Option<WrapBounds>,
 }
 
 impl Default for GameplayStore {
@@ -53,6 +55,8 @@ impl Default for GameplayStore {
             ship_controllers: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
+            rng_seed: 1337,
+            world_bounds: None,
         }
     }
 }
@@ -675,6 +679,68 @@ impl GameplayWorld {
             return false;
         };
         push_path(&mut entity.data, path, value)
+    }
+
+    // ── RNG ──────────────────────────────────────────────────────────────
+
+    /// LCG random int in [min, max] inclusive. Advances internal seed.
+    pub fn rand_i(&self, min: i32, max: i32) -> i32 {
+        let Ok(mut store) = self.store.lock() else { return min };
+        store.rng_seed = store.rng_seed.wrapping_mul(1103515245).wrapping_add(12345) & 0x7fff_ffff;
+        let range = (max - min).abs() as u64 + 1;
+        min + (store.rng_seed % range) as i32
+    }
+
+    /// Reset the RNG seed.
+    pub fn rand_seed(&self, seed: i64) {
+        let Ok(mut store) = self.store.lock() else { return };
+        store.rng_seed = seed as u64 & 0x7fff_ffff;
+    }
+
+    // ── World-level wrap bounds ───────────────────────────────────────────
+
+    /// Store global world bounds (used by enable_wrap_bounds).
+    pub fn set_world_bounds(&self, min_x: f32, max_x: f32, min_y: f32, max_y: f32) {
+        let Ok(mut store) = self.store.lock() else { return };
+        store.world_bounds = Some(WrapBounds { min_x, max_x, min_y, max_y });
+    }
+
+    /// Read global world bounds.
+    pub fn world_bounds(&self) -> Option<WrapBounds> {
+        let Ok(store) = self.store.lock() else { return None };
+        store.world_bounds
+    }
+
+    /// Enable wrap on entity using stored world bounds. No-op if world bounds not set.
+    pub fn enable_wrap_bounds(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        let Some(bounds) = store.world_bounds else { return false };
+        if !store.entities.contains_key(&id) { return false }
+        store.wrap_bounds.insert(id, bounds);
+        true
+    }
+
+    // ── Entity tag mutation ───────────────────────────────────────────────
+
+    /// Add a runtime tag to an entity. Returns false if entity does not exist.
+    pub fn tag_add(&self, id: u64, tag: &str) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        let Some(entity) = store.entities.get_mut(&id) else { return false };
+        entity.tags.insert(tag.to_string());
+        true
+    }
+
+    /// Remove a runtime tag from an entity.
+    pub fn tag_remove(&self, id: u64, tag: &str) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false };
+        let Some(entity) = store.entities.get_mut(&id) else { return false };
+        entity.tags.remove(tag)
+    }
+
+    /// Check if an entity has a specific runtime tag.
+    pub fn tag_has(&self, id: u64, tag: &str) -> bool {
+        let Ok(store) = self.store.lock() else { return false };
+        store.entities.get(&id).map(|e| e.tags.contains(tag)).unwrap_or(false)
     }
 }
 

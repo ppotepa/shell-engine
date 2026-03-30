@@ -674,6 +674,33 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("is_blank", |value: &str| -> bool {
         value.chars().all(char::is_whitespace)
     });
+
+    // ── Key code and layer constants ──────────────────────────────────────
+    // Registered as a global module so scripts can reference KEY_*, LAYER_*
+    // without any scope injection per call.
+    {
+        let mut m = rhai::Module::new();
+        m.set_var("KEY_LEFT",     "Left");
+        m.set_var("KEY_RIGHT",    "Right");
+        m.set_var("KEY_UP",       "Up");
+        m.set_var("KEY_DOWN",     "Down");
+        m.set_var("KEY_SPACE",    " ");
+        m.set_var("KEY_ESC",      "Esc");
+        m.set_var("KEY_ENTER",    "Enter");
+        m.set_var("KEY_BACKSPACE","Backspace");
+        m.set_var("KEY_TAB",      "Tab");
+        m.set_var("KEY_F1",  "F1");  m.set_var("KEY_F2",  "F2");
+        m.set_var("KEY_F3",  "F3");  m.set_var("KEY_F4",  "F4");
+        m.set_var("KEY_F5",  "F5");  m.set_var("KEY_F6",  "F6");
+        m.set_var("KEY_F7",  "F7");  m.set_var("KEY_F8",  "F8");
+        m.set_var("KEY_F9",  "F9");  m.set_var("KEY_F10", "F10");
+        m.set_var("KEY_F11", "F11"); m.set_var("KEY_F12", "F12");
+        m.set_var("LAYER_ALL",     0xFFFF_i64);
+        m.set_var("LAYER_NONE",    0_i64);
+        m.set_var("LAYER_DEFAULT", 0xFFFF_i64);
+        engine.register_global_module(m.into());
+    }
+
     engine.register_type_with_name::<ScriptSceneApi>("SceneApi");
     engine.register_type_with_name::<ScriptObjectApi>("SceneObject");
     engine.register_type_with_name::<ScriptGameApi>("GameApi");
@@ -701,6 +728,24 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn(
         "despawn_object",
         |scene: &mut ScriptSceneApi, target: &str| scene.despawn(target),
+    );
+    engine.register_fn(
+        "set_vector",
+        |scene: &mut ScriptSceneApi, id: &str, points: RhaiDynamic, fg: &str, bg: &str| {
+            scene.set_vector(id, points, fg, bg);
+        },
+    );
+    engine.register_fn(
+        "set_visible",
+        |scene: &mut ScriptSceneApi, id: &str, visible: bool| {
+            scene.set_visible(id, visible);
+        },
+    );
+    engine.register_fn(
+        "batch",
+        |scene: &mut ScriptSceneApi, id: &str, props: RhaiMap| {
+            scene.batch(id, props);
+        },
     );
     engine.register_fn("get", |object: &mut ScriptObjectApi, path: &str| {
         object.get(path)
@@ -776,6 +821,18 @@ fn init_rhai_engine() -> RhaiEngine {
     );
     engine.register_fn("jump", |game: &mut ScriptGameApi, scene_id: &str| {
         game.jump(scene_id)
+    });
+    engine.register_fn("get_i", |game: &mut ScriptGameApi, path: &str, fallback: rhai::INT| {
+        game.get_i(path, fallback)
+    });
+    engine.register_fn("get_s", |game: &mut ScriptGameApi, path: &str, fallback: &str| {
+        game.get_s(path, fallback)
+    });
+    engine.register_fn("get_b", |game: &mut ScriptGameApi, path: &str, fallback: bool| {
+        game.get_b(path, fallback)
+    });
+    engine.register_fn("get_f", |game: &mut ScriptGameApi, path: &str, fallback: rhai::FLOAT| {
+        game.get_f(path, fallback)
     });
     engine.register_fn("get", |level: &mut ScriptLevelApi, path: &str| {
         level.get(path)
@@ -995,6 +1052,15 @@ fn init_rhai_engine() -> RhaiEngine {
             world.despawn_children_of(parent_id)
         },
     );
+    engine.register_fn(
+        "distance",
+        |world: &mut ScriptGameplayApi, a: rhai::INT, b: rhai::INT| -> rhai::FLOAT {
+            world.distance(a, b)
+        },
+    );
+    engine.register_fn("any_alive", |world: &mut ScriptGameplayApi, kind: &str| -> bool {
+        world.any_alive(kind)
+    });
     engine.register_fn("exists", |entity: &mut ScriptGameplayEntityApi| {
         entity.exists()
     });
@@ -1085,6 +1151,18 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("despawn", |entity: &mut ScriptGameplayEntityApi| {
         entity.despawn()
     });
+    engine.register_fn("id", |entity: &mut ScriptGameplayEntityApi| -> rhai::INT {
+        entity.id()
+    });
+    engine.register_fn("flag", |entity: &mut ScriptGameplayEntityApi, name: &str| -> bool {
+        entity.flag(name)
+    });
+    engine.register_fn(
+        "set_flag",
+        |entity: &mut ScriptGameplayEntityApi, name: &str, value: bool| -> bool {
+            entity.set_flag(name, value)
+        },
+    );
 
     // ── Cooldown API ──────────────────────────────────────────────────────
     engine.register_fn("cooldown_start",
@@ -1382,6 +1460,21 @@ fn init_rhai_engine() -> RhaiEngine {
     engine.register_fn("sin32", |idx: rhai::INT| -> rhai::INT {
         sin32_i32(to_i32(idx)) as rhai::INT
     });
+    engine.register_fn("unit_vec32", |heading: rhai::INT| -> RhaiMap {
+        let h = ((heading % 32 + 32) % 32) as usize;
+        const SIN32: [f32; 32] = [
+             0.0,    0.1951, 0.3827, 0.5556, 0.7071, 0.8315, 0.9239, 0.9808,
+             1.0,    0.9808, 0.9239, 0.8315, 0.7071, 0.5556, 0.3827, 0.1951,
+             0.0,   -0.1951,-0.3827,-0.5556,-0.7071,-0.8315,-0.9239,-0.9808,
+            -1.0,   -0.9808,-0.9239,-0.8315,-0.7071,-0.5556,-0.3827,-0.1951,
+        ];
+        let sin_v = SIN32[h];
+        let cos_v = SIN32[(h + 8) % 32];
+        let mut map = RhaiMap::new();
+        map.insert("x".into(), (sin_v as rhai::FLOAT).into());
+        map.insert("y".into(), (-cos_v as rhai::FLOAT).into());
+        map
+    });
     // TODO: Move to mod-level shared script once Rhai module system is added (A4)
     engine.register_fn("ship_points", |heading: rhai::INT| -> RhaiArray {
         points_to_rhai_array(ship_points_i32(to_i32(heading)))
@@ -1646,6 +1739,22 @@ impl ScriptSceneApi {
         });
         true
     }
+
+    fn set_vector(&mut self, id: &str, points: RhaiDynamic, fg: &str, bg: &str) {
+        self.set(id, "vector.points", points);
+        self.set(id, "vector.fg", fg.to_string().into());
+        self.set(id, "vector.bg", bg.to_string().into());
+    }
+
+    fn set_visible(&mut self, id: &str, visible: bool) {
+        self.set(id, "props.visible", visible.into());
+    }
+
+    fn batch(&mut self, id: &str, props: RhaiMap) {
+        for (key, value) in props {
+            self.set(id, key.as_str(), value);
+        }
+    }
 }
 
 impl ScriptObjectApi {
@@ -1732,6 +1841,22 @@ impl ScriptGameApi {
             to_scene_id: to_scene_id.to_string(),
         });
         true
+    }
+
+    fn get_i(&mut self, path: &str, fallback: rhai::INT) -> rhai::INT {
+        self.get(path).try_cast::<rhai::INT>().unwrap_or(fallback)
+    }
+
+    fn get_s(&mut self, path: &str, fallback: &str) -> String {
+        self.get(path).try_cast::<String>().unwrap_or_else(|| fallback.to_string())
+    }
+
+    fn get_b(&mut self, path: &str, fallback: bool) -> bool {
+        self.get(path).try_cast::<bool>().unwrap_or(fallback)
+    }
+
+    fn get_f(&mut self, path: &str, fallback: rhai::FLOAT) -> rhai::FLOAT {
+        self.get(path).try_cast::<rhai::FLOAT>().unwrap_or(fallback)
     }
 }
 
@@ -2833,6 +2958,25 @@ impl ScriptGameplayApi {
         }
     }
 
+    fn distance(&mut self, a: rhai::INT, b: rhai::INT) -> rhai::FLOAT {
+        let Some(world) = self.world.as_ref() else { return 0.0 };
+        let ta = world.transform(a as u64);
+        let tb = world.transform(b as u64);
+        match (ta, tb) {
+            (Some(a), Some(b)) => {
+                let dx = a.x - b.x;
+                let dy = a.y - b.y;
+                ((dx * dx + dy * dy) as rhai::FLOAT).sqrt()
+            }
+            _ => 0.0,
+        }
+    }
+
+    fn any_alive(&mut self, kind: &str) -> bool {
+        let Some(world) = self.world.as_ref() else { return false };
+        world.count_kind(kind) > 0
+    }
+
 }
 
 impl ScriptGameplayEntityApi {
@@ -2841,6 +2985,20 @@ impl ScriptGameplayEntityApi {
             return false;
         };
         world.exists(self.id)
+    }
+
+    fn id(&mut self) -> rhai::INT {
+        self.id as rhai::INT
+    }
+
+    fn flag(&mut self, name: &str) -> bool {
+        let path = format!("/{}", name);
+        self.get_bool(&path, false)
+    }
+
+    fn set_flag(&mut self, name: &str, value: bool) -> bool {
+        let path = format!("/{}", name);
+        self.set(&path, value.into())
     }
 
     fn despawn(&mut self) -> bool {
