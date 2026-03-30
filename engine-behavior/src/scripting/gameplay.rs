@@ -9,6 +9,7 @@ use engine_game::{GameplayWorld, CollisionHit, Lifetime, PhysicsBody2D, Transfor
 use engine_core::game_state::GameState;
 
 use crate::{BehaviorCommand, catalog};
+use crate::geometry::{asteroid_fragment_points_i32, asteroid_radius_i32, asteroid_score_i32, rotate_points_i32, to_i32, rhai_array_to_points, points_to_rhai_array};
 
 pub(crate) use super::gameplay_impl::{ScriptGameplayApi, ScriptGameplayEntityApi};
 
@@ -379,5 +380,47 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn(
         "set_thrust",
         |entity: &mut ScriptGameplayEntityApi, on: bool| entity.set_thrust(on),
+    );
+
+    // ── Geometry utilities ───────────────────────────────────────────────────────
+    // TODO: Move to mod-level shared script once Rhai module system is added (A4)
+    engine.register_fn(
+        "rotate_points",
+        |points: rhai::Array, heading: rhai::INT| -> rhai::Array {
+            let points = rhai_array_to_points(&points);
+            points_to_rhai_array(rotate_points_i32(&points, to_i32(heading)))
+        },
+    );
+    engine.register_fn(
+        "asteroid_fragment_points",
+        |shape: rhai::INT, size: rhai::INT, fragment: rhai::INT| -> rhai::Array {
+            points_to_rhai_array(asteroid_fragment_points_i32(
+                to_i32(shape),
+                to_i32(size),
+                to_i32(fragment),
+            ))
+        },
+    );
+    engine.register_fn("asteroid_radius", |size: rhai::INT| -> rhai::INT {
+        asteroid_radius_i32(to_i32(size)) as rhai::INT
+    });
+    engine.register_fn("asteroid_score", |size: rhai::INT| -> rhai::INT {
+        asteroid_score_i32(to_i32(size)) as rhai::INT
+    });
+
+    // ── Numeric utility functions ────────────────────────────────────────────
+    engine.register_fn("to_i", |v: rhai::INT| -> rhai::INT { v });
+    engine.register_fn("to_i", |v: rhai::FLOAT| -> rhai::INT { v as rhai::INT });
+    engine.register_fn(
+        "clamp_i",
+        |v: rhai::INT, min_v: rhai::INT, max_v: rhai::INT| -> rhai::INT {
+            if v < min_v {
+                min_v
+            } else if v > max_v {
+                max_v
+            } else {
+                v
+            }
+        },
     );
 }
