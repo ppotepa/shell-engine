@@ -307,12 +307,18 @@ Purpose: address the broader foundation-layer issues from the review so “base�
 - [x] Created gameplay_impl.rs for large gameplay API implementations (2,501 lines)
 - [x] Made all API methods pub(crate) for inter-module visibility
 - [x] Fixed imports: gameplay_impl imports ScriptFxApi, ScriptUiApi, geometry, rhai_util
-- [x] Created ScriptPhysicsApi (314 lines) — generic physics operations
+- [x] Created ScriptPhysicsApi (world-level, id-based operations)
   - velocity/set_velocity/add_velocity, acceleration/set_acceleration/add_acceleration
   - drag/max_speed controls, collider inspect/set operations
   - Auto-detects 2D context from GameplayWorld (no config required)
+- [x] Created ScriptEntityPhysicsApi (entity-level property operations)
+  - Implicit ID binding: entity knows which entity it belongs to
+  - Accessed as `entity.physics.velocity()`, `entity.physics.set_velocity()`, etc.
+  - Enables property chaining pattern: object → domain → operation
+- [x] Updated Asteroids script: `ship.physics().vx` → `ship.physics.velocity()[0]`
+- [x] Removed old physics registrations from gameplay API (enforced SRP)
 - [x] All 68 tests pass; Asteroids scene validation passes
-- [x] SRP maintained: physics separated from gameplay domain
+- [x] SRP maintained: physics separated into dedicated domain with clean interfaces
 
 ### 11.1 Foundation crate slimming
 - [ ] Identify neutral shared types versus diagnostics versus state versus authoring metadata concerns.
