@@ -9,8 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use crate::components::{Collider2D, EntityTimers, GameplayEvent, Health, Lifetime, PhysicsBody2D, SplitOnDestroy, TopDownShipController, Transform2D, VisualBinding, WrapBounds};
-use crate::prefabs::{PrefabSpec, SpawnParams};
-use crate::particles::{ParticleEffectType, ParticleFxFactory};
+
 
 /// Snapshot of a spawned gameplay entity.
 #[derive(Clone, Debug, PartialEq)]
@@ -35,8 +34,6 @@ struct GameplayStore {
     ship_controllers: BTreeMap<u64, TopDownShipController>,
     health: BTreeMap<u64, Health>,
     split_on_destroy: BTreeMap<u64, SplitOnDestroy>,
-    /// Prefab registry (prefab_id -> PrefabSpec).
-    prefabs: BTreeMap<String, PrefabSpec>,
     /// Gameplay events accumulated this frame (cleared each frame start).
     events: Vec<GameplayEvent>,
 }
@@ -56,7 +53,6 @@ impl Default for GameplayStore {
             ship_controllers: BTreeMap::new(),
             health: BTreeMap::new(),
             split_on_destroy: BTreeMap::new(),
-            prefabs: BTreeMap::new(),
             events: Vec::new(),
         }
     }
@@ -748,131 +744,6 @@ impl GameplayWorld {
             return false;
         };
         push_path(&mut entity.data, path, value)
-    }
-
-    // ─── Prefab Registry ───
-
-    /// Register a prefab with the given ID.
-    pub fn register_prefab(&self, prefab_id: &str, spec: PrefabSpec) -> bool {
-        let Ok(mut store) = self.store.lock() else {
-            return false;
-        };
-        store.prefabs.insert(prefab_id.to_string(), spec);
-        true
-    }
-
-    /// Get a registered prefab by ID (returns a clone).
-    pub fn get_prefab(&self, prefab_id: &str) -> Option<PrefabSpec> {
-        let Ok(store) = self.store.lock() else {
-            return None;
-        };
-        store.prefabs.get(prefab_id).cloned()
-    }
-
-    /// Check if a prefab is registered.
-    pub fn has_prefab(&self, prefab_id: &str) -> bool {
-        let Ok(store) = self.store.lock() else {
-            return false;
-        };
-        store.prefabs.contains_key(prefab_id)
-    }
-
-    /// Spawn an entity from a prefab with optional parameter overrides.
-    ///
-    /// Creates a new entity using the prefab's components and configuration,
-    /// applying any overrides from `params` (position, velocity, size_delta, etc.).
-    ///
-    /// Returns the spawned entity's ID.
-    pub fn spawn_from_prefab(&self, prefab_id: &str, params: SpawnParams) -> Option<u64> {
-        let prefab = self.get_prefab(prefab_id)?;
-
-        // Start with prefab's payload or empty object
-        let payload = prefab.payload.clone().unwrap_or_else(|| json!({}));
-
-        // Spawn the entity
-        let entity_id = self.spawn(&prefab.kind, payload)?;
-
-        // Apply prefab components to the spawned entity
-        let mut xf = prefab.transform.unwrap_or_default();
-        if let Some((x, y)) = params.position {
-            xf.x = x;
-            xf.y = y;
-        }
-        if let Some(heading) = params.heading {
-            xf.heading = heading;
-        }
-        let _ = self.set_transform(entity_id, xf);
-
-        if let Some(mut physics) = prefab.physics {
-            if let Some((vx, vy)) = params.velocity {
-                physics.vx = vx;
-                physics.vy = vy;
-            }
-            let _ = self.set_physics(entity_id, physics);
-        }
-
-        if let Some(collider) = prefab.collider {
-            let _ = self.set_collider(entity_id, collider);
-        }
-
-        if let Some(visual) = prefab.visual {
-            let _ = self.set_visual(entity_id, visual);
-        }
-
-        if let Some(lifetime) = prefab.lifetime {
-            let _ = self.set_lifetime(entity_id, lifetime);
-        }
-
-        if let Some(wrap_bounds) = prefab.wrap_bounds {
-            let _ = self.set_wrap_bounds(entity_id, wrap_bounds);
-        }
-
-        if let Some(controller) = prefab.ship_controller {
-            let _ = self.attach_controller(entity_id, controller);
-        }
-
-        if let Some(health) = prefab.health {
-            // Apply size_delta if present (might modify health)
-            // For now, just set as-is; size_delta is for visual/physics scaling
-            let _ = self.set_health(entity_id, health.hp, health.max_hp);
-        }
-
-        if let Some(mut split) = prefab.split_on_destroy {
-            // Apply size_delta to split config if provided
-            if let Some(delta) = params.size_delta {
-                split.size_delta = delta;
-            }
-            let _ = self.set_split_on_destroy(entity_id, split);
-        }
-
-        // Note: timers (cooldowns/statuses) are set individually via cooldown_start, status_start
-        // rather than as a bulk component, since they're typically per-entity state
-
-        Some(entity_id)
-    }
-
-    // ─── Particle Effects ───
-
-    /// Spawn a particle effect at the given position.
-    ///
-    /// Creates a visual effect entity (explosion, smoke, etc.) at (x, y) with optional velocity.
-    /// Effects are short-lived and automatically despawned when their lifetime expires.
-    pub fn spawn_effect(&self, effect_type: ParticleEffectType, x: f32, y: f32, _velocity_scale: f32) -> Option<u64> {
-        // Register the effect prefab if not already registered
-        let prefab_id = format!("particle_{}", effect_type.as_str());
-        if !self.has_prefab(&prefab_id) {
-            let prefab = ParticleFxFactory::get_prefab(effect_type);
-            let _ = self.register_prefab(&prefab_id, prefab);
-        }
-
-        // Create spawn parameters with position
-        let params = SpawnParams::new().with_position(x, y);
-
-        // Apply velocity scaling if requested
-        // Random velocity spread would be applied at scene level or in behaviors
-        // _velocity_scale parameter reserved for future use
-
-        self.spawn_from_prefab(&prefab_id, params)
     }
 }
 

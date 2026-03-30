@@ -148,11 +148,6 @@ pub fn game_loop(
         systems::behavior::behavior_system(world);
         let t1 = Instant::now();
 
-        // Process destructibles (entities that died and need children spawned)
-        if let Some(gameplay_world) = world.get::<GameplayWorld>() {
-            systems::destructible::destructible_system(&gameplay_world, tick_ms);
-        }
-
         systems::audio_sequencer::audio_sequencer_system(world, tick_ms);
         engine_audio::audio_system(world);
         let t1b = Instant::now();

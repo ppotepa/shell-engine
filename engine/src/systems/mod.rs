@@ -6,7 +6,6 @@ pub mod compositor;
 pub mod engine_io;
 pub mod gameplay;
 pub mod collision;
-pub mod destructible;
 pub mod gameplay_events;
 pub mod ship_controller;
 pub mod visual_binding;
