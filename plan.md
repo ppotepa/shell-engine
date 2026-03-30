@@ -230,9 +230,12 @@ Purpose: slim down lifecycle orchestration by extracting debug/input-specific he
 Purpose: finish smaller, high-value simplifications that are not large enough to warrant full standalone phases.
 
 ### 9.1 Effect boilerplate cleanup
-- [ ] Identify repeated math/render helpers in complex effects.
-- [ ] Move the repeated helpers into shared utility functions.
-- [ ] Leave effect-specific behavior local to the effect.
+- [x] Identify repeated math/render helpers in complex effects.
+- [x] Move the repeated helpers into shared utility functions (in_region_i32, in_region_i32_x, in_region_u16_x, apply_to_neighborhood_3x3, get_effect_color).
+- [x] Leave effect-specific behavior local to the effect.
+- [x] Refactored lightning.rs: 1800 → 1776 LOC (24 LOC removed); replaced 25+ multi-line bounds checks with single-line helpers; refactored apply_glow and color extraction patterns.
+- [x] Validated with Asteroids mod scene checks (all pass).
+- Progress: 24 LOC saved; bounds-check pattern established for reuse in other effects.
 
 ### 9.2 SDL runtime cleanup
 - [ ] Separate setup, frame presentation, and lifecycle housekeeping into focused helpers.
