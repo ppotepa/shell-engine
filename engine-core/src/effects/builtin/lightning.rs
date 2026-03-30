@@ -287,6 +287,10 @@ fn in_region_i32_x(x: i32, region: Region) -> bool {
     x >= region.x as i32 && x < (region.x + region.width) as i32
 }
 
+fn in_region_u16_x(x: u16, region: Region) -> bool {
+    x >= region.x && x < region.x + region.width
+}
+
 fn apply_to_neighborhood_3x3<F>(region: Region, cx: u16, cy: u16, mut f: F)
 where
     F: FnMut(u16, u16),
@@ -912,7 +916,7 @@ impl Effect for LightningOptical80sEffect {
                 x = x.clamp(0.0, (w - 1) as f32);
                 let abs_x = region.x + x.round() as u16;
 
-                if abs_x < region.x || abs_x >= region.x + region.width {
+                if !in_region_u16_x(abs_x, region) {
                     continue;
                 }
 
@@ -922,7 +926,7 @@ impl Effect for LightningOptical80sEffect {
                         continue;
                     }
                     for gx in abs_x.saturating_sub(1)..=abs_x.saturating_add(1) {
-                        if gx < region.x || gx >= region.x + region.width {
+                        if !in_region_u16_x(gx, region) {
                             continue;
                         }
                         let halation = (0.24 + 0.30 * intensity) * decay;
