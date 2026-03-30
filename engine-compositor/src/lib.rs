@@ -17,6 +17,7 @@ pub mod layout;
 pub mod obj_loader;
 pub mod obj_prerender;
 pub mod obj_render;
+pub mod obj_render_helpers;
 pub mod prerender;
 pub mod provider;
 pub mod render;
