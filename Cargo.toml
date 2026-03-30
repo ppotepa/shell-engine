@@ -59,3 +59,18 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+# Fast release profile for development/iteration (20-30s build time)
+# Use with: cargo build --profile fast-release
+[profile.fast-release]
+inherits = "release"
+lto = "thin"           # Thin LTO: 50% of full LTO speed, 90% of performance
+codegen-units = 4      # Parallel codegen (4x faster linking)
+strip = true
+
+# Ultra-fast profile for rapid iteration (5-10s build time)
+# Use with: cargo build --profile dev-opt or cargo run --profile dev-opt
+[profile.dev-opt]
+inherits = "dev"
+opt-level = 2          # Basic optimizations
+codegen-units = 256    # Maximum parallelism
