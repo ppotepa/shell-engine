@@ -293,7 +293,7 @@ Purpose: capture the review’s secondary editor-side signals so the simplificat
 
 Purpose: address the broader foundation-layer issues from the review so “base” crates stop accumulating mixed responsibilities.
 
-**Status:** Stage A & C (pure helpers + scripting domain separation) 100% COMPLETE ✅
+**Status:** Stages A, B, C (pure helpers + builtin behaviors + scripting domain separation) 100% COMPLETE ✅
 
 **Stage A** — Pure helpers extraction:
 - [x] Created geometry.rs (125 lines), rhai_util.rs (198 lines), emit.rs (88 lines) modules
@@ -319,6 +319,22 @@ Purpose: address the broader foundation-layer issues from the review so “base�
 - [x] Removed old physics registrations from gameplay API (enforced SRP)
 - [x] All 68 tests pass; Asteroids scene validation passes
 - [x] SRP maintained: physics separated into dedicated domain with clean interfaces
+
+**Stage B** — Builtin behavior extraction (100% COMPLETE):
+- [x] Created builtins/ module directory with 8 focused files
+- [x] Extracted 10 builtin behavior structs from lib.rs into separate modules:
+  - audio.rs: SceneAudioBehavior
+  - blink.rs: BlinkBehavior
+  - bob.rs: BobBehavior
+  - follow.rs: FollowBehavior
+  - stage.rs: StageVisibilityBehavior, TimedVisibilityBehavior
+  - menu.rs: MenuSelectedBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior
+  - arrows.rs: SelectedArrowsBehavior
+  - mod.rs: Orchestration and public re-exports
+- [x] Removed 559 LOC from lib.rs (behavior definitions)
+- [x] Public re-exports maintain API compatibility
+- [x] All 68 tests pass; Asteroids scene validation passes
+- [x] Behaviors easier to understand and modify independently
 
 ### 11.1 Foundation crate slimming
 - [ ] Identify neutral shared types versus diagnostics versus state versus authoring metadata concerns.
