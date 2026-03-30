@@ -300,14 +300,19 @@ Purpose: address the broader foundation-layer issues from the review so “base�
 - [x] Removed duplicate definitions from lib.rs (507 LOC)
 - [x] Added glob imports in lib.rs
 
-**Stage C** — Scripting domain separation (50% → 100%):
+**Stage C** — Scripting domain separation (100% COMPLETE):
 - [x] Created scripting/ module directory with domain-organized submodules
 - [x] Created scripting/mod.rs orchestration with register_all_domains()
-- [x] Extracted audio, ui, game, io, scene, debug, gameplay domain modules
+- [x] Extracted 8 domain modules: audio, debug, game, io, physics, scene, ui, gameplay
 - [x] Created gameplay_impl.rs for large gameplay API implementations (2,501 lines)
 - [x] Made all API methods pub(crate) for inter-module visibility
 - [x] Fixed imports: gameplay_impl imports ScriptFxApi, ScriptUiApi, geometry, rhai_util
+- [x] Created ScriptPhysicsApi (314 lines) — generic physics operations
+  - velocity/set_velocity/add_velocity, acceleration/set_acceleration/add_acceleration
+  - drag/max_speed controls, collider inspect/set operations
+  - Auto-detects 2D context from GameplayWorld (no config required)
 - [x] All 68 tests pass; Asteroids scene validation passes
+- [x] SRP maintained: physics separated from gameplay domain
 
 ### 11.1 Foundation crate slimming
 - [ ] Identify neutral shared types versus diagnostics versus state versus authoring metadata concerns.
