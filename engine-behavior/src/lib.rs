@@ -3492,6 +3492,27 @@ impl ScriptGameplayApi {
     }
 
     fn spawn_group(&mut self, group_name: &str, prefab_name: &str) -> RhaiArray {
+        // Try to load from catalog first
+        if let Some(group) = self.catalogs.groups.get(group_name) {
+            if group.prefab == prefab_name {
+                let spawns = group.spawns.clone();
+                return spawns
+                    .iter()
+                    .map(|spec| {
+                        let mut args = RhaiMap::new();
+                        args.insert("x".into(), (spec.x).into());
+                        args.insert("y".into(), (spec.y).into());
+                        args.insert("vx".into(), (spec.vx).into());
+                        args.insert("vy".into(), (spec.vy).into());
+                        args.insert("shape".into(), (spec.shape).into());
+                        args.insert("size".into(), (spec.size).into());
+                        self.spawn_prefab(prefab_name, args).into()
+                    })
+                    .collect();
+            }
+        }
+
+        // Fall back to hardcoded groups
         let spawns: &[(
             rhai::FLOAT,
             rhai::FLOAT,
@@ -3902,6 +3923,95 @@ impl ScriptGameplayApi {
     }
 
     fn spawn_wave(&mut self, wave_name: &str, args: RhaiMap) -> RhaiArray {
+        // Try to load from catalog first
+        if let Some(wave) = self.catalogs.waves.get(wave_name) {
+            let spawn_count = Self::map_int(&args, "spawn_count", 0).max(0);
+            let ship_x = Self::map_number(&args, "ship_x", 0.0) as i64;
+            let ship_y = Self::map_number(&args, "ship_y", 0.0) as i64;
+            let min_x = Self::map_number(&args, "min_x", -320.0) as i64;
+            let max_x = Self::map_number(&args, "max_x", 320.0) as i64;
+            let min_y = Self::map_number(&args, "min_y", -240.0) as i64;
+            let max_y = Self::map_number(&args, "max_y", 240.0) as i64;
+
+            let wave_prefab = wave.prefab.clone();
+            let size_distribution = wave.size_distribution.clone();
+
+            fn respawn_x(seed: i64, min_x: i64, max_x: i64, ship_x: i64) -> i64 {
+                let mut x = if (seed % 2) == 0 {
+                    min_x + 10
+                } else {
+                    max_x - 10
+                };
+                if (x - ship_x).abs() < 90 {
+                    x = if x < 0 { max_x - 10 } else { min_x + 10 };
+                }
+                x
+            }
+
+            fn respawn_y(seed: i64, min_y: i64, max_y: i64, ship_y: i64) -> i64 {
+                let span = (max_y - min_y) - 20;
+                if span <= 0 {
+                    return min_y + 10;
+                }
+                let mut y = min_y + 10 + seed.rem_euclid(span);
+                if (y - ship_y).abs() < 70 {
+                    y += 76;
+                    if y > max_y - 10 {
+                        y = min_y + 10;
+                    }
+                }
+                y
+            }
+
+            fn speed_for_seed(seed: i64) -> i64 {
+                let v = seed.rem_euclid(3) + 1;
+                if ((seed / 7) % 2) == 0 {
+                    v
+                } else {
+                    -v
+                }
+            }
+
+            return (0..spawn_count)
+                .filter_map(|idx| {
+                    // Find size for this index based on distribution
+                    let mut size = 1i64;
+                    for dist in &size_distribution {
+                        if idx >= dist.min_idx && dist.max_idx.map_or(true, |max| idx < max) {
+                            size = dist.size;
+                            break;
+                        }
+                    }
+
+                    let rx = self.rand_i(0, 2_147_483_646);
+                    let ry = self.rand_i(0, 2_147_483_646);
+                    let mut spawn_args = RhaiMap::new();
+                    spawn_args.insert(
+                        "x".into(),
+                        (respawn_x(rx, min_x, max_x, ship_x) as rhai::FLOAT).into(),
+                    );
+                    spawn_args.insert(
+                        "y".into(),
+                        (respawn_y(ry, min_y, max_y, ship_y) as rhai::FLOAT).into(),
+                    );
+                    spawn_args.insert(
+                        "vx".into(),
+                        (speed_for_seed(self.rand_i(0, 2_147_483_646)) as rhai::FLOAT).into(),
+                    );
+                    spawn_args.insert(
+                        "vy".into(),
+                        (speed_for_seed(self.rand_i(0, 2_147_483_646)) as rhai::FLOAT).into(),
+                    );
+                    spawn_args.insert("shape".into(), self.rand_i(0, 3).into());
+                    spawn_args.insert("size".into(), size.into());
+
+                    let asteroid_id = self.spawn_prefab(&wave_prefab, spawn_args);
+                    (asteroid_id > 0).then(|| asteroid_id.into())
+                })
+                .collect();
+        }
+
+        // Fall back to hardcoded waves
         fn respawn_x(seed: i64, min_x: i64, max_x: i64, ship_x: i64) -> i64 {
             let mut x = if (seed % 2) == 0 {
                 min_x + 10
