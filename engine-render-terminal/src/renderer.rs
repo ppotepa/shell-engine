@@ -456,8 +456,17 @@ fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayDa
             let object_info = object_count
                 .map(|count| count.to_string())
                 .unwrap_or_else(|| "-".to_string());
+            let gw_diag = world.gameplay_diagnostics();
+            let gw_info = gw_diag
+                .map(|d| format!("ent:{} vis:{} — {}", d.entity_count, d.visual_count, d.summary))
+                .unwrap_or_default();
+            let objects_line = if gw_info.is_empty() {
+                format!("  [#8c8ca0]objects │[/] [#f0b990]{object_info}[/]")
+            } else {
+                format!("  [#8c8ca0]objects │[/] [#f0b990]{object_info}[/]  [#78dca0]{gw_info}[/]")
+            };
             lines.push(OverlayLine::with_alpha(
-                format!("  [#8c8ca0]objects │[/] [#f0b990]{object_info}[/]"),
+                objects_line,
                 label_fg,
                 console_bg,
                 console_alpha,

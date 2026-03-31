@@ -1133,7 +1133,7 @@ mod tests {
     use engine_core::scene_runtime_types::{
         ObjectRuntimeState, SidecarIoFrameState, TargetResolver,
     };
-    use engine_game::GameplayWorld;
+    use engine_game::{GameplayWorld, LifecyclePolicy};
     use rhai::Map as RhaiMap;
     use serde_json::json;
     use serde_json::Value as JsonValue;
@@ -1255,7 +1255,7 @@ mod tests {
             game_state: None,
             level_state: None,
             persistence: None,
-            catalogs: Arc::new(catalog::ModCatalogs::default()),
+            catalogs: Arc::new(catalog::ModCatalogs::test_catalogs()),
             gameplay_world: None,
             emitter_state: None,
             collisions: Arc::new(Vec::new()),
@@ -3366,13 +3366,24 @@ let asteroid = world.spawn_prefab("asteroid", #{
             ),
             "asteroid prefab should emit SceneSpawn"
         );
+        assert!(
+            commands.iter().any(
+                |c| matches!(c, BehaviorCommand::SceneSpawn { template, target }
+                if template == "ship" && target.starts_with("ship-"))
+            ),
+            "ship prefab should emit dynamic ship SceneSpawn"
+        );
 
         let ship_ids = gameplay_world.query_kind("ship");
         assert_eq!(ship_ids.len(), 1, "ship prefab should create one ship");
         let ship_id = ship_ids[0];
-        assert_eq!(
-            gameplay_world.visual(ship_id).and_then(|v| v.visual_id),
-            Some("ship".to_string())
+        let ship_visual = gameplay_world.visual(ship_id).and_then(|v| v.visual_id);
+        assert!(
+            ship_visual
+                .as_ref()
+                .map(|id| id.starts_with("ship-"))
+                .unwrap_or(false),
+            "ship should have dynamic visual id, got {ship_visual:?}"
         );
         assert!(
             gameplay_world.controller(ship_id).is_some(),
@@ -4576,6 +4587,109 @@ game.set("/test/cracks_after_despawn", world.count_kind("asteroid-crack"));
                 ))
                 .count(),
             4
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_spawn_flash_cracks_sets_transient_lifecycle() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 0.0, vy: 0.0, shape: 3, size: 2
+});
+let ids = world.spawn_flash_cracks(asteroid, 1000);
+game.set("/test/count", ids.len);
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "spawn_flash_cracks should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/count")
+                .and_then(|value| value.as_i64()),
+            Some(3)
+        );
+        assert_eq!(gameplay_world.query_kind("asteroid-crack").len(), 3);
+        let asteroid_id = gameplay_world.query_kind("asteroid")[0];
+        for crack_id in gameplay_world.query_kind("asteroid-crack") {
+            assert_eq!(
+                gameplay_world.lifecycle(crack_id),
+                Some(LifecyclePolicy::TtlOwnerBound)
+            );
+            assert_eq!(
+                gameplay_world.ownership(crack_id).map(|o| o.owner_id),
+                Some(asteroid_id)
+            );
+            assert_eq!(
+                gameplay_world.lifetime(crack_id).map(|lt| lt.ttl_ms),
+                Some(1000)
+            );
+        }
+    }
+
+    #[test]
+    fn rhai_script_behavior_handle_asteroid_split_does_not_auto_spawn_cracks() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 0.0, vy: 0.0, shape: 3, size: 2
+});
+let hit = world.handle_bullet_hit(0, asteroid, #{ crack_duration_ms: 1000 });
+let split = world.handle_asteroid_split(asteroid, #{});
+game.set("/test/children", split["children"].len);
+game.set("/test/cracks", world.count_kind("asteroid-crack"));
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "handle_asteroid_split flow should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/cracks")
+                .and_then(|value| value.as_i64()),
+            Some(0),
+            "split should not auto-spawn crack visuals"
+        );
+        assert!(
+            game_state
+                .get("/test/children")
+                .and_then(|value| value.as_i64())
+                .unwrap_or(0)
+                > 0,
+            "split should still create child asteroids"
         );
     }
 

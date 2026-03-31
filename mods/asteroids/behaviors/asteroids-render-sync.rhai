@@ -9,14 +9,18 @@ if time.stage == "on_idle" {
     if ship_id > 0 {
         let ship_ref = world.entity(ship_id);
         if ship_ref.exists() {
+            let meta = ship_ref.get_metadata();
+            let ship_vid = if meta.contains("visual_id") { meta["visual_id"] } else { "ship" };
             let is_invulnerable = ship_ref.status_has("invulnerable");
             let visible = if is_invulnerable { (time.scene_elapsed_ms / 120) % 2 == 0 } else { true };
             let heading = ship_ref.heading();
             let t = ship_ref.transform();
-            scene.set_visible("ship", visible);
-            scene.set("ship", "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
-            scene.set("ship", "vector.fg", "white");
-            scene.set("ship", "vector.bg", "#1a1a1a");
+            scene.set(ship_vid, "position.x", t.x);
+            scene.set(ship_vid, "position.y", t.y);
+            scene.set_visible(ship_vid, visible);
+            scene.set(ship_vid, "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
+            scene.set(ship_vid, "vector.fg", "white");
+            scene.set(ship_vid, "vector.bg", "#1a1a1a");
         }
     }
 

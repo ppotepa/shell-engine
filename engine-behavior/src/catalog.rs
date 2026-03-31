@@ -31,6 +31,67 @@ pub struct PrefabTemplate {
     pub sprite_template: Option<String>,
     #[serde(default)]
     pub init_fields: HashMap<String, JsonValue>,
+    #[serde(default)]
+    pub components: Option<PrefabComponents>,
+}
+
+/// Component specifications for data-driven prefab spawning.
+/// Allows mods to define physics, colliders, controllers, and lifecycle policies without Rust code.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrefabComponents {
+    #[serde(default)]
+    pub physics: Option<PhysicsComponent>,
+    #[serde(default)]
+    pub collider: Option<ColliderComponent>,
+    #[serde(default)]
+    pub controller: Option<ControllerComponent>,
+    #[serde(default)]
+    pub lifecycle: Option<String>, // "Persistent", "Ttl", "OwnerBound", "TtlOwnerBound"
+    #[serde(default)]
+    pub wrappable: Option<bool>, // Enable wrap_bounds
+    #[serde(default)]
+    pub extra_data: Option<HashMap<String, JsonValue>>, // Additional entity fields
+}
+
+/// Physics component: velocity, drag, max_speed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhysicsComponent {
+    #[serde(default)]
+    pub vx: Option<f64>,
+    #[serde(default)]
+    pub vy: Option<f64>,
+    #[serde(default)]
+    pub ax: Option<f64>,
+    #[serde(default)]
+    pub ay: Option<f64>,
+    #[serde(default)]
+    pub drag: Option<f64>,
+    #[serde(default)]
+    pub max_speed: Option<f64>,
+}
+
+/// Collider component: shape and collision masks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColliderComponent {
+    pub shape: String, // "circle", "rect" (future: "polygon")
+    #[serde(default)]
+    pub radius: Option<f64>, // for circles
+    #[serde(default)]
+    pub width: Option<f64>, // for rects
+    #[serde(default)]
+    pub height: Option<f64>, // for rects
+    #[serde(default)]
+    pub layer: Option<i64>, // collision layer (default 0xFFFF)
+    #[serde(default)]
+    pub mask: Option<i64>, // collision mask (default 0xFFFF)
+}
+
+/// Controller component: input/behavior driver.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ControllerComponent {
+    pub controller_type: String, // "TopDownShipController", "WaveSpawner", etc.
+    #[serde(default)]
+    pub config: Option<HashMap<String, JsonValue>>, // controller-specific config
 }
 
 /// Weapon configuration for firing.
@@ -228,6 +289,160 @@ impl ModCatalogs {
         }
 
         Ok(catalogs)
+    }
+
+    /// Create test catalogs with default Asteroids prefabs, weapons, and emitters.
+    /// Used by behavior tests when no mod catalogs are available.
+    #[cfg(test)]
+    pub fn test_catalogs() -> Self {
+        let mut catalogs = ModCatalogs::default();
+
+        // Add test prefabs (ship, asteroid, bullet, smoke) with components
+        use serde_json::json;
+
+        // Ship prefab
+        let mut ship_components = HashMap::new();
+        ship_components.insert("controller_type".to_string(), json!("TopDownShipController"));
+        ship_components.insert("config".to_string(), json!({
+            "turn_step_ms": 40,
+            "thrust_power": 170.0,
+            "ship_max_speed": 4.5,
+            "heading_bits": 32
+        }));
+        
+        catalogs.prefabs.insert(
+            "ship".to_string(),
+            PrefabTemplate {
+                kind: "ship".to_string(),
+                sprite_template: Some("ship".to_string()),
+                init_fields: HashMap::new(),
+                components: Some(PrefabComponents {
+                    physics: Some(PhysicsComponent {
+                        vx: Some(0.0),
+                        vy: Some(0.0),
+                        ax: Some(0.0),
+                        ay: Some(0.0),
+                        drag: Some(0.1),
+                        max_speed: Some(4.5),
+                    }),
+                    collider: Some(ColliderComponent {
+                        shape: "circle".to_string(),
+                        radius: Some(10.0),
+                        width: None,
+                        height: None,
+                        layer: Some(0xFFFF),
+                        mask: Some(0xFFFF),
+                    }),
+                    controller: Some(ControllerComponent {
+                        controller_type: "TopDownShipController".to_string(),
+                        config: Some(ship_components),
+                    }),
+                    lifecycle: None,
+                    wrappable: Some(true),
+                    extra_data: None,
+                }),
+            },
+        );
+
+        // Asteroid prefab
+        let mut asteroid_extra = HashMap::new();
+        asteroid_extra.insert("flash_ms".to_string(), json!(0));
+        asteroid_extra.insert("flash_total_ms".to_string(), json!(0));
+        asteroid_extra.insert("split_pending".to_string(), json!(false));
+        asteroid_extra.insert("rot_phase".to_string(), json!(0));
+        asteroid_extra.insert("rot_speed".to_string(), json!(1));
+        asteroid_extra.insert("rot_step_ms".to_string(), json!(72));
+        asteroid_extra.insert("rot_accum_ms".to_string(), json!(0));
+
+        catalogs.prefabs.insert(
+            "asteroid".to_string(),
+            PrefabTemplate {
+                kind: "asteroid".to_string(),
+                sprite_template: Some("asteroid-template".to_string()),
+                init_fields: HashMap::new(),
+                components: Some(PrefabComponents {
+                    physics: Some(PhysicsComponent {
+                        vx: None,
+                        vy: None,
+                        ax: None,
+                        ay: None,
+                        drag: None,
+                        max_speed: None,
+                    }),
+                    collider: Some(ColliderComponent {
+                        shape: "circle".to_string(),
+                        radius: Some(15.0),
+                        width: None,
+                        height: None,
+                        layer: Some(0xFFFF),
+                        mask: Some(0xFFFF),
+                    }),
+                    controller: None,
+                    lifecycle: None,
+                    wrappable: Some(true),
+                    extra_data: Some(asteroid_extra),
+                }),
+            },
+        );
+
+        // Bullet prefab
+        catalogs.prefabs.insert(
+            "bullet".to_string(),
+            PrefabTemplate {
+                kind: "bullet".to_string(),
+                sprite_template: Some("bullet-template".to_string()),
+                init_fields: HashMap::new(),
+                components: Some(PrefabComponents {
+                    physics: Some(PhysicsComponent {
+                        vx: None,
+                        vy: None,
+                        ax: None,
+                        ay: None,
+                        drag: Some(0.0),
+                        max_speed: None,
+                    }),
+                    collider: Some(ColliderComponent {
+                        shape: "circle".to_string(),
+                        radius: Some(3.0),
+                        width: None,
+                        height: None,
+                        layer: Some(0xFFFF),
+                        mask: Some(0xFFFF),
+                    }),
+                    controller: None,
+                    lifecycle: Some("Ttl".to_string()),
+                    wrappable: Some(true),
+                    extra_data: None,
+                }),
+            },
+        );
+
+        // Smoke prefab
+        catalogs.prefabs.insert(
+            "smoke".to_string(),
+            PrefabTemplate {
+                kind: "smoke".to_string(),
+                sprite_template: Some("smoke-template".to_string()),
+                init_fields: HashMap::new(),
+                components: Some(PrefabComponents {
+                    physics: Some(PhysicsComponent {
+                        vx: None,
+                        vy: None,
+                        ax: None,
+                        ay: None,
+                        drag: Some(0.04),
+                        max_speed: None,
+                    }),
+                    collider: None,
+                    controller: None,
+                    lifecycle: Some("Ttl".to_string()),
+                    wrappable: None,
+                    extra_data: None,
+                }),
+            },
+        );
+
+        catalogs
     }
 }
 

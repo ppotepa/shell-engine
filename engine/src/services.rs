@@ -217,6 +217,10 @@ impl RendererProvider for World {
         EngineWorldAccess::scene_runtime(self).map(|sr| sr.object_count())
     }
 
+    fn gameplay_diagnostics(&self) -> Option<&engine_debug::GameplayDiagnostics> {
+        self.resource::<engine_debug::GameplayDiagnostics>()
+    }
+
     fn system_timings(&self) -> Option<&SystemTimings> {
         self.resource::<SystemTimings>()
     }

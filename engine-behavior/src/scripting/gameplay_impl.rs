@@ -688,181 +688,260 @@ impl ScriptGameplayApi {
         entity_id as rhai::INT
     }
 
-    pub(crate) fn spawn_prefab(&mut self, name: &str, args: RhaiMap) -> rhai::INT {
-        // Check if prefab exists in catalog; fall back to hardcoded
-        let _prefab_exists_in_catalog = self.catalogs.prefabs.contains_key(name);
+    /// Generic prefab applicator: reads catalog components and applies them to an entity.
+    /// This centralizes all prefab component logic (physics, collider, controller, lifecycle) 
+    /// in one place, eliminating hardcoded match arms.
+    fn apply_prefab_components(
+        &mut self,
+        entity_id: rhai::INT,
+        prefab: &catalog::PrefabTemplate,
+        args: &RhaiMap,
+    ) -> bool {
+        let Some(components) = &prefab.components else {
+            return true; // No components to apply; entity spawned successfully
+        };
 
-        match name {
-            "ship" => {
-                let cfg = Self::map_map(&args, "cfg").unwrap_or_default();
-                let x = Self::map_number(&args, "x", 0.0);
-                let y = Self::map_number(&args, "y", 0.0);
-                let heading = Self::map_number(&args, "heading", 0.0);
-                let id = self.spawn("ship", RhaiMap::new().into());
-                if id <= 0 {
-                    return 0;
-                }
-                let mut controller_cfg = RhaiMap::new();
-                controller_cfg.insert(
-                    "turn_step_ms".into(),
-                    Self::map_int(&cfg, "turn_step_ms", 40).into(),
-                );
-                controller_cfg.insert(
-                    "thrust_power".into(),
-                    Self::map_number(&cfg, "ship_thrust", 170.0).into(),
-                );
-                controller_cfg.insert(
-                    "max_speed".into(),
-                    Self::map_number(&cfg, "ship_max_speed", 4.5).into(),
-                );
-                controller_cfg.insert("heading_bits".into(), 32_i64.into());
-                if !self.set_visual(id, "ship")
-                    || !self.set_transform(id, x, y, heading)
-                    || !self.set_physics(
-                        id,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.10,
-                        Self::map_number(&cfg, "ship_max_speed", 0.0),
-                    )
-                    || !self.set_collider_circle(id, 10.0, 0xFFFF, 0xFFFF)
-                    || !self.attach_ship_controller(id, controller_cfg)
-                    || !self.enable_wrap_bounds(id)
-                {
-                    let _ = self.despawn(id);
-                    return 0;
-                }
-
-                let invulnerable_ms = Self::map_int(&args, "invulnerable_ms", 0);
-                if invulnerable_ms > 0 {
-                    let _ = self.entity(id).status_add("invulnerable", invulnerable_ms);
-                }
-                id
+        // Apply physics component
+        if let Some(phys) = &components.physics {
+            let vx = phys.vx.unwrap_or(0.0);
+            let vy = phys.vy.unwrap_or(0.0);
+            let ax = phys.ax.unwrap_or(0.0);
+            let ay = phys.ay.unwrap_or(0.0);
+            let drag = phys.drag.unwrap_or(0.0);
+            let max_speed = phys.max_speed.unwrap_or(0.0);
+            if !self.set_physics(entity_id, vx, vy, ax, ay, drag, max_speed) {
+                return false;
             }
-            "asteroid" => {
-                let x = Self::map_number(&args, "x", 0.0);
-                let y = Self::map_number(&args, "y", 0.0);
-                let vx = Self::map_number(&args, "vx", 0.0);
-                let vy = Self::map_number(&args, "vy", 0.0);
-                let shape = Self::map_int(&args, "shape", 0);
-                let size = Self::map_int(&args, "size", 1);
-                let mut visual_args = RhaiMap::new();
-                visual_args.insert("x".into(), x.into());
-                visual_args.insert("y".into(), y.into());
-                visual_args.insert("heading".into(), 0.0.into());
-                visual_args.insert(
-                    "collider_radius".into(),
-                    (asteroid_radius_i32(size as i32) as rhai::INT).into(),
-                );
-                let id = self.spawn_visual("asteroid", "asteroid-template", visual_args);
-                if id <= 0
-                    || !self.set_physics(id, vx * 60.0, vy * 60.0, 0.0, 0.0, 0.0, 0.0)
-                    || !self.enable_wrap_bounds(id)
-                {
-                    let _ = self.despawn(id);
-                    return 0;
-                }
-                let rot_phase = self.rand_i(0, 31);
-                let rot_speed = if self.rand_i(0, 1) == 0 { 1 } else { -1 };
-                let rot_step = 72 + self.rand_i(0, 2) * 16;
-                let mut asteroid_data = RhaiMap::new();
-                asteroid_data.insert("shape".into(), shape.into());
-                asteroid_data.insert("size".into(), size.into());
-                asteroid_data.insert("flash_ms".into(), 0_i64.into());
-                asteroid_data.insert("flash_total_ms".into(), 0_i64.into());
-                asteroid_data.insert("split_pending".into(), false.into());
-                asteroid_data.insert("rot_phase".into(), rot_phase.into());
-                asteroid_data.insert("rot_speed".into(), rot_speed.into());
-                asteroid_data.insert("rot_step_ms".into(), rot_step.into());
-                asteroid_data.insert("rot_accum_ms".into(), 0_i64.into());
-                let _ = self.entity(id).set_many(asteroid_data);
-                id
-            }
-            "bullet" => {
-                let x = Self::map_number(&args, "x", 0.0);
-                let y = Self::map_number(&args, "y", 0.0);
-                let vx = Self::map_number(&args, "vx", 0.0);
-                let vy = Self::map_number(&args, "vy", 0.0);
-                let ttl_ms = Self::map_int(&args, "ttl_ms", 0);
-                let Some(world) = self.world.as_ref() else {
-                    return 0;
-                };
-                let extra_data = BTreeMap::new();
-                let Some(id) = spawn_ephemeral_visual(
-                    world,
-                    &self.queue,
-                    EphemeralSpawn {
-                        kind: "bullet",
-                        template: "bullet-template",
-                        x: x as f32,
-                        y: y as f32,
-                        heading: 0.0,
-                        vx: (vx * 60.0) as f32,
-                        vy: (vy * 60.0) as f32,
-                        drag: 0.0,
-                        max_speed: 0.0,
-                        ttl_ms: Some(ttl_ms as i32),
-                        owner_id: None,
-                        lifecycle: LifecyclePolicy::Ttl,
-                        extra_data,
-                    },
-                ) else {
-                    return 0;
-                };
-                if !self.set_collider_circle(id as rhai::INT, 3.0, rhai::INT::MAX, rhai::INT::MAX)
-                    || !self.enable_wrap_bounds(id as rhai::INT)
-                {
-                    let _ = self.despawn(id as rhai::INT);
-                    return 0;
-                }
-                id as rhai::INT
-            }
-            "smoke" => {
-                let x = Self::map_number(&args, "x", 0.0);
-                let y = Self::map_number(&args, "y", 0.0);
-                let vx = Self::map_number(&args, "vx", 0.0);
-                let vy = Self::map_number(&args, "vy", 0.0);
-                let ttl_ms = Self::map_int(&args, "ttl_ms", 0);
-                let radius = Self::map_int(&args, "radius", 1);
-                let Some(world) = self.world.as_ref() else {
-                    return 0;
-                };
-                let owner_id = Self::map_int(&args, "owner_id", 0);
-                let mut extra_data = BTreeMap::new();
-                extra_data.insert("ttl_ms".to_string(), JsonValue::from(ttl_ms));
-                extra_data.insert("max_ttl_ms".to_string(), JsonValue::from(ttl_ms));
-                extra_data.insert("radius".to_string(), JsonValue::from(radius));
-                let Some(id) = spawn_ephemeral_visual(
-                    world,
-                    &self.queue,
-                    EphemeralSpawn {
-                        kind: "smoke",
-                        template: "smoke-template",
-                        x: x as f32,
-                        y: y as f32,
-                        heading: 0.0,
-                        vx: (vx * 60.0) as f32,
-                        vy: (vy * 60.0) as f32,
-                        drag: 0.04,
-                        max_speed: 0.0,
-                        ttl_ms: Some(ttl_ms as i32),
-                        owner_id: (owner_id > 0).then_some(owner_id as u64),
-                        lifecycle: if owner_id > 0 {
-                            LifecyclePolicy::TtlOwnerBound
-                        } else {
-                            LifecyclePolicy::Ttl
-                        },
-                        extra_data,
-                    },
-                ) else {
-                    return 0;
-                };
-                id as rhai::INT
-            }
-            _ => 0,
         }
+
+        // Apply collider component
+        if let Some(coll) = &components.collider {
+            match coll.shape.as_str() {
+                "circle" => {
+                    let radius = coll.radius.unwrap_or(1.0);
+                    let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
+                    let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
+                    if !self.set_collider_circle(entity_id, radius, layer, mask) {
+                        return false;
+                    }
+                }
+                _ => {} // Unknown shape or rect (not yet supported); skip
+            }
+        }
+
+        // Apply controller component
+        if let Some(ctrl) = &components.controller {
+            match ctrl.controller_type.as_str() {
+                "TopDownShipController" => {
+                    let config_map = if let Some(cfg) = &ctrl.config {
+                        let mut m = RhaiMap::new();
+                        for (k, v) in cfg {
+                            m.insert(k.clone().into(), json_to_rhai_dynamic(v));
+                        }
+                        m
+                    } else {
+                        RhaiMap::new()
+                    };
+                    if !self.attach_ship_controller(entity_id, config_map) {
+                        return false;
+                    }
+                }
+                _ => {} // Unknown controller type; skip
+            }
+        }
+
+        // Apply wrappable flag
+        if components.wrappable.unwrap_or(false) {
+            if !self.enable_wrap_bounds(entity_id) {
+                return false;
+            }
+        }
+
+        // Apply extra data fields
+        if let Some(extra) = &components.extra_data {
+            let mut data = RhaiMap::new();
+            for (k, v) in extra {
+                data.insert(k.clone().into(), json_to_rhai_dynamic(v));
+            }
+            if !data.is_empty() {
+                if !self.entity(entity_id).set_many(data) {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    pub(crate) fn spawn_prefab(&mut self, name: &str, args: RhaiMap) -> rhai::INT {
+        // Look up prefab in catalog
+        let Some(prefab) = self.catalogs.prefabs.get(name).cloned() else {
+            return 0; // Prefab not found in catalog
+        };
+
+        // Extract position from args
+        let x = Self::map_number(&args, "x", 0.0);
+        let y = Self::map_number(&args, "y", 0.0);
+        let heading = Self::map_number(&args, "heading", 0.0);
+
+        // Determine spawn approach based on lifecycle
+        let lifecycle_str = prefab
+            .components
+            .as_ref()
+            .and_then(|c| c.lifecycle.as_ref())
+            .map(|s| s.as_str())
+            .unwrap_or("");
+
+        let sprite_template = prefab.sprite_template.as_deref().unwrap_or(&prefab.kind);
+
+        let id = if lifecycle_str == "Ttl" || lifecycle_str == "TtlOwnerBound" {
+            // Ephemeral spawn for TTL-based entities (bullets, smoke, short-lived particles)
+            self.spawn_prefab_ephemeral(&prefab, x, y, heading, &args)
+        } else {
+            // Regular spawn for persistent entities (ship, asteroid)
+            let mut visual_args = RhaiMap::new();
+            visual_args.insert("x".into(), x.into());
+            visual_args.insert("y".into(), y.into());
+            visual_args.insert("heading".into(), heading.into());
+
+            let id = self.spawn_visual(&prefab.kind, sprite_template, visual_args);
+            if id <= 0 {
+                return 0;
+            }
+
+            // Apply catalog components generically
+            if !self.apply_prefab_components(id, &prefab, &args) {
+                let _ = self.despawn(id);
+                return 0;
+            }
+
+            // Handle mod-specific initialization (passed as args, not hardcoded)
+            let invulnerable_ms = Self::map_int(&args, "invulnerable_ms", 0);
+            if invulnerable_ms > 0 {
+                let _ = self.entity(id).status_add("invulnerable", invulnerable_ms);
+            }
+
+            id
+        };
+
+        if id <= 0 {
+            return 0;
+        }
+
+        id
+    }
+
+    /// Spawn ephemeral entities with TTL-based lifecycle policies.
+    fn spawn_prefab_ephemeral(
+        &mut self,
+        prefab: &catalog::PrefabTemplate,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        heading: rhai::FLOAT,
+        args: &RhaiMap,
+    ) -> rhai::INT {
+        let Some(world) = self.world.as_ref() else {
+            return 0;
+        };
+
+        let ttl_ms = Self::map_int(args, "ttl_ms", 0);
+        let vx = Self::map_number(args, "vx", 0.0) * 60.0;
+        let vy = Self::map_number(args, "vy", 0.0) * 60.0;
+        let sprite_template = prefab.sprite_template.as_deref().unwrap_or(&prefab.kind);
+
+        // Extract physics for drag/max_speed
+        let (drag, max_speed) = prefab
+            .components
+            .as_ref()
+            .and_then(|c| c.physics.as_ref())
+            .map(|p| (p.drag.unwrap_or(0.0), p.max_speed.unwrap_or(0.0)))
+            .unwrap_or((0.0, 0.0));
+
+        // Determine lifecycle policy
+        let lifecycle_str = prefab
+            .components
+            .as_ref()
+            .and_then(|c| c.lifecycle.as_ref())
+            .map(|s| s.as_str())
+            .unwrap_or("");
+
+        let owner_id = Self::map_int(args, "owner_id", 0);
+        let lifecycle = match lifecycle_str {
+            "TtlOwnerBound" => LifecyclePolicy::TtlOwnerBound,
+            _ => LifecyclePolicy::Ttl,
+        };
+
+        // Build extra_data from prefab components
+        let mut extra_data = BTreeMap::new();
+        if let Some(components) = &prefab.components {
+            if let Some(extra) = &components.extra_data {
+                for (k, v) in extra {
+                    extra_data.insert(k.clone(), v.clone());
+                }
+            }
+        }
+
+        // Apply args overrides (e.g., radius from visual_args)
+        if let Some(radius) = args.get("radius") {
+            if let Ok(r) = radius.as_int() {
+                extra_data.insert("radius".to_string(), JsonValue::from(r));
+            }
+        }
+
+        let Some(id) = spawn_ephemeral_visual(
+            world,
+            &self.queue,
+            EphemeralSpawn {
+                kind: Box::leak(prefab.kind.clone().into_boxed_str()),
+                template: Box::leak(sprite_template.to_string().into_boxed_str()),
+                x: x as f32,
+                y: y as f32,
+                heading: heading as f32,
+                vx: vx as f32,
+                vy: vy as f32,
+                drag: drag as f32,
+                max_speed: max_speed as f32,
+                ttl_ms: Some(ttl_ms as i32),
+                owner_id: (owner_id > 0).then_some(owner_id as u64),
+                lifecycle,
+                extra_data,
+            },
+        ) else {
+            return 0;
+        };
+
+        // Apply collider if specified in prefab
+        if let Some(components) = &prefab.components {
+            if let Some(coll) = &components.collider {
+                match coll.shape.as_str() {
+                    "circle" => {
+                        let radius = coll.radius.unwrap_or(1.0);
+                        let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
+                        let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
+                        if !self.set_collider_circle(id as rhai::INT, radius, layer, mask) {
+                            let _ = self.despawn(id as rhai::INT);
+                            return 0;
+                        }
+                    }
+                    _ => {} // Unknown shape or rect (not yet supported); skip
+                }
+            }
+        }
+
+        // Apply wrap if specified
+        if prefab
+            .components
+            .as_ref()
+            .and_then(|c| c.wrappable)
+            .unwrap_or(false)
+        {
+            if !self.enable_wrap_bounds(id as rhai::INT) {
+                let _ = self.despawn(id as rhai::INT);
+                return 0;
+            }
+        }
+
+        id as rhai::INT
     }
 
     pub(crate) fn spawn_group(&mut self, group_name: &str, prefab_name: &str) -> RhaiArray {

@@ -147,16 +147,6 @@ if time.stage == "on_idle" {
             if flash_ms <= 0 && split_pending {
                 let split_result = world.handle_asteroid_split(ast_id, #{});
                 if split_result["despawned"] {
-                    // Spawn cracks for all child asteroids created by the split
-                    if split_result.contains("children") {
-                        let children = split_result["children"];
-                        for child_id in children {
-                            if world.exists(child_id) {
-                                let flash_duration = h::CRACK_DURATION_MS();
-                                world.spawn_flash_cracks(child_id, flash_duration);
-                            }
-                        }
-                    }
                     if split_result["handled"] {
                         continue;
                     }

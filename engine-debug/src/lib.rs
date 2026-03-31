@@ -10,6 +10,18 @@ pub use profiling::{
     set_enabled, ProfileSpan, ProfileStats, Profiler, ProfilingFrame, TimingMarker,
 };
 
+/// Lightweight per-frame gameplay diagnostics for the debug overlay.
+/// Updated by gameplay_system, read by the renderer overlay.
+#[derive(Debug, Clone, Default)]
+pub struct GameplayDiagnostics {
+    /// Number of live gameplay entities.
+    pub entity_count: usize,
+    /// Total visual IDs bound across all entities (expected scene clones).
+    pub visual_count: usize,
+    /// Compact kind breakdown, e.g. "ship:1 ast:12 bullet:3 smoke:5".
+    pub summary: String,
+}
+
 /// Smoothed real-time FPS tracked by the game loop.
 #[derive(Debug, Clone, Copy)]
 pub struct FpsCounter {

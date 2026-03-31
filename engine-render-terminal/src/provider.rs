@@ -21,6 +21,10 @@ pub trait RendererProvider {
     fn object_count(&self) -> Option<usize> {
         None
     }
+    /// Optional hook to expose gameplay entity diagnostics for debug overlays.
+    fn gameplay_diagnostics(&self) -> Option<&engine_debug::GameplayDiagnostics> {
+        None
+    }
     fn system_timings(&self) -> Option<&SystemTimings>;
     fn current_scene_id(&self) -> String;
     /// Returns a raw pointer to PipelineStrategies (safe: singleton, never dropped during frame).

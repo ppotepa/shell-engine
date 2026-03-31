@@ -6,27 +6,65 @@
 #  - kind: Internal type identifier (used by behavior scripts)
 #  - sprite_template: Name of the sprite to attach
 #  - init_fields: Default properties (can be overridden per spawn)
+#  - components: Component specifications (physics, collider, controller, lifecycle)
 
 prefabs:
   ship:
     kind: "ship"
     sprite_template: "ship"
-    # Ship spawns at origin; position set by behavior
     init_fields:
       x: 0
       y: 0
+    components:
+      physics:
+        vx: 0
+        vy: 0
+        ax: 0
+        ay: 0
+        drag: 0.10
+        max_speed: 4.5
+      collider:
+        shape: "circle"
+        radius: 10.0
+        layer: 0xFFFF
+        mask: 0xFFFF
+      controller:
+        controller_type: "TopDownShipController"
+        config:
+          turn_step_ms: 40
+          thrust_power: 170.0
+          ship_max_speed: 4.5
+          heading_bits: 32
+      wrappable: true
       
   asteroid:
     kind: "asteroid"
     sprite_template: "asteroid-template"
-    # Asteroids have shape variant and size tier
     init_fields:
       x: 0
       y: 0
-      vx: 0    # velocity: horizontal
-      vy: 0    # velocity: vertical
-      shape: 0 # visual shape variant (0-3)
-      size: 1  # size tier (1-3, where 1=largest, 3=smallest)
+      vx: 0
+      vy: 0
+      shape: 0
+      size: 1
+    components:
+      physics:
+        drag: 0
+        max_speed: 0
+      collider:
+        shape: "circle"
+        radius: 15.0 # Will be overridden based on size
+        layer: 0xFFFF
+        mask: 0xFFFF
+      wrappable: true
+      extra_data:
+        flash_ms: 0
+        flash_total_ms: 0
+        split_pending: false
+        rot_phase: 0
+        rot_speed: 1
+        rot_step_ms: 72
+        rot_accum_ms: 0
       
   bullet:
     kind: "bullet"
@@ -34,16 +72,31 @@ prefabs:
     init_fields:
       x: 0
       y: 0
-      vx: 0  # velocity: horizontal (set by fire_weapon)
-      vy: 0  # velocity: vertical (set by fire_weapon)
+      vx: 0
+      vy: 0
+    components:
+      physics:
+        drag: 0
+      collider:
+        shape: "circle"
+        radius: 3.0
+        layer: 0xFFFF
+        mask: 0xFFFF
+      lifecycle: "Ttl"
+      wrappable: true
       
   smoke:
     kind: "smoke"
     sprite_template: "smoke-template"
-    # Smoke particles are spawned by emitters with automatic TTL
     init_fields:
       x: 0
       y: 0
-      ttl_ms: 520       # time-to-live in milliseconds
-      max_ttl_ms: 520   # max TTL for animation
-      radius: 3         # visual size (affects particle appearance)
+      ttl_ms: 520
+      max_ttl_ms: 520
+      radius: 3
+    components:
+      physics:
+        drag: 0.04
+      lifecycle: "Ttl"
+      extra_data:
+        velocity_scale: 60.0

@@ -39,6 +39,24 @@ Compare baseline vs optimized captures:
 - preserve loopability for longer benchmark sessions,
 - use it for performance and regression workflows rather than gameplay tuning.
 
+## Lifecycle regression scenarios (recommended pattern)
+
+Use this mod for deterministic lifecycle checks by adding small scenes that:
+
+- spawn a known set of entities at `on_enter` (fixed seed, fixed counts),
+- run scripted events on fixed ticks (`on_idle`),
+- assert bounded counts via script diagnostics (`world.diagnostic_info()`),
+- loop back to start so long runs can catch growth over time.
+
+Suggested scenarios:
+
+- `particle-lifecycle`: smoke/bullet TTL expiry stays bounded over N loops,
+- `owner-bound-cleanup`: parent despawn removes all owned visuals/entities,
+- `split-with-flash`: split chains do not permanently increase crack/object counts,
+- `reset-cleanup`: repeated resets do not leak scene objects.
+
+Keep each scenario independent and automation-friendly (no user input, no randomness without fixed seed).
+
 ## Manifest notes
 
 - entrypoint remains `/scenes/00-intro-logo/scene.yml`

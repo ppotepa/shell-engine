@@ -125,6 +125,18 @@ impl GameplayWorld {
         store.entities.len()
     }
 
+    /// Returns the total number of bound visual IDs across all entities.
+    pub fn total_visual_count(&self) -> usize {
+        let Ok(store) = self.store.lock() else {
+            return 0;
+        };
+        store
+            .visuals
+            .values()
+            .map(|b| b.all_visual_ids().len())
+            .sum()
+    }
+
     /// Creates a diagnostic snapshot of current entity counts by kind and lifecycle policy.
     pub fn diagnostic_snapshot(&self) -> crate::diagnostics::EntityCountSnapshot {
         let Ok(store) = self.store.lock() else {

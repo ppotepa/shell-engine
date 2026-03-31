@@ -122,4 +122,24 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
             }
         }
     }
+
+    // Update gameplay diagnostics for debug overlay
+    if let Some(gameplay_world) = world.get::<GameplayWorld>() {
+        let snap = gameplay_world.diagnostic_snapshot();
+        let mut parts: Vec<String> = snap
+            .by_kind
+            .iter()
+            .map(|(k, v)| format!("{k}:{v}"))
+            .collect();
+        if parts.is_empty() {
+            parts.push("(empty)".into());
+        }
+        let visual_count = gameplay_world.total_visual_count();
+        let diag = crate::debug_features::GameplayDiagnostics {
+            entity_count: snap.total,
+            visual_count,
+            summary: parts.join(" "),
+        };
+        world.register(diag);
+    }
 }
