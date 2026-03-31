@@ -282,11 +282,7 @@ impl TopDownShipController {
     }
 }
 
-impl Default for TopDownShipController {
-    fn default() -> Self {
-        Self::new(40, 170.0, 4.5, 32)
-    }
-}
+
 
 /// Precomputed sin32 lookup table for fast heading-based direction calculation.
 /// sin32(i) gives the sine of (i / 32) * 2π, scaled to i16 range.

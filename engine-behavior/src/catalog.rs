@@ -308,10 +308,10 @@ impl ModCatalogs {
         let mut ship_components = HashMap::new();
         ship_components.insert("controller_type".to_string(), json!("TopDownShipController"));
         ship_components.insert("config".to_string(), json!({
-            "turn_step_ms": 40,
-            "thrust_power": 170.0,
-            "max_speed": 4.5,
-            "heading_bits": 32
+            "turn_step_ms": 25,
+            "thrust_power": 100.0,
+            "max_speed": 200.0,
+            "heading_bits": 8
         }));
         
         catalogs.prefabs.insert(
@@ -327,7 +327,7 @@ impl ModCatalogs {
                         ax: Some(0.0),
                         ay: Some(0.0),
                         drag: Some(0.1),
-                        max_speed: Some(4.5),
+                        max_speed: Some(200.0),
                     }),
                     collider: Some(ColliderComponent {
                         shape: "circle".to_string(),

@@ -3315,9 +3315,10 @@ let id = world.spawn_visual("item", "item-template", #{
 world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
 let ship = world.spawn_prefab("ship", #{
   cfg: #{
-    turn_step_ms: 40,
-    ship_thrust: 120.0,
-    ship_max_speed: 300.0
+    turn_step_ms: 50,
+    thrust_power: 80.0,
+    max_speed: 150.0,
+    heading_bits: 16
   },
   invulnerable_ms: 3000
 });

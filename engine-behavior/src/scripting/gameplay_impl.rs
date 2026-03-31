@@ -1287,28 +1287,45 @@ impl ScriptGameplayApi {
         };
         let uid = id as u64;
 
-        // Extract config values with defaults; accept alternate key names for compatibility
-        let turn_step_ms = config
+        // Extract config values; all fields are required
+        let Some(turn_step_ms_val) = config
             .get("turn_step_ms")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
-            .unwrap_or(40) as u32;
+        else {
+            eprintln!("[attach_ship_controller] missing required field: turn_step_ms");
+            return false;
+        };
 
-        let thrust_power = config
+        let Some(thrust_power_val) = config
             .get("thrust_power")
             .or_else(|| config.get("ship_thrust"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-            .unwrap_or(170.0) as f32;
+        else {
+            eprintln!("[attach_ship_controller] missing required field: thrust_power (or ship_thrust)");
+            return false;
+        };
 
-        let max_speed = config
+        let Some(max_speed_val) = config
             .get("max_speed")
             .or_else(|| config.get("ship_max_speed"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-            .unwrap_or(4.5) as f32;
+        else {
+            eprintln!("[attach_ship_controller] missing required field: max_speed (or ship_max_speed)");
+            return false;
+        };
 
-        let heading_bits = config
+        let Some(heading_bits_val) = config
             .get("heading_bits")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
-            .unwrap_or(32) as u8;
+        else {
+            eprintln!("[attach_ship_controller] missing required field: heading_bits");
+            return false;
+        };
+
+        let turn_step_ms = turn_step_ms_val as u32;
+        let thrust_power = thrust_power_val as f32;
+        let max_speed = max_speed_val as f32;
+        let heading_bits = heading_bits_val as u8;
 
         let controller =
             TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
@@ -1877,24 +1894,45 @@ impl ScriptGameplayEntityApi {
         let Some(world) = self.world.as_ref() else {
             return false;
         };
-        let turn_step_ms = config
+        // Extract config values; all fields are required
+        let Some(turn_step_ms_val) = config
             .get("turn_step_ms")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
-            .unwrap_or(40) as u32;
-        let thrust_power = config
+        else {
+            eprintln!("[attach_ship_controller] missing required field: turn_step_ms");
+            return false;
+        };
+
+        let Some(thrust_power_val) = config
             .get("thrust_power")
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-            .unwrap_or(170.0) as f32;
-        let max_speed = config
+        else {
+            eprintln!("[attach_ship_controller] missing required field: thrust_power");
+            return false;
+        };
+
+        let Some(max_speed_val) = config
             .get("max_speed")
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-            .unwrap_or(4.5) as f32;
-        let heading_bits = config
+        else {
+            eprintln!("[attach_ship_controller] missing required field: max_speed");
+            return false;
+        };
+
+        let Some(heading_bits_val) = config
             .get("heading_bits")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
-            .unwrap_or(32) as u8;
-        let controller =
-            TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
+        else {
+            eprintln!("[attach_ship_controller] missing required field: heading_bits");
+            return false;
+        };
+
+        let controller = TopDownShipController::new(
+            turn_step_ms_val as u32,
+            thrust_power_val as f32,
+            max_speed_val as f32,
+            heading_bits_val as u8,
+        );
         world.attach_controller(self.id, controller)
     }
 
