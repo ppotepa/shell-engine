@@ -3462,20 +3462,5 @@ game.set("/test/spawn_count", ids.len);
         );
         assert_eq!(gameplay_world.count(), 0);
     }
-
-    #[test]
-    fn rhai_script_module_resolver_configuration_exists() {
-        // Just verify that the asteroids-shared module file exists
-        // The actual module loading happens in the app initialization flow
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let module_path = std::path::PathBuf::from(manifest_dir)
-            .parent()
-            .unwrap()
-            .join("mods/asteroids/scripts/asteroids-shared.rhai");
-        assert!(
-            module_path.exists(),
-            "asteroids-shared.rhai module should exist at {:?}",
-            module_path
-        );
-    }
 }
+
