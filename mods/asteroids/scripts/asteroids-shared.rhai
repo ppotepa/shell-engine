@@ -1,26 +1,6 @@
 // Asteroids shared helpers
 // Imported by asteroids-game-loop.rhai and asteroids-render-sync.rhai
 
-// ── Constants ──────────────────────────────────────────────
-fn CRACK_DURATION_MS() { 1000 }
-fn velocity_scale() { 60.0 }
-
-// ── Heading arithmetic (0-31 on 32-step circle) ───────────
-fn wrap_heading32(v) {
-    let out = v % 32;
-    if out < 0 { out + 32 } else { out }
-}
-
-fn heading32_to_rad(h) {
-    to_float(h) * (6.283185307179586 / 32.0)
-}
-
-fn fragment_heading_offset(idx) {
-    if idx == 0 { return 0; }
-    if idx == 1 { return 11; }
-    21
-}
-
 // ── Visual colour helpers ─────────────────────────────────
 fn flash_fill_hex(flash_ms, flash_total_ms) {
     if flash_ms <= 0 { return "black"; }
@@ -79,41 +59,45 @@ fn hide_crack_visuals(scene, ast_data) {
     }
 }
 
-// ── Level config helpers ──────────────────────────────────
-fn level_i(level_api, path, fallback) {
-    if level_api.has(path) {
-        let value = level_api.get(path);
-        if value.type_of() == "i64" { return value; }
-    }
-    fallback
+// ── Score lookup ──────────────────────────────────────────
+fn asteroid_score(size) {
+    if size >= 3 { return 20; }
+    if size == 2 { return 50; }
+    100
 }
 
-fn next_seed(seed) {
-    ((seed * 1103515245) + 12345) % 2147483647
-}
-
+// ── Level config loader ───────────────────────────────────
+// All values are in real units (no fixed-point conversion needed).
+// Level YAML is the single source of truth for tunable gameplay values.
 fn load_game_config(level) {
-    let base_lives = level_i(level, "/player/lives", 3);
-    let shot_cooldown_ms = clamp_i(level_i(level, "/player/shot_cooldown_ms", 200), 200, 1000);
-    let ship_thrust = to_float(clamp_i(level_i(level, "/player/thrust_fp", 2048), 60, 10000)) / 1024.0 * velocity_scale();
-    let ship_max_speed = to_float(clamp_i(level_i(level, "/player/max_speed_fp", 4608), 1024, 14000)) / 1024.0 * velocity_scale();
-    let turn_step_ms = clamp_i(level_i(level, "/player/turn_step_ms", 40), 16, 150);
-    let wave_base_spawn_count = clamp_i(level_i(level, "/waves/base_spawn_count", 4), 1, 20);
-    let wave_min_spawn_count = clamp_i(level_i(level, "/waves/min_spawn_count", 5), 1, 30);
-    let wave_max_spawn_count = clamp_i(level_i(level, "/waves/max_spawn_count", 10), 1, 40);
-    if wave_min_spawn_count > wave_max_spawn_count { wave_min_spawn_count = wave_max_spawn_count; }
-    let bullet_ttl_ms = clamp_i(level_i(level, "/combat/bullet_ttl_ms", 900), 100, 6000);
-    let bullet_speed = to_float(clamp_i(level_i(level, "/combat/bullet_speed_fp", 4200), 1000, 18000)) / 1024.0 * velocity_scale();
+    let lives = if level.has("/player/lives") { level.get("/player/lives") } else { 3 };
+    let thrust_power = if level.has("/player/thrust_power") { to_float(level.get("/player/thrust_power")) } else { 120.0 };
+    let max_speed = if level.has("/player/max_speed") { to_float(level.get("/player/max_speed")) } else { 270.0 };
+    let turn_step_ms = if level.has("/player/turn_step_ms") { level.get("/player/turn_step_ms") } else { 25 };
+
+    let shot_cooldown_ms = if level.has("/combat/shot_cooldown_ms") { level.get("/combat/shot_cooldown_ms") } else { 200 };
+    let bullet_ttl_ms = if level.has("/combat/bullet_ttl_ms") { level.get("/combat/bullet_ttl_ms") } else { 900 };
+    let bullet_speed = if level.has("/combat/bullet_speed") { to_float(level.get("/combat/bullet_speed")) } else { 246.0 };
+    let crack_duration_ms = if level.has("/combat/crack_duration_ms") { level.get("/combat/crack_duration_ms") } else { 1000 };
+    let invulnerability_ms = if level.has("/combat/invulnerability_ms") { level.get("/combat/invulnerability_ms") } else { 3000 };
+
+    let wave_base = if level.has("/waves/base_spawn_count") { level.get("/waves/base_spawn_count") } else { 4 };
+    let wave_min = if level.has("/waves/min_spawn_count") { level.get("/waves/min_spawn_count") } else { 5 };
+    let wave_max = if level.has("/waves/max_spawn_count") { level.get("/waves/max_spawn_count") } else { 10 };
+    if wave_min > wave_max { wave_min = wave_max; }
+
     #{
-        base_lives: base_lives,
-        shot_cooldown_ms: shot_cooldown_ms,
-        thrust_power: ship_thrust,
-        max_speed: ship_max_speed,
+        lives: lives,
+        thrust_power: thrust_power,
+        max_speed: max_speed,
         turn_step_ms: turn_step_ms,
-        wave_base_spawn_count: wave_base_spawn_count,
-        wave_min_spawn_count: wave_min_spawn_count,
-        wave_max_spawn_count: wave_max_spawn_count,
+        shot_cooldown_ms: shot_cooldown_ms,
         bullet_ttl_ms: bullet_ttl_ms,
-        bullet_speed: bullet_speed
+        bullet_speed: bullet_speed,
+        crack_duration_ms: crack_duration_ms,
+        invulnerability_ms: invulnerability_ms,
+        wave_base: wave_base,
+        wave_min: wave_min,
+        wave_max: wave_max
     }
 }

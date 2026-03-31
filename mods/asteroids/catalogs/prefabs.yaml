@@ -98,5 +98,3 @@ prefabs:
       physics:
         drag: 0.04
       lifecycle: "Ttl"
-      extra_data:
-        velocity_scale: 60.0

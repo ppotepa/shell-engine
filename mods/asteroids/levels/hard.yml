@@ -1,14 +1,15 @@
 id: asteroids.hard
 player:
   lives: 2
-  shot_cooldown_ms: 240
-  thrust_fp: 1600
-  max_speed_fp: 4400
+  thrust_power: 93.8
+  max_speed: 257.8
   turn_step_ms: 30
 combat:
+  shot_cooldown_ms: 240
   bullet_ttl_ms: 760
-  bullet_speed_fp: 4000
-  hit_flash_ms: 120
+  bullet_speed: 234.4
+  crack_duration_ms: 1000
+  invulnerability_ms: 3000
 waves:
   base_spawn_count: 6
   min_spawn_count: 7

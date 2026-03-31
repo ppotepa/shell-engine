@@ -7,8 +7,7 @@
 
 emitters:
   asteroids.ship_thrust_smoke:
-    # Spawned every frame while thruster is active
-    max_count: 10           # Max particles in the pool (spec: 10)
+    max_count: 10           # Max particles in the pool
     cooldown_name: "smoke"  # State key for spawn throttle
     cooldown_ms: 48         # Base emit rate; decreases with sustained thrust
     min_cooldown_ms: 16     # Fastest emit rate at full thrust ramp
@@ -17,12 +16,9 @@ emitters:
     backward_speed: 0.35    # Particles move opposite to ship velocity
     ttl_ms: 520             # Particle lifetime
     radius: 3               # Visual particle size
-    velocity_scale: 60.0    # Particle speed multiplier
     
   asteroids.ship_disintegration:
-    # Spawned once when ship is destroyed
-    max_count: 20           # Smaller burst pool for explosion
+    max_count: 20           # Burst pool for explosion
     spawn_offset: 0.0       # Spawn at exact center (ship position)
     ttl_ms: 800             # Longer-lived explosion particles
     radius: 4               # Slightly larger particles
-    velocity_scale: 60.0    # Explosion spread speed

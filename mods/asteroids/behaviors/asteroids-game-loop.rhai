@@ -10,7 +10,7 @@ let WORLD_MIN_Y = -240.0;
 let WORLD_MAX_Y =  240.0;
 
 fn spawn_ship(world, cfg) {
-    world.spawn_prefab("ship", #{ cfg: cfg, invulnerable_ms: 3000 })
+    world.spawn_prefab("ship", #{ cfg: cfg, invulnerable_ms: cfg["invulnerability_ms"] })
 }
 
 fn spawn_asteroid(world, x, y, vx, vy, shape, size) {
@@ -28,7 +28,7 @@ fn reset_game_state(world, game, level, local, now) {
     local["cfg"] = cfg;
     world.rand_seed(now);
     game.set("/ast/score", 0);
-    game.set("/ast/lives", cfg["base_lives"]);
+    game.set("/ast/lives", cfg["lives"]);
     game.set("/ast/wave", 1);
     game.set("/ast/last_ms", now);
     cfg
@@ -186,9 +186,9 @@ if time.stage == "on_idle" {
         if ship_ref.status_has("invulnerable") || !world.exists(ship_id) { continue; }
         
         let handled = world.handle_ship_hit(ship_id, ast_hit_id, #{
-            crack_duration_ms: h::CRACK_DURATION_MS(),
-            asteroid_velocity_limit: 4.0 * h::velocity_scale(),
-            ship_invulnerable_ms: 3000,
+            crack_duration_ms: cfg["crack_duration_ms"],
+            asteroid_velocity_limit: 240.0,
+            ship_invulnerable_ms: cfg["invulnerability_ms"],
             ui_text: "HIT!",
             ui_ttl_ms: 450
         });
@@ -203,8 +203,7 @@ if time.stage == "on_idle" {
         
         // Spawn temporary crack visuals for the flashing asteroid
         if world.exists(ast_hit_id) {
-            let flash_duration = h::CRACK_DURATION_MS();
-            world.spawn_flash_cracks(ast_hit_id, flash_duration);
+            world.spawn_flash_cracks(ast_hit_id, cfg["crack_duration_ms"]);
         }
     }
 
@@ -216,18 +215,16 @@ if time.stage == "on_idle" {
         if hit_ref.exists() && hit_ref.flag("split_pending") { continue; }
 
         let bullet_hit = world.handle_bullet_hit(bullet_id, ast_hit_id, #{
-            crack_duration_ms: h::CRACK_DURATION_MS(),
+            crack_duration_ms: cfg["crack_duration_ms"],
             ui_text: "HIT",
             ui_ttl_ms: 250
         });
         if bullet_hit["handled"] {
-            score += asteroid_score(bullet_hit["asteroid_size"]);
+            score += h::asteroid_score(bullet_hit["asteroid_size"]);
             diag.info(`hit asteroid=${ast_hit_id}`);
             
-            // Spawn temporary crack visuals for the flashing asteroid
             if world.exists(ast_hit_id) {
-                let flash_duration = h::CRACK_DURATION_MS();
-                world.spawn_flash_cracks(ast_hit_id, flash_duration);
+                world.spawn_flash_cracks(ast_hit_id, cfg["crack_duration_ms"]);
             }
         }
     }
@@ -242,7 +239,7 @@ if time.stage == "on_idle" {
         ui.flash_message(`WAVE ${wave}`, 650);
          diag.info(`wave start wave=${wave}`);
 
-         let spawn_count = clamp_i(cfg["wave_base_spawn_count"] + wave, cfg["wave_min_spawn_count"], cfg["wave_max_spawn_count"]);
+         let spawn_count = clamp_i(cfg["wave_base"] + wave, cfg["wave_min"], cfg["wave_max"]);
 
          let cur_ship_id = if local.contains("ship_id") { local["ship_id"] } else { 0 };
          let cur_ship = world.entity(cur_ship_id);
