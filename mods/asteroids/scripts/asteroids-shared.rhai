@@ -107,8 +107,8 @@ fn load_game_config(level) {
     #{
         base_lives: base_lives,
         shot_cooldown_ms: shot_cooldown_ms,
-        ship_thrust: ship_thrust,
-        ship_max_speed: ship_max_speed,
+        thrust_power: ship_thrust,
+        max_speed: ship_max_speed,
         turn_step_ms: turn_step_ms,
         wave_base_spawn_count: wave_base_spawn_count,
         wave_min_spawn_count: wave_min_spawn_count,

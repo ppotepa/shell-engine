@@ -8,9 +8,11 @@
 emitters:
   asteroids.ship_thrust_smoke:
     # Spawned every frame while thruster is active
-    max_count: 40           # Max particles in the pool
+    max_count: 10           # Max particles in the pool (spec: 10)
     cooldown_name: "smoke"  # State key for spawn throttle
-    cooldown_ms: 48         # Emit every 48ms (when active)
+    cooldown_ms: 48         # Base emit rate; decreases with sustained thrust
+    min_cooldown_ms: 16     # Fastest emit rate at full thrust ramp
+    ramp_ms: 2000           # Time to ramp from base to min cooldown
     spawn_offset: 6.0       # Distance from ship center
     backward_speed: 0.35    # Particles move opposite to ship velocity
     ttl_ms: 520             # Particle lifetime

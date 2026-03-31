@@ -139,17 +139,31 @@ impl ScriptFxApi {
             return rhai::Array::new();
         }
 
-        // Throttle via cooldown
+        // Throttle via cooldown — dynamic rate based on thrust duration
         let cooldown_name = config
             .and_then(|c| c.cooldown_name.as_deref())
             .unwrap_or("smoke");
         if !world.cooldown_ready(ship_id, cooldown_name) {
             return rhai::Array::new();
         }
-        let cooldown_ms = config.and_then(|c| c.cooldown_ms).unwrap_or(48) as i32;
-        world.cooldown_start(ship_id, cooldown_name, cooldown_ms);
+        let base_cooldown = config.and_then(|c| c.cooldown_ms).unwrap_or(48) as f32;
+        let min_cooldown = config.and_then(|c| c.min_cooldown_ms).unwrap_or(base_cooldown as i64) as f32;
+        let ramp_ms = config.and_then(|c| c.ramp_ms).unwrap_or(2000) as f32;
 
-        let max_count = config.and_then(|c| c.max_count).unwrap_or(40) as usize;
+        // Compute effective cooldown: lerp from base → min over ramp_ms of sustained thrust
+        let thrust_ms = args
+            .get("thrust_ms")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(0) as f32;
+        let ramp_t = if ramp_ms > 0.0 {
+            (thrust_ms / ramp_ms).min(1.0)
+        } else {
+            1.0
+        };
+        let effective_cooldown = (base_cooldown + (min_cooldown - base_cooldown) * ramp_t) as i32;
+        world.cooldown_start(ship_id, cooldown_name, effective_cooldown.max(1));
+
+        let max_count = config.and_then(|c| c.max_count).unwrap_or(10) as usize;
         if let Some(state) = &self.emitter_state {
             while state.active_count(effect_name, Some(ship_id)) >= max_count {
                 let Some(oldest_id) = state.evict_oldest(effect_name, Some(ship_id)) else {

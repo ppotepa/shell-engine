@@ -74,13 +74,15 @@ if time.stage == "on_idle" {
         let reset_label = "RESET";
         if code == "r" || code == "R" {
             reset_requested = true;
-        } else if code == "F5" {
-            if level.select("asteroids.easy") { reset_requested = true; reset_label = "EASY"; }
-        } else if code == "F6" {
-            if level.select("asteroids.default") { reset_requested = true; reset_label = "DEFAULT"; }
-        } else if code == "F7" {
-            if level.select("asteroids.hard") { reset_requested = true; reset_label = "HARD"; }
         }
+        // Difficulty switching disabled — normal only for now
+        // } else if code == "F5" {
+        //     if level.select("asteroids.easy") { reset_requested = true; reset_label = "EASY"; }
+        // } else if code == "F6" {
+        //     if level.select("asteroids.default") { reset_requested = true; reset_label = "DEFAULT"; }
+        // } else if code == "F7" {
+        //     if level.select("asteroids.hard") { reset_requested = true; reset_label = "HARD"; }
+        // }
         if reset_requested {
             world.reset_dynamic_entities();
             let cfg = reset_game_state(world, game, level, local, now);
@@ -121,7 +123,12 @@ if time.stage == "on_idle" {
         }
 
         if thrust_down {
-            fx.emit("asteroids.ship_thrust_smoke", #{ ship_id: ship_id });
+            let thrust_start = if local.contains("thrust_start") { local["thrust_start"] } else { -1 };
+            if thrust_start < 0 { local["thrust_start"] = time.scene_elapsed_ms; thrust_start = time.scene_elapsed_ms; }
+            let thrust_ms = time.scene_elapsed_ms - thrust_start;
+            fx.emit("asteroids.ship_thrust_smoke", #{ ship_id: ship_id, thrust_ms: thrust_ms });
+        } else {
+            local["thrust_start"] = -1;
         }
 
         if fire_down {

@@ -122,6 +122,10 @@ pub struct EmitterConfig {
     #[serde(default)]
     pub cooldown_ms: Option<i64>,
     #[serde(default)]
+    pub min_cooldown_ms: Option<i64>,
+    #[serde(default)]
+    pub ramp_ms: Option<i64>,
+    #[serde(default)]
     pub spawn_offset: Option<f64>,
     #[serde(default)]
     pub backward_speed: Option<f64>,

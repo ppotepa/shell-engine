@@ -22,7 +22,7 @@ prefabs:
         ax: 0
         ay: 0
         drag: 0.10
-        max_speed: 4.5
+        max_speed: 270.0
       collider:
         shape: "circle"
         radius: 10.0
@@ -32,8 +32,8 @@ prefabs:
         controller_type: "TopDownShipController"
         config:
           turn_step_ms: 40
-          thrust_power: 170.0
-          max_speed: 4.5
+          thrust_power: 120.0
+          max_speed: 270.0
           heading_bits: 32
       wrappable: true
       
