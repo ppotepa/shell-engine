@@ -97,10 +97,10 @@ if time.stage == "on_idle" {
     let right_down = input.action_down("turn_right");
     let thrust_down = input.action_down("thrust");
     let fire_down  = input.action_down("fire");
+    let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
 
     if world.exists(ship_id) {
         let ship_ref = world.entity(ship_id);
-        let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
 
         let turn_dir = if left_down { -1 } else if right_down { 1 } else { 0 };
         ship_ref.set_turn(turn_dir);
@@ -242,10 +242,11 @@ if time.stage == "on_idle" {
         ui.flash_message(`WAVE ${wave}`, 650);
          diag.info(`wave start wave=${wave}`);
 
-         let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
          let spawn_count = clamp_i(cfg["wave_base_spawn_count"] + wave, cfg["wave_min_spawn_count"], cfg["wave_max_spawn_count"]);
 
-         let ship_t = if ship_ref.exists() { ship_ref.transform() } else { #{x: 0, y: 0} };
+         let cur_ship_id = if local.contains("ship_id") { local["ship_id"] } else { 0 };
+         let cur_ship = world.entity(cur_ship_id);
+         let ship_t = if cur_ship.exists() { cur_ship.transform() } else { #{x: 0, y: 0} };
          let wave_ids = world.spawn_wave("asteroids.dynamic", #{
              spawn_count: spawn_count,
              ship_x: ship_t.x,
