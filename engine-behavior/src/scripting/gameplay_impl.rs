@@ -820,7 +820,7 @@ impl ScriptGameplayApi {
             // Ephemeral spawn for TTL-based entities (bullets, smoke, short-lived particles)
             self.spawn_prefab_ephemeral(&prefab, x, y, heading, &args)
         } else {
-            // Regular spawn for persistent entities (ship, asteroid)
+            // Regular spawn for persistent entities
             let mut visual_args = RhaiMap::new();
             visual_args.insert("x".into(), x.into());
             visual_args.insert("y".into(), y.into());

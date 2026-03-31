@@ -15,7 +15,7 @@ Three optimized build profiles to match your workflow:
 ### Fast Development Iteration (Recommended for gameplay dev)
 ```bash
 cargo build --profile fast-release -p app
-cargo run --profile fast-release -p app -- --mod-source=mods/asteroids
+cargo run --profile fast-release -p app -- --mod-source=mods/playground
 ```
 - 36% faster than full release
 - 90% of performance
@@ -24,7 +24,7 @@ cargo run --profile fast-release -p app -- --mod-source=mods/asteroids
 ### Debug Development (Fastest, unoptimized)
 ```bash
 cargo build -p app
-cargo run -p app -- --mod-source=mods/asteroids
+cargo run -p app -- --mod-source=mods/playground
 ```
 - Fastest build (~36s)
 - Unoptimized, good for testing logic
@@ -33,7 +33,7 @@ cargo run -p app -- --mod-source=mods/asteroids
 ### Production Release (Maximum performance)
 ```bash
 cargo build --release -p app
-cargo run --release -p app -- --mod-source=mods/asteroids
+cargo run --release -p app -- --mod-source=mods/playground
 ```
 - Full LTO, single-threaded codegen
 - Best runtime performance

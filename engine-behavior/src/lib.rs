@@ -273,7 +273,7 @@ thread_local! {
 // Rhai Module Resolver
 // Allows scripts to import shared modules: `import "my-module" as my;`
 // Modules are resolved from {MOD_SOURCE}/scripts/ directory.
-// Example: mods/asteroids/scripts/shared.rhai
+// Example: mods/my-game/scripts/shared.rhai
 thread_local! {
     static MOD_SOURCE: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
 }
@@ -1365,7 +1365,7 @@ out
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let id = world.spawn_object("asteroid", #{ tags: ["enemy", "rock"], x: 12, nested: #{ hp: 3 } });
+let id = world.spawn_object("enemy", #{ tags: ["enemy", "rock"], x: 12, nested: #{ hp: 3 } });
 if id > 0 && world.exists(id) {
   world.set(id, "/nested/hp", 7);
 }
@@ -1388,7 +1388,7 @@ if id > 0 && world.exists(id) {
         let ids = gameplay_world.ids();
         assert_eq!(ids.len(), 1);
         let id = ids[0];
-        assert_eq!(gameplay_world.kind_of(id).as_deref(), Some("asteroid"));
+        assert_eq!(gameplay_world.kind_of(id).as_deref(), Some("enemy"));
         assert_eq!(gameplay_world.query_tag("enemy"), vec![id]);
         assert_eq!(gameplay_world.get(id, "/nested/hp"), Some(json!(7)));
     }
@@ -2082,21 +2082,51 @@ game.set("/ast/dt", dt);
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-input.load_profile("asteroids.default");
+input.load_profile("game.default");
 []
 "#
                 .to_string(),
             ),
             ..BehaviorParams::default()
         });
-        let commands = run_behavior(
+
+        // Register a test input profile in the catalog
+        let mut catalogs = catalog::ModCatalogs::default();
+        catalogs.input_profiles.insert(
+            "game.default".to_string(),
+            catalog::InputProfile {
+                bindings: [
+                    ("turn_left".to_string(), vec!["Left".to_string(), "a".to_string(), "A".to_string()]),
+                    ("turn_right".to_string(), vec!["Right".to_string(), "d".to_string(), "D".to_string()]),
+                    ("thrust".to_string(), vec!["Up".to_string(), "w".to_string(), "W".to_string()]),
+                    ("fire".to_string(), vec![" ".to_string(), "f".to_string(), "F".to_string()]),
+                ].into_iter().collect(),
+            },
+        );
+
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.catalogs = std::sync::Arc::new(catalogs);
+        let mut commands = run_behavior(
             &mut behavior,
             &scene_with_menu_options(1),
-            ctx(SceneStage::OnIdle, 0, 0),
+            test_ctx,
         );
+        commands.sort_by(|a, b| {
+            let action_a = match a { BehaviorCommand::BindInputAction { action, .. } => action.as_str(), _ => "" };
+            let action_b = match b { BehaviorCommand::BindInputAction { action, .. } => action.as_str(), _ => "" };
+            action_a.cmp(action_b)
+        });
         assert_eq!(
             commands,
             vec![
+                BehaviorCommand::BindInputAction {
+                    action: "fire".to_string(),
+                    keys: vec![" ".to_string(), "f".to_string(), "F".to_string()],
+                },
+                BehaviorCommand::BindInputAction {
+                    action: "thrust".to_string(),
+                    keys: vec!["Up".to_string(), "w".to_string(), "W".to_string()],
+                },
                 BehaviorCommand::BindInputAction {
                     action: "turn_left".to_string(),
                     keys: vec!["Left".to_string(), "a".to_string(), "A".to_string()],
@@ -2105,14 +2135,6 @@ input.load_profile("asteroids.default");
                     action: "turn_right".to_string(),
                     keys: vec!["Right".to_string(), "d".to_string(), "D".to_string()],
                 },
-                BehaviorCommand::BindInputAction {
-                    action: "thrust".to_string(),
-                    keys: vec!["Up".to_string(), "w".to_string(), "W".to_string()],
-                },
-                BehaviorCommand::BindInputAction {
-                    action: "fire".to_string(),
-                    keys: vec![" ".to_string(), "f".to_string(), "F".to_string()],
-                }
             ]
         );
     }
@@ -3127,7 +3149,7 @@ let ok = game.has("/quests/first_message/completed");
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-if level.select("asteroids.default") {
+if level.select("game.default") {
   let lives = level.get("/player/lives");
   if lives.type_of() == "i64" {
     level.set("/player/lives", lives + 1);
@@ -3141,7 +3163,7 @@ if level.select("asteroids.default") {
         });
         let level_state = LevelState::new();
         assert!(level_state.register_level(
-            "asteroids.default",
+            "game.default",
             serde_json::json!({
                 "player": {
                     "lives": 3
@@ -3232,7 +3254,7 @@ if id > 0 && world.exists(id) {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let id = world.spawn_visual("asteroid", "asteroid-template", #{
+let id = world.spawn_visual("enemy", "enemy-template", #{
     x: 15.0,
     y: 25.0,
     heading: 0.0,
@@ -3266,7 +3288,7 @@ let id = world.spawn_visual("asteroid", "asteroid-template", #{
                 .any(|c| matches!(c, BehaviorCommand::SceneSpawn {
                 template,
                 target
-            } if template == "asteroid-template" && target.starts_with("asteroid-"))),
+            } if template == "enemy-template" && target.starts_with("enemy-"))),
             "spawn_visual should emit SceneSpawn command"
         );
 
@@ -3308,7 +3330,7 @@ let id = world.spawn_visual("item", "item-template", #{
     }
 
     #[test]
-    fn rhai_script_behavior_spawn_prefab_creates_ship_and_asteroid() {
+    fn rhai_script_behavior_spawn_prefab_creates_ship_and_entity() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
@@ -3322,7 +3344,7 @@ let ship = world.spawn_prefab("ship", #{
   },
   invulnerable_ms: 3000
 });
-let asteroid = world.spawn_prefab("asteroid", #{
+let entity = world.spawn_prefab("entity", #{
   x: 12.0, y: 18.0, vx: 2.0, vy: -1.0, shape: 3, size: 2
 });
 "#
@@ -3344,9 +3366,9 @@ let asteroid = world.spawn_prefab("asteroid", #{
         assert!(
             commands.iter().any(
                 |c| matches!(c, BehaviorCommand::SceneSpawn { template, target }
-                if template == "asteroid-template" && target.starts_with("asteroid-"))
+                if template == "entity-template" && target.starts_with("entity-"))
             ),
-            "asteroid prefab should emit SceneSpawn"
+            "entity prefab should emit SceneSpawn"
         );
         assert!(
             commands.iter().any(
@@ -3373,26 +3395,26 @@ let asteroid = world.spawn_prefab("asteroid", #{
         );
         assert!(gameplay_world.status_has(ship_id, "invulnerable"));
 
-        let asteroid_ids = gameplay_world.query_kind("asteroid");
+        let entity_ids = gameplay_world.query_kind("entity");
         assert_eq!(
-            asteroid_ids.len(),
+            entity_ids.len(),
             1,
-            "asteroid prefab should create one asteroid"
+            "entity prefab should create one entity"
         );
-        let asteroid_id = asteroid_ids[0];
+        let entity_id = entity_ids[0];
         let xf = gameplay_world
-            .transform(asteroid_id)
-            .expect("asteroid transform");
+            .transform(entity_id)
+            .expect("entity transform");
         assert!((xf.x - 12.0).abs() < 0.01);
         assert!((xf.y - 18.0).abs() < 0.01);
         let phys = gameplay_world
-            .physics(asteroid_id)
-            .expect("asteroid physics");
+            .physics(entity_id)
+            .expect("entity physics");
         assert!((phys.vx - 120.0).abs() < 0.01);
         assert!((phys.vy + 60.0).abs() < 0.01);
         assert_eq!(
             gameplay_world
-                .get(asteroid_id, "/size")
+                .get(entity_id, "/size")
                 .and_then(|v| v.as_i64()),
             Some(2)
         );
@@ -3436,7 +3458,7 @@ game.set("/test/prefab_id", id);
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let ids = world.spawn_group("missing.group", "asteroid");
+let ids = world.spawn_group("missing.group", "entity");
 game.set("/test/spawn_count", ids.len);
 []
 "#

@@ -69,7 +69,7 @@ Current script-facing API surface includes:
 - game state typed getters (`game.get_i/s/b/f`),
 - audio controls (`audio.cue`, `audio.event`, `audio.play_song`, `audio.stop_song`),
 - Rhai module system (`import "module-name" as alias;` resolves from `{mod}/scripts/` directory),
-- standalone math/geometry functions (`unit_vec32`, `sin32`, `clamp_i`, `clamp_f`, `asteroid_*`, `rotate_points`, etc.).
+- standalone math/geometry functions (`unit_vec32`, `sin32`, `clamp_i`, `clamp_f`, `rotate_points`, etc.).
 
 See `scripting.md` at repo root for the full API reference.
 
@@ -82,8 +82,8 @@ See `scripting.md` at repo root for the full API reference.
 - `local[]` state is per behavior instance. Cross-script coordination should go
   through persistent game state (`game.set/get`) instead of assuming two
   behavior files share locals.
-- The engine Rhai surface is intentionally generic. Mod-specific helpers such as
-  Asteroids firing/split/smoke logic belong in mod-side shared Rhai modules.
+- The engine Rhai surface is intentionally generic. Mod-specific helpers
+  belong in mod-side shared Rhai modules.
 
 ## Validation
 

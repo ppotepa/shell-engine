@@ -90,7 +90,7 @@ cargo run -p app
 Run startup validation for a mod:
 
 ```bash
-cargo run -p app -- --mod-source=mods/asteroids --check-scenes
+cargo run -p app -- --mod-source=mods/playground --check-scenes
 ```
 
 Run editor:

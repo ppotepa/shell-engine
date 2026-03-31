@@ -134,8 +134,8 @@ mod tests {
     #[test]
     fn derives_level_id_from_path() {
         assert_eq!(
-            level_id_from_path("/levels/asteroids/default.yml"),
-            "asteroids.default"
+            level_id_from_path("/levels/game/default.yml"),
+            "game.default"
         );
         assert_eq!(level_id_from_path("/levels/default.yaml"), "default");
     }
@@ -148,13 +148,13 @@ name: test
 version: 0.1.0
 entrypoint: /scenes/main.yml
 level:
-  initial: asteroids.default
+  initial: game.default
 "#,
         )
         .expect("manifest");
         assert_eq!(
             configured_initial_level_id(&manifest).as_deref(),
-            Some("asteroids.default")
+            Some("game.default")
         );
     }
 }

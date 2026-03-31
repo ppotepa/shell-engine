@@ -354,7 +354,7 @@ mod tests {
 
     #[test]
     fn fill_polygon_aligns_with_outline_for_negative_coords() {
-        // Polygon centered at origin with negative coords (like asteroid shapes)
+        // Polygon centered at origin with negative coords
         let poly = [[-4, -4], [4, -4], [4, 4], [-4, 4]];
         let origin_x = 20;
         let origin_y = 15;

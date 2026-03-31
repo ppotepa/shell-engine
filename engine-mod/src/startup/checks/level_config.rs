@@ -266,7 +266,7 @@ mod tests {
         fs::write(
             mod_dir.join("levels/default.yml"),
             r#"
-id: asteroids.default
+id: game.default
 player:
   lives: 3
 "#,
@@ -274,7 +274,7 @@ player:
         .expect("write level");
 
         let manifest: Value = serde_yaml::from_str(
-            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\nlevel:\n  initial: asteroids.default\n",
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\nlevel:\n  initial: game.default\n",
         )
         .expect("manifest");
         let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml", &empty_scene_loader);
@@ -303,7 +303,7 @@ player:
         fs::write(
             mod_dir.join("levels/default.yml"),
             r#"
-id: asteroids.default
+id: game.default
 player:
   lives: 3
 "#,
@@ -311,7 +311,7 @@ player:
         .expect("write level");
 
         let manifest: Value = serde_yaml::from_str(
-            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\nlevel:\n  initial: asteroids.hard\n",
+            "name: Test\nversion: 0.1.0\nentrypoint: /scenes/main.yml\nlevel:\n  initial: game.hard\n",
         )
         .expect("manifest");
         let ctx = StartupContext::new(&mod_dir, &manifest, "/scenes/main.yml", &empty_scene_loader);

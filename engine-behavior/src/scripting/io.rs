@@ -128,7 +128,7 @@ impl ScriptInputApi {
     }
 
     fn load_profile(&mut self, name: &str) -> bool {
-        // Try to load from catalog first
+        // Load from catalog
         if let Some(profile) = self.catalogs.input_profiles.get(name) {
             let Ok(mut q) = self.queue.lock() else {
                 return false;
@@ -142,27 +142,7 @@ impl ScriptInputApi {
             return true;
         }
 
-        // Fall back to hardcoded profiles for backward compatibility
-        let bindings: &[(&str, &[&str])] = match name {
-            "asteroids.default" => &[
-                ("turn_left", &["Left", "a", "A"]),
-                ("turn_right", &["Right", "d", "D"]),
-                ("thrust", &["Up", "w", "W"]),
-                ("fire", &[" ", "f", "F"]),
-            ],
-            _ => return false,
-        };
-
-        let Ok(mut q) = self.queue.lock() else {
-            return false;
-        };
-        for (action, keys) in bindings {
-            q.push(BehaviorCommand::BindInputAction {
-                action: (*action).to_string(),
-                keys: keys.iter().map(|key| (*key).to_string()).collect(),
-            });
-        }
-        true
+        false
     }
 }
 

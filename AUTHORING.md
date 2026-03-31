@@ -76,7 +76,7 @@ Catalogs live in `mods/<mod>/catalogs/`:
 ```
 mods/<mod>/catalogs/
 +-- input-profiles.yaml     Player input key bindings
-+-- prefabs.yaml            Entity templates (ship, asteroid, bullet, etc.)
++-- prefabs.yaml            Entity templates (ship, enemy, bullet, etc.)
 +-- weapons.yaml            Weapon configs (bullets, cooldown, speed)
 +-- emitters.yaml           Particle emitter configs (smoke, sparks, etc.)
 +-- spawners.yaml           Spawn groups and waves (initial setup, split behavior)
@@ -91,14 +91,14 @@ Catalogs are loaded during mod initialization and cached as a World resource.
 
 ```rhai
 // Load player input key bindings
-let profile = input.load_profile("asteroids.default");
+let profile = input.load_profile("game.default");
 // Emits BindInputAction commands; engine input system receives bindings
 ```
 
 **Catalog format:**
 
 ```yaml
-# mods/asteroids/catalogs/input-profiles.yaml
+# mods/my-game/catalogs/input-profiles.yaml
 profiles:
   default:
     bindings:
@@ -118,7 +118,7 @@ let ship_id = world.spawn_prefab("ship", { x: 100, y: 100, heading: 0 });
 **Catalog format:**
 
 ```yaml
-# mods/asteroids/catalogs/prefabs.yaml
+# mods/my-game/catalogs/prefabs.yaml
 prefabs:
   ship:
     kind: "ship"
@@ -126,35 +126,33 @@ prefabs:
     init_fields:
       x: 0
       y: 0
-  asteroid:
-    kind: "asteroid"
-    sprite_template: "asteroid-template"
+  enemy:
+    kind: "enemy"
+    sprite_template: "enemy-template"
     init_fields:
       x: 0
       y: 0
       vx: 0
       vy: 0
-      shape: 0
-      size: 1
 ```
 
 #### Spawn Groups
 
 ```rhai
-// Spawn batch of entities (e.g., initial asteroids)
-world.spawn_group("asteroids.initial", "asteroid");
+// Spawn batch of entities (e.g., initial enemies)
+world.spawn_group("game.initial", "enemy");
 ```
 
 **Catalog format:**
 
 ```yaml
-# mods/asteroids/catalogs/spawners.yaml
+# mods/my-game/catalogs/spawners.yaml
 groups:
-  asteroids.initial:
-    prefab: "asteroid"
+  game.initial:
+    prefab: "enemy"
     spawns:
-      - {x: -300, y: -210, vx: 2.0, vy: 0.0, shape: 0, size: 2}
-      - {x: 300, y: -210, vx: 0.0, vy: 2.0, shape: 1, size: 3}
+      - {x: -300, y: -210, vx: 2.0, vy: 0.0}
+      - {x: 300, y: -210, vx: 0.0, vy: 2.0}
       # ... more spawn specs
 ```
 
@@ -162,7 +160,7 @@ groups:
 
 ```rhai
 // Dynamic spawn wave near arena edges while keeping distance from the player
-world.spawn_wave("asteroids.dynamic", #{
+world.spawn_wave("game.dynamic", #{
   spawn_count: 6,
   ship_x: 0,
   ship_y: 0,
@@ -176,16 +174,16 @@ world.spawn_wave("asteroids.dynamic", #{
 **Catalog format:**
 
 ```yaml
-# mods/asteroids/catalogs/spawners.yaml
+# mods/my-game/catalogs/spawners.yaml
 waves:
-  asteroids.dynamic:
-    prefab: "asteroid"
+  game.dynamic:
+    prefab: "enemy"
     size_distribution:
-      # Large asteroids (idx 0-2) split into 2 medium asteroids (size 3)
+      # Large entities (idx 0-2)
       - {min_idx: 0, max_idx: 2, size: 3}
-      # Medium asteroids (idx 2-5) split into 2 small asteroids (size 2)
+      # Medium entities (idx 2-5)
       - {min_idx: 2, max_idx: 5, size: 2}
-      # Small asteroids (idx 5+) don't split
+      # Small entities (idx 5+)
       - {min_idx: 5, size: 1}
 ```
 
@@ -193,16 +191,15 @@ waves:
 
 ```rhai
 // Keep weapon policy in mod-side Rhai helpers built on generic engine primitives.
-// Asteroids now does this in mods/asteroids/scripts/asteroids-shared.rhai.
 let bullet_id = h::fire_weapon(world, audio, ship_id, cfg);
 ```
 
 **Catalog format:**
 
 ```yaml
-# mods/asteroids/catalogs/weapons.yaml
+# mods/my-game/catalogs/weapons.yaml
 weapons:
-  asteroids.ship:
+  game.ship:
     max_bullets: 8           # Max bullets on screen
     bullet_kind: "bullet"    # Prefab to spawn
     cooldown_name: "fire"    # State key for cooldown tracking
@@ -219,9 +216,9 @@ h::emit_thrust_smoke(world, ship_id, 350);
 **Catalog format:**
 
 ```yaml
-# mods/asteroids/catalogs/emitters.yaml
+# mods/my-game/catalogs/emitters.yaml
 emitters:
-  asteroids.ship_thrust_smoke:
+  game.ship_thrust_smoke:
     max_count: 10            # Max particles in pool
     cooldown_name: "smoke"   # State key for spawn throttle
     cooldown_ms: 48          # Base emit cadence
@@ -268,7 +265,7 @@ min_x, min_y, max_x, max_y
 ### Engine vs Mod Responsibilities
 
 Keep the engine-level Rhai surface generic. Mod-specific gameplay policy such as
-weapon firing rules, asteroid split behavior, ship-hit reactions, emitter logic,
+weapon firing rules, enemy split behavior, ship-hit reactions, emitter logic,
 or shape construction belongs in shared Rhai modules inside the mod.
 
 ---
@@ -549,7 +546,7 @@ sin32(idx)                     // 32-step integer sine lookup (-1024..1024)
 rotate_points(points, heading) // rotate a point array around 0,0 using 32-step heading
 ```
 
-Keep shape-specific helpers such as `asteroid_points`, `asteroid_radius`, or
+Keep shape-specific helpers such as custom point generators or
 similar gameplay geometry in shared Rhai modules inside the mod instead of as
 engine-global functions.
 
@@ -557,8 +554,8 @@ Mod-level named behaviors can live in `behaviors/*.yml` and reference external R
 
 ```yaml
 kind: behavior
-name: asteroids-game-loop
-src: ./asteroids-game-loop.rhai
+name: game-loop
+src: ./game-loop.rhai
 ```
 
 Use `script:` for short inline behaviors and `src:` for reusable or larger scripts.

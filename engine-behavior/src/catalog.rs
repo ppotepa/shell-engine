@@ -295,13 +295,13 @@ impl ModCatalogs {
         Ok(catalogs)
     }
 
-    /// Create test catalogs with default Asteroids prefabs, weapons, and emitters.
+    /// Create test catalogs with generic prefabs, weapons, and emitters.
     /// Used by behavior tests when no mod catalogs are available.
     #[cfg(test)]
     pub fn test_catalogs() -> Self {
         let mut catalogs = ModCatalogs::default();
 
-        // Add test prefabs (ship, asteroid, bullet, smoke) with components
+        // Add test prefabs (ship, entity, bullet, smoke) with components
         use serde_json::json;
 
         // Ship prefab
@@ -348,21 +348,12 @@ impl ModCatalogs {
             },
         );
 
-        // Asteroid prefab
-        let mut asteroid_extra = HashMap::new();
-        asteroid_extra.insert("flash_ms".to_string(), json!(0));
-        asteroid_extra.insert("flash_total_ms".to_string(), json!(0));
-        asteroid_extra.insert("split_pending".to_string(), json!(false));
-        asteroid_extra.insert("rot_phase".to_string(), json!(0));
-        asteroid_extra.insert("rot_speed".to_string(), json!(1));
-        asteroid_extra.insert("rot_step_ms".to_string(), json!(72));
-        asteroid_extra.insert("rot_accum_ms".to_string(), json!(0));
-
+        // Entity prefab (generic non-player entity for tests)
         catalogs.prefabs.insert(
-            "asteroid".to_string(),
+            "entity".to_string(),
             PrefabTemplate {
-                kind: "asteroid".to_string(),
-                sprite_template: Some("asteroid-template".to_string()),
+                kind: "entity".to_string(),
+                sprite_template: Some("entity-template".to_string()),
                 init_fields: HashMap::new(),
                 components: Some(PrefabComponents {
                     physics: Some(PhysicsComponent {
@@ -384,7 +375,7 @@ impl ModCatalogs {
                     controller: None,
                     lifecycle: None,
                     wrappable: Some(true),
-                    extra_data: Some(asteroid_extra),
+                    extra_data: None,
                 }),
             },
         );
@@ -506,8 +497,8 @@ prefabs:
     fn test_group_parsing() {
         let yaml = r#"
 groups:
-  asteroids.initial:
-    prefab: "asteroid"
+  game.initial:
+    prefab: "entity"
     spawns:
       - {x: -300, y: -210, vx: 2.0, vy: 0.0, shape: 0, size: 2}
       - {x: 300, y: -210, vx: 0.0, vy: 2.0, shape: 1, size: 3}
@@ -516,11 +507,11 @@ groups:
         let group_val = parsed
             .get("groups")
             .unwrap()
-            .get("asteroids.initial")
+            .get("game.initial")
             .unwrap();
         let group: GroupTemplate = serde_yaml::from_value(group_val.clone()).unwrap();
 
-        assert_eq!(group.prefab, "asteroid");
+        assert_eq!(group.prefab, "entity");
         assert_eq!(group.spawns.len(), 2);
         assert_eq!(group.spawns[0].x, -300.0);
     }
@@ -529,8 +520,8 @@ groups:
     fn test_wave_parsing() {
         let yaml = r#"
 waves:
-  asteroids.dynamic:
-    prefab: "asteroid"
+  game.dynamic:
+    prefab: "entity"
     size_distribution:
       - {min_idx: 0, max_idx: 2, size: 3}
       - {min_idx: 2, max_idx: 5, size: 2}
@@ -540,11 +531,11 @@ waves:
         let wave_val = parsed
             .get("waves")
             .unwrap()
-            .get("asteroids.dynamic")
+            .get("game.dynamic")
             .unwrap();
         let wave: WaveTemplate = serde_yaml::from_value(wave_val.clone()).unwrap();
 
-        assert_eq!(wave.prefab, "asteroid");
+        assert_eq!(wave.prefab, "entity");
         assert_eq!(wave.size_distribution.len(), 3);
     }
 }

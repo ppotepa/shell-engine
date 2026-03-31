@@ -1205,19 +1205,19 @@ mod tests {
     #[test]
     fn clear_resets_world() {
         let world = GameplayWorld::new();
-        assert!(world.spawn("asteroid", json!({"x": 1})).is_some());
+        assert!(world.spawn("enemy", json!({"x": 1})).is_some());
         assert_eq!(world.count(), 1);
         world.clear();
         assert_eq!(world.count(), 0);
         assert!(world.ids().is_empty());
-        assert_eq!(world.query_kind("asteroid"), Vec::<u64>::new());
+        assert_eq!(world.query_kind("enemy"), Vec::<u64>::new());
     }
 
     #[test]
     fn register_child_records_ownership_and_parent_despawn_removes_child() {
         let world = GameplayWorld::new();
-        let parent = world.spawn("asteroid", json!({})).expect("parent");
-        let child = world.spawn("asteroid-crack", json!({})).expect("child");
+        let parent = world.spawn("parent", json!({})).expect("parent");
+        let child = world.spawn("child", json!({})).expect("child");
 
         assert!(world.set_lifecycle(child, LifecyclePolicy::OwnerBound));
         assert!(world.register_child(parent, child));

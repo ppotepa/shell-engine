@@ -715,7 +715,7 @@ mod tests {
     #[test]
     fn validates_minimal_song_file() {
         let song = SongFile {
-            id: "asteroids.main".to_string(),
+            id: "game.main".to_string(),
             tempo_bpm: 128.0,
             time_signature: [4, 4],
             loop_region: Some(LoopRegion {
@@ -771,7 +771,7 @@ mod tests {
         let mut runtime = SfxEventRuntime::new(SfxBank {
             version: 1,
             events: BTreeMap::from([(
-                "ship.shoot".to_string(),
+                "player.shoot".to_string(),
                 SfxEvent {
                     gain: 0.8,
                     max_polyphony: 4,
@@ -787,7 +787,7 @@ mod tests {
         });
 
         let resolved = runtime
-            .resolve_event("ship.shoot", 123, Some(0.5))
+            .resolve_event("player.shoot", 123, Some(0.5))
             .expect("event should resolve");
         assert_eq!(resolved.cue, "shoot_01");
         assert!((resolved.gain - 0.2).abs() < 0.0001);
