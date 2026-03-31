@@ -9,7 +9,7 @@ import "asteroids-shared" as h;
 
 if time.stage == "on_idle" {
     // ── Ship visual ──────────────────────────────────────────────────
-    let ship_id = world.first_kind("ship");
+    let ship_id = game.get_i("/ast/ship_id", 0);
     if ship_id > 0 {
         let ship = world.entity(ship_id);
         if ship.exists() {

@@ -19,6 +19,7 @@ if time.stage == "on_enter" {
     local["ship_id"] = world.spawn_prefab("ship", #{
         cfg: cfg, invulnerable_ms: cfg["invulnerability_ms"]
     });
+    game.set("/ast/ship_id", local["ship_id"]);
     world.spawn_group("asteroids.initial", "asteroid");
     input.load_profile("asteroids.default");
     audio.play_song("asteroids.game-loop");
@@ -53,6 +54,7 @@ if time.stage == "on_idle" {
             local["ship_id"] = world.spawn_prefab("ship", #{
                 cfg: new_cfg, invulnerable_ms: new_cfg["invulnerability_ms"]
             });
+            game.set("/ast/ship_id", local["ship_id"]);
             world.spawn_group("asteroids.initial", "asteroid");
             ui.flash_message("RESET", 500);
             return ();
@@ -141,6 +143,7 @@ if time.stage == "on_idle" {
         local["ship_id"] = world.spawn_prefab("ship", #{
             cfg: cfg, invulnerable_ms: cfg["invulnerability_ms"]
         });
+        game.set("/ast/ship_id", local["ship_id"]);
 
         if world.exists(ast_id) {
             world.spawn_flash_cracks(ast_id, cfg["crack_duration_ms"]);
@@ -155,6 +158,7 @@ if time.stage == "on_idle" {
 
         let result = world.handle_bullet_hit(hit["bullet"], ast_id, #{
             crack_duration_ms: cfg["crack_duration_ms"],
+            bullet_momentum_factor: 0.35,
             ui_text: "HIT", ui_ttl_ms: 250
         });
         if result["handled"] {

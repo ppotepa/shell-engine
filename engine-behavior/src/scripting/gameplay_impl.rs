@@ -1383,6 +1383,20 @@ impl ScriptGameplayApi {
         out.insert("handled".into(), false.into());
         out.insert("asteroid_size".into(), 0_i64.into());
 
+        let Some(world) = self.world.clone() else {
+            if bullet_id > 0 {
+                let _ = self.despawn(bullet_id);
+            }
+            return out;
+        };
+
+        // Capture bullet velocity BEFORE despawn for momentum transfer
+        let bullet_velocity = if bullet_id > 0 {
+            world.physics(bullet_id as u64).map(|p| (p.vx, p.vy))
+        } else {
+            None
+        };
+
         if bullet_id > 0 {
             let _ = self.despawn(bullet_id);
         }
@@ -1390,9 +1404,6 @@ impl ScriptGameplayApi {
         if asteroid_id <= 0 {
             return out;
         }
-        let Some(world) = self.world.clone() else {
-            return out;
-        };
         let asteroid_id = asteroid_id as u64;
         if !world.exists(asteroid_id) {
             return out;
@@ -1408,6 +1419,21 @@ impl ScriptGameplayApi {
         let ui_ttl_ms = ScriptGameplayApi::map_int(&args, "ui_ttl_ms", 250).max(0);
 
         let asteroid_size = asteroid.get_i("/size", 0);
+
+        // Apply bullet momentum to asteroid (smaller asteroids deflect more)
+        let momentum_factor =
+            Self::map_number(&args, "bullet_momentum_factor", 0.0) as f32;
+        if momentum_factor > 0.0 {
+            if let Some((bvx, bvy)) = bullet_velocity {
+                let mass_ratio = momentum_factor / (asteroid_size as f32 + 1.0);
+                if let Some(mut ast_phys) = world.physics(asteroid_id) {
+                    ast_phys.vx += bvx * mass_ratio;
+                    ast_phys.vy += bvy * mass_ratio;
+                    world.set_physics(asteroid_id, ast_phys);
+                }
+            }
+        }
+
         let mut asteroid_updates = RhaiMap::new();
         asteroid_updates.insert("flash_ms".into(), crack_duration_ms.into());
         asteroid_updates.insert("flash_total_ms".into(), crack_duration_ms.into());
