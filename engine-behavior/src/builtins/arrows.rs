@@ -2,7 +2,10 @@
 
 use engine_core::scene::BehaviorParams;
 
-use crate::{BehaviorCommand, Behavior, BehaviorContext, GameObject, Scene, emit_offset, emit_visibility, rounded_sine_wave};
+use crate::{
+    emit_offset, emit_visibility, rounded_sine_wave, Behavior, BehaviorCommand, BehaviorContext,
+    GameObject, Scene,
+};
 
 /// Shows directional arrow sprites flanking the selected menu option.
 pub struct SelectedArrowsBehavior {

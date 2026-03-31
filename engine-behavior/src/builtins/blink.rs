@@ -2,7 +2,9 @@
 
 use engine_core::scene::BehaviorParams;
 
-use crate::{BehaviorCommand, Behavior, BehaviorContext, GameObject, Scene, emit_visibility, resolve_target};
+use crate::{
+    emit_visibility, resolve_target, Behavior, BehaviorCommand, BehaviorContext, GameObject, Scene,
+};
 
 /// Alternates an object's visibility on a configurable on/off cycle.
 pub struct BlinkBehavior {

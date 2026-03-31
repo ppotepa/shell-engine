@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use rhai::{Array as RhaiArray, Engine as RhaiEngine, Map as RhaiMap};
 
-use engine_game::{GameplayWorld, Collider2D, ColliderShape};
+use engine_game::{Collider2D, ColliderShape, GameplayWorld};
 
 use crate::BehaviorCommand;
 
@@ -222,8 +222,12 @@ impl ScriptEntityPhysicsApi {
         for item in points {
             if let Some(pair) = item.clone().try_cast::<RhaiArray>() {
                 if pair.len() >= 2 {
-                    let x = pair.get(0).and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
-                    let y = pair.get(1).and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                    let x = pair
+                        .get(0)
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                    let y = pair
+                        .get(1)
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
                     if let (Some(x), Some(y)) = (x, y) {
                         polygon_points.push([x as f32, y as f32]);
                     }
@@ -246,10 +250,12 @@ impl ScriptEntityPhysicsApi {
 #[derive(Clone)]
 pub(crate) struct ScriptPhysicsApi {
     world: Option<GameplayWorld>,
+    #[allow(dead_code)]
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
 
 impl ScriptPhysicsApi {
+    #[allow(dead_code)]
     pub(crate) fn new(
         world: Option<GameplayWorld>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
@@ -285,7 +291,12 @@ impl ScriptPhysicsApi {
     }
 
     /// Add (dvx, dvy) to velocity.
-    pub(crate) fn add_velocity(&mut self, id: rhai::INT, dvx: rhai::FLOAT, dvy: rhai::FLOAT) -> bool {
+    pub(crate) fn add_velocity(
+        &mut self,
+        id: rhai::INT,
+        dvx: rhai::FLOAT,
+        dvy: rhai::FLOAT,
+    ) -> bool {
         let Some(world) = self.world.as_ref() else {
             return false;
         };
@@ -312,7 +323,12 @@ impl ScriptPhysicsApi {
     }
 
     /// Set acceleration to (ax, ay).
-    pub(crate) fn set_acceleration(&mut self, id: rhai::INT, ax: rhai::FLOAT, ay: rhai::FLOAT) -> bool {
+    pub(crate) fn set_acceleration(
+        &mut self,
+        id: rhai::INT,
+        ax: rhai::FLOAT,
+        ay: rhai::FLOAT,
+    ) -> bool {
         let Some(world) = self.world.as_ref() else {
             return false;
         };
@@ -325,7 +341,12 @@ impl ScriptPhysicsApi {
     }
 
     /// Add (dax, day) to acceleration.
-    pub(crate) fn add_acceleration(&mut self, id: rhai::INT, dax: rhai::FLOAT, day: rhai::FLOAT) -> bool {
+    pub(crate) fn add_acceleration(
+        &mut self,
+        id: rhai::INT,
+        dax: rhai::FLOAT,
+        day: rhai::FLOAT,
+    ) -> bool {
         let Some(world) = self.world.as_ref() else {
             return false;
         };
@@ -342,7 +363,10 @@ impl ScriptPhysicsApi {
         let Some(world) = self.world.as_ref() else {
             return 0.0;
         };
-        world.physics(id as u64).map(|b| b.drag as rhai::FLOAT).unwrap_or(0.0)
+        world
+            .physics(id as u64)
+            .map(|b| b.drag as rhai::FLOAT)
+            .unwrap_or(0.0)
     }
 
     /// Set drag factor.
@@ -450,8 +474,12 @@ impl ScriptPhysicsApi {
         for item in points {
             if let Some(pair) = item.clone().try_cast::<RhaiArray>() {
                 if pair.len() >= 2 {
-                    let x = pair.get(0).and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
-                    let y = pair.get(1).and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                    let x = pair
+                        .get(0)
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                    let y = pair
+                        .get(1)
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
                     if let (Some(x), Some(y)) = (x, y) {
                         polygon_points.push([x as f32, y as f32]);
                     }
@@ -474,7 +502,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_type_with_name::<ScriptPhysicsApi>("PhysicsApi");
 
     // Entity-level physics API (accessed as entity.physics.velocity(), etc.)
-    engine.register_fn("velocity", |physics: &mut ScriptEntityPhysicsApi| physics.velocity());
+    engine.register_fn("velocity", |physics: &mut ScriptEntityPhysicsApi| {
+        physics.velocity()
+    });
     engine.register_fn(
         "set_velocity",
         |physics: &mut ScriptEntityPhysicsApi, vx: rhai::FLOAT, vy: rhai::FLOAT| {
@@ -502,7 +532,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             physics.add_acceleration(dax, day)
         },
     );
-    engine.register_fn("drag", |physics: &mut ScriptEntityPhysicsApi| physics.drag());
+    engine.register_fn("drag", |physics: &mut ScriptEntityPhysicsApi| {
+        physics.drag()
+    });
     engine.register_fn(
         "set_drag",
         |physics: &mut ScriptEntityPhysicsApi, drag: rhai::FLOAT| physics.set_drag(drag),
@@ -535,9 +567,10 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     );
 
     // World-level physics API (for id-based operations: physics.velocity(id), etc.)
-    engine.register_fn("velocity", |physics: &mut ScriptPhysicsApi, id: rhai::INT| {
-        physics.velocity(id)
-    });
+    engine.register_fn(
+        "velocity",
+        |physics: &mut ScriptPhysicsApi, id: rhai::INT| physics.velocity(id),
+    );
     engine.register_fn(
         "set_velocity",
         |physics: &mut ScriptPhysicsApi, id: rhai::INT, vx: rhai::FLOAT, vy: rhai::FLOAT| {
@@ -550,9 +583,10 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             physics.add_velocity(id, dvx, dvy)
         },
     );
-    engine.register_fn("acceleration", |physics: &mut ScriptPhysicsApi, id: rhai::INT| {
-        physics.acceleration(id)
-    });
+    engine.register_fn(
+        "acceleration",
+        |physics: &mut ScriptPhysicsApi, id: rhai::INT| physics.acceleration(id),
+    );
     engine.register_fn(
         "set_acceleration",
         |physics: &mut ScriptPhysicsApi, id: rhai::INT, ax: rhai::FLOAT, ay: rhai::FLOAT| {
@@ -565,32 +599,36 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             physics.add_acceleration(id, dax, day)
         },
     );
-    engine.register_fn("drag", |physics: &mut ScriptPhysicsApi, id: rhai::INT| physics.drag(id));
+    engine.register_fn("drag", |physics: &mut ScriptPhysicsApi, id: rhai::INT| {
+        physics.drag(id)
+    });
     engine.register_fn(
         "set_drag",
-        |physics: &mut ScriptPhysicsApi, id: rhai::INT, drag: rhai::FLOAT| physics.set_drag(id, drag),
+        |physics: &mut ScriptPhysicsApi, id: rhai::INT, drag: rhai::FLOAT| {
+            physics.set_drag(id, drag)
+        },
     );
-    engine.register_fn("max_speed", |physics: &mut ScriptPhysicsApi, id: rhai::INT| {
-        physics.max_speed(id)
-    });
+    engine.register_fn(
+        "max_speed",
+        |physics: &mut ScriptPhysicsApi, id: rhai::INT| physics.max_speed(id),
+    );
     engine.register_fn(
         "set_max_speed",
         |physics: &mut ScriptPhysicsApi, id: rhai::INT, max_speed: rhai::FLOAT| {
             physics.set_max_speed(id, max_speed)
         },
     );
-    engine.register_fn("collider", |physics: &mut ScriptPhysicsApi, id: rhai::INT| {
-        physics.collider(id)
-    });
+    engine.register_fn(
+        "collider",
+        |physics: &mut ScriptPhysicsApi, id: rhai::INT| physics.collider(id),
+    );
     engine.register_fn(
         "set_collider_circle",
         |physics: &mut ScriptPhysicsApi,
          id: rhai::INT,
          radius: rhai::FLOAT,
          layer: rhai::INT,
-         mask: rhai::INT| {
-            physics.set_collider_circle(id, radius, layer, mask)
-        },
+         mask: rhai::INT| { physics.set_collider_circle(id, radius, layer, mask) },
     );
     engine.register_fn(
         "set_collider_polygon",
@@ -598,8 +636,6 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
          id: rhai::INT,
          points: RhaiArray,
          layer: rhai::INT,
-         mask: rhai::INT| {
-            physics.set_collider_polygon(id, points, layer, mask)
-        },
+         mask: rhai::INT| { physics.set_collider_polygon(id, points, layer, mask) },
     );
 }

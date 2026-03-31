@@ -1,8 +1,8 @@
 //! Shared conversion helpers for scripting domain APIs.
 
-use rhai::{Array as RhaiArray, Map as RhaiMap};
 use engine_core::effects::Region;
 use engine_core::scene_runtime_types::ObjectRuntimeState;
+use rhai::{Array as RhaiArray, Map as RhaiMap};
 
 /// Convert a Region to a Rhai map with fields: x, y, w, h.
 pub(crate) fn region_to_rhai_map(region: &Region) -> RhaiMap {

@@ -7,10 +7,10 @@ pub(super) mod scene_logic;
 use super::cutscene::{expand_scene_cutscene_ref_with_filters, CutsceneFilterRegistry};
 use crate::document::{LogicKind, ObjectDocument, SceneDocument};
 use engine_core::scene::Scene;
-use serde_yaml::{Mapping, Value};
-use std::collections::BTreeMap;
 use scene_effects::*;
 use scene_logic::*;
+use serde_yaml::{Mapping, Value};
+use std::collections::BTreeMap;
 
 /// Compiles authored scene YAML into a runtime [`Scene`] using the default
 /// root path when resolving referenced object documents.

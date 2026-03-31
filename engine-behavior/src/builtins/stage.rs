@@ -2,7 +2,10 @@
 
 use engine_core::scene::BehaviorParams;
 
-use crate::{BehaviorCommand, Behavior, BehaviorContext, GameObject, Scene, SceneStage, TimeScope, emit_visibility, resolve_target, parse_stage_name, is_within_time_window};
+use crate::{
+    emit_visibility, is_within_time_window, parse_stage_name, resolve_target, Behavior,
+    BehaviorCommand, BehaviorContext, GameObject, Scene, SceneStage, TimeScope,
+};
 
 /// Shows the object only during the specified scene stages.
 pub struct StageVisibilityBehavior {

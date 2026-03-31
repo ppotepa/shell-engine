@@ -9,10 +9,10 @@ use engine_audio_sequencer::{validate_sfx_bank, validate_song_file, SfxBank, Son
 use engine_error::EngineError;
 use zip::ZipArchive;
 
-use super::asset_utils::{is_yaml_file, is_zip_file, normalize_relative_asset_path};
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
+use super::asset_utils::{is_yaml_file, is_zip_file, normalize_relative_asset_path};
 
 /// Startup check for sequencer assets:
 /// - `/audio/sfx.yml` or `/audio/sfx.yaml`
@@ -303,4 +303,3 @@ fn song_events(song: &SongFile) -> BTreeSet<String> {
     }
     events
 }
-

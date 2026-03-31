@@ -3,17 +3,18 @@
 pub mod builtins;
 pub mod catalog;
 pub mod emit;
+pub mod emitter_state;
 pub mod factory;
 pub mod geometry;
-pub mod rhai_util;
 pub mod registry;
+pub mod rhai_util;
 pub mod scripting;
 
 // Re-export builtin behaviors publicly for external crates
 pub use builtins::{
-    BlinkBehavior, BobBehavior, FollowBehavior, MenuCarouselBehavior,
-    MenuCarouselObjectBehavior, MenuSelectedBehavior, SceneAudioBehavior,
-    SelectedArrowsBehavior, StageVisibilityBehavior, TimedVisibilityBehavior,
+    BlinkBehavior, BobBehavior, FollowBehavior, MenuCarouselBehavior, MenuCarouselObjectBehavior,
+    MenuSelectedBehavior, SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
+    TimedVisibilityBehavior,
 };
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -29,28 +30,27 @@ use engine_core::scene::{AudioCue, BehaviorParams, BehaviorSpec, Scene};
 use engine_core::scene_runtime_types::{
     ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
 };
-use engine_game::{
-    CollisionHit, GameplayWorld,
-};
+use engine_game::{CollisionHit, GameplayWorld};
 use engine_persistence::PersistenceStore;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
-use factory::BehaviorFactory;
 use emit::*;
+pub use emitter_state::EmitterState;
+use factory::BehaviorFactory;
 use rhai_util::*;
 use scripting::{
-    scene::ScriptSceneApi,
-    ui::ScriptUiApi,
-    game::{ScriptGameApi, ScriptLevelApi},
-    game::ScriptTimeApi,
-    game::ScriptPersistenceApi,
-    gameplay::ScriptGameplayApi,
-    io::ScriptTerminalApi,
-    io::ScriptInputApi,
-    debug::ScriptDebugApi,
     audio::ScriptAudioApi,
     audio::ScriptFxApi,
+    debug::ScriptDebugApi,
+    game::ScriptPersistenceApi,
+    game::ScriptTimeApi,
+    game::{ScriptGameApi, ScriptLevelApi},
+    gameplay::ScriptGameplayApi,
+    io::ScriptInputApi,
+    io::ScriptTerminalApi,
+    scene::ScriptSceneApi,
+    ui::ScriptUiApi,
 };
 
 /// Per-tick context passed to every [`Behavior::update`] call.
@@ -80,6 +80,7 @@ pub struct BehaviorContext {
     pub persistence: Option<PersistenceStore>,
     pub catalogs: Arc<catalog::ModCatalogs>,
     pub gameplay_world: Option<GameplayWorld>,
+    pub emitter_state: Option<EmitterState>,
     /// Collision events collected for this frame (gameplay entities).
     pub collisions: std::sync::Arc<Vec<CollisionHit>>,
     /// Collision enter: pairs that started overlapping this frame (not present last frame).
@@ -637,7 +638,7 @@ impl Behavior for RhaiScriptBehavior {
                 // `state` pushed per-frame for scripts using the legacy return-state pattern.
                 scope.push_dynamic("state", json_to_rhai_dynamic(&self.state));
                 scope.push("ui", ScriptUiApi::new(ctx, Arc::clone(&helper_commands)));
-                
+
                 let ui_data = extract_ui_fields_data(ctx);
                 scope.push("ui_focused_target", ui_data.focused_target);
                 scope.push("ui_theme", ui_data.theme);
@@ -726,6 +727,7 @@ impl Behavior for RhaiScriptBehavior {
                     "fx",
                     ScriptFxApi::new(
                         ctx.gameplay_world.clone(),
+                        ctx.emitter_state.clone(),
                         Arc::clone(&ctx.catalogs),
                         Arc::clone(&helper_commands),
                     ),
@@ -875,6 +877,7 @@ fn smoke_probe_context(
         persistence: None,
         catalogs: Arc::new(catalog::ModCatalogs::default()),
         gameplay_world: Some(gameplay_world),
+        emitter_state: None,
         collisions: Arc::new(Vec::new()),
         collision_enters: Arc::new(Vec::new()),
         collision_stays: Arc::new(Vec::new()),
@@ -1111,12 +1114,13 @@ impl BehaviorContext {
 #[cfg(test)]
 mod tests {
     use super::{
-        asteroid_fragment_points_i32, asteroid_points_i32, built_in_behavior, catalog,
-        rotate_points_i32, smoke_validate_rhai_script, Behavior, BehaviorCommand, BehaviorContext,
-        BlinkBehavior, BobBehavior, FollowBehavior, MenuCarouselBehavior,
+        built_in_behavior, catalog, smoke_validate_rhai_script, Behavior, BehaviorCommand,
+        BehaviorContext, BlinkBehavior, BobBehavior, FollowBehavior, MenuCarouselBehavior,
         MenuCarouselObjectBehavior, MenuSelectedBehavior, RhaiScriptBehavior, SceneAudioBehavior,
         SelectedArrowsBehavior, StageVisibilityBehavior, TimedVisibilityBehavior,
     };
+    use crate::geometry::{asteroid_fragment_points_i32, asteroid_points_i32, rotate_points_i32};
+    use crate::EmitterState;
     use engine_animation::SceneStage;
     use engine_core::effects::Region;
     use engine_core::game_object::{GameObject, GameObjectKind};
@@ -1253,6 +1257,7 @@ mod tests {
             persistence: None,
             catalogs: Arc::new(catalog::ModCatalogs::default()),
             gameplay_world: None,
+            emitter_state: None,
             collisions: Arc::new(Vec::new()),
             collision_enters: Arc::new(Vec::new()),
             collision_stays: Arc::new(Vec::new()),
@@ -3565,7 +3570,7 @@ game.set("/test/bullet_id", bullet);
         let ship_id = gameplay_world.query_kind("ship")[0];
         let ship_xf = gameplay_world.transform(ship_id).expect("ship transform");
         let ship_ctrl = gameplay_world.controller(ship_id).expect("ship controller");
-        let (dir_x, dir_y) = ship_ctrl.heading_vector();
+        let (dir_x, dir_y) = crate::geometry::heading_vector_i32(ship_ctrl.current_heading);
         let bullet_xf = gameplay_world
             .transform(bullet_id)
             .expect("bullet transform");
@@ -3695,7 +3700,7 @@ game.set("/test/count", ids.len);
         let smoke_id = gameplay_world.query_kind("smoke")[0];
         let ship_xf = gameplay_world.transform(ship_id).expect("ship transform");
         let ship_ctrl = gameplay_world.controller(ship_id).expect("ship controller");
-        let (dir_x, dir_y) = ship_ctrl.heading_vector();
+        let (dir_x, dir_y) = crate::geometry::heading_vector_i32(ship_ctrl.current_heading);
         let smoke_xf = gameplay_world.transform(smoke_id).expect("smoke transform");
         assert!((smoke_xf.x - (ship_xf.x - (dir_x * 6.0))).abs() < 0.01);
         assert!((smoke_xf.y - (ship_xf.y - (dir_y * 6.0))).abs() < 0.01);
@@ -3739,6 +3744,35 @@ game.set("/test/count", ids.len);
             Some(12)
         );
         assert_eq!(gameplay_world.query_kind("smoke").len(), 12);
+    }
+
+    #[test]
+    fn rhai_script_behavior_fx_emit_ship_disintegration_caps_active_particles() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+for _i in 0..5 {
+  fx.emit("asteroids.ship_disintegration", #{ x: 10.0, y: 20.0 });
+}
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.emitter_state = Some(EmitterState::default());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "fx capped disintegration should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(gameplay_world.query_kind("smoke").len(), 20);
     }
 
     #[test]
@@ -4419,6 +4453,7 @@ game.set("/test/count", ids.len);
                 .count(),
             3
         );
+        assert_eq!(gameplay_world.query_kind("asteroid-crack").len(), 3);
         let asteroid_id = gameplay_world.query_kind("asteroid")[0];
         assert_eq!(
             gameplay_world
@@ -4482,6 +4517,65 @@ game.set("/test/second", second.len);
                 ))
                 .count(),
             3
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_despawn_cleans_owned_crack_visuals() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
+let asteroid = world.spawn_prefab("asteroid", #{
+  x: 12.0, y: 18.0, vx: 0.0, vy: 0.0, shape: 3, size: 2
+});
+let ids = world.ensure_crack_visuals(asteroid);
+world.despawn(asteroid);
+game.set("/test/cracks_before_despawn", ids.len);
+game.set("/test/cracks_after_despawn", world.count_kind("asteroid-crack"));
+[]
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut ctx = ctx(SceneStage::OnIdle, 0, 0);
+        ctx.gameplay_world = Some(gameplay_world.clone());
+        ctx.game_state = Some(game_state.clone());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "despawning asteroid with cracks should not produce ScriptError: {commands:?}"
+        );
+        assert_eq!(
+            game_state
+                .get("/test/cracks_before_despawn")
+                .and_then(|value| value.as_i64()),
+            Some(3)
+        );
+        assert_eq!(
+            game_state
+                .get("/test/cracks_after_despawn")
+                .and_then(|value| value.as_i64()),
+            Some(0)
+        );
+        assert_eq!(gameplay_world.query_kind("asteroid").len(), 0);
+        assert_eq!(gameplay_world.query_kind("asteroid-crack").len(), 0);
+        assert_eq!(
+            commands
+                .iter()
+                .filter(|c| matches!(
+                    c,
+                    BehaviorCommand::SceneDespawn { target }
+                        if target.starts_with("asteroid-") || target.starts_with("asteroid-crack-")
+                ))
+                .count(),
+            4
         );
     }
 

@@ -1,4 +1,3 @@
-
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::scene::SceneRenderedMode;
@@ -764,7 +763,13 @@ pub(crate) fn intersect_vertical(x0: i32, y0: i32, x1: i32, y1: i32, x: i32) -> 
 }
 
 #[inline]
-pub(crate) fn intersect_horizontal(x0: i32, y0: i32, x1: i32, y1: i32, y: i32) -> Option<(i32, i32)> {
+pub(crate) fn intersect_horizontal(
+    x0: i32,
+    y0: i32,
+    x1: i32,
+    y1: i32,
+    y: i32,
+) -> Option<(i32, i32)> {
     let dy = y1 - y0;
     if dy == 0 {
         return None;

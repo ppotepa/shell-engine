@@ -1,10 +1,12 @@
 //! Gameplay domain APIs: ScriptGameplayApi for world management, ScriptGameplayEntityApi for entity interaction.
 
-
 use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 
-
-use crate::geometry::{asteroid_fragment_points_i32, asteroid_radius_i32, asteroid_score_i32, rotate_points_i32, to_i32, rhai_array_to_points, points_to_rhai_array};
+use crate::geometry::{
+    asteroid_fragment_points_i32, asteroid_points_i32, asteroid_radius_i32, asteroid_score_i32,
+    points_to_rhai_array, rhai_array_to_points, rotate_points_i32, ship_points_i32, sin32_i32,
+    to_i32,
+};
 
 pub(crate) use super::gameplay_impl::{ScriptGameplayApi, ScriptGameplayEntityApi};
 
@@ -15,6 +17,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     // Gameplay API - world/collection operations
     engine.register_fn("clear", |world: &mut ScriptGameplayApi| {
         world.clear();
+    });
+    engine.register_fn("reset_dynamic_entities", |world: &mut ScriptGameplayApi| {
+        world.reset_dynamic_entities()
     });
     engine.register_fn("count", |world: &mut ScriptGameplayApi| world.count());
     engine.register_fn("count_kind", |world: &mut ScriptGameplayApi, kind: &str| {
@@ -29,6 +34,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn("first_tag", |world: &mut ScriptGameplayApi, tag: &str| {
         world.first_tag(tag)
     });
+    engine.register_fn("diagnostic_info", |world: &mut ScriptGameplayApi| {
+        world.diagnostic_info()
+    });
     engine.register_fn(
         "spawn_object",
         |world: &mut ScriptGameplayApi, kind: &str, payload: RhaiDynamic| {
@@ -39,6 +47,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "despawn_object",
         |world: &mut ScriptGameplayApi, id: rhai::INT| world.despawn(id),
     );
+    engine.register_fn("despawn", |world: &mut ScriptGameplayApi, id: rhai::INT| {
+        world.despawn(id)
+    });
     engine.register_fn("exists", |world: &mut ScriptGameplayApi, id: rhai::INT| {
         world.exists(id)
     });
@@ -173,6 +184,12 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             world.ensure_crack_visuals(asteroid_id)
         },
     );
+    engine.register_fn(
+        "spawn_flash_cracks",
+        |world: &mut ScriptGameplayApi, asteroid_id: rhai::INT, flash_duration_ms: rhai::INT| {
+            world.spawn_flash_cracks(asteroid_id, flash_duration_ms)
+        },
+    );
     engine.register_fn("collisions", |world: &mut ScriptGameplayApi| {
         world.collisions()
     });
@@ -230,13 +247,101 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     );
     engine.register_fn(
         "set_world_bounds",
-        |world: &mut ScriptGameplayApi, min_x: rhai::FLOAT, min_y: rhai::FLOAT, max_x: rhai::FLOAT, max_y: rhai::FLOAT| {
-            world.set_world_bounds(min_x, min_y, max_x, max_y)
+        |world: &mut ScriptGameplayApi,
+         min_x: rhai::FLOAT,
+         min_y: rhai::FLOAT,
+         max_x: rhai::FLOAT,
+         max_y: rhai::FLOAT| { world.set_world_bounds(min_x, min_y, max_x, max_y) },
+    );
+    engine.register_fn("world_bounds", |world: &mut ScriptGameplayApi| -> RhaiMap {
+        world.world_bounds()
+    });
+    engine.register_fn(
+        "rand_seed",
+        |world: &mut ScriptGameplayApi, seed: rhai::INT| world.rand_seed(seed),
+    );
+    engine.register_fn(
+        "tag_add",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| world.tag_add(id, tag),
+    );
+    engine.register_fn(
+        "tag_remove",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| world.tag_remove(id, tag),
+    );
+    engine.register_fn(
+        "tag_has",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, tag: &str| world.tag_has(id, tag),
+    );
+    engine.register_fn(
+        "after_ms",
+        |world: &mut ScriptGameplayApi, label: &str, delay_ms: rhai::INT| {
+            world.after_ms(label, delay_ms)
         },
     );
     engine.register_fn(
-        "world_bounds",
-        |world: &mut ScriptGameplayApi| -> RhaiMap { world.world_bounds() },
+        "timer_fired",
+        |world: &mut ScriptGameplayApi, label: &str| world.timer_fired(label),
+    );
+    engine.register_fn(
+        "cancel_timer",
+        |world: &mut ScriptGameplayApi, label: &str| world.cancel_timer(label),
+    );
+    engine.register_fn(
+        "ship_set_turn",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, dir: rhai::INT| world.ship_set_turn(id, dir),
+    );
+    engine.register_fn(
+        "ship_set_thrust",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, on: bool| world.ship_set_thrust(id, on),
+    );
+    engine.register_fn(
+        "ship_heading",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.ship_heading(id),
+    );
+    engine.register_fn(
+        "ship_heading_vector",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.ship_heading_vector(id),
+    );
+    engine.register_fn(
+        "ship_velocity",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.ship_velocity(id),
+    );
+    engine.register_fn("poll_collision_events", |world: &mut ScriptGameplayApi| {
+        world.poll_collision_events()
+    });
+    engine.register_fn("clear_events", |world: &mut ScriptGameplayApi| {
+        world.clear_events()
+    });
+    engine.register_fn(
+        "spawn_batch",
+        |world: &mut ScriptGameplayApi, specs: rhai::Array| world.spawn_batch(specs),
+    );
+    engine.register_fn(
+        "enable_wrap",
+        |world: &mut ScriptGameplayApi,
+         id: rhai::INT,
+         min_x: rhai::FLOAT,
+         max_x: rhai::FLOAT,
+         min_y: rhai::FLOAT,
+         max_y: rhai::FLOAT| { world.enable_wrap(id, min_x, max_x, min_y, max_y) },
+    );
+    engine.register_fn(
+        "disable_wrap",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.disable_wrap(id),
+    );
+    engine.register_fn("physics", |world: &mut ScriptGameplayApi, id: rhai::INT| {
+        world.physics(id)
+    });
+    engine.register_fn(
+        "set_physics",
+        |world: &mut ScriptGameplayApi,
+         id: rhai::INT,
+         vx: rhai::FLOAT,
+         vy: rhai::FLOAT,
+         ax: rhai::FLOAT,
+         ay: rhai::FLOAT,
+         drag: rhai::FLOAT,
+         max_speed: rhai::FLOAT| { world.set_physics(id, vx, vy, ax, ay, drag, max_speed) },
     );
 
     // Gameplay Entity API
@@ -386,6 +491,24 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "set_thrust",
         |entity: &mut ScriptGameplayEntityApi, on: bool| entity.set_thrust(on),
     );
+    engine.register_fn("physics", |entity: &mut ScriptGameplayEntityApi| {
+        entity.physics.clone()
+    });
+    engine.register_fn(
+        "set_acceleration",
+        |entity: &mut ScriptGameplayEntityApi, ax: rhai::FLOAT, ay: rhai::FLOAT| {
+            entity.set_acceleration(ax, ay)
+        },
+    );
+    engine.register_fn("collider", |entity: &mut ScriptGameplayEntityApi| {
+        entity.collider()
+    });
+    engine.register_fn("heading", |entity: &mut ScriptGameplayEntityApi| {
+        entity.heading()
+    });
+    engine.register_fn("heading_vector", |entity: &mut ScriptGameplayEntityApi| {
+        entity.heading_vector()
+    });
 
     // ── Geometry utilities ───────────────────────────────────────────────────────
     // TODO: Move to mod-level shared script once Rhai module system is added (A4)
@@ -406,11 +529,23 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             ))
         },
     );
+    engine.register_fn(
+        "asteroid_points",
+        |shape: rhai::INT, size: rhai::INT| -> rhai::Array {
+            points_to_rhai_array(asteroid_points_i32(to_i32(shape), to_i32(size)))
+        },
+    );
     engine.register_fn("asteroid_radius", |size: rhai::INT| -> rhai::INT {
         asteroid_radius_i32(to_i32(size)) as rhai::INT
     });
     engine.register_fn("asteroid_score", |size: rhai::INT| -> rhai::INT {
         asteroid_score_i32(to_i32(size)) as rhai::INT
+    });
+    engine.register_fn("ship_points", |heading: rhai::INT| -> rhai::Array {
+        points_to_rhai_array(ship_points_i32(to_i32(heading)))
+    });
+    engine.register_fn("sin32", |idx: rhai::INT| -> rhai::INT {
+        sin32_i32(to_i32(idx)) as rhai::INT
     });
 
     // ── Numeric utility functions ────────────────────────────────────────────

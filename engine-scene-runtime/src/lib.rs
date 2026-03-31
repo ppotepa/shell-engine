@@ -430,6 +430,80 @@ layers:
     }
 
     #[test]
+    fn scene_despawn_removes_spawned_clone_from_scene_tree_and_runtime() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: spawn-clone
+title: Spawn Clone
+layers:
+  - name: main
+    sprites:
+      - type: vector
+        id: rock-template
+        points: [[0, 0], [2, 0], [1, 1]]
+      - type: text
+        id: hud
+        content: HUD
+"#,
+        )
+        .expect("scene should parse");
+        let mut runtime = SceneRuntime::new(scene);
+        let baseline_objects = runtime.object_count();
+        let baseline_sprites = runtime
+            .scene()
+            .layers
+            .iter()
+            .map(|layer| layer.sprites.len())
+            .sum::<usize>();
+
+        for _ in 0..8 {
+            let resolver = runtime.target_resolver();
+            runtime.apply_behavior_commands(
+                &resolver,
+                &[BehaviorCommand::SceneSpawn {
+                    template: "rock-template".to_string(),
+                    target: "rock-live".to_string(),
+                }],
+            );
+            assert!(runtime
+                .target_resolver()
+                .resolve_alias("rock-live")
+                .is_some());
+            assert_eq!(
+                runtime
+                    .scene()
+                    .layers
+                    .iter()
+                    .map(|layer| layer.sprites.len())
+                    .sum::<usize>(),
+                baseline_sprites + 1
+            );
+
+            let resolver = runtime.target_resolver();
+            runtime.apply_behavior_commands(
+                &resolver,
+                &[BehaviorCommand::SceneDespawn {
+                    target: "rock-live".to_string(),
+                }],
+            );
+            assert!(runtime
+                .target_resolver()
+                .resolve_alias("rock-live")
+                .is_none());
+            assert_eq!(
+                runtime
+                    .scene()
+                    .layers
+                    .iter()
+                    .map(|layer| layer.sprites.len())
+                    .sum::<usize>(),
+                baseline_sprites
+            );
+            assert_eq!(runtime.object_count(), baseline_objects);
+        }
+    }
+
+    #[test]
     fn apply_behavior_commands_set_props_updates_state_and_text() {
         let mut runtime = SceneRuntime::new(intro_scene());
         let resolver = runtime.target_resolver();

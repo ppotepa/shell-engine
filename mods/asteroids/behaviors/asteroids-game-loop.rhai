@@ -40,14 +40,11 @@ fn reset_game_state(world, game, level, local, now) {
 
 if time.stage == "on_enter" {
     let now = time.get_i("scene_elapsed_ms", 0);
-    world.clear();
+    world.reset_dynamic_entities();
     world.set_world_bounds(WORLD_MIN_X, WORLD_MAX_X, WORLD_MIN_Y, WORLD_MAX_Y);
     let cfg = reset_game_state(world, game, level, local, now);
     local["ship_id"] = spawn_ship(world, cfg);
     spawn_initial_asteroids(world);
-    for ast_id in world.query_kind("asteroid") {
-        world.ensure_crack_visuals(ast_id);
-    }
     input.load_profile("asteroids.default");
     audio.play_song("asteroids.game-loop");
     diag.info("asteroids session init");
@@ -85,13 +82,10 @@ if time.stage == "on_idle" {
             if level.select("asteroids.hard") { reset_requested = true; reset_label = "HARD"; }
         }
         if reset_requested {
-            world.clear();
+            world.reset_dynamic_entities();
             let cfg = reset_game_state(world, game, level, local, now);
             local["ship_id"] = spawn_ship(world, cfg);
             spawn_initial_asteroids(world);
-            for ast_id in world.query_kind("asteroid") {
-                world.ensure_crack_visuals(ast_id);
-            }
             ui.flash_message(reset_label, 500);
             diag.warn(`reset mode=${reset_label}`);
         }
@@ -153,9 +147,15 @@ if time.stage == "on_idle" {
             if flash_ms <= 0 && split_pending {
                 let split_result = world.handle_asteroid_split(ast_id, #{});
                 if split_result["despawned"] {
-                    for child_id in split_result["children"] {
-                        if !world.exists(child_id) { continue; }
-                        world.ensure_crack_visuals(child_id);
+                    // Spawn cracks for all child asteroids created by the split
+                    if split_result.contains("children") {
+                        let children = split_result["children"];
+                        for child_id in children {
+                            if world.exists(child_id) {
+                                let flash_duration = h::CRACK_DURATION_MS();
+                                world.spawn_flash_cracks(child_id, flash_duration);
+                            }
+                        }
                     }
                     if split_result["handled"] {
                         continue;
@@ -191,6 +191,12 @@ if time.stage == "on_idle" {
             });
             if !handled { continue; }
             lives -= 1;
+            
+            // Spawn temporary crack visuals for the flashing asteroid
+            if world.exists(ast_hit_id) {
+                let flash_duration = h::CRACK_DURATION_MS();
+                world.spawn_flash_cracks(ast_hit_id, flash_duration);
+            }
         }
     }
 
@@ -209,6 +215,12 @@ if time.stage == "on_idle" {
         if bullet_hit["handled"] {
             score += asteroid_score(bullet_hit["asteroid_size"]);
             diag.info(`hit asteroid=${ast_hit_id}`);
+            
+            // Spawn temporary crack visuals for the flashing asteroid
+            if world.exists(ast_hit_id) {
+                let flash_duration = h::CRACK_DURATION_MS();
+                world.spawn_flash_cracks(ast_hit_id, flash_duration);
+            }
         }
     }
 
@@ -220,26 +232,22 @@ if time.stage == "on_idle" {
         wave += 1;
         game.set("/ast/wave", wave);
         ui.flash_message(`WAVE ${wave}`, 650);
-        diag.info(`wave start wave=${wave}`);
+         diag.info(`wave start wave=${wave}`);
 
-        let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
-        let spawn_count = clamp_i(cfg["wave_base_spawn_count"] + wave, cfg["wave_min_spawn_count"], cfg["wave_max_spawn_count"]);
+         let cfg = if local.contains("cfg") { local["cfg"] } else { h::load_game_config(level) };
+         let spawn_count = clamp_i(cfg["wave_base_spawn_count"] + wave, cfg["wave_min_spawn_count"], cfg["wave_max_spawn_count"]);
 
-        let ship_t = if ship_ref.exists() { ship_ref.transform() } else { #{x: 0, y: 0} };
-        let wave_ids = world.spawn_wave("asteroids.dynamic", #{
-            spawn_count: spawn_count,
-            ship_x: ship_t.x,
-            ship_y: ship_t.y,
-            min_x: min_x,
-            max_x: max_x,
-            min_y: min_y,
-            max_y: max_y
-        });
-        for new_ast_id in wave_ids {
-            if !world.exists(new_ast_id) { continue; }
-            world.ensure_crack_visuals(new_ast_id);
-        }
-    }
+         let ship_t = if ship_ref.exists() { ship_ref.transform() } else { #{x: 0, y: 0} };
+         let wave_ids = world.spawn_wave("asteroids.dynamic", #{
+             spawn_count: spawn_count,
+             ship_x: ship_t.x,
+             ship_y: ship_t.y,
+             min_x: min_x,
+             max_x: max_x,
+             min_y: min_y,
+             max_y: max_y
+         });
+     }
 
     if lives <= 0 {
         diag.warn(`game over score=${score} wave=${game.get_i("/ast/wave", 0)}`);

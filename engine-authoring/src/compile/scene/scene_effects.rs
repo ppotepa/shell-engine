@@ -251,10 +251,7 @@ pub(super) fn extract_referenced_effect_presets_map(value: &Value) -> Option<&Ma
     Some(map)
 }
 
-pub(super) fn resolve_effect_presets_ref_path(
-    scene_source_path: &str,
-    reference: &str,
-) -> String {
+pub(super) fn resolve_effect_presets_ref_path(scene_source_path: &str, reference: &str) -> String {
     if reference.starts_with('/') {
         return super::normalize_mod_path(reference);
     }

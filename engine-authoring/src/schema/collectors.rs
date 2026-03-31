@@ -3,8 +3,8 @@
 use anyhow::{Context, Result};
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use crate::repository::is_discoverable_scene_path;
 
@@ -127,7 +127,10 @@ pub(super) fn collect_effect_names_from_value(value: &Value, out: &mut BTreeSet<
     }
 }
 
-pub(super) fn collect_scene_partial_refs(mod_root: &Path, part_dir: &str) -> Result<BTreeSet<String>> {
+pub(super) fn collect_scene_partial_refs(
+    mod_root: &Path,
+    part_dir: &str,
+) -> Result<BTreeSet<String>> {
     let scenes_root = mod_root.join("scenes");
     if !scenes_root.exists() {
         return Ok(BTreeSet::new());

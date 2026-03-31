@@ -4,7 +4,10 @@ use std::collections::BTreeMap;
 
 use engine_core::scene::BehaviorParams;
 
-use crate::{BehaviorCommand, Behavior, BehaviorContext, GameObject, Scene, emit_offset, emit_visibility, resolve_target, wrapped_menu_distance};
+use crate::{
+    emit_offset, emit_visibility, resolve_target, wrapped_menu_distance, Behavior, BehaviorCommand,
+    BehaviorContext, GameObject, Scene,
+};
 
 /// Shows the object only while it is the currently selected menu option.
 pub struct MenuSelectedBehavior {

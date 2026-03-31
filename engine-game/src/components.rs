@@ -102,6 +102,46 @@ pub struct Lifetime {
     pub on_expire: DespawnVisual,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum LifecyclePolicy {
+    #[default]
+    Persistent,
+    Manual,
+    Ttl,
+    OwnerBound,
+    TtlOwnerBound,
+}
+
+impl LifecyclePolicy {
+    pub fn uses_ttl(self) -> bool {
+        matches!(self, Self::Ttl | Self::TtlOwnerBound)
+    }
+
+    pub fn is_owner_bound(self) -> bool {
+        matches!(self, Self::OwnerBound | Self::TtlOwnerBound)
+    }
+
+    pub fn is_transient(self) -> bool {
+        !matches!(self, Self::Persistent)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum DespawnReason {
+    #[default]
+    Manual,
+    Expired,
+    OwnerDestroyed,
+    Collision,
+    SceneReset,
+    InvalidLifecycle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Ownership {
+    pub owner_id: u64,
+}
+
 /// Per-entity named timers for cooldowns and timed status effects.
 ///
 /// **Cooldowns** count down to 0 and stay there (ready when 0 or absent).

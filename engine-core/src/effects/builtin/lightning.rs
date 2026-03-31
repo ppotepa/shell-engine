@@ -367,7 +367,11 @@ fn apply_glow(buffer: &mut Buffer, region: Region, x: u16, y: u16, decay: f32) {
     apply_to_neighborhood_3x3(region, x, y, |gx, gy| {
         if let Some(cell) = buffer.get(gx, gy).cloned() {
             let fg = lerp_colour(cell.fg, Color::White, 0.28 * decay);
-            let sym = if cell.symbol == ' ' { '░' } else { cell.symbol };
+            let sym = if cell.symbol == ' ' {
+                '░'
+            } else {
+                cell.symbol
+            };
             buffer.set(gx, gy, sym, fg, cell.bg);
         }
     });

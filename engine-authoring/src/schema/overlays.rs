@@ -4,9 +4,9 @@ use engine_core::authoring::catalog::behavior_catalog;
 use serde_yaml::{Mapping, Value};
 
 use super::helpers::{
-    array_items_ref, field_metadata_to_schema, mapping_with,
-    nullable_suggested_string_refs, object_additional_properties_ref, object_schema, schema_ref,
-    suggested_enum_strings, suggested_string_refs,
+    array_items_ref, field_metadata_to_schema, mapping_with, nullable_suggested_string_refs,
+    object_additional_properties_ref, object_schema, schema_ref, suggested_enum_strings,
+    suggested_string_refs,
 };
 
 pub(super) fn scene_overlay_patch() -> Mapping {
@@ -413,7 +413,9 @@ pub(super) fn scene_logic_overlay_def() -> Mapping {
     overlay
 }
 
-pub(super) fn behavior_params_schema(fields: &[engine_core::authoring::metadata::FieldMetadata]) -> Value {
+pub(super) fn behavior_params_schema(
+    fields: &[engine_core::authoring::metadata::FieldMetadata],
+) -> Value {
     use engine_core::authoring::metadata::Requirement;
 
     let mut props = Mapping::new();
@@ -789,4 +791,3 @@ pub(super) fn behavior_variant_overlay(
 
     Value::Mapping(variant)
 }
-

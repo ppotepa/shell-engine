@@ -247,4 +247,3 @@ pub struct EditorPaneState {
     pub file: Option<String>,
     pub content: String,
 }
-

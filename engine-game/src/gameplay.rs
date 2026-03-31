@@ -9,8 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use crate::components::{
-    Collider2D, EntityTimers, GameplayEvent, Lifetime, PhysicsBody2D, TopDownShipController,
-    Transform2D, VisualBinding, WrapBounds,
+    Collider2D, EntityTimers, GameplayEvent, LifecyclePolicy, Lifetime, Ownership, PhysicsBody2D,
+    TopDownShipController, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -30,6 +30,8 @@ struct GameplayStore {
     physics: BTreeMap<u64, PhysicsBody2D>,
     colliders: BTreeMap<u64, Collider2D>,
     lifetimes: BTreeMap<u64, Lifetime>,
+    lifecycles: BTreeMap<u64, LifecyclePolicy>,
+    ownership: BTreeMap<u64, Ownership>,
     visuals: BTreeMap<u64, VisualBinding>,
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
@@ -55,6 +57,8 @@ impl Default for GameplayStore {
             physics: BTreeMap::new(),
             colliders: BTreeMap::new(),
             lifetimes: BTreeMap::new(),
+            lifecycles: BTreeMap::new(),
+            ownership: BTreeMap::new(),
             visuals: BTreeMap::new(),
             timers: BTreeMap::new(),
             wrap_bounds: BTreeMap::new(),
@@ -95,12 +99,62 @@ impl GameplayWorld {
         }
     }
 
+    /// Collects all visual IDs that need cleanup, then clears all gameplay entities.
+    /// 
+    /// Returns a list of scene object IDs (visual IDs) that should be despawned
+    /// via engine commands. This ensures visuals are cleaned up before gameplay
+    /// state is wiped, maintaining consistency between presentation and gameplay layers.
+    pub fn collect_visuals_for_cleanup(&self) -> Vec<String> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        let mut visuals = Vec::new();
+        for binding in store.visuals.values() {
+            for vid in binding.all_visual_ids() {
+                visuals.push(vid.to_string());
+            }
+        }
+        visuals
+    }
+
     /// Returns the number of active entities.
     pub fn count(&self) -> usize {
         let Ok(store) = self.store.lock() else {
             return 0;
         };
         store.entities.len()
+    }
+
+    /// Creates a diagnostic snapshot of current entity counts by kind and lifecycle policy.
+    pub fn diagnostic_snapshot(&self) -> crate::diagnostics::EntityCountSnapshot {
+        let Ok(store) = self.store.lock() else {
+            return crate::diagnostics::EntityCountSnapshot::default();
+        };
+
+        let mut by_kind = std::collections::BTreeMap::new();
+        let mut by_policy = std::collections::BTreeMap::new();
+
+        for entity in store.entities.values() {
+            *by_kind.entry(entity.kind.clone()).or_insert(0) += 1;
+        }
+
+        for policy in store.lifecycles.values() {
+            let policy_name = match policy {
+                LifecyclePolicy::Persistent => "Persistent",
+                LifecyclePolicy::Manual => "Manual",
+                LifecyclePolicy::Ttl => "Ttl",
+                LifecyclePolicy::OwnerBound => "OwnerBound",
+                LifecyclePolicy::TtlOwnerBound => "TtlOwnerBound",
+            };
+            *by_policy.entry(policy_name.to_string()).or_insert(0) += 1;
+        }
+
+        crate::diagnostics::EntityCountSnapshot {
+            total: store.entities.len(),
+            by_kind,
+            by_policy,
+            timestamp_ms: 0,
+        }
     }
 
     /// Spawns a new entity with the given kind and payload.
@@ -145,10 +199,15 @@ impl GameplayWorld {
             store.physics.remove(&id);
             store.colliders.remove(&id);
             store.lifetimes.remove(&id);
+            store.lifecycles.remove(&id);
+            store.ownership.remove(&id);
             store.visuals.remove(&id);
             store.timers.remove(&id);
             store.wrap_bounds.remove(&id);
             store.ship_controllers.remove(&id);
+            for children in store.children.values_mut() {
+                children.retain(|child_id| *child_id != id);
+            }
             let child_ids = store.children.remove(&id).unwrap_or_default();
             (removed, child_ids)
         };
@@ -165,10 +224,16 @@ impl GameplayWorld {
         let Ok(mut store) = self.store.lock() else {
             return false;
         };
-        if !store.entities.contains_key(&parent) {
+        if !store.entities.contains_key(&parent) || !store.entities.contains_key(&child) {
             return false;
         }
-        store.children.entry(parent).or_default().push(child);
+        store
+            .ownership
+            .insert(child, Ownership { owner_id: parent });
+        let children = store.children.entry(parent).or_default();
+        if !children.contains(&child) {
+            children.push(child);
+        }
         true
     }
 
@@ -183,6 +248,33 @@ impl GameplayWorld {
         for child_id in child_ids {
             self.despawn(child_id);
         }
+    }
+
+    /// Returns the root entity plus any recursively registered children in despawn order.
+    pub fn despawn_tree_ids(&self, root: u64) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        if !store.entities.contains_key(&root) {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        let mut stack = vec![root];
+        let mut visited = BTreeSet::new();
+
+        while let Some(id) = stack.pop() {
+            if !visited.insert(id) {
+                continue;
+            }
+            out.push(id);
+            if let Some(children) = store.children.get(&id) {
+                for child_id in children.iter().rev() {
+                    stack.push(*child_id);
+                }
+            }
+        }
+
+        out
     }
 
     /// Returns `true` if the entity exists.
@@ -376,6 +468,38 @@ impl GameplayWorld {
             return None;
         };
         store.lifetimes.get(&id).copied()
+    }
+
+    pub fn set_lifecycle(&self, id: u64, policy: LifecyclePolicy) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.lifecycles.insert(id, policy);
+        true
+    }
+
+    pub fn lifecycle(&self, id: u64) -> Option<LifecyclePolicy> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.lifecycles.get(&id).copied()
+    }
+
+    pub fn ids_with_lifecycle(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.lifecycles.keys().copied().collect()
+    }
+
+    pub fn ownership(&self, id: u64) -> Option<Ownership> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.ownership.get(&id).copied()
     }
 
     pub fn set_visual(&self, id: u64, binding: VisualBinding) -> bool {
@@ -1037,6 +1161,7 @@ fn push_path(payload: &mut JsonValue, path: &str, value: JsonValue) -> bool {
 #[cfg(test)]
 mod tests {
     use super::GameplayWorld;
+    use crate::components::LifecyclePolicy;
     use serde_json::json;
 
     #[test]
@@ -1074,5 +1199,23 @@ mod tests {
         assert_eq!(world.count(), 0);
         assert!(world.ids().is_empty());
         assert_eq!(world.query_kind("asteroid"), Vec::<u64>::new());
+    }
+
+    #[test]
+    fn register_child_records_ownership_and_parent_despawn_removes_child() {
+        let world = GameplayWorld::new();
+        let parent = world.spawn("asteroid", json!({})).expect("parent");
+        let child = world.spawn("asteroid-crack", json!({})).expect("child");
+
+        assert!(world.set_lifecycle(child, LifecyclePolicy::OwnerBound));
+        assert!(world.register_child(parent, child));
+        assert_eq!(
+            world.ownership(child).map(|ownership| ownership.owner_id),
+            Some(parent)
+        );
+
+        assert!(world.despawn(parent));
+        assert!(!world.exists(parent));
+        assert!(!world.exists(child));
     }
 }

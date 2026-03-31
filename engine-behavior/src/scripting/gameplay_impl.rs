@@ -1,21 +1,26 @@
 //! ScriptGameplayApi and ScriptGameplayEntityApi implementation - large standalone module.
 //! This module contains the full impl blocks extracted from lib.rs.
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
+use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 
-use engine_game::{GameplayWorld, CollisionHit, Lifetime, PhysicsBody2D, Transform2D, VisualBinding, Collider2D, ColliderShape};
 use engine_core::game_state::GameState;
-use engine_game::components::{DespawnVisual, TopDownShipController};
+use engine_game::components::{DespawnVisual, LifecyclePolicy, TopDownShipController};
+use engine_game::{
+    Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
+    VisualBinding,
+};
 
-use crate::{BehaviorCommand, catalog};
+use crate::geometry::{asteroid_radius_i32, heading_vector_i32, sin32_i32};
 use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json};
-use crate::geometry::{asteroid_radius_i32, sin32_i32};
 use crate::scripting::audio::ScriptFxApi;
-use crate::scripting::ui::ScriptUiApi;
+use crate::scripting::ephemeral::{spawn_ephemeral_visual, EphemeralSpawn};
 use crate::scripting::physics::ScriptEntityPhysicsApi;
+use crate::scripting::ui::ScriptUiApi;
+use crate::{catalog, BehaviorCommand};
 
 // ── Struct Definitions ───────────────────────────────────────────────────
 
@@ -151,6 +156,31 @@ impl ScriptGameplayApi {
             .unwrap_or(0)
     }
 
+    /// Returns a Rhai map with diagnostic info about current entity counts.
+    /// Useful for tracking object growth: { total: N, by_kind: { ... }, by_policy: { ... } }
+    pub(crate) fn diagnostic_info(&mut self) -> RhaiMap {
+        let Some(world) = self.world.as_ref() else {
+            return RhaiMap::new();
+        };
+        let snapshot = world.diagnostic_snapshot();
+        let mut result = RhaiMap::new();
+        result.insert("total".into(), (snapshot.total as i64).into());
+
+        let mut by_kind = RhaiMap::new();
+        for (kind, count) in snapshot.by_kind {
+            by_kind.insert(kind.into(), (count as i64).into());
+        }
+        result.insert("by_kind".into(), by_kind.into());
+
+        let mut by_policy = RhaiMap::new();
+        for (policy, count) in snapshot.by_policy {
+            by_policy.insert(policy.into(), (count as i64).into());
+        }
+        result.insert("by_policy".into(), by_policy.into());
+
+        result
+    }
+
     pub(crate) fn spawn(&mut self, kind: &str, payload: RhaiDynamic) -> rhai::INT {
         let Some(world) = self.world.clone() else {
             return 0;
@@ -172,16 +202,41 @@ impl ScriptGameplayApi {
             return false;
         }
         let uid = id as u64;
-        if let Some(binding) = world.visual(uid) {
-            if let Ok(mut commands) = self.queue.lock() {
-                for vid in binding.all_visual_ids() {
-                    commands.push(BehaviorCommand::SceneDespawn {
-                        target: vid.to_string(),
-                    });
+        let tree_ids = world.despawn_tree_ids(uid);
+        if let Ok(mut commands) = self.queue.lock() {
+            for tree_id in &tree_ids {
+                if let Some(binding) = world.visual(*tree_id) {
+                    for vid in binding.all_visual_ids() {
+                        commands.push(BehaviorCommand::SceneDespawn {
+                            target: vid.to_string(),
+                        });
+                    }
                 }
             }
         }
         world.despawn(uid)
+    }
+
+    /// Cleanup-aware reset that despawns all dynamic entities and their visuals,
+    /// unlike raw `clear()` which only wipes the store.
+    pub(crate) fn reset_dynamic_entities(&mut self) -> bool {
+        let Some(world) = self.world.as_ref() else {
+            return false;
+        };
+        let all_ids = world.ids();
+        if let Ok(mut commands) = self.queue.lock() {
+            for id in &all_ids {
+                if let Some(binding) = world.visual(*id) {
+                    for vid in binding.all_visual_ids() {
+                        commands.push(BehaviorCommand::SceneDespawn {
+                            target: vid.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        world.clear();
+        true
     }
 
     pub(crate) fn bind_visual(&mut self, id: rhai::INT, visual_id: &str) -> bool {
@@ -612,18 +667,20 @@ impl ScriptGameplayApi {
             }
         }
 
-        // Step 7: Set lifetime if provided
+        // Step 7: Set lifetime if provided (skip if zero — means no expiry)
         if let Some(ttl_val) = data.get("lifetime_ms") {
             if let Some(ttl) = ttl_val.clone().try_cast::<rhai::INT>() {
-                if !world.set_lifetime(
-                    entity_id,
-                    Lifetime {
-                        ttl_ms: ttl as i32,
-                        on_expire: DespawnVisual::None,
-                    },
-                ) {
-                    world.despawn(entity_id);
-                    return 0;
+                if ttl > 0 {
+                    if !world.set_lifetime(
+                        entity_id,
+                        Lifetime {
+                            ttl_ms: ttl as i32,
+                            on_expire: DespawnVisual::None,
+                        },
+                    ) {
+                        world.despawn(entity_id);
+                        return 0;
+                    }
                 }
             }
         }
@@ -729,21 +786,38 @@ impl ScriptGameplayApi {
                 let vx = Self::map_number(&args, "vx", 0.0);
                 let vy = Self::map_number(&args, "vy", 0.0);
                 let ttl_ms = Self::map_int(&args, "ttl_ms", 0);
-                let mut visual_args = RhaiMap::new();
-                visual_args.insert("x".into(), x.into());
-                visual_args.insert("y".into(), y.into());
-                visual_args.insert("heading".into(), 0.0.into());
-                visual_args.insert("collider_radius".into(), 3.0.into());
-                visual_args.insert("lifetime_ms".into(), ttl_ms.into());
-                let id = self.spawn_visual("bullet", "bullet-template", visual_args);
-                if id <= 0
-                    || !self.set_physics(id, vx * 60.0, vy * 60.0, 0.0, 0.0, 0.0, 0.0)
-                    || !self.enable_wrap_bounds(id)
+                let Some(world) = self.world.as_ref() else {
+                    return 0;
+                };
+                let extra_data = BTreeMap::new();
+                let Some(id) = spawn_ephemeral_visual(
+                    world,
+                    &self.queue,
+                    EphemeralSpawn {
+                        kind: "bullet",
+                        template: "bullet-template",
+                        x: x as f32,
+                        y: y as f32,
+                        heading: 0.0,
+                        vx: (vx * 60.0) as f32,
+                        vy: (vy * 60.0) as f32,
+                        drag: 0.0,
+                        max_speed: 0.0,
+                        ttl_ms: Some(ttl_ms as i32),
+                        owner_id: None,
+                        lifecycle: LifecyclePolicy::Ttl,
+                        extra_data,
+                    },
+                ) else {
+                    return 0;
+                };
+                if !self.set_collider_circle(id as rhai::INT, 3.0, rhai::INT::MAX, rhai::INT::MAX)
+                    || !self.enable_wrap_bounds(id as rhai::INT)
                 {
-                    let _ = self.despawn(id);
+                    let _ = self.despawn(id as rhai::INT);
                     return 0;
                 }
-                id
+                id as rhai::INT
             }
             "smoke" => {
                 let x = Self::map_number(&args, "x", 0.0);
@@ -752,22 +826,40 @@ impl ScriptGameplayApi {
                 let vy = Self::map_number(&args, "vy", 0.0);
                 let ttl_ms = Self::map_int(&args, "ttl_ms", 0);
                 let radius = Self::map_int(&args, "radius", 1);
-                let mut visual_args = RhaiMap::new();
-                visual_args.insert("x".into(), x.into());
-                visual_args.insert("y".into(), y.into());
-                visual_args.insert("heading".into(), 0.0.into());
-                visual_args.insert("lifetime_ms".into(), ttl_ms.into());
-                let id = self.spawn_visual("smoke", "smoke-template", visual_args);
-                if id <= 0 || !self.set_physics(id, vx * 60.0, vy * 60.0, 0.0, 0.0, 0.04, 0.0) {
-                    let _ = self.despawn(id);
+                let Some(world) = self.world.as_ref() else {
                     return 0;
-                }
-                let mut smoke_data = RhaiMap::new();
-                smoke_data.insert("ttl_ms".into(), ttl_ms.into());
-                smoke_data.insert("max_ttl_ms".into(), ttl_ms.into());
-                smoke_data.insert("radius".into(), radius.into());
-                let _ = self.entity(id).set_many(smoke_data);
-                id
+                };
+                let owner_id = Self::map_int(&args, "owner_id", 0);
+                let mut extra_data = BTreeMap::new();
+                extra_data.insert("ttl_ms".to_string(), JsonValue::from(ttl_ms));
+                extra_data.insert("max_ttl_ms".to_string(), JsonValue::from(ttl_ms));
+                extra_data.insert("radius".to_string(), JsonValue::from(radius));
+                let Some(id) = spawn_ephemeral_visual(
+                    world,
+                    &self.queue,
+                    EphemeralSpawn {
+                        kind: "smoke",
+                        template: "smoke-template",
+                        x: x as f32,
+                        y: y as f32,
+                        heading: 0.0,
+                        vx: (vx * 60.0) as f32,
+                        vy: (vy * 60.0) as f32,
+                        drag: 0.04,
+                        max_speed: 0.0,
+                        ttl_ms: Some(ttl_ms as i32),
+                        owner_id: (owner_id > 0).then_some(owner_id as u64),
+                        lifecycle: if owner_id > 0 {
+                            LifecyclePolicy::TtlOwnerBound
+                        } else {
+                            LifecyclePolicy::Ttl
+                        },
+                        extra_data,
+                    },
+                ) else {
+                    return 0;
+                };
+                id as rhai::INT
             }
             _ => 0,
         }
@@ -878,7 +970,8 @@ impl ScriptGameplayApi {
             let Some(controller) = world.controller(source_id) else {
                 return 0;
             };
-            let (dir_x, dir_y) = controller.heading_vector();
+            let heading = controller.current_heading;
+            let (dir_x, dir_y) = heading_vector_i32(heading);
 
             let spawn_offset =
                 Self::map_number(&args, "spawn_offset", weapon.spawn_offset.unwrap_or(9.0)) as f32;
@@ -965,7 +1058,8 @@ impl ScriptGameplayApi {
                 let Some(controller) = world.controller(source_id) else {
                     return 0;
                 };
-                let (dir_x, dir_y) = controller.heading_vector();
+                let heading = controller.current_heading;
+                let (dir_x, dir_y) = heading_vector_i32(heading);
 
                 let spawn_offset = Self::map_number(&args, "spawn_offset", 9.0) as f32;
                 let bullet_speed = Self::map_number(&args, "bullet_speed", 0.0) as f32;
@@ -1109,6 +1203,7 @@ impl ScriptGameplayApi {
 
         let mut fx = ScriptFxApi::new(
             self.world.clone(),
+            None,
             Arc::clone(&self.catalogs),
             Arc::clone(&self.queue),
         );
@@ -1203,7 +1298,11 @@ impl ScriptGameplayApi {
         out
     }
 
-    pub(crate) fn handle_asteroid_split(&mut self, asteroid_id: rhai::INT, args: RhaiMap) -> RhaiMap {
+    pub(crate) fn handle_asteroid_split(
+        &mut self,
+        asteroid_id: rhai::INT,
+        args: RhaiMap,
+    ) -> RhaiMap {
         let mut out = RhaiMap::new();
         let child_ids = RhaiArray::new();
         out.insert("handled".into(), false.into());
@@ -1485,22 +1584,43 @@ impl ScriptGameplayApi {
         if !world.exists(asteroid_id_u64) {
             return out;
         }
+        let Some(transform) = world.transform(asteroid_id_u64) else {
+            return out;
+        };
         let mut asteroid = self.entity(asteroid_id);
         if asteroid.get_bool("/cracks_spawned", false) {
             return out;
         }
 
         for i in 0..3_i64 {
-            let visual_id = format!("asteroid-{}-crack-{}", asteroid_id_u64, i);
-            if let Ok(mut queue) = self.queue.lock() {
-                queue.push(BehaviorCommand::SceneSpawn {
-                    template: "asteroid-template".to_string(),
-                    target: visual_id.clone(),
-                });
-            } else {
+            let mut extra_data = BTreeMap::new();
+            extra_data.insert(
+                "owner_id".to_string(),
+                JsonValue::from(asteroid_id_u64 as i64),
+            );
+            extra_data.insert("crack_index".to_string(), JsonValue::from(i));
+            let Some(crack_id) = spawn_ephemeral_visual(
+                &world,
+                &self.queue,
+                EphemeralSpawn {
+                    kind: "asteroid-crack",
+                    template: "asteroid-template",
+                    x: transform.x,
+                    y: transform.y,
+                    heading: 0.0,
+                    vx: 0.0,
+                    vy: 0.0,
+                    drag: 0.0,
+                    max_speed: 0.0,
+                    ttl_ms: None,
+                    owner_id: Some(asteroid_id_u64),
+                    lifecycle: LifecyclePolicy::OwnerBound,
+                    extra_data,
+                },
+            ) else {
                 return RhaiArray::new();
-            }
-            let _ = self.bind_visual(asteroid_id, &visual_id);
+            };
+            let visual_id = format!("asteroid-crack-{}", crack_id);
             let _ = self.set(
                 asteroid_id,
                 &format!("/crack_visual_{}", i),
@@ -1509,6 +1629,61 @@ impl ScriptGameplayApi {
             out.push(visual_id.into());
         }
         let _ = self.set(asteroid_id, "/cracks_spawned", true.into());
+        out
+    }
+
+    /// Spawns temporary crack visuals for an asteroid that is currently flashing.
+    /// Each crack is given a TTL matching the flash duration, so they auto-despawn.
+    /// This is called during the flash phase rather than at spawn time.
+    pub(crate) fn spawn_flash_cracks(&mut self, asteroid_id: rhai::INT, flash_duration_ms: rhai::INT) -> RhaiArray {
+        let mut out = RhaiArray::new();
+        if asteroid_id <= 0 || flash_duration_ms <= 0 {
+            return out;
+        }
+        let Some(world) = self.world.clone() else {
+            return out;
+        };
+        let asteroid_id_u64 = asteroid_id as u64;
+        if !world.exists(asteroid_id_u64) {
+            return out;
+        }
+        let Some(transform) = world.transform(asteroid_id_u64) else {
+            return out;
+        };
+
+        let ttl_ms = (flash_duration_ms as i32).max(0);
+
+        for i in 0..3_i64 {
+            let mut extra_data = BTreeMap::new();
+            extra_data.insert(
+                "owner_id".to_string(),
+                JsonValue::from(asteroid_id_u64 as i64),
+            );
+            extra_data.insert("crack_index".to_string(), JsonValue::from(i));
+            let Some(crack_id) = spawn_ephemeral_visual(
+                &world,
+                &self.queue,
+                EphemeralSpawn {
+                    kind: "asteroid-crack",
+                    template: "asteroid-template",
+                    x: transform.x,
+                    y: transform.y,
+                    heading: 0.0,
+                    vx: 0.0,
+                    vy: 0.0,
+                    drag: 0.0,
+                    max_speed: 0.0,
+                    ttl_ms: Some(ttl_ms),
+                    owner_id: Some(asteroid_id_u64),
+                    lifecycle: LifecyclePolicy::TtlOwnerBound,
+                    extra_data,
+                },
+            ) else {
+                return RhaiArray::new();
+            };
+            let visual_id = format!("asteroid-crack-{}", crack_id);
+            out.push(visual_id.into());
+        }
         out
     }
 
@@ -1998,12 +2173,15 @@ impl ScriptGameplayEntityApi {
         let Some(world) = self.world.as_ref() else {
             return false;
         };
-        if let Some(binding) = world.visual(self.id) {
-            if let Ok(mut commands) = self.queue.lock() {
-                for vid in binding.all_visual_ids() {
-                    commands.push(BehaviorCommand::SceneDespawn {
-                        target: vid.to_string(),
-                    });
+        let tree_ids = world.despawn_tree_ids(self.id);
+        if let Ok(mut commands) = self.queue.lock() {
+            for tree_id in &tree_ids {
+                if let Some(binding) = world.visual(*tree_id) {
+                    for vid in binding.all_visual_ids() {
+                        commands.push(BehaviorCommand::SceneDespawn {
+                            target: vid.to_string(),
+                        });
+                    }
                 }
             }
         }
@@ -2259,6 +2437,7 @@ impl ScriptGameplayEntityApi {
         world.set_transform(self.id, xf)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn physics(&mut self) -> RhaiMap {
         let Some(world) = self.world.as_ref() else {
             return RhaiMap::new();
@@ -2498,4 +2677,3 @@ impl ScriptGameplayEntityApi {
         }
     }
 }
-

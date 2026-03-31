@@ -8,12 +8,12 @@ use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 use serde_json::Value as JsonValue;
 
-use crate::BehaviorCommand;
+use super::helpers::{kind_capabilities, object_state_to_rhai_map, region_to_rhai_map};
 use crate::rhai_util::{
-    json_to_rhai_dynamic, rhai_dynamic_to_json, map_get_path_dynamic, map_set_path_dynamic,
-    normalize_set_path, merge_rhai_maps,
+    json_to_rhai_dynamic, map_get_path_dynamic, map_set_path_dynamic, merge_rhai_maps,
+    normalize_set_path, rhai_dynamic_to_json,
 };
-use super::helpers::{object_state_to_rhai_map, region_to_rhai_map, kind_capabilities};
+use crate::BehaviorCommand;
 
 #[derive(Clone)]
 pub(crate) struct ScriptSceneApi {

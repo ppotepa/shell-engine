@@ -24,6 +24,7 @@ pub fn behavior_system(world: &mut World) {
     let level_state = world.get::<crate::level_state::LevelState>().cloned();
     let persistence = world.get::<engine_persistence::PersistenceStore>().cloned();
     let gameplay_world = world.get::<crate::game::GameplayWorld>().cloned();
+    let emitter_state = world.get::<engine_behavior::EmitterState>().cloned();
     let collisions = world
         .get::<GameplayEventBuffer>()
         .map(|buf| std::sync::Arc::new(buf.collisions.clone()))
@@ -64,6 +65,7 @@ pub fn behavior_system(world: &mut World) {
             level_state,
             persistence,
             gameplay_world,
+            emitter_state,
             collisions,
             catalogs,
         )

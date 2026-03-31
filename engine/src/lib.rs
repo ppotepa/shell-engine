@@ -378,6 +378,17 @@ impl ShellEngine {
         world.register(game::GameplayWorld::new());
         world.register(game::GameplayStrategies::default());
         world.register(game::CollisionStrategies::default());
+        world.register(engine_behavior::EmitterState::default());
+        // Load mod catalogs (prefabs, weapons, emitters, etc.) into the world
+        // so behaviors can access them at runtime.
+        {
+            let catalogs_dir = self.mod_source.join("catalogs");
+            if catalogs_dir.is_dir() {
+                if let Ok(cats) = engine_behavior::catalog::ModCatalogs::load_from_directory(&catalogs_dir) {
+                    world.register(cats);
+                }
+            }
+        }
         let persistence_namespace = self
             .mod_manifest
             .get("name")

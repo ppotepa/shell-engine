@@ -5,6 +5,7 @@
 
 pub mod audio;
 pub mod debug;
+pub mod ephemeral;
 pub mod game;
 pub mod gameplay;
 pub mod gameplay_impl;

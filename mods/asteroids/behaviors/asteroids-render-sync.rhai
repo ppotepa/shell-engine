@@ -25,6 +25,7 @@ if time.stage == "on_idle" {
         if !ast_ref.exists() { continue; }
         let d = ast_ref.data();
         let vid = `asteroid-${ast_id}`;
+        let t = ast_ref.transform();
 
         let active = ast_ref.get_b("/active", true);
         let rot_phase = ast_ref.get_i("/rot_phase", 0);
@@ -46,6 +47,9 @@ if time.stage == "on_idle" {
             for i in 0..3 {
                 let frag_id = h::crack_visual_id(d, i);
                 if frag_id.type_of() == "string" {
+                    scene.set(frag_id, "position.x", t.x);
+                    scene.set(frag_id, "position.y", t.y);
+                    scene.set_vector(frag_id, pts, h::asteroid_stroke_hex(flash_ms, flash_total), h::flash_fill_hex(flash_ms, flash_total));
                     scene.set_visible(frag_id, true);
                 }
             }
@@ -63,7 +67,7 @@ if time.stage == "on_idle" {
     for sid in world.query_kind("smoke") {
         let sref = world.entity(sid);
         if !sref.exists() { continue; }
-        let ttl = sref.get_i("/ttl_ms", 0);
+        let ttl = sref.lifetime_remaining();
         let max_ttl = sref.get_i("/max_ttl_ms", 1);
         let radius = sref.get_i("/radius", 2);
 

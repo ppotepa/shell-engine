@@ -232,7 +232,8 @@ fn runtime_thread(
         return;
     };
     let texture_creator = canvas.texture_creator();
-    let mut pixel_buffer: Vec<u8> = vec![0u8; pixel_buffer_size(content_pixel_size.0, content_pixel_size.1)];
+    let mut pixel_buffer: Vec<u8> =
+        vec![0u8; pixel_buffer_size(content_pixel_size.0, content_pixel_size.1)];
     let Ok(mut frame_texture) = texture_creator.create_texture_streaming(
         PixelFormatEnum::RGBA32,
         content_pixel_size.0,
@@ -342,7 +343,8 @@ fn runtime_thread(
                 let should_present = dirty.has_updates || overlay.is_some() || vectors.is_some();
                 let mut present_dur = Duration::ZERO;
                 if should_present {
-                    let active_policy = get_active_presentation_policy(splash_mode, presentation_policy);
+                    let active_policy =
+                        get_active_presentation_policy(splash_mode, presentation_policy);
                     let present_rect = presentation_rect(
                         current_window_pixel_size(&canvas),
                         content_pixel_size,
@@ -415,7 +417,8 @@ fn runtime_thread(
             }
             RuntimeCommand::Clear => {
                 pixel_buffer.fill(0);
-                let active_policy = get_active_presentation_policy(splash_mode, presentation_policy);
+                let active_policy =
+                    get_active_presentation_policy(splash_mode, presentation_policy);
                 if frame_texture
                     .update(None, &pixel_buffer, content_pixel_size.0 as usize * 4)
                     .is_err()

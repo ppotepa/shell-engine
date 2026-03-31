@@ -1,11 +1,10 @@
 //! Rhai type conversions and utility functions.
 
-use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
+use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 
 use engine_core::effects::Region;
 use engine_core::scene::BehaviorParams;
-use engine_core::scene_runtime_types::ObjectRuntimeState;
 
 pub(crate) fn json_to_rhai_dynamic(value: &JsonValue) -> RhaiDynamic {
     match value {
@@ -185,37 +184,4 @@ pub(crate) fn region_to_rhai_map(region: &Region) -> RhaiMap {
     out.insert("w".into(), (region.width as rhai::INT).into());
     out.insert("h".into(), (region.height as rhai::INT).into());
     out
-}
-
-pub(crate) fn object_state_to_rhai_map(state: &ObjectRuntimeState) -> RhaiMap {
-    let mut out = RhaiMap::new();
-    out.insert("visible".into(), state.visible.into());
-    out.insert("offset_x".into(), (state.offset_x as rhai::INT).into());
-    out.insert("offset_y".into(), (state.offset_y as rhai::INT).into());
-    out
-}
-
-pub(crate) fn kind_capabilities(kind: Option<&str>) -> RhaiArray {
-    let mut caps = vec![
-        "visible".to_string(),
-        "offset.x".to_string(),
-        "offset.y".to_string(),
-        "position.x".to_string(),
-        "position.y".to_string(),
-    ];
-    if kind.is_some_and(|value| value == "text") {
-        caps.push("text.content".to_string());
-        caps.push("text.font".to_string());
-        caps.push("style.fg".to_string());
-        caps.push("style.bg".to_string());
-    }
-    if kind.is_some_and(|value| value == "obj") {
-        caps.push("obj.scale".to_string());
-        caps.push("obj.yaw".to_string());
-        caps.push("obj.pitch".to_string());
-        caps.push("obj.roll".to_string());
-        caps.push("obj.orbit_speed".to_string());
-        caps.push("obj.surface_mode".to_string());
-    }
-    caps.into_iter().map(Into::into).collect()
 }

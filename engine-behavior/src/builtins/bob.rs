@@ -2,7 +2,10 @@
 
 use engine_core::scene::BehaviorParams;
 
-use crate::{BehaviorCommand, Behavior, BehaviorContext, GameObject, Scene, emit_offset, resolve_target, sine_wave};
+use crate::{
+    emit_offset, resolve_target, sine_wave, Behavior, BehaviorCommand, BehaviorContext, GameObject,
+    Scene,
+};
 
 /// Applies a sinusoidal offset to an object along the X and/or Y axes.
 pub struct BobBehavior {

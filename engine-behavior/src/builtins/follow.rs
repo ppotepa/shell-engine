@@ -2,7 +2,9 @@
 
 use engine_core::scene::BehaviorParams;
 
-use crate::{BehaviorCommand, Behavior, BehaviorContext, GameObject, Scene, emit_offset, emit_visibility};
+use crate::{
+    emit_offset, emit_visibility, Behavior, BehaviorCommand, BehaviorContext, GameObject, Scene,
+};
 
 /// Locks an object's position to match the current frame position of a named target.
 pub struct FollowBehavior {

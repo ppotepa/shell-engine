@@ -23,6 +23,7 @@ impl SceneRuntime {
         level_state: Option<engine_core::level_state::LevelState>,
         persistence: Option<engine_persistence::PersistenceStore>,
         gameplay_world: Option<engine_game::GameplayWorld>,
+        emitter_state: Option<engine_behavior::EmitterState>,
         collisions: std::sync::Arc<Vec<engine_game::CollisionHit>>,
         catalogs: std::sync::Arc<engine_behavior::catalog::ModCatalogs>,
     ) -> Vec<BehaviorCommand> {
@@ -201,6 +202,7 @@ impl SceneRuntime {
             persistence,
             catalogs,
             gameplay_world,
+            emitter_state,
             collisions,
             collision_enters,
             collision_stays,
@@ -824,7 +826,144 @@ impl SceneRuntime {
         } else {
             return false;
         };
-        self.set_target_visibility_recursive(&object_id, false)
+        if let Some((layer_idx, sprite_path)) = self.find_sprite_path_for_object(&object_id) {
+            let Some(layer) = self.scene.layers.get_mut(layer_idx) else {
+                return false;
+            };
+            if remove_sprite_at_path(&mut layer.sprites, &sprite_path).is_none() {
+                return false;
+            }
+            self.rebuild_runtime_graph_preserving_state();
+            return true;
+        }
+        if let Some(layer_idx) = self
+            .layer_ids
+            .iter()
+            .find(|(_, id)| *id == &object_id)
+            .map(|(idx, _)| *idx)
+        {
+            if layer_idx >= self.scene.layers.len() {
+                return false;
+            }
+            self.scene.layers.remove(layer_idx);
+            self.rebuild_runtime_graph_preserving_state();
+            return true;
+        }
+        self.remove_target_recursive(&object_id)
+    }
+
+    fn rebuild_runtime_graph_preserving_state(&mut self) {
+        let preserved_states = self.object_states.clone();
+        let preserved_camera_states = self.obj_camera_states.clone();
+        let mut objects = HashMap::new();
+        let mut object_states = HashMap::new();
+        let mut layer_ids = BTreeMap::new();
+        let mut sprite_ids = HashMap::new();
+        let mut obj_camera_states = HashMap::new();
+
+        objects.insert(
+            self.root_id.clone(),
+            GameObject {
+                id: self.root_id.clone(),
+                name: self.scene.id.clone(),
+                kind: GameObjectKind::Scene,
+                aliases: vec![self.scene.id.clone()],
+                parent_id: None,
+                children: Vec::new(),
+            },
+        );
+        object_states.insert(
+            self.root_id.clone(),
+            preserved_states
+                .get(&self.root_id)
+                .cloned()
+                .unwrap_or_default(),
+        );
+
+        for (layer_idx, layer) in self.scene.layers.iter().enumerate() {
+            let layer_name = if layer.name.trim().is_empty() {
+                format!("layer-{layer_idx}")
+            } else {
+                layer.name.clone()
+            };
+            let layer_id = format!(
+                "{}/layer:{}:{}",
+                self.root_id,
+                layer_idx,
+                sanitize_fragment_runtime(&layer_name)
+            );
+            objects.insert(
+                layer_id.clone(),
+                GameObject {
+                    id: layer_id.clone(),
+                    name: layer_name,
+                    kind: GameObjectKind::Layer,
+                    aliases: if layer.name.trim().is_empty() {
+                        vec![]
+                    } else {
+                        vec![layer.name.clone()]
+                    },
+                    parent_id: Some(self.root_id.clone()),
+                    children: Vec::new(),
+                },
+            );
+            object_states.insert(
+                layer_id.clone(),
+                preserved_states.get(&layer_id).cloned().unwrap_or_default(),
+            );
+            layer_ids.insert(layer_idx, layer_id.clone());
+            if let Some(root) = objects.get_mut(&self.root_id) {
+                root.children.push(layer_id.clone());
+            }
+
+            for (sprite_idx, sprite) in layer.sprites.iter().enumerate() {
+                register_runtime_sprite_preserving_state(
+                    &mut objects,
+                    &mut object_states,
+                    &mut sprite_ids,
+                    &mut obj_camera_states,
+                    &preserved_states,
+                    &preserved_camera_states,
+                    layer_idx,
+                    &[sprite_idx],
+                    &layer_id,
+                    sprite,
+                    sprite_idx,
+                );
+            }
+        }
+
+        self.objects = objects;
+        self.object_states = object_states;
+        self.layer_ids = layer_ids;
+        self.sprite_ids = sprite_ids;
+        self.obj_camera_states = obj_camera_states;
+        self.cached_obj_camera_states = None;
+        self.refresh_runtime_caches();
+    }
+
+    fn remove_target_recursive(&mut self, root_id: &str) -> bool {
+        let mut queue = vec![root_id.to_string()];
+        let mut removed_count = 0;
+
+        while let Some(id) = queue.pop() {
+            // Collect children before removing
+            if let Some(object) = self.objects.get(&id) {
+                for child_id in &object.children {
+                    queue.push(child_id.clone());
+                }
+            }
+
+            // Remove the object and its state
+            if self.objects.remove(&id).is_some() {
+                removed_count += 1;
+            }
+            if self.object_states.remove(&id).is_some() {
+                removed_count += 1;
+            }
+        }
+
+        removed_count > 0
     }
 
     fn set_target_visibility_recursive(&mut self, root_id: &str, visible: bool) -> bool {
@@ -930,6 +1069,23 @@ fn sprite_children_mut_at_path<'a>(
     }
 }
 
+fn remove_sprite_at_path(sprites: &mut Vec<Sprite>, sprite_path: &[usize]) -> Option<Sprite> {
+    let (first, rest) = sprite_path.split_first()?;
+    if rest.is_empty() {
+        if *first < sprites.len() {
+            return Some(sprites.remove(*first));
+        }
+        return None;
+    }
+    let sprite = sprites.get_mut(*first)?;
+    match sprite {
+        Sprite::Grid { children, .. }
+        | Sprite::Flex { children, .. }
+        | Sprite::Panel { children, .. } => remove_sprite_at_path(children, rest),
+        _ => None,
+    }
+}
+
 fn runtime_kind_name(kind: &GameObjectKind) -> &'static str {
     match kind {
         GameObjectKind::Scene => "scene",
@@ -1010,6 +1166,70 @@ fn register_runtime_sprite(
                 objects,
                 object_states,
                 sprite_ids,
+                layer_idx,
+                &child_path,
+                &sprite_id,
+                child,
+                child_idx,
+            );
+        }
+    }
+}
+
+fn register_runtime_sprite_preserving_state(
+    objects: &mut HashMap<String, GameObject>,
+    object_states: &mut HashMap<String, ObjectRuntimeState>,
+    sprite_ids: &mut HashMap<String, String>,
+    obj_camera_states: &mut HashMap<String, ObjCameraState>,
+    preserved_states: &HashMap<String, ObjectRuntimeState>,
+    preserved_camera_states: &HashMap<String, ObjCameraState>,
+    layer_idx: usize,
+    sprite_path: &[usize],
+    parent_id: &str,
+    sprite: &Sprite,
+    sprite_idx: usize,
+) {
+    let (kind, name, aliases) = sprite_descriptor_runtime(sprite, sprite_idx);
+    let sprite_id = format!("{parent_id}/{name}");
+    objects.insert(
+        sprite_id.clone(),
+        GameObject {
+            id: sprite_id.clone(),
+            name,
+            kind,
+            aliases,
+            parent_id: Some(parent_id.to_string()),
+            children: Vec::new(),
+        },
+    );
+    object_states.insert(
+        sprite_id.clone(),
+        preserved_states
+            .get(&sprite_id)
+            .cloned()
+            .unwrap_or_default(),
+    );
+    if let Some(camera_state) = preserved_camera_states.get(&sprite_id) {
+        obj_camera_states.insert(sprite_id.clone(), camera_state.clone());
+    }
+    sprite_ids.insert(path_key_runtime(layer_idx, sprite_path), sprite_id.clone());
+    if let Some(parent) = objects.get_mut(parent_id) {
+        parent.children.push(sprite_id.clone());
+    }
+    if let Sprite::Grid { children, .. }
+    | Sprite::Flex { children, .. }
+    | Sprite::Panel { children, .. } = sprite
+    {
+        for (child_idx, child) in children.iter().enumerate() {
+            let mut child_path = sprite_path.to_vec();
+            child_path.push(child_idx);
+            register_runtime_sprite_preserving_state(
+                objects,
+                object_states,
+                sprite_ids,
+                obj_camera_states,
+                preserved_states,
+                preserved_camera_states,
                 layer_idx,
                 &child_path,
                 &sprite_id,

@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use rhai::Engine as RhaiEngine;
 
-use crate::{BehaviorCommand, catalog};
 use crate::rhai_util::normalize_input_code;
+use crate::{catalog, BehaviorCommand};
 
 // ── ScriptTerminalApi ────────────────────────────────────────────────────
 

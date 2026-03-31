@@ -9,8 +9,8 @@ use engine_persistence::PersistenceStore;
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine};
 use serde_json::{Number as JsonNumber, Value as JsonValue};
 
-use crate::{BehaviorCommand};
 use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json};
+use crate::BehaviorCommand;
 
 // ── ScriptGameApi ────────────────────────────────────────────────────────
 

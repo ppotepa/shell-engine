@@ -41,13 +41,14 @@ fn asteroid_stroke_hex(flash_ms, flash_total_ms) {
 }
 
 fn smoke_colour_hex(ttl_ms, max_ttl_ms) {
-    if ttl_ms <= 0 { return "#101010"; }
+    if ttl_ms <= 0 { return "#000000"; }
     let total = if max_ttl_ms <= 0 { 1 } else { max_ttl_ms };
     let ratio = (ttl_ms * 100) / total;
-    if ratio > 75 { return "#8f8f8f"; }
-    if ratio > 50 { return "#6f6f6f"; }
-    if ratio > 25 { return "#4a4a4a"; }
-    "#262626"
+    if ratio > 80 { return "#ffffff"; }
+    if ratio > 60 { return "#c0c0c0"; }
+    if ratio > 40 { return "#808080"; }
+    if ratio > 20 { return "#404040"; }
+    "#1a1a1a"
 }
 
 fn smoke_points(radius, ttl_ms, max_ttl_ms) {

@@ -109,10 +109,7 @@ pub(super) fn is_sprite_type(map: &Mapping, expected: &str) -> bool {
 }
 
 /// Merges parent and local defaults into a combined mapping.
-pub(super) fn merge_defaults(
-    parent: Option<&Mapping>,
-    local: Option<&Mapping>,
-) -> Option<Mapping> {
+pub(super) fn merge_defaults(parent: Option<&Mapping>, local: Option<&Mapping>) -> Option<Mapping> {
     match (parent, local) {
         (None, None) => None,
         (Some(p), None) => Some(p.clone()),

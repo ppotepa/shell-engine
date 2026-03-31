@@ -260,10 +260,7 @@ pub(super) fn attach_layer_behavior(
     seq.push(behavior_value);
 }
 
-pub(super) fn build_behavior_spec(
-    behavior_name: &str,
-    params: &BTreeMap<String, Value>,
-) -> Value {
+pub(super) fn build_behavior_spec(behavior_name: &str, params: &BTreeMap<String, Value>) -> Value {
     let mut map = Mapping::new();
     map.insert(
         Value::String("name".to_string()),

@@ -1,11 +1,16 @@
 //! Audio domain API: ScriptAudioApi for audio cues and songs, ScriptFxApi for effects.
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use rhai::{Engine as RhaiEngine, Map as RhaiMap};
+use serde_json::Value as JsonValue;
 
-use crate::{BehaviorCommand, catalog};
-use engine_game::GameplayWorld;
+use crate::{catalog, geometry, BehaviorCommand};
+use engine_game::{GameplayWorld, LifecyclePolicy};
+
+use super::ephemeral::{spawn_ephemeral_visual, EphemeralSpawn};
+use crate::EmitterState;
 
 // ── ScriptAudioApi ───────────────────────────────────────────────────────
 
@@ -77,6 +82,7 @@ impl ScriptAudioApi {
 #[derive(Clone)]
 pub(crate) struct ScriptFxApi {
     world: Option<GameplayWorld>,
+    emitter_state: Option<EmitterState>,
     catalogs: Arc<catalog::ModCatalogs>,
     queue: Arc<Mutex<Vec<BehaviorCommand>>>,
 }
@@ -84,28 +90,233 @@ pub(crate) struct ScriptFxApi {
 impl ScriptFxApi {
     pub(crate) fn new(
         world: Option<GameplayWorld>,
+        emitter_state: Option<EmitterState>,
         catalogs: Arc<catalog::ModCatalogs>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
         Self {
             world,
+            emitter_state,
             catalogs,
             queue,
         }
     }
 
-    pub(crate) fn emit(&mut self, effect_name: &str, _args: RhaiMap) -> bool {
+    pub(crate) fn emit(&mut self, effect_name: &str, args: RhaiMap) -> rhai::Array {
         let effect_name = effect_name.trim();
         if effect_name.is_empty() {
-            return false;
+            return rhai::Array::new();
         }
-        // Check if effect exists in catalog
-        if !self.catalogs.emitters.contains_key(effect_name) {
-            return false;
+
+        let Some(world) = self.world.clone() else {
+            return rhai::Array::new();
+        };
+
+        // Clone config out to avoid borrow conflict
+        let catalog_config = self.catalogs.emitters.get(effect_name).cloned();
+        let is_disintegration = effect_name.ends_with("disintegration");
+
+        if is_disintegration {
+            self.emit_disintegration(effect_name, &world, &args, catalog_config.as_ref())
+        } else {
+            self.emit_thrust_smoke(effect_name, &world, &args, catalog_config.as_ref())
         }
-        // In a full implementation, we would emit the effect to the gameplay world.
-        // For now, return success if the effect is registered.
-        true
+    }
+
+    fn emit_thrust_smoke(
+        &mut self,
+        effect_name: &str,
+        world: &GameplayWorld,
+        args: &RhaiMap,
+        config: Option<&catalog::EmitterConfig>,
+    ) -> rhai::Array {
+        let ship_id = args
+            .get("ship_id")
+            .and_then(|v| v.clone().try_cast::<rhai::INT>())
+            .unwrap_or(0) as u64;
+
+        if ship_id == 0 || !world.exists(ship_id) {
+            return rhai::Array::new();
+        }
+
+        // Throttle via cooldown
+        let cooldown_name = config
+            .and_then(|c| c.cooldown_name.as_deref())
+            .unwrap_or("smoke");
+        if !world.cooldown_ready(ship_id, cooldown_name) {
+            return rhai::Array::new();
+        }
+        let cooldown_ms = config.and_then(|c| c.cooldown_ms).unwrap_or(48) as i32;
+        world.cooldown_start(ship_id, cooldown_name, cooldown_ms);
+
+        let max_count = config.and_then(|c| c.max_count).unwrap_or(40) as usize;
+        if let Some(state) = &self.emitter_state {
+            while state.active_count(effect_name, Some(ship_id)) >= max_count {
+                let Some(oldest_id) = state.evict_oldest(effect_name, Some(ship_id)) else {
+                    break;
+                };
+                if let Some(binding) = world.visual(oldest_id) {
+                    for target in binding.all_visual_ids() {
+                        if let Ok(mut commands) = self.queue.lock() {
+                            commands.push(BehaviorCommand::SceneDespawn {
+                                target: target.to_string(),
+                            });
+                        }
+                    }
+                }
+                let _ = world.despawn(oldest_id);
+                state.remove_entity(oldest_id);
+            }
+        } else if world.count_kind("smoke") as i64 >= max_count as i64 {
+            return rhai::Array::new();
+        }
+
+        let Some(transform) = world.transform(ship_id) else {
+            return rhai::Array::new();
+        };
+        let Some(controller) = world.controller(ship_id) else {
+            return rhai::Array::new();
+        };
+
+        let spawn_offset = config.and_then(|c| c.spawn_offset).unwrap_or(6.0) as f32;
+        let heading = controller.current_heading;
+        let (dir_x, dir_y) = geometry::heading_vector_i32(heading);
+        let spawn_x = transform.x - (dir_x * spawn_offset);
+        let spawn_y = transform.y - (dir_y * spawn_offset);
+
+        let physics = world.physics(ship_id);
+        let ship_vx = physics.map(|p| p.vx).unwrap_or(0.0);
+        let ship_vy = physics.map(|p| p.vy).unwrap_or(0.0);
+        let backward_speed = config.and_then(|c| c.backward_speed).unwrap_or(0.35) as f32;
+        let velocity_scale = config.and_then(|c| c.velocity_scale).unwrap_or(60.0) as f32;
+
+        let vx = ship_vx - (dir_x * backward_speed * velocity_scale);
+        let vy = ship_vy - (dir_y * backward_speed * velocity_scale);
+        let ttl_ms = config.and_then(|c| c.ttl_ms).unwrap_or(520) as i32;
+        let radius = config.and_then(|c| c.radius).unwrap_or(3) as i64;
+
+        if let Some(id) = self.spawn_smoke_entity(
+            world,
+            Some(ship_id),
+            spawn_x,
+            spawn_y,
+            vx,
+            vy,
+            ttl_ms,
+            radius,
+        ) {
+            if let Some(state) = &self.emitter_state {
+                state.track_spawn(effect_name, Some(ship_id), id);
+            }
+            vec![(id as rhai::INT).into()]
+        } else {
+            rhai::Array::new()
+        }
+    }
+
+    fn emit_disintegration(
+        &mut self,
+        effect_name: &str,
+        world: &GameplayWorld,
+        args: &RhaiMap,
+        config: Option<&catalog::EmitterConfig>,
+    ) -> rhai::Array {
+        let x = args
+            .get("x")
+            .and_then(|v| {
+                v.clone()
+                    .try_cast::<rhai::FLOAT>()
+                    .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
+            })
+            .unwrap_or(0.0) as f32;
+        let y = args
+            .get("y")
+            .and_then(|v| {
+                v.clone()
+                    .try_cast::<rhai::FLOAT>()
+                    .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
+            })
+            .unwrap_or(0.0) as f32;
+
+        let ttl_ms = config.and_then(|c| c.ttl_ms).unwrap_or(800) as i32;
+        let radius = config.and_then(|c| c.radius).unwrap_or(4) as i64;
+        let velocity_scale = config.and_then(|c| c.velocity_scale).unwrap_or(60.0) as f32;
+        let count = 12;
+
+        let mut ids = rhai::Array::new();
+        for i in 0..count {
+            let max_count = config.and_then(|c| c.max_count).unwrap_or(20) as usize;
+            if let Some(state) = &self.emitter_state {
+                while state.active_count(effect_name, None) >= max_count {
+                    let Some(oldest_id) = state.evict_oldest(effect_name, None) else {
+                        break;
+                    };
+                    if let Some(binding) = world.visual(oldest_id) {
+                        for target in binding.all_visual_ids() {
+                            if let Ok(mut commands) = self.queue.lock() {
+                                commands.push(BehaviorCommand::SceneDespawn {
+                                    target: target.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    let _ = world.despawn(oldest_id);
+                    state.remove_entity(oldest_id);
+                }
+            }
+            let angle = (i as f32 / count as f32) * std::f32::consts::TAU;
+            let speed = 0.5 * velocity_scale;
+            let vx = angle.cos() * speed;
+            let vy = angle.sin() * speed;
+            if let Some(id) = self.spawn_smoke_entity(world, None, x, y, vx, vy, ttl_ms, radius) {
+                if let Some(state) = &self.emitter_state {
+                    state.track_spawn(effect_name, None, id);
+                }
+                ids.push((id as rhai::INT).into());
+            }
+        }
+        ids
+    }
+
+    fn spawn_smoke_entity(
+        &mut self,
+        world: &GameplayWorld,
+        owner_id: Option<u64>,
+        x: f32,
+        y: f32,
+        vx: f32,
+        vy: f32,
+        ttl_ms: i32,
+        radius: i64,
+    ) -> Option<u64> {
+        let mut extra_data = BTreeMap::new();
+        extra_data.insert("ttl_ms".to_string(), JsonValue::from(ttl_ms as i64));
+        extra_data.insert("max_ttl_ms".to_string(), JsonValue::from(ttl_ms as i64));
+        extra_data.insert("radius".to_string(), JsonValue::from(radius));
+
+        spawn_ephemeral_visual(
+            world,
+            &self.queue,
+            EphemeralSpawn {
+                kind: "smoke",
+                template: "smoke-template",
+                x,
+                y,
+                heading: 0.0,
+                vx,
+                vy,
+                drag: 0.04,
+                max_speed: 0.0,
+                ttl_ms: Some(ttl_ms),
+                owner_id,
+                lifecycle: if owner_id.is_some() {
+                    LifecyclePolicy::TtlOwnerBound
+                } else {
+                    LifecyclePolicy::Ttl
+                },
+                extra_data,
+            },
+        )
     }
 }
 

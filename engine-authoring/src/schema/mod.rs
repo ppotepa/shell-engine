@@ -22,7 +22,6 @@ use helpers::*;
 
 pub use builders::render_schema_file;
 
-
 /// One generated schema file produced for a mod.
 #[derive(Debug, Clone)]
 pub struct GeneratedSchemaFile {

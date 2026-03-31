@@ -197,39 +197,107 @@ fn render_sprite(
 
     match sprite {
         Sprite::Text { .. } => render_text_sprite(
-            sprite, area, inherited_mode, clip_rect, target_resolver,
-            object_regions, object_id, &object_state, appear_at, sprite_elapsed, ctx,
+            sprite,
+            area,
+            inherited_mode,
+            clip_rect,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            ctx,
         ),
         Sprite::Image { .. } => render_image_sprite(
-            sprite, area, inherited_mode, clip_rect, target_resolver,
-            object_regions, object_id, &object_state, appear_at, sprite_elapsed, ctx,
+            sprite,
+            area,
+            inherited_mode,
+            clip_rect,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            ctx,
         ),
         Sprite::Vector { .. } => render_vector_sprite(
-            sprite, area, inherited_mode, clip_rect, target_resolver,
-            object_regions, object_id, &object_state, appear_at, sprite_elapsed, ctx,
+            sprite,
+            area,
+            inherited_mode,
+            clip_rect,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            ctx,
         ),
         Sprite::Panel { .. } => render_panel_sprite(
-            sprite, area, inherited_mode, clip_rect, target_resolver,
-            object_regions, object_id, &object_state, appear_at, sprite_elapsed,
-            layer_idx, sprite_path, object_states, ctx,
+            sprite,
+            area,
+            inherited_mode,
+            clip_rect,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            layer_idx,
+            sprite_path,
+            object_states,
+            ctx,
         ),
         Sprite::Grid { .. } => render_grid_sprite(
-            sprite, area, inherited_mode, clip_rect, target_resolver,
-            object_regions, object_id, &object_state, appear_at, sprite_elapsed,
-            layer_idx, sprite_path, object_states, ctx,
+            sprite,
+            area,
+            inherited_mode,
+            clip_rect,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            layer_idx,
+            sprite_path,
+            object_states,
+            ctx,
         ),
         Sprite::Flex { .. } => render_flex_sprite(
-            sprite, area, inherited_mode, clip_rect, target_resolver,
-            object_regions, object_id, &object_state, appear_at, sprite_elapsed,
-            layer_idx, sprite_path, object_states, ctx,
+            sprite,
+            area,
+            inherited_mode,
+            clip_rect,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            layer_idx,
+            sprite_path,
+            object_states,
+            ctx,
         ),
         Sprite::Obj { .. } => render_obj_sprite(
-            sprite, area, inherited_mode, target_resolver,
-            object_regions, object_id, &object_state, appear_at, sprite_elapsed, ctx,
+            sprite,
+            area,
+            inherited_mode,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
+            appear_at,
+            sprite_elapsed,
+            ctx,
         ),
-        Sprite::Scene3D { .. } => render_scene3d_sprite(
-            sprite, area, object_id, &object_state, object_regions, ctx,
-        ),
+        Sprite::Scene3D { .. } => {
+            render_scene3d_sprite(sprite, area, object_id, &object_state, object_regions, ctx)
+        }
     }
 }
 
@@ -1069,12 +1137,11 @@ fn render_obj_sprite(
     };
     let resolved_mode =
         engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-    let (sprite_width, sprite_height) =
-        if width.is_some() || height.is_some() || size.is_some() {
-            obj_sprite_dimensions(*width, *height, *size)
-        } else {
-            (area.width.max(1), area.height.max(1))
-        };
+    let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
+        obj_sprite_dimensions(*width, *height, *size)
+    } else {
+        (area.width.max(1), area.height.max(1))
+    };
     let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
     let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
     let (draw_x, draw_y) = compute_draw_pos(

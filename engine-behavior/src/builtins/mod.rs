@@ -9,8 +9,8 @@
 //! - menu: menu navigation and carousel positioning
 //! - arrows: flanking arrows for menu selection
 
-pub mod audio;
 pub mod arrows;
+pub mod audio;
 pub mod blink;
 pub mod bob;
 pub mod follow;
@@ -18,8 +18,8 @@ pub mod menu;
 pub mod stage;
 
 // Re-exports for convenience
-pub use audio::SceneAudioBehavior;
 pub use arrows::SelectedArrowsBehavior;
+pub use audio::SceneAudioBehavior;
 pub use blink::BlinkBehavior;
 pub use bob::BobBehavior;
 pub use follow::FollowBehavior;

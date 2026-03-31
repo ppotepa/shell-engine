@@ -4,7 +4,9 @@ use std::collections::HashSet;
 
 use engine_core::logging;
 
-use crate::{BehaviorCommand, Behavior, BehaviorContext, GameObject, Scene, emit_audio, EmittedCueKey};
+use crate::{
+    emit_audio, Behavior, BehaviorCommand, BehaviorContext, EmittedCueKey, GameObject, Scene,
+};
 
 /// Fires scene-level audio cues at their scheduled `at_ms` timestamps.
 #[derive(Default)]

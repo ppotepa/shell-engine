@@ -5,14 +5,12 @@ use engine_core::effects::{shared_dispatcher, ParamControl};
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
 
-use super::GeneratedSchemaFile;
-use super::helpers::{
-    mapping_with, non_empty_string_schema, object_schema,
-    schema_ref,
-};
+use super::helpers::{mapping_with, non_empty_string_schema, object_schema, schema_ref};
 use super::overlays::{
-    object_doc_overlay_patch, object_instance_overlay_patch, object_logic_overlay_def, scene_overlay_patch, shared_overlay_defs,
+    object_doc_overlay_patch, object_instance_overlay_patch, object_logic_overlay_def,
+    scene_overlay_patch, shared_overlay_defs,
 };
+use super::GeneratedSchemaFile;
 
 /// Renders one schema document as YAML with a trailing newline.
 pub fn render_schema_file(value: &Value) -> Result<String> {
@@ -879,7 +877,10 @@ pub(super) fn build_sprites_file_overlay_schema(mod_name: &str) -> Value {
     Value::Mapping(root)
 }
 
-pub(super) fn build_effect_file_overlay_schema(mod_name: &str, effect_names: &BTreeSet<String>) -> Value {
+pub(super) fn build_effect_file_overlay_schema(
+    mod_name: &str,
+    effect_names: &BTreeSet<String>,
+) -> Value {
     let mut root = Mapping::new();
     root.insert(
         Value::String("$schema".to_string()),
@@ -909,7 +910,10 @@ pub(super) fn build_effect_file_overlay_schema(mod_name: &str, effect_names: &BT
     Value::Mapping(root)
 }
 
-pub(super) fn effect_variant_schemas(mod_name: &str, effect_names: &BTreeSet<String>) -> Vec<Value> {
+pub(super) fn effect_variant_schemas(
+    mod_name: &str,
+    effect_names: &BTreeSet<String>,
+) -> Vec<Value> {
     let mut variants = vec![effect_preset_alias_schema()];
     variants.extend(effect_names.iter().map(|effect_name| {
         let meta = shared_dispatcher().metadata(effect_name);
@@ -1000,7 +1004,9 @@ pub(super) fn effect_preset_alias_schema() -> Value {
     Value::Mapping(alias)
 }
 
-pub(super) fn effect_params_schema(params: &'static [engine_core::effects::ParamMetadata]) -> Value {
+pub(super) fn effect_params_schema(
+    params: &'static [engine_core::effects::ParamMetadata],
+) -> Value {
     let mut properties = Mapping::new();
     for param in params {
         let mut schema = Mapping::new();
@@ -1100,4 +1106,3 @@ pub(super) fn param_control_schema(control: &ParamControl) -> Mapping {
     }
     map
 }
-

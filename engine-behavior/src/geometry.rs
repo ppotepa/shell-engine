@@ -32,6 +32,17 @@ pub(crate) fn sin32_i32(idx: i32) -> i32 {
     }
 }
 
+/// Get heading as a direction vector (x, y) in normalized form.
+/// heading 0 = UP (0, -1), heading 8 = RIGHT (1, 0), heading 16 = DOWN (0, 1), heading 24 = LEFT (-1, 0)
+/// Uses the same sine table as rotate_points for pixel-perfect alignment with visual rotation.
+pub(crate) fn heading_vector_i32(heading: i32) -> (f32, f32) {
+    let sin_val = sin32_i32(heading) as f32;
+    let cos_val = sin32_i32(heading + 8) as f32;
+    // Normalize by max value (1024) to get approximate unit vector
+    // The heading system: sin is x-component, -cos is y-component (pointing UP when heading=0)
+    (sin_val / 1024.0, -cos_val / 1024.0)
+}
+
 pub(crate) fn ship_points_i32(heading: i32) -> Vec<[i32; 2]> {
     let fx = sin32_i32(heading);
     let fy = -sin32_i32(heading + 8);

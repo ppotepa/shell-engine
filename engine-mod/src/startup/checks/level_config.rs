@@ -9,10 +9,10 @@ use engine_error::EngineError;
 use serde_yaml::{Mapping, Value};
 use zip::ZipArchive;
 
-use super::asset_utils::{is_zip_file, normalize_relative_asset_path};
 use super::super::check::StartupCheck;
 use super::super::context::StartupContext;
 use super::super::report::StartupReport;
+use super::asset_utils::{is_zip_file, normalize_relative_asset_path};
 
 /// Startup check that validates `/levels` payload parsing and configured
 /// `level.initial` / `level.default` references in `mod.yaml`.
