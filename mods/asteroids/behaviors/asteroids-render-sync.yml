@@ -1,3 +1,0 @@
-kind: behavior
-name: asteroids-render-sync
-src: ./asteroids-render-sync.rhai

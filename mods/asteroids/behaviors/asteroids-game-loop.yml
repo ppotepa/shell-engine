@@ -1,3 +1,0 @@
-kind: behavior
-name: asteroids-game-loop
-src: ./asteroids-game-loop.rhai

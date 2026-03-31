@@ -137,14 +137,11 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         },
     );
     engine.register_fn(
-        "spawn_wave",
-        |world: &mut ScriptGameplayApi, wave_name: &str, args: RhaiMap| {
-            world.spawn_wave(wave_name, args)
+        "collisions",
+        |world: &mut ScriptGameplayApi| {
+            world.collisions()
         },
     );
-    engine.register_fn("collisions", |world: &mut ScriptGameplayApi| {
-        world.collisions()
-    });
     engine.register_fn(
         "collisions_between",
         |world: &mut ScriptGameplayApi, kind_a: &str, kind_b: &str| {

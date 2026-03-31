@@ -1,6 +1,0 @@
-weapons:
-  asteroids.ship:
-    max_bullets: 8
-    bullet_kind: "bullet"
-    cooldown_name: "fire"
-    spawn_offset: 20.0

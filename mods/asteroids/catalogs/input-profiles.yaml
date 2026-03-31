@@ -1,7 +1,0 @@
-profiles:
-  default:
-    bindings:
-      turn_left: ["Left", "a", "A"]
-      turn_right: ["Right", "d", "D"]
-      thrust: ["Up", "w", "W"]
-      fire: [" ", "f", "F"]
