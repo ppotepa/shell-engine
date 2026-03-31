@@ -746,11 +746,11 @@ impl ScriptGameplayApi {
             }
         }
 
-        // Apply controller component
+        // Apply controller component - merge catalog config with args["cfg"] overrides
         if let Some(ctrl) = &components.controller {
             match ctrl.controller_type.as_str() {
                 "TopDownShipController" => {
-                    let config_map = if let Some(cfg) = &ctrl.config {
+                    let mut config_map = if let Some(cfg) = &ctrl.config {
                         let mut m = RhaiMap::new();
                         for (k, v) in cfg {
                             m.insert(k.clone().into(), json_to_rhai_dynamic(v));
@@ -759,6 +759,16 @@ impl ScriptGameplayApi {
                     } else {
                         RhaiMap::new()
                     };
+
+                    // Merge runtime overrides from args["cfg"] (e.g. per-level difficulty)
+                    if let Some(cfg_dyn) = args.get("cfg") {
+                        if let Some(cfg_map) = cfg_dyn.clone().try_cast::<RhaiMap>() {
+                            for (k, v) in &cfg_map {
+                                config_map.insert(k.clone(), v.clone());
+                            }
+                        }
+                    }
+
                     if !self.attach_ship_controller(entity_id, config_map) {
                         return false;
                     }
@@ -2124,7 +2134,7 @@ impl ScriptGameplayApi {
         };
         let uid = id as u64;
 
-        // Extract config values with defaults
+        // Extract config values with defaults; accept alternate key names for compatibility
         let turn_step_ms = config
             .get("turn_step_ms")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
@@ -2132,11 +2142,13 @@ impl ScriptGameplayApi {
 
         let thrust_power = config
             .get("thrust_power")
+            .or_else(|| config.get("ship_thrust"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
             .unwrap_or(170.0) as f32;
 
         let max_speed = config
             .get("max_speed")
+            .or_else(|| config.get("ship_max_speed"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
             .unwrap_or(4.5) as f32;
 

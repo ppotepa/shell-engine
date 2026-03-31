@@ -306,7 +306,7 @@ impl ModCatalogs {
         ship_components.insert("config".to_string(), json!({
             "turn_step_ms": 40,
             "thrust_power": 170.0,
-            "ship_max_speed": 4.5,
+            "max_speed": 4.5,
             "heading_bits": 32
         }));
         

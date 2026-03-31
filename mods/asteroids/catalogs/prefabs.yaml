@@ -33,7 +33,7 @@ prefabs:
         config:
           turn_step_ms: 40
           thrust_power: 170.0
-          ship_max_speed: 4.5
+          max_speed: 4.5
           heading_bits: 32
       wrappable: true
       
