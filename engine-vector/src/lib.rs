@@ -106,10 +106,7 @@ pub fn fill_polygon(
         return;
     }
 
-    let world_origin = [
-        origin_x.saturating_add(bounds.min_x),
-        origin_y.saturating_add(bounds.min_y),
-    ];
+    let world_origin = [origin_x, origin_y];
     let x_start = origin_x.saturating_add(bounds.min_x);
     let x_end = x_start.saturating_add(i32::from(bounds.width).saturating_sub(1));
     let y_start = origin_y.saturating_add(bounds.min_y);
@@ -353,5 +350,54 @@ mod tests {
         let poly = [[0, 0], [4, 0], [4, 4], [0, 4]];
         fill_polygon(&mut buffer, &poly, 2, 2, '█', Color::White, Color::Black);
         assert_eq!(buffer.get(4, 4).expect("filled").symbol, '█');
+    }
+
+    #[test]
+    fn fill_polygon_aligns_with_outline_for_negative_coords() {
+        // Polygon centered at origin with negative coords (like asteroid shapes)
+        let poly = [[-4, -4], [4, -4], [4, 4], [-4, 4]];
+        let origin_x = 20;
+        let origin_y = 15;
+
+        let mut fill_buf = Buffer::new(40, 30);
+        fill_polygon(
+            &mut fill_buf, &poly, origin_x, origin_y, '█',
+            Color::White, Color::Black,
+        );
+
+        let mut outline_buf = Buffer::new(40, 30);
+        draw_polyline(
+            &mut outline_buf, &poly, true, origin_x, origin_y, '*',
+            Color::White, Color::Black,
+        );
+
+        // Center of polygon in world coords should be filled
+        assert!(
+            fill_buf.get(origin_x as u16, origin_y as u16).is_some(),
+            "center of polygon must be filled"
+        );
+        assert_eq!(
+            fill_buf.get(origin_x as u16, origin_y as u16).unwrap().symbol, '█',
+            "center must have fill char"
+        );
+
+        // Fill must not extend beyond the outline bounding box
+        let outline_left = (origin_x - 4) as u16;
+        let outline_right = (origin_x + 4) as u16;
+        let outline_top = (origin_y - 4) as u16;
+        let outline_bottom = (origin_y + 4) as u16;
+        for y in 0..30u16 {
+            for x in 0..40u16 {
+                if let Some(cell) = fill_buf.get(x, y) {
+                    if cell.symbol == '█' {
+                        assert!(
+                            x >= outline_left && x <= outline_right
+                                && y >= outline_top && y <= outline_bottom,
+                            "fill at ({x},{y}) is outside outline bounds ({outline_left}..{outline_right}, {outline_top}..{outline_bottom})"
+                        );
+                    }
+                }
+            }
+        }
     }
 }
