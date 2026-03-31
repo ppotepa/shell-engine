@@ -10,5 +10,5 @@ terminal:
   min_width: 320
   min_height: 180
   default_font: "generic:2"
-  render_size: 640x360
+  render_size: 640x480
   presentation_policy: stretch

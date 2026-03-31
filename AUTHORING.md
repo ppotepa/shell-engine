@@ -161,12 +161,15 @@ groups:
 #### Spawn Waves
 
 ```rhai
-// Dynamic spawn wave (e.g., asteroid fragments from destroyed parent)
-world.spawn_wave("asteroids.dynamic", {
-  parent_x: 100,
-  parent_y: 100,
-  count: 2,
-  ship_id: some_ship_id
+// Dynamic spawn wave near arena edges while keeping distance from the player
+world.spawn_wave("asteroids.dynamic", #{
+  spawn_count: 6,
+  ship_x: 0,
+  ship_y: 0,
+  min_x: -320.0,
+  max_x: 320.0,
+  min_y: -240.0,
+  max_y: 240.0
 });
 ```
 
@@ -189,13 +192,9 @@ waves:
 #### Weapons
 
 ```rhai
-// Fire weapon with catalog-defined projectile rules
-world.try_fire_weapon("asteroids.ship", ship_id, {
-  // Optional overrides (all fields have catalog defaults)
-  max_bullets: 8,
-  bullet_ttl_ms: 900,
-  cooldown_ms: 120
-});
+// Keep weapon policy in mod-side Rhai helpers built on generic engine primitives.
+// Asteroids now does this in mods/asteroids/scripts/asteroids-shared.rhai.
+let bullet_id = h::fire_weapon(world, audio, ship_id, cfg);
 ```
 
 **Catalog format:**
@@ -206,23 +205,15 @@ weapons:
   asteroids.ship:
     max_bullets: 8           # Max bullets on screen
     bullet_kind: "bullet"    # Prefab to spawn
-    bullet_ttl_ms: 900       # Bullet lifetime (ms)
-    cooldown_ms: 120         # Fire rate (ms between shots)
     cooldown_name: "fire"    # State key for cooldown tracking
     spawn_offset: 20.0       # Distance from ship center
-    speed_scale: 60.0        # Bullet speed multiplier
 ```
 
 #### Emitters
 
 ```rhai
-// Emit particles (smoke, sparks, explosion, etc.)
-fx.emit("asteroids.ship_thrust_smoke", {
-  x: ship_x,
-  y: ship_y,
-  vx: ship_vx,
-  vy: ship_vy
-});
+// Keep emitter policy in mod-side Rhai helpers as well.
+h::emit_thrust_smoke(world, ship_id, 350);
 ```
 
 **Catalog format:**
@@ -231,22 +222,54 @@ fx.emit("asteroids.ship_thrust_smoke", {
 # mods/asteroids/catalogs/emitters.yaml
 emitters:
   asteroids.ship_thrust_smoke:
-    max_count: 40            # Max particles in pool
+    max_count: 10            # Max particles in pool
     cooldown_name: "smoke"   # State key for spawn throttle
-    cooldown_ms: 48          # Emit every Nms
+    cooldown_ms: 48          # Base emit cadence
+    min_cooldown_ms: 16      # Faster cadence at sustained thrust
+    ramp_ms: 2000            # Time to reach min cadence
     spawn_offset: 6.0        # Distance from entity
     backward_speed: 0.35     # Relative speed to entity
     ttl_ms: 520              # Particle lifetime (ms)
     radius: 3                # Visual particle size
-    velocity_scale: 60.0     # Speed multiplier
 ```
 
-### Backward Compatibility
+### Script State and Cross-Script Communication
 
-All gameplay functions (spawn_prefab, try_fire_weapon, emit, etc.) retain
-hardcoded fallbacks. If a catalog entry is not found, the function falls back
-to its hardcoded Rust implementation. This allows gradual migration from
-hardcoded gameplay to catalog-driven gameplay.
+`local[]` storage belongs to a single behavior instance. Two Rhai behavior files
+attached to the same scene do **not** share the same `local[]` map.
+
+Use persistent game state for cross-script handoff:
+
+```rhai
+// game-loop.rhai
+game.set("/my-mod/player_id", ship_id);
+
+// render-sync.rhai
+let ship_id = game.get_i("/my-mod/player_id", 0);
+```
+
+Use `local[]` for frame-to-frame state that is private to one behavior script,
+and `game.set/get` when another behavior or scene needs to read it.
+
+### World Bounds and Wrapping
+
+Use the natural argument order when setting script-visible world bounds:
+
+```rhai
+world.set_world_bounds(-320.0, -240.0, 320.0, 240.0);
+```
+
+The order is:
+
+```text
+min_x, min_y, max_x, max_y
+```
+
+### Engine vs Mod Responsibilities
+
+Keep the engine-level Rhai surface generic. Mod-specific gameplay policy such as
+weapon firing rules, asteroid split behavior, ship-hit reactions, emitter logic,
+or shape construction belongs in shared Rhai modules inside the mod.
 
 ---
 
@@ -523,12 +546,12 @@ clamp_i(v, min_v, max_v)       // clamp integer
 clamp_f(v, min_v, max_v)       // clamp float
 to_i(v) / to_float(v)          // type conversions
 sin32(idx)                     // 32-step integer sine lookup (-1024..1024)
-unit_vec32(heading)            // #{x, y} unit vector for heading 0-31
-asteroid_points(shape, size)   // asteroid polygon points
 rotate_points(points, heading) // rotate a point array around 0,0 using 32-step heading
-asteroid_radius(size)          // helper radius by asteroid size tier
-asteroid_score(size)           // score value by asteroid size tier
 ```
+
+Keep shape-specific helpers such as `asteroid_points`, `asteroid_radius`, or
+similar gameplay geometry in shared Rhai modules inside the mod instead of as
+engine-global functions.
 
 Mod-level named behaviors can live in `behaviors/*.yml` and reference external Rhai:
 

@@ -1,13 +1,3 @@
-# Prefab templates for Asteroids gameplay
-# Loaded via: world.spawn_prefab("ship", args)
-#            world.spawn_prefab("asteroid", args)
-#
-# Each prefab defines a reusable entity template with:
-#  - kind: Internal type identifier (used by behavior scripts)
-#  - sprite_template: Name of the sprite to attach
-#  - init_fields: Default properties (can be overridden per spawn)
-#  - components: Component specifications (physics, collider, controller, lifecycle)
-
 prefabs:
   ship:
     kind: "ship"
@@ -21,22 +11,22 @@ prefabs:
         vy: 0
         ax: 0
         ay: 0
-        drag: 0.10
+        drag: 0.0
         max_speed: 270.0
       collider:
         shape: "circle"
         radius: 10.0
-        layer: 0xFFFF
-        mask: 0xFFFF
+        layer: 65535
+        mask: 65535
       controller:
         controller_type: "TopDownShipController"
         config:
-          turn_step_ms: 40
+          turn_step_ms: 25
           thrust_power: 120.0
           max_speed: 270.0
           heading_bits: 32
       wrappable: true
-      
+
   asteroid:
     kind: "asteroid"
     sprite_template: "asteroid-template"
@@ -49,13 +39,13 @@ prefabs:
       size: 1
     components:
       physics:
-        drag: 0
-        max_speed: 0
+        drag: 0.0
+        max_speed: 0.0
       collider:
         shape: "circle"
-        radius: 15.0 # Will be overridden based on size
-        layer: 0xFFFF
-        mask: 0xFFFF
+        radius: 15.0
+        layer: 65535
+        mask: 65535
       wrappable: true
       extra_data:
         flash_ms: 0
@@ -65,7 +55,7 @@ prefabs:
         rot_speed: 1
         rot_step_ms: 72
         rot_accum_ms: 0
-      
+
   bullet:
     kind: "bullet"
     sprite_template: "bullet-template"
@@ -76,15 +66,16 @@ prefabs:
       vy: 0
     components:
       physics:
-        drag: 0
+        drag: 0.0
+        max_speed: 0.0
       collider:
         shape: "circle"
         radius: 3.0
-        layer: 0xFFFF
-        mask: 0xFFFF
+        layer: 65535
+        mask: 65535
       lifecycle: "Ttl"
       wrappable: true
-      
+
   smoke:
     kind: "smoke"
     sprite_template: "smoke-template"
@@ -97,4 +88,5 @@ prefabs:
     components:
       physics:
         drag: 0.04
+        max_speed: 0.0
       lifecycle: "Ttl"

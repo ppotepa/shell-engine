@@ -1,10 +1,12 @@
 # yaml-language-server: $schema=../../schemas/scenes.yaml
-id: playground-exit
+id: asteroids.exit
 title: Exit
 bg: black
+layers:
+  - name: main
+    z_index: 0
 stages:
   on_enter:
     steps:
       - pause: 1ms
 next: null
-layers: []

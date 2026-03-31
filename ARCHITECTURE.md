@@ -31,7 +31,6 @@ shell-quest/
 ├── engine-runtime/            RuntimeSettings, virtual-size parsing
 ├── engine-terminal/           Terminal detection and configuration
 ├── mods/                      Content mods
-│   ├── asteroids/             SDL-focused showcase mod (vector arcade gameplay)
 │   ├── shell-quest/           Main game mod
 │   ├── shell-quest-tests/     Automated test mod (no user input)
 │   └── playground/            Development playground
@@ -232,6 +231,13 @@ layer or stage start). Key rules:
 | `key.alt` | `bool` | Alt modifier held |
 | `key.shift` | `bool` | Shift modifier held |
 
+**Rhai behavior state model**
+
+- `local[]` is scoped to a single behavior instance, not the whole scene.
+- Use `game.set/get` for cross-script state handoff such as entity ids needed by
+  both gameplay and render-sync behaviors.
+- Use `local[]` only for script-private frame-to-frame state.
+
 **Debug keys** (when `--dev` is active):
 
 | Key | Action |
@@ -306,8 +312,12 @@ editor, start screen, live refresh (~1.2s).
 | Effect params | Effect metadata, schema generation, editor consumption |
 | Render/compositor | Verify compositor + renderer + backend presentation interactions |
 | Transitions/lifecycle | Verify scoped reset behavior, scene loader reference resolution |
-| Rhai script API | `BehaviorContext`, scope push block in `RhaiScriptBehavior::update`, `scene-centric-authoring.md` sec 13, regression test in `behavior::tests` |
+| Rhai script API | `BehaviorContext`, scope push block in `RhaiScriptBehavior::update`, `AUTHORING.md`, regression tests in `engine-behavior` |
 | Debug/diagnostics | Push to `DebugLogBuffer` via `BehaviorCommand::ScriptError` or direct `world.get_mut` |
+
+When changing gameplay wrapping or bounds behavior, also verify the Rhai-facing
+`world.set_world_bounds(min_x, min_y, max_x, max_y)` contract stays aligned with
+the underlying runtime order.
 
 ## 14. CLI Quick Reference
 

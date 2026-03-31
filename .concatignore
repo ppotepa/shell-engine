@@ -1,0 +1,11 @@
+# Shared concat excludes for default source snapshot mode.
+docs/
+assets/
+benchmark-results/
+reports/
+logs/
+target/
+rust-os/
+
+# Keep mod gameplay/content YAML, but skip authoring/schema YAML.
+mods/**/schemas/

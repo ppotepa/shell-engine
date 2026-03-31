@@ -8,70 +8,13 @@ layers:
     objects:
       - ref: centered-endless-menu
     sprites:
-      - {
-          type: text,
-          id: title,
-          content: "ASTEROIDS",
-          at: ct,
-          y: -10,
-          font: "generic:2",
-          fg: white,
-        }
-      - {
-          type: text,
-          id: subtitle,
-          content: "Engine Showcase Mod",
-          at: ct,
-          y: -7,
-          font: "generic:1",
-          fg: white,
-        }
-      - {
-          type: text,
-          id: mode-current,
-          content: "MODE: DEFAULT",
-          at: ct,
-          y: -5,
-          font: "generic:1",
-          fg: "#7bd1ff",
-        }
-      - {
-          type: text,
-          id: mode-hint,
-          content: "Q/F5 EASY | W/F6 DEFAULT | E/F7 HARD",
-          at: ct,
-          y: -3,
-          font: "generic:1",
-          fg: gray,
-        }
-      - {
-          type: text,
-          id: menu-help,
-          content: "A/D or arrows rotate, W/up thrust, space fire",
-          at: cb,
-          y: -2,
-          font: "generic:1",
-          fg: white,
-        }
-      - {
-          type: text,
-          id: menu-prompt,
-          content: "Arrows: navigate, Enter: select, [0]-[2]: shortcut",
-          at: cb,
-          y: -1,
-          font: "generic:1",
-          fg: white,
-          behaviors:
-            [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }],
-        }
-logic:
-  kind: script
-  behavior: rhai-script
-  src: ./scene.rhai
+      - { type: text, id: title, content: "ASTEROIDS", at: ct, y: -9, font: "generic:2", fg: white }
+      - { type: text, id: subtitle, content: "Normal difficulty", at: ct, y: -6, font: "generic:1", fg: "#7bd1ff" }
+      - { type: text, id: hint, content: "A/D rotate | W thrust | SPACE fire | R reset", at: cb, y: -2, font: "generic:1", fg: gray }
+      - { type: text, id: prompt, content: "Arrows navigate, Enter select", at: cb, y: -1, font: "generic:1", fg: white, behaviors: [{ name: blink, params: { visible_ms: 700, hidden_ms: 700 } }] }
 menu-options:
   - { key: "1", label: START GAME, to: asteroids.game }
-  - { key: "2", label: HIGH SCORES, to: asteroids.highscores }
-  - { key: "0", label: QUIT, to: playground-exit }
+  - { key: "0", label: QUIT, to: asteroids.exit }
 stages:
   on_enter:
     steps:

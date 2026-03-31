@@ -1,4 +1,5 @@
 id: asteroids.default
+mode: normal
 player:
   lives: 3
   thrust_power: 120.0

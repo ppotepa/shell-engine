@@ -73,6 +73,26 @@ Current script-facing API surface includes:
 
 See `scripting.md` at repo root for the full API reference.
 
+## Script API notes that matter in practice
+
+- `world.set_world_bounds` uses the natural Rhai argument order
+  `min_x, min_y, max_x, max_y`.
+- `spawn_prefab("ship", #{ cfg: ... })` merges `args["cfg"]` into the catalog
+  controller config. This is the intended path for per-level controller tuning.
+- `local[]` state is per behavior instance. Cross-script coordination should go
+  through persistent game state (`game.set/get`) instead of assuming two
+  behavior files share locals.
+- The engine Rhai surface is intentionally generic. Mod-specific helpers such as
+  Asteroids firing/split/smoke logic belong in mod-side shared Rhai modules.
+
+## Validation
+
+Use the standard crate test command:
+
+```bash
+cargo test -p engine-behavior
+```
+
 ## Integration points
 
 - `engine-scene-runtime` owns attached behavior instances and applies emitted commands

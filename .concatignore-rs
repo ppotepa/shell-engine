@@ -1,0 +1,9 @@
+# First-party Rust concat excludes.
+mods/
+docs/
+assets/
+benchmark-results/
+reports/
+logs/
+target/
+rust-os/

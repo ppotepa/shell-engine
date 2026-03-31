@@ -2,11 +2,7 @@
 
 use rhai::{Dynamic as RhaiDynamic, Engine as RhaiEngine, Map as RhaiMap};
 
-use crate::geometry::{
-    asteroid_fragment_points_i32, asteroid_points_i32, asteroid_radius_i32, asteroid_score_i32,
-    points_to_rhai_array, rhai_array_to_points, rotate_points_i32, ship_points_i32, sin32_i32,
-    to_i32,
-};
+use crate::geometry::{points_to_rhai_array, rhai_array_to_points, rotate_points_i32, sin32_i32, to_i32};
 
 pub(crate) use super::gameplay_impl::{ScriptGameplayApi, ScriptGameplayEntityApi};
 
@@ -141,53 +137,9 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         },
     );
     engine.register_fn(
-        "try_fire_weapon",
-        |world: &mut ScriptGameplayApi, weapon_name: &str, source_id: rhai::INT, args: RhaiMap| {
-            world.try_fire_weapon(weapon_name, source_id, args)
-        },
-    );
-    engine.register_fn(
-        "tick_heading_anim",
-        |world: &mut ScriptGameplayApi, id: rhai::INT, dt_ms: rhai::INT| {
-            world.tick_heading_anim(id, dt_ms)
-        },
-    );
-    engine.register_fn(
-        "handle_ship_hit",
-        |world: &mut ScriptGameplayApi,
-         ship_id: rhai::INT,
-         asteroid_id: rhai::INT,
-         args: RhaiMap| { world.handle_ship_hit(ship_id, asteroid_id, args) },
-    );
-    engine.register_fn(
-        "handle_bullet_hit",
-        |world: &mut ScriptGameplayApi,
-         bullet_id: rhai::INT,
-         asteroid_id: rhai::INT,
-         args: RhaiMap| { world.handle_bullet_hit(bullet_id, asteroid_id, args) },
-    );
-    engine.register_fn(
-        "handle_asteroid_split",
-        |world: &mut ScriptGameplayApi, asteroid_id: rhai::INT, args: RhaiMap| {
-            world.handle_asteroid_split(asteroid_id, args)
-        },
-    );
-    engine.register_fn(
         "spawn_wave",
         |world: &mut ScriptGameplayApi, wave_name: &str, args: RhaiMap| {
             world.spawn_wave(wave_name, args)
-        },
-    );
-    engine.register_fn(
-        "ensure_crack_visuals",
-        |world: &mut ScriptGameplayApi, asteroid_id: rhai::INT| {
-            world.ensure_crack_visuals(asteroid_id)
-        },
-    );
-    engine.register_fn(
-        "spawn_flash_cracks",
-        |world: &mut ScriptGameplayApi, asteroid_id: rhai::INT, flash_duration_ms: rhai::INT| {
-            world.spawn_flash_cracks(asteroid_id, flash_duration_ms)
         },
     );
     engine.register_fn("collisions", |world: &mut ScriptGameplayApi| {
@@ -519,31 +471,6 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             points_to_rhai_array(rotate_points_i32(&points, to_i32(heading)))
         },
     );
-    engine.register_fn(
-        "asteroid_fragment_points",
-        |shape: rhai::INT, size: rhai::INT, fragment: rhai::INT| -> rhai::Array {
-            points_to_rhai_array(asteroid_fragment_points_i32(
-                to_i32(shape),
-                to_i32(size),
-                to_i32(fragment),
-            ))
-        },
-    );
-    engine.register_fn(
-        "asteroid_points",
-        |shape: rhai::INT, size: rhai::INT| -> rhai::Array {
-            points_to_rhai_array(asteroid_points_i32(to_i32(shape), to_i32(size)))
-        },
-    );
-    engine.register_fn("asteroid_radius", |size: rhai::INT| -> rhai::INT {
-        asteroid_radius_i32(to_i32(size)) as rhai::INT
-    });
-    engine.register_fn("asteroid_score", |size: rhai::INT| -> rhai::INT {
-        asteroid_score_i32(to_i32(size)) as rhai::INT
-    });
-    engine.register_fn("ship_points", |heading: rhai::INT| -> rhai::Array {
-        points_to_rhai_array(ship_points_i32(to_i32(heading)))
-    });
     engine.register_fn("sin32", |idx: rhai::INT| -> rhai::INT {
         sin32_i32(to_i32(idx)) as rhai::INT
     });

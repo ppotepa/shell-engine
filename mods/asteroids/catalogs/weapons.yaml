@@ -1,12 +1,6 @@
-# Weapon configurations for Asteroids gameplay
-# Loaded via: world.try_fire_weapon("asteroids.ship", ship_id, args)
-#
-# Defines structural weapon properties. Tunable values (cooldown, ttl, speed)
-# come from level config and are passed as args by the game loop.
-
 weapons:
   asteroids.ship:
-    max_bullets: 8            # Max bullets on screen (older bullets despawn if exceeded)
-    bullet_kind: "bullet"     # Prefab to spawn
-    cooldown_name: "fire"     # State key for cooldown tracking
-    spawn_offset: 20.0        # Distance from ship center to bullet spawn point
+    max_bullets: 8
+    bullet_kind: "bullet"
+    cooldown_name: "fire"
+    spawn_offset: 20.0

@@ -39,3 +39,14 @@ This split keeps behavior code testable and keeps runtime mutation centralized.
 - update authoring metadata in `engine-core`,
 - update runtime integration if command shapes changed,
 - add or update tests.
+
+## Script-facing contract reminders
+
+- `local[]` is behavior-local, not scene-global. If two Rhai files need to
+  share state, use `game.set/get`.
+- `world.set_world_bounds` is authored as
+  `world.set_world_bounds(min_x, min_y, max_x, max_y)`.
+- `spawn_prefab("ship", #{ cfg: ... })` merges runtime controller overrides from
+  `cfg` into the prefab's `TopDownShipController` config.
+- Ship thrust smoke emitters are keyed by `ship_id` plus optional `thrust_ms`;
+  the built-in emitter computes spawn position and velocity from the ship.

@@ -1,14 +1,6 @@
 import "asteroids-shared" as h;
 
-// ════════════════════════════════════════════════════════════════════════
-// on_idle: Per-frame visual sync
-//
-// Engine's visual_sync_system handles position updates automatically.
-// This script only handles: rotation visuals, flash effects, HUD text.
-// ════════════════════════════════════════════════════════════════════════
-
 if time.stage == "on_idle" {
-    // ── Ship visual ──────────────────────────────────────────────────
     let ship_id = game.get_i("/ast/ship_id", 0);
     if ship_id > 0 {
         let ship = world.entity(ship_id);
@@ -23,13 +15,16 @@ if time.stage == "on_idle" {
             scene.set(vid, "position.x", t.x);
             scene.set(vid, "position.y", t.y);
             scene.set_visible(vid, visible);
-            scene.set(vid, "vector.points", rotate_points([[0, -7], [4, 5], [0, 2], [-4, 5]], heading));
+            scene.set(vid, "vector.points", h::ship_points(heading));
             scene.set(vid, "vector.fg", "white");
             scene.set(vid, "vector.bg", "#1a1a1a");
+        } else {
+            scene.set_visible("ship", false);
         }
+    } else {
+        scene.set_visible("ship", false);
     }
 
-    // ── Asteroid visuals ─────────────────────────────────────────────
     for ast_id in world.query_kind("asteroid") {
         let ast = world.entity(ast_id);
         if !ast.exists() { continue; }
@@ -43,39 +38,22 @@ if time.stage == "on_idle" {
         let size = ast.get_i("/size", 1);
 
         scene.set_visible(vid, active);
-        let pts = rotate_points(asteroid_points(shape, size), rot_phase);
+        let pts = rotate_points(h::asteroid_points(shape, size), rot_phase);
         if flash_ms > 0 {
             scene.set_vector(vid, pts, h::asteroid_stroke_hex(flash_ms, flash_total), h::flash_fill_hex(flash_ms, flash_total));
         } else {
             scene.set_vector(vid, pts, "#aaaaaa", "#333333");
         }
 
-        // Crack overlays follow the asteroid
-        let d = ast.data();
-        let t = ast.transform();
-        if active && flash_ms > 0 {
-            for i in 0..3 {
-                let frag_id = h::crack_visual_id(d, i);
-                if frag_id.type_of() == "string" {
-                    scene.set(frag_id, "position.x", t.x);
-                    scene.set(frag_id, "position.y", t.y);
-                    scene.set_vector(frag_id, pts, h::asteroid_stroke_hex(flash_ms, flash_total), h::flash_fill_hex(flash_ms, flash_total));
-                    scene.set_visible(frag_id, true);
-                }
-            }
-        } else {
-            h::hide_crack_visuals(scene, d);
-        }
+        h::hide_crack_visuals(scene, ast.data());
     }
 
-    // ── Bullet visibility ────────────────────────────────────────────
     for bid in world.query_kind("bullet") {
         if world.exists(bid) {
             scene.set_visible(`bullet-${bid}`, true);
         }
     }
 
-    // ── Smoke particles ──────────────────────────────────────────────
     for sid in world.query_kind("smoke") {
         let s = world.entity(sid);
         if !s.exists() { continue; }
@@ -89,7 +67,6 @@ if time.stage == "on_idle" {
         scene.set(vid, "vector.fg", h::smoke_colour_hex(ttl, max_ttl));
     }
 
-    // ── HUD (only update on change) ──────────────────────────────────
     let score = game.get_i("/ast/score", 0);
     let lives = game.get_i("/ast/lives", 0);
     let wave = game.get_i("/ast/wave", 0);

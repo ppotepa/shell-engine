@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 usage() {
   cat <<'USAGE'
-Usage: ./concat [--output <file>] [--stdout] [--include-generated] [-rs|--rust-only] [--md-only]
+Usage: ./concat [--output <file>] [--stdout] [--include-generated] [--exclude-from <file>] [-rs|--rust-only] [--md-only]
 
 Concatenates tracked source-code files with metadata:
 - file path
@@ -22,9 +22,17 @@ Ignored non-source includes:
 - *.blend, *.blend1
 
 Modes:
-- default: tracked `.rs`, `.rhai`, `.sh`, `.py`
-- `-rs` / `--rust-only`: tracked first-party `.rs` only, excluding mods/docs/artifacts
+- default: tracked `.rs`, `.rhai`, `.sh`, `.py`, plus mod `.yml/.yaml`
+- `-rs` / `--rust-only`: tracked `.rs` only; optional path exclusions come from ignore rules
 - `--md-only`: tracked `*.md` only
+
+Ignore rules:
+- `--exclude-from <file>` loads repo-relative or absolute ignore rules
+- if omitted, `-rs` uses `.concatignore-rs` when present
+- if omitted, default mode uses `.concatignore` when present
+- patterns are repo-relative, blank lines and `# comments` are ignored
+- entries ending with `/` exclude that directory prefix
+- other entries are treated like shell-style path globs
 USAGE
 }
 
@@ -34,6 +42,9 @@ INCLUDE_GENERATED=0
 RUST_ONLY=0
 MD_ONLY=0
 OUTPUT_FILE_EXPLICIT=0
+EXCLUDE_FROM=""
+EXCLUDE_FILE_SOURCE="none"
+EXCLUDED_BY_RULES=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -53,6 +64,14 @@ while [[ $# -gt 0 ]]; do
     --include-generated)
       INCLUDE_GENERATED=1
       shift
+      ;;
+    --exclude-from)
+      EXCLUDE_FROM="${2:-}"
+      if [[ -z "$EXCLUDE_FROM" ]]; then
+        echo "[concat] --exclude-from requires a path" >&2
+        exit 2
+      fi
+      shift 2
       ;;
     -rs|--rust-only)
       RUST_ONLY=1
@@ -74,12 +93,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# In rust-only mode, keep a separate default report file unless user overrode it.
+if (( RUST_ONLY == 1 )) && (( MD_ONLY == 1 )); then
+  echo "[concat] choose either --rust-only or --md-only" >&2
+  exit 2
+fi
+
 if (( RUST_ONLY == 1 )) && (( OUTPUT_FILE_EXPLICIT == 0 )); then
   OUTPUT_FILE="concat.rs.txt"
 fi
 
-# In md-only mode, keep a separate default report file unless user overrode it.
 if (( MD_ONLY == 1 )) && (( OUTPUT_FILE_EXPLICIT == 0 )); then
   OUTPUT_FILE="concat.md.txt"
 fi
@@ -89,39 +111,127 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+resolve_exclude_file() {
+  local candidate="$1"
+  if [[ -z "$candidate" ]]; then
+    return 1
+  fi
+  if [[ -f "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  if [[ -f "$ROOT_DIR/$candidate" ]]; then
+    printf '%s\n' "$ROOT_DIR/$candidate"
+    return 0
+  fi
+  return 1
+}
+
+declare -a EXCLUDE_PATTERNS=()
+
+load_exclude_patterns() {
+  local file_path="$1"
+  local raw line
+  while IFS= read -r raw || [[ -n "$raw" ]]; do
+    line="${raw%%#*}"
+    line="${line#${line%%[![:space:]]*}}"
+    line="${line%${line##*[![:space:]]}}"
+    if [[ -n "$line" ]]; then
+      EXCLUDE_PATTERNS+=("$line")
+    fi
+  done < "$file_path"
+}
+
+path_is_excluded() {
+  local repo_path="$1"
+  local pattern normalized
+  for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+    normalized="$pattern"
+    if [[ "$normalized" == /* ]]; then
+      normalized="${normalized#/}"
+    fi
+
+    if [[ "$normalized" == */ ]]; then
+      case "$repo_path" in
+        $normalized*) return 0 ;;
+      esac
+      continue
+    fi
+
+    case "$repo_path" in
+      $normalized|$normalized/*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+if [[ -n "$EXCLUDE_FROM" ]]; then
+  if ! EXCLUDE_FROM="$(resolve_exclude_file "$EXCLUDE_FROM")"; then
+    echo "[concat] exclude file not found: $EXCLUDE_FROM" >&2
+    exit 2
+  fi
+  EXCLUDE_FILE_SOURCE="$EXCLUDE_FROM"
+elif (( RUST_ONLY == 1 )) && EXCLUDE_FROM="$(resolve_exclude_file ".concatignore-rs")"; then
+  EXCLUDE_FILE_SOURCE="$EXCLUDE_FROM"
+elif (( RUST_ONLY == 0 )) && (( MD_ONLY == 0 )) && EXCLUDE_FROM="$(resolve_exclude_file ".concatignore")"; then
+  EXCLUDE_FILE_SOURCE="$EXCLUDE_FROM"
+fi
+
+if [[ -n "$EXCLUDE_FROM" ]]; then
+  load_exclude_patterns "$EXCLUDE_FROM"
+fi
+
 FILES=()
 SKIPPED_GENERATED=0
-mapfile -t IGNORED_NON_SOURCE < <(git ls-files '*.yml' '*.yaml' '*.blend' '*.blend1' | sort)
+IGNORED_NON_SOURCE=()
 
 if (( RUST_ONLY == 1 )); then
-  # "-rs" mode: keep first-party Rust only; exclude content/docs/artifacts trees.
-  mapfile -t ALL_FILES < <(
-    git ls-files '*.rs' \
-      | rg -v '^(mods/|docs/|assets/|benchmark-results/|reports/|logs/|target/|rust-os/)' \
-      | sort
-  )
+  mapfile -t ALL_FILES < <(git ls-files '*.rs' | sort)
 elif (( MD_ONLY == 1 )); then
   mapfile -t ALL_FILES < <(git ls-files '*.md' | while IFS= read -r f; do [[ -f "$f" ]] && echo "$f"; done | sort)
 else
-  mapfile -t ALL_FILES < <(git ls-files '*.rs' '*.rhai' '*.sh' '*.py' | sort)
+  mapfile -t ALL_FILES < <(git ls-files '*.rs' '*.rhai' '*.sh' '*.py' 'mods/**/*.yml' 'mods/**/*.yaml' | sort)
 fi
 
-if (( INCLUDE_GENERATED == 1 )); then
-  FILES=("${ALL_FILES[@]}")
-else
-  for f in "${ALL_FILES[@]}"; do
+for f in "${ALL_FILES[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    continue
+  fi
+
+  if path_is_excluded "$f"; then
+    EXCLUDED_BY_RULES=$((EXCLUDED_BY_RULES + 1))
+    continue
+  fi
+
+  if (( INCLUDE_GENERATED == 1 )); then
+    FILES+=("$f")
+  else
     # Reserved for future generated-code filters.
     FILES+=("$f")
-  done
-fi
+  fi
+done
+
+declare -A INCLUDED_PATHS=()
+for f in "${FILES[@]}"; do
+  INCLUDED_PATHS["$f"]=1
+done
+
+while IFS= read -r ignored_path; do
+  [[ -z "$ignored_path" ]] && continue
+  [[ ! -f "$ignored_path" ]] && continue
+  if [[ -n "${INCLUDED_PATHS[$ignored_path]:-}" ]]; then
+    continue
+  fi
+  IGNORED_NON_SOURCE+=("$ignored_path")
+done < <(git ls-files '*.yml' '*.yaml' '*.blend' '*.blend1' | sort)
 
 if (( ${#FILES[@]} == 0 )); then
   if (( RUST_ONLY == 1 )); then
-    echo "[concat] no tracked first-party Rust files found for -rs mode" >&2
+    echo "[concat] no tracked Rust files found after filtering" >&2
   elif (( MD_ONLY == 1 )); then
-    echo "[concat] no tracked Markdown files found for --md-only mode" >&2
+    echo "[concat] no tracked Markdown files found after filtering" >&2
   else
-    echo "[concat] no tracked source-code files found (.rs/.rhai/.sh/.py)" >&2
+    echo "[concat] no tracked source files found (.rs/.rhai/.sh/.py + mods/**/*.yml|yaml)" >&2
   fi
   exit 1
 fi
@@ -145,6 +255,9 @@ render_report() {
   printf 'include_generated: %s\n' "$INCLUDE_GENERATED"
   printf 'rust_only: %s\n' "$RUST_ONLY"
   printf 'md_only: %s\n' "$MD_ONLY"
+  printf 'exclude_file: %s\n' "$EXCLUDE_FILE_SOURCE"
+  printf 'exclude_rules: %s\n' "${#EXCLUDE_PATTERNS[@]}"
+  printf 'excluded_by_rules: %s\n' "$EXCLUDED_BY_RULES"
   printf 'skipped_generated_files: %s\n' "$SKIPPED_GENERATED"
   printf 'ignored_non_source_files: %s\n' "${#IGNORED_NON_SOURCE[@]}"
   printf '\n'

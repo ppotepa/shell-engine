@@ -1,15 +1,7 @@
-# Input action profiles for Asteroids gameplay
-# Loaded via: input.load_profile("asteroids.default")
-#
-# Each profile maps named actions to lists of key codes.
-# Keys are tried in order; first matching key press triggers the action.
-# Supported keys: Left, Right, Up, Down, a-z, A-Z, space (" "), etc.
-
 profiles:
   default:
-    # Standard Asteroids controls: rotate, thrust, fire
     bindings:
       turn_left: ["Left", "a", "A"]
       turn_right: ["Right", "d", "D"]
       thrust: ["Up", "w", "W"]
-      fire: [" ", "f", "F"]  # Space or F key
+      fire: [" ", "f", "F"]
