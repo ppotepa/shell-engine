@@ -11,7 +11,7 @@ layers:
       - { type: text, id: hud-score, content: "SCORE: 0", at: lt, x: 2, y: 3, font: "generic:1", fg: "#9de36f" }
       - { type: text, id: hud-lives, content: "LIVES: 3", at: lt, x: 2, y: 5, font: "generic:1", fg: "#7bd1ff" }
       - { type: text, id: hud-wave, content: "WAVE: 1", at: lt, x: 2, y: 7, font: "generic:1", fg: "#d0d0d0" }
-      - { type: text, id: hud-help, content: "A/D rotate | W thrust | SPACE fire | ESC menu | R reset | F5/F6/F7 mode", at: rt, x: -2, y: 1, font: "generic:1", fg: gray }
+      - { type: text, id: hud-help, content: "A/D rotate | W thrust | SPACE fire | ESC menu | R reset", at: rt, x: -2, y: 1, font: "generic:1", fg: gray }
 
 
       - { type: text, id: game-message, content: "", at: cb, y: -1, font: "generic:1", fg: "#ffb86c" }
