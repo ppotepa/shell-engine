@@ -132,7 +132,11 @@ if time.stage == "on_idle" {
         }
 
         if fire_down {
-            world.try_fire_weapon("asteroids.ship", ship_id, cfg);
+            world.try_fire_weapon("asteroids.ship", ship_id, #{
+                bullet_ttl_ms: cfg["bullet_ttl_ms"],
+                shot_cooldown_ms: cfg["shot_cooldown_ms"],
+                bullet_speed: cfg["bullet_speed"]
+            });
         }
     }
 
@@ -153,14 +157,14 @@ if time.stage == "on_idle" {
             flash_ms -= dt;
             if flash_ms <= 0 && split_pending {
                 let split_result = world.handle_asteroid_split(ast_id, #{});
-                if split_result["despawned"] {
-                    if split_result["handled"] {
-                        continue;
-                    }
+                if split_result["handled"] {
+                    continue;
                 }
             }
         }
 
+        // Guard: ensure asteroid still exists before updating state
+        if !ast_ref.exists() { continue; }
         ast_ref.set_many(#{
             flash_ms: flash_ms, flash_total_ms: if flash_ms <= 0 { 0 } else { flash_total },
             split_pending: split_pending, rot_phase: rot_phase, rot_accum_ms: rot_accum
@@ -178,22 +182,29 @@ if time.stage == "on_idle" {
 
         if hit_ref.exists() && hit_ref.flag("split_pending") { continue; }
 
-        if !ship_ref.status_has("invulnerable") && world.exists(ship_id) {
-            let handled = world.handle_ship_hit(ship_id, ast_hit_id, #{
-                crack_duration_ms: h::CRACK_DURATION_MS(),
-                asteroid_velocity_limit: 4.0 * h::velocity_scale(),
-                ship_invulnerable_ms: 3000,
-                ui_text: "HIT!",
-                ui_ttl_ms: 450
-            });
-            if !handled { continue; }
-            lives -= 1;
-            
-            // Spawn temporary crack visuals for the flashing asteroid
-            if world.exists(ast_hit_id) {
-                let flash_duration = h::CRACK_DURATION_MS();
-                world.spawn_flash_cracks(ast_hit_id, flash_duration);
-            }
+        // Re-check invulnerability each collision (could have been granted by prior hit)
+        if ship_ref.status_has("invulnerable") || !world.exists(ship_id) { continue; }
+        
+        let handled = world.handle_ship_hit(ship_id, ast_hit_id, #{
+            crack_duration_ms: h::CRACK_DURATION_MS(),
+            asteroid_velocity_limit: 4.0 * h::velocity_scale(),
+            ship_invulnerable_ms: 3000,
+            ui_text: "HIT!",
+            ui_ttl_ms: 450
+        });
+        if !handled { continue; }
+        lives -= 1;
+        
+        // Respawn ship at center with invulnerability
+        if world.exists(ship_id) {
+            world.despawn(ship_id);
+        }
+        local["ship_id"] = spawn_ship(world, cfg);
+        
+        // Spawn temporary crack visuals for the flashing asteroid
+        if world.exists(ast_hit_id) {
+            let flash_duration = h::CRACK_DURATION_MS();
+            world.spawn_flash_cracks(ast_hit_id, flash_duration);
         }
     }
 
