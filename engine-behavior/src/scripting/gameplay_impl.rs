@@ -701,26 +701,43 @@ impl ScriptGameplayApi {
             return true; // No components to apply; entity spawned successfully
         };
 
-        // Apply physics component
+        // Apply physics component - check args for overrides
         if let Some(phys) = &components.physics {
-            let vx = phys.vx.unwrap_or(0.0);
-            let vy = phys.vy.unwrap_or(0.0);
+            let mut vx = phys.vx.unwrap_or(0.0);
+            let mut vy = phys.vy.unwrap_or(0.0);
             let ax = phys.ax.unwrap_or(0.0);
             let ay = phys.ay.unwrap_or(0.0);
             let drag = phys.drag.unwrap_or(0.0);
             let max_speed = phys.max_speed.unwrap_or(0.0);
+
+            // Check args for velocity overrides with velocity scale factor (60.0)
+            if let Some(arg_vx) = args.get("vx").and_then(|v| v.as_float().ok()) {
+                vx = arg_vx * 60.0;
+            }
+            if let Some(arg_vy) = args.get("vy").and_then(|v| v.as_float().ok()) {
+                vy = arg_vy * 60.0;
+            }
+
             if !self.set_physics(entity_id, vx, vy, ax, ay, drag, max_speed) {
                 return false;
             }
         }
 
-        // Apply collider component
+        // Apply collider component - check args for radius override
         if let Some(coll) = &components.collider {
             match coll.shape.as_str() {
                 "circle" => {
-                    let radius = coll.radius.unwrap_or(1.0);
+                    let mut radius = coll.radius.unwrap_or(1.0);
                     let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
                     let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
+
+                    // Check args for collider_radius override
+                    if let Some(arg_radius) = args.get("collider_radius") {
+                        if let Ok(r) = arg_radius.as_float() {
+                            radius = r;
+                        }
+                    }
+
                     if !self.set_collider_circle(entity_id, radius, layer, mask) {
                         return false;
                     }
@@ -757,16 +774,32 @@ impl ScriptGameplayApi {
             }
         }
 
-        // Apply extra data fields
+        // Apply extra data fields from catalog and args overrides
+        let mut data = RhaiMap::new();
+
+        // Start with catalog extra_data
         if let Some(extra) = &components.extra_data {
-            let mut data = RhaiMap::new();
             for (k, v) in extra {
                 data.insert(k.clone().into(), json_to_rhai_dynamic(v));
             }
-            if !data.is_empty() {
-                if !self.entity(entity_id).set_many(data) {
-                    return false;
-                }
+        }
+
+        // Apply init_fields from prefab
+        for (k, v) in &prefab.init_fields {
+            data.insert(k.clone().into(), json_to_rhai_dynamic(v));
+        }
+
+        // Apply args overrides for shape, size, and any other fields
+        for (k, v) in args {
+            // Skip position/velocity args that are handled separately
+            if !["x", "y", "heading", "vx", "vy", "ttl_ms", "radius", "owner_id", "cfg", "invulnerable_ms", "collider_radius"].contains(&k.as_str()) {
+                data.insert(k.clone(), v.clone());
+            }
+        }
+
+        if !data.is_empty() {
+            if !self.entity(entity_id).set_many(data) {
+                return false;
             }
         }
 
