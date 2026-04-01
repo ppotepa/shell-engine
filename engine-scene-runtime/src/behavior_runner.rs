@@ -379,8 +379,25 @@ impl SceneRuntime {
                             let Some(next_heading) = value.as_f64() else {
                                 continue;
                             };
+                            let heading = next_heading as f32;
                             if let Some(state) = self.object_states.get_mut(object_id) {
-                                state.heading = next_heading as f32;
+                                state.heading = heading;
+                            }
+                            // Cascade heading to child sprites when target is a layer.
+                            // Objects compiled from `objects:` entries become layers whose
+                            // sprites share the same alias, so the heading must reach the
+                            // sprite's ObjectRuntimeState for rotation to take effect.
+                            if let Some(obj) = self.objects.get(object_id) {
+                                if matches!(obj.kind, GameObjectKind::Layer) {
+                                    let child_ids: Vec<String> = obj.children.clone();
+                                    for child_id in child_ids {
+                                        if let Some(state) =
+                                            self.object_states.get_mut(&child_id)
+                                        {
+                                            state.heading = heading;
+                                        }
+                                    }
+                                }
                             }
                         }
                         "text.content" => {
