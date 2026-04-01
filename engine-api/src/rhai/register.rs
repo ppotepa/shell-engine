@@ -5,7 +5,8 @@ use rhai::Engine as RhaiEngine;
 use crate::gameplay::api::{GameplayEntityCoreApi, GameplayWorldCoreApi};
 use crate::gameplay::geometry::{
     crack_polygon_i32, dent_polygon_i32, jitter_points_i32, points_to_rhai_array,
-    regular_polygon_i32, rhai_array_to_points, rotate_points_i32, sin32_i32, to_i32,
+    regular_polygon_i32, rhai_array_to_points, rotate_points_i32, scale_points_frac_i32,
+    sin32_i32, to_i32,
 };
 
 pub fn register_geometry_api(engine: &mut RhaiEngine) {
@@ -46,6 +47,13 @@ pub fn register_geometry_api(engine: &mut RhaiEngine) {
                 to_i32(impact_y),
                 to_i32(strength),
             ))
+        },
+    );
+    engine.register_fn(
+        "scale_points",
+        |points: rhai::Array, num: rhai::INT, denom: rhai::INT| -> rhai::Array {
+            let pts = rhai_array_to_points(&points);
+            points_to_rhai_array(scale_points_frac_i32(&pts, to_i32(num), to_i32(denom)))
         },
     );
     engine.register_fn(

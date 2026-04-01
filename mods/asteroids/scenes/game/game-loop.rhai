@@ -37,9 +37,27 @@ fn asteroid_template(size) {
     if size == 3 { "asteroid-large" } else if size == 2 { "asteroid-medium" } else { "asteroid-small" }
 }
 
+fn asteroid_size_radius(size) {
+    if size == 3 { 22 } else if size == 2 { 11 } else { 6 }
+}
+
+// Build a child fragment shape from the parent's current (possibly cracked) shape.
+// Scales the parent polygon to child radius, then applies a slight random rotation
+// and jitter so each fragment looks distinct.
+fn asteroid_child_shape(parent_shape, parent_size, child_size, seed) {
+    let pr = asteroid_size_radius(parent_size);
+    let cr = asteroid_size_radius(child_size);
+    let scaled = scale_points(parent_shape, cr, pr);
+    let jittered = jitter_points(scaled, 2, seed);
+    rotate_points(jittered, seed % 32)
+}
+
 fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
+    spawn_asteroid_shaped(world, scene, x, y, vx, vy, size, seed, asteroid_shape(size, seed))
+}
+
+fn spawn_asteroid_shaped(world, scene, x, y, vx, vy, size, seed, shape) {
     let template = asteroid_template(size);
-    let shape = asteroid_shape(size, seed);
     let id = world.spawn_visual("asteroid", template, #{
         x: x,
         y: y,
@@ -355,13 +373,22 @@ for hit in world.collision_enters("bullet", "asteroid") {
         world.despawn(asteroid_id);
 
         if size > 1 {
+            let parent_shape = ae.get("shape_points");
             for j in 0..2 {
                 let angle = rand() * TWO_PI;
                 let spd   = 70.0 + rand() * 45.0;
                 let child_size = size - 1;
                 let vx = cos(angle) * spd;
                 let vy = sin(angle) * spd;
-                let nid = spawn_asteroid(
+                let child_seed = asteroid_id + j + size * 1000;
+                // Derive child shape from parent's current (cracked) outline,
+                // scaled to child radius. Falls back to a fresh shape if missing.
+                let child_shape = if type_of(parent_shape) != "()" {
+                    asteroid_child_shape(parent_shape, size, child_size, child_seed)
+                } else {
+                    asteroid_shape(child_size, child_seed)
+                };
+                let nid = spawn_asteroid_shaped(
                     world,
                     scene,
                     xf["x"],
@@ -369,7 +396,8 @@ for hit in world.collision_enters("bullet", "asteroid") {
                     vx,
                     vy,
                     child_size,
-                    asteroid_id + j + size * 1000,
+                    child_seed,
+                    child_shape,
                 );
                 if world.exists(nid) {
                     let ne    = world.entity(nid);

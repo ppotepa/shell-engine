@@ -139,6 +139,26 @@ pub fn dent_polygon_i32(
     result
 }
 
+/// Scale all points by `num/denom` (integer arithmetic, no float).
+/// Used to resize a parent asteroid's shape for child fragments.
+/// `denom` must not be zero.
+pub fn scale_points_frac_i32(points: &[[i32; 2]], num: i32, denom: i32) -> Vec<[i32; 2]> {
+    if denom == 0 {
+        return points.to_vec();
+    }
+    let n = num as i64;
+    let d = denom as i64;
+    points
+        .iter()
+        .map(|p| {
+            [
+                (p[0] as i64 * n / d) as i32,
+                (p[1] as i64 * n / d) as i32,
+            ]
+        })
+        .collect()
+}
+
 /// Inserts a V-notch crack into the polygon at the vertex closest to the impact
 /// point.  Replaces that one vertex with three vertices:
 ///   left_shoulder  → crack_tip (deepest) → right_shoulder
