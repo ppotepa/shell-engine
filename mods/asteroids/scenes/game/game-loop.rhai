@@ -167,19 +167,23 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
 
 // Emit an RCS puff — starts white, decayed per-frame via lifetime_fraction.
 fn emit_rcs(world, ship_id, turn_dir) {
+    emit_rcs_burst(world, ship_id, turn_dir, 1.0);
+}
+
+fn emit_rcs_burst(world, ship_id, turn_dir, intensity) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
     let side = -8.0 * turn_dir;
     let spread_base = HALF_PI * turn_dir;
-    let r = 3 + (rand() * 3.0).to_int();
+    let r = 3 + (rand() * (3.0 * intensity)).to_int();
     world.emit("asteroids.rcs_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
         side_offset: side,
-        speed: 18.0 + rand() * 18.0,
+        speed: (18.0 + rand() * 18.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 0.7,
-        ttl_ms: 130 + (rand() * 100.0).to_int(),
+        ttl_ms: (130.0 + rand() * 100.0 * intensity).to_int(),
         radius: r,
         fg: "white"
     });
@@ -320,7 +324,7 @@ if turn != 0 {
 }
 // Fire correction RCS burst for a few frames after turn release
 if (local.correction_until ?? 0) > now {
-    emit_rcs(world, ship_id, local.correction_dir);
+    emit_rcs_burst(world, ship_id, local.correction_dir, 2.0);
 }
 
 // ─── Wave clear pause ──────────────────────────────────────────────────────────
