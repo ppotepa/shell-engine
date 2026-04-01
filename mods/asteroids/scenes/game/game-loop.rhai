@@ -148,47 +148,78 @@ fn spawn_debris(world, ox, oy, count) {
     }
 }
 
+// Emit a 3-layer thrust burst simulating white-hot exhaust fading to dark smoke.
+// At low thrust_ms only the hot lead particle succeeds (cooldown still active);
+// at full thrust the ramp drives cooldown to 0 and all three layers emit.
 fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
-    let p = rand() * 2.0 - 1.0;
-    let _smoke = world.emit("asteroids.ship_thrust", ship_id, #{
+    // Layer 1 — lead: white, large (3× default = radius 3), fast, short-lived
+    world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx",
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
-        speed: 20.0 + rand() * 10.0,
-        spread: p * 0.35,
-        ttl_ms: 220 + (rand() * 120.0).to_int(),
+        speed: 32.0 + rand() * 14.0,
+        spread: (rand() - 0.5) * 0.2,
+        ttl_ms: 55 + (rand() * 35.0).to_int(),
+        radius: 3,
+        fg: "white"
+    });
+    // Layer 2 — mid: gray, medium (radius 2), slower, medium lifetime
+    world.emit("asteroids.ship_thrust", ship_id, #{
+        kind: "fx",
+        template: "debris",
+        owner_bound: false,
+        thrust_ms: thrust_ms,
+        speed: 18.0 + rand() * 10.0,
+        spread: (rand() - 0.5) * 0.4,
+        ttl_ms: 100 + (rand() * 50.0).to_int(),
+        radius: 2,
+        fg: "gray"
+    });
+    // Layer 3 — tail: dark smoke, small, drifts, long-lived
+    world.emit("asteroids.ship_thrust", ship_id, #{
+        kind: "fx",
+        template: "debris",
+        owner_bound: false,
+        thrust_ms: thrust_ms,
+        speed: 10.0 + rand() * 8.0,
+        spread: (rand() - 0.5) * 0.6,
+        ttl_ms: 150 + (rand() * 70.0).to_int(),
         radius: 1,
-        fg: if (now / 40) % 2 == 0 { "gray" } else { "dark_gray" }
+        fg: "dark_gray"
     });
 }
 
-// Emit a small RCS puff from the side of the ship.
-// turn_dir: +1 = turning right (left-side thruster fires outward left)
-//           -1 = turning left  (right-side thruster fires outward right)
-// The spread value rotates the emission direction 90° to the appropriate side.
+// Emit a 2-layer RCS puff: white lead fading to gray (200% initial size).
 fn emit_rcs(world, ship_id, turn_dir) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
-    // Positive side_offset = right of heading; negative = left.
-    // When turning right the LEFT-side thruster fires → side_offset negative.
-    // When turning left the RIGHT-side thruster fires → side_offset positive.
     let side = -8.0 * turn_dir;
-    // Spread: left-side thruster ejects left (spread ≈ +π/2),
-    //         right-side thruster ejects right (spread ≈ -π/2).
     let spread_base = HALF_PI * turn_dir;
-    let spread = spread_base + (rand() - 0.5) * 0.6;
+    // Layer 1 — white, radius 2
     world.emit("asteroids.rcs_thruster", ship_id, #{
         kind: "fx",
         template: "debris",
         owner_bound: false,
         side_offset: side,
-        speed: 18.0 + rand() * 10.0,
-        spread: spread,
-        ttl_ms: 120 + (rand() * 60.0).to_int(),
+        speed: 24.0 + rand() * 10.0,
+        spread: spread_base + (rand() - 0.5) * 0.5,
+        ttl_ms: 60 + (rand() * 40.0).to_int(),
+        radius: 2,
+        fg: "white"
+    });
+    // Layer 2 — gray tail, radius 1
+    world.emit("asteroids.rcs_thruster", ship_id, #{
+        kind: "fx",
+        template: "debris",
+        owner_bound: false,
+        side_offset: side,
+        speed: 14.0 + rand() * 6.0,
+        spread: spread_base + (rand() - 0.5) * 0.7,
+        ttl_ms: 90 + (rand() * 40.0).to_int(),
         radius: 1,
-        fg: "dark_gray"
+        fg: "gray"
     });
 }
 
