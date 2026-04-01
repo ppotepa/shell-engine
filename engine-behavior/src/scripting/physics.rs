@@ -224,10 +224,20 @@ impl ScriptEntityPhysicsApi {
                 if pair.len() >= 2 {
                     let x = pair
                         .get(0)
-                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+                        .or_else(|| {
+                            pair.get(0)
+                                .and_then(|v| v.clone().try_cast::<rhai::INT>())
+                                .map(|v| v as rhai::FLOAT)
+                        });
                     let y = pair
                         .get(1)
-                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+                        .or_else(|| {
+                            pair.get(1)
+                                .and_then(|v| v.clone().try_cast::<rhai::INT>())
+                                .map(|v| v as rhai::FLOAT)
+                        });
                     if let (Some(x), Some(y)) = (x, y) {
                         polygon_points.push([x as f32, y as f32]);
                     }
@@ -476,10 +486,20 @@ impl ScriptPhysicsApi {
                 if pair.len() >= 2 {
                     let x = pair
                         .get(0)
-                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+                        .or_else(|| {
+                            pair.get(0)
+                                .and_then(|v| v.clone().try_cast::<rhai::INT>())
+                                .map(|v| v as rhai::FLOAT)
+                        });
                     let y = pair
                         .get(1)
-                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+                        .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+                        .or_else(|| {
+                            pair.get(1)
+                                .and_then(|v| v.clone().try_cast::<rhai::INT>())
+                                .map(|v| v as rhai::FLOAT)
+                        });
                     if let (Some(x), Some(y)) = (x, y) {
                         polygon_points.push([x as f32, y as f32]);
                     }

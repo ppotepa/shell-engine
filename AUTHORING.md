@@ -722,6 +722,9 @@ sin32(idx)                          // 32-step integer sine lookup (-1024..1024)
 rotate_points(points, heading)      // rotate a point array around 0,0 using 32-step heading
 regular_polygon(sides, radius)      // generate regular polygon point array
 jitter_points(points, jitter, seed) // randomize point positions
+dent_polygon(pts, ix, iy, str)     // push closest vertex toward centroid by str%
+subtract_polygon(a, b)             // boolean difference: returns array of result polygons
+polygon_area(points)                // absolute area of polygon (Shoelace formula)
 ```
 
 Keep shape-specific helpers such as custom point generators or

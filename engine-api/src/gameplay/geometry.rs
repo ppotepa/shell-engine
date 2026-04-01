@@ -87,6 +87,58 @@ pub fn jitter_points_i32(points: &[[i32; 2]], amount: i32, seed: i32) -> Vec<[i3
         .collect()
 }
 
+/// Push the closest vertex to `(impact_x, impact_y)` toward the polygon
+/// centroid by `strength` percent (0–100). Returns the deformed polygon.
+pub fn dent_polygon_i32(
+    points: &[[i32; 2]],
+    impact_x: i32,
+    impact_y: i32,
+    strength: i32,
+) -> Vec<[i32; 2]> {
+    if points.len() < 3 {
+        return points.to_vec();
+    }
+    let strength = strength.clamp(0, 100);
+
+    // Centroid
+    let cx: i64 = points.iter().map(|p| p[0] as i64).sum::<i64>() / points.len() as i64;
+    let cy: i64 = points.iter().map(|p| p[1] as i64).sum::<i64>() / points.len() as i64;
+
+    // Find closest vertex to impact
+    let ix = impact_x as i64;
+    let iy = impact_y as i64;
+    let mut best_idx = 0usize;
+    let mut best_dist = i64::MAX;
+    for (i, p) in points.iter().enumerate() {
+        let dx = p[0] as i64 - ix;
+        let dy = p[1] as i64 - iy;
+        let d = dx * dx + dy * dy;
+        if d < best_dist {
+            best_dist = d;
+            best_idx = i;
+        }
+    }
+
+    // Push closest vertex (and its neighbours for smoother denting) toward centroid
+    let mut result = points.to_vec();
+    let n = result.len();
+    let dent = |px: i32, py: i32, frac: i64| -> [i32; 2] {
+        let nx = px as i64 + (cx - px as i64) * frac / 100;
+        let ny = py as i64 + (cy - py as i64) * frac / 100;
+        [nx as i32, ny as i32]
+    };
+
+    let s = strength as i64;
+    result[best_idx] = dent(result[best_idx][0], result[best_idx][1], s);
+    // Half-strength on immediate neighbours for smooth falloff
+    let prev = (best_idx + n - 1) % n;
+    let next = (best_idx + 1) % n;
+    result[prev] = dent(result[prev][0], result[prev][1], s / 2);
+    result[next] = dent(result[next][0], result[next][1], s / 2);
+
+    result
+}
+
 pub fn points_to_rhai_array(points: Vec<[i32; 2]>) -> RhaiArray {
     points
         .into_iter()
@@ -118,7 +170,7 @@ pub fn rhai_array_to_points(value: &RhaiArray) -> Vec<[i32; 2]> {
 
 #[cfg(test)]
 mod tests {
-    use super::{jitter_points_i32, regular_polygon_i32};
+    use super::{dent_polygon_i32, jitter_points_i32, regular_polygon_i32};
 
     #[test]
     fn regular_polygon_generates_requested_vertex_count() {
@@ -134,5 +186,30 @@ mod tests {
         let c = jitter_points_i32(&base, 3, 43);
         assert_eq!(a, b);
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn dent_polygon_pushes_vertex_toward_centroid() {
+        let square = vec![[10, 0], [0, 10], [-10, 0], [0, -10]];
+        let dented = dent_polygon_i32(&square, 10, 0, 50);
+        // The vertex at [10,0] should have moved toward centroid [0,0]
+        assert!(dented[0][0] < 10, "x should decrease toward centroid");
+        // Neighbours get half-strength dent
+        assert!(dented[1] != square[1] || dented[3] != square[3]);
+    }
+
+    #[test]
+    fn dent_polygon_strength_zero_is_identity() {
+        let tri = vec![[0, 10], [-8, -5], [8, -5]];
+        let dented = dent_polygon_i32(&tri, 0, 10, 0);
+        assert_eq!(dented, tri);
+    }
+
+    #[test]
+    fn dent_polygon_strength_100_collapses_to_centroid() {
+        let square = vec![[10, 10], [-10, 10], [-10, -10], [10, -10]];
+        let dented = dent_polygon_i32(&square, 10, 10, 100);
+        // Centroid is (0,0); vertex at [10,10] should now be [0,0]
+        assert_eq!(dented[0], [0, 0]);
     }
 }

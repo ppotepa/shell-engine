@@ -582,9 +582,24 @@ Integer-domain polygon helpers (all inputs/outputs in `i32`):
 regular_polygon(sides, radius)       // → []  Array of [x,y] points forming a regular polygon
 jitter_points(points, amount, seed)  // → []  Randomly displace points (deterministic by seed)
 rotate_points(points, step)          // → []  Rotate by discrete step (0..255 maps to 0..2π)
+dent_polygon(points, ix, iy, str)   // → []  Push closest vertex toward centroid by str% (0–100)
+subtract_polygon(poly_a, poly_b)    // → [[]]  Boolean difference: subtract B from A, returns array of polygons
+polygon_area(points)                 // → int  Absolute area of polygon (Shoelace formula)
 ```
 
-All return arrays of `[x, y]` integer pairs.
+All return arrays of `[x, y]` integer pairs. `subtract_polygon` returns an array of
+polygons (each a `[[x,y], ...]` array) — one element for a notch, two or more when
+the cut splits the shape, empty when B completely covers A.
+
+**Deformation usage:**
+```rhai
+// Create crater at impact point and subtract from shape
+let crater = regular_polygon(6, 8);
+let crater_at = [];
+for p in crater { crater_at.push([p[0] + ix, p[1] + iy]); }
+let fragments = subtract_polygon(shape, crater_at);
+// fragments.len() == 1 → deformed, 2+ → split, 0 → destroyed
+```
 
 ### Strings & Misc
 

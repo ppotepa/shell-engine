@@ -4,8 +4,8 @@ use rhai::Engine as RhaiEngine;
 
 use crate::gameplay::api::{GameplayEntityCoreApi, GameplayWorldCoreApi};
 use crate::gameplay::geometry::{
-    jitter_points_i32, points_to_rhai_array, regular_polygon_i32, rhai_array_to_points,
-    rotate_points_i32, sin32_i32, to_i32,
+    dent_polygon_i32, jitter_points_i32, points_to_rhai_array, regular_polygon_i32,
+    rhai_array_to_points, rotate_points_i32, sin32_i32, to_i32,
 };
 
 pub fn register_geometry_api(engine: &mut RhaiEngine) {
@@ -30,6 +30,41 @@ pub fn register_geometry_api(engine: &mut RhaiEngine) {
         |points: rhai::Array, amount: rhai::INT, seed: rhai::INT| -> rhai::Array {
             let points = rhai_array_to_points(&points);
             points_to_rhai_array(jitter_points_i32(&points, to_i32(amount), to_i32(seed)))
+        },
+    );
+    engine.register_fn(
+        "dent_polygon",
+        |points: rhai::Array,
+         impact_x: rhai::INT,
+         impact_y: rhai::INT,
+         strength: rhai::INT|
+         -> rhai::Array {
+            let pts = rhai_array_to_points(&points);
+            points_to_rhai_array(dent_polygon_i32(
+                &pts,
+                to_i32(impact_x),
+                to_i32(impact_y),
+                to_i32(strength),
+            ))
+        },
+    );
+    engine.register_fn(
+        "subtract_polygon",
+        |poly_a: rhai::Array, poly_b: rhai::Array| -> rhai::Array {
+            let a = rhai_array_to_points(&poly_a);
+            let b = rhai_array_to_points(&poly_b);
+            let results = engine_physics::subtract_polygons(&a, &b);
+            results
+                .into_iter()
+                .map(|poly| -> rhai::Dynamic { points_to_rhai_array(poly).into() })
+                .collect()
+        },
+    );
+    engine.register_fn(
+        "polygon_area",
+        |points: rhai::Array| -> rhai::INT {
+            let pts = rhai_array_to_points(&points);
+            engine_physics::polygon_area(&pts) as rhai::INT
         },
     );
 }

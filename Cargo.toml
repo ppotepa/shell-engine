@@ -52,7 +52,7 @@ rayon = "1.10"
 # System/Platform
 libc = "0.2"
 roxmltree = "0.20"
-geo = { version = "0.28", default-features = false }
+geo = "0.28"
 
 # Release profile optimizations for performance
 [profile.release]

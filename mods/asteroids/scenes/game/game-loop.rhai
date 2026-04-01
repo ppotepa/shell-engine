@@ -285,26 +285,79 @@ if world.count_kind("bullet") < MAX_BULLETS
     audio.event("fire");
 }
 
-// ─── Collision: bullet × asteroid ─────────────────────────────────────────────
+// ─── Collision: bullet × asteroid (with polygon deformation) ──────────────────
 for hit in world.collision_enters("bullet", "asteroid") {
     let bullet_id   = hit["bullet"];
     let asteroid_id = hit["asteroid"];
     if !world.exists(bullet_id) || !world.exists(asteroid_id) { continue; }
 
-        let ae   = world.entity(asteroid_id);
-        let xf   = ae.transform();
-        let size = ae.get_i("size", 3);
-        let pts  = ae.get_i("score", 20);
+    let ae   = world.entity(asteroid_id);
+    let xf   = ae.transform();
+    let size = ae.get_i("size", 3);
+    let pts  = ae.get_i("score", 20);
 
-    local.score += pts;
-    emit_impact_burst(world, asteroid_id, 5, "yellow");
-    spawn_debris(world, xf["x"], xf["y"], 3);
-    audio.event(if size == 3 { "explosion_large" } else { "explosion_small" });
-    let shake_amp = if size == 3 { 1.2 } else if size == 2 { 0.7 } else { 0.3 };
-    effects.shake(220, shake_amp, shake_amp * 0.4, 9.0);
+    // Impact point in asteroid-local coordinates
+    let bxf = world.entity(bullet_id).transform();
+    let impact_x = (bxf["x"] - xf["x"]).to_int();
+    let impact_y = (bxf["y"] - xf["y"]).to_int();
 
     world.despawn(bullet_id);
-    world.despawn(asteroid_id);
+
+    let shape = ae.get("shape_points");
+    if type_of(shape) == "()" {
+        // No shape data — instant destroy (fallback)
+        local.score += pts;
+        emit_impact_burst(world, asteroid_id, 5, "yellow");
+        spawn_debris(world, xf["x"], xf["y"], 3);
+        audio.event(if size == 3 { "explosion_large" } else { "explosion_small" });
+        effects.shake(220, 1.0, 0.4, 9.0);
+        world.despawn(asteroid_id);
+        update_hud(scene, local);
+        continue;
+    }
+
+    // Create crater polygon at impact point
+    let crater_r = if size == 3 { 9 } else if size == 2 { 7 } else { 5 };
+    let crater = regular_polygon(6, crater_r);
+    let crater_at = [];
+    for p in crater {
+        crater_at.push([p[0] + impact_x, p[1] + impact_y]);
+    }
+
+    // Boolean subtract crater from asteroid
+    let fragments = subtract_polygon(shape, crater_at);
+
+    // FX at impact point
+    emit_impact_burst(world, asteroid_id, 4, "yellow");
+    spawn_debris(world, bxf["x"], bxf["y"], 2);
+    audio.event("explosion_small");
+    effects.shake(120, 0.4, 0.2, 9.0);
+
+    // Area thresholds
+    let min_area = if size == 3 { 200 } else if size == 2 { 50 } else { 15 };
+
+    if fragments.len() == 0 {
+        // Completely consumed
+        local.score += pts;
+        spawn_debris(world, xf["x"], xf["y"], 3);
+        audio.event("explosion_large");
+        effects.shake(220, 1.2, 0.5, 9.0);
+        world.despawn(asteroid_id);
+    } else if fragments.len() == 1 && polygon_area(fragments[0]) >= min_area {
+        // Deformed but still alive — update shape in-place
+        let new_shape = fragments[0];
+        ae.set("shape_points", new_shape);
+        let visual = ae.get_s("visual_id", "");
+        if visual != "" {
+            scene.set(visual, "vector.points", new_shape);
+        }
+        ae.physics.set_collider_polygon(new_shape, 2, 5);
+    } else {
+        // Split into fragments or too small — destroy and spawn children
+        local.score += pts;
+        audio.event(if size == 3 { "explosion_large" } else { "explosion_small" });
+        effects.shake(220, 1.0, 0.4, 9.0);
+        world.despawn(asteroid_id);
 
         if size > 1 {
             for j in 0..2 {
@@ -331,6 +384,7 @@ for hit in world.collision_enters("bullet", "asteroid") {
                 }
             }
         }
+    }
 
     update_hud(scene, local);
 }
