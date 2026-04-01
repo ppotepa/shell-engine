@@ -33,9 +33,14 @@ fn asteroid_hp(size) {
     1
 }
 
+fn asteroid_template(size) {
+    if size == 3 { "asteroid-large" } else if size == 2 { "asteroid-medium" } else { "asteroid-small" }
+}
+
 fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
+    let template = asteroid_template(size);
     let shape = asteroid_shape(size, seed);
-    let id = world.spawn_visual("asteroid", "asteroid-large", #{
+    let id = world.spawn_visual("asteroid", template, #{
         x: x,
         y: y,
         vx: vx,
@@ -47,15 +52,15 @@ fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
     if world.exists(id) {
         let asteroid = world.entity(id);
         world.disable_wrap(id);
-        let visual = asteroid.get_s("visual_id", "");
+        // visual_id lives in VisualBinding component, not extra_data — store it explicitly
+        let visual_id = `asteroid-${id}`;
         asteroid.set("size", size);
         asteroid.set("hp", asteroid_hp(size));
         asteroid.set("score", asteroid_score(size));
         asteroid.set("seed", seed);
         asteroid.set("shape_points", shape);
-        if visual != "" {
-            scene.set(visual, "vector.points", shape);
-        }
+        asteroid.set("visual_id", visual_id);
+        scene.set(visual_id, "vector.points", shape);
     }
     id
 }
@@ -304,9 +309,13 @@ for hit in world.collision_enters("bullet", "asteroid") {
     let pts  = ae.get_i("score", 20);
 
     // Impact point in asteroid-local coordinates
+    // Counter-rotate by entity heading so dent aligns with the visually rotated polygon
     let bxf = world.entity(bullet_id).transform();
-    let impact_x = (bxf["x"] - xf["x"]).to_int();
-    let impact_y = (bxf["y"] - xf["y"]).to_int();
+    let raw_x = bxf["x"] - xf["x"];
+    let raw_y = bxf["y"] - xf["y"];
+    let heading = xf["heading"];
+    let impact_x = (raw_x * cos(heading) + raw_y * sin(heading)).to_int();
+    let impact_y = (-raw_x * sin(heading) + raw_y * cos(heading)).to_int();
 
     world.despawn(bullet_id);
 
@@ -322,15 +331,15 @@ for hit in world.collision_enters("bullet", "asteroid") {
     effects.shake(if hp > 0 { 80 } else { 220 }, if hp > 0 { 0.3 } else { 1.0 }, if hp > 0 { 0.15 } else { 0.4 }, 9.0);
 
     if hp > 0 {
-        // Still alive — apply random dent at impact point
+        // Still alive — apply random dent at impact point (stronger = more dramatic)
         let shape = ae.get("shape_points");
         if type_of(shape) != "()" {
-            let strength = 15 + (rand() * 25.0).to_int();
+            let strength = 30 + (rand() * 30.0).to_int();
             let new_shape = dent_polygon(shape, impact_x, impact_y, strength);
             ae.set("shape_points", new_shape);
-            let visual = ae.get_s("visual_id", "");
-            if visual != "" {
-                scene.set(visual, "vector.points", new_shape);
+            let visual_id = ae.get_s("visual_id", "");
+            if visual_id != "" {
+                scene.set(visual_id, "vector.points", new_shape);
             }
             ae.physics.set_collider_polygon(new_shape, 2, 5);
         }
