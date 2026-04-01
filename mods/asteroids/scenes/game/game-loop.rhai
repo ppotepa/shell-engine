@@ -602,6 +602,13 @@ for id in world.query_kind("fx_sparks") {
     p.set_radius(max(1, (3.0 * f + 0.5).to_int()));
     p.set_fg(if f > 0.6 { "white" } else if f > 0.35 { "yellow" } else if f > 0.12 { "dark_gray" } else { "#333" });
 }
+// Debris chunks: white → gray → fade out
+for id in world.query_kind("debris") {
+    let p = world.entity(id);
+    let frac = p.lifetime_fraction();
+    let f = frac * frac;
+    p.set_fg(if f > 0.5 { "white" } else if f > 0.2 { "gray" } else { "dark_gray" });
+}
 
 // ─── Wave clear ───────────────────────────────────────────────────────────────
 if world.count_kind("asteroid") == 0 {
