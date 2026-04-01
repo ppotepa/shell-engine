@@ -56,7 +56,7 @@ fn spawn_wave(world, scene, local, count) {
     let WORLD_W  = 640.0;
     let WORLD_H  = 360.0;
     let TWO_PI   = 6.283185307;
-    let spd_base = 12.0 + (local.wave - 1) * 4.0;
+    let spd_base = 55.0 + (local.wave - 1) * 8.0;
     let anchor_x = WORLD_W / 2.0;
     let anchor_y = WORLD_H / 2.0;
 
@@ -296,7 +296,7 @@ for hit in world.collision_enters("bullet", "asteroid") {
         if size > 1 {
             for j in 0..2 {
                 let angle = rand() * TWO_PI;
-                let spd   = 18.0 + rand() * 15.0;
+                let spd   = 70.0 + rand() * 45.0;
                 let child_size = size - 1;
                 let vx = cos(angle) * spd;
                 let vy = sin(angle) * spd;

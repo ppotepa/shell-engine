@@ -602,10 +602,25 @@ impl ScriptGameplayApi {
                 for point in poly_arr {
                     if let Some(point_arr) = point.try_cast::<RhaiArray>() {
                         if point_arr.len() >= 2 {
-                            if let (Some(px), Some(py)) = (
-                                point_arr[0].clone().try_cast::<rhai::FLOAT>(),
-                                point_arr[1].clone().try_cast::<rhai::FLOAT>(),
-                            ) {
+                            let px = point_arr[0]
+                                .clone()
+                                .try_cast::<rhai::FLOAT>()
+                                .or_else(|| {
+                                    point_arr[0]
+                                        .clone()
+                                        .try_cast::<rhai::INT>()
+                                        .map(|v| v as rhai::FLOAT)
+                                });
+                            let py = point_arr[1]
+                                .clone()
+                                .try_cast::<rhai::FLOAT>()
+                                .or_else(|| {
+                                    point_arr[1]
+                                        .clone()
+                                        .try_cast::<rhai::INT>()
+                                        .map(|v| v as rhai::FLOAT)
+                                });
+                            if let (Some(px), Some(py)) = (px, py) {
                                 points.push([px as f32, py as f32]);
                             }
                         }
