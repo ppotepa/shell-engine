@@ -1157,7 +1157,15 @@ fn get_path(payload: &JsonValue, path: &str) -> Option<JsonValue> {
     if path.is_empty() || path == "/" {
         return Some(payload.clone());
     }
-    payload.pointer(path).cloned()
+    // JSON Pointer (RFC 6901) requires a leading '/'.
+    // set_path accepts bare keys ("hp") by stripping any leading slash before
+    // splitting, so we must normalise the same way here.
+    let pointer = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{path}")
+    };
+    payload.pointer(&pointer).cloned()
 }
 
 fn set_path(payload: &mut JsonValue, path: &str, value: JsonValue) -> bool {
