@@ -26,7 +26,7 @@ emitters:
     max_count: 40
     cooldown_name: "rcs-thruster"
     cooldown_ms: 0
-    spawn_offset: 10.0
+    spawn_offset: -10.0
     backward_speed: 0.0
     ttl_ms: 160
     radius: 4
