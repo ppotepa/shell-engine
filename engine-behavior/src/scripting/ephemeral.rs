@@ -11,8 +11,8 @@ use engine_game::{
 };
 
 pub(crate) struct EphemeralSpawn {
-    pub(crate) kind: &'static str,
-    pub(crate) template: &'static str,
+    pub(crate) kind: String,
+    pub(crate) template: String,
     pub(crate) x: f32,
     pub(crate) y: f32,
     pub(crate) heading: f32,
@@ -50,7 +50,7 @@ pub(crate) fn spawn_ephemeral_visual(
         return None;
     }
 
-    let entity_id = world.spawn(spec.kind, JsonValue::Object(JsonMap::new()))?;
+    let entity_id = world.spawn(&spec.kind, JsonValue::Object(JsonMap::new()))?;
     let visual_id = format!("{}-{}", spec.kind, entity_id);
 
     {

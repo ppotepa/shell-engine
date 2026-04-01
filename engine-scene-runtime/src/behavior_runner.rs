@@ -861,10 +861,14 @@ impl SceneRuntime {
     }
 
     fn soft_despawn_target(&mut self, resolver: &TargetResolver, target: &str) -> bool {
+        // Prefer the fresh resolver: after a previous despawn in the same batch,
+        // rebuild_runtime_graph_preserving_state renumbers layer indices, making
+        // the passed resolver's object_ids stale. Trying the stale resolver first
+        // would silently fail and leak orphan visuals.
         let current_resolver = self.build_target_resolver();
-        let object_id = if let Some(id) = resolver.resolve_alias(target) {
+        let object_id = if let Some(id) = current_resolver.resolve_alias(target) {
             id.to_string()
-        } else if let Some(id) = current_resolver.resolve_alias(target) {
+        } else if let Some(id) = resolver.resolve_alias(target) {
             id.to_string()
         } else {
             return false;

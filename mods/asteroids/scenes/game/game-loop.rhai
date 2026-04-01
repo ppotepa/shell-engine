@@ -188,7 +188,7 @@ fn emit_impact_burst(world, owner_id, count, fg) {
     for i in 0..count {
         let spread = rand() * TWO_PI - (TWO_PI / 2.0);
         let _spark = world.emit("asteroids.impact_sparks", owner_id, #{
-            kind: "fx",
+            kind: "fx_sparks",
             template: "debris",
             owner_bound: false,
             speed: 28.0 + rand() * 32.0,
@@ -564,6 +564,12 @@ for id in world.query_kind("fx_rcs") {
     let frac = p.lifetime_fraction();
     p.set_radius(max(1, (2.0 * frac + 0.5).to_int()));
     p.set_fg(if frac > 0.45 { "white" } else { "gray" });
+}
+// Impact sparks: bright flash → dim tail
+for id in world.query_kind("fx_sparks") {
+    let p = world.entity(id);
+    let frac = p.lifetime_fraction();
+    p.set_fg(if frac > 0.5 { "white" } else if frac > 0.2 { "yellow" } else { "dark_gray" });
 }
 
 // ─── Wave clear ───────────────────────────────────────────────────────────────

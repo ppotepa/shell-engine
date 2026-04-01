@@ -927,8 +927,8 @@ impl ScriptGameplayApi {
             world,
             &self.ctx.queue,
             EphemeralSpawn {
-                kind: Box::leak(prefab.kind.clone().into_boxed_str()),
-                template: Box::leak(sprite_template.to_string().into_boxed_str()),
+                kind: prefab.kind.clone(),
+                template: sprite_template.to_string(),
                 x: x as f32,
                 y: y as f32,
                 heading: heading as f32,
@@ -1341,8 +1341,8 @@ impl ScriptGameplayApi {
             &world,
             &self.ctx.queue,
             EphemeralSpawn {
-                kind: Box::leak(resolved.kind.clone().into_boxed_str()),
-                template: Box::leak(resolved.template.clone().into_boxed_str()),
+                kind: resolved.kind.clone(),
+                template: resolved.template.clone(),
                 x: (x - hx * spawn_offset + hy * side_offset) as f32,
                 y: (y - hy * spawn_offset - hx * side_offset) as f32,
                 heading: heading as f32,
