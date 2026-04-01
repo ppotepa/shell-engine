@@ -54,7 +54,7 @@ use scripting::{
     scene::ScriptSceneApi,
     ui::ScriptUiApi,
 };
-use engine_api::ScriptEffectsApi;
+use engine_api::{ScriptEffectsApi, ScriptCollisionApi};
 
 /// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
@@ -667,6 +667,17 @@ impl Behavior for RhaiScriptBehavior {
                 );
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
                 scope.push("effects", ScriptEffectsApi::new(Arc::clone(&helper_commands)));
+                scope.push(
+                    "collision",
+                    ScriptCollisionApi::from_arcs(
+                        ctx.gameplay_world.clone(),
+                        std::sync::Arc::clone(&ctx.collisions),
+                        std::sync::Arc::clone(&ctx.collision_enters),
+                        std::sync::Arc::clone(&ctx.collision_stays),
+                        std::sync::Arc::clone(&ctx.collision_exits),
+                        Arc::clone(&helper_commands),
+                    ),
+                );
 
                 // OPT-4: Use thread-local engine + cached AST.
                 RHAI_ENGINE.with(|cell| {

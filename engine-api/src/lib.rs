@@ -5,6 +5,7 @@
 //! behavior can migrate in small, behavior-preserving steps.
 
 pub mod audio;
+pub mod collision;
 pub mod commands;
 pub mod effects;
 pub mod gameplay;
@@ -17,6 +18,7 @@ pub mod testing;
 // Re-export key types and functions for easy access
 pub use commands::{BehaviorCommand, DebugLogSeverity};
 pub use audio::{ScriptAudioApi, register_audio_api};
+pub use collision::{ScriptCollisionApi, register_collision_api, filter_hits_by_kind, filter_hits_of_kind};
 pub use effects::{ScriptEffectsApi, register_effects_api};
 pub use scene::{ScriptSceneApi, ScriptObjectApi, register_scene_api};
 pub use namespaces::{WorldNamespace, WorldApi, register_namespaces};

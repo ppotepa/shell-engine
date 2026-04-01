@@ -444,32 +444,288 @@ The optional `repeat` property (default `false`) indicates whether the action re
 
 ### Scope Variables
 
-| Variable   | Contents                                  |
-|------------|-------------------------------------------|
-| menu.*     | Menu state (index, items, selection)      |
-| time.*     | Elapsed time, delta, stage progress       |
-| params     | Effect/behavior parameters                |
-| regions    | Named regions from layout                 |
-| objects    | Object instances in the scene             |
-| state      | Persistent key-value state                |
-| ui         | UI state (focus, visibility)              |
-| game       | Global game state                         |
-| level      | Active level payload + level catalog      |
-| world      | Gameplay entity world                     |
-| key        | Current key event                         |
-| collisions | Collision hits for the current frame      |
+| Variable    | Type          | Contents                                             |
+|-------------|---------------|------------------------------------------------------|
+| `time`      | map           | `elapsed_ms`, `delta_ms`, `stage_elapsed_ms`         |
+| `params`    | map           | Effect/behavior parameters from YAML                 |
+| `regions`   | map           | Named layout regions                                 |
+| `objects`   | map           | Scene object instances                               |
+| `state`     | dynamic       | Persistent key-value state (JSON pointer paths)      |
+| `ui`        | UiApi         | Focus, visibility, submit/change events              |
+| `game`      | GameApi       | Global game state + scene transitions                |
+| `level`     | LevelApi      | Active level payload + level catalog                 |
+| `world`     | WorldApi      | Gameplay entity world (spawn/query/physics)          |
+| `collision` | CollisionApi  | Collision event queries for the current frame        |
+| `effects`   | EffectsApi    | Runtime-triggerable visual effects (shake, flash)    |
+| `audio`     | AudioApi      | SFX events, cues, sequenced songs                    |
+| `input`     | InputApi      | Key state + named action bindings                    |
+| `scene`     | SceneApi      | Scene object mutations (text, visibility, vector)    |
+| `persist`   | PersistApi    | On-disk save state                                   |
+| `diag`      | DebugApi      | Debug logging + diagnostics                          |
+| `key`       | map           | Current key event (`code`, `char`, `kind`)           |
+| `menu`      | map           | Menu state (`index`, `items`, `selection`)           |
 
-Gameplay helpers on `world` (component-backed):
-- `world.set_transform(id, x, y, heading)` and `world.transform(id)`
-- `world.set_physics(id, vx, vy, ax, ay, drag, max_speed)` and `world.physics(id)`
-- `world.set_collider_circle(id, radius, layer, mask)`
-- `world.set_lifetime(id, ttl_ms)`
-- `world.set_visual(id, visual_id)` to bind scene runtime target for cleanup on entity expiration
-- `world.collision_enters/stays/exits(kind_a, kind_b)` → kind-filtered, named-field maps
-- `world.enable_wrap_bounds(id)` / `world.set_world_bounds(...)` — toroidal wrap
-- `world.rand_i(min, max)` — engine-managed RNG
-- `world.any_alive(kind)` — sugar for count > 0
-- `world.distance(a, b)` — distance between entity transforms
+### `world.*` — Entity World
+
+Spawn, query, mutate, and despawn gameplay entities.
+
+```rhai
+// Spawn
+world.spawn_prefab(name, args_map)            // spawn from prefab catalog; returns id
+world.spawn_visual(kind, template, data_map)  // atomic: create entity + visual + binding
+world.spawn_batch(specs_array)                // batch spawn; returns array of ids
+
+// Query
+world.count()                                 // total entity count
+world.count_kind(kind)                        // count by kind string
+world.count_tag(tag)                          // count by tag string
+world.any_alive(kind)                         // sugar: count_kind > 0
+world.ids()                                   // all entity ids as array
+world.query_kind(kind)                        // ids matching kind
+world.query_tag(tag)                          // ids matching tag
+world.first_kind(kind)                        // first id matching kind, or 0
+world.first_tag(tag)                          // first id matching tag, or 0
+world.exists(id)                              // is id alive?
+world.kind(id)                                // kind string for id
+world.tags(id)                                // tag array for id
+world.distance(id_a, id_b)                    // euclidean distance between transforms
+
+// Entity data (JSON pointer paths)
+world.get(id, "/path")                        // read value
+world.set(id, "/path", value)                 // write value
+world.has(id, "/path")                        // path exists?
+world.remove(id, "/path")                     // delete path
+world.push(id, "/path", value)                // append to array at path
+
+// Entity handle (cleaner API for repeated access)
+let e = world.entity(id);
+e.id()                                        // numeric id
+e.exists()                                    // is entity alive?
+e.kind()                                      // kind string
+e.tags()                                      // tag array
+e.get("/path")                                // read data
+e.get_i("/path", fallback)                    // typed int
+e.get_f("/path", fallback)                    // typed float
+e.get_s("/path", fallback)                    // typed string
+e.get_b("/path", fallback)                    // typed bool
+e.flag(name)                                  // sugar: get_b("/name", false)
+e.set_flag(name, value)                       // sugar: set("/name", value)
+e.set("/path", value)                         // write data
+e.set_many(map)                               // bulk write
+e.data()                                      // full JSON data map
+e.transform()                                 // #{x, y, heading} map
+e.set_position(x, y)                          // move entity
+e.set_heading(h)                              // set heading (0-31)
+e.lifetime_remaining()                        // ms until expiry, or -1
+e.despawn()                                   // despawn + auto-clean bound visuals
+
+// Transform & physics
+world.transform(id)                           // #{x, y, heading} map
+world.set_transform(id, x, y, heading)
+world.physics(id)                             // #{vx, vy, ax, ay, drag, max_speed}
+world.set_physics(id, vx, vy, ax, ay, drag, max_speed)
+
+// Colliders
+world.set_collider_circle(id, radius, layer_mask, collision_mask)
+world.set_collider_polygon(id, points, layer_mask, collision_mask)
+
+// Lifetime
+world.set_lifetime(id, ttl_ms)
+
+// Visual binding
+world.set_visual(id, visual_id)               // bind entity to scene runtime target
+world.bind_visual(id, visual_id)              // alias for set_visual
+
+// Despawn
+world.despawn(id)                             // despawn entity
+world.despawn_children(parent_id)             // despawn all child entities
+
+// Tags
+world.tag_add(id, tag)
+world.tag_remove(id, tag)
+world.tag_has(id, tag) -> bool
+
+// Toroidal wrap
+world.enable_wrap_bounds(id)
+world.disable_wrap(id)
+world.set_world_bounds(min_x, min_y, max_x, max_y)
+world.world_bounds()                          // #{min_x, min_y, max_x, max_y}
+
+// Timers (fire once, identified by label string)
+world.after_ms(label, delay_ms)               // arm a one-shot timer
+world.timer_fired(label)                      // true once when timer expires
+world.cancel_timer(label)                     // cancel pending timer
+
+// Collision event queries (same data as `collision.*`, accessed via world)
+world.collision_enters(kind_a, kind_b)        // enter events this frame
+world.collision_stays(kind_a, kind_b)         // stay events this frame
+world.collision_exits(kind_a, kind_b)         // exit events this frame
+world.collisions_of(kind)                     // all hits involving kind (#{self, other})
+
+// RNG (engine-managed, deterministic)
+world.rand_i(min, max)                        // integer in [min, max)
+world.rand_seed(seed)                         // re-seed the engine RNG
+
+// Ship controller
+world.ship_set_turn(id, dir)                  // dir: -1 / 0 / 1
+world.ship_set_thrust(id, on)
+world.ship_heading(id)                        // heading index 0-31
+world.ship_heading_vector(id)                 // #{x, y} unit vector
+world.ship_velocity(id)                       // #{vx, vy}
+
+// Diagnostics
+world.diagnostic_info()                       // #{entity_count, ...} debug map
+world.reset_dynamic_entities()                // despawn all non-static entities
+```
+
+### `collision.*` — Collision Queries
+
+Dedicated collision namespace — same data as `world.collision_*` but with cleaner ergonomics.
+
+```rhai
+// Enter events (first frame two entities overlap)
+collision.enters(kind_a, kind_b)              // → [{kind_a: id, kind_b: id}, ...]
+collision.enters_of(kind)                     // → [{self: id, other: id}, ...]
+collision.any_enter(kind_a, kind_b)           // → bool
+collision.count_enters(kind_a, kind_b)        // → int
+
+// Stay events (every frame while overlapping)
+collision.stays(kind_a, kind_b)               // → [{kind_a: id, kind_b: id}, ...]
+collision.stays_of(kind)                      // → [{self: id, other: id}, ...]
+
+// Exit events (first frame after overlap ends)
+collision.exits(kind_a, kind_b)               // → [{kind_a: id, kind_b: id}, ...]
+
+// Raw (unfiltered, no kind lookup)
+collision.all_enters()                        // → [{a: id, b: id}, ...]
+```
+
+Example:
+```rhai
+for hit in collision.enters("bullet", "asteroid") {
+    let bullet_id   = hit["bullet"];
+    let asteroid_id = hit["asteroid"];
+    world.despawn(bullet_id);
+    // handle split logic...
+}
+```
+
+### `effects.*` — Runtime Visual Effects
+
+Trigger screen effects from scripts independently of authored YAML steps.
+
+```rhai
+effects.shake(duration_ms, amp_x, amp_y, frequency)
+// amp_x, amp_y in cells; frequency in oscillations over duration
+
+effects.trigger(name, duration_ms, params_map)
+// name: built-in effect name (e.g. "screen-shake", "flash")
+// params_map: effect-specific parameters
+
+effects.trigger_loop(name, duration_ms, params_map)
+// same as trigger but loops until scene transition
+```
+
+Effect names (from engine-core built-ins): `"screen-shake"`, `"flash"`, `"vignette"`.
+
+Example:
+```rhai
+effects.shake(300, 1.5, 0.5, 8.0);        // short shake on hit
+effects.shake(500, 2.5, 1.0, 6.0);        // heavier shake on death
+effects.trigger("flash", 200, #{intensity: 0.8});
+```
+
+### `audio.*` — Audio
+
+```rhai
+audio.cue(cue_id)                   // play direct cue id (asset stem)
+audio.cue(cue_id, volume)           // play with volume scale (0.0-1.0)
+audio.event(event_id)               // semantic sfx event from audio/sfx.yaml
+audio.event(event_id, gain)         // semantic event with gain scale
+audio.play_song(song_id)            // start sequenced song from audio/songs/*.yml
+audio.stop_song()                   // stop currently active sequenced song
+```
+
+Audio event banks live at `<mod_root>/audio/sfx.yaml` (NOT `assets/audio/`).
+
+### `scene.*` — Scene Object Mutations
+
+```rhai
+scene.get(target)                           // read a scene object value
+scene.set(target, path, value)             // write a value
+scene.set_visible(id, bool)                 // show/hide a sprite or layer
+scene.set_vector(id, points, fg, bg)        // set all vector props at once
+scene.batch(id, map)                        // set multiple props: #{fg:.., bg:.., points:..}
+scene.spawn_object(template, target)        // clone a scene object/layer template at runtime
+scene.despawn_object(target)                // soft-despawn a scene object/layer
+```
+
+### `game.*` — Global Game State & Navigation
+
+```rhai
+game.get(path)                      // read global game state (JSON pointer)
+game.set(path, value)               // write global game state
+game.get_i(path, fallback)          // typed int getter
+game.get_s(path, fallback)          // typed string getter
+game.get_b(path, fallback)          // typed bool getter
+game.get_f(path, fallback)          // typed float getter
+game.jump(scene_id)                 // scene transition
+```
+
+### `level.*` — Level Catalog
+
+```rhai
+level.current()                     // active level id
+level.ids()                         // all available level ids
+level.select(level_id)              // switch active level
+level.get(path)                     // read active level payload (JSON pointer)
+```
+
+### `input.*` — Input Actions
+
+```rhai
+input.bind_action(name, keys)       // register named action binding
+input.action_down(name)             // true while action key is held
+input.action_just_pressed(name)     // true on the first frame of press
+```
+
+Key constants for `bind_action` (strings or symbolic constants):
+`KEY_LEFT`, `KEY_RIGHT`, `KEY_UP`, `KEY_DOWN`, `KEY_SPACE`, `KEY_ESC`, `KEY_ENTER`, `KEY_F1`…`KEY_F12`
+
+Example:
+```rhai
+input.bind_action("thrust", [KEY_UP, "w"]);
+input.bind_action("fire",   [KEY_SPACE, "f"]);
+```
+
+### `persist.*` — Persistent Save State
+
+```rhai
+persist.get(path)                   // read on-disk persistent state
+persist.set(path, value)            // write on-disk persistent state
+```
+
+### Math / Geometry Helpers
+
+Rhai's `Engine::new()` includes all standard math functions:
+`sin(x)`, `cos(x)`, `tan(x)`, `atan(y, x)`, `sqrt(x)`, `abs(x)`, `floor(x)`, `ceil(x)`, `round(x)`, `min(a, b)`, `max(a, b)`, `PI`, `TAU`
+
+Engine-specific helpers:
+```rhai
+abs_i(v)                            // absolute value for integers
+sign_i(v, fallback)                 // sign with fallback when v == 0
+clamp_i(v, min_v, max_v)            // clamp integer
+clamp_f(v, min_v, max_v)            // clamp float
+to_i(v) / to_float(v)              // type conversions
+sin32(idx)                          // 32-step integer sine lookup (-1024..1024)
+rotate_points(points, heading)      // rotate a point array around 0,0 using 32-step heading
+regular_polygon(sides, radius)      // generate regular polygon point array
+jitter_points(points, jitter, seed) // randomize point positions
+```
+
+Keep shape-specific helpers such as custom point generators or
+similar gameplay geometry in shared Rhai modules inside the mod instead of as
+engine-global functions.
 
 ### Commands
 
@@ -479,80 +735,6 @@ Scripts emit commands to mutate the scene:
 - Set-text: update sprite content
 - Position: move sprites
 - Style: change fg/bg/font/glow
-
-### Object API
-
-```
-scene.get(target)              // read a value
-scene.set(target, path, value) // write a value
-scene.set_vector(id, points, fg, bg) // set all vector props at once
-scene.set_visible(id, bool)    // sugar for set(id,"vector.visible",bool)
-scene.batch(id, map)           // set multiple props: #{fg:.., bg:.., points:..}
-scene.spawn_object(template, target)   // clone a scene object/layer template at runtime
-scene.despawn_object(target)           // soft-despawn a scene object/layer
-audio.cue(cue_id)              // play direct cue id (asset stem)
-audio.cue(cue_id, volume)      // play direct cue id with volume scale
-audio.event(event_id)          // play semantic sfx event from audio/sfx.yaml
-audio.event(event_id, gain)    // semantic event with gain scale
-audio.play_song(song_id)       // start sequenced song from audio/songs/*.yml
-audio.stop_song()              // stop currently active sequenced song
-
-game.get(path)                 // read global game state
-game.set(path, value)          // write global game state
-game.get_i(path, fallback)     // typed int getter
-game.get_s(path, fallback)     // typed string getter
-game.get_b(path, fallback)     // typed bool getter
-game.get_f(path, fallback)     // typed float getter
-game.jump(scene_id)            // scene transition
-persist.get(path)              // read on-disk persistent state
-persist.set(path, value)       // write on-disk persistent state
-level.current()                // active level id
-level.ids()                    // available level ids
-level.select(level_id)         // switch active level
-level.get(path)                // read active level payload
-
-world.spawn_visual(kind, template, data)  // atomic: create entity + visual + binding
-world.entity(id)               // entity handle API for cleaner repeated access
-world.query_kind(kind)         // find ids by kind
-world.query_tag(tag)           // find ids by tag
-
-// entity handle API
-entity.id()                    // numeric id
-entity.exists()                // check entity existence
-entity.get(path)               // read path (JSON pointer)
-entity.get_i(path, fallback)   // read integer with fallback
-entity.get_f(path, fallback)   // read float with fallback
-entity.get_s(path, fallback)   // read string with fallback
-entity.get_b(path, fallback)   // read bool with fallback
-entity.flag(name)              // sugar: get_b("/name", false)
-entity.set_flag(name, bool)    // sugar: set("/name", val)
-entity.set(path, value)        // write path
-entity.set_many(map)           // bulk write
-entity.data()                  // full JSON data map
-entity.despawn()               // despawn + auto-clean all bound visuals
-
-// Input
-input.bind_action(name, keys)  // register named action binding
-input.action_down(name)        // query named action
-
-// Key constants for bind_action
-// KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_SPACE, KEY_ESC, KEY_ENTER, KEY_F1..F12
-input.bind_action("thrust", [KEY_UP, "w"]);
-input.bind_action("fire",   [KEY_SPACE, "f"]);
-
-// Math / geometry helpers
-abs_i(v)                       // absolute value for integers
-sign_i(v, fallback)            // sign with fallback when v == 0
-clamp_i(v, min_v, max_v)       // clamp integer
-clamp_f(v, min_v, max_v)       // clamp float
-to_i(v) / to_float(v)          // type conversions
-sin32(idx)                     // 32-step integer sine lookup (-1024..1024)
-rotate_points(points, heading) // rotate a point array around 0,0 using 32-step heading
-```
-
-Keep shape-specific helpers such as custom point generators or
-similar gameplay geometry in shared Rhai modules inside the mod instead of as
-engine-global functions.
 
 Mod-level named behaviors can live in `behaviors/*.yml` and reference external Rhai:
 

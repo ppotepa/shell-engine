@@ -9,6 +9,7 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use engine_api::{
     ScriptEntityContext, ScriptWorldContext,
+    filter_hits_by_kind, filter_hits_of_kind,
     follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
     parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
 };
@@ -973,101 +974,35 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        self.ctx.collisions
-            .iter()
-            .filter_map(|hit| {
-                let ka = world.kind_of(hit.a).unwrap_or_default();
-                let kb = world.kind_of(hit.b).unwrap_or_default();
-                if ka == kind_a && kb == kind_b {
-                    let mut map = RhaiMap::new();
-                    map.insert(kind_a.into(), (hit.a as rhai::INT).into());
-                    map.insert(kind_b.into(), (hit.b as rhai::INT).into());
-                    Some(map.into())
-                } else if ka == kind_b && kb == kind_a {
-                    let mut map = RhaiMap::new();
-                    map.insert(kind_a.into(), (hit.b as rhai::INT).into());
-                    map.insert(kind_b.into(), (hit.a as rhai::INT).into());
-                    Some(map.into())
-                } else {
-                    None
-                }
-            })
-            .collect()
+        filter_hits_by_kind(&self.ctx.collisions, world, kind_a, kind_b)
     }
 
     pub(crate) fn collisions_of(&mut self, kind: &str) -> RhaiArray {
         let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        self.ctx.collisions
-            .iter()
-            .filter_map(|hit| {
-                let ka = world.kind_of(hit.a).unwrap_or_default();
-                let kb = world.kind_of(hit.b).unwrap_or_default();
-                if ka == kind {
-                    let mut map = RhaiMap::new();
-                    map.insert("self".into(), (hit.a as rhai::INT).into());
-                    map.insert("other".into(), (hit.b as rhai::INT).into());
-                    Some(map.into())
-                } else if kb == kind {
-                    let mut map = RhaiMap::new();
-                    map.insert("self".into(), (hit.b as rhai::INT).into());
-                    map.insert("other".into(), (hit.a as rhai::INT).into());
-                    Some(map.into())
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
-    /// Filters a collision hit slice by kind pair, returning `{kind_a: id, kind_b: id}` maps.
-    pub(crate) fn filter_hits_by_kind(
-        hits: &[CollisionHit],
-        world: &GameplayWorld,
-        kind_a: &str,
-        kind_b: &str,
-    ) -> RhaiArray {
-        hits.iter()
-            .filter_map(|hit| {
-                let ka = world.kind_of(hit.a).unwrap_or_default();
-                let kb = world.kind_of(hit.b).unwrap_or_default();
-                if ka == kind_a && kb == kind_b {
-                    let mut map = RhaiMap::new();
-                    map.insert(kind_a.into(), (hit.a as rhai::INT).into());
-                    map.insert(kind_b.into(), (hit.b as rhai::INT).into());
-                    Some(map.into())
-                } else if ka == kind_b && kb == kind_a {
-                    let mut map = RhaiMap::new();
-                    map.insert(kind_a.into(), (hit.b as rhai::INT).into());
-                    map.insert(kind_b.into(), (hit.a as rhai::INT).into());
-                    Some(map.into())
-                } else {
-                    None
-                }
-            })
-            .collect()
+        filter_hits_of_kind(&self.ctx.collisions, world, kind)
     }
 
     pub(crate) fn collision_enters_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
         let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        Self::filter_hits_by_kind(&self.ctx.collision_enters.clone(), world, kind_a, kind_b)
+        filter_hits_by_kind(&self.ctx.collision_enters, world, kind_a, kind_b)
     }
 
     pub(crate) fn collision_stays_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
         let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        Self::filter_hits_by_kind(&self.ctx.collision_stays.clone(), world, kind_a, kind_b)
+        filter_hits_by_kind(&self.ctx.collision_stays, world, kind_a, kind_b)
     }
 
     pub(crate) fn collision_exits_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
         let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        Self::filter_hits_by_kind(&self.ctx.collision_exits.clone(), world, kind_a, kind_b)
+        filter_hits_by_kind(&self.ctx.collision_exits, world, kind_a, kind_b)
     }
 
     pub(crate) fn spawn_child_entity(
