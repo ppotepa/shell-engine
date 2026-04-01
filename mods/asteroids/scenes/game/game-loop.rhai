@@ -170,15 +170,16 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
 
 // Emit an RCS puff — starts white, decayed per-frame via lifetime_fraction.
 fn emit_rcs(world, ship_id, turn_dir) {
-    emit_rcs_burst(world, ship_id, turn_dir, 1.0);
+    emit_rcs_burst(world, ship_id, turn_dir, 1.0, 0);
 }
 
-fn emit_rcs_burst(world, ship_id, turn_dir, intensity) {
+fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
     let side = -7.0 * turn_dir;
     let spread_base = HALF_PI * turn_dir;
     let r = 3 + (rand() * (3.0 * intensity)).to_int();
+    let ttl = if ttl_override > 0 { ttl_override + (rand() * 30.0).to_int() } else { (130.0 + rand() * 100.0 * intensity).to_int() };
     world.emit("asteroids.rcs_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
@@ -186,7 +187,7 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity) {
         side_offset: side,
         speed: (18.0 + rand() * 18.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 0.7,
-        ttl_ms: (130.0 + rand() * 100.0 * intensity).to_int(),
+        ttl_ms: ttl,
         radius: r,
         fg: "white"
     });
@@ -322,12 +323,12 @@ if turn != 0 {
 } else if (local.prev_turn ?? 0) != 0 {
     // Key released — schedule a short counter-burn on the opposite side
     local.correction_dir = -(local.prev_turn ?? 0);
-    local.correction_until = now + 80;
+    local.correction_until = now + 50;
     local.prev_turn = 0;
 }
 // Fire correction RCS burst for a few frames after turn release
 if (local.correction_until ?? 0) > now {
-    emit_rcs_burst(world, ship_id, local.correction_dir, 2.0);
+    emit_rcs_burst(world, ship_id, local.correction_dir, 6.0, 60);
 }
 
 // ─── Wave clear pause ──────────────────────────────────────────────────────────
