@@ -58,7 +58,7 @@ fn spawn_wave(world, scene, local, count) {
     let WORLD_H  = 360.0;
     let TWO_PI   = 6.283185307;
     let spd_base = 55.0 + (local.wave - 1) * 8.0;
-    let spawn_pad = 36.0;
+    let spawn_pad = 200.0;
 
     for i in 0..count {
         let side  = i % 4;
@@ -369,7 +369,7 @@ if !ship.status_has("invulnerable") {
 
 // ─── Out-of-bounds re-entry ───────────────────────────────────────────────────
 let OOB_PAD = 200.0;
-let REENTRY_PAD = 36.0;
+let REENTRY_PAD = 200.0;
 for id in world.query_kind("asteroid") {
     let xf = world.entity(id).transform();
     if xf["x"] < -OOB_PAD || xf["x"] > WORLD_W + OOB_PAD
