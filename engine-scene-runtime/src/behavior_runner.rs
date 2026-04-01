@@ -777,6 +777,21 @@ impl SceneRuntime {
             );
         }
 
+        // Clear child sprite aliases so the layer holds the only resolver entry for
+        // the target alias. `set_vector_sprite_property` locates sprites by their
+        // `id` attribute (not by alias), so property mutations still work correctly.
+        // Without this, both the layer and its sprite share the same alias, causing
+        // `soft_despawn_target` to non-deterministically remove only the sprite (PATH 1)
+        // and leave an empty orphan layer behind.
+        if let Some(layer_obj) = self.objects.get(&new_layer_object_id) {
+            let child_ids: Vec<String> = layer_obj.children.clone();
+            for child_id in child_ids {
+                if let Some(child_obj) = self.objects.get_mut(&child_id) {
+                    child_obj.aliases.clear();
+                }
+            }
+        }
+
         self.refresh_runtime_caches();
         true
     }
