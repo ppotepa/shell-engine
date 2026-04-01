@@ -566,12 +566,13 @@ world.collisions_of(kind)                     // all hits involving kind (#{self
 world.rand_i(min, max)                        // integer in [min, max)
 world.rand_seed(seed)                         // re-seed the engine RNG
 
-// Ship controller
-world.ship_set_turn(id, dir)                  // dir: -1 / 0 / 1
-world.ship_set_thrust(id, on)
-world.ship_heading(id)                        // heading index 0-31
-world.ship_heading_vector(id)                 // #{x, y} unit vector
-world.ship_velocity(id)                       // #{vx, vy}
+// Arcade controller (entity-level)
+let e = world.entity(id)
+e.attach_controller(#{ turn_step_ms: 80, thrust_power: 200.0, max_speed: 180.0, heading_bits: 32 })
+e.set_turn(dir)                               // dir: -1 / 0 / 1
+e.set_thrust(on)
+e.heading()                                   // discrete heading index
+e.heading_vector()                            // #{x, y} unit vector
 
 // Diagnostics
 world.diagnostic_info()                       // #{entity_count, ...} debug map
