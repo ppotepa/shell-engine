@@ -92,7 +92,7 @@ fn spawn_debris(world, ox, oy, count) {
     let TWO_PI = 6.283185307;
     for i in 0..count {
         let angle = rand() * TWO_PI;
-        let spd   = 20.0 + rand() * 35.0;
+        let spd   = 50.0 + rand() * 100.0;
         world.spawn_prefab("debris", #{
             x:      ox,
             y:      oy,
@@ -146,7 +146,7 @@ fn update_hud(scene, local) {
 let WORLD_W     = 640.0;
 let WORLD_H     = 360.0;
 let BULLET_TTL  = 3000;
-let BULLET_SPD  = 180.0;
+let BULLET_SPD  = 300.0;
 let MAX_BULLETS = 4;
 let FIRE_CD_MS  = 250;
 let INV_MS      = 2500;

@@ -3376,8 +3376,8 @@ let entity = world.spawn_prefab("entity", #{
         let phys = gameplay_world
             .physics(entity_id)
             .expect("entity physics");
-        assert!((phys.vx - 120.0).abs() < 0.01);
-        assert!((phys.vy + 60.0).abs() < 0.01);
+        assert!((phys.vx - 2.0).abs() < 0.01);
+        assert!((phys.vy + 1.0).abs() < 0.01);
         assert_eq!(
             gameplay_world
                 .get(entity_id, "/size")

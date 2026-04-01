@@ -679,12 +679,11 @@ impl ScriptGameplayApi {
             let drag = phys.drag.unwrap_or(0.0);
             let max_speed = phys.max_speed.unwrap_or(0.0);
 
-            // Check args for velocity overrides with velocity scale factor (60.0)
             if let Some(arg_vx) = args.get("vx").and_then(|v| v.as_float().ok()) {
-                vx = arg_vx * 60.0;
+                vx = arg_vx;
             }
             if let Some(arg_vy) = args.get("vy").and_then(|v| v.as_float().ok()) {
-                vy = arg_vy * 60.0;
+                vy = arg_vy;
             }
 
             if !self.set_physics(entity_id, vx, vy, ax, ay, drag, max_speed) {
@@ -856,8 +855,8 @@ impl ScriptGameplayApi {
             return 0;
         };
 
-        let vx = Self::map_number(args, "vx", 0.0) * 60.0;
-        let vy = Self::map_number(args, "vy", 0.0) * 60.0;
+        let vx = Self::map_number(args, "vx", 0.0);
+        let vy = Self::map_number(args, "vy", 0.0);
         let sprite_template = prefab.sprite_template.as_deref().unwrap_or(&prefab.kind);
 
         // Extract physics for drag/max_speed
