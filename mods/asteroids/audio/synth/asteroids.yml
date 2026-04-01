@@ -1,0 +1,52 @@
+version: 1
+
+sounds:
+  fire:
+    waveform: "square"
+    sample_rate: 44100
+    gain: 0.35
+    attack_ms: 2
+    release_ms: 35
+    notes:
+      - freq_hz: 880.0
+        len_ms: 35
+        gain: 1.0
+      - freq_hz: 660.0
+        len_ms: 45
+        gain: 0.7
+
+  explosion_small:
+    waveform: "noise"
+    sample_rate: 44100
+    gain: 0.55
+    attack_ms: 0
+    release_ms: 140
+    notes:
+      - freq_hz: 0.0
+        len_ms: 120
+        gain: 1.0
+
+  explosion_large:
+    waveform: "noise"
+    sample_rate: 44100
+    gain: 0.75
+    attack_ms: 0
+    release_ms: 260
+    notes:
+      - freq_hz: 0.0
+        len_ms: 240
+        gain: 1.0
+
+  thrust:
+    waveform: "saw"
+    sample_rate: 44100
+    gain: 0.18
+    attack_ms: 5
+    release_ms: 60
+    notes:
+      - freq_hz: 110.0
+        len_ms: 120
+        gain: 1.0
+      - freq_hz: 95.0
+        len_ms: 120
+        gain: 0.9

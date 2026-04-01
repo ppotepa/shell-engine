@@ -269,7 +269,7 @@ if world.count_kind("bullet") < MAX_BULLETS
         ttl_ms: BULLET_TTL
     });
     ship.cooldown_start("fire", FIRE_CD_MS);
-    audio.cue("fire");
+    audio.event("fire");
 }
 
 // ─── Collision: bullet × asteroid ─────────────────────────────────────────────
@@ -286,7 +286,7 @@ for hit in world.collision_enters("bullet", "asteroid") {
     local.score += pts;
     emit_impact_burst(world, asteroid_id, 5, "yellow");
     spawn_debris(world, xf["x"], xf["y"], 3);
-    audio.cue(if size == 3 { "explosion_large" } else { "explosion_small" });
+    audio.event(if size == 3 { "explosion_large" } else { "explosion_small" });
 
     world.despawn(bullet_id);
     world.despawn(asteroid_id);
@@ -329,7 +329,7 @@ if !ship.status_has("invulnerable") {
         let xf = ship.transform();
         emit_impact_burst(world, ship_id, 7, "white");
         spawn_debris(world, xf["x"], xf["y"], 4);
-        audio.cue("explosion_large");
+        audio.event("explosion_large");
 
         if local.lives <= 0 {
             world.despawn(ship_id);
