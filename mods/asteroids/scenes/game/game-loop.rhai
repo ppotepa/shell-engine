@@ -367,13 +367,43 @@ if !ship.status_has("invulnerable") {
     }
 }
 
-// ─── Out-of-bounds cleanup ────────────────────────────────────────────────────
-let OOB_PAD = 80.0;
+// ─── Out-of-bounds re-entry ───────────────────────────────────────────────────
+let OOB_PAD = 200.0;
+let REENTRY_PAD = 36.0;
 for id in world.query_kind("asteroid") {
     let xf = world.entity(id).transform();
     if xf["x"] < -OOB_PAD || xf["x"] > WORLD_W + OOB_PAD
     || xf["y"] < -OOB_PAD || xf["y"] > WORLD_H + OOB_PAD {
-        world.despawn(id);
+        let e = world.entity(id);
+        let side = (rand() * 4.0).to_int();
+        let spd  = 50.0 + rand() * 30.0;
+        let nx = 0.0;
+        let ny = 0.0;
+        let nvx = 0.0;
+        let nvy = 0.0;
+        if side == 0 {
+            nx = -REENTRY_PAD;
+            ny = 20.0 + rand() * (WORLD_H - 40.0);
+            nvx = spd;
+            nvy = (rand() - 0.5) * spd * 0.6;
+        } else if side == 1 {
+            nx = WORLD_W + REENTRY_PAD;
+            ny = 20.0 + rand() * (WORLD_H - 40.0);
+            nvx = -spd;
+            nvy = (rand() - 0.5) * spd * 0.6;
+        } else if side == 2 {
+            nx = 20.0 + rand() * (WORLD_W - 40.0);
+            ny = -REENTRY_PAD;
+            nvx = (rand() - 0.5) * spd * 0.6;
+            nvy = spd;
+        } else {
+            nx = 20.0 + rand() * (WORLD_W - 40.0);
+            ny = WORLD_H + REENTRY_PAD;
+            nvx = (rand() - 0.5) * spd * 0.6;
+            nvy = -spd;
+        }
+        e.set_position(nx, ny);
+        e.physics.set_velocity(nvx, nvy);
     }
 }
 
