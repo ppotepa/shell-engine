@@ -196,17 +196,20 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
 
 fn emit_impact_burst(world, owner_id, count, fg) {
     let TWO_PI = 6.283185307;
+    let colors = ["white", "yellow", "bright_white"];
     for i in 0..count {
         let spread = rand() * TWO_PI - (TWO_PI / 2.0);
+        let r = 1 + (rand() * 2.0).to_int();
+        let c = colors[(rand() * 3.0).to_int() % 3];
         let _spark = world.emit("asteroids.impact_sparks", owner_id, #{
             kind: "fx_sparks",
             template: "debris",
             owner_bound: false,
-            speed: 28.0 + rand() * 32.0,
+            speed: 35.0 + rand() * 50.0,
             spread: spread,
-            ttl_ms: 180 + (rand() * 180.0).to_int(),
-            radius: 1,
-            fg: fg
+            ttl_ms: 120 + (rand() * 250.0).to_int(),
+            radius: r,
+            fg: c
         });
     }
 }
@@ -388,11 +391,11 @@ for hit in world.collision_enters("bullet", "asteroid") {
     ae.set("hp", hp);
 
     // FX at impact (scaled by remaining HP)
-    let spark_count = if hp > 0 { 3 } else { 6 };
+    let spark_count = if hp > 0 { 4 } else { 10 };
     emit_impact_burst(world, asteroid_id, spark_count, "yellow");
-    spawn_debris(world, bxf["x"], bxf["y"], if hp > 0 { 1 } else { 3 });
+    spawn_debris(world, bxf["x"], bxf["y"], if hp > 0 { 2 } else { 5 });
     audio.event(if hp > 0 { "explosion_small" } else if size == 3 { "explosion_large" } else { "explosion_small" });
-    effects.shake(if hp > 0 { 80 } else { 220 }, if hp > 0 { 0.3 } else { 1.0 }, if hp > 0 { 0.15 } else { 0.4 }, 9.0);
+    effects.shake(if hp > 0 { 80 } else { 250 }, if hp > 0 { 0.3 } else { 1.2 }, if hp > 0 { 0.15 } else { 0.5 }, 9.0);
 
     if hp > 0 {
         // Still alive — carve a V-notch crack at the impact point.
@@ -417,8 +420,9 @@ for hit in world.collision_enters("bullet", "asteroid") {
     } else {
         // Destroyed — score, big FX, and split if large enough
         local.score += pts;
-        spawn_debris(world, xf["x"], xf["y"], 3);
-        effects.shake(220, 1.2, 0.5, 9.0);
+        spawn_debris(world, xf["x"], xf["y"], 5);
+        emit_impact_burst(world, asteroid_id, 8, "white");
+        effects.shake(250, 1.2, 0.5, 9.0);
         world.despawn(asteroid_id);
 
         if size > 1 {
@@ -487,10 +491,10 @@ if !ship.status_has("invulnerable") {
 
         if local.lives <= 0 {
             // Game over: one final dramatic death
-            spawn_debris(world, xf["x"], xf["y"], 6);
-            emit_impact_burst(world, ship_id, 8, "white");
+            spawn_debris(world, xf["x"], xf["y"], 10);
+            emit_impact_burst(world, ship_id, 14, "white");
             audio.event("explosion_large");
-            effects.shake(500, 2.5, 1.0, 7.0);
+            effects.shake(600, 3.0, 1.2, 7.0);
             world.despawn(ship_id);
             local.ship_id = 0;
             local.state   = STATE_GAME_OVER;
@@ -499,10 +503,10 @@ if !ship.status_has("invulnerable") {
         } else {
             // Bounce + long invulnerability so ship can recover
             ship.status_add("invulnerable", INV_MS);
-            spawn_debris(world, xf["x"], xf["y"], 3);
-            emit_impact_burst(world, ship_id, 5, "white");
+            spawn_debris(world, xf["x"], xf["y"], 4);
+            emit_impact_burst(world, ship_id, 7, "white");
             audio.event("explosion_small");
-            effects.shake(200, 1.2, 0.5, 8.0);
+            effects.shake(250, 1.5, 0.6, 8.0);
         }
         break;
     }
@@ -590,11 +594,12 @@ for id in world.query_kind("fx_rcs") {
     p.set_radius(max(1, (4.0 * f + 0.5).to_int()));
     p.set_fg(if f > 0.55 { "white" } else if f > 0.30 { "bright_white" } else if f > 0.12 { "gray" } else { "dark_gray" });
 }
-// Impact sparks: bright flash → yellow → dim ember
+// Impact sparks: bright flash → yellow → dim ember, shrinking to a point
 for id in world.query_kind("fx_sparks") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
     let f = frac * frac;
+    p.set_radius(max(1, (3.0 * f + 0.5).to_int()));
     p.set_fg(if f > 0.6 { "white" } else if f > 0.35 { "yellow" } else if f > 0.12 { "dark_gray" } else { "#333" });
 }
 
