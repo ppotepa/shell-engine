@@ -1314,6 +1314,10 @@ impl ScriptGameplayApi {
         let spawn_offset = config.spawn_offset.unwrap_or(0.0);
         let backward_speed = config.backward_speed.unwrap_or(0.0);
         let velocity_scale = config.velocity_scale.unwrap_or(1.0);
+        // side_offset: perpendicular right offset from heading direction.
+        // Right-perp of (hx, hy) is (hy, -hx).  Negative values = left side.
+        let side_offset = config.side_offset.unwrap_or(0.0)
+            + Self::map_number(&args, "side_offset", 0.0);
         let resolved = self.resolve_emit(&config, &args, spawn_offset);
 
         let dir_angle = heading + std::f64::consts::PI + resolved.spread;
@@ -1326,8 +1330,8 @@ impl ScriptGameplayApi {
             EphemeralSpawn {
                 kind: Box::leak(resolved.kind.clone().into_boxed_str()),
                 template: Box::leak(resolved.template.clone().into_boxed_str()),
-                x: (x - hx * spawn_offset) as f32,
-                y: (y - hy * spawn_offset) as f32,
+                x: (x - hx * spawn_offset + hy * side_offset) as f32,
+                y: (y - hy * spawn_offset - hx * side_offset) as f32,
                 heading: heading as f32,
                 vx: (base_vx * backward_speed + dir_x * resolved.speed * velocity_scale) as f32,
                 vy: (base_vy * backward_speed + dir_y * resolved.speed * velocity_scale) as f32,

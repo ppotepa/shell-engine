@@ -128,6 +128,8 @@ pub struct EmitterConfig {
     #[serde(default)]
     pub spawn_offset: Option<f64>,
     #[serde(default)]
+    pub side_offset: Option<f64>,
+    #[serde(default)]
     pub backward_speed: Option<f64>,
     #[serde(default)]
     pub ttl_ms: Option<i64>,

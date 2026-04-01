@@ -164,6 +164,34 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
     });
 }
 
+// Emit a small RCS puff from the side of the ship.
+// turn_dir: +1 = turning right (left-side thruster fires outward left)
+//           -1 = turning left  (right-side thruster fires outward right)
+// The spread value rotates the emission direction 90° to the appropriate side.
+fn emit_rcs(world, ship_id, turn_dir) {
+    if !world.exists(ship_id) { return; }
+    let HALF_PI = 1.5707963;
+    // Positive side_offset = right of heading; negative = left.
+    // When turning right the LEFT-side thruster fires → side_offset negative.
+    // When turning left the RIGHT-side thruster fires → side_offset positive.
+    let side = -8.0 * turn_dir;
+    // Spread: left-side thruster ejects left (spread ≈ +π/2),
+    //         right-side thruster ejects right (spread ≈ -π/2).
+    let spread_base = HALF_PI * turn_dir;
+    let spread = spread_base + (rand() - 0.5) * 0.6;
+    world.emit("asteroids.rcs_thruster", ship_id, #{
+        kind: "fx",
+        template: "debris",
+        owner_bound: false,
+        side_offset: side,
+        speed: 18.0 + rand() * 10.0,
+        spread: spread,
+        ttl_ms: 120 + (rand() * 60.0).to_int(),
+        radius: 1,
+        fg: "dark_gray"
+    });
+}
+
 fn emit_impact_burst(world, owner_id, count, fg) {
     let TWO_PI = 6.283185307;
     for i in 0..count {
@@ -286,6 +314,9 @@ if thrust_on {
     emit_thrust(world, ship_id, local.thrust_ms, now);
 } else {
     local.thrust_ms = 0;
+}
+if turn != 0 {
+    emit_rcs(world, ship_id, turn);
 }
 
 // ─── Wave clear pause ──────────────────────────────────────────────────────────

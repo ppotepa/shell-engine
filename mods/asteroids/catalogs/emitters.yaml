@@ -21,3 +21,13 @@ emitters:
     ttl_ms: 420
     radius: 1
     velocity_scale: 1.0
+
+  asteroids.rcs_thruster:
+    max_count: 16
+    cooldown_name: "rcs-thruster"
+    cooldown_ms: 55
+    spawn_offset: 2.0
+    backward_speed: 0.0
+    ttl_ms: 160
+    radius: 1
+    velocity_scale: 1.0
