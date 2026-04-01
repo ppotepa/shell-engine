@@ -151,15 +151,16 @@ fn spawn_debris(world, ox, oy, count) {
 // Emit a thrust particle — starts white/large, decayed per-frame via lifetime_fraction.
 fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
+    let r = 4 + (rand() * 4.0).to_int();
     world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx_thrust",
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
-        speed: 20.0 + rand() * 20.0,
-        spread: (rand() - 0.5) * 0.35,
-        ttl_ms: 160 + (rand() * 80.0).to_int(),
-        radius: 3,
+        speed: 15.0 + rand() * 30.0,
+        spread: (rand() - 0.5) * 0.55,
+        ttl_ms: 200 + (rand() * 160.0).to_int(),
+        radius: r,
         fg: "white"
     });
 }
@@ -170,15 +171,16 @@ fn emit_rcs(world, ship_id, turn_dir) {
     let HALF_PI = 1.5707963;
     let side = -8.0 * turn_dir;
     let spread_base = HALF_PI * turn_dir;
+    let r = 3 + (rand() * 3.0).to_int();
     world.emit("asteroids.rcs_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
         side_offset: side,
-        speed: 22.0 + rand() * 12.0,
-        spread: spread_base + (rand() - 0.5) * 0.5,
-        ttl_ms: 110 + (rand() * 60.0).to_int(),
-        radius: 2,
+        speed: 18.0 + rand() * 18.0,
+        spread: spread_base + (rand() - 0.5) * 0.7,
+        ttl_ms: 130 + (rand() * 100.0).to_int(),
+        radius: r,
         fg: "white"
     });
 }
@@ -551,25 +553,29 @@ for id in world.query_kind("asteroid") {
 }
 
 // ─── Particle decay (closure-style per-frame visual update) ──────────────────
-// Thrust: white hot → gray → dark tail as lifetime fraction shrinks 1→0
+// Quadratic falloff (f*f) keeps particles bright longer, then rapid fade at end.
+// Thrust: white hot core → bright → gray smoke → dark → near-invisible tail
 for id in world.query_kind("fx_thrust") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
-    p.set_radius(max(1, (3.0 * frac + 0.5).to_int()));
-    p.set_fg(if frac > 0.6 { "white" } else if frac > 0.25 { "gray" } else { "dark_gray" });
+    let f = frac * frac;
+    p.set_radius(max(1, (6.0 * f + 0.5).to_int()));
+    p.set_fg(if f > 0.7 { "white" } else if f > 0.45 { "bright_white" } else if f > 0.25 { "gray" } else if f > 0.10 { "dark_gray" } else { "#333" });
 }
-// RCS: white → gray as puff disperses
+// RCS: white puff → dispersing gray cloud
 for id in world.query_kind("fx_rcs") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
-    p.set_radius(max(1, (2.0 * frac + 0.5).to_int()));
-    p.set_fg(if frac > 0.45 { "white" } else { "gray" });
+    let f = frac * frac;
+    p.set_radius(max(1, (4.0 * f + 0.5).to_int()));
+    p.set_fg(if f > 0.55 { "white" } else if f > 0.30 { "bright_white" } else if f > 0.12 { "gray" } else { "dark_gray" });
 }
-// Impact sparks: bright flash → dim tail
+// Impact sparks: bright flash → yellow → dim ember
 for id in world.query_kind("fx_sparks") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
-    p.set_fg(if frac > 0.5 { "white" } else if frac > 0.2 { "yellow" } else { "dark_gray" });
+    let f = frac * frac;
+    p.set_fg(if f > 0.6 { "white" } else if f > 0.35 { "yellow" } else if f > 0.12 { "dark_gray" } else { "#333" });
 }
 
 // ─── Wave clear ───────────────────────────────────────────────────────────────

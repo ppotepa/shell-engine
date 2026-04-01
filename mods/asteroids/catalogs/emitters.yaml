@@ -1,15 +1,15 @@
 emitters:
   asteroids.ship_thrust:
-    max_count: 48
+    max_count: 80
     cooldown_name: "thrust-smoke"
-    cooldown_ms: 60
+    cooldown_ms: 35
     min_cooldown_ms: 0
-    ramp_ms: 700
+    ramp_ms: 500
     lifecycle: "Ttl"
     spawn_offset: 12.0
-    backward_speed: 0.25
-    ttl_ms: 120
-    radius: 3
+    backward_speed: 0.3
+    ttl_ms: 220
+    radius: 6
     velocity_scale: 1.0
 
   asteroids.impact_sparks:
@@ -23,11 +23,11 @@ emitters:
     velocity_scale: 1.0
 
   asteroids.rcs_thruster:
-    max_count: 24
+    max_count: 40
     cooldown_name: "rcs-thruster"
     cooldown_ms: 0
     spawn_offset: 2.0
     backward_speed: 0.0
-    ttl_ms: 100
-    radius: 2
+    ttl_ms: 160
+    radius: 4
     velocity_scale: 1.0
