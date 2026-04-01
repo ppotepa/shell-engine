@@ -731,6 +731,7 @@ impl SceneRuntime {
 
         let mut cloned_layer = self.scene.layers[template_layer_idx].clone();
         cloned_layer.name = target.to_string();
+        cloned_layer.visible = true; // clones are always visible (template may be hidden)
         let mut id_counter: usize = 0;
         for sprite in &mut cloned_layer.sprites {
             retag_sprite_ids(sprite, target, &mut id_counter);

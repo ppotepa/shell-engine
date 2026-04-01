@@ -300,6 +300,19 @@ where
             Value::String("sprites".to_string()),
             Value::Sequence(object_sprites.clone()),
         );
+
+        // Objects without an explicit `as:` or `id:` alias are templates used
+        // exclusively for SceneSpawn cloning — hide them so they don't render
+        // at the default (0,0) position.
+        let has_alias = instance_map
+            .get(Value::String("as".to_string()))
+            .is_some()
+            || instance_map
+                .get(Value::String("id".to_string()))
+                .is_some();
+        if !has_alias {
+            layer.insert(Value::String("visible".to_string()), Value::Bool(false));
+        }
         if let Some(behavior_name) = loaded.native_logic_behavior.as_deref() {
             let mut behaviors = Vec::new();
             behaviors.push(build_behavior_spec(
