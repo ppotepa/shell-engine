@@ -58,7 +58,7 @@ fn spawn_wave(world, scene, local, count) {
     let WORLD_H  = 360.0;
     let TWO_PI   = 6.283185307;
     let spd_base = 55.0 + (local.wave - 1) * 8.0;
-    let spawn_pad = 200.0;
+    let spawn_pad = 60.0;
 
     for i in 0..count {
         let side  = i % 4;
@@ -71,28 +71,24 @@ fn spawn_wave(world, scene, local, count) {
 
         let lane = ((i / 4).to_float() + 0.5) / ((count / 4 + 1).to_float());
         if side == 0 {
-            // left -> right
             cx = -spawn_pad;
             cy = 20.0 + lane * (WORLD_H - 40.0);
             vx = spd;
-            vy = (rand() - 0.5) * spd * 0.8;
+            vy = (rand() - 0.5) * spd * 0.3;
         } else if side == 1 {
-            // right -> left
             cx = WORLD_W + spawn_pad;
             cy = 20.0 + lane * (WORLD_H - 40.0);
             vx = -spd;
-            vy = (rand() - 0.5) * spd * 0.8;
+            vy = (rand() - 0.5) * spd * 0.3;
         } else if side == 2 {
-            // top -> down
             cx = 20.0 + lane * (WORLD_W - 40.0);
             cy = -spawn_pad;
-            vx = (rand() - 0.5) * spd * 0.8;
+            vx = (rand() - 0.5) * spd * 0.3;
             vy = spd;
         } else {
-            // bottom -> up
             cx = 20.0 + lane * (WORLD_W - 40.0);
             cy = WORLD_H + spawn_pad;
-            vx = (rand() - 0.5) * spd * 0.8;
+            vx = (rand() - 0.5) * spd * 0.3;
             vy = -spd;
         }
 
@@ -368,15 +364,16 @@ if !ship.status_has("invulnerable") {
 }
 
 // ─── Out-of-bounds re-entry ───────────────────────────────────────────────────
-let OOB_PAD = 200.0;
-let REENTRY_PAD = 200.0;
+let OOB_PAD = 250.0;
+let REENTRY_PAD = 60.0;
+let REENTRY_SPD_BASE = 55.0 + ((local.wave ?? 1) - 1) * 8.0;
 for id in world.query_kind("asteroid") {
     let xf = world.entity(id).transform();
     if xf["x"] < -OOB_PAD || xf["x"] > WORLD_W + OOB_PAD
     || xf["y"] < -OOB_PAD || xf["y"] > WORLD_H + OOB_PAD {
         let e = world.entity(id);
         let side = (rand() * 4.0).to_int();
-        let spd  = 50.0 + rand() * 30.0;
+        let spd  = REENTRY_SPD_BASE + rand() * 15.0;
         let nx = 0.0;
         let ny = 0.0;
         let nvx = 0.0;
@@ -385,21 +382,21 @@ for id in world.query_kind("asteroid") {
             nx = -REENTRY_PAD;
             ny = 20.0 + rand() * (WORLD_H - 40.0);
             nvx = spd;
-            nvy = (rand() - 0.5) * spd * 0.6;
+            nvy = (rand() - 0.5) * spd * 0.3;
         } else if side == 1 {
             nx = WORLD_W + REENTRY_PAD;
             ny = 20.0 + rand() * (WORLD_H - 40.0);
             nvx = -spd;
-            nvy = (rand() - 0.5) * spd * 0.6;
+            nvy = (rand() - 0.5) * spd * 0.3;
         } else if side == 2 {
             nx = 20.0 + rand() * (WORLD_W - 40.0);
             ny = -REENTRY_PAD;
-            nvx = (rand() - 0.5) * spd * 0.6;
+            nvx = (rand() - 0.5) * spd * 0.3;
             nvy = spd;
         } else {
             nx = 20.0 + rand() * (WORLD_W - 40.0);
             ny = WORLD_H + REENTRY_PAD;
-            nvx = (rand() - 0.5) * spd * 0.6;
+            nvx = (rand() - 0.5) * spd * 0.3;
             nvy = -spd;
         }
         e.set_position(nx, ny);
