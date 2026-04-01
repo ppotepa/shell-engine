@@ -173,7 +173,7 @@ fn emit_rcs(world, ship_id, turn_dir) {
 fn emit_rcs_burst(world, ship_id, turn_dir, intensity) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
-    let side = -4.0 * turn_dir;
+    let side = -2.0 * turn_dir;
     let spread_base = HALF_PI * turn_dir;
     let r = 3 + (rand() * (3.0 * intensity)).to_int();
     world.emit("asteroids.rcs_thruster", ship_id, #{
