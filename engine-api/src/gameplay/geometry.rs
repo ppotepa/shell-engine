@@ -279,11 +279,81 @@ pub fn center_points_i32(points: &[[i32; 2]]) -> Vec<[i32; 2]> {
         .collect()
 }
 
-/// Splits a polygon into two halves along a line through its centroid.
-/// `heading` uses the same 32-step coordinate as `rotate_points` (0..32 = full turn).
-/// Each half is translated so its own centroid sits at the origin.
-/// Returns `(half_a, half_b)`; each is guaranteed to have at least 3 vertices
-/// (falls back to the full polygon if clipping produces a degenerate result).
+/// Scales a polygon so its maximum vertex distance from the origin equals
+/// `target_radius`.  The polygon must already be centred at the origin.
+pub fn normalize_polygon_radius_i32(
+    points: &[[i32; 2]],
+    target_radius: i32,
+) -> Vec<[i32; 2]> {
+    if points.is_empty() {
+        return vec![];
+    }
+    let max_dist_sq = points
+        .iter()
+        .map(|p| (p[0] as i64).pow(2) + (p[1] as i64).pow(2))
+        .max()
+        .unwrap_or(0);
+    if max_dist_sq == 0 {
+        return points.to_vec();
+    }
+    let max_dist = (max_dist_sq as f64).sqrt();
+    let scale = target_radius as f64 / max_dist;
+    points
+        .iter()
+        .map(|p| {
+            [(p[0] as f64 * scale).round() as i32, (p[1] as f64 * scale).round() as i32]
+        })
+        .collect()
+}
+
+/// Returns one half of a polygon split along a line through its centroid.
+///
+/// `heading` is in the same 32-step space as `rotate_points`.
+/// `side` 0 = the half on the positive side of the split normal,
+///        1 = the other half.
+///
+/// The returned half is:
+///   1. re-centred at its own centroid (so collider/visual align)
+///   2. normalised so its max vertex distance equals `target_radius`
+///
+/// Falls back to the full polygon if clipping produces a degenerate result.
+pub fn split_polygon_half_i32(
+    points: &[[i32; 2]],
+    heading: i32,
+    side: i32,
+    target_radius: i32,
+) -> Vec<[i32; 2]> {
+    let n = points.len();
+    if n < 3 {
+        return normalize_polygon_radius_i32(&center_points_i32(points), target_radius);
+    }
+
+    // Translate to centroid-relative space
+    let cx = points.iter().map(|p| p[0] as i64).sum::<i64>() / n as i64;
+    let cy = points.iter().map(|p| p[1] as i64).sum::<i64>() / n as i64;
+    let rel: Vec<[i32; 2]> = points
+        .iter()
+        .map(|p| [p[0] - cx as i32, p[1] - cy as i32])
+        .collect();
+
+    // Normal perpendicular to heading
+    let sin_h = sin32_i32(heading) as f64 / 1024.0;
+    let cos_h = sin32_i32(heading + 8) as f64 / 1024.0;
+    let (nx, ny) = if side == 0 {
+        (-sin_h, cos_h)
+    } else {
+        (sin_h, -cos_h)
+    };
+
+    let clipped = clip_polygon_halfplane(&rel, nx, ny);
+    let centred = if clipped.len() >= 3 {
+        center_points_i32(&clipped)
+    } else {
+        center_points_i32(&rel)
+    };
+    normalize_polygon_radius_i32(&centred, target_radius)
+}
+
 pub fn split_polygon_i32(
     points: &[[i32; 2]],
     heading: i32,

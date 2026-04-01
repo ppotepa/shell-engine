@@ -41,19 +41,13 @@ fn asteroid_size_radius(size) {
     if size == 3 { 22 } else if size == 2 { 11 } else { 6 }
 }
 
-// Splits the parent polygon along a random axis and returns [half_a, half_b].
-// Each half is already re-centred at its own centroid so colliders align.
-fn asteroid_split_halves(parent_shape, seed) {
-    let angle = seed % 32;
-    split_polygon(parent_shape, angle)
-}
-
-// Scale a polygon half to child radius then add jitter so each fragment varies.
-fn asteroid_half_to_shape(half, parent_size, child_size, seed) {
-    let pr = asteroid_size_radius(parent_size);
-    let cr = asteroid_size_radius(child_size);
-    let scaled   = scale_points(half, cr, pr);
-    let jittered = jitter_points(scaled, 2, seed);
+// Returns one half of the parent polygon, already centred and normalised to child_radius.
+// side: 0 = first half, 1 = second half.
+fn asteroid_half_shape(parent_shape, parent_size, child_size, side, seed) {
+    let angle    = seed % 32;
+    let child_r  = asteroid_size_radius(child_size);
+    let half     = split_polygon_half(parent_shape, angle, side, child_r);
+    let jittered = jitter_points(half, 2, seed);
     rotate_points(jittered, seed % 32)
 }
 
@@ -385,15 +379,12 @@ for hit in world.collision_enters("bullet", "asteroid") {
 
         if size > 1 {
             let parent_shape = ae.get("shape_points");
-            // Split parent into two distinct halves so fragments look like
-            // actual shards rather than scaled-down copies.
             let split_seed = asteroid_id + size * 997;
             let base_shape = if type_of(parent_shape) != "()" {
                 parent_shape
             } else {
                 asteroid_shape(size, split_seed)
             };
-            let halves = asteroid_split_halves(base_shape, split_seed);
 
             for j in 0..2 {
                 let angle = rand() * TWO_PI;
@@ -402,7 +393,8 @@ for hit in world.collision_enters("bullet", "asteroid") {
                 let vx = cos(angle) * spd;
                 let vy = sin(angle) * spd;
                 let child_seed = asteroid_id + j + size * 1000;
-                let child_shape = asteroid_half_to_shape(halves[j % 2], size, child_size, child_seed);
+                // Each child gets a distinct half, already at child_size radius.
+                let child_shape = asteroid_half_shape(base_shape, size, child_size, j % 2, child_seed);
                 let nid = spawn_asteroid_shaped(
                     world,
                     scene,

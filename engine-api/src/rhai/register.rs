@@ -5,8 +5,9 @@ use rhai::Engine as RhaiEngine;
 use crate::gameplay::api::{GameplayEntityCoreApi, GameplayWorldCoreApi};
 use crate::gameplay::geometry::{
     center_points_i32, crack_polygon_i32, dent_polygon_i32, jitter_points_i32,
-    points_to_rhai_array, regular_polygon_i32, rhai_array_to_points, rotate_points_i32,
-    scale_points_frac_i32, sin32_i32, split_polygon_i32, to_i32,
+    normalize_polygon_radius_i32, points_to_rhai_array, regular_polygon_i32,
+    rhai_array_to_points, rotate_points_i32, scale_points_frac_i32, sin32_i32,
+    split_polygon_half_i32, split_polygon_i32, to_i32,
 };
 
 pub fn register_geometry_api(engine: &mut RhaiEngine) {
@@ -91,6 +92,24 @@ pub fn register_geometry_api(engine: &mut RhaiEngine) {
             points_to_rhai_array(center_points_i32(&pts))
         },
     );
+    engine.register_fn(
+        "normalize_radius",
+        |points: rhai::Array, radius: rhai::INT| -> rhai::Array {
+            let pts = rhai_array_to_points(&points);
+            points_to_rhai_array(normalize_polygon_radius_i32(&pts, to_i32(radius)))
+        },
+    );
+    // Returns one half of a polygon split through its centroid.
+    // heading: 0..32 (same as rotate_points).  side: 0 or 1.
+    // target_radius: the returned half is normalised so its max vertex distance = target_radius.
+    engine.register_fn(
+        "split_polygon_half",
+        |points: rhai::Array, heading: rhai::INT, side: rhai::INT, target_radius: rhai::INT| -> rhai::Array {
+            let pts = rhai_array_to_points(&points);
+            points_to_rhai_array(split_polygon_half_i32(&pts, to_i32(heading), to_i32(side), to_i32(target_radius)))
+        },
+    );
+    // Legacy two-result version kept for completeness (returns Array of two Arrays).
     engine.register_fn(
         "split_polygon",
         |points: rhai::Array, heading: rhai::INT| -> rhai::Array {
