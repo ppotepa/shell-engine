@@ -1308,6 +1308,17 @@ impl ScriptGameplayApi {
                     let Some(oldest) = state.evict_oldest(emitter_name, Some(owner_uid)) else {
                         break;
                     };
+                    // Queue visual despawn before removing the gameplay entity so
+                    // the scene layer/sprite is cleaned up alongside the entity.
+                    if let Some(binding) = world.visual(oldest) {
+                        if let Ok(mut q) = self.ctx.queue.lock() {
+                            for vid in binding.all_visual_ids() {
+                                q.push(BehaviorCommand::SceneDespawn {
+                                    target: vid.to_string(),
+                                });
+                            }
+                        }
+                    }
                     let _ = world.despawn(oldest);
                 }
             }

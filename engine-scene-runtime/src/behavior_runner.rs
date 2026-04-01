@@ -876,6 +876,17 @@ impl SceneRuntime {
             if remove_sprite_at_path(&mut layer.sprites, &sprite_path).is_none() {
                 return false;
             }
+            // When a runtime-cloned layer's last child sprite is removed, the
+            // layer becomes an empty shell.  Remove it to prevent orphaned empty
+            // layers from accumulating (e.g. particle FX layers).
+            if self
+                .scene
+                .layers
+                .get(layer_idx)
+                .map_or(false, |l| l.sprites.is_empty())
+            {
+                self.scene.layers.remove(layer_idx);
+            }
             self.rebuild_runtime_graph_preserving_state();
             return true;
         }
