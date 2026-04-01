@@ -154,7 +154,14 @@ impl GameplayEntityCoreApi for ScriptGameplayEntityApi {
 pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     register_gameplay_core_api::<ScriptGameplayApi, ScriptGameplayEntityApi>(engine);
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PHASE 3: WORLD.* NAMESPACE WITH DUAL-NAME REGISTRATION
+    // Both flat names (for backward compatibility) and world.* names work
+    // ═══════════════════════════════════════════════════════════════════════════════
+
     // Gameplay API - remaining world/collection operations not yet moved to engine-api
+    
+    // --- SPAWN OPERATIONS (world.spawn_*) ---
     engine.register_fn(
         "set_visual",
         |world: &mut ScriptGameplayApi, id: rhai::INT, visual_id: &str| {
@@ -173,7 +180,6 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             world.spawn_visual(kind, template, data)
         },
     );
-    // Namespaced version (Phase 3: world.* namespace)
     engine.register_fn(
         "world.spawn_visual",
         |world: &mut ScriptGameplayApi, kind: &str, template: &str, data: RhaiMap| {
@@ -185,7 +191,6 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "spawn_prefab",
         |world: &mut ScriptGameplayApi, name: &str, args: RhaiMap| world.spawn_prefab(name, args),
     );
-    // Namespaced version (Phase 3: world.* namespace)
     engine.register_fn(
         "world.spawn_prefab",
         |world: &mut ScriptGameplayApi, name: &str, args: RhaiMap| world.spawn_prefab(name, args),
@@ -197,7 +202,6 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             world.spawn_group(group_name, prefab_name)
         },
     );
-    // Namespaced version (Phase 3: world.* namespace)
     engine.register_fn(
         "world.spawn_group",
         |world: &mut ScriptGameplayApi, group_name: &str, prefab_name: &str| {
@@ -205,19 +209,41 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         },
     );
     
+    // --- EFFECT OPERATIONS (world.emit, world.effects.*) ---
     engine.register_fn(
         "emit",
         |world: &mut ScriptGameplayApi, emitter_name: &str, owner_id: rhai::INT, args: RhaiMap| {
             world.emit(emitter_name, owner_id, args)
         },
     );
-    // Namespaced version (Phase 3: world.* namespace)
     engine.register_fn(
         "world.emit",
         |world: &mut ScriptGameplayApi, emitter_name: &str, owner_id: rhai::INT, args: RhaiMap| {
             world.emit(emitter_name, owner_id, args)
         },
     );
+
+    // --- QUERY OPERATIONS (world.query_*, world.count_*, world.entity, world.exists) ---
+    // Note: count, count_kind, count_tag, query_kind, query_tag, entity, exists
+    //       are already registered in register_gameplay_core_api (flat names only for now)
+    //       Future expansion: add world.count(), world.query(), world.entity() versions
+
+    // --- BOUNDS OPERATIONS (world.set_bounds, world.get_bounds) ---
+    // These are accessed via set_world_bounds and world_bounds currently
+    // Pattern for future expansion:
+    engine.register_fn(
+        "world.set_bounds",
+        |world: &mut ScriptGameplayApi, min_x: rhai::FLOAT, min_y: rhai::FLOAT, max_x: rhai::FLOAT, max_y: rhai::FLOAT| {
+            world.set_world_bounds(min_x, min_y, max_x, max_y)
+        },
+    );
+    engine.register_fn(
+        "world.get_bounds",
+        |world: &mut ScriptGameplayApi| world.world_bounds()
+    );
+
+    // --- TIMER OPERATIONS (world.timer_*) ---
+    // Pattern for future: world.timer_ms, world.timer_sec, world.timer_fired
     
     // Gameplay Entity API - remaining entity operations not yet moved to engine-api
     // Physics as a property: ship.physics.velocity(), ship.physics.set_velocity(), etc.
