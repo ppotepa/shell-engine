@@ -17,7 +17,7 @@ pub mod testing;
 pub use commands::{BehaviorCommand, DebugLogSeverity};
 pub use audio::{ScriptAudioApi, register_audio_api};
 pub use scene::{ScriptSceneApi, ScriptObjectApi, register_scene_api};
-pub use namespaces::{WorldNamespace, register_namespaces};
+pub use namespaces::{WorldNamespace, WorldApi, register_namespaces};
 pub use gameplay::api::{CommandQueue, ScriptEntityContext, ScriptWorldContext};
 pub use gameplay::emitters::EmitResolved;
 pub use gameplay::geometry::{

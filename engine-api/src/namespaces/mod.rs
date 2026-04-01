@@ -6,7 +6,7 @@
 
 pub mod world;
 
-pub use world::WorldNamespace;
+pub use world::{WorldNamespace, WorldApi};
 
 use rhai::Engine as RhaiEngine;
 

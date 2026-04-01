@@ -173,22 +173,52 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             world.spawn_visual(kind, template, data)
         },
     );
+    // Namespaced version (Phase 3: world.* namespace)
+    engine.register_fn(
+        "world.spawn_visual",
+        |world: &mut ScriptGameplayApi, kind: &str, template: &str, data: RhaiMap| {
+            world.spawn_visual(kind, template, data)
+        },
+    );
+    
     engine.register_fn(
         "spawn_prefab",
         |world: &mut ScriptGameplayApi, name: &str, args: RhaiMap| world.spawn_prefab(name, args),
     );
+    // Namespaced version (Phase 3: world.* namespace)
+    engine.register_fn(
+        "world.spawn_prefab",
+        |world: &mut ScriptGameplayApi, name: &str, args: RhaiMap| world.spawn_prefab(name, args),
+    );
+    
     engine.register_fn(
         "spawn_group",
         |world: &mut ScriptGameplayApi, group_name: &str, prefab_name: &str| {
             world.spawn_group(group_name, prefab_name)
         },
     );
+    // Namespaced version (Phase 3: world.* namespace)
+    engine.register_fn(
+        "world.spawn_group",
+        |world: &mut ScriptGameplayApi, group_name: &str, prefab_name: &str| {
+            world.spawn_group(group_name, prefab_name)
+        },
+    );
+    
     engine.register_fn(
         "emit",
         |world: &mut ScriptGameplayApi, emitter_name: &str, owner_id: rhai::INT, args: RhaiMap| {
             world.emit(emitter_name, owner_id, args)
         },
     );
+    // Namespaced version (Phase 3: world.* namespace)
+    engine.register_fn(
+        "world.emit",
+        |world: &mut ScriptGameplayApi, emitter_name: &str, owner_id: rhai::INT, args: RhaiMap| {
+            world.emit(emitter_name, owner_id, args)
+        },
+    );
+    
     // Gameplay Entity API - remaining entity operations not yet moved to engine-api
     // Physics as a property: ship.physics.velocity(), ship.physics.set_velocity(), etc.
     engine.register_get("physics", |entity: &mut ScriptGameplayEntityApi| {
