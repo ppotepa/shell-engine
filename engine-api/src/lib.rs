@@ -10,7 +10,6 @@ pub mod commands;
 pub mod effects;
 pub mod gameplay;
 pub mod input;
-pub mod namespaces;
 pub mod rhai;
 pub mod scene;
 pub mod testing;
@@ -21,7 +20,6 @@ pub use audio::{ScriptAudioApi, register_audio_api};
 pub use collision::{ScriptCollisionApi, register_collision_api, filter_hits_by_kind, filter_hits_of_kind};
 pub use effects::{ScriptEffectsApi, register_effects_api};
 pub use scene::{ScriptSceneApi, ScriptObjectApi, register_scene_api};
-pub use namespaces::{WorldNamespace, WorldApi, register_namespaces};
 pub use gameplay::api::{CommandQueue, ScriptEntityContext, ScriptWorldContext};
 pub use gameplay::emitters::EmitResolved;
 pub use gameplay::geometry::{
