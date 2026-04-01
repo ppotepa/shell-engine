@@ -550,6 +550,8 @@ impl SceneRuntime {
                 }
                 // ScriptError is consumed at the behavior system level (world access needed).
                 BehaviorCommand::ScriptError { .. } => {}
+                // TriggerEffect is consumed by the compositor system (world resource access needed).
+                BehaviorCommand::TriggerEffect { .. } => {}
             }
         }
     }

@@ -6,6 +6,7 @@
 
 pub mod audio;
 pub mod commands;
+pub mod effects;
 pub mod gameplay;
 pub mod input;
 pub mod namespaces;
@@ -16,6 +17,7 @@ pub mod testing;
 // Re-export key types and functions for easy access
 pub use commands::{BehaviorCommand, DebugLogSeverity};
 pub use audio::{ScriptAudioApi, register_audio_api};
+pub use effects::{ScriptEffectsApi, register_effects_api};
 pub use scene::{ScriptSceneApi, ScriptObjectApi, register_scene_api};
 pub use namespaces::{WorldNamespace, WorldApi, register_namespaces};
 pub use gameplay::api::{CommandQueue, ScriptEntityContext, ScriptWorldContext};

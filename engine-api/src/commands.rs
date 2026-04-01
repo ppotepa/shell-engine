@@ -73,6 +73,16 @@ pub enum BehaviorCommand {
         action: String,
         keys: Vec<String>,
     },
+    /// Trigger a named visual effect at runtime (not tied to authored scene steps).
+    ///
+    /// `params` is a JSON map carrying optional EffectParams fields
+    /// (amplitude_x, amplitude_y, frequency, intensity, alpha, …).
+    TriggerEffect {
+        name: String,
+        duration_ms: u64,
+        looping: bool,
+        params: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

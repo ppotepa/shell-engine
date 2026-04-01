@@ -206,6 +206,34 @@ pub fn compositor_system(world: &mut World) {
             )
         })
     });
+
+    // Apply script-triggered runtime effects on top of the composited frame.
+    // Each entry tracks its own start time so progress is independent of authored steps.
+    {
+        let runtime_effects_ptr: *const crate::runtime_effects::RuntimeEffectsResource = world
+            .get::<crate::runtime_effects::RuntimeEffectsResource>()
+            .filter(|r| !r.is_empty())
+            .map(|r| r as *const _)
+            .unwrap_or(std::ptr::null());
+
+        if !runtime_effects_ptr.is_null() {
+            let buffer = match world.buffer_mut() {
+                Some(b) => b,
+                None => return,
+            };
+            // SAFETY: RuntimeEffectsResource is a scoped world resource stored at a separate
+            // TypeId from Buffer. We only hold an immutable pointer to it here; the buffer
+            // borrow is exclusive but targets a different HashMap entry.
+            let runtime_effects = unsafe { &*runtime_effects_ptr };
+            let full_region = engine_core::effects::Region::full(buffer);
+            for effect_entry in runtime_effects.effects() {
+                let progress = effect_entry.progress(scene_elapsed_ms);
+                let scene_effect = effect_entry.as_scene_effect();
+                engine_core::effects::apply_effect(&scene_effect, progress, full_region, buffer);
+            }
+        }
+    }
+
     // Collect vector primitives produced during compositing for SDL2 native rendering.
     // `buffer` borrow is dropped here; use saved dimensions.
     let vector_prims = engine_compositor::take_vector_primitives();

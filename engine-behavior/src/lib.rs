@@ -54,6 +54,7 @@ use scripting::{
     scene::ScriptSceneApi,
     ui::ScriptUiApi,
 };
+use engine_api::ScriptEffectsApi;
 
 /// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
@@ -665,6 +666,7 @@ impl Behavior for RhaiScriptBehavior {
                     ),
                 );
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
+                scope.push("effects", ScriptEffectsApi::new(Arc::clone(&helper_commands)));
 
                 // OPT-4: Use thread-local engine + cached AST.
                 RHAI_ENGINE.with(|cell| {

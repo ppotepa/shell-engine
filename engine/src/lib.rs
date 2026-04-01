@@ -45,6 +45,7 @@ pub mod pipeline_flags;
 pub mod pipelines;
 pub mod rasterizer;
 pub mod render_policy;
+pub mod runtime_effects;
 pub mod runtime_settings;
 pub mod scene3d_atlas;
 pub mod scene3d_format;

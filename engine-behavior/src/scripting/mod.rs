@@ -31,4 +31,5 @@ pub(crate) fn register_all_domains(engine: &mut RhaiEngine) {
     physics::register_with_rhai(engine);
     scene::register_with_rhai(engine);
     ui::register_with_rhai(engine);
+    engine_api::register_effects_api(engine);
 }

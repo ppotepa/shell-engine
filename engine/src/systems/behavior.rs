@@ -188,6 +188,33 @@ pub fn behavior_system(world: &mut World) {
             _ => {}
         }
     }
+
+    // Apply runtime effects: push TriggerEffect commands into the scoped resource,
+    // and expire stale entries. The compositor_system reads this resource each frame.
+    let scene_elapsed_ms = world
+        .animator()
+        .map(|a| a.scene_elapsed_ms)
+        .unwrap_or(0);
+
+    // Ensure the scoped resource exists (initialised lazily on first TriggerEffect).
+    let has_trigger_effect = commands.iter().any(|c| matches!(c, BehaviorCommand::TriggerEffect { .. }));
+    if has_trigger_effect {
+        if world.get::<crate::runtime_effects::RuntimeEffectsResource>().is_none() {
+            world.register_scoped(crate::runtime_effects::RuntimeEffectsResource::new());
+        }
+        if let Some(res) = world.get_mut::<crate::runtime_effects::RuntimeEffectsResource>() {
+            for command in &commands {
+                if let BehaviorCommand::TriggerEffect { name, duration_ms, looping, params } = command {
+                    let effect_params = crate::runtime_effects::params_from_json(params);
+                    res.push(name.clone(), *duration_ms, *looping, effect_params, scene_elapsed_ms);
+                }
+            }
+        }
+    }
+    // Expire stale non-looping effects each frame.
+    if let Some(res) = world.get_mut::<crate::runtime_effects::RuntimeEffectsResource>() {
+        res.retain_live(scene_elapsed_ms);
+    }
 }
 
 #[cfg(test)]

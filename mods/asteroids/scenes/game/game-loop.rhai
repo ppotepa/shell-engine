@@ -287,6 +287,8 @@ for hit in world.collision_enters("bullet", "asteroid") {
     emit_impact_burst(world, asteroid_id, 5, "yellow");
     spawn_debris(world, xf["x"], xf["y"], 3);
     audio.event(if size == 3 { "explosion_large" } else { "explosion_small" });
+    let shake_amp = if size == 3 { 1.2 } else if size == 2 { 0.7 } else { 0.3 };
+    effects.shake(220, shake_amp, shake_amp * 0.4, 9.0);
 
     world.despawn(bullet_id);
     world.despawn(asteroid_id);
@@ -330,6 +332,7 @@ if !ship.status_has("invulnerable") {
         emit_impact_burst(world, ship_id, 7, "white");
         spawn_debris(world, xf["x"], xf["y"], 4);
         audio.event("explosion_large");
+        effects.shake(400, 2.0, 0.8, 7.0);
 
         if local.lives <= 0 {
             world.despawn(ship_id);
