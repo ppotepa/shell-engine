@@ -365,6 +365,12 @@ for hit in world.collision_enters("bullet", "asteroid") {
             }
             ae.physics.set_collider_polygon(new_shape, 2, 5);
         }
+        // Bullet imparts a small angular impulse — direction depends on which
+        // side of the asteroid centre the bullet struck (cross product sign).
+        let cur_av = ae.get_f("angular_velocity", 0.0);
+        let cross = raw_x * (bxf["y"] - xf["y"]) - raw_y * (bxf["x"] - xf["x"]);
+        let spin_nudge = if cross > 0.0 { 0.05 } else { -0.05 };
+        ae.set("angular_velocity", cur_av + spin_nudge * (0.5 + rand() * 0.5));
     } else {
         // Destroyed — score, big FX, and split if large enough
         local.score += pts;
@@ -412,30 +418,32 @@ for hit in world.collision_enters("bullet", "asteroid") {
     update_hud(scene, local);
 }
 
-// ─── Collision: ship × asteroid ───────────────────────────────────────────────
+// ─── Collision: ship × asteroid — bounce ─────────────────────────────────────
 if !ship.status_has("invulnerable") {
     for hit in world.collision_enters("ship", "asteroid") {
-        let _hit = hit;
-        local.lives -= 1;
-        let xf = ship.transform();
-        emit_impact_burst(world, ship_id, 7, "white");
-        spawn_debris(world, xf["x"], xf["y"], 4);
-        audio.event("explosion_large");
-        effects.shake(400, 2.0, 0.8, 7.0);
+        let asteroid_id = hit["asteroid"];
+        if !world.exists(asteroid_id) { continue; }
 
-        if local.lives <= 0 {
-            world.despawn(ship_id);
-            local.ship_id = 0;
-            local.state = STATE_GAME_OVER;
-            local.game_over = true;
-            scene.set("hud-gameover", "visible", true);
-        } else {
-            world.despawn(ship_id);
-            local.ship_id = 0;
-            local.state = STATE_DEAD_PAUSE;
-            local.state_until = now + RESPAWN_MS;
-        }
-        update_hud(scene, local);
+        let xf  = ship.transform();
+        let axf = world.entity(asteroid_id).transform();
+
+        // Push direction: away from asteroid centre
+        let dx = xf["x"] - axf["x"];
+        let dy = xf["y"] - axf["y"];
+        let len = sqrt(dx * dx + dy * dy);
+        let nx = if len > 0.001 { dx / len } else { 1.0 };
+        let ny = if len > 0.001 { dy / len } else { 0.0 };
+
+        // Bounce velocity: reflect current ship velocity + outward kick
+        let BOUNCE_SPD = 180.0;
+        ship.physics.set_velocity(nx * BOUNCE_SPD, ny * BOUNCE_SPD);
+
+        // Brief invulnerability so the ship doesn't bounce repeatedly
+        ship.status_add("invulnerable", 800);
+
+        emit_impact_burst(world, ship_id, 4, "white");
+        audio.event("explosion_small");
+        effects.shake(120, 0.6, 0.3, 8.0);
         break;
     }
 }
