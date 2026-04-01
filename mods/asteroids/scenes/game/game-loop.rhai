@@ -32,6 +32,8 @@ fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
     let id = world.spawn_visual("asteroid", "asteroid-large", #{
         x: x,
         y: y,
+        vx: vx,
+        vy: vy,
         collider_polygon: shape,
         collider_layer: 2,
         collider_mask: 5
@@ -39,7 +41,6 @@ fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
     if world.exists(id) {
         let asteroid = world.entity(id);
         world.disable_wrap(id);
-        world.set_physics(id, vx, vy, 0.0, 0.0, 0.0, 0.0);
         let visual = asteroid.get_s("visual_id", "");
         asteroid.set("size", size);
         asteroid.set("score", asteroid_score(size));
@@ -331,7 +332,6 @@ for hit in world.collision_enters("bullet", "asteroid") {
                     let spin2 = (rand() - 0.5) * 1.6;
                     ne.set("angular_velocity", spin2);
                     ne.set_heading(rand() * TWO_PI);
-                    ne.physics.set_velocity(vx, vy);
                 }
             }
         }

@@ -669,6 +669,35 @@ impl ScriptGameplayApi {
             }
         }
 
+        // Step 8: Create physics body if velocity/physics fields are present
+        let has_physics = data.get("vx").is_some()
+            || data.get("vy").is_some()
+            || data.get("drag").is_some()
+            || data.get("max_speed").is_some();
+        if has_physics {
+            let extract_f = |key: &str| -> f32 {
+                data.get(key)
+                    .and_then(|v| {
+                        v.clone()
+                            .try_cast::<rhai::FLOAT>()
+                            .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
+                    })
+                    .unwrap_or(0.0) as f32
+            };
+            let body = PhysicsBody2D {
+                vx: extract_f("vx"),
+                vy: extract_f("vy"),
+                ax: extract_f("ax"),
+                ay: extract_f("ay"),
+                drag: extract_f("drag"),
+                max_speed: extract_f("max_speed"),
+            };
+            if !world.set_physics(entity_id, body) {
+                world.despawn(entity_id);
+                return 0;
+            }
+        }
+
         entity_id as rhai::INT
     }
 

@@ -472,7 +472,7 @@ Spawn, query, mutate, and despawn gameplay entities.
 ```rhai
 // Spawn
 world.spawn_prefab(name, args_map)            // spawn from prefab catalog; returns id
-world.spawn_visual(kind, template, data_map)  // atomic: create entity + visual + binding
+world.spawn_visual(kind, template, data_map)  // atomic: create entity + visual + physics + collider
 world.spawn_batch(specs_array)                // batch spawn; returns array of ids
 
 // Query

@@ -83,6 +83,10 @@ world.clear()                           // Remove ALL entities
 |--------------------|---------|-------------------------------------------------|
 | `x`, `y`           | float   | Initial world position                          |
 | `heading`          | float   | Initial heading in radians                      |
+| `vx`, `vy`         | float   | Initial velocity (creates physics body)         |
+| `ax`, `ay`         | float   | Initial acceleration                            |
+| `drag`             | float   | Linear drag coefficient                         |
+| `max_speed`        | float   | Speed cap (0 = unlimited)                       |
 | `collider_radius`  | float   | Attach a circle collider                        |
 | `collider_polygon` | `[]`    | Attach a polygon collider (array of `[x,y]`)   |
 | `collider_layer`   | int     | Collision layer bitmask                         |
