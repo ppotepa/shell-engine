@@ -367,6 +367,16 @@ if !ship.status_has("invulnerable") {
     }
 }
 
+// ─── Out-of-bounds cleanup ────────────────────────────────────────────────────
+let OOB_PAD = 80.0;
+for id in world.query_kind("asteroid") {
+    let xf = world.entity(id).transform();
+    if xf["x"] < -OOB_PAD || xf["x"] > WORLD_W + OOB_PAD
+    || xf["y"] < -OOB_PAD || xf["y"] > WORLD_H + OOB_PAD {
+        world.despawn(id);
+    }
+}
+
 // ─── Wave clear ───────────────────────────────────────────────────────────────
 if world.count_kind("asteroid") == 0 {
     local.state = STATE_WAVE_CLEAR;
