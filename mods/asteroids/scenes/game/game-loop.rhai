@@ -40,6 +40,7 @@ fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
     });
     if world.exists(id) {
         let asteroid = world.entity(id);
+        world.disable_wrap(id);
         let visual = asteroid.get_s("visual_id", "");
         asteroid.set("size", size);
         asteroid.set("score", asteroid_score(size));
@@ -57,27 +58,43 @@ fn spawn_wave(world, scene, local, count) {
     let WORLD_H  = 360.0;
     let TWO_PI   = 6.283185307;
     let spd_base = 55.0 + (local.wave - 1) * 8.0;
-    let anchor_x = WORLD_W / 2.0;
-    let anchor_y = WORLD_H / 2.0;
-
-    let ship_id = local.ship_id ?? 0;
-    if ship_id > 0 && world.exists(ship_id) {
-        let ship_xf = world.entity(ship_id).transform();
-        anchor_x = ship_xf["x"];
-        anchor_y = ship_xf["y"];
-    }
+    let spawn_pad = 36.0;
 
     for i in 0..count {
-        let angle = (i.to_float() / count.to_float()) * TWO_PI;
-        let dist  = 160.0 + rand() * 80.0;
-        let cx    = (anchor_x + cos(angle) * dist).max(30.0).min(WORLD_W - 30.0);
-        let cy    = (anchor_y + sin(angle) * dist).max(30.0).min(WORLD_H - 30.0);
-        let va    = rand() * TWO_PI;
-        let spd   = spd_base + rand() * 8.0;
+        let side  = world.rand_i(0, 4);
+        let spd   = spd_base + rand() * 10.0;
         let spin  = (rand() - 0.5) * 1.4;
+        let cx = 0.0;
+        let cy = 0.0;
+        let vx = 0.0;
+        let vy = 0.0;
 
-        let vx = cos(va) * spd;
-        let vy = sin(va) * spd;
+        if side == 0 {
+            // left -> right
+            cx = -spawn_pad;
+            cy = 20.0 + rand() * (WORLD_H - 40.0);
+            vx = spd;
+            vy = (rand() - 0.5) * spd * 0.8;
+        } else if side == 1 {
+            // right -> left
+            cx = WORLD_W + spawn_pad;
+            cy = 20.0 + rand() * (WORLD_H - 40.0);
+            vx = -spd;
+            vy = (rand() - 0.5) * spd * 0.8;
+        } else if side == 2 {
+            // top -> down
+            cx = 20.0 + rand() * (WORLD_W - 40.0);
+            cy = -spawn_pad;
+            vx = (rand() - 0.5) * spd * 0.8;
+            vy = spd;
+        } else {
+            // bottom -> up
+            cx = 20.0 + rand() * (WORLD_W - 40.0);
+            cy = WORLD_H + spawn_pad;
+            vx = (rand() - 0.5) * spd * 0.8;
+            vy = -spd;
+        }
+
         let id = spawn_asteroid(world, scene, cx, cy, vx, vy, 3, local.wave * 100 + i);
         if world.exists(id) {
             let e = world.entity(id);
