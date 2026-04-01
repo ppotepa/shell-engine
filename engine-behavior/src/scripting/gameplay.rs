@@ -104,11 +104,6 @@ impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
     fn disable_wrap(&mut self, id: rhai::INT) -> bool { self.disable_wrap(id) }
     fn poll_collision_events(&mut self) -> rhai::Array { self.poll_collision_events() }
     fn clear_events(&mut self) { self.clear_events() }
-    fn ship_set_turn(&mut self, id: rhai::INT, dir: rhai::INT) -> bool { self.ship_set_turn(id, dir) }
-    fn ship_set_thrust(&mut self, id: rhai::INT, on: bool) -> bool { self.ship_set_thrust(id, on) }
-    fn ship_heading(&mut self, id: rhai::INT) -> i32 { self.ship_heading(id) }
-    fn ship_heading_vector(&mut self, id: rhai::INT) -> RhaiMap { self.ship_heading_vector(id) }
-    fn ship_velocity(&mut self, id: rhai::INT) -> RhaiMap { self.ship_velocity(id) }
     fn spawn_batch(&mut self, specs: rhai::Array) -> rhai::Array { self.spawn_batch(specs) }
 }
 
@@ -146,7 +141,7 @@ impl GameplayEntityCoreApi for ScriptGameplayEntityApi {
     fn collider(&mut self) -> RhaiMap { self.collider() }
     fn heading(&mut self) -> rhai::INT { self.heading() }
     fn heading_vector(&mut self) -> RhaiMap { self.heading_vector() }
-    fn attach_ship_controller(&mut self, config: RhaiMap) -> bool { self.attach_ship_controller(config) }
+    fn attach_controller(&mut self, config: RhaiMap) -> bool { self.attach_controller(config) }
     fn set_turn(&mut self, dir: rhai::INT) -> bool { self.set_turn(dir) }
     fn set_thrust(&mut self, on: bool) -> bool { self.set_thrust(on) }
 }

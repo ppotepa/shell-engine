@@ -14,7 +14,7 @@ prefabs:
         layer: 1
         mask: 6
       controller:
-        controller_type: TopDownShipController
+        controller_type: ArcadeController
         config:
           turn_step_ms: 80
           thrust_power: 200.0

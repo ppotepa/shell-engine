@@ -39,7 +39,7 @@ fn despawn_lifecycle_entity(
 pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
     // Run ship controller logic BEFORE physics (controller sets acceleration)
     if let Some(gameplay_world) = world.get::<GameplayWorld>() {
-        super::ship_controller::ship_controller_system(&gameplay_world, dt_ms);
+        super::arcade_controller::arcade_controller_system(&gameplay_world, dt_ms);
     }
 
     // Run physics integration

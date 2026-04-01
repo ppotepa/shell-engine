@@ -85,7 +85,7 @@ pub trait GameplayEntityCoreApi: Clone + 'static {
     fn collider(&mut self) -> RhaiMap;
     fn heading(&mut self) -> rhai::INT;
     fn heading_vector(&mut self) -> RhaiMap;
-    fn attach_ship_controller(&mut self, config: RhaiMap) -> bool;
+    fn attach_controller(&mut self, config: RhaiMap) -> bool;
     fn set_turn(&mut self, dir: rhai::INT) -> bool;
     fn set_thrust(&mut self, on: bool) -> bool;
 }
@@ -179,10 +179,5 @@ where
     fn disable_wrap(&mut self, id: rhai::INT) -> bool;
     fn poll_collision_events(&mut self) -> RhaiArray;
     fn clear_events(&mut self);
-    fn ship_set_turn(&mut self, id: rhai::INT, dir: rhai::INT) -> bool;
-    fn ship_set_thrust(&mut self, id: rhai::INT, on: bool) -> bool;
-    fn ship_heading(&mut self, id: rhai::INT) -> i32;
-    fn ship_heading_vector(&mut self, id: rhai::INT) -> RhaiMap;
-    fn ship_velocity(&mut self, id: rhai::INT) -> RhaiMap;
     fn spawn_batch(&mut self, specs: RhaiArray) -> RhaiArray;
 }

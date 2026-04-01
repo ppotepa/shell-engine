@@ -1,6 +1,6 @@
-//! Ship controller system: manages discrete heading rotation and thrust acceleration.
+//! Arcade controller system: manages discrete heading rotation and thrust acceleration.
 //!
-//! Each frame, for entities with TopDownShipController:
+//! Each frame, for entities with ArcadeController:
 //! 1. Apply turn accumulation (discrete heading updates)
 //! 2. Update Transform2D heading to match controller heading
 //! 3. If thrusting, calculate thrust vector and update PhysicsBody2D acceleration
@@ -11,11 +11,11 @@
 
 use engine_game::GameplayWorld;
 
-/// Run ship controller logic for all entities with controllers.
+/// Run arcade controller logic for all entities with controllers.
 ///
 /// Must be called BEFORE the physics integration step each frame.
 /// Updates heading based on turn input, syncs to Transform2D, and applies thrust.
-pub fn ship_controller_system(world: &GameplayWorld, dt_ms: u64) {
+pub fn arcade_controller_system(world: &GameplayWorld, dt_ms: u64) {
     let controller_ids: Vec<u64> = world.ids_with_controller();
 
     for id in controller_ids {

@@ -89,7 +89,7 @@ pub struct ColliderComponent {
 /// Controller component: input/behavior driver.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ControllerComponent {
-    pub controller_type: String, // "TopDownShipController", "WaveSpawner", etc.
+    pub controller_type: String, // "ArcadeController", "WaveSpawner", etc.
     #[serde(default)]
     pub config: Option<HashMap<String, JsonValue>>, // controller-specific config
 }
@@ -314,7 +314,7 @@ impl ModCatalogs {
 
         // Ship prefab
         let mut ship_components = HashMap::new();
-        ship_components.insert("controller_type".to_string(), json!("TopDownShipController"));
+        ship_components.insert("controller_type".to_string(), json!("ArcadeController"));
         ship_components.insert("config".to_string(), json!({
             "turn_step_ms": 25,
             "thrust_power": 100.0,
@@ -346,7 +346,7 @@ impl ModCatalogs {
                         mask: Some(0xFFFF),
                     }),
                     controller: Some(ControllerComponent {
-                        controller_type: "TopDownShipController".to_string(),
+                        controller_type: "ArcadeController".to_string(),
                         config: Some(ship_components),
                     }),
                     lifecycle: None,

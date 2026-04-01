@@ -13,7 +13,7 @@ use engine_api::{
     follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
     parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
 };
-use engine_game::components::{DespawnVisual, LifecyclePolicy, TopDownShipController};
+use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController};
 use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
@@ -717,7 +717,7 @@ impl ScriptGameplayApi {
         // Apply controller component - merge catalog config with args["cfg"] overrides
         if let Some(ctrl) = &components.controller {
             match ctrl.controller_type.as_str() {
-                "TopDownShipController" => {
+                "ArcadeController" => {
                     let mut config_map = if let Some(cfg) = &ctrl.config {
                         let mut m = RhaiMap::new();
                         for (k, v) in cfg {
@@ -737,7 +737,7 @@ impl ScriptGameplayApi {
                         }
                     }
 
-                    if !self.attach_ship_controller(entity_id, config_map) {
+                    if !self.attach_controller(entity_id, config_map) {
                         return false;
                     }
                 }
@@ -1444,7 +1444,7 @@ impl ScriptGameplayApi {
         }
     }
 
-    pub(crate) fn attach_ship_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
+    pub(crate) fn attach_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
         let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
@@ -1455,7 +1455,7 @@ impl ScriptGameplayApi {
             .get("turn_step_ms")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: turn_step_ms");
+            eprintln!("[attach_controller] missing required field: turn_step_ms");
             return false;
         };
 
@@ -1464,7 +1464,7 @@ impl ScriptGameplayApi {
             .or_else(|| config.get("ship_thrust"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: thrust_power (or ship_thrust)");
+            eprintln!("[attach_controller] missing required field: thrust_power");
             return false;
         };
 
@@ -1473,7 +1473,7 @@ impl ScriptGameplayApi {
             .or_else(|| config.get("ship_max_speed"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: max_speed (or ship_max_speed)");
+            eprintln!("[attach_controller] missing required field: max_speed");
             return false;
         };
 
@@ -1481,7 +1481,7 @@ impl ScriptGameplayApi {
             .get("heading_bits")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: heading_bits");
+            eprintln!("[attach_controller] missing required field: heading_bits");
             return false;
         };
 
@@ -1491,75 +1491,11 @@ impl ScriptGameplayApi {
         let heading_bits = heading_bits_val as u8;
 
         let mut controller =
-            TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
+            ArcadeController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
         if let Some(xf) = world.transform(uid) {
             controller.set_heading_radians(xf.heading);
         }
         world.attach_controller(uid, controller)
-    }
-
-    pub(crate) fn ship_set_turn(&mut self, id: rhai::INT, dir: rhai::INT) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return false;
-        };
-        let uid = id as u64;
-        world.with_controller(uid, |ctrl| {
-            ctrl.set_turn(dir.clamp(-1, 1) as i8);
-        })
-    }
-
-    pub(crate) fn ship_set_thrust(&mut self, id: rhai::INT, on: bool) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return false;
-        };
-        let uid = id as u64;
-        world.with_controller(uid, |ctrl| {
-            ctrl.set_thrust(on);
-        })
-    }
-
-    pub(crate) fn ship_heading(&mut self, id: rhai::INT) -> i32 {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return 0;
-        };
-        let uid = id as u64;
-        world
-            .controller(uid)
-            .map(|c| c.current_heading)
-            .unwrap_or(0)
-    }
-
-    pub(crate) fn ship_heading_vector(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return RhaiMap::new();
-        };
-        let uid = id as u64;
-        match world.controller(uid) {
-            Some(ctrl) => {
-                let (x, y) = ctrl.heading_vector();
-                let mut map = RhaiMap::new();
-                map.insert("x".into(), (x as rhai::FLOAT).into());
-                map.insert("y".into(), (y as rhai::FLOAT).into());
-                map
-            }
-            None => RhaiMap::new(),
-        }
-    }
-
-    pub(crate) fn ship_velocity(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.ctx.world.as_ref() else {
-            return RhaiMap::new();
-        };
-        let uid = id as u64;
-        match world.physics(uid) {
-            Some(body) => {
-                let mut map = RhaiMap::new();
-                map.insert("vx".into(), (body.vx as rhai::FLOAT).into());
-                map.insert("vy".into(), (body.vy as rhai::FLOAT).into());
-                map
-            }
-            None => RhaiMap::new(),
-        }
     }
 
     pub(crate) fn poll_collision_events(&mut self) -> RhaiArray {
@@ -2060,9 +1996,9 @@ impl ScriptGameplayEntityApi {
         world.status_remaining(self.ctx.id, name) as rhai::INT
     }
 
-    // ── Ship Controller API ───────────────────────────────────────────────
+    // ── Arcade Controller API ─────────────────────────────────────────────
 
-    pub(crate) fn attach_ship_controller(&mut self, config: RhaiMap) -> bool {
+    pub(crate) fn attach_controller(&mut self, config: RhaiMap) -> bool {
         let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
@@ -2071,7 +2007,7 @@ impl ScriptGameplayEntityApi {
             .get("turn_step_ms")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: turn_step_ms");
+            eprintln!("[attach_controller] missing required field: turn_step_ms");
             return false;
         };
 
@@ -2079,7 +2015,7 @@ impl ScriptGameplayEntityApi {
             .get("thrust_power")
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: thrust_power");
+            eprintln!("[attach_controller] missing required field: thrust_power");
             return false;
         };
 
@@ -2087,7 +2023,7 @@ impl ScriptGameplayEntityApi {
             .get("max_speed")
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: max_speed");
+            eprintln!("[attach_controller] missing required field: max_speed");
             return false;
         };
 
@@ -2095,11 +2031,11 @@ impl ScriptGameplayEntityApi {
             .get("heading_bits")
             .and_then(|v| v.clone().try_cast::<rhai::INT>())
         else {
-            eprintln!("[attach_ship_controller] missing required field: heading_bits");
+            eprintln!("[attach_controller] missing required field: heading_bits");
             return false;
         };
 
-        let controller = TopDownShipController::new(
+        let controller = ArcadeController::new(
             turn_step_ms_val as u32,
             thrust_power_val as f32,
             max_speed_val as f32,

@@ -10,7 +10,7 @@ pub mod gameplay_events;
 pub mod hot_reload;
 pub mod prerender;
 pub mod scene3d_prerender;
-pub mod ship_controller;
+pub mod arcade_controller;
 pub mod visual_binding;
 pub mod visual_sync;
 pub use engine_compositor::systems::postfx;

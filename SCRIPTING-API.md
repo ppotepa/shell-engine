@@ -198,17 +198,9 @@ world.rand_seed(seed)    // Set deterministic RNG seed
 rand()                   // → float  [0.0, 1.0) — fast thread-local Xorshift (NOT seeded)
 ```
 
-### Ship Controller (World Level)
+### Arcade Controller (World Level)
 
-Low-level ship controller helpers for entities with a `TopDownShipController`:
-
-```rhai
-world.ship_set_turn(id, dir)       // dir: -1/0/1
-world.ship_set_thrust(id, on)      // bool
-world.ship_heading(id)             // → int  Discrete heading step (0..heading_bits)
-world.ship_heading_vector(id)      // → #{ x, y }  Unit vector in heading direction
-world.ship_velocity(id)            // → #{ vx, vy }
-```
+> **These world-level methods have been removed.** Use the entity-level API instead (`e.set_turn`, `e.set_thrust`, `e.heading_vector`).
 
 ---
 
@@ -290,17 +282,17 @@ e.status_has("name")            // → bool
 e.status_remaining("name")      // → int   Remaining ms
 ```
 
-### Ship Controller (Entity Level)
+### Arcade Controller (Entity Level)
 
 ```rhai
-e.attach_ship_controller(#{ ... })  // Attach TopDownShipController at runtime
+e.attach_controller(#{ ... })       // Attach ArcadeController at runtime
 e.set_turn(dir)                     // -1 (left), 0 (none), 1 (right)
 e.set_thrust(on)                    // bool
 e.heading()                         // → int  Discrete heading step
 e.heading_vector()                  // → #{ x, y }  Unit direction vector
 ```
 
-**`attach_ship_controller` config keys**:
+**`attach_controller` config keys**:
 
 | Key             | Type  | Default | Description              |
 |-----------------|-------|---------|--------------------------|

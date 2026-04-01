@@ -230,14 +230,14 @@ impl WrapBounds {
     }
 }
 
-/// Arcade-style 2D ship controller (Asteroids/Robotron style).
+/// Arcade-style top-down controller for 2D entities.
 ///
-/// Manages heading on a discrete 32-step (or configurable) circle,
+/// Manages heading on a discrete configurable-step circle,
 /// turn accumulation for frame-rate independent rotation, and thrust input.
 /// The system integrates heading changes and applies thrust acceleration to a
 /// paired PhysicsBody2D each frame.
 #[derive(Clone, Debug)]
-pub struct TopDownShipController {
+pub struct ArcadeController {
     /// Current heading on the circle (0 to heading_bits-1).
     pub current_heading: i32,
     /// Number of steps in the heading circle. Common values: 8, 16, 32.
@@ -257,7 +257,7 @@ pub struct TopDownShipController {
     pub max_speed: f32,
 }
 
-impl TopDownShipController {
+impl ArcadeController {
     /// Create a new controller with given configuration.
     pub fn new(turn_step_ms: u32, thrust_power: f32, max_speed: f32, heading_bits: u8) -> Self {
         Self {

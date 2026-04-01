@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::components::{
     Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
-    PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds,
+    PhysicsBody2D, ArcadeController, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -36,7 +36,7 @@ struct GameplayStore {
     visuals: BTreeMap<u64, VisualBinding>,
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
-    ship_controllers: BTreeMap<u64, TopDownShipController>,
+    ship_controllers: BTreeMap<u64, ArcadeController>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -893,8 +893,8 @@ impl GameplayWorld {
         }
     }
 
-    /// Attach a TopDownShipController to an entity.
-    pub fn attach_controller(&self, id: u64, controller: TopDownShipController) -> bool {
+    /// Attach an ArcadeController to an entity.
+    pub fn attach_controller(&self, id: u64, controller: ArcadeController) -> bool {
         let Ok(mut store) = self.store.lock() else {
             return false;
         };
@@ -905,18 +905,18 @@ impl GameplayWorld {
         true
     }
 
-    /// Retrieve a ship controller for an entity.
-    pub fn controller(&self, id: u64) -> Option<TopDownShipController> {
+    /// Retrieve the arcade controller for an entity.
+    pub fn controller(&self, id: u64) -> Option<ArcadeController> {
         let Ok(store) = self.store.lock() else {
             return None;
         };
         store.ship_controllers.get(&id).cloned()
     }
 
-    /// Mutate a ship controller. Returns false if entity has no controller.
+    /// Mutate an arcade controller. Returns false if entity has no controller.
     pub fn with_controller<F>(&self, id: u64, f: F) -> bool
     where
-        F: FnOnce(&mut TopDownShipController),
+        F: FnOnce(&mut ArcadeController),
     {
         let Ok(mut store) = self.store.lock() else {
             return false;

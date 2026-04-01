@@ -221,21 +221,6 @@ where
     engine.register_fn("clear_events", |world: &mut TWorld| {
         world.clear_events();
     });
-    engine.register_fn("ship_set_turn", |world: &mut TWorld, id: rhai::INT, dir: rhai::INT| {
-        world.ship_set_turn(id, dir)
-    });
-    engine.register_fn("ship_set_thrust", |world: &mut TWorld, id: rhai::INT, on: bool| {
-        world.ship_set_thrust(id, on)
-    });
-    engine.register_fn("ship_heading", |world: &mut TWorld, id: rhai::INT| {
-        world.ship_heading(id)
-    });
-    engine.register_fn("ship_heading_vector", |world: &mut TWorld, id: rhai::INT| {
-        world.ship_heading_vector(id)
-    });
-    engine.register_fn("ship_velocity", |world: &mut TWorld, id: rhai::INT| {
-        world.ship_velocity(id)
-    });
     engine.register_fn("spawn_batch", |world: &mut TWorld, specs: rhai::Array| {
         world.spawn_batch(specs)
     });
@@ -314,8 +299,8 @@ where
     engine.register_fn("collider", |entity: &mut TEntity| entity.collider());
     engine.register_fn("heading", |entity: &mut TEntity| entity.heading());
     engine.register_fn("heading_vector", |entity: &mut TEntity| entity.heading_vector());
-    engine.register_fn("attach_ship_controller", |entity: &mut TEntity, config: rhai::Map| {
-        entity.attach_ship_controller(config)
+    engine.register_fn("attach_controller", |entity: &mut TEntity, config: rhai::Map| {
+        entity.attach_controller(config)
     });
     engine.register_fn("set_turn", |entity: &mut TEntity, dir: rhai::INT| {
         entity.set_turn(dir)
