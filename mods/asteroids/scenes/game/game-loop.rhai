@@ -310,6 +310,17 @@ if thrust_on {
 }
 if turn != 0 {
     emit_rcs(world, ship_id, turn);
+    local.prev_turn = turn;
+    local.correction_until = 0;
+} else if (local.prev_turn ?? 0) != 0 {
+    // Key released — schedule a short counter-burn on the opposite side
+    local.correction_dir = -(local.prev_turn ?? 0);
+    local.correction_until = now + 80;
+    local.prev_turn = 0;
+}
+// Fire correction RCS burst for a few frames after turn release
+if (local.correction_until ?? 0) > now {
+    emit_rcs(world, ship_id, local.correction_dir);
 }
 
 // ─── Wave clear pause ──────────────────────────────────────────────────────────
