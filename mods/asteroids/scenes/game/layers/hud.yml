@@ -1,0 +1,64 @@
+- name: hud
+  z_index: 10
+  sprites:
+    - type: text
+      id: hud-score-label
+      content: "SCORE"
+      at: tl
+      x: 2
+      y: 1
+      font: "generic:1"
+      fg: gray
+
+    - type: text
+      id: hud-score
+      content: "0"
+      at: tl
+      x: 8
+      y: 1
+      font: "generic:1"
+      fg: white
+
+    - type: text
+      id: hud-lives-label
+      content: "LIVES"
+      at: tl
+      x: 2
+      y: 2
+      font: "generic:1"
+      fg: gray
+
+    - type: text
+      id: hud-lives
+      content: "3"
+      at: tl
+      x: 8
+      y: 2
+      font: "generic:1"
+      fg: white
+
+    - type: text
+      id: hud-wave-label
+      content: "WAVE"
+      at: tl
+      x: 2
+      y: 3
+      font: "generic:1"
+      fg: gray
+
+    - type: text
+      id: hud-wave
+      content: "1"
+      at: tl
+      x: 7
+      y: 3
+      font: "generic:1"
+      fg: white
+
+    - type: text
+      id: hud-gameover
+      content: "GAME OVER - PRESS FIRE OR ENTER"
+      at: cc
+      font: "generic:1"
+      fg: yellow
+      visible: false

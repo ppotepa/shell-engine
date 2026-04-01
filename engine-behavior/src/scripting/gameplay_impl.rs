@@ -7,6 +7,11 @@ use std::sync::{Arc, Mutex};
 use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
+use engine_api::{
+    ScriptEntityContext, ScriptWorldContext,
+    follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
+    parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
+};
 use engine_game::components::{DespawnVisual, LifecyclePolicy, TopDownShipController};
 use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
@@ -16,49 +21,31 @@ use engine_game::{
 use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json};
 use crate::scripting::ephemeral::{spawn_ephemeral_visual, EphemeralSpawn};
 use crate::scripting::physics::ScriptEntityPhysicsApi;
-use crate::{catalog, BehaviorCommand};
+use crate::{catalog, BehaviorCommand, EmitterState};
 
 // ── Struct Definitions ───────────────────────────────────────────────────
 
 #[derive(Clone)]
 pub(crate) struct ScriptGameplayApi {
-    pub(crate) world: Option<GameplayWorld>,
-    pub(crate) collisions: std::sync::Arc<Vec<CollisionHit>>,
-    pub(crate) collision_enters: std::sync::Arc<Vec<CollisionHit>>,
-    pub(crate) collision_stays: std::sync::Arc<Vec<CollisionHit>>,
-    pub(crate) collision_exits: std::sync::Arc<Vec<CollisionHit>>,
+    pub(crate) ctx: ScriptWorldContext,
     pub(crate) catalogs: Arc<catalog::ModCatalogs>,
-    pub(crate) queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    pub(crate) emitter_state: Option<EmitterState>,
 }
 
 #[derive(Clone)]
 pub(crate) struct ScriptGameplayEntityApi {
-    pub(crate) world: Option<GameplayWorld>,
-    pub(crate) id: u64,
-    pub(crate) queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+    pub(crate) ctx: ScriptEntityContext,
     pub(crate) physics: ScriptEntityPhysicsApi,
 }
 
 // ── ScriptGameplayApi Implementation ──────────────────────────────────────
 impl ScriptGameplayApi {
     pub(crate) fn map_number(args: &RhaiMap, key: &str, fallback: rhai::FLOAT) -> rhai::FLOAT {
-        args.get(key)
-            .and_then(|v| {
-                v.clone()
-                    .try_cast::<rhai::FLOAT>()
-                    .or_else(|| v.clone().try_cast::<rhai::INT>().map(|i| i as rhai::FLOAT))
-            })
-            .unwrap_or(fallback)
+        map_number(args, key, fallback)
     }
 
     pub(crate) fn map_int(args: &RhaiMap, key: &str, fallback: rhai::INT) -> rhai::INT {
-        args.get(key)
-            .and_then(|v| {
-                v.clone()
-                    .try_cast::<rhai::INT>()
-                    .or_else(|| v.clone().try_cast::<rhai::FLOAT>().map(|f| f as rhai::INT))
-            })
-            .unwrap_or(fallback)
+        map_int(args, key, fallback)
     }
 
     pub(crate) fn new(
@@ -68,59 +55,61 @@ impl ScriptGameplayApi {
         collision_stays: std::sync::Arc<Vec<CollisionHit>>,
         collision_exits: std::sync::Arc<Vec<CollisionHit>>,
         catalogs: Arc<catalog::ModCatalogs>,
+        emitter_state: Option<EmitterState>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
     ) -> Self {
         Self {
-            world,
-            collisions,
-            collision_enters,
-            collision_stays,
-            collision_exits,
+            ctx: ScriptWorldContext::new(
+                world,
+                collisions,
+                collision_enters,
+                collision_stays,
+                collision_exits,
+                queue,
+            ),
             catalogs,
-            queue,
+            emitter_state,
         }
     }
 
     pub(crate) fn entity(&mut self, id: rhai::INT) -> ScriptGameplayEntityApi {
         let id_u64 = if id < 0 { 0 } else { id as u64 };
-        let world = self.world.clone();
+        let world = self.ctx.world.clone();
         ScriptGameplayEntityApi {
             physics: ScriptEntityPhysicsApi::new(world.clone(), id_u64),
-            world,
-            id: id_u64,
-            queue: Arc::clone(&self.queue),
+            ctx: ScriptEntityContext::new(world, id_u64, Arc::clone(&self.ctx.queue)),
         }
     }
 
     pub(crate) fn clear(&mut self) {
-        if let Some(world) = self.world.as_ref() {
+        if let Some(world) = self.ctx.world.as_ref() {
             world.clear();
         }
     }
 
     pub(crate) fn count(&mut self) -> rhai::INT {
-        self.world
+        self.ctx.world
             .as_ref()
             .map(|world| world.count() as rhai::INT)
             .unwrap_or(0)
     }
 
     pub(crate) fn count_kind(&mut self, kind: &str) -> rhai::INT {
-        self.world
+        self.ctx.world
             .as_ref()
             .map(|world| world.count_kind(kind) as rhai::INT)
             .unwrap_or(0)
     }
 
     pub(crate) fn count_tag(&mut self, tag: &str) -> rhai::INT {
-        self.world
+        self.ctx.world
             .as_ref()
             .map(|world| world.count_tag(tag) as rhai::INT)
             .unwrap_or(0)
     }
 
     pub(crate) fn first_kind(&mut self, kind: &str) -> rhai::INT {
-        self.world
+        self.ctx.world
             .as_ref()
             .and_then(|world| world.first_kind(kind))
             .map(|id| id as rhai::INT)
@@ -128,7 +117,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn first_tag(&mut self, tag: &str) -> rhai::INT {
-        self.world
+        self.ctx.world
             .as_ref()
             .and_then(|world| world.first_tag(tag))
             .map(|id| id as rhai::INT)
@@ -138,7 +127,7 @@ impl ScriptGameplayApi {
     /// Returns a Rhai map with diagnostic info about current entity counts.
     /// Useful for tracking object growth: { total: N, by_kind: { ... }, by_policy: { ... } }
     pub(crate) fn diagnostic_info(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
         let snapshot = world.diagnostic_snapshot();
@@ -161,7 +150,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn spawn(&mut self, kind: &str, payload: RhaiDynamic) -> rhai::INT {
-        let Some(world) = self.world.clone() else {
+        let Some(world) = self.ctx.world.clone() else {
             return 0;
         };
         let Some(payload) = rhai_dynamic_to_json(&payload) else {
@@ -174,7 +163,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn despawn(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -182,7 +171,7 @@ impl ScriptGameplayApi {
         }
         let uid = id as u64;
         let tree_ids = world.despawn_tree_ids(uid);
-        if let Ok(mut commands) = self.queue.lock() {
+        if let Ok(mut commands) = self.ctx.queue.lock() {
             for tree_id in &tree_ids {
                 if let Some(binding) = world.visual(*tree_id) {
                     for vid in binding.all_visual_ids() {
@@ -199,11 +188,11 @@ impl ScriptGameplayApi {
     /// Cleanup-aware reset that despawns all dynamic entities and their visuals,
     /// unlike raw `clear()` which only wipes the store.
     pub(crate) fn reset_dynamic_entities(&mut self) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         let all_ids = world.ids();
-        if let Ok(mut commands) = self.queue.lock() {
+        if let Ok(mut commands) = self.ctx.queue.lock() {
             for id in &all_ids {
                 if let Some(binding) = world.visual(*id) {
                     for vid in binding.all_visual_ids() {
@@ -219,7 +208,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn bind_visual(&mut self, id: rhai::INT, visual_id: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 || visual_id.trim().is_empty() {
@@ -229,7 +218,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn exists(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -239,7 +228,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn kind(&mut self, id: rhai::INT) -> String {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return String::new();
         };
         if id < 0 {
@@ -249,7 +238,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn tags(&mut self, id: rhai::INT) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
         if id < 0 {
@@ -259,7 +248,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn ids(&mut self) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
         world
@@ -270,7 +259,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn query_kind(&mut self, kind: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
         world
@@ -281,7 +270,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn query_tag(&mut self, tag: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
         world
@@ -292,7 +281,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn get(&mut self, id: rhai::INT, path: &str) -> RhaiDynamic {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return ().into();
         };
         if id < 0 {
@@ -305,7 +294,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn set(&mut self, id: rhai::INT, path: &str, value: RhaiDynamic) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -318,7 +307,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn has(&mut self, id: rhai::INT, path: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -328,7 +317,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn remove(&mut self, id: rhai::INT, path: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -338,7 +327,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn push(&mut self, id: rhai::INT, path: &str, value: RhaiDynamic) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -357,7 +346,7 @@ impl ScriptGameplayApi {
         y: rhai::FLOAT,
         heading: rhai::FLOAT,
     ) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -374,7 +363,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn transform(&mut self, id: rhai::INT) -> RhaiDynamic {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return ().into();
         };
         if id < 0 {
@@ -400,7 +389,7 @@ impl ScriptGameplayApi {
         drag: rhai::FLOAT,
         max_speed: rhai::FLOAT,
     ) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -420,7 +409,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn physics(&mut self, id: rhai::INT) -> RhaiDynamic {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return ().into();
         };
         if id < 0 {
@@ -446,7 +435,7 @@ impl ScriptGameplayApi {
         layer: rhai::INT,
         mask: rhai::INT,
     ) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -465,7 +454,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn set_lifetime(&mut self, id: rhai::INT, ttl_ms: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -481,7 +470,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn set_visual(&mut self, id: rhai::INT, visual_id: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         if id < 0 {
@@ -501,7 +490,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn spawn_visual(&mut self, kind: &str, template: &str, data: RhaiMap) -> rhai::INT {
-        let Some(world) = self.world.clone() else {
+        let Some(world) = self.ctx.world.clone() else {
             return 0;
         };
 
@@ -515,7 +504,7 @@ impl ScriptGameplayApi {
 
         // Step 3: Emit SceneSpawn command
         {
-            let mut commands = match self.queue.lock() {
+            let mut commands = match self.ctx.queue.lock() {
                 Ok(cmds) => cmds,
                 Err(_) => {
                     world.despawn(entity_id);
@@ -816,7 +805,7 @@ impl ScriptGameplayApi {
 
         let sprite_template = prefab.sprite_template.as_deref().unwrap_or(&prefab.kind);
 
-        let id = if lifecycle_str == "Ttl" || lifecycle_str == "TtlOwnerBound" {
+        let id = if is_ephemeral_lifecycle(lifecycle_str) {
             // Ephemeral spawn for TTL-based entities (bullets, smoke, short-lived particles)
             self.spawn_prefab_ephemeral(&prefab, x, y, heading, &args)
         } else {
@@ -862,11 +851,10 @@ impl ScriptGameplayApi {
         heading: rhai::FLOAT,
         args: &RhaiMap,
     ) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
 
-        let ttl_ms = Self::map_int(args, "ttl_ms", 0);
         let vx = Self::map_number(args, "vx", 0.0) * 60.0;
         let vy = Self::map_number(args, "vy", 0.0) * 60.0;
         let sprite_template = prefab.sprite_template.as_deref().unwrap_or(&prefab.kind);
@@ -887,46 +875,26 @@ impl ScriptGameplayApi {
             .map(|s| s.as_str())
             .unwrap_or("");
 
-        let owner_id = Self::map_int(args, "owner_id", 0);
-        let lifecycle = match lifecycle_str {
-            "TtlOwnerBound" => LifecyclePolicy::TtlOwnerBound,
-            _ => LifecyclePolicy::Ttl,
-        };
-
-        // Build extra_data from prefab components
-        let mut extra_data = BTreeMap::new();
-        if let Some(components) = &prefab.components {
-            if let Some(extra) = &components.extra_data {
-                for (k, v) in extra {
-                    extra_data.insert(k.clone(), v.clone());
-                }
-            }
-        }
-
-        // Apply args overrides (e.g., radius from visual_args)
-        if let Some(radius) = args.get("radius") {
-            if let Ok(r) = radius.as_int() {
-                extra_data.insert("radius".to_string(), JsonValue::from(r));
-            }
-        }
+        let resolved = self.resolve_ephemeral_prefab(prefab, args, lifecycle_str, vx, vy, drag, max_speed);
 
         let Some(id) = spawn_ephemeral_visual(
             world,
-            &self.queue,
+            &self.ctx.queue,
             EphemeralSpawn {
                 kind: Box::leak(prefab.kind.clone().into_boxed_str()),
                 template: Box::leak(sprite_template.to_string().into_boxed_str()),
                 x: x as f32,
                 y: y as f32,
                 heading: heading as f32,
-                vx: vx as f32,
-                vy: vy as f32,
-                drag: drag as f32,
-                max_speed: max_speed as f32,
-                ttl_ms: Some(ttl_ms as i32),
-                owner_id: (owner_id > 0).then_some(owner_id as u64),
-                lifecycle,
-                extra_data,
+                vx: resolved.vx,
+                vy: resolved.vy,
+                drag: resolved.drag,
+                max_speed: resolved.max_speed,
+                ttl_ms: Some(resolved.ttl_ms),
+                owner_id: resolved.owner_id,
+                lifecycle: resolved.lifecycle,
+                follow_anchor: resolved.follow_anchor,
+                extra_data: resolved.extra_data,
             },
         ) else {
             return 0;
@@ -990,7 +958,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn collisions(&mut self) -> RhaiArray {
-        self.collisions
+        self.ctx.collisions
             .iter()
             .map(|hit| {
                 let mut map = RhaiMap::new();
@@ -1002,10 +970,10 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn collisions_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        self.collisions
+        self.ctx.collisions
             .iter()
             .filter_map(|hit| {
                 let ka = world.kind_of(hit.a).unwrap_or_default();
@@ -1028,10 +996,10 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn collisions_of(&mut self, kind: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        self.collisions
+        self.ctx.collisions
             .iter()
             .filter_map(|hit| {
                 let ka = world.kind_of(hit.a).unwrap_or_default();
@@ -1082,24 +1050,24 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn collision_enters_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        Self::filter_hits_by_kind(&self.collision_enters.clone(), world, kind_a, kind_b)
+        Self::filter_hits_by_kind(&self.ctx.collision_enters.clone(), world, kind_a, kind_b)
     }
 
     pub(crate) fn collision_stays_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        Self::filter_hits_by_kind(&self.collision_stays.clone(), world, kind_a, kind_b)
+        Self::filter_hits_by_kind(&self.ctx.collision_stays.clone(), world, kind_a, kind_b)
     }
 
     pub(crate) fn collision_exits_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        Self::filter_hits_by_kind(&self.collision_exits.clone(), world, kind_a, kind_b)
+        Self::filter_hits_by_kind(&self.ctx.collision_exits.clone(), world, kind_a, kind_b)
     }
 
     pub(crate) fn spawn_child_entity(
@@ -1115,6 +1083,7 @@ impl ScriptGameplayApi {
         // Check parent exists before taking &mut self via spawn_visual
         let parent_uid = parent_id as u64;
         let parent_exists = self
+            .ctx
             .world
             .as_ref()
             .map(|w| w.exists(parent_uid))
@@ -1124,7 +1093,7 @@ impl ScriptGameplayApi {
         }
         let child_id = self.spawn_visual(kind, template, data);
         if child_id > 0 {
-            if let Some(world) = self.world.as_ref() {
+            if let Some(world) = self.ctx.world.as_ref() {
                 world.register_child(parent_uid, child_id as u64);
             }
         }
@@ -1135,7 +1104,7 @@ impl ScriptGameplayApi {
         if parent_id < 0 {
             return;
         }
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return;
         };
         world.despawn_children(parent_id as u64);
@@ -1149,7 +1118,7 @@ impl ScriptGameplayApi {
         min_y: rhai::FLOAT,
         max_y: rhai::FLOAT,
     ) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         let uid = id as u64;
@@ -1159,7 +1128,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn disable_wrap(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         let uid = id as u64;
@@ -1174,14 +1143,14 @@ impl ScriptGameplayApi {
         max_x: rhai::FLOAT,
         max_y: rhai::FLOAT,
     ) {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return;
         };
         world.set_world_bounds(min_x as f32, max_x as f32, min_y as f32, max_y as f32);
     }
 
     pub(crate) fn world_bounds(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
         match world.world_bounds() {
@@ -1198,63 +1167,63 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn enable_wrap_bounds(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         world.enable_wrap_bounds(id as u64)
     }
 
     pub(crate) fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return min;
         };
         world.rand_i(min as i32, max as i32) as rhai::INT
     }
 
     pub(crate) fn rand_seed(&mut self, seed: rhai::INT) {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return;
         };
         world.rand_seed(seed as i64);
     }
 
     pub(crate) fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         world.tag_add(id as u64, tag)
     }
 
     pub(crate) fn tag_remove(&mut self, id: rhai::INT, tag: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         world.tag_remove(id as u64, tag)
     }
 
     pub(crate) fn tag_has(&mut self, id: rhai::INT, tag: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         world.tag_has(id as u64, tag)
     }
 
     pub(crate) fn after_ms(&mut self, label: &str, delay_ms: rhai::INT) {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return;
         };
         world.after_ms(label, delay_ms as i64);
     }
 
     pub(crate) fn timer_fired(&mut self, label: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         world.timer_fired(label)
     }
 
     pub(crate) fn cancel_timer(&mut self, label: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         world.cancel_timer(label)
@@ -1264,7 +1233,7 @@ impl ScriptGameplayApi {
     /// Each map should have `kind: String` and optionally `data: Map`.
     /// Returns an array of spawned entity IDs.
     pub(crate) fn spawn_batch(&mut self, specs: rhai::Array) -> rhai::Array {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return rhai::Array::new();
         };
         specs
@@ -1281,8 +1250,268 @@ impl ScriptGameplayApi {
             .collect()
     }
 
+    pub(crate) fn emit(
+        &mut self,
+        emitter_name: &str,
+        owner_id: rhai::INT,
+        args: RhaiMap,
+    ) -> rhai::INT {
+        let Some(world) = self.ctx.world.clone() else {
+            return 0;
+        };
+        let Some(config) = self.catalogs.emitters.get(emitter_name).cloned() else {
+            return 0;
+        };
+        let owner_uid = if owner_id > 0 { owner_id as u64 } else { 0 };
+        if owner_uid == 0 || !world.exists(owner_uid) {
+            return 0;
+        }
+
+        let owner = self.entity(owner_uid as rhai::INT);
+        let xf = owner.clone().transform();
+        let phys = owner.clone().physics();
+        let heading = xf
+            .get("heading")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(0.0);
+        let x = xf
+            .get("x")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(0.0);
+        let y = xf
+            .get("y")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(0.0);
+
+        let heading_vec = owner.clone().heading_vector();
+        let hx = heading_vec
+            .get("x")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(0.0);
+        let hy = heading_vec
+            .get("y")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(-1.0);
+        let base_vx = phys
+            .get("vx")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(0.0);
+        let base_vy = phys
+            .get("vy")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+            .unwrap_or(0.0);
+
+        let cooldown_name = config
+            .cooldown_name
+            .clone()
+            .unwrap_or_else(|| emitter_name.to_string());
+        let cooldown_ms = config.cooldown_ms.unwrap_or(0).max(0) as f64;
+        let min_cooldown_ms = config
+            .min_cooldown_ms
+            .unwrap_or(config.cooldown_ms.unwrap_or(0))
+            .max(0) as f64;
+        let ramp_ms = config.ramp_ms.unwrap_or(0).max(0) as f64;
+        let thrust_ms = Self::map_int(&args, "thrust_ms", 0).max(0) as f64;
+        let effective_cooldown = if ramp_ms > 0.0 && cooldown_ms > min_cooldown_ms {
+            let t = (thrust_ms / ramp_ms).clamp(0.0, 1.0);
+            cooldown_ms + (min_cooldown_ms - cooldown_ms) * t
+        } else {
+            cooldown_ms.max(min_cooldown_ms)
+        };
+        if effective_cooldown > 0.0 && !owner.clone().cooldown_ready(&cooldown_name) {
+            return 0;
+        }
+
+        if let Some(max_count) = config.max_count.filter(|value| *value > 0) {
+            if let Some(state) = &self.emitter_state {
+                while state.active_count(emitter_name, Some(owner_uid)) >= max_count as usize {
+                    let Some(oldest) = state.evict_oldest(emitter_name, Some(owner_uid)) else {
+                        break;
+                    };
+                    let _ = world.despawn(oldest);
+                }
+            }
+        }
+
+        let spawn_offset = config.spawn_offset.unwrap_or(0.0);
+        let backward_speed = config.backward_speed.unwrap_or(0.0);
+        let velocity_scale = config.velocity_scale.unwrap_or(1.0);
+        let resolved = self.resolve_emit(&config, &args, spawn_offset);
+
+        let dir_angle = heading + std::f64::consts::PI + resolved.spread;
+        let dir_x = dir_angle.cos();
+        let dir_y = dir_angle.sin();
+
+        let Some(id) = spawn_ephemeral_visual(
+            &world,
+            &self.ctx.queue,
+            EphemeralSpawn {
+                kind: Box::leak(resolved.kind.clone().into_boxed_str()),
+                template: Box::leak(resolved.template.clone().into_boxed_str()),
+                x: (x - hx * spawn_offset) as f32,
+                y: (y - hy * spawn_offset) as f32,
+                heading: heading as f32,
+                vx: (base_vx * backward_speed + dir_x * resolved.speed * velocity_scale) as f32,
+                vy: (base_vy * backward_speed + dir_y * resolved.speed * velocity_scale) as f32,
+                drag: 0.0,
+                max_speed: 0.0,
+                ttl_ms: Some(resolved.ttl_ms),
+                owner_id: resolved.lifecycle.is_owner_bound().then_some(owner_uid),
+                lifecycle: resolved.lifecycle,
+                follow_anchor: resolved.follow_anchor,
+                extra_data: resolved.extra_data,
+            },
+        ) else {
+            return 0;
+        };
+
+        if let Some(binding) = world.visual(id) {
+            if let Some(visual_id) = binding.visual_id {
+                if !resolved.fg.trim().is_empty() {
+                    if let Ok(mut queue) = self.ctx.queue.lock() {
+                        queue.push(BehaviorCommand::SetProperty {
+                            target: visual_id.clone(),
+                            path: "style.fg".to_string(),
+                            value: JsonValue::from(resolved.fg.clone()),
+                        });
+                    }
+                }
+                if resolved.radius > 1 {
+                    let points = vec![[0, 0], [resolved.radius as i32, 0]];
+                    if let Ok(mut queue) = self.ctx.queue.lock() {
+                        queue.push(BehaviorCommand::SetProperty {
+                            target: visual_id,
+                            path: "vector.points".to_string(),
+                            value: JsonValue::Array(
+                                points
+                                    .into_iter()
+                                    .map(|[px, py]| {
+                                        JsonValue::Array(vec![JsonValue::from(px), JsonValue::from(py)])
+                                    })
+                                    .collect(),
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+
+        if effective_cooldown > 0.0 {
+            let _ = self
+                .entity(owner_uid as rhai::INT)
+                .cooldown_start(&cooldown_name, effective_cooldown.round() as rhai::INT);
+        }
+        if let Some(state) = &self.emitter_state {
+            state.track_spawn(emitter_name, Some(owner_uid), id);
+        }
+        id as rhai::INT
+    }
+
+    fn resolve_ephemeral_prefab(
+        &self,
+        prefab: &catalog::PrefabTemplate,
+        args: &RhaiMap,
+        lifecycle_str: &str,
+        vx: rhai::FLOAT,
+        vy: rhai::FLOAT,
+        drag: f64,
+        max_speed: f64,
+    ) -> EphemeralPrefabResolved {
+        let owner_id = Self::map_int(args, "owner_id", 0);
+        let lifecycle = parse_lifecycle_policy(lifecycle_str, LifecyclePolicy::Ttl);
+        let follow_anchor = lifecycle
+            .follows_owner()
+            .then(|| follow_anchor_from_args(args, 0.0, 0.0, true));
+
+        let mut extra_data = BTreeMap::new();
+        if let Some(components) = &prefab.components {
+            if let Some(extra) = &components.extra_data {
+                for (k, v) in extra {
+                    extra_data.insert(k.clone(), v.clone());
+                }
+            }
+        }
+        if let Some(radius) = args.get("radius") {
+            if let Ok(r) = radius.as_int() {
+                extra_data.insert("radius".to_string(), JsonValue::from(r));
+            }
+        }
+
+        EphemeralPrefabResolved {
+            ttl_ms: Self::map_int(args, "ttl_ms", 0) as i32,
+            vx: vx as f32,
+            vy: vy as f32,
+            drag: drag as f32,
+            max_speed: max_speed as f32,
+            owner_id: (owner_id > 0).then_some(owner_id as u64),
+            lifecycle,
+            follow_anchor,
+            extra_data,
+        }
+    }
+
+    fn resolve_emit(
+        &self,
+        config: &catalog::EmitterConfig,
+        args: &RhaiMap,
+        spawn_offset: f64,
+    ) -> EmitResolved {
+        let owner_bound = args
+            .get("owner_bound")
+            .and_then(|v| v.clone().try_cast::<bool>())
+            .unwrap_or(false);
+        let lifecycle_name = args
+            .get("lifecycle")
+            .and_then(|v| v.clone().try_cast::<String>())
+            .or_else(|| config.lifecycle.clone())
+            .unwrap_or_else(|| {
+                if owner_bound {
+                    "TtlOwnerBound".to_string()
+                } else {
+                    "Ttl".to_string()
+                }
+            });
+        let lifecycle = parse_lifecycle_policy(
+            &lifecycle_name,
+            if owner_bound {
+                LifecyclePolicy::TtlOwnerBound
+            } else {
+                LifecyclePolicy::Ttl
+            },
+        );
+        let follow_anchor = lifecycle.follows_owner().then(|| {
+            follow_anchor_from_args(
+                args,
+                config.follow_local_x.unwrap_or(-spawn_offset),
+                config.follow_local_y.unwrap_or(0.0),
+                config.follow_inherit_heading.unwrap_or(true),
+            )
+        });
+
+        let radius = Self::map_int(args, "radius", config.radius.unwrap_or(1)).max(1);
+        let fg = map_string(args, "fg").unwrap_or_default();
+        let mut extra_data = BTreeMap::new();
+        extra_data.insert("radius".to_string(), JsonValue::from(radius));
+        if !fg.trim().is_empty() {
+            extra_data.insert("fg".to_string(), JsonValue::from(fg.clone()));
+        }
+
+        EmitResolved {
+            speed: Self::map_number(args, "speed", 0.0),
+            spread: Self::map_number(args, "spread", 0.0),
+            ttl_ms: Self::map_int(args, "ttl_ms", config.ttl_ms.unwrap_or(250)).max(1) as i32,
+            radius,
+            template: map_string(args, "template").unwrap_or_else(|| "debris".to_string()),
+            kind: map_string(args, "kind").unwrap_or_else(|| "fx".to_string()),
+            fg,
+            lifecycle,
+            follow_anchor,
+            extra_data,
+        }
+    }
+
     pub(crate) fn attach_ship_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         let uid = id as u64;
@@ -1327,13 +1556,16 @@ impl ScriptGameplayApi {
         let max_speed = max_speed_val as f32;
         let heading_bits = heading_bits_val as u8;
 
-        let controller =
+        let mut controller =
             TopDownShipController::new(turn_step_ms, thrust_power, max_speed, heading_bits);
+        if let Some(xf) = world.transform(uid) {
+            controller.set_heading_radians(xf.heading);
+        }
         world.attach_controller(uid, controller)
     }
 
     pub(crate) fn ship_set_turn(&mut self, id: rhai::INT, dir: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         let uid = id as u64;
@@ -1343,7 +1575,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn ship_set_thrust(&mut self, id: rhai::INT, on: bool) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         let uid = id as u64;
@@ -1353,7 +1585,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn ship_heading(&mut self, id: rhai::INT) -> i32 {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
         let uid = id as u64;
@@ -1364,7 +1596,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn ship_heading_vector(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
         let uid = id as u64;
@@ -1381,7 +1613,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn ship_velocity(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
         let uid = id as u64;
@@ -1397,7 +1629,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn poll_collision_events(&mut self) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
         let collisions = world.poll_events("collision_enter");
@@ -1412,13 +1644,13 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn clear_events(&mut self) {
-        if let Some(world) = self.world.as_ref() {
+        if let Some(world) = self.ctx.world.as_ref() {
             world.clear_events();
         }
     }
 
     pub(crate) fn distance(&mut self, a: rhai::INT, b: rhai::INT) -> rhai::FLOAT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return 0.0;
         };
         let ta = world.transform(a as u64);
@@ -1434,7 +1666,7 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn any_alive(&mut self, kind: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         world.count_kind(kind) > 0
@@ -1443,14 +1675,14 @@ impl ScriptGameplayApi {
 
 impl ScriptGameplayEntityApi {
     pub(crate) fn exists(&mut self) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        world.exists(self.id)
+        world.exists(self.ctx.id)
     }
 
     pub(crate) fn id(&mut self) -> rhai::INT {
-        self.id as rhai::INT
+        self.ctx.id as rhai::INT
     }
 
     pub(crate) fn flag(&mut self, name: &str) -> bool {
@@ -1464,11 +1696,11 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn despawn(&mut self) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let tree_ids = world.despawn_tree_ids(self.id);
-        if let Ok(mut commands) = self.queue.lock() {
+        let tree_ids = world.despawn_tree_ids(self.ctx.id);
+        if let Ok(mut commands) = self.ctx.queue.lock() {
             for tree_id in &tree_ids {
                 if let Some(binding) = world.visual(*tree_id) {
                     for vid in binding.all_visual_ids() {
@@ -1479,15 +1711,15 @@ impl ScriptGameplayEntityApi {
                 }
             }
         }
-        world.despawn(self.id)
+        world.despawn(self.ctx.id)
     }
 
     pub(crate) fn get(&mut self, path: &str) -> RhaiDynamic {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return ().into();
         };
         world
-            .get(self.id, path)
+            .get(self.ctx.id, path)
             .map(|value| json_to_rhai_dynamic(&value))
             .unwrap_or_else(|| ().into())
     }
@@ -1501,50 +1733,50 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn set(&mut self, path: &str, value: RhaiDynamic) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         let Some(value) = rhai_dynamic_to_json(&value) else {
             return false;
         };
-        world.set(self.id, path, value)
+        world.set(self.ctx.id, path, value)
     }
 
     pub(crate) fn kind(&mut self) -> String {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return String::new();
         };
-        world.kind_of(self.id).unwrap_or_default()
+        world.kind_of(self.ctx.id).unwrap_or_default()
     }
 
     pub(crate) fn tags(&mut self) -> RhaiArray {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
         world
-            .tags(self.id)
+            .tags(self.ctx.id)
             .into_iter()
             .map(|tag| tag.into())
             .collect()
     }
 
     pub(crate) fn get_metadata(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
-        let Some(entity) = world.get_entity(self.id) else {
+        let Some(entity) = world.get_entity(self.ctx.id) else {
             return RhaiMap::new();
         };
 
         let mut metadata = RhaiMap::new();
-        metadata.insert("id".into(), (self.id as rhai::INT).into());
+        metadata.insert("id".into(), (self.ctx.id as rhai::INT).into());
         metadata.insert("kind".into(), entity.kind.into());
 
         let tags: RhaiArray = entity.tags.iter().map(|t| t.clone().into()).collect();
         metadata.insert("tags".into(), tags.into());
 
         // Include all components
-        if let Some(transform) = world.transform(self.id) {
+        if let Some(transform) = world.transform(self.ctx.id) {
             let mut xf = RhaiMap::new();
             xf.insert("x".into(), (transform.x as rhai::FLOAT).into());
             xf.insert("y".into(), (transform.y as rhai::FLOAT).into());
@@ -1552,7 +1784,7 @@ impl ScriptGameplayEntityApi {
             metadata.insert("transform".into(), xf.into());
         }
 
-        if let Some(physics) = world.physics(self.id) {
+        if let Some(physics) = world.physics(self.ctx.id) {
             let mut phys = RhaiMap::new();
             phys.insert("vx".into(), (physics.vx as rhai::FLOAT).into());
             phys.insert("vy".into(), (physics.vy as rhai::FLOAT).into());
@@ -1566,7 +1798,7 @@ impl ScriptGameplayEntityApi {
             metadata.insert("physics".into(), phys.into());
         }
 
-        if let Some(collider) = world.collider(self.id) {
+        if let Some(collider) = world.collider(self.ctx.id) {
             let mut coll = RhaiMap::new();
             match &collider.shape {
                 ColliderShape::Circle { radius } => {
@@ -1592,13 +1824,13 @@ impl ScriptGameplayEntityApi {
             metadata.insert("collider".into(), coll.into());
         }
 
-        if let Some(lifetime) = world.lifetime(self.id) {
+        if let Some(lifetime) = world.lifetime(self.ctx.id) {
             let mut life = RhaiMap::new();
             life.insert("ttl_ms".into(), (lifetime.ttl_ms as rhai::INT).into());
             metadata.insert("lifetime".into(), life.into());
         }
 
-        if let Some(visual) = world.visual(self.id) {
+        if let Some(visual) = world.visual(self.ctx.id) {
             if let Some(visual_id) = &visual.visual_id {
                 metadata.insert("visual_id".into(), visual_id.clone().into());
             }
@@ -1616,13 +1848,13 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn get_components(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
 
         let mut components = RhaiMap::new();
 
-        if let Some(transform) = world.transform(self.id) {
+        if let Some(transform) = world.transform(self.ctx.id) {
             let mut xf = RhaiMap::new();
             xf.insert("x".into(), (transform.x as rhai::FLOAT).into());
             xf.insert("y".into(), (transform.y as rhai::FLOAT).into());
@@ -1630,7 +1862,7 @@ impl ScriptGameplayEntityApi {
             components.insert("transform".into(), xf.into());
         }
 
-        if let Some(physics) = world.physics(self.id) {
+        if let Some(physics) = world.physics(self.ctx.id) {
             let mut phys = RhaiMap::new();
             phys.insert("vx".into(), (physics.vx as rhai::FLOAT).into());
             phys.insert("vy".into(), (physics.vy as rhai::FLOAT).into());
@@ -1644,7 +1876,7 @@ impl ScriptGameplayEntityApi {
             components.insert("physics".into(), phys.into());
         }
 
-        if let Some(collider) = world.collider(self.id) {
+        if let Some(collider) = world.collider(self.ctx.id) {
             let mut coll = RhaiMap::new();
             match &collider.shape {
                 ColliderShape::Circle { radius } => {
@@ -1670,13 +1902,13 @@ impl ScriptGameplayEntityApi {
             components.insert("collider".into(), coll.into());
         }
 
-        if let Some(lifetime) = world.lifetime(self.id) {
+        if let Some(lifetime) = world.lifetime(self.ctx.id) {
             let mut life = RhaiMap::new();
             life.insert("ttl_ms".into(), (lifetime.ttl_ms as rhai::INT).into());
             components.insert("lifetime".into(), life.into());
         }
 
-        if let Some(visual) = world.visual(self.id) {
+        if let Some(visual) = world.visual(self.ctx.id) {
             if let Some(visual_id) = &visual.visual_id {
                 components.insert("visual_id".into(), visual_id.clone().into());
             }
@@ -1694,10 +1926,10 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn transform(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
-        let Some(xf) = world.transform(self.id) else {
+        let Some(xf) = world.transform(self.ctx.id) else {
             return RhaiMap::new();
         };
 
@@ -1709,34 +1941,40 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn set_position(&mut self, x: rhai::FLOAT, y: rhai::FLOAT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let Some(mut xf) = world.transform(self.id) else {
+        let Some(mut xf) = world.transform(self.ctx.id) else {
             return false;
         };
         xf.x = x as f32;
         xf.y = y as f32;
-        world.set_transform(self.id, xf)
+        world.set_transform(self.ctx.id, xf)
     }
 
     pub(crate) fn set_heading(&mut self, heading: rhai::FLOAT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let Some(mut xf) = world.transform(self.id) else {
+        let Some(mut xf) = world.transform(self.ctx.id) else {
             return false;
         };
         xf.heading = heading as f32;
-        world.set_transform(self.id, xf)
+        if !world.set_transform(self.ctx.id, xf) {
+            return false;
+        }
+        let _ = world.with_controller(self.ctx.id, |ctrl| {
+            ctrl.set_heading_radians(heading as f32);
+        });
+        true
     }
 
     #[allow(dead_code)]
     pub(crate) fn physics(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
-        let Some(phys) = world.physics(self.id) else {
+        let Some(phys) = world.physics(self.ctx.id) else {
             return RhaiMap::new();
         };
 
@@ -1751,22 +1989,22 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn set_acceleration(&mut self, ax: rhai::FLOAT, ay: rhai::FLOAT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        let Some(mut phys) = world.physics(self.id) else {
+        let Some(mut phys) = world.physics(self.ctx.id) else {
             return false;
         };
         phys.ax = ax as f32;
         phys.ay = ay as f32;
-        world.set_physics(self.id, phys)
+        world.set_physics(self.ctx.id, phys)
     }
 
     pub(crate) fn collider(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
-        let Some(coll) = world.collider(self.id) else {
+        let Some(coll) = world.collider(self.ctx.id) else {
             return RhaiMap::new();
         };
 
@@ -1796,24 +2034,24 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn lifetime_remaining(&mut self) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
-        let Some(lifetime) = world.lifetime(self.id) else {
+        let Some(lifetime) = world.lifetime(self.ctx.id) else {
             return 0;
         };
         lifetime.ttl_ms as rhai::INT
     }
 
     pub(crate) fn set_many(&mut self, map: RhaiMap) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         for (key, value) in map {
             let Some(json_value) = rhai_dynamic_to_json(&value) else {
                 return false;
             };
-            if !world.set(self.id, &format!("/{}", key), json_value) {
+            if !world.set(self.ctx.id, &format!("/{}", key), json_value) {
                 return false;
             }
         }
@@ -1821,10 +2059,10 @@ impl ScriptGameplayEntityApi {
     }
 
     pub(crate) fn data(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
-        let Some(entity) = world.get_entity(self.id) else {
+        let Some(entity) = world.get_entity(self.ctx.id) else {
             return RhaiMap::new();
         };
         json_to_rhai_dynamic(&entity.data)
@@ -1845,53 +2083,53 @@ impl ScriptGameplayEntityApi {
     // ── Cooldown API ──────────────────────────────────────────────────────
 
     pub(crate) fn cooldown_start(&mut self, name: &str, ms: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        world.cooldown_start(self.id, name, ms as i32)
+        world.cooldown_start(self.ctx.id, name, ms as i32)
     }
 
     pub(crate) fn cooldown_ready(&mut self, name: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return true;
         };
-        world.cooldown_ready(self.id, name)
+        world.cooldown_ready(self.ctx.id, name)
     }
 
     pub(crate) fn cooldown_remaining(&mut self, name: &str) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
-        world.cooldown_remaining(self.id, name) as rhai::INT
+        world.cooldown_remaining(self.ctx.id, name) as rhai::INT
     }
 
     // ── Status API ────────────────────────────────────────────────────────
 
     pub(crate) fn status_add(&mut self, name: &str, ms: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        world.status_add(self.id, name, ms as i32)
+        world.status_add(self.ctx.id, name, ms as i32)
     }
 
     pub(crate) fn status_has(&mut self, name: &str) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        world.status_has(self.id, name)
+        world.status_has(self.ctx.id, name)
     }
 
     pub(crate) fn status_remaining(&mut self, name: &str) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
-        world.status_remaining(self.id, name) as rhai::INT
+        world.status_remaining(self.ctx.id, name) as rhai::INT
     }
 
     // ── Ship Controller API ───────────────────────────────────────────────
 
     pub(crate) fn attach_ship_controller(&mut self, config: RhaiMap) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
         // Extract config values; all fields are required
@@ -1933,42 +2171,42 @@ impl ScriptGameplayEntityApi {
             max_speed_val as f32,
             heading_bits_val as u8,
         );
-        world.attach_controller(self.id, controller)
+        world.attach_controller(self.ctx.id, controller)
     }
 
     pub(crate) fn set_turn(&mut self, dir: rhai::INT) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        world.with_controller(self.id, |ctrl| {
+        world.with_controller(self.ctx.id, |ctrl| {
             ctrl.set_turn(dir.clamp(-1, 1) as i8);
         })
     }
 
     pub(crate) fn set_thrust(&mut self, on: bool) -> bool {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return false;
         };
-        world.with_controller(self.id, |ctrl| {
+        world.with_controller(self.ctx.id, |ctrl| {
             ctrl.set_thrust(on);
         })
     }
 
     pub(crate) fn heading(&mut self) -> rhai::INT {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
         world
-            .controller(self.id)
+            .controller(self.ctx.id)
             .map(|c| c.current_heading as rhai::INT)
             .unwrap_or(0)
     }
 
     pub(crate) fn heading_vector(&mut self) -> RhaiMap {
-        let Some(world) = self.world.as_ref() else {
+        let Some(world) = self.ctx.world.as_ref() else {
             return RhaiMap::new();
         };
-        match world.controller(self.id) {
+        match world.controller(self.ctx.id) {
             Some(ctrl) => {
                 let (x, y) = ctrl.heading_vector();
                 let mut map = RhaiMap::new();

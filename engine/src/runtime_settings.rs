@@ -15,13 +15,8 @@ pub fn scene_render_size_override(
     output_width: u16,
     output_height: u16,
 ) -> Option<(u16, u16)> {
-    let size_override = scene.virtual_size_override.as_deref()?;
-    let (width, height, matches_output) = parse_virtual_size_str(size_override)?;
-    Some(if matches_output {
-        (output_width.max(1), output_height.max(1))
-    } else {
-        (width.max(1), height.max(1))
-    })
+    let render_size = parse_render_size(scene.virtual_size_override.as_deref()?)?;
+    Some(render_size.resolve(output_width, output_height))
 }
 
 /// Computes startup buffer layout while honoring a scene-level render-size override.

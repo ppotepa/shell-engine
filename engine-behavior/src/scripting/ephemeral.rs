@@ -6,7 +6,8 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 use crate::BehaviorCommand;
 use engine_game::components::DespawnVisual;
 use engine_game::{
-    GameplayWorld, LifecyclePolicy, Lifetime, PhysicsBody2D, Transform2D, VisualBinding,
+    FollowAnchor2D, GameplayWorld, LifecyclePolicy, Lifetime, PhysicsBody2D, Transform2D,
+    VisualBinding,
 };
 
 pub(crate) struct EphemeralSpawn {
@@ -22,6 +23,7 @@ pub(crate) struct EphemeralSpawn {
     pub(crate) ttl_ms: Option<i32>,
     pub(crate) owner_id: Option<u64>,
     pub(crate) lifecycle: LifecyclePolicy,
+    pub(crate) follow_anchor: Option<FollowAnchor2D>,
     pub(crate) extra_data: BTreeMap<String, JsonValue>,
 }
 
@@ -131,6 +133,14 @@ pub(crate) fn spawn_ephemeral_visual(
 
     if let Some(owner_id) = spec.owner_id {
         if !world.exists(owner_id) || !world.register_child(owner_id, entity_id) {
+            let _ = world.despawn(entity_id);
+            queue_scene_cleanup(queue, &visual_id);
+            return None;
+        }
+    }
+
+    if spec.lifecycle.follows_owner() {
+        if !world.set_follow_anchor(entity_id, spec.follow_anchor.unwrap_or_default()) {
             let _ = world.despawn(entity_id);
             queue_scene_cleanup(queue, &visual_id);
             return None;

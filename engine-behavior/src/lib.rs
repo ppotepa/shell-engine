@@ -5,7 +5,6 @@ pub mod catalog;
 pub mod emit;
 pub mod emitter_state;
 pub mod factory;
-pub mod geometry;
 pub mod registry;
 pub mod rhai_util;
 pub mod scripting;
@@ -16,6 +15,10 @@ pub use builtins::{
     MenuSelectedBehavior, SceneAudioBehavior, SelectedArrowsBehavior, StageVisibilityBehavior,
     TimedVisibilityBehavior,
 };
+
+// Re-export from engine-api (now the authoritative source for script-facing types)
+pub use engine_api::{BehaviorCommand, DebugLogSeverity};
+
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -109,86 +112,6 @@ pub struct BehaviorContext {
     /// Includes `code`, `ctrl`, `alt`, `shift`, `pressed`, `is_quit` fields.
     /// Pushed to Rhai scope as `engine` map to keep engine concerns separate.
     pub engine_key_map: Arc<RhaiMap>,
-}
-
-/// A side-effect produced by a behavior and consumed by the engine systems.
-#[derive(Debug, Clone, PartialEq)]
-pub enum BehaviorCommand {
-    PlayAudioCue {
-        cue: String,
-        volume: Option<f32>,
-    },
-    PlayAudioEvent {
-        event: String,
-        gain: Option<f32>,
-    },
-    PlaySong {
-        song_id: String,
-    },
-    StopSong,
-    SetVisibility {
-        target: String,
-        visible: bool,
-    },
-    SetOffset {
-        target: String,
-        dx: i32,
-        dy: i32,
-    },
-    SetText {
-        target: String,
-        text: String,
-    },
-    SetProps {
-        target: String,
-        visible: Option<bool>,
-        dx: Option<i32>,
-        dy: Option<i32>,
-        text: Option<String>,
-    },
-    SetProperty {
-        target: String,
-        path: String,
-        value: JsonValue,
-    },
-    SceneSpawn {
-        template: String,
-        target: String,
-    },
-    SceneDespawn {
-        target: String,
-    },
-    TerminalPushOutput {
-        line: String,
-    },
-    TerminalClearOutput,
-    SceneTransition {
-        to_scene_id: String,
-    },
-    DebugLog {
-        scene_id: String,
-        source: Option<String>,
-        severity: DebugLogSeverity,
-        message: String,
-    },
-    /// Rhai script error — consumed by the behavior system to push to DebugLogBuffer.
-    ScriptError {
-        scene_id: String,
-        source: Option<String>,
-        message: String,
-    },
-    /// Register or overwrite an input action binding (name → list of key codes).
-    BindInputAction {
-        action: String,
-        keys: Vec<String>,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DebugLogSeverity {
-    Info,
-    Warn,
-    Error,
 }
 
 /// Defines the per-tick update logic for a scene object behavior.
@@ -349,6 +272,27 @@ fn init_rhai_engine() -> RhaiEngine {
         m.set_var("LAYER_DEFAULT", 0xFFFF_i64);
         engine.register_global_module(m.into());
     }
+
+    // Register generic utility functions available to all scripts
+    engine.register_fn("rand", || -> rhai::FLOAT {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        // Thread-local LCG seeded from wall clock + a counter for uniqueness
+        thread_local! {
+            static SEED: std::cell::Cell<u64> = {
+                let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+                std::cell::Cell::new(t.subsec_nanos() as u64 ^ (t.as_secs() << 17))
+            };
+        }
+        SEED.with(|s| {
+            // Xorshift64
+            let mut x = s.get().wrapping_add(1);
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            s.set(x);
+            (x >> 11) as rhai::FLOAT / (1u64 << 53) as rhai::FLOAT
+        })
+    });
 
     // Register all scripting domain APIs (types, getters, functions) with the engine
     scripting::register_all_domains(&mut engine);
@@ -716,6 +660,7 @@ impl Behavior for RhaiScriptBehavior {
                         std::sync::Arc::clone(&ctx.collision_stays),
                         std::sync::Arc::clone(&ctx.collision_exits),
                         Arc::clone(&ctx.catalogs),
+                        ctx.emitter_state.clone(),
                         Arc::clone(&helper_commands),
                     ),
                 );
@@ -1107,6 +1052,7 @@ mod tests {
         MenuCarouselObjectBehavior, MenuSelectedBehavior, RhaiScriptBehavior, SceneAudioBehavior,
         SelectedArrowsBehavior, StageVisibilityBehavior, TimedVisibilityBehavior,
     };
+    use crate::EmitterState;
     use engine_animation::SceneStage;
     use engine_core::effects::Region;
     use engine_core::game_object::{GameObject, GameObjectKind};
@@ -1657,6 +1603,7 @@ if x == 10.5 && name == "player" {
         object_states.insert(
             "obj:leader".to_string(),
             ObjectRuntimeState {
+                heading: 0.0,
                 visible: false,
                 offset_x: 3,
                 offset_y: 2,
@@ -2419,6 +2366,7 @@ out
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
+                heading: 0.0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 7,
@@ -2468,6 +2416,7 @@ out
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
+                heading: 0.0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 4,
@@ -2511,6 +2460,7 @@ obj.set("position.y", dy + 2);
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
+                heading: 0.0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 5,
@@ -2557,6 +2507,7 @@ out
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
+                heading: 0.0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 0,
@@ -2608,6 +2559,7 @@ out
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
+                heading: 0.0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 0,
@@ -2659,6 +2611,7 @@ out
         object_states.insert(
             "obj:menu-item-0".to_string(),
             ObjectRuntimeState {
+                heading: 0.0,
                 visible: true,
                 offset_x: 0,
                 offset_y: 0,
@@ -3485,5 +3438,149 @@ game.set("/test/spawn_count", ids.len);
         );
         assert_eq!(gameplay_world.count(), 0);
     }
-}
 
+    #[test]
+    fn rhai_script_behavior_emit_spawns_generic_ephemeral_fx() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let ship = world.spawn_prefab("ship", #{ x: 10.0, y: 20.0 });
+let owner = world.spawn_visual("owner", "owner-template", #{ x: 10.0, y: 20.0, heading: 0.0 });
+let fx = world.emit("test.smoke", owner, #{
+    kind: "fx",
+    template: "debris",
+    owner_bound: false,
+    speed: 12.0,
+    spread: 0.0,
+    ttl_ms: 300,
+    radius: 2,
+    fg: "gray"
+});
+game.set("/test/fx_id", fx);
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut catalogs = catalog::ModCatalogs::test_catalogs();
+        catalogs.emitters.insert(
+            "test.smoke".to_string(),
+            catalog::EmitterConfig {
+                max_count: Some(8),
+                cooldown_name: Some("smoke".to_string()),
+                cooldown_ms: Some(0),
+                min_cooldown_ms: Some(0),
+                ramp_ms: Some(0),
+                spawn_offset: Some(4.0),
+                backward_speed: Some(0.25),
+                ttl_ms: Some(240),
+                radius: Some(1),
+                velocity_scale: Some(1.0),
+                lifecycle: None,
+                follow_local_x: None,
+                follow_local_y: None,
+                follow_inherit_heading: None,
+            },
+        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.gameplay_world = Some(gameplay_world.clone());
+        test_ctx.game_state = Some(game_state.clone());
+        test_ctx.catalogs = std::sync::Arc::new(catalogs);
+        test_ctx.emitter_state = Some(EmitterState::default());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "emit should not produce ScriptError: {commands:?}"
+        );
+        let fx_id = game_state
+            .get("/test/fx_id")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        assert!(fx_id > 0);
+        assert!(gameplay_world.exists(fx_id as u64));
+        assert!(
+            commands.iter().any(|c| matches!(c, BehaviorCommand::SetProperty { path, .. } if path == "style.fg"))
+        );
+    }
+
+    #[test]
+    fn rhai_script_behavior_emit_supports_ttl_follow_owner_lifecycle() {
+        let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
+            script: Some(
+                r#"
+let owner = world.spawn_visual("owner", "owner-template", #{ x: 10.0, y: 20.0, heading: 0.0 });
+let fx = world.emit("test.follow_smoke", owner, #{
+    kind: "fx",
+    template: "debris",
+    lifecycle: "TtlFollowOwner",
+    ttl_ms: 300,
+    follow_local_x: -6.0,
+    follow_local_y: 1.0
+});
+game.set("/test/fx_id", fx);
+"#
+                .to_string(),
+            ),
+            ..BehaviorParams::default()
+        });
+        let gameplay_world = GameplayWorld::new();
+        let game_state = GameState::new();
+        let mut catalogs = catalog::ModCatalogs::test_catalogs();
+        catalogs.emitters.insert(
+            "test.follow_smoke".to_string(),
+            catalog::EmitterConfig {
+                max_count: Some(8),
+                cooldown_name: Some("smoke".to_string()),
+                cooldown_ms: Some(0),
+                min_cooldown_ms: Some(0),
+                ramp_ms: Some(0),
+                spawn_offset: Some(4.0),
+                backward_speed: Some(0.0),
+                ttl_ms: Some(240),
+                radius: Some(1),
+                velocity_scale: Some(1.0),
+                lifecycle: Some("TtlFollowOwner".to_string()),
+                follow_local_x: Some(-4.0),
+                follow_local_y: Some(0.0),
+                follow_inherit_heading: Some(true),
+            },
+        );
+        let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
+        test_ctx.gameplay_world = Some(gameplay_world.clone());
+        test_ctx.game_state = Some(game_state.clone());
+        test_ctx.catalogs = std::sync::Arc::new(catalogs);
+        test_ctx.emitter_state = Some(EmitterState::default());
+
+        let commands = run_behavior(&mut behavior, &base_scene(), test_ctx);
+        assert!(
+            !commands
+                .iter()
+                .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
+            "emit should not produce ScriptError: {commands:?}"
+        );
+        let fx_id = game_state
+            .get("/test/fx_id")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        assert!(fx_id > 0);
+        assert_eq!(
+            gameplay_world.lifecycle(fx_id as u64),
+            Some(engine_game::components::LifecyclePolicy::TtlFollowOwner)
+        );
+        let follow = gameplay_world
+            .follow_anchor(fx_id as u64)
+            .expect("follow anchor");
+        assert!((follow.local_x - (-6.0)).abs() < 0.001);
+        assert!((follow.local_y - 1.0).abs() < 0.001);
+        assert!(follow.inherit_heading);
+        assert_eq!(
+            gameplay_world.ownership(fx_id as u64).map(|ownership| ownership.owner_id),
+            Some(1)
+        );
+    }
+}

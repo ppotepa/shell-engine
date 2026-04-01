@@ -13,8 +13,6 @@ use sdl2::pixels::{Color as SdlColor, PixelFormatEnum};
 use sdl2::rect::Rect;
 use sdl2::video::FullscreenType;
 
-use crate::renderer::{LOGICAL_CELL_HEIGHT, LOGICAL_CELL_WIDTH};
-
 pub(crate) type CellPatch = (u16, u16, char, Color, Color);
 
 pub(crate) enum RuntimeCommand {
@@ -478,20 +476,19 @@ impl DirtyPixelRect {
     #[inline]
     fn include_cell(&mut self, x: u16, y: u16) {
         let x = x as u32;
-        let y_top = y as u32 * 2;
-        let y_bottom = y_top + 1;
+        let y = y as u32;
         if !self.has_updates {
             self.x_min = x;
             self.x_max = x;
-            self.y_min = y_top;
-            self.y_max = y_bottom;
+            self.y_min = y;
+            self.y_max = y;
             self.has_updates = true;
             return;
         }
         self.x_min = self.x_min.min(x);
         self.x_max = self.x_max.max(x);
-        self.y_min = self.y_min.min(y_top);
-        self.y_max = self.y_max.max(y_bottom);
+        self.y_min = self.y_min.min(y);
+        self.y_max = self.y_max.max(y);
     }
 
     #[inline]
@@ -508,37 +505,30 @@ impl DirtyPixelRect {
     }
 }
 
+/// Maps a buffer cell to a single RGBA pixel colour.
+///
+/// In 1:1 pixel mode each buffer cell is exactly one screen pixel.
+/// `▀`, `▄`, `█` and all non-space characters resolve to `fg`.
+/// `' '` resolves to `bg`.  Shade characters blend proportionally.
 #[inline]
-fn blend_shade(fg: (u8, u8, u8), bg: (u8, u8, u8), fg_weight: f32) -> (u8, u8, u8) {
-    let bg_weight = 1.0 - fg_weight;
-    (
-        ((bg.0 as f32 * bg_weight) + (fg.0 as f32 * fg_weight)).round() as u8,
-        ((bg.1 as f32 * bg_weight) + (fg.1 as f32 * fg_weight)).round() as u8,
-        ((bg.2 as f32 * bg_weight) + (fg.2 as f32 * fg_weight)).round() as u8,
-    )
+fn cell_pixel_color(symbol: char, fg: (u8, u8, u8), bg: (u8, u8, u8)) -> (u8, u8, u8) {
+    match symbol {
+        ' ' => bg,
+        '░' => blend(fg, bg, 0.25),
+        '▒' => blend(fg, bg, 0.50),
+        '▓' => blend(fg, bg, 0.75),
+        _ => fg,
+    }
 }
 
 #[inline]
-fn cell_halves(symbol: char, fg: (u8, u8, u8), bg: (u8, u8, u8)) -> ((u8, u8, u8), (u8, u8, u8)) {
-    match symbol {
-        '▀' => (fg, bg),
-        '▄' => (bg, fg),
-        ' ' => (bg, bg),
-        '░' => {
-            let c = blend_shade(fg, bg, 0.25);
-            (c, c)
-        }
-        '▒' => {
-            let c = blend_shade(fg, bg, 0.50);
-            (c, c)
-        }
-        '▓' => {
-            let c = blend_shade(fg, bg, 0.75);
-            (c, c)
-        }
-        '█' => (fg, fg),
-        _ => (fg, fg),
-    }
+fn blend(fg: (u8, u8, u8), bg: (u8, u8, u8), fg_weight: f32) -> (u8, u8, u8) {
+    let bw = 1.0 - fg_weight;
+    (
+        ((bg.0 as f32 * bw) + (fg.0 as f32 * fg_weight)).round() as u8,
+        ((bg.1 as f32 * bw) + (fg.1 as f32 * fg_weight)).round() as u8,
+        ((bg.2 as f32 * bw) + (fg.2 as f32 * fg_weight)).round() as u8,
+    )
 }
 
 fn apply_patch_to_pixels(
@@ -553,19 +543,12 @@ fn apply_patch_to_pixels(
         return;
     }
     let logical_w = output_width as usize;
-    let fg = fg.to_rgb();
-    let bg = bg.to_rgb();
-    let (top, bottom) = cell_halves(symbol, fg, bg);
-    let px = x as usize;
-    let py = y as usize * 2;
-    let i0 = (py * logical_w + px) * 4;
-    let i1 = ((py + 1) * logical_w + px) * 4;
-    if i1 + 3 >= pixel_buffer.len() {
+    let color = cell_pixel_color(symbol, fg.to_rgb(), bg.to_rgb());
+    let idx = (y as usize * logical_w + x as usize) * 4;
+    if idx + 3 >= pixel_buffer.len() {
         return;
     }
-    write_pixel_rgba(pixel_buffer, i0, top);
-    write_pixel_rgba(pixel_buffer, i1, bottom);
-    dirty.include_cell(x, y);
+    write_pixel_rgba(pixel_buffer, idx, color);
     dirty.include_cell(x, y);
 }
 
@@ -611,9 +594,9 @@ fn update_texture_row_ranges(
             continue;
         }
         let x = *x_min as u32;
-        let y = row as u32 * 2;
+        let y = row as u32;
         let w = (*x_max - *x_min + 1) as u32;
-        let h = 2;
+        let h = 1;
         update_texture_rect(texture, pixel_buffer, logical_w, (x, y, w, h))?;
         updated_any = true;
     }
@@ -752,10 +735,7 @@ fn poll_input(
 }
 
 fn logical_dimensions(width: u16, height: u16) -> (u32, u32) {
-    (
-        (width.max(1) as u32) * LOGICAL_CELL_WIDTH,
-        (height.max(1) as u32) * LOGICAL_CELL_HEIGHT,
-    )
+    (width.max(1) as u32, height.max(1) as u32)
 }
 
 fn window_dimensions(
@@ -1026,16 +1006,13 @@ fn draw_vectors(
         if prim.points.len() < 2 {
             continue;
         }
-        // Map buffer cell coords → logical pixel → canvas pixel.
-        // Buffer cell (bx, by) → logical pixel (bx * CELL_W, by * CELL_H).
+        // Map buffer pixel coords → canvas pixel via the presentation rect.
         let canvas_pts: Vec<(i32, i32)> = prim
             .points
             .iter()
             .map(|p| {
-                let lx = p[0] * LOGICAL_CELL_WIDTH as f32;
-                let ly = p[1] * LOGICAL_CELL_HEIGHT as f32;
-                let cx = pr_x + lx * pr_w / cpw_f;
-                let cy = pr_y + ly * pr_h / cph_f;
+                let cx = pr_x + p[0] * pr_w / cpw_f;
+                let cy = pr_y + p[1] * pr_h / cph_f;
                 (cx as i32, cy as i32)
             })
             .collect();
@@ -1137,26 +1114,27 @@ mod tests {
         is_fullscreen_toggle_key, logical_dimensions, map_mouse_to_output, presentation_rect,
         window_dimensions,
     };
-    use crate::renderer::DEFAULT_PIXEL_SCALE;
     use engine_core::color::Color;
     use engine_events::{KeyCode, KeyModifiers};
     use engine_runtime::PresentationPolicy;
     use sdl2::rect::Rect;
 
     #[test]
-    fn logical_surface_uses_double_height_per_output_row() {
-        assert_eq!(logical_dimensions(120, 30), (120, 60));
+    fn logical_surface_is_one_to_one() {
+        // 1:1 pixel mode — logical dimensions equal buffer dimensions, no doubling.
+        assert_eq!(logical_dimensions(120, 30), (120, 30));
         assert_eq!(
-            window_dimensions(120, 30, DEFAULT_PIXEL_SCALE, None),
-            (960, 480)
+            window_dimensions(120, 30, 1, None),
+            (120, 30)
         );
     }
 
     #[test]
     fn window_dimensions_respects_16_9_ratio() {
+        // Forced ratio with pixel_scale=1 — width 180 × 9/16 = 101.
         assert_eq!(
-            window_dimensions(180, 30, DEFAULT_PIXEL_SCALE, Some((16, 9))),
-            (1440, 810)
+            window_dimensions(180, 30, 1, Some((16, 9))),
+            (180, 101)
         );
     }
 
@@ -1189,15 +1167,17 @@ mod tests {
     }
 
     #[test]
-    fn dirty_rect_converts_cell_to_double_height_pixels() {
+    fn dirty_rect_converts_cell_to_single_pixel() {
         let mut dirty = super::DirtyPixelRect::empty();
         dirty.include_cell(10, 3);
-        assert_eq!(dirty.to_rect(), Some((10, 6, 1, 2)));
+        // In 1:1 mode each cell is exactly 1 pixel row tall.
+        assert_eq!(dirty.to_rect(), Some((10, 3, 1, 1)));
     }
 
     #[test]
-    fn patch_raster_writes_correct_halfblock_pixels() {
-        let mut pixels = vec![0u8; (4 * 6 * 4) as usize];
+    fn patch_raster_writes_correct_pixel() {
+        // Buffer: 4 wide × 3 tall → 4 × 3 × 4 bytes.
+        let mut pixels = vec![0u8; (4 * 3 * 4) as usize];
         let mut dirty = super::DirtyPixelRect::empty();
         let patch = (
             2,
@@ -1211,13 +1191,10 @@ mod tests {
             Color::Rgb { r: 1, g: 2, b: 3 },
         );
         super::apply_patch_to_pixels(&patch, 4, 3, &mut pixels, &mut dirty);
-        assert_eq!(dirty.to_rect(), Some((2, 2, 1, 2)));
-
+        // `▀` → fg color at (x=2, y=1).
         let pitch = 4 * 4;
-        let top_idx = 2 * pitch + 2 * 4;
-        let bottom_idx = 3 * pitch + 2 * 4;
-        assert_eq!(&pixels[top_idx..top_idx + 4], &[10, 20, 30, 255]);
-        assert_eq!(&pixels[bottom_idx..bottom_idx + 4], &[1, 2, 3, 255]);
+        let idx = 1 * pitch + 2 * 4;
+        assert_eq!(&pixels[idx..idx + 4], &[10, 20, 30, 255]);
     }
 
     #[test]

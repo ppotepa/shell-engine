@@ -1,0 +1,8 @@
+profiles:
+  default:
+    bindings:
+      thrust:      ["Up", "ArrowUp", "w", "W"]
+      turn_left:   ["Left", "ArrowLeft", "a", "A"]
+      turn_right:  ["Right", "ArrowRight", "d", "D"]
+      fire:        ["Space", " "]
+      restart:     ["Enter", "Space", "r", "R"]

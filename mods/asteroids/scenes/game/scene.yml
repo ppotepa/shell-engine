@@ -1,0 +1,24 @@
+id: asteroids-game
+title: Asteroids Game
+bg: black
+objects:
+  - { ref: ship }
+  - { ref: bullet }
+  - { ref: asteroid-large }
+  - { ref: asteroid-medium }
+  - { ref: asteroid-small }
+  - { ref: debris }
+layers:
+  - ref: game/layers/hud.yml
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./game-loop.rhai
+stages:
+  on_enter:
+    steps:
+      - { duration: 1 }
+  on_idle:
+    looping: true
+    steps:
+      - pause: 16ms

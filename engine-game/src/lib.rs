@@ -16,8 +16,8 @@ pub mod gameplay;
 pub mod strategy;
 
 pub use components::{
-    Collider2D, ColliderShape, DespawnReason, EntityTimers, LifecyclePolicy, Lifetime, Ownership,
-    PhysicsBody2D, Transform2D, VisualBinding, WrapBounds,
+    Collider2D, ColliderShape, DespawnReason, EntityTimers, FollowAnchor2D, LifecyclePolicy,
+    Lifetime, Ownership, PhysicsBody2D, Transform2D, VisualBinding, WrapBounds,
 };
 pub use diagnostics::{EntityCountSnapshot, EntityEventLog};
 pub use game_object::{GameObject, GameObjectKind};

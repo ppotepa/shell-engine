@@ -22,10 +22,10 @@ impl SceneRuntime {
         let cfg = self.scene.input.terminal_size_tester.clone()?;
         let mut out = Vec::new();
         for preset in cfg.presets {
-            if let Some((w, h, is_max)) = engine_runtime::parse_virtual_size_str(&preset) {
-                if !is_max {
-                    out.push((w, h));
-                }
+            if let Some(engine_runtime::RenderSize::Fixed { width, height }) =
+                engine_runtime::parse_render_size(&preset)
+            {
+                out.push((width, height));
             }
         }
         if out.is_empty() {

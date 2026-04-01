@@ -375,6 +375,14 @@ impl SceneRuntime {
                                 state.offset_y = next_y as i32;
                             }
                         }
+                        "transform.heading" => {
+                            let Some(next_heading) = value.as_f64() else {
+                                continue;
+                            };
+                            if let Some(state) = self.object_states.get_mut(object_id) {
+                                state.heading = next_heading as f32;
+                            }
+                        }
                         "text.content" => {
                             let Some(next_text) = value.as_str() else {
                                 continue;

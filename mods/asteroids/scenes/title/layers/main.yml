@@ -1,0 +1,24 @@
+- name: title
+  z_index: 0
+  sprites:
+    - type: text
+      content: "* * * A S T E R O I D S * * *"
+      at: cc
+      y: -4
+      font: "generic:1"
+      fg: white
+
+    - type: vector
+      points: [[0,-14],[7,14],[-7,14]]
+      closed: true
+      draw-char: "*"
+      at: cc
+      y: 2
+      fg_colour: white
+
+    - type: text
+      content: "PRESS ANY KEY TO START"
+      at: cc
+      y: 10
+      font: "generic:1"
+      fg: yellow

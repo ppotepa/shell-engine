@@ -1,0 +1,112 @@
+prefabs:
+  ship:
+    kind: ship
+    sprite_template: ship
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 0.7
+        max_speed: 180.0
+      collider:
+        shape: circle
+        radius: 7.0
+        layer: 1
+        mask: 6
+      controller:
+        controller_type: TopDownShipController
+        config:
+          turn_step_ms: 80
+          thrust_power: 200.0
+          max_speed: 180.0
+          heading_bits: 32
+      lifecycle: Persistent
+      wrappable: true
+
+  bullet:
+    kind: bullet
+    sprite_template: bullet
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 0.0
+        max_speed: 0.0
+      collider:
+        shape: circle
+        radius: 2.0
+        layer: 4
+        mask: 2
+      lifecycle: Ttl
+      wrappable: true
+
+  asteroid-large:
+    kind: asteroid
+    sprite_template: asteroid-large
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 0.0
+        max_speed: 0.0
+      collider:
+        shape: circle
+        radius: 22.0
+        layer: 2
+        mask: 5
+      lifecycle: Persistent
+      wrappable: true
+      extra_data:
+        size: 3
+        score: 20
+
+  asteroid-medium:
+    kind: asteroid
+    sprite_template: asteroid-medium
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 0.0
+        max_speed: 0.0
+      collider:
+        shape: circle
+        radius: 11.0
+        layer: 2
+        mask: 5
+      lifecycle: Persistent
+      wrappable: true
+      extra_data:
+        size: 2
+        score: 50
+
+  asteroid-small:
+    kind: asteroid
+    sprite_template: asteroid-small
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 0.0
+        max_speed: 0.0
+      collider:
+        shape: circle
+        radius: 6.0
+        layer: 2
+        mask: 5
+      lifecycle: Persistent
+      wrappable: true
+      extra_data:
+        size: 1
+        score: 100
+
+  debris:
+    kind: debris
+    sprite_template: debris
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 0.85
+        max_speed: 0.0
+      lifecycle: Ttl

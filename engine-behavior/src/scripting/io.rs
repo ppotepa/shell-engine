@@ -1,4 +1,4 @@
-//! IO domain APIs: ScriptTerminalApi and ScriptInputApi.
+//! IO domain APIs: Terminal and input.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -7,8 +7,6 @@ use rhai::Engine as RhaiEngine;
 
 use crate::rhai_util::normalize_input_code;
 use crate::{catalog, BehaviorCommand};
-
-// ── ScriptTerminalApi ────────────────────────────────────────────────────
 
 #[derive(Clone)]
 pub(crate) struct ScriptTerminalApi {
@@ -36,8 +34,6 @@ impl ScriptTerminalApi {
         queue.push(BehaviorCommand::TerminalClearOutput);
     }
 }
-
-// ── ScriptInputApi ───────────────────────────────────────────────────────
 
 #[derive(Clone)]
 pub(crate) struct ScriptInputApi {
@@ -73,7 +69,6 @@ impl ScriptInputApi {
         self.keys_down.contains(&normalized)
     }
 
-    /// Returns `true` only on the first frame a key is pressed (not while held).
     fn just_pressed(&mut self, code: &str) -> bool {
         let normalized = normalize_input_code(code);
         if normalized.is_empty() {
@@ -90,7 +85,6 @@ impl ScriptInputApi {
         self.keys_down.len() as rhai::INT
     }
 
-    /// Returns `true` if any key bound to `action` is currently held.
     fn action_down(&mut self, action: &str) -> bool {
         let Some(keys) = self.action_bindings.get(action) else {
             return false;
@@ -101,7 +95,6 @@ impl ScriptInputApi {
         })
     }
 
-    /// Returns `true` only on the first frame any key bound to `action` is pressed.
     fn action_just_pressed(&mut self, action: &str) -> bool {
         let Some(keys) = self.action_bindings.get(action) else {
             return false;
@@ -112,7 +105,6 @@ impl ScriptInputApi {
         })
     }
 
-    /// Bind an action to a list of key codes. Emits a `BindInputAction` command.
     fn bind_action(&mut self, action: &str, keys: rhai::Array) -> bool {
         let key_strs: Vec<String> = keys
             .into_iter()
@@ -128,7 +120,6 @@ impl ScriptInputApi {
     }
 
     fn load_profile(&mut self, name: &str) -> bool {
-        // Load from catalog
         if let Some(profile) = self.catalogs.input_profiles.get(name) {
             let Ok(mut q) = self.queue.lock() else {
                 return false;
@@ -141,7 +132,6 @@ impl ScriptInputApi {
             }
             return true;
         }
-
         false
     }
 }

@@ -110,15 +110,24 @@ pub enum LifecyclePolicy {
     Ttl,
     OwnerBound,
     TtlOwnerBound,
+    FollowOwner,
+    TtlFollowOwner,
 }
 
 impl LifecyclePolicy {
     pub fn uses_ttl(self) -> bool {
-        matches!(self, Self::Ttl | Self::TtlOwnerBound)
+        matches!(self, Self::Ttl | Self::TtlOwnerBound | Self::TtlFollowOwner)
     }
 
     pub fn is_owner_bound(self) -> bool {
-        matches!(self, Self::OwnerBound | Self::TtlOwnerBound)
+        matches!(
+            self,
+            Self::OwnerBound | Self::TtlOwnerBound | Self::FollowOwner | Self::TtlFollowOwner
+        )
+    }
+
+    pub fn follows_owner(self) -> bool {
+        matches!(self, Self::FollowOwner | Self::TtlFollowOwner)
     }
 
     pub fn is_transient(self) -> bool {
@@ -140,6 +149,23 @@ pub enum DespawnReason {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ownership {
     pub owner_id: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FollowAnchor2D {
+    pub local_x: f32,
+    pub local_y: f32,
+    pub inherit_heading: bool,
+}
+
+impl Default for FollowAnchor2D {
+    fn default() -> Self {
+        Self {
+            local_x: 0.0,
+            local_y: 0.0,
+            inherit_heading: true,
+        }
+    }
 }
 
 /// Per-entity named timers for cooldowns and timed status effects.
@@ -257,45 +283,27 @@ impl TopDownShipController {
     }
 
     /// Get heading as a unit vector (x, y).
-    /// Returns (sin, -cos) from 32-step heading, normalized to approximate unit vectors.
-    /// heading 0 = UP (0, -1), heading 8 = RIGHT (1, 0), heading 16 = DOWN (0, 1), heading 24 = LEFT (-1, 0)
+    /// heading 0 = UP (0, -1), heading_bits/4 = RIGHT (1, 0), etc.
+    /// Uses heading_radians() so the direction exactly matches the visual transform.
     pub fn heading_vector(&self) -> (f32, f32) {
-        let h = self.current_heading % (self.heading_bits as i32);
-
-        // sin32 returns 0-2711 for indices 0-31 (one quadrant of sine curve)
-        // We need full sine wave: apply sign based on which half of the circle we're in
-        let sin_raw = sin32(h) as f32;
-        let cos_raw =
-            sin32((h + (self.heading_bits as i32) / 4) % (self.heading_bits as i32)) as f32;
-
-        // Apply sign for lower half of circle (heading 16-31)
-        let sin_val = if h < 16 { sin_raw } else { -sin_raw };
-        let cos_val = if h < 8 || h >= 24 { cos_raw } else { -cos_raw };
-
-        // Normalize by max value (2711) to get approximate unit vector
-        (sin_val / 2711.0, -cos_val / 2711.0)
+        let r = self.heading_radians();
+        (r.sin(), -r.cos())
     }
 
     /// Convert heading to radians for Transform2D.
     pub fn heading_radians(&self) -> f32 {
         (self.current_heading as f32) * (std::f32::consts::TAU / (self.heading_bits as f32))
     }
+
+    /// Snap controller heading to the nearest discrete step for the given radians.
+    pub fn set_heading_radians(&mut self, radians: f32) {
+        let heading_bits = self.heading_bits.max(1) as f32;
+        let turns = radians.rem_euclid(std::f32::consts::TAU) / std::f32::consts::TAU;
+        let step = (turns * heading_bits).round() as i32;
+        self.current_heading = step.rem_euclid(self.heading_bits as i32);
+    }
 }
 
-
-
-/// Precomputed sin32 lookup table for fast heading-based direction calculation.
-/// sin32(i) gives the sine of (i / 32) * 2π, scaled to i16 range.
-/// Used for 2D direction vectors in discrete heading systems.
-#[inline]
-fn sin32(i: i32) -> i32 {
-    const SIN_TABLE: [i32; 32] = [
-        0, 201, 401, 601, 797, 989, 1176, 1356, 1530, 1696, 1853, 1999, 2135, 2259, 2370, 2467,
-        2549, 2616, 2665, 2697, 2711, 2707, 2685, 2644, 2585, 2508, 2413, 2300, 2169, 2021, 1856,
-        1674,
-    ];
-    SIN_TABLE[((i % 32).abs()) as usize]
-}
 
 /// Gameplay events emitted during frame processing.
 ///

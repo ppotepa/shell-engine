@@ -1,0 +1,11 @@
+kind: object
+name: asteroid-large
+sprites:
+  - type: vector
+    id: asteroid-large-sprite
+    points: [[-14,-22],[9,-20],[22,-9],[20,11],[9,22],[-11,22],[-22,9],[-20,-11]]
+    closed: true
+    draw-char: "#"
+    x: 0
+    y: 0
+    fg_colour: white

@@ -1,0 +1,1 @@
+//! Scene mutation API surface.

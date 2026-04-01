@@ -133,6 +133,14 @@ const SDL_DEFAULT_OUTPUT_WIDTH: u16 = 120;
 const SDL_DEFAULT_OUTPUT_HEIGHT: u16 = 40;
 
 fn sdl_startup_output_size(manifest: &Value) -> (u16, u16) {
+    use engine_runtime::RuntimeSettings;
+    let settings = RuntimeSettings::from_manifest(manifest);
+    // For a fixed render size, the output IS the render buffer — use it directly.
+    if let Some((w, h)) = settings.render_size.fixed() {
+        return (w, h);
+    }
+    // For MatchOutput / FitWidth we don't yet have a window to query.
+    // Fall back to min_width/min_height requirements as a starting canvas size.
     let requirements =
         terminal_caps::TerminalRequirements::from_manifest(manifest).unwrap_or_default();
     (

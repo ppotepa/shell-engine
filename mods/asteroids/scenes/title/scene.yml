@@ -1,0 +1,15 @@
+id: asteroids-title
+title: Asteroids
+bg: black
+layers:
+  - ref: title/layers/main.yml
+stages:
+  on_enter:
+    steps:
+      - { duration: 1 }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 200ms
+next: asteroids-game

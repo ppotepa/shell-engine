@@ -24,6 +24,9 @@ impl Default for PresentationPolicy {
 pub enum RenderSize {
     Fixed { width: u16, height: u16 },
     MatchOutput,
+    /// Fix the width; derive height from the live terminal's aspect ratio.
+    /// Authored as `"640x~"` in YAML.
+    FitWidth { width: u16 },
 }
 
 impl Default for RenderSize {
@@ -40,17 +43,23 @@ impl RenderSize {
         match self {
             Self::Fixed { width, height } => (width, height),
             Self::MatchOutput => (output_width.max(1), output_height.max(1)),
+            Self::FitWidth { width } => {
+                let ow = output_width.max(1) as u32;
+                let oh = output_height.max(1) as u32;
+                let height = ((width as u32 * oh) / ow).clamp(1, u16::MAX as u32) as u16;
+                (width, height)
+            }
         }
     }
 
     pub fn matches_output(self) -> bool {
-        matches!(self, Self::MatchOutput)
+        matches!(self, Self::MatchOutput | Self::FitWidth { .. })
     }
 
     pub fn fixed(self) -> Option<(u16, u16)> {
         match self {
             Self::Fixed { width, height } => Some((width, height)),
-            Self::MatchOutput => None,
+            Self::MatchOutput | Self::FitWidth { .. } => None,
         }
     }
 }
@@ -208,9 +217,6 @@ impl RuntimeSettings {
         self.render_size.fixed()
     }
 
-    pub fn resolved_virtual_size(&self, output_width: u16, output_height: u16) -> (u16, u16) {
-        self.resolved_render_size(output_width, output_height)
-    }
 }
 
 pub fn compute_presentation_layout(
@@ -309,7 +315,7 @@ fn parse_renderer_mode(raw: &str) -> Option<SceneRenderedMode> {
     }
 }
 
-fn parse_render_size(raw: &str) -> Option<RenderSize> {
+pub fn parse_render_size(raw: &str) -> Option<RenderSize> {
     let normalized = raw.trim().to_ascii_lowercase();
     if matches!(
         normalized.as_str(),
@@ -323,29 +329,28 @@ fn parse_render_size(raw: &str) -> Option<RenderSize> {
         return Some(RenderSize::MatchOutput);
     }
     let mut parts = normalized.split('x');
-    let w = parts.next()?.trim().parse::<u16>().ok()?;
-    let h = parts.next()?.trim().parse::<u16>().ok()?;
-    if parts.next().is_some() || w == 0 || h == 0 {
+    let w_str = parts.next()?.trim();
+    let h_str = parts.next()?.trim();
+    if parts.next().is_some() {
+        return None;
+    }
+    // "640x~" — fix width, adapt height to terminal aspect ratio
+    if h_str == "~" {
+        let w = w_str.parse::<u16>().ok()?;
+        if w == 0 {
+            return None;
+        }
+        return Some(RenderSize::FitWidth { width: w });
+    }
+    let w = w_str.parse::<u16>().ok()?;
+    let h = h_str.parse::<u16>().ok()?;
+    if w == 0 || h == 0 {
         return None;
     }
     Some(RenderSize::Fixed {
         width: w,
         height: h,
     })
-}
-
-/// Parse a render size string and return (width, height, matches_output).
-/// Returns None if the string is invalid.
-pub fn parse_render_size_str(raw: &str) -> Option<(u16, u16, bool)> {
-    match parse_render_size(raw)? {
-        RenderSize::Fixed { width, height } => Some((width, height, false)),
-        RenderSize::MatchOutput => Some((0, 0, true)),
-    }
-}
-
-/// Backward-compatible alias for old virtual-size parsing terminology.
-pub fn parse_virtual_size_str(raw: &str) -> Option<(u16, u16, bool)> {
-    parse_render_size_str(raw)
 }
 
 #[cfg(test)]
@@ -530,4 +535,21 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn parses_fit_width_render_size() {
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
+            "terminal:\n  render-size: \"640x~\"\n",
+        )
+        .expect("yaml parse");
+        let settings = RuntimeSettings::from_manifest(&yaml);
+        assert!(settings.render_size_matches_output());
+        // 16:9-ish terminal (160 cols × 50 rows) → height = 640 * 50 / 160 = 200
+        assert_eq!(settings.resolved_render_size(160, 50), (640, 200));
+        // 4:3-ish terminal (160 cols × 120 rows) → height = 640 * 120 / 160 = 480
+        assert_eq!(settings.resolved_render_size(160, 120), (640, 480));
+        // Square terminal → height = width = 640
+        assert_eq!(settings.resolved_render_size(100, 100), (640, 640));
+    }
 }
+

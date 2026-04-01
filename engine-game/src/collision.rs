@@ -98,8 +98,91 @@ fn intersects(
         (ColliderShape::Circle { radius: ra }, ColliderShape::Circle { radius: rb }) => {
             circle_circle(a_xf, *ra, b_xf, *rb, wrap)
         }
-        _ => false, // polygon support can be added later
+        (ColliderShape::Circle { radius: ra }, ColliderShape::Polygon { points: pb }) => {
+            circle_polygon(a_xf, *ra, b_xf, pb)
+        }
+        (ColliderShape::Polygon { points: pa }, ColliderShape::Circle { radius: rb }) => {
+            circle_polygon(b_xf, *rb, a_xf, pa)
+        }
+        (ColliderShape::Polygon { points: pa }, ColliderShape::Polygon { points: pb }) => {
+            polygon_polygon(a_xf, pa, b_xf, pb)
+        }
     }
+}
+
+/// Circle vs polygon: approximate circle as its center point plus a radius check
+/// against the polygon boundary, using `engine_physics` for exact intersection math.
+fn circle_polygon(circle_xf: &Transform2D, radius: f32, poly_xf: &Transform2D, poly_points: &[[f32; 2]]) -> bool {
+    let int_points: Vec<[i32; 2]> = poly_points
+        .iter()
+        .map(|p| [(p[0] + poly_xf.x).round() as i32, (p[1] + poly_xf.y).round() as i32])
+        .collect();
+    if int_points.len() < 3 {
+        return false;
+    }
+    let cx = circle_xf.x.round() as i32;
+    let cy = circle_xf.y.round() as i32;
+    let r = radius.round() as i32;
+
+    // Point inside polygon
+    if engine_physics::point_in_polygon([cx, cy], &int_points, [0, 0]) {
+        return true;
+    }
+    // Any polygon vertex inside circle
+    for p in &int_points {
+        let dx = p[0] - cx;
+        let dy = p[1] - cy;
+        if dx * dx + dy * dy <= r * r {
+            return true;
+        }
+    }
+    // Circle center near any polygon edge
+    let n = int_points.len();
+    for i in 0..n {
+        let a = int_points[i];
+        let b = int_points[(i + 1) % n];
+        if segment_point_dist_sq(a, b, [cx, cy]) <= (r * r) as i64 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Polygon vs polygon using `engine_physics` geo-backed intersection.
+fn polygon_polygon(a_xf: &Transform2D, pa: &[[f32; 2]], b_xf: &Transform2D, pb: &[[f32; 2]]) -> bool {
+    let pa_i32: Vec<[i32; 2]> = pa
+        .iter()
+        .map(|p| [(p[0] + a_xf.x).round() as i32, (p[1] + a_xf.y).round() as i32])
+        .collect();
+    let pb_i32: Vec<[i32; 2]> = pb
+        .iter()
+        .map(|p| [(p[0] + b_xf.x).round() as i32, (p[1] + b_xf.y).round() as i32])
+        .collect();
+    engine_physics::polygons_intersect(&pa_i32, [0, 0], &pb_i32, [0, 0])
+}
+
+/// Squared distance from point `p` to segment `[a, b]`.
+fn segment_point_dist_sq(a: [i32; 2], b: [i32; 2], p: [i32; 2]) -> i64 {
+    let ax = a[0] as i64;
+    let ay = a[1] as i64;
+    let bx = b[0] as i64;
+    let by = b[1] as i64;
+    let px = p[0] as i64;
+    let py = p[1] as i64;
+    let dx = bx - ax;
+    let dy = by - ay;
+    let len_sq = dx * dx + dy * dy;
+    if len_sq == 0 {
+        let ex = px - ax;
+        let ey = py - ay;
+        return ex * ex + ey * ey;
+    }
+    let t = ((px - ax) * dx + (py - ay) * dy).clamp(0, len_sq);
+    let proj_x = ax + t * dx / len_sq;
+    let proj_y = ay + t * dy / len_sq;
+    let ex = px - proj_x;
+    let ey = py - proj_y;
+    ex * ex + ey * ey
 }
 
 fn circle_circle(a: &Transform2D, ra: f32, b: &Transform2D, rb: f32, wrap: WrapStrategy) -> bool {

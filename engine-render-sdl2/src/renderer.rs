@@ -8,9 +8,7 @@ use crate::runtime::{
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-pub const DEFAULT_PIXEL_SCALE: u32 = 8;
-pub const LOGICAL_CELL_WIDTH: u32 = 1;
-pub const LOGICAL_CELL_HEIGHT: u32 = 2;
+pub const DEFAULT_PIXEL_SCALE: u32 = 1;
 
 pub struct Sdl2Backend {
     client: Arc<Mutex<Sdl2RuntimeClient>>,
@@ -199,10 +197,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sdl_scaling_constants_are_non_zero() {
+    fn pixel_scale_is_non_zero() {
         assert!(DEFAULT_PIXEL_SCALE > 0);
-        assert!(LOGICAL_CELL_WIDTH > 0);
-        assert!(LOGICAL_CELL_HEIGHT > 0);
     }
 
     #[test]

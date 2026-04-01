@@ -1,0 +1,11 @@
+kind: object
+name: bullet
+sprites:
+  - type: vector
+    id: bullet-sprite
+    points: [[0,0]]
+    closed: false
+    draw-char: "o"
+    x: 0
+    y: 0
+    fg_colour: yellow

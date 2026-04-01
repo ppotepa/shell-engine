@@ -9,8 +9,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use crate::components::{
-    Collider2D, EntityTimers, GameplayEvent, LifecyclePolicy, Lifetime, Ownership, PhysicsBody2D,
-    TopDownShipController, Transform2D, VisualBinding, WrapBounds,
+    Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
+    PhysicsBody2D, TopDownShipController, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -32,6 +32,7 @@ struct GameplayStore {
     lifetimes: BTreeMap<u64, Lifetime>,
     lifecycles: BTreeMap<u64, LifecyclePolicy>,
     ownership: BTreeMap<u64, Ownership>,
+    follow_anchors: BTreeMap<u64, FollowAnchor2D>,
     visuals: BTreeMap<u64, VisualBinding>,
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
@@ -59,6 +60,7 @@ impl Default for GameplayStore {
             lifetimes: BTreeMap::new(),
             lifecycles: BTreeMap::new(),
             ownership: BTreeMap::new(),
+            follow_anchors: BTreeMap::new(),
             visuals: BTreeMap::new(),
             timers: BTreeMap::new(),
             wrap_bounds: BTreeMap::new(),
@@ -157,6 +159,8 @@ impl GameplayWorld {
                 LifecyclePolicy::Ttl => "Ttl",
                 LifecyclePolicy::OwnerBound => "OwnerBound",
                 LifecyclePolicy::TtlOwnerBound => "TtlOwnerBound",
+                LifecyclePolicy::FollowOwner => "FollowOwner",
+                LifecyclePolicy::TtlFollowOwner => "TtlFollowOwner",
             };
             *by_policy.entry(policy_name.to_string()).or_insert(0) += 1;
         }
@@ -213,6 +217,7 @@ impl GameplayWorld {
             store.lifetimes.remove(&id);
             store.lifecycles.remove(&id);
             store.ownership.remove(&id);
+            store.follow_anchors.remove(&id);
             store.visuals.remove(&id);
             store.timers.remove(&id);
             store.wrap_bounds.remove(&id);
@@ -514,6 +519,37 @@ impl GameplayWorld {
         store.ownership.get(&id).copied()
     }
 
+    pub fn set_follow_anchor(&self, id: u64, follow: FollowAnchor2D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.follow_anchors.insert(id, follow);
+        true
+    }
+
+    pub fn follow_anchor(&self, id: u64) -> Option<FollowAnchor2D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.follow_anchors.get(&id).copied()
+    }
+
+    pub fn ids_with_follow_anchor(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.follow_anchors.keys().copied().collect()
+    }
+
+    pub fn remove_follow_anchor(&self, id: u64) {
+        if let Ok(mut store) = self.store.lock() {
+            store.follow_anchors.remove(&id);
+        }
+    }
+
     pub fn set_visual(&self, id: u64, binding: VisualBinding) -> bool {
         let Ok(mut store) = self.store.lock() else {
             return false;
@@ -798,6 +834,62 @@ impl GameplayWorld {
                 xf.y = ny;
                 let _ = self.set_transform(id, xf);
             }
+        }
+    }
+
+    /// Apply generic angular velocity from entity data field `angular_velocity` (radians/sec).
+    pub fn apply_angular_velocity(&self, dt_ms: u64) {
+        let dt_sec = (dt_ms as f32) / 1000.0;
+        if dt_sec <= 0.0 {
+            return;
+        }
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
+        let angular_velocities: Vec<(u64, f32)> = store
+            .entities
+            .iter()
+            .filter_map(|(id, entity)| {
+                entity
+                    .data
+                    .get("angular_velocity")
+                    .and_then(|value| value.as_f64())
+                    .map(|value| (*id, value as f32))
+            })
+            .collect();
+        for (id, omega) in angular_velocities {
+            let Some(xf) = store.transforms.get_mut(&id) else {
+                continue;
+            };
+            xf.heading = (xf.heading + omega * dt_sec).rem_euclid(std::f32::consts::TAU);
+        }
+    }
+
+    /// Apply owner-follow attachments after owner motion has been resolved.
+    pub fn apply_follow_anchors(&self) {
+        let ids = self.ids_with_follow_anchor();
+        for id in ids {
+            let Some(follow) = self.follow_anchor(id) else {
+                continue;
+            };
+            let Some(ownership) = self.ownership(id) else {
+                continue;
+            };
+            let Some(owner_xf) = self.transform(ownership.owner_id) else {
+                continue;
+            };
+            let current_heading = self.transform(id).map(|xf| xf.heading).unwrap_or(0.0);
+            let (sin_h, cos_h) = owner_xf.heading.sin_cos();
+            let xf = Transform2D {
+                x: owner_xf.x + cos_h * follow.local_x - sin_h * follow.local_y,
+                y: owner_xf.y + sin_h * follow.local_x + cos_h * follow.local_y,
+                heading: if follow.inherit_heading {
+                    owner_xf.heading
+                } else {
+                    current_heading
+                },
+            };
+            let _ = self.set_transform(id, xf);
         }
     }
 
@@ -1173,7 +1265,7 @@ fn push_path(payload: &mut JsonValue, path: &str, value: JsonValue) -> bool {
 #[cfg(test)]
 mod tests {
     use super::GameplayWorld;
-    use crate::components::LifecyclePolicy;
+    use crate::components::{FollowAnchor2D, LifecyclePolicy, Transform2D};
     use serde_json::json;
 
     #[test]
@@ -1229,5 +1321,66 @@ mod tests {
         assert!(world.despawn(parent));
         assert!(!world.exists(parent));
         assert!(!world.exists(child));
+    }
+
+    #[test]
+    fn apply_follow_anchors_tracks_owner_transform_and_heading() {
+        let world = GameplayWorld::new();
+        let owner = world.spawn("owner", json!({})).expect("owner");
+        let child = world.spawn("child", json!({})).expect("child");
+        assert!(world.register_child(owner, child));
+        assert!(world.set_transform(
+            owner,
+            Transform2D {
+                x: 10.0,
+                y: 20.0,
+                heading: std::f32::consts::FRAC_PI_2,
+            },
+        ));
+        assert!(world.set_transform(
+            child,
+            Transform2D {
+                x: 0.0,
+                y: 0.0,
+                heading: 0.0,
+            },
+        ));
+        assert!(world.set_lifecycle(child, LifecyclePolicy::TtlFollowOwner));
+        assert!(world.set_follow_anchor(
+            child,
+            FollowAnchor2D {
+                local_x: -4.0,
+                local_y: 2.0,
+                inherit_heading: true,
+            },
+        ));
+
+        world.apply_follow_anchors();
+
+        let child_xf = world.transform(child).expect("child transform");
+        assert!((child_xf.x - 8.0).abs() < 0.001);
+        assert!((child_xf.y - 16.0).abs() < 0.001);
+        assert!((child_xf.heading - std::f32::consts::FRAC_PI_2).abs() < 0.001);
+    }
+
+    #[test]
+    fn apply_angular_velocity_rotates_transform_from_entity_data() {
+        let world = GameplayWorld::new();
+        let id = world
+            .spawn("asteroid", json!({ "angular_velocity": 2.0 }))
+            .expect("entity");
+        assert!(world.set_transform(
+            id,
+            Transform2D {
+                x: 0.0,
+                y: 0.0,
+                heading: 0.5,
+            },
+        ));
+
+        world.apply_angular_velocity(250);
+
+        let xf = world.transform(id).expect("transform");
+        assert!((xf.heading - 1.0).abs() < 0.001);
     }
 }

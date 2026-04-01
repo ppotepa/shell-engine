@@ -39,6 +39,11 @@ pub fn visual_sync_system(world: &mut World) {
             path: "position.y".to_string(),
             value: serde_json::Value::from(transform.y),
         });
+        commands.push(BehaviorCommand::SetProperty {
+            target: visual_id.clone(),
+            path: "transform.heading".to_string(),
+            value: serde_json::Value::from(transform.heading),
+        });
     }
 
     if commands.is_empty() {

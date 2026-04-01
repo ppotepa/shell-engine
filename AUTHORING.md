@@ -224,10 +224,14 @@ emitters:
     cooldown_ms: 48          # Base emit cadence
     min_cooldown_ms: 16      # Faster cadence at sustained thrust
     ramp_ms: 2000            # Time to reach min cadence
+    lifecycle: "Ttl"         # Also supports OwnerBound / FollowOwner / TtlFollowOwner
     spawn_offset: 6.0        # Distance from entity
     backward_speed: 0.35     # Relative speed to entity
     ttl_ms: 520              # Particle lifetime (ms)
     radius: 3                # Visual particle size
+    follow_local_x: -6.0     # Optional owner-local follow offset
+    follow_local_y: 0.0
+    follow_inherit_heading: true
 ```
 
 ### Script State and Cross-Script Communication

@@ -135,6 +135,14 @@ pub struct EmitterConfig {
     pub radius: Option<i64>,
     #[serde(default)]
     pub velocity_scale: Option<f64>,
+    #[serde(default)]
+    pub lifecycle: Option<String>,
+    #[serde(default)]
+    pub follow_local_x: Option<f64>,
+    #[serde(default)]
+    pub follow_local_y: Option<f64>,
+    #[serde(default)]
+    pub follow_inherit_heading: Option<bool>,
 }
 
 /// Group template: predefined batch spawn.

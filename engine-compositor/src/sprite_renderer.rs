@@ -668,14 +668,34 @@ fn render_vector_sprite(
         sprite_elapsed,
         object_state,
     );
-    let origin_x = i32::from(draw_x).saturating_sub(bounds.min_x);
-    let origin_y = i32::from(draw_y).saturating_sub(bounds.min_y);
+    // Vector sprites are authored around their local origin, so gameplay-driven
+    // rotation should pivot around (0,0) instead of an AABB corner.
+    let origin_x = i32::from(draw_x);
+    let origin_y = i32::from(draw_y);
+
+    // If the entity has a non-zero heading, rotate points around local origin.
+    let rotated: Vec<[i32; 2]>;
+    let draw_points: &[[i32; 2]] = if object_state.heading.abs() > f32::EPSILON {
+        let (sin_h, cos_h) = object_state.heading.sin_cos();
+        rotated = points
+            .iter()
+            .map(|p| {
+                let fx = p[0] as f32;
+                let fy = p[1] as f32;
+                [(fx * cos_h - fy * sin_h).round() as i32, (fx * sin_h + fy * cos_h).round() as i32]
+            })
+            .collect();
+        &rotated
+    } else {
+        points
+    };
+
     if *closed && !matches!(bg, Color::Reset) {
-        engine_vector::fill_polygon(ctx.layer_buf, points, origin_x, origin_y, '█', bg, bg);
+        engine_vector::fill_polygon(ctx.layer_buf, draw_points, origin_x, origin_y, '█', bg, bg);
     }
     engine_vector::draw_polyline(
         ctx.layer_buf,
-        points,
+        draw_points,
         *closed,
         origin_x,
         origin_y,
@@ -687,7 +707,7 @@ fn render_vector_sprite(
     // Collect resolved vector for SDL2 native rendering.
     VECTOR_PRIMITIVES.with(|v| {
         v.borrow_mut().push(VectorPrimitive {
-            points: points
+            points: draw_points
                 .iter()
                 .map(|p| [(origin_x + p[0]) as f32, (origin_y + p[1]) as f32])
                 .collect(),

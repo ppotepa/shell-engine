@@ -107,11 +107,14 @@ fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
 }
 
 /// Runtime state accumulated by behaviors on top of the authored scene data.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ObjectRuntimeState {
     pub visible: bool,
     pub offset_x: i32,
     pub offset_y: i32,
+    /// Heading in radians, synced from `Transform2D` by `visual_sync_system`.
+    /// Used to rotate vector sprites around their local origin at render time.
+    pub heading: f32,
 }
 
 impl Default for ObjectRuntimeState {
@@ -120,6 +123,7 @@ impl Default for ObjectRuntimeState {
             visible: true,
             offset_x: 0,
             offset_y: 0,
+            heading: 0.0,
         }
     }
 }

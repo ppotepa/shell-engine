@@ -771,6 +771,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "engine-api"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "engine-game",
+ "rhai",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "engine-asset"
 version = "0.1.0"
 dependencies = [
@@ -816,6 +827,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "engine-animation",
+ "engine-api",
  "engine-core",
  "engine-game",
  "engine-persistence",
@@ -916,6 +928,7 @@ name = "engine-game"
 version = "0.1.0"
 dependencies = [
  "engine-core",
+ "engine-physics",
  "serde",
  "serde_json",
 ]

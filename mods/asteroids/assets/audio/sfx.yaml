@@ -1,0 +1,13 @@
+cues:
+  explosion_large:
+    - file: ""
+      volume: 0.9
+  explosion_small:
+    - file: ""
+      volume: 0.6
+  fire:
+    - file: ""
+      volume: 0.4
+  thrust:
+    - file: ""
+      volume: 0.2
