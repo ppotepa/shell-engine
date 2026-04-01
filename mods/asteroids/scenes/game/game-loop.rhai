@@ -60,7 +60,10 @@ fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
         asteroid.set("seed", seed);
         asteroid.set("shape_points", shape);
         asteroid.set("visual_id", visual_id);
-        scene.set(visual_id, "vector.points", shape);
+        // scene.set here would no-op: resolver snapshot was taken before this
+        // frame's SceneSpawn ran, so the sprite isn't registered yet.
+        // Set a flag and apply on the next frame (deferred init).
+        asteroid.set("needs_shape_init", true);
     }
     id
 }
@@ -405,6 +408,22 @@ if !ship.status_has("invulnerable") {
         }
         update_hud(scene, local);
         break;
+    }
+}
+
+// ─── Deferred shape init (resolves same-frame resolver staleness) ─────────────
+// Sprites spawned this frame aren't in the resolver snapshot yet, so any
+// scene.set in spawn_asteroid would silently no-op. We store needs_shape_init=true
+// at spawn and flush here, one frame later, when the resolver is fresh.
+for id in world.query_kind("asteroid") {
+    let e = world.entity(id);
+    if e.get_bool("needs_shape_init", false) {
+        let vid = e.get_s("visual_id", "");
+        let pts = e.get("shape_points");
+        if vid != "" && type_of(pts) != "()" {
+            scene.set(vid, "vector.points", pts);
+        }
+        e.set("needs_shape_init", false);
     }
 }
 
