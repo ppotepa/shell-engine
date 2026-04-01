@@ -7,13 +7,16 @@ fn spawn_ship(world) {
     let ship_id = world.spawn_prefab("ship", #{
         x: WORLD_W / 2.0,
         y: WORLD_H / 2.0,
-        heading: 0.0
+        heading: 0.0,
+        collider_polygon: [[0, -10], [7, 10], [-7, 10]],
+        collider_layer: 1,
+        collider_mask: 6
     });
     ship_id
 }
 
 fn asteroid_shape(size, seed) {
-    let sides  = if size == 3 { 10 } else if size == 2 { 8 } else { 6 };
+    let sides  = if size == 3 { 14 } else if size == 2 { 12 } else { 8 };
     let radius = if size == 3 { 22 } else if size == 2 { 11 } else { 6 };
     let jitter = if size == 3 { 4 } else if size == 2 { 3 } else { 2 };
     let base   = regular_polygon(sides, radius);
