@@ -139,6 +139,86 @@ pub fn dent_polygon_i32(
     result
 }
 
+/// Inserts a V-notch crack into the polygon at the vertex closest to the impact
+/// point.  Replaces that one vertex with three vertices:
+///   left_shoulder  → crack_tip (deepest) → right_shoulder
+/// giving a visible crack line that moves and rotates with the polygon.
+/// `depth` is 0–100: how far the crack tip is pushed toward the centroid.
+/// Returns a polygon with vertex count = original + 2.
+pub fn crack_polygon_i32(
+    points: &[[i32; 2]],
+    impact_x: i32,
+    impact_y: i32,
+    depth: i32,
+) -> Vec<[i32; 2]> {
+    if points.len() < 3 {
+        return points.to_vec();
+    }
+    let depth = depth.clamp(0, 100) as i64;
+
+    // Centroid
+    let cx: i64 = points.iter().map(|p| p[0] as i64).sum::<i64>() / points.len() as i64;
+    let cy: i64 = points.iter().map(|p| p[1] as i64).sum::<i64>() / points.len() as i64;
+
+    // Closest vertex to impact
+    let ix = impact_x as i64;
+    let iy = impact_y as i64;
+    let mut best_idx = 0usize;
+    let mut best_dist = i64::MAX;
+    for (i, p) in points.iter().enumerate() {
+        let dx = p[0] as i64 - ix;
+        let dy = p[1] as i64 - iy;
+        let d = dx * dx + dy * dy;
+        if d < best_dist {
+            best_dist = d;
+            best_idx = i;
+        }
+    }
+
+    let n = points.len();
+    let prev_idx = (best_idx + n - 1) % n;
+    let next_idx = (best_idx + 1) % n;
+
+    // Lerp between two points at t/100
+    let lerp = |a: [i32; 2], b: [i32; 2], t: i64| -> [i32; 2] {
+        [
+            (a[0] as i64 + (b[0] as i64 - a[0] as i64) * t / 100) as i32,
+            (a[1] as i64 + (b[1] as i64 - a[1] as i64) * t / 100) as i32,
+        ]
+    };
+    // Push a point toward centroid by frac/100
+    let push = |p: [i32; 2], frac: i64| -> [i32; 2] {
+        [
+            (p[0] as i64 + (cx - p[0] as i64) * frac / 100) as i32,
+            (p[1] as i64 + (cy - p[1] as i64) * frac / 100) as i32,
+        ]
+    };
+
+    let impact_v = points[best_idx];
+    let prev_v = points[prev_idx];
+    let next_v = points[next_idx];
+
+    // Shoulders sit 70% of the way from the neighbour to the impact vertex and
+    // are pushed 35% as deep as the crack tip.
+    let shoulder_depth = depth * 35 / 100;
+    let left_shoulder = push(lerp(prev_v, impact_v, 70), shoulder_depth);
+    let crack_tip = push(impact_v, depth);
+    let right_shoulder = push(lerp(impact_v, next_v, 30), shoulder_depth);
+
+    // Replace impact vertex with [left_shoulder, crack_tip, right_shoulder]
+    let mut result = Vec::with_capacity(n + 2);
+    for (i, &p) in points.iter().enumerate() {
+        if i == best_idx {
+            result.push(left_shoulder);
+            result.push(crack_tip);
+            result.push(right_shoulder);
+        } else {
+            result.push(p);
+        }
+    }
+    result
+}
+
 pub fn points_to_rhai_array(points: Vec<[i32; 2]>) -> RhaiArray {
     points
         .into_iter()
@@ -170,7 +250,7 @@ pub fn rhai_array_to_points(value: &RhaiArray) -> Vec<[i32; 2]> {
 
 #[cfg(test)]
 mod tests {
-    use super::{dent_polygon_i32, jitter_points_i32, regular_polygon_i32};
+    use super::{crack_polygon_i32, dent_polygon_i32, jitter_points_i32, regular_polygon_i32};
 
     #[test]
     fn regular_polygon_generates_requested_vertex_count() {
@@ -211,5 +291,23 @@ mod tests {
         let dented = dent_polygon_i32(&square, 10, 10, 100);
         // Centroid is (0,0); vertex at [10,10] should now be [0,0]
         assert_eq!(dented[0], [0, 0]);
+    }
+
+    #[test]
+    fn crack_polygon_inserts_two_extra_vertices() {
+        let square = vec![[10, 0], [0, 10], [-10, 0], [0, -10]];
+        let cracked = crack_polygon_i32(&square, 10, 0, 60);
+        assert_eq!(cracked.len(), 6, "one vertex replaced by three → +2 vertices");
+    }
+
+    #[test]
+    fn crack_polygon_tip_is_deeper_than_original_vertex() {
+        let square = vec![[10, 0], [0, 10], [-10, 0], [0, -10]];
+        let cracked = crack_polygon_i32(&square, 10, 0, 60);
+        // Crack tip is index 1 (left_shoulder=0, tip=1, right_shoulder=2)
+        let tip = cracked[1];
+        let dist_tip = tip[0] * tip[0] + tip[1] * tip[1];
+        let dist_orig = 10 * 10; // original vertex was [10,0], centroid is [0,0]
+        assert!(dist_tip < dist_orig, "crack tip must be pushed toward centroid");
     }
 }

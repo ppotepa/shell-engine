@@ -334,11 +334,12 @@ for hit in world.collision_enters("bullet", "asteroid") {
     effects.shake(if hp > 0 { 80 } else { 220 }, if hp > 0 { 0.3 } else { 1.0 }, if hp > 0 { 0.15 } else { 0.4 }, 9.0);
 
     if hp > 0 {
-        // Still alive — apply random dent at impact point (stronger = more dramatic)
+        // Still alive — carve a V-notch crack at the impact point.
+        // Strength 50–75% ensures the crack tip is always visible at terminal resolution.
         let shape = ae.get("shape_points");
         if type_of(shape) != "()" {
-            let strength = 30 + (rand() * 30.0).to_int();
-            let new_shape = dent_polygon(shape, impact_x, impact_y, strength);
+            let depth = 50 + (rand() * 25.0).to_int();
+            let new_shape = crack_polygon(shape, impact_x, impact_y, depth);
             ae.set("shape_points", new_shape);
             let visual_id = ae.get_s("visual_id", "");
             if visual_id != "" {
