@@ -96,10 +96,12 @@ pub(crate) fn spawn_ephemeral_visual(
     }
 
     if spec.lifecycle.uses_ttl() {
+        let ttl = spec.ttl_ms.unwrap_or_default();
         if !world.set_lifetime(
             entity_id,
             Lifetime {
-                ttl_ms: spec.ttl_ms.unwrap_or_default(),
+                ttl_ms: ttl,
+                original_ttl_ms: ttl,
                 on_expire: DespawnVisual::None,
             },
         ) {

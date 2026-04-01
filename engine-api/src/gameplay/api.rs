@@ -88,6 +88,9 @@ pub trait GameplayEntityCoreApi: Clone + 'static {
     fn attach_controller(&mut self, config: RhaiMap) -> bool;
     fn set_turn(&mut self, dir: rhai::INT) -> bool;
     fn set_thrust(&mut self, on: bool) -> bool;
+    fn lifetime_fraction(&mut self) -> rhai::FLOAT;
+    fn set_fg(&mut self, color: &str) -> bool;
+    fn set_radius(&mut self, r: rhai::INT) -> bool;
 }
 
 pub trait GameplayWorldCoreApi<TEntity>: Clone + 'static

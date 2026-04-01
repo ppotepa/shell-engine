@@ -465,6 +465,7 @@ impl ScriptGameplayApi {
             id as u64,
             Lifetime {
                 ttl_ms: ttl_ms as i32,
+                original_ttl_ms: ttl_ms as i32,
                 on_expire: DespawnVisual::None,
             },
         )
@@ -659,6 +660,7 @@ impl ScriptGameplayApi {
                         entity_id,
                         Lifetime {
                             ttl_ms: ttl as i32,
+                            original_ttl_ms: ttl as i32,
                             on_expire: DespawnVisual::None,
                         },
                     ) {
@@ -1665,6 +1667,69 @@ impl ScriptGameplayEntityApi {
             return String::new();
         };
         world.kind_of(self.ctx.id).unwrap_or_default()
+    }
+
+    /// Returns the remaining lifetime as a fraction of the original TTL (1.0 = fresh, 0.0 = about to expire).
+    pub(crate) fn lifetime_fraction(&mut self) -> rhai::FLOAT {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return 0.0;
+        };
+        let Some(lt) = world.lifetime(self.ctx.id) else {
+            return 0.0;
+        };
+        if lt.original_ttl_ms <= 0 {
+            return 0.0;
+        }
+        (lt.ttl_ms as rhai::FLOAT / lt.original_ttl_ms as rhai::FLOAT).clamp(0.0, 1.0)
+    }
+
+    /// Queues a style.fg colour update on this entity's bound visual.
+    pub(crate) fn set_fg(&mut self, color: &str) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        let Some(binding) = world.visual(self.ctx.id) else {
+            return false;
+        };
+        let Some(visual_id) = binding.visual_id else {
+            return false;
+        };
+        let Ok(mut queue) = self.ctx.queue.lock() else {
+            return false;
+        };
+        queue.push(BehaviorCommand::SetProperty {
+            target: visual_id,
+            path: "style.fg".to_string(),
+            value: JsonValue::from(color),
+        });
+        true
+    }
+
+    /// Queues a vector.points update to resize this entity's bound visual to [radius].
+    /// r=1 leaves the template dot as-is; r=0 sets a zero-length point (invisible).
+    pub(crate) fn set_radius(&mut self, r: rhai::INT) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        let Some(binding) = world.visual(self.ctx.id) else {
+            return false;
+        };
+        let Some(visual_id) = binding.visual_id else {
+            return false;
+        };
+        let Ok(mut queue) = self.ctx.queue.lock() else {
+            return false;
+        };
+        let r = r.max(0) as i32;
+        queue.push(BehaviorCommand::SetProperty {
+            target: visual_id,
+            path: "vector.points".to_string(),
+            value: JsonValue::Array(vec![
+                JsonValue::Array(vec![JsonValue::from(0), JsonValue::from(0)]),
+                JsonValue::Array(vec![JsonValue::from(r), JsonValue::from(0)]),
+            ]),
+        });
+        true
     }
 
     pub(crate) fn tags(&mut self) -> RhaiArray {

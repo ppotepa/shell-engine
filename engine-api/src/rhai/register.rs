@@ -404,6 +404,15 @@ where
     engine.register_fn("set_thrust", |entity: &mut TEntity, on: bool| {
         entity.set_thrust(on)
     });
+    engine.register_fn("lifetime_fraction", |entity: &mut TEntity| {
+        entity.lifetime_fraction()
+    });
+    engine.register_fn("set_fg", |entity: &mut TEntity, color: &str| {
+        entity.set_fg(color)
+    });
+    engine.register_fn("set_radius", |entity: &mut TEntity, r: rhai::INT| {
+        entity.set_radius(r)
+    });
 }
 
 pub fn register_all(_engine: &mut RhaiEngine) {}

@@ -99,6 +99,7 @@ impl Default for DespawnVisual {
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Lifetime {
     pub ttl_ms: i32,
+    pub original_ttl_ms: i32,
     pub on_expire: DespawnVisual,
 }
 

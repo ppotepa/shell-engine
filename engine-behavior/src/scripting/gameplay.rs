@@ -144,6 +144,9 @@ impl GameplayEntityCoreApi for ScriptGameplayEntityApi {
     fn attach_controller(&mut self, config: RhaiMap) -> bool { self.attach_controller(config) }
     fn set_turn(&mut self, dir: rhai::INT) -> bool { self.set_turn(dir) }
     fn set_thrust(&mut self, on: bool) -> bool { self.set_thrust(on) }
+    fn lifetime_fraction(&mut self) -> rhai::FLOAT { self.lifetime_fraction() }
+    fn set_fg(&mut self, color: &str) -> bool { self.set_fg(color) }
+    fn set_radius(&mut self, r: rhai::INT) -> bool { self.set_radius(r) }
 }
 
 pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
