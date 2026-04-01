@@ -4,9 +4,9 @@ use rhai::Engine as RhaiEngine;
 
 use crate::gameplay::api::{GameplayEntityCoreApi, GameplayWorldCoreApi};
 use crate::gameplay::geometry::{
-    crack_polygon_i32, dent_polygon_i32, jitter_points_i32, points_to_rhai_array,
-    regular_polygon_i32, rhai_array_to_points, rotate_points_i32, scale_points_frac_i32,
-    sin32_i32, to_i32,
+    center_points_i32, crack_polygon_i32, dent_polygon_i32, jitter_points_i32,
+    points_to_rhai_array, regular_polygon_i32, rhai_array_to_points, rotate_points_i32,
+    scale_points_frac_i32, sin32_i32, split_polygon_i32, to_i32,
 };
 
 pub fn register_geometry_api(engine: &mut RhaiEngine) {
@@ -82,6 +82,24 @@ pub fn register_geometry_api(engine: &mut RhaiEngine) {
                 .into_iter()
                 .map(|poly| -> rhai::Dynamic { points_to_rhai_array(poly).into() })
                 .collect()
+        },
+    );
+    engine.register_fn(
+        "center_points",
+        |points: rhai::Array| -> rhai::Array {
+            let pts = rhai_array_to_points(&points);
+            points_to_rhai_array(center_points_i32(&pts))
+        },
+    );
+    engine.register_fn(
+        "split_polygon",
+        |points: rhai::Array, heading: rhai::INT| -> rhai::Array {
+            let pts = rhai_array_to_points(&points);
+            let (a, b) = split_polygon_i32(&pts, to_i32(heading));
+            vec![
+                rhai::Dynamic::from(points_to_rhai_array(a)),
+                rhai::Dynamic::from(points_to_rhai_array(b)),
+            ]
         },
     );
     engine.register_fn(

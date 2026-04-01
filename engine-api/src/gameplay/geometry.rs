@@ -239,6 +239,95 @@ pub fn crack_polygon_i32(
     result
 }
 
+/// Clips a convex or concave polygon to the half-plane where
+/// `nx * x + ny * y >= 0` (Sutherland-Hodgman, single half-plane).
+fn clip_polygon_halfplane(pts: &[[i32; 2]], nx: f64, ny: f64) -> Vec<[i32; 2]> {
+    let n = pts.len();
+    if n == 0 {
+        return vec![];
+    }
+    let mut out = Vec::with_capacity(n + 2);
+    for i in 0..n {
+        let curr = pts[i];
+        let next = pts[(i + 1) % n];
+        let dc = nx * curr[0] as f64 + ny * curr[1] as f64;
+        let dn = nx * next[0] as f64 + ny * next[1] as f64;
+        if dc >= 0.0 {
+            out.push(curr);
+        }
+        if (dc >= 0.0) != (dn >= 0.0) {
+            let t = dc / (dc - dn);
+            let ix = curr[0] as f64 + t * (next[0] - curr[0]) as f64;
+            let iy = curr[1] as f64 + t * (next[1] - curr[1]) as f64;
+            out.push([ix.round() as i32, iy.round() as i32]);
+        }
+    }
+    out
+}
+
+/// Translates a polygon so its centroid sits at the origin.
+pub fn center_points_i32(points: &[[i32; 2]]) -> Vec<[i32; 2]> {
+    let n = points.len();
+    if n == 0 {
+        return vec![];
+    }
+    let cx = points.iter().map(|p| p[0] as i64).sum::<i64>() / n as i64;
+    let cy = points.iter().map(|p| p[1] as i64).sum::<i64>() / n as i64;
+    points
+        .iter()
+        .map(|p| [p[0] - cx as i32, p[1] - cy as i32])
+        .collect()
+}
+
+/// Splits a polygon into two halves along a line through its centroid.
+/// `heading` uses the same 32-step coordinate as `rotate_points` (0..32 = full turn).
+/// Each half is translated so its own centroid sits at the origin.
+/// Returns `(half_a, half_b)`; each is guaranteed to have at least 3 vertices
+/// (falls back to the full polygon if clipping produces a degenerate result).
+pub fn split_polygon_i32(
+    points: &[[i32; 2]],
+    heading: i32,
+) -> (Vec<[i32; 2]>, Vec<[i32; 2]>) {
+    let n = points.len();
+    if n < 3 {
+        return (
+            center_points_i32(points),
+            center_points_i32(points),
+        );
+    }
+
+    // Translate to centroid-relative space first
+    let cx = points.iter().map(|p| p[0] as i64).sum::<i64>() / n as i64;
+    let cy = points.iter().map(|p| p[1] as i64).sum::<i64>() / n as i64;
+    let rel: Vec<[i32; 2]> = points
+        .iter()
+        .map(|p| [p[0] - cx as i32, p[1] - cy as i32])
+        .collect();
+
+    // Split-line normal: perpendicular to the heading direction.
+    // heading 0 → right (cos=1, sin=0) → normal pointing up (-sin, cos) = (0, 1)
+    let sin_h = sin32_i32(heading) as f64 / 1024.0;
+    let cos_h = sin32_i32(heading + 8) as f64 / 1024.0;
+    let nx = -sin_h;
+    let ny = cos_h;
+
+    let raw_a = clip_polygon_halfplane(&rel, nx, ny);
+    let raw_b = clip_polygon_halfplane(&rel, -nx, -ny);
+
+    // Re-centre each half around its own centroid so collider + visual align.
+    let half_a = if raw_a.len() >= 3 {
+        center_points_i32(&raw_a)
+    } else {
+        rel.clone()
+    };
+    let half_b = if raw_b.len() >= 3 {
+        center_points_i32(&raw_b)
+    } else {
+        rel
+    };
+    (half_a, half_b)
+}
+
 pub fn points_to_rhai_array(points: Vec<[i32; 2]>) -> RhaiArray {
     points
         .into_iter()
