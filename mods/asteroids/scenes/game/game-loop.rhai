@@ -154,6 +154,7 @@ fn spawn_debris(world, ox, oy, count) {
 // Emit a thrust particle — starts white/large, decayed per-frame via lifetime_fraction.
 fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
+    let HALF_PI = 1.5707963;
     let r = 4 + (rand() * 4.0).to_int();
     world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx_thrust",
@@ -161,7 +162,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
         owner_bound: false,
         thrust_ms: thrust_ms,
         speed: 15.0 + rand() * 30.0,
-        spread: (rand() - 0.5) * 0.55,
+        spread: -HALF_PI + (rand() - 0.5) * 0.55,
         ttl_ms: 200 + (rand() * 160.0).to_int(),
         radius: r,
         fg: "white"
@@ -177,7 +178,7 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
     let side = -7.0 * turn_dir;
-    let spread_base = HALF_PI * turn_dir;
+    let spread_base = HALF_PI * (1 + turn_dir);
     let r = 3 + (rand() * (3.0 * intensity)).to_int();
     let ttl = if ttl_override > 0 { ttl_override + (rand() * 30.0).to_int() } else { (130.0 + rand() * 100.0 * intensity).to_int() };
     world.emit("asteroids.rcs_thruster", ship_id, #{
