@@ -41,6 +41,7 @@ fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
     if world.exists(id) {
         let asteroid = world.entity(id);
         world.disable_wrap(id);
+        asteroid.physics.set_velocity(vx, vy);
         let visual = asteroid.get_s("visual_id", "");
         asteroid.set("size", size);
         asteroid.set("score", asteroid_score(size));
@@ -61,7 +62,7 @@ fn spawn_wave(world, scene, local, count) {
     let spawn_pad = 36.0;
 
     for i in 0..count {
-        let side  = world.rand_i(0, 4);
+        let side  = i % 4;
         let spd   = spd_base + rand() * 10.0;
         let spin  = (rand() - 0.5) * 1.4;
         let cx = 0.0;
@@ -69,27 +70,28 @@ fn spawn_wave(world, scene, local, count) {
         let vx = 0.0;
         let vy = 0.0;
 
+        let lane = ((i / 4).to_float() + 0.5) / ((count / 4 + 1).to_float());
         if side == 0 {
             // left -> right
             cx = -spawn_pad;
-            cy = 20.0 + rand() * (WORLD_H - 40.0);
+            cy = 20.0 + lane * (WORLD_H - 40.0);
             vx = spd;
             vy = (rand() - 0.5) * spd * 0.8;
         } else if side == 1 {
             // right -> left
             cx = WORLD_W + spawn_pad;
-            cy = 20.0 + rand() * (WORLD_H - 40.0);
+            cy = 20.0 + lane * (WORLD_H - 40.0);
             vx = -spd;
             vy = (rand() - 0.5) * spd * 0.8;
         } else if side == 2 {
             // top -> down
-            cx = 20.0 + rand() * (WORLD_W - 40.0);
+            cx = 20.0 + lane * (WORLD_W - 40.0);
             cy = -spawn_pad;
             vx = (rand() - 0.5) * spd * 0.8;
             vy = spd;
         } else {
             // bottom -> up
-            cx = 20.0 + rand() * (WORLD_W - 40.0);
+            cx = 20.0 + lane * (WORLD_W - 40.0);
             cy = WORLD_H + spawn_pad;
             vx = (rand() - 0.5) * spd * 0.8;
             vy = -spd;
@@ -100,7 +102,6 @@ fn spawn_wave(world, scene, local, count) {
             let e = world.entity(id);
             e.set("angular_velocity", spin);
             e.set_heading(rand() * TWO_PI);
-            e.physics.set_velocity(vx, vy);
         }
     }
 }
