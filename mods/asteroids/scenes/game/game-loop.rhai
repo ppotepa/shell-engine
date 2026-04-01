@@ -481,7 +481,7 @@ for hit in world.collision_enters("bullet", "asteroid") {
     update_hud(scene, local);
 }
 
-// ─── Collision: ship × asteroid — bounce ─────────────────────────────────────
+// ─── Collision: ship × asteroid — lose a life, bounce ────────────────────────
 if !ship.status_has("invulnerable") {
     for hit in world.collision_enters("ship", "asteroid") {
         let asteroid_id = hit["asteroid"];
@@ -490,25 +490,47 @@ if !ship.status_has("invulnerable") {
         let xf  = ship.transform();
         let axf = world.entity(asteroid_id).transform();
 
-        // Push direction: away from asteroid centre
         let dx = xf["x"] - axf["x"];
         let dy = xf["y"] - axf["y"];
         let len = sqrt(dx * dx + dy * dy);
         let nx = if len > 0.001 { dx / len } else { 1.0 };
         let ny = if len > 0.001 { dy / len } else { 0.0 };
 
-        // Bounce velocity: reflect current ship velocity + outward kick
-        let BOUNCE_SPD = 180.0;
+        let BOUNCE_SPD = 200.0;
         ship.physics.set_velocity(nx * BOUNCE_SPD, ny * BOUNCE_SPD);
 
-        // Brief invulnerability so the ship doesn't bounce repeatedly
-        ship.status_add("invulnerable", 800);
+        // Lose a life
+        local.lives -= 1;
+        update_hud(scene, local);
 
-        emit_impact_burst(world, ship_id, 4, "white");
-        audio.event("explosion_small");
-        effects.shake(120, 0.6, 0.3, 8.0);
+        if local.lives <= 0 {
+            // Game over: one final dramatic death
+            spawn_debris(world, xf["x"], xf["y"], 6);
+            emit_impact_burst(world, ship_id, 8, "white");
+            audio.event("explosion_large");
+            effects.shake(500, 2.5, 1.0, 7.0);
+            world.despawn(ship_id);
+            local.ship_id = 0;
+            local.state   = STATE_GAME_OVER;
+            local.game_over = true;
+            scene.set("hud-gameover", "visible", true);
+        } else {
+            // Bounce + long invulnerability so ship can recover
+            ship.status_add("invulnerable", INV_MS);
+            spawn_debris(world, xf["x"], xf["y"], 3);
+            emit_impact_burst(world, ship_id, 5, "white");
+            audio.event("explosion_small");
+            effects.shake(200, 1.2, 0.5, 8.0);
+        }
         break;
     }
+}
+
+// ─── Invulnerability blink ────────────────────────────────────────────────────
+if world.exists(ship_id) {
+    let inv = ship.status_has("invulnerable");
+    let blink_on = !inv || (now / 150) % 2 == 0;
+    scene.set(`ship-${ship_id}`, "visible", blink_on);
 }
 
 // ─── Deferred shape init (resolves same-frame resolver staleness) ─────────────
