@@ -467,43 +467,40 @@ if thrust_on {
         let spd_sq = vel[0] * vel[0] + vel[1] * vel[1];
         if spd_sq > 25.0 {
             let spd = sqrt(spd_sq);
-            // Ship heading vector: (sin(h), -cos(h))
             let hv = ship.heading_vector();
             let fwd_x = hv["x"];
             let fwd_y = hv["y"];
             let right_x = -fwd_y;
             let right_y = fwd_x;
-            // Project velocity onto forward and lateral axes
             let fwd_dot = (vel[0] * fwd_x + vel[1] * fwd_y) / spd;
             let lat_dot = (vel[0] * right_x + vel[1] * right_y) / spd;
             emit_retro_decomposed(world, ship_id, fwd_dot, lat_dot);
-            // Schedule final stopping bursts when we cross below threshold
-            if spd_sq < 200.0 {
+            // Snapshot direction for stopping bursts when speed drops
+            local.retro_snap_fwd = fwd_dot;
+            local.retro_snap_lat = lat_dot;
+        } else if (local.retro_snap_fwd ?? 0.0) != 0.0 || (local.retro_snap_lat ?? 0.0) != 0.0 {
+            // Schedule 3 timed stopping bursts using the saved direction
+            if (local.retro_bursts_left ?? 0) == 0 {
                 local.retro_bursts_left = 3;
+                local.retro_next_burst = now;
             }
-        } else if (local.retro_bursts_left ?? 0) > 0 {
-            // Final 2-3 short stopping bursts right at zero
-            let spd = sqrt(spd_sq + 1.0);
-            let hv = ship.heading_vector();
-            let fwd_x = hv["x"];
-            let fwd_y = hv["y"];
-            let right_x = -fwd_y;
-            let right_y = fwd_x;
-            let fwd_dot = (vel[0] * fwd_x + vel[1] * fwd_y) / spd;
-            let lat_dot = (vel[0] * right_x + vel[1] * right_y) / spd;
-            // Force minimum intensity so bursts are visible
-            let min_fwd = if fwd_dot > 0.0 { 0.4 } else if fwd_dot < 0.0 { -0.4 } else { 0.0 };
-            let min_lat = if lat_dot > 0.0 { 0.4 } else if lat_dot < 0.0 { -0.4 } else { 0.0 };
-            let eff_fwd = if fwd_dot > 0.0 && fwd_dot < 0.4 { min_fwd } else if fwd_dot < 0.0 && fwd_dot > -0.4 { min_fwd } else { fwd_dot };
-            let eff_lat = if lat_dot > 0.0 && lat_dot < 0.4 { min_lat } else if lat_dot < 0.0 && lat_dot > -0.4 { min_lat } else { lat_dot };
-            emit_retro_decomposed(world, ship_id, eff_fwd, eff_lat);
-            local.retro_bursts_left -= 1;
-            if local.retro_bursts_left <= 0 {
-                local.was_thrusting = false;
-                local.retro_bursts_left = 0;
-            }
-        } else {
+        }
+    }
+    // Timed stopping bursts — spaced 80ms apart, strong fixed intensity
+    if (local.retro_bursts_left ?? 0) > 0 && now >= (local.retro_next_burst ?? 0) {
+        let snap_fwd = local.retro_snap_fwd ?? 0.0;
+        let snap_lat = local.retro_snap_lat ?? 0.0;
+        // Clamp to minimum 0.5 so bursts are always clearly visible
+        let eff_fwd = if snap_fwd > 0.1 { 0.6 } else if snap_fwd < -0.1 { -0.6 } else { 0.0 };
+        let eff_lat = if snap_lat > 0.1 { 0.6 } else if snap_lat < -0.1 { -0.6 } else { 0.0 };
+        emit_retro_decomposed(world, ship_id, eff_fwd, eff_lat);
+        local.retro_bursts_left -= 1;
+        local.retro_next_burst = now + 80;
+        if local.retro_bursts_left <= 0 {
             local.was_thrusting = false;
+            local.retro_bursts_left = 0;
+            local.retro_snap_fwd = 0.0;
+            local.retro_snap_lat = 0.0;
         }
     }
 }
