@@ -155,21 +155,48 @@ fn spawn_debris(world, ox, oy, count) {
 fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
-    let r = 4 + (rand() * 4.0).to_int();
+    let hot_colors = ["white", "bright_white", "yellow"];
+    // Layer 1: hot core — small, fast, tight cone
+    let hc = hot_colors[(rand() * 3.0).to_int() % 3];
     world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx_thrust",
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
-        speed: 15.0 + rand() * 30.0,
-        spread: -HALF_PI + (rand() - 0.5) * 0.55,
-        ttl_ms: 200 + (rand() * 160.0).to_int(),
-        radius: r,
-        fg: "white"
+        speed: 30.0 + rand() * 25.0,
+        spread: -HALF_PI + (rand() - 0.5) * 0.3,
+        ttl_ms: 120 + (rand() * 80.0).to_int(),
+        radius: 2 + (rand() * 3.0).to_int(),
+        fg: hc
     });
+    // Layer 2: expanding smoke — large, slow, wider cone
+    world.emit("asteroids.ship_thrust", ship_id, #{
+        kind: "fx_thrust",
+        template: "debris",
+        owner_bound: false,
+        thrust_ms: thrust_ms,
+        speed: 8.0 + rand() * 15.0,
+        spread: -HALF_PI + (rand() - 0.5) * 0.8,
+        ttl_ms: 240 + (rand() * 180.0).to_int(),
+        radius: 5 + (rand() * 5.0).to_int(),
+        fg: "gray"
+    });
+    // Layer 3: occasional bright spark (1 in 3 frames)
+    if rand() > 0.66 {
+        world.emit("asteroids.ship_thrust", ship_id, #{
+            kind: "fx_thrust",
+            template: "debris",
+            owner_bound: false,
+            thrust_ms: thrust_ms,
+            speed: 40.0 + rand() * 30.0,
+            spread: -HALF_PI + (rand() - 0.5) * 0.15,
+            ttl_ms: 60 + (rand() * 40.0).to_int(),
+            radius: 1,
+            fg: "white"
+        });
+    }
 }
 
-// Emit an RCS puff — starts white, decayed per-frame via lifetime_fraction.
 fn emit_rcs(world, ship_id, turn_dir) {
     emit_rcs_burst(world, ship_id, turn_dir, 1.0, 0);
 }
@@ -179,81 +206,130 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     let HALF_PI = 1.5707963;
     let side = -7.0 * turn_dir;
     let spread_base = HALF_PI * (1 + turn_dir);
-    let r = 3 + (rand() * (3.0 * intensity)).to_int();
-    let ttl = if ttl_override > 0 { ttl_override + (rand() * 30.0).to_int() } else { (130.0 + rand() * 100.0 * intensity).to_int() };
+    let hot_colors = ["white", "bright_white", "yellow"];
+    // Core puff — bright, medium speed
+    let hc = hot_colors[(rand() * 3.0).to_int() % 3];
+    let ttl = if ttl_override > 0 { ttl_override + (rand() * 20.0).to_int() } else { (100.0 + rand() * 80.0 * intensity).to_int() };
     world.emit("asteroids.rcs_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
         side_offset: side,
-        speed: (18.0 + rand() * 18.0) * intensity,
-        spread: spread_base + (rand() - 0.5) * 0.7,
+        speed: (20.0 + rand() * 20.0) * intensity,
+        spread: spread_base + (rand() - 0.5) * 0.5,
         ttl_ms: ttl,
-        radius: r,
-        fg: "white"
+        radius: 2 + (rand() * (2.0 * intensity)).to_int(),
+        fg: hc
+    });
+    // Smoke trail — larger, slower, wider
+    let ttl2 = if ttl_override > 0 { ttl_override + 40 + (rand() * 30.0).to_int() } else { (160.0 + rand() * 100.0 * intensity).to_int() };
+    world.emit("asteroids.rcs_thruster", ship_id, #{
+        kind: "fx_rcs",
+        template: "debris",
+        owner_bound: false,
+        side_offset: side + (rand() - 0.5) * 2.0,
+        speed: (8.0 + rand() * 10.0) * intensity,
+        spread: spread_base + (rand() - 0.5) * 1.0,
+        ttl_ms: ttl2,
+        radius: 3 + (rand() * (3.0 * intensity)).to_int(),
+        fg: "gray"
     });
 }
 
 // Decomposed retro-thrust: fires from ALL thrusters proportionally opposite
 // to the ship's velocity vector in ship-local space.
-//   fwd_frac  = fraction of velocity along ship's forward axis
-//   lat_frac  = fraction of velocity along ship's lateral axis (+ = right)
 fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
     let abs_fwd = if fwd_frac < 0.0 { -fwd_frac } else { fwd_frac };
     let abs_lat = if lat_frac < 0.0 { -lat_frac } else { lat_frac };
+    let hot_colors = ["white", "bright_white", "yellow"];
 
     // Forward velocity → fire retro from the NOSE (exhaust forward)
     if abs_fwd > 0.15 && fwd_frac > 0.0 {
-        let r = 2 + (rand() * (3.0 * abs_fwd)).to_int();
+        let hc = hot_colors[(rand() * 3.0).to_int() % 3];
+        // Hot core
         world.emit("asteroids.retro_thruster", ship_id, #{
             kind: "fx_rcs",
             template: "debris",
             owner_bound: false,
-            side_offset: (rand() - 0.5) * 3.0,
-            speed: (20.0 + rand() * 25.0) * abs_fwd,
-            spread: HALF_PI + (rand() - 0.5) * 0.5,
-            ttl_ms: 60 + (rand() * 40.0).to_int(),
-            radius: r,
-            fg: "white"
+            side_offset: (rand() - 0.5) * 2.0,
+            speed: (25.0 + rand() * 30.0) * abs_fwd,
+            spread: HALF_PI + (rand() - 0.5) * 0.35,
+            ttl_ms: 50 + (rand() * 40.0).to_int(),
+            radius: 1 + (rand() * (2.0 * abs_fwd)).to_int(),
+            fg: hc
+        });
+        // Smoke puff
+        world.emit("asteroids.retro_thruster", ship_id, #{
+            kind: "fx_rcs",
+            template: "debris",
+            owner_bound: false,
+            side_offset: (rand() - 0.5) * 4.0,
+            speed: (8.0 + rand() * 12.0) * abs_fwd,
+            spread: HALF_PI + (rand() - 0.5) * 0.8,
+            ttl_ms: 90 + (rand() * 60.0).to_int(),
+            radius: 3 + (rand() * (3.0 * abs_fwd)).to_int(),
+            fg: "gray"
         });
     }
 
     // Backward velocity → fire main engine (exhaust backward)
     if abs_fwd > 0.15 && fwd_frac < 0.0 {
-        let r = 3 + (rand() * (3.0 * abs_fwd)).to_int();
+        let hc = hot_colors[(rand() * 3.0).to_int() % 3];
         world.emit("asteroids.ship_thrust", ship_id, #{
             kind: "fx_thrust",
             template: "debris",
             owner_bound: false,
             thrust_ms: 100,
-            speed: (15.0 + rand() * 20.0) * abs_fwd,
-            spread: -HALF_PI + (rand() - 0.5) * 0.4,
-            ttl_ms: 60 + (rand() * 40.0).to_int(),
-            radius: r,
-            fg: "white"
+            speed: (20.0 + rand() * 25.0) * abs_fwd,
+            spread: -HALF_PI + (rand() - 0.5) * 0.3,
+            ttl_ms: 60 + (rand() * 50.0).to_int(),
+            radius: 2 + (rand() * (2.0 * abs_fwd)).to_int(),
+            fg: hc
+        });
+        world.emit("asteroids.ship_thrust", ship_id, #{
+            kind: "fx_thrust",
+            template: "debris",
+            owner_bound: false,
+            thrust_ms: 100,
+            speed: (6.0 + rand() * 10.0) * abs_fwd,
+            spread: -HALF_PI + (rand() - 0.5) * 0.7,
+            ttl_ms: 100 + (rand() * 80.0).to_int(),
+            radius: 4 + (rand() * 3.0).to_int(),
+            fg: "gray"
         });
     }
 
     // Lateral velocity → fire RCS from the opposite wing
     if abs_lat > 0.15 {
-        // lat_frac > 0 = drifting right → fire RIGHT wing RCS (exhaust right) to push left
-        // lat_frac < 0 = drifting left  → fire LEFT wing RCS (exhaust left) to push right
         let rcs_dir = if lat_frac > 0.0 { 1.0 } else { -1.0 };
         let side = -7.0 * rcs_dir;
         let spread_base = HALF_PI * (1.0 + rcs_dir);
-        let r = 2 + (rand() * (3.0 * abs_lat)).to_int();
+        let hc = hot_colors[(rand() * 3.0).to_int() % 3];
+        // Core
         world.emit("asteroids.rcs_thruster", ship_id, #{
             kind: "fx_rcs",
             template: "debris",
             owner_bound: false,
             side_offset: side,
-            speed: (18.0 + rand() * 18.0) * abs_lat,
-            spread: spread_base + (rand() - 0.5) * 0.5,
-            ttl_ms: 60 + (rand() * 40.0).to_int(),
-            radius: r,
-            fg: "white"
+            speed: (22.0 + rand() * 20.0) * abs_lat,
+            spread: spread_base + (rand() - 0.5) * 0.4,
+            ttl_ms: 50 + (rand() * 35.0).to_int(),
+            radius: 1 + (rand() * (2.0 * abs_lat)).to_int(),
+            fg: hc
+        });
+        // Smoke
+        world.emit("asteroids.rcs_thruster", ship_id, #{
+            kind: "fx_rcs",
+            template: "debris",
+            owner_bound: false,
+            side_offset: side + (rand() - 0.5) * 3.0,
+            speed: (6.0 + rand() * 10.0) * abs_lat,
+            spread: spread_base + (rand() - 0.5) * 0.9,
+            ttl_ms: 90 + (rand() * 60.0).to_int(),
+            radius: 3 + (rand() * (2.0 * abs_lat)).to_int(),
+            fg: "gray"
         });
     }
 }
@@ -665,22 +741,24 @@ for id in world.query_kind("asteroid") {
 }
 
 // ─── Particle decay (closure-style per-frame visual update) ──────────────────
-// Quadratic falloff (f*f) keeps particles bright longer, then rapid fade at end.
-// Thrust: white hot core → bright → gray smoke → dark → near-invisible tail
+// Thrust: hot core → yellow → bright → gray smoke (EXPANDING as gas cools)
 for id in world.query_kind("fx_thrust") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
     let f = frac * frac;
-    p.set_radius(max(1, (6.0 * f + 0.5).to_int()));
-    p.set_fg(if f > 0.7 { "white" } else if f > 0.45 { "bright_white" } else if f > 0.25 { "gray" } else if f > 0.10 { "dark_gray" } else { "#333" });
+    // Smoke expands: starts small (core), grows as it cools, then fades
+    let expand = 1.0 + (1.0 - f) * 2.5;
+    p.set_radius(max(1, (3.0 * expand).to_int()));
+    p.set_fg(if f > 0.75 { "white" } else if f > 0.55 { "yellow" } else if f > 0.40 { "bright_white" } else if f > 0.25 { "gray" } else if f > 0.12 { "dark_gray" } else { "#333" });
 }
-// RCS: white puff → dispersing gray cloud
+// RCS: bright puff → expanding dispersal cloud
 for id in world.query_kind("fx_rcs") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
     let f = frac * frac;
-    p.set_radius(max(1, (4.0 * f + 0.5).to_int()));
-    p.set_fg(if f > 0.55 { "white" } else if f > 0.30 { "bright_white" } else if f > 0.12 { "gray" } else { "dark_gray" });
+    let expand = 1.0 + (1.0 - f) * 1.8;
+    p.set_radius(max(1, (2.0 * expand).to_int()));
+    p.set_fg(if f > 0.60 { "white" } else if f > 0.40 { "bright_white" } else if f > 0.22 { "gray" } else if f > 0.08 { "dark_gray" } else { "#333" });
 }
 // Impact sparks: bright flash → yellow → dim ember, shrinking to a point
 for id in world.query_kind("fx_sparks") {
