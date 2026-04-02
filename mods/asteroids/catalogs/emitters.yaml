@@ -32,11 +32,11 @@ emitters:
     radius: 4
     velocity_scale: 1.0
 
-  asteroids.retro_thruster:
+  asteroids.nose_thruster:
     max_count: 50
-    cooldown_name: "retro-thruster"
+    cooldown_name: "nose-thruster"
     cooldown_ms: 0
-    spawn_offset: -10.0
+    spawn_offset: -5.0
     backward_speed: 0.0
     ttl_ms: 140
     radius: 3

@@ -241,45 +241,58 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     });
 }
 
-// Decomposed retro-thrust: fires from thrusters proportionally opposite
-// to the ship's velocity vector in ship-local space.
+// Single nose thruster burst — hot core + smoke puff
+fn emit_nose_burst(world, ship_id, side, spread_base, intensity) {
+    if !world.exists(ship_id) { return; }
+    let hot_colors = ["white", "bright_white", "yellow"];
+    let hc = hot_colors[(rand() * 3.0).to_int() % 3];
+    // Hot core
+    world.emit("asteroids.nose_thruster", ship_id, #{
+        kind: "fx_rcs",
+        template: "debris",
+        owner_bound: false,
+        side_offset: side + (rand() - 0.5) * 1.0,
+        speed: (20.0 + rand() * 25.0) * intensity,
+        spread: spread_base + (rand() - 0.5) * 0.4,
+        ttl_ms: 50 + (rand() * 40.0).to_int(),
+        radius: 1 + (rand() * (3.0 * intensity)).to_int(),
+        fg: hc
+    });
+    // Smoke puff
+    world.emit("asteroids.nose_thruster", ship_id, #{
+        kind: "fx_rcs",
+        template: "debris",
+        owner_bound: false,
+        side_offset: side + (rand() - 0.5) * 2.0,
+        speed: (6.0 + rand() * 10.0) * intensity,
+        spread: spread_base + (rand() - 0.5) * 0.8,
+        ttl_ms: 90 + (rand() * 60.0).to_int(),
+        radius: 3 + (rand() * (3.0 * intensity)).to_int(),
+        fg: "gray"
+    });
+}
+
+// Decomposed retro-thrust: 6-thruster braking system.
+// Fires thrusters proportionally opposite to the ship's velocity in ship-local space.
+//   Forward drift  → nose-L + nose-R fire forward
+//   Backward drift → main-L + main-R fire backward
+//   Right drift    → nose-R + RCS-R fire rightward
+//   Left drift     → nose-L + RCS-L fire leftward
 fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
+    let PI = 3.1415927;
     let abs_fwd = if fwd_frac < 0.0 { -fwd_frac } else { fwd_frac };
     let abs_lat = if lat_frac < 0.0 { -lat_frac } else { lat_frac };
     let hot_colors = ["white", "bright_white", "yellow"];
 
-    // Forward velocity → fire retro from NOSE (exhaust forward)
+    // Forward velocity → both nose thrusters fire forward (exhaust ↑)
     if abs_fwd > 0.15 && fwd_frac > 0.0 {
-        let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-        // Nose retro - hot core
-        world.emit("asteroids.retro_thruster", ship_id, #{
-            kind: "fx_rcs",
-            template: "debris",
-            owner_bound: false,
-            side_offset: (rand() - 0.5) * 2.0,
-            speed: (25.0 + rand() * 30.0) * abs_fwd,
-            spread: HALF_PI + (rand() - 0.5) * 0.35,
-            ttl_ms: 50 + (rand() * 40.0).to_int(),
-            radius: 1 + (rand() * (2.0 * abs_fwd)).to_int(),
-            fg: hc
-        });
-        // Nose retro - smoke puff
-        world.emit("asteroids.retro_thruster", ship_id, #{
-            kind: "fx_rcs",
-            template: "debris",
-            owner_bound: false,
-            side_offset: (rand() - 0.5) * 4.0,
-            speed: (8.0 + rand() * 12.0) * abs_fwd,
-            spread: HALF_PI + (rand() - 0.5) * 0.8,
-            ttl_ms: 90 + (rand() * 60.0).to_int(),
-            radius: 3 + (rand() * (3.0 * abs_fwd)).to_int(),
-            fg: "gray"
-        });
+        emit_nose_burst(world, ship_id, 2.0, HALF_PI, abs_fwd);    // nose-L
+        emit_nose_burst(world, ship_id, -2.0, HALF_PI, abs_fwd);   // nose-R
     }
 
-    // Backward velocity → fire main engine (exhaust backward)
+    // Backward velocity → main engines fire backward (exhaust ↓)
     if abs_fwd > 0.15 && fwd_frac < 0.0 {
         let hc = hot_colors[(rand() * 3.0).to_int() % 3];
         let nozzle = if rand() > 0.5 { -3.0 } else { 3.0 };
@@ -309,12 +322,16 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
         });
     }
 
-    // Lateral velocity → fire wing RCS on the SAME SIDE as drift
-    // Drifting right → right wing fires rightward (reaction pushes left)
-    // Drifting left  → left wing fires leftward (reaction pushes right)
-    if abs_lat > 0.15 {
-        let rcs_dir = if lat_frac > 0.0 { 1.0 } else { -1.0 };
-        emit_rcs_burst(world, ship_id, rcs_dir, abs_lat, 0);
+    // Right lateral drift → nose-R fires rightward + wing RCS-R fires rightward
+    if abs_lat > 0.15 && lat_frac > 0.0 {
+        emit_nose_burst(world, ship_id, -2.0, PI, abs_lat);
+        emit_rcs_burst(world, ship_id, 1.0, abs_lat, 0);
+    }
+
+    // Left lateral drift → nose-L fires leftward + wing RCS-L fires leftward
+    if abs_lat > 0.15 && lat_frac < 0.0 {
+        emit_nose_burst(world, ship_id, 2.0, 0.0, abs_lat);
+        emit_rcs_burst(world, ship_id, -1.0, abs_lat, 0);
     }
 }
 

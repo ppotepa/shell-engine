@@ -61,22 +61,42 @@ sprites:
     y: 0
     fg_colour: yellow
     
-  # Wing stripes - left
+  # RCS nozzle - left wing tip
   - type: vector
-    id: wing-stripe-left
-    points: [[-7,8], [-5,9]]
+    id: rcs-left
+    points: [[-7,10], [-8,10]]
     closed: false
-    draw-char: "-"
+    draw-char: "*"
     x: 0
     y: 0
     fg_colour: cyan
     
-  # Wing stripes - right
+  # RCS nozzle - right wing tip
   - type: vector
-    id: wing-stripe-right
-    points: [[7,8], [5,9]]
+    id: rcs-right
+    points: [[7,10], [8,10]]
     closed: false
-    draw-char: "-"
+    draw-char: "*"
     x: 0
     y: 0
     fg_colour: cyan
+
+  # Nose thruster - left
+  - type: vector
+    id: nose-left
+    points: [[-2,-5], [-3,-5]]
+    closed: false
+    draw-char: "*"
+    x: 0
+    y: 0
+    fg_colour: red
+
+  # Nose thruster - right
+  - type: vector
+    id: nose-right
+    points: [[2,-5], [3,-5]]
+    closed: false
+    draw-char: "*"
+    x: 0
+    y: 0
+    fg_colour: red
