@@ -156,6 +156,8 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
     let hot_colors = ["white", "bright_white", "yellow"];
+    // Nozzle positions match engine-left (-3) and engine-right (+3) sprites
+    let nozzle = if rand() > 0.5 { -3.0 } else { 3.0 };
     // Layer 1: hot core — bright, fast, tight cone, starts medium
     let hc = hot_colors[(rand() * 3.0).to_int() % 3];
     world.emit("asteroids.ship_thrust", ship_id, #{
@@ -163,6 +165,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
+        side_offset: nozzle + (rand() - 0.5) * 1.0,
         speed: 30.0 + rand() * 25.0,
         spread: -HALF_PI + (rand() - 0.5) * 0.3,
         ttl_ms: 140 + (rand() * 100.0).to_int(),
@@ -175,6 +178,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
+        side_offset: nozzle + (rand() - 0.5) * 2.0,
         speed: 6.0 + rand() * 12.0,
         spread: -HALF_PI + (rand() - 0.5) * 0.9,
         ttl_ms: 300 + (rand() * 200.0).to_int(),
@@ -188,6 +192,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
             template: "debris",
             owner_bound: false,
             thrust_ms: thrust_ms,
+            side_offset: nozzle,
             speed: 45.0 + rand() * 30.0,
             spread: -HALF_PI + (rand() - 0.5) * 0.12,
             ttl_ms: 50 + (rand() * 30.0).to_int(),
@@ -277,11 +282,13 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
     // Backward velocity → fire main engine (exhaust backward)
     if abs_fwd > 0.15 && fwd_frac < 0.0 {
         let hc = hot_colors[(rand() * 3.0).to_int() % 3];
+        let nozzle = if rand() > 0.5 { -3.0 } else { 3.0 };
         world.emit("asteroids.ship_thrust", ship_id, #{
             kind: "fx_thrust",
             template: "debris",
             owner_bound: false,
             thrust_ms: 100,
+            side_offset: nozzle + (rand() - 0.5) * 1.0,
             speed: (20.0 + rand() * 25.0) * abs_fwd,
             spread: -HALF_PI + (rand() - 0.5) * 0.3,
             ttl_ms: 60 + (rand() * 50.0).to_int(),
@@ -293,6 +300,7 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
             template: "debris",
             owner_bound: false,
             thrust_ms: 100,
+            side_offset: nozzle + (rand() - 0.5) * 2.0,
             speed: (6.0 + rand() * 10.0) * abs_fwd,
             spread: -HALF_PI + (rand() - 0.5) * 0.7,
             ttl_ms: 100 + (rand() * 80.0).to_int(),
