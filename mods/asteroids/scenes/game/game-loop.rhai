@@ -465,20 +465,43 @@ if thrust_on {
     if (local.was_thrusting ?? false) {
         let vel = ship.physics().velocity();
         let spd_sq = vel[0] * vel[0] + vel[1] * vel[1];
-        if spd_sq > 400.0 {
+        if spd_sq > 25.0 {
             let spd = sqrt(spd_sq);
             // Ship heading vector: (sin(h), -cos(h))
             let hv = ship.heading_vector();
             let fwd_x = hv["x"];
             let fwd_y = hv["y"];
-            // Right-perpendicular: (cos(h), sin(h)) = (fwd_y negated sign, fwd_x)
-            // Since hv = (sin(h), -cos(h)), right = (cos(h), sin(h)) = (-fwd_y, fwd_x)
             let right_x = -fwd_y;
             let right_y = fwd_x;
             // Project velocity onto forward and lateral axes
             let fwd_dot = (vel[0] * fwd_x + vel[1] * fwd_y) / spd;
             let lat_dot = (vel[0] * right_x + vel[1] * right_y) / spd;
             emit_retro_decomposed(world, ship_id, fwd_dot, lat_dot);
+            // Schedule final stopping bursts when we cross below threshold
+            if spd_sq < 200.0 {
+                local.retro_bursts_left = 3;
+            }
+        } else if (local.retro_bursts_left ?? 0) > 0 {
+            // Final 2-3 short stopping bursts right at zero
+            let spd = sqrt(spd_sq + 1.0);
+            let hv = ship.heading_vector();
+            let fwd_x = hv["x"];
+            let fwd_y = hv["y"];
+            let right_x = -fwd_y;
+            let right_y = fwd_x;
+            let fwd_dot = (vel[0] * fwd_x + vel[1] * fwd_y) / spd;
+            let lat_dot = (vel[0] * right_x + vel[1] * right_y) / spd;
+            // Force minimum intensity so bursts are visible
+            let min_fwd = if fwd_dot > 0.0 { 0.4 } else if fwd_dot < 0.0 { -0.4 } else { 0.0 };
+            let min_lat = if lat_dot > 0.0 { 0.4 } else if lat_dot < 0.0 { -0.4 } else { 0.0 };
+            let eff_fwd = if fwd_dot > 0.0 && fwd_dot < 0.4 { min_fwd } else if fwd_dot < 0.0 && fwd_dot > -0.4 { min_fwd } else { fwd_dot };
+            let eff_lat = if lat_dot > 0.0 && lat_dot < 0.4 { min_lat } else if lat_dot < 0.0 && lat_dot > -0.4 { min_lat } else { lat_dot };
+            emit_retro_decomposed(world, ship_id, eff_fwd, eff_lat);
+            local.retro_bursts_left -= 1;
+            if local.retro_bursts_left <= 0 {
+                local.was_thrusting = false;
+                local.retro_bursts_left = 0;
+            }
         } else {
             local.was_thrusting = false;
         }
