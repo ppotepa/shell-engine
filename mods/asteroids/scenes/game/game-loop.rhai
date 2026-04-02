@@ -278,10 +278,10 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
     let abs_lat = if lat_frac < 0.0 { -lat_frac } else { lat_frac };
     let hot_colors = ["white", "bright_white", "yellow"];
 
-    // Forward velocity → fire retro from the NOSE (exhaust forward)
+    // Forward velocity → fire retro from NOSE and REAR (both exhaust forward)
     if abs_fwd > 0.15 && fwd_frac > 0.0 {
         let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-        // Hot core
+        // Nose retro - hot core
         world.emit("asteroids.retro_thruster", ship_id, #{
             kind: "fx_rcs",
             template: "debris",
@@ -293,7 +293,7 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
             radius: 1 + (rand() * (2.0 * abs_fwd)).to_int(),
             fg: hc
         });
-        // Smoke puff
+        // Nose retro - smoke puff
         world.emit("asteroids.retro_thruster", ship_id, #{
             kind: "fx_rcs",
             template: "debris",
@@ -303,6 +303,31 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
             spread: HALF_PI + (rand() - 0.5) * 0.8,
             ttl_ms: 90 + (rand() * 60.0).to_int(),
             radius: 3 + (rand() * (3.0 * abs_fwd)).to_int(),
+            fg: "gray"
+        });
+        
+        // Rear retro (from rear tip, exhaust also forward for braking)
+        let hc2 = hot_colors[(rand() * 3.0).to_int() % 3];
+        world.emit("asteroids.rcs_thruster", ship_id, #{
+            kind: "fx_rcs",
+            template: "debris",
+            owner_bound: false,
+            side_offset: (rand() - 0.5) * 2.0,
+            speed: (25.0 + rand() * 30.0) * abs_fwd,
+            spread: HALF_PI + (rand() - 0.5) * 0.35,
+            ttl_ms: 50 + (rand() * 40.0).to_int(),
+            radius: 8 + (rand() * (6.0 * abs_fwd)).to_int(),
+            fg: hc2
+        });
+        world.emit("asteroids.rcs_thruster", ship_id, #{
+            kind: "fx_rcs",
+            template: "debris",
+            owner_bound: false,
+            side_offset: (rand() - 0.5) * 4.0,
+            speed: (8.0 + rand() * 12.0) * abs_fwd,
+            spread: HALF_PI + (rand() - 0.5) * 0.8,
+            ttl_ms: 90 + (rand() * 60.0).to_int(),
+            radius: 12 + (rand() * (8.0 * abs_fwd)).to_int(),
             fg: "gray"
         });
     }
