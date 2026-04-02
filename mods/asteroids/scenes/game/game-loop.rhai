@@ -393,8 +393,8 @@ if thrust_on {
             let spd = sqrt(spd_sq);
             // Ship heading vector: (sin(h), -cos(h))
             let hv = ship.heading_vector();
-            let fwd_x = hv[0];
-            let fwd_y = hv[1];
+            let fwd_x = hv["x"];
+            let fwd_y = hv["y"];
             // Right-perpendicular: (cos(h), sin(h)) = (fwd_y negated sign, fwd_x)
             // Since hv = (sin(h), -cos(h)), right = (cos(h), sin(h)) = (-fwd_y, fwd_x)
             let right_x = -fwd_y;
