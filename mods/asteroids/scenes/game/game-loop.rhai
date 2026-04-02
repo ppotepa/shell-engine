@@ -194,22 +194,68 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     });
 }
 
-// Emit a retro-thrust puff from the nose — fires when drag is decelerating the ship.
-fn emit_retro(world, ship_id) {
+// Decomposed retro-thrust: fires from ALL thrusters proportionally opposite
+// to the ship's velocity vector in ship-local space.
+//   fwd_frac  = fraction of velocity along ship's forward axis
+//   lat_frac  = fraction of velocity along ship's lateral axis (+ = right)
+fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
-    let r = 2 + (rand() * 3.0).to_int();
-    world.emit("asteroids.retro_thruster", ship_id, #{
-        kind: "fx_rcs",
-        template: "debris",
-        owner_bound: false,
-        side_offset: (rand() - 0.5) * 3.0,
-        speed: 20.0 + rand() * 25.0,
-        spread: HALF_PI + (rand() - 0.5) * 0.5,
-        ttl_ms: 60 + (rand() * 40.0).to_int(),
-        radius: r,
-        fg: "white"
-    });
+    let abs_fwd = if fwd_frac < 0.0 { -fwd_frac } else { fwd_frac };
+    let abs_lat = if lat_frac < 0.0 { -lat_frac } else { lat_frac };
+
+    // Forward velocity → fire retro from the NOSE (exhaust forward)
+    if abs_fwd > 0.15 && fwd_frac > 0.0 {
+        let r = 2 + (rand() * (3.0 * abs_fwd)).to_int();
+        world.emit("asteroids.retro_thruster", ship_id, #{
+            kind: "fx_rcs",
+            template: "debris",
+            owner_bound: false,
+            side_offset: (rand() - 0.5) * 3.0,
+            speed: (20.0 + rand() * 25.0) * abs_fwd,
+            spread: HALF_PI + (rand() - 0.5) * 0.5,
+            ttl_ms: 60 + (rand() * 40.0).to_int(),
+            radius: r,
+            fg: "white"
+        });
+    }
+
+    // Backward velocity → fire main engine (exhaust backward)
+    if abs_fwd > 0.15 && fwd_frac < 0.0 {
+        let r = 3 + (rand() * (3.0 * abs_fwd)).to_int();
+        world.emit("asteroids.ship_thrust", ship_id, #{
+            kind: "fx_thrust",
+            template: "debris",
+            owner_bound: false,
+            thrust_ms: 100,
+            speed: (15.0 + rand() * 20.0) * abs_fwd,
+            spread: -HALF_PI + (rand() - 0.5) * 0.4,
+            ttl_ms: 60 + (rand() * 40.0).to_int(),
+            radius: r,
+            fg: "white"
+        });
+    }
+
+    // Lateral velocity → fire RCS from the opposite wing
+    if abs_lat > 0.15 {
+        // lat_frac > 0 = drifting right → fire RIGHT wing RCS (exhaust right) to push left
+        // lat_frac < 0 = drifting left  → fire LEFT wing RCS (exhaust left) to push right
+        let rcs_dir = if lat_frac > 0.0 { 1.0 } else { -1.0 };
+        let side = -7.0 * rcs_dir;
+        let spread_base = HALF_PI * (1.0 + rcs_dir);
+        let r = 2 + (rand() * (3.0 * abs_lat)).to_int();
+        world.emit("asteroids.rcs_thruster", ship_id, #{
+            kind: "fx_rcs",
+            template: "debris",
+            owner_bound: false,
+            side_offset: side,
+            speed: (18.0 + rand() * 18.0) * abs_lat,
+            spread: spread_base + (rand() - 0.5) * 0.5,
+            ttl_ms: 60 + (rand() * 40.0).to_int(),
+            radius: r,
+            fg: "white"
+        });
+    }
 }
 
 fn emit_impact_burst(world, owner_id, count, fg) {
@@ -338,13 +384,25 @@ if thrust_on {
     local.was_thrusting = true;
 } else {
     local.thrust_ms = 0;
-    // Retro-thrust: when drag is decelerating the ship after thrust release
+    // Retro-thrust: decompose velocity into ship-local axes, fire thrusters
+    // proportionally opposite to each component
     if (local.was_thrusting ?? false) {
         let vel = ship.physics().velocity();
         let spd_sq = vel[0] * vel[0] + vel[1] * vel[1];
         if spd_sq > 400.0 {
-            // Ship still moving fast — fire retro thrusters from the nose
-            emit_retro(world, ship_id);
+            let spd = sqrt(spd_sq);
+            // Ship heading vector: (sin(h), -cos(h))
+            let hv = ship.heading_vector();
+            let fwd_x = hv[0];
+            let fwd_y = hv[1];
+            // Right-perpendicular: (cos(h), sin(h)) = (fwd_y negated sign, fwd_x)
+            // Since hv = (sin(h), -cos(h)), right = (cos(h), sin(h)) = (-fwd_y, fwd_x)
+            let right_x = -fwd_y;
+            let right_y = fwd_x;
+            // Project velocity onto forward and lateral axes
+            let fwd_dot = (vel[0] * fwd_x + vel[1] * fwd_y) / spd;
+            let lat_dot = (vel[0] * right_x + vel[1] * right_y) / spd;
+            emit_retro_decomposed(world, ship_id, fwd_dot, lat_dot);
         } else {
             local.was_thrusting = false;
         }
