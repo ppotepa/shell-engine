@@ -236,6 +236,39 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     });
 }
 
+// Emit RCS from rear-center (top tip) — fires perpendicular for lateral correction
+fn emit_rcs_rear(world, ship_id, lateral_dir, intensity, ttl_override) {
+    if !world.exists(ship_id) { return; }
+    let HALF_PI = 1.5707963;
+    let spread_base = if lateral_dir > 0.0 { 0.0 } else { 3.14159 };
+    let hot_colors = ["white", "bright_white", "yellow"];
+    let hc = hot_colors[(rand() * 3.0).to_int() % 3];
+    let ttl = if ttl_override > 0 { ttl_override + (rand() * 20.0).to_int() } else { (120.0 + rand() * 80.0 * intensity).to_int() };
+    world.emit("asteroids.rcs_thruster", ship_id, #{
+        kind: "fx_rcs",
+        template: "debris",
+        owner_bound: false,
+        side_offset: (rand() - 0.5) * 2.0,
+        speed: (20.0 + rand() * 20.0) * intensity,
+        spread: spread_base + (rand() - 0.5) * 0.4,
+        ttl_ms: ttl,
+        radius: 8 + (rand() * (6.0 * intensity)).to_int(),
+        fg: hc
+    });
+    let ttl2 = if ttl_override > 0 { ttl_override + 60 + (rand() * 40.0).to_int() } else { (200.0 + rand() * 120.0 * intensity).to_int() };
+    world.emit("asteroids.rcs_thruster", ship_id, #{
+        kind: "fx_rcs",
+        template: "debris",
+        owner_bound: false,
+        side_offset: (rand() - 0.5) * 3.0,
+        speed: (6.0 + rand() * 8.0) * intensity,
+        spread: spread_base + (rand() - 0.5) * 0.8,
+        ttl_ms: ttl2,
+        radius: 12 + (rand() * (8.0 * intensity)).to_int(),
+        fg: "gray"
+    });
+}
+
 // Decomposed retro-thrust: fires from ALL thrusters proportionally opposite
 // to the ship's velocity vector in ship-local space.
 fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
@@ -301,36 +334,11 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
         });
     }
 
-    // Lateral velocity → fire RCS from the opposite wing
+    // Lateral velocity → fire rear RCS perpendicular
     if abs_lat > 0.15 {
-        let rcs_dir = if lat_frac > 0.0 { 1.0 } else { -1.0 };
-        let side = -7.0 * rcs_dir;
-        let spread_base = HALF_PI * (1.0 + rcs_dir);
-        let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-        // Core
-        world.emit("asteroids.rcs_thruster", ship_id, #{
-            kind: "fx_rcs",
-            template: "debris",
-            owner_bound: false,
-            side_offset: side,
-            speed: (22.0 + rand() * 20.0) * abs_lat,
-            spread: spread_base + (rand() - 0.5) * 0.4,
-            ttl_ms: 50 + (rand() * 35.0).to_int(),
-            radius: 1 + (rand() * (2.0 * abs_lat)).to_int(),
-            fg: hc
-        });
-        // Smoke
-        world.emit("asteroids.rcs_thruster", ship_id, #{
-            kind: "fx_rcs",
-            template: "debris",
-            owner_bound: false,
-            side_offset: side + (rand() - 0.5) * 3.0,
-            speed: (6.0 + rand() * 10.0) * abs_lat,
-            spread: spread_base + (rand() - 0.5) * 0.9,
-            ttl_ms: 90 + (rand() * 60.0).to_int(),
-            radius: 3 + (rand() * (2.0 * abs_lat)).to_int(),
-            fg: "gray"
-        });
+        // lat_frac > 0 = drifting right → fire rear RCS leftward
+        // lat_frac < 0 = drifting left  → fire rear RCS rightward
+        emit_rcs_rear(world, ship_id, lat_frac, abs_lat, 0);
     }
 }
 
