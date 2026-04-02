@@ -481,7 +481,7 @@ if thrust_on {
         } else if (local.retro_snap_fwd ?? 0.0) != 0.0 || (local.retro_snap_lat ?? 0.0) != 0.0 {
             // Schedule 3 timed stopping bursts using the saved direction
             if (local.retro_bursts_left ?? 0) == 0 {
-                local.retro_bursts_left = 3;
+                local.retro_bursts_left = 1;
                 local.retro_next_burst = now + 200;
             }
         }
