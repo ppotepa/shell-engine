@@ -194,6 +194,24 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     });
 }
 
+// Emit a retro-thrust puff from the nose — fires when drag is decelerating the ship.
+fn emit_retro(world, ship_id) {
+    if !world.exists(ship_id) { return; }
+    let HALF_PI = 1.5707963;
+    let r = 2 + (rand() * 3.0).to_int();
+    world.emit("asteroids.retro_thruster", ship_id, #{
+        kind: "fx_rcs",
+        template: "debris",
+        owner_bound: false,
+        side_offset: (rand() - 0.5) * 3.0,
+        speed: 20.0 + rand() * 25.0,
+        spread: HALF_PI + (rand() - 0.5) * 0.5,
+        ttl_ms: 60 + (rand() * 40.0).to_int(),
+        radius: r,
+        fg: "white"
+    });
+}
+
 fn emit_impact_burst(world, owner_id, count, fg) {
     let TWO_PI = 6.283185307;
     let colors = ["white", "yellow", "bright_white"];
@@ -317,8 +335,20 @@ ship.set_thrust(thrust_on);
 if thrust_on {
     local.thrust_ms = (local.thrust_ms ?? 0) + 16;
     emit_thrust(world, ship_id, local.thrust_ms, now);
+    local.was_thrusting = true;
 } else {
     local.thrust_ms = 0;
+    // Retro-thrust: when drag is decelerating the ship after thrust release
+    if (local.was_thrusting ?? false) {
+        let phys = ship.physics();
+        let spd_sq = phys["vx"] * phys["vx"] + phys["vy"] * phys["vy"];
+        if spd_sq > 400.0 {
+            // Ship still moving fast — fire retro thrusters from the nose
+            emit_retro(world, ship_id);
+        } else {
+            local.was_thrusting = false;
+        }
+    }
 }
 if turn != 0 {
     emit_rcs(world, ship_id, turn);

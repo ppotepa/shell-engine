@@ -31,3 +31,13 @@ emitters:
     ttl_ms: 160
     radius: 4
     velocity_scale: 1.0
+
+  asteroids.retro_thruster:
+    max_count: 30
+    cooldown_name: "retro-thruster"
+    cooldown_ms: 0
+    spawn_offset: -10.0
+    backward_speed: 0.0
+    ttl_ms: 100
+    radius: 3
+    velocity_scale: 1.0
