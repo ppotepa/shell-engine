@@ -340,8 +340,8 @@ if thrust_on {
     local.thrust_ms = 0;
     // Retro-thrust: when drag is decelerating the ship after thrust release
     if (local.was_thrusting ?? false) {
-        let phys = ship.physics();
-        let spd_sq = phys["vx"] * phys["vx"] + phys["vy"] * phys["vy"];
+        let vel = ship.physics().velocity();
+        let spd_sq = vel[0] * vel[0] + vel[1] * vel[1];
         if spd_sq > 400.0 {
             // Ship still moving fast — fire retro thrusters from the nose
             emit_retro(world, ship_id);
