@@ -166,7 +166,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
         speed: 30.0 + rand() * 25.0,
         spread: -HALF_PI + (rand() - 0.5) * 0.3,
         ttl_ms: 140 + (rand() * 100.0).to_int(),
-        radius: 5 + (rand() * 4.0).to_int(),
+        radius: 10 + (rand() * 8.0).to_int(),
         fg: hc
     });
     // Layer 2: smoke cloud — starts big, slow, wide cone, long life
@@ -178,7 +178,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
         speed: 6.0 + rand() * 12.0,
         spread: -HALF_PI + (rand() - 0.5) * 0.9,
         ttl_ms: 300 + (rand() * 200.0).to_int(),
-        radius: 8 + (rand() * 5.0).to_int(),
+        radius: 16 + (rand() * 10.0).to_int(),
         fg: "gray"
     });
     // Layer 3: occasional bright spark (1 in 3 frames)
@@ -191,7 +191,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
             speed: 45.0 + rand() * 30.0,
             spread: -HALF_PI + (rand() - 0.5) * 0.12,
             ttl_ms: 50 + (rand() * 30.0).to_int(),
-            radius: 2,
+            radius: 4,
             fg: "white"
         });
     }
@@ -218,7 +218,7 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
         speed: (20.0 + rand() * 20.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 0.5,
         ttl_ms: ttl,
-        radius: 4 + (rand() * (3.0 * intensity)).to_int(),
+        radius: 8 + (rand() * (6.0 * intensity)).to_int(),
         fg: hc
     });
     // Smoke trail — starts even bigger, slow, wide
@@ -231,7 +231,7 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
         speed: (6.0 + rand() * 8.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 1.0,
         ttl_ms: ttl2,
-        radius: 6 + (rand() * (4.0 * intensity)).to_int(),
+        radius: 12 + (rand() * (8.0 * intensity)).to_int(),
         fg: "gray"
     });
 }
@@ -768,7 +768,7 @@ for id in world.query_kind("fx_thrust") {
     let frac = p.lifetime_fraction();
     let f = frac * frac;
     // Start large, shrink to 1 as particle dies
-    p.set_radius(max(1, (8.0 * f + 0.5).to_int()));
+    p.set_radius(max(1, (16.0 * f + 0.5).to_int()));
     p.set_fg(if f > 0.80 { "white" } else if f > 0.60 { "yellow" } else if f > 0.45 { "bright_white" } else if f > 0.30 { "gray" } else if f > 0.18 { "dark_gray" } else if f > 0.08 { "#444" } else { "#222" });
 }
 // RCS: bright puff → shrinking dark wisp
@@ -776,7 +776,7 @@ for id in world.query_kind("fx_rcs") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
     let f = frac * frac;
-    p.set_radius(max(1, (6.0 * f + 0.5).to_int()));
+    p.set_radius(max(1, (12.0 * f + 0.5).to_int()));
     p.set_fg(if f > 0.65 { "white" } else if f > 0.45 { "bright_white" } else if f > 0.30 { "gray" } else if f > 0.15 { "dark_gray" } else if f > 0.06 { "#444" } else { "#222" });
 }
 // Impact sparks: bright flash → yellow → dim ember, shrinking to a point
