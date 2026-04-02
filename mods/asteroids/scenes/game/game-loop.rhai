@@ -8,7 +8,7 @@ fn spawn_ship(world) {
         x: WORLD_W / 2.0,
         y: WORLD_H / 2.0,
         heading: 0.0,
-        collider_polygon: [[0,-12], [3,-4], [9,6], [10,8], [2,12], [-2,12], [-10,8], [-9,6], [-3,-4]],
+        collider_polygon: [[0,-10], [7,10], [-7,10]],
         collider_layer: 1,
         collider_mask: 6
     });
@@ -204,7 +204,7 @@ fn emit_rcs(world, ship_id, turn_dir) {
 fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
-    let side = -10.0 * turn_dir;
+    let side = -7.0 * turn_dir;
     let spread_base = HALF_PI * (1 + turn_dir);
     let hot_colors = ["white", "bright_white", "yellow"];
     // Core puff — bright, starts big
@@ -304,7 +304,7 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
     // Lateral velocity → fire RCS from the opposite wing
     if abs_lat > 0.15 {
         let rcs_dir = if lat_frac > 0.0 { 1.0 } else { -1.0 };
-        let side = -10.0 * rcs_dir;
+        let side = -7.0 * rcs_dir;
         let spread_base = HALF_PI * (1.0 + rcs_dir);
         let hc = hot_colors[(rand() * 3.0).to_int() % 3];
         // Core
