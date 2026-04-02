@@ -481,8 +481,8 @@ if thrust_on {
         } else if (local.retro_snap_fwd ?? 0.0) != 0.0 || (local.retro_snap_lat ?? 0.0) != 0.0 {
             // Schedule 3 timed stopping bursts using the saved direction
             if (local.retro_bursts_left ?? 0) == 0 {
-                local.retro_bursts_left = 1;
-                local.retro_next_burst = now + 200;
+                local.retro_bursts_left = 2;
+                local.retro_next_burst = now + 120;
             }
         }
     }
@@ -495,7 +495,7 @@ if thrust_on {
         let eff_lat = if snap_lat > 0.1 { 0.6 } else if snap_lat < -0.1 { -0.6 } else { 0.0 };
         emit_retro_decomposed(world, ship_id, eff_fwd, eff_lat);
         local.retro_bursts_left -= 1;
-        local.retro_next_burst = now + 80;
+        local.retro_next_burst = now + 120;
         if local.retro_bursts_left <= 0 {
             local.was_thrusting = false;
             local.retro_bursts_left = 0;
