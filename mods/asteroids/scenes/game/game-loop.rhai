@@ -482,7 +482,7 @@ if thrust_on {
             // Schedule 3 timed stopping bursts using the saved direction
             if (local.retro_bursts_left ?? 0) == 0 {
                 local.retro_bursts_left = 3;
-                local.retro_next_burst = now;
+                local.retro_next_burst = now + 200;
             }
         }
     }
