@@ -1,11 +1,72 @@
 kind: object
 name: ship
 sprites:
+  # Main fuselage - central body
   - type: vector
-    id: ship-sprite
-    points: [[0,-10],[7,10],[-7,10]]
+    id: fuselage
+    points: [[0,-12], [3,-4], [3,8], [0,10], [-3,8], [-3,-4]]
     closed: true
     draw-char: "*"
     x: 0
     y: 0
     fg_colour: white
+    
+  # Cockpit canopy - front detail
+  - type: vector
+    id: cockpit
+    points: [[0,-12], [2,-8], [-2,-8]]
+    closed: true
+    draw-char: "*"
+    x: 0
+    y: 0
+    fg_colour: cyan
+    
+  # Left wing - swept back
+  - type: vector
+    id: left-wing
+    points: [[-3,0], [-9,4], [-9,6], [-3,4]]
+    closed: true
+    draw-char: "-"
+    x: 0
+    y: 0
+    fg_colour: white
+    
+  # Right wing - swept back
+  - type: vector
+    id: right-wing
+    points: [[3,0], [9,4], [9,6], [3,4]]
+    closed: true
+    draw-char: "-"
+    x: 0
+    y: 0
+    fg_colour: white
+    
+  # Left engine nacelle - at wing tip
+  - type: vector
+    id: left-nacelle
+    points: [[-9,4], [-10,4], [-10,8], [-9,8]]
+    closed: true
+    draw-char: "#"
+    x: 0
+    y: 0
+    fg_colour: gray
+    
+  # Right engine nacelle - at wing tip
+  - type: vector
+    id: right-nacelle
+    points: [[9,4], [10,4], [10,8], [9,8]]
+    closed: true
+    draw-char: "#"
+    x: 0
+    y: 0
+    fg_colour: gray
+    
+  # Engine nozzle detail - rear
+  - type: vector
+    id: engine-nozzle
+    points: [[-2,10], [2,10], [1,12], [-1,12]]
+    closed: true
+    draw-char: "#"
+    x: 0
+    y: 0
+    fg_colour: yellow
