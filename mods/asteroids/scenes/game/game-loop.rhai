@@ -156,7 +156,7 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
     let hot_colors = ["white", "bright_white", "yellow"];
-    // Layer 1: hot core — small, fast, tight cone
+    // Layer 1: hot core — bright, fast, tight cone, starts medium
     let hc = hot_colors[(rand() * 3.0).to_int() % 3];
     world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx_thrust",
@@ -165,20 +165,20 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
         thrust_ms: thrust_ms,
         speed: 30.0 + rand() * 25.0,
         spread: -HALF_PI + (rand() - 0.5) * 0.3,
-        ttl_ms: 120 + (rand() * 80.0).to_int(),
-        radius: 2 + (rand() * 3.0).to_int(),
+        ttl_ms: 140 + (rand() * 100.0).to_int(),
+        radius: 5 + (rand() * 4.0).to_int(),
         fg: hc
     });
-    // Layer 2: expanding smoke — large, slow, wider cone
+    // Layer 2: smoke cloud — starts big, slow, wide cone, long life
     world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx_thrust",
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
-        speed: 8.0 + rand() * 15.0,
-        spread: -HALF_PI + (rand() - 0.5) * 0.8,
-        ttl_ms: 240 + (rand() * 180.0).to_int(),
-        radius: 5 + (rand() * 5.0).to_int(),
+        speed: 6.0 + rand() * 12.0,
+        spread: -HALF_PI + (rand() - 0.5) * 0.9,
+        ttl_ms: 300 + (rand() * 200.0).to_int(),
+        radius: 8 + (rand() * 5.0).to_int(),
         fg: "gray"
     });
     // Layer 3: occasional bright spark (1 in 3 frames)
@@ -188,10 +188,10 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
             template: "debris",
             owner_bound: false,
             thrust_ms: thrust_ms,
-            speed: 40.0 + rand() * 30.0,
-            spread: -HALF_PI + (rand() - 0.5) * 0.15,
-            ttl_ms: 60 + (rand() * 40.0).to_int(),
-            radius: 1,
+            speed: 45.0 + rand() * 30.0,
+            spread: -HALF_PI + (rand() - 0.5) * 0.12,
+            ttl_ms: 50 + (rand() * 30.0).to_int(),
+            radius: 2,
             fg: "white"
         });
     }
@@ -207,9 +207,9 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     let side = -7.0 * turn_dir;
     let spread_base = HALF_PI * (1 + turn_dir);
     let hot_colors = ["white", "bright_white", "yellow"];
-    // Core puff — bright, medium speed
+    // Core puff — bright, starts big
     let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-    let ttl = if ttl_override > 0 { ttl_override + (rand() * 20.0).to_int() } else { (100.0 + rand() * 80.0 * intensity).to_int() };
+    let ttl = if ttl_override > 0 { ttl_override + (rand() * 20.0).to_int() } else { (120.0 + rand() * 80.0 * intensity).to_int() };
     world.emit("asteroids.rcs_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
@@ -218,20 +218,20 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
         speed: (20.0 + rand() * 20.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 0.5,
         ttl_ms: ttl,
-        radius: 2 + (rand() * (2.0 * intensity)).to_int(),
+        radius: 4 + (rand() * (3.0 * intensity)).to_int(),
         fg: hc
     });
-    // Smoke trail — larger, slower, wider
-    let ttl2 = if ttl_override > 0 { ttl_override + 40 + (rand() * 30.0).to_int() } else { (160.0 + rand() * 100.0 * intensity).to_int() };
+    // Smoke trail — starts even bigger, slow, wide
+    let ttl2 = if ttl_override > 0 { ttl_override + 60 + (rand() * 40.0).to_int() } else { (200.0 + rand() * 120.0 * intensity).to_int() };
     world.emit("asteroids.rcs_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
         side_offset: side + (rand() - 0.5) * 2.0,
-        speed: (8.0 + rand() * 10.0) * intensity,
+        speed: (6.0 + rand() * 8.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 1.0,
         ttl_ms: ttl2,
-        radius: 3 + (rand() * (3.0 * intensity)).to_int(),
+        radius: 6 + (rand() * (4.0 * intensity)).to_int(),
         fg: "gray"
     });
 }
@@ -761,24 +761,23 @@ for id in world.query_kind("asteroid") {
 }
 
 // ─── Particle decay (closure-style per-frame visual update) ──────────────────
-// Thrust: hot core → yellow → bright → gray smoke (EXPANDING as gas cools)
+// Particles start BIG and hot, then SHRINK and fade to black as they cool.
+// f = lifetime_fraction² (quadratic: stays bright longer, rapid fade at end)
 for id in world.query_kind("fx_thrust") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
     let f = frac * frac;
-    // Smoke expands: starts small (core), grows as it cools, then fades
-    let expand = 1.0 + (1.0 - f) * 2.5;
-    p.set_radius(max(1, (3.0 * expand).to_int()));
-    p.set_fg(if f > 0.75 { "white" } else if f > 0.55 { "yellow" } else if f > 0.40 { "bright_white" } else if f > 0.25 { "gray" } else if f > 0.12 { "dark_gray" } else { "#333" });
+    // Start large, shrink to 1 as particle dies
+    p.set_radius(max(1, (8.0 * f + 0.5).to_int()));
+    p.set_fg(if f > 0.80 { "white" } else if f > 0.60 { "yellow" } else if f > 0.45 { "bright_white" } else if f > 0.30 { "gray" } else if f > 0.18 { "dark_gray" } else if f > 0.08 { "#444" } else { "#222" });
 }
-// RCS: bright puff → expanding dispersal cloud
+// RCS: bright puff → shrinking dark wisp
 for id in world.query_kind("fx_rcs") {
     let p = world.entity(id);
     let frac = p.lifetime_fraction();
     let f = frac * frac;
-    let expand = 1.0 + (1.0 - f) * 1.8;
-    p.set_radius(max(1, (2.0 * expand).to_int()));
-    p.set_fg(if f > 0.60 { "white" } else if f > 0.40 { "bright_white" } else if f > 0.22 { "gray" } else if f > 0.08 { "dark_gray" } else { "#333" });
+    p.set_radius(max(1, (6.0 * f + 0.5).to_int()));
+    p.set_fg(if f > 0.65 { "white" } else if f > 0.45 { "bright_white" } else if f > 0.30 { "gray" } else if f > 0.15 { "dark_gray" } else if f > 0.06 { "#444" } else { "#222" });
 }
 // Impact sparks: bright flash → yellow → dim ember, shrinking to a point
 for id in world.query_kind("fx_sparks") {
