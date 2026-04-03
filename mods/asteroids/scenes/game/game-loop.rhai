@@ -8,7 +8,7 @@ fn spawn_ship(world) {
         x: WORLD_W / 2.0,
         y: WORLD_H / 2.0,
         heading: 0.0,
-        collider_polygon: [[0,-10], [7,10], [-7,10]],
+        collider_polygon: [[0,-10], [7,10], [0,4], [-7,10]],
         collider_layer: 1,
         collider_mask: 6
     });
@@ -156,43 +156,38 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
     let hot_colors = ["white", "bright_white", "yellow"];
-    // Nozzle positions match engine-left (-3) and engine-right (+3) sprites
-    let nozzle = if rand() > 0.5 { -3.0 } else { 3.0 };
-    // Layer 1: hot core — bright, fast, tight cone, starts medium
+    // Single nozzle at notch center (0, 4)
     let hc = hot_colors[(rand() * 3.0).to_int() % 3];
     world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx_thrust",
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
-        side_offset: nozzle + (rand() - 0.5) * 1.0,
+        side_offset: (rand() - 0.5) * 1.5,
         speed: 30.0 + rand() * 25.0,
         spread: -HALF_PI + (rand() - 0.5) * 0.3,
         ttl_ms: 140 + (rand() * 100.0).to_int(),
         radius: 10 + (rand() * 8.0).to_int(),
         fg: hc
     });
-    // Layer 2: smoke cloud — starts big, slow, wide cone, long life
     world.emit("asteroids.ship_thrust", ship_id, #{
         kind: "fx_thrust",
         template: "debris",
         owner_bound: false,
         thrust_ms: thrust_ms,
-        side_offset: nozzle + (rand() - 0.5) * 2.0,
+        side_offset: (rand() - 0.5) * 3.0,
         speed: 6.0 + rand() * 12.0,
         spread: -HALF_PI + (rand() - 0.5) * 0.9,
         ttl_ms: 300 + (rand() * 200.0).to_int(),
         radius: 16 + (rand() * 10.0).to_int(),
         fg: "gray"
     });
-    // Layer 3: occasional bright spark (1 in 3 frames)
     if rand() > 0.66 {
         world.emit("asteroids.ship_thrust", ship_id, #{
             kind: "fx_thrust",
             template: "debris",
             owner_bound: false,
             thrust_ms: thrust_ms,
-            side_offset: nozzle,
             speed: 45.0 + rand() * 30.0,
             spread: -HALF_PI + (rand() - 0.5) * 0.12,
             ttl_ms: 50 + (rand() * 30.0).to_int(),
@@ -203,36 +198,37 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
 }
 
 fn emit_rcs(world, ship_id, turn_dir) {
-    emit_rcs_burst(world, ship_id, turn_dir, 1.0, 0);
+    emit_lateral_burst(world, ship_id, turn_dir, 1.0, 0);
 }
 
-fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
+// Lateral thruster burst — fires from edge midpoint thrusters.
+// lat_dir=1  → LEFT thruster fires leftward  (CW rotation / counter-left drift)
+// lat_dir=-1 → RIGHT thruster fires rightward (CCW rotation / counter-right drift)
+fn emit_lateral_burst(world, ship_id, lat_dir, intensity, ttl_override) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
-    let side = -7.0 * turn_dir;
-    let spread_base = HALF_PI * (1 + turn_dir);
+    let side = 2.0 * lat_dir;
+    let spread_base = HALF_PI * (1.0 - lat_dir);
     let hot_colors = ["white", "bright_white", "yellow"];
-    // Core puff — bright, starts big
     let hc = hot_colors[(rand() * 3.0).to_int() % 3];
     let ttl = if ttl_override > 0 { ttl_override + (rand() * 20.0).to_int() } else { (120.0 + rand() * 80.0 * intensity).to_int() };
-    world.emit("asteroids.rcs_thruster", ship_id, #{
+    world.emit("asteroids.lateral_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
-        side_offset: side,
+        side_offset: side + (rand() - 0.5) * 0.5,
         speed: (20.0 + rand() * 20.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 0.5,
         ttl_ms: ttl,
         radius: 8 + (rand() * (6.0 * intensity)).to_int(),
         fg: hc
     });
-    // Smoke trail — starts even bigger, slow, wide
     let ttl2 = if ttl_override > 0 { ttl_override + 60 + (rand() * 40.0).to_int() } else { (200.0 + rand() * 120.0 * intensity).to_int() };
-    world.emit("asteroids.rcs_thruster", ship_id, #{
+    world.emit("asteroids.lateral_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
-        side_offset: side + (rand() - 0.5) * 2.0,
+        side_offset: side + (rand() - 0.5) * 1.5,
         speed: (6.0 + rand() * 8.0) * intensity,
         spread: spread_base + (rand() - 0.5) * 1.0,
         ttl_ms: ttl2,
@@ -241,67 +237,63 @@ fn emit_rcs_burst(world, ship_id, turn_dir, intensity, ttl_override) {
     });
 }
 
-// Single nose thruster burst — hot core + smoke puff
-fn emit_nose_burst(world, ship_id, side, spread_base, intensity) {
+// Nose retro thruster burst — single center nozzle at nose tip
+fn emit_nose_burst(world, ship_id, intensity) {
     if !world.exists(ship_id) { return; }
+    let HALF_PI = 1.5707963;
     let hot_colors = ["white", "bright_white", "yellow"];
     let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-    // Hot core
     world.emit("asteroids.nose_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
-        side_offset: side + (rand() - 0.5) * 1.0,
+        side_offset: (rand() - 0.5) * 1.5,
         speed: (20.0 + rand() * 25.0) * intensity,
-        spread: spread_base + (rand() - 0.5) * 0.4,
+        spread: HALF_PI + (rand() - 0.5) * 0.4,
         ttl_ms: 50 + (rand() * 40.0).to_int(),
         radius: 1 + (rand() * (3.0 * intensity)).to_int(),
         fg: hc
     });
-    // Smoke puff
     world.emit("asteroids.nose_thruster", ship_id, #{
         kind: "fx_rcs",
         template: "debris",
         owner_bound: false,
-        side_offset: side + (rand() - 0.5) * 2.0,
+        side_offset: (rand() - 0.5) * 3.0,
         speed: (6.0 + rand() * 10.0) * intensity,
-        spread: spread_base + (rand() - 0.5) * 0.8,
+        spread: HALF_PI + (rand() - 0.5) * 0.8,
         ttl_ms: 90 + (rand() * 60.0).to_int(),
         radius: 3 + (rand() * (3.0 * intensity)).to_int(),
         fg: "gray"
     });
 }
 
-// Decomposed retro-thrust: 6-thruster braking system.
+// Decomposed retro-thrust: 4-thruster braking system.
 // Fires thrusters proportionally opposite to the ship's velocity in ship-local space.
-//   Forward drift  → nose-L + nose-R fire forward
-//   Backward drift → main-L + main-R fire backward
-//   Right drift    → nose-R + RCS-R fire rightward
-//   Left drift     → nose-L + RCS-L fire leftward
+//   Forward drift  → nose retro fires forward
+//   Backward drift → main engine fires backward
+//   Right drift    → right lateral fires rightward
+//   Left drift     → left lateral fires leftward
 fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
     if !world.exists(ship_id) { return; }
     let HALF_PI = 1.5707963;
-    let PI = 3.1415927;
     let abs_fwd = if fwd_frac < 0.0 { -fwd_frac } else { fwd_frac };
     let abs_lat = if lat_frac < 0.0 { -lat_frac } else { lat_frac };
     let hot_colors = ["white", "bright_white", "yellow"];
 
-    // Forward velocity → both nose thrusters fire forward (exhaust ↑)
+    // Forward velocity → nose retro fires forward (exhaust ↑)
     if abs_fwd > 0.15 && fwd_frac > 0.0 {
-        emit_nose_burst(world, ship_id, 2.0, HALF_PI, abs_fwd);    // nose-L
-        emit_nose_burst(world, ship_id, -2.0, HALF_PI, abs_fwd);   // nose-R
+        emit_nose_burst(world, ship_id, abs_fwd);
     }
 
-    // Backward velocity → main engines fire backward (exhaust ↓)
+    // Backward velocity → main engine fires backward (exhaust ↓)
     if abs_fwd > 0.15 && fwd_frac < 0.0 {
         let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-        let nozzle = if rand() > 0.5 { -3.0 } else { 3.0 };
         world.emit("asteroids.ship_thrust", ship_id, #{
             kind: "fx_thrust",
             template: "debris",
             owner_bound: false,
             thrust_ms: 100,
-            side_offset: nozzle + (rand() - 0.5) * 1.0,
+            side_offset: (rand() - 0.5) * 1.5,
             speed: (20.0 + rand() * 25.0) * abs_fwd,
             spread: -HALF_PI + (rand() - 0.5) * 0.3,
             ttl_ms: 60 + (rand() * 50.0).to_int(),
@@ -313,7 +305,7 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
             template: "debris",
             owner_bound: false,
             thrust_ms: 100,
-            side_offset: nozzle + (rand() - 0.5) * 2.0,
+            side_offset: (rand() - 0.5) * 3.0,
             speed: (6.0 + rand() * 10.0) * abs_fwd,
             spread: -HALF_PI + (rand() - 0.5) * 0.7,
             ttl_ms: 100 + (rand() * 80.0).to_int(),
@@ -322,16 +314,14 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
         });
     }
 
-    // Right lateral drift → nose-R fires rightward + wing RCS-R fires rightward
+    // Right lateral drift → right lateral fires rightward (reaction pushes left)
     if abs_lat > 0.15 && lat_frac > 0.0 {
-        emit_nose_burst(world, ship_id, -2.0, PI, abs_lat);
-        emit_rcs_burst(world, ship_id, 1.0, abs_lat, 0);
+        emit_lateral_burst(world, ship_id, -1.0, abs_lat, 0);
     }
 
-    // Left lateral drift → nose-L fires leftward + wing RCS-L fires leftward
+    // Left lateral drift → left lateral fires leftward (reaction pushes right)
     if abs_lat > 0.15 && lat_frac < 0.0 {
-        emit_nose_burst(world, ship_id, 2.0, 0.0, abs_lat);
-        emit_rcs_burst(world, ship_id, -1.0, abs_lat, 0);
+        emit_lateral_burst(world, ship_id, 1.0, abs_lat, 0);
     }
 }
 
@@ -517,7 +507,7 @@ if turn != 0 {
 }
 // Fire correction RCS burst for a few frames after turn release
 if (local.correction_until ?? 0) > now {
-    emit_rcs_burst(world, ship_id, local.correction_dir, 6.0, 60);
+    emit_lateral_burst(world, ship_id, local.correction_dir, 6.0, 60);
 }
 
 // ─── Wave clear pause ──────────────────────────────────────────────────────────

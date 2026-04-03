@@ -1,10 +1,10 @@
 kind: object
 name: ship
 sprites:
-  # Main hull - classic triangle
+  # Main hull - kite/chevron with rear notch
   - type: vector
     id: hull
-    points: [[0,-10], [7,10], [-7,10]]
+    points: [[0,-10], [7,10], [0,4], [-7,10]]
     closed: true
     draw-char: "*"
     x: 0
@@ -21,80 +21,60 @@ sprites:
     y: 0
     fg_colour: cyan
     
-  # Left panel line detail
+  # Left panel line
   - type: vector
     id: left-panel
-    points: [[-1,-6], [-4,6]]
+    points: [[-1,-6], [-5,6]]
     closed: false
     draw-char: "-"
     x: 0
     y: 0
     fg_colour: gray
     
-  # Right panel line detail
+  # Right panel line
   - type: vector
     id: right-panel
-    points: [[1,-6], [4,6]]
+    points: [[1,-6], [5,6]]
     closed: false
     draw-char: "-"
     x: 0
     y: 0
     fg_colour: gray
     
-  # Engine glow - left
+  # Main engine glow - center notch
   - type: vector
-    id: engine-left
-    points: [[-3,10], [-3,11]]
+    id: engine-main
+    points: [[0,4], [0,5]]
     closed: false
     draw-char: "*"
     x: 0
     y: 0
     fg_colour: yellow
-    
-  # Engine glow - right
-  - type: vector
-    id: engine-right
-    points: [[3,10], [3,11]]
-    closed: false
-    draw-char: "*"
-    x: 0
-    y: 0
-    fg_colour: yellow
-    
-  # RCS nozzle - left wing tip
-  - type: vector
-    id: rcs-left
-    points: [[-7,10], [-8,10]]
-    closed: false
-    draw-char: "*"
-    x: 0
-    y: 0
-    fg_colour: cyan
-    
-  # RCS nozzle - right wing tip
-  - type: vector
-    id: rcs-right
-    points: [[7,10], [8,10]]
-    closed: false
-    draw-char: "*"
-    x: 0
-    y: 0
-    fg_colour: cyan
 
-  # Nose thruster - left
+  # Lateral thruster - left (on left edge midpoint)
   - type: vector
-    id: nose-left
-    points: [[-2,-5], [-3,-5]]
+    id: thruster-left
+    points: [[-2,-4], [-3,-4]]
     closed: false
     draw-char: "*"
     x: 0
     y: 0
     fg_colour: red
 
-  # Nose thruster - right
+  # Lateral thruster - right (on right edge midpoint)
   - type: vector
-    id: nose-right
-    points: [[2,-5], [3,-5]]
+    id: thruster-right
+    points: [[2,-4], [3,-4]]
+    closed: false
+    draw-char: "*"
+    x: 0
+    y: 0
+    fg_colour: red
+
+  # Nose retro thruster
+  - type: vector
+    id: thruster-nose
+    points: [[0,-10], [0,-11]]
     closed: false
     draw-char: "*"
     x: 0
