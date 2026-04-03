@@ -1,10 +1,10 @@
 kind: object
 name: ship
 sprites:
-  # Main hull - kite/chevron with rear notch
+  # Main hull - 6-vertex kite with thruster vertices
   - type: vector
     id: hull
-    points: [[0,-10], [7,10], [0,4], [-7,10]]
+    points: [[0,-10], [3,-4], [7,10], [0,4], [-7,10], [-3,-4]]
     closed: true
     draw-char: "*"
     x: 0
@@ -41,37 +41,37 @@ sprites:
     y: 0
     fg_colour: gray
     
-  # Main engine glow - center notch
+  # Main engine glow at notch
   - type: vector
     id: engine-main
-    points: [[0,4], [0,5]]
+    points: [[-1,4], [1,4]]
     closed: false
     draw-char: "*"
     x: 0
     y: 0
     fg_colour: yellow
 
-  # Lateral thruster - left (on left edge midpoint)
+  # Lateral thruster - left at vertex (-3,-4)
   - type: vector
     id: thruster-left
-    points: [[-2,-4], [-3,-4]]
+    points: [[-3,-4], [-4,-4]]
     closed: false
     draw-char: "*"
     x: 0
     y: 0
     fg_colour: red
 
-  # Lateral thruster - right (on right edge midpoint)
+  # Lateral thruster - right at vertex (3,-4)
   - type: vector
     id: thruster-right
-    points: [[2,-4], [3,-4]]
+    points: [[3,-4], [4,-4]]
     closed: false
     draw-char: "*"
     x: 0
     y: 0
     fg_colour: red
 
-  # Nose retro thruster
+  # Nose retro thruster at vertex (0,-10)
   - type: vector
     id: thruster-nose
     points: [[0,-10], [0,-11]]

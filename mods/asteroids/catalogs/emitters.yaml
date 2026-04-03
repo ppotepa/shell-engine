@@ -1,15 +1,49 @@
 emitters:
-  asteroids.ship_thrust:
+  asteroids.main_engine:
     max_count: 120
-    cooldown_name: "thrust-smoke"
+    cooldown_name: "main-engine"
     cooldown_ms: 25
     min_cooldown_ms: 0
     ramp_ms: 500
     lifecycle: "Ttl"
     spawn_offset: 4.0
+    side_offset: 0.0
     backward_speed: 0.3
     ttl_ms: 280
     radius: 6
+    velocity_scale: 1.0
+
+  asteroids.nose_retro:
+    max_count: 50
+    cooldown_name: "nose-retro"
+    cooldown_ms: 0
+    spawn_offset: -10.0
+    side_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 140
+    radius: 3
+    velocity_scale: 1.0
+
+  asteroids.lateral_left:
+    max_count: 40
+    cooldown_name: "lateral-left"
+    cooldown_ms: 0
+    spawn_offset: -4.0
+    side_offset: 3.0
+    backward_speed: 0.0
+    ttl_ms: 200
+    radius: 4
+    velocity_scale: 1.0
+
+  asteroids.lateral_right:
+    max_count: 40
+    cooldown_name: "lateral-right"
+    cooldown_ms: 0
+    spawn_offset: -4.0
+    side_offset: -3.0
+    backward_speed: 0.0
+    ttl_ms: 200
+    radius: 4
     velocity_scale: 1.0
 
   asteroids.impact_sparks:
@@ -20,24 +54,4 @@ emitters:
     backward_speed: 0.0
     ttl_ms: 420
     radius: 1
-    velocity_scale: 1.0
-
-  asteroids.lateral_thruster:
-    max_count: 60
-    cooldown_name: "lateral-thruster"
-    cooldown_ms: 0
-    spawn_offset: -4.0
-    backward_speed: 0.0
-    ttl_ms: 200
-    radius: 4
-    velocity_scale: 1.0
-
-  asteroids.nose_thruster:
-    max_count: 50
-    cooldown_name: "nose-thruster"
-    cooldown_ms: 0
-    spawn_offset: -10.0
-    backward_speed: 0.0
-    ttl_ms: 140
-    radius: 3
     velocity_scale: 1.0
