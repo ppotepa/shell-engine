@@ -160,15 +160,8 @@ fn spawn_debris(world, ox, oy, count) {
 //   nose_retro:     (0,-10) nose    → spread +π/2 → exhaust forward
 //   lateral_left:   (-3,-4) left    → spread 0    → exhaust leftward
 //   lateral_right:  (3,-4)  right   → spread π    → exhaust rightward
-
-let HALF_PI = 1.5707963;
-let PI = 3.1415927;
-
-// Fixed spread angles per thruster (engine formula: dir = heading + π + spread)
-let SPREAD_MAIN  = -HALF_PI;  // exhaust backward
-let SPREAD_NOSE  =  HALF_PI;  // exhaust forward
-let SPREAD_LEFT  =  0.0;      // exhaust leftward
-let SPREAD_RIGHT =  PI;       // exhaust rightward
+//
+// Spread literals are inlined in each fn (Rhai fns can't see outer `let` vars).
 
 // Generic 2-layer emit: hot core + smoke puff
 fn emit_from(world, ship_id, emitter, spread, intensity) {
@@ -202,6 +195,7 @@ fn emit_from(world, ship_id, emitter, spread, intensity) {
 // Main engine: 3-layer (hot core + smoke + occasional spark) for richer visuals
 fn emit_thrust(world, ship_id, thrust_ms, now) {
     if !world.exists(ship_id) { return; }
+    let SPREAD_MAIN = -1.5707963;
     let hot_colors = ["white", "bright_white", "yellow"];
     let hc = hot_colors[(rand() * 3.0).to_int() % 3];
     world.emit("asteroids.main_engine", ship_id, #{
@@ -245,9 +239,9 @@ fn emit_thrust(world, ship_id, thrust_ms, now) {
 //           right thruster fires rightward → CCW (turn_dir=-1)
 fn emit_rcs(world, ship_id, turn_dir) {
     if turn_dir > 0 {
-        emit_from(world, ship_id, "asteroids.lateral_left", SPREAD_LEFT, 1.0);
+        emit_from(world, ship_id, "asteroids.lateral_left", 0.0, 1.0);
     } else {
-        emit_from(world, ship_id, "asteroids.lateral_right", SPREAD_RIGHT, 1.0);
+        emit_from(world, ship_id, "asteroids.lateral_right", 3.1415927, 1.0);
     }
 }
 
@@ -259,19 +253,19 @@ fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
 
     // Forward drift → nose retro fires forward
     if abs_fwd > 0.15 && fwd_frac > 0.0 {
-        emit_from(world, ship_id, "asteroids.nose_retro", SPREAD_NOSE, abs_fwd);
+        emit_from(world, ship_id, "asteroids.nose_retro", 1.5707963, abs_fwd);
     }
     // Backward drift → main engine fires backward
     if abs_fwd > 0.15 && fwd_frac < 0.0 {
-        emit_from(world, ship_id, "asteroids.main_engine", SPREAD_MAIN, abs_fwd);
+        emit_from(world, ship_id, "asteroids.main_engine", -1.5707963, abs_fwd);
     }
     // Right drift → right lateral fires rightward
     if abs_lat > 0.15 && lat_frac > 0.0 {
-        emit_from(world, ship_id, "asteroids.lateral_right", SPREAD_RIGHT, abs_lat);
+        emit_from(world, ship_id, "asteroids.lateral_right", 3.1415927, abs_lat);
     }
     // Left drift → left lateral fires leftward
     if abs_lat > 0.15 && lat_frac < 0.0 {
-        emit_from(world, ship_id, "asteroids.lateral_left", SPREAD_LEFT, abs_lat);
+        emit_from(world, ship_id, "asteroids.lateral_left", 0.0, abs_lat);
     }
 }
 
@@ -459,7 +453,7 @@ if turn != 0 {
 if (local.correction_until ?? 0) > now {
     emit_from(world, ship_id,
         if local.correction_dir > 0 { "asteroids.lateral_left" } else { "asteroids.lateral_right" },
-        if local.correction_dir > 0 { SPREAD_LEFT } else { SPREAD_RIGHT },
+        if local.correction_dir > 0 { 0.0 } else { 3.1415927 },
         1.0);
 }
 
