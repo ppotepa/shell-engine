@@ -46,7 +46,7 @@
       content: "ASTEROIDS"
       at: cc
       y: -90
-      font: "Space Mono:ascii"
+      font: "Orbitron:ascii"
       fg: "#6fc54a"
       stages:
         on_enter:
@@ -72,7 +72,7 @@
       content: "PRESS SPACE TO START"
       at: cc
       y: 80
-      font: "Space Mono:ascii"
+      font: "Orbitron:ascii"
       fg: yellow
       stages:
         on_enter:

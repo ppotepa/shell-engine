@@ -6,7 +6,7 @@
       at: tl
       x: 2
       y: 2
-      font: "Space Mono:ascii"
+      font: "Orbitron:ascii"
       fg: "#4a7a4a"
 
     - type: text
@@ -14,16 +14,16 @@
       content: "0"
       at: tl
       x: 2
-      y: 14
-      font: "Space Mono:ascii"
+      y: 12
+      font: "Orbitron:ascii"
       fg: "#6fc54a"
 
     - type: text
       content: "LIVES"
       at: tl
       x: 2
-      y: 30
-      font: "Space Mono:ascii"
+      y: 24
+      font: "Orbitron:ascii"
       fg: "#4a7a4a"
 
     - type: text
@@ -31,16 +31,16 @@
       content: "3"
       at: tl
       x: 2
-      y: 42
-      font: "Space Mono:ascii"
+      y: 34
+      font: "Orbitron:ascii"
       fg: white
 
     - type: text
       content: "WAVE"
       at: tl
       x: 2
-      y: 58
-      font: "Space Mono:ascii"
+      y: 46
+      font: "Orbitron:ascii"
       fg: "#4a7a4a"
 
     - type: text
@@ -48,8 +48,8 @@
       content: "1"
       at: tl
       x: 2
-      y: 70
-      font: "Space Mono:ascii"
+      y: 56
+      font: "Orbitron:ascii"
       fg: white
 
     - type: text
@@ -57,7 +57,7 @@
       content: "GAME OVER"
       at: cc
       y: -10
-      font: "Space Mono:ascii"
+      font: "Orbitron:ascii"
       fg: yellow
       visible: false
 
@@ -65,7 +65,7 @@
       id: hud-gameover-sub
       content: "PRESS SPACE TO RESTART"
       at: cc
-      y: 6
+      y: 8
       font: "generic:1"
       fg: "#aaaa44"
       visible: false
