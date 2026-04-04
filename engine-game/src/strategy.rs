@@ -130,37 +130,22 @@ impl PhysicsIntegrationStrategy for ParallelEulerIntegration {
         }
         let dt_sec = dt_ms as f32 / 1000.0;
 
-        // PHASE 1: Batch read (single lock acquisition)
-        let ids = world.ids_with_physics();
-        if ids.is_empty() {
+        // PHASE 1: Single-lock batch read (ONE lock for ALL entities)
+        let work_items = world.batch_read_all_physics();
+        if work_items.is_empty() {
             return;
         }
 
-        // Collect all physics data we need to process (including optional ParticlePhysics)
-        let work_items: Vec<(u64, PhysicsBody2D, Transform2D, Option<ParticlePhysics>)> = ids
-            .iter()
-            .filter_map(|&id| {
-                let body = world.physics(id)?;
-                let xf = world.transform(id)?;
-                let pp = world.particle_physics(id);
-                Some((id, body, xf, pp))
-            })
-            .collect();
-
         // PHASE 2: Parallel compute (no locks, pure computation)
-        // Use rayon parallel iterator for multi-core processing
-        let results: Vec<(u64, PhysicsBody2D, Transform2D)> = work_items
+        let results: Vec<(u64, Transform2D, PhysicsBody2D)> = work_items
             .into_par_iter()
-            .map(|(id, body, xf, pp)| {
+            .map(|(id, xf, body, pp)| {
                 let (new_body, new_xf) = Self::integrate_single(dt_sec, body, xf, pp.as_ref());
-                (id, new_body, new_xf)
+                (id, new_xf, new_body)
             })
             .collect();
 
-        // PHASE 3: Batch write (sequential, but fast)
-        for (id, body, xf) in results {
-            let _ = world.set_transform(id, xf);
-            let _ = world.set_physics(id, body);
-        }
+        // PHASE 3: Single-lock batch write (ONE lock for ALL updates)
+        world.batch_write_physics(&results);
     }
 }

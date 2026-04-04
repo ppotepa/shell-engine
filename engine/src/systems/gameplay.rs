@@ -74,39 +74,32 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         gameplay_world.tick_world_timers(dt_ms);
     }
 
-    // Lifecycle decrement and cleanup (parallel TTL computation)
+    // Lifecycle decrement and cleanup (optimized with batch operations)
     if let Some(gameplay_world) = world.get::<GameplayWorld>().cloned() {
         let emitter_state = world.get::<EmitterState>().cloned();
         let ids = gameplay_world.ids_with_lifecycle();
         
-        // PHASE 1: Parallel computation of lifecycle actions
-        // Each entity is checked independently, no locks during compute
-        let actions: Vec<LifecycleAction> = ids
+        // PHASE 1: Single-lock batch read of all lifecycle data
+        let lifecycle_data = gameplay_world.batch_read_lifecycle(&ids);
+        
+        // PHASE 2: Parallel computation of lifecycle actions (no locks)
+        let actions: Vec<LifecycleAction> = lifecycle_data
             .par_iter()
-            .map(|&id| {
-                if !gameplay_world.exists(id) {
-                    return LifecycleAction::None;
-                }
-                let Some(policy) = gameplay_world.lifecycle(id) else {
-                    return LifecycleAction::None;
-                };
-
+            .map(|&(id, ttl_ms, policy, owner_id)| {
                 // Check owner-bound lifecycle
                 if policy.is_owner_bound() {
-                    let Some(ownership) = gameplay_world.ownership(id) else {
-                        return LifecycleAction::Despawn(id, DespawnReason::InvalidLifecycle);
-                    };
-                    if !gameplay_world.exists(ownership.owner_id) {
-                        return LifecycleAction::Despawn(id, DespawnReason::OwnerDestroyed);
+                    match owner_id {
+                        None => return LifecycleAction::Despawn(id, DespawnReason::InvalidLifecycle),
+                        Some(oid) if !gameplay_world.exists(oid) => {
+                            return LifecycleAction::Despawn(id, DespawnReason::OwnerDestroyed);
+                        }
+                        _ => {}
                     }
                 }
 
                 // Check TTL-based lifecycle
                 if policy.uses_ttl() {
-                    let Some(lt) = gameplay_world.lifetime(id) else {
-                        return LifecycleAction::Despawn(id, DespawnReason::InvalidLifecycle);
-                    };
-                    let new_ttl = lt.ttl_ms - dt_ms as i32;
+                    let new_ttl = ttl_ms - dt_ms as i32;
                     if new_ttl <= 0 {
                         return LifecycleAction::Despawn(id, DespawnReason::Expired);
                     }
@@ -117,25 +110,30 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
             })
             .collect();
 
-        // PHASE 2: Apply actions sequentially (requires mutable world access)
+        // PHASE 3: Collect TTL updates for batch write
+        let ttl_updates: Vec<(u64, i32)> = actions
+            .iter()
+            .filter_map(|a| match a {
+                LifecycleAction::UpdateTtl(id, ttl) => Some((*id, *ttl)),
+                _ => None,
+            })
+            .collect();
+
+        // Single-lock batch write all TTL updates
+        if !ttl_updates.is_empty() {
+            gameplay_world.batch_write_ttl(&ttl_updates);
+        }
+
+        // PHASE 4: Apply despawns sequentially (requires world mutation)
         for action in actions {
-            match action {
-                LifecycleAction::Despawn(id, reason) => {
-                    despawn_lifecycle_entity(
-                        world,
-                        &gameplay_world,
-                        emitter_state.as_ref(),
-                        id,
-                        reason,
-                    );
-                }
-                LifecycleAction::UpdateTtl(id, new_ttl) => {
-                    if let Some(mut lt) = gameplay_world.lifetime(id) {
-                        lt.ttl_ms = new_ttl;
-                        let _ = gameplay_world.set_lifetime(id, lt);
-                    }
-                }
-                LifecycleAction::None => {}
+            if let LifecycleAction::Despawn(id, reason) = action {
+                despawn_lifecycle_entity(
+                    world,
+                    &gameplay_world,
+                    emitter_state.as_ref(),
+                    id,
+                    reason,
+                );
             }
         }
     }

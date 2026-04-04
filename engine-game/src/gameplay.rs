@@ -990,6 +990,104 @@ impl GameplayWorld {
             .collect()
     }
 
+    // =========================================================================
+    // BATCH OPERATIONS - Single lock for multiple reads/writes
+    // =========================================================================
+
+    /// Batch read physics data for multiple entities in a single lock acquisition.
+    /// Returns tuples of (id, transform, physics, optional_particle_physics).
+    pub fn batch_read_physics(&self, ids: &[u64]) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        ids.iter()
+            .filter_map(|&id| {
+                let xf = store.transforms.get(&id)?;
+                let body = store.physics.get(&id)?;
+                let pp = store.particle_physics.get(&id).cloned();
+                Some((id, *xf, *body, pp))
+            })
+            .collect()
+    }
+
+    /// Batch read ALL physics entities in a single lock acquisition.
+    pub fn batch_read_all_physics(&self) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.physics.keys()
+            .filter_map(|&id| {
+                let xf = store.transforms.get(&id)?;
+                let body = store.physics.get(&id)?;
+                let pp = store.particle_physics.get(&id).cloned();
+                Some((id, *xf, *body, pp))
+            })
+            .collect()
+    }
+
+    /// Batch write physics results in a single lock acquisition.
+    pub fn batch_write_physics(&self, results: &[(u64, Transform2D, PhysicsBody2D)]) {
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
+        for (id, xf, body) in results {
+            if store.entities.contains_key(id) {
+                store.transforms.insert(*id, *xf);
+                store.physics.insert(*id, *body);
+            }
+        }
+    }
+
+    /// Batch read lifecycle data for parallel TTL computation.
+    /// Returns (id, ttl_ms, lifecycle_policy, owner_id).
+    pub fn batch_read_lifecycle(&self, ids: &[u64]) -> Vec<(u64, i32, LifecyclePolicy, Option<u64>)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        ids.iter()
+            .filter_map(|&id| {
+                let policy = store.lifecycles.get(&id)?;
+                let lt = store.lifetimes.get(&id)?;
+                let owner = store.ownership.get(&id).map(|o| o.owner_id);
+                Some((id, lt.ttl_ms, *policy, owner))
+            })
+            .collect()
+    }
+
+    /// Batch write TTL updates in a single lock acquisition.
+    pub fn batch_write_ttl(&self, updates: &[(u64, i32)]) {
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
+        for (id, new_ttl) in updates {
+            if let Some(lt) = store.lifetimes.get_mut(id) {
+                lt.ttl_ms = *new_ttl;
+            }
+        }
+    }
+
+    /// Batch read transforms only (for rendering/collision).
+    pub fn batch_read_transforms(&self, ids: &[u64]) -> Vec<(u64, Transform2D)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        ids.iter()
+            .filter_map(|&id| store.transforms.get(&id).map(|xf| (id, *xf)))
+            .collect()
+    }
+
+    /// Batch write transforms only.
+    pub fn batch_write_transforms(&self, updates: &[(u64, Transform2D)]) {
+        let Ok(mut store) = self.store.lock() else {
+            return;
+        };
+        for (id, xf) in updates {
+            if store.entities.contains_key(id) {
+                store.transforms.insert(*id, *xf);
+            }
+        }
+    }
+
     /// Emit a gameplay event to be collected and polled by scripts.
     pub fn emit_event(&self, event: GameplayEvent) {
         if let Ok(mut store) = self.store.lock() {
