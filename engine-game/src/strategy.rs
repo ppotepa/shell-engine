@@ -123,6 +123,10 @@ impl ParallelEulerIntegration {
     }
 }
 
+/// Minimum entity count to use parallel processing.
+/// Below this, serial is faster due to rayon spawn overhead.
+const PARALLEL_THRESHOLD: usize = 64;
+
 impl PhysicsIntegrationStrategy for ParallelEulerIntegration {
     fn step(&self, world: &GameplayWorld, dt_ms: u64) {
         if dt_ms == 0 {
@@ -136,14 +140,24 @@ impl PhysicsIntegrationStrategy for ParallelEulerIntegration {
             return;
         }
 
-        // PHASE 2: Parallel compute (no locks, pure computation)
-        let results: Vec<(u64, Transform2D, PhysicsBody2D)> = work_items
-            .into_par_iter()
-            .map(|(id, xf, body, pp)| {
-                let (new_body, new_xf) = Self::integrate_single(dt_sec, body, xf, pp.as_ref());
-                (id, new_xf, new_body)
-            })
-            .collect();
+        // PHASE 2: Compute physics (parallel only above threshold)
+        let results: Vec<(u64, Transform2D, PhysicsBody2D)> = if work_items.len() > PARALLEL_THRESHOLD {
+            work_items
+                .into_par_iter()
+                .map(|(id, xf, body, pp)| {
+                    let (new_body, new_xf) = Self::integrate_single(dt_sec, body, xf, pp.as_ref());
+                    (id, new_xf, new_body)
+                })
+                .collect()
+        } else {
+            work_items
+                .into_iter()
+                .map(|(id, xf, body, pp)| {
+                    let (new_body, new_xf) = Self::integrate_single(dt_sec, body, xf, pp.as_ref());
+                    (id, new_xf, new_body)
+                })
+                .collect()
+        };
 
         // PHASE 3: Single-lock batch write (ONE lock for ALL updates)
         world.batch_write_physics(&results);

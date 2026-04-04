@@ -10,14 +10,18 @@
 //! 1. Glow pre-pass — half-res blur (same quality as standalone Underlay)
 //! 2. Per-pixel: **distort** → **glow blend** → **scan-glitch** → **ruby tint**
 
-use super::glow::{GlowScratch, GLOW_SCRATCH};
+use super::glow::{GlowPixel, GlowScratch, GLOW_SCRATCH};
 use super::registry::PostFxBuiltin;
 use super::{lerp_colour_local, normalize_bg, rand01, scale_colour, PostFxContext};
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::color::Color;
 use engine_core::effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
+use rayon::prelude::*;
 use std::cell::RefCell;
+
+/// Minimum total pixel count to use parallel rendering.
+const PARALLEL_PIXEL_THRESHOLD: usize = 4096; // ~64x64
 
 // ── Precomputed scan-glitch band ──────────────────────────────────────────
 
@@ -352,184 +356,229 @@ pub(super) fn apply(
     let src_width = src.width as usize;
     let src_width_i32 = src.width as i32;
     let distort_strength = distort_cfg.map(|(strength, _, _, _)| strength);
+    let total_pixels = src_width * src.height as usize;
 
-    CRT_CACHE.with(|cache_cell| {
-        let mut cache = cache_cell.borrow_mut();
-        cache.ensure_geometry(src.width, src.height);
-        if let Some((strength, inset_x, inset_y, _)) = distort_cfg {
-            cache.ensure_distort(src.width, src.height, strength, inset_x, inset_y);
-        }
-        let center_weight_map = &cache.center_weight;
-        let edge_dist_map = &cache.edge_dist;
-        let distort_maps = if distort_cfg.is_some() {
-            cache
-                .distort
-                .as_ref()
-                .map(|d| (d.sample_idx.as_slice(), d.shade.as_slice()))
+    // Snapshot data from thread_locals into owned structures so they can cross thread boundaries.
+    // This allows the pixel loop below to run in parallel without thread_local contention.
+    let (glow_snapshot, center_weight_snapshot, edge_dist_snapshot, sample_idx_snapshot, shade_snapshot) =
+        CRT_CACHE.with(|cache_cell| {
+            let mut cache = cache_cell.borrow_mut();
+            cache.ensure_geometry(src.width, src.height);
+            if let Some((strength, inset_x, inset_y, _)) = distort_cfg {
+                cache.ensure_distort(src.width, src.height, strength, inset_x, inset_y);
+            }
+
+            let center_w = cache.center_weight.clone();
+            let edge_d = cache.edge_dist.clone();
+            let (sample_idx, shade) = if distort_cfg.is_some() {
+                cache
+                    .distort
+                    .as_ref()
+                    .map(|d| (d.sample_idx.clone(), d.shade.clone()))
+                    .unwrap_or_default()
+            } else {
+                (Vec::new(), Vec::new())
+            };
+
+            let glow = if has_glow {
+                GLOW_SCRATCH.with(|scratch| scratch.borrow().out.clone())
+            } else {
+                Vec::new()
+            };
+
+            (glow, center_w, edge_d, sample_idx, shade)
+        });
+
+    // Borrow slices for the pixel loop
+    let glow_out: &[GlowPixel] = &glow_snapshot;
+    let center_weight_map: &[f32] = &center_weight_snapshot;
+    let edge_dist_map: &[f32] = &edge_dist_snapshot;
+    let distort_maps: Option<(&[usize], &[f32])> = if distort_cfg.is_some() && !sample_idx_snapshot.is_empty() {
+        Some((&sample_idx_snapshot, &shade_snapshot))
+    } else {
+        None
+    };
+
+    // Inline pixel computation as a closure (used by both serial and parallel paths)
+    let process_pixel = |idx: usize, x: u16, y: u16| -> Cell {
+        let row_start = y as usize * src_width;
+        let orig = src_cells[idx];
+
+        // ── DISTORT ──────────────────────────────────────────
+        let (sample, shade, distort_brightness) =
+            if let Some((_, _, _, d_bright)) = distort_cfg {
+                if let Some((sample_idx_map, shade_map)) = distort_maps {
+                    (src_cells[sample_idx_map[idx]], shade_map[idx], d_bright)
+                } else {
+                    (orig, 1.0, d_bright)
+                }
+            } else {
+                (orig, 1.0, 1.0)
+            };
+
+        // Blend fg: preserve glyph identity.
+        let fg_source = if orig.symbol != ' ' {
+            if let Some(strength) = distort_strength {
+                let blend = if sample.symbol == ' ' {
+                    0.05
+                } else {
+                    (0.08 + 0.14 * strength).clamp(0.0, 0.24)
+                };
+                lerp_colour_local(orig.fg, sample.fg, blend)
+            } else {
+                orig.fg
+            }
         } else {
-            None
+            sample.fg
         };
 
-        GLOW_SCRATCH.with(|scratch| {
-            let s = scratch.borrow();
-            let glow_out = &s.out;
-            {
-                let dst_cells = dst.back_cells_mut();
-                for y in 0..src.height {
-                    let y_usize = y as usize;
-                    let row_start = y_usize * src_width;
-                    for x in 0..src.width {
-                        let x_usize = x as usize;
-                        let idx = row_start + x_usize;
-                        let orig = src_cells[idx];
+        let mut fg = scale_colour(fg_source, distort_brightness * shade);
+        let mut bg =
+            scale_colour(normalize_bg(sample.bg), (0.94 * shade).clamp(0.70, 1.0));
+        let mut symbol = orig.symbol;
 
-                        // ── DISTORT ──────────────────────────────────────────
-                        let (sample, shade, distort_brightness) =
-                            if let Some((_, _, _, d_bright)) = distort_cfg {
-                                if let Some((sample_idx_map, shade_map)) = distort_maps {
-                                    (src_cells[sample_idx_map[idx]], shade_map[idx], d_bright)
-                                } else {
-                                    (orig, 1.0, d_bright)
-                                }
-                            } else {
-                                (orig, 1.0, 1.0)
-                            };
+        // ── GLOW (empty cells only) ──────────────────────────
+        if has_glow && symbol == ' ' && idx < glow_out.len() {
+            let pix = glow_out[idx];
+            if pix.a >= 0.004 {
+                let pulse = 0.90
+                    + 0.10
+                        * ((t * (0.95 + glow_speed * 1.9) + y as f32 * 0.07).sin()
+                            * 0.5
+                            + 0.5);
+                let shimmer = 0.92 + 0.16 * rand01(x, y, frame.wrapping_add(4901));
+                let aura = (pix.a * glow_brightness * pulse * shimmer * glow_alpha)
+                    .clamp(0.0, 1.0);
+                let glow_colour = Color::Rgb {
+                    r: (pix.r * 255.0).round().clamp(0.0, 255.0) as u8,
+                    g: (pix.g * 255.0).round().clamp(0.0, 255.0) as u8,
+                    b: (pix.b * 255.0).round().clamp(0.0, 255.0) as u8,
+                };
+                bg = lerp_colour_local(
+                    bg,
+                    glow_colour,
+                    (aura * (0.60 + 0.65 * glow_intensity_max)).clamp(0.0, 0.35),
+                );
+            }
+        }
 
-                        // Blend fg: preserve glyph identity.
-                        let fg_source = if orig.symbol != ' ' {
-                            if let Some(strength) = distort_strength {
-                                let blend = if sample.symbol == ' ' {
-                                    0.05
-                                } else {
-                                    (0.08 + 0.14 * strength).clamp(0.0, 0.24)
-                                };
-                                lerp_colour_local(orig.fg, sample.fg, blend)
-                            } else {
-                                orig.fg
-                            }
-                        } else {
-                            sample.fg
+        // ── SCAN GLITCH ──────────────────────────────────────
+        for band in bands[..band_count].iter().flatten() {
+            let dy = (y as i32) - band.center;
+            if dy.abs() > band.half {
+                continue;
+            }
+            let local = 1.0 - (dy.abs() as f32 / (band.half + 1) as f32);
+            let shift = (band.shift_max * (0.5 + 0.5 * local)).round() as i32;
+            let blend = (band.blend_base * local).clamp(0.0, 0.55);
+            let scan_bright = 1.0 + 0.30 * local * band.brightness;
+
+            let xi = x as i32;
+            let sx_r = (xi - shift).clamp(0, src_width_i32 - 1) as usize;
+            let sx_g =
+                (xi - shift + band.chroma / 2).clamp(0, src_width_i32 - 1) as usize;
+            let sx_b =
+                (xi - shift + band.chroma).clamp(0, src_width_i32 - 1) as usize;
+
+            let base_cell = src_cells[row_start + sx_r];
+            let (rr, _, _) = colour_to_rgb(src_cells[row_start + sx_r].fg);
+            let (_, gg, _) = colour_to_rgb(src_cells[row_start + sx_g].fg);
+            let (_, _, bb) = colour_to_rgb(src_cells[row_start + sx_b].fg);
+            let chroma_fg = Color::Rgb {
+                r: rr,
+                g: gg,
+                b: bb,
+            };
+            fg = lerp_colour_local(fg, scale_colour(chroma_fg, scan_bright), blend);
+            symbol = base_cell.symbol;
+            break; // one band per pixel
+        }
+
+        // ── RUBY ─────────────────────────────────────────────
+        if let Some(r) = &ruby_cfg {
+            if !center_weight_map.is_empty() {
+                let center_dark = (1.0
+                    - center_weight_map[idx] * (0.05 + 0.11 * r.intensity))
+                    .clamp(0.78, 1.0);
+
+                fg = scale_colour(
+                    lerp_colour_local(fg, r.ruby, r.tint),
+                    center_dark * r.brightness,
+                );
+                bg = scale_colour(
+                    lerp_colour_local(bg, r.ruby_bg, r.tint * 0.55),
+                    center_dark,
+                );
+
+                if !edge_dist_map.is_empty() {
+                    let band_dist = (edge_dist_map[idx] - r.front).abs();
+                    if band_dist <= r.band {
+                        let xi = x as i32;
+                        let sx = (xi - r.shift).clamp(0, src_width_i32 - 1) as usize;
+                        let sx_g = (xi - r.shift + r.chroma / 2).clamp(0, src_width_i32 - 1)
+                            as usize;
+                        let sx_b =
+                            (xi - r.shift + r.chroma).clamp(0, src_width_i32 - 1) as usize;
+
+                        let rsample = src_cells[row_start + sx];
+                        if symbol == ' ' && rsample.symbol != ' ' {
+                            symbol = rsample.symbol;
+                        }
+                        let (rr, _, _) = colour_to_rgb(src_cells[row_start + sx].fg);
+                        let (_, gg, _) = colour_to_rgb(src_cells[row_start + sx_g].fg);
+                        let (_, _, bb) = colour_to_rgb(src_cells[row_start + sx_b].fg);
+                        let chroma_fg = Color::Rgb {
+                            r: rr,
+                            g: gg,
+                            b: bb,
                         };
-
-                        let mut fg = scale_colour(fg_source, distort_brightness * shade);
-                        let mut bg =
-                            scale_colour(normalize_bg(sample.bg), (0.94 * shade).clamp(0.70, 1.0));
-                        let mut symbol = orig.symbol;
-
-                        // ── GLOW (empty cells only) ──────────────────────────
-                        if has_glow && symbol == ' ' && idx < glow_out.len() {
-                            let pix = glow_out[idx];
-                            if pix.a >= 0.004 {
-                                let pulse = 0.90
-                                    + 0.10
-                                        * ((t * (0.95 + glow_speed * 1.9) + y as f32 * 0.07).sin()
-                                            * 0.5
-                                            + 0.5);
-                                let shimmer = 0.92 + 0.16 * rand01(x, y, frame.wrapping_add(4901));
-                                let aura = (pix.a * glow_brightness * pulse * shimmer * glow_alpha)
-                                    .clamp(0.0, 1.0);
-                                let glow_colour = Color::Rgb {
-                                    r: (pix.r * 255.0).round().clamp(0.0, 255.0) as u8,
-                                    g: (pix.g * 255.0).round().clamp(0.0, 255.0) as u8,
-                                    b: (pix.b * 255.0).round().clamp(0.0, 255.0) as u8,
-                                };
-                                bg = lerp_colour_local(
-                                    bg,
-                                    glow_colour,
-                                    (aura * (0.60 + 0.65 * glow_intensity_max)).clamp(0.0, 0.35),
-                                );
-                            }
-                        }
-
-                        // ── SCAN GLITCH ──────────────────────────────────────
-                        for band in bands[..band_count].iter().flatten() {
-                            let dy = (y as i32) - band.center;
-                            if dy.abs() > band.half {
-                                continue;
-                            }
-                            let local = 1.0 - (dy.abs() as f32 / (band.half + 1) as f32);
-                            let shift = (band.shift_max * (0.5 + 0.5 * local)).round() as i32;
-                            let blend = (band.blend_base * local).clamp(0.0, 0.55);
-                            let scan_bright = 1.0 + 0.30 * local * band.brightness;
-
-                            let xi = x as i32;
-                            let sx_r = (xi - shift).clamp(0, src_width_i32 - 1) as usize;
-                            let sx_g =
-                                (xi - shift + band.chroma / 2).clamp(0, src_width_i32 - 1) as usize;
-                            let sx_b =
-                                (xi - shift + band.chroma).clamp(0, src_width_i32 - 1) as usize;
-
-                            let base_cell = src_cells[row_start + sx_r];
-                            let (rr, _, _) = colour_to_rgb(src_cells[row_start + sx_r].fg);
-                            let (_, gg, _) = colour_to_rgb(src_cells[row_start + sx_g].fg);
-                            let (_, _, bb) = colour_to_rgb(src_cells[row_start + sx_b].fg);
-                            let chroma_fg = Color::Rgb {
-                                r: rr,
-                                g: gg,
-                                b: bb,
-                            };
-                            fg = lerp_colour_local(fg, scale_colour(chroma_fg, scan_bright), blend);
-                            symbol = base_cell.symbol;
-                            break; // one band per pixel
-                        }
-
-                        // ── RUBY ─────────────────────────────────────────────
-                        if let Some(r) = &ruby_cfg {
-                            let center_dark = (1.0
-                                - center_weight_map[idx] * (0.05 + 0.11 * r.intensity))
-                                .clamp(0.78, 1.0);
-
-                            fg = scale_colour(
-                                lerp_colour_local(fg, r.ruby, r.tint),
-                                center_dark * r.brightness,
-                            );
-                            bg = scale_colour(
-                                lerp_colour_local(bg, r.ruby_bg, r.tint * 0.55),
-                                center_dark,
-                            );
-
-                            let band_dist = (edge_dist_map[idx] - r.front).abs();
-                            if band_dist <= r.band {
-                                let xi = x as i32;
-                                let sx = (xi - r.shift).clamp(0, src_width_i32 - 1) as usize;
-                                let sx_g = (xi - r.shift + r.chroma / 2).clamp(0, src_width_i32 - 1)
-                                    as usize;
-                                let sx_b =
-                                    (xi - r.shift + r.chroma).clamp(0, src_width_i32 - 1) as usize;
-
-                                let rsample = src_cells[row_start + sx];
-                                if symbol == ' ' && rsample.symbol != ' ' {
-                                    symbol = rsample.symbol;
-                                }
-                                let (rr, _, _) = colour_to_rgb(src_cells[row_start + sx].fg);
-                                let (_, gg, _) = colour_to_rgb(src_cells[row_start + sx_g].fg);
-                                let (_, _, bb) = colour_to_rgb(src_cells[row_start + sx_b].fg);
-                                let chroma_fg = Color::Rgb {
-                                    r: rr,
-                                    g: gg,
-                                    b: bb,
-                                };
-                                let local_r = 1.0 - (band_dist / r.band).clamp(0.0, 1.0);
-                                let reveal_blend =
-                                    (0.12 + 0.30 * local_r * r.intensity).clamp(0.0, 0.45);
-                                fg = lerp_colour_local(
-                                    fg,
-                                    scale_colour(chroma_fg, 1.0 + 0.18 * local_r),
-                                    reveal_blend,
-                                );
-                                bg = lerp_colour_local(
-                                    bg,
-                                    normalize_bg(rsample.bg),
-                                    (reveal_blend * 0.40).clamp(0.0, 0.20),
-                                );
-                            }
-                        }
-
-                        dst_cells[idx] = Cell { symbol, fg, bg };
+                        let local_r = 1.0 - (band_dist / r.band).clamp(0.0, 1.0);
+                        let reveal_blend =
+                            (0.12 + 0.30 * local_r * r.intensity).clamp(0.0, 0.45);
+                        fg = lerp_colour_local(
+                            fg,
+                            scale_colour(chroma_fg, 1.0 + 0.18 * local_r),
+                            reveal_blend,
+                        );
+                        bg = lerp_colour_local(
+                            bg,
+                            normalize_bg(rsample.bg),
+                            (reveal_blend * 0.40).clamp(0.0, 0.20),
+                        );
                     }
                 }
             }
-        });
-    });
+        }
+
+        Cell { symbol, fg, bg }
+    };
+
+    let dst_cells = dst.back_cells_mut();
+
+    if total_pixels > PARALLEL_PIXEL_THRESHOLD {
+        // Parallel path: process each row independently
+        dst_cells
+            .par_chunks_mut(src_width)
+            .enumerate()
+            .for_each(|(y_usize, dst_row)| {
+                let y = y_usize as u16;
+                let row_start = y_usize * src_width;
+                for x in 0..src.width {
+                    let idx = row_start + x as usize;
+                    dst_row[x as usize] = process_pixel(idx, x, y);
+                }
+            });
+    } else {
+        // Serial path for small buffers
+        for y in 0..src.height {
+            let y_usize = y as usize;
+            let row_start = y_usize * src_width;
+            for x in 0..src.width {
+                let idx = row_start + x as usize;
+                dst_cells[idx] = process_pixel(idx, x, y);
+            }
+        }
+    }
+
     dst.mark_all_dirty();
 }

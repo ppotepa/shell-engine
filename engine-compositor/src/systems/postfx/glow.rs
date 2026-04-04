@@ -5,7 +5,12 @@ use super::{colour_luma, normalize_bg, rand01};
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::color::Color;
 use engine_core::effects::utils::color::colour_to_rgb;
+use rayon::prelude::*;
 use std::cell::RefCell;
+
+/// Minimum buffer size to use parallel processing.
+/// Below this, serial is faster due to rayon thread spawn overhead.
+const PARALLEL_PIXEL_THRESHOLD: usize = 4096; // ~64x64 buffer
 
 // ── Glow pixel ────────────────────────────────────────────────────────────
 
@@ -159,6 +164,7 @@ fn glow_source_colour(cell: &Cell) -> Option<Color> {
 }
 
 /// Combines core + halo glow at full resolution into `out`.
+/// Uses rayon for large buffers.
 fn combine_core_halo(
     core: &[GlowPixel],
     halo: &[GlowPixel],
@@ -166,85 +172,188 @@ fn combine_core_halo(
     frame: u32,
     out: &mut [GlowPixel],
 ) {
-    for i in 0..n {
-        let c = core[i];
-        let h = halo[i];
-        let mut mix = GlowPixel {
-            r: c.r * 0.70 + h.r * 0.30,
-            g: c.g * 0.70 + h.g * 0.30,
-            b: c.b * 0.70 + h.b * 0.30,
-            a: c.a * 0.72 + h.a * 0.28,
+    if n > PARALLEL_PIXEL_THRESHOLD {
+        // Parallel path: process chunks of pixels
+        const CHUNK_SIZE: usize = 256;
+        out[..n]
+            .par_chunks_mut(CHUNK_SIZE)
+            .enumerate()
+            .for_each(|(chunk_idx, chunk)| {
+                let base_i = chunk_idx * CHUNK_SIZE;
+                for (offset, out_pix) in chunk.iter_mut().enumerate() {
+                    let i = base_i + offset;
+                    if i >= n {
+                        break;
+                    }
+                    let c = core[i];
+                    let h = halo[i];
+                    let mut mix = GlowPixel {
+                        r: c.r * 0.70 + h.r * 0.30,
+                        g: c.g * 0.70 + h.g * 0.30,
+                        b: c.b * 0.70 + h.b * 0.30,
+                        a: c.a * 0.72 + h.a * 0.28,
+                    }
+                    .normalized();
+                    // Only apply shimmer if alpha is significant.
+                    if mix.a > 0.01 {
+                        let shimmer =
+                            0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
+                        mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
+                    }
+                    *out_pix = mix;
+                }
+            });
+    } else {
+        // Serial path for small buffers
+        for i in 0..n {
+            let c = core[i];
+            let h = halo[i];
+            let mut mix = GlowPixel {
+                r: c.r * 0.70 + h.r * 0.30,
+                g: c.g * 0.70 + h.g * 0.30,
+                b: c.b * 0.70 + h.b * 0.30,
+                a: c.a * 0.72 + h.a * 0.28,
+            }
+            .normalized();
+            // Only apply shimmer if alpha is significant (avoid wasted rand for transparent pixels).
+            if mix.a > 0.01 {
+                let shimmer = 0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
+                mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
+            }
+            out[i] = mix;
         }
-        .normalized();
-        // Only apply shimmer if alpha is significant (avoid wasted rand for transparent pixels).
-        if mix.a > 0.01 {
-            let shimmer = 0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
-            mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
-        }
-        out[i] = mix;
     }
 }
 
 /// In-place 3×3 blur with tight, center-heavy kernel.
 /// Realistic CRT phosphor bleeds ~1 cell, not across the screen.
 /// Unrolled to avoid per-neighbor match branch; split interior vs border for bounds-check elimination.
+/// Uses rayon for large buffers.
 fn blur_glow3x3_into(src: &[GlowPixel], dst: &mut [GlowPixel], width: usize, height: usize) {
     if width == 0 || height == 0 {
         return;
     }
 
+    let n = width * height;
+    
     // Interior pixels (not on edge) — no bounds checks needed.
-    for y in 1..height.saturating_sub(1) {
-        for x in 1..width.saturating_sub(1) {
-            let idx = y * width + x;
-            let c = src[idx]; // center 0.34
-            let u = src[(y - 1) * width + x]; // up 0.11
-            let d = src[(y + 1) * width + x]; // down 0.11
-            let l = src[y * width + (x - 1)]; // left 0.11
-            let r = src[y * width + (x + 1)]; // right 0.11
-            let ul = src[(y - 1) * width + (x - 1)]; // up-left 0.06
-            let ur = src[(y - 1) * width + (x + 1)]; // up-right 0.06
-            let dl = src[(y + 1) * width + (x - 1)]; // down-left 0.06
-            let dr = src[(y + 1) * width + (x + 1)]; // down-right 0.06
+    // Process in parallel for large buffers using row-based chunks.
+    if n > PARALLEL_PIXEL_THRESHOLD && height > 2 {
+        // Process interior rows in parallel (rows 1..height-1)
+        let interior_height = height.saturating_sub(2);
+        if interior_height > 0 {
+            dst[width..n - width]
+                .par_chunks_mut(width)
+                .enumerate()
+                .for_each(|(row_offset, dst_row)| {
+                    let y = row_offset + 1; // actual row index
+                    for x in 1..width.saturating_sub(1) {
+                        let idx = y * width + x;
+                        let c = src[idx]; // center 0.34
+                        let u = src[(y - 1) * width + x]; // up 0.11
+                        let d = src[(y + 1) * width + x]; // down 0.11
+                        let l = src[y * width + (x - 1)]; // left 0.11
+                        let r = src[y * width + (x + 1)]; // right 0.11
+                        let ul = src[(y - 1) * width + (x - 1)]; // up-left 0.06
+                        let ur = src[(y - 1) * width + (x + 1)]; // up-right 0.06
+                        let dl = src[(y + 1) * width + (x - 1)]; // down-left 0.06
+                        let dr = src[(y + 1) * width + (x + 1)]; // down-right 0.06
 
-            dst[idx] = GlowPixel {
-                r: c.r * 0.34
-                    + u.r * 0.11
-                    + d.r * 0.11
-                    + l.r * 0.11
-                    + r.r * 0.11
-                    + ul.r * 0.06
-                    + ur.r * 0.06
-                    + dl.r * 0.06
-                    + dr.r * 0.06,
-                g: c.g * 0.34
-                    + u.g * 0.11
-                    + d.g * 0.11
-                    + l.g * 0.11
-                    + r.g * 0.11
-                    + ul.g * 0.06
-                    + ur.g * 0.06
-                    + dl.g * 0.06
-                    + dr.g * 0.06,
-                b: c.b * 0.34
-                    + u.b * 0.11
-                    + d.b * 0.11
-                    + l.b * 0.11
-                    + r.b * 0.11
-                    + ul.b * 0.06
-                    + ur.b * 0.06
-                    + dl.b * 0.06
-                    + dr.b * 0.06,
-                a: c.a * 0.34
-                    + u.a * 0.11
-                    + d.a * 0.11
-                    + l.a * 0.11
-                    + r.a * 0.11
-                    + ul.a * 0.06
-                    + ur.a * 0.06
-                    + dl.a * 0.06
-                    + dr.a * 0.06,
-            };
+                        dst_row[x] = GlowPixel {
+                            r: c.r * 0.34
+                                + u.r * 0.11
+                                + d.r * 0.11
+                                + l.r * 0.11
+                                + r.r * 0.11
+                                + ul.r * 0.06
+                                + ur.r * 0.06
+                                + dl.r * 0.06
+                                + dr.r * 0.06,
+                            g: c.g * 0.34
+                                + u.g * 0.11
+                                + d.g * 0.11
+                                + l.g * 0.11
+                                + r.g * 0.11
+                                + ul.g * 0.06
+                                + ur.g * 0.06
+                                + dl.g * 0.06
+                                + dr.g * 0.06,
+                            b: c.b * 0.34
+                                + u.b * 0.11
+                                + d.b * 0.11
+                                + l.b * 0.11
+                                + r.b * 0.11
+                                + ul.b * 0.06
+                                + ur.b * 0.06
+                                + dl.b * 0.06
+                                + dr.b * 0.06,
+                            a: c.a * 0.34
+                                + u.a * 0.11
+                                + d.a * 0.11
+                                + l.a * 0.11
+                                + r.a * 0.11
+                                + ul.a * 0.06
+                                + ur.a * 0.06
+                                + dl.a * 0.06
+                                + dr.a * 0.06,
+                        };
+                    }
+                });
+        }
+    } else {
+        // Serial path for small buffers
+        for y in 1..height.saturating_sub(1) {
+            for x in 1..width.saturating_sub(1) {
+                let idx = y * width + x;
+                let c = src[idx]; // center 0.34
+                let u = src[(y - 1) * width + x]; // up 0.11
+                let d = src[(y + 1) * width + x]; // down 0.11
+                let l = src[y * width + (x - 1)]; // left 0.11
+                let r = src[y * width + (x + 1)]; // right 0.11
+                let ul = src[(y - 1) * width + (x - 1)]; // up-left 0.06
+                let ur = src[(y - 1) * width + (x + 1)]; // up-right 0.06
+                let dl = src[(y + 1) * width + (x - 1)]; // down-left 0.06
+                let dr = src[(y + 1) * width + (x + 1)]; // down-right 0.06
+
+                dst[idx] = GlowPixel {
+                    r: c.r * 0.34
+                        + u.r * 0.11
+                        + d.r * 0.11
+                        + l.r * 0.11
+                        + r.r * 0.11
+                        + ul.r * 0.06
+                        + ur.r * 0.06
+                        + dl.r * 0.06
+                        + dr.r * 0.06,
+                    g: c.g * 0.34
+                        + u.g * 0.11
+                        + d.g * 0.11
+                        + l.g * 0.11
+                        + r.g * 0.11
+                        + ul.g * 0.06
+                        + ur.g * 0.06
+                        + dl.g * 0.06
+                        + dr.g * 0.06,
+                    b: c.b * 0.34
+                        + u.b * 0.11
+                        + d.b * 0.11
+                        + l.b * 0.11
+                        + r.b * 0.11
+                        + ul.b * 0.06
+                        + ur.b * 0.06
+                        + dl.b * 0.06
+                        + dr.b * 0.06,
+                    a: c.a * 0.34
+                        + u.a * 0.11
+                        + d.a * 0.11
+                        + l.a * 0.11
+                        + r.a * 0.11
+                        + ul.a * 0.06
+                        + ur.a * 0.06
+                        + dl.a * 0.06
+                        + dr.a * 0.06,
+                };
+            }
         }
     }
 

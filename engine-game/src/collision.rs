@@ -1,6 +1,6 @@
 //! Collision traits and a simple circle-circle default.
 
-use crate::components::{Collider2D, ColliderShape, GameplayEvent, ParticlePhysics, Transform2D};
+use crate::components::{Collider2D, ColliderShape, GameplayEvent, Transform2D};
 use crate::GameplayWorld;
 
 #[derive(Default)]

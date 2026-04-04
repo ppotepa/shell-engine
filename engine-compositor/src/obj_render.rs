@@ -14,6 +14,10 @@ use super::obj_loader::{load_obj_mesh, ObjFace, ObjMesh};
 use super::obj_render_helpers::*;
 pub use super::obj_render_helpers::{blit_color_canvas, virtual_dimensions};
 
+/// Minimum vertex/face count to use parallel processing.
+/// Below this, serial is faster due to rayon thread spawn overhead.
+const VERTEX_PARALLEL_THRESHOLD: usize = 256;
+
 // Thread-local pointer to the current frame's ObjPrerenderedFrames (set by compositor, cleared after).
 // SAFETY: only set during `with_prerender_frames` and never accessed across threads.
 thread_local! {
@@ -266,43 +270,49 @@ pub fn render_obj_to_canvas(
         taken.reserve(mesh.vertices.len());
         taken
     });
-    mesh.vertices
-        .par_iter()
-        .map(|v| {
-            let centered = [
-                (v[0] - center[0]) * model_scale,
-                (v[1] - center[1]) * model_scale,
-                (v[2] - center[2]) * model_scale,
-            ];
-            let rotated = rotate_xyz(centered, pitch, yaw, roll);
-            let translated = [
-                rotated[0] + params.object_translate_x,
-                rotated[1] + params.object_translate_y,
-                rotated[2] + params.object_translate_z,
-            ];
-            // Apply camera pan: shift the scene in view-space (equivalent to moving camera).
-            let panned = [
-                translated[0] - params.camera_pan_x,
-                translated[1] - params.camera_pan_y,
-                translated[2],
-            ];
-            let view_z = panned[2] + camera_distance;
-            if view_z <= near_clip {
-                return None;
-            }
-            let ndc_x = (panned[0] / aspect) * inv_tan / view_z;
-            let ndc_y = panned[1] * inv_tan / view_z;
-            if !ndc_x.is_finite() || !ndc_y.is_finite() {
-                return None;
-            }
-            Some(ProjectedVertex {
-                x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
-                y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
-                depth: view_z,
-                view: panned,
-            })
+    
+    // Projection function (shared by serial and parallel paths)
+    let project_vertex = |v: &[f32; 3]| {
+        let centered = [
+            (v[0] - center[0]) * model_scale,
+            (v[1] - center[1]) * model_scale,
+            (v[2] - center[2]) * model_scale,
+        ];
+        let rotated = rotate_xyz(centered, pitch, yaw, roll);
+        let translated = [
+            rotated[0] + params.object_translate_x,
+            rotated[1] + params.object_translate_y,
+            rotated[2] + params.object_translate_z,
+        ];
+        // Apply camera pan: shift the scene in view-space (equivalent to moving camera).
+        let panned = [
+            translated[0] - params.camera_pan_x,
+            translated[1] - params.camera_pan_y,
+            translated[2],
+        ];
+        let view_z = panned[2] + camera_distance;
+        if view_z <= near_clip {
+            return None;
+        }
+        let ndc_x = (panned[0] / aspect) * inv_tan / view_z;
+        let ndc_y = panned[1] * inv_tan / view_z;
+        if !ndc_x.is_finite() || !ndc_y.is_finite() {
+            return None;
+        }
+        Some(ProjectedVertex {
+            x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
+            y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
+            depth: view_z,
+            view: panned,
         })
-        .collect_into_vec(&mut projected);
+    };
+    
+    // Use parallel only for large vertex counts
+    if mesh.vertices.len() > VERTEX_PARALLEL_THRESHOLD {
+        mesh.vertices.par_iter().map(project_vertex).collect_into_vec(&mut projected);
+    } else {
+        projected.extend(mesh.vertices.iter().map(project_vertex));
+    }
 
     // Use pooled buffers to avoid per-frame allocation.
     let canvas_size = virtual_w as usize * virtual_h as usize;

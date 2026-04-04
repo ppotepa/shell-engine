@@ -1,5 +1,5 @@
 use engine_behavior::EmitterState;
-use engine_game::components::DespawnReason;
+use engine_game::components::{DespawnReason, LifecyclePolicy};
 use engine_game::{GameplayStrategies, GameplayWorld};
 use rayon::prelude::*;
 
@@ -82,33 +82,39 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         // PHASE 1: Single-lock batch read of all lifecycle data
         let lifecycle_data = gameplay_world.batch_read_lifecycle(&ids);
         
-        // PHASE 2: Parallel computation of lifecycle actions (no locks)
-        let actions: Vec<LifecycleAction> = lifecycle_data
-            .par_iter()
-            .map(|&(id, ttl_ms, policy, owner_id)| {
-                // Check owner-bound lifecycle
-                if policy.is_owner_bound() {
-                    match owner_id {
-                        None => return LifecycleAction::Despawn(id, DespawnReason::InvalidLifecycle),
-                        Some(oid) if !gameplay_world.exists(oid) => {
-                            return LifecycleAction::Despawn(id, DespawnReason::OwnerDestroyed);
-                        }
-                        _ => {}
+        // PHASE 2: Compute lifecycle actions (parallel only if >32 entities)
+        const PARALLEL_THRESHOLD: usize = 32;
+        
+        let compute_action = |item: &(u64, i32, LifecyclePolicy, Option<u64>)| {
+            let (id, ttl_ms, policy, owner_id) = *item;
+            // Check owner-bound lifecycle
+            if policy.is_owner_bound() {
+                match owner_id {
+                    None => return LifecycleAction::Despawn(id, DespawnReason::InvalidLifecycle),
+                    Some(oid) if !gameplay_world.exists(oid) => {
+                        return LifecycleAction::Despawn(id, DespawnReason::OwnerDestroyed);
                     }
+                    _ => {}
                 }
+            }
 
-                // Check TTL-based lifecycle
-                if policy.uses_ttl() {
-                    let new_ttl = ttl_ms - dt_ms as i32;
-                    if new_ttl <= 0 {
-                        return LifecycleAction::Despawn(id, DespawnReason::Expired);
-                    }
-                    return LifecycleAction::UpdateTtl(id, new_ttl);
+            // Check TTL-based lifecycle
+            if policy.uses_ttl() {
+                let new_ttl = ttl_ms - dt_ms as i32;
+                if new_ttl <= 0 {
+                    return LifecycleAction::Despawn(id, DespawnReason::Expired);
                 }
+                return LifecycleAction::UpdateTtl(id, new_ttl);
+            }
 
-                LifecycleAction::None
-            })
-            .collect();
+            LifecycleAction::None
+        };
+        
+        let actions: Vec<LifecycleAction> = if lifecycle_data.len() > PARALLEL_THRESHOLD {
+            lifecycle_data.par_iter().map(compute_action).collect()
+        } else {
+            lifecycle_data.iter().map(compute_action).collect()
+        };
 
         // PHASE 3: Collect TTL updates for batch write
         let ttl_updates: Vec<(u64, i32)> = actions
