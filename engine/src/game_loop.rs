@@ -141,7 +141,9 @@ pub fn game_loop(
         // Gameplay systems (physics/lifetime) run before script behaviors.
         systems::gameplay::gameplay_system(world, tick_ms);
         let collision_hits = systems::collision::collision_system(world);
+        let particle_hits = systems::collision::particle_collision_system(world);
         systems::gameplay_events::push_collisions(world, collision_hits);
+        systems::gameplay_events::push_collisions(world, particle_hits);
 
         let t0 = Instant::now();
         systems::behavior::behavior_system(world);

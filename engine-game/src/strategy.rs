@@ -1,6 +1,6 @@
 //! Gameplay strategy traits and defaults for interchangeable simulation pieces.
 
-use crate::components::{ParticlePhysics, PhysicsBody2D, Transform2D};
+use crate::components::{ParticlePhysics, ParticleThreadMode, PhysicsBody2D, Transform2D};
 use crate::GameplayWorld;
 use rayon::prelude::*;
 
@@ -84,10 +84,12 @@ impl ParallelEulerIntegration {
         mut xf: Transform2D,
         particle_physics: Option<&ParticlePhysics>,
     ) -> (PhysicsBody2D, Transform2D) {
-        // Apply acceleration (gravity_scale is a per-frame velocity impulse, NOT stored in ay)
+        // Apply acceleration.
+        // gravity_scale is a transient per-frame impulse — NOT stored back into body.ay.
+        // thread_mode=Light means "no gravity" even if gravity_scale is set.
         const WORLD_GRAVITY_Y: f32 = 100.0;
         let extra_ay = particle_physics
-            .filter(|pp| pp.gravity_scale > 0.0)
+            .filter(|pp| pp.gravity_scale > 0.0 && pp.thread_mode != ParticleThreadMode::Light)
             .map(|pp| WORLD_GRAVITY_Y * pp.gravity_scale)
             .unwrap_or(0.0);
 
