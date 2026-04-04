@@ -123,3 +123,22 @@ emitters:
     radius: 1
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
+
+  # Debris with gravity and collision detection
+  asteroid.debris:
+    max_count: 64
+    cooldown_name: asteroid-debris
+    cooldown_ms: 0
+    spawn_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 2000
+    radius: 2
+    velocity_scale: 1.0
+    lifecycle: Ttl
+    # Physics flags for worker thread processing
+    thread_mode: "gravity"
+    gravity_scale: 0.3
+    collision: true
+    collision_mask: ["ship", "asteroid"]
+    bounce: 0.6
+    mass: 0.5
