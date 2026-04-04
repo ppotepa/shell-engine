@@ -13,7 +13,7 @@ use engine_api::{
     follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
     parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
 };
-use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController};
+use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticlePhysics, ParticleThreadMode};
 use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
@@ -1391,6 +1391,26 @@ impl ScriptGameplayApi {
                     }
                 }
             }
+        }
+
+        // Attach particle physics configuration if emitter specifies thread_mode/collision/gravity
+        if config.thread_mode.is_some() || config.collision.is_some() || config.gravity_scale.is_some() {
+            let thread_mode = config.thread_mode.as_deref().map(ParticleThreadMode::from_str).unwrap_or_default();
+            let collision = config.collision.unwrap_or(false);
+            let gravity_scale = config.gravity_scale.unwrap_or(0.0) as f32;
+            let bounce = config.bounce.unwrap_or(0.0) as f32;
+            let mass = config.mass.unwrap_or(1.0) as f32;
+            let collision_mask = config.collision_mask.clone().unwrap_or_default();
+            
+            let particle_physics = ParticlePhysics {
+                thread_mode,
+                collision,
+                collision_mask,
+                gravity_scale,
+                bounce,
+                mass,
+            };
+            let _ = world.attach_particle_physics(id, particle_physics);
         }
 
         if effective_cooldown > 0.0 {

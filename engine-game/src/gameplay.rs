@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::components::{
     Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
-    PhysicsBody2D, ArcadeController, Transform2D, VisualBinding, WrapBounds,
+    ParticlePhysics, PhysicsBody2D, ArcadeController, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -37,6 +37,7 @@ struct GameplayStore {
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
     ship_controllers: BTreeMap<u64, ArcadeController>,
+    particle_physics: BTreeMap<u64, ParticlePhysics>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -65,6 +66,7 @@ impl Default for GameplayStore {
             timers: BTreeMap::new(),
             wrap_bounds: BTreeMap::new(),
             ship_controllers: BTreeMap::new(),
+            particle_physics: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
             rng_seed: 1337,
@@ -222,6 +224,7 @@ impl GameplayWorld {
             store.timers.remove(&id);
             store.wrap_bounds.remove(&id);
             store.ship_controllers.remove(&id);
+            store.particle_physics.remove(&id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
             }
@@ -942,6 +945,49 @@ impl GameplayWorld {
         if let Ok(mut store) = self.store.lock() {
             store.ship_controllers.remove(&id);
         }
+    }
+
+    // === PARTICLE PHYSICS API ===
+
+    /// Attach particle physics configuration to an entity.
+    pub fn attach_particle_physics(&self, id: u64, physics: ParticlePhysics) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.particle_physics.insert(id, physics);
+        true
+    }
+
+    /// Retrieve particle physics configuration for an entity.
+    pub fn particle_physics(&self, id: u64) -> Option<ParticlePhysics> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.particle_physics.get(&id).cloned()
+    }
+
+    /// Get all entity IDs that have particle physics (for worker thread processing).
+    pub fn ids_with_particle_physics(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.particle_physics.keys().copied().collect()
+    }
+
+    /// Get all entity IDs that should be processed on worker thread.
+    pub fn ids_for_worker_physics(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store
+            .particle_physics
+            .iter()
+            .filter(|(_, pp)| pp.thread_mode.uses_worker_thread())
+            .map(|(id, _)| *id)
+            .collect()
     }
 
     /// Emit a gameplay event to be collected and polled by scripts.

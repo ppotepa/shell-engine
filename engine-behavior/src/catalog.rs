@@ -175,6 +175,28 @@ pub struct EmitterConfig {
     pub follow_local_y: Option<f64>,
     #[serde(default)]
     pub follow_inherit_heading: Option<bool>,
+    
+    // === PHYSICS FLAGS ===
+    /// Thread mode for particle processing: "light" (main thread, default), 
+    /// "physics" (worker thread with full physics), "gravity" (worker with gravity only).
+    #[serde(default)]
+    pub thread_mode: Option<String>,
+    /// Enable collision detection for particles from this emitter.
+    #[serde(default)]
+    pub collision: Option<bool>,
+    /// Collision mask - which tags can this particle collide with.
+    /// Example: ["asteroid", "ship"]
+    #[serde(default)]
+    pub collision_mask: Option<Vec<String>>,
+    /// Gravity scale for particles (0.0 = no gravity, 1.0 = full gravity).
+    #[serde(default)]
+    pub gravity_scale: Option<f64>,
+    /// Bounce coefficient when colliding (0.0 = absorb, 1.0 = elastic).
+    #[serde(default)]
+    pub bounce: Option<f64>,
+    /// Particle mass for physics calculations.
+    #[serde(default)]
+    pub mass: Option<f64>,
 }
 
 /// Group template: predefined batch spawn.

@@ -316,3 +316,49 @@ pub enum GameplayEvent {
     /// Emitted for both (a, b) and (b, a) directions for script convenience.
     CollisionEnter { a: u64, b: u64 },
 }
+
+/// Thread processing mode for particles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ParticleThreadMode {
+    /// Lightweight particle - processed on main thread (default).
+    #[default]
+    Light,
+    /// Full physics particle - processed on worker thread.
+    Physics,
+    /// Gravity-affected particle - processed on worker thread.
+    Gravity,
+}
+
+impl ParticleThreadMode {
+    /// Parse from string (for YAML config).
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "physics" => Self::Physics,
+            "gravity" => Self::Gravity,
+            _ => Self::Light,
+        }
+    }
+    
+    /// Check if particle should be processed on worker thread.
+    pub fn uses_worker_thread(self) -> bool {
+        matches!(self, Self::Physics | Self::Gravity)
+    }
+}
+
+/// Extended physics configuration for particles from emitters.
+/// Applied when `thread_mode` is not "light".
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct ParticlePhysics {
+    /// Processing mode (light/physics/gravity).
+    pub thread_mode: ParticleThreadMode,
+    /// Enable collision detection.
+    pub collision: bool,
+    /// Tags this particle can collide with.
+    pub collision_mask: Vec<String>,
+    /// Gravity scale (0.0 = no gravity, 1.0 = world gravity).
+    pub gravity_scale: f32,
+    /// Bounce coefficient (0.0 = absorb, 1.0 = elastic).
+    pub bounce: f32,
+    /// Particle mass for physics calculations.
+    pub mass: f32,
+}
