@@ -468,7 +468,7 @@ fn thrust_curve(thrust_ms, base_heat) {
     heat
 }
 
-fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, speed, max_speed) {
+fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, speed, max_speed, pal) {
     let intensity = 0.5 + ignition_factor * 0.5;
     
     // Velocity determines starting heat: 0 speed = 0 heat, max speed = 0.6 heat
@@ -506,7 +506,7 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
         for i in 0..6 {
             let pulse_speed = 200.0 + to_float(i) * 30.0;  // fast!
             let pulse_ttl = 350.0;  // long enough to travel full trail
-            emit_hot_engine(world, ship_id, "ship.main", pulse_speed, pulse_ttl, PAL_P_PULSE, 0.15, 1.0, 2);
+            emit_hot_engine(world, ship_id, "ship.main", pulse_speed, pulse_ttl, pal["pulse"], 0.15, 1.0, 2);
         }
     }
     
@@ -549,7 +549,7 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
         if ttl < 25.0 { ttl = 25.0; }
         
         // Color for initial emit (will be overridden by particle update)
-        let color = if use_hot { PAL_P_HOT_INIT } else { PAL_P_THRUST_INIT };
+        let color = if use_hot { pal["hot_init"] } else { pal["thrust_init"] };
         
         if use_hot {
             emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, color, spread, eff_intensity, outer_radius);
@@ -564,7 +564,7 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
         let ttl = (core_ttl - to_float(i) * (core_ttl * 0.03)) * ttl_boost;
         if ttl < 20.0 { ttl = 20.0; }
         
-        let core_color = if use_hot { PAL_P_HOT_CORE } else { PAL_P_THRUST_INIT };
+        let core_color = if use_hot { pal["hot_core"] } else { pal["thrust_init"] };
         
         if use_hot {
             emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, core_color, spread * 0.5, eff_intensity, inner_radius);
@@ -575,8 +575,8 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
 }
 
 // Legacy wrapper for compatibility
-fn fire_main_engine(world, ship_id, thrust_ms, ignition_factor) {
-    fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, 0.0, 280.0);
+fn fire_main_engine(world, ship_id, thrust_ms, ignition_factor, pal) {
+    fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, 0.0, 280.0, pal);
 }
 
 // ======================== AUTO-BRAKE: ROTATION =============================
@@ -871,7 +871,7 @@ fn update_final_burst_particles(world, ramp) {
 
 // ======================== MAIN CONTROL UPDATE ==============================
 
-fn update_ship_controls(world, input, ship_id, state_prev) {
+fn update_ship_controls(world, input, ship_id, state_prev, pal) {
     // Physics constants (local to function) - 3x faster response
     let ANGULAR_ACCEL = 5.5;
     let ANGULAR_MAX = 7.0;
@@ -961,7 +961,7 @@ fn update_ship_controls(world, input, ship_id, state_prev) {
     if thrusting {
         thrust_ignition_ms = thrust_ignition_ms + 16.0;
         let thrust_factor = calc_ignition_factor(thrust_ignition_ms, IGNITION_DELAY_MS, IGNITION_RAMP_MS);
-        fire_main_engine_with_velocity(world, ship_id, thrust_ignition_ms, thrust_factor, speed, MAX_SPEED);
+        fire_main_engine_with_velocity(world, ship_id, thrust_ignition_ms, thrust_factor, speed, MAX_SPEED, pal);
         
         // === AUTO-COURSE CORRECTION ===
         // When thrusting forward, check if velocity is drifting away from heading
@@ -991,10 +991,10 @@ fn update_ship_controls(world, input, ship_id, state_prev) {
                 // Fire thrusters to turn toward velocity
                 if cross > 0.0 {
                     // Drifting right → turn right → fire PORT
-                    emit_rcs_intensity(world, ship_id, "ship.port", 60.0, 120, PAL_P_CORRECT, 0.15, correction_strength, 1);
+                    emit_rcs_intensity(world, ship_id, "ship.port", 60.0, 120, pal["correct"], 0.15, correction_strength, 1);
                 } else {
                     // Drifting left → turn left → fire STARBOARD
-                    emit_rcs_intensity(world, ship_id, "ship.starboard", 60.0, 120, PAL_P_CORRECT, 0.15, correction_strength, 1);
+                    emit_rcs_intensity(world, ship_id, "ship.starboard", 60.0, 120, pal["correct"], 0.15, correction_strength, 1);
                 }
                 
                 // Apply small torque correction
@@ -1253,7 +1253,14 @@ if ship_id > 0 {
         auto_brake_phase: "idle", final_burst_waves: 0, final_burst_timer_ms: 0.0,
         final_burst_triggered: false
     };
-    let new_state = update_ship_controls(world, input, ship_id, state_prev);
+    let pal = #{
+        thrust_init: PAL_P_THRUST_INIT,
+        hot_init: PAL_P_HOT_INIT,
+        hot_core: PAL_P_HOT_CORE,
+        pulse: PAL_P_PULSE,
+        correct: PAL_P_CORRECT,
+    };
+    let new_state = update_ship_controls(world, input, ship_id, state_prev, pal);
     local.control_state = new_state;
 
     // ── Shooting ─────────────────────────────────────────────────────────────
