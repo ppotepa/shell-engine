@@ -1206,6 +1206,7 @@ if !(local.initialized ?? false) {
     };
     input.load_profile("default");
     scene.set("hud-gameover", "visible", false);
+    scene.set("hud-gameover-sub", "visible", false);
     spawn_wave(world, 1);
 }
 
@@ -1227,6 +1228,7 @@ scene.set("hud-wave",  "text.content", to_string(wave));
 // ── Game-over state ─────────────────────────────────────────────────────────
 if game_over {
     scene.set("hud-gameover", "visible", true);
+    scene.set("hud-gameover-sub", "visible", true);
     if input.action_just_pressed("restart") || input.action_just_pressed("fire") {
         // Reset game
         local.score = 0;
@@ -1243,6 +1245,7 @@ if game_over {
             final_burst_triggered: false
         };
         scene.set("hud-gameover", "visible", false);
+        scene.set("hud-gameover-sub", "visible", false);
         // Despawn all asteroids and bullets
         for id in world.query_tag("asteroid") { world.despawn(id); }
         for id in world.query_tag("bullet") { world.despawn(id); }

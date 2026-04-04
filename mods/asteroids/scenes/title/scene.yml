@@ -1,8 +1,15 @@
 id: asteroids-title
 title: Asteroids
-bg: black
+bg: "#060910"
 layers:
   - ref: title/layers/main.yml
+postfx:
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.08
+      transparency: 0.12
+      brightness: 1.0
+      speed: 0.4
 stages:
   on_enter:
     steps:
