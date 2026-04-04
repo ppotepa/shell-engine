@@ -139,15 +139,23 @@ pub fn game_loop(
         }
 
         // Gameplay systems (physics/lifetime) run before script behaviors.
+        // Inline physics (thread_mode=Light + non-particle entities) runs synchronously.
+        // Worker particles (Physics/Gravity) are kicked off async on rayon — they will
+        // compute concurrently with the behavior system below.
         systems::gameplay::gameplay_system(world, tick_ms);
+        let particle_handle = systems::particle_physics::start_async(world, tick_ms);
+
         let collision_hits = systems::collision::collision_system(world);
         let particle_hits = systems::collision::particle_collision_system(world);
         systems::gameplay_events::push_collisions(world, collision_hits);
         systems::gameplay_events::push_collisions(world, particle_hits);
 
         let t0 = Instant::now();
-        systems::behavior::behavior_system(world);
+        systems::behavior::behavior_system(world); // ← runs while particle_handle computes on rayon
         let t1 = Instant::now();
+
+        // Collect async particle results and write back before visual sync.
+        systems::particle_physics::collect_async(world, particle_handle);
 
         systems::audio_sequencer::audio_sequencer_system(world, tick_ms);
         engine_audio::audio_system(world);

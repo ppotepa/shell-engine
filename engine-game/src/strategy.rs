@@ -133,8 +133,9 @@ impl PhysicsIntegrationStrategy for ParallelEulerIntegration {
         }
         let dt_sec = dt_ms as f32 / 1000.0;
 
-        // PHASE 1: Single-lock batch read (ONE lock for ALL entities)
-        let work_items = world.batch_read_all_physics();
+        // PHASE 1: Single-lock batch read — only inline (non-worker) entities.
+        // Worker-thread particles (Physics/Gravity) are handled by async particle system.
+        let work_items = world.batch_read_inline_physics();
         if work_items.is_empty() {
             return;
         }

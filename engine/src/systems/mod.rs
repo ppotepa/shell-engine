@@ -8,6 +8,7 @@ pub mod engine_io;
 pub mod gameplay;
 pub mod gameplay_events;
 pub mod hot_reload;
+pub mod particle_physics;
 pub mod prerender;
 pub mod scene3d_prerender;
 pub mod arcade_controller;

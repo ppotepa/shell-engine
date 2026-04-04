@@ -1025,6 +1025,40 @@ impl GameplayWorld {
             .collect()
     }
 
+    /// Batch read physics for entities processed inline (thread_mode=Light or no particle physics).
+    /// Worker-thread particles (Physics/Gravity) are excluded — handled by async path.
+    pub fn batch_read_inline_physics(&self) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.physics.keys()
+            .filter_map(|&id| {
+                let pp = store.particle_physics.get(&id).cloned();
+                if pp.as_ref().map(|p| p.thread_mode.uses_worker_thread()).unwrap_or(false) {
+                    return None; // skip — will be processed by async particle system
+                }
+                let xf = store.transforms.get(&id)?;
+                let body = store.physics.get(&id)?;
+                Some((id, *xf, *body, pp))
+            })
+            .collect()
+    }
+
+    /// Batch read physics for worker-thread particles only (thread_mode=Physics|Gravity).
+    pub fn batch_read_worker_physics(&self) -> Vec<(u64, Transform2D, PhysicsBody2D, ParticlePhysics)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.particle_physics.iter()
+            .filter(|(_, pp)| pp.thread_mode.uses_worker_thread())
+            .filter_map(|(&id, pp)| {
+                let xf = store.transforms.get(&id)?;
+                let body = store.physics.get(&id)?;
+                Some((id, *xf, *body, pp.clone()))
+            })
+            .collect()
+    }
+
     /// Batch write physics results in a single lock acquisition.
     pub fn batch_write_physics(&self, results: &[(u64, Transform2D, PhysicsBody2D)]) {
         let Ok(mut store) = self.store.lock() else {
