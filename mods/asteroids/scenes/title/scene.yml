@@ -3,6 +3,10 @@ title: Asteroids
 bg: "#060910"
 layers:
   - ref: title/layers/main.yml
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./title.rhai
 postfx:
   - name: crt-scan-glitch
     params:
@@ -13,10 +17,16 @@ postfx:
 stages:
   on_enter:
     steps:
-      - { duration: 1 }
+      - { effects: [{ name: fade-in, duration: 600 }] }
   on_idle:
     trigger: any-key
     looping: true
     steps:
-      - pause: 200ms
+      - pause: 80ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 250 }] }
 next: asteroids-game
+menu-options:
+  - { key: "space", label: START GAME, to: asteroids-game }
+  - { key: "escape", label: EXIT, to: asteroids-title }

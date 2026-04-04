@@ -61,31 +61,47 @@
       closed: true
       draw-char: "*"
       at: cc
-      y: -5
+      y: -28
       fg_colour: "#6fc54a"
 
 - name: menu
   z_index: 3
   sprites:
+    # Selected-item light streak — offset.x driven by title.rhai
     - type: text
-      id: menu-start
-      content: "PRESS SPACE TO START"
+      id: light-streak
+      content: "──────────────────────────────────────────────────────────────────────────────────"
       at: cc
-      y: 80
+      y: 50
+      font: "generic:1"
+      fg: "#6fc54a"
+      opacity: 0.18
+
+    # Menu items — fg colour and offset.x updated by title.rhai
+    - type: text
+      id: menu-item-0
+      content: "START GAME"
+      at: cc
+      y: 40
       font: "Orbitron:ascii"
-      fg: yellow
-      stages:
-        on_enter:
-          steps:
-            - { effects: [{ name: fade-in, duration: 600, params: { easing: ease-out } }] }
+      fg: "#ffffff"
 
     - type: text
-      id: menu-controls
-      content: "ARROW KEYS TO TURN   SPACE TO FIRE"
+      id: menu-item-1
+      content: "EXIT"
       at: cc
-      y: 100
+      y: 56
+      font: "Orbitron:ascii"
+      fg: "#2d5c2d"
+
+    # Navigation hint
+    - type: text
+      id: menu-hint
+      content: "ARROWS  NAVIGATE     ENTER  SELECT"
+      at: cb
+      y: -2
       font: "generic:1"
-      fg: "#4a5a4a"
+      fg: "#1d3a1d"
 
     - type: text
       id: menu-credit
@@ -94,4 +110,4 @@
       x: -2
       y: -1
       font: "generic:1"
-      fg: "#2a3a2a"
+      fg: "#1a2a1a"
