@@ -46,6 +46,48 @@ fn cycle_debug_overlay_mode(world: &mut World) -> bool {
     true
 }
 
+/// Switch active palette by 0-based index (debug only).
+/// Writes the selected palette id to the persistence store so Rhai picks it
+/// up on the next frame via `palette.get()`.
+fn switch_palette_by_index(world: &mut World, index: usize) -> bool {
+    let debug_enabled = world
+        .get::<DebugFeatures>()
+        .map(|d| d.enabled)
+        .unwrap_or(false);
+    if !debug_enabled {
+        return false;
+    }
+
+    let (id, name) = {
+        let Some(store) = world.get::<engine_behavior::palette::PaletteStore>() else {
+            return false;
+        };
+        let Some(id) = store.order.get(index) else {
+            logging::debug(
+                "engine.debug.palette",
+                &format!("palette index {} out of range (have {})", index, store.len()),
+            );
+            return false;
+        };
+        let name = store
+            .palettes
+            .get(id)
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| id.clone());
+        (id.clone(), name)
+    };
+
+    let Some(persist) = world.get::<engine_persistence::PersistenceStore>() else {
+        return false;
+    };
+    persist.set("__palette__", serde_json::Value::String(id.clone()));
+    logging::debug(
+        "engine.debug.palette",
+        &format!("[{}] palette → {} ({})", index + 1, name, id),
+    );
+    true
+}
+
 fn debug_target_scene(world: &World, key: &KeyEvent) -> Option<String> {
     let debug_enabled = world
         .get::<DebugFeatures>()
@@ -95,6 +137,11 @@ pub(super) fn handle_debug_controls(world: &mut World, key_presses: &[KeyEvent])
             }
             KeyCode::F(3) | KeyCode::F(4) => {
                 handled |= handle_debug_scene_nav(world, key);
+            }
+            // 1–9: switch active palette by index (debug mode only).
+            KeyCode::Char(c @ '1'..='9') => {
+                let index = (c as usize) - ('1' as usize);
+                handled |= switch_palette_by_index(world, index);
             }
             _ => {}
         }
