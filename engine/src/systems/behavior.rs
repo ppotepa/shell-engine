@@ -33,6 +33,13 @@ pub fn behavior_system(world: &mut World) {
         .get::<engine_behavior::catalog::ModCatalogs>()
         .map(|cat| std::sync::Arc::new(cat.clone()))
         .unwrap_or_else(|| std::sync::Arc::new(engine_behavior::catalog::ModCatalogs::default()));
+    let palettes = world
+        .get::<engine_behavior::palette::PaletteStore>()
+        .map(|p| std::sync::Arc::new(p.clone()))
+        .unwrap_or_else(|| std::sync::Arc::new(engine_behavior::palette::PaletteStore::default()));
+    let default_palette = world
+        .get::<crate::mod_manifest::ModManifestData>()
+        .and_then(|m| m.default_palette.clone());
 
     // Resolve any pending mod-behavior bindings on the first frame this scene is active.
     // The check for pending bindings avoids cloning the registry on every subsequent frame.
@@ -68,6 +75,8 @@ pub fn behavior_system(world: &mut World) {
             emitter_state,
             collisions,
             catalogs,
+            palettes,
+            default_palette,
         )
     };
 

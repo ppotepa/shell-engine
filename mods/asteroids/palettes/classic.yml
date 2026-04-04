@@ -1,0 +1,30 @@
+id: classic
+name: Classic Green
+colors:
+  # Scene elements
+  title:        "#c2a83e"
+  ship:         "#c2a83e"
+  asteroid:     "#8dd6d4"
+  bullet:       "#f9cc78"
+  debris:       "#61541f"
+  # HUD
+  hud_label:    "#61541f"
+  hud_value:    "#c2a83e"
+  gameover:     "#f6ae2d"
+  gameover_sub: "#c2a83e"
+  # Menu
+  menu_sel:     "#c2a83e"
+  menu_idle:    "#61541f"
+  hint:         "#2e1a0a"
+  # Particle emitter initial colors
+  particle_thruster_init: "white"
+  particle_hot_init:      "#FFEE88"
+  particle_hot_core_init: "#FFDDAA"
+  particle_brake_init:    "white"
+  particle_correction:    "#FFDDAA"
+  particle_pulse:         "#FFCC44"
+particles:
+  thruster:   ["#FFF8CC", "#FFE066", "#FFCC00", "#CC9900", "#886600", "#442200"]
+  hot_engine: ["#FFFFCC", "#FFEE88", "#FFCC44", "#CC9933", "#886622", "#442211"]
+  brake:      ["#DDDDDD", "#BBBBBB", "#888888", "#555555", "#333333", "#111111"]
+  heat_trail: ["#FFE099", "#FFCC66", "#EEA833", "#CC8822", "#885511", "#442200"]

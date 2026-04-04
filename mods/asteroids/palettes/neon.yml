@@ -1,0 +1,30 @@
+id: neon
+name: Neon Blue
+colors:
+  # Scene elements
+  title:        "#f6ae2d"
+  ship:         "#f6ae2d"
+  asteroid:     "#2e5eaa"
+  bullet:       "#8dd6d4"
+  debris:       "#172e55"
+  # HUD
+  hud_label:    "#172e55"
+  hud_value:    "#f6ae2d"
+  gameover:     "#5bc0be"
+  gameover_sub: "#2e5eaa"
+  # Menu
+  menu_sel:     "#f6ae2d"
+  menu_idle:    "#172e55"
+  hint:         "#0a1428"
+  # Particle emitter initial colors
+  particle_thruster_init: "white"
+  particle_hot_init:      "#AACCFF"
+  particle_hot_core_init: "#DDEEFF"
+  particle_brake_init:    "white"
+  particle_correction:    "#88AAFF"
+  particle_pulse:         "#66AAFF"
+particles:
+  thruster:   ["#FFEEDD", "#FFCCAA", "#FF9966", "#CC6633", "#883311", "#441100"]
+  hot_engine: ["#DDEEFF", "#AACCFF", "#6699EE", "#4466CC", "#223399", "#112266"]
+  brake:      ["#CCDDFF", "#AABBEE", "#7788CC", "#445599", "#223366", "#111133"]
+  heat_trail: ["#DDEEFF", "#AACCFF", "#8899DD", "#5566BB", "#223388", "#111144"]

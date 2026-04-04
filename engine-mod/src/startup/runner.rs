@@ -6,7 +6,7 @@ use super::check::StartupCheck;
 use super::checks::{
     ActionMapCheck, AudioSequencerCheck, CatalogsCheck, EffectRegistryCheck,
     FontGlyphCoverageCheck, FontManifestCheck, ImageAssetsCheck, LevelConfigCheck,
-    RhaiScriptsCheck, SceneGraphCheck, TerminalRequirementsCheck,
+    PalettesCheck, RhaiScriptsCheck, SceneGraphCheck, TerminalRequirementsCheck,
 };
 use super::context::StartupContext;
 use super::report::StartupReport;
@@ -40,6 +40,7 @@ impl Default for StartupRunner {
             Box::new(LevelConfigCheck),
             Box::new(ActionMapCheck),
             Box::new(CatalogsCheck),
+            Box::new(PalettesCheck),
             Box::new(AudioSequencerCheck),
             Box::new(RhaiScriptsCheck),
             Box::new(EffectRegistryCheck),

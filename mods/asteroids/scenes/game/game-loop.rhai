@@ -22,6 +22,35 @@ let WORLD_H = 360.0;
 let SHIP_X = 320.0;
 let SHIP_Y = 180.0;
 
+// ======================== PALETTE SETUP ====================================
+// Read active palette once per frame; fall back to defaults if not loaded.
+let PAL_SHIP         = palette.get("ship");         if PAL_SHIP         == "" { PAL_SHIP         = "white"; }
+let PAL_ASTEROID     = palette.get("asteroid");     if PAL_ASTEROID     == "" { PAL_ASTEROID     = "white"; }
+let PAL_BULLET       = palette.get("bullet");       if PAL_BULLET       == "" { PAL_BULLET       = "yellow"; }
+let PAL_DEBRIS       = palette.get("debris");       if PAL_DEBRIS       == "" { PAL_DEBRIS       = "gray"; }
+let PAL_HUD_LABEL    = palette.get("hud_label");    if PAL_HUD_LABEL    == "" { PAL_HUD_LABEL    = "#2e5eaa"; }
+let PAL_HUD_VALUE    = palette.get("hud_value");    if PAL_HUD_VALUE    == "" { PAL_HUD_VALUE    = "#5bc0be"; }
+let PAL_GAMEOVER     = palette.get("gameover");     if PAL_GAMEOVER     == "" { PAL_GAMEOVER     = "#f6ae2d"; }
+let PAL_GAMEOVER_SUB = palette.get("gameover_sub"); if PAL_GAMEOVER_SUB == "" { PAL_GAMEOVER_SUB = "#c2a83e"; }
+
+let PAL_P_THRUST_INIT  = palette.get("particle_thruster_init"); if PAL_P_THRUST_INIT  == "" { PAL_P_THRUST_INIT  = "white"; }
+let PAL_P_HOT_INIT     = palette.get("particle_hot_init");      if PAL_P_HOT_INIT     == "" { PAL_P_HOT_INIT     = "#66FFFF"; }
+let PAL_P_HOT_CORE     = palette.get("particle_hot_core_init"); if PAL_P_HOT_CORE     == "" { PAL_P_HOT_CORE     = "#AAFFFF"; }
+let PAL_P_BRAKE_INIT   = palette.get("particle_brake_init");    if PAL_P_BRAKE_INIT   == "" { PAL_P_BRAKE_INIT   = "white"; }
+let PAL_P_CORRECT      = palette.get("particle_correction");    if PAL_P_CORRECT      == "" { PAL_P_CORRECT      = "#AACCFF"; }
+let PAL_P_PULSE        = palette.get("particle_pulse");         if PAL_P_PULSE        == "" { PAL_P_PULSE        = "#00FFFF"; }
+
+let RAMP_THRUSTER   = palette.particles("thruster");
+let RAMP_HOT_ENGINE = palette.particles("hot_engine");
+let RAMP_BRAKE      = palette.particles("brake");
+let RAMP_HEAT_TRAIL = palette.particles("heat_trail");
+
+// Fallback ramps if palette has none
+if RAMP_THRUSTER.len()   == 0 { RAMP_THRUSTER   = ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"]; }
+if RAMP_HOT_ENGINE.len() == 0 { RAMP_HOT_ENGINE = ["#CCFFFF","#66FFFF","#00FFCC","#00CC99","#008866","#004433"]; }
+if RAMP_BRAKE.len()      == 0 { RAMP_BRAKE      = ["#DDDDDD","#BBBBBB","#888888","#555555","#333333","#111111"]; }
+if RAMP_HEAT_TRAIL.len() == 0 { RAMP_HEAT_TRAIL = ["#AAFFFF","#88DDDD","#66BBBB","#448888","#225555","#112233"]; }
+
 // ======================== PHYSICS CONSTANTS ================================
 // Angular dynamics
 let ANGULAR_ACCEL = 5.5;        // rad/s² when RCS fires (faster)
@@ -68,13 +97,12 @@ fn dot(ax, ay, bx, by) {
     ax * bx + ay * by
 }
 
-fn keep_asteroids_alive(world) {
-    // Only called during respawn/init, not the main wave spawner
+fn keep_asteroids_alive(world, asteroid_col) {
     if world.count_kind("asteroid") > 0 { return; }
-    spawn_wave(world, 1);
+    spawn_wave(world, 1, asteroid_col);
 }
 
-fn spawn_wave(world, wave) {
+fn spawn_wave(world, wave, asteroid_col) {
     let WORLD_W = 640.0;
     let WORLD_H = 360.0;
     let count = 3 + wave;
@@ -82,14 +110,12 @@ fn spawn_wave(world, wave) {
         let side = i % 4;
         let x = if side == 0 { -32.0 } else if side == 1 { WORLD_W + 32.0 } else { 20.0 + rand() * (WORLD_W - 40.0) };
         let y = if side == 2 { -32.0 } else if side == 3 { WORLD_H + 32.0 } else { 20.0 + rand() * (WORLD_H - 40.0) };
-        // Avoid spawning too close to center
         if absf(x - WORLD_W * 0.5) < 60.0 && absf(y - WORLD_H * 0.5) < 60.0 {
             x = if rand() > 0.5 { -32.0 } else { WORLD_W + 32.0 };
         }
         let base_speed = 30.0 + to_float(wave) * 5.0;
         let vx = (rand() - 0.5) * base_speed * 2.0;
         let vy = (rand() - 0.5) * base_speed * 2.0;
-        // Ensure minimum speed
         if absf(vx) < 10.0 { vx = if vx >= 0.0 { 10.0 } else { -10.0 }; }
         if absf(vy) < 10.0 { vy = if vy >= 0.0 { 10.0 } else { -10.0 }; }
         let id = world.spawn_prefab("asteroid-large", #{
@@ -99,11 +125,12 @@ fn spawn_wave(world, wave) {
             world.tag_add(id, "asteroid");
             world.tag_add(id, "asteroid-large");
             world.enable_wrap(id, 0.0, WORLD_W, 0.0, WORLD_H);
+            world.set(id, "style.fg", asteroid_col);
         }
     }
 }
 
-fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy) {
+fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
     let WORLD_W = 640.0;
     let WORLD_H = 360.0;
     for i in 0..2 {
@@ -117,11 +144,12 @@ fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy) {
             world.tag_add(id, "asteroid");
             world.tag_add(id, "asteroid-medium");
             world.enable_wrap(id, 0.0, WORLD_W, 0.0, WORLD_H);
+            world.set(id, "style.fg", asteroid_col);
         }
     }
 }
 
-fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy) {
+fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
     let WORLD_W = 640.0;
     let WORLD_H = 360.0;
     for i in 0..2 {
@@ -135,11 +163,12 @@ fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy) {
             world.tag_add(id, "asteroid");
             world.tag_add(id, "asteroid-small");
             world.enable_wrap(id, 0.0, WORLD_W, 0.0, WORLD_H);
+            world.set(id, "style.fg", asteroid_col);
         }
     }
 }
 
-fn ensure_ship(world) {
+fn ensure_ship(world, ship_col) {
     let WORLD_W = 640.0;
     let WORLD_H = 360.0;
     let SHIP_X = 320.0;
@@ -154,6 +183,7 @@ fn ensure_ship(world) {
     if ship_id > 0 {
         world.tag_add(ship_id, "player");
         world.enable_wrap(ship_id, 0.0, WORLD_W, 0.0, WORLD_H);
+        world.set(ship_id, "style.fg", ship_col);
     }
     ship_id
 }
@@ -263,8 +293,18 @@ fn get_velocity_local(world, ship, ship_id) {
 
 // ======================== PARTICLE RENDERING ===============================
 
-fn update_thruster_particles(world) {
-    // Thruster particles: white → orange → red → dark (heat)
+// Pick a color from a 6-element ramp based on lifetime fraction (1.0=new, 0.0=dead).
+fn ramp_color(ramp, life) {
+    if life > 0.85 { return "white"; }
+    if life > 0.70 { return ramp[0]; }
+    if life > 0.55 { return ramp[1]; }
+    if life > 0.40 { return ramp[2]; }
+    if life > 0.25 { return ramp[3]; }
+    if life > 0.12 { return ramp[4]; }
+    ramp[5]
+}
+
+fn update_thruster_particles(world, ramp) {
     for id in world.query_tag("thruster-particle") {
         let p = world.entity(id);
         if !p.exists() { continue; }
@@ -284,29 +324,11 @@ fn update_thruster_particles(world) {
         };
         let dash_r = if r <= 0 { 0 } else { max(r, 2) };
         p.set_radius(dash_r);
-
-        // Heat color ramp: white → orange → red → dark
-        let fg = if life > 0.85 {
-            "white"
-        } else if life > 0.70 {
-            "#FFEECC"
-        } else if life > 0.55 {
-            "#FFCC88"
-        } else if life > 0.40 {
-            "#FF9944"
-        } else if life > 0.25 {
-            "#CC6622"
-        } else if life > 0.12 {
-            "#662211"
-        } else {
-            "#221108"
-        };
-        p.set_fg(fg);
+        p.set_fg(ramp_color(ramp, life));
     }
 }
 
-fn update_hot_engine_particles(world) {
-    // Hot engine particles: white → cyan → NEON TEAL → dark teal
+fn update_hot_engine_particles(world, ramp) {
     for id in world.query_tag("hot-engine-particle") {
         let p = world.entity(id);
         if !p.exists() { continue; }
@@ -315,7 +337,6 @@ fn update_hot_engine_particles(world) {
         let base_r = p.get_i("/radius", 1);
         let base_r = clamp_i(base_r, 1, 3);
 
-        // Compact hot stream - shrinks faster
         let r = if life > 0.80 {
             clamp_i(base_r + 1, 1, 4)
         } else if life > 0.50 {
@@ -327,29 +348,11 @@ fn update_hot_engine_particles(world) {
         };
         let dash_r = if r <= 0 { 0 } else { max(r, 2) };
         p.set_radius(dash_r);
-
-        // NEON TEAL color ramp: white → cyan → teal → dark teal
-        let fg = if life > 0.85 {
-            "white"
-        } else if life > 0.70 {
-            "#CCFFFF"   // pale cyan
-        } else if life > 0.55 {
-            "#66FFFF"   // bright cyan
-        } else if life > 0.40 {
-            "#00FFCC"   // NEON TEAL
-        } else if life > 0.25 {
-            "#00CC99"   // teal
-        } else if life > 0.12 {
-            "#008866"   // dark teal
-        } else {
-            "#004433"   // very dark teal
-        };
-        p.set_fg(fg);
+        p.set_fg(ramp_color(ramp, life));
     }
 }
 
-fn update_brake_particles(world) {
-    // Brake particles: white → gray → black (cold exhaust, no heat)
+fn update_brake_particles(world, ramp) {
     for id in world.query_tag("brake-particle") {
         let p = world.entity(id);
         if !p.exists() { continue; }
@@ -358,35 +361,15 @@ fn update_brake_particles(world) {
         let base_r = p.get_i("/radius", 1);
         let base_r = clamp_i(base_r, 1, 3);
 
-        // Shrink over time
         let r = if life > 0.80 {
             clamp_i(base_r + 1, 1, 4)
         } else if life > 0.55 {
             base_r
-        } else if life > 0.30 {
-            1
         } else {
             1
         };
         p.set_radius(max(r, 1));
-
-        // Cold color ramp: white → silver → gray → charcoal → black
-        let fg = if life > 0.85 {
-            "white"
-        } else if life > 0.70 {
-            "#DDDDDD"
-        } else if life > 0.55 {
-            "#BBBBBB"
-        } else if life > 0.40 {
-            "#888888"
-        } else if life > 0.25 {
-            "#555555"
-        } else if life > 0.12 {
-            "#333333"
-        } else {
-            "#111111"
-        };
-        p.set_fg(fg);
+        p.set_fg(ramp_color(ramp, life));
     }
 }
 
@@ -523,7 +506,7 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
         for i in 0..6 {
             let pulse_speed = 200.0 + to_float(i) * 30.0;  // fast!
             let pulse_ttl = 350.0;  // long enough to travel full trail
-            emit_hot_engine(world, ship_id, "ship.main", pulse_speed, pulse_ttl, "#00FFFF", 0.15, 1.0, 2);
+            emit_hot_engine(world, ship_id, "ship.main", pulse_speed, pulse_ttl, PAL_P_PULSE, 0.15, 1.0, 2);
         }
     }
     
@@ -566,7 +549,7 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
         if ttl < 25.0 { ttl = 25.0; }
         
         // Color for initial emit (will be overridden by particle update)
-        let color = if use_hot { "#66FFFF" } else { "white" };
+        let color = if use_hot { PAL_P_HOT_INIT } else { PAL_P_THRUST_INIT };
         
         if use_hot {
             emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, color, spread, eff_intensity, outer_radius);
@@ -581,7 +564,7 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
         let ttl = (core_ttl - to_float(i) * (core_ttl * 0.03)) * ttl_boost;
         if ttl < 20.0 { ttl = 20.0; }
         
-        let core_color = if use_hot { "#AAFFFF" } else { "white" };
+        let core_color = if use_hot { PAL_P_HOT_CORE } else { PAL_P_THRUST_INIT };
         
         if use_hot {
             emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, core_color, spread * 0.5, eff_intensity, inner_radius);
@@ -877,32 +860,12 @@ fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, wav
     }
 }
 
-fn update_final_burst_particles(world) {
-    // Final burst: BRIGHT white that stays visible longer
+fn update_final_burst_particles(world, ramp) {
     for id in world.query_tag("final-burst-particle") {
         let p = world.entity(id);
         if !p.exists() { continue; }
-        
-        let life = p.lifetime_fraction();
-        
-        // Stay thin throughout
         p.set_radius(1);
-        
-        // Bright white → cyan → pale → fade (very visible)
-        let fg = if life > 0.85 {
-            "white"
-        } else if life > 0.70 {
-            "#AAFFFF"  // bright cyan
-        } else if life > 0.55 {
-            "#88DDDD"  // cyan
-        } else if life > 0.40 {
-            "#66BBBB"  // teal
-        } else if life > 0.25 {
-            "#448888"  // dark teal
-        } else {
-            "#225555"  // very dark
-        };
-        p.set_fg(fg);
+        p.set_fg(ramp_color(ramp, p.lifetime_fraction()));
     }
 }
 
@@ -1028,10 +991,10 @@ fn update_ship_controls(world, input, ship_id, state_prev) {
                 // Fire thrusters to turn toward velocity
                 if cross > 0.0 {
                     // Drifting right → turn right → fire PORT
-                    emit_rcs_intensity(world, ship_id, "ship.port", 60.0, 120, "#AACCFF", 0.15, correction_strength, 1);
+                    emit_rcs_intensity(world, ship_id, "ship.port", 60.0, 120, PAL_P_CORRECT, 0.15, correction_strength, 1);
                 } else {
                     // Drifting left → turn left → fire STARBOARD
-                    emit_rcs_intensity(world, ship_id, "ship.starboard", 60.0, 120, "#AACCFF", 0.15, correction_strength, 1);
+                    emit_rcs_intensity(world, ship_id, "ship.starboard", 60.0, 120, PAL_P_CORRECT, 0.15, correction_strength, 1);
                 }
                 
                 // Apply small torque correction
@@ -1207,7 +1170,7 @@ if !(local.initialized ?? false) {
     input.load_profile("default");
     scene.set("hud-gameover", "visible", false);
     scene.set("hud-gameover-sub", "visible", false);
-    spawn_wave(world, 1);
+    spawn_wave(world, 1, PAL_ASTEROID);
 }
 
 // ======================== MAIN LOOP ========================================
@@ -1224,6 +1187,9 @@ let invincible_timer = local.invincible_timer ?? 0.0;
 scene.set("hud-score", "text.content", to_string(score));
 scene.set("hud-lives", "text.content", to_string(lives));
 scene.set("hud-wave",  "text.content", to_string(wave));
+scene.set("hud-score", "style.fg", PAL_HUD_VALUE);
+scene.set("hud-lives", "style.fg", PAL_HUD_VALUE);
+scene.set("hud-wave",  "style.fg", PAL_HUD_VALUE);
 
 // ── Game-over state ─────────────────────────────────────────────────────────
 if game_over {
@@ -1249,7 +1215,7 @@ if game_over {
         // Despawn all asteroids and bullets
         for id in world.query_tag("asteroid") { world.despawn(id); }
         for id in world.query_tag("bullet") { world.despawn(id); }
-        spawn_wave(world, 1);
+        spawn_wave(world, 1, PAL_ASTEROID);
     }
     #{state: local}
 } else {
@@ -1277,7 +1243,7 @@ if fire_cooldown > 0.0 {
 }
 
 // ── Ship controls ────────────────────────────────────────────────────────────
-let ship_id = if respawn_timer <= 0.0 { ensure_ship(world) } else { 0 };
+let ship_id = if respawn_timer <= 0.0 { ensure_ship(world, PAL_SHIP) } else { 0 };
 local.ship_id = ship_id;
 
 if ship_id > 0 {
@@ -1314,6 +1280,7 @@ if ship_id > 0 {
             if bullet_id > 0 {
                 world.tag_add(bullet_id, "bullet");
                 world.tag_add(bullet_id, "player-bullet");
+                world.set(bullet_id, "style.fg", PAL_BULLET);
             }
             fire_cooldown = 180.0;
             local.fire_cooldown = fire_cooldown;
@@ -1321,16 +1288,16 @@ if ship_id > 0 {
     }
 }
 
-update_thruster_particles(world);
-update_hot_engine_particles(world);
-update_brake_particles(world);
-update_final_burst_particles(world);
+update_thruster_particles(world, RAMP_THRUSTER);
+update_hot_engine_particles(world, RAMP_HOT_ENGINE);
+update_brake_particles(world, RAMP_BRAKE);
+update_final_burst_particles(world, RAMP_HEAT_TRAIL);
 
 // ── Wave complete check ───────────────────────────────────────────────────────
 if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && respawn_timer <= 0.0 {
     wave = wave + 1;
     local.wave = wave;
-    spawn_wave(world, wave);
+    spawn_wave(world, wave, PAL_ASTEROID);
 }
 
 // ── Collision handling ────────────────────────────────────────────────────────
@@ -1355,11 +1322,11 @@ for ev in events {
         if world.tag_has(asteroid_id, "asteroid-large") {
             score = score + 20;
             world.despawn(asteroid_id);
-            spawn_medium_asteroids(world, ax, ay, avx, avy);
+            spawn_medium_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
         } else if world.tag_has(asteroid_id, "asteroid-medium") {
             score = score + 50;
             world.despawn(asteroid_id);
-            spawn_small_asteroids(world, ax, ay, avx, avy);
+            spawn_small_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
         } else if world.tag_has(asteroid_id, "asteroid-small") {
             score = score + 100;
             world.despawn(asteroid_id);

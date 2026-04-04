@@ -8,6 +8,7 @@ pub mod frame_capture;
 pub mod frame_compare;
 mod game_loop;
 mod mod_loader;
+pub mod mod_manifest;
 pub use error::EngineError;
 
 // Re-export core modules from engine-core for compatibility
@@ -397,6 +398,15 @@ impl ShellEngine {
                     world.register(cats);
                 }
             }
+        }
+        // Load mod palettes from palettes/ and register default_palette from mod.yaml.
+        {
+            let palettes_dir = self.mod_source.join("palettes");
+            match engine_behavior::palette::PaletteStore::load_from_directory(&palettes_dir) {
+                Ok(store) => { world.register(store); }
+                Err(e) => { eprintln!("[palette] load failed: {}", e); }
+            }
+            world.register(mod_manifest::ModManifestData::from_manifest(&self.mod_manifest));
         }
         let persistence_namespace = self
             .mod_manifest

@@ -5,6 +5,7 @@ pub mod catalog;
 pub mod emit;
 pub mod emitter_state;
 pub mod factory;
+pub mod palette;
 pub mod registry;
 pub mod rhai_util;
 pub mod scripting;
@@ -82,6 +83,9 @@ pub struct BehaviorContext {
     pub level_state: Option<LevelState>,
     pub persistence: Option<PersistenceStore>,
     pub catalogs: Arc<catalog::ModCatalogs>,
+    pub palettes: Arc<palette::PaletteStore>,
+    /// Default palette id from mod.yaml, passed through to ScriptPaletteApi.
+    pub default_palette: Option<String>,
     pub gameplay_world: Option<GameplayWorld>,
     pub emitter_state: Option<EmitterState>,
     /// Collision events collected for this frame (gameplay entities).
@@ -653,6 +657,14 @@ impl Behavior for RhaiScriptBehavior {
                     ScriptPersistenceApi::new(ctx.persistence.clone()),
                 );
                 scope.push(
+                    "palette",
+                    scripting::palette::ScriptPaletteApi::new(
+                        Arc::clone(&ctx.palettes),
+                        ctx.persistence.clone(),
+                        ctx.default_palette.clone(),
+                    ),
+                );
+                scope.push(
                     "world",
                     ScriptGameplayApi::new(
                         ctx.gameplay_world.clone(),
@@ -826,6 +838,8 @@ fn smoke_probe_context(
         level_state: None,
         persistence: None,
         catalogs: Arc::new(catalog::ModCatalogs::default()),
+        palettes: Arc::new(palette::PaletteStore::default()),
+        default_palette: None,
         gameplay_world: Some(gameplay_world),
         emitter_state: None,
         collisions: Arc::new(Vec::new()),
@@ -1205,6 +1219,8 @@ mod tests {
             level_state: None,
             persistence: None,
             catalogs: Arc::new(catalog::ModCatalogs::test_catalogs()),
+            palettes: Arc::new(palette::PaletteStore::default()),
+            default_palette: None,
             gameplay_world: None,
             emitter_state: None,
             collisions: Arc::new(Vec::new()),

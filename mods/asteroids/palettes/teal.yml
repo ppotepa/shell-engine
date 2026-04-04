@@ -1,0 +1,30 @@
+id: teal
+name: Tropical Teal
+colors:
+  # Scene elements
+  title:        "#5bc0be"
+  ship:         "#5bc0be"
+  asteroid:     "#5bc0be"
+  bullet:       "#f6ae2d"
+  debris:       "#2e5eaa"
+  # HUD
+  hud_label:    "#2e5eaa"
+  hud_value:    "#5bc0be"
+  gameover:     "#f6ae2d"
+  gameover_sub: "#c2a83e"
+  # Menu
+  menu_sel:     "#f6ae2d"
+  menu_idle:    "#2e5eaa"
+  hint:         "#172e55"
+  # Particle emitter initial colors
+  particle_thruster_init: "white"
+  particle_hot_init:      "#66FFFF"
+  particle_hot_core_init: "#AAFFFF"
+  particle_brake_init:    "white"
+  particle_correction:    "#AACCFF"
+  particle_pulse:         "#00FFFF"
+particles:
+  thruster:   ["#FFEECC", "#FFCC88", "#FF9944", "#CC6622", "#662211", "#221108"]
+  hot_engine: ["#CCFFFF", "#66FFFF", "#00FFCC", "#00CC99", "#008866", "#004433"]
+  brake:      ["#DDDDDD", "#BBBBBB", "#888888", "#555555", "#333333", "#111111"]
+  heat_trail: ["#AAFFFF", "#88DDDD", "#66BBBB", "#448888", "#225555", "#112233"]
