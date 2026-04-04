@@ -1,6 +1,6 @@
 //! Gameplay strategy traits and defaults for interchangeable simulation pieces.
 
-use crate::components::{PhysicsBody2D, Transform2D};
+use crate::components::{ParticlePhysics, PhysicsBody2D, Transform2D};
 use crate::GameplayWorld;
 use rayon::prelude::*;
 
@@ -82,7 +82,17 @@ impl ParallelEulerIntegration {
         dt_sec: f32,
         mut body: PhysicsBody2D,
         mut xf: Transform2D,
+        particle_physics: Option<&ParticlePhysics>,
     ) -> (PhysicsBody2D, Transform2D) {
+        // Apply world gravity if particle has gravity_scale > 0
+        if let Some(pp) = particle_physics {
+            if pp.gravity_scale > 0.0 {
+                // Standard gravity: 9.81 m/s² → scaled to ~100 pixels/s² for terminal
+                const WORLD_GRAVITY_Y: f32 = 100.0;
+                body.ay += WORLD_GRAVITY_Y * pp.gravity_scale;
+            }
+        }
+
         // Apply acceleration
         body.vx += body.ax * dt_sec;
         body.vy += body.ay * dt_sec;
@@ -126,13 +136,14 @@ impl PhysicsIntegrationStrategy for ParallelEulerIntegration {
             return;
         }
 
-        // Collect all physics data we need to process
-        let work_items: Vec<(u64, PhysicsBody2D, Transform2D)> = ids
+        // Collect all physics data we need to process (including optional ParticlePhysics)
+        let work_items: Vec<(u64, PhysicsBody2D, Transform2D, Option<ParticlePhysics>)> = ids
             .iter()
             .filter_map(|&id| {
                 let body = world.physics(id)?;
                 let xf = world.transform(id)?;
-                Some((id, body, xf))
+                let pp = world.particle_physics(id);
+                Some((id, body, xf, pp))
             })
             .collect();
 
@@ -140,8 +151,8 @@ impl PhysicsIntegrationStrategy for ParallelEulerIntegration {
         // Use rayon parallel iterator for multi-core processing
         let results: Vec<(u64, PhysicsBody2D, Transform2D)> = work_items
             .into_par_iter()
-            .map(|(id, body, xf)| {
-                let (new_body, new_xf) = Self::integrate_single(dt_sec, body, xf);
+            .map(|(id, body, xf, pp)| {
+                let (new_body, new_xf) = Self::integrate_single(dt_sec, body, xf, pp.as_ref());
                 (id, new_body, new_xf)
             })
             .collect();

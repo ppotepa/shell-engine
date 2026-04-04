@@ -1,6 +1,6 @@
 //! Collision traits and a simple circle-circle default.
 
-use crate::components::{Collider2D, ColliderShape, GameplayEvent, Transform2D};
+use crate::components::{Collider2D, ColliderShape, GameplayEvent, ParticlePhysics, Transform2D};
 use crate::GameplayWorld;
 
 #[derive(Default)]
@@ -80,6 +80,69 @@ pub fn collision_system(
             }
         }
     }
+    hits
+}
+
+/// Particle collision system: checks particles with ParticlePhysics.collision=true
+/// against entities whose tags match the particle's collision_mask.
+/// Returns hits for script handling (e.g. particle despawn, damage).
+pub fn particle_collision_system(
+    world: &GameplayWorld,
+    strategies: &CollisionStrategies,
+) -> Vec<CollisionHit> {
+    let mut hits = Vec::new();
+    
+    // Get all particles with collision enabled
+    let particle_ids = world.ids_with_particle_physics();
+    if particle_ids.is_empty() {
+        return hits;
+    }
+    
+    // Get all potential target entities (those with colliders)
+    let target_ids = world.ids_with_colliders();
+    
+    for p_id in &particle_ids {
+        let Some(pp) = world.particle_physics(*p_id) else {
+            continue;
+        };
+        if !pp.collision || pp.collision_mask.is_empty() {
+            continue;
+        }
+        let Some(p_xf) = world.transform(*p_id) else {
+            continue;
+        };
+        // Particles are treated as small circles (radius 1-2 pixels)
+        let p_radius = 2.0f32;
+        
+        for t_id in &target_ids {
+            if *t_id == *p_id {
+                continue;
+            }
+            
+            // Check if target's tags match particle's collision_mask
+            let target_tags = world.tags(*t_id);
+            let matches_mask = pp.collision_mask.iter().any(|mask| target_tags.contains(mask));
+            if !matches_mask {
+                continue;
+            }
+            
+            let Some(t_col) = world.collider(*t_id) else {
+                continue;
+            };
+            let Some(t_xf) = world.transform(*t_id) else {
+                continue;
+            };
+            
+            // Check intersection
+            let particle_shape = ColliderShape::Circle { radius: p_radius };
+            if intersects(&particle_shape, &p_xf, &t_col.shape, &t_xf, strategies.wrap_strategy) {
+                hits.push(CollisionHit { a: *p_id, b: *t_id });
+                world.emit_event(GameplayEvent::CollisionEnter { a: *p_id, b: *t_id });
+                world.emit_event(GameplayEvent::CollisionEnter { a: *t_id, b: *p_id });
+            }
+        }
+    }
+    
     hits
 }
 

@@ -27,5 +27,6 @@ pub use gameplay::{GameplayEntity, GameplayWorld};
 
 pub use collision::{
     BroadphaseKind, CollisionHit, CollisionStrategies, NarrowphaseKind, WrapStrategy,
+    collision_system, particle_collision_system,
 };
 pub use strategy::{GameplayStrategies, PhysicsIntegrationStrategy, SimpleEulerIntegration, ParallelEulerIntegration};
