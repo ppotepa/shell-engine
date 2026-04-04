@@ -999,6 +999,16 @@ fn apply_rhai_commands(result: RhaiDynamic, commands: &mut Vec<BehaviorCommand>)
                 };
                 commands.push(BehaviorCommand::SceneTransition { to_scene_id });
             }
+            "set_bg" => {
+                let Some(color) = map
+                    .get("color")
+                    .and_then(|value| value.clone().try_cast::<String>())
+                    .filter(|value| !value.trim().is_empty())
+                else {
+                    continue;
+                };
+                commands.push(BehaviorCommand::SetSceneBg { color });
+            }
             _ => {}
         }
     }

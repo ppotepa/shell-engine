@@ -1,12 +1,16 @@
 id: neon
 name: Neon Blue
 colors:
+  # Background
+  bg:           "#020612"
   # Scene elements
   title:        "#f6ae2d"
   ship:         "#f6ae2d"
+  ship_art:     "#f6ae2d"
   asteroid:     "#2e5eaa"
   bullet:       "#8dd6d4"
   debris:       "#172e55"
+  star:         "#f6ae2d"
   # HUD
   hud_label:    "#172e55"
   hud_value:    "#f6ae2d"

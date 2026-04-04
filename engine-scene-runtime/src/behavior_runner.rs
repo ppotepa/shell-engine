@@ -575,6 +575,9 @@ impl SceneRuntime {
                 BehaviorCommand::ScriptError { .. } => {}
                 // TriggerEffect is consumed by the compositor system (world resource access needed).
                 BehaviorCommand::TriggerEffect { .. } => {}
+                BehaviorCommand::SetSceneBg { color } => {
+                    self.scene.bg_colour = engine_core::scene::color::parse_colour_str(color);
+                }
             }
         }
     }

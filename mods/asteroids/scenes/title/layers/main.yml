@@ -2,26 +2,26 @@
   z_index: 0
   sprites:
     # Sparse star field distributed across the 640x360 canvas
-    - { type: text, content: ".", at: tl, x:  15, y:  8,  fg: "#ffffff", opacity: 0.7 }
-    - { type: text, content: "*", at: tl, x:  78, y:  4,  fg: "#ddeeff", opacity: 0.5 }
-    - { type: text, content: ".", at: tl, x: 142, y: 17,  fg: "#eeeeff", opacity: 0.6 }
-    - { type: text, content: "*", at: tl, x: 210, y:  5,  fg: "#ffffff", opacity: 0.8 }
-    - { type: text, content: ".", at: tl, x: 267, y: 22,  fg: "#ddeeff", opacity: 0.5 }
-    - { type: text, content: "*", at: tl, x: 330, y:  7,  fg: "#ffffff", opacity: 0.9 }
-    - { type: text, content: ".", at: tl, x: 398, y: 14,  fg: "#eeeeff", opacity: 0.6 }
-    - { type: text, content: "*", at: tl, x: 455, y:  3,  fg: "#ddeeff", opacity: 0.5 }
-    - { type: text, content: ".", at: tl, x: 523, y: 19,  fg: "#ffffff", opacity: 0.7 }
-    - { type: text, content: "*", at: tl, x: 601, y:  9,  fg: "#eeeeff", opacity: 0.6 }
-    - { type: text, content: ".", at: tl, x:  33, y: 45,  fg: "#ddeeff", opacity: 0.4 }
-    - { type: text, content: ".", at: tl, x: 117, y: 38,  fg: "#ffffff", opacity: 0.5 }
-    - { type: text, content: "*", at: tl, x: 175, y: 52,  fg: "#eeeeff", opacity: 0.7 }
-    - { type: text, content: ".", at: tl, x: 248, y: 41,  fg: "#ddeeff", opacity: 0.6 }
-    - { type: text, content: ".", at: tl, x: 379, y: 47,  fg: "#ffffff", opacity: 0.8 }
-    - { type: text, content: "*", at: tl, x: 441, y: 33,  fg: "#eeeeff", opacity: 0.5 }
-    - { type: text, content: ".", at: tl, x: 509, y: 55,  fg: "#ddeeff", opacity: 0.6 }
-    - { type: text, content: "*", at: tl, x: 574, y: 40,  fg: "#ffffff", opacity: 0.7 }
-    - { type: text, content: ".", at: tl, x:  62, y: 130, fg: "#ffffff", opacity: 0.5 }
-    - { type: text, content: "*", at: tl, x: 155, y: 140, fg: "#ddeeff", opacity: 0.6 }
+    - { type: text, id: star-0,  content: ".", at: tl, x:  15, y:  8,  fg: "#ffffff", opacity: 0.7 }
+    - { type: text, id: star-1,  content: "*", at: tl, x:  78, y:  4,  fg: "#ddeeff", opacity: 0.5 }
+    - { type: text, id: star-2,  content: ".", at: tl, x: 142, y: 17,  fg: "#eeeeff", opacity: 0.6 }
+    - { type: text, id: star-3,  content: "*", at: tl, x: 210, y:  5,  fg: "#ffffff", opacity: 0.8 }
+    - { type: text, id: star-4,  content: ".", at: tl, x: 267, y: 22,  fg: "#ddeeff", opacity: 0.5 }
+    - { type: text, id: star-5,  content: "*", at: tl, x: 330, y:  7,  fg: "#ffffff", opacity: 0.9 }
+    - { type: text, id: star-6,  content: ".", at: tl, x: 398, y: 14,  fg: "#eeeeff", opacity: 0.6 }
+    - { type: text, id: star-7,  content: "*", at: tl, x: 455, y:  3,  fg: "#ddeeff", opacity: 0.5 }
+    - { type: text, id: star-8,  content: ".", at: tl, x: 523, y: 19,  fg: "#ffffff", opacity: 0.7 }
+    - { type: text, id: star-9,  content: "*", at: tl, x: 601, y:  9,  fg: "#eeeeff", opacity: 0.6 }
+    - { type: text, id: star-10, content: ".", at: tl, x:  33, y: 45,  fg: "#ddeeff", opacity: 0.4 }
+    - { type: text, id: star-11, content: ".", at: tl, x: 117, y: 38,  fg: "#ffffff", opacity: 0.5 }
+    - { type: text, id: star-12, content: "*", at: tl, x: 175, y: 52,  fg: "#eeeeff", opacity: 0.7 }
+    - { type: text, id: star-13, content: ".", at: tl, x: 248, y: 41,  fg: "#ddeeff", opacity: 0.6 }
+    - { type: text, id: star-14, content: ".", at: tl, x: 379, y: 47,  fg: "#ffffff", opacity: 0.8 }
+    - { type: text, id: star-15, content: "*", at: tl, x: 441, y: 33,  fg: "#eeeeff", opacity: 0.5 }
+    - { type: text, id: star-16, content: ".", at: tl, x: 509, y: 55,  fg: "#ddeeff", opacity: 0.6 }
+    - { type: text, id: star-17, content: "*", at: tl, x: 574, y: 40,  fg: "#ffffff", opacity: 0.7 }
+    - { type: text, id: star-18, content: ".", at: tl, x:  62, y: 130, fg: "#ffffff", opacity: 0.5 }
+    - { type: text, id: star-19, content: "*", at: tl, x: 155, y: 140, fg: "#ddeeff", opacity: 0.6 }
     - { type: text, content: ".", at: tl, x: 488, y: 125, fg: "#eeeeff", opacity: 0.5 }
     - { type: text, content: "*", at: tl, x: 582, y: 134, fg: "#ffffff", opacity: 0.7 }
     - { type: text, content: ".", at: tl, x:  24, y: 250, fg: "#ddeeff", opacity: 0.5 }
@@ -57,6 +57,7 @@
   z_index: 2
   sprites:
     - type: vector
+      id: ship-art
       points: [[0,-14],[7,14],[-7,14]]
       closed: true
       draw-char: "*"

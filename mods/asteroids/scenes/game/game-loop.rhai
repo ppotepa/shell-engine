@@ -24,6 +24,7 @@ let SHIP_Y = 180.0;
 
 // ======================== PALETTE SETUP ====================================
 // Read active palette once per frame; fall back to defaults if not loaded.
+let PAL_BG           = palette.get("bg");           if PAL_BG           == "" { PAL_BG           = "#060620"; }
 let PAL_SHIP         = palette.get("ship");         if PAL_SHIP         == "" { PAL_SHIP         = "white"; }
 let PAL_ASTEROID     = palette.get("asteroid");     if PAL_ASTEROID     == "" { PAL_ASTEROID     = "white"; }
 let PAL_BULLET       = palette.get("bullet");       if PAL_BULLET       == "" { PAL_BULLET       = "yellow"; }
@@ -50,6 +51,9 @@ if RAMP_THRUSTER.len()   == 0 { RAMP_THRUSTER   = ["#FFEECC","#FFCC88","#FF9944"
 if RAMP_HOT_ENGINE.len() == 0 { RAMP_HOT_ENGINE = ["#CCFFFF","#66FFFF","#00FFCC","#00CC99","#008866","#004433"]; }
 if RAMP_BRAKE.len()      == 0 { RAMP_BRAKE      = ["#DDDDDD","#BBBBBB","#888888","#555555","#333333","#111111"]; }
 if RAMP_HEAT_TRAIL.len() == 0 { RAMP_HEAT_TRAIL = ["#AAFFFF","#88DDDD","#66BBBB","#448888","#225555","#112233"]; }
+
+// Apply scene background and HUD label colors every frame
+scene.set_bg(PAL_BG);
 
 // ======================== PHYSICS CONSTANTS ================================
 // Angular dynamics
@@ -1187,9 +1191,14 @@ let invincible_timer = local.invincible_timer ?? 0.0;
 scene.set("hud-score", "text.content", to_string(score));
 scene.set("hud-lives", "text.content", to_string(lives));
 scene.set("hud-wave",  "text.content", to_string(wave));
-scene.set("hud-score", "style.fg", PAL_HUD_VALUE);
-scene.set("hud-lives", "style.fg", PAL_HUD_VALUE);
-scene.set("hud-wave",  "style.fg", PAL_HUD_VALUE);
+scene.set("hud-score",       "style.fg", PAL_HUD_VALUE);
+scene.set("hud-lives",       "style.fg", PAL_HUD_VALUE);
+scene.set("hud-wave",        "style.fg", PAL_HUD_VALUE);
+scene.set("hud-label-score", "style.fg", PAL_HUD_LABEL);
+scene.set("hud-label-lives", "style.fg", PAL_HUD_LABEL);
+scene.set("hud-label-wave",  "style.fg", PAL_HUD_LABEL);
+scene.set("hud-gameover",     "style.fg", PAL_GAMEOVER);
+scene.set("hud-gameover-sub", "style.fg", PAL_GAMEOVER_SUB);
 
 // ── Game-over state ─────────────────────────────────────────────────────────
 if game_over {

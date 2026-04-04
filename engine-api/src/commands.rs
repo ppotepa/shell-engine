@@ -83,6 +83,10 @@ pub enum BehaviorCommand {
         looping: bool,
         params: serde_json::Value,
     },
+    /// Change the scene background color at runtime.
+    SetSceneBg {
+        color: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

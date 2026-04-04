@@ -30,10 +30,16 @@ let count = menu.count ?? 2;
 let items = ["menu-item-0", "menu-item-1"];
 
 // Palette-driven colors — fall back to hardcoded values for preflight safety
-let col_selected = palette.get("menu_sel");
-let col_idle     = palette.get("menu_idle");
-if col_selected == "" { col_selected = "#f6ae2d"; }
-if col_idle     == "" { col_idle     = "#2e5eaa"; }
+let col_bg       = palette.get("bg");       if col_bg       == "" { col_bg       = "#060620"; }
+let col_selected = palette.get("menu_sel"); if col_selected == "" { col_selected = "#f6ae2d"; }
+let col_idle     = palette.get("menu_idle"); if col_idle    == "" { col_idle     = "#2e5eaa"; }
+let col_hint     = palette.get("hint");     if col_hint     == "" { col_hint     = "#172e55"; }
+let col_title    = palette.get("title");    if col_title    == "" { col_title    = "#5bc0be"; }
+let col_ship_art = palette.get("ship_art"); if col_ship_art == "" { col_ship_art = "#5bc0be"; }
+let col_star     = palette.get("star");     if col_star     == "" { col_star     = "#5bc0be"; }
+
+// Apply scene background
+scene.set_bg(col_bg);
 
 // Update item colours based on current selection
 for i in 0..count {
@@ -41,10 +47,19 @@ for i in 0..count {
     scene.set(items[i], "style.fg", col);
 }
 
-// Apply palette to title text and ship art
-let title_col = palette.get("title");
-if title_col != "" {
-    scene.set("title-asteroids", "style.fg", title_col);
+// Apply palette to title text, ship art, hint
+scene.set("title-asteroids", "style.fg", col_title);
+scene.set("ship-art",        "style.fg", col_ship_art);
+scene.set("menu-hint",       "style.fg", col_hint);
+scene.set("menu-credit",     "style.fg", col_hint);
+
+// Stars tinted toward palette accent color
+let star_ids = [
+    "star-0","star-1","star-2","star-3","star-4","star-5","star-6","star-7","star-8","star-9",
+    "star-10","star-11","star-12","star-13","star-14","star-15","star-16","star-17","star-18","star-19"
+];
+for sid in star_ids {
+    scene.set(sid, "style.fg", col_star);
 }
 
 // Show active palette name in the hint

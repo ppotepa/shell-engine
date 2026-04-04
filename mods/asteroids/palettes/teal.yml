@@ -1,12 +1,16 @@
 id: teal
 name: Tropical Teal
 colors:
+  # Background
+  bg:           "#060620"
   # Scene elements
   title:        "#5bc0be"
   ship:         "#5bc0be"
+  ship_art:     "#5bc0be"
   asteroid:     "#5bc0be"
   bullet:       "#f6ae2d"
   debris:       "#2e5eaa"
+  star:         "#5bc0be"
   # HUD
   hud_label:    "#2e5eaa"
   hud_value:    "#5bc0be"

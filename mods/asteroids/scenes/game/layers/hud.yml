@@ -2,6 +2,7 @@
   z_index: 10
   sprites:
     - type: text
+      id: hud-label-score
       content: "SCORE"
       at: tl
       x: 2
@@ -19,6 +20,7 @@
       fg: "#5bc0be"
 
     - type: text
+      id: hud-label-lives
       content: "LIVES"
       at: tl
       x: 2
@@ -36,6 +38,7 @@
       fg: "#5bc0be"
 
     - type: text
+      id: hud-label-wave
       content: "WAVE"
       at: tl
       x: 2

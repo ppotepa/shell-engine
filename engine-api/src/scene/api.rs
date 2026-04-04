@@ -227,6 +227,19 @@ impl ScriptSceneApi {
         self.set(id, "props.visible", visible.into());
     }
 
+    /// Change the scene background color.
+    pub fn set_bg(&mut self, color: &str) {
+        if color.trim().is_empty() {
+            return;
+        }
+        let Ok(mut queue) = self.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::SetSceneBg {
+            color: color.to_string(),
+        });
+    }
+
     /// Batch set multiple properties on a scene object.
     pub fn batch(&mut self, id: &str, props: RhaiMap) {
         for (key, value) in props {
@@ -297,6 +310,9 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
             scene.set_visible(id, visible);
         },
     );
+    engine.register_fn("set_bg", |scene: &mut ScriptSceneApi, color: &str| {
+        scene.set_bg(color);
+    });
     engine.register_fn(
         "batch",
         |scene: &mut ScriptSceneApi, id: &str, props: RhaiMap| {
