@@ -21,6 +21,11 @@ pub struct TerminalRenderer {
     presentation_policy: PresentationPolicy,
     presented_output: Buffer,
     pending_overlay: Option<OverlayData>,
+    /// Cached terminal size — updated only when the buffer is resized.
+    /// Avoids `ioctl` syscall on every frame.
+    cached_term_size: (u16, u16),
+    /// Reusable diff buffer — retains capacity across frames, avoids heap alloc per frame.
+    diff_scratch: Vec<(u16, u16, char, Color, Color)>,
 }
 
 thread_local! {
@@ -34,7 +39,7 @@ thread_local! {
 
 impl TerminalRenderer {
     pub fn new() -> io::Result<Self> {
-        Self::new_with_async(false, Box::new(AnsiBatchFlusher), PresentationPolicy::Fit)
+        Self::new_with_async(true, Box::new(AnsiBatchFlusher), PresentationPolicy::Fit)
     }
 
     pub fn new_with_async(
@@ -60,6 +65,8 @@ impl TerminalRenderer {
             presentation_policy,
             presented_output: Buffer::new(output_w.max(1), output_h.max(1)),
             pending_overlay: None,
+            cached_term_size: (output_w.max(1), output_h.max(1)),
+            diff_scratch: Vec::with_capacity(4096),
         })
     }
 
@@ -109,8 +116,20 @@ impl TerminalRenderer {
 
 impl OutputBackend for TerminalRenderer {
     fn present_buffer(&mut self, buffer: &Buffer) {
-        let output_size = terminal::size().unwrap_or((80, 24));
-        self.ensure_output_buffer(output_size.0.max(1), output_size.1.max(1));
+        // Only query terminal::size() (ioctl syscall) when buffer resize is needed,
+        // otherwise use cached value.
+        let output_size = if self.presented_output.width == 0 || self.presented_output.height == 0 {
+            let sz = terminal::size().unwrap_or((80, 24));
+            self.cached_term_size = sz;
+            sz
+        } else {
+            self.cached_term_size
+        };
+        let needs_resize = self.ensure_output_buffer(output_size.0.max(1), output_size.1.max(1));
+        if needs_resize {
+            // Refresh cached size on actual resize
+            self.cached_term_size = terminal::size().unwrap_or(output_size);
+        }
         project_buffer_to_output(buffer, &mut self.presented_output, self.presentation_policy);
 
         // When overlay is active, dim the output buffer cells so the scene
@@ -120,21 +139,29 @@ impl OutputBackend for TerminalRenderer {
             dim_output_buffer(&mut self.presented_output);
         }
 
-        let mut diffs = Vec::new();
-        self.presented_output.diff_into(&mut diffs);
+        // Reuse pre-allocated diff buffer — avoids per-frame heap allocation.
+        self.diff_scratch.clear();
+        self.presented_output.diff_into(&mut self.diff_scratch);
 
         // Flush game buffer diffs first (or skip if nothing changed and no overlay).
-        if !diffs.is_empty() {
+        if !self.diff_scratch.is_empty() {
             if let Some(sink) = &mut self.async_sink {
-                sink.submit(DisplayFrame { diffs, frame_id: 0 });
+                // Async path: clone diffs into owned Vec for the background thread.
+                // The clone preserves the capacity in diff_scratch for the next frame.
+                sink.submit(DisplayFrame { diffs: self.diff_scratch.clone(), frame_id: 0 });
             } else {
-                self.flusher.flush(&mut self.stdout, &diffs);
+                self.flusher.flush(&mut self.stdout, &self.diff_scratch);
             }
         }
         self.presented_output.swap();
 
         // Render overlay AFTER the game buffer so it always appears on top.
         if let Some(ref overlay_data) = overlay {
+            // If async sink is active, drain it first to avoid interleaving overlay
+            // writes with background diff flushes to the same stdout fd.
+            if let Some(sink) = &mut self.async_sink {
+                sink.drain_and_reopen();
+            }
             self.flush_overlay(overlay_data);
         }
     }
@@ -167,10 +194,13 @@ impl Drop for TerminalRenderer {
 }
 
 impl TerminalRenderer {
-    fn ensure_output_buffer(&mut self, width: u16, height: u16) {
+    fn ensure_output_buffer(&mut self, width: u16, height: u16) -> bool {
         if self.presented_output.width != width || self.presented_output.height != height {
             self.presented_output.resize(width, height);
             self.presented_output.invalidate();
+            true
+        } else {
+            false
         }
     }
 
@@ -182,7 +212,7 @@ impl TerminalRenderer {
         if overlay.is_empty() {
             return;
         }
-        let (term_w, _term_h) = terminal::size().unwrap_or((80, 24));
+        let (term_w, _term_h) = self.cached_term_size;
         for (row, line) in overlay.lines.iter().enumerate() {
             let ct_bg = color_convert::to_crossterm(line.bg);
             let _ = queue!(

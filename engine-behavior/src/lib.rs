@@ -729,9 +729,13 @@ impl Behavior for RhaiScriptBehavior {
                 return;
             }
         };
-        if let Some(map) = result.clone().try_cast::<RhaiMap>() {
-            if let Some(next_state) = map.get("state").and_then(rhai_dynamic_to_json) {
-                self.state = next_state;
+        // Extract state update by reference before consuming result for commands.
+        // Use read_lock() to avoid a full clone of the map when only reading state.
+        if result.is::<RhaiMap>() {
+            if let Some(map) = result.read_lock::<RhaiMap>() {
+                if let Some(next_state) = map.get("state").and_then(rhai_dynamic_to_json) {
+                    self.state = next_state;
+                }
             }
         }
         apply_rhai_commands(result, commands);
