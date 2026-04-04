@@ -425,9 +425,16 @@ fn collect_debug_overlay<T: RendererProvider>(world: &mut T) -> Option<OverlayDa
             let timings_info = world
                 .system_timings()
                 .map(|st| {
+                    let work_us = st.physics_us + st.behavior_us + st.compositor_us
+                        + st.postfx_us + st.renderer_us;
+                    let headroom_pct = if st.frame_us > 0.0 {
+                        (st.sleep_us / st.frame_us * 100.0) as u32
+                    } else { 0 };
                     format!(
-                        "beh:{:.0}  comp:{:.0}  pfx:{:.0}  rend:{:.0} µs",
-                        st.behavior_us, st.compositor_us, st.postfx_us, st.renderer_us
+                        "phys:{:.0}  beh:{:.0}  comp:{:.0}  pfx:{:.0}  rend:{:.0}  sleep:{:.0}µs  work:{:.0}µs  hdroom:{}%",
+                        st.physics_us, st.behavior_us, st.compositor_us,
+                        st.postfx_us, st.renderer_us, st.sleep_us,
+                        work_us, headroom_pct
                     )
                 })
                 .unwrap_or_default();

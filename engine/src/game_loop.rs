@@ -142,8 +142,10 @@ pub fn game_loop(
         // Inline physics (thread_mode=Light + non-particle entities) runs synchronously.
         // Worker particles (Physics/Gravity) are kicked off async on rayon — they will
         // compute concurrently with the behavior system below.
+        let t_phys_start = Instant::now();
         systems::gameplay::gameplay_system(world, tick_ms);
         let particle_handle = systems::particle_physics::start_async(world, tick_ms);
+        let t_phys = t_phys_start.elapsed();
 
         let collision_hits = systems::collision::collision_system(world);
         let particle_hits = systems::collision::particle_collision_system(world);
@@ -193,25 +195,28 @@ pub fn game_loop(
             ps.tick();
         }
 
-        // Update EMA-smoothed per-system timings (same α as FPS counter).
-        if let Some(st) = world.get_mut::<crate::debug_features::SystemTimings>() {
-            const A: f32 = 0.15;
-            st.behavior_us = st.behavior_us * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
-            st.compositor_us = st.compositor_us * (1.0 - A) + (t2 - t1b).as_micros() as f32 * A;
-            st.postfx_us = st.postfx_us * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
-            st.renderer_us = st.renderer_us * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
-        }
-
         let elapsed = frame_start.elapsed();
         let t_sleep_start = Instant::now();
         if elapsed < frame_budget {
             std::thread::sleep(frame_budget - elapsed);
         }
         let t_sleep = t_sleep_start.elapsed();
+        let frame_elapsed = frame_start.elapsed();
+
+        // Update EMA-smoothed per-system timings (α=0.15).
+        if let Some(st) = world.get_mut::<crate::debug_features::SystemTimings>() {
+            const A: f32 = 0.15;
+            st.physics_us   = st.physics_us   * (1.0 - A) + t_phys.as_micros() as f32 * A;
+            st.behavior_us  = st.behavior_us  * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
+            st.compositor_us= st.compositor_us* (1.0 - A) + (t2 - t1b).as_micros() as f32 * A;
+            st.postfx_us    = st.postfx_us    * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
+            st.renderer_us  = st.renderer_us  * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
+            st.sleep_us     = st.sleep_us     * (1.0 - A) + t_sleep.as_micros() as f32 * A;
+            st.frame_us     = st.frame_us     * (1.0 - A) + frame_elapsed.as_micros() as f32 * A;
+        }
 
         // Update smoothed FPS counter (EMA, α=0.15) using full frame time
         // including pacing sleep so the visible FPS matches what players see.
-        let frame_elapsed = frame_start.elapsed();
         let actual_fps = if frame_elapsed.as_micros() > 0 {
             1_000_000.0 / frame_elapsed.as_micros() as f32
         } else {

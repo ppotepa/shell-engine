@@ -41,6 +41,12 @@ pub struct SystemTimings {
     pub compositor_us: f32,
     pub postfx_us: f32,
     pub renderer_us: f32,
+    /// Time spent sleeping to hit frame budget (= headroom; 0 means frame-limited).
+    pub sleep_us: f32,
+    /// Total frame time including sleep.
+    pub frame_us: f32,
+    /// Physics + particle integration time.
+    pub physics_us: f32,
 }
 
 /// Debug overlay display mode.
