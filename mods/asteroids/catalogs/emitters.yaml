@@ -1,4 +1,5 @@
 emitters:
+  # === LEGACY EMITTERS (unused, kept for reference) ===
   asteroids.main_engine:
     max_count: 120
     cooldown_name: "main-engine"
@@ -46,16 +47,9 @@ emitters:
     radius: 4
     velocity_scale: 1.0
 
-  asteroids.impact_sparks:
-    max_count: 96
-    cooldown_name: "impact-sparks"
-    cooldown_ms: 0
-    spawn_offset: 0.0
-    backward_speed: 0.0
-    ttl_ms: 420
-    radius: 1
-    velocity_scale: 1.0
-
+  # === SHIP THRUSTER EMITTERS ===
+  
+  # Main engine - heavy particles with slight gravity (exhaust falls slightly)
   ship.main:
     max_count: 220
     cooldown_name: ship-main
@@ -72,7 +66,11 @@ emitters:
     radius: 2
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
+    # Physics: exhaust particles drift slightly with micro-gravity
+    thread_mode: "physics"
+    gravity_scale: 0.05
 
+  # Bow thruster - quick RCS bursts, light particles
   ship.bow:
     max_count: 140
     cooldown_name: ship-bow
@@ -89,7 +87,9 @@ emitters:
     radius: 1
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
+    thread_mode: "light"
 
+  # Port thruster - lateral RCS
   ship.port:
     max_count: 160
     cooldown_name: ship-port
@@ -106,7 +106,9 @@ emitters:
     radius: 1
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
+    thread_mode: "light"
 
+  # Starboard thruster - lateral RCS
   ship.starboard:
     max_count: 160
     cooldown_name: ship-starboard
@@ -123,8 +125,29 @@ emitters:
     radius: 1
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
+    thread_mode: "light"
 
-  # Debris with gravity and collision detection
+  # === IMPACT & DEBRIS EMITTERS ===
+
+  # Impact sparks - bounce off surfaces
+  asteroids.impact_sparks:
+    max_count: 96
+    cooldown_name: "impact-sparks"
+    cooldown_ms: 0
+    spawn_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 420
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: Ttl
+    thread_mode: "physics"
+    gravity_scale: 0.15
+    collision: true
+    collision_mask: ["asteroid"]
+    bounce: 0.7
+    mass: 0.1
+
+  # Debris - heavy chunks with full gravity and collision
   asteroid.debris:
     max_count: 64
     cooldown_name: asteroid-debris
@@ -135,10 +158,27 @@ emitters:
     radius: 2
     velocity_scale: 1.0
     lifecycle: Ttl
-    # Physics flags for worker thread processing
     thread_mode: "gravity"
     gravity_scale: 0.3
     collision: true
     collision_mask: ["ship", "asteroid"]
     bounce: 0.6
     mass: 0.5
+
+  # Ship explosion debris - can damage asteroids
+  ship.explosion_debris:
+    max_count: 48
+    cooldown_name: ship-explosion
+    cooldown_ms: 0
+    spawn_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 1500
+    radius: 3
+    velocity_scale: 1.2
+    lifecycle: Ttl
+    thread_mode: "physics"
+    gravity_scale: 0.2
+    collision: true
+    collision_mask: ["asteroid"]
+    bounce: 0.4
+    mass: 1.0
