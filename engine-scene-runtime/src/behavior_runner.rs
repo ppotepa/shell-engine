@@ -28,6 +28,7 @@ impl SceneRuntime {
         catalogs: std::sync::Arc<engine_behavior::catalog::ModCatalogs>,
         palettes: std::sync::Arc<engine_behavior::palette::PaletteStore>,
         default_palette: Option<String>,
+        debug_enabled: bool,
     ) -> Vec<BehaviorCommand> {
         self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
         self.sync_terminal_shell_sprites();
@@ -219,6 +220,7 @@ impl SceneRuntime {
             rhai_menu_map,
             rhai_key_map,
             engine_key_map,
+            debug_enabled,
             action_bindings: match &self.cached_action_bindings {
                 Some(cached) => std::sync::Arc::clone(cached),
                 None => {

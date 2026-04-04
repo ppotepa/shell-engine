@@ -40,6 +40,10 @@ pub fn behavior_system(world: &mut World) {
     let default_palette = world
         .get::<crate::mod_manifest::ModManifestData>()
         .and_then(|m| m.default_palette.clone());
+    let debug_enabled = world
+        .get::<crate::debug_features::DebugFeatures>()
+        .map(|d| d.enabled)
+        .unwrap_or(false);
 
     // Resolve any pending mod-behavior bindings on the first frame this scene is active.
     // The check for pending bindings avoids cloning the registry on every subsequent frame.
@@ -77,6 +81,7 @@ pub fn behavior_system(world: &mut World) {
             catalogs,
             palettes,
             default_palette,
+            debug_enabled,
         )
     };
 

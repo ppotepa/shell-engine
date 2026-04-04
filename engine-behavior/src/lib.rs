@@ -99,6 +99,8 @@ pub struct BehaviorContext {
     /// Raw key event for this frame — available in Rhai as `key.code`, `key.ctrl`, etc.
     /// Arc-wrapped: shared across all behaviors in a frame, clone is O(1).
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
+    /// Whether the engine was started with --debug-feature.
+    pub debug_enabled: bool,
     /// Held key set (normalized key codes), exposed to Rhai via `input.down(code)`.
     pub keys_down: Arc<HashSet<String>>,
     /// Keys that were NOT held last frame but ARE held this frame — fires once per press.
@@ -603,6 +605,9 @@ impl Behavior for RhaiScriptBehavior {
                 // Engine-level key state (separate namespace to prevent behavior interference)
                 scope.push_dynamic("engine", (*ctx.engine_key_map).clone().into());
 
+                // Debug feature flag — true when --debug-feature CLI flag is active.
+                scope.push("debug_enabled", ctx.debug_enabled);
+
                 // Gameplay collision events (array of {a, b} maps).
                 scope.push_dynamic(
                     "collisions",
@@ -855,6 +860,7 @@ fn smoke_probe_context(
         rhai_menu_map: Arc::new(RhaiMap::new()),
         rhai_key_map: Arc::new(RhaiMap::new()),
         engine_key_map: Arc::new(RhaiMap::new()),
+        debug_enabled: false,
     }
 }
 
@@ -1236,6 +1242,7 @@ mod tests {
             rhai_menu_map: empty_rhai_menu_map(),
             rhai_key_map: empty_rhai_key_map(),
             engine_key_map: empty_engine_key_map(),
+            debug_enabled: false,
         }
     }
 

@@ -3,6 +3,26 @@ if key.code == "tab" {
     palette.cycle();
 }
 
+// Debug: 1-9 switches palette by index
+if debug_enabled {
+    let digit = if key.code == "1" { 0 }
+           else if key.code == "2" { 1 }
+           else if key.code == "3" { 2 }
+           else if key.code == "4" { 3 }
+           else if key.code == "5" { 4 }
+           else if key.code == "6" { 5 }
+           else if key.code == "7" { 6 }
+           else if key.code == "8" { 7 }
+           else if key.code == "9" { 8 }
+           else { -1 };
+    if digit >= 0 {
+        let ids = palette.list();
+        if digit < ids.len() {
+            palette.set_active(ids[digit]);
+        }
+    }
+}
+
 // Safe fallbacks for preflight (menu map may be empty during validation)
 let sel   = menu.selected_index ?? 0;
 let count = menu.count ?? 2;
