@@ -80,7 +80,7 @@ fn switch_palette_by_index(world: &mut World, index: usize) -> bool {
     let Some(persist) = world.get::<engine_persistence::PersistenceStore>() else {
         return false;
     };
-    persist.set("__palette__", serde_json::Value::String(id.clone()));
+    persist.set("/__palette__", serde_json::Value::String(id.clone()));
     logging::debug(
         "engine.debug.palette",
         &format!("[{}] palette → {} ({})", index + 1, name, id),

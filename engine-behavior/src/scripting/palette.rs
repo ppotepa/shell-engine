@@ -7,7 +7,7 @@ use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Engine as RhaiEngine};
 
 use crate::palette::PaletteStore;
 
-const PERSIST_KEY: &str = "__palette__";
+const PERSIST_KEY: &str = "/__palette__";
 
 #[derive(Clone)]
 pub(crate) struct ScriptPaletteApi {
