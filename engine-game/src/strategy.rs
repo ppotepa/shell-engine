@@ -84,18 +84,15 @@ impl ParallelEulerIntegration {
         mut xf: Transform2D,
         particle_physics: Option<&ParticlePhysics>,
     ) -> (PhysicsBody2D, Transform2D) {
-        // Apply world gravity if particle has gravity_scale > 0
-        if let Some(pp) = particle_physics {
-            if pp.gravity_scale > 0.0 {
-                // Standard gravity: 9.81 m/s² → scaled to ~100 pixels/s² for terminal
-                const WORLD_GRAVITY_Y: f32 = 100.0;
-                body.ay += WORLD_GRAVITY_Y * pp.gravity_scale;
-            }
-        }
+        // Apply acceleration (gravity_scale is a per-frame velocity impulse, NOT stored in ay)
+        const WORLD_GRAVITY_Y: f32 = 100.0;
+        let extra_ay = particle_physics
+            .filter(|pp| pp.gravity_scale > 0.0)
+            .map(|pp| WORLD_GRAVITY_Y * pp.gravity_scale)
+            .unwrap_or(0.0);
 
-        // Apply acceleration
         body.vx += body.ax * dt_sec;
-        body.vy += body.ay * dt_sec;
+        body.vy += (body.ay + extra_ay) * dt_sec;
 
         // Apply drag
         if body.drag > 0.0 {
