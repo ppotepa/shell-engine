@@ -1324,16 +1324,18 @@ impl ScriptGameplayApi {
             }
         }
 
-        let spawn_offset = config.spawn_offset.unwrap_or(0.0);
+        let (spawn_offset, config_side_offset) = Self::resolve_emit_anchor_offsets(&config, &args);
         let backward_speed = config.backward_speed.unwrap_or(0.0);
         let velocity_scale = config.velocity_scale.unwrap_or(1.0);
         // side_offset: perpendicular right offset from heading direction.
         // Right-perp of (hx, hy) is (hy, -hx).  Negative values = left side.
-        let side_offset = config.side_offset.unwrap_or(0.0)
+        let side_offset = config_side_offset
             + Self::map_number(&args, "side_offset", 0.0);
-        let resolved = self.resolve_emit(&config, &args, spawn_offset);
+        let resolved = self.resolve_emit(&config, &args, spawn_offset, hx, hy);
 
-        let dir_angle = heading + std::f64::consts::PI + resolved.spread;
+        // Base emission axis is provided in world-space by resolve_emit.
+        // Additional spread is applied around that base.
+        let dir_angle = resolved.base_dir_y.atan2(resolved.base_dir_x) + resolved.spread;
         let dir_x = dir_angle.cos();
         let dir_y = dir_angle.sin();
 
@@ -1450,6 +1452,8 @@ impl ScriptGameplayApi {
         config: &catalog::EmitterConfig,
         args: &RhaiMap,
         spawn_offset: f64,
+        heading_x: f64,
+        heading_y: f64,
     ) -> EmitResolved {
         let owner_bound = args
             .get("owner_bound")
@@ -1491,9 +1495,13 @@ impl ScriptGameplayApi {
             extra_data.insert("fg".to_string(), JsonValue::from(fg.clone()));
         }
 
+        let (base_dir_x, base_dir_y) = Self::resolve_emit_base_dir(config, args, heading_x, heading_y);
+        let base_emission_angle = config.emission_angle.unwrap_or(0.0);
         EmitResolved {
             speed: Self::map_number(args, "speed", 0.0),
-            spread: Self::map_number(args, "spread", 0.0),
+            base_dir_x,
+            base_dir_y,
+            spread: base_emission_angle + Self::map_number(args, "spread", 0.0),
             ttl_ms: Self::map_int(args, "ttl_ms", config.ttl_ms.unwrap_or(250)).max(1) as i32,
             radius,
             template: map_string(args, "template").unwrap_or_else(|| "debris".to_string()),
@@ -1503,6 +1511,103 @@ impl ScriptGameplayApi {
             follow_anchor,
             extra_data,
         }
+    }
+
+    /// Resolve base emission axis in world-space.
+    /// Priority:
+    /// 1) args.emission_local_x/y
+    /// 2) config.emission_local_x/y
+    /// 3) default owner backward axis (-heading)
+    fn resolve_emit_base_dir(
+        config: &catalog::EmitterConfig,
+        args: &RhaiMap,
+        heading_x: f64,
+        heading_y: f64,
+    ) -> (f64, f64) {
+        let arg_local_x = args
+            .get("emission_local_x")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+        let arg_local_y = args
+            .get("emission_local_y")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+        if let (Some(local_x), Some(local_y)) = (arg_local_x, arg_local_y) {
+            if let Some(dir) = Self::local_vec_to_world_unit(local_x, local_y, heading_x, heading_y) {
+                return dir;
+            }
+        }
+
+        if let (Some(local_x), Some(local_y)) = (config.emission_local_x, config.emission_local_y) {
+            if let Some(dir) = Self::local_vec_to_world_unit(local_x, local_y, heading_x, heading_y) {
+                return dir;
+            }
+        }
+
+        (-heading_x, -heading_y)
+    }
+
+    /// Convert an owner-local direction vector into normalized world-space direction.
+    /// Local frame: +x right, +y down.
+    fn local_vec_to_world_unit(
+        local_x: f64,
+        local_y: f64,
+        heading_x: f64,
+        heading_y: f64,
+    ) -> Option<(f64, f64)> {
+        let len = (local_x * local_x + local_y * local_y).sqrt();
+        if len <= f64::EPSILON {
+            return None;
+        }
+        let nx = local_x / len;
+        let ny = local_y / len;
+        // Build owner-local basis from heading:
+        // forward=(hx,hy), right=(-hy,hx), down=backward=( -hx,-hy )
+        // local(+x right,+y down): world = right*lx + down*ly
+        let right_x = -heading_y;
+        let right_y = heading_x;
+        let down_x = -heading_x;
+        let down_y = -heading_y;
+        let wx = right_x * nx + down_x * ny;
+        let wy = right_y * nx + down_y * ny;
+        let wlen = (wx * wx + wy * wy).sqrt();
+        if wlen <= f64::EPSILON {
+            None
+        } else {
+            Some((wx / wlen, wy / wlen))
+        }
+    }
+
+    /// Resolve emitter anchor as legacy (spawn_offset/side_offset) from either:
+    /// 1) args.local_x/local_y
+    /// 2) config.local_x/local_y
+    /// 3) config.edge_{from,to}_* + edge_t interpolation
+    /// 4) legacy config.spawn_offset/config.side_offset fallback
+    fn resolve_emit_anchor_offsets(config: &catalog::EmitterConfig, args: &RhaiMap) -> (f64, f64) {
+        let arg_local_x = args.get("local_x").and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+        let arg_local_y = args.get("local_y").and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+        if let (Some(local_x), Some(local_y)) = (arg_local_x, arg_local_y) {
+            return (local_y, -local_x);
+        }
+
+        if let (Some(local_x), Some(local_y)) = (config.local_x, config.local_y) {
+            return (local_y, -local_x);
+        }
+
+        if let (Some(from_x), Some(from_y), Some(to_x), Some(to_y)) = (
+            config.edge_from_x,
+            config.edge_from_y,
+            config.edge_to_x,
+            config.edge_to_y,
+        ) {
+            let t = config.edge_t.unwrap_or(0.5).clamp(0.0, 1.0);
+            let local_x = from_x + (to_x - from_x) * t;
+            let local_y = from_y + (to_y - from_y) * t;
+            return (local_y, -local_x);
+        }
+
+        (
+            config.spawn_offset.unwrap_or(0.0),
+            config.side_offset.unwrap_or(0.0),
+        )
     }
 
     pub(crate) fn attach_controller(&mut self, id: rhai::INT, config: RhaiMap) -> bool {

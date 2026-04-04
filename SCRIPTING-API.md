@@ -190,9 +190,19 @@ world.emit("emitter.name", owner_id, #{ ... })  // → int  Emit particle/fx ent
 | `owner_bound` | bool   | No       | If true, despawns with owner             |
 | `ttl_ms`      | int    | No       | Lifetime in milliseconds                 |
 | `speed`       | float  | No       | Launch speed in world units/sec          |
-| `spread`      | float  | No       | Directional spread in radians            |
+| `spread`      | float  | No       | Directional offset in radians            |
 | `radius`      | int    | No       | Dot radius (visual only)                 |
 | `fg`          | str    | No       | Foreground colour name                   |
+| `local_x`     | float  | No       | Owner-local anchor X (+right)            |
+| `local_y`     | float  | No       | Owner-local anchor Y (+down)             |
+| `side_offset` | float  | No       | Extra right-offset (legacy additive)     |
+| `emission_local_x` | float | No   | Owner-local base emission X (+right)     |
+| `emission_local_y` | float | No   | Owner-local base emission Y (+down)      |
+
+Anchor and direction precedence:
+- Anchor: args `local_x/local_y` → catalog `local_x/local_y` → catalog edge interpolation → legacy `spawn_offset/side_offset`.
+- Direction: args `emission_local_x/y` → catalog `emission_local_x/y` → default owner backward axis.
+- Final emission direction applies catalog `emission_angle` then args `spread` (both radians).
 
 ### Randomness
 

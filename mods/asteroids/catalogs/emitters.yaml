@@ -55,3 +55,71 @@ emitters:
     ttl_ms: 420
     radius: 1
     velocity_scale: 1.0
+
+  ship.main:
+    max_count: 220
+    cooldown_name: ship-main
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: 0.0
+    local_y: 1.0
+    emission_local_x: 0.0
+    emission_local_y: 1.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 520
+    radius: 2
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound
+
+  ship.bow:
+    max_count: 140
+    cooldown_name: ship-bow
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: 0.0
+    local_y: -17.0
+    emission_local_x: 0.0
+    emission_local_y: -1.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 240
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound
+
+  ship.port:
+    max_count: 160
+    cooldown_name: ship-port
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: -14.0
+    local_y: 9.0
+    emission_local_x: -1.0
+    emission_local_y: 0.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 240
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound
+
+  ship.starboard:
+    max_count: 160
+    cooldown_name: ship-starboard
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: 14.0
+    local_y: 9.0
+    emission_local_x: 1.0
+    emission_local_y: 0.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 240
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound

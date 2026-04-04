@@ -1,742 +1,939 @@
-// asteroids/scenes/game/game-loop.rhai
-// Rhai functions are hoisted — defined first, main logic follows.
+// ============================================================================
+// ASTEROIDS — Full Realistic RCS Simulation v3.1
+// ============================================================================
+// AUTO-BRAKE SYSTEM:
+//   - After 30ms of no input, auto-stabilization activates (fast response)
+//   - PHASE 1: Stop rotation (fire RCS opposite to angular velocity)
+//   - PHASE 2: Stop linear motion (fire thrusters opposite to velocity)
+//   - Velocity projected onto LOCAL ship axes each frame
+//   - Thruster selection based on velocity components in ship frame
+// ============================================================================
+if type_of(local) == "()" { local = #{}; }
 
-fn spawn_ship(world) {
+let WORLD_W = 640.0;
+let WORLD_H = 360.0;
+let SHIP_X = 320.0;
+let SHIP_Y = 180.0;
+
+// ======================== PHYSICS CONSTANTS ================================
+// Angular dynamics
+let ANGULAR_ACCEL = 5.5;        // rad/s² when RCS fires (faster)
+let ANGULAR_MAX = 7.0;          // max angular velocity rad/s
+let ANGULAR_DEADBAND = 0.10;    // below this, consider "stable" (rad/s)
+
+// Linear dynamics  
+let LINEAR_DEADBAND = 2.5;      // below this speed, consider "stopped"
+
+// Auto-brake activation (3x faster = 100ms / 3 ≈ 33ms)
+let AUTO_BRAKE_DELAY_MS = 30.0; // wait 30ms after last input before auto-braking
+
+// Timing (3x faster response)
+let DT = 0.016;                 // 16ms frame time
+let IGNITION_DELAY_MS = 8.0;    // spool time before full thrust (was 24)
+let IGNITION_RAMP_MS = 12.0;    // time to reach full intensity (was 36)
+
+// ======================== HELPER FUNCTIONS =================================
+
+fn absf(x) {
+    if x < 0.0 { -x } else { x }
+}
+
+fn signf(x) {
+    if x > 0.0 { 1.0 } else if x < 0.0 { -1.0 } else { 0.0 }
+}
+
+fn sqrtf(x) {
+    if x <= 0.0 { return 0.0; }
+    let guess = x / 2.0;
+    for i in 0..8 {
+        guess = (guess + x / guess) / 2.0;
+    }
+    guess
+}
+
+fn normalize(x, y) {
+    let len = sqrtf(x * x + y * y);
+    if len < 0.0001 { return #{ x: 0.0, y: 0.0 }; }
+    #{ x: x / len, y: y / len }
+}
+
+fn dot(ax, ay, bx, by) {
+    ax * bx + ay * by
+}
+
+fn keep_asteroids_alive(world) {
     let WORLD_W = 640.0;
     let WORLD_H = 360.0;
+    if world.count_kind("asteroid") > 0 { return; }
+    for i in 0..6 {
+        let side = i % 4;
+        let x = if side == 0 { -32.0 } else if side == 1 { WORLD_W + 32.0 } else { 20.0 + rand() * (WORLD_W - 40.0) };
+        let y = if side == 2 { -32.0 } else if side == 3 { WORLD_H + 32.0 } else { 20.0 + rand() * (WORLD_H - 40.0) };
+        let vx = if side == 0 { 60.0 } else if side == 1 { -60.0 } else { (rand() - 0.5) * 24.0 };
+        let vy = if side == 2 { 60.0 } else if side == 3 { -60.0 } else { (rand() - 0.5) * 24.0 };
+        world.spawn_prefab(if i % 2 == 0 { "asteroid-large" } else { "asteroid-medium" }, #{
+            x: x, y: y, vx: vx, vy: vy
+        });
+    }
+}
+
+fn ensure_ship(world) {
+    let WORLD_W = 640.0;
+    let WORLD_H = 360.0;
+    let SHIP_X = 320.0;
+    let SHIP_Y = 180.0;
+    let existing = world.first_kind("ship");
+    if existing > 0 { return existing; }
     let ship_id = world.spawn_prefab("ship", #{
-        x: WORLD_W / 2.0,
-        y: WORLD_H / 2.0,
-        heading: 0.0,
-        collider_polygon: [[0,-10], [3,-4], [7,10], [0,4], [-7,10], [-3,-4]],
-        collider_layer: 1,
-        collider_mask: 6
+        x: SHIP_X,
+        y: SHIP_Y,
+        heading: 0.0
     });
+    if ship_id > 0 {
+        world.enable_wrap(ship_id, 0.0, WORLD_W, 0.0, WORLD_H);
+    }
     ship_id
 }
 
-fn asteroid_shape(size, seed) {
-    let sides  = if size == 3 { 14 } else if size == 2 { 12 } else { 8 };
-    let radius = if size == 3 { 22 } else if size == 2 { 11 } else { 6 };
-    let jitter = if size == 3 { 4 } else if size == 2 { 3 } else { 2 };
-    let base   = regular_polygon(sides, radius);
-    let rough  = jitter_points(base, jitter, seed);
-    rotate_points(rough, seed % 32)
+// ======================== EMISSION FUNCTIONS ===============================
+
+// Emit with intensity scaling based on ignition state
+fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
+    let speed = base_speed * ignition_factor;
+    let jitter = spread * 0.35;
+    let fx = world.emit(emitter, ship_id, #{
+        kind: "fx",
+        template: "debris",
+        speed: speed,
+        ttl_ms: ttl_ms,
+        fg: color,
+        radius: radius,
+        spread: (rand() - 0.5) * jitter
+    });
+    if fx > 0 {
+        world.tag_add(fx, "thruster-particle");
+    }
+    fx
 }
 
-fn asteroid_score(size) {
-    if size == 3 { return 20; }
-    if size == 2 { return 50; }
-    100
+// Emit with explicit direction override
+fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, local_x, local_y) {
+    let speed = base_speed * ignition_factor;
+    let jitter = spread * 0.35;
+    let fx = world.emit(emitter, ship_id, #{
+        kind: "fx",
+        template: "debris",
+        speed: speed,
+        ttl_ms: ttl_ms,
+        fg: color,
+        radius: radius,
+        spread: (rand() - 0.5) * jitter,
+        emission_local_x: local_x,
+        emission_local_y: local_y
+    });
+    if fx > 0 {
+        world.tag_add(fx, "thruster-particle");
+    }
+    fx
 }
 
-fn asteroid_hp(size) {
-    if size == 3 { return 5; }
-    if size == 2 { return 3; }
+// ======================== THRUSTER AUTHORITY ===============================
+// Returns 0.0-1.0 indicating how aligned thruster is with desired brake direction
+
+fn thruster_authority(thruster_local_x, thruster_local_y, brake_local_x, brake_local_y) {
+    // Normalize thruster direction
+    let t = normalize(thruster_local_x, thruster_local_y);
+    let b = normalize(brake_local_x, brake_local_y);
+    let d = dot(t["x"], t["y"], b["x"], b["y"]);
+    // Only positive contribution counts
+    if d < 0.0 { 0.0 } else { d }
+}
+
+// Get ship's velocity in local frame (for braking direction)
+fn get_velocity_local(world, ship, ship_id) {
+    let phys = world.physics(ship_id);
+    if type_of(phys) != "map" { return #{ local_x: 0.0, local_y: 0.0, speed: 0.0 }; }
+    let vx = phys["vx"] ?? 0.0;
+    let vy = phys["vy"] ?? 0.0;
+    let speed = sqrtf(vx * vx + vy * vy);
+    if speed < 0.01 { return #{ local_x: 0.0, local_y: 0.0, speed: 0.0 }; }
+
+    let heading = ship.heading_vector();
+    let hx = heading["x"] ?? 0.0;
+    let hy = heading["y"] ?? -1.0;
+    
+    // Ship local frame: forward = -heading, right = perpendicular
+    let right_x = -hy;
+    let right_y = hx;
+    let fwd_x = hx;
+    let fwd_y = hy;
+    
+    // Project velocity onto local axes
+    let local_fwd = dot(vx, vy, fwd_x, fwd_y);
+    let local_right = dot(vx, vy, right_x, right_y);
+    
+    #{
+        local_x: local_right,   // positive = moving right
+        local_y: -local_fwd,    // positive = moving backward (in ship coords)
+        speed: speed
+    }
+}
+
+// ======================== PARTICLE RENDERING ===============================
+
+fn update_thruster_particles(world) {
+    // Thruster particles: white → orange → red → dark (heat)
+    for id in world.query_tag("thruster-particle") {
+        let p = world.entity(id);
+        if !p.exists() { continue; }
+
+        let life = p.lifetime_fraction();
+        let base_r = p.get_i("/radius", 1);
+        let base_r = clamp_i(base_r, 1, 3);
+
+        let r = if life > 0.75 {
+            clamp_i(base_r + 1, 1, 4)
+        } else if life > 0.45 {
+            base_r
+        } else if life > 0.20 {
+            1
+        } else {
+            0
+        };
+        let dash_r = if r <= 0 { 0 } else { max(r, 2) };
+        p.set_radius(dash_r);
+
+        // Heat color ramp: white → orange → red → dark
+        let fg = if life > 0.85 {
+            "white"
+        } else if life > 0.70 {
+            "#FFEECC"
+        } else if life > 0.55 {
+            "#FFCC88"
+        } else if life > 0.40 {
+            "#FF9944"
+        } else if life > 0.25 {
+            "#CC6622"
+        } else if life > 0.12 {
+            "#662211"
+        } else {
+            "#221108"
+        };
+        p.set_fg(fg);
+    }
+}
+
+fn update_brake_particles(world) {
+    // Brake particles: white → gray → black (cold exhaust, no heat)
+    for id in world.query_tag("brake-particle") {
+        let p = world.entity(id);
+        if !p.exists() { continue; }
+
+        let life = p.lifetime_fraction();
+        let base_r = p.get_i("/radius", 1);
+        let base_r = clamp_i(base_r, 1, 3);
+
+        // Shrink over time
+        let r = if life > 0.80 {
+            clamp_i(base_r + 1, 1, 4)
+        } else if life > 0.55 {
+            base_r
+        } else if life > 0.30 {
+            1
+        } else {
+            1
+        };
+        p.set_radius(max(r, 1));
+
+        // Cold color ramp: white → silver → gray → charcoal → black
+        let fg = if life > 0.85 {
+            "white"
+        } else if life > 0.70 {
+            "#DDDDDD"
+        } else if life > 0.55 {
+            "#BBBBBB"
+        } else if life > 0.40 {
+            "#888888"
+        } else if life > 0.25 {
+            "#555555"
+        } else if life > 0.12 {
+            "#333333"
+        } else {
+            "#111111"
+        };
+        p.set_fg(fg);
+    }
+}
+
+// ======================== BURST COUNT SCALING ==============================
+
+fn rotation_burst_count(angular_vel) {
+    let av = absf(angular_vel);
+    if av > 4.5 { return 6; }
+    if av > 3.0 { return 5; }
+    if av > 2.0 { return 4; }
+    if av > 1.0 { return 3; }
+    if av > 0.4 { return 2; }
     1
 }
 
-fn asteroid_template(size) {
-    if size == 3 { "asteroid-large" } else if size == 2 { "asteroid-medium" } else { "asteroid-small" }
+fn brake_burst_count(speed) {
+    if speed > 180.0 { return 7; }
+    if speed > 120.0 { return 5; }
+    if speed > 60.0 { return 4; }
+    if speed > 30.0 { return 3; }
+    if speed > 10.0 { return 2; }
+    1
 }
 
-fn asteroid_size_radius(size) {
-    if size == 3 { 22 } else if size == 2 { 11 } else { 6 }
+// ======================== IGNITION STATE ===================================
+
+fn calc_ignition_factor(ignition_ms, delay_ms, ramp_ms) {
+    if ignition_ms < delay_ms { return 0.0; }
+    let active_time = ignition_ms - delay_ms;
+    if active_time >= ramp_ms { return 1.0; }
+    active_time / ramp_ms
 }
 
-// Returns one half of the parent polygon, already centred and normalised to child_radius.
-// side: 0 = first half, 1 = second half.
-fn asteroid_half_shape(parent_shape, parent_size, child_size, side, seed) {
-    let angle    = seed % 32;
-    let child_r  = asteroid_size_radius(child_size);
-    let half     = split_polygon_half(parent_shape, angle, side, child_r);
-    let jittered = jitter_points(half, 2, seed);
-    rotate_points(jittered, seed % 32)
-}
+// ======================== COUPLED RCS FOR ROTATION =========================
+// Proper torque couple: two thrusters firing in opposite directions
 
-fn spawn_asteroid(world, scene, x, y, vx, vy, size, seed) {
-    spawn_asteroid_shaped(world, scene, x, y, vx, vy, size, seed, asteroid_shape(size, seed))
-}
-
-fn spawn_asteroid_shaped(world, scene, x, y, vx, vy, size, seed, shape) {
-    let template = asteroid_template(size);
-    let id = world.spawn_visual("asteroid", template, #{
-        x: x,
-        y: y,
-        vx: vx,
-        vy: vy,
-        collider_polygon: shape,
-        collider_layer: 2,
-        collider_mask: 5
-    });
-    if world.exists(id) {
-        let asteroid = world.entity(id);
-        world.disable_wrap(id);
-        // visual_id lives in VisualBinding component, not extra_data — store it explicitly
-        let visual_id = `asteroid-${id}`;
-        asteroid.set("size", size);
-        asteroid.set("hp", asteroid_hp(size));
-        asteroid.set("score", asteroid_score(size));
-        asteroid.set("seed", seed);
-        asteroid.set("shape_points", shape);
-        asteroid.set("visual_id", visual_id);
-        // scene.set here would no-op: resolver snapshot was taken before this
-        // frame's SceneSpawn ran, so the sprite isn't registered yet.
-        // Set a flag and apply on the next frame (deferred init).
-        asteroid.set("needs_shape_init", true);
+fn fire_rotation_couple(world, ship_id, direction, angular_vel, ignition_factor) {
+    // direction: -1.0 = rotate left (CCW), +1.0 = rotate right (CW)
+    // For CCW rotation: fire port thruster outward (left), starboard-bow area would fire right
+    // For CW rotation: fire starboard thruster outward (right), port-bow area would fire left
+    
+    let burst_count = rotation_burst_count(angular_vel);
+    let intensity = 0.4 + absf(angular_vel) * 0.15;
+    if intensity > 1.0 { intensity = 1.0; }
+    
+    let eff_factor = ignition_factor * intensity;
+    
+    // Primary thruster (rear corner)
+    let primary_emitter = if direction < 0.0 { "ship.starboard" } else { "ship.port" };
+    // Secondary thruster (opposite side, creates torque couple)
+    let secondary_emitter = if direction < 0.0 { "ship.port" } else { "ship.starboard" };
+    
+    for i in 0..burst_count {
+        let speed_var = to_float(i) * 8.0;
+        // Primary: fires in its natural direction (outward from hull)
+        emit_rcs_intensity(world, ship_id, primary_emitter, 
+            95.0 + speed_var, 180, "white", 0.08, eff_factor, 1);
+        
+        // Secondary: fires at reduced rate (rear thruster pair effect)
+        if i % 2 == 0 {
+            emit_rcs_intensity(world, ship_id, secondary_emitter,
+                70.0 + speed_var * 0.6, 140, "white", 0.06, eff_factor * 0.5, 1);
+        }
     }
-    id
+    
+    // Bow thruster assists with lateral component
+    if burst_count > 2 {
+        for i in 0..(burst_count / 2) {
+            // Bow fires perpendicular to help with rotation
+            let bow_dir_x = if direction < 0.0 { 1.0 } else { -1.0 };
+            emit_rcs_directed(world, ship_id, "ship.bow",
+                65.0 + to_float(i) * 4.0, 120, "white", 0.04, eff_factor * 0.6, 1,
+                bow_dir_x, 0.0);
+        }
+    }
 }
 
-fn spawn_wave(world, scene, local, count) {
-    let WORLD_W  = 640.0;
-    let WORLD_H  = 360.0;
-    let TWO_PI   = 6.283185307;
-    let spd_base = 55.0 + (local.wave - 1) * 8.0;
-    let spawn_pad = 60.0;
+// ======================== MAIN ENGINE THRUST ===============================
 
-    for i in 0..count {
-        let side  = i % 4;
-        let spd   = spd_base + rand() * 10.0;
-        let spin  = (rand() - 0.5) * 1.4;
-        let cx = 0.0;
-        let cy = 0.0;
-        let vx = 0.0;
-        let vy = 0.0;
+fn fire_main_engine(world, ship_id, thrust_ms, ignition_factor) {
+    let intensity = 0.5 + ignition_factor * 0.5;
+    
+    // Dense exhaust plume
+    for i in 0..6 {
+        let speed = 140.0 + to_float(i) * 18.0;
+        let color = if i < 2 { "white" } else if i < 4 { "#FFCC66" } else { "#FF8833" };
+        emit_rcs_intensity(world, ship_id, "ship.main", speed, 380, color, 0.25, intensity, 2);
+    }
+    for i in 0..4 {
+        let speed = 110.0 + to_float(i) * 12.0;
+        emit_rcs_intensity(world, ship_id, "ship.main", speed, 280, "white", 0.18, intensity, 1);
+    }
+}
 
-        let lane = ((i / 4).to_float() + 0.5) / ((count / 4 + 1).to_float());
-        if side == 0 {
-            cx = -spawn_pad;
-            cy = 20.0 + lane * (WORLD_H - 40.0);
-            vx = spd;
-            vy = (rand() - 0.5) * spd * 0.3;
-        } else if side == 1 {
-            cx = WORLD_W + spawn_pad;
-            cy = 20.0 + lane * (WORLD_H - 40.0);
-            vx = -spd;
-            vy = (rand() - 0.5) * spd * 0.3;
-        } else if side == 2 {
-            cx = 20.0 + lane * (WORLD_W - 40.0);
-            cy = -spawn_pad;
-            vx = (rand() - 0.5) * spd * 0.3;
-            vy = spd;
+// ======================== AUTO-BRAKE: ROTATION =============================
+// Fires RCS thrusters OPPOSITE to angular velocity direction
+
+fn fire_auto_rotation_brake(world, ship_id, angular_vel, ignition_factor) {
+    let av = absf(angular_vel);
+    if av < 0.05 { return; }
+    
+    // Brake direction: opposite to rotation
+    // Rotating LEFT (angular_vel < 0) → fire PORT to push back RIGHT
+    // Rotating RIGHT (angular_vel > 0) → fire STARBOARD to push back LEFT
+    let brake_emitter = if angular_vel < 0.0 { "ship.port" } else { "ship.starboard" };
+    let opposite_emitter = if angular_vel < 0.0 { "ship.starboard" } else { "ship.port" };
+    
+    // Burst count proportional to angular velocity
+    let burst_count = rotation_burst_count(av);
+    
+    // Intensity scales with angular velocity
+    let intensity = 0.4 + av * 0.12;
+    if intensity > 1.0 { intensity = 1.0; }
+    let eff_factor = ignition_factor * intensity;
+    
+    // Primary brake thruster (fires outward)
+    for i in 0..burst_count {
+        let speed_base = 85.0 + av * 15.0;
+        emit_rcs_intensity(world, ship_id, brake_emitter,
+            speed_base + to_float(i) * 6.0, 160, "white", 0.06, eff_factor, 1);
+    }
+    
+    // Secondary thruster (torque couple - fires at reduced rate)
+    for i in 0..(burst_count / 2 + 1) {
+        emit_rcs_intensity(world, ship_id, opposite_emitter,
+            65.0 + to_float(i) * 4.0, 120, "white", 0.04, eff_factor * 0.4, 1);
+    }
+    
+    // BOW assists with lateral component for torque
+    let bow_dir_x = if angular_vel < 0.0 { -1.0 } else { 1.0 };
+    for i in 0..(burst_count / 2) {
+        emit_rcs_directed(world, ship_id, "ship.bow",
+            55.0 + to_float(i) * 3.0, 100, "white", 0.03, eff_factor * 0.5, 1,
+            bow_dir_x, 0.0);
+    }
+}
+
+// ======================== AUTO-BRAKE: LINEAR ===============================
+// Project world velocity onto ship's LOCAL axes each frame
+// ACTUALLY APPLY BRAKING FORCE + visual particles
+// Emission intensity PROPORTIONAL to velocity component being braked
+
+fn fire_auto_linear_brake(world, ship, ship_id, ignition_factor) {
+    // 1. Get velocity in WORLD coordinates
+    let phys = world.physics(ship_id);
+    if type_of(phys) != "map" { return; }
+    let vx = phys["vx"] ?? 0.0;
+    let vy = phys["vy"] ?? 0.0;
+    let speed = sqrtf(vx * vx + vy * vy);
+    if speed < 2.0 { return; }  // deadband
+    
+    // 2. Calculate braking deceleration (SLOWER - was 120, now 45)
+    let brake_power = 45.0 * ignition_factor;  // units/s² deceleration
+    let dt = 0.016;
+    
+    // Deceleration vector = -normalize(velocity) * brake_power * dt
+    let dvx = -(vx / speed) * brake_power * dt;
+    let dvy = -(vy / speed) * brake_power * dt;
+    
+    // Apply braking impulse to physics
+    ship.physics.add_velocity(dvx, dvy);
+    
+    // 3. Get ship heading for thruster selection
+    let h = ship.heading_vector();
+    let fwd_x = h["x"] ?? 0.0;
+    let fwd_y = h["y"] ?? -1.0;
+    let right_x = -fwd_y;
+    let right_y = fwd_x;
+    
+    // 4. Project velocity onto local axes (absolute values of components)
+    let vel_fwd = vx * fwd_x + vy * fwd_y;
+    let vel_right = vx * right_x + vy * right_y;
+    let abs_vel_fwd = absf(vel_fwd);
+    let abs_vel_right = absf(vel_right);
+    
+    // 5. Burst count PROPORTIONAL to the component being braked (not total speed)
+    // Higher component = more particles from that thruster
+    
+    // BOW: moving forward (vel_fwd > 0)
+    if vel_fwd > 0.0 {
+        let ratio = vel_fwd / speed;  // 0..1
+        // Burst count based on forward velocity component
+        let component_bursts = component_burst_count(abs_vel_fwd);
+        let intensity = 0.4 + ratio * 0.6;  // scales with ratio
+        
+        for i in 0..component_bursts {
+            emit_brake_particle(world, ship_id, "ship.bow",
+                70.0 + abs_vel_fwd * 0.4 + to_float(i) * 4.0, 200,
+                intensity * ignition_factor, 1);
+        }
+    }
+    
+    // MAIN: moving backward (vel_fwd < 0)
+    if vel_fwd < 0.0 {
+        let ratio = -vel_fwd / speed;
+        let component_bursts = component_burst_count(abs_vel_fwd);
+        let intensity = 0.4 + ratio * 0.6;
+        
+        for i in 0..component_bursts {
+            emit_brake_particle(world, ship_id, "ship.main",
+                85.0 + abs_vel_fwd * 0.45 + to_float(i) * 5.0, 240,
+                intensity * ignition_factor, 2);
+        }
+    }
+    
+    // STARBOARD: moving right (vel_right > 0)
+    if vel_right > 0.0 {
+        let ratio = vel_right / speed;
+        let component_bursts = component_burst_count(abs_vel_right);
+        let intensity = 0.4 + ratio * 0.6;
+        
+        for i in 0..component_bursts {
+            emit_brake_particle(world, ship_id, "ship.starboard",
+                65.0 + abs_vel_right * 0.35 + to_float(i) * 3.0, 170,
+                intensity * ignition_factor, 1);
+        }
+    }
+    
+    // PORT: moving left (vel_right < 0)
+    if vel_right < 0.0 {
+        let ratio = -vel_right / speed;
+        let component_bursts = component_burst_count(abs_vel_right);
+        let intensity = 0.4 + ratio * 0.6;
+        
+        for i in 0..component_bursts {
+            emit_brake_particle(world, ship_id, "ship.port",
+                65.0 + abs_vel_right * 0.35 + to_float(i) * 3.0, 170,
+                intensity * ignition_factor, 1);
+        }
+    }
+}
+
+// Burst count based on velocity COMPONENT (not total speed)
+fn component_burst_count(component_vel) {
+    if component_vel > 150.0 { return 8; }
+    if component_vel > 100.0 { return 6; }
+    if component_vel > 60.0 { return 5; }
+    if component_vel > 35.0 { return 4; }
+    if component_vel > 15.0 { return 3; }
+    if component_vel > 5.0 { return 2; }
+    1
+}
+
+// Emit brake particle with white color, tagged for white→black fade
+fn emit_brake_particle(world, ship_id, emitter, speed, ttl_ms, intensity, radius) {
+    let fx = world.emit(emitter, ship_id, #{
+        kind: "fx",
+        template: "debris",
+        speed: speed * intensity,
+        ttl_ms: ttl_ms,
+        fg: "white",
+        radius: radius,
+        spread: (rand() - 0.5) * 0.03
+    });
+    if fx > 0 {
+        world.tag_add(fx, "brake-particle");
+    }
+    fx
+}
+
+// ======================== SETTLING PUFF ====================================
+// Random micro-corrections when nearly stopped
+
+fn fire_settling_puff(world, ship_id, ignition_factor) {
+    let emitters = ["ship.bow", "ship.port", "ship.starboard", "ship.main"];
+    let idx_f = rand() * 3.99;
+    let idx = if idx_f < 1.0 { 0 } else if idx_f < 2.0 { 1 } else if idx_f < 3.0 { 2 } else { 3 };
+    let emitter = emitters[idx];
+    emit_rcs_intensity(world, ship_id, emitter, 25.0, 50, "white", 0.01, ignition_factor * 0.25, 1);
+}
+
+// ======================== FINAL STABILIZATION BURST ========================
+// When velocity is very low (about to stop), fire ALL thrusters simultaneously
+// in appropriate directions for dramatic final correction effect
+// Uses thin, light particles for micro-puff feel
+
+fn emit_final_burst_particle(world, ship_id, emitter, speed, ttl_ms) {
+    // Medium-visible particles - between thin brake and full thrust
+    // More visible but not as big as regular thrust
+    let fx = world.emit(emitter, ship_id, #{
+        kind: "fx",
+        template: "debris",
+        speed: speed * (0.7 + rand() * 0.4),  // variable speed
+        ttl_ms: ttl_ms,
+        fg: "white",
+        radius: 2,  // medium size (thrust=2-3, brake=1)
+        spread: (rand() - 0.5) * 0.12  // moderate spread
+    });
+    if fx > 0 {
+        world.tag_add(fx, "final-burst-particle");
+    }
+    fx
+}
+
+fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel) {
+    // Get ship heading
+    let h = ship.heading_vector();
+    let fwd_x = h["x"] ?? 0.0;
+    let fwd_y = h["y"] ?? -1.0;
+    let right_x = -fwd_y;
+    let right_y = fwd_x;
+    
+    // Project residual velocity onto local axes
+    let vel_fwd = vx * fwd_x + vy * fwd_y;
+    let vel_right = vx * right_x + vy * right_y;
+    
+    // Random burst count 3-5 particles per thruster (more visible)
+    let base_bursts = 3 + (rand() * 2.5);
+    let base_bursts = if base_bursts < 3.5 { 3 } else if base_bursts < 4.5 { 4 } else { 5 };
+    
+    // Fire ALL thrusters simultaneously for dramatic final correction
+    // Each fires in direction to counter residual motion
+    
+    // BOW: fires if moving forward (counter forward drift)
+    if vel_fwd > 0.3 {
+        for i in 0..base_bursts {
+            emit_final_burst_particle(world, ship_id, "ship.bow", 55.0 + to_float(i) * 12.0, 140);
+        }
+    }
+    
+    // MAIN: fires if moving backward (counter backward drift)
+    if vel_fwd < -0.3 {
+        for i in 0..base_bursts {
+            emit_final_burst_particle(world, ship_id, "ship.main", 65.0 + to_float(i) * 14.0, 160);
+        }
+    }
+    
+    // STARBOARD: fires if moving right (counter rightward drift)
+    if vel_right > 0.3 {
+        for i in 0..base_bursts {
+            emit_final_burst_particle(world, ship_id, "ship.starboard", 50.0 + to_float(i) * 10.0, 130);
+        }
+    }
+    
+    // PORT: fires if moving left (counter leftward drift)
+    if vel_right < -0.3 {
+        for i in 0..base_bursts {
+            emit_final_burst_particle(world, ship_id, "ship.port", 50.0 + to_float(i) * 10.0, 130);
+        }
+    }
+    
+    // Angular stabilization: fire RCS pair opposite to residual rotation
+    if absf(angular_vel) > 0.02 {
+        let rot_bursts = 2 + (rand() * 2.0);
+        let rot_bursts = if rot_bursts < 2.5 { 2 } else if rot_bursts < 3.5 { 3 } else { 4 };
+        
+        // Fire opposite to rotation direction
+        let emitter1 = if angular_vel > 0.0 { "ship.starboard" } else { "ship.port" };
+        let emitter2 = if angular_vel > 0.0 { "ship.port" } else { "ship.starboard" };
+        
+        for i in 0..rot_bursts {
+            emit_final_burst_particle(world, ship_id, emitter1, 45.0 + to_float(i) * 8.0, 110);
+            if rand() > 0.3 {
+                emit_final_burst_particle(world, ship_id, emitter2, 38.0 + to_float(i) * 6.0, 100);
+            }
+        }
+    }
+}
+
+fn update_final_burst_particles(world) {
+    // Final burst particles: more visible, medium brightness
+    // White → pale → silver → gray (slower fade than brake, more visible)
+    for id in world.query_tag("final-burst-particle") {
+        let p = world.entity(id);
+        if !p.exists() { continue; }
+        
+        let life = p.lifetime_fraction();
+        
+        // Medium radius - shrinks near end
+        let r = if life > 0.6 { 2 } else if life > 0.3 { 2 } else { 1 };
+        p.set_radius(r);
+        
+        // Slower, more visible fade: white → pale → silver → gray → charcoal
+        let fg = if life > 0.80 {
+            "white"
+        } else if life > 0.65 {
+            "#EEEEFF"  // pale blue-white
+        } else if life > 0.50 {
+            "#CCCCDD"  // light silver
+        } else if life > 0.35 {
+            "#AAAAAA"  // silver
+        } else if life > 0.20 {
+            "#777777"  // gray
         } else {
-            cx = 20.0 + lane * (WORLD_W - 40.0);
-            cy = WORLD_H + spawn_pad;
-            vx = (rand() - 0.5) * spd * 0.3;
-            vy = -spd;
-        }
-
-        let id = spawn_asteroid(world, scene, cx, cy, vx, vy, 3, local.wave * 100 + i);
-        if world.exists(id) {
-            let e = world.entity(id);
-            e.set("angular_velocity", spin);
-            e.set_heading(rand() * TWO_PI);
-        }
+            "#444444"  // charcoal
+        };
+        p.set_fg(fg);
     }
 }
 
-fn spawn_debris(world, ox, oy, count) {
-    let TWO_PI = 6.283185307;
-    for i in 0..count {
-        let angle = rand() * TWO_PI;
-        let spd   = 50.0 + rand() * 100.0;
-        world.spawn_prefab("debris", #{
-            x:      ox,
-            y:      oy,
-            vx:     cos(angle) * spd,
-            vy:     sin(angle) * spd,
-            ttl_ms: 800
-        });
+// ======================== MAIN CONTROL UPDATE ==============================
+
+fn update_ship_controls(world, input, ship_id, state_prev) {
+    // Physics constants (local to function) - 3x faster response
+    let ANGULAR_ACCEL = 5.5;
+    let ANGULAR_MAX = 7.0;
+    let ANGULAR_DEADBAND = 0.10;
+    let LINEAR_DEADBAND = 2.5;
+    let AUTO_BRAKE_DELAY_MS = 30.0;
+    let DT = 0.016;
+    let IGNITION_DELAY_MS = 8.0;
+    let IGNITION_RAMP_MS = 12.0;
+    
+    // Final stabilization burst thresholds
+    let FINAL_BURST_SPEED_THRESHOLD = 8.0;  // trigger when speed drops below this
+    let FINAL_BURST_INTERVAL_MS = 55.0;      // time between burst waves (~3-4 frames)
+    let FINAL_BURST_MAX_WAVES = 3;           // 3 burst waves before full stop
+    
+    if ship_id <= 0 {
+        return #{
+            angular_vel: 0.0,
+            thrust_ignition_ms: 0.0,
+            rotation_ignition_ms: 0.0,
+            brake_ignition_ms: 0.0,
+            rotation_dir: 0.0,
+            no_input_ms: 0.0,
+            auto_brake_phase: "idle",
+            final_burst_waves: 0,
+            final_burst_timer_ms: 0.0,
+            final_burst_triggered: false
+        };
     }
-}
-
-// ─── Thruster emission system ──────────────────────────────────────────────────
-// Each emitter has its spawn position and direction baked into YAML config.
-// Rhai only controls: intensity (speed/size/ttl scaling) and the fixed spread angle.
-//
-// Emitter layout (6-vertex polygon, thrusters at vertices):
-//   main_engine:    (0,4)   notch   → spread -π/2 → exhaust backward
-//   nose_retro:     (0,-10) nose    → spread +π/2 → exhaust forward
-//   lateral_left:   (-3,-4) left    → spread 0    → exhaust leftward
-//   lateral_right:  (3,-4)  right   → spread π    → exhaust rightward
-//
-// Spread literals are inlined in each fn (Rhai fns can't see outer `let` vars).
-
-// Generic 2-layer emit: hot core + smoke puff
-fn emit_from(world, ship_id, emitter, spread, intensity) {
-    if !world.exists(ship_id) { return; }
-    let hot_colors = ["white", "bright_white", "yellow"];
-    let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-    // Hot core
-    world.emit(emitter, ship_id, #{
-        kind: "fx_thrust",
-        template: "debris",
-        owner_bound: false,
-        speed: (25.0 + rand() * 25.0) * intensity,
-        spread: spread + (rand() - 0.5) * 0.35,
-        ttl_ms: (80.0 + rand() * 60.0 * intensity).to_int(),
-        radius: 1 + (rand() * (4.0 * intensity)).to_int(),
-        fg: hc
-    });
-    // Smoke puff
-    world.emit(emitter, ship_id, #{
-        kind: "fx_thrust",
-        template: "debris",
-        owner_bound: false,
-        speed: (6.0 + rand() * 10.0) * intensity,
-        spread: spread + (rand() - 0.5) * 0.8,
-        ttl_ms: (150.0 + rand() * 120.0 * intensity).to_int(),
-        radius: 3 + (rand() * (4.0 * intensity)).to_int(),
-        fg: "gray"
-    });
-}
-
-// Main engine: 3-layer (hot core + smoke + occasional spark) for richer visuals
-fn emit_thrust(world, ship_id, thrust_ms, now) {
-    if !world.exists(ship_id) { return; }
-    let SPREAD_MAIN = -1.5707963;
-    let hot_colors = ["white", "bright_white", "yellow"];
-    let hc = hot_colors[(rand() * 3.0).to_int() % 3];
-    world.emit("asteroids.main_engine", ship_id, #{
-        kind: "fx_thrust",
-        template: "debris",
-        owner_bound: false,
-        thrust_ms: thrust_ms,
-        speed: 30.0 + rand() * 25.0,
-        spread: SPREAD_MAIN + (rand() - 0.5) * 0.3,
-        ttl_ms: 140 + (rand() * 100.0).to_int(),
-        radius: 10 + (rand() * 8.0).to_int(),
-        fg: hc
-    });
-    world.emit("asteroids.main_engine", ship_id, #{
-        kind: "fx_thrust",
-        template: "debris",
-        owner_bound: false,
-        thrust_ms: thrust_ms,
-        speed: 6.0 + rand() * 12.0,
-        spread: SPREAD_MAIN + (rand() - 0.5) * 0.9,
-        ttl_ms: 300 + (rand() * 200.0).to_int(),
-        radius: 16 + (rand() * 10.0).to_int(),
-        fg: "gray"
-    });
-    if rand() > 0.66 {
-        world.emit("asteroids.main_engine", ship_id, #{
-            kind: "fx_thrust",
-            template: "debris",
-            owner_bound: false,
-            thrust_ms: thrust_ms,
-            speed: 45.0 + rand() * 30.0,
-            spread: SPREAD_MAIN + (rand() - 0.5) * 0.12,
-            ttl_ms: 50 + (rand() * 30.0).to_int(),
-            radius: 4,
-            fg: "white"
-        });
+    let ship = world.entity(ship_id);
+    if !ship.exists() {
+        return #{
+            angular_vel: 0.0,
+            thrust_ignition_ms: 0.0,
+            rotation_ignition_ms: 0.0,
+            brake_ignition_ms: 0.0,
+            rotation_dir: 0.0,
+            no_input_ms: 0.0,
+            auto_brake_phase: "idle",
+            final_burst_waves: 0,
+            final_burst_timer_ms: 0.0,
+            final_burst_triggered: false
+        };
     }
-}
 
-// Rotation: left thruster fires leftward → CW (turn_dir=1)
-//           right thruster fires rightward → CCW (turn_dir=-1)
-fn emit_rcs(world, ship_id, turn_dir) {
-    if turn_dir > 0 {
-        emit_from(world, ship_id, "asteroids.lateral_left", 0.0, 1.0);
+    // Unpack previous state
+    let angular_vel = state_prev["angular_vel"] ?? 0.0;
+    let thrust_ignition_ms = state_prev["thrust_ignition_ms"] ?? 0.0;
+    let rotation_ignition_ms = state_prev["rotation_ignition_ms"] ?? 0.0;
+    let brake_ignition_ms = state_prev["brake_ignition_ms"] ?? 0.0;
+    let prev_rotation_dir = state_prev["rotation_dir"] ?? 0.0;
+    let no_input_ms = state_prev["no_input_ms"] ?? 0.0;
+    let auto_brake_phase = state_prev["auto_brake_phase"] ?? "idle";
+    let final_burst_waves = state_prev["final_burst_waves"] ?? 0;
+    let final_burst_timer_ms = state_prev["final_burst_timer_ms"] ?? 0.0;
+    let final_burst_triggered = state_prev["final_burst_triggered"] ?? false;
+
+    // Read inputs
+    let turn_left = input.action_down("turn_left");
+    let turn_right = input.action_down("turn_right");
+    let thrusting = input.action_down("thrust");
+    let input_turn = if turn_left && !turn_right { -1.0 } else if turn_right && !turn_left { 1.0 } else { 0.0 };
+    
+    // SEPARATE tracking for rotation vs linear
+    // Rotation auto-brake: only blocked by L/R input (NOT by thrust)
+    // Linear auto-brake: blocked by thrust OR L/R
+    let rotation_input_active = input_turn != 0.0;
+    let linear_input_active = thrusting || input_turn != 0.0;
+
+    // === TRACK NO-INPUT DURATION (for linear braking only) ===
+    if linear_input_active {
+        no_input_ms = 0.0;
     } else {
-        emit_from(world, ship_id, "asteroids.lateral_right", 3.1415927, 1.0);
+        no_input_ms = no_input_ms + 16.0;
     }
-}
+    
+    // Get current velocity state
+    let vel_local = get_velocity_local(world, ship, ship_id);
+    let speed = vel_local["speed"];
+    let still_moving = speed > LINEAR_DEADBAND;
+    let still_rotating = absf(angular_vel) > ANGULAR_DEADBAND;
 
-// Velocity-decomposed braking: fires thrusters proportionally opposite to drift
-fn emit_retro_decomposed(world, ship_id, fwd_frac, lat_frac) {
-    if !world.exists(ship_id) { return; }
-    let abs_fwd = if fwd_frac < 0.0 { -fwd_frac } else { fwd_frac };
-    let abs_lat = if lat_frac < 0.0 { -lat_frac } else { lat_frac };
-
-    // Forward drift → nose retro fires forward
-    if abs_fwd > 0.15 && fwd_frac > 0.0 {
-        emit_from(world, ship_id, "asteroids.nose_retro", 1.5707963, abs_fwd);
-    }
-    // Backward drift → main engine fires backward
-    if abs_fwd > 0.15 && fwd_frac < 0.0 {
-        emit_from(world, ship_id, "asteroids.main_engine", -1.5707963, abs_fwd);
-    }
-    // Right drift → right lateral fires rightward
-    if abs_lat > 0.15 && lat_frac > 0.0 {
-        emit_from(world, ship_id, "asteroids.lateral_right", 3.1415927, abs_lat);
-    }
-    // Left drift → left lateral fires leftward
-    if abs_lat > 0.15 && lat_frac < 0.0 {
-        emit_from(world, ship_id, "asteroids.lateral_left", 0.0, abs_lat);
-    }
-}
-
-fn emit_impact_burst(world, owner_id, count, fg) {
-    let TWO_PI = 6.283185307;
-    let colors = ["white", "yellow", "bright_white"];
-    for i in 0..count {
-        let spread = rand() * TWO_PI - (TWO_PI / 2.0);
-        let r = 1 + (rand() * 2.0).to_int();
-        let c = colors[(rand() * 3.0).to_int() % 3];
-        let _spark = world.emit("asteroids.impact_sparks", owner_id, #{
-            kind: "fx_sparks",
-            template: "debris",
-            owner_bound: false,
-            speed: 35.0 + rand() * 50.0,
-            spread: spread,
-            ttl_ms: 120 + (rand() * 250.0).to_int(),
-            radius: r,
-            fg: c
-        });
-    }
-}
-
-fn update_hud(scene, local) {
-    scene.set("hud-score", "text.content", `${local.score}`);
-    scene.set("hud-lives", "text.content", `${local.lives}`);
-    scene.set("hud-wave",  "text.content", `${local.wave}`);
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-let WORLD_W     = 640.0;
-let WORLD_H     = 360.0;
-let BULLET_TTL  = 3000;
-let BULLET_SPD  = 300.0;
-let MAX_BULLETS = 4;
-let FIRE_CD_MS  = 250;
-let INV_MS      = 2500;
-let RESPAWN_MS  = 1200;
-let WAVE_CLEAR_MS = 900;
-let INIT_LIVES  = 3;
-let INIT_WAVE_N = 4;
-let TWO_PI      = 6.283185307;
-let STATE_PLAYING    = "playing";
-let STATE_DEAD_PAUSE = "dead_pause";
-let STATE_WAVE_CLEAR = "wave_clear";
-let STATE_GAME_OVER  = "game_over";
-
-// ─── Guard: first run, local is () until initialized ──────────────────────────
-if type_of(local) == "()" { local = #{}; }
-
-// ─── One-time init ────────────────────────────────────────────────────────────
-if !(local.initialized ?? false) {
-    input.load_profile("default");
-    world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H);
-    scene.set("hud-gameover", "visible", false);
-
-    let ship_id = spawn_ship(world);
-    local.ship_id     = ship_id;
-    local.score       = 0;
-    local.lives       = INIT_LIVES;
-    local.wave        = 1;
-    local.state       = STATE_PLAYING;
-    local.state_until = 0;
-    local.game_over   = false;
-    local.initialized = true;
-    local.thrust_ms   = 0;
-
-    if world.exists(ship_id) {
-        world.entity(ship_id).status_add("invulnerable", INV_MS);
+    // === MAIN ENGINE (player input) ===
+    ship.set_thrust(thrusting);
+    if thrusting {
+        thrust_ignition_ms = thrust_ignition_ms + 16.0;
+        let thrust_factor = calc_ignition_factor(thrust_ignition_ms, IGNITION_DELAY_MS, IGNITION_RAMP_MS);
+        fire_main_engine(world, ship_id, thrust_ignition_ms, thrust_factor);
+    } else {
+        thrust_ignition_ms = 0.0;
     }
 
-    spawn_wave(world, scene, local, INIT_WAVE_N);
-    update_hud(scene, local);
-}
-
-let now = time.scene_elapsed_ms;
-
-if type_of(local.state) == "()" {
-    local.state = STATE_PLAYING;
-}
-if type_of(local.state_until) == "()" {
-    local.state_until = 0;
-}
-
-// ─── Game over: wait for restart ─────────────────────────────────────────────
-if local.state == STATE_GAME_OVER {
-    if input.action_just_pressed("restart") || input.action_just_pressed("fire") {
-        world.reset_dynamic_entities();
-        local.initialized = false;
-        local.game_over   = false;
-        scene.set("hud-gameover", "visible", false);
-    }
-    return #{state: local};
-}
-
-// ─── Dead pause: wait, then respawn with invulnerability ──────────────────────
-if local.state == STATE_DEAD_PAUSE {
-    if now >= local.state_until {
-        let ship_id = spawn_ship(world);
-        local.ship_id = ship_id;
-        if world.exists(ship_id) {
-            let ship = world.entity(ship_id);
-            ship.physics.set_velocity(0.0, 0.0);
-            ship.status_add("invulnerable", INV_MS);
+    // === ROTATION (player input) ===
+    if rotation_input_active {
+        // Player is actively turning
+        let rotation_dir_changed = signf(input_turn) != signf(prev_rotation_dir) && prev_rotation_dir != 0.0;
+        if rotation_dir_changed {
+            rotation_ignition_ms = 0.0;
         }
-        local.state = STATE_PLAYING;
-    }
-    return #{state: local};
-}
-
-let ship_id = local.ship_id ?? 0;
-if ship_id <= 0 || !world.exists(ship_id) {
-    return #{state: local};
-}
-
-let ship = world.entity(ship_id);
-
-// ─── Ship controller input ────────────────────────────────────────────────────
-let turn = (if input.action_down("turn_right") { 1 } else { 0 })
-         - (if input.action_down("turn_left")  { 1 } else { 0 });
-ship.set_turn(turn);
-let thrust_on = input.action_down("thrust");
-ship.set_thrust(thrust_on);
-if thrust_on {
-    local.thrust_ms = (local.thrust_ms ?? 0) + 16;
-    emit_thrust(world, ship_id, local.thrust_ms, now);
-    local.was_thrusting = true;
-} else {
-    local.thrust_ms = 0;
-    // Retro-thrust: decompose velocity into ship-local axes, fire thrusters
-    // proportionally opposite to each component
-    if (local.was_thrusting ?? false) {
-        let vel = ship.physics().velocity();
-        let spd_sq = vel[0] * vel[0] + vel[1] * vel[1];
-        if spd_sq > 25.0 {
-            let spd = sqrt(spd_sq);
-            let hv = ship.heading_vector();
-            let fwd_x = hv["x"];
-            let fwd_y = hv["y"];
-            let right_x = -fwd_y;
-            let right_y = fwd_x;
-            let fwd_dot = (vel[0] * fwd_x + vel[1] * fwd_y) / spd;
-            let lat_dot = (vel[0] * right_x + vel[1] * right_y) / spd;
-            emit_retro_decomposed(world, ship_id, fwd_dot, lat_dot);
-            // Snapshot direction for stopping bursts when speed drops
-            local.retro_snap_fwd = fwd_dot;
-            local.retro_snap_lat = lat_dot;
-        } else if (local.retro_snap_fwd ?? 0.0) != 0.0 || (local.retro_snap_lat ?? 0.0) != 0.0 {
-            // Schedule 3 timed stopping bursts using the saved direction
-            if (local.retro_bursts_left ?? 0) == 0 {
-                local.retro_bursts_left = 2;
-                local.retro_next_burst = now + 120;
+        rotation_ignition_ms = rotation_ignition_ms + 16.0;
+        
+        let rot_factor = calc_ignition_factor(rotation_ignition_ms, IGNITION_DELAY_MS * 0.5, IGNITION_RAMP_MS * 0.7);
+        
+        // Apply torque
+        let torque = input_turn * ANGULAR_ACCEL * rot_factor;
+        angular_vel = angular_vel + torque * DT;
+        
+        // Clamp
+        if angular_vel > ANGULAR_MAX { angular_vel = ANGULAR_MAX; }
+        if angular_vel < -ANGULAR_MAX { angular_vel = -ANGULAR_MAX; }
+        
+        // Fire rotation thrusters
+        if rot_factor > 0.1 {
+            fire_rotation_couple(world, ship_id, input_turn, angular_vel, rot_factor);
+        }
+        
+        // Reset rotation brake state
+        auto_brake_phase = "idle";
+    } else {
+        rotation_ignition_ms = 0.0;
+        
+        // === AUTO-BRAKE ROTATION (even while thrusting!) ===
+        if still_rotating {
+            brake_ignition_ms = brake_ignition_ms + 16.0;
+            let brake_factor = calc_ignition_factor(brake_ignition_ms, IGNITION_DELAY_MS * 0.3, IGNITION_RAMP_MS * 0.5);
+            
+            auto_brake_phase = "rotation";
+            
+            // Counter-torque proportional to angular velocity
+            let brake_torque = -signf(angular_vel) * absf(angular_vel) * 4.5 * brake_factor;
+            angular_vel = angular_vel + brake_torque * DT;
+            
+            // Fire RCS opposite to rotation direction
+            if brake_factor > 0.1 {
+                fire_auto_rotation_brake(world, ship_id, state_prev["angular_vel"] ?? angular_vel, brake_factor);
+            }
+            
+            // Check if rotation stopped
+            if absf(angular_vel) < ANGULAR_DEADBAND {
+                angular_vel = 0.0;
+            }
+        } else {
+            // Rotation is stable
+            if !thrusting {
+                brake_ignition_ms = 0.0;
             }
         }
     }
-    // Timed stopping bursts — spaced 80ms apart, strong fixed intensity
-    if (local.retro_bursts_left ?? 0) > 0 && now >= (local.retro_next_burst ?? 0) {
-        let snap_fwd = local.retro_snap_fwd ?? 0.0;
-        let snap_lat = local.retro_snap_lat ?? 0.0;
-        // Clamp to minimum 0.5 so bursts are always clearly visible
-        let eff_fwd = if snap_fwd > 0.1 { 0.6 } else if snap_fwd < -0.1 { -0.6 } else { 0.0 };
-        let eff_lat = if snap_lat > 0.1 { 0.6 } else if snap_lat < -0.1 { -0.6 } else { 0.0 };
-        emit_retro_decomposed(world, ship_id, eff_fwd, eff_lat);
-        local.retro_bursts_left -= 1;
-        local.retro_next_burst = now + 120;
-        if local.retro_bursts_left <= 0 {
-            local.was_thrusting = false;
-            local.retro_bursts_left = 0;
-            local.retro_snap_fwd = 0.0;
-            local.retro_snap_lat = 0.0;
+
+    // === AUTO-BRAKE LINEAR (only when no thrust AND no rotation input) ===
+    let linear_brake_active = no_input_ms >= AUTO_BRAKE_DELAY_MS && still_moving && !still_rotating;
+    
+    // Get raw velocity for final burst calculations
+    let phys = world.physics(ship_id);
+    let vx = if type_of(phys) == "map" { phys["vx"] ?? 0.0 } else { 0.0 };
+    let vy = if type_of(phys) == "map" { phys["vy"] ?? 0.0 } else { 0.0 };
+    
+    if linear_brake_active {
+        auto_brake_phase = "linear";
+        let linear_brake_factor = calc_ignition_factor(brake_ignition_ms + no_input_ms, IGNITION_DELAY_MS * 0.5, IGNITION_RAMP_MS * 0.8);
+        
+        if linear_brake_factor > 0.1 {
+            fire_auto_linear_brake(world, ship, ship_id, linear_brake_factor);
         }
-    }
-}
-if turn != 0 {
-    emit_rcs(world, ship_id, turn);
-    local.prev_turn = turn;
-    local.correction_until = 0;
-} else if (local.prev_turn ?? 0) != 0 {
-    // Key released — schedule a short counter-burn on the opposite side
-    local.correction_dir = -(local.prev_turn ?? 0);
-    local.correction_until = now + 50;
-    local.prev_turn = 0;
-}
-// Fire correction RCS burst for a few frames after turn release
-if (local.correction_until ?? 0) > now {
-    emit_from(world, ship_id,
-        if local.correction_dir > 0 { "asteroids.lateral_left" } else { "asteroids.lateral_right" },
-        if local.correction_dir > 0 { 0.0 } else { 3.1415927 },
-        1.0);
-}
-
-// ─── Wave clear pause ──────────────────────────────────────────────────────────
-if local.state == STATE_WAVE_CLEAR {
-    if now >= local.state_until {
-        local.wave += 1;
-        spawn_wave(world, scene, local, INIT_WAVE_N + local.wave - 1);
-        update_hud(scene, local);
-        local.state = STATE_PLAYING;
-    } else {
-        return #{state: local};
-    }
-}
-
-// ─── Fire ─────────────────────────────────────────────────────────────────────
-if world.count_kind("bullet") < MAX_BULLETS
-    && input.action_just_pressed("fire")
-    && ship.cooldown_ready("fire") {
-    let hv = ship.heading_vector();
-    let xf = ship.transform();
-    world.spawn_prefab("bullet", #{
-        x:      xf["x"]  + hv["x"] * 14.0,
-        y:      xf["y"]  + hv["y"] * 14.0,
-        vx:     hv["x"] * BULLET_SPD,
-        vy:     hv["y"] * BULLET_SPD,
-        ttl_ms: BULLET_TTL
-    });
-    ship.cooldown_start("fire", FIRE_CD_MS);
-    audio.event("fire");
-}
-
-// ─── Collision: bullet × asteroid (dent deformation + HP) ─────────────────────
-for hit in world.collision_enters("bullet", "asteroid") {
-    let bullet_id   = hit["bullet"];
-    let asteroid_id = hit["asteroid"];
-    if !world.exists(bullet_id) || !world.exists(asteroid_id) { continue; }
-
-    let ae   = world.entity(asteroid_id);
-    let xf   = ae.transform();
-    let size = ae.get_i("size", 3);
-    let pts  = ae.get_i("score", 20);
-
-    // Impact point in asteroid-local coordinates
-    // Counter-rotate by entity heading so dent aligns with the visually rotated polygon
-    let bxf = world.entity(bullet_id).transform();
-    let raw_x = bxf["x"] - xf["x"];
-    let raw_y = bxf["y"] - xf["y"];
-    let heading = xf["heading"];
-    let impact_x = (raw_x * cos(heading) + raw_y * sin(heading)).to_int();
-    let impact_y = (-raw_x * sin(heading) + raw_y * cos(heading)).to_int();
-
-    world.despawn(bullet_id);
-
-    // Decrement HP
-    let hp = ae.get_i("hp", 1) - 1;
-    ae.set("hp", hp);
-
-    // FX at impact (scaled by remaining HP)
-    let spark_count = if hp > 0 { 4 } else { 10 };
-    emit_impact_burst(world, asteroid_id, spark_count, "yellow");
-    spawn_debris(world, bxf["x"], bxf["y"], if hp > 0 { 2 } else { 5 });
-    audio.event(if hp > 0 { "explosion_small" } else if size == 3 { "explosion_large" } else { "explosion_small" });
-    effects.shake(if hp > 0 { 80 } else { 250 }, if hp > 0 { 0.3 } else { 1.2 }, if hp > 0 { 0.15 } else { 0.5 }, 9.0);
-
-    if hp > 0 {
-        // Still alive — carve a V-notch crack at the impact point.
-        // Strength 50–75% ensures the crack tip is always visible at terminal resolution.
-        let shape = ae.get("shape_points");
-        if type_of(shape) != "()" {
-            let depth = 50 + (rand() * 25.0).to_int();
-            let new_shape = crack_polygon(shape, impact_x, impact_y, depth);
-            ae.set("shape_points", new_shape);
-            let visual_id = ae.get_s("visual_id", "");
-            if visual_id != "" {
-                scene.set(visual_id, "vector.points", new_shape);
+        
+        // === FINAL STABILIZATION BURST ===
+        // When velocity drops below threshold, fire dramatic multi-wave micro-bursts
+        if speed < FINAL_BURST_SPEED_THRESHOLD && speed > LINEAR_DEADBAND {
+            // Check if we should trigger final burst sequence
+            if !final_burst_triggered {
+                // Start final burst sequence
+                final_burst_triggered = true;
+                final_burst_waves = 0;
+                final_burst_timer_ms = 0.0;
             }
-            ae.physics.set_collider_polygon(new_shape, 2, 5);
-        }
-        // Bullet imparts a small angular impulse — direction depends on which
-        // side of the asteroid centre the bullet struck (cross product sign).
-        let cur_av = ae.get_f("angular_velocity", 0.0);
-        let cross = raw_x * (bxf["y"] - xf["y"]) - raw_y * (bxf["x"] - xf["x"]);
-        let spin_nudge = if cross > 0.0 { 0.05 } else { -0.05 };
-        ae.set("angular_velocity", cur_av + spin_nudge * (0.5 + rand() * 0.5));
-    } else {
-        // Destroyed — score, big FX, and split if large enough
-        local.score += pts;
-        spawn_debris(world, xf["x"], xf["y"], 5);
-        emit_impact_burst(world, asteroid_id, 8, "white");
-        effects.shake(250, 1.2, 0.5, 9.0);
-        world.despawn(asteroid_id);
-
-        if size > 1 {
-            let parent_shape = ae.get("shape_points");
-            let split_seed = asteroid_id + size * 997;
-            let base_shape = if type_of(parent_shape) != "()" {
-                parent_shape
-            } else {
-                asteroid_shape(size, split_seed)
-            };
-
-            for j in 0..2 {
-                let angle = rand() * TWO_PI;
-                let spd   = 70.0 + rand() * 45.0;
-                let child_size = size - 1;
-                let vx = cos(angle) * spd;
-                let vy = sin(angle) * spd;
-                let child_seed = asteroid_id + j + size * 1000;
-                // Each child gets a distinct half, already at child_size radius.
-                let child_shape = asteroid_half_shape(base_shape, size, child_size, j % 2, child_seed);
-                let nid = spawn_asteroid_shaped(
-                    world,
-                    scene,
-                    xf["x"],
-                    xf["y"],
-                    vx,
-                    vy,
-                    child_size,
-                    child_seed,
-                    child_shape,
-                );
-                if world.exists(nid) {
-                    let ne    = world.entity(nid);
-                    let spin2 = (rand() - 0.5) * 1.6;
-                    ne.set("angular_velocity", spin2);
-                    ne.set_heading(rand() * TWO_PI);
+            
+            // Fire burst waves at intervals
+            if final_burst_waves < FINAL_BURST_MAX_WAVES {
+                final_burst_timer_ms = final_burst_timer_ms + 16.0;
+                
+                if final_burst_timer_ms >= FINAL_BURST_INTERVAL_MS {
+                    // Fire a wave!
+                    fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel);
+                    final_burst_waves = final_burst_waves + 1;
+                    final_burst_timer_ms = 0.0;
                 }
             }
         }
-    }
-
-    update_hud(scene, local);
-}
-
-// ─── Collision: ship × asteroid — lose a life, bounce ────────────────────────
-if !ship.status_has("invulnerable") {
-    for hit in world.collision_enters("ship", "asteroid") {
-        let asteroid_id = hit["asteroid"];
-        if !world.exists(asteroid_id) { continue; }
-
-        let xf  = ship.transform();
-        let axf = world.entity(asteroid_id).transform();
-
-        let dx = xf["x"] - axf["x"];
-        let dy = xf["y"] - axf["y"];
-        let len = sqrt(dx * dx + dy * dy);
-        let nx = if len > 0.001 { dx / len } else { 1.0 };
-        let ny = if len > 0.001 { dy / len } else { 0.0 };
-
-        let BOUNCE_SPD = 200.0;
-        ship.physics.set_velocity(nx * BOUNCE_SPD, ny * BOUNCE_SPD);
-
-        // Lose a life
-        local.lives -= 1;
-        update_hud(scene, local);
-
-        if local.lives <= 0 {
-            // Game over: one final dramatic death
-            spawn_debris(world, xf["x"], xf["y"], 10);
-            emit_impact_burst(world, ship_id, 14, "white");
-            audio.event("explosion_large");
-            effects.shake(600, 3.0, 1.2, 7.0);
-            world.despawn(ship_id);
-            local.ship_id = 0;
-            local.state   = STATE_GAME_OVER;
-            local.game_over = true;
-            scene.set("hud-gameover", "visible", true);
-        } else {
-            // Bounce + long invulnerability so ship can recover
-            ship.status_add("invulnerable", INV_MS);
-            spawn_debris(world, xf["x"], xf["y"], 4);
-            emit_impact_burst(world, ship_id, 7, "white");
-            audio.event("explosion_small");
-            effects.shake(250, 1.5, 0.6, 8.0);
+    } else if !linear_input_active && !still_rotating && !still_moving {
+        auto_brake_phase = "stopped";
+        // Reset final burst state when fully stopped
+        final_burst_triggered = false;
+        final_burst_waves = 0;
+        final_burst_timer_ms = 0.0;
+        // Occasional micro-puffs for settling effect
+        if rand() < 0.05 {
+            fire_settling_puff(world, ship_id, 0.3);
         }
-        break;
+    } else if !rotation_input_active && !still_rotating && thrusting {
+        // Thrusting but not rotating - don't change phase
+        auto_brake_phase = "thrusting";
+    }
+    
+    // Reset final burst when player takes control
+    if linear_input_active {
+        final_burst_triggered = false;
+        final_burst_waves = 0;
+        final_burst_timer_ms = 0.0;
+    }
+    
+    // Apply angular velocity to ship heading
+    let command_turn = if angular_vel > 0.15 { 1 } else if angular_vel < -0.15 { -1 } else { 0 };
+    ship.set_turn(command_turn);
+
+    #{
+        angular_vel: angular_vel,
+        thrust_ignition_ms: thrust_ignition_ms,
+        rotation_ignition_ms: rotation_ignition_ms,
+        brake_ignition_ms: brake_ignition_ms,
+        rotation_dir: input_turn,
+        no_input_ms: no_input_ms,
+        auto_brake_phase: auto_brake_phase,
+        final_burst_waves: final_burst_waves,
+        final_burst_timer_ms: final_burst_timer_ms,
+        final_burst_triggered: final_burst_triggered
     }
 }
 
-// ─── Invulnerability blink ────────────────────────────────────────────────────
-if world.exists(ship_id) {
-    let inv = ship.status_has("invulnerable");
-    let blink_on = !inv || (now / 150) % 2 == 0;
-    scene.set(`ship-${ship_id}`, "visible", blink_on);
+// ======================== INITIALIZATION ===================================
+
+if !(local.initialized ?? false) {
+    world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H);
+    local.initialized = true;
+    local.ship_id = 0;
+    local.control_state = #{
+        angular_vel: 0.0,
+        thrust_ignition_ms: 0.0,
+        rotation_ignition_ms: 0.0,
+        brake_ignition_ms: 0.0,
+        rotation_dir: 0.0,
+        no_input_ms: 0.0,
+        auto_brake_phase: "idle",
+        final_burst_waves: 0,
+        final_burst_timer_ms: 0.0,
+        final_burst_triggered: false
+    };
+    input.load_profile("default");
+    scene.set("hud-gameover", "visible", false);
+    keep_asteroids_alive(world);
 }
 
-// ─── Deferred shape init (resolves same-frame resolver staleness) ─────────────
-// Sprites spawned this frame aren't in the resolver snapshot yet, so any
-// scene.set in spawn_asteroid would silently no-op. We store needs_shape_init=true
-// at spawn and flush here, one frame later, when the resolver is fresh.
-for id in world.query_kind("asteroid") {
-    let e = world.entity(id);
-    if e.get_bool("needs_shape_init", false) {
-        let vid = e.get_s("visual_id", "");
-        let pts = e.get("shape_points");
-        if vid != "" && type_of(pts) != "()" {
-            scene.set(vid, "vector.points", pts);
-        }
-        e.set("needs_shape_init", false);
-    }
-}
+// ======================== MAIN LOOP ========================================
 
-// ─── Out-of-bounds re-entry ───────────────────────────────────────────────────
-let OOB_PAD = 250.0;
-let REENTRY_PAD = 60.0;
-let REENTRY_SPD_BASE = 55.0 + ((local.wave ?? 1) - 1) * 8.0;
-for id in world.query_kind("asteroid") {
-    let xf = world.entity(id).transform();
-    if xf["x"] < -OOB_PAD || xf["x"] > WORLD_W + OOB_PAD
-    || xf["y"] < -OOB_PAD || xf["y"] > WORLD_H + OOB_PAD {
-        let e = world.entity(id);
-        let side = (rand() * 4.0).to_int();
-        let spd  = REENTRY_SPD_BASE + rand() * 15.0;
-        let nx = 0.0;
-        let ny = 0.0;
-        let nvx = 0.0;
-        let nvy = 0.0;
-        if side == 0 {
-            nx = -REENTRY_PAD;
-            ny = 20.0 + rand() * (WORLD_H - 40.0);
-            nvx = spd;
-            nvy = (rand() - 0.5) * spd * 0.3;
-        } else if side == 1 {
-            nx = WORLD_W + REENTRY_PAD;
-            ny = 20.0 + rand() * (WORLD_H - 40.0);
-            nvx = -spd;
-            nvy = (rand() - 0.5) * spd * 0.3;
-        } else if side == 2 {
-            nx = 20.0 + rand() * (WORLD_W - 40.0);
-            ny = -REENTRY_PAD;
-            nvx = (rand() - 0.5) * spd * 0.3;
-            nvy = spd;
-        } else {
-            nx = 20.0 + rand() * (WORLD_W - 40.0);
-            ny = WORLD_H + REENTRY_PAD;
-            nvx = (rand() - 0.5) * spd * 0.3;
-            nvy = -spd;
-        }
-        e.set_position(nx, ny);
-        e.physics.set_velocity(nvx, nvy);
-    }
-}
+scene.set("hud-score", "text.content", "ASTEROIDS");
+scene.set("hud-lives", "text.content", "RCS v3.2");
+scene.set("hud-wave", "text.content", "BURST");
 
-// ─── Particle decay (closure-style per-frame visual update) ──────────────────
-// Particles start BIG and hot, then SHRINK and fade to black as they cool.
-// f = lifetime_fraction² (quadratic: stays bright longer, rapid fade at end)
-for id in world.query_kind("fx_thrust") {
-    let p = world.entity(id);
-    let frac = p.lifetime_fraction();
-    let f = frac * frac;
-    // Start large, shrink to 1 as particle dies
-    p.set_radius(max(1, (16.0 * f + 0.5).to_int()));
-    p.set_fg(if f > 0.80 { "white" } else if f > 0.60 { "yellow" } else if f > 0.45 { "bright_white" } else if f > 0.30 { "gray" } else if f > 0.18 { "dark_gray" } else if f > 0.08 { "#444" } else { "#222" });
-}
-// RCS: bright puff → shrinking dark wisp
-for id in world.query_kind("fx_rcs") {
-    let p = world.entity(id);
-    let frac = p.lifetime_fraction();
-    let f = frac * frac;
-    p.set_radius(max(1, (12.0 * f + 0.5).to_int()));
-    p.set_fg(if f > 0.65 { "white" } else if f > 0.45 { "bright_white" } else if f > 0.30 { "gray" } else if f > 0.15 { "dark_gray" } else if f > 0.06 { "#444" } else { "#222" });
-}
-// Impact sparks: bright flash → yellow → dim ember, shrinking to a point
-for id in world.query_kind("fx_sparks") {
-    let p = world.entity(id);
-    let frac = p.lifetime_fraction();
-    let f = frac * frac;
-    p.set_radius(max(1, (3.0 * f + 0.5).to_int()));
-    p.set_fg(if f > 0.6 { "white" } else if f > 0.35 { "yellow" } else if f > 0.12 { "dark_gray" } else { "#333" });
-}
-// Debris chunks: white → gray → fade out
-for id in world.query_kind("debris") {
-    let p = world.entity(id);
-    let frac = p.lifetime_fraction();
-    let f = frac * frac;
-    p.set_fg(if f > 0.5 { "white" } else if f > 0.2 { "gray" } else { "dark_gray" });
-}
+let ship_id = ensure_ship(world);
+local.ship_id = ship_id;
 
-// ─── Wave clear ───────────────────────────────────────────────────────────────
-if world.count_kind("asteroid") == 0 {
-    local.state = STATE_WAVE_CLEAR;
-    local.state_until = now + WAVE_CLEAR_MS;
-}
+let state_prev = local.control_state ?? #{
+    angular_vel: 0.0,
+    thrust_ignition_ms: 0.0,
+    rotation_ignition_ms: 0.0,
+    brake_ignition_ms: 0.0,
+    rotation_dir: 0.0,
+    no_input_ms: 0.0,
+    auto_brake_phase: "idle",
+    final_burst_waves: 0,
+    final_burst_timer_ms: 0.0,
+    final_burst_triggered: false
+};
+
+let new_state = update_ship_controls(world, input, ship_id, state_prev);
+local.control_state = new_state;
+
+update_thruster_particles(world);
+update_brake_particles(world);
+update_final_burst_particles(world);
+keep_asteroids_alive(world);
 
 #{state: local}

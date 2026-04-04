@@ -8,6 +8,8 @@ use serde_json::Value as JsonValue;
 #[derive(Debug, Clone)]
 pub struct EmitResolved {
     pub speed: f64,
+    pub base_dir_x: f64,
+    pub base_dir_y: f64,
     pub spread: f64,
     pub ttl_ms: i32,
     pub radius: i64,

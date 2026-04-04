@@ -225,7 +225,11 @@ emitters:
     min_cooldown_ms: 16      # Faster cadence at sustained thrust
     ramp_ms: 2000            # Time to reach min cadence
     lifecycle: "Ttl"         # Also supports OwnerBound / FollowOwner / TtlFollowOwner
-    spawn_offset: 6.0        # Distance from entity
+    local_x: 0.0             # Precise owner-local anchor (+right)
+    local_y: 6.0             # Precise owner-local anchor (+down)
+    emission_local_x: 0.0    # Precise owner-local base direction (+right)
+    emission_local_y: 1.0    # Precise owner-local base direction (+down)
+    emission_angle: 0.0      # Extra base rotation (radians)
     backward_speed: 0.35     # Relative speed to entity
     ttl_ms: 520              # Particle lifetime (ms)
     radius: 3                # Visual particle size
@@ -233,6 +237,86 @@ emitters:
     follow_local_y: 0.0
     follow_inherit_heading: true
 ```
+
+Emitter precedence is deterministic:
+- Anchor: args `local_x/local_y` → catalog `local_x/local_y` → catalog edge interpolation → legacy `spawn_offset/side_offset`
+- Base direction: args `emission_local_x/y` → catalog `emission_local_x/y` → default backward axis
+- Final direction: base direction rotated by catalog `emission_angle` and per-call `spread`
+
+### Thruster / RCS Emitter Pattern
+
+The emitter system provides all primitives needed to build physics-accurate
+thruster visualizations. Below is the recommended approach for any vehicle
+with mounted engines (spacecraft, hovercraft, drones, etc.).
+
+**Coordinate convention** — emitter `local_x/local_y` and `emission_local_x/y`
+use the owner's body frame: `+x` = right, `+y` = down (screen space). The
+engine automatically transforms these to world space using the owner's heading.
+
+**Mount points**: Define each thruster as a separate emitter in the catalog.
+Set `local_x/local_y` to the engine nozzle position relative to the entity
+center. Set `emission_local_x/y` to the exhaust direction (away from thrust).
+
+```yaml
+emitters:
+  # Main engine at stern — pushes forward, exhaust goes backward (+y)
+  ship.main_engine:
+    local_x: 0.0
+    local_y: 6.0
+    emission_local_x: 0.0
+    emission_local_y: 1.0
+    max_count: 120
+    lifecycle: "Ttl"
+    ttl_ms: 200
+
+  # Nose brake — pushes backward, exhaust goes forward (-y)
+  ship.nose_brake:
+    local_x: 0.0
+    local_y: -8.0
+    emission_local_x: 0.0
+    emission_local_y: -1.0
+
+  # RCS front-left — pushes right, exhaust goes left (-x)
+  ship.rcs_fl:
+    local_x: -3.0
+    local_y: -5.0
+    emission_local_x: -1.0
+    emission_local_y: 0.0
+```
+
+**Velocity decomposition in Rhai** — project world velocity onto ship-local axes:
+
+```rhai
+let hv = entity.heading_vector();
+let fwd_x = hv["x"];   let fwd_y = hv["y"];
+let right_x = -fwd_y;  let right_y = fwd_x;
+
+let vel = entity.physics().velocity();
+let v_fwd   = vel[0] * fwd_x   + vel[1] * fwd_y;    // >0 = forward
+let v_right = vel[0] * right_x + vel[1] * right_y;   // >0 = rightward
+```
+
+**RCS mixing formula** — each thruster combines rotation torque + drift
+compensation. Intensity ∈ [0, 1] drives emit frequency / particle count:
+
+```rhai
+fn clamp_f(v, lo, hi) { if v < lo { lo } else if v > hi { hi } else { v } }
+
+let left_brake  = clamp_f( v_right / MAX_SIDE, 0.0, 1.0);  // drifting right → push left
+let right_brake = clamp_f(-v_right / MAX_SIDE, 0.0, 1.0);  // drifting left  → push right
+let turn_left   = if input_turn < 0 { 1.0 } else { 0.0 };
+let turn_right  = if input_turn > 0 { 1.0 } else { 0.0 };
+
+// Front-left nozzle fires for: CW rotation + brake leftward drift
+let rcs_fl = clamp_f(turn_right + right_brake, 0.0, 1.0);
+// Front-right fires for: CCW rotation + brake rightward drift
+let rcs_fr = clamp_f(turn_left  + left_brake,  0.0, 1.0);
+```
+
+The pattern extends to any number of thrusters: nose-brake (kills forward
+velocity), rear correction (kills backward velocity), lateral pairs (kill
+side drift + generate rotation torque). When no input is active, auto-braking
+emitters fire proportionally to residual velocity components.
 
 ### Script State and Cross-Script Communication
 

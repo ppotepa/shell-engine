@@ -6,22 +6,24 @@ prefabs:
       physics:
         vx: 0.0
         vy: 0.0
-        drag: 0.7
-        max_speed: 180.0
+        drag: 0.008          # Near-zero: true space inertia, must brake manually
+        max_speed: 280.0
       collider:
         shape: circle
-        radius: 7.0
+        radius: 10.0
         layer: 1
         mask: 6
       controller:
         controller_type: ArcadeController
         config:
-          turn_step_ms: 80
-          thrust_power: 200.0
-          max_speed: 180.0
-          heading_bits: 32
+          turn_step_ms: 16   # Faster turn response
+          thrust_power: 180.0
+          max_speed: 280.0
+          heading_bits: 64   # Smoother heading resolution
       lifecycle: Persistent
       wrappable: true
+      extra_data:
+        role: player
 
   bullet:
     kind: bullet

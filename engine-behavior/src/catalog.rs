@@ -129,6 +129,36 @@ pub struct EmitterConfig {
     pub spawn_offset: Option<f64>,
     #[serde(default)]
     pub side_offset: Option<f64>,
+    /// Emitter local anchor point in owner-local coordinates.
+    /// If set, this overrides spawn_offset/side_offset.
+    #[serde(default)]
+    pub local_x: Option<f64>,
+    #[serde(default)]
+    pub local_y: Option<f64>,
+    /// Optional edge anchor in owner-local coordinates:
+    /// anchor = from + (to - from) * edge_t.
+    /// If set and local_x/local_y are not set, this overrides spawn_offset/side_offset.
+    #[serde(default)]
+    pub edge_from_x: Option<f64>,
+    #[serde(default)]
+    pub edge_from_y: Option<f64>,
+    #[serde(default)]
+    pub edge_to_x: Option<f64>,
+    #[serde(default)]
+    pub edge_to_y: Option<f64>,
+    #[serde(default)]
+    pub edge_t: Option<f64>,
+    /// Base emission direction offset in radians, relative to the emitter's default backward axis.
+    /// Applied before per-call `spread`.
+    #[serde(default)]
+    pub emission_angle: Option<f64>,
+    /// Optional emission direction in owner-local coordinates.
+    /// Local frame matches authored sprite space: +x right, +y down.
+    /// If set, this becomes the base axis before emission_angle/spread rotation.
+    #[serde(default)]
+    pub emission_local_x: Option<f64>,
+    #[serde(default)]
+    pub emission_local_y: Option<f64>,
     #[serde(default)]
     pub backward_speed: Option<f64>,
     #[serde(default)]
