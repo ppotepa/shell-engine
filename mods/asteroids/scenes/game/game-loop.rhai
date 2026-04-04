@@ -116,6 +116,25 @@ fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread
     fx
 }
 
+// Emit HOT engine particle - uses teal color ramp instead of orange
+fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
+    let speed = base_speed * ignition_factor;
+    let jitter = spread * 0.35;
+    let fx = world.emit(emitter, ship_id, #{
+        kind: "fx",
+        template: "debris",
+        speed: speed,
+        ttl_ms: ttl_ms,
+        fg: color,
+        radius: radius,
+        spread: (rand() - 0.5) * jitter
+    });
+    if fx > 0 {
+        world.tag_add(fx, "hot-engine-particle");
+    }
+    fx
+}
+
 // Emit with explicit direction override
 fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, local_x, local_y) {
     let speed = base_speed * ignition_factor;
@@ -218,6 +237,49 @@ fn update_thruster_particles(world) {
             "#662211"
         } else {
             "#221108"
+        };
+        p.set_fg(fg);
+    }
+}
+
+fn update_hot_engine_particles(world) {
+    // Hot engine particles: white → cyan → NEON TEAL → dark teal
+    for id in world.query_tag("hot-engine-particle") {
+        let p = world.entity(id);
+        if !p.exists() { continue; }
+
+        let life = p.lifetime_fraction();
+        let base_r = p.get_i("/radius", 1);
+        let base_r = clamp_i(base_r, 1, 3);
+
+        // Compact hot stream - shrinks faster
+        let r = if life > 0.80 {
+            clamp_i(base_r + 1, 1, 4)
+        } else if life > 0.50 {
+            base_r
+        } else if life > 0.25 {
+            1
+        } else {
+            0
+        };
+        let dash_r = if r <= 0 { 0 } else { max(r, 2) };
+        p.set_radius(dash_r);
+
+        // NEON TEAL color ramp: white → cyan → teal → dark teal
+        let fg = if life > 0.85 {
+            "white"
+        } else if life > 0.70 {
+            "#CCFFFF"   // pale cyan
+        } else if life > 0.55 {
+            "#66FFFF"   // bright cyan
+        } else if life > 0.40 {
+            "#00FFCC"   // NEON TEAL
+        } else if life > 0.25 {
+            "#00CC99"   // teal
+        } else if life > 0.12 {
+            "#008866"   // dark teal
+        } else {
+            "#004433"   // very dark teal
         };
         p.set_fg(fg);
     }
@@ -340,20 +402,135 @@ fn fire_rotation_couple(world, ship_id, direction, angular_vel, ignition_factor)
 }
 
 // ======================== MAIN ENGINE THRUST ===============================
+// Heat-up effect with configurable thrust curve f(x)
+// x = thrust_ms, f(x) = heat level 0.0 to 1.0
+// At heat=1.0: trail shrinks to 5% (95% reduction), color → neon teal
+// Velocity determines starting heat: fast ship = warm engine
 
-fn fire_main_engine(world, ship_id, thrust_ms, ignition_factor) {
+// Thrust curve function - modify this to change heat-up behavior
+// Returns 0.0 (cold) to 1.0 (max heat)
+// base_heat = starting heat based on velocity (0.0 to 0.6)
+fn thrust_curve(thrust_ms, base_heat) {
+    // Quadratic ease-in curve for natural acceleration feel
+    let t = thrust_ms / 2000.0;  // 2 seconds to full heat from base
+    if t > 1.0 { t = 1.0; }
+    
+    // Start from base_heat (velocity-based), ramp to 1.0
+    let heat = base_heat + (1.0 - base_heat) * t * t;
+    if heat < 0.0 { heat = 0.0; }
+    if heat > 1.0 { heat = 1.0; }
+    heat
+}
+
+fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, speed, max_speed) {
     let intensity = 0.5 + ignition_factor * 0.5;
     
-    // Dense exhaust plume
-    for i in 0..6 {
-        let speed = 140.0 + to_float(i) * 18.0;
-        let color = if i < 2 { "white" } else if i < 4 { "#FFCC66" } else { "#FF8833" };
-        emit_rcs_intensity(world, ship_id, "ship.main", speed, 380, color, 0.25, intensity, 2);
+    // Velocity determines starting heat: 0 speed = 0 heat, max speed = 0.6 heat
+    // So fast-moving ship starts with warm engine
+    let velocity_ratio = speed / max_speed;
+    if velocity_ratio > 1.0 { velocity_ratio = 1.0; }
+    let base_heat = velocity_ratio * 0.6;  // up to 60% starting heat
+    
+    // Get heat from thrust curve
+    let heat = thrust_curve(thrust_ms, base_heat);
+    
+    // Trail length: 100% → 5% (95% reduction at max heat)
+    let trail_mult = 1.0 - heat * 0.95;  // 1.0 → 0.05
+    let base_ttl = 380.0 * trail_mult;
+    let core_ttl = 280.0 * trail_mult;
+    if base_ttl < 19.0 { base_ttl = 19.0; }
+    if core_ttl < 14.0 { core_ttl = 14.0; }
+    
+    // Speed increases with heat (more efficient burn)
+    let speed_mult = 1.0 + heat * 0.5;  // faster when hot
+    
+    // === PHASE DETECTION ===
+    let transition_pulse = heat > 0.45 && heat < 0.52;  // TEAL PULSE zone
+    let power_surge = heat >= 0.50 && heat < 0.65;      // 50% wider teal
+    let jet_stream = heat >= 0.65 && heat < 0.85;       // narrowing jet
+    let afterburner = heat >= 0.85;                      // max power flicker
+    
+    // Use HOT engine particles when heat > 0.5 (teal color ramp)
+    let use_hot = heat > 0.5;
+    
+    // === TEAL TRANSITION PULSE ===
+    // When about to become teal, emit bright teal pulse particles
+    if transition_pulse {
+        // Emit fast teal pulse that travels through entire exhaust
+        for i in 0..6 {
+            let pulse_speed = 200.0 + to_float(i) * 30.0;  // fast!
+            let pulse_ttl = 350.0;  // long enough to travel full trail
+            emit_hot_engine(world, ship_id, "ship.main", pulse_speed, pulse_ttl, "#00FFFF", 0.15, 1.0, 2);
+        }
     }
-    for i in 0..4 {
-        let speed = 110.0 + to_float(i) * 12.0;
-        emit_rcs_intensity(world, ship_id, "ship.main", speed, 280, "white", 0.18, intensity, 1);
+    
+    // === AFTERBURNER EFFECT at max heat ===
+    // Random shape variation ±30%, occasional blink
+    let shape_var = if afterburner { 0.7 + rand() * 0.6 } else { 1.0 };  // 0.7 to 1.3
+    let blink = if afterburner && rand() < 0.15 { 0.4 + rand() * 0.3 } else { 1.0 };  // 15% chance dim
+    
+    // === PARTICLE COUNT ===
+    let base_outer = if heat < 0.3 { 6.0 } else if heat < 0.5 { 6.0 } else { 8.0 };
+    let base_inner = if heat < 0.3 { 4.0 } else if heat < 0.5 { 4.0 } else { 5.0 };
+    
+    // Apply shape variation to particle count
+    let outer_count_f = base_outer * shape_var;
+    let inner_count_f = base_inner * shape_var;
+    let outer_count = if outer_count_f < 4.0 { 4 } else if outer_count_f < 6.0 { 5 } else if outer_count_f < 8.0 { 7 } else if outer_count_f < 10.0 { 9 } else { 11 };
+    let inner_count = if inner_count_f < 3.0 { 2 } else if inner_count_f < 5.0 { 4 } else if inner_count_f < 7.0 { 6 } else { 7 };
+    
+    // === RADIUS based on phase ===
+    // Cold: 2, Power surge: 3 (50% wider!), Jet stream: 1, Afterburner: 1
+    let outer_radius = if power_surge { 3 } else if use_hot { 1 } else { 2 };
+    let inner_radius = if power_surge { 2 } else { 1 };
+    
+    // === SPREAD based on phase ===
+    // Cold: 0.25, Power surge: 0.35 (50% wider!), Jet: 0.12, Afterburner: varies
+    let base_spread = if power_surge { 0.35 } else if use_hot { 0.12 } else { 0.25 };
+    let spread = base_spread * (0.8 + rand() * 0.4);  // ±20% spread variation
+    
+    // TTL boost for hot: longer visible trail, with variation
+    let ttl_var = if afterburner { 0.85 + rand() * 0.3 } else { 1.0 };  // 0.85 to 1.15
+    let ttl_boost = if use_hot { 1.5 * ttl_var } else { 1.0 };
+    
+    // Intensity affected by blink
+    let eff_intensity = intensity * blink;
+    
+    // Dense exhaust plume - outer layer
+    for i in 0..outer_count {
+        let pspeed = (140.0 + to_float(i) * 15.0) * speed_mult * (0.9 + rand() * 0.2);
+        let ttl = (base_ttl - to_float(i) * (base_ttl * 0.03)) * ttl_boost;
+        if ttl < 25.0 { ttl = 25.0; }
+        
+        // Color for initial emit (will be overridden by particle update)
+        let color = if use_hot { "#66FFFF" } else { "white" };
+        
+        if use_hot {
+            emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, color, spread, eff_intensity, outer_radius);
+        } else {
+            emit_rcs_intensity(world, ship_id, "ship.main", pspeed, ttl, color, spread, eff_intensity, outer_radius);
+        }
     }
+    
+    // Inner core - brighter, faster
+    for i in 0..inner_count {
+        let pspeed = (110.0 + to_float(i) * 10.0) * speed_mult * (0.9 + rand() * 0.2);
+        let ttl = (core_ttl - to_float(i) * (core_ttl * 0.03)) * ttl_boost;
+        if ttl < 20.0 { ttl = 20.0; }
+        
+        let core_color = if use_hot { "#AAFFFF" } else { "white" };
+        
+        if use_hot {
+            emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, core_color, spread * 0.5, eff_intensity, inner_radius);
+        } else {
+            emit_rcs_intensity(world, ship_id, "ship.main", pspeed, ttl, core_color, 0.18, eff_intensity, inner_radius);
+        }
+    }
+}
+
+// Legacy wrapper for compatibility
+fn fire_main_engine(world, ship_id, thrust_ms, ignition_factor) {
+    fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, 0.0, 280.0);
 }
 
 // ======================== AUTO-BRAKE: ROTATION =============================
@@ -539,16 +716,15 @@ fn fire_settling_puff(world, ship_id, ignition_factor) {
 // Uses thin, light particles for micro-puff feel
 
 fn emit_final_burst_particle(world, ship_id, emitter, speed, ttl_ms) {
-    // Medium-visible particles - between thin brake and full thrust
-    // More visible but not as big as regular thrust
+    // Thin but BRIGHT particles - very visible final puffs
     let fx = world.emit(emitter, ship_id, #{
         kind: "fx",
         template: "debris",
-        speed: speed * (0.7 + rand() * 0.4),  // variable speed
+        speed: speed * (0.8 + rand() * 0.3),
         ttl_ms: ttl_ms,
         fg: "white",
-        radius: 2,  // medium size (thrust=2-3, brake=1)
-        spread: (rand() - 0.5) * 0.12  // moderate spread
+        radius: 1,  // thin
+        spread: (rand() - 0.5) * 0.20  // wider spread for puff effect
     });
     if fx > 0 {
         world.tag_add(fx, "final-burst-particle");
@@ -556,7 +732,21 @@ fn emit_final_burst_particle(world, ship_id, emitter, speed, ttl_ms) {
     fx
 }
 
-fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel) {
+fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, wave_num) {
+    // Wave intensity: wave 0 = 100%, wave 1 = 60%, wave 2 = 20%
+    // This creates a clear "big → smaller → tiny" visual sequence
+    let intensity = if wave_num == 0 { 1.0 } else if wave_num == 1 { 0.6 } else { 0.2 };
+    
+    // Particle count scales with intensity: 8-10, 5-6, 2
+    let base_bursts = if wave_num == 0 { 
+        8 + (rand() * 2.0) 
+    } else if wave_num == 1 { 
+        5 + (rand() * 1.0) 
+    } else { 
+        2 
+    };
+    let base_bursts = if base_bursts < 2.5 { 2 } else if base_bursts < 5.5 { 5 } else if base_bursts < 7.0 { 6 } else if base_bursts < 9.0 { 8 } else { 10 };
+    
     // Get ship heading
     let h = ship.heading_vector();
     let fwd_x = h["x"] ?? 0.0;
@@ -568,85 +758,86 @@ fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel) {
     let vel_fwd = vx * fwd_x + vy * fwd_y;
     let vel_right = vx * right_x + vy * right_y;
     
-    // Random burst count 3-5 particles per thruster (more visible)
-    let base_bursts = 3 + (rand() * 2.5);
-    let base_bursts = if base_bursts < 3.5 { 3 } else if base_bursts < 4.5 { 4 } else { 5 };
+    // Speed scales with intensity too
+    let speed_mult = 0.5 + intensity * 0.5;  // 100%, 80%, 60%
     
-    // Fire ALL thrusters simultaneously for dramatic final correction
-    // Each fires in direction to counter residual motion
-    
-    // BOW: fires if moving forward (counter forward drift)
-    if vel_fwd > 0.3 {
+    // BOW: fires if moving forward
+    if vel_fwd > 0.1 {
         for i in 0..base_bursts {
-            emit_final_burst_particle(world, ship_id, "ship.bow", 55.0 + to_float(i) * 12.0, 140);
+            emit_final_burst_particle(world, ship_id, "ship.bow", (40.0 + to_float(i) * 8.0) * speed_mult, 180);
         }
     }
     
-    // MAIN: fires if moving backward (counter backward drift)
-    if vel_fwd < -0.3 {
+    // MAIN: fires if moving backward
+    if vel_fwd < -0.1 {
         for i in 0..base_bursts {
-            emit_final_burst_particle(world, ship_id, "ship.main", 65.0 + to_float(i) * 14.0, 160);
+            emit_final_burst_particle(world, ship_id, "ship.main", (50.0 + to_float(i) * 10.0) * speed_mult, 200);
         }
     }
     
-    // STARBOARD: fires if moving right (counter rightward drift)
-    if vel_right > 0.3 {
+    // STARBOARD: fires if moving right
+    if vel_right > 0.1 {
         for i in 0..base_bursts {
-            emit_final_burst_particle(world, ship_id, "ship.starboard", 50.0 + to_float(i) * 10.0, 130);
+            emit_final_burst_particle(world, ship_id, "ship.starboard", (35.0 + to_float(i) * 7.0) * speed_mult, 160);
         }
     }
     
-    // PORT: fires if moving left (counter leftward drift)
-    if vel_right < -0.3 {
+    // PORT: fires if moving left
+    if vel_right < -0.1 {
         for i in 0..base_bursts {
-            emit_final_burst_particle(world, ship_id, "ship.port", 50.0 + to_float(i) * 10.0, 130);
+            emit_final_burst_particle(world, ship_id, "ship.port", (35.0 + to_float(i) * 7.0) * speed_mult, 160);
         }
     }
     
-    // Angular stabilization: fire RCS pair opposite to residual rotation
-    if absf(angular_vel) > 0.02 {
-        let rot_bursts = 2 + (rand() * 2.0);
-        let rot_bursts = if rot_bursts < 2.5 { 2 } else if rot_bursts < 3.5 { 3 } else { 4 };
+    // Angular stabilization (only on first 2 waves)
+    if wave_num < 2 && absf(angular_vel) > 0.01 {
+        let rot_bursts = if wave_num == 0 { 5 + (rand() * 2.0) } else { 3 };
+        let rot_bursts = if rot_bursts < 3.5 { 3 } else if rot_bursts < 5.5 { 5 } else { 6 };
         
-        // Fire opposite to rotation direction
         let emitter1 = if angular_vel > 0.0 { "ship.starboard" } else { "ship.port" };
         let emitter2 = if angular_vel > 0.0 { "ship.port" } else { "ship.starboard" };
         
         for i in 0..rot_bursts {
-            emit_final_burst_particle(world, ship_id, emitter1, 45.0 + to_float(i) * 8.0, 110);
-            if rand() > 0.3 {
-                emit_final_burst_particle(world, ship_id, emitter2, 38.0 + to_float(i) * 6.0, 100);
-            }
+            emit_final_burst_particle(world, ship_id, emitter1, (30.0 + to_float(i) * 6.0) * speed_mult, 140);
+            emit_final_burst_particle(world, ship_id, emitter2, (25.0 + to_float(i) * 5.0) * speed_mult, 120);
         }
+    }
+    
+    // FORCE STOP: Apply braking impulse proportional to wave (stronger early)
+    let speed = sqrtf(vx * vx + vy * vy);
+    if speed > 0.1 {
+        let brake_power = 60.0 * intensity;  // 60, 36, 12 per wave
+        let dt = 0.016;
+        let dvx = -(vx / speed) * brake_power * dt;
+        let dvy = -(vy / speed) * brake_power * dt;
+        ship.physics.add_velocity(dvx, dvy);
     }
 }
 
 fn update_final_burst_particles(world) {
-    // Final burst particles: more visible, medium brightness
-    // White → pale → silver → gray (slower fade than brake, more visible)
+    // Final burst: BRIGHT white that stays visible longer
     for id in world.query_tag("final-burst-particle") {
         let p = world.entity(id);
         if !p.exists() { continue; }
         
         let life = p.lifetime_fraction();
         
-        // Medium radius - shrinks near end
-        let r = if life > 0.6 { 2 } else if life > 0.3 { 2 } else { 1 };
-        p.set_radius(r);
+        // Stay thin throughout
+        p.set_radius(1);
         
-        // Slower, more visible fade: white → pale → silver → gray → charcoal
-        let fg = if life > 0.80 {
+        // Bright white → cyan → pale → fade (very visible)
+        let fg = if life > 0.85 {
             "white"
-        } else if life > 0.65 {
-            "#EEEEFF"  // pale blue-white
-        } else if life > 0.50 {
-            "#CCCCDD"  // light silver
-        } else if life > 0.35 {
-            "#AAAAAA"  // silver
-        } else if life > 0.20 {
-            "#777777"  // gray
+        } else if life > 0.70 {
+            "#AAFFFF"  // bright cyan
+        } else if life > 0.55 {
+            "#88DDDD"  // cyan
+        } else if life > 0.40 {
+            "#66BBBB"  // teal
+        } else if life > 0.25 {
+            "#448888"  // dark teal
         } else {
-            "#444444"  // charcoal
+            "#225555"  // very dark
         };
         p.set_fg(fg);
     }
@@ -666,9 +857,9 @@ fn update_ship_controls(world, input, ship_id, state_prev) {
     let IGNITION_RAMP_MS = 12.0;
     
     // Final stabilization burst thresholds
-    let FINAL_BURST_SPEED_THRESHOLD = 8.0;  // trigger when speed drops below this
-    let FINAL_BURST_INTERVAL_MS = 55.0;      // time between burst waves (~3-4 frames)
-    let FINAL_BURST_MAX_WAVES = 3;           // 3 burst waves before full stop
+    let FINAL_BURST_SPEED_THRESHOLD = 15.0;  // trigger earlier (was 8)
+    let FINAL_BURST_INTERVAL_MS = 150.0;      // 150ms pause between bursts (visible!)
+    let FINAL_BURST_MAX_WAVES = 3;            // 3 bursts: 100%, 60%, 20%
     
     if ship_id <= 0 {
         return #{
@@ -738,11 +929,53 @@ fn update_ship_controls(world, input, ship_id, state_prev) {
     let still_rotating = absf(angular_vel) > ANGULAR_DEADBAND;
 
     // === MAIN ENGINE (player input) ===
+    // Use velocity-aware engine: fast ship = warm engine = neon teal faster
+    let MAX_SPEED = 280.0;  // from prefab config
     ship.set_thrust(thrusting);
     if thrusting {
         thrust_ignition_ms = thrust_ignition_ms + 16.0;
         let thrust_factor = calc_ignition_factor(thrust_ignition_ms, IGNITION_DELAY_MS, IGNITION_RAMP_MS);
-        fire_main_engine(world, ship_id, thrust_ignition_ms, thrust_factor);
+        fire_main_engine_with_velocity(world, ship_id, thrust_ignition_ms, thrust_factor, speed, MAX_SPEED);
+        
+        // === AUTO-COURSE CORRECTION ===
+        // When thrusting forward, check if velocity is drifting away from heading
+        // Fire RCS to realign ship heading with velocity vector
+        if speed > 5.0 && !rotation_input_active {
+            let vx = vel_local["vx"] ?? 0.0;
+            let vy = vel_local["vy"] ?? 0.0;
+            let h = ship.heading_vector();
+            let hx = h["x"] ?? 0.0;
+            let hy = h["y"] ?? -1.0;
+            
+            // Cross product: heading × velocity = drift direction
+            // Positive = velocity is to the RIGHT of heading → turn RIGHT
+            // Negative = velocity is to the LEFT of heading → turn LEFT
+            let cross = hx * vy - hy * vx;
+            
+            // Dot product: check if moving forward at all
+            let dot = hx * vx + hy * vy;
+            
+            // Only correct if moving mostly forward (dot > 0) and drifting significantly
+            let drift = absf(cross) / speed;  // normalized drift amount
+            if dot > 0.0 && drift > 0.15 {
+                // Fire correcting RCS proportional to drift
+                let correction_strength = drift * 0.5;  // gentle correction
+                if correction_strength > 0.4 { correction_strength = 0.4; }
+                
+                // Fire thrusters to turn toward velocity
+                if cross > 0.0 {
+                    // Drifting right → turn right → fire PORT
+                    emit_rcs_intensity(world, ship_id, "ship.port", 60.0, 120, "#AACCFF", 0.15, correction_strength, 1);
+                } else {
+                    // Drifting left → turn left → fire STARBOARD
+                    emit_rcs_intensity(world, ship_id, "ship.starboard", 60.0, 120, "#AACCFF", 0.15, correction_strength, 1);
+                }
+                
+                // Apply small torque correction
+                let torque_correction = signf(cross) * 0.8 * correction_strength;
+                angular_vel = angular_vel + torque_correction * DT;
+            }
+        }
     } else {
         thrust_ignition_ms = 0.0;
     }
@@ -836,8 +1069,8 @@ fn update_ship_controls(world, input, ship_id, state_prev) {
                 final_burst_timer_ms = final_burst_timer_ms + 16.0;
                 
                 if final_burst_timer_ms >= FINAL_BURST_INTERVAL_MS {
-                    // Fire a wave!
-                    fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel);
+                    // Fire a wave with decreasing intensity!
+                    fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, final_burst_waves);
                     final_burst_waves = final_burst_waves + 1;
                     final_burst_timer_ms = 0.0;
                 }
@@ -932,6 +1165,7 @@ let new_state = update_ship_controls(world, input, ship_id, state_prev);
 local.control_state = new_state;
 
 update_thruster_particles(world);
+update_hot_engine_particles(world);
 update_brake_particles(world);
 update_final_burst_particles(world);
 keep_asteroids_alive(world);
