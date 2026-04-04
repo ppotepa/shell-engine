@@ -4,9 +4,9 @@ let count = menu.count ?? 2;
 
 let items = ["menu-item-0", "menu-item-1"];
 
-// Colours: selected = bright white, idle = dim green
-let col_selected = "#ffffff";
-let col_idle     = "#2d5c2d";
+// Palette: selected = Honey Bronze (warm gold), idle = Tech Blue (dim)
+let col_selected = "#f6ae2d";
+let col_idle     = "#2e5eaa";
 
 // Update item colours based on current selection
 for i in 0..count {
@@ -24,20 +24,3 @@ for i in 0..count {
         scene.set(items[i], "offset.x", 0);
     }
 }
-
-// Light streak: sweeps in from the left, crosses the menu, exits right
-let streak_period = 3800;
-let streak_phase  = time.scene_elapsed_ms % streak_period;
-let streak_t      = to_float(streak_phase) / to_float(streak_period);
-
-let streak_x = if streak_t < 0.55 {
-    // Ease-out sweep from off-left (-340) across to off-right (+360)
-    let p = streak_t / 0.55;
-    let eased = 1.0 - (1.0 - p) * (1.0 - p);
-    -340.0 + eased * 700.0
-} else {
-    // Hold off-screen right until next cycle
-    360.0
-};
-
-scene.set("light-streak", "offset.x", streak_x);

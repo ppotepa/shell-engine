@@ -1,6 +1,6 @@
 id: asteroids-title
 title: Asteroids
-bg: "#060910"
+bg: "#060620"
 layers:
   - ref: title/layers/main.yml
 logic:

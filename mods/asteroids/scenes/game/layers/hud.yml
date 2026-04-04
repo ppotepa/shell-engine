@@ -7,7 +7,7 @@
       x: 2
       y: 2
       font: "Orbitron:ascii"
-      fg: "#4a7a4a"
+      fg: "#2e5eaa"
 
     - type: text
       id: hud-score
@@ -16,7 +16,7 @@
       x: 2
       y: 12
       font: "Orbitron:ascii"
-      fg: "#6fc54a"
+      fg: "#5bc0be"
 
     - type: text
       content: "LIVES"
@@ -24,7 +24,7 @@
       x: 2
       y: 24
       font: "Orbitron:ascii"
-      fg: "#4a7a4a"
+      fg: "#2e5eaa"
 
     - type: text
       id: hud-lives
@@ -33,7 +33,7 @@
       x: 2
       y: 34
       font: "Orbitron:ascii"
-      fg: white
+      fg: "#5bc0be"
 
     - type: text
       content: "WAVE"
@@ -41,7 +41,7 @@
       x: 2
       y: 46
       font: "Orbitron:ascii"
-      fg: "#4a7a4a"
+      fg: "#2e5eaa"
 
     - type: text
       id: hud-wave
@@ -50,7 +50,7 @@
       x: 2
       y: 56
       font: "Orbitron:ascii"
-      fg: white
+      fg: "#5bc0be"
 
     - type: text
       id: hud-gameover
@@ -58,7 +58,7 @@
       at: cc
       y: -10
       font: "Orbitron:ascii"
-      fg: yellow
+      fg: "#f6ae2d"
       visible: false
 
     - type: text
@@ -67,5 +67,5 @@
       at: cc
       y: 8
       font: "generic:1"
-      fg: "#aaaa44"
+      fg: "#c2a83e"
       visible: false

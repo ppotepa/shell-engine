@@ -47,7 +47,7 @@
       at: cc
       y: -90
       font: "Orbitron:ascii"
-      fg: "#6fc54a"
+      fg: "#5bc0be"
       stages:
         on_enter:
           steps:
@@ -62,21 +62,11 @@
       draw-char: "*"
       at: cc
       y: -28
-      fg_colour: "#6fc54a"
+      fg_colour: "#5bc0be"
 
 - name: menu
   z_index: 3
   sprites:
-    # Selected-item light streak — offset.x driven by title.rhai
-    - type: text
-      id: light-streak
-      content: "──────────────────────────────────────────────────────────────────────────────────"
-      at: cc
-      y: 50
-      font: "generic:1"
-      fg: "#6fc54a"
-      opacity: 0.18
-
     # Menu items — fg colour and offset.x updated by title.rhai
     - type: text
       id: menu-item-0
@@ -84,7 +74,7 @@
       at: cc
       y: 40
       font: "Orbitron:ascii"
-      fg: "#ffffff"
+      fg: "#f6ae2d"
 
     - type: text
       id: menu-item-1
@@ -92,7 +82,7 @@
       at: cc
       y: 56
       font: "Orbitron:ascii"
-      fg: "#2d5c2d"
+      fg: "#2e5eaa"
 
     # Navigation hint
     - type: text
@@ -101,7 +91,7 @@
       at: cb
       y: -2
       font: "generic:1"
-      fg: "#1d3a1d"
+      fg: "#172e55"
 
     - type: text
       id: menu-credit
@@ -110,4 +100,4 @@
       x: -2
       y: -1
       font: "generic:1"
-      fg: "#1a2a1a"
+      fg: "#172e55"

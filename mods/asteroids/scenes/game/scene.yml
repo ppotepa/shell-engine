@@ -1,6 +1,6 @@
 id: asteroids-game
 title: Asteroids Game
-bg: black
+bg: "#060620"
 objects:
   - { ref: ship }
   - { ref: asteroid-large }
