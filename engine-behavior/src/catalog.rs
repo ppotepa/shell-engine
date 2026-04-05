@@ -199,8 +199,14 @@ pub struct EmitterConfig {
     pub mass: Option<f64>,
 
     // === COLOR RAMP ===
+    /// Named palette particle ramp to use as the default color ramp.
+    /// Engine resolves this against the active palette's `particles` map at emit time.
+    /// Resolution order: args `color_ramp` > active palette `particles[palette_ramp]` > `color_ramp`.
+    #[serde(default)]
+    pub palette_ramp: Option<String>,
     /// Per-particle color sequence: index 0 = freshest (life=1.0), last = oldest.
     /// Engine samples: idx = floor((1.0 - life_ratio) * N), clamped to N-1.
+    /// Used as fallback when `palette_ramp` is unset or the palette has no matching entry.
     #[serde(default)]
     pub color_ramp: Option<Vec<String>>,
     /// Particle radius at full life (life=1.0). Defaults to `radius` field if unset.

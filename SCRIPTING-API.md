@@ -55,6 +55,7 @@ Every frame, the engine injects the following variables into the script scope:
 | `debug`            | `DebugApi`        | Debug log output                                   |
 | `ui`               | `UiApi`           | TUI input widget queries                           |
 | `terminal`         | `TerminalApi`     | Terminal shell output (text push/clear)            |
+| `palette`          | `PaletteApi`      | Active colour palette — colors and particle ramps  |
 | `local`            | `Dynamic`         | Per-script frame-to-frame state (`#{}` or `()`)   |
 | `frame_ms`         | `int`             | Actual elapsed time for this frame (milliseconds)  |
 | `scene_elapsed_ms` | `int`             | Total elapsed ms since scene start                 |
@@ -620,6 +621,46 @@ For scenes with a `terminal-shell` layer — push/clear terminal output lines.
 terminal.push("Hello, world!")   // Append a line
 terminal.clear()                 // Clear all output
 ```
+
+---
+
+## `palette` — PaletteApi
+
+Active colour palette for the mod. Palette files live in `palettes/*.yml` and define named colors and particle ramps.
+
+```rhai
+palette.get("key")           // → str  Hex color for named key, or "" if missing
+palette.particles("ramp")    // → []   Ordered color array for particle ramp (e.g. "thruster")
+palette.name()               // → str  Display name of active palette
+palette.id()                 // → str  ID of active palette
+palette.set_active("id")     // → bool  Persist active palette choice
+palette.cycle()              // → str  Cycle to next palette, return new id
+palette.list()               // → []   All available palette ids (in load order)
+```
+
+**Palette YAML shape** (`palettes/<id>.yml`):
+```yaml
+id: teal
+name: Tropical Teal
+colors:
+  bg: "#060620"
+  ship: "#5bc0be"
+  # ...any mod-defined keys
+particles:
+  thruster:   ["#FFEECC", "#FFCC88", "#FF9944", "#CC6622", "#662211", "#221108"]
+  hot_engine: ["#CCFFFF", "#66FFFF", "#00FFCC", "#00CC99", "#008866", "#004433"]
+  brake:      ["#DDDDDD", "#BBBBBB", "#888888", "#555555", "#333333", "#111111"]
+  heat_trail: ["#AAFFFF", "#88DDDD", "#66BBBB", "#448888", "#225555", "#112233"]
+```
+
+**Emitter catalog integration** — set `palette_ramp: "ramp_name"` on an emitter config to auto-resolve the active palette's ramp at emit time:
+```yaml
+# mods/my-mod/catalogs/emitters.yaml
+my_emitter:
+  palette_ramp: "thruster"   # resolved from active palette.particles["thruster"]
+  color_ramp: [...]          # static fallback if palette has no matching entry
+```
+Resolution order: **script `color_ramp` arg > active palette `palette_ramp` entry > static `color_ramp`**.
 
 ---
 

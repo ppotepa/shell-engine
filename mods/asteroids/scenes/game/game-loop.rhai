@@ -229,6 +229,9 @@ if ship_id > 0 {
         hot_core: PAL_P_HOT_CORE,
         pulse: PAL_P_PULSE,
         correct: PAL_P_CORRECT,
+        ramp_hot_engine: palette.particles("hot_engine"),
+        ramp_brake: palette.particles("brake"),
+        ramp_heat_trail: palette.particles("heat_trail"),
     };
     rcs::update_ship_controls(world, input, ship_id, local, pal);
 

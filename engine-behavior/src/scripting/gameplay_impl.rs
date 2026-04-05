@@ -19,6 +19,9 @@ use engine_game::{
     VisualBinding,
 };
 
+use engine_persistence::PersistenceStore;
+
+use crate::palette::PaletteStore;
 use crate::rhai_util::{json_to_rhai_dynamic, rhai_dynamic_to_json};
 use crate::scripting::ephemeral::{spawn_ephemeral_visual, EphemeralSpawn};
 use crate::scripting::physics::ScriptEntityPhysicsApi;
@@ -31,6 +34,9 @@ pub(crate) struct ScriptGameplayApi {
     pub(crate) ctx: ScriptWorldContext,
     pub(crate) catalogs: Arc<catalog::ModCatalogs>,
     pub(crate) emitter_state: Option<EmitterState>,
+    pub(crate) palette_store: Arc<PaletteStore>,
+    pub(crate) palette_persistence: Option<PersistenceStore>,
+    pub(crate) palette_default_id: Option<String>,
 }
 
 #[derive(Clone)]
@@ -58,6 +64,9 @@ impl ScriptGameplayApi {
         catalogs: Arc<catalog::ModCatalogs>,
         emitter_state: Option<EmitterState>,
         queue: Arc<Mutex<Vec<BehaviorCommand>>>,
+        palette_store: Arc<PaletteStore>,
+        palette_persistence: Option<PersistenceStore>,
+        palette_default_id: Option<String>,
     ) -> Self {
         Self {
             ctx: ScriptWorldContext::new(
@@ -70,6 +79,9 @@ impl ScriptGameplayApi {
             ),
             catalogs,
             emitter_state,
+            palette_store,
+            palette_persistence,
+            palette_default_id,
         }
     }
 
@@ -87,6 +99,20 @@ impl ScriptGameplayApi {
             world.clear();
         }
     }
+
+    /// Look up a particle ramp from the active palette by name.
+    /// Returns None if no palette is active or the ramp name is not found.
+    fn resolve_palette_ramp(&self, ramp_name: &str) -> Option<Vec<String>> {
+        let persisted = self
+            .palette_persistence
+            .as_ref()
+            .and_then(|p| p.get("/__palette__"))
+            .and_then(|v| v.as_str().map(|s| s.to_string()));
+        self.palette_store
+            .resolve(persisted.as_deref(), self.palette_default_id.as_deref())
+            .and_then(|palette| palette.particles.get(ramp_name).cloned())
+    }
+
 
     pub(crate) fn count(&mut self) -> rhai::INT {
         self.ctx.world
@@ -1545,11 +1571,14 @@ impl ScriptGameplayApi {
             let _ = world.attach_particle_physics(id, particle_physics);
         }
 
-        // Resolve color ramp: args override > catalog default
+        // Resolve color ramp: args override > active palette[palette_ramp] > catalog static fallback
         let ramp_colors: Option<Vec<String>> = args
             .get("color_ramp")
             .and_then(|v| v.clone().try_cast::<rhai::Array>())
             .map(|arr| arr.into_iter().filter_map(|c| c.try_cast::<String>()).collect())
+            .or_else(|| {
+                config.palette_ramp.as_deref().and_then(|name| self.resolve_palette_ramp(name))
+            })
             .or_else(|| config.color_ramp.clone());
         if let Some(colors) = ramp_colors {
             if !colors.is_empty() {

@@ -20,13 +20,13 @@ fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread
     })
 }
 
-fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
+fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, pal) {
     let speed = base_speed * ignition_factor;
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed, ttl_ms: ttl_ms, fg: color, radius: radius,
         spread: (rand() - 0.5) * spread * 0.35,
-        color_ramp: ["#CCFFFF","#66FFFF","#00FFCC","#00CC99","#008866","#004433"],
+        color_ramp: pal["ramp_hot_engine"],
         radius_max: radius, radius_min: 0
     })
 }
@@ -42,22 +42,22 @@ fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread,
     })
 }
 
-fn emit_brake_particle(world, ship_id, emitter, speed, ttl_ms, intensity, radius) {
+fn emit_brake_particle(world, ship_id, emitter, speed, ttl_ms, intensity, radius, pal) {
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed * intensity, ttl_ms: ttl_ms, fg: "white", radius: radius,
         spread: (rand() - 0.5) * 0.03,
-        color_ramp: ["#DDDDDD","#BBBBBB","#888888","#555555","#333333","#111111"],
+        color_ramp: pal["ramp_brake"],
         radius_max: radius, radius_min: 1
     })
 }
 
-fn emit_final_burst_particle(world, ship_id, emitter, speed, ttl_ms) {
+fn emit_final_burst_particle(world, ship_id, emitter, speed, ttl_ms, pal) {
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed * (0.8 + rand() * 0.3), ttl_ms: ttl_ms,
         fg: "white", radius: 1, spread: (rand() - 0.5) * 0.20,
-        color_ramp: ["#AAFFFF","#88DDDD","#66BBBB","#448888","#225555","#112233"],
+        color_ramp: pal["ramp_heat_trail"],
         radius_max: 1, radius_min: 1
     })
 }
@@ -173,7 +173,7 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
 
     if transition_pulse {
         for i in 0..6 {
-            emit_hot_engine(world, ship_id, "ship.main", 200.0 + to_float(i) * 30.0, 350.0, pal["pulse"], 0.15, 1.0, 2);
+            emit_hot_engine(world, ship_id, "ship.main", 200.0 + to_float(i) * 30.0, 350.0, pal["pulse"], 0.15, 1.0, 2, pal);
         }
     }
 
@@ -197,21 +197,21 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
         let pspeed = (140.0 + to_float(i) * 15.0) * speed_mult * (0.9 + rand() * 0.2);
         let ttl    = ((base_ttl - to_float(i) * base_ttl * 0.03) * ttl_boost).max(25.0);
         let color  = if use_hot { pal["hot_init"] } else { pal["thrust_init"] };
-        if use_hot { emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, color, spread, eff_intensity, outer_radius); }
+        if use_hot { emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, color, spread, eff_intensity, outer_radius, pal); }
         else       { emit_rcs_intensity(world, ship_id, "ship.main", pspeed, ttl, color, spread, eff_intensity, outer_radius); }
     }
     for i in 0..inner_count {
         let pspeed = (110.0 + to_float(i) * 10.0) * speed_mult * (0.9 + rand() * 0.2);
         let ttl    = ((core_ttl - to_float(i) * core_ttl * 0.03) * ttl_boost).max(20.0);
         let color  = if use_hot { pal["hot_core"] } else { pal["thrust_init"] };
-        if use_hot { emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, color, spread * 0.5, eff_intensity, inner_radius); }
+        if use_hot { emit_hot_engine(world, ship_id, "ship.main", pspeed, ttl, color, spread * 0.5, eff_intensity, inner_radius, pal); }
         else       { emit_rcs_intensity(world, ship_id, "ship.main", pspeed, ttl, color, 0.18, eff_intensity, inner_radius); }
     }
 }
 
 // ======================== EMISSION: LINEAR BRAKE ===========================
 
-fn fire_auto_linear_brake(world, ship, ship_id, ignition_factor) {
+fn fire_auto_linear_brake(world, ship, ship_id, ignition_factor, pal) {
     let hd = world.heading_drift(ship_id);
     let speed     = hd["speed"] ?? 0.0;
     if speed < 2.0 { return; }
@@ -226,25 +226,25 @@ fn fire_auto_linear_brake(world, ship, ship_id, ignition_factor) {
     if vel_fwd > 0.0 {
         let intensity = 0.4 + (vel_fwd / speed) * 0.6;
         for i in 0..component_burst_count(abs_fwd) {
-            emit_brake_particle(world, ship_id, "ship.bow", 70.0 + abs_fwd * 0.4 + to_float(i) * 4.0, 200, intensity * ignition_factor, 1);
+            emit_brake_particle(world, ship_id, "ship.bow", 70.0 + abs_fwd * 0.4 + to_float(i) * 4.0, 200, intensity * ignition_factor, 1, pal);
         }
     }
     if vel_fwd < 0.0 {
         let intensity = 0.4 + (-vel_fwd / speed) * 0.6;
         for i in 0..component_burst_count(abs_fwd) {
-            emit_brake_particle(world, ship_id, "ship.main", 85.0 + abs_fwd * 0.45 + to_float(i) * 5.0, 240, intensity * ignition_factor, 2);
+            emit_brake_particle(world, ship_id, "ship.main", 85.0 + abs_fwd * 0.45 + to_float(i) * 5.0, 240, intensity * ignition_factor, 2, pal);
         }
     }
     if vel_right > 0.0 {
         let intensity = 0.4 + (vel_right / speed) * 0.6;
         for i in 0..component_burst_count(abs_right) {
-            emit_brake_particle(world, ship_id, "ship.starboard", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1);
+            emit_brake_particle(world, ship_id, "ship.starboard", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1, pal);
         }
     }
     if vel_right < 0.0 {
         let intensity = 0.4 + (-vel_right / speed) * 0.6;
         for i in 0..component_burst_count(abs_right) {
-            emit_brake_particle(world, ship_id, "ship.port", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1);
+            emit_brake_particle(world, ship_id, "ship.port", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1, pal);
         }
     }
 }
@@ -256,7 +256,7 @@ fn fire_settling_puff(world, ship_id, ignition_factor) {
     emit_rcs_intensity(world, ship_id, emitters[idx], 25.0, 50, "white", 0.01, ignition_factor * 0.25, 1);
 }
 
-fn fire_final_stabilization_burst(world, ship_id, angular_vel, wave_num) {
+fn fire_final_stabilization_burst(world, ship_id, angular_vel, wave_num, pal) {
     let intensity    = if wave_num == 0 { 1.0 } else if wave_num == 1 { 0.6 } else { 0.2 };
     let base_bursts_f = if wave_num == 0 { 8.0 + rand() * 2.0 } else if wave_num == 1 { 5.0 + rand() } else { 2.0 };
     let base_bursts  = if base_bursts_f < 2.5 { 2 } else if base_bursts_f < 5.5 { 5 } else if base_bursts_f < 7.0 { 6 } else if base_bursts_f < 9.0 { 8 } else { 10 };
@@ -265,10 +265,10 @@ fn fire_final_stabilization_burst(world, ship_id, angular_vel, wave_num) {
     let vel_right = hd["right"] ?? 0.0;
     let speed_mult = 0.5 + intensity * 0.5;
 
-    if vel_fwd > 0.1   { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.bow",       (40.0 + to_float(i) * 8.0)  * speed_mult, 180); } }
-    if vel_fwd < -0.1  { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.main",      (50.0 + to_float(i) * 10.0) * speed_mult, 200); } }
-    if vel_right > 0.1 { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.starboard", (35.0 + to_float(i) * 7.0)  * speed_mult, 160); } }
-    if vel_right < -0.1{ for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.port",      (35.0 + to_float(i) * 7.0)  * speed_mult, 160); } }
+    if vel_fwd > 0.1   { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.bow",       (40.0 + to_float(i) * 8.0)  * speed_mult, 180, pal); } }
+    if vel_fwd < -0.1  { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.main",      (50.0 + to_float(i) * 10.0) * speed_mult, 200, pal); } }
+    if vel_right > 0.1 { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.starboard", (35.0 + to_float(i) * 7.0)  * speed_mult, 160, pal); } }
+    if vel_right < -0.1{ for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.port",      (35.0 + to_float(i) * 7.0)  * speed_mult, 160, pal); } }
 
     if wave_num < 2 && absf(angular_vel) > 0.01 {
         let rot_bursts_f = if wave_num == 0 { 5.0 + rand() * 2.0 } else { 3.0 };
@@ -276,8 +276,8 @@ fn fire_final_stabilization_burst(world, ship_id, angular_vel, wave_num) {
         let e1 = if angular_vel > 0.0 { "ship.starboard" } else { "ship.port" };
         let e2 = if angular_vel > 0.0 { "ship.port" }      else { "ship.starboard" };
         for i in 0..rot_bursts {
-            emit_final_burst_particle(world, ship_id, e1, (30.0 + to_float(i) * 6.0) * speed_mult, 140);
-            emit_final_burst_particle(world, ship_id, e2, (25.0 + to_float(i) * 5.0) * speed_mult, 120);
+            emit_final_burst_particle(world, ship_id, e1, (30.0 + to_float(i) * 6.0) * speed_mult, 140, pal);
+            emit_final_burst_particle(world, ship_id, e2, (25.0 + to_float(i) * 5.0) * speed_mult, 120, pal);
         }
     }
     // Physics deceleration handled by engine LinearBrake component.
@@ -416,11 +416,11 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
         if auto_brake_phase == "rotation" {
             fire_auto_rotation_brake(world, ship_id, angular_vel, brake_factor);
         } else if auto_brake_phase == "linear" {
-            fire_auto_linear_brake(world, ship, ship_id, brake_factor);
+            fire_auto_linear_brake(world, ship, ship_id, brake_factor, pal);
         }
     }
     if final_burst_fired {
-        fire_final_stabilization_burst(world, ship_id, angular_vel, final_burst_wave_num);
+        fire_final_stabilization_burst(world, ship_id, angular_vel, final_burst_wave_num, pal);
     }
     if auto_brake_phase == "stopped" && rand() < 0.05 {
         fire_settling_puff(world, ship_id, 0.3);

@@ -69,8 +69,9 @@ emitters:
     # Physics: exhaust particles drift slightly with micro-gravity
     thread_mode: "physics"
     gravity_scale: 0.05
-    # Default ramp: cold thrust (orange). Hot thrust overrides via emit args.
-    color_ramp: ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"]
+    # Default ramp: resolved from active palette "thruster" entry.
+    # Hot thrust overrides with active palette "hot_engine" entry via emit args.
+    palette_ramp: "thruster"
     radius_max: 2
     radius_min: 0
 
@@ -92,7 +93,7 @@ emitters:
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
     thread_mode: "light"
-    color_ramp: ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"]
+    palette_ramp: "thruster"
     radius_max: 1
     radius_min: 0
 
@@ -114,7 +115,7 @@ emitters:
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
     thread_mode: "light"
-    color_ramp: ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"]
+    palette_ramp: "thruster"
     radius_max: 1
     radius_min: 0
 
@@ -136,7 +137,7 @@ emitters:
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
     thread_mode: "light"
-    color_ramp: ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"]
+    palette_ramp: "thruster"
     radius_max: 1
     radius_min: 0
 

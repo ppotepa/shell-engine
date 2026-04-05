@@ -684,6 +684,9 @@ impl Behavior for RhaiScriptBehavior {
                         Arc::clone(&ctx.catalogs),
                         ctx.emitter_state.clone(),
                         Arc::clone(&helper_commands),
+                        Arc::clone(&ctx.palettes),
+                        ctx.persistence.clone(),
+                        ctx.default_palette.clone(),
                     ),
                 );
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
