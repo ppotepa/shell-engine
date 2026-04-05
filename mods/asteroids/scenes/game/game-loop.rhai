@@ -69,8 +69,9 @@ fn keep_asteroids_alive(world, asteroid_col) {
 }
 
 fn spawn_wave(world, wave, asteroid_col) {
-    let WORLD_W = 640.0;
-    let WORLD_H = 360.0;
+    let b = world.world_bounds();
+    let WORLD_W = b["max_x"];
+    let WORLD_H = b["max_y"];
     let count = 3 + wave;
     for i in 0..count {
         let side = i % 4;
@@ -97,8 +98,9 @@ fn spawn_wave(world, wave, asteroid_col) {
 }
 
 fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
-    let WORLD_W = 640.0;
-    let WORLD_H = 360.0;
+    let b = world.world_bounds();
+    let WORLD_W = b["max_x"];
+    let WORLD_H = b["max_y"];
     for i in 0..2 {
         let speed = 40.0 + rand() * 30.0;
         let vx = parent_vx * 0.5 + speed * (if i == 0 { 1.0 } else { -1.0 }) * 0.707;
@@ -116,8 +118,9 @@ fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
 }
 
 fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
-    let WORLD_W = 640.0;
-    let WORLD_H = 360.0;
+    let b = world.world_bounds();
+    let WORLD_W = b["max_x"];
+    let WORLD_H = b["max_y"];
     for i in 0..2 {
         let speed = 55.0 + rand() * 25.0;
         let vx = parent_vx * 0.4 + speed * (if i == 0 { 1.0 } else { -1.0 });
@@ -135,10 +138,11 @@ fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
 }
 
 fn ensure_ship(world, ship_col) {
-    let WORLD_W = 640.0;
-    let WORLD_H = 360.0;
-    let SHIP_X = 320.0;
-    let SHIP_Y = 180.0;
+    let b = world.world_bounds();
+    let WORLD_W = b["max_x"];
+    let WORLD_H = b["max_y"];
+    let SHIP_X = WORLD_W * 0.5;
+    let SHIP_Y = WORLD_H * 0.5;
     let existing = world.first_kind("ship");
     if existing > 0 { return existing; }
     let ship_id = world.spawn_prefab("ship", #{
@@ -1032,7 +1036,6 @@ if !(local.initialized ?? false) {
     local.wave = 1;
     local.game_over = false;
     local.respawn_timer = 0.0;
-    local.fire_cooldown = 0.0;
     local.invincible_timer = 0.0;
     local.control_state = #{
         angular_vel: 0.0,
@@ -1059,7 +1062,6 @@ let lives       = local.lives ?? 3;
 let wave        = local.wave ?? 1;
 let game_over   = local.game_over ?? false;
 let respawn_timer   = local.respawn_timer ?? 0.0;
-let fire_cooldown   = local.fire_cooldown ?? 0.0;
 let invincible_timer = local.invincible_timer ?? 0.0;
 
 // ── HUD update ──────────────────────────────────────────────────────────────
@@ -1086,7 +1088,6 @@ if game_over {
         local.wave = 1;
         local.game_over = false;
         local.respawn_timer = 0.0;
-        local.fire_cooldown = 0.0;
         local.invincible_timer = 0.0;
         local.control_state = #{
             angular_vel: 0.0, thrust_ignition_ms: 0.0, rotation_ignition_ms: 0.0,
@@ -1119,13 +1120,6 @@ if invincible_timer > 0.0 {
     local.invincible_timer = invincible_timer;
 }
 
-// ── Fire cooldown ────────────────────────────────────────────────────────────
-if fire_cooldown > 0.0 {
-    fire_cooldown = fire_cooldown - 16.0;
-    if fire_cooldown < 0.0 { fire_cooldown = 0.0; }
-    local.fire_cooldown = fire_cooldown;
-}
-
 // ── Ship controls ────────────────────────────────────────────────────────────
 let ship_id = if respawn_timer <= 0.0 { ensure_ship(world, PAL_SHIP) } else { 0 };
 local.ship_id = ship_id;
@@ -1148,7 +1142,7 @@ if ship_id > 0 {
     local.control_state = new_state;
 
     // ── Shooting ─────────────────────────────────────────────────────────────
-    if input.action_just_pressed("fire") && fire_cooldown <= 0.0 {
+    if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
         let ship_xf = world.transform(ship_id);
         if type_of(ship_xf) == "map" {
             let sx = ship_xf["x"] ?? 0.0;
@@ -1173,8 +1167,7 @@ if ship_id > 0 {
                 world.tag_add(bullet_id, "player-bullet");
                 world.set(bullet_id, "style.fg", PAL_BULLET);
             }
-            fire_cooldown = 180.0;
-            local.fire_cooldown = fire_cooldown;
+            world.entity(ship_id).cooldown_start("fire", 180);
         }
     }
 }
@@ -1187,44 +1180,42 @@ if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && respaw
 }
 
 // ── Collision handling ────────────────────────────────────────────────────────
-let events = world.poll_collision_events();
-for ev in events {
-    let a = ev["a"];
-    let b = ev["b"];
+// bullet hits asteroid
+for hit in collision.enters_of("bullet") {
+    let bullet_id   = hit["self"];
+    let asteroid_id = hit["other"];
+    if !world.tag_has(asteroid_id, "asteroid") { continue; }
+    if !world.exists(bullet_id) || !world.exists(asteroid_id) { continue; }
+    let axf = world.transform(asteroid_id);
+    let ax = if type_of(axf) == "map" { axf["x"] ?? 0.0 } else { 0.0 };
+    let ay = if type_of(axf) == "map" { axf["y"] ?? 0.0 } else { 0.0 };
+    let aphys = world.physics(asteroid_id);
+    let avx = if type_of(aphys) == "map" { aphys["vx"] ?? 0.0 } else { 0.0 };
+    let avy = if type_of(aphys) == "map" { aphys["vy"] ?? 0.0 } else { 0.0 };
 
-    // bullet hits asteroid
-    let bullet_id = if world.tag_has(a, "bullet") { a } else if world.tag_has(b, "bullet") { b } else { 0 };
-    let asteroid_id = if world.tag_has(a, "asteroid") { a } else if world.tag_has(b, "asteroid") { b } else { 0 };
-
-    if bullet_id > 0 && asteroid_id > 0 && world.exists(bullet_id) && world.exists(asteroid_id) {
-        let axf = world.transform(asteroid_id);
-        let ax = if type_of(axf) == "map" { axf["x"] ?? 0.0 } else { 0.0 };
-        let ay = if type_of(axf) == "map" { axf["y"] ?? 0.0 } else { 0.0 };
-        let aphys = world.physics(asteroid_id);
-        let avx = if type_of(aphys) == "map" { aphys["vx"] ?? 0.0 } else { 0.0 };
-        let avy = if type_of(aphys) == "map" { aphys["vy"] ?? 0.0 } else { 0.0 };
-
-        // Score + split
-        if world.tag_has(asteroid_id, "asteroid-large") {
-            score = score + 20;
-            world.despawn(asteroid_id);
-            spawn_medium_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
-        } else if world.tag_has(asteroid_id, "asteroid-medium") {
-            score = score + 50;
-            world.despawn(asteroid_id);
-            spawn_small_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
-        } else if world.tag_has(asteroid_id, "asteroid-small") {
-            score = score + 100;
-            world.despawn(asteroid_id);
-        }
-        local.score = score;
-        world.despawn(bullet_id);
+    // Score + split
+    if world.tag_has(asteroid_id, "asteroid-large") {
+        score = score + 20;
+        world.despawn(asteroid_id);
+        spawn_medium_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
+    } else if world.tag_has(asteroid_id, "asteroid-medium") {
+        score = score + 50;
+        world.despawn(asteroid_id);
+        spawn_small_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
+    } else if world.tag_has(asteroid_id, "asteroid-small") {
+        score = score + 100;
+        world.despawn(asteroid_id);
     }
+    local.score = score;
+    world.despawn(bullet_id);
+}
 
-    // ship hits asteroid
-    let ship_hit = (world.tag_has(a, "player") || world.tag_has(b, "player"));
-    let astrd_hit = (world.tag_has(a, "asteroid") || world.tag_has(b, "asteroid"));
-    if ship_hit && astrd_hit && invincible_timer <= 0.0 && ship_id > 0 {
+// ship hits asteroid
+if invincible_timer <= 0.0 && ship_id > 0 {
+    for hit in collision.enters_of("ship") {
+        let hit_ship_id = hit["self"];
+        let other_id    = hit["other"];
+        if hit_ship_id != ship_id || !world.tag_has(other_id, "asteroid") { continue; }
         world.despawn(ship_id);
         local.ship_id = 0;
         ship_id = 0;
@@ -1238,6 +1229,7 @@ for ev in events {
             respawn_timer = 2000.0;
             local.respawn_timer = respawn_timer;
         }
+        break;
     }
 }
 
