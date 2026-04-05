@@ -40,22 +40,25 @@ local.counter += 1;
 
 Every frame, the engine injects the following variables into the script scope:
 
-| Variable    | Type              | Description                                        |
-|-------------|-------------------|----------------------------------------------------|
-| `world`     | `WorldApi`        | Entity lifecycle, queries, physics, collisions     |
-| `collision` | `CollisionApi`    | Structured collision event queries                 |
-| `scene`     | `SceneApi`        | Scene graph property reads and writes              |
-| `input`     | `InputApi`        | Key/action queries and action binding              |
-| `audio`     | `AudioApi`        | Sound cue playback and music                       |
-| `effects`   | `EffectsApi`      | Screen shake and post-FX trigger                   |
-| `game`      | `GameApi`         | Cross-scene state store + scene transitions        |
-| `level`     | `LevelApi`        | Level list management                              |
-| `time`      | `TimeApi`         | Elapsed time, stage name                           |
-| `persist`   | `PersistApi`      | Disk-backed persistent key-value store             |
-| `debug`     | `DebugApi`        | Debug log output                                   |
-| `ui`        | `UiApi`           | TUI input widget queries                           |
-| `terminal`  | `TerminalApi`     | Terminal shell output (text push/clear)            |
-| `local`     | `Dynamic`         | Per-script frame-to-frame state (`#{}` or `()`)   |
+| Variable           | Type              | Description                                        |
+|--------------------|-------------------|----------------------------------------------------|
+| `world`            | `WorldApi`        | Entity lifecycle, queries, physics, collisions     |
+| `collision`        | `CollisionApi`    | Structured collision event queries                 |
+| `scene`            | `SceneApi`        | Scene graph property reads and writes              |
+| `input`            | `InputApi`        | Key/action queries and action binding              |
+| `audio`            | `AudioApi`        | Sound cue playback and music                       |
+| `effects`          | `EffectsApi`      | Screen shake and post-FX trigger                   |
+| `game`             | `GameApi`         | Cross-scene state store + scene transitions        |
+| `level`            | `LevelApi`        | Level list management                              |
+| `time`             | `TimeApi`         | Elapsed time, stage name                           |
+| `persist`          | `PersistApi`      | Disk-backed persistent key-value store             |
+| `debug`            | `DebugApi`        | Debug log output                                   |
+| `ui`               | `UiApi`           | TUI input widget queries                           |
+| `terminal`         | `TerminalApi`     | Terminal shell output (text push/clear)            |
+| `local`            | `Dynamic`         | Per-script frame-to-frame state (`#{}` or `()`)   |
+| `frame_ms`         | `int`             | Actual elapsed time for this frame (milliseconds)  |
+| `scene_elapsed_ms` | `int`             | Total elapsed ms since scene start                 |
+| `stage_elapsed_ms` | `int`             | Total elapsed ms since current stage start         |
 
 ---
 
@@ -215,6 +218,60 @@ rand()                   // → float  [0.0, 1.0) — fast thread-local Xorshift
 ### Arcade Controller (World Level)
 
 > **These world-level methods have been removed.** Use the entity-level API instead (`e.set_turn`, `e.set_thrust`, `e.heading_vector`).
+
+### Angular Body
+
+Smooth rotation with per-entity angular velocity and auto-brake.
+
+```rhai
+world.angular_body_attach(id, #{
+    accel: 5.5,        // angular acceleration (rad/s²)
+    max: 7.0,          // max angular velocity (rad/s)
+    deadband: 0.10,    // auto-brake deadband (rad/s)
+    auto_brake: true   // brake toward zero when input is 0
+})                                  // → bool
+
+world.set_angular_input(id, turn)   // → bool  Set turn input −1.0…+1.0 for this frame
+world.angular_vel(id)               // → float  Current angular velocity (rad/s)
+```
+
+The `angular_body_system` runs before physics integration each tick — no manual update needed.
+
+### Linear Brake
+
+Smooth velocity damping with per-entity deceleration and auto-brake.
+
+```rhai
+world.linear_brake_attach(id, #{
+    decel: 45.0,       // deceleration (world units/s²)
+    deadband: 2.0,     // stop completely below this speed
+    auto_brake: true   // brake automatically when not thrusting
+})                                          // → bool
+
+world.set_linear_brake_active(id, true)     // → bool  Suppress auto-brake this frame
+                                            //         (call each frame while thrusting)
+```
+
+`linear_brake_system` runs before physics; not calling `set_linear_brake_active` on a frame allows braking to apply.
+
+### Heading-Relative Helpers
+
+```rhai
+// Decompose velocity into heading-relative components
+let hd = world.heading_drift(id);   // → #{fwd, right, drift, speed}
+// fwd:   forward velocity (+ = along heading, − = backward)
+// right: lateral velocity (+ = drifting clockwise, − = counter-clockwise)
+// drift: |right| / speed, normalised 0–1 (0 = perfectly aligned)
+// speed: total speed magnitude
+
+// Spawn a prefab along owner heading direction (removes sin/cos from scripts)
+let id = world.spawn_from_heading(owner_id, "prefab-name", #{
+    speed: 280.0,             // projectile speed (world units/s)
+    offset: 17.0,             // forward offset from owner origin
+    inherit_velocity: true,   // add owner velocity to projectile
+    ttl_ms: 1400              // forwarded to spawn_prefab
+})                            // → int  Spawned entity id (0 on failure)
+```
 
 ---
 
