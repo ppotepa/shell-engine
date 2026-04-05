@@ -6,6 +6,8 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -24,11 +26,24 @@ pub struct PaletteData {
 }
 
 /// All palettes available in a mod, indexed by their `id`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct PaletteStore {
     pub palettes: HashMap<String, PaletteData>,
     /// Ordered list of ids in the order they were loaded (for cycling).
     pub order: Vec<String>,
+    /// Monotonically increasing counter, bumped every time the active palette changes.
+    /// Scripts can cache this value and skip palette re-reads when it hasn't changed.
+    pub version: Arc<AtomicU64>,
+}
+
+impl Default for PaletteStore {
+    fn default() -> Self {
+        Self {
+            palettes: HashMap::new(),
+            order: Vec::new(),
+            version: Arc::new(AtomicU64::new(1)),
+        }
+    }
 }
 
 impl PaletteStore {

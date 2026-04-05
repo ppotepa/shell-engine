@@ -23,26 +23,58 @@ let WORLD_W = 640.0;
 let WORLD_H = 360.0;
 
 // ======================== PALETTE SETUP ====================================
-// Read active palette once per frame; fall back to defaults if not loaded.
-let PAL_BG           = palette.get("bg");           if PAL_BG           == "" { PAL_BG           = "#060620"; }
-let PAL_SHIP         = palette.get("ship");         if PAL_SHIP         == "" { PAL_SHIP         = "white"; }
-let PAL_ASTEROID     = palette.get("asteroid");     if PAL_ASTEROID     == "" { PAL_ASTEROID     = "white"; }
-let PAL_BULLET       = palette.get("bullet");       if PAL_BULLET       == "" { PAL_BULLET       = "yellow"; }
-let PAL_DEBRIS       = palette.get("debris");       if PAL_DEBRIS       == "" { PAL_DEBRIS       = "gray"; }
-let PAL_HUD_LABEL    = palette.get("hud_label");    if PAL_HUD_LABEL    == "" { PAL_HUD_LABEL    = "#2e5eaa"; }
-let PAL_HUD_VALUE    = palette.get("hud_value");    if PAL_HUD_VALUE    == "" { PAL_HUD_VALUE    = "#5bc0be"; }
-let PAL_GAMEOVER     = palette.get("gameover");     if PAL_GAMEOVER     == "" { PAL_GAMEOVER     = "#f6ae2d"; }
-let PAL_GAMEOVER_SUB = palette.get("gameover_sub"); if PAL_GAMEOVER_SUB == "" { PAL_GAMEOVER_SUB = "#c2a83e"; }
+// Only re-read palette values when the active palette has changed.
+// palette.version() is bumped by the engine every time set_active/cycle is called.
+let pal_ver = palette.version();
+if pal_ver != (local.pal_ver ?? -1) {
+    local.pal_ver = pal_ver;
 
-let PAL_P_THRUST_INIT  = palette.get("particle_thruster_init"); if PAL_P_THRUST_INIT  == "" { PAL_P_THRUST_INIT  = "white"; }
-let PAL_P_HOT_INIT     = palette.get("particle_hot_init");      if PAL_P_HOT_INIT     == "" { PAL_P_HOT_INIT     = "#66FFFF"; }
-let PAL_P_HOT_CORE     = palette.get("particle_hot_core_init"); if PAL_P_HOT_CORE     == "" { PAL_P_HOT_CORE     = "#AAFFFF"; }
-let PAL_P_BRAKE_INIT   = palette.get("particle_brake_init");    if PAL_P_BRAKE_INIT   == "" { PAL_P_BRAKE_INIT   = "white"; }
-let PAL_P_CORRECT      = palette.get("particle_correction");    if PAL_P_CORRECT      == "" { PAL_P_CORRECT      = "#AACCFF"; }
-let PAL_P_PULSE        = palette.get("particle_pulse");         if PAL_P_PULSE        == "" { PAL_P_PULSE        = "#00FFFF"; }
+    let PAL_BG           = palette.get("bg");           if PAL_BG           == "" { PAL_BG           = "#060620"; }
+    let PAL_SHIP         = palette.get("ship");         if PAL_SHIP         == "" { PAL_SHIP         = "white"; }
+    let PAL_ASTEROID     = palette.get("asteroid");     if PAL_ASTEROID     == "" { PAL_ASTEROID     = "white"; }
+    let PAL_BULLET       = palette.get("bullet");       if PAL_BULLET       == "" { PAL_BULLET       = "yellow"; }
+    let PAL_HUD_LABEL    = palette.get("hud_label");    if PAL_HUD_LABEL    == "" { PAL_HUD_LABEL    = "#2e5eaa"; }
+    let PAL_HUD_VALUE    = palette.get("hud_value");    if PAL_HUD_VALUE    == "" { PAL_HUD_VALUE    = "#5bc0be"; }
+    let PAL_GAMEOVER     = palette.get("gameover");     if PAL_GAMEOVER     == "" { PAL_GAMEOVER     = "#f6ae2d"; }
+    let PAL_GAMEOVER_SUB = palette.get("gameover_sub"); if PAL_GAMEOVER_SUB == "" { PAL_GAMEOVER_SUB = "#c2a83e"; }
+    let PAL_P_THRUST_INIT  = palette.get("particle_thruster_init"); if PAL_P_THRUST_INIT  == "" { PAL_P_THRUST_INIT  = "white"; }
+    let PAL_P_HOT_INIT     = palette.get("particle_hot_init");      if PAL_P_HOT_INIT     == "" { PAL_P_HOT_INIT     = "#66FFFF"; }
+    let PAL_P_HOT_CORE     = palette.get("particle_hot_core_init"); if PAL_P_HOT_CORE     == "" { PAL_P_HOT_CORE     = "#AAFFFF"; }
+    let PAL_P_CORRECT      = palette.get("particle_correction");    if PAL_P_CORRECT      == "" { PAL_P_CORRECT      = "#AACCFF"; }
+    let PAL_P_PULSE        = palette.get("particle_pulse");         if PAL_P_PULSE        == "" { PAL_P_PULSE        = "#00FFFF"; }
 
-// Apply scene background and HUD label colors every frame
-scene.set_bg(PAL_BG);
+    local.pal = #{
+        bg:           PAL_BG,
+        ship:         PAL_SHIP,
+        asteroid:     PAL_ASTEROID,
+        bullet:       PAL_BULLET,
+        hud_label:    PAL_HUD_LABEL,
+        hud_value:    PAL_HUD_VALUE,
+        gameover:     PAL_GAMEOVER,
+        gameover_sub: PAL_GAMEOVER_SUB,
+        thrust_init:  PAL_P_THRUST_INIT,
+        hot_init:     PAL_P_HOT_INIT,
+        hot_core:     PAL_P_HOT_CORE,
+        pulse:        PAL_P_PULSE,
+        correct:      PAL_P_CORRECT,
+        ramp_hot_engine: palette.particles("hot_engine"),
+        ramp_brake:      palette.particles("brake"),
+        ramp_heat_trail: palette.particles("heat_trail"),
+    };
+
+    // Apply palette-driven static styles (only needed on change)
+    scene.set_bg(PAL_BG);
+    scene.set("hud-score",        "style.fg", PAL_HUD_VALUE);
+    scene.set("hud-lives",        "style.fg", PAL_HUD_VALUE);
+    scene.set("hud-wave",         "style.fg", PAL_HUD_VALUE);
+    scene.set("hud-label-score",  "style.fg", PAL_HUD_LABEL);
+    scene.set("hud-label-lives",  "style.fg", PAL_HUD_LABEL);
+    scene.set("hud-label-wave",   "style.fg", PAL_HUD_LABEL);
+    scene.set("hud-gameover",     "style.fg", PAL_GAMEOVER);
+    scene.set("hud-gameover-sub", "style.fg", PAL_GAMEOVER_SUB);
+}
+
+let col  = local.pal ?? #{};
 
 // ======================== HELPER FUNCTIONS =================================
 
@@ -52,9 +84,8 @@ fn keep_asteroids_alive(world, asteroid_col) {
 }
 
 fn spawn_wave(world, wave, asteroid_col) {
-    let b = world.world_bounds();
-    let WORLD_W = b["max_x"];
-    let WORLD_H = b["max_y"];
+    let WORLD_W = world.world_width();
+    let WORLD_H = world.world_height();
     let count = 3 + wave;
     for i in 0..count {
         let side = i % 4;
@@ -69,11 +100,10 @@ fn spawn_wave(world, wave, asteroid_col) {
         if absf(vx) < 10.0 { vx = if vx >= 0.0 { 10.0 } else { -10.0 }; }
         if absf(vy) < 10.0 { vy = if vy >= 0.0 { 10.0 } else { -10.0 }; }
         let id = world.spawn_prefab("asteroid-large", #{
-            x: x, y: y, vx: vx, vy: vy
+            x: x, y: y, vx: vx, vy: vy,
+            tags: ["asteroid", "asteroid-large"]
         });
         if id > 0 {
-            world.tag_add(id, "asteroid");
-            world.tag_add(id, "asteroid-large");
             world.enable_wrap(id, 0.0, WORLD_W, 0.0, WORLD_H);
             world.set(id, "style.fg", asteroid_col);
         }
@@ -81,19 +111,17 @@ fn spawn_wave(world, wave, asteroid_col) {
 }
 
 fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
-    let b = world.world_bounds();
-    let WORLD_W = b["max_x"];
-    let WORLD_H = b["max_y"];
+    let WORLD_W = world.world_width();
+    let WORLD_H = world.world_height();
     for i in 0..2 {
         let speed = 40.0 + rand() * 30.0;
         let vx = parent_vx * 0.5 + speed * (if i == 0 { 1.0 } else { -1.0 }) * 0.707;
         let vy = parent_vy * 0.5 + speed * (if i == 0 { 0.707 } else { -0.707 });
         let id = world.spawn_prefab("asteroid-medium", #{
-            x: x, y: y, vx: vx, vy: vy
+            x: x, y: y, vx: vx, vy: vy,
+            tags: ["asteroid", "asteroid-medium"]
         });
         if id > 0 {
-            world.tag_add(id, "asteroid");
-            world.tag_add(id, "asteroid-medium");
             world.enable_wrap(id, 0.0, WORLD_W, 0.0, WORLD_H);
             world.set(id, "style.fg", asteroid_col);
         }
@@ -101,19 +129,17 @@ fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
 }
 
 fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
-    let b = world.world_bounds();
-    let WORLD_W = b["max_x"];
-    let WORLD_H = b["max_y"];
+    let WORLD_W = world.world_width();
+    let WORLD_H = world.world_height();
     for i in 0..2 {
         let speed = 55.0 + rand() * 25.0;
         let vx = parent_vx * 0.4 + speed * (if i == 0 { 1.0 } else { -1.0 });
         let vy = parent_vy * 0.4 + speed * (if i == 0 { 0.5 } else { -0.5 });
         let id = world.spawn_prefab("asteroid-small", #{
-            x: x, y: y, vx: vx, vy: vy
+            x: x, y: y, vx: vx, vy: vy,
+            tags: ["asteroid", "asteroid-small"]
         });
         if id > 0 {
-            world.tag_add(id, "asteroid");
-            world.tag_add(id, "asteroid-small");
             world.enable_wrap(id, 0.0, WORLD_W, 0.0, WORLD_H);
             world.set(id, "style.fg", asteroid_col);
         }
@@ -121,9 +147,8 @@ fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy, asteroid_col) {
 }
 
 fn ensure_ship(world, ship_col) {
-    let b = world.world_bounds();
-    let WORLD_W = b["max_x"];
-    let WORLD_H = b["max_y"];
+    let WORLD_W = world.world_width();
+    let WORLD_H = world.world_height();
     let SHIP_X = WORLD_W * 0.5;
     let SHIP_Y = WORLD_H * 0.5;
     let existing = world.first_kind("ship");
@@ -156,7 +181,7 @@ if !(local.initialized ?? false) {
     input.load_profile("default");
     scene.set("hud-gameover", "visible", false);
     scene.set("hud-gameover-sub", "visible", false);
-    spawn_wave(world, 1, PAL_ASTEROID);
+    spawn_wave(world, 1, col["asteroid"] ?? "white");
 }
 
 // ======================== MAIN LOOP ========================================
@@ -181,18 +206,19 @@ if world.timer_fired("invincible_done") {
     invincible = false;
 }
 
-// ── HUD update ──────────────────────────────────────────────────────────────
-scene.set("hud-score", "text.content", to_string(score));
-scene.set("hud-lives", "text.content", to_string(lives));
-scene.set("hud-wave",  "text.content", to_string(wave));
-scene.set("hud-score",       "style.fg", PAL_HUD_VALUE);
-scene.set("hud-lives",       "style.fg", PAL_HUD_VALUE);
-scene.set("hud-wave",        "style.fg", PAL_HUD_VALUE);
-scene.set("hud-label-score", "style.fg", PAL_HUD_LABEL);
-scene.set("hud-label-lives", "style.fg", PAL_HUD_LABEL);
-scene.set("hud-label-wave",  "style.fg", PAL_HUD_LABEL);
-scene.set("hud-gameover",     "style.fg", PAL_GAMEOVER);
-scene.set("hud-gameover-sub", "style.fg", PAL_GAMEOVER_SUB);
+// ── HUD text update (only when values change) ────────────────────────────────
+if score != (local.last_hud_score ?? -1) {
+    scene.set("hud-score", "text.content", to_string(score));
+    local.last_hud_score = score;
+}
+if lives != (local.last_hud_lives ?? -1) {
+    scene.set("hud-lives", "text.content", to_string(lives));
+    local.last_hud_lives = lives;
+}
+if wave != (local.last_hud_wave ?? -1) {
+    scene.set("hud-wave", "text.content", to_string(wave));
+    local.last_hud_wave = wave;
+}
 
 // ── Game-over state ─────────────────────────────────────────────────────────
 if game_over {
@@ -206,6 +232,9 @@ if game_over {
         local.game_over = false;
         local.respawning = false;
         local.invincible = false;
+        local.last_hud_score = -1;
+        local.last_hud_lives = -1;
+        local.last_hud_wave  = -1;
         world.cancel_timer("respawn_done");
         world.cancel_timer("invincible_done");
         scene.set("hud-gameover", "visible", false);
@@ -213,37 +242,26 @@ if game_over {
         // Despawn all asteroids and bullets
         for id in world.query_tag("asteroid") { world.despawn(id); }
         for id in world.query_tag("bullet") { world.despawn(id); }
-        spawn_wave(world, 1, PAL_ASTEROID);
+        spawn_wave(world, 1, col["asteroid"] ?? "white");
     }
     #{state: local}
 } else {
 
 // ── Ship controls ────────────────────────────────────────────────────────────
-let ship_id = if !respawning { ensure_ship(world, PAL_SHIP) } else { 0 };
+let ship_id = if !respawning { ensure_ship(world, col["ship"] ?? "white") } else { 0 };
 local.ship_id = ship_id;
 
 if ship_id > 0 {
-    let pal = #{
-        thrust_init: PAL_P_THRUST_INIT,
-        hot_init: PAL_P_HOT_INIT,
-        hot_core: PAL_P_HOT_CORE,
-        pulse: PAL_P_PULSE,
-        correct: PAL_P_CORRECT,
-        ramp_hot_engine: palette.particles("hot_engine"),
-        ramp_brake: palette.particles("brake"),
-        ramp_heat_trail: palette.particles("heat_trail"),
-    };
-    rcs::update_ship_controls(world, input, ship_id, local, pal);
+    rcs::update_ship_controls(world, input, ship_id, local, col);
 
     // ── Shooting ─────────────────────────────────────────────────────────────
     if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
         let bullet_id = world.spawn_from_heading(ship_id, "bullet", #{
-            speed: 280.0, offset: 17.0, ttl_ms: 1400, inherit_velocity: true
+            speed: 280.0, offset: 17.0, ttl_ms: 1400, inherit_velocity: true,
+            tags: ["bullet", "player-bullet"]
         });
         if bullet_id > 0 {
-            world.tag_add(bullet_id, "bullet");
-            world.tag_add(bullet_id, "player-bullet");
-            world.set(bullet_id, "style.fg", PAL_BULLET);
+            world.set(bullet_id, "style.fg", col["bullet"] ?? "yellow");
         }
         world.entity(ship_id).cooldown_start("fire", 180);
     }
@@ -253,7 +271,7 @@ if ship_id > 0 {
 if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respawning {
     wave = wave + 1;
     local.wave = wave;
-    spawn_wave(world, wave, PAL_ASTEROID);
+    spawn_wave(world, wave, col["asteroid"] ?? "white");
 }
 
 // ── Collision handling ────────────────────────────────────────────────────────
@@ -273,11 +291,11 @@ for hit in collision.enters("bullet", "asteroid") {
     if world.tag_has(asteroid_id, "asteroid-large") {
         score = score + 20;
         world.despawn(asteroid_id);
-        spawn_medium_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
+        spawn_medium_asteroids(world, ax, ay, avx, avy, col["asteroid"] ?? "white");
     } else if world.tag_has(asteroid_id, "asteroid-medium") {
         score = score + 50;
         world.despawn(asteroid_id);
-        spawn_small_asteroids(world, ax, ay, avx, avy, PAL_ASTEROID);
+        spawn_small_asteroids(world, ax, ay, avx, avy, col["asteroid"] ?? "white");
     } else if world.tag_has(asteroid_id, "asteroid-small") {
         score = score + 100;
         world.despawn(asteroid_id);

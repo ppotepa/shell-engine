@@ -871,6 +871,7 @@ dependencies = [
  "engine-game",
  "engine-persistence",
  "engine-physics",
+ "indexmap",
  "rhai",
  "serde",
  "serde_json",

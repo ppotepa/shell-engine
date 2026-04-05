@@ -58,9 +58,7 @@ let star_ids = [
     "star-0","star-1","star-2","star-3","star-4","star-5","star-6","star-7","star-8","star-9",
     "star-10","star-11","star-12","star-13","star-14","star-15","star-16","star-17","star-18","star-19"
 ];
-for sid in star_ids {
-    scene.set(sid, "style.fg", col_star);
-}
+scene.set_multi(star_ids, "style.fg", col_star);
 
 // Show active palette name in the hint
 let pname = palette.name();

@@ -186,6 +186,31 @@ impl ScriptSceneApi {
         });
     }
 
+    /// Set the same property on multiple scene objects in a single call.
+    ///
+    /// ```rhai
+    /// scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col);
+    /// ```
+    pub fn set_multi(&mut self, targets: RhaiDynamic, path: &str, value: RhaiDynamic) {
+        let Ok(arr) = targets.into_array() else { return };
+        let normalized_path = normalize_set_path(path);
+        let Some(json_value) = rhai_dynamic_to_json(&value) else { return };
+        let Ok(mut queue) = self.queue.lock() else { return };
+        for t in arr {
+            let Ok(target_str) = t.into_string() else { continue };
+            let resolved = self
+                .target_resolver
+                .resolve_alias(&target_str)
+                .unwrap_or(&target_str)
+                .to_string();
+            queue.push(BehaviorCommand::SetProperty {
+                target: resolved,
+                path: normalized_path.clone(),
+                value: json_value.clone(),
+            });
+        }
+    }
+
     /// Spawn a scene object from a template.
     pub fn spawn(&mut self, template: &str, target: &str) -> bool {
         if template.trim().is_empty() || target.trim().is_empty() {
@@ -288,6 +313,12 @@ pub fn register_scene_api(engine: &mut RhaiEngine) {
         "set",
         |scene: &mut ScriptSceneApi, target: &str, path: &str, value: RhaiDynamic| {
             scene.set(target, path, value);
+        },
+    );
+    engine.register_fn(
+        "set_multi",
+        |scene: &mut ScriptSceneApi, targets: RhaiDynamic, path: &str, value: RhaiDynamic| {
+            scene.set_multi(targets, path, value);
         },
     );
     engine.register_fn(

@@ -310,6 +310,8 @@ where
          max_y: rhai::FLOAT| { world.set_world_bounds(min_x, min_y, max_x, max_y) },
     );
     engine.register_fn("world_bounds", |world: &mut TWorld| world.world_bounds());
+    engine.register_fn("world_width", |world: &mut TWorld| world.world_width());
+    engine.register_fn("world_height", |world: &mut TWorld| world.world_height());
     engine.register_fn("rand_i", |world: &mut TWorld, min: rhai::INT, max: rhai::INT| {
         world.rand_i(min, max)
     });

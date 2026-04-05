@@ -52,6 +52,10 @@ struct GameplayStore {
     world_timers: std::collections::HashMap<String, i64>,
     /// Labels of world timers that fired this tick (cleared at start of next tick).
     fired_world_timers: Vec<String>,
+    /// O(1) kind count: kind string → live entity count.
+    kind_counts: std::collections::HashMap<String, usize>,
+    /// O(1) tag count: tag string → live entity count.
+    tag_counts: std::collections::HashMap<String, usize>,
 }
 
 impl Default for GameplayStore {
@@ -80,6 +84,8 @@ impl Default for GameplayStore {
             world_bounds: None,
             world_timers: std::collections::HashMap::new(),
             fired_world_timers: Vec::new(),
+            kind_counts: std::collections::HashMap::new(),
+            tag_counts: std::collections::HashMap::new(),
         }
     }
 }
@@ -200,6 +206,11 @@ impl GameplayWorld {
         }
         let id = store.next_id;
         let (tags, data) = split_payload(payload);
+        // Maintain O(1) counts.
+        *store.kind_counts.entry(kind.to_string()).or_insert(0) += 1;
+        for tag in &tags {
+            *store.tag_counts.entry(tag.clone()).or_insert(0) += 1;
+        }
         store.entities.insert(
             id,
             GameplayEntity {
@@ -219,7 +230,20 @@ impl GameplayWorld {
             let Ok(mut store) = self.store.lock() else {
                 return false;
             };
-            let removed = store.entities.remove(&id).is_some();
+            let removed = if let Some(entity) = store.entities.remove(&id) {
+                // Decrement O(1) counts.
+                if let Some(c) = store.kind_counts.get_mut(&entity.kind) {
+                    *c = c.saturating_sub(1);
+                }
+                for tag in &entity.tags {
+                    if let Some(c) = store.tag_counts.get_mut(tag) {
+                        *c = c.saturating_sub(1);
+                    }
+                }
+                true
+            } else {
+                false
+            };
             store.transforms.remove(&id);
             store.physics.remove(&id);
             store.colliders.remove(&id);
@@ -356,9 +380,13 @@ impl GameplayWorld {
             .collect()
     }
 
-    /// Returns the number of entities with the given kind.
+    /// Returns the number of entities with the given kind. O(1).
     pub fn count_kind(&self, kind: &str) -> usize {
-        self.query_kind(kind).len()
+        self.store
+            .lock()
+            .ok()
+            .and_then(|s| s.kind_counts.get(kind).copied())
+            .unwrap_or(0)
     }
 
     /// Returns the first entity id with the given kind, if any.
@@ -383,9 +411,13 @@ impl GameplayWorld {
             .collect()
     }
 
-    /// Returns the number of entities containing the given tag.
+    /// Returns the number of entities containing the given tag. O(1).
     pub fn count_tag(&self, tag: &str) -> usize {
-        self.query_tag(tag).len()
+        self.store
+            .lock()
+            .ok()
+            .and_then(|s| s.tag_counts.get(tag).copied())
+            .unwrap_or(0)
     }
 
     /// Returns the first entity id containing the given tag, if any.
@@ -1434,7 +1466,10 @@ impl GameplayWorld {
         let Some(entity) = store.entities.get_mut(&id) else {
             return false;
         };
-        entity.tags.insert(tag.to_string());
+        if entity.tags.insert(tag.to_string()) {
+            // Newly inserted — update O(1) counter.
+            *store.tag_counts.entry(tag.to_string()).or_insert(0) += 1;
+        }
         true
     }
 
@@ -1446,7 +1481,13 @@ impl GameplayWorld {
         let Some(entity) = store.entities.get_mut(&id) else {
             return false;
         };
-        entity.tags.remove(tag)
+        let removed = entity.tags.remove(tag);
+        if removed {
+            if let Some(c) = store.tag_counts.get_mut(tag) {
+                *c = c.saturating_sub(1);
+            }
+        }
+        removed
     }
 
     /// Check if an entity has a specific runtime tag.

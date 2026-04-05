@@ -163,6 +163,8 @@ where
         max_y: rhai::FLOAT,
     );
     fn world_bounds(&mut self) -> RhaiMap;
+    fn world_width(&mut self) -> rhai::FLOAT;
+    fn world_height(&mut self) -> rhai::FLOAT;
     fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool;
     fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool;
     fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT;

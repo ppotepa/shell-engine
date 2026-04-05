@@ -120,9 +120,18 @@ impl ScriptPaletteApi {
         }
         if let Some(p) = &self.persistence {
             p.set(PERSIST_KEY, serde_json::Value::String(id.to_string()));
+            // Bump the shared version counter so scripts can detect the change.
+            self.store.version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             return true;
         }
         false
+    }
+
+    /// Returns the current palette version counter.
+    /// Scripts should cache this value; when it differs from the cached value
+    /// the active palette has changed and all palette-derived colors should be refreshed.
+    fn version(&self) -> rhai::INT {
+        self.store.version.load(std::sync::atomic::Ordering::Relaxed) as rhai::INT
     }
 
     fn cycle(&self) -> String {
@@ -170,6 +179,7 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn("set_active", |api: &mut ScriptPaletteApi, id: &str| {
         api.set_active(id)
     });
+    engine.register_fn("version", |api: &mut ScriptPaletteApi| api.version());
     engine.register_fn("cycle", |api: &mut ScriptPaletteApi| api.cycle());
     engine.register_fn("list", |api: &mut ScriptPaletteApi| api.list());
 }

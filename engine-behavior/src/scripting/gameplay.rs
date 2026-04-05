@@ -83,6 +83,8 @@ impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
         self.set_world_bounds(min_x, min_y, max_x, max_y)
     }
     fn world_bounds(&mut self) -> RhaiMap { self.world_bounds() }
+    fn world_width(&mut self) -> rhai::FLOAT { self.world_width() }
+    fn world_height(&mut self) -> rhai::FLOAT { self.world_height() }
     fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool { self.angular_body_attach(id, config) }
     fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool { self.set_angular_input(id, input) }
     fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT { self.angular_vel(id) }

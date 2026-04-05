@@ -96,14 +96,15 @@ world.clear()                           // Remove ALL entities
 | `collider_layer`   | int     | Collision layer bitmask                         |
 | `collider_mask`    | int     | Collision mask bitmask                          |
 | `lifetime_ms`      | int     | Auto-despawn after N milliseconds               |
+| `tags`             | `[]`    | Tags to add atomically after spawn (avoids separate `world.tag_add` calls) |
 
 ### Query
 
 ```rhai
 world.exists(id)              // → bool
 world.count()                 // → int  Total entity count
-world.count_kind(kind)        // → int  Count by kind string
-world.count_tag(tag)          // → int  Count by tag
+world.count_kind(kind)        // → int  Count by kind string (O(1))
+world.count_tag(tag)          // → int  Count by tag (O(1))
 world.ids()                   // → []   All entity ids
 world.query_kind(kind)        // → []   Ids matching kind
 world.query_tag(tag)          // → []   Ids matching tag
@@ -167,6 +168,8 @@ Each pair map: `#{ kind_a: id_a, kind_b: id_b }` — keys are the actual kind st
 ```rhai
 world.set_world_bounds(min_x, min_y, max_x, max_y)  // Set toroidal wrap region
 world.world_bounds()          // → #{ min_x, min_y, max_x, max_y }
+world.world_width()           // → float  Width scalar (max_x - min_x); cheaper than world_bounds()
+world.world_height()          // → float  Height scalar (max_y - min_y); cheaper than world_bounds()
 world.enable_wrap(id, min_x, min_y, max_x, max_y)   // Enable per-entity wrapping
 world.disable_wrap(id)        // Disable per-entity wrapping
 ```
@@ -426,6 +429,9 @@ scene.set("hud-score", "text.content", `${score}`)
 scene.set("player",    "visible", false)
 scene.set("ship",      "position.x", 320.0)
 scene.set("polygon",   "vector.points", pts)
+
+// Set the same property on multiple objects at once (cheaper than a Rhai for-loop):
+scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
 ```
 
 **Writable paths**:
@@ -636,6 +642,8 @@ palette.colors_len()         // → int  Number of named colors in the active pa
 palette.color_keys()         // → []   Ordered list of color key names
 palette.color_values()       // → []   Ordered list of color hex values
 palette.particles("ramp")    // → []   Ordered color array for particle ramp (e.g. "thruster")
+palette.version()            // → int  Monotonic counter, incremented on every palette change.
+                             //        Cache this in local.pal_ver; re-read colors only when it differs.
 palette.name()               // → str  Display name of active palette
 palette.id()                 // → str  ID of active palette
 palette.set_active("id")     // → bool  Persist active palette choice

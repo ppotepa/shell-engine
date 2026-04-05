@@ -37,6 +37,10 @@ pub(crate) struct ScriptGameplayApi {
     pub(crate) palette_store: Arc<PaletteStore>,
     pub(crate) palette_persistence: Option<PersistenceStore>,
     pub(crate) palette_default_id: Option<String>,
+    /// Per-frame cache: (kind_a, kind_b) → filtered collision result.
+    /// Populated on first `collision.enters(a, b)` call; reused if called again
+    /// with the same pair in the same frame. Cleared when the struct is re-created.
+    collision_enters_cache: std::collections::HashMap<(String, String), RhaiArray>,
 }
 
 #[derive(Clone)]
@@ -82,6 +86,7 @@ impl ScriptGameplayApi {
             palette_store,
             palette_persistence,
             palette_default_id,
+            collision_enters_cache: std::collections::HashMap::new(),
         }
     }
 
@@ -911,6 +916,18 @@ impl ScriptGameplayApi {
             return 0;
         }
 
+        // Apply tags from args: tags: ["tag1", "tag2"]
+        if let Some(tags_val) = args.get("tags") {
+            if let Ok(tags_arr) = tags_val.clone().into_array() {
+                let Some(world) = self.ctx.world.as_ref() else { return id; };
+                for t in tags_arr {
+                    if let Ok(s) = t.into_string() {
+                        world.tag_add(id as u64, &s);
+                    }
+                }
+            }
+        }
+
         id
     }
 
@@ -1126,7 +1143,13 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return vec![];
         };
-        filter_hits_by_kind(&self.ctx.collision_enters, world, kind_a, kind_b)
+        let key = (kind_a.to_string(), kind_b.to_string());
+        if let Some(cached) = self.collision_enters_cache.get(&key) {
+            return cached.clone();
+        }
+        let result = filter_hits_by_kind(&self.ctx.collision_enters, world, kind_a, kind_b);
+        self.collision_enters_cache.insert(key, result.clone());
+        result
     }
 
     pub(crate) fn collision_stays_between(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
@@ -1237,6 +1260,27 @@ impl ScriptGameplayApi {
             }
             None => RhaiMap::new(),
         }
+    }
+
+    /// Returns just the world width (`max_x - min_x`) as a scalar.
+    /// Avoids allocating a Rhai map when only dimensions are needed.
+    pub(crate) fn world_width(&mut self) -> rhai::FLOAT {
+        self.ctx
+            .world
+            .as_ref()
+            .and_then(|w| w.world_bounds())
+            .map(|b| (b.max_x - b.min_x) as rhai::FLOAT)
+            .unwrap_or(0.0)
+    }
+
+    /// Returns just the world height (`max_y - min_y`) as a scalar.
+    pub(crate) fn world_height(&mut self) -> rhai::FLOAT {
+        self.ctx
+            .world
+            .as_ref()
+            .and_then(|w| w.world_bounds())
+            .map(|b| (b.max_y - b.min_y) as rhai::FLOAT)
+            .unwrap_or(0.0)
     }
 
     /// Attach an [`AngularBody`] to an entity.
