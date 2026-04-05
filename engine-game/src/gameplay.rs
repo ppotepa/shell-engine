@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::components::{
     Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
-    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, RcsController, Transform2D, VisualBinding, WrapBounds,
+    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, AngularBody, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -39,7 +39,7 @@ struct GameplayStore {
     controllers: BTreeMap<u64, ArcadeController>,
     particle_physics: BTreeMap<u64, ParticlePhysics>,
     particle_ramps: BTreeMap<u64, ParticleColorRamp>,
-    rcs_controllers: BTreeMap<u64, RcsController>,
+    angular_bodies: BTreeMap<u64, AngularBody>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -70,7 +70,7 @@ impl Default for GameplayStore {
             controllers: BTreeMap::new(),
             particle_physics: BTreeMap::new(),
             particle_ramps: BTreeMap::new(),
-            rcs_controllers: BTreeMap::new(),
+            angular_bodies: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
             rng_seed: 1337,
@@ -230,7 +230,7 @@ impl GameplayWorld {
             store.controllers.remove(&id);
             store.particle_physics.remove(&id);
             store.particle_ramps.remove(&id);
-            store.rcs_controllers.remove(&id);
+            store.angular_bodies.remove(&id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
             }
@@ -846,34 +846,6 @@ impl GameplayWorld {
         }
     }
 
-    /// Apply generic angular velocity from entity data field `angular_velocity` (radians/sec).
-    pub fn apply_angular_velocity(&self, dt_ms: u64) {
-        let dt_sec = (dt_ms as f32) / 1000.0;
-        if dt_sec <= 0.0 {
-            return;
-        }
-        let Ok(mut store) = self.store.lock() else {
-            return;
-        };
-        let angular_velocities: Vec<(u64, f32)> = store
-            .entities
-            .iter()
-            .filter_map(|(id, entity)| {
-                entity
-                    .data
-                    .get("angular_velocity")
-                    .and_then(|value| value.as_f64())
-                    .map(|value| (*id, value as f32))
-            })
-            .collect();
-        for (id, omega) in angular_velocities {
-            let Some(xf) = store.transforms.get_mut(&id) else {
-                continue;
-            };
-            xf.heading = (xf.heading + omega * dt_sec).rem_euclid(std::f32::consts::TAU);
-        }
-    }
-
     /// Apply owner-follow attachments after owner motion has been resolved.
     pub fn apply_follow_anchors(&self) {
         let ids = self.ids_with_follow_anchor();
@@ -1029,256 +1001,87 @@ impl GameplayWorld {
     }
 
     // =========================================================================
-    // RCS CONTROLLER - Generic inertia-based rotation and auto-stabilization
+    // ANGULAR BODY - Generic inertia-based rotation
     // =========================================================================
 
-    /// Attach or replace the RcsController for an entity.
-    pub fn attach_rcs_controller(&self, id: u64, rcs: RcsController) -> bool {
+    /// Attach or replace the [`AngularBody`] component for an entity.
+    ///
+    /// All fields default to `AngularBody::default()` if the entity exists;
+    /// pass a pre-built struct to customise config.
+    pub fn attach_angular_body(&self, id: u64, body: AngularBody) -> bool {
         let Ok(mut store) = self.store.lock() else { return false; };
         if !store.entities.contains_key(&id) { return false; }
-        store.rcs_controllers.insert(id, rcs);
+        store.angular_bodies.insert(id, body);
         true
     }
 
-    pub fn rcs_controller(&self, id: u64) -> Option<RcsController> {
+    pub fn angular_body(&self, id: u64) -> Option<AngularBody> {
         let Ok(store) = self.store.lock() else { return None; };
-        store.rcs_controllers.get(&id).cloned()
+        store.angular_bodies.get(&id).cloned()
     }
 
-    pub fn with_rcs_controller<F>(&self, id: u64, f: F) -> bool
+    pub fn with_angular_body<F>(&self, id: u64, f: F) -> bool
     where
-        F: FnOnce(&mut RcsController),
+        F: FnOnce(&mut AngularBody),
     {
         let Ok(mut store) = self.store.lock() else { return false; };
-        let Some(rcs) = store.rcs_controllers.get_mut(&id) else { return false; };
-        f(rcs);
+        let Some(ab) = store.angular_bodies.get_mut(&id) else { return false; };
+        f(ab);
         true
     }
 
-    pub fn ids_with_rcs_controller(&self) -> Vec<u64> {
+    pub fn ids_with_angular_body(&self) -> Vec<u64> {
         let Ok(store) = self.store.lock() else { return Vec::new(); };
-        store.rcs_controllers.keys().copied().collect()
+        store.angular_bodies.keys().copied().collect()
     }
 
-    /// Run one physics tick of the RCS state machine for the given entity.
+    /// Set the per-frame normalised turn input for an [`AngularBody`] entity.
     ///
-    /// Reads the entity's physics and transform, updates all state fields in
-    /// [`RcsController`], and writes derived outputs so the host script can
-    /// drive particle emission without performing any physics computation.
+    /// Call this every frame before the `angular_body_system` tick (which happens
+    /// inside the engine game-loop automatically).
+    pub fn set_angular_input(&self, id: u64, input: f32) -> bool {
+        self.with_angular_body(id, |ab| ab.input = input)
+    }
+
+    /// Read the current angular velocity (rad/s) of an [`AngularBody`] entity.
+    pub fn angular_vel(&self, id: u64) -> Option<f32> {
+        let Ok(store) = self.store.lock() else { return None; };
+        store.angular_bodies.get(&id).map(|ab| ab.angular_vel)
+    }
+
+    /// Advance all [`AngularBody`] components by one physics tick.
     ///
-    /// Returns `false` if the entity or its RcsController does not exist.
-    pub fn rcs_tick(&self, id: u64, dt_ms: u64) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false; };
-
-        if !store.rcs_controllers.contains_key(&id) { return false; }
-
+    /// Called automatically by `angular_body_system` — do not call from scripts.
+    pub fn tick_angular_bodies(&self, dt_ms: u64) {
         let dt = dt_ms as f32 / 1000.0;
-        let dt_ms_f = dt_ms as f32;
-
-        const FINAL_BURST_SPEED_THRESHOLD: f32 = 15.0;
-        const FINAL_BURST_INTERVAL_MS: f32 = 150.0;
-        const FINAL_BURST_MAX_WAVES: i32 = 3;
-
-        // Read physics and transform before acquiring the mutable rcs reference.
-        let (vx, vy, speed) = store
-            .physics
-            .get(&id)
-            .map(|b| {
-                let s = (b.vx * b.vx + b.vy * b.vy).sqrt();
-                (b.vx, b.vy, s)
-            })
-            .unwrap_or((0.0, 0.0, 0.0));
-
-        // Heading forward vector: heading=0 → up (−y); positive = clockwise.
-        let (hx, hy) = store
-            .transforms
-            .get(&id)
-            .map(|xf| {
-                let h = xf.heading;
-                (-h.sin(), -h.cos())
-            })
-            .unwrap_or((0.0, -1.0));
-
-        // Now safe to take a mutable reference — physics/transforms reads are done.
-        let Some(rcs) = store.rcs_controllers.get_mut(&id) else { return false; };
-
-        // Snapshot config
-        let angular_accel = rcs.angular_accel;
-        let angular_max = rcs.angular_max;
-        let angular_deadband = rcs.angular_deadband;
-        let linear_deadband = rcs.linear_deadband;
-        let auto_brake_delay_ms = rcs.auto_brake_delay_ms;
-        let ignition_delay_ms = rcs.ignition_delay_ms;
-        let ignition_ramp_ms = rcs.ignition_ramp_ms;
-
-        let thrusting = rcs.input_thrust;
-        let input_turn = rcs.input_turn;
-
-        let mut angular_vel = rcs.angular_vel;
-        let mut thrust_ignition_ms = rcs.thrust_ignition_ms;
-        let mut rotation_ignition_ms = rcs.rotation_ignition_ms;
-        let mut brake_ignition_ms = rcs.brake_ignition_ms;
-        let prev_rotation_dir = rcs.rotation_dir;
-        let mut no_input_ms = rcs.no_input_ms;
-        let mut auto_brake_phase = rcs.auto_brake_phase.clone();
-        let mut final_burst_waves = rcs.final_burst_waves;
-        let mut final_burst_timer_ms = rcs.final_burst_timer_ms;
-        let mut final_burst_triggered = rcs.final_burst_triggered;
-
-        let rotation_input_active = input_turn != 0.0;
-        let linear_input_active = thrusting || rotation_input_active;
-        let still_moving = speed > linear_deadband;
-        let still_rotating = angular_vel.abs() > angular_deadband;
-
-        if linear_input_active {
-            no_input_ms = 0.0;
-        } else {
-            no_input_ms += dt_ms_f;
-        }
-
-        // Ramp helper: 0→1 over `ramp_ms` after an initial `delay_ms`.
-        fn igf(ms: f32, delay: f32, ramp: f32) -> f32 {
-            if ms < delay {
-                return 0.0;
-            }
-            ((ms - delay) / ramp).min(1.0)
-        }
-
-        let mut thrust_factor = 0.0_f32;
-        let mut rot_factor = 0.0_f32;
-        let mut brake_factor = 0.0_f32;
-        let mut course_drift = 0.0_f32;
-        let mut course_cross = 0.0_f32;
-        let mut final_burst_fired = false;
-        let mut final_burst_wave_num = 0_i32;
-
-        // === MAIN ENGINE ===
-        if thrusting {
-            thrust_ignition_ms += dt_ms_f;
-            thrust_factor = igf(thrust_ignition_ms, ignition_delay_ms, ignition_ramp_ms);
-
-            // Auto-course correction: if drifting sideways while thrusting forward
-            if speed > 5.0 && !rotation_input_active {
-                let cross = hx * vy - hy * vx;
-                let fwd_dot = hx * vx + hy * vy;
-                let drift = cross.abs() / speed;
-                if fwd_dot > 0.0 && drift > 0.15 {
-                    course_drift = drift;
-                    course_cross = cross;
-                    let correction_strength = (drift * 0.5_f32).min(0.4);
-                    let torque = cross.signum() * 0.8 * correction_strength;
-                    angular_vel += torque * dt;
-                }
-            }
-        } else {
-            thrust_ignition_ms = 0.0;
-        }
-
-        // === ROTATION ===
-        if rotation_input_active {
-            if prev_rotation_dir != 0.0 && input_turn.signum() != prev_rotation_dir.signum() {
-                rotation_ignition_ms = 0.0;
-            }
-            rotation_ignition_ms += dt_ms_f;
-            rot_factor = igf(rotation_ignition_ms, ignition_delay_ms * 0.5, ignition_ramp_ms * 0.7);
-
-            let torque = input_turn * angular_accel * rot_factor;
-            angular_vel = (angular_vel + torque * dt).clamp(-angular_max, angular_max);
-
-            auto_brake_phase = "idle".to_string();
-        } else {
-            rotation_ignition_ms = 0.0;
-
-            // Auto-brake rotation (active even while thrusting forward)
-            if still_rotating {
-                brake_ignition_ms += dt_ms_f;
-                brake_factor = igf(brake_ignition_ms, ignition_delay_ms * 0.3, ignition_ramp_ms * 0.5);
-                auto_brake_phase = "rotation".to_string();
-
-                let brake_torque = -angular_vel.signum() * angular_vel.abs() * 4.5 * brake_factor;
-                angular_vel += brake_torque * dt;
-
-                if angular_vel.abs() < angular_deadband {
-                    angular_vel = 0.0;
-                }
-            } else if !thrusting {
-                brake_ignition_ms = 0.0;
-            }
-        }
-
-        // === LINEAR AUTO-BRAKE ===
-        let linear_brake_active = no_input_ms >= auto_brake_delay_ms && still_moving && !still_rotating;
-
-        if linear_brake_active {
-            auto_brake_phase = "linear".to_string();
-            let combined_ms = brake_ignition_ms + no_input_ms;
-            brake_factor = igf(combined_ms, ignition_delay_ms * 0.5, ignition_ramp_ms * 0.8);
-
-            // Final stabilization burst when nearly stopped
-            if speed < FINAL_BURST_SPEED_THRESHOLD && speed > linear_deadband {
-                if !final_burst_triggered {
-                    final_burst_triggered = true;
-                    final_burst_waves = 0;
-                    final_burst_timer_ms = 0.0;
-                }
-                if final_burst_waves < FINAL_BURST_MAX_WAVES {
-                    final_burst_timer_ms += dt_ms_f;
-                    if final_burst_timer_ms >= FINAL_BURST_INTERVAL_MS {
-                        final_burst_fired = true;
-                        final_burst_wave_num = final_burst_waves;
-                        final_burst_waves += 1;
-                        final_burst_timer_ms = 0.0;
-                    }
-                }
-            }
-        } else if !linear_input_active && !still_rotating && !still_moving {
-            auto_brake_phase = "stopped".to_string();
-            final_burst_triggered = false;
-            final_burst_waves = 0;
-            final_burst_timer_ms = 0.0;
-        } else if !rotation_input_active && !still_rotating && thrusting {
-            auto_brake_phase = "thrusting".to_string();
-        }
-
-        if linear_input_active {
-            final_burst_triggered = false;
-            final_burst_waves = 0;
-            final_burst_timer_ms = 0.0;
-        }
-
-        let command_turn: i32 = if angular_vel > 0.15 {
-            1
-        } else if angular_vel < -0.15 {
-            -1
-        } else {
-            0
+        let ids: Vec<u64> = {
+            let Ok(store) = self.store.lock() else { return; };
+            store.angular_bodies.keys().copied().collect()
         };
+        for id in ids {
+            let Ok(mut store) = self.store.lock() else { return; };
+            let Some(ab) = store.angular_bodies.get_mut(&id) else { continue; };
 
-        // Write back state
-        rcs.angular_vel = angular_vel;
-        rcs.thrust_ignition_ms = thrust_ignition_ms;
-        rcs.rotation_ignition_ms = rotation_ignition_ms;
-        rcs.brake_ignition_ms = brake_ignition_ms;
-        rcs.rotation_dir = input_turn;
-        rcs.no_input_ms = no_input_ms;
-        rcs.auto_brake_phase = auto_brake_phase;
-        rcs.final_burst_waves = final_burst_waves;
-        rcs.final_burst_timer_ms = final_burst_timer_ms;
-        rcs.final_burst_triggered = final_burst_triggered;
-        // Derived outputs
-        rcs.speed = speed;
-        rcs.vx = vx;
-        rcs.vy = vy;
-        rcs.thrust_factor = thrust_factor;
-        rcs.rot_factor = rot_factor;
-        rcs.brake_factor = brake_factor;
-        rcs.course_drift = course_drift;
-        rcs.course_cross = course_cross;
-        rcs.final_burst_fired = final_burst_fired;
-        rcs.final_burst_wave_num = final_burst_wave_num;
-        rcs.command_turn = command_turn;
+            if ab.input != 0.0 {
+                let torque = ab.input * ab.accel * dt;
+                ab.angular_vel = (ab.angular_vel + torque).clamp(-ab.max, ab.max);
+            } else if ab.auto_brake && ab.angular_vel.abs() > ab.deadband {
+                let brake = -ab.angular_vel.signum() * ab.angular_vel.abs() * 4.5 * dt;
+                ab.angular_vel += brake;
+                if ab.angular_vel.abs() < ab.deadband {
+                    ab.angular_vel = 0.0;
+                }
+            } else if ab.auto_brake {
+                ab.angular_vel = 0.0;
+            }
 
-        true
+            let angular_vel = ab.angular_vel;
+            // Integrate angular velocity into heading
+            if let Some(mut xf) = store.transforms.get(&id).copied() {
+                xf.heading += angular_vel * dt;
+                store.transforms.insert(id, xf);
+            }
+        }
     }
 
     /// Batch read physics data for multiple entities in a single lock acquisition.
@@ -1834,26 +1637,5 @@ mod tests {
         assert!((child_xf.x - 8.0).abs() < 0.001);
         assert!((child_xf.y - 16.0).abs() < 0.001);
         assert!((child_xf.heading - std::f32::consts::FRAC_PI_2).abs() < 0.001);
-    }
-
-    #[test]
-    fn apply_angular_velocity_rotates_transform_from_entity_data() {
-        let world = GameplayWorld::new();
-        let id = world
-            .spawn("enemy", json!({ "angular_velocity": 2.0 }))
-            .expect("entity");
-        assert!(world.set_transform(
-            id,
-            Transform2D {
-                x: 0.0,
-                y: 0.0,
-                heading: 0.5,
-            },
-        ));
-
-        world.apply_angular_velocity(250);
-
-        let xf = world.transform(id).expect("transform");
-        assert!((xf.heading - 1.0).abs() < 0.001);
     }
 }
