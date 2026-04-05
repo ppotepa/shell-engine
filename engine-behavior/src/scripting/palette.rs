@@ -61,6 +61,49 @@ impl ScriptPaletteApi {
             .unwrap_or_default()
     }
 
+    /// Return the color at position `idx` in declaration order. Returns "" if out of range.
+    fn color_at(&self, idx: rhai::INT) -> String {
+        if idx < 0 {
+            return String::new();
+        }
+        self.active_palette()
+            .and_then(|p| p.colors.get_index(idx as usize))
+            .map(|(_, v)| v.clone())
+            .unwrap_or_default()
+    }
+
+    /// Return the key at position `idx` in declaration order. Returns "" if out of range.
+    fn key_at(&self, idx: rhai::INT) -> String {
+        if idx < 0 {
+            return String::new();
+        }
+        self.active_palette()
+            .and_then(|p| p.colors.get_index(idx as usize))
+            .map(|(k, _)| k.clone())
+            .unwrap_or_default()
+    }
+
+    /// Number of named colors in the active palette.
+    fn colors_len(&self) -> rhai::INT {
+        self.active_palette()
+            .map(|p| p.colors.len() as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    /// All color keys in declaration order.
+    fn color_keys(&self) -> RhaiArray {
+        self.active_palette()
+            .map(|p| p.colors.keys().map(|k| RhaiDynamic::from(k.clone())).collect())
+            .unwrap_or_default()
+    }
+
+    /// All color values in declaration order.
+    fn color_values(&self) -> RhaiArray {
+        self.active_palette()
+            .map(|p| p.colors.values().map(|v| RhaiDynamic::from(v.clone())).collect())
+            .unwrap_or_default()
+    }
+
     fn name(&self) -> String {
         self.active_palette()
             .map(|p| p.name.clone())
@@ -106,6 +149,21 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     });
     engine.register_fn("particles", |api: &mut ScriptPaletteApi, ramp: &str| {
         api.get_particles(ramp)
+    });
+    engine.register_fn("color_at", |api: &mut ScriptPaletteApi, idx: rhai::INT| {
+        api.color_at(idx)
+    });
+    engine.register_fn("key_at", |api: &mut ScriptPaletteApi, idx: rhai::INT| {
+        api.key_at(idx)
+    });
+    engine.register_fn("colors_len", |api: &mut ScriptPaletteApi| {
+        api.colors_len()
+    });
+    engine.register_fn("color_keys", |api: &mut ScriptPaletteApi| {
+        api.color_keys()
+    });
+    engine.register_fn("color_values", |api: &mut ScriptPaletteApi| {
+        api.color_values()
     });
     engine.register_fn("name", |api: &mut ScriptPaletteApi| api.name());
     engine.register_fn("id", |api: &mut ScriptPaletteApi| api.id());

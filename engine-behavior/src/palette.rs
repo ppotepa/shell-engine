@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 /// One named color palette.
@@ -14,9 +15,9 @@ use serde::{Deserialize, Serialize};
 pub struct PaletteData {
     pub id: String,
     pub name: String,
-    /// Flat color map: key → hex string (e.g. `"entity"` → `"#5bc0be"`).
+    /// Flat color map: key → hex string. Preserves YAML declaration order for indexed access.
     #[serde(default)]
-    pub colors: HashMap<String, String>,
+    pub colors: IndexMap<String, String>,
     /// Particle ramp arrays: ramp-name → ordered list of hex strings.
     #[serde(default)]
     pub particles: HashMap<String, Vec<String>>,

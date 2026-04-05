@@ -630,6 +630,11 @@ Active colour palette for the mod. Palette files live in `palettes/*.yml` and de
 
 ```rhai
 palette.get("key")           // → str  Hex color for named key, or "" if missing
+palette.color_at(idx)        // → str  Hex color at position idx (YAML declaration order), or "" if out of range
+palette.key_at(idx)          // → str  Key name at position idx, or "" if out of range
+palette.colors_len()         // → int  Number of named colors in the active palette
+palette.color_keys()         // → []   Ordered list of color key names
+palette.color_values()       // → []   Ordered list of color hex values
 palette.particles("ramp")    // → []   Ordered color array for particle ramp (e.g. "thruster")
 palette.name()               // → str  Display name of active palette
 palette.id()                 // → str  ID of active palette
