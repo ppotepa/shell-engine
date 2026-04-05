@@ -158,7 +158,7 @@ pub fn game_loop(
 
         // Collect async particle results and write back before visual sync.
         systems::particle_physics::collect_async(world, particle_handle);
-
+        systems::particle_ramp::particle_ramp_system(world);
         systems::audio_sequencer::audio_sequencer_system(world, tick_ms);
         engine_audio::audio_system(world);
         let t1b = Instant::now();

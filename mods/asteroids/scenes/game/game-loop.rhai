@@ -41,17 +41,6 @@ let PAL_P_BRAKE_INIT   = palette.get("particle_brake_init");    if PAL_P_BRAKE_I
 let PAL_P_CORRECT      = palette.get("particle_correction");    if PAL_P_CORRECT      == "" { PAL_P_CORRECT      = "#AACCFF"; }
 let PAL_P_PULSE        = palette.get("particle_pulse");         if PAL_P_PULSE        == "" { PAL_P_PULSE        = "#00FFFF"; }
 
-let RAMP_THRUSTER   = palette.particles("thruster");
-let RAMP_HOT_ENGINE = palette.particles("hot_engine");
-let RAMP_BRAKE      = palette.particles("brake");
-let RAMP_HEAT_TRAIL = palette.particles("heat_trail");
-
-// Fallback ramps if palette has none
-if RAMP_THRUSTER.len()   == 0 { RAMP_THRUSTER   = ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"]; }
-if RAMP_HOT_ENGINE.len() == 0 { RAMP_HOT_ENGINE = ["#CCFFFF","#66FFFF","#00FFCC","#00CC99","#008866","#004433"]; }
-if RAMP_BRAKE.len()      == 0 { RAMP_BRAKE      = ["#DDDDDD","#BBBBBB","#888888","#555555","#333333","#111111"]; }
-if RAMP_HEAT_TRAIL.len() == 0 { RAMP_HEAT_TRAIL = ["#AAFFFF","#88DDDD","#66BBBB","#448888","#225555","#112233"]; }
-
 // Apply scene background and HUD label colors every frame
 scene.set_bg(PAL_BG);
 
@@ -198,6 +187,7 @@ fn ensure_ship(world, ship_col) {
 fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
     let speed = base_speed * ignition_factor;
     let jitter = spread * 0.35;
+    let ramp = ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"];
     let fx = world.emit(emitter, ship_id, #{
         kind: "fx",
         template: "debris",
@@ -205,11 +195,11 @@ fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread
         ttl_ms: ttl_ms,
         fg: color,
         radius: radius,
-        spread: (rand() - 0.5) * jitter
+        spread: (rand() - 0.5) * jitter,
+        color_ramp: ramp,
+        radius_max: radius,
+        radius_min: 0
     });
-    if fx > 0 {
-        world.tag_add(fx, "thruster-particle");
-    }
     fx
 }
 
@@ -217,6 +207,7 @@ fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread
 fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
     let speed = base_speed * ignition_factor;
     let jitter = spread * 0.35;
+    let ramp = ["#CCFFFF","#66FFFF","#00FFCC","#00CC99","#008866","#004433"];
     let fx = world.emit(emitter, ship_id, #{
         kind: "fx",
         template: "debris",
@@ -224,11 +215,11 @@ fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, i
         ttl_ms: ttl_ms,
         fg: color,
         radius: radius,
-        spread: (rand() - 0.5) * jitter
+        spread: (rand() - 0.5) * jitter,
+        color_ramp: ramp,
+        radius_max: radius,
+        radius_min: 0
     });
-    if fx > 0 {
-        world.tag_add(fx, "hot-engine-particle");
-    }
     fx
 }
 
@@ -236,6 +227,7 @@ fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, i
 fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, local_x, local_y) {
     let speed = base_speed * ignition_factor;
     let jitter = spread * 0.35;
+    let ramp = ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"];
     let fx = world.emit(emitter, ship_id, #{
         kind: "fx",
         template: "debris",
@@ -245,11 +237,11 @@ fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread,
         radius: radius,
         spread: (rand() - 0.5) * jitter,
         emission_local_x: local_x,
-        emission_local_y: local_y
+        emission_local_y: local_y,
+        color_ramp: ramp,
+        radius_max: radius,
+        radius_min: 0
     });
-    if fx > 0 {
-        world.tag_add(fx, "thruster-particle");
-    }
     fx
 }
 
@@ -292,88 +284,6 @@ fn get_velocity_local(world, ship, ship_id) {
         local_x: local_right,   // positive = moving right
         local_y: -local_fwd,    // positive = moving backward (in ship coords)
         speed: speed
-    }
-}
-
-// ======================== PARTICLE RENDERING ===============================
-
-// Pick a color from a 6-element ramp based on lifetime fraction (1.0=new, 0.0=dead).
-fn ramp_color(ramp, life) {
-    if life > 0.85 { return "white"; }
-    if life > 0.70 { return ramp[0]; }
-    if life > 0.55 { return ramp[1]; }
-    if life > 0.40 { return ramp[2]; }
-    if life > 0.25 { return ramp[3]; }
-    if life > 0.12 { return ramp[4]; }
-    ramp[5]
-}
-
-fn update_thruster_particles(world, ramp) {
-    for id in world.query_tag("thruster-particle") {
-        let p = world.entity(id);
-        if !p.exists() { continue; }
-
-        let life = p.lifetime_fraction();
-        let base_r = p.get_i("/radius", 1);
-        let base_r = clamp_i(base_r, 1, 3);
-
-        let r = if life > 0.75 {
-            clamp_i(base_r + 1, 1, 4)
-        } else if life > 0.45 {
-            base_r
-        } else if life > 0.20 {
-            1
-        } else {
-            0
-        };
-        let dash_r = if r <= 0 { 0 } else { max(r, 2) };
-        p.set_radius(dash_r);
-        p.set_fg(ramp_color(ramp, life));
-    }
-}
-
-fn update_hot_engine_particles(world, ramp) {
-    for id in world.query_tag("hot-engine-particle") {
-        let p = world.entity(id);
-        if !p.exists() { continue; }
-
-        let life = p.lifetime_fraction();
-        let base_r = p.get_i("/radius", 1);
-        let base_r = clamp_i(base_r, 1, 3);
-
-        let r = if life > 0.80 {
-            clamp_i(base_r + 1, 1, 4)
-        } else if life > 0.50 {
-            base_r
-        } else if life > 0.25 {
-            1
-        } else {
-            0
-        };
-        let dash_r = if r <= 0 { 0 } else { max(r, 2) };
-        p.set_radius(dash_r);
-        p.set_fg(ramp_color(ramp, life));
-    }
-}
-
-fn update_brake_particles(world, ramp) {
-    for id in world.query_tag("brake-particle") {
-        let p = world.entity(id);
-        if !p.exists() { continue; }
-
-        let life = p.lifetime_fraction();
-        let base_r = p.get_i("/radius", 1);
-        let base_r = clamp_i(base_r, 1, 3);
-
-        let r = if life > 0.80 {
-            clamp_i(base_r + 1, 1, 4)
-        } else if life > 0.55 {
-            base_r
-        } else {
-            1
-        };
-        p.set_radius(max(r, 1));
-        p.set_fg(ramp_color(ramp, life));
     }
 }
 
@@ -734,6 +644,7 @@ fn component_burst_count(component_vel) {
 
 // Emit brake particle with white color, tagged for white→black fade
 fn emit_brake_particle(world, ship_id, emitter, speed, ttl_ms, intensity, radius) {
+    let ramp = ["#DDDDDD","#BBBBBB","#888888","#555555","#333333","#111111"];
     let fx = world.emit(emitter, ship_id, #{
         kind: "fx",
         template: "debris",
@@ -741,11 +652,11 @@ fn emit_brake_particle(world, ship_id, emitter, speed, ttl_ms, intensity, radius
         ttl_ms: ttl_ms,
         fg: "white",
         radius: radius,
-        spread: (rand() - 0.5) * 0.03
+        spread: (rand() - 0.5) * 0.03,
+        color_ramp: ramp,
+        radius_max: radius,
+        radius_min: 1
     });
-    if fx > 0 {
-        world.tag_add(fx, "brake-particle");
-    }
     fx
 }
 
@@ -766,19 +677,19 @@ fn fire_settling_puff(world, ship_id, ignition_factor) {
 // Uses thin, light particles for micro-puff feel
 
 fn emit_final_burst_particle(world, ship_id, emitter, speed, ttl_ms) {
-    // Thin but BRIGHT particles - very visible final puffs
+    let ramp = ["#AAFFFF","#88DDDD","#66BBBB","#448888","#225555","#112233"];
     let fx = world.emit(emitter, ship_id, #{
         kind: "fx",
         template: "debris",
         speed: speed * (0.8 + rand() * 0.3),
         ttl_ms: ttl_ms,
         fg: "white",
-        radius: 1,  // thin
-        spread: (rand() - 0.5) * 0.20  // wider spread for puff effect
+        radius: 1,
+        spread: (rand() - 0.5) * 0.20,
+        color_ramp: ramp,
+        radius_max: 1,
+        radius_min: 1
     });
-    if fx > 0 {
-        world.tag_add(fx, "final-burst-particle");
-    }
     fx
 }
 
@@ -861,15 +772,6 @@ fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, wav
         let dvx = -(vx / speed) * brake_power * dt;
         let dvy = -(vy / speed) * brake_power * dt;
         ship.physics.add_velocity(dvx, dvy);
-    }
-}
-
-fn update_final_burst_particles(world, ramp) {
-    for id in world.query_tag("final-burst-particle") {
-        let p = world.entity(id);
-        if !p.exists() { continue; }
-        p.set_radius(1);
-        p.set_fg(ramp_color(ramp, p.lifetime_fraction()));
     }
 }
 
@@ -1303,11 +1205,6 @@ if ship_id > 0 {
         }
     }
 }
-
-update_thruster_particles(world, RAMP_THRUSTER);
-update_hot_engine_particles(world, RAMP_HOT_ENGINE);
-update_brake_particles(world, RAMP_BRAKE);
-update_final_burst_particles(world, RAMP_HEAT_TRAIL);
 
 // ── Wave complete check ───────────────────────────────────────────────────────
 if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && respawn_timer <= 0.0 {

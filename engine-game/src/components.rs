@@ -345,7 +345,23 @@ impl ParticleThreadMode {
     }
 }
 
-/// Extended physics configuration for particles from emitters.
+/// Particle color/radius animation driven by remaining lifetime.
+///
+/// Attached to ephemeral particle entities by the emitter system.
+/// The `particle_ramp_system` reads this each frame and pushes
+/// `SetProperty` commands to update `style.fg` and `style.radius`.
+///
+/// Color sampling: `idx = floor((1.0 - life_ratio) * N)`, clamped to N-1.
+/// Radius: `lerp(radius_min, radius_max, life_ratio).round()`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParticleColorRamp {
+    /// Color sequence: index 0 = freshest (life=1.0), last = oldest (life→0).
+    pub colors: Vec<String>,
+    /// Radius at full life (life=1.0).
+    pub radius_max: i32,
+    /// Radius at end of life (life→0). 0 = fade out, ≥1 = stays visible.
+    pub radius_min: i32,
+}
 /// Applied when `thread_mode` is not "light".
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ParticlePhysics {

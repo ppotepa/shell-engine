@@ -13,7 +13,7 @@ use engine_api::{
     follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
     parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
 };
-use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticlePhysics, ParticleThreadMode};
+use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticleColorRamp, ParticlePhysics, ParticleThreadMode};
 use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
@@ -1411,6 +1411,28 @@ impl ScriptGameplayApi {
                 mass,
             };
             let _ = world.attach_particle_physics(id, particle_physics);
+        }
+
+        // Resolve color ramp: args override > catalog default
+        let ramp_colors: Option<Vec<String>> = args
+            .get("color_ramp")
+            .and_then(|v| v.clone().try_cast::<rhai::Array>())
+            .map(|arr| arr.into_iter().filter_map(|c| c.try_cast::<String>()).collect())
+            .or_else(|| config.color_ramp.clone());
+        if let Some(colors) = ramp_colors {
+            if !colors.is_empty() {
+                let radius_max = args
+                    .get("radius_max")
+                    .and_then(|v| v.clone().try_cast::<rhai::INT>())
+                    .unwrap_or_else(|| config.radius_max.unwrap_or(resolved.radius as i64))
+                    as i32;
+                let radius_min = args
+                    .get("radius_min")
+                    .and_then(|v| v.clone().try_cast::<rhai::INT>())
+                    .unwrap_or_else(|| config.radius_min.unwrap_or(0))
+                    as i32;
+                let _ = world.attach_particle_ramp(id, ParticleColorRamp { colors, radius_max, radius_min });
+            }
         }
 
         if effective_cooldown > 0.0 {

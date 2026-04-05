@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::components::{
     Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
-    ParticlePhysics, PhysicsBody2D, ArcadeController, Transform2D, VisualBinding, WrapBounds,
+    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -38,6 +38,7 @@ struct GameplayStore {
     wrap_bounds: BTreeMap<u64, WrapBounds>,
     controllers: BTreeMap<u64, ArcadeController>,
     particle_physics: BTreeMap<u64, ParticlePhysics>,
+    particle_ramps: BTreeMap<u64, ParticleColorRamp>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -67,6 +68,7 @@ impl Default for GameplayStore {
             wrap_bounds: BTreeMap::new(),
             controllers: BTreeMap::new(),
             particle_physics: BTreeMap::new(),
+            particle_ramps: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
             rng_seed: 1337,
@@ -225,6 +227,7 @@ impl GameplayWorld {
             store.wrap_bounds.remove(&id);
             store.controllers.remove(&id);
             store.particle_physics.remove(&id);
+            store.particle_ramps.remove(&id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
             }
@@ -988,6 +991,38 @@ impl GameplayWorld {
             .filter(|(_, pp)| pp.thread_mode.uses_worker_thread())
             .map(|(id, _)| *id)
             .collect()
+    }
+
+    // =========================================================================
+    // PARTICLE COLOR RAMP API
+    // =========================================================================
+
+    /// Attach a color/radius ramp to a particle entity.
+    pub fn attach_particle_ramp(&self, id: u64, ramp: ParticleColorRamp) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.particle_ramps.insert(id, ramp);
+        true
+    }
+
+    /// Retrieve the color ramp for a particle entity.
+    pub fn particle_ramp(&self, id: u64) -> Option<ParticleColorRamp> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.particle_ramps.get(&id).cloned()
+    }
+
+    /// Get all entity IDs that have a particle color ramp.
+    pub fn ids_with_particle_ramp(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.particle_ramps.keys().copied().collect()
     }
 
     // =========================================================================

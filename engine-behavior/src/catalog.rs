@@ -197,6 +197,18 @@ pub struct EmitterConfig {
     /// Particle mass for physics calculations.
     #[serde(default)]
     pub mass: Option<f64>,
+
+    // === COLOR RAMP ===
+    /// Per-particle color sequence: index 0 = freshest (life=1.0), last = oldest.
+    /// Engine samples: idx = floor((1.0 - life_ratio) * N), clamped to N-1.
+    #[serde(default)]
+    pub color_ramp: Option<Vec<String>>,
+    /// Particle radius at full life (life=1.0). Defaults to `radius` field if unset.
+    #[serde(default)]
+    pub radius_max: Option<i64>,
+    /// Particle radius at end of life (life→0). 0 = fade out, ≥1 = stays visible.
+    #[serde(default)]
+    pub radius_min: Option<i64>,
 }
 
 /// Group template: predefined batch spawn.
