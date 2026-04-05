@@ -152,8 +152,6 @@ if !(local.initialized ?? false) {
     local.lives = 3;
     local.wave = 1;
     local.game_over = false;
-    local.respawn_timer = 0.0;
-    local.invincible_timer = 0.0;
     input.load_profile("default");
     scene.set("hud-gameover", "visible", false);
     scene.set("hud-gameover-sub", "visible", false);
@@ -162,12 +160,25 @@ if !(local.initialized ?? false) {
 
 // ======================== MAIN LOOP ========================================
 
-let score       = local.score ?? 0;
-let lives       = local.lives ?? 3;
-let wave        = local.wave ?? 1;
-let game_over   = local.game_over ?? false;
-let respawn_timer   = local.respawn_timer ?? 0.0;
-let invincible_timer = local.invincible_timer ?? 0.0;
+let score     = local.score ?? 0;
+let lives     = local.lives ?? 3;
+let wave      = local.wave ?? 1;
+let game_over = local.game_over ?? false;
+let respawning = local.respawning ?? false;
+let invincible = local.invincible ?? false;
+
+// ── Engine timer resolution ───────────────────────────────────────────────────
+if world.timer_fired("respawn_done") {
+    local.respawning = false;
+    respawning = false;
+    local.invincible = true;
+    invincible = true;
+    world.after_ms("invincible_done", 2000);
+}
+if world.timer_fired("invincible_done") {
+    local.invincible = false;
+    invincible = false;
+}
 
 // ── HUD update ──────────────────────────────────────────────────────────────
 scene.set("hud-score", "text.content", to_string(score));
@@ -192,8 +203,10 @@ if game_over {
         local.lives = 3;
         local.wave = 1;
         local.game_over = false;
-        local.respawn_timer = 0.0;
-        local.invincible_timer = 0.0;
+        local.respawning = false;
+        local.invincible = false;
+        world.cancel_timer("respawn_done");
+        world.cancel_timer("invincible_done");
         scene.set("hud-gameover", "visible", false);
         scene.set("hud-gameover-sub", "visible", false);
         // Despawn all asteroids and bullets
@@ -204,23 +217,8 @@ if game_over {
     #{state: local}
 } else {
 
-// ── Respawn timer ────────────────────────────────────────────────────────────
-if respawn_timer > 0.0 {
-    respawn_timer = respawn_timer - 16.0;
-    local.respawn_timer = respawn_timer;
-    if respawn_timer <= 0.0 {
-        local.invincible_timer = 2000.0;
-    }
-}
-
-// ── Invincibility timer ───────────────────────────────────────────────────────
-if invincible_timer > 0.0 {
-    invincible_timer = invincible_timer - 16.0;
-    local.invincible_timer = invincible_timer;
-}
-
 // ── Ship controls ────────────────────────────────────────────────────────────
-let ship_id = if respawn_timer <= 0.0 { ensure_ship(world, PAL_SHIP) } else { 0 };
+let ship_id = if !respawning { ensure_ship(world, PAL_SHIP) } else { 0 };
 local.ship_id = ship_id;
 
 if ship_id > 0 {
@@ -265,7 +263,7 @@ if ship_id > 0 {
 }
 
 // ── Wave complete check ───────────────────────────────────────────────────────
-if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && respawn_timer <= 0.0 {
+if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respawning {
     wave = wave + 1;
     local.wave = wave;
     spawn_wave(world, wave, PAL_ASTEROID);
@@ -303,7 +301,7 @@ for hit in collision.enters_of("bullet") {
 }
 
 // ship hits asteroid
-if invincible_timer <= 0.0 && ship_id > 0 {
+if !invincible && ship_id > 0 {
     for hit in collision.enters_of("ship") {
         let hit_ship_id = hit["self"];
         let other_id    = hit["other"];
@@ -313,13 +311,12 @@ if invincible_timer <= 0.0 && ship_id > 0 {
         ship_id = 0;
         lives = lives - 1;
         local.lives = lives;
-        invincible_timer = 0.0;
         if lives <= 0 {
             local.game_over = true;
             local.lives = 0;
         } else {
-            respawn_timer = 2000.0;
-            local.respawn_timer = respawn_timer;
+            local.respawning = true;
+            world.after_ms("respawn_done", 2000);
         }
         break;
     }
