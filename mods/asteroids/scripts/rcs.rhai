@@ -12,58 +12,53 @@
 
 fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
     let speed = base_speed * ignition_factor;
-    let jitter = spread * 0.35;
-    let ramp = ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"];
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed, ttl_ms: ttl_ms, fg: color, radius: radius,
-        spread: (rand() - 0.5) * jitter,
-        color_ramp: ramp, radius_max: radius, radius_min: 0
+        spread: (rand() - 0.5) * spread * 0.35,
+        radius_max: radius, radius_min: 0
     })
 }
 
 fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
     let speed = base_speed * ignition_factor;
-    let jitter = spread * 0.35;
-    let ramp = ["#CCFFFF","#66FFFF","#00FFCC","#00CC99","#008866","#004433"];
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed, ttl_ms: ttl_ms, fg: color, radius: radius,
-        spread: (rand() - 0.5) * jitter,
-        color_ramp: ramp, radius_max: radius, radius_min: 0
+        spread: (rand() - 0.5) * spread * 0.35,
+        color_ramp: ["#CCFFFF","#66FFFF","#00FFCC","#00CC99","#008866","#004433"],
+        radius_max: radius, radius_min: 0
     })
 }
 
 fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, local_x, local_y) {
     let speed = base_speed * ignition_factor;
-    let jitter = spread * 0.35;
-    let ramp = ["#FFEECC","#FFCC88","#FF9944","#CC6622","#662211","#221108"];
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed, ttl_ms: ttl_ms, fg: color, radius: radius,
-        spread: (rand() - 0.5) * jitter,
+        spread: (rand() - 0.5) * spread * 0.35,
         emission_local_x: local_x, emission_local_y: local_y,
-        color_ramp: ramp, radius_max: radius, radius_min: 0
+        radius_max: radius, radius_min: 0
     })
 }
 
 fn emit_brake_particle(world, ship_id, emitter, speed, ttl_ms, intensity, radius) {
-    let ramp = ["#DDDDDD","#BBBBBB","#888888","#555555","#333333","#111111"];
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed * intensity, ttl_ms: ttl_ms, fg: "white", radius: radius,
         spread: (rand() - 0.5) * 0.03,
-        color_ramp: ramp, radius_max: radius, radius_min: 1
+        color_ramp: ["#DDDDDD","#BBBBBB","#888888","#555555","#333333","#111111"],
+        radius_max: radius, radius_min: 1
     })
 }
 
 fn emit_final_burst_particle(world, ship_id, emitter, speed, ttl_ms) {
-    let ramp = ["#AAFFFF","#88DDDD","#66BBBB","#448888","#225555","#112233"];
     world.emit(emitter, ship_id, #{
         kind: "fx", template: "debris",
         speed: speed * (0.8 + rand() * 0.3), ttl_ms: ttl_ms,
         fg: "white", radius: 1, spread: (rand() - 0.5) * 0.20,
-        color_ramp: ramp, radius_max: 1, radius_min: 1
+        color_ramp: ["#AAFFFF","#88DDDD","#66BBBB","#448888","#225555","#112233"],
+        radius_max: 1, radius_min: 1
     })
 }
 
