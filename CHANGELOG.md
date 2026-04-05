@@ -36,6 +36,28 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 05-04-2026
+
+**Engine-first scripting migration: components, palette, HUD bindings, optimizations** ✅
+- **engine**: `LinearBrake` engine component — physics deceleration fully handled engine-side; removes braking logic from Rhai
+- **engine**: `ThrusterRamp` engine component — moves entire thrust ramp state machine (burst/wave/auto-brake) from Rhai to Rust
+- **engine**: `world.after_ms` / `world.timer_fired` — replaces manual `-16.0` timer decrements
+- **engine**: `world.spawn_from_heading` — atomic bullet spawn with heading/offset/speed; removes sin/cos trig from scripts
+- **engine**: `world.heading_drift` — projects velocity onto ship axes; removes manual cross/dot product trig
+- **engine**: `collision.enters(a, b)` typed pair API — eliminates `tag_has` boilerplate from collision dispatch
+- **engine**: `frame_ms` exposed to Rhai scope — replaces hardcoded `16.0` VFX timing constants
+- **engine**: `PrefabTemplate.fg_colour` + `default_tags` — color and tags applied at spawn; removes per-spawn `world.set` and `tags: [...]` args from scripts
+- **engine**: `wrappable: true` in prefab catalog — `world.enable_wrap` calls removed from all spawn helpers
+- **engine**: YAML `@palette.<key>` bindings in sprite `fg`/`bg` fields — engine resolves on palette change; no Rhai color push needed
+- **engine**: YAML `@game_state.<path>` bindings in sprite `content` fields — HUD text updated engine-side via `game.set()`; removes 3 cache-diff blocks from scripts
+- **engine**: `ParticleColorRamp` component — color+radius ramp applied engine-side per emitter; removes per-frame ramp update loops from Rhai
+- **engine**: palette-aware emitter color ramps via `palette.particles("ramp_name")` in YAML emitter config
+- **engine**: indexed palette access — `palette.color_at(n)`, `palette.key_at(n)`, `palette.colors_len()`, `palette.color_keys()`, `palette.color_values()`
+- **perf**: 7 optimizations (o1–o7) — throttle ramp, lazy palette re-read, frame_ms constant, collision filter short-circuit, heading vector cache, drift debounce, tag-query fastpath
+- **mods/asteroids**: extracted ship RCS VFX into `scripts/rcs.rhai`; neutralised all mod-specific names in engine code
+- **docs**: updated `SCRIPTING-API.md` with AngularBody, LinearBrake, ThrusterRamp, heading helpers, frame_ms
+- **result**: `game-loop.rhai` down ~40% in LOC; all color/wrap/tag/HUD boilerplate moved to YAML + engine; 103 tests pass; scene checks pass
+
 ## 29-03-2026 (E7: Final cleanup + collision filtering)
 
 **E7: Final cleanup + collision filtering migration complete** ✅
