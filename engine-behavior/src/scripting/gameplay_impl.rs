@@ -1592,15 +1592,11 @@ impl ScriptGameplayApi {
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
             .unwrap_or(0.0);
 
-        let heading_vec = owner.clone().heading_vector();
-        let hx = heading_vec
-            .get("x")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-            .unwrap_or(0.0);
-        let hy = heading_vec
-            .get("y")
-            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
-            .unwrap_or(-1.0);
+        // Derive heading vector from Transform2D.heading (authoritative when AngularBody
+        // is present) rather than ArcadeController.current_heading (which is not updated
+        // by the AngularBody system and can be stale after rotation).
+        let hx = (heading as f64).sin();
+        let hy = -(heading as f64).cos();
         let base_vx = phys
             .get("vx")
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
