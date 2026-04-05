@@ -1094,7 +1094,7 @@ impl BehaviorContext {
 #[cfg(test)]
 mod tests {
     use super::{
-        built_in_behavior, catalog, smoke_validate_rhai_script, Behavior, BehaviorCommand,
+        built_in_behavior, catalog, palette, smoke_validate_rhai_script, Behavior, BehaviorCommand,
         BehaviorContext, BlinkBehavior, BobBehavior, FollowBehavior, MenuCarouselBehavior,
         MenuCarouselObjectBehavior, MenuSelectedBehavior, RhaiScriptBehavior, SceneAudioBehavior,
         SelectedArrowsBehavior, StageVisibilityBehavior, TimedVisibilityBehavior,
@@ -3229,7 +3229,7 @@ if id > 0 && world.exists(id) {
                 .any(|c| matches!(c, BehaviorCommand::SceneSpawn {
                 template,
                 target
-            } if template == "bullet-template" && target.starts_with("bullet-"))),
+            } if template == "projectile-template" && target.starts_with("projectile-"))),
             "spawn_visual should emit SceneSpawn command: {commands:?}"
         );
 
@@ -3524,25 +3524,11 @@ game.set("/test/fx_id", fx);
                 min_cooldown_ms: Some(0),
                 ramp_ms: Some(0),
                 spawn_offset: Some(4.0),
-                side_offset: None,
-                local_x: None,
-                local_y: None,
-                edge_from_x: None,
-                edge_from_y: None,
-                edge_to_x: None,
-                edge_to_y: None,
-                edge_t: None,
-                emission_angle: None,
-                emission_local_x: None,
-                emission_local_y: None,
                 backward_speed: Some(0.25),
                 ttl_ms: Some(240),
                 radius: Some(1),
                 velocity_scale: Some(1.0),
-                lifecycle: None,
-                follow_local_x: None,
-                follow_local_y: None,
-                follow_inherit_heading: None,
+                ..Default::default()
             },
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
@@ -3601,17 +3587,6 @@ game.set("/test/fx_id", fx);
                 min_cooldown_ms: Some(0),
                 ramp_ms: Some(0),
                 spawn_offset: Some(4.0),
-                side_offset: None,
-                local_x: None,
-                local_y: None,
-                edge_from_x: None,
-                edge_from_y: None,
-                edge_to_x: None,
-                edge_to_y: None,
-                edge_t: None,
-                emission_angle: None,
-                emission_local_x: None,
-                emission_local_y: None,
                 backward_speed: Some(0.0),
                 ttl_ms: Some(240),
                 radius: Some(1),
@@ -3620,6 +3595,7 @@ game.set("/test/fx_id", fx);
                 follow_local_x: Some(-4.0),
                 follow_local_y: Some(0.0),
                 follow_inherit_heading: Some(true),
+                ..Default::default()
             },
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);

@@ -113,7 +113,7 @@ pub struct WeaponConfig {
 }
 
 /// Emitter configuration for particle effects.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EmitterConfig {
     #[serde(default)]
     pub max_count: Option<i64>,
