@@ -72,13 +72,13 @@ pub fn filter_hits_of_kind(
 /// Pushed as `collision` in the Rhai scope when gameplay is active.
 ///
 /// ```rhai
-/// for hit in collision.enters("bullet", "asteroid") {
-///     let bullet_id   = hit["bullet"];
-///     let asteroid_id = hit["asteroid"];
+/// for hit in collision.enters("projectile", "enemy") {
+///     let projectile_id = hit["projectile"];
+///     let enemy_id      = hit["enemy"];
 /// }
-/// for hit in collision.of("ship") {
-///     let ship_id  = hit["self"];
-///     let other_id = hit["other"];
+/// for hit in collision.of("vehicle") {
+///     let vehicle_id = hit["self"];
+///     let other_id   = hit["other"];
 /// }
 /// ```
 #[derive(Clone)]

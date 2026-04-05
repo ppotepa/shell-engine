@@ -1647,7 +1647,6 @@ impl ScriptGameplayApi {
 
         let Some(thrust_power_val) = config
             .get("thrust_power")
-            .or_else(|| config.get("ship_thrust"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
         else {
             eprintln!("[attach_controller] missing required field: thrust_power");
@@ -1656,7 +1655,6 @@ impl ScriptGameplayApi {
 
         let Some(max_speed_val) = config
             .get("max_speed")
-            .or_else(|| config.get("ship_max_speed"))
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
         else {
             eprintln!("[attach_controller] missing required field: max_speed");

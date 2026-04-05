@@ -1394,7 +1394,7 @@ if id > 0 && world.exists(id) {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let id = world.spawn_object("ship", #{ active: true, score: 4 });
+let id = world.spawn_object("vehicle", #{ active: true, score: 4 });
 let e = world.entity(id);
 if e.exists() && e.get_bool("/active", false) {
   let next = e.get_i("/score", 0) + 9;
@@ -1428,7 +1428,7 @@ if e.exists() && e.get_bool("/active", false) {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let id = world.spawn_object("ship", #{ x: 1.5, y: 2.5, name: "player" });
+let id = world.spawn_object("vehicle", #{ x: 1.5, y: 2.5, name: "actor" });
 let e = world.entity(id);
 
 // Test set_many
@@ -1446,7 +1446,7 @@ let data = e.data();
 let x = e.get_f("/x", 0.0);
 let name = e.get_s("/name", "");
 
-if x == 10.5 && name == "player" {
+if x == 10.5 && name == "actor" {
   e.set("/success", true);
 }
 "#
@@ -1471,7 +1471,7 @@ if x == 10.5 && name == "player" {
         assert_eq!(gameplay_world.get(id, "/x"), Some(json!(10.5)));
         assert_eq!(gameplay_world.get(id, "/y"), Some(json!(20.5)));
         assert_eq!(gameplay_world.get(id, "/score"), Some(json!(42)));
-        assert_eq!(gameplay_world.get(id, "/name"), Some(json!("player")));
+        assert_eq!(gameplay_world.get(id, "/name"), Some(json!("actor")));
         assert_eq!(gameplay_world.get(id, "/success"), Some(json!(true)));
     }
 
@@ -3153,9 +3153,9 @@ let ok = game.has("/quests/first_message/completed");
             script: Some(
                 r#"
 if level.select("game.default") {
-  let lives = level.get("/player/lives");
-  if lives.type_of() == "i64" {
-    level.set("/player/lives", lives + 1);
+  let hp = level.get("/actor/hp");
+  if hp.type_of() == "i64" {
+    level.set("/actor/hp", hp + 1);
   }
 }
 #{}
@@ -3168,8 +3168,8 @@ if level.select("game.default") {
         assert!(level_state.register_level(
             "game.default",
             serde_json::json!({
-                "player": {
-                    "lives": 3
+                "actor": {
+                    "hp": 3
                 }
             }),
         ));
@@ -3182,7 +3182,7 @@ if level.select("game.default") {
                 .any(|c| matches!(c, BehaviorCommand::ScriptError { .. })),
             "level api should not produce ScriptError"
         );
-        assert_eq!(level_state.get("/player/lives"), Some(serde_json::json!(4)));
+        assert_eq!(level_state.get("/actor/hp"), Some(serde_json::json!(4)));
     }
 
     #[test]
@@ -3190,7 +3190,7 @@ if level.select("game.default") {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let id = world.spawn_visual("bullet", "bullet-template", #{
+let id = world.spawn_visual("projectile", "projectile-template", #{
     x: 10.5,
     y: 20.3,
     heading: 1.57,
@@ -3333,12 +3333,12 @@ let id = world.spawn_visual("item", "item-template", #{
     }
 
     #[test]
-    fn rhai_script_behavior_spawn_prefab_creates_ship_and_entity() {
+    fn rhai_script_behavior_spawn_prefab_creates_vehicle_and_entity() {
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
 world.set_world_bounds(-320.0, 320.0, -240.0, 240.0);
-let ship = world.spawn_prefab("ship", #{
+let vehicle = world.spawn_prefab("vehicle", #{
   cfg: #{
     turn_step_ms: 50,
     thrust_power: 80.0,
@@ -3376,27 +3376,27 @@ let entity = world.spawn_prefab("entity", #{
         assert!(
             commands.iter().any(
                 |c| matches!(c, BehaviorCommand::SceneSpawn { template, target }
-                if template == "ship" && target.starts_with("ship-"))
+                if template == "vehicle" && target.starts_with("vehicle-"))
             ),
-            "ship prefab should emit dynamic ship SceneSpawn"
+            "vehicle prefab should emit dynamic vehicle SceneSpawn"
         );
 
-        let ship_ids = gameplay_world.query_kind("ship");
-        assert_eq!(ship_ids.len(), 1, "ship prefab should create one ship");
-        let ship_id = ship_ids[0];
-        let ship_visual = gameplay_world.visual(ship_id).and_then(|v| v.visual_id);
+        let vehicle_ids = gameplay_world.query_kind("vehicle");
+        assert_eq!(vehicle_ids.len(), 1, "vehicle prefab should create one vehicle");
+        let vehicle_id = vehicle_ids[0];
+        let vehicle_visual = gameplay_world.visual(vehicle_id).and_then(|v| v.visual_id);
         assert!(
-            ship_visual
+            vehicle_visual
                 .as_ref()
-                .map(|id| id.starts_with("ship-"))
+                .map(|id| id.starts_with("vehicle-"))
                 .unwrap_or(false),
-            "ship should have dynamic visual id, got {ship_visual:?}"
+            "vehicle should have dynamic visual id, got {vehicle_visual:?}"
         );
         assert!(
-            gameplay_world.controller(ship_id).is_some(),
-            "ship should have controller"
+            gameplay_world.controller(vehicle_id).is_some(),
+            "vehicle should have controller"
         );
-        assert!(gameplay_world.status_has(ship_id, "invulnerable"));
+        assert!(gameplay_world.status_has(vehicle_id, "invulnerable"));
 
         let entity_ids = gameplay_world.query_kind("entity");
         assert_eq!(
@@ -3494,7 +3494,7 @@ game.set("/test/spawn_count", ids.len);
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-let ship = world.spawn_prefab("ship", #{ x: 10.0, y: 20.0 });
+let vehicle = world.spawn_prefab("vehicle", #{ x: 10.0, y: 20.0 });
 let owner = world.spawn_visual("owner", "owner-template", #{ x: 10.0, y: 20.0, heading: 0.0 });
 let fx = world.emit("test.smoke", owner, #{
     kind: "fx",

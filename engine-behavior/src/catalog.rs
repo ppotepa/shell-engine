@@ -377,10 +377,10 @@ impl ModCatalogs {
         }));
         
         catalogs.prefabs.insert(
-            "ship".to_string(),
+            "vehicle".to_string(),
             PrefabTemplate {
-                kind: "ship".to_string(),
-                sprite_template: Some("ship".to_string()),
+                kind: "vehicle".to_string(),
+                sprite_template: Some("vehicle".to_string()),
                 init_fields: HashMap::new(),
                 components: Some(PrefabComponents {
                     physics: Some(PhysicsComponent {
@@ -442,12 +442,12 @@ impl ModCatalogs {
             },
         );
 
-        // Bullet prefab
+        // Projectile prefab
         catalogs.prefabs.insert(
-            "bullet".to_string(),
+            "projectile".to_string(),
             PrefabTemplate {
-                kind: "bullet".to_string(),
-                sprite_template: Some("bullet-template".to_string()),
+                kind: "projectile".to_string(),
+                sprite_template: Some("projectile-template".to_string()),
                 init_fields: HashMap::new(),
                 components: Some(PrefabComponents {
                     physics: Some(PhysicsComponent {
@@ -539,19 +539,19 @@ profiles:
     fn test_prefab_parsing() {
         let yaml = r#"
 prefabs:
-  ship:
-    kind: "ship"
-    sprite_template: "ship"
+  vehicle:
+    kind: "vehicle"
+    sprite_template: "vehicle"
     init_fields:
       x: 0
       y: 0
 "#;
         let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-        let prefab_val = parsed.get("prefabs").unwrap().get("ship").unwrap();
+        let prefab_val = parsed.get("prefabs").unwrap().get("vehicle").unwrap();
         let prefab: PrefabTemplate = serde_yaml::from_value(prefab_val.clone()).unwrap();
 
-        assert_eq!(prefab.kind, "ship");
-        assert_eq!(prefab.sprite_template, Some("ship".to_string()));
+        assert_eq!(prefab.kind, "vehicle");
+        assert_eq!(prefab.sprite_template, Some("vehicle".to_string()));
         assert!(!prefab.init_fields.is_empty());
     }
 

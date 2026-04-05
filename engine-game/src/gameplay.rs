@@ -36,7 +36,7 @@ struct GameplayStore {
     visuals: BTreeMap<u64, VisualBinding>,
     timers: BTreeMap<u64, EntityTimers>,
     wrap_bounds: BTreeMap<u64, WrapBounds>,
-    ship_controllers: BTreeMap<u64, ArcadeController>,
+    controllers: BTreeMap<u64, ArcadeController>,
     particle_physics: BTreeMap<u64, ParticlePhysics>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
@@ -65,7 +65,7 @@ impl Default for GameplayStore {
             visuals: BTreeMap::new(),
             timers: BTreeMap::new(),
             wrap_bounds: BTreeMap::new(),
-            ship_controllers: BTreeMap::new(),
+            controllers: BTreeMap::new(),
             particle_physics: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
@@ -223,7 +223,7 @@ impl GameplayWorld {
             store.visuals.remove(&id);
             store.timers.remove(&id);
             store.wrap_bounds.remove(&id);
-            store.ship_controllers.remove(&id);
+            store.controllers.remove(&id);
             store.particle_physics.remove(&id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
@@ -904,7 +904,7 @@ impl GameplayWorld {
         if !store.entities.contains_key(&id) {
             return false;
         }
-        store.ship_controllers.insert(id, controller);
+        store.controllers.insert(id, controller);
         true
     }
 
@@ -913,7 +913,7 @@ impl GameplayWorld {
         let Ok(store) = self.store.lock() else {
             return None;
         };
-        store.ship_controllers.get(&id).cloned()
+        store.controllers.get(&id).cloned()
     }
 
     /// Mutate an arcade controller. Returns false if entity has no controller.
@@ -924,7 +924,7 @@ impl GameplayWorld {
         let Ok(mut store) = self.store.lock() else {
             return false;
         };
-        if let Some(ctrl) = store.ship_controllers.get_mut(&id) {
+        if let Some(ctrl) = store.controllers.get_mut(&id) {
             f(ctrl);
             true
         } else {
@@ -937,13 +937,13 @@ impl GameplayWorld {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
         };
-        store.ship_controllers.keys().copied().collect()
+        store.controllers.keys().copied().collect()
     }
 
     /// Remove a ship controller from an entity.
     pub fn remove_controller(&self, id: u64) {
         if let Ok(mut store) = self.store.lock() {
-            store.ship_controllers.remove(&id);
+            store.controllers.remove(&id);
         }
     }
 
@@ -1459,18 +1459,18 @@ mod tests {
         let world = GameplayWorld::new();
         let id = world
             .spawn(
-                "bullet",
+                "projectile",
                 json!({
-                    "tags": ["projectile", "player"],
+                    "tags": ["projectile", "controlled"],
                     "x": 10,
                     "y": 20
                 }),
             )
             .expect("spawn should return an id");
         assert!(world.exists(id));
-        assert_eq!(world.kind_of(id).as_deref(), Some("bullet"));
-        assert_eq!(world.query_kind("bullet"), vec![id]);
-        assert_eq!(world.query_tag("player"), vec![id]);
+        assert_eq!(world.kind_of(id).as_deref(), Some("projectile"));
+        assert_eq!(world.query_kind("projectile"), vec![id]);
+        assert_eq!(world.query_tag("controlled"), vec![id]);
         assert_eq!(world.get(id, "/x"), Some(json!(10)));
         assert!(world.set(id, "/velocity/x", json!(4)));
         assert_eq!(world.get(id, "/velocity/x"), Some(json!(4)));
@@ -1553,7 +1553,7 @@ mod tests {
     fn apply_angular_velocity_rotates_transform_from_entity_data() {
         let world = GameplayWorld::new();
         let id = world
-            .spawn("asteroid", json!({ "angular_velocity": 2.0 }))
+            .spawn("enemy", json!({ "angular_velocity": 2.0 }))
             .expect("entity");
         assert!(world.set_transform(
             id,

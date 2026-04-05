@@ -250,7 +250,7 @@ pub struct ArcadeController {
     /// Current turn input: -1 (left), 0 (stopped), +1 (right).
     pub turn_direction: i8,
 
-    /// Is the ship currently thrusting (input state).
+    /// Whether the entity is currently thrusting (input state).
     pub is_thrusting: bool,
     /// Acceleration magnitude when thrusting (in velocity_scale units).
     pub thrust_power: f32,

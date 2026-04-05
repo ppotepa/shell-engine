@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 pub struct PaletteData {
     pub id: String,
     pub name: String,
-    /// Flat color map: key → hex string (e.g. `"ship"` → `"#5bc0be"`).
+    /// Flat color map: key → hex string (e.g. `"entity"` → `"#5bc0be"`).
     #[serde(default)]
     pub colors: HashMap<String, String>,
     /// Particle ramp arrays: ramp-name → ordered list of hex strings.
