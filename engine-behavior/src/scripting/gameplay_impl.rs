@@ -13,7 +13,7 @@ use engine_api::{
     follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
     parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
 };
-use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticleColorRamp, ParticlePhysics, ParticleThreadMode, RcsController};
+use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticleColorRamp, ParticlePhysics, ParticleThreadMode, AngularBody, LinearBrake};
 use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
@@ -1146,76 +1146,69 @@ impl ScriptGameplayApi {
         }
     }
 
-    /// Attach a new [`RcsController`] to an entity.
+    /// Attach an [`AngularBody`] to an entity.
     ///
-    /// `config` is an optional map of override values; any omitted key uses the
-    /// struct default.  Keys mirror the struct field names (snake_case).
-    pub(crate) fn rcs_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
+    /// `config` map keys (all optional, snake_case field names):
+    /// `accel`, `max`, `deadband`, `auto_brake`.
+    pub(crate) fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
         let Some(world) = self.ctx.world.as_ref() else { return false; };
         let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
             map.get(key).and_then(|v| v.as_float().ok()).unwrap_or(default as rhai::FLOAT) as f32
         };
-        let rcs = RcsController {
-            angular_accel:      get_f(&config, "angular_accel",      5.5),
-            angular_max:        get_f(&config, "angular_max",         7.0),
-            angular_deadband:   get_f(&config, "angular_deadband",    0.10),
-            linear_deadband:    get_f(&config, "linear_deadband",     2.5),
-            auto_brake_delay_ms: get_f(&config, "auto_brake_delay_ms", 30.0),
-            ignition_delay_ms:  get_f(&config, "ignition_delay_ms",   8.0),
-            ignition_ramp_ms:   get_f(&config, "ignition_ramp_ms",    12.0),
+        let get_b = |map: &RhaiMap, key: &str, default: bool| -> bool {
+            map.get(key).and_then(|v| v.as_bool().ok()).unwrap_or(default)
+        };
+        let body = AngularBody {
+            accel:      get_f(&config, "accel",      5.5),
+            max:        get_f(&config, "max",         7.0),
+            deadband:   get_f(&config, "deadband",    0.10),
+            auto_brake: get_b(&config, "auto_brake",  true),
             ..Default::default()
         };
-        world.attach_rcs_controller(id as u64, rcs)
+        world.attach_angular_body(id as u64, body)
     }
 
-    /// Set the current frame input state for the RCS controller.
+    /// Set normalised turn input (−1.0…+1.0) for this frame.
     ///
-    /// * `thrust` — whether the forward thruster is firing  
-    /// * `turn`   — rotation input: -1.0 (left) / 0.0 / +1.0 (right), or any
-    ///              fractional value for analogue input
-    pub(crate) fn rcs_set_input(&mut self, id: rhai::INT, thrust: bool, turn: rhai::FLOAT) -> bool {
+    /// The `angular_body_system` reads this value and applies torque to the
+    /// entity's angular velocity automatically — no manual tick needed.
+    pub(crate) fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool {
         let Some(world) = self.ctx.world.as_ref() else { return false; };
-        world.with_rcs_controller(id as u64, |rcs| {
-            rcs.input_thrust = thrust;
-            rcs.input_turn = turn as f32;
-        })
+        world.set_angular_input(id as u64, input as f32)
     }
 
-    /// Advance the RCS state machine by `dt_ms` milliseconds.
+    /// Read the current angular velocity (rad/s) of an entity's [`AngularBody`].
     ///
-    /// Must be called after [`rcs_set_input`] and before reading [`rcs_state`].
-    pub(crate) fn rcs_tick(&mut self, id: rhai::INT, dt_ms: rhai::INT) -> bool {
+    /// Returns `0.0` if the entity has no `AngularBody`.
+    pub(crate) fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT {
+        let Some(world) = self.ctx.world.as_ref() else { return 0.0; };
+        world.angular_vel(id as u64).unwrap_or(0.0) as rhai::FLOAT
+    }
+
+    /// Attach a [`LinearBrake`] component to an entity.
+    ///
+    /// Config map keys: `decel` (f32), `deadband` (f32), `auto_brake` (bool).
+    pub(crate) fn linear_brake_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
         let Some(world) = self.ctx.world.as_ref() else { return false; };
-        world.rcs_tick(id as u64, dt_ms as u64)
+        let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
+            map.get(key).and_then(|v| v.as_float().ok()).unwrap_or(default as rhai::FLOAT) as f32
+        };
+        let get_b = |map: &RhaiMap, key: &str, default: bool| -> bool {
+            map.get(key).and_then(|v| v.as_bool().ok()).unwrap_or(default)
+        };
+        let brake = LinearBrake {
+            decel:      get_f(&config, "decel",      45.0),
+            deadband:   get_f(&config, "deadband",    2.5),
+            auto_brake: get_b(&config, "auto_brake",  true),
+            active: false,
+        };
+        world.attach_linear_brake(id as u64, brake)
     }
 
-    /// Return all derived output fields of the RCS controller as a Rhai map.
-    ///
-    /// Keys: `angular_vel`, `speed`, `vx`, `vy`, `is_thrusting`, `rotation_dir`,
-    /// `thrust_factor`, `rot_factor`, `brake_factor`, `thrust_ms`, `course_drift`,
-    /// `course_cross`, `auto_brake_phase`, `final_burst_fired`, `final_burst_wave_num`,
-    /// `command_turn`.
-    pub(crate) fn rcs_state(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.ctx.world.as_ref() else { return RhaiMap::new(); };
-        let Some(rcs) = world.rcs_controller(id as u64) else { return RhaiMap::new(); };
-        let mut m = RhaiMap::new();
-        m.insert("angular_vel".into(),          (rcs.angular_vel as rhai::FLOAT).into());
-        m.insert("speed".into(),                (rcs.speed as rhai::FLOAT).into());
-        m.insert("vx".into(),                   (rcs.vx as rhai::FLOAT).into());
-        m.insert("vy".into(),                   (rcs.vy as rhai::FLOAT).into());
-        m.insert("is_thrusting".into(),         rcs.input_thrust.into());
-        m.insert("rotation_dir".into(),         (rcs.rotation_dir as rhai::FLOAT).into());
-        m.insert("thrust_factor".into(),        (rcs.thrust_factor as rhai::FLOAT).into());
-        m.insert("rot_factor".into(),           (rcs.rot_factor as rhai::FLOAT).into());
-        m.insert("brake_factor".into(),         (rcs.brake_factor as rhai::FLOAT).into());
-        m.insert("thrust_ms".into(),            (rcs.thrust_ignition_ms as rhai::FLOAT).into());
-        m.insert("course_drift".into(),         (rcs.course_drift as rhai::FLOAT).into());
-        m.insert("course_cross".into(),         (rcs.course_cross as rhai::FLOAT).into());
-        m.insert("auto_brake_phase".into(),     rcs.auto_brake_phase.clone().into());
-        m.insert("final_burst_fired".into(),    rcs.final_burst_fired.into());
-        m.insert("final_burst_wave_num".into(), (rcs.final_burst_wave_num as rhai::INT).into());
-        m.insert("command_turn".into(),         (rcs.command_turn as rhai::INT).into());
-        m
+    /// Suppress auto-braking for this frame (call when entity is thrusting).
+    pub(crate) fn set_linear_brake_active(&mut self, id: rhai::INT, active: bool) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        world.set_linear_brake_active(id as u64, active)
     }
 
     pub(crate) fn enable_wrap_bounds(&mut self, id: rhai::INT) -> bool {

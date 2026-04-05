@@ -13,6 +13,8 @@ pub mod particle_ramp;
 pub mod prerender;
 pub mod scene3d_prerender;
 pub mod arcade_controller;
+pub mod angular_body;
+pub mod linear_brake;
 pub mod visual_binding;
 pub mod visual_sync;
 pub use engine_compositor::systems::postfx;

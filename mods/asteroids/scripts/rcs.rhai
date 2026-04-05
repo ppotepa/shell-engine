@@ -219,9 +219,7 @@ fn fire_auto_linear_brake(world, ship, ship_id, ignition_factor) {
     let speed = sqrtf(vx * vx + vy * vy);
     if speed < 2.0 { return; }
 
-    let brake_power = 45.0 * ignition_factor;
-    let dt = 0.016;
-    ship.physics.add_velocity(-(vx / speed) * brake_power * dt, -(vy / speed) * brake_power * dt);
+    // Physics deceleration handled by engine LinearBrake component.
 
     let h      = ship.heading_vector();
     let fwd_x  = h["x"] ?? 0.0;
@@ -297,11 +295,7 @@ fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, wav
     }
 
     let speed = sqrtf(vx * vx + vy * vy);
-    if speed > 0.1 {
-        let brake_power = 60.0 * intensity;
-        let dt = 0.016;
-        ship.physics.add_velocity(-(vx / speed) * brake_power * dt, -(vy / speed) * brake_power * dt);
-    }
+    // Physics deceleration handled by engine LinearBrake component.
 }
 
 // ======================== MAIN CONTROL UPDATE ==============================
@@ -429,6 +423,7 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
     // ── Emit particles based on ramp state ───────────────────────────────────
     let MAX_SPEED = 280.0;
     if thrusting && thrust_factor > 0.0 {
+        world.set_linear_brake_active(ship_id, true); // suppress engine auto-brake while thrusting
         fire_main_engine_with_velocity(world, ship_id, thrust_ignition_ms, thrust_factor, speed, MAX_SPEED, pal);
     }
     if rot_factor > 0.1 {

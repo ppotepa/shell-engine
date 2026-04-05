@@ -406,7 +406,42 @@ impl Default for AngularBody {
         }
     }
 }
-/// Applied when `thread_mode` is not "light".
+/// Generic linear damping / auto-brake component.
+///
+/// When attached to an entity with a `PhysicsBody2D`, applies deceleration
+/// toward zero velocity each frame. When `input` is `true` (entity is thrusting
+/// or otherwise actively moving) the braking is suppressed.
+///
+/// Completely mod-agnostic — works for ships, vehicles, or any entity that
+/// needs friction-free inertia with optional braking. Configure via
+/// `world.linear_brake_attach(id, config_map)`.
+#[derive(Clone, Debug)]
+pub struct LinearBrake {
+    // ── Config ────────────────────────────────────────────────────────────
+    /// Deceleration magnitude in px/s² applied opposite to velocity.
+    pub decel: f32,
+    /// Speed below which velocity is snapped to zero.
+    pub deadband: f32,
+    /// When true, braking only applies when `active` is false.
+    pub auto_brake: bool,
+
+    // ── Per-frame input (set by script each frame) ────────────────────────
+    /// When true, suppresses auto-braking this frame (entity is thrusting).
+    pub active: bool,
+}
+
+impl Default for LinearBrake {
+    fn default() -> Self {
+        Self {
+            decel: 45.0,
+            deadband: 2.5,
+            auto_brake: true,
+            active: false,
+        }
+    }
+}
+
+
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ParticlePhysics {
     /// Processing mode (light/physics/gravity).

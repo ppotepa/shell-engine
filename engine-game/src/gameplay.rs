@@ -10,7 +10,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::components::{
     Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
-    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, AngularBody, Transform2D, VisualBinding, WrapBounds,
+    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, AngularBody, LinearBrake,
+    Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -40,6 +41,7 @@ struct GameplayStore {
     particle_physics: BTreeMap<u64, ParticlePhysics>,
     particle_ramps: BTreeMap<u64, ParticleColorRamp>,
     angular_bodies: BTreeMap<u64, AngularBody>,
+    linear_brakes: BTreeMap<u64, LinearBrake>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -71,6 +73,7 @@ impl Default for GameplayStore {
             particle_physics: BTreeMap::new(),
             particle_ramps: BTreeMap::new(),
             angular_bodies: BTreeMap::new(),
+            linear_brakes: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
             rng_seed: 1337,
@@ -231,6 +234,7 @@ impl GameplayWorld {
             store.particle_physics.remove(&id);
             store.particle_ramps.remove(&id);
             store.angular_bodies.remove(&id);
+            store.linear_brakes.remove(&id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
             }
@@ -1086,6 +1090,68 @@ impl GameplayWorld {
 
     /// Batch read physics data for multiple entities in a single lock acquisition.
     /// Returns tuples of (id, transform, physics, optional_particle_physics).
+
+    // ── LinearBrake ───────────────────────────────────────────────────────
+
+    /// Attach or replace the [`LinearBrake`] component for an entity.
+    pub fn attach_linear_brake(&self, id: u64, brake: LinearBrake) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false; };
+        if !store.entities.contains_key(&id) { return false; }
+        store.linear_brakes.insert(id, brake);
+        true
+    }
+
+    pub fn linear_brake(&self, id: u64) -> Option<LinearBrake> {
+        let Ok(store) = self.store.lock() else { return None; };
+        store.linear_brakes.get(&id).cloned()
+    }
+
+    pub fn ids_with_linear_brake(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else { return Vec::new(); };
+        store.linear_brakes.keys().copied().collect()
+    }
+
+    /// Set the per-frame `active` flag — suppresses braking when true.
+    pub fn set_linear_brake_active(&self, id: u64, active: bool) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false; };
+        let Some(lb) = store.linear_brakes.get_mut(&id) else { return false; };
+        lb.active = active;
+        true
+    }
+
+    /// Apply linear braking to all entities with a [`LinearBrake`] component.
+    ///
+    /// Called by `linear_brake_system` each physics tick after arcade controller.
+    pub fn tick_linear_brakes(&self, dt_ms: u64) {
+        let dt = (dt_ms as f32) / 1000.0;
+        if dt <= 0.0 { return; }
+        let ids = self.ids_with_linear_brake();
+        for id in ids {
+            let Ok(mut store) = self.store.lock() else { continue; };
+            let Some(lb) = store.linear_brakes.get_mut(&id) else { continue; };
+            if !lb.auto_brake || lb.active {
+                lb.active = false; // reset for next frame
+                continue;
+            }
+            lb.active = false; // reset for next frame
+            let decel = lb.decel;
+            let deadband = lb.deadband;
+            drop(store); // release lock before physics read
+            let Ok(mut store) = self.store.lock() else { continue; };
+            let Some(body) = store.physics.get_mut(&id) else { continue; };
+            let speed = (body.vx * body.vx + body.vy * body.vy).sqrt();
+            if speed <= deadband {
+                body.vx = 0.0;
+                body.vy = 0.0;
+                continue;
+            }
+            let impulse = (decel * dt).min(speed);
+            body.vx -= (body.vx / speed) * impulse;
+            body.vy -= (body.vy / speed) * impulse;
+        }
+    }
+
+
     pub fn batch_read_physics(&self, ids: &[u64]) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();

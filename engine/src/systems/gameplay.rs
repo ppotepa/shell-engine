@@ -51,6 +51,8 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
     // Run ship controller logic BEFORE physics (controller sets acceleration)
     if let Some(gameplay_world) = world.get::<GameplayWorld>() {
         super::arcade_controller::arcade_controller_system(&gameplay_world, dt_ms);
+        super::angular_body::angular_body_system(&gameplay_world, dt_ms);
+        super::linear_brake::linear_brake_system(&gameplay_world, dt_ms);
     }
 
     // Run physics integration
@@ -59,7 +61,6 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         world.get::<GameplayWorld>(),
     ) {
         strategies.physics.step(gameplay_world, dt_ms);
-        gameplay_world.apply_angular_velocity(dt_ms);
     }
 
     // Apply toroidal wrap after physics (entities with WrapBounds)

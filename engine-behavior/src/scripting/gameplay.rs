@@ -83,10 +83,11 @@ impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
         self.set_world_bounds(min_x, min_y, max_x, max_y)
     }
     fn world_bounds(&mut self) -> RhaiMap { self.world_bounds() }
-    fn rcs_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool { self.rcs_attach(id, config) }
-    fn rcs_set_input(&mut self, id: rhai::INT, thrust: bool, turn: rhai::FLOAT) -> bool { self.rcs_set_input(id, thrust, turn) }
-    fn rcs_tick(&mut self, id: rhai::INT, dt_ms: rhai::INT) -> bool { self.rcs_tick(id, dt_ms) }
-    fn rcs_state(&mut self, id: rhai::INT) -> RhaiMap { self.rcs_state(id) }
+    fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool { self.angular_body_attach(id, config) }
+    fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool { self.set_angular_input(id, input) }
+    fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT { self.angular_vel(id) }
+    fn linear_brake_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool { self.linear_brake_attach(id, config) }
+    fn set_linear_brake_active(&mut self, id: rhai::INT, active: bool) -> bool { self.set_linear_brake_active(id, active) }
     fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT { self.rand_i(min, max) }
     fn rand_seed(&mut self, seed: rhai::INT) { self.rand_seed(seed) }
     fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool { self.tag_add(id, tag) }
@@ -242,6 +243,27 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn(
         "world.get_bounds",
         |world: &mut ScriptGameplayApi| world.world_bounds()
+    );
+
+    engine.register_fn(
+        "angular_body_attach",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| world.angular_body_attach(id, config),
+    );
+    engine.register_fn(
+        "set_angular_input",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, input: rhai::FLOAT| world.set_angular_input(id, input),
+    );
+    engine.register_fn(
+        "angular_vel",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.angular_vel(id),
+    );
+    engine.register_fn(
+        "linear_brake_attach",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| world.linear_brake_attach(id, config),
+    );
+    engine.register_fn(
+        "set_linear_brake_active",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, active: bool| world.set_linear_brake_active(id, active),
     );
 
     // --- TIMER OPERATIONS (world.timer_*) ---

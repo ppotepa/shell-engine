@@ -138,6 +138,7 @@ fn ensure_ship(world, ship_col) {
         world.enable_wrap(ship_id, 0.0, WORLD_W, 0.0, WORLD_H);
         world.set(ship_id, "style.fg", ship_col);
         world.angular_body_attach(ship_id, #{ accel: 5.5, max: 7.0, deadband: 0.10, auto_brake: true });
+        world.linear_brake_attach(ship_id, #{ decel: 45.0, deadband: 2.0, auto_brake: true });
     }
     ship_id
 }

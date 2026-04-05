@@ -163,10 +163,11 @@ where
         max_y: rhai::FLOAT,
     );
     fn world_bounds(&mut self) -> RhaiMap;
-    fn rcs_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool;
-    fn rcs_set_input(&mut self, id: rhai::INT, thrust: bool, turn: rhai::FLOAT) -> bool;
-    fn rcs_tick(&mut self, id: rhai::INT, dt_ms: rhai::INT) -> bool;
-    fn rcs_state(&mut self, id: rhai::INT) -> RhaiMap;
+    fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool;
+    fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool;
+    fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT;
+    fn linear_brake_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool;
+    fn set_linear_brake_active(&mut self, id: rhai::INT, active: bool) -> bool;
     fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT;
     fn rand_seed(&mut self, seed: rhai::INT);
     fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool;
