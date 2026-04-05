@@ -61,7 +61,7 @@ pub fn arcade_controller_system(world: &GameplayWorld, dt_ms: u64) {
         if controller.is_thrusting {
             let (thrust_x, thrust_y) = if has_angular_body {
                 let heading = world.transform(id).map(|xf| xf.heading).unwrap_or(0.0);
-                (-heading.sin(), -heading.cos())
+                (heading.sin(), -heading.cos())
             } else {
                 controller.heading_vector()
             };
