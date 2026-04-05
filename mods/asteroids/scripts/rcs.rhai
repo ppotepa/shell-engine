@@ -339,12 +339,12 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
     let final_burst_timer_ms = rcs["final_burst_timer_ms"] ?? 0.0;
     let final_burst_triggered = rcs["final_burst_triggered"] ?? false;
 
-    if linear_input_active { no_input_ms = 0.0; } else { no_input_ms += 16.0; }
+    if linear_input_active { no_input_ms = 0.0; } else { no_input_ms += to_float(frame_ms); }
 
     // ── Thrust ignition ramp ─────────────────────────────────────────────────
     let thrust_factor = 0.0;
     if thrusting {
-        thrust_ignition_ms += 16.0;
+        thrust_ignition_ms += to_float(frame_ms);
         thrust_factor = igf(thrust_ignition_ms, 8.0, 12.0);
     } else {
         thrust_ignition_ms = 0.0;
@@ -358,11 +358,11 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
     let brake_factor = 0.0;
 
     if still_rotating && !rotation_input_active {
-        brake_ignition_ms += 16.0;
+        brake_ignition_ms += to_float(frame_ms);
         brake_factor = igf(brake_ignition_ms, 8.0 * 0.3, 12.0 * 0.5);
         auto_brake_phase = "rotation";
     } else if linear_brake_active {
-        brake_ignition_ms += 16.0;
+        brake_ignition_ms += to_float(frame_ms);
         brake_factor = igf(brake_ignition_ms + no_input_ms, 8.0 * 0.5, 12.0 * 0.8);
         auto_brake_phase = "linear";
     } else if !linear_input_active && !still_rotating && !still_moving {
@@ -386,7 +386,7 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
             final_burst_timer_ms  = 0.0;
         }
         if final_burst_waves < 3 {
-            final_burst_timer_ms += 16.0;
+            final_burst_timer_ms += to_float(frame_ms);
             if final_burst_timer_ms >= 150.0 {
                 final_burst_fired    = true;
                 final_burst_wave_num = final_burst_waves;

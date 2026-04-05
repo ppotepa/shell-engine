@@ -221,6 +221,7 @@ impl SceneRuntime {
             rhai_key_map,
             engine_key_map,
             debug_enabled,
+            frame_ms: scene_elapsed_ms.saturating_sub(self.prev_scene_elapsed_ms).max(1),
             action_bindings: match &self.cached_action_bindings {
                 Some(cached) => std::sync::Arc::clone(cached),
                 None => {
@@ -258,6 +259,7 @@ impl SceneRuntime {
         self.ui_state.last_change = None;
         // Carry forward current keys as previous for next-frame just_pressed computation.
         self.prev_keys_down = (*keys_down_for_prev).clone();
+        self.prev_scene_elapsed_ms = scene_elapsed_ms;
         commands
     }
 

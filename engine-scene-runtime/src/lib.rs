@@ -89,6 +89,8 @@ pub struct SceneRuntime {
     prev_collision_pairs: std::collections::HashSet<(u64, u64)>,
     /// Previous frame's held-key set — used to compute `keys_just_pressed`.
     prev_keys_down: std::collections::HashSet<String>,
+    /// Previous frame's scene_elapsed_ms — used to compute per-frame delta.
+    prev_scene_elapsed_ms: u64,
 }
 
 #[derive(Debug, Clone)]

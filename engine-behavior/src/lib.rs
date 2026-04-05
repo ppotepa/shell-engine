@@ -119,6 +119,9 @@ pub struct BehaviorContext {
     /// Includes `code`, `ctrl`, `alt`, `shift`, `pressed`, `is_quit` fields.
     /// Pushed to Rhai scope as `engine` map to keep engine concerns separate.
     pub engine_key_map: Arc<RhaiMap>,
+    /// Actual elapsed time for this frame (ms). Exposes real dt to scripts.
+    /// Use `frame_ms` in Rhai instead of hardcoding 16.0.
+    pub frame_ms: u64,
 }
 
 /// Defines the per-tick update logic for a scene object behavior.
@@ -573,6 +576,7 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push("selected_index", ctx.menu_selected_index as rhai::INT);
                 scope.push("scene_elapsed_ms", ctx.scene_elapsed_ms as rhai::INT);
                 scope.push("stage_elapsed_ms", ctx.stage_elapsed_ms as rhai::INT);
+                scope.push("frame_ms", ctx.frame_ms as rhai::INT);
                 scope.push("menu_count", scene.menu_options.len() as rhai::INT);
 
                 // OPT-11: Only build regions_map when the script uses `regions`.
@@ -861,6 +865,7 @@ fn smoke_probe_context(
         rhai_key_map: Arc::new(RhaiMap::new()),
         engine_key_map: Arc::new(RhaiMap::new()),
         debug_enabled: false,
+        frame_ms: 16,
     }
 }
 
@@ -1253,6 +1258,7 @@ mod tests {
             rhai_key_map: empty_rhai_key_map(),
             engine_key_map: empty_engine_key_map(),
             debug_enabled: false,
+            frame_ms: 16,
         }
     }
 
