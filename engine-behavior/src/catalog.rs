@@ -185,7 +185,7 @@ pub struct EmitterConfig {
     #[serde(default)]
     pub collision: Option<bool>,
     /// Collision mask - which tags can this particle collide with.
-    /// Example: ["asteroid", "ship"]
+    /// Example: ["enemy", "terrain"]
     #[serde(default)]
     pub collision_mask: Option<Vec<String>>,
     /// Gravity scale for particles (0.0 = no gravity, 1.0 = full gravity).
