@@ -145,6 +145,41 @@ pub fn register_numeric_api(engine: &mut RhaiEngine) {
             }
         },
     );
+
+    engine.register_fn("absf", |x: rhai::FLOAT| -> rhai::FLOAT { x.abs() });
+    engine.register_fn("signf", |x: rhai::FLOAT| -> rhai::FLOAT {
+        if x > 0.0 {
+            1.0
+        } else if x < 0.0 {
+            -1.0
+        } else {
+            0.0
+        }
+    });
+    engine.register_fn("sqrtf", |x: rhai::FLOAT| -> rhai::FLOAT {
+        if x <= 0.0 { 0.0 } else { x.sqrt() }
+    });
+    engine.register_fn(
+        "normalize",
+        |x: rhai::FLOAT, y: rhai::FLOAT| -> rhai::Map {
+            let len = (x * x + y * y).sqrt();
+            let mut map = rhai::Map::new();
+            if len < 0.0001 {
+                map.insert("x".into(), rhai::Dynamic::from(0.0_f64));
+                map.insert("y".into(), rhai::Dynamic::from(0.0_f64));
+            } else {
+                map.insert("x".into(), rhai::Dynamic::from(x / len));
+                map.insert("y".into(), rhai::Dynamic::from(y / len));
+            }
+            map
+        },
+    );
+    engine.register_fn(
+        "dot",
+        |ax: rhai::FLOAT, ay: rhai::FLOAT, bx: rhai::FLOAT, by: rhai::FLOAT| -> rhai::FLOAT {
+            ax * bx + ay * by
+        },
+    );
 }
 
 pub fn register_gameplay_core_api<TWorld, TEntity>(engine: &mut RhaiEngine)

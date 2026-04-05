@@ -63,33 +63,6 @@ let IGNITION_RAMP_MS = 12.0;    // time to reach full intensity (was 36)
 
 // ======================== HELPER FUNCTIONS =================================
 
-fn absf(x) {
-    if x < 0.0 { -x } else { x }
-}
-
-fn signf(x) {
-    if x > 0.0 { 1.0 } else if x < 0.0 { -1.0 } else { 0.0 }
-}
-
-fn sqrtf(x) {
-    if x <= 0.0 { return 0.0; }
-    let guess = x / 2.0;
-    for i in 0..8 {
-        guess = (guess + x / guess) / 2.0;
-    }
-    guess
-}
-
-fn normalize(x, y) {
-    let len = sqrtf(x * x + y * y);
-    if len < 0.0001 { return #{ x: 0.0, y: 0.0 }; }
-    #{ x: x / len, y: y / len }
-}
-
-fn dot(ax, ay, bx, by) {
-    ax * bx + ay * by
-}
-
 fn keep_asteroids_alive(world, asteroid_col) {
     if world.count_kind("asteroid") > 0 { return; }
     spawn_wave(world, 1, asteroid_col);
