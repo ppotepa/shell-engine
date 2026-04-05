@@ -198,6 +198,12 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         "world.spawn_prefab",
         |world: &mut ScriptGameplayApi, name: &str, args: RhaiMap| world.spawn_prefab(name, args),
     );
+    engine.register_fn(
+        "spawn_from_heading",
+        |world: &mut ScriptGameplayApi, owner_id: rhai::INT, prefab: &str, args: RhaiMap| {
+            world.spawn_from_heading(owner_id, prefab, args)
+        },
+    );
     
     engine.register_fn(
         "spawn_group",

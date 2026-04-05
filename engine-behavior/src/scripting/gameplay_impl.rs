@@ -888,7 +888,45 @@ impl ScriptGameplayApi {
         id
     }
 
-    /// Spawn ephemeral entities with TTL-based lifecycle policies.
+    /// Spawn a prefab along the owner entity's heading direction.
+    ///
+    /// Eliminates manual sin/cos trig from scripts for projectile spawning.
+    ///
+    /// Args map keys:
+    /// - `speed`: projectile speed (default 0.0)
+    /// - `offset`: forward distance from owner origin to spawn point (default 0.0)
+    /// - `inherit_velocity`: add owner velocity to projectile (default false)
+    /// - Any other keys are forwarded to `spawn_prefab` (e.g. `ttl_ms`, `heading`)
+    pub(crate) fn spawn_from_heading(&mut self, owner_id: rhai::INT, prefab: &str, args: RhaiMap) -> rhai::INT {
+        let Some(world) = self.ctx.world.as_ref() else { return 0; };
+        let Some(xf) = world.transform(owner_id as u64) else { return 0; };
+        let heading = xf.heading;
+        let (fwd_x, fwd_y) = (-heading.sin(), -heading.cos());
+        let speed = Self::map_number(&args, "speed", 0.0) as f32;
+        let offset = Self::map_number(&args, "offset", 0.0) as f32;
+        let inherit_velocity = args.get("inherit_velocity").and_then(|v| v.as_bool().ok()).unwrap_or(false);
+        let (svx, svy) = if inherit_velocity {
+            world.physics(owner_id as u64)
+                .map(|b| (b.vx, b.vy))
+                .unwrap_or((0.0, 0.0))
+        } else {
+            (0.0f32, 0.0f32)
+        };
+        let spawn_x = xf.x + fwd_x * offset;
+        let spawn_y = xf.y + fwd_y * offset;
+        let vx = fwd_x * speed + svx;
+        let vy = fwd_y * speed + svy;
+        let mut merged = args.clone();
+        merged.insert("x".into(), (spawn_x as rhai::FLOAT).into());
+        merged.insert("y".into(), (spawn_y as rhai::FLOAT).into());
+        merged.insert("vx".into(), (vx as rhai::FLOAT).into());
+        merged.insert("vy".into(), (vy as rhai::FLOAT).into());
+        merged.insert("heading".into(), (heading as rhai::FLOAT).into());
+        merged.remove("speed");
+        merged.remove("offset");
+        merged.remove("inherit_velocity");
+        self.spawn_prefab(prefab, merged)
+    }
     fn spawn_prefab_ephemeral(
         &mut self,
         prefab: &catalog::PrefabTemplate,

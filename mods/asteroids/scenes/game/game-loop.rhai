@@ -234,32 +234,15 @@ if ship_id > 0 {
 
     // ── Shooting ─────────────────────────────────────────────────────────────
     if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
-        let ship_xf = world.transform(ship_id);
-        if type_of(ship_xf) == "map" {
-            let sx = ship_xf["x"] ?? 0.0;
-            let sy = ship_xf["y"] ?? 0.0;
-            let heading = ship_xf["heading"] ?? 0.0;
-            // Ship heading: 0 = up (−y), positive = clockwise
-            let bvx = -sin(heading) * 280.0;
-            let bvy = -cos(heading) * 280.0;
-            // Offset bullet to ship nose
-            let bx = sx - sin(heading) * 17.0;
-            let by = sy - cos(heading) * 17.0;
-            let phys = world.physics(ship_id);
-            let svx = if type_of(phys) == "map" { phys["vx"] ?? 0.0 } else { 0.0 };
-            let svy = if type_of(phys) == "map" { phys["vy"] ?? 0.0 } else { 0.0 };
-            let bullet_id = world.spawn_prefab("bullet", #{
-                x: bx, y: by,
-                vx: bvx + svx, vy: bvy + svy,
-                ttl_ms: 1400
-            });
-            if bullet_id > 0 {
-                world.tag_add(bullet_id, "bullet");
-                world.tag_add(bullet_id, "player-bullet");
-                world.set(bullet_id, "style.fg", PAL_BULLET);
-            }
-            world.entity(ship_id).cooldown_start("fire", 180);
+        let bullet_id = world.spawn_from_heading(ship_id, "bullet", #{
+            speed: 280.0, offset: 17.0, ttl_ms: 1400, inherit_velocity: true
+        });
+        if bullet_id > 0 {
+            world.tag_add(bullet_id, "bullet");
+            world.tag_add(bullet_id, "player-bullet");
+            world.set(bullet_id, "style.fg", PAL_BULLET);
         }
+        world.entity(ship_id).cooldown_start("fire", 180);
     }
 }
 
