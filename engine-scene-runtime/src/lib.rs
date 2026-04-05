@@ -91,6 +91,8 @@ pub struct SceneRuntime {
     prev_keys_down: std::collections::HashSet<String>,
     /// Previous frame's scene_elapsed_ms — used to compute per-frame delta.
     prev_scene_elapsed_ms: u64,
+    /// Palette version when bindings were last applied; 0 means not yet applied.
+    palette_applied_version: u64,
 }
 
 #[derive(Debug, Clone)]

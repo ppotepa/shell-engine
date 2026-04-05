@@ -67,6 +67,7 @@ pub fn behavior_system(world: &mut World) {
             return;
         };
         runtime.reset_frame_state();
+        runtime.apply_palette_bindings_if_changed(&palettes);
         runtime.update_behaviors(
             stage,
             scene_elapsed_ms,

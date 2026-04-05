@@ -24,10 +24,10 @@ pub use easing::Easing;
 pub use metadata::{LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
 pub use model::{
     Animation, AudioCue, BehaviorParams, BehaviorSpec, Effect, EffectParams, EffectTargetKind,
-    Layer, LayerStages, MenuOption, ObjViewerControls, Scene, SceneAudio, SceneInput,
-    SceneRenderedMode, SceneStages, SceneUi, Stage, StageTrigger, Step, TerminalShellCommand,
-    TerminalShellControls, TerminalShellMode, TerminalShellOutput, TerminalSizeTesterControls,
-    UiPersistence,
+    Layer, LayerStages, MenuOption, ObjViewerControls, PaletteBinding, Scene, SceneAudio,
+    SceneInput, SceneRenderedMode, SceneStages, SceneUi, Stage, StageTrigger, Step,
+    TerminalShellCommand, TerminalShellControls, TerminalShellMode, TerminalShellOutput,
+    TerminalSizeTesterControls, UiPersistence,
 };
 pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
 pub use ui_theme::{

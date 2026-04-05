@@ -1157,6 +1157,7 @@ mod tests {
             postfx: Vec::new(),
             next: None,
             prerender: false,
+            palette_bindings: Vec::new(),
         }
     }
 

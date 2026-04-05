@@ -2,7 +2,7 @@
 //! [`Scene`] model.
 
 use engine_core::scene::template::expand_scene_templates;
-use engine_core::scene::{resolve_ui_theme_or_default, Scene};
+use engine_core::scene::{resolve_ui_theme_or_default, PaletteBinding, Scene};
 use serde::de::Error as _;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
@@ -31,7 +31,9 @@ impl SceneDocument {
     pub fn compile(self) -> Result<Scene, serde_yaml::Error> {
         let mut normalized = self.raw;
         normalize_scene_value(&mut normalized)?;
-        let scene: Scene = serde_yaml::from_value(normalized)?;
+        let palette_bindings = extract_palette_bindings(&mut normalized);
+        let mut scene: Scene = serde_yaml::from_value(normalized)?;
+        scene.palette_bindings = palette_bindings;
 
         #[cfg(debug_assertions)]
         {
@@ -66,6 +68,67 @@ impl SceneDocument {
         }
 
         Ok(scene)
+    }
+}
+
+/// Walks the normalized YAML tree looking for `"@palette.<key>"` values in
+/// `fg_colour` / `bg_colour` sprite fields. For each found:
+/// - records a [`PaletteBinding`] (target sprite id → palette key),
+/// - replaces the `"@palette.*"` string with `"white"` so `TermColour`
+///   deserialization succeeds.
+fn extract_palette_bindings(root: &mut Value) -> Vec<PaletteBinding> {
+    let mut bindings = Vec::new();
+    let Some(scene_map) = root.as_mapping_mut() else {
+        return bindings;
+    };
+    let Some(layers) = scene_map.get_mut(Value::String("layers".to_string())) else {
+        return bindings;
+    };
+    let Some(layer_seq) = layers.as_sequence_mut() else {
+        return bindings;
+    };
+    for layer in layer_seq.iter_mut() {
+        let Some(layer_map) = layer.as_mapping_mut() else {
+            continue;
+        };
+        let Some(sprites) = layer_map.get_mut(Value::String("sprites".to_string())) else {
+            continue;
+        };
+        collect_sprite_palette_bindings(sprites, &mut bindings);
+    }
+    bindings
+}
+
+fn collect_sprite_palette_bindings(sprites: &mut Value, bindings: &mut Vec<PaletteBinding>) {
+    let Some(sprite_seq) = sprites.as_sequence_mut() else {
+        return;
+    };
+    for sprite in sprite_seq.iter_mut() {
+        let Some(sprite_map) = sprite.as_mapping_mut() else {
+            continue;
+        };
+        let id = sprite_map
+            .get(Value::String("id".to_string()))
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        for (yaml_field, prop_path) in [("fg_colour", "style.fg"), ("bg_colour", "style.bg")] {
+            let field_key = Value::String(yaml_field.to_string());
+            if let Some(val) = sprite_map.get(&field_key).and_then(Value::as_str) {
+                if let Some(key) = val.strip_prefix("@palette.") {
+                    if let Some(target) = &id {
+                        bindings.push(PaletteBinding {
+                            target: target.clone(),
+                            prop: prop_path.to_owned(),
+                            key: key.to_owned(),
+                        });
+                        sprite_map.insert(field_key, Value::String("white".to_string()));
+                    }
+                }
+            }
+        }
+        if let Some(children) = sprite_map.get_mut(Value::String("children".to_string())) {
+            collect_sprite_palette_bindings(children, bindings);
+        }
     }
 }
 

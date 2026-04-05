@@ -33,10 +33,6 @@ if pal_ver != (local.pal_ver ?? -1) {
     let PAL_SHIP         = palette.get("ship");         if PAL_SHIP         == "" { PAL_SHIP         = "white"; }
     let PAL_ASTEROID     = palette.get("asteroid");     if PAL_ASTEROID     == "" { PAL_ASTEROID     = "white"; }
     let PAL_BULLET       = palette.get("bullet");       if PAL_BULLET       == "" { PAL_BULLET       = "yellow"; }
-    let PAL_HUD_LABEL    = palette.get("hud_label");    if PAL_HUD_LABEL    == "" { PAL_HUD_LABEL    = "#2e5eaa"; }
-    let PAL_HUD_VALUE    = palette.get("hud_value");    if PAL_HUD_VALUE    == "" { PAL_HUD_VALUE    = "#5bc0be"; }
-    let PAL_GAMEOVER     = palette.get("gameover");     if PAL_GAMEOVER     == "" { PAL_GAMEOVER     = "#f6ae2d"; }
-    let PAL_GAMEOVER_SUB = palette.get("gameover_sub"); if PAL_GAMEOVER_SUB == "" { PAL_GAMEOVER_SUB = "#c2a83e"; }
     let PAL_P_THRUST_INIT  = palette.get("particle_thruster_init"); if PAL_P_THRUST_INIT  == "" { PAL_P_THRUST_INIT  = "white"; }
     let PAL_P_HOT_INIT     = palette.get("particle_hot_init");      if PAL_P_HOT_INIT     == "" { PAL_P_HOT_INIT     = "#66FFFF"; }
     let PAL_P_HOT_CORE     = palette.get("particle_hot_core_init"); if PAL_P_HOT_CORE     == "" { PAL_P_HOT_CORE     = "#AAFFFF"; }
@@ -48,10 +44,6 @@ if pal_ver != (local.pal_ver ?? -1) {
         ship:         PAL_SHIP,
         asteroid:     PAL_ASTEROID,
         bullet:       PAL_BULLET,
-        hud_label:    PAL_HUD_LABEL,
-        hud_value:    PAL_HUD_VALUE,
-        gameover:     PAL_GAMEOVER,
-        gameover_sub: PAL_GAMEOVER_SUB,
         thrust_init:  PAL_P_THRUST_INIT,
         hot_init:     PAL_P_HOT_INIT,
         hot_core:     PAL_P_HOT_CORE,
@@ -64,14 +56,6 @@ if pal_ver != (local.pal_ver ?? -1) {
 
     // Apply palette-driven static styles (only needed on change)
     scene.set_bg(PAL_BG);
-    scene.set("hud-score",        "style.fg", PAL_HUD_VALUE);
-    scene.set("hud-lives",        "style.fg", PAL_HUD_VALUE);
-    scene.set("hud-wave",         "style.fg", PAL_HUD_VALUE);
-    scene.set("hud-label-score",  "style.fg", PAL_HUD_LABEL);
-    scene.set("hud-label-lives",  "style.fg", PAL_HUD_LABEL);
-    scene.set("hud-label-wave",   "style.fg", PAL_HUD_LABEL);
-    scene.set("hud-gameover",     "style.fg", PAL_GAMEOVER);
-    scene.set("hud-gameover-sub", "style.fg", PAL_GAMEOVER_SUB);
 }
 
 let col  = local.pal ?? #{};

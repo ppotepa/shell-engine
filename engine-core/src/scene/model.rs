@@ -661,6 +661,24 @@ pub struct Scene {
     /// The compositor then uses cached frames instead of live 3D rendering.
     #[serde(default)]
     pub prerender: bool,
+    /// Palette color bindings extracted from `@palette.<key>` syntax in YAML.
+    /// Applied at runtime whenever the active palette changes.
+    #[serde(default, skip_serializing)]
+    pub palette_bindings: Vec<PaletteBinding>,
+}
+
+/// A color binding between a sprite and a palette key, extracted from YAML `@palette.<key>` syntax.
+///
+/// When the scene runtime detects a palette change it replays all bindings as
+/// `SetProperty` commands so the sprites reflect the current palette colors.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct PaletteBinding {
+    /// Sprite object id (runtime target).
+    pub target: String,
+    /// Property path, e.g. `"style.fg"` or `"style.bg"`.
+    pub prop: String,
+    /// Palette color key, e.g. `"hud_value"`.
+    pub key: String,
 }
 
 impl Scene {

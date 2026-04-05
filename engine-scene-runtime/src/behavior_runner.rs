@@ -263,6 +263,43 @@ impl SceneRuntime {
         commands
     }
 
+    /// Applies palette color bindings if the active palette has changed since the last
+    /// application. Called once per frame before behavior script execution so that sprites
+    /// with `@palette.<key>` YAML bindings always reflect the current palette.
+    pub fn apply_palette_bindings_if_changed(
+        &mut self,
+        palettes: &engine_behavior::palette::PaletteStore,
+    ) {
+        if self.scene.palette_bindings.is_empty() {
+            return;
+        }
+        let current_version = palettes
+            .version
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if current_version == self.palette_applied_version {
+            return;
+        }
+        let Some(palette) = palettes.resolve(None, None) else {
+            return;
+        };
+        let commands: Vec<engine_behavior::BehaviorCommand> = self
+            .scene
+            .palette_bindings
+            .iter()
+            .filter_map(|binding| {
+                let color = palette.colors.get(&binding.key)?;
+                Some(engine_behavior::BehaviorCommand::SetProperty {
+                    target: binding.target.clone(),
+                    path: binding.prop.clone(),
+                    value: serde_json::Value::String(color.clone()),
+                })
+            })
+            .collect();
+        let resolver = std::sync::Arc::clone(&self.resolver_cache);
+        self.apply_behavior_commands(&resolver, &commands);
+        self.palette_applied_version = current_version;
+    }
+
     /// Applies behavior commands to runtime object state using the supplied
     /// target resolver.
     pub fn apply_behavior_commands(
