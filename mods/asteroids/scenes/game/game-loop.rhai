@@ -255,10 +255,9 @@ if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respa
 
 // ── Collision handling ────────────────────────────────────────────────────────
 // bullet hits asteroid
-for hit in collision.enters_of("bullet") {
-    let bullet_id   = hit["self"];
-    let asteroid_id = hit["other"];
-    if !world.tag_has(asteroid_id, "asteroid") { continue; }
+for hit in collision.enters("bullet", "asteroid") {
+    let bullet_id   = hit["bullet"];
+    let asteroid_id = hit["asteroid"];
     if !world.exists(bullet_id) || !world.exists(asteroid_id) { continue; }
     let axf = world.transform(asteroid_id);
     let ax = if type_of(axf) == "map" { axf["x"] ?? 0.0 } else { 0.0 };
@@ -286,10 +285,9 @@ for hit in collision.enters_of("bullet") {
 
 // ship hits asteroid
 if !invincible && ship_id > 0 {
-    for hit in collision.enters_of("ship") {
-        let hit_ship_id = hit["self"];
-        let other_id    = hit["other"];
-        if hit_ship_id != ship_id || !world.tag_has(other_id, "asteroid") { continue; }
+    for hit in collision.enters("ship", "asteroid") {
+        let hit_ship_id = hit["ship"];
+        if hit_ship_id != ship_id { continue; }
         world.despawn(ship_id);
         local.ship_id = 0;
         ship_id = 0;
