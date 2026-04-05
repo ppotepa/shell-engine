@@ -204,6 +204,10 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
             world.spawn_from_heading(owner_id, prefab, args)
         },
     );
+    engine.register_fn(
+        "heading_drift",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.heading_drift(id),
+    );
     
     engine.register_fn(
         "spawn_group",

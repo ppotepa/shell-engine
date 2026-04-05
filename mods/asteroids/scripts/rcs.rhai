@@ -212,23 +212,14 @@ fn fire_main_engine_with_velocity(world, ship_id, thrust_ms, ignition_factor, sp
 // ======================== EMISSION: LINEAR BRAKE ===========================
 
 fn fire_auto_linear_brake(world, ship, ship_id, ignition_factor) {
-    let phys = world.physics(ship_id);
-    if type_of(phys) != "map" { return; }
-    let vx = phys["vx"] ?? 0.0;
-    let vy = phys["vy"] ?? 0.0;
-    let speed = sqrtf(vx * vx + vy * vy);
+    let hd = world.heading_drift(ship_id);
+    let speed     = hd["speed"] ?? 0.0;
     if speed < 2.0 { return; }
 
     // Physics deceleration handled by engine LinearBrake component.
 
-    let h      = ship.heading_vector();
-    let fwd_x  = h["x"] ?? 0.0;
-    let fwd_y  = h["y"] ?? -1.0;
-    let right_x = -fwd_y;
-    let right_y  = fwd_x;
-
-    let vel_fwd   = vx * fwd_x + vy * fwd_y;
-    let vel_right = vx * right_x + vy * right_y;
+    let vel_fwd   = hd["fwd"]   ?? 0.0;
+    let vel_right = hd["right"] ?? 0.0;
     let abs_fwd   = absf(vel_fwd);
     let abs_right = absf(vel_right);
 
@@ -265,17 +256,13 @@ fn fire_settling_puff(world, ship_id, ignition_factor) {
     emit_rcs_intensity(world, ship_id, emitters[idx], 25.0, 50, "white", 0.01, ignition_factor * 0.25, 1);
 }
 
-fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, wave_num) {
+fn fire_final_stabilization_burst(world, ship_id, angular_vel, wave_num) {
     let intensity    = if wave_num == 0 { 1.0 } else if wave_num == 1 { 0.6 } else { 0.2 };
     let base_bursts_f = if wave_num == 0 { 8.0 + rand() * 2.0 } else if wave_num == 1 { 5.0 + rand() } else { 2.0 };
     let base_bursts  = if base_bursts_f < 2.5 { 2 } else if base_bursts_f < 5.5 { 5 } else if base_bursts_f < 7.0 { 6 } else if base_bursts_f < 9.0 { 8 } else { 10 };
-    let h      = ship.heading_vector();
-    let fwd_x  = h["x"] ?? 0.0;
-    let fwd_y  = h["y"] ?? -1.0;
-    let right_x = -fwd_y;
-    let right_y  = fwd_x;
-    let vel_fwd   = vx * fwd_x + vy * fwd_y;
-    let vel_right = vx * right_x + vy * right_y;
+    let hd        = world.heading_drift(ship_id);
+    let vel_fwd   = hd["fwd"]   ?? 0.0;
+    let vel_right = hd["right"] ?? 0.0;
     let speed_mult = 0.5 + intensity * 0.5;
 
     if vel_fwd > 0.1   { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.bow",       (40.0 + to_float(i) * 8.0)  * speed_mult, 180); } }
@@ -293,8 +280,6 @@ fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, wav
             emit_final_burst_particle(world, ship_id, e2, (25.0 + to_float(i) * 5.0) * speed_mult, 120);
         }
     }
-
-    let speed = sqrtf(vx * vx + vy * vy);
     // Physics deceleration handled by engine LinearBrake component.
 }
 
@@ -407,13 +392,11 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
 
     // ── Course correction ────────────────────────────────────────────────────
     if thrusting && speed > 5.0 && !rotation_input_active {
-        let h  = ship.heading_vector();
-        let hx = h["x"] ?? 0.0;
-        let hy = h["y"] ?? -1.0;
-        let cross    = hx * vy - hy * vx;
-        let dot_val  = hx * vx + hy * vy;
-        let drift    = absf(cross) / speed;
-        if dot_val > 0.0 && drift > 0.15 {
+        let hd    = world.heading_drift(ship_id);
+        let cross = hd["right"] ?? 0.0;
+        let fwd   = hd["fwd"]   ?? 0.0;
+        let drift = hd["drift"] ?? 0.0;
+        if fwd > 0.0 && drift > 0.15 {
             let emitter  = if cross > 0.0 { "ship.port" } else { "ship.starboard" };
             let strength = (drift * 0.5).min(0.4);
             emit_rcs_intensity(world, ship_id, emitter, 60.0, 120, pal["correct"], 0.15, strength, 1);
@@ -437,7 +420,7 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
         }
     }
     if final_burst_fired {
-        fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, final_burst_wave_num);
+        fire_final_stabilization_burst(world, ship_id, angular_vel, final_burst_wave_num);
     }
     if auto_brake_phase == "stopped" && rand() < 0.05 {
         fire_settling_puff(world, ship_id, 0.3);

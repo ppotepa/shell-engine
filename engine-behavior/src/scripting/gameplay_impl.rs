@@ -927,6 +927,35 @@ impl ScriptGameplayApi {
         merged.remove("inherit_velocity");
         self.spawn_prefab(prefab, merged)
     }
+
+    /// Return velocity decomposed into heading-relative components.
+    ///
+    /// Returns `#{fwd, right, drift, speed}`:
+    /// - `fwd`   – component of velocity along heading (+ = forward, − = backward)
+    /// - `right` – lateral component (+ = drifting right/clockwise, − = left)
+    /// - `drift` – |right| / speed, normalised 0-1 (0 = perfectly aligned)
+    /// - `speed` – total speed magnitude
+    pub(crate) fn heading_drift(&mut self, id: rhai::INT) -> RhaiMap {
+        let mut out = RhaiMap::new();
+        let Some(world) = self.ctx.world.as_ref() else { return out; };
+        let Some(xf) = world.transform(id as u64) else { return out; };
+        let heading = xf.heading;
+        let (fwd_x, fwd_y) = (-heading.sin(), -heading.cos());
+        let (vx, vy) = match world.physics(id as u64) {
+            Some(b) => (b.vx, b.vy),
+            None => (0.0, 0.0),
+        };
+        let fwd   = vx * fwd_x + vy * fwd_y;
+        let right = vx * (-fwd_y) + vy * fwd_x;
+        let speed = (vx * vx + vy * vy).sqrt();
+        let drift = if speed > 0.001 { right.abs() / speed } else { 0.0 };
+        out.insert("fwd".into(),   (fwd   as rhai::FLOAT).into());
+        out.insert("right".into(), (right as rhai::FLOAT).into());
+        out.insert("drift".into(), (drift as rhai::FLOAT).into());
+        out.insert("speed".into(), (speed as rhai::FLOAT).into());
+        out
+    }
+
     fn spawn_prefab_ephemeral(
         &mut self,
         prefab: &catalog::PrefabTemplate,
