@@ -362,6 +362,114 @@ pub struct ParticleColorRamp {
     /// Radius at end of life (life→0). 0 = fade out, ≥1 = stays visible.
     pub radius_min: i32,
 }
+
+/// Generic RCS (Reaction Control System) physics controller.
+///
+/// Manages angular momentum, auto-stabilization, and ignition ramp state for
+/// any entity that needs inertia-based rotation and velocity control. Decoupled
+/// from any specific mod — emission and visual decisions remain in the mod script.
+///
+/// # Usage
+/// Each frame the host script sets [`input_thrust`] / [`input_turn`], calls
+/// `world.rcs_tick(id, dt_ms)`, then reads the derived output fields to drive
+/// particle emission.
+#[derive(Clone, Debug)]
+pub struct RcsController {
+    // ── Config (set once at entity creation) ─────────────────────────────
+    /// Rotational acceleration in rad/s² per unit of input torque.
+    pub angular_accel: f32,
+    /// Maximum angular velocity in rad/s.
+    pub angular_max: f32,
+    /// Angular velocity below which rotation is considered stopped.
+    pub angular_deadband: f32,
+    /// Speed below which linear motion is considered stopped.
+    pub linear_deadband: f32,
+    /// Milliseconds of no-input before linear auto-brake activates.
+    pub auto_brake_delay_ms: f32,
+    /// Ignition spool-up delay before thrust begins.
+    pub ignition_delay_ms: f32,
+    /// Time from end of delay to full thrust authority.
+    pub ignition_ramp_ms: f32,
+    /// Max speed for the host entity (used for course-correction scaling).
+    pub max_speed: f32,
+
+    // ── Per-frame input (written by Rhai before tick) ─────────────────────
+    pub input_thrust: bool,
+    /// Directional turn input: -1.0 = left, 0.0 = neutral, +1.0 = right.
+    pub input_turn: f32,
+
+    // ── Physics state (managed by rcs_tick) ──────────────────────────────
+    pub angular_vel: f32,
+    pub thrust_ignition_ms: f32,
+    pub rotation_ignition_ms: f32,
+    pub brake_ignition_ms: f32,
+    pub rotation_dir: f32,
+    pub no_input_ms: f32,
+    /// Current phase: `"idle"`, `"rotation"`, `"linear"`, `"stopped"`, `"thrusting"`.
+    pub auto_brake_phase: String,
+    pub final_burst_waves: i32,
+    pub final_burst_timer_ms: f32,
+    pub final_burst_triggered: bool,
+
+    // ── Derived outputs (computed by rcs_tick, read by Rhai for emission) ─
+    pub speed: f32,
+    pub vx: f32,
+    pub vy: f32,
+    /// Ignition factor for the main thrust emitter (0.0–1.0).
+    pub thrust_factor: f32,
+    /// Ignition factor for rotation thrusters (0.0–1.0).
+    pub rot_factor: f32,
+    /// Ignition factor for auto-brake thrusters (0.0–1.0).
+    pub brake_factor: f32,
+    /// Normalized drift magnitude perpendicular to heading (0.0–1.0).
+    pub course_drift: f32,
+    /// Sign of drift cross product — positive = velocity drifts right of heading.
+    pub course_cross: f32,
+    /// True if a final stabilization burst fired this tick.
+    pub final_burst_fired: bool,
+    /// Which burst wave fired this tick (0-based).
+    pub final_burst_wave_num: i32,
+    /// Discrete turn command for the host ArcadeController: -1, 0, or +1.
+    pub command_turn: i32,
+}
+
+impl Default for RcsController {
+    fn default() -> Self {
+        Self {
+            angular_accel: 5.5,
+            angular_max: 7.0,
+            angular_deadband: 0.10,
+            linear_deadband: 2.5,
+            auto_brake_delay_ms: 30.0,
+            ignition_delay_ms: 8.0,
+            ignition_ramp_ms: 12.0,
+            max_speed: 280.0,
+            input_thrust: false,
+            input_turn: 0.0,
+            angular_vel: 0.0,
+            thrust_ignition_ms: 0.0,
+            rotation_ignition_ms: 0.0,
+            brake_ignition_ms: 0.0,
+            rotation_dir: 0.0,
+            no_input_ms: 0.0,
+            auto_brake_phase: "idle".to_string(),
+            final_burst_waves: 0,
+            final_burst_timer_ms: 0.0,
+            final_burst_triggered: false,
+            speed: 0.0,
+            vx: 0.0,
+            vy: 0.0,
+            thrust_factor: 0.0,
+            rot_factor: 0.0,
+            brake_factor: 0.0,
+            course_drift: 0.0,
+            course_cross: 0.0,
+            final_burst_fired: false,
+            final_burst_wave_num: 0,
+            command_turn: 0,
+        }
+    }
+}
 /// Applied when `thread_mode` is not "light".
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ParticlePhysics {

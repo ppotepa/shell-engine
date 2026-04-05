@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::components::{
     Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
-    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, Transform2D, VisualBinding, WrapBounds,
+    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, RcsController, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -39,6 +39,7 @@ struct GameplayStore {
     controllers: BTreeMap<u64, ArcadeController>,
     particle_physics: BTreeMap<u64, ParticlePhysics>,
     particle_ramps: BTreeMap<u64, ParticleColorRamp>,
+    rcs_controllers: BTreeMap<u64, RcsController>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -69,6 +70,7 @@ impl Default for GameplayStore {
             controllers: BTreeMap::new(),
             particle_physics: BTreeMap::new(),
             particle_ramps: BTreeMap::new(),
+            rcs_controllers: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
             rng_seed: 1337,
@@ -228,6 +230,7 @@ impl GameplayWorld {
             store.controllers.remove(&id);
             store.particle_physics.remove(&id);
             store.particle_ramps.remove(&id);
+            store.rcs_controllers.remove(&id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
             }
@@ -1026,8 +1029,257 @@ impl GameplayWorld {
     }
 
     // =========================================================================
-    // BATCH OPERATIONS - Single lock for multiple reads/writes
+    // RCS CONTROLLER - Generic inertia-based rotation and auto-stabilization
     // =========================================================================
+
+    /// Attach or replace the RcsController for an entity.
+    pub fn attach_rcs_controller(&self, id: u64, rcs: RcsController) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false; };
+        if !store.entities.contains_key(&id) { return false; }
+        store.rcs_controllers.insert(id, rcs);
+        true
+    }
+
+    pub fn rcs_controller(&self, id: u64) -> Option<RcsController> {
+        let Ok(store) = self.store.lock() else { return None; };
+        store.rcs_controllers.get(&id).cloned()
+    }
+
+    pub fn with_rcs_controller<F>(&self, id: u64, f: F) -> bool
+    where
+        F: FnOnce(&mut RcsController),
+    {
+        let Ok(mut store) = self.store.lock() else { return false; };
+        let Some(rcs) = store.rcs_controllers.get_mut(&id) else { return false; };
+        f(rcs);
+        true
+    }
+
+    pub fn ids_with_rcs_controller(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else { return Vec::new(); };
+        store.rcs_controllers.keys().copied().collect()
+    }
+
+    /// Run one physics tick of the RCS state machine for the given entity.
+    ///
+    /// Reads the entity's physics and transform, updates all state fields in
+    /// [`RcsController`], and writes derived outputs so the host script can
+    /// drive particle emission without performing any physics computation.
+    ///
+    /// Returns `false` if the entity or its RcsController does not exist.
+    pub fn rcs_tick(&self, id: u64, dt_ms: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false; };
+
+        if !store.rcs_controllers.contains_key(&id) { return false; }
+
+        let dt = dt_ms as f32 / 1000.0;
+        let dt_ms_f = dt_ms as f32;
+
+        const FINAL_BURST_SPEED_THRESHOLD: f32 = 15.0;
+        const FINAL_BURST_INTERVAL_MS: f32 = 150.0;
+        const FINAL_BURST_MAX_WAVES: i32 = 3;
+
+        // Read physics and transform before acquiring the mutable rcs reference.
+        let (vx, vy, speed) = store
+            .physics
+            .get(&id)
+            .map(|b| {
+                let s = (b.vx * b.vx + b.vy * b.vy).sqrt();
+                (b.vx, b.vy, s)
+            })
+            .unwrap_or((0.0, 0.0, 0.0));
+
+        // Heading forward vector: heading=0 → up (−y); positive = clockwise.
+        let (hx, hy) = store
+            .transforms
+            .get(&id)
+            .map(|xf| {
+                let h = xf.heading;
+                (-h.sin(), -h.cos())
+            })
+            .unwrap_or((0.0, -1.0));
+
+        // Now safe to take a mutable reference — physics/transforms reads are done.
+        let Some(rcs) = store.rcs_controllers.get_mut(&id) else { return false; };
+
+        // Snapshot config
+        let angular_accel = rcs.angular_accel;
+        let angular_max = rcs.angular_max;
+        let angular_deadband = rcs.angular_deadband;
+        let linear_deadband = rcs.linear_deadband;
+        let auto_brake_delay_ms = rcs.auto_brake_delay_ms;
+        let ignition_delay_ms = rcs.ignition_delay_ms;
+        let ignition_ramp_ms = rcs.ignition_ramp_ms;
+
+        let thrusting = rcs.input_thrust;
+        let input_turn = rcs.input_turn;
+
+        let mut angular_vel = rcs.angular_vel;
+        let mut thrust_ignition_ms = rcs.thrust_ignition_ms;
+        let mut rotation_ignition_ms = rcs.rotation_ignition_ms;
+        let mut brake_ignition_ms = rcs.brake_ignition_ms;
+        let prev_rotation_dir = rcs.rotation_dir;
+        let mut no_input_ms = rcs.no_input_ms;
+        let mut auto_brake_phase = rcs.auto_brake_phase.clone();
+        let mut final_burst_waves = rcs.final_burst_waves;
+        let mut final_burst_timer_ms = rcs.final_burst_timer_ms;
+        let mut final_burst_triggered = rcs.final_burst_triggered;
+
+        let rotation_input_active = input_turn != 0.0;
+        let linear_input_active = thrusting || rotation_input_active;
+        let still_moving = speed > linear_deadband;
+        let still_rotating = angular_vel.abs() > angular_deadband;
+
+        if linear_input_active {
+            no_input_ms = 0.0;
+        } else {
+            no_input_ms += dt_ms_f;
+        }
+
+        // Ramp helper: 0→1 over `ramp_ms` after an initial `delay_ms`.
+        fn igf(ms: f32, delay: f32, ramp: f32) -> f32 {
+            if ms < delay {
+                return 0.0;
+            }
+            ((ms - delay) / ramp).min(1.0)
+        }
+
+        let mut thrust_factor = 0.0_f32;
+        let mut rot_factor = 0.0_f32;
+        let mut brake_factor = 0.0_f32;
+        let mut course_drift = 0.0_f32;
+        let mut course_cross = 0.0_f32;
+        let mut final_burst_fired = false;
+        let mut final_burst_wave_num = 0_i32;
+
+        // === MAIN ENGINE ===
+        if thrusting {
+            thrust_ignition_ms += dt_ms_f;
+            thrust_factor = igf(thrust_ignition_ms, ignition_delay_ms, ignition_ramp_ms);
+
+            // Auto-course correction: if drifting sideways while thrusting forward
+            if speed > 5.0 && !rotation_input_active {
+                let cross = hx * vy - hy * vx;
+                let fwd_dot = hx * vx + hy * vy;
+                let drift = cross.abs() / speed;
+                if fwd_dot > 0.0 && drift > 0.15 {
+                    course_drift = drift;
+                    course_cross = cross;
+                    let correction_strength = (drift * 0.5_f32).min(0.4);
+                    let torque = cross.signum() * 0.8 * correction_strength;
+                    angular_vel += torque * dt;
+                }
+            }
+        } else {
+            thrust_ignition_ms = 0.0;
+        }
+
+        // === ROTATION ===
+        if rotation_input_active {
+            if prev_rotation_dir != 0.0 && input_turn.signum() != prev_rotation_dir.signum() {
+                rotation_ignition_ms = 0.0;
+            }
+            rotation_ignition_ms += dt_ms_f;
+            rot_factor = igf(rotation_ignition_ms, ignition_delay_ms * 0.5, ignition_ramp_ms * 0.7);
+
+            let torque = input_turn * angular_accel * rot_factor;
+            angular_vel = (angular_vel + torque * dt).clamp(-angular_max, angular_max);
+
+            auto_brake_phase = "idle".to_string();
+        } else {
+            rotation_ignition_ms = 0.0;
+
+            // Auto-brake rotation (active even while thrusting forward)
+            if still_rotating {
+                brake_ignition_ms += dt_ms_f;
+                brake_factor = igf(brake_ignition_ms, ignition_delay_ms * 0.3, ignition_ramp_ms * 0.5);
+                auto_brake_phase = "rotation".to_string();
+
+                let brake_torque = -angular_vel.signum() * angular_vel.abs() * 4.5 * brake_factor;
+                angular_vel += brake_torque * dt;
+
+                if angular_vel.abs() < angular_deadband {
+                    angular_vel = 0.0;
+                }
+            } else if !thrusting {
+                brake_ignition_ms = 0.0;
+            }
+        }
+
+        // === LINEAR AUTO-BRAKE ===
+        let linear_brake_active = no_input_ms >= auto_brake_delay_ms && still_moving && !still_rotating;
+
+        if linear_brake_active {
+            auto_brake_phase = "linear".to_string();
+            let combined_ms = brake_ignition_ms + no_input_ms;
+            brake_factor = igf(combined_ms, ignition_delay_ms * 0.5, ignition_ramp_ms * 0.8);
+
+            // Final stabilization burst when nearly stopped
+            if speed < FINAL_BURST_SPEED_THRESHOLD && speed > linear_deadband {
+                if !final_burst_triggered {
+                    final_burst_triggered = true;
+                    final_burst_waves = 0;
+                    final_burst_timer_ms = 0.0;
+                }
+                if final_burst_waves < FINAL_BURST_MAX_WAVES {
+                    final_burst_timer_ms += dt_ms_f;
+                    if final_burst_timer_ms >= FINAL_BURST_INTERVAL_MS {
+                        final_burst_fired = true;
+                        final_burst_wave_num = final_burst_waves;
+                        final_burst_waves += 1;
+                        final_burst_timer_ms = 0.0;
+                    }
+                }
+            }
+        } else if !linear_input_active && !still_rotating && !still_moving {
+            auto_brake_phase = "stopped".to_string();
+            final_burst_triggered = false;
+            final_burst_waves = 0;
+            final_burst_timer_ms = 0.0;
+        } else if !rotation_input_active && !still_rotating && thrusting {
+            auto_brake_phase = "thrusting".to_string();
+        }
+
+        if linear_input_active {
+            final_burst_triggered = false;
+            final_burst_waves = 0;
+            final_burst_timer_ms = 0.0;
+        }
+
+        let command_turn: i32 = if angular_vel > 0.15 {
+            1
+        } else if angular_vel < -0.15 {
+            -1
+        } else {
+            0
+        };
+
+        // Write back state
+        rcs.angular_vel = angular_vel;
+        rcs.thrust_ignition_ms = thrust_ignition_ms;
+        rcs.rotation_ignition_ms = rotation_ignition_ms;
+        rcs.brake_ignition_ms = brake_ignition_ms;
+        rcs.rotation_dir = input_turn;
+        rcs.no_input_ms = no_input_ms;
+        rcs.auto_brake_phase = auto_brake_phase;
+        rcs.final_burst_waves = final_burst_waves;
+        rcs.final_burst_timer_ms = final_burst_timer_ms;
+        rcs.final_burst_triggered = final_burst_triggered;
+        // Derived outputs
+        rcs.speed = speed;
+        rcs.vx = vx;
+        rcs.vy = vy;
+        rcs.thrust_factor = thrust_factor;
+        rcs.rot_factor = rot_factor;
+        rcs.brake_factor = brake_factor;
+        rcs.course_drift = course_drift;
+        rcs.course_cross = course_cross;
+        rcs.final_burst_fired = final_burst_fired;
+        rcs.final_burst_wave_num = final_burst_wave_num;
+        rcs.command_turn = command_turn;
+
+        true
+    }
 
     /// Batch read physics data for multiple entities in a single lock acquisition.
     /// Returns tuples of (id, transform, physics, optional_particle_physics).

@@ -154,6 +154,7 @@ fn ensure_ship(world, ship_col) {
         world.tag_add(ship_id, "player");
         world.enable_wrap(ship_id, 0.0, WORLD_W, 0.0, WORLD_H);
         world.set(ship_id, "style.fg", ship_col);
+        world.rcs_attach(ship_id, #{});
     }
     ship_id
 }
@@ -225,45 +226,6 @@ fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread,
 // ======================== THRUSTER AUTHORITY ===============================
 // Returns 0.0-1.0 indicating how aligned thruster is with desired brake direction
 
-fn thruster_authority(thruster_local_x, thruster_local_y, brake_local_x, brake_local_y) {
-    // Normalize thruster direction
-    let t = normalize(thruster_local_x, thruster_local_y);
-    let b = normalize(brake_local_x, brake_local_y);
-    let d = dot(t["x"], t["y"], b["x"], b["y"]);
-    // Only positive contribution counts
-    if d < 0.0 { 0.0 } else { d }
-}
-
-// Get ship's velocity in local frame (for braking direction)
-fn get_velocity_local(world, ship, ship_id) {
-    let phys = world.physics(ship_id);
-    if type_of(phys) != "map" { return #{ local_x: 0.0, local_y: 0.0, speed: 0.0 }; }
-    let vx = phys["vx"] ?? 0.0;
-    let vy = phys["vy"] ?? 0.0;
-    let speed = sqrtf(vx * vx + vy * vy);
-    if speed < 0.01 { return #{ local_x: 0.0, local_y: 0.0, speed: 0.0 }; }
-
-    let heading = ship.heading_vector();
-    let hx = heading["x"] ?? 0.0;
-    let hy = heading["y"] ?? -1.0;
-    
-    // Ship local frame: forward = -heading, right = perpendicular
-    let right_x = -hy;
-    let right_y = hx;
-    let fwd_x = hx;
-    let fwd_y = hy;
-    
-    // Project velocity onto local axes
-    let local_fwd = dot(vx, vy, fwd_x, fwd_y);
-    let local_right = dot(vx, vy, right_x, right_y);
-    
-    #{
-        local_x: local_right,   // positive = moving right
-        local_y: -local_fwd,    // positive = moving backward (in ship coords)
-        speed: speed
-    }
-}
-
 // ======================== BURST COUNT SCALING ==============================
 
 fn rotation_burst_count(angular_vel) {
@@ -283,15 +245,6 @@ fn brake_burst_count(speed) {
     if speed > 30.0 { return 3; }
     if speed > 10.0 { return 2; }
     1
-}
-
-// ======================== IGNITION STATE ===================================
-
-fn calc_ignition_factor(ignition_ms, delay_ms, ramp_ms) {
-    if ignition_ms < delay_ms { return 0.0; }
-    let active_time = ignition_ms - delay_ms;
-    if active_time >= ramp_ms { return 1.0; }
-    active_time / ramp_ms
 }
 
 // ======================== COUPLED RCS FOR ROTATION =========================
@@ -754,274 +707,76 @@ fn fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, wav
 
 // ======================== MAIN CONTROL UPDATE ==============================
 
-fn update_ship_controls(world, input, ship_id, state_prev, pal) {
-    // Physics constants (local to function) - 3x faster response
-    let ANGULAR_ACCEL = 5.5;
-    let ANGULAR_MAX = 7.0;
-    let ANGULAR_DEADBAND = 0.10;
-    let LINEAR_DEADBAND = 2.5;
-    let AUTO_BRAKE_DELAY_MS = 30.0;
-    let DT = 0.016;
-    let IGNITION_DELAY_MS = 8.0;
-    let IGNITION_RAMP_MS = 12.0;
-    
-    // Final stabilization burst thresholds
-    let FINAL_BURST_SPEED_THRESHOLD = 15.0;  // trigger earlier (was 8)
-    let FINAL_BURST_INTERVAL_MS = 150.0;      // 150ms pause between bursts (visible!)
-    let FINAL_BURST_MAX_WAVES = 3;            // 3 bursts: 100%, 60%, 20%
-    
-    if ship_id <= 0 {
-        return #{
-            angular_vel: 0.0,
-            thrust_ignition_ms: 0.0,
-            rotation_ignition_ms: 0.0,
-            brake_ignition_ms: 0.0,
-            rotation_dir: 0.0,
-            no_input_ms: 0.0,
-            auto_brake_phase: "idle",
-            final_burst_waves: 0,
-            final_burst_timer_ms: 0.0,
-            final_burst_triggered: false
-        };
-    }
+fn update_ship_controls(world, input, ship_id, pal) {
+    if ship_id <= 0 { return; }
     let ship = world.entity(ship_id);
-    if !ship.exists() {
-        return #{
-            angular_vel: 0.0,
-            thrust_ignition_ms: 0.0,
-            rotation_ignition_ms: 0.0,
-            brake_ignition_ms: 0.0,
-            rotation_dir: 0.0,
-            no_input_ms: 0.0,
-            auto_brake_phase: "idle",
-            final_burst_waves: 0,
-            final_burst_timer_ms: 0.0,
-            final_burst_triggered: false
-        };
-    }
-
-    // Unpack previous state
-    let angular_vel = state_prev["angular_vel"] ?? 0.0;
-    let thrust_ignition_ms = state_prev["thrust_ignition_ms"] ?? 0.0;
-    let rotation_ignition_ms = state_prev["rotation_ignition_ms"] ?? 0.0;
-    let brake_ignition_ms = state_prev["brake_ignition_ms"] ?? 0.0;
-    let prev_rotation_dir = state_prev["rotation_dir"] ?? 0.0;
-    let no_input_ms = state_prev["no_input_ms"] ?? 0.0;
-    let auto_brake_phase = state_prev["auto_brake_phase"] ?? "idle";
-    let final_burst_waves = state_prev["final_burst_waves"] ?? 0;
-    let final_burst_timer_ms = state_prev["final_burst_timer_ms"] ?? 0.0;
-    let final_burst_triggered = state_prev["final_burst_triggered"] ?? false;
+    if !ship.exists() { return; }
 
     // Read inputs
-    let turn_left = input.action_down("turn_left");
+    let turn_left  = input.action_down("turn_left");
     let turn_right = input.action_down("turn_right");
-    let thrusting = input.action_down("thrust");
+    let thrusting  = input.action_down("thrust");
     let input_turn = if turn_left && !turn_right { -1.0 } else if turn_right && !turn_left { 1.0 } else { 0.0 };
-    
-    // SEPARATE tracking for rotation vs linear
-    // Rotation auto-brake: only blocked by L/R input (NOT by thrust)
-    // Linear auto-brake: blocked by thrust OR L/R
-    let rotation_input_active = input_turn != 0.0;
-    let linear_input_active = thrusting || input_turn != 0.0;
 
-    // === TRACK NO-INPUT DURATION (for linear braking only) ===
-    if linear_input_active {
-        no_input_ms = 0.0;
-    } else {
-        no_input_ms = no_input_ms + 16.0;
-    }
-    
-    // Get current velocity state
-    let vel_local = get_velocity_local(world, ship, ship_id);
-    let speed = vel_local["speed"];
-    let still_moving = speed > LINEAR_DEADBAND;
-    let still_rotating = absf(angular_vel) > ANGULAR_DEADBAND;
+    // Feed inputs into the engine-managed RCS component and tick it.
+    world.rcs_set_input(ship_id, thrusting, input_turn);
+    world.rcs_tick(ship_id, 16);
 
-    // === MAIN ENGINE (player input) ===
-    // Use velocity-aware engine: fast ship = warm engine = neon teal faster
-    let MAX_SPEED = 280.0;  // from prefab config
+    // Read derived outputs.
+    let s = world.rcs_state(ship_id);
+    let thrust_factor  = s["thrust_factor"]  ?? 0.0;
+    let rot_factor     = s["rot_factor"]      ?? 0.0;
+    let brake_factor   = s["brake_factor"]    ?? 0.0;
+    let speed          = s["speed"]           ?? 0.0;
+    let vx             = s["vx"]              ?? 0.0;
+    let vy             = s["vy"]              ?? 0.0;
+    let angular_vel    = s["angular_vel"]     ?? 0.0;
+    let course_drift   = s["course_drift"]    ?? 0.0;
+    let course_cross   = s["course_cross"]    ?? 0.0;
+    let auto_brake_phase = s["auto_brake_phase"] ?? "idle";
+    let final_burst_fired     = s["final_burst_fired"]     ?? false;
+    let final_burst_wave_num  = s["final_burst_wave_num"]  ?? 0;
+    let command_turn   = s["command_turn"]    ?? 0;
+
+    // Drive the ArcadeController and ship physics.
     ship.set_thrust(thrusting);
-    if thrusting {
-        thrust_ignition_ms = thrust_ignition_ms + 16.0;
-        let thrust_factor = calc_ignition_factor(thrust_ignition_ms, IGNITION_DELAY_MS, IGNITION_RAMP_MS);
-        fire_main_engine_with_velocity(world, ship_id, thrust_ignition_ms, thrust_factor, speed, MAX_SPEED, pal);
-        
-        // === AUTO-COURSE CORRECTION ===
-        // When thrusting forward, check if velocity is drifting away from heading
-        // Fire RCS to realign ship heading with velocity vector
-        if speed > 5.0 && !rotation_input_active {
-            let vx = vel_local["vx"] ?? 0.0;
-            let vy = vel_local["vy"] ?? 0.0;
-            let h = ship.heading_vector();
-            let hx = h["x"] ?? 0.0;
-            let hy = h["y"] ?? -1.0;
-            
-            // Cross product: heading × velocity = drift direction
-            // Positive = velocity is to the RIGHT of heading → turn RIGHT
-            // Negative = velocity is to the LEFT of heading → turn LEFT
-            let cross = hx * vy - hy * vx;
-            
-            // Dot product: check if moving forward at all
-            let dot = hx * vx + hy * vy;
-            
-            // Only correct if moving mostly forward (dot > 0) and drifting significantly
-            let drift = absf(cross) / speed;  // normalized drift amount
-            if dot > 0.0 && drift > 0.15 {
-                // Fire correcting RCS proportional to drift
-                let correction_strength = drift * 0.5;  // gentle correction
-                if correction_strength > 0.4 { correction_strength = 0.4; }
-                
-                // Fire thrusters to turn toward velocity
-                if cross > 0.0 {
-                    // Drifting right → turn right → fire PORT
-                    emit_rcs_intensity(world, ship_id, "ship.port", 60.0, 120, pal["correct"], 0.15, correction_strength, 1);
-                } else {
-                    // Drifting left → turn left → fire STARBOARD
-                    emit_rcs_intensity(world, ship_id, "ship.starboard", 60.0, 120, pal["correct"], 0.15, correction_strength, 1);
-                }
-                
-                // Apply small torque correction
-                let torque_correction = signf(cross) * 0.8 * correction_strength;
-                angular_vel = angular_vel + torque_correction * DT;
-            }
-        }
-    } else {
-        thrust_ignition_ms = 0.0;
-    }
-
-    // === ROTATION (player input) ===
-    if rotation_input_active {
-        // Player is actively turning
-        let rotation_dir_changed = signf(input_turn) != signf(prev_rotation_dir) && prev_rotation_dir != 0.0;
-        if rotation_dir_changed {
-            rotation_ignition_ms = 0.0;
-        }
-        rotation_ignition_ms = rotation_ignition_ms + 16.0;
-        
-        let rot_factor = calc_ignition_factor(rotation_ignition_ms, IGNITION_DELAY_MS * 0.5, IGNITION_RAMP_MS * 0.7);
-        
-        // Apply torque
-        let torque = input_turn * ANGULAR_ACCEL * rot_factor;
-        angular_vel = angular_vel + torque * DT;
-        
-        // Clamp
-        if angular_vel > ANGULAR_MAX { angular_vel = ANGULAR_MAX; }
-        if angular_vel < -ANGULAR_MAX { angular_vel = -ANGULAR_MAX; }
-        
-        // Fire rotation thrusters
-        if rot_factor > 0.1 {
-            fire_rotation_couple(world, ship_id, input_turn, angular_vel, rot_factor);
-        }
-        
-        // Reset rotation brake state
-        auto_brake_phase = "idle";
-    } else {
-        rotation_ignition_ms = 0.0;
-        
-        // === AUTO-BRAKE ROTATION (even while thrusting!) ===
-        if still_rotating {
-            brake_ignition_ms = brake_ignition_ms + 16.0;
-            let brake_factor = calc_ignition_factor(brake_ignition_ms, IGNITION_DELAY_MS * 0.3, IGNITION_RAMP_MS * 0.5);
-            
-            auto_brake_phase = "rotation";
-            
-            // Counter-torque proportional to angular velocity
-            let brake_torque = -signf(angular_vel) * absf(angular_vel) * 4.5 * brake_factor;
-            angular_vel = angular_vel + brake_torque * DT;
-            
-            // Fire RCS opposite to rotation direction
-            if brake_factor > 0.1 {
-                fire_auto_rotation_brake(world, ship_id, state_prev["angular_vel"] ?? angular_vel, brake_factor);
-            }
-            
-            // Check if rotation stopped
-            if absf(angular_vel) < ANGULAR_DEADBAND {
-                angular_vel = 0.0;
-            }
-        } else {
-            // Rotation is stable
-            if !thrusting {
-                brake_ignition_ms = 0.0;
-            }
-        }
-    }
-
-    // === AUTO-BRAKE LINEAR (only when no thrust AND no rotation input) ===
-    let linear_brake_active = no_input_ms >= AUTO_BRAKE_DELAY_MS && still_moving && !still_rotating;
-    
-    // Get raw velocity for final burst calculations
-    let phys = world.physics(ship_id);
-    let vx = if type_of(phys) == "map" { phys["vx"] ?? 0.0 } else { 0.0 };
-    let vy = if type_of(phys) == "map" { phys["vy"] ?? 0.0 } else { 0.0 };
-    
-    if linear_brake_active {
-        auto_brake_phase = "linear";
-        let linear_brake_factor = calc_ignition_factor(brake_ignition_ms + no_input_ms, IGNITION_DELAY_MS * 0.5, IGNITION_RAMP_MS * 0.8);
-        
-        if linear_brake_factor > 0.1 {
-            fire_auto_linear_brake(world, ship, ship_id, linear_brake_factor);
-        }
-        
-        // === FINAL STABILIZATION BURST ===
-        // When velocity drops below threshold, fire dramatic multi-wave micro-bursts
-        if speed < FINAL_BURST_SPEED_THRESHOLD && speed > LINEAR_DEADBAND {
-            // Check if we should trigger final burst sequence
-            if !final_burst_triggered {
-                // Start final burst sequence
-                final_burst_triggered = true;
-                final_burst_waves = 0;
-                final_burst_timer_ms = 0.0;
-            }
-            
-            // Fire burst waves at intervals
-            if final_burst_waves < FINAL_BURST_MAX_WAVES {
-                final_burst_timer_ms = final_burst_timer_ms + 16.0;
-                
-                if final_burst_timer_ms >= FINAL_BURST_INTERVAL_MS {
-                    // Fire a wave with decreasing intensity!
-                    fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, final_burst_waves);
-                    final_burst_waves = final_burst_waves + 1;
-                    final_burst_timer_ms = 0.0;
-                }
-            }
-        }
-    } else if !linear_input_active && !still_rotating && !still_moving {
-        auto_brake_phase = "stopped";
-        // Reset final burst state when fully stopped
-        final_burst_triggered = false;
-        final_burst_waves = 0;
-        final_burst_timer_ms = 0.0;
-        // Occasional micro-puffs for settling effect
-        if rand() < 0.05 {
-            fire_settling_puff(world, ship_id, 0.3);
-        }
-    } else if !rotation_input_active && !still_rotating && thrusting {
-        // Thrusting but not rotating - don't change phase
-        auto_brake_phase = "thrusting";
-    }
-    
-    // Reset final burst when player takes control
-    if linear_input_active {
-        final_burst_triggered = false;
-        final_burst_waves = 0;
-        final_burst_timer_ms = 0.0;
-    }
-    
-    // Apply angular velocity to ship heading
-    let command_turn = if angular_vel > 0.15 { 1 } else if angular_vel < -0.15 { -1 } else { 0 };
     ship.set_turn(command_turn);
 
-    #{
-        angular_vel: angular_vel,
-        thrust_ignition_ms: thrust_ignition_ms,
-        rotation_ignition_ms: rotation_ignition_ms,
-        brake_ignition_ms: brake_ignition_ms,
-        rotation_dir: input_turn,
-        no_input_ms: no_input_ms,
-        auto_brake_phase: auto_brake_phase,
-        final_burst_waves: final_burst_waves,
-        final_burst_timer_ms: final_burst_timer_ms,
-        final_burst_triggered: final_burst_triggered
+    // ── Main engine emission ─────────────────────────────────────────────────
+    let MAX_SPEED = 280.0;
+    if thrusting && thrust_factor > 0.0 {
+        fire_main_engine_with_velocity(world, ship_id, thrust_factor * 1000.0, thrust_factor, speed, MAX_SPEED, pal);
+
+        // Auto-course correction visual
+        if course_drift > 0.15 {
+            let emitter = if course_cross > 0.0 { "ship.port" } else { "ship.starboard" };
+            let strength = (course_drift * 0.5).min(0.4);
+            emit_rcs_intensity(world, ship_id, emitter, 60.0, 120, pal["correct"], 0.15, strength, 1);
+        }
+    }
+
+    // ── Rotation emission ────────────────────────────────────────────────────
+    if rot_factor > 0.1 {
+        fire_rotation_couple(world, ship_id, input_turn, angular_vel, rot_factor);
+    }
+
+    // ── Auto-brake emission ──────────────────────────────────────────────────
+    if brake_factor > 0.1 {
+        if auto_brake_phase == "rotation" {
+            fire_auto_rotation_brake(world, ship_id, angular_vel, brake_factor);
+        } else if auto_brake_phase == "linear" {
+            fire_auto_linear_brake(world, ship, ship_id, brake_factor);
+        }
+    }
+
+    // ── Final stabilization burst ────────────────────────────────────────────
+    if final_burst_fired {
+        fire_final_stabilization_burst(world, ship, ship_id, vx, vy, angular_vel, final_burst_wave_num);
+    }
+
+    // ── Settling puffs when fully stopped ────────────────────────────────────
+    if auto_brake_phase == "stopped" && rand() < 0.05 {
+        fire_settling_puff(world, ship_id, 0.3);
     }
 }
 
@@ -1037,18 +792,6 @@ if !(local.initialized ?? false) {
     local.game_over = false;
     local.respawn_timer = 0.0;
     local.invincible_timer = 0.0;
-    local.control_state = #{
-        angular_vel: 0.0,
-        thrust_ignition_ms: 0.0,
-        rotation_ignition_ms: 0.0,
-        brake_ignition_ms: 0.0,
-        rotation_dir: 0.0,
-        no_input_ms: 0.0,
-        auto_brake_phase: "idle",
-        final_burst_waves: 0,
-        final_burst_timer_ms: 0.0,
-        final_burst_triggered: false
-    };
     input.load_profile("default");
     scene.set("hud-gameover", "visible", false);
     scene.set("hud-gameover-sub", "visible", false);
@@ -1089,12 +832,6 @@ if game_over {
         local.game_over = false;
         local.respawn_timer = 0.0;
         local.invincible_timer = 0.0;
-        local.control_state = #{
-            angular_vel: 0.0, thrust_ignition_ms: 0.0, rotation_ignition_ms: 0.0,
-            brake_ignition_ms: 0.0, rotation_dir: 0.0, no_input_ms: 0.0,
-            auto_brake_phase: "idle", final_burst_waves: 0, final_burst_timer_ms: 0.0,
-            final_burst_triggered: false
-        };
         scene.set("hud-gameover", "visible", false);
         scene.set("hud-gameover-sub", "visible", false);
         // Despawn all asteroids and bullets
@@ -1125,12 +862,6 @@ let ship_id = if respawn_timer <= 0.0 { ensure_ship(world, PAL_SHIP) } else { 0 
 local.ship_id = ship_id;
 
 if ship_id > 0 {
-    let state_prev = local.control_state ?? #{
-        angular_vel: 0.0, thrust_ignition_ms: 0.0, rotation_ignition_ms: 0.0,
-        brake_ignition_ms: 0.0, rotation_dir: 0.0, no_input_ms: 0.0,
-        auto_brake_phase: "idle", final_burst_waves: 0, final_burst_timer_ms: 0.0,
-        final_burst_triggered: false
-    };
     let pal = #{
         thrust_init: PAL_P_THRUST_INIT,
         hot_init: PAL_P_HOT_INIT,
@@ -1138,8 +869,7 @@ if ship_id > 0 {
         pulse: PAL_P_PULSE,
         correct: PAL_P_CORRECT,
     };
-    let new_state = update_ship_controls(world, input, ship_id, state_prev, pal);
-    local.control_state = new_state;
+    update_ship_controls(world, input, ship_id, pal);
 
     // ── Shooting ─────────────────────────────────────────────────────────────
     if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
