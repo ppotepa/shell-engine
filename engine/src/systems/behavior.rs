@@ -68,6 +68,9 @@ pub fn behavior_system(world: &mut World) {
         };
         runtime.reset_frame_state();
         runtime.apply_palette_bindings_if_changed(&palettes);
+        if let Some(gs) = &game_state {
+            runtime.apply_game_state_bindings_if_changed(gs);
+        }
         runtime.update_behaviors(
             stage,
             scene_elapsed_ms,

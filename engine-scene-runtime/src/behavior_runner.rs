@@ -300,6 +300,46 @@ impl SceneRuntime {
         self.palette_applied_version = current_version;
     }
 
+    /// Applies game_state text bindings every frame. For each sprite with a
+    /// `@game_state.<path>` binding, reads the current value and updates sprite text
+    /// content if it changed. Only marks caches dirty if at least one sprite changed.
+    pub fn apply_game_state_bindings_if_changed(
+        &mut self,
+        game_state: &engine_core::game_state::GameState,
+    ) {
+        if self.scene.game_state_bindings.is_empty() {
+            return;
+        }
+        let current_version = game_state
+            .version
+            .load(std::sync::atomic::Ordering::Relaxed);
+        if current_version == self.game_state_applied_version {
+            return;
+        }
+        let mut any_changed = false;
+        let bindings = self.scene.game_state_bindings.clone();
+        for binding in &bindings {
+            let text = game_state
+                .get(&binding.path)
+                .map(|v| match &v {
+                    serde_json::Value::String(s) => s.clone(),
+                    serde_json::Value::Number(n) => n.to_string(),
+                    serde_json::Value::Bool(b) => b.to_string(),
+                    other => other.to_string(),
+                })
+                .unwrap_or_default();
+            if self.set_text_sprite_content(&binding.target, text) {
+                any_changed = true;
+            }
+        }
+        if any_changed {
+            self.effective_states_dirty = true;
+            self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
+            self.cached_object_text = None;
+        }
+        self.game_state_applied_version = current_version;
+    }
+
     /// Applies behavior commands to runtime object state using the supplied
     /// target resolver.
     pub fn apply_behavior_commands(

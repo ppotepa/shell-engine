@@ -1158,6 +1158,7 @@ mod tests {
             next: None,
             prerender: false,
             palette_bindings: Vec::new(),
+            game_state_bindings: Vec::new(),
         }
     }
 

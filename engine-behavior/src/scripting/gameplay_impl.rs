@@ -916,17 +916,25 @@ impl ScriptGameplayApi {
             return 0;
         }
 
-        // Apply tags from args: tags: ["tag1", "tag2"]
-        if let Some(tags_val) = args.get("tags") {
-            if let Ok(tags_arr) = tags_val.clone().into_array() {
-                let Some(world) = self.ctx.world.as_ref() else { return id; };
-                for t in tags_arr {
-                    if let Ok(s) = t.into_string() {
-                        world.tag_add(id as u64, &s);
+        // Apply default_tags from prefab catalog, then override/extend with args tags
+        {
+            let Some(world) = self.ctx.world.as_ref() else { return id; };
+            for tag in &prefab.default_tags {
+                world.tag_add(id as u64, tag);
+            }
+            if let Some(tags_val) = args.get("tags") {
+                if let Ok(tags_arr) = tags_val.clone().into_array() {
+                    for t in tags_arr {
+                        if let Ok(s) = t.into_string() {
+                            world.tag_add(id as u64, &s);
+                        }
                     }
                 }
             }
         }
+
+        // Apply fg_colour from prefab (supports "@palette.<key>" and literal colors)
+        self.apply_prefab_fg_colour(id, &prefab.fg_colour, &args);
 
         id
     }
@@ -1087,7 +1095,70 @@ impl ScriptGameplayApi {
             }
         }
 
+        // Apply default_tags from prefab catalog, then extend with args tags
+        {
+            if let Some(world) = self.ctx.world.as_ref() {
+                for tag in &prefab.default_tags {
+                    world.tag_add(id as u64, tag);
+                }
+                if let Some(tags_val) = args.get("tags") {
+                    if let Ok(tags_arr) = tags_val.clone().into_array() {
+                        for t in tags_arr {
+                            if let Ok(s) = t.into_string() {
+                                world.tag_add(id as u64, &s);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Apply fg_colour from prefab (supports "@palette.<key>" and literal colors)
+        self.apply_prefab_fg_colour(id as rhai::INT, &prefab.fg_colour, args);
+
         id as rhai::INT
+    }
+
+    /// Resolves a prefab `fg_colour` string (which may be `"@palette.<key>"` or a literal color)
+    /// and applies it to the spawned entity. Args `fg` override takes precedence.
+    fn apply_prefab_fg_colour(
+        &mut self,
+        id: rhai::INT,
+        fg_colour: &Option<String>,
+        args: &RhaiMap,
+    ) {
+        // Args-level override wins over catalog default
+        let color_str = if let Some(arg_fg) = args.get("fg").and_then(|v| v.clone().into_string().ok()) {
+            if !arg_fg.is_empty() {
+                arg_fg
+            } else {
+                return;
+            }
+        } else if let Some(cfg) = fg_colour {
+            if let Some(key) = cfg.strip_prefix("@palette.") {
+                let resolved = self
+                    .palette_store
+                    .resolve(
+                        self.palette_persistence
+                            .as_ref()
+                            .and_then(|p| p.get("/__palette__"))
+                            .and_then(|v| v.as_str().map(|s| s.to_string()))
+                            .as_deref(),
+                        self.palette_default_id.as_deref(),
+                    )
+                    .and_then(|pal| pal.colors.get(key))
+                    .cloned();
+                match resolved {
+                    Some(c) => c,
+                    None => return,
+                }
+            } else {
+                cfg.clone()
+            }
+        } else {
+            return;
+        };
+        self.set(id, "style.fg", rhai::Dynamic::from(color_str));
     }
 
     pub(crate) fn spawn_group(&mut self, group_name: &str, prefab_name: &str) -> RhaiArray {

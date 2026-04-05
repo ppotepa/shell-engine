@@ -131,6 +131,7 @@ impl SceneRuntime {
             prev_keys_down: std::collections::HashSet::new(),
             prev_scene_elapsed_ms: 0,
             palette_applied_version: 0,
+            game_state_applied_version: 0,
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime

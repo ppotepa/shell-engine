@@ -5,7 +5,10 @@
 //! email, or quest semantics into the engine.
 
 use serde_json::{json, Value as JsonValue};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
+};
 
 /// Thread-safe persistent game state container.
 ///
@@ -14,6 +17,9 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone, Debug)]
 pub struct GameState {
     data: Arc<Mutex<JsonValue>>,
+    /// Monotonically increasing version counter. Bumped on every `set()` that changes a value.
+    /// Scene runtimes can cache this to skip binding re-application when nothing changed.
+    pub version: Arc<AtomicU64>,
 }
 
 impl GameState {
@@ -21,6 +27,7 @@ impl GameState {
     pub fn new() -> Self {
         Self {
             data: Arc::new(Mutex::new(json!({}))),
+            version: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -28,6 +35,7 @@ impl GameState {
     pub fn with_initial_data(initial: JsonValue) -> Self {
         Self {
             data: Arc::new(Mutex::new(initial)),
+            version: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -83,6 +91,7 @@ impl GameState {
 
         if let Some(obj) = current.as_object_mut() {
             obj.insert(key.to_string(), value);
+            self.version.fetch_add(1, Ordering::Relaxed);
             true
         } else {
             false

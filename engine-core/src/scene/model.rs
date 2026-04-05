@@ -665,6 +665,10 @@ pub struct Scene {
     /// Applied at runtime whenever the active palette changes.
     #[serde(default, skip_serializing)]
     pub palette_bindings: Vec<PaletteBinding>,
+    /// Game state text bindings extracted from `@game_state.<path>` syntax in sprite `content` fields.
+    /// Applied at runtime each frame so sprites reflect live game state.
+    #[serde(default, skip_serializing)]
+    pub game_state_bindings: Vec<GameStateBinding>,
 }
 
 /// A color binding between a sprite and a palette key, extracted from YAML `@palette.<key>` syntax.
@@ -679,6 +683,18 @@ pub struct PaletteBinding {
     pub prop: String,
     /// Palette color key, e.g. `"hud_value"`.
     pub key: String,
+}
+
+/// A text content binding between a sprite and a `game_state` path, extracted from YAML
+/// `@game_state.<path>` syntax in `content` fields.
+///
+/// Applied by the scene runtime each frame so that sprites always reflect live game state.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GameStateBinding {
+    /// Sprite object id (runtime target).
+    pub target: String,
+    /// JSON pointer path into game_state (e.g. `"/score"`).
+    pub path: String,
 }
 
 impl Scene {

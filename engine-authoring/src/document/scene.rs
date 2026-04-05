@@ -2,7 +2,7 @@
 //! [`Scene`] model.
 
 use engine_core::scene::template::expand_scene_templates;
-use engine_core::scene::{resolve_ui_theme_or_default, PaletteBinding, Scene};
+use engine_core::scene::{resolve_ui_theme_or_default, GameStateBinding, PaletteBinding, Scene};
 use serde::de::Error as _;
 use serde::Deserialize;
 use serde_yaml::{Mapping, Number, Value};
@@ -32,8 +32,10 @@ impl SceneDocument {
         let mut normalized = self.raw;
         normalize_scene_value(&mut normalized)?;
         let palette_bindings = extract_palette_bindings(&mut normalized);
+        let game_state_bindings = extract_game_state_bindings(&mut normalized);
         let mut scene: Scene = serde_yaml::from_value(normalized)?;
         scene.palette_bindings = palette_bindings;
+        scene.game_state_bindings = game_state_bindings;
 
         #[cfg(debug_assertions)]
         {
@@ -128,6 +130,68 @@ fn collect_sprite_palette_bindings(sprites: &mut Value, bindings: &mut Vec<Palet
         }
         if let Some(children) = sprite_map.get_mut(Value::String("children".to_string())) {
             collect_sprite_palette_bindings(children, bindings);
+        }
+    }
+}
+
+/// Walks the normalized YAML tree looking for `"@game_state.<path>"` values in sprite
+/// `content` fields. For each found:
+/// - records a [`GameStateBinding`] (target sprite id → game_state JSON pointer path),
+/// - replaces the `"@game_state.*"` string with `""` so deserialization succeeds.
+fn extract_game_state_bindings(root: &mut Value) -> Vec<GameStateBinding> {
+    let mut bindings = Vec::new();
+    let Some(scene_map) = root.as_mapping_mut() else {
+        return bindings;
+    };
+    let Some(layers) = scene_map.get_mut(Value::String("layers".to_string())) else {
+        return bindings;
+    };
+    let Some(layer_seq) = layers.as_sequence_mut() else {
+        return bindings;
+    };
+    for layer in layer_seq.iter_mut() {
+        let Some(layer_map) = layer.as_mapping_mut() else {
+            continue;
+        };
+        let Some(sprites) = layer_map.get_mut(Value::String("sprites".to_string())) else {
+            continue;
+        };
+        collect_sprite_game_state_bindings(sprites, &mut bindings);
+    }
+    bindings
+}
+
+fn collect_sprite_game_state_bindings(sprites: &mut Value, bindings: &mut Vec<GameStateBinding>) {
+    let Some(sprite_seq) = sprites.as_sequence_mut() else {
+        return;
+    };
+    for sprite in sprite_seq.iter_mut() {
+        let Some(sprite_map) = sprite.as_mapping_mut() else {
+            continue;
+        };
+        let id = sprite_map
+            .get(Value::String("id".to_string()))
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let content_key = Value::String("content".to_string());
+        if let Some(val) = sprite_map.get(&content_key).and_then(Value::as_str) {
+            if let Some(key) = val.strip_prefix("@game_state.") {
+                if let Some(target) = &id {
+                    let path = if key.starts_with('/') {
+                        key.to_owned()
+                    } else {
+                        format!("/{key}")
+                    };
+                    bindings.push(GameStateBinding {
+                        target: target.clone(),
+                        path,
+                    });
+                    sprite_map.insert(content_key, Value::String(String::new()));
+                }
+            }
+        }
+        if let Some(children) = sprite_map.get_mut(Value::String("children".to_string())) {
+            collect_sprite_game_state_bindings(children, bindings);
         }
     }
 }

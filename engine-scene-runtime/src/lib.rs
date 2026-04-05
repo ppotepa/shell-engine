@@ -93,6 +93,8 @@ pub struct SceneRuntime {
     prev_scene_elapsed_ms: u64,
     /// Palette version when bindings were last applied; 0 means not yet applied.
     palette_applied_version: u64,
+    /// GameState version when text bindings were last applied; 0 means not yet applied.
+    game_state_applied_version: u64,
 }
 
 #[derive(Debug, Clone)]

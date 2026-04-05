@@ -33,6 +33,14 @@ pub struct PrefabTemplate {
     pub init_fields: HashMap<String, JsonValue>,
     #[serde(default)]
     pub components: Option<PrefabComponents>,
+    /// Optional sprite foreground color. Supports `"@palette.<key>"` for live palette resolution,
+    /// or a literal hex/named color. Applied automatically at spawn time.
+    #[serde(default)]
+    pub fg_colour: Option<String>,
+    /// Tags automatically applied to every spawned entity of this prefab type.
+    /// Merged with any `tags: [...]` provided at call site.
+    #[serde(default)]
+    pub default_tags: Vec<String>,
 }
 
 /// Component specifications for data-driven prefab spawning.
@@ -399,6 +407,8 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "vehicle".to_string(),
                 sprite_template: Some("vehicle".to_string()),
+                fg_colour: None,
+                default_tags: vec![],
                 init_fields: HashMap::new(),
                 components: Some(PrefabComponents {
                     physics: Some(PhysicsComponent {
@@ -434,6 +444,8 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "entity".to_string(),
                 sprite_template: Some("entity-template".to_string()),
+                fg_colour: None,
+                default_tags: vec![],
                 init_fields: HashMap::new(),
                 components: Some(PrefabComponents {
                     physics: Some(PhysicsComponent {
@@ -466,6 +478,8 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "projectile".to_string(),
                 sprite_template: Some("projectile-template".to_string()),
+                fg_colour: None,
+                default_tags: vec![],
                 init_fields: HashMap::new(),
                 components: Some(PrefabComponents {
                     physics: Some(PhysicsComponent {
@@ -498,6 +512,8 @@ impl ModCatalogs {
             PrefabTemplate {
                 kind: "smoke".to_string(),
                 sprite_template: Some("smoke-template".to_string()),
+                fg_colour: None,
+                default_tags: vec![],
                 init_fields: HashMap::new(),
                 components: Some(PrefabComponents {
                     physics: Some(PhysicsComponent {
