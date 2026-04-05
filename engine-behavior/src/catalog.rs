@@ -97,11 +97,11 @@ pub struct ControllerComponent {
 /// Weapon configuration for firing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeaponConfig {
-    pub max_bullets: i64,
+    pub max_projectiles: i64,
     #[serde(default)]
-    pub bullet_kind: Option<String>,
+    pub projectile_kind: Option<String>,
     #[serde(default)]
-    pub bullet_ttl_ms: Option<i64>,
+    pub projectile_ttl_ms: Option<i64>,
     #[serde(default)]
     pub cooldown_ms: Option<i64>,
     #[serde(default)]

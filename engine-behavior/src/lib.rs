@@ -2286,8 +2286,8 @@ scene.set("menu-item-0", "props.position.y", 6);
         let mut behavior = RhaiScriptBehavior::from_params(&BehaviorParams {
             script: Some(
                 r#"
-scene.spawn_object("bullet-0", "bullet-99");
-scene.despawn_object("bullet-99");
+scene.spawn_object("item-0", "item-99");
+scene.despawn_object("item-99");
 []
 "#
                 .to_string(),
@@ -2303,11 +2303,11 @@ scene.despawn_object("bullet-99");
             commands,
             vec![
                 BehaviorCommand::SceneSpawn {
-                    template: "bullet-0".to_string(),
-                    target: "bullet-99".to_string()
+                    template: "item-0".to_string(),
+                    target: "item-99".to_string()
                 },
                 BehaviorCommand::SceneDespawn {
-                    target: "bullet-99".to_string()
+                    target: "item-99".to_string()
                 }
             ]
         );

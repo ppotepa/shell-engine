@@ -1269,14 +1269,14 @@ layers: []
 objects:
   - repeat:
       count: 3
-      ref: bullet
-      as: bullet-{i}
+      ref: item
+      as: item-{i}
       with:
-        id: bullet-{i}
+        id: item-{i}
         content: "B{i}"
 "#;
         let object_raw = r#"
-name: bullet
+name: item
 exports:
   id: default-id
   content: default
@@ -1286,7 +1286,7 @@ sprites:
     content: "$content"
 "#;
         let scene = compile_scene_document_with_loader(scene_raw, |path| {
-            if path == "/objects/bullet.yml" {
+            if path == "/objects/item.yml" {
                 Some(object_raw.to_string())
             } else {
                 None
@@ -1294,12 +1294,12 @@ sprites:
         })
         .expect("scene compile");
         assert_eq!(scene.layers.len(), 3);
-        assert_eq!(scene.layers[0].name, "bullet-0");
-        assert_eq!(scene.layers[1].name, "bullet-1");
-        assert_eq!(scene.layers[2].name, "bullet-2");
+        assert_eq!(scene.layers[0].name, "item-0");
+        assert_eq!(scene.layers[1].name, "item-1");
+        assert_eq!(scene.layers[2].name, "item-2");
         match &scene.layers[2].sprites[0] {
             Sprite::Text { id, content, .. } => {
-                assert_eq!(id.as_deref(), Some("bullet-2"));
+                assert_eq!(id.as_deref(), Some("item-2"));
                 assert_eq!(content, "B2");
             }
             _ => panic!("expected text sprite"),
