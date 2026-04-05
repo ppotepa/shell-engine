@@ -1,12 +1,13 @@
 // Asteroids ship RCS module.
 //
-// Handles: input → engine AngularBody, ignition ramp VFX state, emission calls.
-// Physics (angular vel + auto-brake) live in the engine AngularBody component.
-// This module is purely about visual effects and game-feel on top of that.
+// Handles: input → engine components, VFX emission.
+// Physics (angular vel + auto-brake) live in engine AngularBody + LinearBrake.
+// Ramp timing (thrust/brake factors) lives in engine ThrusterRamp component.
+// This module is purely about VFX dispatch — no state management.
 //
 // Usage in game-loop.rhai:
 //   import "rcs" as rcs;
-//   rcs::update_ship_controls(world, input, ship_id, local, pal);
+//   rcs::update_ship_controls(world, input, ship_id, pal);
 
 // ======================== EMIT HELPERS =====================================
 
@@ -90,14 +91,6 @@ fn component_burst_count(component_vel) {
     if component_vel > 15.0 { return 3; }
     if component_vel > 5.0 { return 2; }
     1
-}
-
-// ======================== IGNITION RAMP ====================================
-
-fn igf(ms, delay, ramp) {
-    if ms < delay { return 0.0; }
-    let t = (ms - delay) / ramp;
-    if t > 1.0 { 1.0 } else { t }
 }
 
 // ======================== EMISSION: ROTATION ================================
@@ -285,10 +278,10 @@ fn fire_final_stabilization_burst(world, ship_id, angular_vel, wave_num, pal) {
 
 // ======================== MAIN CONTROL UPDATE ==============================
 // Called every frame when ship is alive.
-// Physics (angular vel, auto-brake) is handled by the engine AngularBody system.
-// This function: feeds input, reads state, manages VFX ramp timers, emits particles.
+// All ramp timing + phase state is managed by the engine ThrusterRamp component.
+// This function: feeds input to engine, reads factor outputs, dispatches VFX.
 
-fn update_ship_controls(world, input, ship_id, local, pal) {
+fn update_ship_controls(world, input, ship_id, pal) {
     if ship_id <= 0 { return; }
     let ship = world.entity(ship_id);
     if !ship.exists() { return; }
@@ -298,100 +291,32 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
     let turn_right = input.action_down("turn_right");
     let thrusting  = input.action_down("thrust");
     let input_turn = if turn_left && !turn_right { -1.0 } else if turn_right && !turn_left { 1.0 } else { 0.0 };
-    let rotation_input_active = input_turn != 0.0;
-    let linear_input_active   = thrusting || rotation_input_active;
 
     // ── Drive engine components ──────────────────────────────────────────────
     world.set_angular_input(ship_id, input_turn);
     ship.set_thrust(thrusting);
 
-    // ── Read physics state (engine-owned) ────────────────────────────────────
+    // ── Read engine-computed ramp factors (no math here) ─────────────────────
+    let ramp = world.thruster_ramp(ship_id);
+    if type_of(ramp) != "map" { return; }
+
+    let thrust_factor  = ramp["thrust_factor"]      ?? 0.0;
+    let rot_factor     = ramp["rot_factor"]          ?? 0.0;
+    let brake_factor   = ramp["brake_factor"]        ?? 0.0;
+    let brake_phase    = ramp["brake_phase"]         ?? "idle";
+    let burst_fired    = ramp["final_burst_fired"]   ?? false;
+    let burst_wave     = ramp["final_burst_wave"]    ?? 0;
+    let thrust_ms      = ramp["thrust_ignition_ms"]  ?? 0.0;
+
+    // ── Read physics (still needed for course-correction + engine heat curve) ─
     let angular_vel = world.angular_vel(ship_id);
     let phys  = world.physics(ship_id);
     let vx    = if type_of(phys) == "map" { phys["vx"] ?? 0.0 } else { 0.0 };
     let vy    = if type_of(phys) == "map" { phys["vy"] ?? 0.0 } else { 0.0 };
     let speed = sqrtf(vx * vx + vy * vy);
-    let still_rotating = absf(angular_vel) > 0.10;
-    let still_moving   = speed > 2.5;
-
-    // ── VFX ramp state (mod-owned, stored in local.rcs) ──────────────────────
-    let rcs = local.rcs ?? #{};
-    let thrust_ignition_ms  = rcs["thrust_ignition_ms"]  ?? 0.0;
-    let no_input_ms         = rcs["no_input_ms"]         ?? 0.0;
-    let brake_ignition_ms   = rcs["brake_ignition_ms"]   ?? 0.0;
-    let auto_brake_phase    = rcs["auto_brake_phase"]    ?? "idle";
-    let final_burst_waves   = rcs["final_burst_waves"]   ?? 0;
-    let final_burst_timer_ms = rcs["final_burst_timer_ms"] ?? 0.0;
-    let final_burst_triggered = rcs["final_burst_triggered"] ?? false;
-
-    if linear_input_active { no_input_ms = 0.0; } else { no_input_ms += to_float(frame_ms); }
-
-    // ── Thrust ignition ramp ─────────────────────────────────────────────────
-    let thrust_factor = 0.0;
-    if thrusting {
-        thrust_ignition_ms += to_float(frame_ms);
-        thrust_factor = igf(thrust_ignition_ms, 8.0, 12.0);
-    } else {
-        thrust_ignition_ms = 0.0;
-    }
-
-    // ── Rotation ignition factor — derived from angular_vel magnitude ────────
-    let rot_factor = (absf(angular_vel) / 7.0).min(1.0);
-
-    // ── Brake ignition ramp ──────────────────────────────────────────────────
-    let linear_brake_active = no_input_ms >= 30.0 && still_moving && !still_rotating;
-    let brake_factor = 0.0;
-
-    if still_rotating && !rotation_input_active {
-        brake_ignition_ms += to_float(frame_ms);
-        brake_factor = igf(brake_ignition_ms, 8.0 * 0.3, 12.0 * 0.5);
-        auto_brake_phase = "rotation";
-    } else if linear_brake_active {
-        brake_ignition_ms += to_float(frame_ms);
-        brake_factor = igf(brake_ignition_ms + no_input_ms, 8.0 * 0.5, 12.0 * 0.8);
-        auto_brake_phase = "linear";
-    } else if !linear_input_active && !still_rotating && !still_moving {
-        brake_ignition_ms = 0.0;
-        auto_brake_phase  = "stopped";
-    } else if thrusting && !rotation_input_active && !still_rotating {
-        auto_brake_phase = "thrusting";
-    } else if rotation_input_active {
-        brake_ignition_ms = 0.0;
-        auto_brake_phase  = "idle";
-    }
-
-    // ── Final stabilization burst tracking ──────────────────────────────────
-    let final_burst_fired    = false;
-    let final_burst_wave_num = 0;
-
-    if linear_brake_active && speed < 15.0 && speed > 2.5 {
-        if !final_burst_triggered {
-            final_burst_triggered = true;
-            final_burst_waves     = 0;
-            final_burst_timer_ms  = 0.0;
-        }
-        if final_burst_waves < 3 {
-            final_burst_timer_ms += to_float(frame_ms);
-            if final_burst_timer_ms >= 150.0 {
-                final_burst_fired    = true;
-                final_burst_wave_num = final_burst_waves;
-                final_burst_waves   += 1;
-                final_burst_timer_ms = 0.0;
-            }
-        }
-    } else if !still_moving && !still_rotating {
-        final_burst_triggered = false;
-        final_burst_waves     = 0;
-        final_burst_timer_ms  = 0.0;
-    }
-    if linear_input_active {
-        final_burst_triggered = false;
-        final_burst_waves     = 0;
-        final_burst_timer_ms  = 0.0;
-    }
 
     // ── Course correction ────────────────────────────────────────────────────
-    if thrusting && speed > 5.0 && !rotation_input_active {
+    if thrusting && speed > 5.0 && input_turn == 0.0 {
         let hd    = world.heading_drift(ship_id);
         let cross = hd["right"] ?? 0.0;
         let fwd   = hd["fwd"]   ?? 0.0;
@@ -403,37 +328,26 @@ fn update_ship_controls(world, input, ship_id, local, pal) {
         }
     }
 
-    // ── Emit particles based on ramp state ───────────────────────────────────
+    // ── Emit particles based on engine-computed factors ──────────────────────
     let MAX_SPEED = 280.0;
     if thrusting && thrust_factor > 0.0 {
         world.set_linear_brake_active(ship_id, true); // suppress engine auto-brake while thrusting
-        fire_main_engine_with_velocity(world, ship_id, thrust_ignition_ms, thrust_factor, speed, MAX_SPEED, pal);
+        fire_main_engine_with_velocity(world, ship_id, thrust_ms, thrust_factor, speed, MAX_SPEED, pal);
     }
     if rot_factor > 0.1 {
         fire_rotation_couple(world, ship_id, input_turn, angular_vel, rot_factor, pal);
     }
     if brake_factor > 0.1 {
-        if auto_brake_phase == "rotation" {
+        if brake_phase == "rotation" {
             fire_auto_rotation_brake(world, ship_id, angular_vel, brake_factor, pal);
-        } else if auto_brake_phase == "linear" {
+        } else if brake_phase == "linear" {
             fire_auto_linear_brake(world, ship, ship_id, brake_factor, pal);
         }
     }
-    if final_burst_fired {
-        fire_final_stabilization_burst(world, ship_id, angular_vel, final_burst_wave_num, pal);
+    if burst_fired {
+        fire_final_stabilization_burst(world, ship_id, angular_vel, burst_wave, pal);
     }
-    if auto_brake_phase == "stopped" && rand() < 0.05 {
+    if brake_phase == "stopped" && rand() < 0.05 {
         fire_settling_puff(world, ship_id, 0.3, pal);
     }
-
-    // ── Persist VFX state ────────────────────────────────────────────────────
-    local.rcs = #{
-        thrust_ignition_ms:   thrust_ignition_ms,
-        no_input_ms:          no_input_ms,
-        brake_ignition_ms:    brake_ignition_ms,
-        auto_brake_phase:     auto_brake_phase,
-        final_burst_waves:    final_burst_waves,
-        final_burst_timer_ms: final_burst_timer_ms,
-        final_burst_triggered: final_burst_triggered,
-    };
 }

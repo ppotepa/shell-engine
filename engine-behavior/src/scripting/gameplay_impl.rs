@@ -13,7 +13,7 @@ use engine_api::{
     follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
     parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
 };
-use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticleColorRamp, ParticlePhysics, ParticleThreadMode, AngularBody, LinearBrake};
+use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticleColorRamp, ParticlePhysics, ParticleThreadMode, AngularBody, LinearBrake, ThrusterRamp};
 use engine_game::{
     Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
     VisualBinding,
@@ -1346,6 +1346,62 @@ impl ScriptGameplayApi {
     pub(crate) fn set_linear_brake_active(&mut self, id: rhai::INT, active: bool) -> bool {
         let Some(world) = self.ctx.world.as_ref() else { return false; };
         world.set_linear_brake_active(id as u64, active)
+    }
+
+    /// Attach a [`ThrusterRamp`] component to an entity.
+    ///
+    /// Config map keys (all optional):
+    /// `thrust_delay_ms`, `thrust_ramp_ms`, `no_input_threshold_ms`,
+    /// `rot_factor_max_vel`, `burst_speed_threshold`, `burst_wave_interval_ms`,
+    /// `burst_wave_count`, `rot_deadband`, `move_deadband`.
+    pub(crate) fn thruster_ramp_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
+            map.get(key).and_then(|v| v.as_float().ok()).unwrap_or(default as rhai::FLOAT) as f32
+        };
+        let get_u8 = |map: &RhaiMap, key: &str, default: u8| -> u8 {
+            map.get(key).and_then(|v| v.as_int().ok()).unwrap_or(default as rhai::INT) as u8
+        };
+        let ramp = ThrusterRamp {
+            thrust_delay_ms:       get_f(&config, "thrust_delay_ms",       8.0),
+            thrust_ramp_ms:        get_f(&config, "thrust_ramp_ms",       12.0),
+            no_input_threshold_ms: get_f(&config, "no_input_threshold_ms", 30.0),
+            rot_factor_max_vel:    get_f(&config, "rot_factor_max_vel",     7.0),
+            burst_speed_threshold: get_f(&config, "burst_speed_threshold", 15.0),
+            burst_wave_interval_ms: get_f(&config, "burst_wave_interval_ms", 150.0),
+            burst_wave_count:      get_u8(&config, "burst_wave_count",       3),
+            rot_deadband:          get_f(&config, "rot_deadband",           0.10),
+            move_deadband:         get_f(&config, "move_deadband",           2.5),
+            ..Default::default()
+        };
+        world.attach_thruster_ramp(id as u64, ramp)
+    }
+
+    /// Read the per-frame factor outputs of a [`ThrusterRamp`] as a Rhai map.
+    ///
+    /// Returns an empty map if the entity has no `ThrusterRamp`.
+    ///
+    /// Map keys: `thrust_factor` (float), `rot_factor` (float),
+    /// `brake_factor` (float), `brake_phase` (string),
+    /// `final_burst_fired` (bool), `final_burst_wave` (int).
+    pub(crate) fn thruster_ramp(&mut self, id: rhai::INT) -> RhaiMap {
+        let Some(world) = self.ctx.world.as_ref() else { return RhaiMap::new(); };
+        let Some(ramp) = world.thruster_ramp(id as u64) else { return RhaiMap::new(); };
+        let mut map = RhaiMap::new();
+        map.insert("thrust_factor".into(),     rhai::Dynamic::from_float(ramp.thrust_factor as rhai::FLOAT));
+        map.insert("rot_factor".into(),        rhai::Dynamic::from_float(ramp.rot_factor    as rhai::FLOAT));
+        map.insert("brake_factor".into(),      rhai::Dynamic::from_float(ramp.brake_factor  as rhai::FLOAT));
+        map.insert("brake_phase".into(),       rhai::Dynamic::from(ramp.brake_phase.as_str().to_string()));
+        map.insert("final_burst_fired".into(), rhai::Dynamic::from_bool(ramp.final_burst_fired));
+        map.insert("final_burst_wave".into(),  rhai::Dynamic::from_int(ramp.final_burst_wave as rhai::INT));
+        map.insert("thrust_ignition_ms".into(), rhai::Dynamic::from_float(ramp.thrust_ignition_ms as rhai::FLOAT));
+        map
+    }
+
+    /// Detach the [`ThrusterRamp`] component from an entity.
+    pub(crate) fn thruster_ramp_detach(&mut self, id: rhai::INT) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        world.detach_thruster_ramp(id as u64)
     }
 
     pub(crate) fn enable_wrap_bounds(&mut self, id: rhai::INT) -> bool {

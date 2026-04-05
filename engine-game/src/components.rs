@@ -442,6 +442,112 @@ impl Default for LinearBrake {
 }
 
 
+/// Phase of the auto-brake sequence produced by [`ThrusterRamp`].
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum BrakePhase {
+    #[default]
+    Idle,
+    Rotation,
+    Linear,
+    Stopped,
+    Thrusting,
+}
+
+impl BrakePhase {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BrakePhase::Idle      => "idle",
+            BrakePhase::Rotation  => "rotation",
+            BrakePhase::Linear    => "linear",
+            BrakePhase::Stopped   => "stopped",
+            BrakePhase::Thrusting => "thrusting",
+        }
+    }
+}
+
+/// Per-entity thruster ramp state.
+///
+/// Tracks how long thrust/brake inputs have been active and produces normalised
+/// intensity factors (0–1) that scripts can read to drive VFX emitters.
+/// Pure timing math — no game-specific knowledge.
+///
+/// Requires the entity to also have `ArcadeController`, `AngularBody`,
+/// `LinearBrake`, and `PhysicsBody2D`. Configure via
+/// `world.thruster_ramp_attach(id, config_map)`.
+#[derive(Clone, Debug)]
+pub struct ThrusterRamp {
+    // ── Config (set at attach, never mutated by system) ──────────────────
+    /// ms before thrust VFX starts ramping up (ignition delay).
+    pub thrust_delay_ms: f32,
+    /// ms from delay end to full intensity.
+    pub thrust_ramp_ms: f32,
+    /// ms of zero input before linear auto-brake phase begins.
+    pub no_input_threshold_ms: f32,
+    /// Angular velocity magnitude (rad/s) that maps to rot_factor=1.0.
+    pub rot_factor_max_vel: f32,
+    /// Speed (px/s) below which the final stabilisation bursts trigger.
+    pub burst_speed_threshold: f32,
+    /// Interval between burst waves (ms).
+    pub burst_wave_interval_ms: f32,
+    /// Total number of burst waves.
+    pub burst_wave_count: u8,
+    /// Angular velocity deadband — below this the entity is considered "stopped rotating".
+    pub rot_deadband: f32,
+    /// Linear speed deadband — below this the entity is considered "stopped moving".
+    pub move_deadband: f32,
+
+    // ── State (maintained by thruster_ramp_system each tick) ─────────────
+    pub thrust_ignition_ms:    f32,
+    pub no_input_ms:           f32,
+    pub brake_ignition_ms:     f32,
+    pub brake_phase:           BrakePhase,
+    pub final_burst_triggered: bool,
+    pub final_burst_waves:     u8,
+    pub final_burst_timer_ms:  f32,
+
+    // ── Outputs (read by scripts each frame) ─────────────────────────────
+    /// Thrust intensity 0–1 (ramps up on thrust input, resets to 0 when released).
+    pub thrust_factor: f32,
+    /// Rotation intensity 0–1 (derived from current angular velocity magnitude).
+    pub rot_factor: f32,
+    /// Auto-brake intensity 0–1 (ramps up when no input and entity is still moving/rotating).
+    pub brake_factor: f32,
+    /// True for exactly one frame when a stabilisation burst fires.
+    pub final_burst_fired: bool,
+    /// Which burst wave fired this frame (0..burst_wave_count).
+    pub final_burst_wave: u8,
+}
+
+impl Default for ThrusterRamp {
+    fn default() -> Self {
+        Self {
+            thrust_delay_ms:       8.0,
+            thrust_ramp_ms:        12.0,
+            no_input_threshold_ms: 30.0,
+            rot_factor_max_vel:    7.0,
+            burst_speed_threshold: 15.0,
+            burst_wave_interval_ms: 150.0,
+            burst_wave_count:      3,
+            rot_deadband:          0.10,
+            move_deadband:         2.5,
+
+            thrust_ignition_ms:    0.0,
+            no_input_ms:           0.0,
+            brake_ignition_ms:     0.0,
+            brake_phase:           BrakePhase::Idle,
+            final_burst_triggered: false,
+            final_burst_waves:     0,
+            final_burst_timer_ms:  0.0,
+
+            thrust_factor:     0.0,
+            rot_factor:        0.0,
+            brake_factor:      0.0,
+            final_burst_fired: false,
+            final_burst_wave:  0,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ParticlePhysics {
     /// Processing mode (light/physics/gravity).

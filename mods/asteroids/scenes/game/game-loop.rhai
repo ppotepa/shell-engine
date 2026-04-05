@@ -164,6 +164,15 @@ fn ensure_ship(world, ship_col) {
         world.set(ship_id, "style.fg", ship_col);
         world.angular_body_attach(ship_id, #{ accel: 5.5, max: 7.0, deadband: 0.10, auto_brake: true });
         world.linear_brake_attach(ship_id, #{ decel: 45.0, deadband: 2.0, auto_brake: true });
+        world.thruster_ramp_attach(ship_id, #{
+            thrust_delay_ms:       8.0,
+            thrust_ramp_ms:        12.0,
+            no_input_threshold_ms: 30.0,
+            rot_factor_max_vel:    7.0,
+            burst_speed_threshold: 15.0,
+            burst_wave_interval_ms: 150.0,
+            burst_wave_count:      3,
+        });
     }
     ship_id
 }
@@ -252,7 +261,7 @@ let ship_id = if !respawning { ensure_ship(world, col["ship"] ?? "white") } else
 local.ship_id = ship_id;
 
 if ship_id > 0 {
-    rcs::update_ship_controls(world, input, ship_id, local, col);
+    rcs::update_ship_controls(world, input, ship_id, col);
 
     // ── Shooting ─────────────────────────────────────────────────────────────
     if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {

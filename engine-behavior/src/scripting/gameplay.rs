@@ -90,6 +90,9 @@ impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
     fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT { self.angular_vel(id) }
     fn linear_brake_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool { self.linear_brake_attach(id, config) }
     fn set_linear_brake_active(&mut self, id: rhai::INT, active: bool) -> bool { self.set_linear_brake_active(id, active) }
+    fn thruster_ramp_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool { self.thruster_ramp_attach(id, config) }
+    fn thruster_ramp(&mut self, id: rhai::INT) -> RhaiMap { self.thruster_ramp(id) }
+    fn thruster_ramp_detach(&mut self, id: rhai::INT) -> bool { self.thruster_ramp_detach(id) }
     fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT { self.rand_i(min, max) }
     fn rand_seed(&mut self, seed: rhai::INT) { self.rand_seed(seed) }
     fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool { self.tag_add(id, tag) }
@@ -276,6 +279,18 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn(
         "set_linear_brake_active",
         |world: &mut ScriptGameplayApi, id: rhai::INT, active: bool| world.set_linear_brake_active(id, active),
+    );
+    engine.register_fn(
+        "thruster_ramp_attach",
+        |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| world.thruster_ramp_attach(id, config),
+    );
+    engine.register_fn(
+        "thruster_ramp",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.thruster_ramp(id),
+    );
+    engine.register_fn(
+        "thruster_ramp_detach",
+        |world: &mut ScriptGameplayApi, id: rhai::INT| world.thruster_ramp_detach(id),
     );
 
     // --- TIMER OPERATIONS (world.timer_*) ---

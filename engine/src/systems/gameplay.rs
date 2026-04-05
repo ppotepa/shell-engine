@@ -53,6 +53,7 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         super::arcade_controller::arcade_controller_system(&gameplay_world, dt_ms);
         super::angular_body::angular_body_system(&gameplay_world, dt_ms);
         super::linear_brake::linear_brake_system(&gameplay_world, dt_ms);
+        super::thruster_ramp::thruster_ramp_system(&gameplay_world, dt_ms);
     }
 
     // Run physics integration

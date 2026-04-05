@@ -258,6 +258,41 @@ world.set_linear_brake_active(id, true)     // → bool  Suppress auto-brake thi
 
 `linear_brake_system` runs before physics; not calling `set_linear_brake_active` on a frame allows braking to apply.
 
+### ThrusterRamp
+
+Engine-managed ramp timing component. Tracks how long thrust/brake inputs have been active and outputs normalised 0–1 factors that scripts can read to drive VFX emitters. All state management moves out of Rhai into Rust — scripts just read outputs.
+
+Requires the entity to also have `ArcadeController`, `AngularBody`, `LinearBrake`, and `PhysicsBody2D`.
+
+```rhai
+// Attach at spawn (all fields optional, shown with defaults):
+world.thruster_ramp_attach(id, #{
+    thrust_delay_ms:       8.0,    // ms before thrust emission starts
+    thrust_ramp_ms:        12.0,   // ms to reach full thrust intensity
+    no_input_threshold_ms: 30.0,   // ms idle before linear auto-brake begins
+    rot_factor_max_vel:    7.0,    // rad/s that maps to rot_factor=1.0
+    burst_speed_threshold: 15.0,   // px/s below which settling bursts trigger
+    burst_wave_interval_ms: 150.0, // ms between burst waves
+    burst_wave_count:      3,      // total burst wave count
+    rot_deadband:          0.10,   // rad/s below which entity is "stopped rotating"
+    move_deadband:         2.5,    // px/s below which entity is "stopped moving"
+})                                 // → bool
+
+// Read per-frame outputs (call once, read all factors):
+let ramp = world.thruster_ramp(id);  // → #{...} or #{} if not attached
+ramp["thrust_factor"]       // float 0–1: thrust intensity ramp
+ramp["rot_factor"]          // float 0–1: rotation intensity (from angular_vel)
+ramp["brake_factor"]        // float 0–1: auto-brake intensity ramp
+ramp["brake_phase"]         // string: "idle"|"rotation"|"linear"|"stopped"|"thrusting"
+ramp["final_burst_fired"]   // bool: true for exactly one frame when burst fires
+ramp["final_burst_wave"]    // int: which wave (0..burst_wave_count)
+ramp["thrust_ignition_ms"]  // float: raw ignition accumulator (for heat curves etc.)
+
+world.thruster_ramp_detach(id)  // → bool  Remove component
+```
+
+`thruster_ramp_system` runs after `angular_body_system` + `linear_brake_system` and before the behavior (script) system, so outputs always reflect the current frame's physics state.
+
 ### Heading-Relative Helpers
 
 ```rhai

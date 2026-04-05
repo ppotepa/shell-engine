@@ -9,9 +9,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use crate::components::{
-    Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime, Ownership,
-    ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, AngularBody, LinearBrake,
-    Transform2D, VisualBinding, WrapBounds,
+    BrakePhase, Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime,
+    Ownership, ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, AngularBody,
+    LinearBrake, ThrusterRamp, Transform2D, VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -42,6 +42,7 @@ struct GameplayStore {
     particle_ramps: BTreeMap<u64, ParticleColorRamp>,
     angular_bodies: BTreeMap<u64, AngularBody>,
     linear_brakes: BTreeMap<u64, LinearBrake>,
+    thruster_ramps: BTreeMap<u64, ThrusterRamp>,
     /// Parent → child entity IDs. Children are auto-despawned when parent despawns.
     children: BTreeMap<u64, Vec<u64>>,
     /// Gameplay events accumulated this frame (cleared each frame start).
@@ -78,6 +79,7 @@ impl Default for GameplayStore {
             particle_ramps: BTreeMap::new(),
             angular_bodies: BTreeMap::new(),
             linear_brakes: BTreeMap::new(),
+            thruster_ramps: BTreeMap::new(),
             children: BTreeMap::new(),
             events: Vec::new(),
             rng_seed: 1337,
@@ -99,6 +101,13 @@ impl Default for GameplayStore {
 #[derive(Clone, Debug)]
 pub struct GameplayWorld {
     store: Arc<Mutex<GameplayStore>>,
+}
+
+/// Ignition ramp factor: 0 until `delay_ms` has passed, then linearly 0→1 over `ramp_ms`.
+#[inline]
+fn igf(elapsed_ms: f32, delay_ms: f32, ramp_ms: f32) -> f32 {
+    if elapsed_ms < delay_ms { return 0.0; }
+    ((elapsed_ms - delay_ms) / ramp_ms).min(1.0)
 }
 
 impl GameplayWorld {
@@ -259,6 +268,7 @@ impl GameplayWorld {
             store.particle_ramps.remove(&id);
             store.angular_bodies.remove(&id);
             store.linear_brakes.remove(&id);
+            store.thruster_ramps.remove(&id);
             for children in store.children.values_mut() {
                 children.retain(|child_id| *child_id != id);
             }
@@ -1180,6 +1190,154 @@ impl GameplayWorld {
             let impulse = (decel * dt).min(speed);
             body.vx -= (body.vx / speed) * impulse;
             body.vy -= (body.vy / speed) * impulse;
+        }
+    }
+
+    // ── ThrusterRamp ──────────────────────────────────────────────────────
+
+    /// Attach or replace the [`ThrusterRamp`] component for an entity.
+    pub fn attach_thruster_ramp(&self, id: u64, ramp: ThrusterRamp) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false; };
+        if !store.entities.contains_key(&id) { return false; }
+        store.thruster_ramps.insert(id, ramp);
+        true
+    }
+
+    /// Read the current [`ThrusterRamp`] outputs for an entity (cloned snapshot).
+    pub fn thruster_ramp(&self, id: u64) -> Option<ThrusterRamp> {
+        let Ok(store) = self.store.lock() else { return None; };
+        store.thruster_ramps.get(&id).cloned()
+    }
+
+    /// Returns all entity IDs that have a [`ThrusterRamp`] component.
+    pub fn ids_with_thruster_ramp(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else { return Vec::new(); };
+        store.thruster_ramps.keys().copied().collect()
+    }
+
+    /// Detach the [`ThrusterRamp`] component from an entity.
+    pub fn detach_thruster_ramp(&self, id: u64) -> bool {
+        let Ok(mut store) = self.store.lock() else { return false; };
+        store.thruster_ramps.remove(&id).is_some()
+    }
+
+    /// Advance thruster ramp state for all entities that have one.
+    ///
+    /// Reads `ArcadeController`, `AngularBody`, `LinearBrake`, and `PhysicsBody2D`
+    /// for each entity. Writes updated factor outputs back to `ThrusterRamp`.
+    /// Called by `thruster_ramp_system` each gameplay tick after `linear_brake_system`.
+    pub fn tick_thruster_ramps(&self, dt_ms: u64) {
+        let dt = dt_ms as f32;
+        if dt <= 0.0 { return; }
+
+        let ids: Vec<u64> = {
+            let Ok(store) = self.store.lock() else { return; };
+            store.thruster_ramps.keys().copied().collect()
+        };
+
+        for id in ids {
+            // ── Read all inputs in one lock ───────────────────────────────
+            let (is_thrusting, rotation_input_active, angular_vel, speed) = {
+                let Ok(store) = self.store.lock() else { continue; };
+                let thrusting = store.controllers.get(&id).map(|c| c.is_thrusting).unwrap_or(false);
+                let rot_input = store.angular_bodies.get(&id).map(|ab| ab.input != 0.0).unwrap_or(false);
+                let ang_vel   = store.angular_bodies.get(&id).map(|ab| ab.angular_vel).unwrap_or(0.0);
+                let (vx, vy)  = store.physics.get(&id).map(|p| (p.vx, p.vy)).unwrap_or((0.0, 0.0));
+                let speed     = (vx * vx + vy * vy).sqrt();
+                (thrusting, rot_input, ang_vel, speed)
+            };
+
+            let linear_input_active = is_thrusting || rotation_input_active;
+
+            // ── Read ramp config + state ──────────────────────────────────
+            let ramp_snap = {
+                let Ok(store) = self.store.lock() else { continue; };
+                store.thruster_ramps.get(&id).cloned()
+            };
+            let Some(mut ramp) = ramp_snap else { continue; };
+
+            // Derived state
+            let still_rotating = angular_vel.abs() > ramp.rot_deadband;
+            let still_moving   = speed > ramp.move_deadband;
+
+            // ── No-input accumulator ──────────────────────────────────────
+            if linear_input_active { ramp.no_input_ms = 0.0; } else { ramp.no_input_ms += dt; }
+
+            // ── Thrust ignition ramp ──────────────────────────────────────
+            if is_thrusting {
+                ramp.thrust_ignition_ms += dt;
+                ramp.thrust_factor = igf(ramp.thrust_ignition_ms, ramp.thrust_delay_ms, ramp.thrust_ramp_ms);
+            } else {
+                ramp.thrust_ignition_ms = 0.0;
+                ramp.thrust_factor = 0.0;
+            }
+
+            // ── Rotation factor (derived from angular vel, no ramp needed) ─
+            ramp.rot_factor = (angular_vel.abs() / ramp.rot_factor_max_vel).min(1.0);
+
+            // ── Brake ignition ramp ───────────────────────────────────────
+            let linear_brake_active =
+                ramp.no_input_ms >= ramp.no_input_threshold_ms && still_moving && !still_rotating;
+
+            if still_rotating && !rotation_input_active {
+                ramp.brake_ignition_ms += dt;
+                ramp.brake_factor = igf(ramp.brake_ignition_ms, ramp.thrust_delay_ms * 0.3, ramp.thrust_ramp_ms * 0.5);
+                ramp.brake_phase  = BrakePhase::Rotation;
+            } else if linear_brake_active {
+                ramp.brake_ignition_ms += dt;
+                ramp.brake_factor = igf(
+                    ramp.brake_ignition_ms + ramp.no_input_ms,
+                    ramp.thrust_delay_ms * 0.5,
+                    ramp.thrust_ramp_ms  * 0.8,
+                );
+                ramp.brake_phase = BrakePhase::Linear;
+            } else if !linear_input_active && !still_rotating && !still_moving {
+                ramp.brake_ignition_ms = 0.0;
+                ramp.brake_phase = BrakePhase::Stopped;
+            } else if is_thrusting && !rotation_input_active && !still_rotating {
+                ramp.brake_phase = BrakePhase::Thrusting;
+            } else if rotation_input_active {
+                ramp.brake_ignition_ms = 0.0;
+                ramp.brake_phase = BrakePhase::Idle;
+            }
+
+            // ── Final stabilisation burst ─────────────────────────────────
+            ramp.final_burst_fired = false;
+            ramp.final_burst_wave  = 0;
+
+            let burst_trigger_zone = linear_brake_active
+                && speed < ramp.burst_speed_threshold
+                && speed > ramp.move_deadband;
+
+            if burst_trigger_zone {
+                if !ramp.final_burst_triggered {
+                    ramp.final_burst_triggered = true;
+                    ramp.final_burst_waves     = 0;
+                    ramp.final_burst_timer_ms  = 0.0;
+                }
+                if ramp.final_burst_waves < ramp.burst_wave_count {
+                    ramp.final_burst_timer_ms += dt;
+                    if ramp.final_burst_timer_ms >= ramp.burst_wave_interval_ms {
+                        ramp.final_burst_fired    = true;
+                        ramp.final_burst_wave     = ramp.final_burst_waves;
+                        ramp.final_burst_waves   += 1;
+                        ramp.final_burst_timer_ms = 0.0;
+                    }
+                }
+            } else if !still_moving && !still_rotating {
+                ramp.final_burst_triggered = false;
+                ramp.final_burst_waves     = 0;
+                ramp.final_burst_timer_ms  = 0.0;
+            }
+            if linear_input_active {
+                ramp.final_burst_triggered = false;
+                ramp.final_burst_waves     = 0;
+                ramp.final_burst_timer_ms  = 0.0;
+            }
+
+            // ── Write outputs back ────────────────────────────────────────
+            let Ok(mut store) = self.store.lock() else { continue; };
+            store.thruster_ramps.insert(id, ramp);
         }
     }
 

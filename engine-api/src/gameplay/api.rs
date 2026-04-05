@@ -170,6 +170,9 @@ where
     fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT;
     fn linear_brake_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool;
     fn set_linear_brake_active(&mut self, id: rhai::INT, active: bool) -> bool;
+    fn thruster_ramp_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool;
+    fn thruster_ramp(&mut self, id: rhai::INT) -> RhaiMap;
+    fn thruster_ramp_detach(&mut self, id: rhai::INT) -> bool;
     fn rand_i(&mut self, min: rhai::INT, max: rhai::INT) -> rhai::INT;
     fn rand_seed(&mut self, seed: rhai::INT);
     fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool;
