@@ -991,7 +991,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else { return out; };
         let Some(xf) = world.transform(id as u64) else { return out; };
         let heading = xf.heading;
-        let (fwd_x, fwd_y) = (-heading.sin(), -heading.cos());
+        let (fwd_x, fwd_y) = (heading.sin(), -heading.cos());
         let (vx, vy) = match world.physics(id as u64) {
             Some(b) => (b.vx, b.vy),
             None => (0.0, 0.0),

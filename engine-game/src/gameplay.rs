@@ -1309,9 +1309,13 @@ impl GameplayWorld {
                 ramp.brake_factor = igf(ramp.brake_ignition_ms, ramp.thrust_delay_ms * 0.3, ramp.thrust_ramp_ms * 0.5);
                 ramp.brake_phase  = BrakePhase::Rotation;
             } else if linear_brake_active {
+                // Reset ignition timer on phase entry (Rotation→Linear transition)
+                if ramp.brake_phase != BrakePhase::Linear {
+                    ramp.brake_ignition_ms = 0.0;
+                }
                 ramp.brake_ignition_ms += dt;
                 ramp.brake_factor = igf(
-                    ramp.brake_ignition_ms + ramp.no_input_ms,
+                    ramp.brake_ignition_ms,
                     ramp.thrust_delay_ms * 0.5,
                     ramp.thrust_ramp_ms  * 0.8,
                 );
