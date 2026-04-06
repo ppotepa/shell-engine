@@ -355,6 +355,10 @@ impl SceneRuntime {
         self.cached_object_states = None;
         self.cached_object_props = None;
         self.cached_object_text = None;
+
+        // Collect despawn targets for batched removal (single graph rebuild).
+        let mut pending_despawns: Vec<String> = Vec::new();
+
         for command in commands {
             match command {
                 BehaviorCommand::PlayAudioCue { .. } => {}
@@ -636,7 +640,7 @@ impl SceneRuntime {
                     let _ = self.spawn_runtime_clone(resolver, template, target);
                 }
                 BehaviorCommand::SceneDespawn { target } => {
-                    let _ = self.soft_despawn_target(resolver, target);
+                    pending_despawns.push(target.clone());
                 }
                 BehaviorCommand::TerminalPushOutput { line } => {
                     self.terminal_push_output(line.clone());
@@ -658,6 +662,11 @@ impl SceneRuntime {
                     self.scene.bg_colour = engine_core::scene::color::parse_colour_str(color);
                 }
             }
+        }
+
+        // Batch-apply all collected despawns with a single graph rebuild.
+        if !pending_despawns.is_empty() {
+            self.batch_despawn_targets(resolver, &pending_despawns);
         }
     }
 
@@ -946,6 +955,90 @@ impl SceneRuntime {
                 .collect(),
         );
         self.resolver_cache = std::sync::Arc::new(self.build_target_resolver());
+        self.rebuild_sprite_id_to_layer();
+    }
+
+    /// Builds an O(1) lookup from sprite `id` attribute to the layer index that
+    /// contains it. Used by `set_vector_sprite_property` and friends to skip
+    /// the O(n_layers × n_sprites) linear scan.
+    pub(crate) fn rebuild_sprite_id_to_layer(&mut self) {
+        self.sprite_id_to_layer.clear();
+        for (layer_idx, layer) in self.scene.layers.iter().enumerate() {
+            collect_sprite_ids_recursive(&layer.sprites, layer_idx, &mut self.sprite_id_to_layer);
+        }
+    }
+
+    /// Batch-remove multiple scene targets with a single graph rebuild at the end.
+    fn batch_despawn_targets(&mut self, resolver: &TargetResolver, targets: &[String]) {
+        if targets.is_empty() {
+            return;
+        }
+
+        // For a single target, use the existing path (handles edge cases like
+        // remove_target_recursive for non-layer sprites).
+        if targets.len() == 1 {
+            let _ = self.soft_despawn_target(resolver, &targets[0]);
+            return;
+        }
+
+        // Build a fresh resolver once for the entire batch.
+        let current_resolver = self.build_target_resolver();
+        let mut layers_to_remove: Vec<usize> = Vec::new();
+        let mut non_layer_targets: Vec<String> = Vec::new();
+
+        for target in targets {
+            let object_id = if let Some(id) = current_resolver.resolve_alias(target) {
+                id.to_string()
+            } else if let Some(id) = resolver.resolve_alias(target) {
+                id.to_string()
+            } else {
+                continue;
+            };
+
+            // Check if it's a sprite inside a layer
+            if let Some((layer_idx, sprite_path)) = self.find_sprite_path_for_object(&object_id) {
+                if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                    let _ = remove_sprite_at_path(&mut layer.sprites, &sprite_path);
+                    if layer.sprites.is_empty() {
+                        layers_to_remove.push(layer_idx);
+                    }
+                }
+                continue;
+            }
+            // Check if it's a layer itself
+            if let Some(layer_idx) = self
+                .layer_ids
+                .iter()
+                .find(|(_, id)| *id == &object_id)
+                .map(|(idx, _)| *idx)
+            {
+                if layer_idx < self.scene.layers.len() {
+                    layers_to_remove.push(layer_idx);
+                }
+                continue;
+            }
+            // Non-layer target (rare)
+            non_layer_targets.push(object_id);
+        }
+
+        // Remove layers in reverse index order to avoid invalidating earlier indices.
+        layers_to_remove.sort_unstable();
+        layers_to_remove.dedup();
+        for &layer_idx in layers_to_remove.iter().rev() {
+            if layer_idx < self.scene.layers.len() {
+                self.scene.layers.remove(layer_idx);
+            }
+        }
+
+        // Single graph rebuild for all batch removals.
+        if !layers_to_remove.is_empty() {
+            self.rebuild_runtime_graph_preserving_state();
+        }
+
+        // Handle non-layer targets individually (rare path, typically 0).
+        for object_id in non_layer_targets {
+            self.remove_target_recursive(&object_id);
+        }
     }
 
     fn soft_despawn_target(&mut self, resolver: &TargetResolver, target: &str) -> bool {
@@ -1414,5 +1507,28 @@ fn retag_sprite_ids(sprite: &mut Sprite, base: &str, counter: &mut usize) {
             }
         }
         _ => {}
+    }
+}
+
+/// Collects sprite `id` → layer_idx mappings for O(1) property mutation lookup.
+fn collect_sprite_ids_recursive(
+    sprites: &[Sprite],
+    layer_idx: usize,
+    out: &mut HashMap<String, usize>,
+) {
+    for sprite in sprites {
+        if let Some(id) = sprite.id() {
+            if !id.is_empty() {
+                out.insert(id.to_string(), layer_idx);
+            }
+        }
+        match sprite {
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                collect_sprite_ids_recursive(children, layer_idx, out);
+            }
+            _ => {}
+        }
     }
 }

@@ -2,6 +2,13 @@ use super::*;
 
 impl SceneRuntime {
     pub fn text_sprite_content(&self, sprite_id: &str) -> Option<&str> {
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get(layer_idx) {
+                if let Some(content) = find_text_content(&layer.sprites, sprite_id) {
+                    return Some(content);
+                }
+            }
+        }
         for layer in &self.scene.layers {
             if let Some(content) = find_text_content(&layer.sprites, sprite_id) {
                 return Some(content);
@@ -137,10 +144,17 @@ impl SceneRuntime {
         next_colour: TermColour,
     ) -> bool {
         let mut updated = false;
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                set_text_fg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
+                if updated { return true; }
+            }
+        }
         for layer in &mut self.scene.layers {
             set_text_fg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
+            if updated { return true; }
         }
-        updated
+        false
     }
 
     pub(crate) fn set_text_sprite_bg_colour(
@@ -149,10 +163,17 @@ impl SceneRuntime {
         next_colour: TermColour,
     ) -> bool {
         let mut updated = false;
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                set_text_bg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
+                if updated { return true; }
+            }
+        }
         for layer in &mut self.scene.layers {
             set_text_bg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
+            if updated { return true; }
         }
-        updated
+        false
     }
 
     pub(crate) fn set_obj_sprite_property(
@@ -162,10 +183,17 @@ impl SceneRuntime {
         value: &JsonValue,
     ) -> bool {
         let mut updated = false;
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                set_obj_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+                if updated { return true; }
+            }
+        }
         for layer in &mut self.scene.layers {
             set_obj_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+            if updated { return true; }
         }
-        updated
+        false
     }
 
     pub(crate) fn set_vector_sprite_property(
@@ -175,18 +203,38 @@ impl SceneRuntime {
         value: &JsonValue,
     ) -> bool {
         let mut updated = false;
+        // Fast path: use sprite_id_to_layer index for O(1) layer lookup
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                set_vector_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+                if updated {
+                    return true;
+                }
+            }
+        }
+        // Fallback: scan all layers (handles unindexed sprites)
         for layer in &mut self.scene.layers {
             set_vector_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+            if updated {
+                return true;
+            }
         }
-        updated
+        false
     }
 
     pub(crate) fn set_scene3d_sprite_frame(&mut self, sprite_id: &str, next_frame: &str) -> bool {
         let mut updated = false;
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                set_scene3d_frame_recursive(&mut layer.sprites, sprite_id, next_frame, &mut updated);
+                if updated { return true; }
+            }
+        }
         for layer in &mut self.scene.layers {
             set_scene3d_frame_recursive(&mut layer.sprites, sprite_id, next_frame, &mut updated);
+            if updated { return true; }
         }
-        updated
+        false
     }
 
     pub(crate) fn set_image_sprite_frame_index(
@@ -195,6 +243,12 @@ impl SceneRuntime {
         next_frame: u16,
     ) -> bool {
         let mut updated = false;
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                set_image_frame_index_recursive(&mut layer.sprites, sprite_id, next_frame, &mut updated);
+                if updated { return true; }
+            }
+        }
         for layer in &mut self.scene.layers {
             set_image_frame_index_recursive(
                 &mut layer.sprites,
@@ -202,8 +256,9 @@ impl SceneRuntime {
                 next_frame,
                 &mut updated,
             );
+            if updated { return true; }
         }
-        updated
+        false
     }
 
     pub(crate) fn object_alias_candidates(&self, object_id: &str, target: &str) -> Vec<String> {

@@ -1046,6 +1046,31 @@ impl GameplayWorld {
         store.particle_ramps.keys().copied().collect()
     }
 
+    /// Batch-read ramp data for all particles in a single lock. Returns
+    /// `(entity_id, visual_id, ramp, ttl_ms, original_ttl_ms)` tuples.
+    pub fn batch_read_particle_ramps(&self) -> Vec<(u64, String, ParticleColorRamp, i32, i32)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        let mut out = Vec::with_capacity(store.particle_ramps.len());
+        for (&id, ramp) in &store.particle_ramps {
+            if ramp.colors.is_empty() {
+                continue;
+            }
+            let Some(lifetime) = store.lifetimes.get(&id) else {
+                continue;
+            };
+            let Some(binding) = store.visuals.get(&id) else {
+                continue;
+            };
+            let Some(ref visual_id) = binding.visual_id else {
+                continue;
+            };
+            out.push((id, visual_id.clone(), ramp.clone(), lifetime.ttl_ms, lifetime.original_ttl_ms));
+        }
+        out
+    }
+
     // =========================================================================
     // ANGULAR BODY - Generic inertia-based rotation
     // =========================================================================

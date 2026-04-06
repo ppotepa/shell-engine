@@ -95,6 +95,8 @@ pub struct SceneRuntime {
     palette_applied_version: u64,
     /// GameState version when text bindings were last applied; 0 means not yet applied.
     game_state_applied_version: u64,
+    /// Sprite `id` attr → layer index for O(1) property mutation lookup.
+    sprite_id_to_layer: HashMap<String, usize>,
 }
 
 #[derive(Debug, Clone)]

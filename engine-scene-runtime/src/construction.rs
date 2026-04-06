@@ -132,6 +132,7 @@ impl SceneRuntime {
             prev_scene_elapsed_ms: 0,
             palette_applied_version: 0,
             game_state_applied_version: 0,
+            sprite_id_to_layer: HashMap::new(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime
@@ -145,6 +146,7 @@ impl SceneRuntime {
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings, None);
         runtime.resolver_cache = std::sync::Arc::new(runtime.build_target_resolver());
+        runtime.rebuild_sprite_id_to_layer();
         runtime
     }
 }
