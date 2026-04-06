@@ -18,34 +18,18 @@ pub fn particle_ramp_system(world: &mut World) {
         return;
     };
 
-    let ramp_ids = gameplay_world.ids_with_particle_ramp();
-    if ramp_ids.is_empty() {
+    // Single-lock batch read of all ramp data.
+    let ramp_data = gameplay_world.batch_read_particle_ramps();
+    if ramp_data.is_empty() {
         return;
     }
 
-    let mut commands: Vec<BehaviorCommand> = Vec::new();
+    let mut commands: Vec<BehaviorCommand> = Vec::with_capacity(ramp_data.len() * 2);
 
-    for id in ramp_ids {
-        let Some(ramp) = gameplay_world.particle_ramp(id) else {
-            continue;
-        };
-        let Some(lifetime) = gameplay_world.lifetime(id) else {
-            continue;
-        };
-        let Some(binding) = gameplay_world.visual(id) else {
-            continue;
-        };
-        let Some(visual_id) = binding.visual_id else {
-            continue;
-        };
-
-        if ramp.colors.is_empty() {
-            continue;
-        }
-
+    for (_id, visual_id, ramp, ttl_ms, original_ttl_ms) in &ramp_data {
         // life_ratio: 1.0 = freshly spawned, 0.0 = about to die
-        let life_ratio = if lifetime.original_ttl_ms > 0 {
-            (lifetime.ttl_ms as f32 / lifetime.original_ttl_ms as f32).clamp(0.0, 1.0)
+        let life_ratio = if *original_ttl_ms > 0 {
+            (*ttl_ms as f32 / *original_ttl_ms as f32).clamp(0.0, 1.0)
         } else {
             0.0
         };
@@ -65,7 +49,7 @@ pub fn particle_ramp_system(world: &mut World) {
             .round() as i32;
         let r = radius.max(0);
         commands.push(BehaviorCommand::SetProperty {
-            target: visual_id,
+            target: visual_id.clone(),
             path: "vector.points".to_string(),
             value: JsonValue::Array(vec![
                 JsonValue::Array(vec![JsonValue::from(0), JsonValue::from(0)]),

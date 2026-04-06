@@ -1481,6 +1481,21 @@ impl GameplayWorld {
             .collect()
     }
 
+    /// Batch-read transform + visual_id for all entities with visual bindings.
+    /// Returns `(visual_id, x, y, heading)` tuples in a single lock.
+    pub fn batch_read_visual_sync(&self) -> Vec<(String, f32, f32, f32)> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        let mut out = Vec::with_capacity(store.visuals.len());
+        for (&id, binding) in &store.visuals {
+            let Some(ref visual_id) = binding.visual_id else { continue };
+            let Some(xf) = store.transforms.get(&id) else { continue };
+            out.push((visual_id.clone(), xf.x, xf.y, xf.heading));
+        }
+        out
+    }
+
     /// Batch write transforms only.
     pub fn batch_write_transforms(&self, updates: &[(u64, Transform2D)]) {
         let Ok(mut store) = self.store.lock() else {

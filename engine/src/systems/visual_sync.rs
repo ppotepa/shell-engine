@@ -15,39 +15,30 @@ pub fn visual_sync_system(world: &mut World) {
         return;
     };
 
-    let ids = gameplay_world.ids_with_visual_binding();
-    let mut commands: Vec<BehaviorCommand> = Vec::new();
+    // Single-lock batch read of all visual sync data.
+    let sync_data = gameplay_world.batch_read_visual_sync();
+    if sync_data.is_empty() {
+        return;
+    }
 
-    for id in ids {
-        let Some(transform) = gameplay_world.transform(id) else {
-            continue;
-        };
-        let Some(binding) = gameplay_world.visual(id) else {
-            continue;
-        };
-        let Some(ref visual_id) = binding.visual_id else {
-            continue;
-        };
+    let mut commands: Vec<BehaviorCommand> = Vec::with_capacity(sync_data.len() * 3);
 
+    for (visual_id, x, y, heading) in &sync_data {
         commands.push(BehaviorCommand::SetProperty {
             target: visual_id.clone(),
             path: "position.x".to_string(),
-            value: serde_json::Value::from(transform.x),
+            value: serde_json::Value::from(*x),
         });
         commands.push(BehaviorCommand::SetProperty {
             target: visual_id.clone(),
             path: "position.y".to_string(),
-            value: serde_json::Value::from(transform.y),
+            value: serde_json::Value::from(*y),
         });
         commands.push(BehaviorCommand::SetProperty {
             target: visual_id.clone(),
             path: "transform.heading".to_string(),
-            value: serde_json::Value::from(transform.heading),
+            value: serde_json::Value::from(*heading),
         });
-    }
-
-    if commands.is_empty() {
-        return;
     }
 
     let Some(runtime) = world.scene_runtime_mut() else {
