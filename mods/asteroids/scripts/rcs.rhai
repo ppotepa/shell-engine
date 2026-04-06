@@ -100,8 +100,8 @@ fn fire_rotation_couple(world, ship_id, direction, angular_vel, ignition_factor,
     let intensity = (0.4 + absf(angular_vel) * 0.15).min(1.0);
     let eff_factor = ignition_factor * intensity;
 
-    let primary   = if direction < 0.0 { "ship.starboard" } else { "ship.port" };
-    let secondary = if direction < 0.0 { "ship.port" }      else { "ship.starboard" };
+    let primary   = if direction < 0.0 { "ship.port" }      else { "ship.starboard" };
+    let secondary = if direction < 0.0 { "ship.starboard" } else { "ship.port" };
 
     for i in 0..burst_count {
         let speed_var = to_float(i) * 8.0;
@@ -122,8 +122,8 @@ fn fire_auto_rotation_brake(world, ship_id, angular_vel, ignition_factor, pal) {
     let av = absf(angular_vel);
     if av < 0.05 { return; }
 
-    let brake_emitter    = if angular_vel < 0.0 { "ship.port" }      else { "ship.starboard" };
-    let opposite_emitter = if angular_vel < 0.0 { "ship.starboard" } else { "ship.port" };
+    let brake_emitter    = if angular_vel < 0.0 { "ship.starboard" } else { "ship.port" };
+    let opposite_emitter = if angular_vel < 0.0 { "ship.port" }      else { "ship.starboard" };
     let burst_count = rotation_burst_count(av);
     let intensity   = (0.4 + av * 0.12).min(1.0);
     let eff_factor  = ignition_factor * intensity;
@@ -231,13 +231,13 @@ fn fire_auto_linear_brake(world, ship, ship_id, ignition_factor, pal) {
     if vel_right > 0.0 {
         let intensity = 0.4 + (vel_right / speed) * 0.6;
         for i in 0..component_burst_count(abs_right) {
-            emit_brake_particle(world, ship_id, "ship.starboard", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1, pal);
+            emit_brake_particle(world, ship_id, "ship.port", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1, pal);
         }
     }
     if vel_right < 0.0 {
         let intensity = 0.4 + (-vel_right / speed) * 0.6;
         for i in 0..component_burst_count(abs_right) {
-            emit_brake_particle(world, ship_id, "ship.port", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1, pal);
+            emit_brake_particle(world, ship_id, "ship.starboard", 65.0 + abs_right * 0.35 + to_float(i) * 3.0, 170, intensity * ignition_factor, 1, pal);
         }
     }
 }
@@ -260,14 +260,14 @@ fn fire_final_stabilization_burst(world, ship_id, angular_vel, wave_num, pal) {
 
     if vel_fwd > 0.1   { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.bow",       (40.0 + to_float(i) * 8.0)  * speed_mult, 180, pal); } }
     if vel_fwd < -0.1  { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.main",      (50.0 + to_float(i) * 10.0) * speed_mult, 200, pal); } }
-    if vel_right > 0.1 { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.starboard", (35.0 + to_float(i) * 7.0)  * speed_mult, 160, pal); } }
-    if vel_right < -0.1{ for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.port",      (35.0 + to_float(i) * 7.0)  * speed_mult, 160, pal); } }
+    if vel_right > 0.1 { for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.port",      (35.0 + to_float(i) * 7.0)  * speed_mult, 160, pal); } }
+    if vel_right < -0.1{ for i in 0..base_bursts { emit_final_burst_particle(world, ship_id, "ship.starboard", (35.0 + to_float(i) * 7.0)  * speed_mult, 160, pal); } }
 
     if wave_num < 2 && absf(angular_vel) > 0.01 {
         let rot_bursts_f = if wave_num == 0 { 5.0 + rand() * 2.0 } else { 3.0 };
         let rot_bursts   = if rot_bursts_f < 3.5 { 3 } else if rot_bursts_f < 5.5 { 5 } else { 6 };
-        let e1 = if angular_vel > 0.0 { "ship.starboard" } else { "ship.port" };
-        let e2 = if angular_vel > 0.0 { "ship.port" }      else { "ship.starboard" };
+        let e1 = if angular_vel > 0.0 { "ship.port" }      else { "ship.starboard" };
+        let e2 = if angular_vel > 0.0 { "ship.starboard" } else { "ship.port" };
         for i in 0..rot_bursts {
             emit_final_burst_particle(world, ship_id, e1, (30.0 + to_float(i) * 6.0) * speed_mult, 140, pal);
             emit_final_burst_particle(world, ship_id, e2, (25.0 + to_float(i) * 5.0) * speed_mult, 120, pal);
