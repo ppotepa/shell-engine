@@ -97,6 +97,8 @@ pub struct SceneRuntime {
     game_state_applied_version: u64,
     /// Sprite `id` attr → layer index for O(1) property mutation lookup.
     sprite_id_to_layer: HashMap<String, usize>,
+    /// When > 0, `refresh_runtime_caches()` is deferred (batch spawn mode).
+    spawn_batch_depth: u32,
 }
 
 #[derive(Debug, Clone)]

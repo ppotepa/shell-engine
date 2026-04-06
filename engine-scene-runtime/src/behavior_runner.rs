@@ -358,6 +358,9 @@ impl SceneRuntime {
 
         // Collect despawn targets for batched removal (single graph rebuild).
         let mut pending_despawns: Vec<String> = Vec::new();
+        // Enable batch spawn mode: defer refresh_runtime_caches() per spawn.
+        self.spawn_batch_depth += 1;
+        let mut had_spawns = false;
 
         for command in commands {
             match command {
@@ -473,15 +476,14 @@ impl SceneRuntime {
                                 state.heading = heading;
                             }
                             // Cascade heading to child sprites when target is a layer.
-                            // Objects compiled from `objects:` entries become layers whose
-                            // sprites share the same alias, so the heading must reach the
-                            // sprite's ObjectRuntimeState for rotation to take effect.
+                            // Uses index-based iteration to avoid cloning the children Vec.
                             if let Some(obj) = self.objects.get(object_id) {
                                 if matches!(obj.kind, GameObjectKind::Layer) {
-                                    let child_ids: Vec<String> = obj.children.clone();
-                                    for child_id in child_ids {
+                                    let n = obj.children.len();
+                                    for i in 0..n {
+                                        let cid = self.objects[object_id].children[i].clone();
                                         if let Some(state) =
-                                            self.object_states.get_mut(&child_id)
+                                            self.object_states.get_mut(&cid)
                                         {
                                             state.heading = heading;
                                         }
@@ -637,7 +639,9 @@ impl SceneRuntime {
                     }
                 }
                 BehaviorCommand::SceneSpawn { template, target } => {
-                    let _ = self.spawn_runtime_clone(resolver, template, target);
+                    if self.spawn_runtime_clone(resolver, template, target) {
+                        had_spawns = true;
+                    }
                 }
                 BehaviorCommand::SceneDespawn { target } => {
                     pending_despawns.push(target.clone());
@@ -662,6 +666,12 @@ impl SceneRuntime {
                     self.scene.bg_colour = engine_core::scene::color::parse_colour_str(color);
                 }
             }
+        }
+
+        // End batch spawn mode and do a single cache refresh if any spawns happened.
+        self.spawn_batch_depth -= 1;
+        if had_spawns && self.spawn_batch_depth == 0 {
+            self.refresh_runtime_caches();
         }
 
         // Batch-apply all collected despawns with a single graph rebuild.
@@ -835,7 +845,6 @@ impl SceneRuntime {
         }
 
         let new_layer_idx = self.scene.layers.len();
-        self.scene.layers.push(cloned_layer.clone());
         let new_layer_object_id = format!(
             "{}/layer:{}:{}",
             self.root_id,
@@ -861,6 +870,7 @@ impl SceneRuntime {
             root.children.push(new_layer_object_id.clone());
         }
 
+        // Register sprites before pushing the layer (avoids redundant clone).
         for (sprite_idx, sprite) in cloned_layer.sprites.iter().enumerate() {
             register_runtime_sprite(
                 &mut self.objects,
@@ -873,6 +883,9 @@ impl SceneRuntime {
                 sprite_idx,
             );
         }
+
+        // Push the layer without cloning again (was previously cloned redundantly).
+        self.scene.layers.push(cloned_layer);
 
         // Clear child sprite aliases so the layer holds the only resolver entry for
         // the target alias. `set_vector_sprite_property` locates sprites by their
@@ -889,7 +902,10 @@ impl SceneRuntime {
             }
         }
 
-        self.refresh_runtime_caches();
+        // Defer cache refresh if we are inside a spawn batch (e.g. apply_behavior_commands).
+        if self.spawn_batch_depth == 0 {
+            self.refresh_runtime_caches();
+        }
         true
     }
 

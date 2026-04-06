@@ -287,6 +287,98 @@ impl SceneRuntime {
         }
         false
     }
+
+    // =========================================================================
+    // Direct particle mutation — bypasses BehaviorCommand pipeline entirely
+    // =========================================================================
+
+    /// Directly apply position (x, y) and heading updates for entities with
+    /// visual bindings.  Each entry is `(visual_id, x, y, heading)`.
+    ///
+    /// This is the zero-allocation fast path for `visual_sync_system`:
+    /// - No BehaviorCommand creation (no String clone/alloc for target/path)
+    /// - No JsonValue allocation
+    /// - No resolve_alias (we resolve once via the Arc resolver)
+    /// - Heading child cascade uses index iteration (no Vec<String> clone)
+    pub fn apply_particle_visual_sync(&mut self, sync_data: &[(String, f32, f32, f32)]) {
+        if sync_data.is_empty() {
+            return;
+        }
+        self.effective_states_dirty = true;
+        self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
+        self.cached_object_states = None;
+        self.cached_object_props = None;
+
+        let resolver = std::sync::Arc::clone(&self.resolver_cache);
+
+        for (visual_id, x, y, heading) in sync_data {
+            let Some(object_id) = resolver.resolve_alias(visual_id) else {
+                continue;
+            };
+
+            // Direct position + heading update (no String alloc, no JsonValue)
+            if let Some(state) = self.object_states.get_mut(object_id) {
+                state.offset_x = *x as i32;
+                state.offset_y = *y as i32;
+                state.heading = *heading;
+            }
+
+            // Cascade heading to child sprites (avoid Vec clone).
+            // Particles are typically single-sprite layers, so children.len() == 1.
+            if let Some(obj) = self.objects.get(object_id) {
+                if matches!(obj.kind, GameObjectKind::Layer) {
+                    // Index-based iteration: borrow children slice, then mutate states.
+                    let n = obj.children.len();
+                    for i in 0..n {
+                        let child_id = &self.objects.get(object_id).unwrap().children[i];
+                        // Need to clone the child_id to satisfy borrow checker
+                        // (objects is borrowed immutably for child_id, states mutably).
+                        // For single-child particles this is one clone vs N clones before.
+                        let cid = child_id.clone();
+                        if let Some(state) = self.object_states.get_mut(&cid) {
+                            state.heading = *heading;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Directly apply color ramp and radius updates for particle visuals.
+    /// Each entry is `(visual_id, colour_str, radius)`.
+    ///
+    /// This is the zero-allocation fast path for `particle_ramp_system`:
+    /// - No BehaviorCommand creation
+    /// - No JsonValue round-trip (typed TermColour + direct points mutation)
+    /// - No object_alias_candidates fallback (particles always hit sprite_id_to_layer)
+    pub fn apply_particle_ramps(&mut self, ramp_data: &[(String, String, i32)]) {
+        if ramp_data.is_empty() {
+            return;
+        }
+        self.effective_states_dirty = true;
+        self.object_mutation_gen = self.object_mutation_gen.wrapping_add(1);
+        self.cached_object_states = None;
+        self.cached_object_props = None;
+
+        for (visual_id, colour_str, radius) in ramp_data {
+            let r = (*radius).max(0);
+            let next_points = vec![[0, 0], [r, 0]];
+            let next_colour = engine_core::scene::color::parse_colour_str(colour_str);
+
+            // Fast path: use sprite_id_to_layer index for O(1) lookup.
+            // Particles are always indexed, so fallback scan is not needed.
+            if let Some(&layer_idx) = self.sprite_id_to_layer.get(visual_id.as_str()) {
+                if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                    set_particle_ramp_recursive(
+                        &mut layer.sprites,
+                        visual_id,
+                        next_colour.as_ref(),
+                        &next_points,
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn find_text_content<'a>(sprites: &'a [Sprite], sprite_id: &str) -> Option<&'a str> {
@@ -847,4 +939,40 @@ fn json_to_vector_points(value: &JsonValue) -> Option<Vec<[i32; 2]>> {
         return None;
     }
     Some(points)
+}
+
+/// Direct typed mutation of fg_colour and points on a vector sprite.
+/// Avoids the JsonValue round-trip used by the generic `set_vector_property_recursive`.
+fn set_particle_ramp_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    next_colour: Option<&TermColour>,
+    next_points: &[[i32; 2]],
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Vector {
+                id: Some(id),
+                points,
+                fg_colour,
+                ..
+            } if id == sprite_id => {
+                if let Some(colour) = next_colour {
+                    if fg_colour.as_ref() != Some(colour) {
+                        *fg_colour = Some(colour.clone());
+                    }
+                }
+                if *points != next_points {
+                    *points = next_points.to_vec();
+                }
+                return;
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_particle_ramp_recursive(children, sprite_id, next_colour, next_points);
+            }
+            _ => {}
+        }
+    }
 }

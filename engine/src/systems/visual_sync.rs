@@ -2,7 +2,6 @@
 //! so that Rhai scripts do not need to manually call `scene.set(id, "position.x", x)`
 //! every frame.
 
-use crate::behavior::BehaviorCommand;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
 use engine_game::GameplayWorld;
@@ -21,29 +20,10 @@ pub fn visual_sync_system(world: &mut World) {
         return;
     }
 
-    let mut commands: Vec<BehaviorCommand> = Vec::with_capacity(sync_data.len() * 3);
-
-    for (visual_id, x, y, heading) in &sync_data {
-        commands.push(BehaviorCommand::SetProperty {
-            target: visual_id.clone(),
-            path: "position.x".to_string(),
-            value: serde_json::Value::from(*x),
-        });
-        commands.push(BehaviorCommand::SetProperty {
-            target: visual_id.clone(),
-            path: "position.y".to_string(),
-            value: serde_json::Value::from(*y),
-        });
-        commands.push(BehaviorCommand::SetProperty {
-            target: visual_id.clone(),
-            path: "transform.heading".to_string(),
-            value: serde_json::Value::from(*heading),
-        });
-    }
-
     let Some(runtime) = world.scene_runtime_mut() else {
         return;
     };
-    let resolver = runtime.target_resolver();
-    runtime.apply_behavior_commands(&resolver, &commands);
+    // Direct mutation: bypass BehaviorCommand pipeline entirely.
+    // Eliminates ~3N String allocations + 3N JsonValue allocations per frame.
+    runtime.apply_particle_visual_sync(&sync_data);
 }
