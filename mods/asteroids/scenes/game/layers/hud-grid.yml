@@ -2,7 +2,7 @@
 #
 # Outer frame grid provides uniform margins (24px H, 16px V) matching other scenes.
 # Inner 3×3 corner grid: auto corners, 1fr flexible center.
-# All 4 corners use panel containers with border, bg and drop-shadow for a consistent look.
+# Corner panels are pure layout containers — no border, bg, or shadow.
 #
 - name: hud
   z_index: 10
@@ -29,12 +29,6 @@
               grid-row: 1
               at: tl
               padding: 8
-              corner-radius: 3
-              border-width: 1
-              border-colour: "@palette.hud_border"
-              shadow-x: 2
-              shadow-y: 2
-              shadow-colour: "@palette.bg"
               children:
                 - type: grid
                   columns: ["1fr"]
@@ -51,12 +45,6 @@
               grid-row: 1
               at: tr
               padding: 8
-              corner-radius: 3
-              border-width: 1
-              border-colour: "@palette.hud_border"
-              shadow-x: 2
-              shadow-y: 2
-              shadow-colour: "@palette.bg"
               children:
                 - type: grid
                   columns: ["1fr"]
@@ -66,7 +54,7 @@
                     - { type: text, id: hud-label-wave, content: "WAVE", grid-col: 1, grid-row: 1, at: tr, font: "Orbitron:ascii", fg: "@palette.hud_label" }
                     - { type: text, id: hud-wave, content: "@game_state.wave", grid-col: 1, grid-row: 2, at: tr, font: "generic:2", fg: "@palette.hud_value" }
 
-            # ── Bottom-left: Lives (heart icons inside a panel) ───────────────
+            # ── Bottom-left: Lives (heart icons) ──────────────────────────────
             - type: panel
               id: hud-lives-panel
               grid-col: 1
@@ -75,12 +63,6 @@
               width: 154
               height: 50
               padding: 6
-              corner-radius: 3
-              border-width: 1
-              border-colour: "@palette.hud_heart"
-              shadow-x: 2
-              shadow-y: 2
-              shadow-colour: "@palette.bg"
               children:
                 - type: vector
                   id: heart-1
@@ -117,12 +99,6 @@
               grid-row: 3
               at: br
               padding: 8
-              corner-radius: 3
-              border-width: 1
-              border-colour: "@palette.hud_border"
-              shadow-x: 2
-              shadow-y: 2
-              shadow-colour: "@palette.bg"
               children:
                 - { type: text, id: hud-hint, content: "ESC  MENU", at: br, font: "generic:1", fg: "@palette.hud_label", opacity: 0.7 }
 
