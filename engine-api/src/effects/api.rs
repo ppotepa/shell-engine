@@ -31,9 +31,9 @@ impl ScriptEffectsApi {
     /// * `frequency` — oscillations over the effect duration (e.g. 8.0)
     pub fn shake(&mut self, duration_ms: rhai::INT, amp_x: rhai::FLOAT, amp_y: rhai::FLOAT, frequency: rhai::FLOAT) {
         let mut params = JsonMap::new();
-        params.insert("amplitude_x".to_string(), JsonValue::from(amp_x as f64));
-        params.insert("amplitude_y".to_string(), JsonValue::from(amp_y as f64));
-        params.insert("frequency".to_string(), JsonValue::from(frequency as f64));
+        params.insert("amplitude_x".to_string(), JsonValue::from(amp_x));
+        params.insert("amplitude_y".to_string(), JsonValue::from(amp_y));
+        params.insert("frequency".to_string(), JsonValue::from(frequency));
         self.push(BehaviorCommand::TriggerEffect {
             name: "screen-shake".to_string(),
             duration_ms: duration_ms.max(0) as u64,
@@ -51,7 +51,7 @@ impl ScriptEffectsApi {
         let mut json_params = JsonMap::new();
         for (key, val) in &params {
             if let Some(f) = val.clone().try_cast::<rhai::FLOAT>() {
-                json_params.insert(key.to_string(), JsonValue::from(f as f64));
+                json_params.insert(key.to_string(), JsonValue::from(f));
             } else if let Some(i) = val.clone().try_cast::<rhai::INT>() {
                 json_params.insert(key.to_string(), JsonValue::from(i as f64));
             } else if let Some(s) = val.clone().try_cast::<String>() {
@@ -73,7 +73,7 @@ impl ScriptEffectsApi {
         let mut json_params = JsonMap::new();
         for (key, val) in &params {
             if let Some(f) = val.clone().try_cast::<rhai::FLOAT>() {
-                json_params.insert(key.to_string(), JsonValue::from(f as f64));
+                json_params.insert(key.to_string(), JsonValue::from(f));
             } else if let Some(i) = val.clone().try_cast::<rhai::INT>() {
                 json_params.insert(key.to_string(), JsonValue::from(i as f64));
             } else if let Some(s) = val.clone().try_cast::<String>() {
@@ -133,3 +133,5 @@ pub fn register_effects_api(engine: &mut RhaiEngine) {
         },
     );
 }
+
+

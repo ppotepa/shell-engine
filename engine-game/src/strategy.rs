@@ -12,7 +12,7 @@ pub struct GameplayStrategies {
 impl Default for GameplayStrategies {
     fn default() -> Self {
         Self {
-            physics: Box::new(ParallelEulerIntegration::default()),
+            physics: Box::new(ParallelEulerIntegration),
         }
     }
 }
@@ -163,3 +163,4 @@ impl PhysicsIntegrationStrategy for ParallelEulerIntegration {
         world.batch_write_physics(&results);
     }
 }
+

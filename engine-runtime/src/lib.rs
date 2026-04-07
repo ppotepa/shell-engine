@@ -5,20 +5,15 @@ use std::env;
 
 use engine_core::scene::SceneRenderedMode;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PresentationPolicy {
     Strict,
+    #[default]
     Fit,
     Stretch,
 }
 
 pub type VirtualPolicy = PresentationPolicy;
-
-impl Default for PresentationPolicy {
-    fn default() -> Self {
-        Self::Fit
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderSize {
@@ -552,4 +547,6 @@ mod tests {
         assert_eq!(settings.resolved_render_size(100, 100), (640, 640));
     }
 }
+
+
 

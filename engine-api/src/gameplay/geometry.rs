@@ -402,9 +402,7 @@ pub fn points_to_rhai_array(points: Vec<[i32; 2]>) -> RhaiArray {
     points
         .into_iter()
         .map(|[x, y]| {
-            let mut pair = RhaiArray::with_capacity(2);
-            pair.push((x as rhai::INT).into());
-            pair.push((y as rhai::INT).into());
+            let pair: RhaiArray = vec![(x as rhai::INT).into(), (y as rhai::INT).into()];
             pair.into()
         })
         .collect()
@@ -490,3 +488,4 @@ mod tests {
         assert!(dist_tip < dist_orig, "crack tip must be pushed toward centroid");
     }
 }
+

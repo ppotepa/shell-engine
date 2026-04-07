@@ -92,16 +92,11 @@ impl VisualBinding {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum DespawnVisual {
+    #[default]
     None,
     DespawnWithEntity,
-}
-
-impl Default for DespawnVisual {
-    fn default() -> Self {
-        DespawnVisual::None
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -283,7 +278,7 @@ impl ArcadeController {
 
     /// Set the turn direction (-1, 0, or +1).
     pub fn set_turn(&mut self, dir: i8) {
-        self.turn_direction = dir.max(-1).min(1);
+        self.turn_direction = dir.clamp(-1, 1);
     }
 
     /// Set thrusting state.
@@ -339,6 +334,7 @@ pub enum ParticleThreadMode {
 
 impl ParticleThreadMode {
     /// Parse from string (for YAML config).
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "physics" => Self::Physics,
@@ -571,4 +567,5 @@ pub struct ParticlePhysics {
     /// Particle mass for physics calculations.
     pub mass: f32,
 }
+
 

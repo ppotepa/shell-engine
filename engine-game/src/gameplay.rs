@@ -1297,9 +1297,6 @@ impl GameplayWorld {
         }
     }
 
-    /// Batch read physics data for multiple entities in a single lock acquisition.
-    /// Returns tuples of (id, transform, physics, optional_particle_physics).
-
     // ── LinearBrake ───────────────────────────────────────────────────────
 
     /// Attach or replace the [`LinearBrake`] component for an entity.
@@ -1670,14 +1667,11 @@ impl GameplayWorld {
         };
 
         let mut results = Vec::new();
-        match event_type {
-            "collision_enter" => {
-                for event in &store.events {
-                    let GameplayEvent::CollisionEnter { a, b } = event;
-                    results.push((*a, *b));
-                }
+        if event_type == "collision_enter" {
+            for event in &store.events {
+                let GameplayEvent::CollisionEnter { a, b } = event;
+                results.push((*a, *b));
             }
-            _ => {}
         }
         results
     }
@@ -1750,7 +1744,7 @@ impl GameplayWorld {
             return min;
         };
         store.rng_seed = store.rng_seed.wrapping_mul(1103515245).wrapping_add(12345) & 0x7fff_ffff;
-        let range = (max - min).abs() as u64 + 1;
+        let range = (max - min).unsigned_abs() as u64 + 1;
         min + (store.rng_seed % range) as i32
     }
 
@@ -2090,3 +2084,5 @@ mod tests {
         assert!((child_xf.heading - std::f32::consts::FRAC_PI_2).abs() < 0.001);
     }
 }
+
+

@@ -135,6 +135,7 @@ where
         heading: rhai::FLOAT,
     ) -> bool;
     fn transform(&mut self, id: rhai::INT) -> RhaiDynamic;
+    #[allow(clippy::too_many_arguments)]
     fn set_physics(
         &mut self,
         id: rhai::INT,
@@ -202,3 +203,4 @@ where
     fn clear_events(&mut self);
     fn spawn_batch(&mut self, specs: RhaiArray) -> RhaiArray;
 }
+

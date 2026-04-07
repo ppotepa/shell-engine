@@ -39,6 +39,15 @@ impl PipelineStrategies {
         }
     }
 
+}
+
+impl Default for PipelineStrategies {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PipelineStrategies {
     /// Construct from CLI optimisation flags.
     ///
     /// | flag           | effect                                              |
@@ -80,3 +89,4 @@ impl PipelineStrategies {
         }
     }
 }
+

@@ -60,8 +60,7 @@ pub fn collision_system(
         let Some(a_xf) = world.transform(a_id) else {
             continue;
         };
-        for j in (i + 1)..ids.len() {
-            let b_id = ids[j];
+        for &b_id in &ids[(i + 1)..] {
             let Some(b_col) = world.collider(b_id) else {
                 continue;
             };
@@ -402,4 +401,6 @@ fn circle_circle_normal(a: &Transform2D, ra: f32, b: &Transform2D, rb: f32, wrap
         None
     }
 }
+
+
 
