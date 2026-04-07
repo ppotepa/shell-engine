@@ -32,7 +32,6 @@
               corner-radius: 3
               border-width: 1
               border-colour: "@palette.hud_border"
-              bg_colour: "@palette.hud_panel_bg"
               shadow-x: 2
               shadow-y: 2
               shadow-colour: "@palette.bg"
@@ -55,7 +54,6 @@
               corner-radius: 3
               border-width: 1
               border-colour: "@palette.hud_border"
-              bg_colour: "@palette.hud_panel_bg"
               shadow-x: 2
               shadow-y: 2
               shadow-colour: "@palette.bg"
@@ -80,7 +78,6 @@
               corner-radius: 3
               border-width: 1
               border-colour: "@palette.hud_heart"
-              bg_colour: "@palette.hud_panel_bg"
               shadow-x: 2
               shadow-y: 2
               shadow-colour: "@palette.bg"
@@ -89,26 +86,29 @@
                   id: heart-1
                   points: [[0,17],[-16,4],[-21,-5],[-19,-13],[-11,-18],[0,-13],[11,-18],[19,-13],[21,-5],[16,4]]
                   closed: true
-                  draw-char: "*"
+                  draw-char: "█"
                   x: 27
                   y: 25
                   fg_colour: "@palette.hud_heart"
+                  bg_colour: "@palette.hud_heart"
                 - type: vector
                   id: heart-2
                   points: [[0,17],[-16,4],[-21,-5],[-19,-13],[-11,-18],[0,-13],[11,-18],[19,-13],[21,-5],[16,4]]
                   closed: true
-                  draw-char: "*"
+                  draw-char: "█"
                   x: 75
                   y: 25
                   fg_colour: "@palette.hud_heart"
+                  bg_colour: "@palette.hud_heart"
                 - type: vector
                   id: heart-3
                   points: [[0,17],[-16,4],[-21,-5],[-19,-13],[-11,-18],[0,-13],[11,-18],[19,-13],[21,-5],[16,4]]
                   closed: true
-                  draw-char: "*"
+                  draw-char: "█"
                   x: 123
                   y: 25
                   fg_colour: "@palette.hud_heart"
+                  bg_colour: "@palette.hud_heart"
 
             # ── Bottom-right: Hint ────────────────────────────────────────────
             - type: panel
@@ -120,7 +120,6 @@
               corner-radius: 3
               border-width: 1
               border-colour: "@palette.hud_border"
-              bg_colour: "@palette.hud_panel_bg"
               shadow-x: 2
               shadow-y: 2
               shadow-colour: "@palette.bg"
