@@ -45,17 +45,15 @@
                 - { type: text, id: hud-label-wave, content: "WAVE", grid-col: 1, grid-row: 1, at: tr, font: "Orbitron:ascii", fg: "@palette.hud_label" }
                 - { type: text, id: hud-wave, content: "@game_state.wave", grid-col: 1, grid-row: 2, at: tr, font: "generic:1", fg: "@palette.hud_value" }
 
-            # ── Bottom-left: Lives ────────────────────────────────────────────
+            # ── Bottom-left: Lives (hearts) ───────────────────────────────────
             - type: grid
               id: hud-lives-panel
               grid-col: 1
               grid-row: 3
               columns: ["1fr"]
-              rows: ["auto", "auto"]
-              gap-y: 2
+              rows: ["auto"]
               children:
-                - { type: text, id: hud-label-lives, content: "LIVES", grid-col: 1, grid-row: 1, at: bl, font: "Orbitron:ascii", fg: "@palette.hud_label" }
-                - { type: text, id: hud-lives, content: "@game_state.lives", grid-col: 1, grid-row: 2, at: bl, font: "generic:1", fg: "@palette.hud_value" }
+                - { type: text, id: hud-lives, content: "@game_state.lives", grid-col: 1, grid-row: 1, at: bl, font: "generic:1", fg: "@palette.hud_heart" }
 
             # ── Bottom-right: Hint ────────────────────────────────────────────
             - { type: text, id: hud-hint, content: "ESC  MENU", grid-col: 3, grid-row: 3, at: br, font: "generic:1", fg: "@palette.hint", opacity: 0.6 }

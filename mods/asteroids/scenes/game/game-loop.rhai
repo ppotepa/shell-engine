@@ -61,7 +61,14 @@ if pal_ver != (local.pal_ver ?? -1) {
 
 let col  = local.pal ?? #{};
 
-// ======================== HELPER FUNCTIONS =================================
+fn lives_to_hearts(n) {
+    let s = "";
+    let i = 0;
+    while i < n { if i > 0 { s += " "; } s += "♥"; i += 1; }
+    s
+}
+
+
 
 // Base vertex shapes (centered at origin, matching object YAMLs).
 fn base_points_large() {
@@ -250,7 +257,7 @@ if world.timer_fired("invincible_done") {
 
 // ── HUD game state sync ───────────────────────────────────────────────────────
 game.set("/score", score);
-game.set("/lives", lives);
+game.set("/lives", lives_to_hearts(lives));
 game.set("/wave", wave);
 
 // ── ESC key: return to main menu ──────────────────────────────────────────────
