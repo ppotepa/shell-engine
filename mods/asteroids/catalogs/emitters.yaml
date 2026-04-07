@@ -148,6 +148,31 @@ emitters:
     gravity_scale: 0.0
     palette_ramp: "fragment"
 
+  # === BULLET TRAIL ===
+
+  # Luminous glow trail — owner-bound, tiny particles streaming behind bullet
+  bullet.trail:
+    max_count: 80
+    cooldown_name: "bullet-trail"
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: 0.0
+    local_y: 0.0
+    emission_local_x: 0.0
+    emission_local_y: 1.0      # backward in local space
+    emission_angle: 0.0
+    backward_speed: 40.0       # drift away from bullet heading
+    ttl_ms: 130
+    radius: 1
+    radius_max: 1
+    radius_min: 0
+    velocity_scale: 0.12       # only 12% of bullet velocity — trail lags behind
+    lifecycle: TtlOwnerBound
+    thread_mode: "light"
+    palette_ramp: "bullet_trail"
+    spread: 0.35               # slight fan spread for glow width
+
   ship.explosion_debris:
     max_count: 48
     cooldown_name: ship-explosion

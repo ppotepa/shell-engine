@@ -52,6 +52,7 @@ if pal_ver != (local.pal_ver ?? -1) {
         ramp_hot_engine: palette.particles("hot_engine"),
         ramp_brake:      palette.particles("brake"),
         ramp_heat_trail: palette.particles("heat_trail"),
+        ramp_bullet_trail: palette.particles("bullet_trail"),
     };
 
     // Apply palette-driven static styles (only needed on change)
@@ -277,6 +278,12 @@ if ship_id > 0 {
             speed: 480.0, offset: 17.0, ttl_ms: 1000, inherit_velocity: true
         });
         world.entity(ship_id).cooldown_start("fire", 180);
+    }
+    // ── Bullet trail — luminous glow particles streaming behind each bullet ──────
+    for bullet_id in world.query_tag("bullet") {
+        world.emit("bullet.trail", bullet_id, #{
+            count: 2, color_ramp: col.ramp_bullet_trail
+        });
     }
 }
 

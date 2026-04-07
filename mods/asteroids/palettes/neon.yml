@@ -33,3 +33,4 @@ particles:
   brake:      ["#CCDDFF", "#AABBEE", "#7788CC", "#445599", "#223366", "#111133"]
   heat_trail: ["#DDEEFF", "#AACCFF", "#8899DD", "#5566BB", "#223388", "#111144"]
   fragment:   ["#2e5eaa", "#243f7f", "#1a2e5a", "#101e38", "#070e1a", "#020612"]
+  bullet_trail: ["#EEFFFF", "#8dd6d4", "#4499AA", "#225566", "#102233", "#020612"]
