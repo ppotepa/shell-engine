@@ -1,5 +1,10 @@
 # Cargo workspace configuration.
 #
+# Disable incremental compilation to avoid "hard linking files in the
+# incremental compilation cache failed" warnings on Windows NTFS.
+[profile.dev]
+incremental = false
+
 # SDL2 on Windows
 # ---------------
 # The SDL2 backend (--features sdl2) requires SDL2 development libraries.
