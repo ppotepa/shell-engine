@@ -1,0 +1,13 @@
+[package]
+name = "engine-layout"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-core = { workspace = true }
+taffy = { workspace = true }
+
+[dev-dependencies]
+serde_yaml = { workspace = true }

@@ -882,6 +882,7 @@ dependencies = [
  "engine-core",
  "engine-effects",
  "engine-error",
+ "engine-layout",
  "engine-pipeline",
  "engine-render",
  "engine-render-policy",
@@ -893,7 +894,6 @@ dependencies = [
  "rayon",
  "serde_json",
  "serde_yaml",
- "taffy",
  "tempfile",
  "zip",
 ]
@@ -963,6 +963,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "engine-layout"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
+ "serde_yaml",
+ "taffy",
 ]
 
 [[package]]

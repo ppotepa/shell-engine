@@ -1,5 +1,5 @@
 [workspace]
-members = ["app", "engine", "engine-api", "engine-core", "engine-effects", "engine-authoring", "editor", "launcher", "tools/schema-gen", "tools/devtool", "tools/sound-server", "tools/ttf-rasterizer", "engine-io", "rust-os", "engine-audio", "engine-audio-sequencer", "engine-render", "engine-animation", "engine-render-terminal", "engine-render-sdl2", "engine-3d", "engine-terminal", "engine-game", "engine-events", "engine-render-policy", "engine-runtime", "engine-behavior", "engine-scene-runtime", "engine-behavior-registry", "engine-compositor", "engine-pipeline", "engine-debug", "engine-capture", "engine-frame", "engine-error", "engine-mod", "engine-asset", "engine-persistence", "engine-vector", "engine-physics"]
+members = ["app", "engine", "engine-api", "engine-core", "engine-effects", "engine-authoring", "editor", "launcher", "tools/schema-gen", "tools/devtool", "tools/sound-server", "tools/ttf-rasterizer", "engine-io", "rust-os", "engine-audio", "engine-audio-sequencer", "engine-render", "engine-animation", "engine-render-terminal", "engine-render-sdl2", "engine-3d", "engine-terminal", "engine-game", "engine-events", "engine-render-policy", "engine-runtime", "engine-behavior", "engine-scene-runtime", "engine-behavior-registry", "engine-compositor", "engine-pipeline", "engine-debug", "engine-capture", "engine-frame", "engine-error", "engine-mod", "engine-asset", "engine-persistence", "engine-vector", "engine-physics", "engine-layout"]
 resolver = "2"
 
 [workspace.package]
@@ -14,6 +14,7 @@ engine-core = { path = "./engine-core" }
 engine-effects = { path = "./engine-effects" }
 engine-authoring = { path = "./engine-authoring" }
 engine-io = { path = "./engine-io" }
+engine-layout = { path = "./engine-layout" }
 engine-persistence = { path = "./engine-persistence" }
 engine-vector = { path = "./engine-vector" }
 engine-physics = { path = "./engine-physics" }
