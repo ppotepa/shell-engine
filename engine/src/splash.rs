@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::buffer::Buffer;
-use crate::effects::{shared_dispatcher, Region};
+use crate::effects::Region;
+use engine_effects::shared_dispatcher;
 use crate::scene::{HorizontalAlign, TermColour, VerticalAlign};
 use base64::Engine as _;
 use crossterm::{cursor, queue, style, terminal};

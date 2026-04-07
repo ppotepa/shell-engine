@@ -688,6 +688,7 @@ dependencies = [
  "engine",
  "engine-authoring",
  "engine-core",
+ "engine-effects",
  "engine-events",
  "engine-render-terminal",
  "image",
@@ -731,6 +732,7 @@ dependencies = [
  "engine-compositor",
  "engine-core",
  "engine-debug",
+ "engine-effects",
  "engine-error",
  "engine-events",
  "engine-frame",
@@ -828,6 +830,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "engine-core",
+ "engine-effects",
  "serde",
  "serde_yaml",
 ]
@@ -877,7 +880,7 @@ dependencies = [
  "engine-animation",
  "engine-asset",
  "engine-core",
- "engine-debug",
+ "engine-effects",
  "engine-error",
  "engine-pipeline",
  "engine-render",
@@ -913,6 +916,13 @@ dependencies = [
  "crossterm 0.29.0",
  "engine-core",
  "libc",
+]
+
+[[package]]
+name = "engine-effects"
+version = "0.1.0"
+dependencies = [
+ "engine-core",
 ]
 
 [[package]]
@@ -964,6 +974,7 @@ dependencies = [
  "engine-behavior",
  "engine-behavior-registry",
  "engine-core",
+ "engine-effects",
  "engine-error",
  "engine-render-policy",
  "engine-runtime",
@@ -2189,6 +2200,7 @@ dependencies = [
  "clap",
  "engine-authoring",
  "engine-core",
+ "engine-effects",
  "serde",
  "serde_yaml",
 ]

@@ -1,6 +1,6 @@
 //! Verifies that every effect name referenced in the mod's scenes is registered in the effect dispatcher.
 
-use engine_core::effects::{shared_dispatcher, EffectDispatcher};
+use engine_effects::{shared_dispatcher, EffectDispatcher};
 use engine_core::scene::{Effect, EffectTargetKind, LayerStages, Scene, Sprite, Stage};
 use engine_error::EngineError;
 use std::collections::BTreeMap;
@@ -333,7 +333,7 @@ fn sprite_target_kind(sprite: &Sprite) -> EffectTargetKind {
 #[cfg(test)]
 mod tests {
     use super::collect_scene_effect_issues;
-    use engine_core::effects::shared_dispatcher;
+    use engine_effects::shared_dispatcher;
 
     #[test]
     fn accepts_backward_compatible_effects_without_target_kind() {

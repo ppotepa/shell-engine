@@ -15,6 +15,7 @@ crossterm = "0.29"
 image = { version = "0.25", default-features = false, features = ["png"] }
 engine-core = { path = "../engine-core" }
 engine-authoring = { path = "../engine-authoring" }
+engine-effects = { path = "../engine-effects" }
 engine = { path = "../engine" }
 engine-events = { path = "../engine-events" }
 engine-render-terminal = { path = "../engine-render-terminal" }

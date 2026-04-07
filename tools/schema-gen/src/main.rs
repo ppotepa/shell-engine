@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use engine_authoring::schema::{generate_mod_schema_files, render_schema_file};
-use engine_core::effects::{shared_dispatcher, EffectDispatcher, ParamControl};
+use engine_effects::{shared_dispatcher, EffectDispatcher, ParamControl};
 use serde_yaml::{Mapping, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use engine_core::effects::shared_dispatcher;
+use engine_effects::shared_dispatcher;
 use engine_core::scene::{Easing, EffectParams, EffectTargetKind};
 
 pub const PREVIEW_DURATION_MS: u64 = 1_600;

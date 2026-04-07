@@ -15,7 +15,7 @@ use super::registry::PostFxBuiltin;
 use super::{lerp_colour_local, normalize_bg, rand01, scale_colour, PostFxContext};
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::color::Color;
-use engine_core::effects::utils::color::colour_to_rgb;
+use engine_effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
 use rayon::prelude::*;
 use std::cell::RefCell;

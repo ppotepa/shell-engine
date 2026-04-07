@@ -927,6 +927,7 @@ y: -8
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. }
@@ -959,6 +960,7 @@ force-font-mode: braille
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. }
@@ -1003,6 +1005,7 @@ stretch-to-area: true
             }
             Sprite::Text { .. }
             | Sprite::Obj { .. }
+            | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. }
@@ -1082,6 +1085,7 @@ children:
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Flex { .. }
             | Sprite::Scene3D { .. } => {
@@ -1115,6 +1119,7 @@ behaviors:
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
             | Sprite::Flex { .. }

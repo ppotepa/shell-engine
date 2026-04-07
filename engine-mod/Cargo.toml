@@ -8,6 +8,7 @@ engine-audio-sequencer = { path = "../engine-audio-sequencer" }
 engine-behavior = { path = "../engine-behavior" }
 engine-behavior-registry = { path = "../engine-behavior-registry" }
 engine-core = { workspace = true }
+engine-effects = { workspace = true }
 engine-error = { path = "../engine-error" }
 engine-render-policy = { path = "../engine-render-policy" }
 engine-runtime = { path = "../engine-runtime" }

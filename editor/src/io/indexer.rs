@@ -38,8 +38,7 @@ pub fn build_project_index(mod_source: &str) -> AssetIndex {
         },
         images,
         fonts,
-        effects: engine_core::authoring::catalog::static_catalog()
-            .effect_names
+        effects: engine_effects::EffectDispatcher::builtin_names()
             .iter()
             .map(|&name| name.to_string())
             .collect(),
@@ -65,8 +64,7 @@ mod tests {
 
         let index = build_project_index(temp_dir.to_str().unwrap());
 
-        let catalog_effects: Vec<String> = engine_core::authoring::catalog::static_catalog()
-            .effect_names
+        let catalog_effects: Vec<String> = engine_effects::EffectDispatcher::builtin_names()
             .iter()
             .map(|&name| name.to_string())
             .collect();

@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 engine-core = { workspace = true }
-engine-debug = { path = "../engine-debug" }
+engine-effects = { workspace = true }
 engine-animation = { path = "../engine-animation" }
 engine-asset = { path = "../engine-asset" }
 engine-pipeline = { path = "../engine-pipeline" }

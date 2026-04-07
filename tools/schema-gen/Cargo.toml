@@ -16,3 +16,4 @@ serde = { workspace = true }
 serde_yaml = { workspace = true }
 engine-authoring = { path = "../../engine-authoring" }
 engine-core = { path = "../../engine-core" }
+engine-effects = { path = "../../engine-effects" }

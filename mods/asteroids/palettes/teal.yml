@@ -15,6 +15,8 @@ colors:
   hud_label:    "#2e5eaa"
   hud_value:    "#5bc0be"
   hud_heart:    "#CC3311"
+  hud_panel_bg: "#060614"
+  hud_border:   "#1a3366"
   gameover:     "#f6ae2d"
   gameover_sub: "#c2a83e"
   # Menu

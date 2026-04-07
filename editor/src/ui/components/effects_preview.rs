@@ -1,5 +1,5 @@
 use engine::scene::Scene;
-use engine_core::effects::{shared_dispatcher, ParamControl};
+use engine_effects::{shared_dispatcher, ParamControl};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};

@@ -7,7 +7,7 @@ use ratatui::Frame;
 
 use crate::state::{focus::FocusPane, AppState};
 use crate::ui::theme;
-use engine_core::effects::shared_dispatcher;
+use engine_effects::shared_dispatcher;
 use engine_core::scene::EffectTargetKind;
 
 /// Renders the effects browser list with type badges and cursor/focus highlighting.

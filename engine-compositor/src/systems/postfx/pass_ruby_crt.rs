@@ -3,7 +3,7 @@ use super::{
 };
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
-use engine_core::effects::utils::color::colour_to_rgb;
+use engine_effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
 
 pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pass: &Effect) {

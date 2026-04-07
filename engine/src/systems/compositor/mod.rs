@@ -229,7 +229,7 @@ pub fn compositor_system(world: &mut World) {
             for effect_entry in runtime_effects.effects() {
                 let progress = effect_entry.progress(scene_elapsed_ms);
                 let scene_effect = effect_entry.as_scene_effect();
-                engine_core::effects::apply_effect(&scene_effect, progress, full_region, buffer);
+                engine_effects::apply_effect(&scene_effect, progress, full_region, buffer);
             }
         }
     }

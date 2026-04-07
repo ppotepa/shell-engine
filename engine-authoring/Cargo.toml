@@ -10,3 +10,4 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 engine-core = { path = "../engine-core" }
+engine-effects = { workspace = true }

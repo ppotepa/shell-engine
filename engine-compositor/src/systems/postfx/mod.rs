@@ -10,10 +10,10 @@ mod pass_underlay;
 mod registry;
 
 use engine_core::buffer::{Buffer, TRUE_BLACK};
-use engine_core::effects::apply_effect;
-use engine_core::effects::effect::Region;
-use engine_core::effects::utils::color::{colour_to_rgb, lerp_colour};
-use engine_core::effects::utils::noise::crt_hash;
+use engine_core::effects::Region;
+use engine_effects::apply_effect;
+use engine_effects::utils::color::{colour_to_rgb, lerp_colour};
+use engine_effects::utils::noise::crt_hash;
 use engine_core::scene::Effect;
 
 use engine_core::color::Color;

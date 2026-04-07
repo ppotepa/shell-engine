@@ -244,7 +244,7 @@ fn raster_line_height(mod_source: Option<&Path>, font_name: &str, fg: Color, bg:
 }
 
 pub fn dim_colour(c: Color) -> Color {
-    use engine_core::effects::utils::color::colour_to_rgb;
+    use engine_effects::utils::color::colour_to_rgb;
     let (r, g, b) = colour_to_rgb(c);
     Color::Rgb {
         r: (r as f32 * 0.25) as u8,

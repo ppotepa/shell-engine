@@ -1,6 +1,7 @@
 use engine_animation::SceneStage;
 use engine_core::buffer::Buffer;
-use engine_core::effects::{apply_effect, Region};
+use engine_core::effects::Region;
+use engine_effects::apply_effect;
 use engine_core::scene::{Layer, LayerStages, Stage, Step};
 use engine_core::scene_runtime_types::TargetResolver;
 use std::collections::HashMap;

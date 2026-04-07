@@ -4,7 +4,7 @@
 use super::{colour_luma, normalize_bg, rand01};
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::color::Color;
-use engine_core::effects::utils::color::colour_to_rgb;
+use engine_effects::utils::color::colour_to_rgb;
 use rayon::prelude::*;
 use std::cell::RefCell;
 

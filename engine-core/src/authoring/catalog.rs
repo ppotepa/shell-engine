@@ -1,6 +1,5 @@
 use crate::animations::AnimationDispatcher;
 use crate::authoring::metadata::{FieldMetadata, Requirement, TargetKind, ValueKind, ValueSource};
-use crate::effects::EffectDispatcher;
 use crate::scene::{SceneInput, LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
 
 /// Parameter shape for one built-in input profile.
@@ -244,18 +243,8 @@ pub fn static_catalog() -> StaticAuthoringCatalog {
         layer_fields: LAYER_FIELDS,
         sprite_fields: SPRITE_FIELDS,
         object_fields: OBJECT_FIELDS,
-        effect_names: EffectDispatcher::builtin_names(),
+        effect_names: &[],
     }
-}
-
-/// Converts effect metadata into generic authored field metadata.
-pub fn effect_fields(effect_name: &str) -> Vec<FieldMetadata> {
-    crate::effects::shared_dispatcher()
-        .metadata(effect_name)
-        .params
-        .iter()
-        .map(|p| p.as_authored_field())
-        .collect()
 }
 
 const BEHAVIOR_STAGE_OPTIONS: &[&str] = &[
@@ -1149,7 +1138,7 @@ pub fn input_profile_shapes() -> Vec<InputProfileShape> {
 #[cfg(test)]
 mod tests {
     use super::{
-        animation_catalog, behavior_catalog, effect_fields, input_profile_catalog,
+        animation_catalog, behavior_catalog, input_profile_catalog,
         input_profile_shapes, static_catalog, sugar_catalog,
     };
     use crate::authoring::metadata::{Requirement, ValueKind};
@@ -1159,14 +1148,6 @@ mod tests {
         let c = static_catalog();
         assert!(c.scene_fields.iter().any(|f| f.name == "id"));
         assert!(c.sprite_fields.iter().any(|f| f.name == "type"));
-        assert!(!c.effect_names.is_empty());
-    }
-
-    #[test]
-    fn effect_fields_are_available_for_builtin_effect() {
-        let fields = effect_fields("fade-in");
-        assert!(!fields.is_empty());
-        assert!(fields.iter().any(|f| f.name == "easing"));
     }
 
     #[test]

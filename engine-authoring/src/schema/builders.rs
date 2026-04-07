@@ -1,7 +1,7 @@
 //! Core schema builders and file-level overlay schema generators.
 
 use anyhow::Result;
-use engine_core::effects::{shared_dispatcher, ParamControl};
+use engine_effects::{shared_dispatcher, ParamControl};
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
 
@@ -1005,7 +1005,7 @@ pub(super) fn effect_preset_alias_schema() -> Value {
 }
 
 pub(super) fn effect_params_schema(
-    params: &'static [engine_core::effects::ParamMetadata],
+    params: &'static [engine_effects::ParamMetadata],
 ) -> Value {
     let mut properties = Mapping::new();
     for param in params {

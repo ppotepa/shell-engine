@@ -1,6 +1,6 @@
 //! Builtin effects catalogue sourced directly from engine-core metadata.
 
-use engine_core::effects::{shared_dispatcher, EffectDispatcher};
+use engine_effects::{shared_dispatcher, EffectDispatcher};
 use engine_core::scene::EffectTargetKind;
 
 /// Renderable documentation snapshot sourced from engine-core effect metadata.
@@ -31,7 +31,7 @@ pub fn effect_doc(name: &str) -> EffectDoc {
     }
 }
 
-fn preferred_target_kind(mask: engine_core::effects::EffectTargetMask) -> EffectTargetKind {
+fn preferred_target_kind(mask: engine_effects::EffectTargetMask) -> EffectTargetKind {
     if mask.supports(EffectTargetKind::Scene) {
         EffectTargetKind::Scene
     } else if mask.supports(EffectTargetKind::Layer) {
@@ -50,7 +50,7 @@ fn preferred_target_kind(mask: engine_core::effects::EffectTargetMask) -> Effect
 #[cfg(test)]
 mod tests {
     use super::effect_doc;
-    use engine_core::effects::shared_dispatcher;
+    use engine_effects::shared_dispatcher;
 
     #[test]
     fn effect_doc_is_sourced_from_engine_metadata() {
