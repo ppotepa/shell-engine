@@ -61,13 +61,6 @@ if pal_ver != (local.pal_ver ?? -1) {
 
 let col  = local.pal ?? #{};
 
-fn lives_to_hearts(n) {
-    let s = "";
-    let i = 0;
-    while i < n { if i > 0 { s += " "; } s += "♥"; i += 1; }
-    s
-}
-
 
 
 // Base vertex shapes (centered at origin, matching object YAMLs).
@@ -257,8 +250,10 @@ if world.timer_fired("invincible_done") {
 
 // ── HUD game state sync ───────────────────────────────────────────────────────
 game.set("/score", score);
-game.set("/lives", lives_to_hearts(lives));
 game.set("/wave", wave);
+scene.set("heart-1", "visible", lives >= 1);
+scene.set("heart-2", "visible", lives >= 2);
+scene.set("heart-3", "visible", lives >= 3);
 
 // ── ESC key: return to main menu ──────────────────────────────────────────────
 if !game_over && (key.code == "Escape" || key.code == "escape") {

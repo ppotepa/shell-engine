@@ -4,6 +4,6 @@ sdl2 = true
 skip_splash = true
 audio = true
 check_scenes = false
-release = true
+release = false
 dev = false
 all_opt = false
