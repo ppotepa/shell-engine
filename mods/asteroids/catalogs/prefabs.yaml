@@ -41,7 +41,7 @@ prefabs:
         drag: 0.0
         max_speed: 0.0
         mass: 0.5            # Very light — high speed, low mass
-        restitution: 0.1     # Bullets don't bounce, they punch through
+        restitution: 0.65    # Ricochet off asteroid surface at an angle
       collider:
         shape: circle
         radius: 2.0

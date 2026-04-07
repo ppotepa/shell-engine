@@ -300,17 +300,11 @@ for hit in collision.enters("bullet", "asteroid") {
     let avx = if type_of(aphys) == "map" { aphys["vx"] ?? 0.0 } else { 0.0 };
     let avy = if type_of(aphys) == "map" { aphys["vy"] ?? 0.0 } else { 0.0 };
 
-    // Bullet push: transfer 6% of bullet momentum to asteroid before spawning anything
+    // Engine-level elastic impulse already applied before scripts run.
+    // Read bullet velocity for shrapnel spawn direction.
     let bphys = world.physics(bullet_id);
     let bvx = if type_of(bphys) == "map" { bphys["vx"] ?? 0.0 } else { 0.0 };
     let bvy = if type_of(bphys) == "map" { bphys["vy"] ?? 0.0 } else { 0.0 };
-    if type_of(bphys) == "map" && type_of(aphys) == "map" {
-        let impulse = 0.06;
-        world.set_physics(asteroid_id,
-            avx + bvx * impulse, avy + bvy * impulse,
-            aphys["ax"] ?? 0.0, aphys["ay"] ?? 0.0,
-            aphys["drag"] ?? 0.0, aphys["max_speed"] ?? 0.0);
-    }
 
     // Shrapnel: real physics entities — ricochet off asteroids, damage ship
     let shard_count = if world.tag_has(asteroid_id, "asteroid-large") { 5 }
@@ -353,7 +347,8 @@ for hit in collision.enters("bullet", "asteroid") {
         world.despawn(asteroid_id);
     }
     local.score = score;
-    world.despawn(bullet_id);
+    // Let bullet ricochet briefly instead of instant despawn — engine impulse already deflected it
+    world.set_lifetime(bullet_id, 250);
 }
 
 // shrapnel hits asteroid — ricochet: reflect velocity × 0.5, nudge asteroid
