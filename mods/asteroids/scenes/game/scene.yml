@@ -3,6 +3,7 @@ title: Asteroids Game
 bg: "#060620"
 objects:
   - { ref: ship }
+  - { ref: bullet }
   - { ref: asteroid-large }
   - { ref: asteroid-medium }
   - { ref: asteroid-small }
