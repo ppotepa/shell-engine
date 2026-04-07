@@ -117,14 +117,18 @@ pub fn target_fps_from_manifest(manifest: &Value) -> u16 {
         .unwrap_or(DEFAULT_TARGET_FPS)
 }
 
-/// Detect colour depth from environment variables.
+/// Detect colour depth from environment variables, with a Windows console fallback.
 ///
 /// Checks (in order of reliability):
 ///   1. `COLORTERM`  — `truecolor` / `24bit` → 16 777 216
 ///   2. `COLORTERM`  — `256color`            → 256
 ///   3. `TERM`       — contains `256color`   → 256
 ///   4. `TERM`       — contains `16color`    → 16
-///   5. fallback                             → 8
+///   5. Windows: `WT_SESSION` (Windows Terminal) → 16 777 216
+///   6. Windows: `ConEmuPID` (ConEmu)           → 16 777 216
+///   7. Windows: try enabling VT processing     → 256
+///   8. Windows: legacy console                 → 16
+///   9. fallback (Unix without TERM/COLORTERM)  → 8
 fn detect_colour_count() -> u32 {
     if let Ok(ct) = env::var("COLORTERM") {
         match ct.to_lowercase().as_str() {
@@ -144,7 +148,62 @@ fn detect_colour_count() -> u32 {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    {
+        return detect_colour_count_windows();
+    }
+
+    #[cfg(not(target_os = "windows"))]
     8
+}
+
+#[cfg(target_os = "windows")]
+fn detect_colour_count_windows() -> u32 {
+    // Windows Terminal sets WT_SESSION — supports truecolor
+    if env::var("WT_SESSION").is_ok() {
+        return 16_777_216;
+    }
+    // ConEmu sets ConEmuPID — supports truecolor
+    if env::var("ConEmuPID").is_ok() {
+        return 16_777_216;
+    }
+    // VS Code terminal sets TERM_PROGRAM
+    if let Ok(tp) = env::var("TERM_PROGRAM") {
+        if tp.contains("vscode") {
+            return 16_777_216;
+        }
+    }
+
+    const STD_OUTPUT_HANDLE: u32 = 0xFFFFFFF5u32;
+    const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
+
+    extern "system" {
+        fn GetStdHandle(nStdHandle: u32) -> *mut std::ffi::c_void;
+        fn GetConsoleMode(hConsoleHandle: *mut std::ffi::c_void, lpMode: *mut u32) -> i32;
+        fn SetConsoleMode(hConsoleHandle: *mut std::ffi::c_void, dwMode: u32) -> i32;
+    }
+
+    unsafe {
+        let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+        if handle.is_null() || handle as isize == -1 {
+            return 16; // Windows console always supports at least 16
+        }
+        let mut mode: u32 = 0;
+        if GetConsoleMode(handle, &mut mode) == 0 {
+            return 16;
+        }
+        // Already enabled — modern terminal
+        if mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0 {
+            return 256;
+        }
+        // Try to enable VT processing (succeeds on Windows 10 1607+)
+        if SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 {
+            return 256;
+        }
+    }
+
+    // Legacy console — still supports 16 ANSI colors
+    16
 }
 
 #[cfg(test)]

@@ -1,0 +1,81 @@
+# HUD Layer — Taffy Grid Layout
+#
+# Outer frame grid provides uniform margins (24px H, 16px V) matching other scenes.
+# Inner 3×3 corner grid: auto corners, 1fr flexible center.
+#
+- name: hud
+  z_index: 10
+  sprites:
+    - type: grid
+      id: hud-frame
+      at: tl
+      columns: ["24", "1fr", "24"]
+      rows: ["16", "1fr", "16"]
+      children:
+        - type: grid
+          id: hud-grid
+          grid-col: 2
+          grid-row: 2
+          columns: ["auto", "1fr", "auto"]
+          rows: ["auto", "1fr", "auto"]
+          gap-x: 8
+          gap-y: 4
+          children:
+            # ── Top-left: Score ───────────────────────────────────────────────
+            - type: grid
+              id: hud-score-panel
+              grid-col: 1
+              grid-row: 1
+              columns: ["1fr"]
+              rows: ["auto", "auto"]
+              gap-y: 2
+              children:
+                - { type: text, id: hud-label-score, content: "SCORE", grid-col: 1, grid-row: 1, at: tl, font: "Orbitron:ascii", fg: "@palette.hud_label" }
+                - { type: text, id: hud-score, content: "@game_state.score", grid-col: 1, grid-row: 2, at: tl, font: "generic:1", fg: "@palette.hud_value" }
+
+            # ── Top-right: Wave ───────────────────────────────────────────────
+            - type: grid
+              id: hud-wave-panel
+              grid-col: 3
+              grid-row: 1
+              columns: ["1fr"]
+              rows: ["auto", "auto"]
+              gap-y: 2
+              children:
+                - { type: text, id: hud-label-wave, content: "WAVE", grid-col: 1, grid-row: 1, at: tr, font: "Orbitron:ascii", fg: "@palette.hud_label" }
+                - { type: text, id: hud-wave, content: "@game_state.wave", grid-col: 1, grid-row: 2, at: tr, font: "generic:1", fg: "@palette.hud_value" }
+
+            # ── Bottom-left: Lives ────────────────────────────────────────────
+            - type: grid
+              id: hud-lives-panel
+              grid-col: 1
+              grid-row: 3
+              columns: ["1fr"]
+              rows: ["auto", "auto"]
+              gap-y: 2
+              children:
+                - { type: text, id: hud-label-lives, content: "LIVES", grid-col: 1, grid-row: 1, at: bl, font: "Orbitron:ascii", fg: "@palette.hud_label" }
+                - { type: text, id: hud-lives, content: "@game_state.lives", grid-col: 1, grid-row: 2, at: bl, font: "generic:1", fg: "@palette.hud_value" }
+
+            # ── Bottom-right: Hint ────────────────────────────────────────────
+            - { type: text, id: hud-hint, content: "ESC  MENU", grid-col: 3, grid-row: 3, at: br, font: "generic:1", fg: "@palette.hint", opacity: 0.6 }
+
+# ============================================================================
+# GAME OVER OVERLAY — centered panel with matching margin feel
+# ============================================================================
+- name: gameover-overlay
+  z_index: 100
+  visible: false
+  sprites:
+    - type: grid
+      id: gameover-grid
+      at: cc
+      width: 360
+      height: 140
+      columns: ["1fr"]
+      rows: ["1fr", "auto", "auto", "auto", "1fr"]
+      gap-y: 10
+      children:
+        - { type: text, id: hud-gameover, content: "GAME OVER", grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "@palette.gameover" }
+        - { type: text, id: hud-gameover-score, content: "@game_state.score", grid-col: 1, grid-row: 3, at: cc, font: "generic:1", fg: "@palette.hud_value" }
+        - { type: text, id: hud-gameover-sub, content: "SPACE  RESTART     ESC  MENU", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: "@palette.gameover_sub" }

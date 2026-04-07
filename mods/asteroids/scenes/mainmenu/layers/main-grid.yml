@@ -1,0 +1,55 @@
+# Main Menu — Taffy Grid Layout
+#
+# Outer grid provides uniform margins (24px H, 20px V) around the scene.
+# Inner content grid: title (2fr top), menu items (auto center), hint (1fr bottom).
+#
+- name: main
+  z_index: 0
+  sprites:
+    - type: grid
+      id: menu-frame
+      at: tl
+      columns: ["24", "1fr", "24"]
+      rows: ["20", "1fr", "20"]
+      children:
+        - type: grid
+          id: menu-content
+          grid-col: 2
+          grid-row: 2
+          columns: ["1fr"]
+          rows: ["2fr", "auto", "1fr"]
+          children:
+            # ── Title ─────────────────────────────────────────────────────────
+            - type: text
+              id: title-text
+              content: "ASTEROIDS"
+              grid-col: 1
+              grid-row: 1
+              at: cb
+              font: "Orbitron:ascii"
+              fg: "#5bc0be"
+
+            # ── Menu Items ────────────────────────────────────────────────────
+            - type: grid
+              id: menu-items
+              grid-col: 1
+              grid-row: 2
+              at: cc
+              width: 200
+              columns: ["1fr"]
+              rows: ["auto", "auto", "auto"]
+              gap-y: 14
+              children:
+                - { type: text, id: item-0, content: "NEW GAME",    grid-col: 1, grid-row: 1, at: cc, font: "Orbitron:ascii", fg: "#f6ae2d" }
+                - { type: text, id: item-1, content: "HIGH SCORES", grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "#2e5eaa" }
+                - { type: text, id: item-2, content: "EXIT",        grid-col: 1, grid-row: 3, at: cc, font: "Orbitron:ascii", fg: "#2e5eaa" }
+
+            # ── Footer Hint ───────────────────────────────────────────────────
+            - type: text
+              id: hint
+              content: "UP / DOWN   NAVIGATE     ENTER   SELECT"
+              grid-col: 1
+              grid-row: 3
+              at: ct
+              font: "generic:1"
+              fg: "#172e55"

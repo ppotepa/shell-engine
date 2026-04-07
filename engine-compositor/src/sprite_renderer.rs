@@ -179,6 +179,12 @@ fn render_sprite(
         .and_then(|id| object_states.get(id))
         .cloned()
         .unwrap_or_default();
+    
+    // Check authored model visibility first
+    if !sprite.visible() {
+        return;
+    }
+    // Then check runtime override visibility
     if !object_state.visible {
         return;
     }

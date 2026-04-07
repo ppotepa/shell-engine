@@ -435,6 +435,92 @@ impl GameplayWorld {
         self.query_tag(tag).into_iter().next()
     }
 
+    /// Returns all entity ids within a circular radius of a point.
+    pub fn query_circle(&self, x: f32, y: f32, radius: f32) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        let radius_sq = radius * radius;
+        store
+            .transforms
+            .iter()
+            .filter(|(_, transform)| {
+                let dx = transform.x - x;
+                let dy = transform.y - y;
+                dx * dx + dy * dy <= radius_sq
+            })
+            .map(|(id, _)| *id)
+            .collect()
+    }
+
+    /// Returns all entity ids within an axis-aligned bounding box.
+    pub fn query_rect(&self, x: f32, y: f32, w: f32, h: f32) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        let min_x = x;
+        let max_x = x + w;
+        let min_y = y;
+        let max_y = y + h;
+        store
+            .transforms
+            .iter()
+            .filter(|(_, transform)| {
+                transform.x >= min_x
+                    && transform.x <= max_x
+                    && transform.y >= min_y
+                    && transform.y <= max_y
+            })
+            .map(|(id, _)| *id)
+            .collect()
+    }
+
+    /// Returns the closest entity id within max_dist, or None.
+    pub fn query_nearest(&self, x: f32, y: f32, max_dist: f32) -> Option<u64> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        let max_dist_sq = max_dist * max_dist;
+        store
+            .transforms
+            .iter()
+            .filter_map(|(id, transform)| {
+                let dx = transform.x - x;
+                let dy = transform.y - y;
+                let dist_sq = dx * dx + dy * dy;
+                if dist_sq <= max_dist_sq {
+                    Some((*id, dist_sq))
+                } else {
+                    None
+                }
+            })
+            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(id, _)| id)
+    }
+
+    /// Returns the closest entity of a specific kind within max_dist, or None.
+    pub fn query_nearest_kind(&self, kind: &str, x: f32, y: f32, max_dist: f32) -> Option<u64> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        let max_dist_sq = max_dist * max_dist;
+        store
+            .entities
+            .iter()
+            .filter(|(_, entity)| entity.kind == kind)
+            .filter_map(|(id, _)| {
+                store.transforms.get(id).map(|transform| {
+                    let dx = transform.x - x;
+                    let dy = transform.y - y;
+                    let dist_sq = dx * dx + dy * dy;
+                    (*id, dist_sq)
+                })
+            })
+            .filter(|(_, dist_sq)| *dist_sq <= max_dist_sq)
+            .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(id, _)| id)
+    }
+
     /// Returns a clone of an entity snapshot.
     pub fn get_entity(&self, id: u64) -> Option<GameplayEntity> {
         let Ok(store) = self.store.lock() else {
@@ -504,6 +590,62 @@ impl GameplayWorld {
             return None;
         };
         store.physics.get(&id).copied()
+    }
+
+    /// Apply an instant velocity change (impulse) to an entity's physics body.
+    /// If the entity has no physics body, this does nothing and returns false.
+    pub fn apply_impulse(&self, id: u64, vx: f32, vy: f32) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if let Some(body) = store.physics.get_mut(&id) {
+            body.vx += vx;
+            body.vy += vy;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get the magnitude (scalar speed) of an entity's velocity.
+    /// Returns 0.0 if the entity has no physics body.
+    pub fn velocity_magnitude(&self, id: u64) -> f32 {
+        let Ok(store) = self.store.lock() else {
+            return 0.0;
+        };
+        if let Some(body) = store.physics.get(&id) {
+            (body.vx * body.vx + body.vy * body.vy).sqrt()
+        } else {
+            0.0
+        }
+    }
+
+    /// Get the angle (in radians) of an entity's velocity vector.
+    /// Returns 0.0 if the entity has no physics body or zero velocity.
+    pub fn velocity_angle(&self, id: u64) -> f32 {
+        let Ok(store) = self.store.lock() else {
+            return 0.0;
+        };
+        if let Some(body) = store.physics.get(&id) {
+            body.vy.atan2(body.vx)
+        } else {
+            0.0
+        }
+    }
+
+    /// Set velocity from polar coordinates (speed and angle).
+    /// Angle is in radians. Returns false if entity has no physics body.
+    pub fn set_velocity_polar(&self, id: u64, speed: f32, angle: f32) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if let Some(body) = store.physics.get_mut(&id) {
+            body.vx = angle.cos() * speed;
+            body.vy = angle.sin() * speed;
+            true
+        } else {
+            false
+        }
     }
 
     pub fn set_collider(&self, id: u64, collider: Collider2D) -> bool {

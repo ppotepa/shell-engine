@@ -1,19 +1,19 @@
-id: asteroids-title
-title: Asteroids
+id: asteroids-mainmenu
+title: Main Menu
 bg: "#060620"
 layers:
-  - ref: title/layers/main.yml
+  - ref: mainmenu/layers/main-grid.yml
 logic:
   kind: script
   behavior: rhai-script
-  src: ./title.rhai
+  src: ./mainmenu.rhai
 postfx:
   - name: crt-scan-glitch
     params:
-      intensity: 0.08
-      transparency: 0.12
+      intensity: 0.05
+      transparency: 0.08
       brightness: 1.0
-      speed: 0.4
+      speed: 0.25
 stages:
   on_enter:
     steps:
@@ -22,11 +22,7 @@ stages:
     trigger: any-key
     looping: true
     steps:
-      - pause: 80ms
+      - pause: 60ms
   on_leave:
     steps:
       - { effects: [{ name: fade-out, duration: 250 }] }
-next: asteroids-game
-menu-options:
-  - { key: "space", label: START GAME, to: asteroids-game }
-  - { key: "escape", label: EXIT, to: asteroids-title }

@@ -1088,6 +1088,12 @@ $defs:
       glow:
         $ref: "#/$defs/glow"
         description: Optional glow halo rendered behind the sprite at neighbouring cell offsets.
+      visible:
+        type: boolean
+        default: true
+        description: >
+          Initial visibility.
+          Can be toggled at runtime via scene.set(id, "visible", bool).
       appear_at_ms:
         type: integer
         minimum: 0

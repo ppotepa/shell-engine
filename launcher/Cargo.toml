@@ -1,0 +1,22 @@
+[package]
+name = "launcher"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "se"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+crossterm = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+anyhow = { workspace = true }
+toml = "0.8"
+which = "7"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"

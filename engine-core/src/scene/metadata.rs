@@ -552,6 +552,16 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
     },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "visible",
+        value_kind: ValueKind::Boolean,
+        requirement: Requirement::Optional,
+        description: "Initial visibility state. Can be toggled at runtime via scene.set(id, 'visible', bool).",
+        default_text: Some("true"), default_number: None, enum_options: None,
+        min: None, max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
     // ── Renderer overrides ──────────────────────────────────────────────────
     FieldMetadata {
         target: TargetKind::Sprite,

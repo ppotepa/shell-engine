@@ -3,9 +3,9 @@ name: bullet
 sprites:
   - type: vector
     id: bullet-sprite
-    points: [[0,0]]
+    points: [[0,-2],[0,2]]
     closed: false
-    draw-char: "o"
+    draw-char: "|"
     x: 0
     y: 0
     fg_colour: yellow

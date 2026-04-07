@@ -1,0 +1,21 @@
+# Cargo workspace configuration.
+#
+# SDL2 on Windows
+# ---------------
+# The SDL2 backend (--features sdl2) requires SDL2 development libraries.
+# Download from: https://github.com/libsdl-org/SDL/releases (SDL2-devel-*-VC.zip)
+# Then set these environment variables before building:
+#
+#   SDL2_LIB_DIR     = <path>\lib\x64
+#   SDL2_INCLUDE_DIR = <path>\include
+#
+# Or run: scripts\setup-windows.ps1   (downloads and configures SDL2 automatically)
+#
+# Uncomment and adjust the section below if you want to hard-code the paths:
+#
+# Uncomment and adjust if you want to hard-code the paths for your machine.
+# Replace <YourUser> with your Windows username.
+#
+# [env]
+# SDL2_LIB_DIR     = "C:/Users/<YourUser>/SDL2/SDL2-2.30.12/lib/x64"
+# SDL2_INCLUDE_DIR = "C:/Users/<YourUser>/SDL2/SDL2-2.30.12/include"

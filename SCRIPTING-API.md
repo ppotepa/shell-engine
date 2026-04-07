@@ -117,6 +117,34 @@ world.distance(a_id, b_id)    // → float  World-space distance between two ent
 world.diagnostic_info()       // → #{}  Debug snapshot (entity counts by kind)
 ```
 
+### Spatial Queries
+
+```rhai
+world.query_circle(x, y, radius)              // → []   All entity ids within circular radius
+world.query_rect(x, y, w, h)                  // → []   All entity ids in axis-aligned box
+world.query_nearest(x, y, max_dist)           // → int  Closest entity id within max_dist, or 0
+world.query_nearest_kind(kind, x, y, max_dist) // → int  Closest entity of kind within max_dist, or 0
+```
+
+**Example: Find threats near the ship**
+
+```rhai
+let ship_id = world.first_kind("ship");
+if ship_id > 0 {
+    let ship_t = world.transform(ship_id);
+    if ship_t != () {
+        // All entities within 100px
+        let nearby = world.query_circle(ship_t.x, ship_t.y, 100.0);
+        
+        // Filter to just asteroids
+        let threats = nearby.filter(|id| world.kind(id) == "asteroid");
+        
+        // Or find the closest asteroid directly
+        let closest = world.query_nearest_kind("asteroid", ship_t.x, ship_t.y, 200.0);
+    }
+}
+```
+
 ### Entity Data
 
 ```rhai
@@ -232,7 +260,8 @@ world.angular_body_attach(id, #{
     accel: 5.5,        // angular acceleration (rad/s²)
     max: 7.0,          // max angular velocity (rad/s)
     deadband: 0.10,    // auto-brake deadband (rad/s)
-    auto_brake: true   // brake toward zero when input is 0
+    auto_brake: true,  // brake toward zero when input is 0
+    angular_vel: 0.0   // initial angular velocity (rad/s)
 })                                  // → bool
 
 world.set_angular_input(id, turn)   // → bool  Set turn input −1.0…+1.0 for this frame
@@ -358,6 +387,53 @@ e.set_heading(radians)       // → bool  Sets heading, syncs controller if pres
 e.set_acceleration(ax, ay)   // → bool
 e.collider()                 // → #{ shape, radius, layer, mask } or ()
 e.lifetime_remaining()       // → int  Milliseconds until expiry (0 = no TTL)
+```
+
+### Physics Helpers
+
+```rhai
+// Instant velocity changes (impulses)
+e.apply_impulse(vx, vy)            // → bool  Add velocity instantly (explosions, knockback)
+
+// Velocity queries
+e.velocity_magnitude()             // → float  Speed scalar (√(vx² + vy²))
+e.velocity_angle()                 // → float  Direction in radians (atan2(vy, vx))
+
+// Polar velocity control
+e.set_velocity_polar(speed, angle) // → bool  Set velocity from speed + angle (radians)
+```
+
+**Example: Asteroid debris scatter**
+
+```rhai
+fn split_asteroid(parent_id, world) {
+    let parent_phys = world.physics(parent_id);
+    if parent_phys == () { return; }
+    
+    for i in 0..2 {
+        let debris_id = world.spawn_prefab("asteroid-small", #{
+            x: 100.0, y: 100.0,
+            vx: parent_phys.vx * 0.5,  // Inherit 50% parent velocity
+            vy: parent_phys.vy * 0.5
+        });
+        
+        if debris_id > 0 {
+            // Apply random scatter impulse
+            let scatter = (rand() - 0.5) * 80.0;
+            world.entity(debris_id).apply_impulse(scatter, scatter);
+        }
+    }
+}
+```
+
+**Example: Speed limit with direction preservation**
+
+```rhai
+let speed = world.entity(ship_id).velocity_magnitude();
+if speed > MAX_SPEED {
+    let angle = world.entity(ship_id).velocity_angle();
+    world.entity(ship_id).set_velocity_polar(MAX_SPEED, angle);
+}
 ```
 
 ### Physics (Sub-API via `.physics`)

@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};

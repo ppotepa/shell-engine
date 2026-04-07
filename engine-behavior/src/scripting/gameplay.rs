@@ -26,6 +26,18 @@ impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
     fn entity(&mut self, id: rhai::INT) -> ScriptGameplayEntityApi { self.entity(id) }
     fn query_kind(&mut self, kind: &str) -> rhai::Array { self.query_kind(kind) }
     fn query_tag(&mut self, tag: &str) -> rhai::Array { self.query_tag(tag) }
+    fn query_circle(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, radius: rhai::FLOAT) -> rhai::Array {
+        self.query_circle(x, y, radius)
+    }
+    fn query_rect(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, w: rhai::FLOAT, h: rhai::FLOAT) -> rhai::Array {
+        self.query_rect(x, y, w, h)
+    }
+    fn query_nearest(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT {
+        self.query_nearest(x, y, max_dist)
+    }
+    fn query_nearest_kind(&mut self, kind: &str, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT {
+        self.query_nearest_kind(kind, x, y, max_dist)
+    }
     fn get(&mut self, id: rhai::INT, path: &str) -> RhaiDynamic { self.get(id, path) }
     fn set(&mut self, id: rhai::INT, path: &str, value: RhaiDynamic) -> bool { self.set(id, path, value) }
     fn has(&mut self, id: rhai::INT, path: &str) -> bool { self.has(id, path) }
@@ -147,6 +159,18 @@ impl GameplayEntityCoreApi for ScriptGameplayEntityApi {
     fn status_remaining(&mut self, name: &str) -> rhai::INT { self.status_remaining(name) }
     fn set_acceleration(&mut self, ax: rhai::FLOAT, ay: rhai::FLOAT) -> bool {
         self.set_acceleration(ax, ay)
+    }
+    fn apply_impulse(&mut self, vx: rhai::FLOAT, vy: rhai::FLOAT) -> bool {
+        self.apply_impulse(vx, vy)
+    }
+    fn velocity_magnitude(&mut self) -> rhai::FLOAT {
+        self.velocity_magnitude()
+    }
+    fn velocity_angle(&mut self) -> rhai::FLOAT {
+        self.velocity_angle()
+    }
+    fn set_velocity_polar(&mut self, speed: rhai::FLOAT, angle: rhai::FLOAT) -> bool {
+        self.set_velocity_polar(speed, angle)
     }
     fn collider(&mut self) -> RhaiMap { self.collider() }
     fn heading(&mut self) -> rhai::INT { self.heading() }

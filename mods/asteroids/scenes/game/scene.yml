@@ -8,7 +8,7 @@ objects:
   - { ref: asteroid-small }
   - { ref: debris }
 layers:
-  - ref: game/layers/hud.yml
+  - ref: game/layers/hud-grid.yml
 logic:
   kind: script
   behavior: rhai-script

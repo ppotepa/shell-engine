@@ -82,6 +82,10 @@ pub trait GameplayEntityCoreApi: Clone + 'static {
     fn status_has(&mut self, name: &str) -> bool;
     fn status_remaining(&mut self, name: &str) -> rhai::INT;
     fn set_acceleration(&mut self, ax: rhai::FLOAT, ay: rhai::FLOAT) -> bool;
+    fn apply_impulse(&mut self, vx: rhai::FLOAT, vy: rhai::FLOAT) -> bool;
+    fn velocity_magnitude(&mut self) -> rhai::FLOAT;
+    fn velocity_angle(&mut self) -> rhai::FLOAT;
+    fn set_velocity_polar(&mut self, speed: rhai::FLOAT, angle: rhai::FLOAT) -> bool;
     fn collider(&mut self) -> RhaiMap;
     fn heading(&mut self) -> rhai::INT;
     fn heading_vector(&mut self) -> RhaiMap;
@@ -114,6 +118,10 @@ where
     fn entity(&mut self, id: rhai::INT) -> TEntity;
     fn query_kind(&mut self, kind: &str) -> RhaiArray;
     fn query_tag(&mut self, tag: &str) -> RhaiArray;
+    fn query_circle(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, radius: rhai::FLOAT) -> RhaiArray;
+    fn query_rect(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, w: rhai::FLOAT, h: rhai::FLOAT) -> RhaiArray;
+    fn query_nearest(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT;
+    fn query_nearest_kind(&mut self, kind: &str, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT;
     fn get(&mut self, id: rhai::INT, path: &str) -> RhaiDynamic;
     fn set(&mut self, id: rhai::INT, path: &str, value: RhaiDynamic) -> bool;
     fn has(&mut self, id: rhai::INT, path: &str) -> bool;

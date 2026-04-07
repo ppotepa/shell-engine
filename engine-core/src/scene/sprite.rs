@@ -202,6 +202,9 @@ pub enum Sprite {
         /// Hide the sprite immediately when scene enters on_leave.
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -273,6 +276,9 @@ pub enum Sprite {
         disappear_at_ms: Option<u64>,
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -319,6 +325,9 @@ pub enum Sprite {
         disappear_at_ms: Option<u64>,
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -464,6 +473,9 @@ pub enum Sprite {
         disappear_at_ms: Option<u64>,
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -527,6 +539,9 @@ pub enum Sprite {
         disappear_at_ms: Option<u64>,
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -572,6 +587,9 @@ pub enum Sprite {
         disappear_at_ms: Option<u64>,
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -620,6 +638,9 @@ pub enum Sprite {
         disappear_at_ms: Option<u64>,
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -659,6 +680,9 @@ pub enum Sprite {
         disappear_at_ms: Option<u64>,
         #[serde(default)]
         hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
         #[serde(default)]
         stages: LayerStages,
         #[serde(default)]
@@ -810,6 +834,19 @@ impl Sprite {
             | Sprite::Flex { hide_on_leave, .. }
             | Sprite::Scene3D { hide_on_leave, .. }
             | Sprite::Vector { hide_on_leave, .. } => *hide_on_leave,
+        }
+    }
+
+    pub fn visible(&self) -> bool {
+        match self {
+            Sprite::Text { visible, .. }
+            | Sprite::Image { visible, .. }
+            | Sprite::Obj { visible, .. }
+            | Sprite::Panel { visible, .. }
+            | Sprite::Grid { visible, .. }
+            | Sprite::Flex { visible, .. }
+            | Sprite::Scene3D { visible, .. }
+            | Sprite::Vector { visible, .. } => *visible,
         }
     }
 

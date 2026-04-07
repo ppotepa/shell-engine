@@ -135,27 +135,31 @@ impl ProcessStats {
         if wall.saturating_sub(self.last_sample_us) < 1_000_000 {
             return; // throttle to ~1 Hz
         }
-        let dcpu = cpu.saturating_sub(self.prev_cpu_ticks) as f64;
-        let dwall = wall.saturating_sub(self.prev_wall_us).max(1) as f64;
-        // clock ticks → microseconds: 1 tick = 1e6/CLK_TCK us
-        let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64;
-        self.cpu_percent = ((dcpu / clk_tck) / (dwall / 1_000_000.0) * 100.0) as f32;
+        #[cfg(unix)]
+        {
+            let dcpu = cpu.saturating_sub(self.prev_cpu_ticks) as f64;
+            let dwall = wall.saturating_sub(self.prev_wall_us).max(1) as f64;
+            // clock ticks → microseconds: 1 tick = 1e6/CLK_TCK us
+            let clk_tck = unsafe { libc::sysconf(libc::_SC_CLK_TCK) }.max(1) as f64;
+            self.cpu_percent = ((dcpu / clk_tck) / (dwall / 1_000_000.0) * 100.0) as f32;
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = cpu;
+        }
         self.rss_mb = Self::read_rss_mb();
         self.prev_cpu_ticks = cpu;
         self.prev_wall_us = wall;
         self.last_sample_us = wall;
     }
 
-    /// Returns (utime+stime in clock ticks, wall time in microseconds).
+    /// Returns (cpu ticks, wall time in microseconds).
+    /// On Unix: cpu = utime+stime from /proc/self/stat.
+    /// On other platforms: cpu = 0 (debug display only).
     fn read_cpu_ticks() -> (u64, u64) {
-        let wall = {
-            let mut tv = libc::timeval {
-                tv_sec: 0,
-                tv_usec: 0,
-            };
-            unsafe { libc::gettimeofday(&mut tv, std::ptr::null_mut()) };
-            tv.tv_sec as u64 * 1_000_000 + tv.tv_usec as u64
-        };
+        let wall = wall_time_us();
+
+        #[cfg(unix)]
         let cpu = std::fs::read_to_string("/proc/self/stat")
             .ok()
             .and_then(|s| {
@@ -166,21 +170,54 @@ impl ProcessStats {
                 Some(utime + stime)
             })
             .unwrap_or(0);
+
+        #[cfg(not(unix))]
+        let cpu = 0u64;
+
         (cpu, wall)
     }
 
     fn read_rss_mb() -> f32 {
-        std::fs::read_to_string("/proc/self/status")
-            .ok()
-            .and_then(|s| {
-                for line in s.lines() {
-                    if let Some(rest) = line.strip_prefix("VmRSS:") {
-                        let kb: f32 = rest.trim().trim_end_matches(" kB").trim().parse().ok()?;
-                        return Some(kb / 1024.0);
+        #[cfg(unix)]
+        {
+            std::fs::read_to_string("/proc/self/status")
+                .ok()
+                .and_then(|s| {
+                    for line in s.lines() {
+                        if let Some(rest) = line.strip_prefix("VmRSS:") {
+                            let kb: f32 =
+                                rest.trim().trim_end_matches(" kB").trim().parse().ok()?;
+                            return Some(kb / 1024.0);
+                        }
                     }
-                }
-                None
-            })
-            .unwrap_or(0.0)
+                    None
+                })
+                .unwrap_or(0.0)
+        }
+        #[cfg(not(unix))]
+        {
+            0.0
+        }
+    }
+}
+
+/// Returns wall-clock time in microseconds since an arbitrary epoch.
+fn wall_time_us() -> u64 {
+    #[cfg(unix)]
+    {
+        let mut tv = libc::timeval {
+            tv_sec: 0,
+            tv_usec: 0,
+        };
+        unsafe { libc::gettimeofday(&mut tv, std::ptr::null_mut()) };
+        tv.tv_sec as u64 * 1_000_000 + tv.tv_usec as u64
+    }
+    #[cfg(not(unix))]
+    {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_micros() as u64)
+            .unwrap_or(0)
     }
 }

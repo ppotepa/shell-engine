@@ -312,6 +312,48 @@ impl ScriptGameplayApi {
             .collect()
     }
 
+    pub(crate) fn query_circle(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, radius: rhai::FLOAT) -> RhaiArray {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        world
+            .query_circle(x as f32, y as f32, radius as f32)
+            .into_iter()
+            .map(|id| (id as rhai::INT).into())
+            .collect()
+    }
+
+    pub(crate) fn query_rect(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, w: rhai::FLOAT, h: rhai::FLOAT) -> RhaiArray {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return RhaiArray::new();
+        };
+        world
+            .query_rect(x as f32, y as f32, w as f32, h as f32)
+            .into_iter()
+            .map(|id| (id as rhai::INT).into())
+            .collect()
+    }
+
+    pub(crate) fn query_nearest(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return 0;
+        };
+        world
+            .query_nearest(x as f32, y as f32, max_dist as f32)
+            .map(|id| id as rhai::INT)
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn query_nearest_kind(&mut self, kind: &str, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return 0;
+        };
+        world
+            .query_nearest_kind(kind, x as f32, y as f32, max_dist as f32)
+            .map(|id| id as rhai::INT)
+            .unwrap_or(0)
+    }
+
     pub(crate) fn get(&mut self, id: rhai::INT, path: &str) -> RhaiDynamic {
         let Some(world) = self.ctx.world.as_ref() else {
             return ().into();
@@ -952,7 +994,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else { return 0; };
         let Some(xf) = world.transform(owner_id as u64) else { return 0; };
         let heading = xf.heading;
-        let (fwd_x, fwd_y) = (-heading.sin(), -heading.cos());
+        let (fwd_x, fwd_y) = (heading.sin(), -heading.cos());
         let speed = Self::map_number(&args, "speed", 0.0) as f32;
         let offset = Self::map_number(&args, "offset", 0.0) as f32;
         let inherit_velocity = args.get("inherit_velocity").and_then(|v| v.as_bool().ok()).unwrap_or(false);
@@ -1367,10 +1409,11 @@ impl ScriptGameplayApi {
             map.get(key).and_then(|v| v.as_bool().ok()).unwrap_or(default)
         };
         let body = AngularBody {
-            accel:      get_f(&config, "accel",      5.5),
-            max:        get_f(&config, "max",         7.0),
-            deadband:   get_f(&config, "deadband",    0.10),
-            auto_brake: get_b(&config, "auto_brake",  true),
+            accel:       get_f(&config, "accel",       5.5),
+            max:         get_f(&config, "max",          7.0),
+            deadband:    get_f(&config, "deadband",     0.10),
+            auto_brake:  get_b(&config, "auto_brake",   true),
+            angular_vel: get_f(&config, "angular_vel",  0.0),
             ..Default::default()
         };
         world.attach_angular_body(id as u64, body)
@@ -2465,6 +2508,34 @@ impl ScriptGameplayEntityApi {
         phys.ax = ax as f32;
         phys.ay = ay as f32;
         world.set_physics(self.ctx.id, phys)
+    }
+
+    pub(crate) fn apply_impulse(&mut self, vx: rhai::FLOAT, vy: rhai::FLOAT) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        world.apply_impulse(self.ctx.id, vx as f32, vy as f32)
+    }
+
+    pub(crate) fn velocity_magnitude(&mut self) -> rhai::FLOAT {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return 0.0;
+        };
+        world.velocity_magnitude(self.ctx.id) as rhai::FLOAT
+    }
+
+    pub(crate) fn velocity_angle(&mut self) -> rhai::FLOAT {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return 0.0;
+        };
+        world.velocity_angle(self.ctx.id) as rhai::FLOAT
+    }
+
+    pub(crate) fn set_velocity_polar(&mut self, speed: rhai::FLOAT, angle: rhai::FLOAT) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        world.set_velocity_polar(self.ctx.id, speed as f32, angle as f32)
     }
 
     pub(crate) fn collider(&mut self) -> RhaiMap {

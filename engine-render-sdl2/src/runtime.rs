@@ -1003,9 +1003,10 @@ fn draw_vectors(
     let cph_f = cph as f32;
 
     for prim in &vectors.primitives {
-        if prim.points.len() < 2 {
+        if prim.points.is_empty() {
             continue;
         }
+
         // Map buffer pixel coords → canvas pixel via the presentation rect.
         let canvas_pts: Vec<(i32, i32)> = prim
             .points
@@ -1016,6 +1017,14 @@ fn draw_vectors(
                 (cx as i32, cy as i32)
             })
             .collect();
+
+        // Single-point shape: draw a small dot (2×2 rect).
+        if canvas_pts.len() == 1 {
+            let (r, g, b) = prim.fg;
+            canvas.set_draw_color(SdlColor::RGB(r, g, b));
+            let _ = canvas.fill_rect(Rect::new(canvas_pts[0].0 - 1, canvas_pts[0].1 - 1, 3, 3));
+            continue;
+        }
 
         // Fill polygon if bg is set.
         if let Some((r, g, b)) = prim.bg {
