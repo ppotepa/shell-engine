@@ -124,6 +124,7 @@ fn collect_scene_effect_issues(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_layer_effect_issues(
     stages: &LayerStages,
     path: &str,
@@ -170,6 +171,7 @@ fn collect_layer_effect_issues(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_stage_effect_issues(
     stage: &Stage,
     path: &str,
@@ -207,6 +209,7 @@ fn collect_stage_effect_issues(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_sprite_effect_issues(
     sprite: &Sprite,
     path: &str,
@@ -246,6 +249,7 @@ fn collect_sprite_effect_issues(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validate_effect_target(
     effect: &Effect,
     placement_kind: EffectTargetKind,

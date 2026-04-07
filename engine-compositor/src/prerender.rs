@@ -42,7 +42,7 @@ pub fn prerender_scene_sprites(
                 target.height,
                 target.size,
                 target.mode,
-                target.params.clone(),
+                target.params,
                 target.wireframe,
                 target.backface_cull,
                 target.fg,

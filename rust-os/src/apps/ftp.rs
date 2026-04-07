@@ -17,6 +17,12 @@ pub struct FtpApp {
     transfer_counter: u64,
 }
 
+impl Default for FtpApp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FtpApp {
     pub fn new() -> Self {
         Self {
@@ -73,7 +79,7 @@ impl FtpApp {
             "cd" => {
                 let dir = parts.get(1).copied().unwrap_or("/pub");
                 self.remote_cwd = dir.to_string();
-                uow.print(format!("250 CWD command successful."));
+                uow.print("250 CWD command successful.".to_string());
             }
             "pwd" => {
                 let cwd = self.remote_cwd.clone();
@@ -91,7 +97,7 @@ impl FtpApp {
             }
             "" => {}
             _ => {
-                uow.print(format!("?Invalid command"));
+                uow.print("?Invalid command".to_string());
             }
         }
 
@@ -114,7 +120,7 @@ impl FtpApp {
                 let content = content.to_string();
                 for line in content.lines() {
                     let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 2 && parts[1..].iter().any(|&n| n == host) {
+                    if parts.len() >= 2 && parts[1..].contains(&host) {
                         return Some(parts[0].to_string());
                     }
                 }
@@ -128,7 +134,7 @@ impl FtpApp {
         uow.schedule("Password:".to_string(), 0);
         uow.schedule("230 User torvalds logged in.".to_string(), 300);
         uow.schedule(
-            format!("Remote system type is UNIX. Using binary mode to transfer files."),
+            "Remote system type is UNIX. Using binary mode to transfer files.".to_string(),
             0,
         );
 
@@ -170,7 +176,7 @@ impl FtpApp {
         let bytes_per_chunk = file_size / chunks;
 
         uow.print(format!("local: {file}  remote: {file}"));
-        uow.schedule(format!("200 PORT command successful."), 100);
+        uow.schedule("200 PORT command successful.".to_string(), 100);
         uow.schedule(
             format!("150 Opening BINARY connection for {file} ({file_size} bytes)."),
             200,
@@ -199,7 +205,7 @@ impl FtpApp {
         }
 
         if self.transfer_mode == "binary" {
-            uow.schedule(format!("226 Transfer complete."), chunk_ms);
+            uow.schedule("226 Transfer complete.".to_string(), chunk_ms);
             uow.schedule(
                 format!(
                     "{file_size} bytes received in {transfer_secs:.1} seconds ({:.1} KBps)",
@@ -212,7 +218,7 @@ impl FtpApp {
             // ASCII mode corrupts compressed files
             uow.schedule("226 Transfer complete.".to_string(), chunk_ms);
             uow.schedule(
-                format!("WARNING: ASCII mode may have corrupted binary file."),
+                "WARNING: ASCII mode may have corrupted binary file.".to_string(),
                 0,
             );
             uow.schedule(
@@ -228,26 +234,26 @@ impl FtpApp {
             uow.print("Not connected.".to_string());
             return;
         }
-        uow.schedule(format!("227 Entering Passive Mode."), 200);
+        uow.schedule("227 Entering Passive Mode.".to_string(), 200);
         uow.schedule(
-            format!("150 Opening ASCII mode data connection for file list."),
+            "150 Opening ASCII mode data connection for file list.".to_string(),
             100,
         );
-        uow.schedule(format!("total 48"), 300);
-        uow.schedule(format!("drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 ."), 0);
-        uow.schedule(format!("drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 .."), 0);
+        uow.schedule("total 48".to_string(), 300);
+        uow.schedule("drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 .".to_string(), 0);
+        uow.schedule("drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 ..".to_string(), 0);
         uow.schedule(
-            format!("-rw-r--r--  1 ftp   ftp  4096 Sep 16 08:00 README"),
+            "-rw-r--r--  1 ftp   ftp  4096 Sep 16 08:00 README".to_string(),
             0,
         );
-        uow.schedule(format!("drwxr-xr-x  2 ftp   ftp   512 Sep 12 00:00 pub"), 0);
+        uow.schedule("drwxr-xr-x  2 ftp   ftp   512 Sep 12 00:00 pub".to_string(), 0);
 
         if uow.quest.upload_success {
             uow.schedule(
-                format!("-rw-r--r--  1 ftp   ftp 73091 Sep 17 21:30 linux-0.01.tar.Z"),
+                "-rw-r--r--  1 ftp   ftp 73091 Sep 17 21:30 linux-0.01.tar.Z".to_string(),
                 0,
             );
         }
-        uow.schedule(format!("226 Transfer complete."), 100);
+        uow.schedule("226 Transfer complete.".to_string(), 100);
     }
 }

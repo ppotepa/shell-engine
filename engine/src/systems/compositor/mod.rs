@@ -87,7 +87,7 @@ pub fn compositor_system(world: &mut World) {
             .map(SceneRuntime::target_resolver_arc)
             .unwrap_or_default();
         let animator = world.animator();
-        let stage = animator.map(|a| a.stage.clone()).unwrap_or_default();
+        let stage = animator.map(|a| a.stage).unwrap_or_default();
         let step = animator.map(|a| a.step_idx).unwrap_or(0);
         let elapsed = animator.map(|a| a.elapsed_ms).unwrap_or(0);
         let scene_elapsed = animator.map(|a| a.scene_elapsed_ms).unwrap_or(0);
@@ -189,7 +189,7 @@ pub fn compositor_system(world: &mut World) {
         step_idx,
         elapsed_ms,
         scene_elapsed_ms,
-        scene_effects: &scene_effects,
+        scene_effects,
         scene_step_dur,
         is_pixel_backend,
         default_font: default_font.as_deref(),

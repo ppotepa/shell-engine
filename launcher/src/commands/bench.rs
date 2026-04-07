@@ -33,11 +33,11 @@ fn run_single_combo(workspace_root: &Path, mod_source: &str, duration: f32, comb
         .app_arg("--mod-source")
         .app_arg(mod_source)
         .app_arg("--bench")
-        .app_arg(&duration.to_string())
+        .app_arg(duration.to_string())
         .app_arg("--skip-splash");
     
     for flag in combo.split_whitespace() {
-        cmd = cmd.app_arg(&format!("--{}", flag));
+        cmd = cmd.app_arg(format!("--{}", flag));
     }
     
     let status = cmd.exec(workspace_root)?;
@@ -64,7 +64,7 @@ fn run_all_combos(workspace_root: &Path, mod_source: &str, duration: f32) -> Res
     
     println!("Building release binary first...");
     let build_status = std::process::Command::new("cargo")
-        .args(&["build", "--release", "-p", "app"])
+        .args(["build", "--release", "-p", "app"])
         .current_dir(workspace_root)
         .status()?;
     
@@ -83,11 +83,11 @@ fn run_all_combos(workspace_root: &Path, mod_source: &str, duration: f32) -> Res
             .app_arg("--mod-source")
             .app_arg(mod_source)
             .app_arg("--bench")
-            .app_arg(&duration.to_string())
+            .app_arg(duration.to_string())
             .app_arg("--skip-splash");
         
         for flag in flags {
-            cmd = cmd.app_arg(&format!("--{}", flag));
+            cmd = cmd.app_arg(format!("--{}", flag));
         }
         
         let status = cmd.exec(workspace_root)?;

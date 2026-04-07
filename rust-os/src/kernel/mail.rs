@@ -4,6 +4,12 @@ pub struct MailSpool {
     messages: Vec<MailMessage>,
 }
 
+impl Default for MailSpool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MailSpool {
     pub fn new() -> Self {
         let mut spool = Self {

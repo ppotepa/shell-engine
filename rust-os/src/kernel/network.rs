@@ -5,6 +5,12 @@ pub struct SimulatedNetwork {
     pub next_fd: u32,
 }
 
+impl Default for SimulatedNetwork {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimulatedNetwork {
     pub fn new() -> Self {
         Self {

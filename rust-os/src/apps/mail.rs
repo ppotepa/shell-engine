@@ -7,6 +7,12 @@ pub struct MailApp {
     current_index: Option<usize>,
 }
 
+impl Default for MailApp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MailApp {
     pub fn new() -> Self {
         Self {
@@ -54,7 +60,7 @@ impl MailApp {
         if msg_count == 0 {
             uow.print("No mail for torvalds.");
         } else {
-            uow.print(format!("Mail version 2.12 6/28/83.  Type ? for help."));
+            uow.print("Mail version 2.12 6/28/83.  Type ? for help.".to_string());
             uow.print(format!(
                 "\"/var/spool/mail/{user}\": {msg_count} messages {unread} new"
             ));

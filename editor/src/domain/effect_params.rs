@@ -330,6 +330,7 @@ pub fn effect_param_specs(effect_name: &str) -> &'static [EffectParamSpec] {
 }
 
 /// Builds a default [`EffectParams`] populated with sensible values for the named effect.
+#[allow(clippy::field_reassign_with_default)]
 pub fn default_effect_params(effect_name: &str) -> EffectParams {
     let mut params = EffectParams::default();
     params.intensity = Some(1.0);

@@ -13,7 +13,7 @@ pub const GLYPH_HEIGHT: u32 = 16;
 /// Non-printable or out-of-range characters return the '?' glyph.
 pub fn glyph(ch: char) -> &'static [u8; 16] {
     let idx = ch as usize;
-    if idx >= 0x20 && idx <= 0x7E {
+    if (0x20..=0x7E).contains(&idx) {
         &FONT_DATA[idx - 0x20]
     } else {
         &FONT_DATA['?' as usize - 0x20]

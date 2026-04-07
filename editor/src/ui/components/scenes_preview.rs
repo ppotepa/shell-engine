@@ -262,20 +262,20 @@ fn adjusted_preview_size(mode: SceneRenderedMode, target_w: u16, target_h: u16) 
     match mode {
         SceneRenderedMode::Cell => {}
         SceneRenderedMode::HalfBlock => {
-            if height % 2 != 0 {
+            if !height.is_multiple_of(2) {
                 height = height.saturating_sub(1);
             }
         }
         SceneRenderedMode::QuadBlock => {
-            if width % 2 != 0 {
+            if !width.is_multiple_of(2) {
                 width = width.saturating_sub(1);
             }
-            if height % 2 != 0 {
+            if !height.is_multiple_of(2) {
                 height = height.saturating_sub(1);
             }
         }
         SceneRenderedMode::Braille => {
-            if width % 2 != 0 {
+            if !width.is_multiple_of(2) {
                 width = width.saturating_sub(1);
             }
             let rem = height % 4;

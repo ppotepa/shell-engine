@@ -35,6 +35,7 @@ pub fn bounds(points: &[[i32; 2]]) -> Option<VectorBounds> {
 }
 
 /// Draws a vector polyline into `buffer` using Bresenham line rasterization.
+#[allow(clippy::too_many_arguments)]
 pub fn draw_polyline(
     buffer: &mut Buffer,
     points: &[[i32; 2]],
@@ -121,6 +122,7 @@ pub fn fill_polygon(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_line(
     buffer: &mut Buffer,
     mut x0: i32,

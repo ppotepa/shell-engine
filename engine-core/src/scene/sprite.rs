@@ -154,6 +154,7 @@ impl<'de> Deserialize<'de> for SpriteSizePreset {
 /// A drawable object within a layer. Has its own local bitmap position and lifecycle.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum Sprite {
     /// Terminal-native text sprite.
     /// If `font` is None: characters written directly to buffer (fast path).

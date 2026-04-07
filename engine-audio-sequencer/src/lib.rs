@@ -468,6 +468,7 @@ pub fn validate_song_file(song: &SongFile) -> Result<(), SequencerError> {
         )));
     }
     if let Some(region) = &song.loop_region {
+        #[allow(clippy::neg_cmp_op_on_partial_ord)]
         if !(region.end_beat > region.start_beat) {
             return Err(SequencerError::Invalid(format!(
                 "song '{}' loop region end must be > start",

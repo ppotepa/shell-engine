@@ -10,69 +10,70 @@ use super::helpers::{
 };
 
 pub(super) fn scene_overlay_patch() -> Mapping {
-    let mut patches = Vec::new();
-    patches.push(conditional_property_overlay(
-        "cutscene-ref",
-        suggested_string_refs(&["./catalog.yaml#/$defs/cutscene_refs"]),
-    ));
-    patches.push(conditional_property_overlay(
-        "cutscene_ref",
-        suggested_string_refs(&["./catalog.yaml#/$defs/cutscene_refs"]),
-    ));
-    patches.push(conditional_property_overlay(
-        "next",
-        nullable_suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
-    ));
-    patches.push(conditional_property_overlay(
-        "menu-options",
-        menu_options_overlay(),
-    ));
-    patches.push(conditional_property_overlay(
-        "menu_options",
-        menu_options_overlay(),
-    ));
-    patches.push(conditional_property_overlay("objects", objects_overlay()));
-    patches.push(conditional_property_overlay("input", scene_input_overlay()));
-    patches.push(conditional_property_overlay(
-        "behaviors",
-        array_items_ref("#/$defs/behavior_overlay"),
-    ));
-    patches.push(conditional_property_overlay(
-        "logic",
-        schema_ref("#/$defs/scene_logic_overlay"),
-    ));
-    patches.push(conditional_property_overlay(
-        "layers",
-        scene_layers_overlay(),
-    ));
-    patches.push(conditional_property_overlay(
-        "templates",
-        object_additional_properties_ref("#/$defs/sprite_overlay"),
-    ));
-    patches.push(conditional_property_overlay(
-        "stages",
-        schema_ref("#/$defs/scene_stages_overlay"),
-    ));
-    patches.push(conditional_property_overlay(
-        "effect-presets",
-        object_additional_properties_ref("./effects.yaml#/items"),
-    ));
-    patches.push(conditional_property_overlay(
-        "effect_presets",
-        object_additional_properties_ref("./effects.yaml#/items"),
-    ));
-    patches.push(conditional_property_overlay(
-        "effect-presets-ref",
-        suggested_string_refs(&["./catalog.yaml#/$defs/effect_refs"]),
-    ));
-    patches.push(conditional_property_overlay(
-        "effect_presets_ref",
-        suggested_string_refs(&["./catalog.yaml#/$defs/effect_refs"]),
-    ));
-    patches.push(conditional_property_overlay(
-        "postfx",
-        array_items_ref("./effects.yaml#/items"),
-    ));
+    let patches = vec![
+        conditional_property_overlay(
+            "cutscene-ref",
+            suggested_string_refs(&["./catalog.yaml#/$defs/cutscene_refs"]),
+        ),
+        conditional_property_overlay(
+            "cutscene_ref",
+            suggested_string_refs(&["./catalog.yaml#/$defs/cutscene_refs"]),
+        ),
+        conditional_property_overlay(
+            "next",
+            nullable_suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
+        ),
+        conditional_property_overlay(
+            "menu-options",
+            menu_options_overlay(),
+        ),
+        conditional_property_overlay(
+            "menu_options",
+            menu_options_overlay(),
+        ),
+        conditional_property_overlay("objects", objects_overlay()),
+        conditional_property_overlay("input", scene_input_overlay()),
+        conditional_property_overlay(
+            "behaviors",
+            array_items_ref("#/$defs/behavior_overlay"),
+        ),
+        conditional_property_overlay(
+            "logic",
+            schema_ref("#/$defs/scene_logic_overlay"),
+        ),
+        conditional_property_overlay(
+            "layers",
+            scene_layers_overlay(),
+        ),
+        conditional_property_overlay(
+            "templates",
+            object_additional_properties_ref("#/$defs/sprite_overlay"),
+        ),
+        conditional_property_overlay(
+            "stages",
+            schema_ref("#/$defs/scene_stages_overlay"),
+        ),
+        conditional_property_overlay(
+            "effect-presets",
+            object_additional_properties_ref("./effects.yaml#/items"),
+        ),
+        conditional_property_overlay(
+            "effect_presets",
+            object_additional_properties_ref("./effects.yaml#/items"),
+        ),
+        conditional_property_overlay(
+            "effect-presets-ref",
+            suggested_string_refs(&["./catalog.yaml#/$defs/effect_refs"]),
+        ),
+        conditional_property_overlay(
+            "effect_presets_ref",
+            suggested_string_refs(&["./catalog.yaml#/$defs/effect_refs"]),
+        ),
+        conditional_property_overlay(
+            "postfx",
+            array_items_ref("./effects.yaml#/items"),
+        ),
+    ];
 
     let mut root = Mapping::new();
     root.insert(

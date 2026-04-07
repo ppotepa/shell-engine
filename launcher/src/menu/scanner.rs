@@ -22,7 +22,7 @@ pub struct MenuScene {
 pub fn scan_menu_entries(workspace_root: &Path) -> Result<Vec<MenuMod>> {
     let mods = workspace::scan_mods(workspace_root)?;
     
-    let menu_mods = mods.into_iter().map(|m| convert_to_menu_mod(m)).collect();
+    let menu_mods = mods.into_iter().map(convert_to_menu_mod).collect();
     
     Ok(menu_mods)
 }

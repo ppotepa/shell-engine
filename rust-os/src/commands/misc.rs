@@ -24,7 +24,7 @@ impl Command for FortuneCmd {
         let anomaly_count = uow.quest.anomaly_count();
         // Deterministic "random" based on uptime
         let tick = kernel.uptime_ms();
-        let show_spooky = anomaly_count >= 2 && (tick % 10 == 0);
+        let show_spooky = anomaly_count >= 2 && tick.is_multiple_of(10);
 
         if show_spooky {
             uow.print(SPOOKY_FORTUNE.to_string());
@@ -116,7 +116,7 @@ impl Command for MailCmd {
             uow.print("No mail.");
             return;
         }
-        uow.print(format!("Mail version 2.12 6/28/83. Type ? for help."));
+        uow.print("Mail version 2.12 6/28/83. Type ? for help.".to_string());
         uow.print(format!(
             "\"/var/spool/mail/{}\": {} messages",
             uow.session.user,

@@ -54,7 +54,7 @@ impl Scene3DAtlas {
 // ── Thread-local pointer for zero-overhead atlas access inside compositor ────
 
 thread_local! {
-    static ATLAS_PTR: Cell<*const Scene3DAtlas> = Cell::new(std::ptr::null());
+    static ATLAS_PTR: Cell<*const Scene3DAtlas> = const { Cell::new(std::ptr::null()) };
 }
 
 /// Set the atlas pointer for the duration of `f`, then clear it.

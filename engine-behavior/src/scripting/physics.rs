@@ -36,13 +36,8 @@ impl ScriptEntityPhysicsApi {
         let Some(body) = world.physics(self.entity_id) else {
             return RhaiArray::new();
         };
-        let mut arr = RhaiArray::with_capacity(2);
-        arr.push((body.vx as rhai::FLOAT).into());
-        arr.push((body.vy as rhai::FLOAT).into());
-        arr
+        vec![(body.vx as rhai::FLOAT).into(), (body.vy as rhai::FLOAT).into()]
     }
-
-    /// Set velocity to (vx, vy).
     pub(crate) fn set_velocity(&mut self, vx: rhai::FLOAT, vy: rhai::FLOAT) -> bool {
         let Some(world) = self.world.as_ref() else {
             return false;
@@ -76,10 +71,7 @@ impl ScriptEntityPhysicsApi {
         let Some(body) = world.physics(self.entity_id) else {
             return RhaiArray::new();
         };
-        let mut arr = RhaiArray::with_capacity(2);
-        arr.push((body.ax as rhai::FLOAT).into());
-        arr.push((body.ay as rhai::FLOAT).into());
-        arr
+        vec![(body.ax as rhai::FLOAT).into(), (body.ay as rhai::FLOAT).into()]
     }
 
     /// Set acceleration to (ax, ay).
@@ -173,10 +165,7 @@ impl ScriptEntityPhysicsApi {
                 let pts: RhaiArray = points
                     .iter()
                     .map(|[x, y]| {
-                        let mut pair = RhaiArray::with_capacity(2);
-                        pair.push((*x as rhai::FLOAT).into());
-                        pair.push((*y as rhai::FLOAT).into());
-                        pair.into()
+                        rhai::Dynamic::from(vec![(*x as rhai::FLOAT).into(), (*y as rhai::FLOAT).into()] as RhaiArray)
                     })
                     .collect();
                 map.insert("points".into(), pts.into());
@@ -223,10 +212,10 @@ impl ScriptEntityPhysicsApi {
             if let Some(pair) = item.clone().try_cast::<RhaiArray>() {
                 if pair.len() >= 2 {
                     let x = pair
-                        .get(0)
+                        .first()
                         .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
                         .or_else(|| {
-                            pair.get(0)
+                            pair.first()
                                 .and_then(|v| v.clone().try_cast::<rhai::INT>())
                                 .map(|v| v as rhai::FLOAT)
                         });
@@ -309,10 +298,7 @@ impl ScriptPhysicsApi {
         let Some(body) = world.physics(id as u64) else {
             return RhaiArray::new();
         };
-        let mut arr = RhaiArray::with_capacity(2);
-        arr.push((body.vx as rhai::FLOAT).into());
-        arr.push((body.vy as rhai::FLOAT).into());
-        arr
+        vec![(body.vx as rhai::FLOAT).into(), (body.vy as rhai::FLOAT).into()]
     }
 
     /// Set velocity to (vx, vy).
@@ -354,10 +340,7 @@ impl ScriptPhysicsApi {
         let Some(body) = world.physics(id as u64) else {
             return RhaiArray::new();
         };
-        let mut arr = RhaiArray::with_capacity(2);
-        arr.push((body.ax as rhai::FLOAT).into());
-        arr.push((body.ay as rhai::FLOAT).into());
-        arr
+        vec![(body.ax as rhai::FLOAT).into(), (body.ay as rhai::FLOAT).into()]
     }
 
     /// Set acceleration to (ax, ay).
@@ -461,10 +444,7 @@ impl ScriptPhysicsApi {
                 let pts: RhaiArray = points
                     .iter()
                     .map(|[x, y]| {
-                        let mut pair = RhaiArray::with_capacity(2);
-                        pair.push((*x as rhai::FLOAT).into());
-                        pair.push((*y as rhai::FLOAT).into());
-                        pair.into()
+                        rhai::Dynamic::from(vec![(*x as rhai::FLOAT).into(), (*y as rhai::FLOAT).into()] as RhaiArray)
                     })
                     .collect();
                 map.insert("points".into(), pts.into());
@@ -513,10 +493,10 @@ impl ScriptPhysicsApi {
             if let Some(pair) = item.clone().try_cast::<RhaiArray>() {
                 if pair.len() >= 2 {
                     let x = pair
-                        .get(0)
+                        .first()
                         .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
                         .or_else(|| {
-                            pair.get(0)
+                            pair.first()
                                 .and_then(|v| v.clone().try_cast::<rhai::INT>())
                                 .map(|v| v as rhai::FLOAT)
                         });

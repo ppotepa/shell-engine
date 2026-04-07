@@ -13,6 +13,7 @@ use super::*;
 impl SceneRuntime {
     /// Updates attached runtime behaviors for the active scene stage and
     /// applies the generated commands immediately.
+    #[allow(clippy::too_many_arguments)]
     pub fn update_behaviors(
         &mut self,
         stage: SceneStage,
@@ -97,6 +98,7 @@ impl SceneRuntime {
         // Phase 7C: Build Rhai maps once per frame and wrap in Arc.
         // Behaviors will clone these Arc refs (O(1) refcount) instead of cloning maps (O(n_map)).
         use rhai::Map as RhaiMap;
+        #[allow(clippy::arc_with_non_send_sync)]
         let rhai_menu_map = {
             let mut menu_map = RhaiMap::new();
             menu_map.insert(
@@ -110,6 +112,7 @@ impl SceneRuntime {
             std::sync::Arc::new(menu_map)
         };
 
+        #[allow(clippy::arc_with_non_send_sync)]
         let rhai_time_map = {
             let mut time_map = RhaiMap::new();
             time_map.insert(
@@ -130,6 +133,7 @@ impl SceneRuntime {
             std::sync::Arc::new(time_map)
         };
 
+        #[allow(clippy::arc_with_non_send_sync)]
         let rhai_key_map = {
             let mut key_map = rhai::Map::new();
             build_base_key_fields(&mut key_map, self.ui_state.last_raw_key.as_ref());
@@ -137,6 +141,7 @@ impl SceneRuntime {
         };
 
         // Engine-level key metadata for Rhai scope (separate `engine` namespace)
+        #[allow(clippy::arc_with_non_send_sync)]
         let engine_key_map = {
             let mut engine_key = rhai::Map::new();
             build_base_key_fields(&mut engine_key, self.ui_state.last_raw_key.as_ref());
@@ -1086,7 +1091,7 @@ impl SceneRuntime {
                 .scene
                 .layers
                 .get(layer_idx)
-                .map_or(false, |l| l.sprites.is_empty())
+                .is_some_and(|l| l.sprites.is_empty())
             {
                 self.scene.layers.remove(layer_idx);
             }
@@ -1384,6 +1389,7 @@ fn sprite_descriptor_runtime(
     (kind, name, aliases)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn register_runtime_sprite(
     objects: &mut HashMap<String, GameObject>,
     object_states: &mut HashMap<String, ObjectRuntimeState>,
@@ -1433,6 +1439,7 @@ fn register_runtime_sprite(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn register_runtime_sprite_preserving_state(
     objects: &mut HashMap<String, GameObject>,
     object_states: &mut HashMap<String, ObjectRuntimeState>,

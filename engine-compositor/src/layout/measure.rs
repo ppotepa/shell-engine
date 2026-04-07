@@ -165,11 +165,11 @@ pub(crate) fn measure_sprite_for_layout(
                     .saturating_div(row_span_clamped as u16)
                     .max(1);
 
-                for idx in col_idx..(col_idx + col_span_clamped) {
-                    col_auto_reqs[idx] = col_auto_reqs[idx].max(col_share);
+                for req in &mut col_auto_reqs[col_idx..(col_idx + col_span_clamped)] {
+                    *req = (*req).max(col_share);
                 }
-                for idx in row_idx..(row_idx + row_span_clamped) {
-                    row_auto_reqs[idx] = row_auto_reqs[idx].max(row_share);
+                for req in &mut row_auto_reqs[row_idx..(row_idx + row_span_clamped)] {
+                    *req = (*req).max(row_share);
                 }
             }
 
@@ -207,7 +207,7 @@ pub(crate) fn measure_sprite_for_layout(
         } => obj_sprite_dimensions(*width, *height, *size),
         Sprite::Panel {
             width,
-            width_percent,
+            width_percent: _,
             height,
             padding,
             border_width,
@@ -230,8 +230,6 @@ pub(crate) fn measure_sprite_for_layout(
                 .max(1);
             let measured_w = if let Some(explicit) = *width {
                 explicit
-            } else if width_percent.is_some() {
-                max_w.saturating_add(inset.saturating_mul(2))
             } else {
                 max_w.saturating_add(inset.saturating_mul(2))
             };

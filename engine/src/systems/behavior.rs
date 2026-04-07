@@ -15,7 +15,7 @@ pub fn behavior_system(world: &mut World) {
     let Some(animator) = world.animator() else {
         return;
     };
-    let stage = animator.stage.clone();
+    let stage = animator.stage;
     let scene_elapsed_ms = animator.scene_elapsed_ms;
     let stage_elapsed_ms = animator.stage_elapsed_ms;
     let menu_selected_index = animator.menu_selected_index;

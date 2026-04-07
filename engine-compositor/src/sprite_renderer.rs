@@ -25,7 +25,7 @@ thread_local! {
         RefCell::new(HashMap::new());
     /// Collected vector primitives for the current frame (SDL2 native rendering).
     pub(crate) static VECTOR_PRIMITIVES: RefCell<Vec<VectorPrimitive>> =
-        RefCell::new(Vec::new());
+        const { RefCell::new(Vec::new()) };
 }
 
 /// Hash a `engine_core::color::Color` without allocating (avoids `format!("{:?}", col)`).
@@ -94,6 +94,7 @@ use crate::{
 };
 
 /// Render all sprites in a layer onto `layer_buf`.
+#[allow(clippy::too_many_arguments)]
 pub fn render_sprites(
     layer_idx: usize,
     layer: &Layer,
@@ -161,6 +162,7 @@ pub fn render_sprites(
 }
 
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn render_sprite(
     layer_idx: usize,
     sprite_path: &mut Vec<usize>,
@@ -307,6 +309,7 @@ fn render_sprite(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_text_sprite(
     sprite: &Sprite,
     area: RenderArea,
@@ -377,7 +380,7 @@ fn render_text_sprite(
     let mod_source = ctx.asset_root.map(|root| root.mod_source());
     let (sprite_width, sprite_height) = text_sprite_dimensions(
         mod_source,
-        &*rendered_content,
+        &rendered_content,
         resolved_font.as_deref(),
         fg,
         sprite_bg,
@@ -416,7 +419,7 @@ fn render_text_sprite(
             .map(Color::from)
             .unwrap_or_else(|| dim_colour(fg));
         let radius = glow_opts.radius.max(1) as i32;
-        let glow_content = strip_markup(&*rendered_content);
+        let glow_content = strip_markup(&rendered_content);
         let glow_key = glow_cache_key(
             &glow_content,
             radius,
@@ -498,7 +501,7 @@ fn render_text_sprite(
     }
     render_text_content(
         mod_source,
-        &*rendered_content,
+        &rendered_content,
         resolved_font.as_deref(),
         fg,
         sprite_bg,
@@ -527,6 +530,7 @@ fn render_text_sprite(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_image_sprite(
     sprite: &Sprite,
     area: RenderArea,
@@ -624,6 +628,7 @@ fn render_image_sprite(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_vector_sprite(
     sprite: &Sprite,
     area: RenderArea,
@@ -728,8 +733,8 @@ fn render_vector_sprite(
     });
 
     let sprite_region = Region {
-        x: draw_x.max(0) as u16,
-        y: draw_y.max(0) as u16,
+        x: draw_x,
+        y: draw_y,
         width: bounds.width,
         height: bounds.height,
     };
@@ -744,6 +749,7 @@ fn render_vector_sprite(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_panel_sprite(
     sprite: &Sprite,
     area: RenderArea,
@@ -895,6 +901,7 @@ fn render_panel_sprite(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_grid_sprite(
     sprite: &Sprite,
     area: RenderArea,
@@ -992,6 +999,7 @@ fn render_grid_sprite(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_flex_sprite(
     sprite: &Sprite,
     area: RenderArea,
@@ -1085,6 +1093,7 @@ fn render_flex_sprite(
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_obj_sprite(
     sprite: &Sprite,
     area: RenderArea,
@@ -1362,6 +1371,7 @@ fn render_scene3d_sprite(
 }
 
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn render_panel_box(
     buffer: &mut Buffer,
     draw_x: i32,
@@ -1440,14 +1450,11 @@ fn intersect_clip_rect(a: Option<ClipRect>, b: Option<ClipRect>) -> Option<ClipR
 }
 
 #[inline(always)]
+#[allow(clippy::nonminimal_bool)]
 fn panel_cell_visible(x: u16, y: u16, width: u16, height: u16, rounded: bool) -> bool {
-    if !rounded {
-        return true;
-    }
-    !(x == 0 && y == 0
-        || x == width.saturating_sub(1) && y == 0
-        || x == 0 && y == height.saturating_sub(1)
-        || x == width.saturating_sub(1) && y == height.saturating_sub(1))
+    !rounded
+        || !((x == 0 || x == width.saturating_sub(1))
+            && (y == 0 || y == height.saturating_sub(1)))
 }
 
 #[inline(always)]

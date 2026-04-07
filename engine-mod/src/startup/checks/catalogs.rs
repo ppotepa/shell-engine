@@ -50,7 +50,7 @@ impl StartupCheck for CatalogsCheck {
 
         report.add_info(
             self.name(),
-            &format!(
+            format!(
                 "catalogs loaded successfully ({} profiles, {} prefabs, {} weapons, {} emitters, {} groups, {} waves)",
                 catalogs.input_profiles.len(),
                 catalogs.prefabs.len(),

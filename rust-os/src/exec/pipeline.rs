@@ -10,6 +10,12 @@ pub struct MinixPipeline {
     registry: CommandRegistry,
 }
 
+impl Default for MinixPipeline {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MinixPipeline {
     pub fn new() -> Self {
         Self {

@@ -29,6 +29,7 @@ pub struct TerminalRenderer {
 }
 
 thread_local! {
+    #[allow(clippy::type_complexity)]
     static DIFF_SCRATCH: RefCell<Vec<(u16, u16, char, Color, Color)>> =
         RefCell::new(Vec::with_capacity(4096));
     /// Reusable run buffer for RLE batching — avoids per-frame heap allocation.
@@ -135,7 +136,7 @@ impl OutputBackend for TerminalRenderer {
         // When overlay is active, dim the output buffer cells so the scene
         // appears darker behind the console.
         let overlay = self.pending_overlay.take();
-        if overlay.as_ref().map_or(false, |o| o.dim_scene) {
+        if overlay.as_ref().is_some_and(|o| o.dim_scene) {
             dim_output_buffer(&mut self.presented_output);
         }
 

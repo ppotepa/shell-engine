@@ -66,7 +66,7 @@ impl StartupCheck for TerminalRequirementsCheck {
         } else {
             report.add_info(
                 self.name(),
-                &format!(
+                format!(
                     "terminal size requirements skipped ({:?} presentation scales to output)",
                     runtime.presentation_policy,
                 ),
@@ -133,7 +133,7 @@ fn append_virtual_buffer_violations(
     };
     // Halfblock: 1 terminal row = 2 virtual pixel rows.
     let required_cols = render_w;
-    let required_rows = (render_h + 1) / 2; // ceil division
+    let required_rows = render_h.div_ceil(2);
     if caps.width < required_cols || caps.height < required_rows {
         violations.push(TerminalViolation {
             requirement: "render_size(strict+halfblock)".to_string(),

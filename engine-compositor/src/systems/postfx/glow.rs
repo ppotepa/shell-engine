@@ -52,11 +52,11 @@ pub(super) struct GlowScratch {
 }
 
 thread_local! {
-    pub(super) static GLOW_SCRATCH: RefCell<GlowScratch> = RefCell::new(GlowScratch {
+    pub(super) static GLOW_SCRATCH: RefCell<GlowScratch> = const { RefCell::new(GlowScratch {
         a: Vec::new(),
         b: Vec::new(),
         out: Vec::new(),
-    });
+    }) };
 }
 
 // ── Public builder ────────────────────────────────────────────────────────

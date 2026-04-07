@@ -48,6 +48,7 @@ impl<'a> ImageView<'a> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_image_content(
     source: &str,
     req_width: Option<u16>,
@@ -96,6 +97,7 @@ pub fn render_image_content(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn image_sprite_dimensions(
     source: &str,
     req_width: Option<u16>,

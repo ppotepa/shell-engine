@@ -16,7 +16,7 @@ fn toggle_debug_overlay(world: &mut World) -> bool {
     debug.overlay_visible = !debug.overlay_visible;
     logging::debug(
         "engine.debug.input",
-        &format!(
+        format!(
             "console toggled: {}",
             if debug.overlay_visible {
                 "visible"
@@ -41,7 +41,7 @@ fn cycle_debug_overlay_mode(world: &mut World) -> bool {
     };
     logging::debug(
         "engine.debug.input",
-        &format!("console tab: {:?}", debug.overlay_mode),
+        format!("console tab: {:?}", debug.overlay_mode),
     );
     true
 }
@@ -65,7 +65,7 @@ fn switch_palette_by_index(world: &mut World, index: usize) -> bool {
         let Some(id) = store.order.get(index) else {
             logging::debug(
                 "engine.debug.palette",
-                &format!("palette index {} out of range (have {})", index, store.len()),
+                format!("palette index {} out of range (have {})", index, store.len()),
             );
             return false;
         };
@@ -83,7 +83,7 @@ fn switch_palette_by_index(world: &mut World, index: usize) -> bool {
     persist.set("/__palette__", serde_json::Value::String(id.clone()));
     logging::debug(
         "engine.debug.palette",
-        &format!("[{}] palette → {} ({})", index + 1, name, id),
+        format!("[{}] palette → {} ({})", index + 1, name, id),
     );
     true
 }

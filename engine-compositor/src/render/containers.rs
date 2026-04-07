@@ -10,6 +10,7 @@ use super::super::layout::{GridCellRect, RenderArea};
 use super::common::RenderCtx;
 
 /// Renders all container children using precomputed cell rectangles.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn render_children_in_cells<F>(
     layer_idx: usize,
     sprite_path: &mut Vec<usize>,

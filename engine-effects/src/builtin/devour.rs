@@ -56,7 +56,7 @@ impl Effect for DevourOutEffect {
                     let x = region.x + dx;
                     let n = noise(x, y, t / 10);
                     let cell = match buffer.get(x, y) {
-                        Some(c) => c.clone(),
+                        Some(c) => *c,
                         None => continue,
                     };
                     if !has_signal(&cell) {

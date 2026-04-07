@@ -11,6 +11,12 @@ pub struct AppStack {
     pending: Vec<PendingLine>,
 }
 
+impl Default for AppStack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppStack {
     pub fn new() -> Self {
         Self {

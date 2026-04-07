@@ -337,7 +337,7 @@ fn spawn_stdin_writer(mut stdin: ChildStdin, rx: Receiver<String>) {
 fn spawn_stdout_reader(stdout: impl std::io::Read + Send + 'static, tx: Sender<IoEvent>) {
     thread::spawn(move || {
         let reader = BufReader::new(stdout);
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;

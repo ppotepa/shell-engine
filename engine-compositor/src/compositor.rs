@@ -19,6 +19,7 @@ thread_local! {
     static HALFBLOCK_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn composite_scene(
     bg: Color,
     layers: &[Layer],
@@ -107,6 +108,7 @@ fn composite_scene(
     object_regions
 }
 
+#[allow(clippy::too_many_arguments)]
 fn composite_scene_halfblock(
     bg: Color,
     layers: &[Layer],

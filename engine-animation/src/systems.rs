@@ -17,12 +17,8 @@ pub trait AnimatorProvider {
 pub fn animator_system<T: AnimatorProvider>(provider: &mut T, tick_ms: u64) -> Option<String> {
     // Extract only the primitives tick_animator needs — avoids cloning the entire Scene.
     let tick_data = {
-        let Some(scene) = provider.scene() else {
-            return None;
-        };
-        let Some(animator) = provider.animator() else {
-            return None;
-        };
+        let scene = provider.scene()?;
+        let animator = provider.animator()?;
         if animator.stage == crate::SceneStage::Done {
             return None;
         }
@@ -51,9 +47,7 @@ pub fn animator_system<T: AnimatorProvider>(provider: &mut T, tick_ms: u64) -> O
     let (step_count, step_dur, step_durs, stage_looping, idle_trigger, next_scene) = tick_data;
 
     let transition = {
-        let Some(animator) = provider.animator_mut() else {
-            return None;
-        };
+        let animator = provider.animator_mut()?;
         tick_animator_primitives(
             animator,
             step_count,
@@ -77,6 +71,7 @@ fn next_stage(stage: &crate::SceneStage) -> crate::SceneStage {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn tick_animator_primitives(
     animator: &mut Animator,
     step_count: usize,

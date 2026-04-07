@@ -246,8 +246,8 @@ pub fn game_loop(
                 if let Some(buf) = world.output_buffer() {
                     (
                         buf.last_diff_count,
-                        buf.dirty_cell_count() as u32,
-                        buf.total_cells() as u32,
+                        buf.dirty_cell_count(),
+                        buf.total_cells(),
                         buf.write_count,
                     )
                 } else {

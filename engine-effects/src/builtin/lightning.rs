@@ -241,9 +241,9 @@ fn band_hash(region: Region, lane: u32, salt: u32) -> f32 {
 fn ambient_pulse_descriptor(region: Region, pulse_idx: usize, pulse_count: usize) -> (f32, f32) {
     let segment = 1.0 / (pulse_count as f32 + 1.0);
     let lane = pulse_idx as u32 + 1;
-    let center_jitter = (band_hash(region, lane, 0xA11D_1E) - 0.5) * segment * 0.55;
+    let center_jitter = (band_hash(region, lane, 0xA1_1D_1E) - 0.5) * segment * 0.55;
     let center = ((pulse_idx as f32 + 1.0) * segment + center_jitter).clamp(0.06, 0.94);
-    let width = 0.035 + band_hash(region, lane, 0xA11D_EF) * 0.03;
+    let width = 0.035 + band_hash(region, lane, 0xA1_1D_EF) * 0.03;
     (center, width)
 }
 
@@ -396,6 +396,7 @@ fn blend_cell_to(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_growth_core(
     buffer: &mut Buffer,
     region: Region,

@@ -33,6 +33,7 @@ impl ClipRect {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn render_text_content(
     mod_source: Option<&Path>,
     content: &str,

@@ -17,7 +17,7 @@ impl FrameCapture {
     /// Create a new frame capture writer, initializing output directory.
     pub fn new(output_dir: impl Into<PathBuf>) -> Result<Self, EngineError> {
         let output_dir = output_dir.into();
-        fs::create_dir_all(&output_dir).map_err(|e| EngineError::Render(e))?;
+        fs::create_dir_all(&output_dir).map_err(EngineError::Render)?;
         Ok(Self {
             output_dir,
             frame_num: 0,
@@ -32,13 +32,13 @@ impl FrameCapture {
         let filename = format!("frame_{:06}.bin", self.frame_num);
         let path = self.output_dir.join(&filename);
 
-        let mut file = fs::File::create(&path).map_err(|e| EngineError::Render(e))?;
+        let mut file = fs::File::create(&path).map_err(EngineError::Render)?;
 
         // Write header
         file.write_all(&buffer.width.to_le_bytes())
-            .map_err(|e| EngineError::Render(e))?;
+            .map_err(EngineError::Render)?;
         file.write_all(&buffer.height.to_le_bytes())
-            .map_err(|e| EngineError::Render(e))?;
+            .map_err(EngineError::Render)?;
 
         // Write cells
         for y in 0..buffer.height {
@@ -60,17 +60,17 @@ fn write_cell(file: &mut fs::File, cell: &Cell) -> Result<(), EngineError> {
     // Write symbol as u32 LE
     let symbol_code = cell.symbol as u32;
     file.write_all(&symbol_code.to_le_bytes())
-        .map_err(|e| EngineError::Render(e))?;
+        .map_err(EngineError::Render)?;
 
     // Write fg color as RGB
     let (fg_r, fg_g, fg_b) = color_to_rgb(cell.fg);
     file.write_all(&[fg_r, fg_g, fg_b])
-        .map_err(|e| EngineError::Render(e))?;
+        .map_err(EngineError::Render)?;
 
     // Write bg color as RGB
     let (bg_r, bg_g, bg_b) = color_to_rgb(cell.bg);
     file.write_all(&[bg_r, bg_g, bg_b])
-        .map_err(|e| EngineError::Render(e))?;
+        .map_err(EngineError::Render)?;
 
     Ok(())
 }

@@ -143,12 +143,10 @@ pub(crate) fn spawn_ephemeral_visual(
         }
     }
 
-    if spec.lifecycle.follows_owner() {
-        if !world.set_follow_anchor(entity_id, spec.follow_anchor.unwrap_or_default()) {
-            let _ = world.despawn(entity_id);
-            queue_scene_cleanup(queue, &visual_id);
-            return None;
-        }
+    if spec.lifecycle.follows_owner() && !world.set_follow_anchor(entity_id, spec.follow_anchor.unwrap_or_default()) {
+        let _ = world.despawn(entity_id);
+        queue_scene_cleanup(queue, &visual_id);
+        return None;
     }
 
     if !spec.extra_data.is_empty() && !world.set_many(entity_id, &spec.extra_data) {

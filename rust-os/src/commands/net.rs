@@ -31,7 +31,6 @@ impl Command for PingCmd {
             .values()
             .next()
             .cloned()
-            .or_else(|| None)
         {
             // placeholder
             let _ = remote;
@@ -201,15 +200,15 @@ impl Command for NslookupCmd {
                     continue;
                 }
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 2 && parts[1..].iter().any(|&n| n == host) {
+                if parts.len() >= 2 && parts[1..].contains(&host) {
                     return Some((parts[0].to_string(), parts[1].to_string()));
                 }
             }
             None
         });
 
-        uow.print(format!("Server:  localhost"));
-        uow.print(format!("Address: 127.0.0.1"));
+        uow.print("Server:  localhost".to_string());
+        uow.print("Address: 127.0.0.1".to_string());
         uow.print("".to_string());
 
         if let Some((ip, canonical)) = found {
@@ -299,18 +298,14 @@ impl Command for FingerCmd {
         }
 
         uow.print("Login     Name                 Tty      Idle  Login  Time");
-        uow.print(format!(
-            "torvalds  Linus Torvalds       tty0        Sep 17 21:12"
-        ));
-        uow.print(format!(
-            "ast       A.S. Tanenbaum       tty1     14  Sep 17 21:12"
-        ));
+        uow.print("torvalds  Linus Torvalds       tty0        Sep 17 21:12".to_string());
+        uow.print("ast       A.S. Tanenbaum       tty1     14  Sep 17 21:12".to_string());
 
         if anomaly_count >= 2 && !upload_success {
             // (null) session visible — hides after upload success
-            uow.print(format!(
-                "(null)    ???                  tty2      0  Sep 17 21:12"
-            ));
+            uow.print(
+                "(null)    ???                  tty2      0  Sep 17 21:12".to_string(),
+            );
         }
 
         // After tier 3, .plan for (null)
@@ -331,7 +326,7 @@ impl Command for TelnetCmd {
 
         match (host, port) {
             ("localhost", _) | ("kruuna", _) => {
-                uow.print(format!("Trying 127.0.0.1..."));
+                uow.print("Trying 127.0.0.1...".to_string());
                 uow.schedule("Connected to localhost.".to_string(), 200);
                 uow.schedule("Escape character is '^]'.".to_string(), 0);
                 uow.schedule("".to_string(), 0);

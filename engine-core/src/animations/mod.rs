@@ -13,6 +13,12 @@ pub struct AnimationDispatcher {
     registry: HashMap<&'static str, Box<dyn SpriteAnimation>>,
 }
 
+impl Default for AnimationDispatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnimationDispatcher {
     pub fn new() -> Self {
         let mut d = Self {

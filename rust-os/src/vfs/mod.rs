@@ -11,6 +11,12 @@ pub struct Vfs {
     stats: BTreeMap<String, FileStat>,
 }
 
+impl Default for Vfs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Vfs {
     pub fn new() -> Self {
         let mut vfs = Self {

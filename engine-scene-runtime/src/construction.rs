@@ -161,6 +161,7 @@ fn path_key(layer_idx: usize, sprite_path: &[usize]) -> String {
     key
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_sprite_objects(
     objects: &mut HashMap<String, GameObject>,
     object_states: &mut HashMap<String, ObjectRuntimeState>,

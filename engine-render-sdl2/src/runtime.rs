@@ -191,6 +191,7 @@ impl Sdl2RuntimeClient {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn runtime_thread(
     output_width: u16,
     output_height: u16,
@@ -649,6 +650,7 @@ fn splash_clear_rgb(pixel_buffer: &[u8]) -> (u8, u8, u8) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn poll_input(
     canvas: &mut sdl2::render::WindowCanvas,
     frame_texture: &sdl2::render::Texture<'_>,
@@ -846,13 +848,13 @@ pub(crate) fn map_keycode(keycode: Keycode) -> KeyCode {
 pub(crate) fn map_modifiers(keymod: Mod) -> KeyModifiers {
     let mut modifiers = KeyModifiers::NONE;
     if keymod.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD) {
-        modifiers = modifiers | KeyModifiers::CONTROL;
+        modifiers |= KeyModifiers::CONTROL;
     }
     if keymod.intersects(Mod::LALTMOD | Mod::RALTMOD) {
-        modifiers = modifiers | KeyModifiers::ALT;
+        modifiers |= KeyModifiers::ALT;
     }
     if keymod.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD) {
-        modifiers = modifiers | KeyModifiers::SHIFT;
+        modifiers |= KeyModifiers::SHIFT;
     }
     modifiers
 }

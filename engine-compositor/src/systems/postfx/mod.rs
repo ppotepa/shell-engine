@@ -48,7 +48,7 @@ pub fn postfx_system(world: &mut World) {
     // #16 opt-postfx-earlyret: skip all work when scene has no postfx passes.
     if world
         .get::<engine_scene_runtime::SceneRuntime>()
-        .map_or(true, |rt| rt.scene().postfx.is_empty())
+        .is_none_or(|rt| rt.scene().postfx.is_empty())
     {
         return;
     }
@@ -101,7 +101,6 @@ pub fn postfx_system(world: &mut World) {
                 if cached.width == buffer.width && cached.height == buffer.height {
                     buffer.copy_back_from(cached);
                     rt.frame_count = rt.frame_count.saturating_add(1);
-                    return;
                 }
             }
         });

@@ -145,7 +145,7 @@ fn launch_selection(workspace_root: &Path, selection: &Selection, flags: &Launch
         8
     };
     cmd = cmd.app_arg("--sdl-window-ratio").app_arg("16:9");
-    cmd = cmd.app_arg("--sdl-pixel-scale").app_arg(&pixel_scale.to_string());
+    cmd = cmd.app_arg("--sdl-pixel-scale").app_arg(pixel_scale.to_string());
 
     let status = cmd.exec(workspace_root)?;
 

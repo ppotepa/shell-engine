@@ -150,7 +150,7 @@ impl Effect for NeonEdgeGlowEffect {
                             buffer.set(x, y, sym, fg, bg);
                         }
                     }
-                } else if d >= 1 && d <= MAX_RINGS {
+                } else if (1..=MAX_RINGS).contains(&d) {
                     let falloff = RING_FALLOFF[(d - 1) as usize];
                     let glow_str = (alpha * glow_mul * falloff).min(1.0);
                     if glow_str > 0.01 {

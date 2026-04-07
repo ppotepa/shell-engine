@@ -43,7 +43,7 @@ impl TerminalShellState {
 
         // Default shell prompt (`>`) uses a blinking marker.
         if self.controls.prompt_prefix.trim() == ">" {
-            let blink_on = ((scene_elapsed_ms / 450) % 2) == 0;
+            let blink_on = (scene_elapsed_ms / 450).is_multiple_of(2);
             let prefix = if blink_on { ">" } else { " " };
             return format!("{prefix}{input_value}");
         }
@@ -443,7 +443,7 @@ impl SceneRuntime {
         let line_height = 1u16;
         let vertical_space = prompt_layout.y.saturating_sub(output_layout.y).max(1) as u16;
         let viewport_lines = (vertical_space / line_height).max(1) as usize;
-        let target_rows = viewport_lines.min(state.controls.max_lines.max(1) as usize);
+        let target_rows = viewport_lines.min(state.controls.max_lines.max(1));
         if target_rows <= 1 {
             return (state.output_text(), String::new());
         }

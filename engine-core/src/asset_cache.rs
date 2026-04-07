@@ -14,6 +14,12 @@ impl<T> AssetCache<T> {
     }
 }
 
+impl<T> Default for AssetCache<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> AssetCache<T> {
     pub fn get_or_load<F>(&self, key: String, loader: F) -> Option<Arc<T>>
     where

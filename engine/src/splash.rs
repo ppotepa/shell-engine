@@ -614,7 +614,7 @@ fn load_splash_visuals(splash_scene: &SplashScene) -> io::Result<SplashVisuals> 
 fn load_bitmap_image(path: &Path) -> io::Result<image::RgbaImage> {
     let bytes = fs::read(path)?;
     load_from_memory(&bytes)
-        .map_err(|error| io::Error::new(io::ErrorKind::Other, error))
+        .map_err(io::Error::other)
         .map(|img| img.to_rgba8())
 }
 
@@ -826,6 +826,7 @@ fn enqueue_outside_pixel(
     queue.push_back((x, y));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_splash_frame(
     stdout: &mut io::Stdout,
     term_w: u16,
@@ -1098,6 +1099,7 @@ fn fill_solid_buffer(target: &mut Buffer, bg: style::Color) {
     target.fill(color_convert::from_crossterm(bg));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_image(
     stdout: &mut io::Stdout,
     img: &image::RgbaImage,
@@ -1392,6 +1394,7 @@ fn scale_placement(base: ImagePlacement, scale: f32, term_w: u16, term_h: u16) -
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sample_transformed_clipped(
     img: &image::RgbaImage,
     col: u32,

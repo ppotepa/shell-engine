@@ -24,7 +24,7 @@ impl Command for LsCmd {
         if kernel.vfs.is_file(&target) {
             if long {
                 if let Some(stat) = kernel.vfs.stat(&target) {
-                    let name = target.split('/').last().unwrap_or(&target);
+                    let name = target.split('/').next_back().unwrap_or(&target);
                     uow.print(format!(
                         "{} {:2} {:8} {:8} {:6} {} {}",
                         stat.permissions,
@@ -37,7 +37,7 @@ impl Command for LsCmd {
                     ));
                 }
             } else {
-                let name = target.split('/').last().unwrap_or(&target);
+                let name = target.split('/').next_back().unwrap_or(&target);
                 uow.print(name.to_string());
             }
             return;
@@ -133,7 +133,7 @@ impl Command for CatCmd {
                     // Tier 3 decay: 5% chance of data bleed
                     if decay >= 3 {
                         let tick = kernel.uptime_ms();
-                        if tick % 20 == 0 {
+                        if tick.is_multiple_of(20) {
                             uow.print("".to_string());
                             // Extra line from another file (bleed)
                             uow.print("[data bleed from adjacent block]".to_string());

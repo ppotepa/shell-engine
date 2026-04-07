@@ -10,6 +10,12 @@ pub struct ShellApp {
     pipeline: MinixPipeline,
 }
 
+impl Default for ShellApp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ShellApp {
     pub fn new() -> Self {
         Self {

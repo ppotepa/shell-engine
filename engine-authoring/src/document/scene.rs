@@ -603,6 +603,7 @@ fn resolve_menu_ui_target_layer<'a>(
     layer_seq.first_mut()?.as_mapping_mut()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn menu_item_sprite(
     id: &str,
     content: &str,
@@ -794,7 +795,7 @@ fn expand_window_sprite(
             "fg_colour",
         ],
     )
-    .or_else(|| Some(theme_defaults.window.border_fg))
+    .or(Some(theme_defaults.window.border_fg))
     .unwrap_or("gray");
     let border_bg = map_get_str(
         sprite_map,
@@ -807,7 +808,7 @@ fn expand_window_sprite(
             "border_background",
         ],
     )
-    .or_else(|| Some(theme_defaults.window.border_bg))
+    .or(Some(theme_defaults.window.border_bg))
     .unwrap_or("black");
     let panel_bg = map_get_str(
         sprite_map,
@@ -820,16 +821,16 @@ fn expand_window_sprite(
             "bg_colour",
         ],
     )
-    .or_else(|| Some(theme_defaults.window.panel_bg))
+    .or(Some(theme_defaults.window.panel_bg))
     .unwrap_or("gray");
     let title_fg = map_get_str(sprite_map, &["title-fg", "title_fg"])
-        .or_else(|| Some(theme_defaults.window.title_fg))
+        .or(Some(theme_defaults.window.title_fg))
         .unwrap_or("white");
     let body_fg = map_get_str(sprite_map, &["body-fg", "body_fg"])
-        .or_else(|| Some(theme_defaults.window.body_fg))
+        .or(Some(theme_defaults.window.body_fg))
         .unwrap_or("silver");
     let footer_fg = map_get_str(sprite_map, &["footer-fg", "footer_fg"])
-        .or_else(|| Some(theme_defaults.window.footer_fg))
+        .or(Some(theme_defaults.window.footer_fg))
         .unwrap_or("gray");
     let window_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
     let slots_id = map_get_str(sprite_map, &["slots-id", "slots_id"])
@@ -1171,13 +1172,13 @@ fn expand_scroll_list_sprite(
     let gap_y = map_get_u64(sprite_map, &["gap-y", "gap_y"]).unwrap_or(1);
     let theme_defaults = resolve_ui_theme_or_default(scene_theme);
     let selected_fg = map_get_str(sprite_map, &["fg-selected", "fg_selected"])
-        .or_else(|| Some(theme_defaults.scroll_list.selected_fg))
+        .or(Some(theme_defaults.scroll_list.selected_fg))
         .unwrap_or("white");
     let fg_alt_a = map_get_str(sprite_map, &["fg-alt-a", "fg_alt_a"])
-        .or_else(|| Some(theme_defaults.scroll_list.alt_a_fg))
+        .or(Some(theme_defaults.scroll_list.alt_a_fg))
         .unwrap_or("silver");
     let fg_alt_b = map_get_str(sprite_map, &["fg-alt-b", "fg_alt_b"])
-        .or_else(|| Some(theme_defaults.scroll_list.alt_b_fg))
+        .or(Some(theme_defaults.scroll_list.alt_b_fg))
         .unwrap_or("gray");
     let list_font = map_get_str(sprite_map, &["font"]).map(ToString::to_string);
 
@@ -1301,6 +1302,7 @@ fn expand_scroll_list_sprite(
     Ok(vec![Value::Mapping(grid)])
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_window_text_child(
     id: Option<&str>,
     content: &str,

@@ -68,7 +68,7 @@ fn reload_user_env_vars() {
 #[allow(dead_code)]
 pub fn check_sdl2_available(env: &PlatformEnv) -> bool {
     if env.is_windows {
-        env.sdl2_lib_dir.as_ref().map_or(false, |p| p.exists())
+        env.sdl2_lib_dir.as_ref().is_some_and(|p| p.exists())
     } else {
         which::which("sdl2-config").is_ok()
     }

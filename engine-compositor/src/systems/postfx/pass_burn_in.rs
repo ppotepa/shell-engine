@@ -34,6 +34,7 @@ use std::cell::RefCell;
 
 // ── State ─────────────────────────────────────────────────────────────────
 
+#[derive(Default)]
 struct BurnInState {
     /// Last frame captured (before transition).
     live_capture: Vec<Cell>,
@@ -45,21 +46,6 @@ struct BurnInState {
     ghost_h: u16,
     prev_scene_elapsed_ms: u64,
     has_capture: bool,
-}
-
-impl Default for BurnInState {
-    fn default() -> Self {
-        Self {
-            live_capture: Vec::new(),
-            live_w: 0,
-            live_h: 0,
-            ghost: None,
-            ghost_w: 0,
-            ghost_h: 0,
-            prev_scene_elapsed_ms: 0,
-            has_capture: false,
-        }
-    }
 }
 
 impl BurnInState {

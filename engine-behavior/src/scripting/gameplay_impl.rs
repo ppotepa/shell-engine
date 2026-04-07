@@ -59,6 +59,7 @@ impl ScriptGameplayApi {
         map_int(args, key, fallback)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         world: Option<GameplayWorld>,
         collisions: std::sync::Arc<Vec<CollisionHit>>,
@@ -453,6 +454,7 @@ impl ScriptGameplayApi {
         ().into()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn set_physics(
         &mut self,
         id: rhai::INT,
@@ -734,27 +736,27 @@ impl ScriptGameplayApi {
         // Step 7: Set lifetime if provided (skip if zero — means no expiry)
         if let Some(ttl_val) = data.get("lifetime_ms") {
             if let Some(ttl) = ttl_val.clone().try_cast::<rhai::INT>() {
-                if ttl > 0 {
-                    if !world.set_lifetime(
+                if ttl > 0
+                    && !world.set_lifetime(
                         entity_id,
                         Lifetime {
                             ttl_ms: ttl as i32,
                             original_ttl_ms: ttl as i32,
                             on_expire: DespawnVisual::None,
                         },
-                    ) {
-                        world.despawn(entity_id);
-                        return 0;
-                    }
+                    )
+                {
+                    world.despawn(entity_id);
+                    return 0;
                 }
             }
         }
 
         // Step 8: Create physics body if velocity/physics fields are present
-        let has_physics = data.get("vx").is_some()
-            || data.get("vy").is_some()
-            || data.get("drag").is_some()
-            || data.get("max_speed").is_some();
+        let has_physics = data.contains_key("vx")
+            || data.contains_key("vy")
+            || data.contains_key("drag")
+            || data.contains_key("max_speed");
         if has_physics {
             let extract_f = |key: &str| -> f32 {
                 data.get(key)
@@ -834,63 +836,55 @@ impl ScriptGameplayApi {
 
         // Apply collider component - check args for radius override
         if let Some(coll) = &components.collider {
-            match coll.shape.as_str() {
-                "circle" => {
-                    let mut radius = coll.radius.unwrap_or(1.0);
-                    let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
-                    let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
+            if coll.shape.as_str() == "circle" {
+                let mut radius = coll.radius.unwrap_or(1.0);
+                let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
+                let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
 
-                    // Check args for collider_radius override
-                    if let Some(arg_radius) = args.get("collider_radius") {
-                        if let Ok(r) = arg_radius.as_float() {
-                            radius = r;
-                        }
-                    }
-
-                    if !self.set_collider_circle(entity_id, radius, layer, mask) {
-                        return false;
+                // Check args for collider_radius override
+                if let Some(arg_radius) = args.get("collider_radius") {
+                    if let Ok(r) = arg_radius.as_float() {
+                        radius = r;
                     }
                 }
-                _ => {} // Unknown shape or rect (not yet supported); skip
+
+                if !self.set_collider_circle(entity_id, radius, layer, mask) {
+                    return false;
+                }
             }
         }
 
         // Apply controller component - merge catalog config with args["cfg"] overrides
         if let Some(ctrl) = &components.controller {
-            match ctrl.controller_type.as_str() {
-                "ArcadeController" => {
-                    let mut config_map = if let Some(cfg) = &ctrl.config {
-                        let mut m = RhaiMap::new();
-                        for (k, v) in cfg {
-                            m.insert(k.clone().into(), json_to_rhai_dynamic(v));
-                        }
-                        m
-                    } else {
-                        RhaiMap::new()
-                    };
-
-                    // Merge runtime overrides from args["cfg"] (e.g. per-level difficulty)
-                    if let Some(cfg_dyn) = args.get("cfg") {
-                        if let Some(cfg_map) = cfg_dyn.clone().try_cast::<RhaiMap>() {
-                            for (k, v) in &cfg_map {
-                                config_map.insert(k.clone(), v.clone());
-                            }
-                        }
+            if ctrl.controller_type.as_str() == "ArcadeController" {
+                let mut config_map = if let Some(cfg) = &ctrl.config {
+                    let mut m = RhaiMap::new();
+                    for (k, v) in cfg {
+                        m.insert(k.clone().into(), json_to_rhai_dynamic(v));
                     }
+                    m
+                } else {
+                    RhaiMap::new()
+                };
 
-                    if !self.attach_controller(entity_id, config_map) {
-                        return false;
+                // Merge runtime overrides from args["cfg"] (e.g. per-level difficulty)
+                if let Some(cfg_dyn) = args.get("cfg") {
+                    if let Some(cfg_map) = cfg_dyn.clone().try_cast::<RhaiMap>() {
+                        for (k, v) in &cfg_map {
+                            config_map.insert(k.clone(), v.clone());
+                        }
                     }
                 }
-                _ => {} // Unknown controller type; skip
+
+                if !self.attach_controller(entity_id, config_map) {
+                    return false;
+                }
             }
         }
 
         // Apply wrappable flag
-        if components.wrappable.unwrap_or(false) {
-            if !self.enable_wrap_bounds(entity_id) {
-                return false;
-            }
+        if components.wrappable.unwrap_or(false) && !self.enable_wrap_bounds(entity_id) {
+            return false;
         }
 
         // Apply extra data fields from catalog and args overrides
@@ -916,10 +910,8 @@ impl ScriptGameplayApi {
             }
         }
 
-        if !data.is_empty() {
-            if !self.entity(entity_id).set_many(data) {
-                return false;
-            }
+        if !data.is_empty() && !self.entity(entity_id).set_many(data) {
+            return false;
         }
 
         true
@@ -1131,17 +1123,14 @@ impl ScriptGameplayApi {
         // Apply collider if specified in prefab
         if let Some(components) = &prefab.components {
             if let Some(coll) = &components.collider {
-                match coll.shape.as_str() {
-                    "circle" => {
-                        let radius = coll.radius.unwrap_or(1.0);
-                        let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
-                        let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
-                        if !self.set_collider_circle(id as rhai::INT, radius, layer, mask) {
-                            let _ = self.despawn(id as rhai::INT);
-                            return 0;
-                        }
+                if coll.shape.as_str() == "circle" {
+                    let radius = coll.radius.unwrap_or(1.0);
+                    let layer = coll.layer.unwrap_or(0xFFFF) as rhai::INT;
+                    let mask = coll.mask.unwrap_or(0xFFFF) as rhai::INT;
+                    if !self.set_collider_circle(id as rhai::INT, radius, layer, mask) {
+                        let _ = self.despawn(id as rhai::INT);
+                        return 0;
                     }
-                    _ => {} // Unknown shape or rect (not yet supported); skip
                 }
             }
         }
@@ -1152,24 +1141,23 @@ impl ScriptGameplayApi {
             .as_ref()
             .and_then(|c| c.wrappable)
             .unwrap_or(false)
+            && !self.enable_wrap_bounds(id as rhai::INT)
         {
-            if !self.enable_wrap_bounds(id as rhai::INT) {
-                let _ = self.despawn(id as rhai::INT);
-                return 0;
-            }
+            let _ = self.despawn(id as rhai::INT);
+            return 0;
         }
 
         // Apply default_tags from prefab catalog, then extend with args tags
         {
             if let Some(world) = self.ctx.world.as_ref() {
                 for tag in &prefab.default_tags {
-                    world.tag_add(id as u64, tag);
+                    world.tag_add(id, tag);
                 }
                 if let Some(tags_val) = args.get("tags") {
                     if let Ok(tags_arr) = tags_val.clone().into_array() {
                         for t in tags_arr {
                             if let Ok(s) = t.into_string() {
-                                world.tag_add(id as u64, &s);
+                                world.tag_add(id, &s);
                             }
                         }
                     }
@@ -1558,7 +1546,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return;
         };
-        world.rand_seed(seed as i64);
+        world.rand_seed(seed);
     }
 
     pub(crate) fn tag_add(&mut self, id: rhai::INT, tag: &str) -> bool {
@@ -1586,7 +1574,7 @@ impl ScriptGameplayApi {
         let Some(world) = self.ctx.world.as_ref() else {
             return;
         };
-        world.after_ms(label, delay_ms as i64);
+        world.after_ms(label, delay_ms);
     }
 
     pub(crate) fn timer_fired(&mut self, label: &str) -> bool {
@@ -1660,8 +1648,8 @@ impl ScriptGameplayApi {
         // Derive heading vector from Transform2D.heading (authoritative when AngularBody
         // is present) rather than ArcadeController.current_heading (which is not updated
         // by the AngularBody system and can be stale after rotation).
-        let hx = (heading as f64).sin();
-        let hy = -(heading as f64).cos();
+        let hx = heading.sin();
+        let hy = -heading.cos();
         let base_vx = phys
             .get("vx")
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
@@ -1817,7 +1805,7 @@ impl ScriptGameplayApi {
                 let radius_max = args
                     .get("radius_max")
                     .and_then(|v| v.clone().try_cast::<rhai::INT>())
-                    .unwrap_or_else(|| config.radius_max.unwrap_or(resolved.radius as i64))
+                    .unwrap_or_else(|| config.radius_max.unwrap_or(resolved.radius))
                     as i32;
                 let radius_min = args
                     .get("radius_min")
@@ -1839,6 +1827,7 @@ impl ScriptGameplayApi {
         id as rhai::INT
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn resolve_ephemeral_prefab(
         &self,
         prefab: &catalog::PrefabTemplate,

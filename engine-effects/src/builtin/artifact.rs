@@ -72,7 +72,7 @@ impl Effect for ArtifactOutEffect {
                 for dx in 0..region.width {
                     let x = region.x + dx;
                     let src_idx = (dx as i32 - tear_offset).clamp(0, max_dx) as usize;
-                    let mut src = row[src_idx].clone();
+                    let mut src = row[src_idx];
                     let n = noise(x, y, t / 12);
 
                     if !has_signal(&src) {
@@ -89,7 +89,7 @@ impl Effect for ArtifactOutEffect {
                     if n < drop_prob + block_prob {
                         let jump = ((noise(x.wrapping_add(7), y, t / 8) * 7.0).floor() as i32) - 3;
                         let j_idx = (src_idx as i32 + jump).clamp(0, max_dx) as usize;
-                        src = row[j_idx].clone();
+                        src = row[j_idx];
                     }
 
                     if n < drop_prob + block_prob + corrupt_prob {

@@ -42,7 +42,7 @@ impl Command for DateCmd {
     fn execute(&self, _args: &[&str], uow: &mut UnitOfWork, kernel: &mut Kernel) {
         let decay = uow.quest.decay_tier();
         let date = kernel.clock.now_str();
-        if decay >= 1 && kernel.uptime_ms() % 15 == 0 {
+        if decay >= 1 && kernel.uptime_ms().is_multiple_of(15) {
             // Brief wrong year
             uow.print("Mon Sep 17 21:12:00 EET 1977".to_string());
             uow.schedule(date, 100);
@@ -102,7 +102,7 @@ impl Command for HostnameCmd {
             .trim()
             .to_string();
         let decay = uow.quest.decay_tier();
-        if decay >= 2 && kernel.uptime_ms() % 13 == 0 {
+        if decay >= 2 && kernel.uptime_ms().is_multiple_of(13) {
             uow.print(format!("{hostname}?"));
         } else {
             uow.print(hostname);
@@ -123,9 +123,9 @@ impl Command for WhoCmd {
         let anomaly_count = uow.quest.anomaly_count();
         let time = kernel.clock.time_str();
         uow.print(format!("torvalds  tty0  Sep 17 {time}"));
-        uow.print(format!("ast       tty1  Sep 17 21:12"));
+        uow.print("ast       tty1  Sep 17 21:12".to_string());
         if anomaly_count >= 2 {
-            uow.print(format!("(null)    tty2  Sep 17 21:12"));
+            uow.print("(null)    tty2  Sep 17 21:12".to_string());
         }
     }
 }
@@ -197,7 +197,7 @@ impl Command for DmesgCmd {
         let spec = &kernel.spec;
         let ram = spec.ram_kb;
         let avail = ram - 512;
-        uow.print(format!("Sep 17 21:12:00 kernel: MINIX 1.1 (i386)"));
+        uow.print("Sep 17 21:12:00 kernel: MINIX 1.1 (i386)".to_string());
         uow.print(format!(
             "Sep 17 21:12:00 kernel: memory: {ram}K total, {avail}K available"
         ));
@@ -205,9 +205,9 @@ impl Command for DmesgCmd {
             "Sep 17 21:12:01 hd1: Seagate ST-157A, {}K",
             spec.disk_kb
         ));
-        uow.print(format!("Sep 17 21:12:01 eth0: NE2000 compatible at 0x300"));
+        uow.print("Sep 17 21:12:01 eth0: NE2000 compatible at 0x300".to_string());
         uow.print(format!("Sep 17 21:12:01 rs232: {} baud", spec.modem_baud));
-        uow.print(format!("Sep 17 21:12:02 tty0: getty started"));
+        uow.print("Sep 17 21:12:02 tty0: getty started".to_string());
 
         // Journal anomaly entries
         for entry in kernel.journal.all() {
@@ -240,6 +240,6 @@ impl Command for LastCmd {
             uow.print("note: (null) login predates system boot by 1 second".to_string());
         }
         uow.print("".to_string());
-        uow.print(format!("wtmp begins Mon Sep 17 21:12"));
+        uow.print("wtmp begins Mon Sep 17 21:12".to_string());
     }
 }

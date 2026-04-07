@@ -104,6 +104,7 @@ fn collect_scene_failures(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_sprite_failures(
     ctx: &StartupContext,
     scene: &Scene,
@@ -151,6 +152,7 @@ fn collect_sprite_failures(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_behavior_failure(
     ctx: &StartupContext,
     scene: &Scene,

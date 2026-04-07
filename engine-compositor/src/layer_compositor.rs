@@ -19,6 +19,7 @@ thread_local! {
 
 /// Composite all visible layers onto the scene framebuffer.
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub fn composite_layers(
     layers: &[Layer],
     ui_enabled: bool,
@@ -131,7 +132,7 @@ pub fn composite_layers(
                     obj_camera_states,
                     is_pixel_backend,
                     default_font,
-                    &mut *layer_buf,
+                    &mut layer_buf,
                 );
 
                 apply_layer_effects(
@@ -142,7 +143,7 @@ pub fn composite_layers(
                     scene_elapsed_ms,
                     target_resolver,
                     object_regions,
-                    &mut *layer_buf,
+                    &mut layer_buf,
                 );
 
                 buffer.blit_from(&layer_buf, 0, 0, 0, 0, scene_w, scene_h);

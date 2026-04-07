@@ -36,6 +36,12 @@ pub struct KernelEventQueue {
     seq: u64,
 }
 
+impl Default for KernelEventQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KernelEventQueue {
     pub fn new() -> Self {
         Self {

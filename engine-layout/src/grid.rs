@@ -25,6 +25,7 @@ pub(crate) fn invalidate_grid_cache() {
     GRID_LAYOUT_CACHE.with(|c| c.borrow_mut().clear());
 }
 
+#[allow(clippy::too_many_arguments)]
 fn grid_cache_key(
     measure_sprite: &impl Fn(&Sprite, SceneRenderedMode, Option<&AssetRoot>) -> (u16, u16),
     columns: &[String],
@@ -58,6 +59,7 @@ fn grid_cache_key(
 }
 
 /// Computes child rectangles for a grid container.
+#[allow(clippy::too_many_arguments)]
 pub fn compute_grid_cells(
     columns: &[String],
     rows: &[String],

@@ -21,7 +21,7 @@ const VERTEX_PARALLEL_THRESHOLD: usize = 256;
 // Thread-local pointer to the current frame's ObjPrerenderedFrames (set by compositor, cleared after).
 // SAFETY: only set during `with_prerender_frames` and never accessed across threads.
 thread_local! {
-    static PRERENDER_FRAMES_PTR: Cell<*const ObjPrerenderedFrames> = Cell::new(std::ptr::null());
+    static PRERENDER_FRAMES_PTR: Cell<*const ObjPrerenderedFrames> = const { Cell::new(std::ptr::null()) };
 }
 
 /// Set the thread-local prerendered frames pointer for the duration of `f`.
@@ -75,9 +75,9 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
 
 // Thread-local pooled buffers for OBJ rendering — avoids per-frame allocation.
 thread_local! {
-    static OBJ_CANVAS: RefCell<Vec<Option<[u8; 3]>>> = RefCell::new(Vec::new());
-    static OBJ_DEPTH: RefCell<Vec<f32>> = RefCell::new(Vec::new());
-    static OBJ_PROJECTED: RefCell<Vec<Option<ProjectedVertex>>> = RefCell::new(Vec::new());
+    static OBJ_CANVAS: RefCell<Vec<Option<[u8; 3]>>> = const { RefCell::new(Vec::new()) };
+    static OBJ_DEPTH: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+    static OBJ_PROJECTED: RefCell<Vec<Option<ProjectedVertex>>> = const { RefCell::new(Vec::new()) };
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -156,6 +156,7 @@ pub fn obj_sprite_dimensions(
 /// Render an OBJ mesh into a flat pixel canvas without writing to a terminal buffer.
 /// Returns `(canvas, virtual_w, virtual_h)` on success, or `None` if assets are missing.
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 pub fn render_obj_to_canvas(
     source: &str,
     width: Option<u16>,

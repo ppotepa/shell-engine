@@ -24,9 +24,7 @@ pub fn render_menu(state: &mut MenuState) -> Result<()> {
     out.push_str("\x1b[H");
 
     // ── Header ──────────────────────────────────────────────────────
-    push_line(&mut out, &format!(
-        "\x1b[1;36m  Shell Engine\x1b[0m\x1b[2m  —  interactive launcher\x1b[0m"
-    ), term_w);
+    push_line(&mut out, "\x1b[1;36m  Shell Engine\x1b[0m\x1b[2m  —  interactive launcher\x1b[0m", term_w);
 
     push_blank(&mut out, term_w);
 

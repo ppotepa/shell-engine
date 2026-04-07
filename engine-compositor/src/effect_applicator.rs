@@ -13,6 +13,7 @@ use std::collections::HashMap;
 /// - on_leave: resolved by scene stage step index + step-local elapsed; when the
 ///   scene has more leave steps than the sprite, hold the sprite's last leave step
 ///   at completion to avoid one-frame pop-ins.
+#[allow(clippy::too_many_arguments)]
 pub fn apply_sprite_effects(
     stages: &LayerStages,
     stage: &SceneStage,
@@ -63,6 +64,7 @@ pub fn apply_sprite_effects(
 }
 
 /// Apply effects for a full layer, driven by scene or step elapsed time.
+#[allow(clippy::too_many_arguments)]
 pub fn apply_layer_effects(
     layer: &Layer,
     stage: &SceneStage,
@@ -129,9 +131,7 @@ fn resolve_step_by_index_or_hold_last(
     step_idx: usize,
     elapsed_ms: u64,
 ) -> Option<(&Step, f32)> {
-    let Some(step) = stage.steps.get(step_idx).or_else(|| stage.steps.last()) else {
-        return None;
-    };
+    let step = stage.steps.get(step_idx).or_else(|| stage.steps.last())?;
     if step_idx >= stage.steps.len() {
         return Some((step, 1.0));
     }

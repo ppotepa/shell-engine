@@ -20,6 +20,12 @@ pub struct UserDatabase {
     groups: Vec<GroupEntry>,
 }
 
+impl Default for UserDatabase {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserDatabase {
     pub fn new() -> Self {
         // Hard-coded matching the VFS /etc/passwd and /etc/group

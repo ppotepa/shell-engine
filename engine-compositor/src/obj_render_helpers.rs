@@ -32,6 +32,7 @@ pub fn virtual_dimensions(mode: SceneRenderedMode, target_w: u16, target_h: u16)
 
 /// Interpolate depths at clipped line endpoints using parametric projection.
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn clipped_depths(
     x0: i32,
     y0: i32,
@@ -59,6 +60,7 @@ pub(crate) fn clipped_depths(
 }
 
 /// Simple Bresenham line — flat color, no depth test (fallback for face-less models).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn draw_line_flat(
     canvas: &mut [Option<[u8; 3]>],
     w: u16,
@@ -235,6 +237,7 @@ pub(crate) fn face_avg_depth(projected: &[Option<ProjectedVertex>], face: &ObjFa
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn face_shading_with_specular(
     v0: [f32; 3],
     v1: [f32; 3],

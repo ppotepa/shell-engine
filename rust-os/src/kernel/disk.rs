@@ -5,6 +5,12 @@ pub struct SimulatedDisk {
     pub total_writes: u64,
 }
 
+impl Default for SimulatedDisk {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimulatedDisk {
     pub fn new() -> Self {
         Self {

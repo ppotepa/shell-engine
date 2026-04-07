@@ -17,6 +17,12 @@ pub struct DiskController {
     pub active_io_count: u32,
 }
 
+impl Default for DiskController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DiskController {
     pub fn new() -> Self {
         Self {
@@ -267,6 +273,10 @@ impl BufferCache {
     pub fn len(&self) -> usize {
         self.entries.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 // ── CPU Scheduler (Round Robin) ──
@@ -274,6 +284,12 @@ impl BufferCache {
 pub struct CpuScheduler {
     run_queue: VecDeque<u32>,
     pub time_slice_ms: u64,
+}
+
+impl Default for CpuScheduler {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CpuScheduler {

@@ -13,9 +13,7 @@ pub fn push_collisions(world: &mut engine_core::world::World, hits: Vec<Collisio
     if let Some(buf) = world.get_mut::<GameplayEventBuffer>() {
         buf.collisions.extend(hits);
     } else {
-        let mut buf = GameplayEventBuffer::default();
-        buf.collisions = hits;
-        world.register(buf);
+        world.register(GameplayEventBuffer { collisions: hits });
     }
 }
 

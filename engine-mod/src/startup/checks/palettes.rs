@@ -40,7 +40,7 @@ impl StartupCheck for PalettesCheck {
 
         report.add_info(
             self.name(),
-            &format!(
+            format!(
                 "palettes loaded successfully ({} palette(s): {})",
                 store.len(),
                 store.order.join(", ")

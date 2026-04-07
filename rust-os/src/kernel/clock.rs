@@ -9,6 +9,12 @@ pub struct SimulatedClock {
     elapsed_ms: u64,
 }
 
+impl Default for SimulatedClock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimulatedClock {
     pub fn new() -> Self {
         Self { elapsed_ms: 0 }

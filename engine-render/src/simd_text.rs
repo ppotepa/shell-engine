@@ -74,10 +74,8 @@ pub fn stage_glyph_placement(
 ) -> GlyphBatch {
     let mut batch = GlyphBatch::with_capacity(text.len());
     let mut cursor_x: u16 = 0;
-    let mut char_idx = 0;
-
     // First pass: calculate all placements vectorized
-    for ch in text.chars() {
+    for (char_idx, ch) in text.chars().enumerate() {
         let (advance, glyph_h) = glyph_font.advance_and_height(ch);
         let y_base = max_height.saturating_sub(glyph_h.max(1));
 
@@ -88,7 +86,6 @@ pub fn stage_glyph_placement(
         batch.y_base.push(y_base);
 
         cursor_x = cursor_x.saturating_add(advance);
-        char_idx += 1;
     }
 
     batch
@@ -127,6 +124,7 @@ pub fn rasterize_staged_glyphs(
 
 /// Inline glyph rendering with manual loop unrolling for common heights.
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn render_glyph_lines(
     glyph: &LoadedGlyph,
     cursor_x: u16,
@@ -142,7 +140,7 @@ fn render_glyph_lines(
 
     // Fast path for common glyph heights (1-4 lines)
     match num_lines {
-        0 => return,
+        0 => {}
         1 => {
             render_glyph_line(
                 &glyph.lines[0],
@@ -266,6 +264,7 @@ fn render_glyph_lines(
 
 /// Render a single glyph line with vectorized character iteration.
 #[inline(always)]
+#[allow(clippy::too_many_arguments)]
 fn render_glyph_line(
     line: &str,
     cursor_x: u16,

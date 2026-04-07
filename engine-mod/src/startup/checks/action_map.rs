@@ -98,7 +98,7 @@ fn validate_action_map(
         }
 
         // Check required 'key' property
-        if !action_def.get("key").map_or(false, |v| v.is_string()) {
+        if !action_def.get("key").is_some_and(|v| v.is_string()) {
             report.add_warning(
                 "ActionMapCheck",
                 format!(

@@ -1,7 +1,6 @@
 /// ANSI-compatible markup helpers.
 /// Format: [color]text[/] where color is a hex string like #7a9e7e
 /// These are stripped for width calculations but rendered by the terminal layer.
-
 pub const PROMPT_USER: &str = "#8fbc8f";
 pub const PROMPT_HOST: &str = "#7a9e7e";
 pub const PROMPT_PATH: &str = "#a0c4a0";

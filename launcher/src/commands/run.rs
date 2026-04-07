@@ -37,9 +37,7 @@ pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
     
     let pixel_scale = effective_pixel_scale(args.sdl_pixel_scale, &render_size_str);
     
-    let profile = args.profile.as_deref().or_else(|| {
-        if args.release { Some("release") } else { None }
-    });
+    let profile = args.profile.as_deref().or(if args.release { Some("release") } else { None });
     
     let mut cmd = CargoCommand::new("app");
     
@@ -82,7 +80,7 @@ pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
     }
     
     if let Some(fps) = args.target_fps {
-        cmd = cmd.app_arg("--target-fps").app_arg(&fps.to_string());
+        cmd = cmd.app_arg("--target-fps").app_arg(fps.to_string());
     }
     
     if args.check_scenes { cmd = cmd.app_arg("--check-scenes"); }
@@ -101,7 +99,7 @@ pub fn run(workspace_root: &Path, args: &RunArgs) -> Result<()> {
     }
     
     cmd = cmd.app_arg("--sdl-window-ratio").app_arg(&args.sdl_window_ratio);
-    cmd = cmd.app_arg("--sdl-pixel-scale").app_arg(&pixel_scale.to_string());
+    cmd = cmd.app_arg("--sdl-pixel-scale").app_arg(pixel_scale.to_string());
     
     if args.no_sdl_vsync {
         cmd = cmd.app_arg("--no-sdl-vsync");

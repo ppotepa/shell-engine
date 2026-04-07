@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LauncherConfig {
     #[serde(default)]
     pub flags: LaunchFlags,
@@ -43,13 +43,6 @@ impl Default for LaunchFlags {
     }
 }
 
-impl Default for LauncherConfig {
-    fn default() -> Self {
-        Self {
-            flags: LaunchFlags::default(),
-        }
-    }
-}
 
 pub fn load_config(workspace_root: &Path) -> Result<LauncherConfig> {
     let config_path = workspace_root.join(".se.toml");

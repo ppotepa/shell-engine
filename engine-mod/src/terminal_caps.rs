@@ -150,7 +150,7 @@ fn detect_colour_count() -> u32 {
 
     #[cfg(target_os = "windows")]
     {
-        return detect_colour_count_windows();
+        detect_colour_count_windows()
     }
 
     #[cfg(not(target_os = "windows"))]

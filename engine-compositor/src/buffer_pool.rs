@@ -113,11 +113,13 @@ pub struct PooledBuffer {
 
 impl PooledBuffer {
     /// Get mutable reference to the buffered buffer.
+    #[allow(clippy::should_implement_trait)]
     pub fn as_mut(&mut self) -> &mut Buffer {
         self.buffer.as_mut().expect("pooled buffer")
     }
 
     /// Get immutable reference to the buffered buffer.
+    #[allow(clippy::should_implement_trait)]
     pub fn as_ref(&self) -> &Buffer {
         self.buffer.as_ref().expect("pooled buffer")
     }

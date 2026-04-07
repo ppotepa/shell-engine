@@ -2,6 +2,12 @@ pub struct Journal {
     entries: Vec<String>,
 }
 
+impl Default for Journal {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Journal {
     pub fn new() -> Self {
         Self {

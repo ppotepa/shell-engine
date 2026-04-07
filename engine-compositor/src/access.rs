@@ -18,6 +18,7 @@ pub trait CompositorAccess {
     fn animator(&self) -> Option<&Animator>;
 
     /// Get mutable buffer (write target for compositing).
+    #[allow(clippy::mut_from_ref)]
     fn buffer_mut(&self) -> Option<&mut Buffer>;
 
     /// Get runtime settings.

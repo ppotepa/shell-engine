@@ -135,6 +135,8 @@ mod tests {
             postfx: vec![],
             next: None,
             prerender: false,
+            palette_bindings: vec![],
+            game_state_bindings: vec![],
         }
     }
 
@@ -161,6 +163,7 @@ mod tests {
             disappear_at_ms,
             reveal_ms: None,
             hide_on_leave: false,
+            visible: true,
             stages: Default::default(),
             animations: vec![],
             behaviors: vec![],

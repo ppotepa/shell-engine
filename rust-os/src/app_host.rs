@@ -281,7 +281,7 @@ impl AppHost {
         let cmd = parts.first().copied().unwrap_or("");
 
         match cmd {
-            "ftp" if parts.len() >= 1 => {
+            "ftp" if !parts.is_empty() => {
                 let mut ftp = FtpApp::new();
                 // If host given, auto-open
                 if let Some(host) = parts.get(1) {

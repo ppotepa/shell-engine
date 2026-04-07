@@ -6,6 +6,8 @@ use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
 
 use super::helpers::{mapping_with, non_empty_string_schema, object_schema, schema_ref};
+#[cfg(test)]
+use super::helpers::field_metadata_to_schema;
 use super::overlays::{
     object_doc_overlay_patch, object_instance_overlay_patch, object_logic_overlay_def,
     scene_overlay_patch, shared_overlay_defs,
@@ -24,7 +26,7 @@ pub fn render_schema_file(value: &Value) -> Result<String> {
 
 pub(super) fn quote_problematic_schema_scalars(yaml: &str) -> String {
     yaml.lines()
-        .map(|line| sanitize_schema_line(line))
+        .map(sanitize_schema_line)
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -185,6 +187,7 @@ pub(super) fn build_behavior_schema() -> Value {
 pub(super) fn build_animation_schema() -> Value {
     use engine_core::authoring::catalog::animation_catalog;
     use engine_core::authoring::metadata::Requirement;
+    use super::helpers::field_metadata_to_schema;
 
     let mut root = Mapping::new();
     root.insert(

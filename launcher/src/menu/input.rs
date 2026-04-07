@@ -61,7 +61,7 @@ fn handle_key(state: &mut MenuState, key: KeyEvent) -> Result<MenuAction> {
             state.search_mode = true;
             Ok(MenuAction::Redraw)
         }
-        KeyCode::Char(c) if c.is_ascii_digit() && c >= '1' && c <= '7' => {
+        KeyCode::Char(c) if c.is_ascii_digit() && ('1'..='7').contains(&c) => {
             let n = (c as u8) - b'0';
             Ok(state.toggle_flag(n))
         }

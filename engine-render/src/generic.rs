@@ -426,9 +426,9 @@ fn shrink_5x7_to_4x5(rows_5x7: [u8; 7]) -> [u8; 5] {
         let mut mask = 0u8;
         for (ox, &(x0, x1)) in x_blocks.iter().enumerate() {
             let mut on = false;
-            for yy in y0..=y1 {
+            for row in &rows_5x7[y0..=y1] {
                 for xx in x0..=x1 {
-                    if ((rows_5x7[yy] >> (4 - xx)) & 1) == 1 {
+                    if ((row >> (4 - xx)) & 1) == 1 {
                         on = true;
                         break;
                     }

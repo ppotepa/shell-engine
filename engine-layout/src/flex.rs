@@ -23,6 +23,7 @@ pub(crate) fn invalidate_flex_cache() {
 }
 
 #[inline]
+#[allow(clippy::too_many_arguments)]
 fn flex_cache_key(
     measure_sprite: &impl Fn(&Sprite, SceneRenderedMode, Option<&AssetRoot>) -> (u16, u16),
     children: &[Sprite],
@@ -47,6 +48,7 @@ fn flex_cache_key(
 }
 
 /// Computes child rectangles for a flex container.
+#[allow(clippy::too_many_arguments)]
 pub fn compute_flex_cells(
     children: &[Sprite],
     direction: SceneFlexDirection,

@@ -200,7 +200,7 @@ thread_local! {
 // + 375 register_fn() calls per frame. All closures registered here are pure
 // (no per-call captures); per-call data flows through scope variables instead.
 thread_local! {
-    static RHAI_ENGINE: std::cell::RefCell<Option<RhaiEngine>> = std::cell::RefCell::new(None);
+    static RHAI_ENGINE: std::cell::RefCell<Option<RhaiEngine>> = const { std::cell::RefCell::new(None) };
 }
 
 // Rhai Module Resolver
@@ -208,7 +208,7 @@ thread_local! {
 // Modules are resolved from {MOD_SOURCE}/scripts/ directory.
 // Example: mods/my-game/scripts/shared.rhai
 thread_local! {
-    static MOD_SOURCE: std::cell::RefCell<Option<String>> = std::cell::RefCell::new(None);
+    static MOD_SOURCE: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
 }
 
 /// Set the mod source directory for Rhai module resolution.
@@ -583,7 +583,7 @@ impl Behavior for RhaiScriptBehavior {
                 scope.push_dynamic(
                     "regions",
                     regions_map
-                        .map(|m| rhai::Dynamic::from(m))
+                        .map(rhai::Dynamic::from)
                         .unwrap_or_else(|| RhaiMap::new().into()),
                 );
                 // OPT-3 + OPT-10: Skip build_objects_map entirely; push empty map for
@@ -823,6 +823,7 @@ pub fn smoke_validate_rhai_script(
     Ok(())
 }
 
+#[allow(clippy::arc_with_non_send_sync)]
 fn smoke_probe_context(
     elapsed_ms: u64,
     submit_text: Option<&str>,
@@ -843,7 +844,7 @@ fn smoke_probe_context(
         ui_focused_target_id: Some(Arc::from("login-hidden-prompt")),
         ui_theme_id: None,
         ui_last_submit_target_id: submit_text.map(|_| Arc::from("login-hidden-prompt")),
-        ui_last_submit_text: submit_text.map(|s| Arc::from(s)),
+        ui_last_submit_text: submit_text.map(Arc::from),
         ui_last_change_target_id: None,
         ui_last_change_text: None,
         game_state: Some(game_state),

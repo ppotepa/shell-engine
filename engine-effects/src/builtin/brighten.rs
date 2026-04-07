@@ -34,9 +34,9 @@ impl Effect for BrightenEffect {
                         continue;
                     }
                     let (r, g, b) = colour_to_rgb(cell.fg);
-                    let r2 = ((r as f32 + (255.0 - r as f32) * boost) as u8).min(255);
-                    let g2 = ((g as f32 + (255.0 - g as f32) * boost) as u8).min(255);
-                    let b2 = ((b as f32 + (255.0 - b as f32) * boost) as u8).min(255);
+                    let r2 = (r as f32 + (255.0 - r as f32) * boost) as u8;
+                    let g2 = (g as f32 + (255.0 - g as f32) * boost) as u8;
+                    let b2 = (b as f32 + (255.0 - b as f32) * boost) as u8;
                     buffer.set(
                         x,
                         y,

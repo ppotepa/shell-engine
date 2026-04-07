@@ -23,9 +23,11 @@ fn noise(x: u16, y: u16, frame: u32) -> f32 {
 }
 
 /// Sprite-scoped shatter glitch:
+///
 /// - partial row dropouts
 /// - flickering/corrupted glyphs
 /// - displaced large fragment copies ("memory shard blocks")
+///
 /// Never wipes the whole sprite in a frame.
 pub struct ShatterGlitchEffect;
 
@@ -52,7 +54,7 @@ impl Effect for ShatterGlitchEffect {
                 let y = region.y + dy;
                 let cell = buffer.get(x, y).cloned().unwrap_or_default();
                 if has_signal(&cell) {
-                    signal_cells.push((x, y, cell.clone()));
+                    signal_cells.push((x, y, cell));
                 }
                 snapshot.push(cell);
             }
@@ -71,7 +73,7 @@ impl Effect for ShatterGlitchEffect {
         for (x, y, src) in &signal_cells {
             let n = noise(*x, *y, t / 10);
             let row_n = noise(region.x, *y, t / 14);
-            let row_drop = row_n < row_drop_prob && ((*y as u32 + t / 7) % 4 != 0);
+            let row_drop = row_n < row_drop_prob && !(*y as u32 + t / 7).is_multiple_of(4);
 
             if row_drop || n < clear_prob {
                 buffer.set(*x, *y, ' ', TRUE_BLACK, TRUE_BLACK);
@@ -272,6 +274,7 @@ impl Effect for ShatterGlitchEffect {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn blit_chunk(
     snapshot: &[Cell],
     region: Region,

@@ -416,13 +416,15 @@ impl ShellEngine {
         world.register(engine_persistence::PersistenceStore::new(
             persistence_namespace,
         ));
-        let mut pflags = pipeline_flags::PipelineFlags::default();
-        pflags.opt_comp = self.config.opt_comp;
-        pflags.opt_present = self.config.opt_present;
-        pflags.opt_diff = self.config.opt_diff;
-        pflags.opt_skip = self.config.opt_skip;
-        pflags.opt_rowdiff = self.config.opt_rowdiff;
-        pflags.opt_async_display = self.config.opt_async_display;
+        let pflags = pipeline_flags::PipelineFlags {
+            opt_comp: self.config.opt_comp,
+            opt_present: self.config.opt_present,
+            opt_diff: self.config.opt_diff,
+            opt_skip: self.config.opt_skip,
+            opt_rowdiff: self.config.opt_rowdiff,
+            opt_async_display: self.config.opt_async_display,
+            ..pipeline_flags::PipelineFlags::default()
+        };
         world.register(pflags);
         world.register(strategy::PipelineStrategies::from_flags(
             self.config.opt_diff,

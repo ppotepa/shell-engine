@@ -415,9 +415,9 @@ impl Buffer {
         let width = self.width;
         let height = self.height;
 
-        self.dirty_x_min = self.dirty_x_min.saturating_sub(max_expansion).max(0);
+        self.dirty_x_min = self.dirty_x_min.saturating_sub(max_expansion);
         self.dirty_x_max = (self.dirty_x_max + max_expansion).min(width.saturating_sub(1));
-        self.dirty_y_min = self.dirty_y_min.saturating_sub(max_expansion).max(0);
+        self.dirty_y_min = self.dirty_y_min.saturating_sub(max_expansion);
         self.dirty_y_max = (self.dirty_y_max + max_expansion).min(height.saturating_sub(1));
     }
 
@@ -448,6 +448,7 @@ impl Buffer {
     /// Blit a rectangular region from source buffer to this buffer's back.
     /// Only copies non-transparent cells (space with Color::Reset background).
     /// Tracks dirty region once after all copies (instead of per-pixel updates).
+    #[allow(clippy::too_many_arguments)]
     pub fn blit_from(
         &mut self,
         src: &Buffer,
