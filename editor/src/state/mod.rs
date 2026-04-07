@@ -15,12 +15,10 @@ pub mod watch;
 use std::collections::HashMap;
 use std::path::Path;
 
-use engine::scene::Scene;
 use engine_core::logging;
 
 use crate::domain::asset_index::AssetIndex;
 use crate::domain::effect_params;
-use crate::domain::effect_params::EffectParamValue;
 use crate::domain::effects_catalog;
 use crate::domain::effects_preview_scene;
 use crate::input::commands::Command;

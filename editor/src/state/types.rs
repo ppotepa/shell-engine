@@ -6,7 +6,6 @@ use engine::scene::Scene;
 
 use crate::domain::asset_index::AssetIndex;
 use crate::domain::effect_params::EffectParamValue;
-use crate::state::focus::FocusPane;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EffectsCodeTab {
