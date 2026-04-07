@@ -32,3 +32,4 @@ particles:
   hot_engine: ["#DDEEFF", "#AACCFF", "#6699EE", "#4466CC", "#223399", "#112266"]
   brake:      ["#CCDDFF", "#AABBEE", "#7788CC", "#445599", "#223366", "#111133"]
   heat_trail: ["#DDEEFF", "#AACCFF", "#8899DD", "#5566BB", "#223388", "#111144"]
+  fragment:   ["#2e5eaa", "#243f7f", "#1a2e5a", "#101e38", "#070e1a", "#020612"]

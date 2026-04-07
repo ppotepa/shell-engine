@@ -286,7 +286,30 @@ for hit in collision.enters("bullet", "asteroid") {
     let avx = if type_of(aphys) == "map" { aphys["vx"] ?? 0.0 } else { 0.0 };
     let avy = if type_of(aphys) == "map" { aphys["vy"] ?? 0.0 } else { 0.0 };
 
-    // Impact particles (emit while asteroid still exists as owner)
+    // Bullet push: transfer 6% of bullet momentum to asteroid before spawning anything
+    let bphys = world.physics(bullet_id);
+    if type_of(bphys) == "map" && type_of(aphys) == "map" {
+        let bvx = bphys["vx"] ?? 0.0;
+        let bvy = bphys["vy"] ?? 0.0;
+        let impulse = 0.06;
+        world.set_physics(asteroid_id,
+            avx + bvx * impulse, avy + bvy * impulse,
+            aphys["ax"] ?? 0.0, aphys["ay"] ?? 0.0,
+            aphys["drag"] ?? 0.0, aphys["max_speed"] ?? 0.0);
+    }
+
+    // Fragment splash: 3–5 large glowing pieces that fade to background over 2s
+    let frag_count = if world.tag_has(asteroid_id, "asteroid-large") { 5 }
+                else if world.tag_has(asteroid_id, "asteroid-medium") { 4 }
+                else { 3 };
+    let frag_speed = if world.tag_has(asteroid_id, "asteroid-large") { 45.0 }
+                else if world.tag_has(asteroid_id, "asteroid-medium") { 55.0 }
+                else { 70.0 };
+    world.emit("asteroid.impact_fragments", asteroid_id, #{
+        count: frag_count, speed: frag_speed, spread: 6.28, fg: col.asteroid ?? "white"
+    });
+
+    // Impact sparks and debris
     let spark_count = if world.tag_has(asteroid_id, "asteroid-large") { 12 }
                  else if world.tag_has(asteroid_id, "asteroid-medium") { 8 }
                  else { 5 };

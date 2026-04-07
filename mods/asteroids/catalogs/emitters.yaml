@@ -131,7 +131,23 @@ emitters:
     bounce: 0.6
     mass: 0.5
 
-  # Ship explosion debris - can damage asteroids
+  # Impact fragments - large visible pieces that fade to background color over 2s
+  asteroid.impact_fragments:
+    max_count: 30
+    cooldown_name: asteroid-fragments
+    cooldown_ms: 0
+    spawn_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 2000
+    radius: 3
+    radius_max: 4
+    radius_min: 2
+    velocity_scale: 1.0
+    lifecycle: Ttl
+    thread_mode: "physics"
+    gravity_scale: 0.0
+    palette_ramp: "fragment"
+
   ship.explosion_debris:
     max_count: 48
     cooldown_name: ship-explosion
