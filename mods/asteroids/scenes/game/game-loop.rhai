@@ -274,7 +274,7 @@ if ship_id > 0 {
     // ── Shooting ─────────────────────────────────────────────────────────────
     if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
         let bullet_id = world.spawn_from_heading(ship_id, "bullet", #{
-            speed: 280.0, offset: 17.0, ttl_ms: 1400, inherit_velocity: true
+            speed: 480.0, offset: 17.0, ttl_ms: 1000, inherit_velocity: true
         });
         world.entity(ship_id).cooldown_start("fire", 180);
     }
@@ -316,9 +316,9 @@ for hit in collision.enters("bullet", "asteroid") {
     let shard_count = if world.tag_has(asteroid_id, "asteroid-large") { 5 }
                  else if world.tag_has(asteroid_id, "asteroid-medium") { 4 }
                  else { 3 };
-    let shard_speed = if world.tag_has(asteroid_id, "asteroid-large") { 100.0 }
-                 else if world.tag_has(asteroid_id, "asteroid-medium") { 130.0 }
-                 else { 160.0 };
+    let shard_speed = if world.tag_has(asteroid_id, "asteroid-large") { 220.0 }
+                 else if world.tag_has(asteroid_id, "asteroid-medium") { 280.0 }
+                 else { 340.0 };
     spawn_shrapnel(world, ax, ay, bvx, bvy, avx, avy, shard_count, shard_speed);
 
     // Fragment halo: glowing dust cloud that fades to background over 2s (visual only)
