@@ -113,7 +113,12 @@ fn collect_sprite_palette_bindings(sprites: &mut Value, bindings: &mut Vec<Palet
             .get(Value::String("id".to_string()))
             .and_then(Value::as_str)
             .map(str::to_owned);
-        for (yaml_field, prop_path) in [("fg_colour", "style.fg"), ("bg_colour", "style.bg")] {
+        for (yaml_field, prop_path) in [
+            ("fg_colour", "style.fg"),
+            ("bg_colour", "style.bg"),
+            ("border-colour", "style.border"),
+            ("shadow-colour", "style.shadow"),
+        ] {
             let field_key = Value::String(yaml_field.to_string());
             if let Some(val) = sprite_map.get(&field_key).and_then(Value::as_str) {
                 if let Some(key) = val.strip_prefix("@palette.") {

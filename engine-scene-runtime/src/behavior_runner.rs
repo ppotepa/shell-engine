@@ -570,7 +570,9 @@ impl SceneRuntime {
                             }
                         }
                         "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg"
-                        | "vector.bg" => {
+                        | "vector.bg"
+                        | "style.border"
+                        | "style.shadow" => {
                             let mut applied = self.set_vector_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {

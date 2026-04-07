@@ -844,9 +844,37 @@ fn set_vector_property_recursive(
                 }
                 _ => {}
             },
-            Sprite::Grid { children, .. }
-            | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => {
+            Sprite::Grid { children, .. } | Sprite::Flex { children, .. } => {
+                set_vector_property_recursive(children, sprite_id, path, value, updated);
+            }
+            Sprite::Panel {
+                id,
+                border_colour,
+                shadow_colour,
+                children,
+                ..
+            } => {
+                if id.as_deref() == Some(sprite_id) {
+                    match path {
+                        "style.border" => {
+                            if let Some(next_colour) = parse_term_colour(value) {
+                                if border_colour.as_ref() != Some(&next_colour) {
+                                    *border_colour = Some(next_colour);
+                                    *updated = true;
+                                }
+                            }
+                        }
+                        "style.shadow" => {
+                            if let Some(next_colour) = parse_term_colour(value) {
+                                if shadow_colour.as_ref() != Some(&next_colour) {
+                                    *shadow_colour = Some(next_colour);
+                                    *updated = true;
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 set_vector_property_recursive(children, sprite_id, path, value, updated);
             }
             _ => {}
