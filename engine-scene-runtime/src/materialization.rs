@@ -849,6 +849,8 @@ fn set_vector_property_recursive(
             }
             Sprite::Panel {
                 id,
+                fg_colour,
+                bg_colour,
                 border_colour,
                 shadow_colour,
                 children,
@@ -856,6 +858,22 @@ fn set_vector_property_recursive(
             } => {
                 if id.as_deref() == Some(sprite_id) {
                     match path {
+                        "style.fg" => {
+                            if let Some(next_colour) = parse_term_colour(value) {
+                                if fg_colour.as_ref() != Some(&next_colour) {
+                                    *fg_colour = Some(next_colour);
+                                    *updated = true;
+                                }
+                            }
+                        }
+                        "style.bg" => {
+                            if let Some(next_colour) = parse_term_colour(value) {
+                                if bg_colour.as_ref() != Some(&next_colour) {
+                                    *bg_colour = Some(next_colour);
+                                    *updated = true;
+                                }
+                            }
+                        }
                         "style.border" => {
                             if let Some(next_colour) = parse_term_colour(value) {
                                 if border_colour.as_ref() != Some(&next_colour) {

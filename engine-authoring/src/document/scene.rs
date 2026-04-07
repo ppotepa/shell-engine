@@ -372,7 +372,7 @@ fn normalize_sprites(
             sprite_map
                 .get(Value::String("type".to_string()))
                 .and_then(Value::as_str),
-            Some("grid" | "flex")
+            Some("grid" | "flex" | "panel")
         ) {
             if let Some(children) = sprite_map.get_mut(Value::String("children".to_string())) {
                 let child_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
