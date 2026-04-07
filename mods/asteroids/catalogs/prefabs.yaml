@@ -112,8 +112,26 @@ prefabs:
         size: 1
         score: 100
 
+  shrapnel:
+    kind: shrapnel
+    sprite_template: shrapnel
+    fg_colour: "@palette.asteroid"
+    default_tags: [shrapnel]
+    components:
+      physics:
+        vx: 0.0
+        vy: 0.0
+        drag: 0.0
+        max_speed: 0.0
+      collider:
+        shape: circle
+        radius: 2.0
+        layer: 4    # same group as bullets — already in ship.mask(6) and asteroid.mask(5)
+        mask: 3     # hits ship(layer=1) and asteroids(layer=2)
+      lifecycle: Ttl
+      wrappable: true
+
   debris:
-    kind: debris
     sprite_template: debris
     components:
       physics:

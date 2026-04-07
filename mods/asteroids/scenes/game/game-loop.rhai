@@ -169,8 +169,22 @@ fn spawn_small_asteroids(world, scene, x, y, parent_vx, parent_vy) {
     }
 }
 
-fn ensure_ship(world) {
-    let WORLD_W = world.world_width();
+// Spawn shrapnel: real physics entities that can ricochet and damage the ship.
+// Evenly spread around 360° with jitter, inheriting asteroid + bullet momentum.
+fn spawn_shrapnel(world, ax, ay, bvx, bvy, avx, avy, count, base_speed) {
+    for i in range(0, count) {
+        let angle = (i.to_float() / count.to_float()) * 6.2832 + (rand() - 0.5) * 1.2;
+        let spd   = base_speed + (rand() - 0.5) * 40.0;
+        let vx    = sin(angle)  * spd + avx * 0.4 + bvx * 0.2;
+        let vy    = -cos(angle) * spd + avy * 0.4 + bvy * 0.2;
+        let ttl   = 1200 + (rand() * 600.0).to_int();
+        world.spawn_prefab("shrapnel", #{
+            x: ax, y: ay, vx: vx, vy: vy, ttl_ms: ttl, heading: angle
+        });
+    }
+}
+
+fn ensure_ship(world) {    let WORLD_W = world.world_width();
     let WORLD_H = world.world_height();
     let SHIP_X = WORLD_W * 0.5;
     let SHIP_Y = WORLD_H * 0.5;
@@ -288,9 +302,9 @@ for hit in collision.enters("bullet", "asteroid") {
 
     // Bullet push: transfer 6% of bullet momentum to asteroid before spawning anything
     let bphys = world.physics(bullet_id);
+    let bvx = if type_of(bphys) == "map" { bphys["vx"] ?? 0.0 } else { 0.0 };
+    let bvy = if type_of(bphys) == "map" { bphys["vy"] ?? 0.0 } else { 0.0 };
     if type_of(bphys) == "map" && type_of(aphys) == "map" {
-        let bvx = bphys["vx"] ?? 0.0;
-        let bvy = bphys["vy"] ?? 0.0;
         let impulse = 0.06;
         world.set_physics(asteroid_id,
             avx + bvx * impulse, avy + bvy * impulse,
@@ -298,13 +312,18 @@ for hit in collision.enters("bullet", "asteroid") {
             aphys["drag"] ?? 0.0, aphys["max_speed"] ?? 0.0);
     }
 
-    // Fragment splash: 3–5 large glowing pieces that fade to background over 2s
-    let frag_count = if world.tag_has(asteroid_id, "asteroid-large") { 5 }
-                else if world.tag_has(asteroid_id, "asteroid-medium") { 4 }
-                else { 3 };
-    let frag_speed = if world.tag_has(asteroid_id, "asteroid-large") { 45.0 }
-                else if world.tag_has(asteroid_id, "asteroid-medium") { 55.0 }
-                else { 70.0 };
+    // Shrapnel: real physics entities — ricochet off asteroids, damage ship
+    let shard_count = if world.tag_has(asteroid_id, "asteroid-large") { 5 }
+                 else if world.tag_has(asteroid_id, "asteroid-medium") { 4 }
+                 else { 3 };
+    let shard_speed = if world.tag_has(asteroid_id, "asteroid-large") { 100.0 }
+                 else if world.tag_has(asteroid_id, "asteroid-medium") { 130.0 }
+                 else { 160.0 };
+    spawn_shrapnel(world, ax, ay, bvx, bvy, avx, avy, shard_count, shard_speed);
+
+    // Fragment halo: glowing dust cloud that fades to background over 2s (visual only)
+    let frag_count = shard_count - 1;
+    let frag_speed = shard_speed * 0.4;
     world.emit("asteroid.impact_fragments", asteroid_id, #{
         count: frag_count, speed: frag_speed, spread: 6.28, fg: col.asteroid ?? "white"
     });
@@ -335,6 +354,91 @@ for hit in collision.enters("bullet", "asteroid") {
     }
     local.score = score;
     world.despawn(bullet_id);
+}
+
+// shrapnel hits asteroid — ricochet: reflect velocity × 0.5, nudge asteroid
+for hit in collision.enters("shrapnel", "asteroid") {
+    let s_id = hit["shrapnel"];
+    let a_id = hit["asteroid"];
+    if !world.exists(s_id) || !world.exists(a_id) { continue; }
+    let sphys = world.physics(s_id);
+    let svx = if type_of(sphys) == "map" { sphys["vx"] ?? 0.0 } else { 0.0 };
+    let svy = if type_of(sphys) == "map" { sphys["vy"] ?? 0.0 } else { 0.0 };
+    // Reflect and bleed 50% speed
+    if type_of(sphys) == "map" {
+        world.set_physics(s_id,
+            -svx * 0.5, -svy * 0.5,
+            sphys["ax"] ?? 0.0, sphys["ay"] ?? 0.0,
+            sphys["drag"] ?? 0.0, sphys["max_speed"] ?? 0.0);
+    }
+    // 3% momentum nudge to the asteroid
+    let aphys = world.physics(a_id);
+    if type_of(aphys) == "map" {
+        let push = 0.03;
+        world.set_physics(a_id,
+            (aphys["vx"] ?? 0.0) + svx * push,
+            (aphys["vy"] ?? 0.0) + svy * push,
+            aphys["ax"] ?? 0.0, aphys["ay"] ?? 0.0,
+            aphys["drag"] ?? 0.0, aphys["max_speed"] ?? 0.0);
+    }
+    // Spark flash at ricochet
+    world.emit("asteroids.impact_sparks", a_id, #{
+        count: 3, speed: 40.0, spread: 2.0, fg: col.asteroid ?? "white"
+    });
+}
+
+// shrapnel hits ship — same death sequence as asteroid collision
+if !invincible && ship_id > 0 {
+    for hit in collision.enters("shrapnel", "ship") {
+        let s_id      = hit["shrapnel"];
+        let hit_ship  = hit["ship"];
+        if hit_ship != ship_id || !world.exists(s_id) { continue; }
+        world.despawn(s_id);
+
+        world.emit("ship.explosion_debris", ship_id, #{
+            count: 16, speed: 70.0, spread: 6.28, fg: col.ship ?? "white"
+        });
+        world.emit("asteroids.impact_sparks", ship_id, #{
+            count: 10, speed: 40.0, spread: 6.28, fg: col.ship ?? "white"
+        });
+
+        world.despawn(ship_id);
+        local.ship_id = 0;
+        ship_id = 0;
+        lives = lives - 1;
+        local.lives = lives;
+        if lives <= 0 {
+            local.game_over = true;
+            local.lives = 0;
+            let final_score = score;
+            let saved = game.get("/highscores/scores");
+            let scores = if type_of(saved) == "array" { saved } else { [] };
+            let rank = -1;
+            for i in 0..scores.len() {
+                if final_score > scores[i].score { rank = i; break; }
+            }
+            if rank < 0 && scores.len() < 10 { rank = scores.len(); }
+            if rank >= 0 {
+                let entry = #{ rank: rank + 1, score: final_score, name: "---", wave: wave };
+                scores.insert(rank, entry);
+                while scores.len() > 10 { scores.pop(); }
+                for i in 0..scores.len() { scores[i].rank = i + 1; }
+                game.set("/highscores/scores", scores);
+                game.set("/highscores/last_entry_rank", rank);
+            } else {
+                game.set("/highscores/last_entry_rank", -1);
+            }
+            game.set("/score", final_score);
+            for id in world.query_tag("asteroid") { world.despawn(id); }
+            for id in world.query_tag("bullet")   { world.despawn(id); }
+            for id in world.query_tag("shrapnel") { world.despawn(id); }
+            game.jump("asteroids-highscores");
+        } else {
+            local.respawning = true;
+            world.after_ms("respawn_done", 2000);
+        }
+        break;
+    }
 }
 
 // ship hits asteroid — explosion particles, lose life
@@ -382,7 +486,8 @@ if !invincible && ship_id > 0 {
             game.set("/score", final_score);
 
             for id in world.query_tag("asteroid") { world.despawn(id); }
-            for id in world.query_tag("bullet") { world.despawn(id); }
+            for id in world.query_tag("bullet")   { world.despawn(id); }
+            for id in world.query_tag("shrapnel") { world.despawn(id); }
             game.jump("asteroids-highscores");
         } else {
             local.respawning = true;
