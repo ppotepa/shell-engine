@@ -290,6 +290,9 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
             0b00000, 0b00000, 0b11111, 0b00010, 0b00100, 0b01000, 0b11111,
         ]),
         c if c.is_ascii_control() => None,
+        '♥' => Some([
+            0b01010, 0b11111, 0b11111, 0b01110, 0b00100, 0b00000, 0b00000,
+        ]),
         _ => Some([
             0b01110, 0b00001, 0b00110, 0b00100, 0b00000, 0b00100, 0b00000,
         ]), // '?'
@@ -400,6 +403,7 @@ pub fn generic_glyph_rows_tiny(ch: char) -> Option<[u8; 5]> {
         '┼' => return Some([0b0010, 0b0010, 0b1111, 0b0010, 0b0010]),
         '·' => return Some([0b0000, 0b0000, 0b0010, 0b0000, 0b0000]),
         '•' => return Some([0b0000, 0b0110, 0b0110, 0b0000, 0b0000]),
+        '♥' => return Some([0b0101, 0b1111, 0b1111, 0b0110, 0b0010]),
         '…' => return Some([0b0000, 0b0000, 0b0000, 0b1010, 0b0000]),
         '→' => return Some([0b0010, 0b0001, 0b1111, 0b0001, 0b0010]),
         '←' => return Some([0b0100, 0b1000, 0b1111, 0b1000, 0b0100]),
