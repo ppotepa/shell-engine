@@ -163,21 +163,21 @@ impl SceneRuntime {
             current_pairs
                 .iter()
                 .filter(|p| !self.prev_collision_pairs.contains(p))
-                .map(|&(a, b)| engine_game::CollisionHit { a, b })
+                .map(|&(a, b)| engine_game::CollisionHit { a, b, normal_x: 0.0, normal_y: 0.0 })
                 .collect(),
         );
         let collision_stays: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
             current_pairs
                 .iter()
                 .filter(|p| self.prev_collision_pairs.contains(p))
-                .map(|&(a, b)| engine_game::CollisionHit { a, b })
+                .map(|&(a, b)| engine_game::CollisionHit { a, b, normal_x: 0.0, normal_y: 0.0 })
                 .collect(),
         );
         let collision_exits: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
             self.prev_collision_pairs
                 .iter()
                 .filter(|p| !current_pairs.contains(p))
-                .map(|&(a, b)| engine_game::CollisionHit { a, b })
+                .map(|&(a, b)| engine_game::CollisionHit { a, b, normal_x: 0.0, normal_y: 0.0 })
                 .collect(),
         );
         self.prev_collision_pairs = current_pairs;

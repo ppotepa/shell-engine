@@ -20,6 +20,12 @@ pub struct PhysicsBody2D {
     pub drag: f32,
     /// Maximum linear speed magnitude; 0.0 disables the clamp.
     pub max_speed: f32,
+    /// Mass in arbitrary units. Used for impulse-based collision response.
+    /// 0.0 means infinite mass (immovable). Default 1.0.
+    pub mass: f32,
+    /// Coefficient of restitution: 0.0 = perfectly inelastic, 1.0 = perfectly elastic.
+    /// Controls how much velocity is preserved after a collision. Default 0.7.
+    pub restitution: f32,
 }
 
 impl Default for PhysicsBody2D {
@@ -31,6 +37,8 @@ impl Default for PhysicsBody2D {
             ay: 0.0,
             drag: 0.0,
             max_speed: 0.0,
+            mass: 1.0,
+            restitution: 0.7,
         }
     }
 }

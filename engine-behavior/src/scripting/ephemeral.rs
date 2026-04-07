@@ -120,6 +120,8 @@ pub(crate) fn spawn_ephemeral_visual(
             ay: 0.0,
             drag: spec.drag,
             max_speed: spec.max_speed,
+            mass: 1.0,
+            restitution: 0.7,
         },
     ) {
         let _ = world.despawn(entity_id);

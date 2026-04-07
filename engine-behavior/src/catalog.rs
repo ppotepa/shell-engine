@@ -76,6 +76,10 @@ pub struct PhysicsComponent {
     pub drag: Option<f64>,
     #[serde(default)]
     pub max_speed: Option<f64>,
+    #[serde(default)]
+    pub mass: Option<f64>,
+    #[serde(default)]
+    pub restitution: Option<f64>,
 }
 
 /// Collider component: shape and collision masks.

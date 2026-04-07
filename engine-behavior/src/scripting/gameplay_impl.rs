@@ -469,6 +469,8 @@ impl ScriptGameplayApi {
         if id < 0 {
             return false;
         }
+        // Preserve existing mass/restitution when overwriting via script
+        let existing = world.physics(id as u64).unwrap_or_default();
         world.set_physics(
             id as u64,
             PhysicsBody2D {
@@ -478,6 +480,8 @@ impl ScriptGameplayApi {
                 ay: ay as f32,
                 drag: drag as f32,
                 max_speed: max_speed as f32,
+                mass: existing.mass,
+                restitution: existing.restitution,
             },
         )
     }
@@ -497,6 +501,8 @@ impl ScriptGameplayApi {
             map.insert("ay".into(), (body.ay as rhai::FLOAT).into());
             map.insert("drag".into(), (body.drag as rhai::FLOAT).into());
             map.insert("max_speed".into(), (body.max_speed as rhai::FLOAT).into());
+            map.insert("mass".into(), (body.mass as rhai::FLOAT).into());
+            map.insert("restitution".into(), (body.restitution as rhai::FLOAT).into());
             return map.into();
         }
         ().into()
@@ -766,6 +772,8 @@ impl ScriptGameplayApi {
                 ay: extract_f("ay"),
                 drag: extract_f("drag"),
                 max_speed: extract_f("max_speed"),
+                mass: extract_f("mass").max(0.0),
+                restitution: extract_f("restitution").clamp(0.0, 1.0),
             };
             if !world.set_physics(entity_id, body) {
                 world.despawn(entity_id);
@@ -797,6 +805,8 @@ impl ScriptGameplayApi {
             let ay = phys.ay.unwrap_or(0.0);
             let drag = phys.drag.unwrap_or(0.0);
             let max_speed = phys.max_speed.unwrap_or(0.0);
+            let mass = phys.mass.unwrap_or(1.0) as f32;
+            let restitution = phys.restitution.unwrap_or(0.7) as f32;
 
             if let Some(arg_vx) = args.get("vx").and_then(|v| v.as_float().ok()) {
                 vx = arg_vx;
@@ -805,7 +815,19 @@ impl ScriptGameplayApi {
                 vy = arg_vy;
             }
 
-            if !self.set_physics(entity_id, vx, vy, ax, ay, drag, max_speed) {
+            let Some(world) = self.ctx.world.as_ref() else {
+                return false;
+            };
+            if !world.set_physics(entity_id as u64, PhysicsBody2D {
+                vx: vx as f32,
+                vy: vy as f32,
+                ax: ax as f32,
+                ay: ay as f32,
+                drag: drag as f32,
+                max_speed: max_speed as f32,
+                mass,
+                restitution,
+            }) {
                 return false;
             }
         }
@@ -2305,6 +2327,8 @@ impl ScriptGameplayEntityApi {
                 "max_speed".into(),
                 (physics.max_speed as rhai::FLOAT).into(),
             );
+            phys.insert("mass".into(), (physics.mass as rhai::FLOAT).into());
+            phys.insert("restitution".into(), (physics.restitution as rhai::FLOAT).into());
             metadata.insert("physics".into(), phys.into());
         }
 
@@ -2383,6 +2407,8 @@ impl ScriptGameplayEntityApi {
                 "max_speed".into(),
                 (physics.max_speed as rhai::FLOAT).into(),
             );
+            phys.insert("mass".into(), (physics.mass as rhai::FLOAT).into());
+            phys.insert("restitution".into(), (physics.restitution as rhai::FLOAT).into());
             components.insert("physics".into(), phys.into());
         }
 
@@ -2495,6 +2521,8 @@ impl ScriptGameplayEntityApi {
         result.insert("ay".into(), (phys.ay as rhai::FLOAT).into());
         result.insert("drag".into(), (phys.drag as rhai::FLOAT).into());
         result.insert("max_speed".into(), (phys.max_speed as rhai::FLOAT).into());
+        result.insert("mass".into(), (phys.mass as rhai::FLOAT).into());
+        result.insert("restitution".into(), (phys.restitution as rhai::FLOAT).into());
         result
     }
 

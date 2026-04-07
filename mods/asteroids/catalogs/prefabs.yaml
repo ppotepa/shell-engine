@@ -10,6 +10,8 @@ prefabs:
         vy: 0.0
         drag: 0.008          # Near-zero: true space inertia, must brake manually
         max_speed: 280.0
+        mass: 8.0            # Light but not trivial — shrapnel/bullets will nudge it
+        restitution: 0.2     # Ship absorbs most impact (damaged, not bouncy)
       collider:
         shape: circle
         radius: 10.0
@@ -38,6 +40,8 @@ prefabs:
         vy: 0.0
         drag: 0.0
         max_speed: 0.0
+        mass: 0.5            # Very light — high speed, low mass
+        restitution: 0.1     # Bullets don't bounce, they punch through
       collider:
         shape: circle
         radius: 2.0
@@ -57,6 +61,8 @@ prefabs:
         vy: 0.0
         drag: 0.0
         max_speed: 0.0
+        mass: 40.0           # Heavy — radius²≈484, approximating rock density
+        restitution: 0.85    # Rock bounces fairly elastically in vacuum
       collider:
         shape: circle
         radius: 22.0
@@ -79,6 +85,8 @@ prefabs:
         vy: 0.0
         drag: 0.0
         max_speed: 0.0
+        mass: 12.0           # Medium mass — radius²≈121
+        restitution: 0.85
       collider:
         shape: circle
         radius: 11.0
@@ -101,6 +109,8 @@ prefabs:
         vy: 0.0
         drag: 0.0
         max_speed: 0.0
+        mass: 3.0            # Light — radius²≈36
+        restitution: 0.85
       collider:
         shape: circle
         radius: 6.0
@@ -123,6 +133,8 @@ prefabs:
         vy: 0.0
         drag: 0.0
         max_speed: 0.0
+        mass: 0.3            # Tiny fragment — very light, ricochet effect
+        restitution: 0.6     # Partial bounce off hard surfaces
       collider:
         shape: circle
         radius: 2.0
@@ -139,9 +151,12 @@ prefabs:
         vy: 0.0
         drag: 0.85
         max_speed: 0.0
+        mass: 0.2
+        restitution: 0.3
       collider:
         shape: circle
         radius: 1.5
         layer: 8
         mask: 3
       lifecycle: Ttl
+

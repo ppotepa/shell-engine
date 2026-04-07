@@ -147,8 +147,14 @@ pub fn game_loop(
         let particle_handle = systems::particle_physics::start_async(world, tick_ms);
         let t_phys = t_phys_start.elapsed();
 
+        // Collision detection runs after integration so positions are current.
+        // Response (impulse) is applied immediately so corrected velocities persist.
         let collision_hits = systems::collision::collision_system(world);
+        systems::collision::apply_collision_response(world, &collision_hits);
+
         let particle_hits = systems::collision::particle_collision_system(world);
+        systems::collision::apply_particle_bounce(world, &particle_hits);
+
         systems::gameplay_events::push_collisions(world, collision_hits);
         systems::gameplay_events::push_collisions(world, particle_hits);
 

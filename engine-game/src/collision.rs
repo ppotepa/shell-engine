@@ -34,11 +34,16 @@ pub enum WrapStrategy {
     },
 }
 
-/// Simple collision result emitted to callers; future versions can add normals/impulses.
+/// Collision result with contact normal (A→B direction).
+/// normal_x/normal_y are unit vectors; both zero for polygon-polygon (normal not computed).
 #[derive(Clone, Debug, PartialEq)]
 pub struct CollisionHit {
     pub a: u64,
     pub b: u64,
+    /// Contact normal X component pointing from A toward B (unit vector).
+    pub normal_x: f32,
+    /// Contact normal Y component pointing from A toward B (unit vector).
+    pub normal_y: f32,
 }
 
 pub fn collision_system(
@@ -66,21 +71,118 @@ pub fn collision_system(
             if !layers_interact(&a_col, &b_col) {
                 continue;
             }
-            if intersects(
+            if let Some((nx, ny)) = intersects_with_normal(
                 &a_col.shape,
                 &a_xf,
                 &b_col.shape,
                 &b_xf,
                 strategies.wrap_strategy,
             ) {
-                hits.push(CollisionHit { a: a_id, b: b_id });
-                // Emit collision enter events (bidirectional for script convenience)
+                hits.push(CollisionHit { a: a_id, b: b_id, normal_x: nx, normal_y: ny });
                 world.emit_event(GameplayEvent::CollisionEnter { a: a_id, b: b_id });
                 world.emit_event(GameplayEvent::CollisionEnter { a: b_id, b: a_id });
             }
         }
     }
     hits
+}
+
+/// Apply impulse-based collision response for all rigid body hits.
+/// Called after collision_system(), before physics integration writes positions.
+/// Only processes pairs where both entities have a PhysicsBody2D.
+/// Uses the hit normal and per-body mass/restitution for elastic/inelastic response.
+pub fn apply_collision_response(world: &GameplayWorld, hits: &[CollisionHit]) {
+    for hit in hits {
+        let (Some(mut body_a), Some(mut body_b)) =
+            (world.physics(hit.a), world.physics(hit.b))
+        else {
+            continue;
+        };
+
+        let nx = hit.normal_x;
+        let ny = hit.normal_y;
+
+        // Skip if normal is degenerate (polygon-polygon fallback)
+        if nx == 0.0 && ny == 0.0 {
+            continue;
+        }
+
+        // Relative velocity of B relative to A along the contact normal
+        let rel_vx = body_b.vx - body_a.vx;
+        let rel_vy = body_b.vy - body_a.vy;
+        let dvn = rel_vx * nx + rel_vy * ny;
+
+        // Already separating — skip (prevents double-application on sustained overlap)
+        if dvn >= 0.0 {
+            continue;
+        }
+
+        // Effective restitution: average of both bodies
+        let e = (body_a.restitution + body_b.restitution) * 0.5;
+
+        // Impulse scalar: j = -(1 + e) * dvn / (1/m_a + 1/m_b)
+        // Infinite mass (mass == 0.0) means immovable.
+        let inv_mass_a = if body_a.mass > 0.0 { 1.0 / body_a.mass } else { 0.0 };
+        let inv_mass_b = if body_b.mass > 0.0 { 1.0 / body_b.mass } else { 0.0 };
+        let inv_mass_sum = inv_mass_a + inv_mass_b;
+        if inv_mass_sum == 0.0 {
+            continue; // Both immovable
+        }
+
+        let j = -(1.0 + e) * dvn / inv_mass_sum;
+
+        // Apply impulse proportional to inverse mass
+        body_a.vx -= j * inv_mass_a * nx;
+        body_a.vy -= j * inv_mass_a * ny;
+        body_b.vx += j * inv_mass_b * nx;
+        body_b.vy += j * inv_mass_b * ny;
+
+        // Positional separation: push apart by half penetration depth to prevent tunnelling.
+        // We use a small fixed push rather than computing true penetration depth.
+        if let (Some(a_xf), Some(b_xf)) = (world.transform(hit.a), world.transform(hit.b)) {
+            const SEPARATION: f32 = 0.5;
+            let _ = world.set_transform(
+                hit.a,
+                Transform2D { x: a_xf.x - nx * SEPARATION, y: a_xf.y - ny * SEPARATION, heading: a_xf.heading },
+            );
+            let _ = world.set_transform(
+                hit.b,
+                Transform2D { x: b_xf.x + nx * SEPARATION, y: b_xf.y + ny * SEPARATION, heading: b_xf.heading },
+            );
+        }
+
+        let _ = world.set_physics(hit.a, body_a);
+        let _ = world.set_physics(hit.b, body_b);
+    }
+}
+
+/// Apply bounce response for particles that have bounce > 0.0 set on their ParticlePhysics.
+/// Reflects each particle's velocity along the contact normal, scaled by bounce coefficient.
+pub fn apply_particle_bounce(world: &GameplayWorld, hits: &[CollisionHit]) {
+    for hit in hits {
+        // Only handle particle side (hit.a is always the particle in particle_collision_system)
+        let Some(pp) = world.particle_physics(hit.a) else {
+            continue;
+        };
+        if pp.bounce <= 0.0 {
+            continue;
+        }
+        let Some(mut body) = world.physics(hit.a) else {
+            continue;
+        };
+
+        let nx = hit.normal_x;
+        let ny = hit.normal_y;
+        if nx == 0.0 && ny == 0.0 {
+            continue;
+        }
+
+        // Reflect: v' = v - 2(v·n)n, then scale by bounce coefficient
+        let dot = body.vx * nx + body.vy * ny;
+        body.vx = (body.vx - 2.0 * dot * nx) * pp.bounce;
+        body.vy = (body.vy - 2.0 * dot * ny) * pp.bounce;
+        let _ = world.set_physics(hit.a, body);
+    }
 }
 
 /// Particle collision system: checks particles with ParticlePhysics.collision=true
@@ -91,16 +193,14 @@ pub fn particle_collision_system(
     strategies: &CollisionStrategies,
 ) -> Vec<CollisionHit> {
     let mut hits = Vec::new();
-    
-    // Get all particles with collision enabled
+
     let particle_ids = world.ids_with_particle_physics();
     if particle_ids.is_empty() {
         return hits;
     }
-    
-    // Get all potential target entities (those with colliders)
+
     let target_ids = world.ids_with_colliders();
-    
+
     for p_id in &particle_ids {
         let Some(pp) = world.particle_physics(*p_id) else {
             continue;
@@ -111,38 +211,41 @@ pub fn particle_collision_system(
         let Some(p_xf) = world.transform(*p_id) else {
             continue;
         };
-        // Particles are treated as small circles (radius 1-2 pixels)
         let p_radius = 2.0f32;
-        
+
         for t_id in &target_ids {
             if *t_id == *p_id {
                 continue;
             }
-            
-            // Check if target's tags match particle's collision_mask
+
             let target_tags = world.tags(*t_id);
             let matches_mask = pp.collision_mask.iter().any(|mask| target_tags.contains(mask));
             if !matches_mask {
                 continue;
             }
-            
+
             let Some(t_col) = world.collider(*t_id) else {
                 continue;
             };
             let Some(t_xf) = world.transform(*t_id) else {
                 continue;
             };
-            
-            // Check intersection
+
             let particle_shape = ColliderShape::Circle { radius: p_radius };
-            if intersects(&particle_shape, &p_xf, &t_col.shape, &t_xf, strategies.wrap_strategy) {
-                hits.push(CollisionHit { a: *p_id, b: *t_id });
+            if let Some((nx, ny)) = intersects_with_normal(
+                &particle_shape,
+                &p_xf,
+                &t_col.shape,
+                &t_xf,
+                strategies.wrap_strategy,
+            ) {
+                hits.push(CollisionHit { a: *p_id, b: *t_id, normal_x: nx, normal_y: ny });
                 world.emit_event(GameplayEvent::CollisionEnter { a: *p_id, b: *t_id });
                 world.emit_event(GameplayEvent::CollisionEnter { a: *t_id, b: *p_id });
             }
         }
     }
-    
+
     hits
 }
 
@@ -150,26 +253,53 @@ fn layers_interact(a: &Collider2D, b: &Collider2D) -> bool {
     (a.mask & b.layer) != 0 && (b.mask & a.layer) != 0
 }
 
-fn intersects(
+/// Returns `Some((nx, ny))` — the A→B contact unit normal — when shapes intersect,
+/// or `None` when they do not. Falls back to `(0.0, 0.0)` for polygon-polygon.
+fn intersects_with_normal(
     a_shape: &ColliderShape,
     a_xf: &Transform2D,
     b_shape: &ColliderShape,
     b_xf: &Transform2D,
     wrap: WrapStrategy,
-) -> bool {
+) -> Option<(f32, f32)> {
     match (a_shape, b_shape) {
         (ColliderShape::Circle { radius: ra }, ColliderShape::Circle { radius: rb }) => {
-            circle_circle(a_xf, *ra, b_xf, *rb, wrap)
+            circle_circle_normal(a_xf, *ra, b_xf, *rb, wrap)
         }
         (ColliderShape::Circle { radius: ra }, ColliderShape::Polygon { points: pb }) => {
-            circle_polygon(a_xf, *ra, b_xf, pb)
+            if circle_polygon(a_xf, *ra, b_xf, pb) {
+                Some(center_to_center_normal(a_xf, b_xf))
+            } else {
+                None
+            }
         }
         (ColliderShape::Polygon { points: pa }, ColliderShape::Circle { radius: rb }) => {
-            circle_polygon(b_xf, *rb, a_xf, pa)
+            if circle_polygon(b_xf, *rb, a_xf, pa) {
+                Some(center_to_center_normal(a_xf, b_xf))
+            } else {
+                None
+            }
         }
         (ColliderShape::Polygon { points: pa }, ColliderShape::Polygon { points: pb }) => {
-            polygon_polygon(a_xf, pa, b_xf, pb)
+            if polygon_polygon(a_xf, pa, b_xf, pb) {
+                Some(center_to_center_normal(a_xf, b_xf))
+            } else {
+                None
+            }
         }
+    }
+}
+
+/// Compute the unit normal from a_xf center toward b_xf center.
+/// Falls back to (1.0, 0.0) if centers overlap exactly.
+fn center_to_center_normal(a_xf: &Transform2D, b_xf: &Transform2D) -> (f32, f32) {
+    let dx = b_xf.x - a_xf.x;
+    let dy = b_xf.y - a_xf.y;
+    let dist = (dx * dx + dy * dy).sqrt();
+    if dist < 1e-6 {
+        (1.0, 0.0)
+    } else {
+        (dx / dist, dy / dist)
     }
 }
 
@@ -187,11 +317,9 @@ fn circle_polygon(circle_xf: &Transform2D, radius: f32, poly_xf: &Transform2D, p
     let cy = circle_xf.y.round() as i32;
     let r = radius.round() as i32;
 
-    // Point inside polygon
     if engine_physics::point_in_polygon([cx, cy], &int_points, [0, 0]) {
         return true;
     }
-    // Any polygon vertex inside circle
     for p in &int_points {
         let dx = p[0] - cx;
         let dy = p[1] - cy;
@@ -199,7 +327,6 @@ fn circle_polygon(circle_xf: &Transform2D, radius: f32, poly_xf: &Transform2D, p
             return true;
         }
     }
-    // Circle center near any polygon edge
     let n = int_points.len();
     for i in 0..n {
         let a = int_points[i];
@@ -248,32 +375,31 @@ fn segment_point_dist_sq(a: [i32; 2], b: [i32; 2], p: [i32; 2]) -> i64 {
     ex * ex + ey * ey
 }
 
-fn circle_circle(a: &Transform2D, ra: f32, b: &Transform2D, rb: f32, wrap: WrapStrategy) -> bool {
-    match wrap {
-        WrapStrategy::None => {
-            let dx = a.x - b.x;
-            let dy = a.y - b.y;
-            let r = ra + rb;
-            (dx * dx + dy * dy) <= r * r
-        }
-        WrapStrategy::Toroid {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-        } => {
+/// Returns `Some((nx, ny))` contact normal (A→B) when circles intersect, else `None`.
+fn circle_circle_normal(a: &Transform2D, ra: f32, b: &Transform2D, rb: f32, wrap: WrapStrategy) -> Option<(f32, f32)> {
+    let (dx, dy) = match wrap {
+        WrapStrategy::None => (b.x - a.x, b.y - a.y),
+        WrapStrategy::Toroid { min_x, max_x, min_y, max_y } => {
             let w = max_x - min_x;
             let h = max_y - min_y;
-            let mut dx = (a.x - b.x).abs();
-            let mut dy = (a.y - b.y).abs();
-            if dx > w * 0.5 {
-                dx = w - dx;
-            }
-            if dy > h * 0.5 {
-                dy = h - dy;
-            }
-            let r = ra + rb;
-            (dx * dx + dy * dy) <= r * r
+            let mut dx = b.x - a.x;
+            let mut dy = b.y - a.y;
+            if dx.abs() > w * 0.5 { dx -= dx.signum() * w; }
+            if dy.abs() > h * 0.5 { dy -= dy.signum() * h; }
+            (dx, dy)
         }
+    };
+    let dist_sq = dx * dx + dy * dy;
+    let r_sum = ra + rb;
+    if dist_sq <= r_sum * r_sum {
+        let dist = dist_sq.sqrt();
+        if dist < 1e-6 {
+            Some((1.0, 0.0))
+        } else {
+            Some((dx / dist, dy / dist))
+        }
+    } else {
+        None
     }
 }
+

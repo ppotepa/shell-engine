@@ -253,6 +253,34 @@ impl ScriptEntityPhysicsApi {
         };
         world.set_collider(self.entity_id, collider)
     }
+
+    /// Get mass.
+    pub(crate) fn mass(&mut self) -> rhai::FLOAT {
+        let Some(world) = self.world.as_ref() else { return 1.0; };
+        world.physics(self.entity_id).map(|b| b.mass as rhai::FLOAT).unwrap_or(1.0)
+    }
+
+    /// Set mass (0.0 = immovable).
+    pub(crate) fn set_mass(&mut self, mass: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false; };
+        let Some(mut body) = world.physics(self.entity_id) else { return false; };
+        body.mass = (mass as f32).max(0.0);
+        world.set_physics(self.entity_id, body)
+    }
+
+    /// Get restitution (0.0 = inelastic, 1.0 = elastic).
+    pub(crate) fn restitution(&mut self) -> rhai::FLOAT {
+        let Some(world) = self.world.as_ref() else { return 0.7; };
+        world.physics(self.entity_id).map(|b| b.restitution as rhai::FLOAT).unwrap_or(0.7)
+    }
+
+    /// Set restitution coefficient.
+    pub(crate) fn set_restitution(&mut self, r: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false; };
+        let Some(mut body) = world.physics(self.entity_id) else { return false; };
+        body.restitution = (r as f32).clamp(0.0, 1.0);
+        world.set_physics(self.entity_id, body)
+    }
 }
 
 // ── ScriptPhysicsApi ──────────────────────────────────────────────────────
@@ -515,6 +543,34 @@ impl ScriptPhysicsApi {
         };
         world.set_collider(id as u64, collider)
     }
+
+    /// Get mass.
+    pub(crate) fn mass(&mut self, id: rhai::INT) -> rhai::FLOAT {
+        let Some(world) = self.world.as_ref() else { return 1.0; };
+        world.physics(id as u64).map(|b| b.mass as rhai::FLOAT).unwrap_or(1.0)
+    }
+
+    /// Set mass (0.0 = immovable).
+    pub(crate) fn set_mass(&mut self, id: rhai::INT, mass: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false; };
+        let Some(mut body) = world.physics(id as u64) else { return false; };
+        body.mass = (mass as f32).max(0.0);
+        world.set_physics(id as u64, body)
+    }
+
+    /// Get restitution.
+    pub(crate) fn restitution(&mut self, id: rhai::INT) -> rhai::FLOAT {
+        let Some(world) = self.world.as_ref() else { return 0.7; };
+        world.physics(id as u64).map(|b| b.restitution as rhai::FLOAT).unwrap_or(0.7)
+    }
+
+    /// Set restitution coefficient.
+    pub(crate) fn set_restitution(&mut self, id: rhai::INT, r: rhai::FLOAT) -> bool {
+        let Some(world) = self.world.as_ref() else { return false; };
+        let Some(mut body) = world.physics(id as u64) else { return false; };
+        body.restitution = (r as f32).clamp(0.0, 1.0);
+        world.set_physics(id as u64, body)
+    }
 }
 
 pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
@@ -658,4 +714,16 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
          layer: rhai::INT,
          mask: rhai::INT| { physics.set_collider_polygon(id, points, layer, mask) },
     );
+
+    // Entity-level mass / restitution
+    engine.register_fn("mass", |physics: &mut ScriptEntityPhysicsApi| physics.mass());
+    engine.register_fn("set_mass", |physics: &mut ScriptEntityPhysicsApi, mass: rhai::FLOAT| physics.set_mass(mass));
+    engine.register_fn("restitution", |physics: &mut ScriptEntityPhysicsApi| physics.restitution());
+    engine.register_fn("set_restitution", |physics: &mut ScriptEntityPhysicsApi, r: rhai::FLOAT| physics.set_restitution(r));
+
+    // World-level mass / restitution
+    engine.register_fn("mass", |physics: &mut ScriptPhysicsApi, id: rhai::INT| physics.mass(id));
+    engine.register_fn("set_mass", |physics: &mut ScriptPhysicsApi, id: rhai::INT, mass: rhai::FLOAT| physics.set_mass(id, mass));
+    engine.register_fn("restitution", |physics: &mut ScriptPhysicsApi, id: rhai::INT| physics.restitution(id));
+    engine.register_fn("set_restitution", |physics: &mut ScriptPhysicsApi, id: rhai::INT, r: rhai::FLOAT| physics.set_restitution(id, r));
 }
