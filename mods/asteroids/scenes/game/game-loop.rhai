@@ -272,19 +272,24 @@ local.ship_id = ship_id;
 if ship_id > 0 {
     // Sync 3-D roll with ship heading so the model rotates to match movement direction.
     // roll = -heading (radians→degrees) because OBJ +roll is CCW, game heading is CW.
-    let xf = world.transform(ship_id);
-    scene.set("ship-" + ship_id, "obj.roll", -(xf["heading"]) * 57.29578);
+    // Guard against the one-frame window where a freshly-spawned entity is still in the
+    // command queue and not yet in the physics world (world.transform returns ()).
+    let xf = world.transform(ship_id) ?? #{};
+    let h = xf["heading"] ?? 0.0;
+    scene.set("ship-" + ship_id, "obj.roll", -h * 57.29578);
 
     // ── Camera follows ship — keep ship centered on screen ───────────────────
-    let ship_x = xf["x"] ?? 320.0;
-    let ship_y = xf["y"] ?? 180.0;
+    // Use last known position as fallback so camera is always valid on frame 1.
+    let ship_x = xf["x"] ?? (local.last_ship_x ?? 1600.0);
+    let ship_y = xf["y"] ?? (local.last_ship_y ?? 900.0);
+    local.last_ship_x = ship_x;
+    local.last_ship_y = ship_y;
     world.set_camera(ship_x - 320.0, ship_y - 180.0);
 
     // ── Ship polygon collider — 6-point hull rotated by heading each frame ────
     // Body-frame hull outline: derived from ship.obj vertex projections onto the
     // 28×28 canvas (nose=top, wings=bottom). Offsets are from entity_pos center.
     let BASE_HULL = [[0.0, -6.9], [2.65, 5.39], [7.4, 6.9], [0.0, 2.7], [-7.4, 6.9], [-2.65, 5.39]];
-    let h = xf["heading"];
     let ch = cos(h); let sh = sin(h);
     let hull_pts = [];
     for p in BASE_HULL {
@@ -331,7 +336,6 @@ if ship_id > 0 {
         // ── Recoil — small backward kick on each shot (Newton's 3rd law) ─────
         let phys = world.physics(ship_id);
         if type_of(phys) == "map" {
-            let h = xf["heading"];
             let recoil = 14.0;
             world.set_physics(ship_id,
                 (phys["vx"] ?? 0.0) - sin(h) * recoil,
@@ -578,6 +582,15 @@ if !invincible && ship_id > 0 {
         break;
     }
 }
+
+// ── Background planet ambient drift — slow sinusoidal oscillation for space immersion ──
+let t = scene_elapsed_ms.to_float() / 1000.0;
+scene.set("planet-large", "x", (460.0 + sin(t * 0.08) * 12.0).to_int());
+scene.set("planet-large", "y", (220.0 + cos(t * 0.05) *  6.0).to_int());
+scene.set("planet-small", "x", ( 80.0 + cos(t * 0.12) *  8.0).to_int());
+scene.set("planet-small", "y", ( 48.0 + sin(t * 0.09) *  5.0).to_int());
+scene.set("planet-moon",  "x", (556.0 + sin(t * 0.15) *  5.0).to_int());
+scene.set("planet-moon",  "y", (198.0 + cos(t * 0.11) *  3.0).to_int());
 
 #{state: local}
 } // end game_over else block
