@@ -91,6 +91,10 @@ pub struct SceneRuntime {
     prev_keys_down: std::collections::HashSet<String>,
     /// Previous frame's scene_elapsed_ms — used to compute per-frame delta.
     prev_scene_elapsed_ms: u64,
+    /// World-space camera origin (top-left of the visible viewport in world pixels).
+    /// Non-UI layers are offset by (-camera_x, -camera_y) during compositing.
+    camera_x: i32,
+    camera_y: i32,
     /// Palette version when bindings were last applied; 0 means not yet applied.
     palette_applied_version: u64,
     /// GameState version when text bindings were last applied; 0 means not yet applied.

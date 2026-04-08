@@ -87,6 +87,14 @@ pub enum BehaviorCommand {
     SetSceneBg {
         color: String,
     },
+    /// Move the world-space camera (viewport origin in world pixels).
+    ///
+    /// Non-UI layers are shifted by `(-x, -y)` before rendering so world-pos `(x, y)`
+    /// maps to screen center. UI layers are not affected.
+    SetCamera {
+        x: f32,
+        y: f32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

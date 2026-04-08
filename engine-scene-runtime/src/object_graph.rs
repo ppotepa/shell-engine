@@ -49,6 +49,20 @@ impl SceneRuntime {
         &self.scene
     }
 
+    /// Returns the current world-space camera origin `(x, y)` in pixels.
+    ///
+    /// Non-UI layers are shifted by `(-x, -y)` during compositing so that entity
+    /// at world position `(x, y)` maps to the screen origin.
+    pub fn camera(&self) -> (i32, i32) {
+        (self.camera_x, self.camera_y)
+    }
+
+    /// Sets the world-space camera origin directly (called from behavior_runner).
+    pub(crate) fn set_camera_internal(&mut self, x: i32, y: i32) {
+        self.camera_x = x;
+        self.camera_y = y;
+    }
+
     pub fn set_scene_rendered_mode(&mut self, mode: SceneRenderedMode) {
         self.scene.rendered_mode = mode;
     }

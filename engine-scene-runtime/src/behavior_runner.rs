@@ -672,6 +672,10 @@ impl SceneRuntime {
                 BehaviorCommand::SetSceneBg { color } => {
                     self.scene.bg_colour = engine_core::scene::color::parse_colour_str(color);
                 }
+                BehaviorCommand::SetCamera { x, y } => {
+                    self.camera_x = *x as i32;
+                    self.camera_y = *y as i32;
+                }
             }
         }
 

@@ -73,6 +73,8 @@ pub fn compositor_system(world: &mut World) {
         effects_ptr,
         scene_step_dur,
         rendered_mode,
+        camera_x,
+        camera_y,
     ) = {
         // Get both Arc snapshots first (requires &mut)
         let (object_states, obj_camera_states) = world
@@ -112,6 +114,11 @@ pub fn compositor_system(world: &mut World) {
             .unwrap_or(&[] as *const _);
         let scene_step_dur = current_step.map(|s| s.duration_ms()).unwrap_or(0);
 
+        let (camera_x, camera_y) = world
+            .scene_runtime()
+            .map(|rt| rt.camera())
+            .unwrap_or((0, 0));
+
         (
             bg,
             ui_enabled,
@@ -125,6 +132,8 @@ pub fn compositor_system(world: &mut World) {
             effects_ptr,
             scene_step_dur,
             runtime_mode_override.unwrap_or(scene.rendered_mode),
+            camera_x,
+            camera_y,
         )
     };
 
@@ -193,6 +202,8 @@ pub fn compositor_system(world: &mut World) {
         scene_step_dur,
         is_pixel_backend,
         default_font: default_font.as_deref(),
+        camera_x,
+        camera_y,
     };
     engine_compositor::clear_vector_primitives();
     let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {

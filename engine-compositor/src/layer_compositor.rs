@@ -39,6 +39,8 @@ pub fn composite_layers(
     obj_camera_states: &HashMap<String, ObjCameraState>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
+    camera_x: i32,
+    camera_y: i32,
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
@@ -58,8 +60,11 @@ pub fn composite_layers(
         if !layer_state.visible {
             continue;
         }
-        let total_origin_x = scene_origin_x.saturating_add(layer_state.offset_x);
-        let total_origin_y = scene_origin_y.saturating_add(layer_state.offset_y);
+        let base_x = scene_origin_x.saturating_add(layer_state.offset_x);
+        let base_y = scene_origin_y.saturating_add(layer_state.offset_y);
+        // UI layers are fixed (HUD, menus) — camera offset does not apply to them.
+        let total_origin_x = if layer.ui { base_x } else { base_x.saturating_sub(camera_x) };
+        let total_origin_y = if layer.ui { base_y } else { base_y.saturating_sub(camera_y) };
 
         // Fast-path: skip if layer is completely off-screen
         // If layer starts beyond scene bounds and has no positive dimensions

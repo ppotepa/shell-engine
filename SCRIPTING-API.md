@@ -202,6 +202,15 @@ world.enable_wrap(id, min_x, min_y, max_x, max_y)   // Enable per-entity wrappin
 world.disable_wrap(id)        // Disable per-entity wrapping
 ```
 
+### Camera / Viewport
+
+```rhai
+world.set_camera(x, y)        // Shift viewport so world-pos (x, y) maps to screen top-left.
+                               // Call each frame: world.set_camera(ship_x - 320.0, ship_y - 180.0)
+                               // UI layers (ui: true in YAML) are NOT affected — they stay fixed.
+                               // Camera resets to (0,0) on scene transition.
+```
+
 ### Timers (World-level)
 
 ```rhai

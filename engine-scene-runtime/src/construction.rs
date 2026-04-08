@@ -134,6 +134,8 @@ impl SceneRuntime {
             game_state_applied_version: 0,
             sprite_id_to_layer: HashMap::new(),
             spawn_batch_depth: 0,
+            camera_x: 0,
+            camera_y: 0,
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime

@@ -63,45 +63,22 @@ let col  = local.pal ?? #{};
 
 
 
-// Base vertex shapes (centered at origin, matching object YAMLs).
-fn base_points_large() {
-    [[-14,-22],[9,-20],[22,-9],[20,11],[9,22],[-11,22],[-22,9],[-20,-11]]
-}
-fn base_points_medium() {
-    [[-7,-11],[5,-11],[11,-2],[9,9],[-4,11],[-11,2]]
-}
-fn base_points_small() {
-    [[-3,-7],[5,-5],[7,2],[-2,7],[-7,2],[-5,-5]]
-}
-
-// Perturb each vertex by ±jitter fraction of its distance from origin.
-fn randomize_shape(base, jitter) {
-    let out = [];
-    for pt in base {
-        let px = to_float(pt[0]);
-        let py = to_float(pt[1]);
-        let dx = (rand() - 0.5) * 2.0 * jitter * absf(px).max(2.0);
-        let dy = (rand() - 0.5) * 2.0 * jitter * absf(py).max(2.0);
-        out.push([to_int(px + dx), to_int(py + dy)]);
-    }
-    out
-}
-
-// Apply unique polygon to a freshly-spawned asteroid visual.
-fn apply_shape(scene, id, size) {
+// Randomise initial 3-D orientation and spin speed of a freshly-spawned asteroid.
+// orbit_speed range: 30–140 deg/sec — mix of slow drifters and fast tumblers.
+fn apply_obj_rotation(scene, id) {
     let visual = "asteroid-" + id;
-    let base = if size == 3 { base_points_large() }
-          else if size == 2 { base_points_medium() }
-          else { base_points_small() };
-    let jitter = 0.25;
-    let pts = randomize_shape(base, jitter);
-    scene.set(visual, "vector.points", pts);
+    scene.set(visual, "obj.yaw",         rand() * 360.0);
+    scene.set(visual, "obj.pitch",       rand() * 360.0);
+    scene.set(visual, "obj.roll",        rand() * 360.0);
+    scene.set(visual, "obj.orbit_speed", 30.0 + rand() * 110.0);
 }
 
-fn keep_asteroids_alive(world, scene) {
-    if world.count_kind("asteroid") > 0 { return; }
-    spawn_wave(world, scene, 1);
-}
+// --- FREE FLIGHT MODE: no asteroid waves, camera follows ship ---
+// Asteroids disabled — world is open for free exploration.
+// fn keep_asteroids_alive(world, scene) {
+//     if world.count_kind("asteroid") > 0 { return; }
+//     spawn_wave(world, scene, 1);
+// }
 
 // Give an asteroid a random tumble (constant spin, no braking).
 fn add_tumble(world, id, size) {
@@ -137,7 +114,7 @@ fn spawn_wave(world, scene, wave) {
         let id = world.spawn_prefab("asteroid-large", #{ x: x, y: y, vx: vx, vy: vy, heading: heading });
         if id > 0 {
             add_tumble(world, id, 3);
-            apply_shape(scene, id, 3);
+            apply_obj_rotation(scene, id);
         }
     }
 }
@@ -151,7 +128,7 @@ fn spawn_medium_asteroids(world, scene, x, y, parent_vx, parent_vy) {
         let id = world.spawn_prefab("asteroid-medium", #{ x: x, y: y, vx: vx, vy: vy, heading: heading });
         if id > 0 {
             add_tumble(world, id, 2);
-            apply_shape(scene, id, 2);
+            apply_obj_rotation(scene, id);
         }
     }
 }
@@ -165,7 +142,7 @@ fn spawn_small_asteroids(world, scene, x, y, parent_vx, parent_vy) {
         let id = world.spawn_prefab("asteroid-small", #{ x: x, y: y, vx: vx, vy: vy, heading: heading });
         if id > 0 {
             add_tumble(world, id, 1);
-            apply_shape(scene, id, 1);
+            apply_obj_rotation(scene, id);
         }
     }
 }
@@ -185,7 +162,19 @@ fn spawn_shrapnel(world, ax, ay, bvx, bvy, avx, avy, count, base_speed) {
     }
 }
 
-fn ensure_ship(world) {    let WORLD_W = world.world_width();
+// Shared death visual sequence — hull pieces + shockwave + shake + whiteout flash.
+// Call BEFORE despawning the ship so ship_id is still a valid entity.
+fn do_ship_death_fx(world, effects, col, ship_id) {
+    world.emit("ship.hull_pieces", ship_id, #{ count: 22, speed:  95.0, spread: 6.28, fg: col.ship ?? "white" });
+    world.emit("ship.hull_pieces", ship_id, #{ count:  9, speed: 195.0, spread: 6.28, fg: col.ship ?? "white" });
+    world.emit("ship.shockwave",   ship_id, #{ count: 20, speed: 320.0, spread: 6.28 });
+    world.emit("asteroids.impact_sparks", ship_id, #{ count: 14, speed: 55.0, spread: 6.28, fg: col.ship ?? "white" });
+    effects.shake(600, 4.0, 3.0, 8.0);
+    effects.trigger("whiteout", 300, #{ intensity: 0.85 });
+}
+
+fn ensure_ship(world) {
+    let WORLD_W = world.world_width();
     let WORLD_H = world.world_height();
     let SHIP_X = WORLD_W * 0.5;
     let SHIP_Y = WORLD_H * 0.5;
@@ -215,21 +204,24 @@ fn ensure_ship(world) {    let WORLD_W = world.world_width();
 // ======================== INITIALIZATION ===================================
 
 if !(local.initialized ?? false) {
-    world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H);
+    // Free-flight mode: large world, no wrapping, camera follows ship.
+    // world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H); // disabled — no screen-edge wrap
     local.initialized = true;
     local.ship_id = 0;
     local.score = 0;
     local.lives = 3;
+    local.ship_hp = 3;
     local.wave = 1;
     local.game_over = false;
     input.load_profile("default");
-    spawn_wave(world, scene, 1);
+    // spawn_wave(world, scene, 1); // disabled — free-flight mode
 }
 
 // ======================== MAIN LOOP ========================================
 
 let score     = local.score ?? 0;
 let lives     = local.lives ?? 3;
+let ship_hp   = local.ship_hp ?? 3;
 let wave      = local.wave ?? 1;
 let game_over = local.game_over ?? false;
 let respawning = local.respawning ?? false;
@@ -241,9 +233,14 @@ if world.timer_fired("respawn_done") {
     respawning = false;
     local.invincible = true;
     invincible = true;
+    local.just_spawned = true;
     world.after_ms("invincible_done", 2000);
 }
 if world.timer_fired("invincible_done") {
+    local.invincible = false;
+    invincible = false;
+}
+if world.timer_fired("hit_invincible_done") {
     local.invincible = false;
     invincible = false;
 }
@@ -272,29 +269,90 @@ let ship_id = if !respawning { ensure_ship(world) } else { 0 };
 local.ship_id = ship_id;
 
 if ship_id > 0 {
+    // Sync 3-D roll with ship heading so the model rotates to match movement direction.
+    // roll = -heading (radians→degrees) because OBJ +roll is CCW, game heading is CW.
+    let xf = world.transform(ship_id);
+    scene.set("ship-" + ship_id, "obj.roll", -(xf["heading"]) * 57.29578);
+
+    // ── Camera follows ship — keep ship centered on screen ───────────────────
+    let ship_x = xf["x"] ?? 320.0;
+    let ship_y = xf["y"] ?? 180.0;
+    world.set_camera(ship_x - 320.0, ship_y - 180.0);
+
+    // ── Ship polygon collider — 6-point hull rotated by heading each frame ────
+    // Body-frame hull outline: derived from ship.obj vertex projections onto the
+    // 28×28 canvas (nose=top, wings=bottom). Offsets are from entity_pos center.
+    let BASE_HULL = [[0.0, -6.9], [2.65, 5.39], [7.4, 6.9], [0.0, 2.7], [-7.4, 6.9], [-2.65, 5.39]];
+    let h = xf["heading"];
+    let ch = cos(h); let sh = sin(h);
+    let hull_pts = [];
+    for p in BASE_HULL {
+        hull_pts.push([ch * p[0] - sh * p[1], sh * p[0] + ch * p[1]]);
+    }
+    world.entity(ship_id).physics.set_collider_polygon(hull_pts, 1, 6);
+
+    // ── Warp-in materialisation on first frame after respawn ──────────────────
+    if local.just_spawned ?? false {
+        local.just_spawned = false;
+        world.emit("ship.warp_in", ship_id, #{ count: 26, speed: 120.0, spread: 6.28, fg: col.ship ?? "white" });
+        world.emit("ship.warp_in", ship_id, #{ count: 10, speed:  60.0, spread: 6.28, fg: col.ship ?? "white" });
+        world.emit("asteroids.impact_sparks", ship_id, #{ count: 10, speed: 70.0, spread: 3.14, fg: "#AADDFF" });
+        effects.shake(300, 2.5, 1.8, 10.0);
+        effects.trigger("whiteout", 200, #{ intensity: 0.5 });
+    }
+
+    // ── Laser sight — DISABLED (keep for future re-enable) ────────────────────
+    // 8 dots spaced 17 px apart along the heading vector, dimming with distance.
+    // let LASER_COLS = [
+    //     "#1A3860", "#142E52", "#102546", "#0D1E3A",
+    //     "#091630", "#070F24", "#050B1A", "#030812"
+    // ];
+    // for i in 0..8 {
+    //     let dist = 18.0 + i.to_float() * 17.0;
+    //     world.emit("laser.dot", ship_id, #{
+    //         count: 1,
+    //         local_x: 0.0,
+    //         local_y: -dist,
+    //         speed: 0.0,
+    //         fg: LASER_COLS[i],
+    //     });
+    // }
+
     rcs::update_ship_controls(world, input, ship_id, col);
 
     // ── Shooting ─────────────────────────────────────────────────────────────
     if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
         let bullet_id = world.spawn_from_heading(ship_id, "bullet", #{
-            speed: 480.0, offset: 17.0, ttl_ms: 1000, inherit_velocity: true
+            speed: 960.0, offset: 17.0, ttl_ms: 1000, inherit_velocity: true
         });
         world.entity(ship_id).cooldown_start("fire", 180);
+
+        // ── Recoil — small backward kick on each shot (Newton's 3rd law) ─────
+        let phys = world.physics(ship_id);
+        if type_of(phys) == "map" {
+            let h = xf["heading"];
+            let recoil = 14.0;
+            world.set_physics(ship_id,
+                (phys["vx"] ?? 0.0) - sin(h) * recoil,
+                (phys["vy"] ?? 0.0) + cos(h) * recoil,
+                phys["ax"] ?? 0.0, phys["ay"] ?? 0.0,
+                phys["drag"] ?? 0.0, phys["max_speed"] ?? 0.0);
+        }
     }
     // ── Bullet trail — luminous glow particles streaming behind each bullet ──────
     for bullet_id in world.query_tag("bullet") {
         world.emit("bullet.trail", bullet_id, #{
-            count: 2, color_ramp: col.ramp_bullet_trail
+            count: 4, color_ramp: col.ramp_bullet_trail
         });
     }
 }
 
-// ── Wave complete check ───────────────────────────────────────────────────────
-if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respawning {
-    wave = wave + 1;
-    local.wave = wave;
-    spawn_wave(world, scene, wave);
-}
+// ── Wave complete check — DISABLED in free-flight mode ───────────────────────
+// if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respawning {
+//     wave = wave + 1;
+//     local.wave = wave;
+//     spawn_wave(world, scene, wave);
+// }
 
 // ── Collision handling ────────────────────────────────────────────────────────
 // bullet hits asteroid — emit debris, score, split
@@ -391,7 +449,7 @@ for hit in collision.enters("shrapnel", "asteroid") {
     });
 }
 
-// shrapnel hits ship — same death sequence as asteroid collision
+// shrapnel hits ship — 3-hit HP system: lose a life only on 3rd hit
 if !invincible && ship_id > 0 {
     for hit in collision.enters("shrapnel", "ship") {
         let s_id      = hit["shrapnel"];
@@ -399,103 +457,122 @@ if !invincible && ship_id > 0 {
         if hit_ship != ship_id || !world.exists(s_id) { continue; }
         world.despawn(s_id);
 
-        world.emit("ship.explosion_debris", ship_id, #{
-            count: 16, speed: 70.0, spread: 6.28, fg: col.ship ?? "white"
-        });
-        world.emit("asteroids.impact_sparks", ship_id, #{
-            count: 10, speed: 40.0, spread: 6.28, fg: col.ship ?? "white"
-        });
+        ship_hp = ship_hp - 1;
+        local.ship_hp = ship_hp;
 
-        world.despawn(ship_id);
-        local.ship_id = 0;
-        ship_id = 0;
-        lives = lives - 1;
-        local.lives = lives;
-        if lives <= 0 {
-            local.game_over = true;
-            local.lives = 0;
-            let final_score = score;
-            let saved = game.get("/highscores/scores");
-            let scores = if type_of(saved) == "array" { saved } else { [] };
-            let rank = -1;
-            for i in 0..scores.len() {
-                if final_score > scores[i].score { rank = i; break; }
-            }
-            if rank < 0 && scores.len() < 10 { rank = scores.len(); }
-            if rank >= 0 {
-                let entry = #{ rank: rank + 1, score: final_score, name: "---", wave: wave };
-                scores.insert(rank, entry);
-                while scores.len() > 10 { scores.pop(); }
-                for i in 0..scores.len() { scores[i].rank = i + 1; }
-                game.set("/highscores/scores", scores);
-                game.set("/highscores/last_entry_rank", rank);
+        if ship_hp <= 0 {
+            // Full death sequence
+            do_ship_death_fx(world, effects, col, ship_id);
+            world.despawn(ship_id);
+            local.ship_id = 0;
+            ship_id = 0;
+            local.ship_hp = 3;
+            ship_hp = 3;
+            lives = lives - 1;
+            local.lives = lives;
+            if lives <= 0 {
+                local.game_over = true;
+                local.lives = 0;
+                let final_score = score;
+                let saved = game.get("/highscores/scores");
+                let scores = if type_of(saved) == "array" { saved } else { [] };
+                let rank = -1;
+                for i in 0..scores.len() {
+                    if final_score > scores[i].score { rank = i; break; }
+                }
+                if rank < 0 && scores.len() < 10 { rank = scores.len(); }
+                if rank >= 0 {
+                    let entry = #{ rank: rank + 1, score: final_score, name: "---", wave: wave };
+                    scores.insert(rank, entry);
+                    while scores.len() > 10 { scores.pop(); }
+                    for i in 0..scores.len() { scores[i].rank = i + 1; }
+                    game.set("/highscores/scores", scores);
+                    game.set("/highscores/last_entry_rank", rank);
+                } else {
+                    game.set("/highscores/last_entry_rank", -1);
+                }
+                game.set("/score", final_score);
+                for id in world.query_tag("asteroid") { world.despawn(id); }
+                for id in world.query_tag("bullet")   { world.despawn(id); }
+                for id in world.query_tag("shrapnel") { world.despawn(id); }
+                game.jump("asteroids-highscores");
             } else {
-                game.set("/highscores/last_entry_rank", -1);
+                local.respawning = true;
+                world.after_ms("respawn_done", 3000);
             }
-            game.set("/score", final_score);
-            for id in world.query_tag("asteroid") { world.despawn(id); }
-            for id in world.query_tag("bullet")   { world.despawn(id); }
-            for id in world.query_tag("shrapnel") { world.despawn(id); }
-            game.jump("asteroids-highscores");
         } else {
-            local.respawning = true;
-            world.after_ms("respawn_done", 2000);
+            // Hit flash — brief invincibility, small spark burst only
+            world.emit("asteroids.impact_sparks", ship_id, #{
+                count: 6, speed: 50.0, spread: 6.28, fg: col.ship ?? "white"
+            });
+            local.invincible = true;
+            invincible = true;
+            world.after_ms("hit_invincible_done", 800);
         }
         break;
     }
 }
 
-// ship hits asteroid — explosion particles, lose life
+// ship hits asteroid — 3-hit HP system: lose a life only on 3rd hit
 if !invincible && ship_id > 0 {
     for hit in collision.enters("ship", "asteroid") {
         let hit_ship_id = hit["ship"];
         if hit_ship_id != ship_id { continue; }
 
-        // Ship explosion particles (emit while ship still exists)
-        world.emit("ship.explosion_debris", ship_id, #{
-            count: 24, speed: 80.0, spread: 6.28, fg: col.ship ?? "white"
-        });
-        world.emit("asteroids.impact_sparks", ship_id, #{
-            count: 16, speed: 50.0, spread: 6.28, fg: col.ship ?? "white"
-        });
+        ship_hp = ship_hp - 1;
+        local.ship_hp = ship_hp;
 
-        world.despawn(ship_id);
-        local.ship_id = 0;
-        ship_id = 0;
-        lives = lives - 1;
-        local.lives = lives;
-        if lives <= 0 {
-            local.game_over = true;
-            local.lives = 0;
+        if ship_hp <= 0 {
+            // Full death sequence
+            do_ship_death_fx(world, effects, col, ship_id);
+            world.despawn(ship_id);
+            local.ship_id = 0;
+            ship_id = 0;
+            local.ship_hp = 3;
+            ship_hp = 3;
+            lives = lives - 1;
+            local.lives = lives;
+            if lives <= 0 {
+                local.game_over = true;
+                local.lives = 0;
 
-            // Save score to high-scores table (must be inline; functions can't call game.get at preflight)
-            let final_score = score;
-            let saved = game.get("/highscores/scores");
-            let scores = if type_of(saved) == "array" { saved } else { [] };
-            let rank = -1;
-            for i in 0..scores.len() {
-                if final_score > scores[i].score { rank = i; break; }
-            }
-            if rank < 0 && scores.len() < 10 { rank = scores.len(); }
-            if rank >= 0 {
-                let entry = #{ rank: rank + 1, score: final_score, name: "---", wave: wave };
-                scores.insert(rank, entry);
-                while scores.len() > 10 { scores.pop(); }
-                for i in 0..scores.len() { scores[i].rank = i + 1; }
-                game.set("/highscores/scores", scores);
-                game.set("/highscores/last_entry_rank", rank);
+                // Save score to high-scores table (must be inline; functions can't call game.get at preflight)
+                let final_score = score;
+                let saved = game.get("/highscores/scores");
+                let scores = if type_of(saved) == "array" { saved } else { [] };
+                let rank = -1;
+                for i in 0..scores.len() {
+                    if final_score > scores[i].score { rank = i; break; }
+                }
+                if rank < 0 && scores.len() < 10 { rank = scores.len(); }
+                if rank >= 0 {
+                    let entry = #{ rank: rank + 1, score: final_score, name: "---", wave: wave };
+                    scores.insert(rank, entry);
+                    while scores.len() > 10 { scores.pop(); }
+                    for i in 0..scores.len() { scores[i].rank = i + 1; }
+                    game.set("/highscores/scores", scores);
+                    game.set("/highscores/last_entry_rank", rank);
+                } else {
+                    game.set("/highscores/last_entry_rank", -1);
+                }
+                game.set("/score", final_score);
+
+                for id in world.query_tag("asteroid") { world.despawn(id); }
+                for id in world.query_tag("bullet")   { world.despawn(id); }
+                for id in world.query_tag("shrapnel") { world.despawn(id); }
+                game.jump("asteroids-highscores");
             } else {
-                game.set("/highscores/last_entry_rank", -1);
+                local.respawning = true;
+                world.after_ms("respawn_done", 3000);
             }
-            game.set("/score", final_score);
-
-            for id in world.query_tag("asteroid") { world.despawn(id); }
-            for id in world.query_tag("bullet")   { world.despawn(id); }
-            for id in world.query_tag("shrapnel") { world.despawn(id); }
-            game.jump("asteroids-highscores");
         } else {
-            local.respawning = true;
-            world.after_ms("respawn_done", 2000);
+            // Hit flash — brief invincibility, small spark burst only
+            world.emit("asteroids.impact_sparks", ship_id, #{
+                count: 8, speed: 60.0, spread: 6.28, fg: col.ship ?? "white"
+            });
+            local.invincible = true;
+            invincible = true;
+            world.after_ms("hit_invincible_done", 800);
         }
         break;
     }

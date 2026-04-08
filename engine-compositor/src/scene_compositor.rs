@@ -29,6 +29,9 @@ pub struct CompositeParams<'a> {
     pub scene_step_dur: u64,
     pub is_pixel_backend: bool,
     pub default_font: Option<&'a str>,
+    /// World-space camera origin. Non-UI layer origins are shifted by `(-camera_x, -camera_y)`.
+    pub camera_x: i32,
+    pub camera_y: i32,
 }
 
 /// Owns the rendered-mode-specific compositing path for a single frame.

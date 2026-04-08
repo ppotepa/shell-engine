@@ -1406,6 +1406,21 @@ impl ScriptGameplayApi {
             .unwrap_or(0.0)
     }
 
+    /// Move the world-space camera so that world position `(x, y)` maps to the
+    /// top-left corner of the visible viewport.
+    ///
+    /// Call each frame with `(ship_x - half_w, ship_y - half_h)` to keep the
+    /// ship centered. UI layers (marked `ui: true` in scene YAML) are not affected.
+    pub(crate) fn set_camera(&mut self, x: rhai::FLOAT, y: rhai::FLOAT) {
+        let Ok(mut queue) = self.ctx.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::SetCamera {
+            x: x as f32,
+            y: y as f32,
+        });
+    }
+
     /// Attach an [`AngularBody`] to an entity.
     ///
     /// `config` map keys (all optional, snake_case field names):
