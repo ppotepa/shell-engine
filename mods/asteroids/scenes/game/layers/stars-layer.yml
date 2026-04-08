@@ -9,6 +9,7 @@
 
 - name: stars
   z_index: 0
+  ui: true
   sprites:
     # ── accent stars (palette-driven) ──────────────────────────────────────
     - { type: text, content: "*", at: tl, x: 142, y: 22,  fg: "#c8a83e" }

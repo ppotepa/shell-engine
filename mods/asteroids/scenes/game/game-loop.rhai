@@ -19,8 +19,8 @@ import "rcs" as rcs;
 
 if type_of(local) == "()" { local = #{}; }
 
-let WORLD_W = 640.0;
-let WORLD_H = 360.0;
+let WORLD_W = 3200.0;
+let WORLD_H = 1800.0;
 
 // ======================== PALETTE SETUP ====================================
 // Only re-read palette values when the active palette has changed.

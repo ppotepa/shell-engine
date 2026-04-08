@@ -66,13 +66,27 @@ pub fn composite_layers(
         let total_origin_x = if layer.ui { base_x } else { base_x.saturating_sub(camera_x) };
         let total_origin_y = if layer.ui { base_y } else { base_y.saturating_sub(camera_y) };
 
-        // Fast-path: skip if layer is completely off-screen
-        // If layer starts beyond scene bounds and has no positive dimensions
-        if total_origin_x as u32 >= scene_w as u32 && total_origin_x >= 0 {
-            continue;
-        }
-        if total_origin_y as u32 >= scene_h as u32 && total_origin_y >= 0 {
-            continue;
+        // Viewport culling — all 4 sides.
+        // Entity layers (have a physics body): entity center is at total_origin;
+        // cull if center is more than CULL_MARGIN pixels outside the viewport.
+        // Static/background layers (no physics body): content fills the scene rect
+        // [total_origin, total_origin + scene_size]; cull if it doesn't overlap viewport.
+        const CULL_MARGIN: i32 = 128;
+        if layer_object_id.is_some() {
+            if total_origin_x < -CULL_MARGIN || total_origin_x > scene_w as i32 + CULL_MARGIN {
+                continue;
+            }
+            if total_origin_y < -CULL_MARGIN || total_origin_y > scene_h as i32 + CULL_MARGIN {
+                continue;
+            }
+        } else {
+            // Layer content spans [total_origin, total_origin + scene_size] on screen.
+            if total_origin_x + scene_w as i32 <= 0 || total_origin_x >= scene_w as i32 {
+                continue;
+            }
+            if total_origin_y + scene_h as i32 <= 0 || total_origin_y >= scene_h as i32 {
+                continue;
+            }
         }
 
         if let Some(object_id) = layer_object_id {

@@ -6,6 +6,7 @@
 #
 - name: hud
   z_index: 10
+  ui: true
   sprites:
     - type: grid
       id: hud-frame
@@ -112,6 +113,7 @@
 # ============================================================================
 - name: gameover-overlay
   z_index: 100
+  ui: true
   visible: false
   sprites:
     - type: panel

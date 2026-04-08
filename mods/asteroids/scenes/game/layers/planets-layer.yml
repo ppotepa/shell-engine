@@ -3,53 +3,77 @@
 # Large background planetary bodies. Pure visual decoration — no collision,
 # no gameplay role. Drawn above the star field and below the game plane.
 #
-# Each planet is a closed vector polygon approximating a circle:
-#   - Large planet: 16-point circle, r≈60, centre (520, 285)
-#   - Small planet: 12-point circle, r≈25, centre (115, 65)
-#   - Moon:          8-point circle, r≈9,  centre (574, 244)
+# Each planet is a spinning 3D OBJ sphere rendered by engine-3d.
+# rotate-y-deg-per-sec drives the spin declaratively — no Rhai needed.
+# Light direction is shared: sun is upper-left, casting shadows right/down.
 #
-# Colors come from @palette.planet_body (fill) / @palette.planet_rim (outline)
-# so they shift subtly with the active palette.
+# Palette keys used:
+#   planet_lit    — sunlit face colour
+#   planet_shadow — dark-side fill colour
 
 - name: planets
   z_index: 1
+  ui: true
   sprites:
     # ── Large planet (right-centre, partially off right edge) ──────────────
-    - type: vector
+    - type: obj
       id: planet-large
-      x: 520
-      y: 285
-      points: [
-        [60,0],[55,23],[42,42],[23,55],[0,60],
-        [-23,55],[-42,42],[-55,23],[-60,0],
-        [-55,-23],[-42,-42],[-23,-55],[0,-60],
-        [23,-55],[42,-42],[55,-23]
-      ]
-      closed: true
-      fg_colour: "@palette.planet_rim"
-      bg_colour: "@palette.planet_body"
+      source: /assets/3d/sphere.obj
+      x: 460
+      y: 220
+      width: 140
+      height: 70
+      scale: 1.0
+      surface-mode: material
+      rotate-y-deg-per-sec: 7
+      rotation-y: 30
+      pitch-deg: -12
+      camera-distance: 2.6
+      fov-degrees: 45
+      near-clip: 0.01
+      fg: "@palette.planet_lit"
+      light-direction-x: 0.6
+      light-direction-y: -0.7
+      light-direction-z: 0.4
 
     # ── Small planet (upper-left quadrant) ─────────────────────────────────
-    - type: vector
+    - type: obj
       id: planet-small
-      x: 115
-      y: 65
-      points: [
-        [25,0],[22,13],[13,22],[0,25],
-        [-13,22],[-22,13],[-25,0],
-        [-22,-13],[-13,-22],[0,-25],
-        [13,-22],[22,-13]
-      ]
-      closed: true
-      fg_colour: "@palette.planet_rim"
-      bg_colour: "@palette.planet_body"
+      source: /assets/3d/sphere.obj
+      x: 80
+      y: 48
+      width: 60
+      height: 30
+      scale: 1.0
+      surface-mode: material
+      rotate-y-deg-per-sec: -11
+      rotation-y: 120
+      pitch-deg: 8
+      camera-distance: 2.6
+      fov-degrees: 45
+      near-clip: 0.01
+      fg: "@palette.planet_lit"
+      light-direction-x: 0.6
+      light-direction-y: -0.7
+      light-direction-z: 0.4
 
     # ── Moon (companion to large planet) ───────────────────────────────────
-    - type: vector
+    - type: obj
       id: planet-moon
-      x: 574
-      y: 244
-      points: [[9,0],[6,6],[0,9],[-6,6],[-9,0],[-6,-6],[0,-9],[6,-6]]
-      closed: true
-      fg_colour: "@palette.planet_rim"
-      bg_colour: "@palette.planet_body"
+      source: /assets/3d/sphere.obj
+      x: 556
+      y: 198
+      width: 26
+      height: 13
+      scale: 1.0
+      surface-mode: material
+      rotate-y-deg-per-sec: 18
+      rotation-y: 200
+      pitch-deg: 5
+      camera-distance: 2.6
+      fov-degrees: 45
+      near-clip: 0.01
+      fg: "@palette.planet_lit"
+      light-direction-x: 0.6
+      light-direction-y: -0.7
+      light-direction-z: 0.4
