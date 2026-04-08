@@ -64,33 +64,38 @@
               height: 50
               padding: 6
               children:
-                - type: vector
+                # Retro pixel-art hearts: generic:3 (5×7 scale-2 bitmap) + 2× blit scale
+                # Panel 154×50 padding:6 → inner 142×38 px
+                # Heart rendered: 12×14 → after 2× blit: 24×28 px
+                # y = 6 + (38-28)/2 = 11  (vertically centred)
+                # x: 4 equal gaps = (142 - 3×24)/4 ≈ 17px  → 23, 64, 105
+                - type: text
                   id: heart-1
-                  points: [[0,17],[-16,4],[-21,-5],[-19,-13],[-11,-18],[0,-13],[11,-18],[19,-13],[21,-5],[16,4]]
-                  closed: true
-                  draw-char: "█"
-                  x: 27
-                  y: 25
+                  content: "♥"
+                  font: "generic:3"
+                  scale-x: 2.0
+                  scale-y: 2.0
+                  x: 23
+                  y: 11
                   fg_colour: "@palette.hud_heart"
-                  bg_colour: "@palette.hud_heart"
-                - type: vector
+                - type: text
                   id: heart-2
-                  points: [[0,17],[-16,4],[-21,-5],[-19,-13],[-11,-18],[0,-13],[11,-18],[19,-13],[21,-5],[16,4]]
-                  closed: true
-                  draw-char: "█"
-                  x: 75
-                  y: 25
+                  content: "♥"
+                  font: "generic:3"
+                  scale-x: 2.0
+                  scale-y: 2.0
+                  x: 64
+                  y: 11
                   fg_colour: "@palette.hud_heart"
-                  bg_colour: "@palette.hud_heart"
-                - type: vector
+                - type: text
                   id: heart-3
-                  points: [[0,17],[-16,4],[-21,-5],[-19,-13],[-11,-18],[0,-13],[11,-18],[19,-13],[21,-5],[16,4]]
-                  closed: true
-                  draw-char: "█"
-                  x: 123
-                  y: 25
+                  content: "♥"
+                  font: "generic:3"
+                  scale-x: 2.0
+                  scale-y: 2.0
+                  x: 105
+                  y: 11
                   fg_colour: "@palette.hud_heart"
-                  bg_colour: "@palette.hud_heart"
 
             # ── Bottom-right: Hint ────────────────────────────────────────────
             - type: panel

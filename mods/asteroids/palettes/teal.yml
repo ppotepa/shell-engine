@@ -11,6 +11,9 @@ colors:
   bullet:       "#f6ae2d"
   debris:       "#2e5eaa"
   star:         "#5bc0be"
+  # Background planes
+  planet_body:  "#060e1a"
+  planet_rim:   "#142030"
   # HUD
   hud_label:    "#2e5eaa"
   hud_value:    "#5bc0be"

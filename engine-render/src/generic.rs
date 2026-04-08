@@ -210,6 +210,11 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
         ' ' => Some([
             0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b00000,
         ]),
+        // ── Symbols ──────────────────────────────────────────────────────────
+        // Classic 5×7 retro heart: top two bumps, filled body, tapering point.
+        '♥' => Some([
+            0b00000, 0b01010, 0b11111, 0b11111, 0b01110, 0b00100, 0b00000,
+        ]),
         // ── Lowercase a–z (distinct designs, 5×7 px) ────────────────────────
         'a' => Some([
             0b00000, 0b01110, 0b00001, 0b01111, 0b10001, 0b10011, 0b01101,
@@ -290,9 +295,6 @@ pub fn generic_glyph_rows(ch: char) -> Option<[u8; 7]> {
             0b00000, 0b00000, 0b11111, 0b00010, 0b00100, 0b01000, 0b11111,
         ]),
         c if c.is_ascii_control() => None,
-        '♥' => Some([
-            0b01010, 0b11111, 0b11111, 0b01110, 0b00100, 0b00000, 0b00000,
-        ]),
         _ => Some([
             0b01110, 0b00001, 0b00110, 0b00100, 0b00000, 0b00100, 0b00000,
         ]), // '?'

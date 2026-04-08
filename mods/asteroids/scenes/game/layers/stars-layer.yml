@@ -1,0 +1,37 @@
+# Stars Layer — z_index: 0
+#
+# Purely decorative star field. All sprites are individual text characters
+# placed at absolute canvas positions (640×360 space). No collision or gameplay
+# role. Drawn first so every other plane composites on top.
+#
+# Accent stars use @palette.star so they shift with the active palette.
+# Dim fill stars use a fixed dark-blue-white tone that suits all palettes.
+
+- name: stars
+  z_index: 0
+  sprites:
+    # ── accent stars (palette-driven) ──────────────────────────────────────
+    - { type: text, content: "*", at: tl, x: 142, y: 22,  fg: "#c8a83e" }
+    - { type: text, content: "*", at: tl, x: 310, y: 45,  fg: "#c8a83e" }
+    - { type: text, content: "*", at: tl, x: 595, y: 142, fg: "#c8a83e" }
+    - { type: text, content: "*", at: tl, x: 335, y: 308, fg: "#c8a83e" }
+    - { type: text, content: "*", at: tl, x: 68,  y: 210, fg: "#c8a83e" }
+
+    # ── dim fill stars (fixed deep-space tone) ──────────────────────────────
+    - { type: text, content: ".", at: tl, x: 38,  y: 15,  fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 215, y: 8,   fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 395, y: 18,  fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 520, y: 12,  fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 608, y: 30,  fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 72,  y: 65,  fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 485, y: 58,  fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 18,  y: 128, fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 175, y: 112, fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 450, y: 98,  fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 625, y: 88,  fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 248, y: 195, fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 420, y: 230, fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 125, y: 325, fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 488, y: 342, fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 610, y: 315, fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 30,  y: 345, fg: "#556688" }

@@ -396,13 +396,41 @@ Audio authoring is mod-root based:
 
 ### Core Types
 
-| Type  | Purpose             | Key Fields                                      | Asset-backed? |
-|-------|---------------------|-------------------------------------------------|---------------|
-| text  | Terminal/raster text | content, font, fg, bg, reveal_ms, glow          | Only with named fonts |
-| image | Display image       | source, width, height, stretch-to-area           | Yes           |
-| obj   | 3D mesh render      | source, scale, yaw/pitch/roll, surface-mode      | Yes           |
-| grid  | Layout container    | columns, rows, gap-x/y, children                 | No            |
-| flex  | Stack container     | direction, gap, children                         | No            |
+| Type   | Purpose              | Key Fields                                                          | Asset-backed? |
+|--------|----------------------|---------------------------------------------------------------------|---------------|
+| text   | Terminal/raster text | content, font, fg, bg, scale-x, scale-y, reveal_ms, glow           | Only with named fonts |
+| image  | Display image        | source, width, height, stretch-to-area                              | Yes           |
+| obj    | 3D mesh render       | source, scale, yaw/pitch/roll, surface-mode                         | Yes           |
+| grid   | Layout container     | columns, rows, gap-x/y, children                                    | No            |
+| flex   | Stack container      | direction, gap, children                                            | No            |
+| panel  | UI panel box         | width, height, padding, bg_colour (omit for transparent), children  | No            |
+| vector | Polygon / polyline   | points, closed, draw-char, fg_colour, bg_colour                     | No            |
+
+`scale-x` / `scale-y` on `text` sprites are float multipliers applied during
+buffer blit (1.0 = identity). They work with all raster font paths (`generic:*`
+and named bitmap fonts) and are ignored on native terminal text.
+
+**Transparent panels** — omit `bg_colour` entirely (or set `bg_colour: "reset"`)
+to make a panel box fully transparent. The engine will skip writing background
+cells and let lower z-layers show through. Do _not_ set `bg_colour: "#000"` or
+any solid colour on HUD corner panels that should overlay the game field.
+
+### Built-in Generic Font (`generic:*`)
+
+The engine ships a 5×7 pixel bitmap font with several rendering modes:
+
+| Font spec       | Glyph size (px) | Notes                            |
+|-----------------|-----------------|----------------------------------|
+| `generic:1`     | 4×5             | Compact tiny — HUD counters      |
+| `generic:2`     | 6×7 (scale 1)   | Standard — score/wave labels     |
+| `generic:3`     | 12×14 (scale 2) | Large — titles, life icons       |
+| `generic:half`  | 6×4             | Half-block sub-pixel rendering   |
+| `generic:quad`  | 3×4             | Quadrant sub-pixel rendering     |
+| `generic:braille` | 3×2           | Braille dot rendering            |
+
+Supported special glyphs: `♥` (retro 5×7 heart), `→←↑↓`, `·•…` and all
+printable ASCII. To render chunky retro icon sprites (e.g. life icons), use
+`generic:3` + `scale-x: 2.0` + `scale-y: 2.0` → 24×28 px per glyph.
 
 ### Sugar Types
 

@@ -819,7 +819,7 @@ fn render_panel_sprite(
     let panel_bg = bg_colour
         .as_ref()
         .map(Color::from)
-        .unwrap_or(Color::DarkGrey);
+        .unwrap_or(Color::Reset);
     let panel_border = border_colour
         .as_ref()
         .map(Color::from)
@@ -831,11 +831,7 @@ fn render_panel_sprite(
     let panel_shadow = shadow_colour
         .as_ref()
         .map(Color::from)
-        .unwrap_or(Color::Rgb {
-            r: 20,
-            g: 20,
-            b: 20,
-        });
+        .unwrap_or(Color::Reset);
     render_panel_box(
         ctx.layer_buf,
         draw_x,
@@ -1460,6 +1456,10 @@ fn panel_cell_visible(x: u16, y: u16, width: u16, height: u16, rounded: bool) ->
 #[inline(always)]
 fn set_panel_cell(buffer: &mut Buffer, x: i32, y: i32, bg: Color) {
     if x < 0 || y < 0 {
+        return;
+    }
+    // Skip transparent cells — preserves whatever is rendered below (stars, planets, game).
+    if matches!(bg, Color::Reset) {
         return;
     }
     buffer.set(x as u16, y as u16, ' ', Color::Reset, bg);

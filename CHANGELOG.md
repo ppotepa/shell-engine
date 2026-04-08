@@ -36,7 +36,20 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
-## 05-04-2026
+## 08-04-2026
+
+**Asteroids HUD: transparent panels, 3-layer background, retro pixel-art hearts** ✅
+- **engine**: `sprite_renderer.rs` — panel `bg` and shadow default from `DarkGrey` → `Color::Reset`; `set_panel_cell` skips writes when bg is `Reset`, making HUD corner panels fully transparent
+- **engine**: `generic.rs` — added `♥` glyph (5×7 pixel bitmap) to built-in generic font; available in `generic:2` (standard) and `generic:3` (large/2× scale) modes; removes need for vector polygon hearts
+- **mods/asteroids**: `stars-layer.yml` (z=0) — 22 text-sprite star field (5 gold accent `*`, 17 dim `.`) as background plane
+- **mods/asteroids**: `planets-layer.yml` (z=1) — 3 closed vector polygon circles (large planet, small planet, moon) using `@palette.planet_body/rim` bindings
+- **mods/asteroids**: all 3 palettes (`neon`, `classic`, `teal`) — added `planet_body` and `planet_rim` keys
+- **mods/asteroids**: `hud-grid.yml` — replaced smooth vector polygon hearts with 3 retro pixel-art text sprites (`font: "generic:3"`, `scale-x/y: 2.0`, 24×28 px each); properly centred in 142×38 px lives-panel inner area (y=11, x=23/64/105)
+- **mods/asteroids**: `scene.yml` — added layer refs: stars → planets → hud draw order (z-sorted background stack)
+- **docs**: `docs/layout/hud-design.svg` — design mockup with 3-layer exploded isometric view, composited HUD preview, and component specs
+- **result**: HUD panels are fully transparent (game field visible through corners); star field + planet background composited behind gameplay; lives display is chunky retro pixel-art ♥ icons
+
+
 
 **Engine-first scripting migration: components, palette, HUD bindings, optimizations** ✅
 - **engine**: `LinearBrake` engine component — physics deceleration fully handled engine-side; removes braking logic from Rhai

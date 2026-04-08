@@ -10,6 +10,8 @@ objects:
   - { ref: asteroid-small }
   - { ref: debris }
 layers:
+  - ref: game/layers/stars-layer.yml
+  - ref: game/layers/planets-layer.yml
   - ref: game/layers/hud-grid.yml
 logic:
   kind: script

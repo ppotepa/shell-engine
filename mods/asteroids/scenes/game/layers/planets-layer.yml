@@ -1,0 +1,55 @@
+# Planets Layer — z_index: 1
+#
+# Large background planetary bodies. Pure visual decoration — no collision,
+# no gameplay role. Drawn above the star field and below the game plane.
+#
+# Each planet is a closed vector polygon approximating a circle:
+#   - Large planet: 16-point circle, r≈60, centre (520, 285)
+#   - Small planet: 12-point circle, r≈25, centre (115, 65)
+#   - Moon:          8-point circle, r≈9,  centre (574, 244)
+#
+# Colors come from @palette.planet_body (fill) / @palette.planet_rim (outline)
+# so they shift subtly with the active palette.
+
+- name: planets
+  z_index: 1
+  sprites:
+    # ── Large planet (right-centre, partially off right edge) ──────────────
+    - type: vector
+      id: planet-large
+      x: 520
+      y: 285
+      points: [
+        [60,0],[55,23],[42,42],[23,55],[0,60],
+        [-23,55],[-42,42],[-55,23],[-60,0],
+        [-55,-23],[-42,-42],[-23,-55],[0,-60],
+        [23,-55],[42,-42],[55,-23]
+      ]
+      closed: true
+      fg_colour: "@palette.planet_rim"
+      bg_colour: "@palette.planet_body"
+
+    # ── Small planet (upper-left quadrant) ─────────────────────────────────
+    - type: vector
+      id: planet-small
+      x: 115
+      y: 65
+      points: [
+        [25,0],[22,13],[13,22],[0,25],
+        [-13,22],[-22,13],[-25,0],
+        [-22,-13],[-13,-22],[0,-25],
+        [13,-22],[22,-13]
+      ]
+      closed: true
+      fg_colour: "@palette.planet_rim"
+      bg_colour: "@palette.planet_body"
+
+    # ── Moon (companion to large planet) ───────────────────────────────────
+    - type: vector
+      id: planet-moon
+      x: 574
+      y: 244
+      points: [[9,0],[6,6],[0,9],[-6,6],[-9,0],[-6,-6],[0,-9],[6,-6]]
+      closed: true
+      fg_colour: "@palette.planet_rim"
+      bg_colour: "@palette.planet_body"
