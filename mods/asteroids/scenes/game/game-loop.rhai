@@ -204,8 +204,9 @@ fn ensure_ship(world) {
 // ======================== INITIALIZATION ===================================
 
 if !(local.initialized ?? false) {
-    // Free-flight mode: large world, no wrapping, camera follows ship.
-    // world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H); // disabled — no screen-edge wrap
+    // Free-flight mode: bounds set so world_width()/world_height() return correct values,
+    // but no entity wrapping occurs because enable_wrap() is never called per-entity.
+    world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H);
     local.initialized = true;
     local.ship_id = 0;
     local.score = 0;
