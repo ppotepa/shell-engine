@@ -24,9 +24,14 @@ Draw order (z-indexed):
 - `z=10` — `hud-grid.yml`: transparent corner HUD
 
 Background motion model:
-- `solar-system.scene3d.yml` provides a `solar-orbit` clip (`24s`, `24` keyframes)
+- `solar-system.scene3d.yml` provides a `solar-orbit` clip (`24s`, `96` keyframes)
 - Rhai selects `solar-orbit-${n}` per frame and applies a tiny camera-relative
   drift for depth, while keeping the entire background as one render target
+
+Saturn-focused composition updates:
+- Ringed gas giant as the visual anchor
+- HTML-reference orbital profile: 5 primary moons with two shadow-casting moons
+- Belt dust annulus + belt density shadow layer for volume/readability
 
 ### 4. Retro Pixel-Art Life Icons
 - Replaced smooth vector-polygon hearts with `generic:3` pixel-art `♥` glyphs

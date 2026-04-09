@@ -614,9 +614,9 @@ if !invincible && ship_id > 0 {
 }
 
 // ── Unified Scene3D background motion ───────────────────────────────────────
-// `solar-orbit` clip is prerendered as 24 keyframes: solar-orbit-0..23.
+// `solar-orbit` clip is prerendered as 96 keyframes: solar-orbit-0..95.
 let t = scene_elapsed_ms.to_float() / 1000.0;
-let orbit_frames = 24;
+let orbit_frames = 96;
 let orbit_cycle_ms = 24000;
 let orbit_frame = ((scene_elapsed_ms % orbit_cycle_ms) * orbit_frames) / orbit_cycle_ms;
 scene.set("solar-bg", "scene3d.frame", `solar-orbit-${orbit_frame}`);
