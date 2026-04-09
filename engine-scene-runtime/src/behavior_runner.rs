@@ -451,25 +451,19 @@ impl SceneRuntime {
                             }
                         }
                         "offset.x" | "position.x" => {
-                            let Some(next_x) = value
-                                .as_i64()
-                                .or_else(|| value.as_f64().map(|number| number as i64))
-                            else {
+                            let Some(next_x) = json_value_to_rounded_i32(value) else {
                                 continue;
                             };
                             if let Some(state) = self.object_states.get_mut(object_id) {
-                                state.offset_x = next_x as i32;
+                                state.offset_x = next_x;
                             }
                         }
                         "offset.y" | "position.y" => {
-                            let Some(next_y) = value
-                                .as_i64()
-                                .or_else(|| value.as_f64().map(|number| number as i64))
-                            else {
+                            let Some(next_y) = json_value_to_rounded_i32(value) else {
                                 continue;
                             };
                             if let Some(state) = self.object_states.get_mut(object_id) {
-                                state.offset_y = next_y as i32;
+                                state.offset_y = next_y;
                             }
                         }
                         "transform.heading" => {
@@ -673,8 +667,10 @@ impl SceneRuntime {
                     self.scene.bg_colour = engine_core::scene::color::parse_colour_str(color);
                 }
                 BehaviorCommand::SetCamera { x, y } => {
-                    self.camera_x = *x as i32;
-                    self.camera_y = *y as i32;
+                    // Match gameplay visual sync rounding so camera-driven parallax and
+                    // entity positions land on the same pixel grid.
+                    self.camera_x = x.round() as i32;
+                    self.camera_y = y.round() as i32;
                 }
             }
         }
@@ -898,20 +894,10 @@ impl SceneRuntime {
         // Push the layer without cloning again (was previously cloned redundantly).
         self.scene.layers.push(cloned_layer);
 
-        // Clear child sprite aliases so the layer holds the only resolver entry for
-        // the target alias. `set_vector_sprite_property` locates sprites by their
-        // `id` attribute (not by alias), so property mutations still work correctly.
-        // Without this, both the layer and its sprite share the same alias, causing
-        // `soft_despawn_target` to non-deterministically remove only the sprite (PATH 1)
-        // and leave an empty orphan layer behind.
-        if let Some(layer_obj) = self.objects.get(&new_layer_object_id) {
-            let child_ids: Vec<String> = layer_obj.children.clone();
-            for child_id in child_ids {
-                if let Some(child_obj) = self.objects.get_mut(&child_id) {
-                    child_obj.aliases.clear();
-                }
-            }
-        }
+        // Runtime clones intentionally reserve the target alias for the layer object.
+        // Child sprites are still addressable by their authored `id` values via the
+        // scene tree, but they must not compete for the same resolver alias.
+        self.clear_conflicting_child_aliases(&new_layer_object_id);
 
         // Defer cache refresh if we are inside a spawn batch (e.g. apply_behavior_commands).
         if self.spawn_batch_depth == 0 {
@@ -1205,6 +1191,7 @@ impl SceneRuntime {
         self.sprite_ids = sprite_ids;
         self.obj_camera_states = obj_camera_states;
         self.cached_obj_camera_states = None;
+        self.clear_conflicting_child_aliases_for_all_layers();
         self.refresh_runtime_caches();
     }
 
@@ -1247,6 +1234,36 @@ impl SceneRuntime {
             }
         }
         any
+    }
+
+    fn clear_conflicting_child_aliases_for_all_layers(&mut self) {
+        let layer_ids: Vec<String> = self.layer_ids.values().cloned().collect();
+        for layer_id in layer_ids {
+            self.clear_conflicting_child_aliases(&layer_id);
+        }
+    }
+
+    fn clear_conflicting_child_aliases(&mut self, layer_object_id: &str) {
+        let Some(layer_obj) = self.objects.get(layer_object_id) else {
+            return;
+        };
+        if layer_obj.aliases.is_empty() {
+            return;
+        }
+        let layer_aliases = layer_obj.aliases.clone();
+        let child_ids = layer_obj.children.clone();
+        for child_id in child_ids {
+            let Some(child_obj) = self.objects.get_mut(&child_id) else {
+                continue;
+            };
+            if child_obj
+                .aliases
+                .iter()
+                .any(|alias| layer_aliases.iter().any(|layer_alias| layer_alias == alias))
+            {
+                child_obj.aliases.clear();
+            }
+        }
     }
 }
 
@@ -1560,4 +1577,13 @@ fn collect_sprite_ids_recursive(
             _ => {}
         }
     }
+}
+
+fn json_value_to_rounded_i32(value: &JsonValue) -> Option<i32> {
+    if let Some(number) = value.as_i64() {
+        return i32::try_from(number).ok();
+    }
+    value
+        .as_f64()
+        .and_then(|number| i32::try_from(number.round() as i64).ok())
 }

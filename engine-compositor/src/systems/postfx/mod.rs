@@ -90,19 +90,12 @@ pub fn postfx_system(world: &mut World) {
         .unwrap_or(false);
 
     if should_skip_postfx {
-        // Use cached PostFX result instead of full pipeline.
+        // Skip the PostFX pass this frame — compositor's fresh output already sits in
+        // the back buffer and must not be overwritten with stale cached data.
+        // Restoring the cache would make any moving entity flicker (its composited
+        // position would alternate between current and last-frame-with-PostFX).
         POSTFX_RUNTIME.with(|runtime| {
-            let mut rt = runtime.borrow_mut();
-            if let Some(cached) = rt.previous_output.as_ref() {
-                let buffer = match world.get_mut::<engine_core::buffer::Buffer>() {
-                    Some(b) => b,
-                    None => return,
-                };
-                if cached.width == buffer.width && cached.height == buffer.height {
-                    buffer.copy_back_from(cached);
-                    rt.frame_count = rt.frame_count.saturating_add(1);
-                }
-            }
+            runtime.borrow_mut().frame_count = runtime.borrow().frame_count.saturating_add(1);
         });
         return;
     }

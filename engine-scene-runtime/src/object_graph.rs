@@ -189,12 +189,25 @@ impl SceneRuntime {
     pub(crate) fn build_target_resolver(&self) -> TargetResolver {
         let mut aliases = HashMap::new();
 
-        for (object_id, object) in &self.objects {
+        for (object_id, _object) in &self.objects {
             aliases.insert(object_id.clone(), object_id.clone());
-            aliases.insert(object.name.clone(), object_id.clone());
+        }
+
+        // Explicit aliases are the primary authoring/runtime target surface.
+        // Insert them before display names so internal node names from runtime
+        // clones cannot steal a layer alias (for example `ship-1` layer vs its
+        // first child sprite, which is retagged to the same name).
+        for (object_id, object) in &self.objects {
             for alias in &object.aliases {
-                aliases.insert(alias.clone(), object_id.clone());
+                aliases.entry(alias.clone()).or_insert_with(|| object_id.clone());
             }
+        }
+
+        // Object names are a fallback for unnamed/generated nodes only.
+        for (object_id, object) in &self.objects {
+            aliases
+                .entry(object.name.clone())
+                .or_insert_with(|| object_id.clone());
         }
 
         TargetResolver::from_parts(

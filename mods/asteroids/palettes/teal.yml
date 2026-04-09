@@ -14,6 +14,8 @@ colors:
   # Background planes
   planet_body:  "#060e1a"
   planet_rim:   "#142030"
+  planet_lit:   "#1a4050"
+  planet_shadow: "#030810"
   # HUD
   hud_label:    "#2e5eaa"
   hud_value:    "#5bc0be"

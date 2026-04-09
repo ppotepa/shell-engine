@@ -1,11 +1,21 @@
 kind: object
 name: asteroid-small
 sprites:
-  - type: vector
+  - type: obj
     id: asteroid-small-sprite
-    points: [[-3,-7],[5,-5],[7,2],[-2,7],[-7,2],[-5,-5]]
-    closed: true
-    draw-char: "#"
-    x: 0
-    y: 0
-    fg_colour: white
+    source: /assets/3d/rock.obj
+    x: -8
+    y: -4
+    width: 16
+    height: 9
+    scale: 1.0
+    surface-mode: material
+    rotate-y-deg-per-sec: 100
+    rotation-y: 240
+    pitch-deg: -20
+    camera-distance: 2.8
+    fov-degrees: 50
+    near-clip: 0.01
+    light-direction-x: 0.5
+    light-direction-y: -0.7
+    light-direction-z: 0.5

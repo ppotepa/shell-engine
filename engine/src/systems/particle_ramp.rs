@@ -34,7 +34,11 @@ pub fn particle_ramp_system(world: &mut World) {
         };
 
         let n = ramp.colors.len();
-        let idx = ((1.0 - life_ratio) * n as f32).floor() as usize;
+        // Clamp index instead of floor to avoid oscillation at float boundaries.
+        // floor((1.0 - life_ratio) * N) can bounce between idx and idx+1 when
+        // life_ratio is near a 1/N boundary due to floating-point rounding.
+        let raw = (1.0 - life_ratio) * (n - 1) as f32;
+        let idx = raw.round() as usize;
         let color = ramp.colors[idx.min(n - 1)].clone();
 
         let radius = (ramp.radius_min as f32

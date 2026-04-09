@@ -1,11 +1,21 @@
 kind: object
 name: asteroid-large
 sprites:
-  - type: vector
+  - type: obj
     id: asteroid-large-sprite
-    points: [[-14,-22],[9,-20],[22,-9],[20,11],[9,22],[-11,22],[-22,9],[-20,-11]]
-    closed: true
-    draw-char: "#"
-    x: 0
-    y: 0
-    fg_colour: white
+    source: /assets/3d/rock.obj
+    x: -25
+    y: -13
+    width: 50
+    height: 26
+    scale: 1.0
+    surface-mode: material
+    rotate-y-deg-per-sec: 60
+    rotation-y: 0
+    pitch-deg: 0
+    camera-distance: 2.8
+    fov-degrees: 50
+    near-clip: 0.01
+    light-direction-x: 0.5
+    light-direction-y: -0.7
+    light-direction-z: 0.5

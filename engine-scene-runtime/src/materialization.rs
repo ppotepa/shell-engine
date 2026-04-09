@@ -316,10 +316,11 @@ impl SceneRuntime {
                 continue;
             };
 
-            // Direct position + heading update (no String alloc, no JsonValue)
+            // Round (not truncate) to the nearest pixel — truncation causes ±1px
+            // jitter on fast-moving entities when the fractional part crosses 0.5.
             if let Some(state) = self.object_states.get_mut(object_id) {
-                state.offset_x = *x as i32;
-                state.offset_y = *y as i32;
+                state.offset_x = x.round() as i32;
+                state.offset_y = y.round() as i32;
                 state.heading = *heading;
             }
 

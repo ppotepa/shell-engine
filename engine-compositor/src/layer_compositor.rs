@@ -15,6 +15,7 @@ thread_local! {
     static LAYER_SCRATCH: RefCell<Buffer> = RefCell::new(Buffer::new(0, 0));
     // OPT-39: Layer bounds cache for skip rendering layers entirely if outside viewport.
     static LAYER_BOUNDS_CACHE: RefCell<HashMap<usize, (i32, i32, i32, i32)>> = RefCell::new(HashMap::new());
+    static NON_UI_JITTER_DIAG: RefCell<HashMap<String, (i32, i32)>> = RefCell::new(HashMap::new());
 }
 
 /// Composite all visible layers onto the scene framebuffer.
@@ -65,6 +66,45 @@ pub fn composite_layers(
         // UI layers are fixed (HUD, menus) — camera offset does not apply to them.
         let total_origin_x = if layer.ui { base_x } else { base_x.saturating_sub(camera_x) };
         let total_origin_y = if layer.ui { base_y } else { base_y.saturating_sub(camera_y) };
+
+        // ── Flicker diagnostic: detect non-UI layer position jitter ──────
+        if !layer.ui {
+            use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+            static JITTER_COUNT: AtomicU64 = AtomicU64::new(0);
+            if layer_idx >= layers.len().saturating_sub(10) || layer.name.starts_with("ship") || layer.name.contains("ship") {
+                let diag_key = layer_object_id
+                    .map(str::to_string)
+                    .unwrap_or_else(|| format!("{}#{layer_idx}", layer.name));
+                NON_UI_JITTER_DIAG.with(|state| {
+                    let mut state = state.borrow_mut();
+                    if let Some((prev_x, prev_y)) = state.get(&diag_key).copied() {
+                        if prev_x != total_origin_x || prev_y != total_origin_y {
+                            let jc = JITTER_COUNT.fetch_add(1, Relaxed);
+                            if jc < 20 {
+                                engine_core::logging::warn(
+                                    "compositor.jitter",
+                                    format!(
+                                        "NON-UI layer '{}' idx={} origin changed: ({},{}) → ({},{}) cam=({},{}) offset=({},{}) frame={}",
+                                        layer.name,
+                                        layer_idx,
+                                        prev_x,
+                                        prev_y,
+                                        total_origin_x,
+                                        total_origin_y,
+                                        camera_x,
+                                        camera_y,
+                                        layer_state.offset_x,
+                                        layer_state.offset_y,
+                                        step_idx,
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    state.insert(diag_key, (total_origin_x, total_origin_y));
+                });
+            }
+        }
 
         // Viewport culling — all 4 sides.
         // Entity layers (have a physics body): entity center is at total_origin;

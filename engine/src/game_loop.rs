@@ -161,6 +161,9 @@ pub fn game_loop(
         let t0 = Instant::now();
         systems::behavior::behavior_system(world); // ← runs while particle_handle computes on rayon
         let t1 = Instant::now();
+        // Apply lifecycle-driven visual despawns before visual sync/compositing so
+        // expired FX layers do not survive one extra frame with reset state.
+        systems::visual_binding::cleanup_visuals(world);
 
         // Collect async particle results and write back before visual sync.
         systems::particle_physics::collect_async(world, particle_handle);
@@ -177,7 +180,6 @@ pub fn game_loop(
         systems::renderer::renderer_system(world);
         let t4 = Instant::now();
         systems::gameplay_events::clear(world);
-        systems::visual_binding::cleanup_visuals(world);
 
         // Notify frame-skip oracle that frame has advanced
         if let Some(oracle) =

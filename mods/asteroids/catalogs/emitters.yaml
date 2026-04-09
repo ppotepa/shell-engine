@@ -9,7 +9,7 @@ emitters:
     min_cooldown_ms: 0
     ramp_ms: 0
     local_x: 0.0
-    local_y: 1.0
+    local_y: 2.7
     emission_local_x: 0.0
     emission_local_y: 1.0
     emission_angle: 0.0
@@ -35,7 +35,7 @@ emitters:
     min_cooldown_ms: 0
     ramp_ms: 0
     local_x: 0.0
-    local_y: -17.0
+    local_y: -6.9
     emission_local_x: 0.0
     emission_local_y: -1.0
     emission_angle: 0.0
@@ -56,8 +56,8 @@ emitters:
     cooldown_ms: 0
     min_cooldown_ms: 0
     ramp_ms: 0
-    local_x: -14.0
-    local_y: 9.0
+    local_x: -7.4
+    local_y: 6.9
     emission_local_x: -1.0
     emission_local_y: 0.0
     emission_angle: 0.0
@@ -78,8 +78,8 @@ emitters:
     cooldown_ms: 0
     min_cooldown_ms: 0
     ramp_ms: 0
-    local_x: 14.0
-    local_y: 9.0
+    local_x: 7.4
+    local_y: 6.9
     emission_local_x: 1.0
     emission_local_y: 0.0
     emission_angle: 0.0
@@ -172,6 +172,84 @@ emitters:
     thread_mode: "light"
     palette_ramp: "bullet_trail"
     spread: 0.35               # slight fan spread for glow width
+
+  # === LASER SIGHT ===
+
+  # Zero-speed dot spawned at a local_y body-frame offset each frame to draw
+  # a dim dotted aiming line showing the bullet trajectory.
+  laser.dot:
+    max_count: 100
+    cooldown_name: "laser-dot"
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: 0.0
+    local_y: 0.0
+    emission_local_x: 0.0
+    emission_local_y: 0.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 48
+    radius: 1
+    velocity_scale: 0.0
+    lifecycle: Ttl
+    thread_mode: "light"
+
+  # === SHIP DESTRUCTION & RESPAWN ===
+
+  # Hull pieces — many tiny physics shards flying in all directions.
+  ship.hull_pieces:
+    max_count: 80
+    cooldown_name: ship-hull-pieces
+    cooldown_ms: 0
+    spawn_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 2500
+    radius: 1
+    radius_max: 2
+    radius_min: 0
+    velocity_scale: 1.0
+    lifecycle: Ttl
+    thread_mode: "physics"
+    gravity_scale: 0.0
+    collision: true
+    collision_mask: ["asteroid"]
+    bounce: 0.4
+    mass: 0.2
+
+  # Shockwave ring — fast expanding ring of bright sparks at the point of death.
+  ship.shockwave:
+    max_count: 32
+    cooldown_name: ship-shockwave
+    cooldown_ms: 0
+    spawn_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 700
+    radius: 2
+    radius_max: 3
+    radius_min: 1
+    velocity_scale: 0.0
+    lifecycle: Ttl
+    thread_mode: "light"
+    gravity_scale: 0.0
+    palette_ramp: "hot_engine"
+
+  # Warp-in ring — expanding ring of particles when the ship materialises on respawn.
+  ship.warp_in:
+    max_count: 64
+    cooldown_name: ship-warp-in
+    cooldown_ms: 0
+    spawn_offset: 0.0
+    backward_speed: 0.0
+    ttl_ms: 900
+    radius: 2
+    radius_max: 3
+    radius_min: 1
+    velocity_scale: 0.0
+    lifecycle: Ttl
+    thread_mode: "light"
+    gravity_scale: 0.0
+    palette_ramp: "thruster"
 
   ship.explosion_debris:
     max_count: 48

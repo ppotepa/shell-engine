@@ -139,6 +139,38 @@ impl OutputBackend for Sdl2Backend {
         let mut patches = Vec::<CellPatch>::new();
         buffer.diff_into(&mut patches);
         let diff_dur = t_diff.elapsed();
+
+        // ── Flicker diagnostic: log patch counts at ~1 Hz ────────────────────
+        {
+            static DIAG_FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            static DIAG_ZERO_RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            static DIAG_NONZERO_RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            static DIAG_MAX_PATCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            static DIAG_MIN_PATCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(u64::MAX);
+            let fnum = DIAG_FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let plen = patches.len() as u64;
+            if patches.is_empty() {
+                DIAG_ZERO_RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            } else {
+                DIAG_NONZERO_RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                DIAG_MAX_PATCH.fetch_max(plen, std::sync::atomic::Ordering::Relaxed);
+                DIAG_MIN_PATCH.fetch_min(plen, std::sync::atomic::Ordering::Relaxed);
+            }
+            if fnum % 60 == 0 && fnum > 0 {
+                let zr = DIAG_ZERO_RUNS.swap(0, std::sync::atomic::Ordering::Relaxed);
+                let nz = DIAG_NONZERO_RUNS.swap(0, std::sync::atomic::Ordering::Relaxed);
+                let mx = DIAG_MAX_PATCH.swap(0, std::sync::atomic::Ordering::Relaxed);
+                let mn = DIAG_MIN_PATCH.swap(u64::MAX, std::sync::atomic::Ordering::Relaxed);
+                let mn_display = if mn == u64::MAX { 0 } else { mn };
+                engine_core::logging::info(
+                    "sdl2.flicker_diag",
+                    format!(
+                        "f={fnum} zero={zr} nonzero={nz} patch_min={mn_display} patch_max={mx}"
+                    ),
+                );
+            }
+        }
+
         if patches.is_empty() && overlay.is_none() && vectors.is_none() {
             if let Some(profile) = self.profile.as_mut() {
                 profile.record(0, diff_dur, Duration::ZERO, false);

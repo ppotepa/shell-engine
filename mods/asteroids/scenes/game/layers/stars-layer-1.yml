@@ -1,0 +1,15 @@
+# Stars Layer 1 — closest, parallax factor 0.6
+# Brightest stars, most parallax movement. Offset driven by camera each frame.
+- name: stars-1
+  z_index: 0
+  ui: true
+  sprites:
+    - { type: text, content: "*", at: tl, x: 142, y: 22,  fg: "#c8a83e" }
+    - { type: text, content: "*", at: tl, x: 595, y: 142, fg: "#c8a83e" }
+    - { type: text, content: "+", at: tl, x: 68,  y: 210, fg: "#a09060" }
+    - { type: text, content: "+", at: tl, x: 480, y: 290, fg: "#a09060" }
+    - { type: text, content: ".", at: tl, x: 38,  y: 15,  fg: "#6688aa" }
+    - { type: text, content: ".", at: tl, x: 520, y: 12,  fg: "#6688aa" }
+    - { type: text, content: ".", at: tl, x: 72,  y: 65,  fg: "#5577aa" }
+    - { type: text, content: ".", at: tl, x: 625, y: 88,  fg: "#6688aa" }
+    - { type: text, content: ".", at: tl, x: 30,  y: 345, fg: "#5577aa" }

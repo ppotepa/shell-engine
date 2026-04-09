@@ -1,0 +1,22 @@
+# Stars Layer 5 — deepest background, completely fixed (no parallax)
+# Never receives an offset update — serves as the permanent star backdrop.
+- name: stars-5
+  z_index: 0
+  ui: true
+  sprites:
+    - { type: text, content: ".", at: tl, x: 100, y: 5,   fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 230, y: 18,  fg: "#182236" }
+    - { type: text, content: ".", at: tl, x: 475, y: 10,  fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 565, y: 50,  fg: "#182236" }
+    - { type: text, content: ".", at: tl, x: 45,  y: 95,  fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 305, y: 110, fg: "#182236" }
+    - { type: text, content: ".", at: tl, x: 555, y: 130, fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 140, y: 185, fg: "#182236" }
+    - { type: text, content: ".", at: tl, x: 410, y: 200, fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 80,  y: 250, fg: "#182236" }
+    - { type: text, content: ".", at: tl, x: 320, y: 240, fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 605, y: 260, fg: "#182236" }
+    - { type: text, content: ".", at: tl, x: 235, y: 315, fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 500, y: 305, fg: "#182236" }
+    - { type: text, content: ".", at: tl, x: 60,  y: 355, fg: "#1a2640" }
+    - { type: text, content: ".", at: tl, x: 370, y: 358, fg: "#182236" }

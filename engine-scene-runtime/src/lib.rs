@@ -518,6 +518,108 @@ layers:
     }
 
     #[test]
+    fn rebuild_keeps_runtime_clone_alias_reserved_for_layer() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: clone-rebuild
+title: Clone Rebuild
+layers:
+  - name: ship-template
+    visible: false
+    sprites:
+      - type: vector
+        id: ship-body
+        points: [[0, 0], [2, 0], [1, 1]]
+  - name: fx-template
+    visible: false
+    sprites:
+      - type: vector
+        id: fx-body
+        points: [[0, 0], [1, 0], [0, 1]]
+"#,
+        )
+        .expect("scene should parse");
+        let mut runtime = SceneRuntime::new(scene);
+
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::SceneSpawn {
+                    template: "ship-template".to_string(),
+                    target: "ship-1".to_string(),
+                },
+                BehaviorCommand::SceneSpawn {
+                    template: "fx-template".to_string(),
+                    target: "fx-1".to_string(),
+                },
+            ],
+        );
+
+        let ship_layer_id = runtime
+            .target_resolver()
+            .resolve_alias("ship-1")
+            .expect("ship clone should resolve")
+            .to_string();
+        let ship_child_id = runtime
+            .object(&ship_layer_id)
+            .expect("ship clone layer")
+            .children
+            .first()
+            .expect("ship clone child")
+            .clone();
+        assert_eq!(
+            runtime
+                .object(&ship_child_id)
+                .expect("ship clone child object")
+                .name,
+            "ship-1"
+        );
+        assert!(matches!(
+            runtime.object(&ship_layer_id).expect("ship clone layer").kind,
+            GameObjectKind::Layer
+        ));
+        assert!(
+            runtime
+                .object(&ship_child_id)
+                .expect("ship clone child object")
+                .aliases
+                .is_empty()
+        );
+
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SceneDespawn {
+                target: "fx-1".to_string(),
+            }],
+        );
+
+        let ship_layer_id = runtime
+            .target_resolver()
+            .resolve_alias("ship-1")
+            .expect("ship clone should still resolve after rebuild")
+            .to_string();
+        let ship_layer = runtime.object(&ship_layer_id).expect("ship clone layer");
+        assert!(matches!(ship_layer.kind, GameObjectKind::Layer));
+        let ship_child_id = ship_layer.children.first().expect("ship clone child").clone();
+        assert_eq!(
+            runtime
+                .object(&ship_child_id)
+                .expect("ship clone child object")
+                .name,
+            "ship-1"
+        );
+        assert!(
+            runtime
+                .object(&ship_child_id)
+                .expect("ship clone child object")
+                .aliases
+                .is_empty()
+        );
+    }
+
+    #[test]
     fn apply_behavior_commands_set_props_updates_state_and_text() {
         let mut runtime = SceneRuntime::new(intro_scene());
         let resolver = runtime.target_resolver();
@@ -642,8 +744,19 @@ layers:
         let state = runtime
             .object_state(title_id)
             .expect("object runtime state");
-        assert_eq!(state.offset_x, 9);
+        assert_eq!(state.offset_x, 10);
         assert_eq!(state.offset_y, -2);
+    }
+
+    #[test]
+    fn apply_behavior_commands_set_camera_rounds_to_nearest_pixel() {
+        let mut runtime = SceneRuntime::new(intro_scene());
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[BehaviorCommand::SetCamera { x: 9.8, y: -2.4 }],
+        );
+        assert_eq!(runtime.camera(), (10, -2));
     }
 
     #[test]

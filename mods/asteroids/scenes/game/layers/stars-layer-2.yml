@@ -1,0 +1,16 @@
+# Stars Layer 2 — near, parallax factor 0.3
+# Moderate brightness, noticeable parallax.
+- name: stars-2
+  z_index: 0
+  ui: true
+  sprites:
+    - { type: text, content: "*", at: tl, x: 310, y: 45,  fg: "#c8a83e" }
+    - { type: text, content: "*", at: tl, x: 335, y: 308, fg: "#c8a83e" }
+    - { type: text, content: ".", at: tl, x: 215, y: 8,   fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 395, y: 18,  fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 485, y: 58,  fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 175, y: 112, fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 420, y: 230, fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 125, y: 325, fg: "#445577" }
+    - { type: text, content: ".", at: tl, x: 580, y: 170, fg: "#556688" }
+    - { type: text, content: ".", at: tl, x: 95,  y: 290, fg: "#445577" }

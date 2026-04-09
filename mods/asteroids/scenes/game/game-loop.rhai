@@ -269,6 +269,19 @@ if game_over {
 let ship_id = if !respawning { ensure_ship(world) } else { 0 };
 local.ship_id = ship_id;
 
+// ── Camera & parallax — ALWAYS run (even during respawn) ─────────────────────
+// Use last known ship position so the view stays stable during the 3-second
+// respawn window.  reset_frame_state() zeros all layer offsets every frame,
+// so we must re-declare parallax offsets unconditionally.
+//
+// IMPORTANT: Truncate position to integer BEFORE subtracting viewport centre.
+// visual_sync sets entity offset = floor(pos), so camera must also be
+// floor(pos) - 320 to guarantee ship screen-x = offset - camera = 320 exactly.
+// Computing camera as floor(pos - 320.0) introduces ±1 px jitter due to
+// independent truncation of numerator vs denominator.
+let ship_x = local.last_ship_x ?? 1600.0;
+let ship_y = local.last_ship_y ?? 900.0;
+
 if ship_id > 0 {
     // Sync 3-D roll with ship heading so the model rotates to match movement direction.
     // roll = -heading (radians→degrees) because OBJ +roll is CCW, game heading is CW.
@@ -276,15 +289,39 @@ if ship_id > 0 {
     // command queue and not yet in the physics world (world.transform returns ()).
     let xf = world.transform(ship_id) ?? #{};
     let h = xf["heading"] ?? 0.0;
-    scene.set("ship-" + ship_id, "obj.roll", -h * 57.29578);
+    // Quantize to nearest 1° to avoid cel-shading boundary shimmer: sub-degree
+    // roll changes shift 3D projection just enough to flip pixel shading bands.
+    let roll_deg = (-h * 57.29578).round();
+    scene.set("ship-" + ship_id, "obj.roll", roll_deg);
 
-    // ── Camera follows ship — keep ship centered on screen ───────────────────
-    // Use last known position as fallback so camera is always valid on frame 1.
-    let ship_x = xf["x"] ?? (local.last_ship_x ?? 1600.0);
-    let ship_y = xf["y"] ?? (local.last_ship_y ?? 900.0);
+    ship_x = xf["x"] ?? ship_x;
+    ship_y = xf["y"] ?? ship_y;
     local.last_ship_x = ship_x;
     local.last_ship_y = ship_y;
-    world.set_camera(ship_x - 320.0, ship_y - 180.0);
+}
+
+// Round FIRST (matching visual_sync's round()), then subtract viewport half-size
+// → camera perfectly tracks entity offset.
+let ship_px = ship_x.round().to_int();
+let ship_py = ship_y.round().to_int();
+let cam_x = (ship_px - 320).to_float();
+let cam_y = (ship_py - 180).to_float();
+world.set_camera(cam_x, cam_y);
+
+let rest_cam_x = (WORLD_W * 0.5).round().to_int() - 320;
+let rest_cam_y = (WORLD_H * 0.5).round().to_int() - 180;
+let dx = ship_px - 320 - rest_cam_x;
+let dy = ship_py - 180 - rest_cam_y;
+// Keep parallax in float space and let the runtime round once. Pre-truncating
+// here makes the brightest near layer advance in coarse 1px jumps on SDL2.
+scene.set("stars-1", "offset.x", -dx * 0.040); scene.set("stars-1", "offset.y", -dy * 0.040);
+scene.set("stars-2", "offset.x", -dx * 0.025); scene.set("stars-2", "offset.y", -dy * 0.025);
+scene.set("stars-3", "offset.x", -dx * 0.015); scene.set("stars-3", "offset.y", -dy * 0.015);
+scene.set("stars-4", "offset.x", -dx * 0.005); scene.set("stars-4", "offset.y", -dy * 0.005);
+
+if ship_id > 0 {
+    let xf = world.transform(ship_id) ?? #{};
+    let h = xf["heading"] ?? 0.0;
 
     // ── Ship polygon collider — 6-point hull rotated by heading each frame ────
     // Body-frame hull outline: derived from ship.obj vertex projections onto the
@@ -584,13 +621,28 @@ if !invincible && ship_id > 0 {
 }
 
 // ── Background planet ambient drift — slow sinusoidal oscillation for space immersion ──
+// offset.x/y is a delta from the sprite's authored YAML position (ui:true layer).
 let t = scene_elapsed_ms.to_float() / 1000.0;
-scene.set("planet-large", "x", (460.0 + sin(t * 0.08) * 12.0).to_int());
-scene.set("planet-large", "y", (220.0 + cos(t * 0.05) *  6.0).to_int());
-scene.set("planet-small", "x", ( 80.0 + cos(t * 0.12) *  8.0).to_int());
-scene.set("planet-small", "y", ( 48.0 + sin(t * 0.09) *  5.0).to_int());
-scene.set("planet-moon",  "x", (556.0 + sin(t * 0.15) *  5.0).to_int());
-scene.set("planet-moon",  "y", (198.0 + cos(t * 0.11) *  3.0).to_int());
+scene.set("planet-large", "offset.x",  sin(t * 0.08) * 12.0);
+scene.set("planet-large", "offset.y",  cos(t * 0.05) *  6.0);
+scene.set("planet-small", "offset.x",  cos(t * 0.12) *  8.0);
+scene.set("planet-small", "offset.y",  sin(t * 0.09) *  5.0);
+scene.set("planet-moon",  "offset.x",  sin(t * 0.15) *  5.0);
+scene.set("planet-moon",  "offset.y",  cos(t * 0.11) *  3.0);
+
+// ── Frame diagnostic — sampled every 120 frames (~2 sec @ 60fps) ──────────────
+let frame_n = (local.diag_frame ?? 0) + 1;
+local.diag_frame = frame_n;
+if frame_n % 120 == 0 {
+    let sx = local.last_ship_x ?? 0.0;
+    let sy = local.last_ship_y ?? 0.0;
+    let spx = sx.round().to_int();
+    let spy = sy.round().to_int();
+    let cx = spx - 320;
+    let cy = spy - 180;
+    let sid = local.ship_id ?? 0;
+    diag.info(`[DIAG] f=${frame_n} sid=${sid} sx=${sx} sy=${sy} spx=${spx} spy=${spy} cx=${cx} cy=${cy}`);
+}
 
 #{state: local}
 } // end game_over else block

@@ -299,6 +299,10 @@ pub fn renderer_system<T: RendererProvider>(world: &mut T) {
     let has_script_errors = world.debug_log().map(|log| log.has_errors).unwrap_or(false);
     let debug_enabled = world.debug_features().map(|d| d.enabled).unwrap_or(false);
     if has_script_errors && debug_enabled {
+        engine_core::logging::warn(
+            "renderer.flicker_diag",
+            "restore_front_to_back TRIGGERED (has_script_errors=true + debug_enabled)".to_string(),
+        );
         world.restore_front_to_back();
     }
 

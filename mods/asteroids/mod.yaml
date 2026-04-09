@@ -1,6 +1,7 @@
 name: Asteroids
 version: 0.1.0
 entrypoint: /scenes/mainmenu/scene.yml
+output: sdl2
 default_palette: teal
 terminal:
   min_colours: 16
