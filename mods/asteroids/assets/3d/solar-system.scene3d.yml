@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../schemas/scene3d.schema.yaml
-id: asteroids-planetary-html-aligned
+id: asteroids-planetary-clean
 
 viewport:
   width: 640
@@ -10,69 +10,50 @@ camera:
   distance: 62.0
   fov_degrees: 46.0
   near_clip: 0.01
-  position: [0.0, 11.0, 62.0]
-  look_at: [9.0, 2.5, -20.0]
+  position: [0.0, 10.0, 62.0]
+  look_at: [8.0, 3.0, -20.0]
 
 lights:
-  - id: sun_key
+  - id: key
     type: directional
-    direction: [-0.60, 0.34, -0.72]
+    direction: [-0.58, 0.34, -0.74]
     intensity: 1.0
-  - id: fill
+  - id: warm_fill
     type: point
-    position: [-28.0, 12.0, -46.0]
-    intensity: 1.0
-    colour: "#f7d089"
+    position: [-20.0, 14.0, -38.0]
+    intensity: 0.9
+    colour: "#f2c97a"
     snap_hz: 0.0
-  - id: cold_rim
+  - id: cool_rim
     type: point
-    position: [40.0, 6.0, -20.0]
-    intensity: 0.20
-    colour: "#8ba8dc"
+    position: [42.0, 6.0, -18.0]
+    intensity: 0.18
+    colour: "#8ea9de"
     snap_hz: 0.0
 
 materials:
-  nebula:
+  bg_nebula:
     surface_mode: unlit
-    fg_colour: "#141b3f"
+    fg_colour: "#15123f"
     opacity: 0.24
     backface_cull: false
-  stars:
+  bg_stars:
     surface_mode: unlit
-    fg_colour: "#c7d3ff"
-    opacity: 0.15
+    fg_colour: "#becbff"
+    opacity: 0.12
     backface_cull: false
-  sun_glow:
+  planet_body:
     surface_mode: material
-    fg_colour: "#9d7028"
-    cel_levels: 4
-    tone_mix: 0.68
-    shadow_colour: "#36240d"
-    midtone_colour: "#8f6526"
-    highlight_colour: "#deb35f"
-    opacity: 0.48
-    backface_cull: false
-  sun_core:
-    surface_mode: material
-    fg_colour: "#f4ca69"
-    cel_levels: 5
-    tone_mix: 0.76
-    shadow_colour: "#624313"
-    midtone_colour: "#d9a64a"
-    highlight_colour: "#fff0b8"
-    backface_cull: true
-  saturn_body:
-    surface_mode: material
-    fg_colour: "#c68b48"
+    fg_colour: "#cf944a"
     cel_levels: 5
     tone_mix: 0.78
-    shadow_colour: "#52331a"
-    midtone_colour: "#ad6f35"
-    highlight_colour: "#f0ca8a"
+    shadow_colour: "#4f3118"
+    midtone_colour: "#a96e34"
+    highlight_colour: "#f2cd8f"
     backface_cull: true
   atmosphere_haze:
     surface_mode: unlit
-    fg_colour: "#c8803a"
+    fg_colour: "#d08030"
     opacity: 0.20
     backface_cull: false
   ring_inner_back:
@@ -80,387 +61,419 @@ materials:
     fg_colour: "#d8ceb0"
     cel_levels: 4
     tone_mix: 0.66
-    shadow_colour: "#4c4133"
-    midtone_colour: "#a99a7d"
-    highlight_colour: "#f0e4cc"
+    shadow_colour: "#4a4338"
+    midtone_colour: "#aaa08a"
+    highlight_colour: "#f2e7d0"
     opacity: 0.70
-    backface_cull: false
-  ring_inner_front:
-    surface_mode: material
-    fg_colour: "#d8ceb0"
-    cel_levels: 4
-    tone_mix: 0.66
-    shadow_colour: "#4c4133"
-    midtone_colour: "#a99a7d"
-    highlight_colour: "#f0e4cc"
-    opacity: 0.82
     backface_cull: false
   ring_mid_back:
     surface_mode: material
     fg_colour: "#c8b898"
     cel_levels: 4
     tone_mix: 0.66
-    shadow_colour: "#4a3c2a"
-    midtone_colour: "#9a8665"
-    highlight_colour: "#e0cfad"
+    shadow_colour: "#473c2f"
+    midtone_colour: "#9a8a70"
+    highlight_colour: "#e2d1b0"
     opacity: 0.52
-    backface_cull: false
-  ring_mid_front:
-    surface_mode: material
-    fg_colour: "#c8b898"
-    cel_levels: 4
-    tone_mix: 0.66
-    shadow_colour: "#4a3c2a"
-    midtone_colour: "#9a8665"
-    highlight_colour: "#e0cfad"
-    opacity: 0.62
     backface_cull: false
   ring_outer_back:
     surface_mode: material
     fg_colour: "#b8a888"
     cel_levels: 4
     tone_mix: 0.66
-    shadow_colour: "#433523"
-    midtone_colour: "#8f7a59"
-    highlight_colour: "#ceb892"
+    shadow_colour: "#403425"
+    midtone_colour: "#8b795f"
+    highlight_colour: "#cdb994"
     opacity: 0.34
+    backface_cull: false
+  ring_inner_front:
+    surface_mode: material
+    fg_colour: "#d8ceb0"
+    cel_levels: 4
+    tone_mix: 0.66
+    shadow_colour: "#4a4338"
+    midtone_colour: "#aaa08a"
+    highlight_colour: "#f2e7d0"
+    opacity: 0.82
+    backface_cull: false
+  ring_mid_front:
+    surface_mode: material
+    fg_colour: "#c8b898"
+    cel_levels: 4
+    tone_mix: 0.66
+    shadow_colour: "#473c2f"
+    midtone_colour: "#9a8a70"
+    highlight_colour: "#e2d1b0"
+    opacity: 0.60
     backface_cull: false
   ring_outer_front:
     surface_mode: material
     fg_colour: "#b8a888"
     cel_levels: 4
     tone_mix: 0.66
-    shadow_colour: "#433523"
-    midtone_colour: "#8f7a59"
-    highlight_colour: "#ceb892"
+    shadow_colour: "#403425"
+    midtone_colour: "#8b795f"
+    highlight_colour: "#cdb994"
     opacity: 0.42
     backface_cull: false
   ring_shadow:
     surface_mode: unlit
-    fg_colour: "#0b0615"
-    opacity: 0.36
+    fg_colour: "#080415"
+    opacity: 0.34
     backface_cull: false
-  moon_rock:
+  moon_warm:
     surface_mode: material
     fg_colour: "#c8bea8"
     cel_levels: 4
     tone_mix: 0.72
-    shadow_colour: "#3d3228"
-    midtone_colour: "#998f7a"
-    highlight_colour: "#ede3d1"
+    shadow_colour: "#40382d"
+    midtone_colour: "#9a917d"
+    highlight_colour: "#ede6d7"
     backface_cull: true
-  moon_ice:
+  moon_cool:
     surface_mode: material
     fg_colour: "#b0b8c4"
     cel_levels: 4
     tone_mix: 0.72
-    shadow_colour: "#445060"
-    midtone_colour: "#8893a3"
-    highlight_colour: "#d9e0ea"
+    shadow_colour: "#4a5667"
+    midtone_colour: "#8793a4"
+    highlight_colour: "#dce4ee"
     backface_cull: true
   moon_shadow:
     surface_mode: unlit
     fg_colour: "#030110"
     opacity: 0.30
     backface_cull: false
-  moon_orbit:
+  orbit_guide:
     surface_mode: unlit
     fg_colour: "#526294"
     opacity: 0.10
     backface_cull: false
-  belt_rock:
-    surface_mode: material
-    fg_colour: "#aca08c"
-    cel_levels: 4
-    tone_mix: 0.70
-    shadow_colour: "#2e2a24"
-    midtone_colour: "#776e62"
-    highlight_colour: "#c5b7a1"
-    backface_cull: true
   belt_dust:
     surface_mode: unlit
     fg_colour: "#a09480"
     opacity: 0.10
     backface_cull: false
-  belt_density_shadow:
+  belt_shadow:
     surface_mode: unlit
-    fg_colour: "#10141c"
+    fg_colour: "#0f1320"
     opacity: 0.30
     backface_cull: false
+  belt_rock_back:
+    surface_mode: material
+    fg_colour: "#aca08c"
+    cel_levels: 4
+    tone_mix: 0.70
+    shadow_colour: "#302b23"
+    midtone_colour: "#7d7366"
+    highlight_colour: "#c8baa3"
+    opacity: 0.56
+    backface_cull: true
+  belt_rock_front:
+    surface_mode: material
+    fg_colour: "#aca08c"
+    cel_levels: 4
+    tone_mix: 0.70
+    shadow_colour: "#302b23"
+    midtone_colour: "#7d7366"
+    highlight_colour: "#c8baa3"
+    opacity: 0.92
+    backface_cull: true
 
 objects:
-  - id: back-nebula
+  - id: nebula
     mesh: /assets/3d/sphere.obj
-    material: nebula
-    transform: { rotation_y: 15.0, pitch: -7.0, scale: 36.0, translation: [8.0, -2.0, -102.0] }
-  - id: star-cluster
+    material: bg_nebula
+    transform: { rotation_y: 12.0, pitch: -8.0, scale: 35.0, translation: [8.0, -2.0, -102.0] }
+  - id: stars
     mesh: /assets/3d/sphere.obj
-    material: stars
-    transform: { rotation_y: 0.0, pitch: 0.0, scale: 30.0, translation: [8.0, 1.0, -126.0] }
+    material: bg_stars
+    transform: { rotation_y: 0.0, pitch: 0.0, scale: 30.0, translation: [6.0, 0.5, -124.0] }
 
-  - id: sun-glow
-    mesh: /assets/3d/sphere.obj
-    material: sun_glow
-    transform: { rotation_y: 0.0, pitch: -8.0, scale: 9.0, translation: [-28.0, 12.0, -46.0] }
-  - id: sun-core
-    mesh: /assets/3d/sphere.obj
-    material: sun_core
-    transform: { rotation_y: 0.0, pitch: -10.0, scale: 6.6, translation: [-28.0, 12.0, -46.0] }
-
-  - id: saturn-ring-inner-back
+  - id: rings-inner-back
     mesh: /assets/3d/saturn_ring_back.obj
     material: ring_inner_back
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 8.4, translation: [24.0, 4.0, -20.0] }
-  - id: saturn-ring-mid-back
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 8.3, translation: [24.0, 4.0, -20.0] }
+  - id: rings-mid-back
     mesh: /assets/3d/saturn_ring_back.obj
     material: ring_mid_back
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 10.6, translation: [24.0, 4.0, -20.0] }
-  - id: saturn-ring-outer-back
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 10.5, translation: [24.0, 4.0, -20.0] }
+  - id: rings-outer-back
     mesh: /assets/3d/saturn_ring_back.obj
     material: ring_outer_back
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.7, translation: [24.0, 4.0, -20.0] }
-
-  - id: saturn-ring-shadow-back
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.6, translation: [24.0, 4.0, -20.0] }
+  - id: ring-shadow-back
     mesh: /assets/3d/saturn_ring_back.obj
     material: ring_shadow
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.7, translation: [24.4, 3.4, -19.2] }
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.6, translation: [24.4, 3.4, -19.2] }
 
-  - id: saturn-planet
+  - id: planet
     mesh: /assets/3d/sphere.obj
-    material: saturn_body
+    material: planet_body
     transform: { rotation_y: 34.0, pitch: -10.0, scale: 5.8, translation: [24.0, 4.0, -20.0] }
-  - id: atmosphere-haze
+  - id: atmosphere
     mesh: /assets/3d/sphere.obj
     material: atmosphere_haze
     transform: { rotation_y: 34.0, pitch: -10.0, scale: 6.2, translation: [24.0, 4.0, -20.0] }
 
-  - id: saturn-ring-inner-front
+  - id: rings-inner-front
     mesh: /assets/3d/saturn_ring_front.obj
     material: ring_inner_front
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 8.4, translation: [24.0, 4.0, -20.0] }
-  - id: saturn-ring-mid-front
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 8.3, translation: [24.0, 4.0, -20.0] }
+  - id: rings-mid-front
     mesh: /assets/3d/saturn_ring_front.obj
     material: ring_mid_front
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 10.6, translation: [24.0, 4.0, -20.0] }
-  - id: saturn-ring-outer-front
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 10.5, translation: [24.0, 4.0, -20.0] }
+  - id: rings-outer-front
     mesh: /assets/3d/saturn_ring_front.obj
     material: ring_outer_front
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.7, translation: [24.0, 4.0, -20.0] }
-  - id: saturn-ring-shadow-front
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.6, translation: [24.0, 4.0, -20.0] }
+  - id: ring-shadow-front
     mesh: /assets/3d/saturn_ring_front.obj
     material: ring_shadow
-    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.7, translation: [24.2, 3.2, -19.4] }
+    transform: { rotation_y: 22.0, pitch: -18.0, scale: 12.6, translation: [24.2, 3.2, -19.4] }
 
-  - id: moon-orbit-a
+  - id: orbit-a
     mesh: /assets/3d/saturn_ring_front.obj
-    material: moon_orbit
+    material: orbit_guide
     transform: { rotation_y: 22.0, pitch: -18.0, scale: 14.3, translation: [24.0, 4.0, -20.0] }
-  - id: moon-orbit-b
+  - id: orbit-b
     mesh: /assets/3d/saturn_ring_front.obj
-    material: moon_orbit
+    material: orbit_guide
     transform: { rotation_y: 22.0, pitch: -18.0, scale: 18.4, translation: [24.0, 4.0, -20.0] }
-  - id: moon-orbit-c
+  - id: orbit-c
     mesh: /assets/3d/saturn_ring_front.obj
-    material: moon_orbit
+    material: orbit_guide
     transform: { rotation_y: 22.0, pitch: -18.0, scale: 22.6, translation: [24.0, 4.0, -20.0] }
-  - id: moon-orbit-d
+  - id: orbit-d
     mesh: /assets/3d/saturn_ring_front.obj
-    material: moon_orbit
+    material: orbit_guide
     transform: { rotation_y: 22.0, pitch: -18.0, scale: 10.1, translation: [24.0, 4.0, -20.0] }
-  - id: moon-orbit-e
+  - id: orbit-e
     mesh: /assets/3d/saturn_ring_front.obj
-    material: moon_orbit
+    material: orbit_guide
     transform: { rotation_y: 22.0, pitch: -18.0, scale: 27.4, translation: [24.0, 4.0, -20.0] }
 
   - id: moon-a
     mesh: /assets/3d/sphere.obj
-    material: moon_rock
-    transform: { rotation_y: 12.0, pitch: -9.0, scale: 1.16, translation: [34.8, 4.8, -19.2] }
+    material: moon_warm
+    transform: { rotation_y: 12.0, pitch: -9.0, scale: 1.16, translation: [35.0, 4.8, -19.2] }
   - id: moon-a-shadow
     mesh: /assets/3d/sphere.obj
     material: moon_shadow
-    transform: { rotation_y: 12.0, pitch: -9.0, scale: 1.08, translation: [35.7, 4.2, -18.3] }
+    transform: { rotation_y: 12.0, pitch: -9.0, scale: 1.08, translation: [35.9, 4.2, -18.3] }
   - id: moon-b
     mesh: /assets/3d/sphere.obj
-    material: moon_ice
-    transform: { rotation_y: 46.0, pitch: -8.0, scale: 0.84, translation: [32.6, 6.3, -16.0] }
+    material: moon_cool
+    transform: { rotation_y: 46.0, pitch: -8.0, scale: 0.84, translation: [32.4, 6.2, -15.8] }
   - id: moon-b-shadow
     mesh: /assets/3d/sphere.obj
     material: moon_shadow
-    transform: { rotation_y: 46.0, pitch: -8.0, scale: 0.78, translation: [33.5, 5.8, -15.1] }
+    transform: { rotation_y: 46.0, pitch: -8.0, scale: 0.78, translation: [33.3, 5.7, -14.9] }
   - id: moon-c
     mesh: /assets/3d/sphere.obj
-    material: moon_rock
-    transform: { rotation_y: 74.0, pitch: -8.0, scale: 0.62, translation: [28.5, 6.9, -14.5] }
+    material: moon_warm
+    transform: { rotation_y: 74.0, pitch: -8.0, scale: 0.62, translation: [28.6, 6.8, -14.4] }
   - id: moon-d
     mesh: /assets/3d/sphere.obj
-    material: moon_ice
-    transform: { rotation_y: 102.0, pitch: -8.0, scale: 0.50, translation: [23.4, 6.7, -14.1] }
+    material: moon_cool
+    transform: { rotation_y: 102.0, pitch: -8.0, scale: 0.50, translation: [23.2, 6.5, -14.0] }
   - id: moon-e
     mesh: /assets/3d/sphere.obj
-    material: moon_rock
-    transform: { rotation_y: 136.0, pitch: -9.0, scale: 0.42, translation: [18.8, 5.7, -15.4] }
+    material: moon_warm
+    transform: { rotation_y: 136.0, pitch: -9.0, scale: 0.42, translation: [18.9, 5.6, -15.3] }
 
-  - id: belt-dust-plane
+  - id: belt-dust
     mesh: /assets/3d/saturn_ring_back.obj
     material: belt_dust
-    transform: { rotation_y: 22.0, pitch: -20.0, scale: 25.5, translation: [24.0, 0.8, -20.0] }
-  - id: belt-density-shadow
+    transform: { rotation_y: 22.0, pitch: -20.0, scale: 25.3, translation: [24.0, 0.8, -20.0] }
+  - id: belt-shadow
     mesh: /assets/3d/saturn_ring_front.obj
-    material: belt_density_shadow
-    transform: { rotation_y: 22.0, pitch: -20.0, scale: 25.5, translation: [24.0, 0.3, -20.0] }
+    material: belt_shadow
+    transform: { rotation_y: 22.0, pitch: -20.0, scale: 25.3, translation: [24.0, 0.3, -20.0] }
 
-  - id: belt-rock-0
+  - id: rock-b0
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 0, pitch: -15, scale: 0.55, translation: [36.00, 4.00, -20.00] }
-  - id: belt-rock-1
+    material: belt_rock_back
+    transform: { rotation_y: 0, pitch: -15, scale: 0.58, translation: [38.00, 4.00, -20.00] }
+  - id: rock-b1
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 23, pitch: -10, scale: 0.63, translation: [35.77, 4.21, -18.97] }
-  - id: belt-rock-2
+    material: belt_rock_back
+    transform: { rotation_y: 18, pitch: -12, scale: 0.66, translation: [37.32, 4.24, -17.22] }
+  - id: rock-b2
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 46, pitch: -5, scale: 0.71, translation: [35.09, 4.39, -17.97] }
-  - id: belt-rock-3
+    material: belt_rock_back
+    transform: { rotation_y: 36, pitch: -9, scale: 0.74, translation: [35.32, 4.43, -14.71] }
+  - id: rock-b3
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 69, pitch: 0, scale: 0.79, translation: [33.98, 4.51, -17.06] }
-  - id: belt-rock-4
+    material: belt_rock_back
+    transform: { rotation_y: 54, pitch: -6, scale: 0.82, translation: [32.14, 4.54, -12.77] }
+  - id: rock-b4
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 92, pitch: 5, scale: 0.87, translation: [32.49, 4.55, -16.25] }
-  - id: belt-rock-5
+    material: belt_rock_back
+    transform: { rotation_y: 72, pitch: -3, scale: 0.90, translation: [28.05, 4.57, -11.69] }
+  - id: rock-b5
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 115, pitch: 10, scale: 0.55, translation: [30.67, 4.51, -15.59] }
-  - id: belt-rock-6
+    material: belt_rock_back
+    transform: { rotation_y: 90, pitch: 0, scale: 0.58, translation: [23.61, 4.50, -11.60] }
+  - id: rock-b6
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 138, pitch: 15, scale: 0.63, translation: [28.59, 4.39, -15.10] }
-  - id: belt-rock-7
+    material: belt_rock_back
+    transform: { rotation_y: 108, pitch: 3, scale: 0.66, translation: [19.37, 4.35, -12.45] }
+  - id: rock-b7
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 161, pitch: -15, scale: 0.71, translation: [26.34, 4.21, -14.80] }
-  - id: belt-rock-8
+    material: belt_rock_back
+    transform: { rotation_y: 126, pitch: 6, scale: 0.74, translation: [15.86, 4.14, -14.16] }
+  - id: rock-b8
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 184, pitch: -10, scale: 0.79, translation: [24.00, 4.00, -14.70] }
-  - id: belt-rock-9
+    material: belt_rock_back
+    transform: { rotation_y: 144, pitch: 9, scale: 0.82, translation: [13.47, 3.90, -16.56] }
+  - id: rock-b9
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 207, pitch: -5, scale: 0.87, translation: [21.66, 3.79, -14.80] }
-  - id: belt-rock-10
+    material: belt_rock_back
+    transform: { rotation_y: 162, pitch: 12, scale: 0.90, translation: [12.46, 3.66, -19.38] }
+  - id: rock-b10
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 230, pitch: 0, scale: 0.55, translation: [19.41, 3.61, -15.10] }
-  - id: belt-rock-11
+    material: belt_rock_back
+    transform: { rotation_y: 180, pitch: 15, scale: 0.58, translation: [12.95, 3.47, -22.25] }
+  - id: rock-b11
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 253, pitch: 5, scale: 0.63, translation: [17.33, 3.49, -15.59] }
-  - id: belt-rock-12
+    material: belt_rock_back
+    transform: { rotation_y: 198, pitch: -15, scale: 0.66, translation: [14.88, 3.36, -24.79] }
+  - id: rock-b12
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 276, pitch: 10, scale: 0.71, translation: [15.51, 3.45, -16.25] }
-  - id: belt-rock-13
+    material: belt_rock_back
+    transform: { rotation_y: 216, pitch: -12, scale: 0.74, translation: [18.02, 3.33, -26.69] }
+  - id: rock-b13
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 299, pitch: 15, scale: 0.79, translation: [14.02, 3.49, -17.06] }
-  - id: belt-rock-14
+    material: belt_rock_back
+    transform: { rotation_y: 234, pitch: -9, scale: 0.82, translation: [22.01, 3.40, -27.72] }
+  - id: rock-b14
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 322, pitch: -15, scale: 0.87, translation: [12.91, 3.61, -17.97] }
-  - id: belt-rock-15
+    material: belt_rock_back
+    transform: { rotation_y: 252, pitch: -6, scale: 0.90, translation: [26.39, 3.56, -27.74] }
+  - id: rock-b15
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 345, pitch: -10, scale: 0.55, translation: [12.23, 3.79, -18.97] }
-  - id: belt-rock-16
+    material: belt_rock_back
+    transform: { rotation_y: 270, pitch: -3, scale: 0.58, translation: [30.64, 3.78, -26.75] }
+  - id: rock-b16
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 8, pitch: -5, scale: 0.63, translation: [12.00, 4.00, -20.00] }
-  - id: belt-rock-17
+    material: belt_rock_back
+    transform: { rotation_y: 288, pitch: 0, scale: 0.66, translation: [34.26, 4.03, -24.90] }
+  - id: rock-b17
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 31, pitch: 0, scale: 0.71, translation: [12.23, 4.21, -21.03] }
-  - id: belt-rock-18
+    material: belt_rock_back
+    transform: { rotation_y: 306, pitch: 3, scale: 0.74, translation: [36.82, 4.26, -22.43] }
+  - id: rock-b18
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 54, pitch: 5, scale: 0.79, translation: [12.91, 4.39, -22.03] }
-  - id: belt-rock-19
+    material: belt_rock_back
+    transform: { rotation_y: 324, pitch: 6, scale: 0.82, translation: [38.00, 4.44, -19.57] }
+  - id: rock-b19
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 77, pitch: 10, scale: 0.87, translation: [14.02, 4.51, -22.94] }
-  - id: belt-rock-20
+    material: belt_rock_back
+    transform: { rotation_y: 342, pitch: 9, scale: 0.90, translation: [37.65, 4.55, -16.67] }
+
+  - id: rock-f0
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 100, pitch: 15, scale: 0.55, translation: [15.51, 4.55, -23.75] }
-  - id: belt-rock-21
+    material: belt_rock_front
+    transform: { rotation_y: 9, pitch: -15, scale: 0.60, translation: [41.00, 3.80, -18.10] }
+  - id: rock-f1
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 123, pitch: -15, scale: 0.63, translation: [17.33, 4.51, -24.41] }
-  - id: belt-rock-22
+    material: belt_rock_front
+    transform: { rotation_y: 27, pitch: -12, scale: 0.68, translation: [39.90, 4.03, -14.90] }
+  - id: rock-f2
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 146, pitch: -10, scale: 0.71, translation: [19.41, 4.39, -24.90] }
-  - id: belt-rock-23
+    material: belt_rock_front
+    transform: { rotation_y: 45, pitch: -9, scale: 0.76, translation: [37.28, 4.20, -12.10] }
+  - id: rock-f3
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 169, pitch: -5, scale: 0.79, translation: [21.66, 4.21, -25.20] }
-  - id: belt-rock-24
+    material: belt_rock_front
+    transform: { rotation_y: 63, pitch: -6, scale: 0.84, translation: [33.41, 4.28, -10.05] }
+  - id: rock-f4
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 192, pitch: 0, scale: 0.87, translation: [24.00, 4.00, -25.30] }
-  - id: belt-rock-25
+    material: belt_rock_front
+    transform: { rotation_y: 81, pitch: -3, scale: 0.92, translation: [28.72, 4.27, -8.99] }
+  - id: rock-f5
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 215, pitch: 5, scale: 0.55, translation: [26.34, 3.79, -25.20] }
-  - id: belt-rock-26
+    material: belt_rock_front
+    transform: { rotation_y: 99, pitch: 0, scale: 0.60, translation: [23.75, 4.16, -8.96] }
+  - id: rock-f6
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 238, pitch: 10, scale: 0.63, translation: [28.59, 3.61, -24.90] }
-  - id: belt-rock-27
+    material: belt_rock_front
+    transform: { rotation_y: 117, pitch: 3, scale: 0.68, translation: [19.06, 3.98, -9.95] }
+  - id: rock-f7
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 261, pitch: 15, scale: 0.71, translation: [30.67, 3.49, -24.41] }
-  - id: belt-rock-28
+    material: belt_rock_front
+    transform: { rotation_y: 135, pitch: 6, scale: 0.76, translation: [15.19, 3.73, -11.91] }
+  - id: rock-f8
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 284, pitch: -15, scale: 0.79, translation: [32.49, 3.45, -23.75] }
-  - id: belt-rock-29
+    material: belt_rock_front
+    transform: { rotation_y: 153, pitch: 9, scale: 0.84, translation: [12.57, 3.44, -14.58] }
+  - id: rock-f9
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 307, pitch: -10, scale: 0.87, translation: [33.98, 3.49, -22.94] }
-  - id: belt-rock-30
+    material: belt_rock_front
+    transform: { rotation_y: 171, pitch: 12, scale: 0.92, translation: [11.47, 3.14, -17.72] }
+  - id: rock-f10
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 330, pitch: -5, scale: 0.55, translation: [35.09, 3.61, -22.03] }
-  - id: belt-rock-31
+    material: belt_rock_front
+    transform: { rotation_y: 189, pitch: 15, scale: 0.60, translation: [12.03, 2.88, -20.95] }
+  - id: rock-f11
     mesh: /assets/3d/rock.obj
-    material: belt_rock
-    transform: { rotation_y: 353, pitch: 0, scale: 0.63, translation: [35.77, 3.79, -21.03] }
+    material: belt_rock_front
+    transform: { rotation_y: 207, pitch: -15, scale: 0.68, translation: [14.20, 2.69, -23.87] }
+  - id: rock-f12
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 225, pitch: -12, scale: 0.76, translation: [17.70, 2.60, -26.17] }
+  - id: rock-f13
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 243, pitch: -9, scale: 0.84, translation: [22.11, 2.62, -27.56] }
+  - id: rock-f14
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 261, pitch: -6, scale: 0.92, translation: [26.92, 2.76, -27.85] }
+  - id: rock-f15
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 279, pitch: -3, scale: 0.60, translation: [31.58, 3.00, -27.02] }
+  - id: rock-f16
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 297, pitch: 0, scale: 0.68, translation: [35.60, 3.30, -25.20] }
+  - id: rock-f17
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 315, pitch: 3, scale: 0.76, translation: [38.57, 3.61, -22.63] }
+  - id: rock-f18
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 333, pitch: 6, scale: 0.84, translation: [40.19, 3.90, -19.58] }
+  - id: rock-f19
+    mesh: /assets/3d/rock.obj
+    material: belt_rock_front
+    transform: { rotation_y: 351, pitch: 9, scale: 0.92, translation: [40.32, 4.13, -16.37] }
 
 frames:
   solar-static:
-    show: &planetary_show
-      - back-nebula
-      - star-cluster
-      - sun-glow
-      - sun-core
-      - saturn-ring-inner-back
-      - saturn-ring-mid-back
-      - saturn-ring-outer-back
-      - saturn-ring-shadow-back
-      - saturn-planet
-      - atmosphere-haze
-      - saturn-ring-inner-front
-      - saturn-ring-mid-front
-      - saturn-ring-outer-front
-      - saturn-ring-shadow-front
-      - moon-orbit-a
-      - moon-orbit-b
-      - moon-orbit-c
-      - moon-orbit-d
-      - moon-orbit-e
+    show: &show_all
+      - nebula
+      - stars
+      - rings-inner-back
+      - rings-mid-back
+      - rings-outer-back
+      - ring-shadow-back
+      - planet
+      - atmosphere
+      - rings-inner-front
+      - rings-mid-front
+      - rings-outer-front
+      - ring-shadow-front
+      - orbit-a
+      - orbit-b
+      - orbit-c
+      - orbit-d
+      - orbit-e
       - moon-a
       - moon-a-shadow
       - moon-b
@@ -468,119 +481,131 @@ frames:
       - moon-c
       - moon-d
       - moon-e
-      - belt-dust-plane
-      - belt-density-shadow
-      - belt-rock-0
-      - belt-rock-1
-      - belt-rock-2
-      - belt-rock-3
-      - belt-rock-4
-      - belt-rock-5
-      - belt-rock-6
-      - belt-rock-7
-      - belt-rock-8
-      - belt-rock-9
-      - belt-rock-10
-      - belt-rock-11
-      - belt-rock-12
-      - belt-rock-13
-      - belt-rock-14
-      - belt-rock-15
-      - belt-rock-16
-      - belt-rock-17
-      - belt-rock-18
-      - belt-rock-19
-      - belt-rock-20
-      - belt-rock-21
-      - belt-rock-22
-      - belt-rock-23
-      - belt-rock-24
-      - belt-rock-25
-      - belt-rock-26
-      - belt-rock-27
-      - belt-rock-28
-      - belt-rock-29
-      - belt-rock-30
-      - belt-rock-31
+      - belt-dust
+      - belt-shadow
+      - rock-b0
+      - rock-b1
+      - rock-b2
+      - rock-b3
+      - rock-b4
+      - rock-b5
+      - rock-b6
+      - rock-b7
+      - rock-b8
+      - rock-b9
+      - rock-b10
+      - rock-b11
+      - rock-b12
+      - rock-b13
+      - rock-b14
+      - rock-b15
+      - rock-b16
+      - rock-b17
+      - rock-b18
+      - rock-b19
+      - rock-f0
+      - rock-f1
+      - rock-f2
+      - rock-f3
+      - rock-f4
+      - rock-f5
+      - rock-f6
+      - rock-f7
+      - rock-f8
+      - rock-f9
+      - rock-f10
+      - rock-f11
+      - rock-f12
+      - rock-f13
+      - rock-f14
+      - rock-f15
+      - rock-f16
+      - rock-f17
+      - rock-f18
+      - rock-f19
 
   solar-orbit:
-    show: *planetary_show
+    show: *show_all
     clip:
       duration_ms: 24000
       keyframes: 96
       tweens:
-        - { object: sun-glow, property: yaw_offset, from: 0.0, to: 420.0, easing: linear }
-        - { object: sun-core, property: yaw_offset, from: 0.0, to: 860.0, easing: linear }
-        - { object: saturn-planet, property: yaw_offset, from: 0.0, to: 240.0, easing: linear }
-        - { object: atmosphere-haze, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: planet, property: yaw_offset, from: 0.0, to: 230.0, easing: linear }
+        - { object: atmosphere, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: rings-inner-back, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: rings-mid-back, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: rings-outer-back, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: rings-inner-front, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: rings-mid-front, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: rings-outer-front, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: ring-shadow-back, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: ring-shadow-front, property: yaw_offset, from: 0.0, to: 120.0, easing: linear }
+        - { object: belt-dust, property: yaw_offset, from: 0.0, to: 18.0, easing: linear }
+        - { object: belt-shadow, property: yaw_offset, from: 0.0, to: 18.0, easing: linear }
 
-        - { object: saturn-ring-inner-back, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-        - { object: saturn-ring-mid-back, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-        - { object: saturn-ring-outer-back, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-        - { object: saturn-ring-inner-front, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-        - { object: saturn-ring-mid-front, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-        - { object: saturn-ring-outer-front, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-        - { object: saturn-ring-shadow-back, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-        - { object: saturn-ring-shadow-front, property: yaw_offset, from: 0.0, to: 140.0, easing: linear }
-
-        - { object: belt-dust-plane, property: yaw_offset, from: 0.0, to: 18.0, easing: linear }
-        - { object: belt-density-shadow, property: yaw_offset, from: 0.0, to: 18.0, easing: linear }
-
-        - { object: moon-a, property: yaw_offset, from: 0.0, to: 720.0, easing: linear }
-        - { object: moon-a, property: translation_x, from: 34.8, to: 33.0, easing: linear }
-        - { object: moon-a, property: translation_z, from: -19.2, to: -18.0, easing: linear }
-        - { object: moon-a-shadow, property: yaw_offset, from: 0.0, to: 720.0, easing: linear }
-        - { object: moon-a-shadow, property: translation_x, from: 35.7, to: 33.9, easing: linear }
-        - { object: moon-a-shadow, property: translation_z, from: -18.3, to: -17.1, easing: linear }
+        - { object: moon-a, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
+        - { object: moon-a, property: translation_x, from: 35.0, to: 33.3, easing: linear }
+        - { object: moon-a, property: translation_z, from: -19.2, to: -17.9, easing: linear }
+        - { object: moon-a-shadow, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
+        - { object: moon-a-shadow, property: translation_x, from: 35.9, to: 34.2, easing: linear }
+        - { object: moon-a-shadow, property: translation_z, from: -18.3, to: -17.0, easing: linear }
 
         - { object: moon-b, property: yaw_offset, from: 0.0, to: 520.0, easing: linear }
-        - { object: moon-b, property: translation_x, from: 32.6, to: 31.4, easing: linear }
-        - { object: moon-b, property: translation_z, from: -16.0, to: -17.2, easing: linear }
+        - { object: moon-b, property: translation_x, from: 32.4, to: 31.2, easing: linear }
+        - { object: moon-b, property: translation_z, from: -15.8, to: -17.0, easing: linear }
         - { object: moon-b-shadow, property: yaw_offset, from: 0.0, to: 520.0, easing: linear }
-        - { object: moon-b-shadow, property: translation_x, from: 33.5, to: 32.3, easing: linear }
-        - { object: moon-b-shadow, property: translation_z, from: -15.1, to: -16.3, easing: linear }
+        - { object: moon-b-shadow, property: translation_x, from: 33.3, to: 32.1, easing: linear }
+        - { object: moon-b-shadow, property: translation_z, from: -14.9, to: -16.1, easing: linear }
 
         - { object: moon-c, property: yaw_offset, from: 0.0, to: 1080.0, easing: linear }
-        - { object: moon-c, property: translation_x, from: 28.5, to: 27.9, easing: linear }
-        - { object: moon-c, property: translation_z, from: -14.5, to: -16.0, easing: linear }
+        - { object: moon-c, property: translation_x, from: 28.6, to: 28.0, easing: linear }
+        - { object: moon-c, property: translation_z, from: -14.4, to: -15.9, easing: linear }
 
         - { object: moon-d, property: yaw_offset, from: 0.0, to: 1400.0, easing: linear }
-        - { object: moon-d, property: translation_x, from: 23.4, to: 24.0, easing: linear }
-        - { object: moon-d, property: translation_z, from: -14.1, to: -15.5, easing: linear }
+        - { object: moon-d, property: translation_x, from: 23.2, to: 23.8, easing: linear }
+        - { object: moon-d, property: translation_z, from: -14.0, to: -15.4, easing: linear }
 
         - { object: moon-e, property: yaw_offset, from: 0.0, to: 300.0, easing: linear }
-        - { object: moon-e, property: translation_x, from: 18.8, to: 20.0, easing: linear }
-        - { object: moon-e, property: translation_z, from: -15.4, to: -16.4, easing: linear }
+        - { object: moon-e, property: translation_x, from: 18.9, to: 20.0, easing: linear }
+        - { object: moon-e, property: translation_z, from: -15.3, to: -16.3, easing: linear }
 
-        - { object: belt-rock-0, property: yaw_offset, from: 0.0, to: 700.0, easing: linear }
-        - { object: belt-rock-1, property: yaw_offset, from: 0.0, to: 960.0, easing: linear }
-        - { object: belt-rock-2, property: yaw_offset, from: 0.0, to: 1280.0, easing: linear }
-        - { object: belt-rock-3, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
-        - { object: belt-rock-4, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
-        - { object: belt-rock-5, property: yaw_offset, from: 0.0, to: 1360.0, easing: linear }
-        - { object: belt-rock-6, property: yaw_offset, from: 0.0, to: 720.0, easing: linear }
-        - { object: belt-rock-7, property: yaw_offset, from: 0.0, to: 940.0, easing: linear }
-        - { object: belt-rock-8, property: yaw_offset, from: 0.0, to: 1320.0, easing: linear }
-        - { object: belt-rock-9, property: yaw_offset, from: 0.0, to: 740.0, easing: linear }
-        - { object: belt-rock-10, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
-        - { object: belt-rock-11, property: yaw_offset, from: 0.0, to: 1240.0, easing: linear }
-        - { object: belt-rock-12, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
-        - { object: belt-rock-13, property: yaw_offset, from: 0.0, to: 1040.0, easing: linear }
-        - { object: belt-rock-14, property: yaw_offset, from: 0.0, to: 1300.0, easing: linear }
-        - { object: belt-rock-15, property: yaw_offset, from: 0.0, to: 780.0, easing: linear }
-        - { object: belt-rock-16, property: yaw_offset, from: 0.0, to: 1020.0, easing: linear }
-        - { object: belt-rock-17, property: yaw_offset, from: 0.0, to: 1360.0, easing: linear }
-        - { object: belt-rock-18, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
-        - { object: belt-rock-19, property: yaw_offset, from: 0.0, to: 1000.0, easing: linear }
-        - { object: belt-rock-20, property: yaw_offset, from: 0.0, to: 1320.0, easing: linear }
-        - { object: belt-rock-21, property: yaw_offset, from: 0.0, to: 780.0, easing: linear }
-        - { object: belt-rock-22, property: yaw_offset, from: 0.0, to: 960.0, easing: linear }
-        - { object: belt-rock-23, property: yaw_offset, from: 0.0, to: 1260.0, easing: linear }
-        - { object: belt-rock-24, property: yaw_offset, from: 0.0, to: 740.0, easing: linear }
-        - { object: belt-rock-25, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
-        - { object: belt-rock-26, property: yaw_offset, from: 0.0, to: 1340.0, easing: linear }
-        - { object: belt-rock-27, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
-        - { object: belt-rock-28, property: yaw_offset, from: 0.0, to: 1000.0, easing: linear }
-        - { object: belt-rock-29, property: yaw_offset, from: 0.0, to: 1300.0, easing: linear }
-        - { object: belt-rock-30, property: yaw_offset, from: 0.0, to: 780.0, easing: linear }
-        - { object: belt-rock-31, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
+        - { object: rock-b0, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
+        - { object: rock-b1, property: yaw_offset, from: 0.0, to: 1080.0, easing: linear }
+        - { object: rock-b2, property: yaw_offset, from: 0.0, to: 1260.0, easing: linear }
+        - { object: rock-b3, property: yaw_offset, from: 0.0, to: 820.0, easing: linear }
+        - { object: rock-b4, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
+        - { object: rock-b5, property: yaw_offset, from: 0.0, to: 1320.0, easing: linear }
+        - { object: rock-b6, property: yaw_offset, from: 0.0, to: 780.0, easing: linear }
+        - { object: rock-b7, property: yaw_offset, from: 0.0, to: 1020.0, easing: linear }
+        - { object: rock-b8, property: yaw_offset, from: 0.0, to: 1240.0, easing: linear }
+        - { object: rock-b9, property: yaw_offset, from: 0.0, to: 860.0, easing: linear }
+        - { object: rock-b10, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
+        - { object: rock-b11, property: yaw_offset, from: 0.0, to: 1360.0, easing: linear }
+        - { object: rock-b12, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
+        - { object: rock-b13, property: yaw_offset, from: 0.0, to: 1080.0, easing: linear }
+        - { object: rock-b14, property: yaw_offset, from: 0.0, to: 1260.0, easing: linear }
+        - { object: rock-b15, property: yaw_offset, from: 0.0, to: 820.0, easing: linear }
+        - { object: rock-b16, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
+        - { object: rock-b17, property: yaw_offset, from: 0.0, to: 1320.0, easing: linear }
+        - { object: rock-b18, property: yaw_offset, from: 0.0, to: 780.0, easing: linear }
+        - { object: rock-b19, property: yaw_offset, from: 0.0, to: 1020.0, easing: linear }
+        - { object: rock-f0, property: yaw_offset, from: 0.0, to: 1240.0, easing: linear }
+        - { object: rock-f1, property: yaw_offset, from: 0.0, to: 860.0, easing: linear }
+        - { object: rock-f2, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
+        - { object: rock-f3, property: yaw_offset, from: 0.0, to: 1360.0, easing: linear }
+        - { object: rock-f4, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
+        - { object: rock-f5, property: yaw_offset, from: 0.0, to: 1080.0, easing: linear }
+        - { object: rock-f6, property: yaw_offset, from: 0.0, to: 1260.0, easing: linear }
+        - { object: rock-f7, property: yaw_offset, from: 0.0, to: 820.0, easing: linear }
+        - { object: rock-f8, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
+        - { object: rock-f9, property: yaw_offset, from: 0.0, to: 1320.0, easing: linear }
+        - { object: rock-f10, property: yaw_offset, from: 0.0, to: 780.0, easing: linear }
+        - { object: rock-f11, property: yaw_offset, from: 0.0, to: 1020.0, easing: linear }
+        - { object: rock-f12, property: yaw_offset, from: 0.0, to: 1240.0, easing: linear }
+        - { object: rock-f13, property: yaw_offset, from: 0.0, to: 860.0, easing: linear }
+        - { object: rock-f14, property: yaw_offset, from: 0.0, to: 980.0, easing: linear }
+        - { object: rock-f15, property: yaw_offset, from: 0.0, to: 1360.0, easing: linear }
+        - { object: rock-f16, property: yaw_offset, from: 0.0, to: 760.0, easing: linear }
+        - { object: rock-f17, property: yaw_offset, from: 0.0, to: 1080.0, easing: linear }
+        - { object: rock-f18, property: yaw_offset, from: 0.0, to: 1260.0, easing: linear }
+        - { object: rock-f19, property: yaw_offset, from: 0.0, to: 820.0, easing: linear }
