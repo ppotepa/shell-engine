@@ -773,6 +773,20 @@ scene.spawn_object(template, target)        // clone a scene object/layer templa
 scene.despawn_object(target)                // soft-despawn a scene object/layer
 ```
 
+Important runtime rules:
+
+- Scene runtime state is immediate-mode. Offsets, visibility, and similar
+  transient runtime values are reset before behavior execution each frame, so
+  camera-relative parallax and other scripted visual state must be re-applied
+  every frame.
+- `scene.spawn_object(template, target)` reserves `target` for the cloned layer
+  or object itself. If the template contains child sprites, continue mutating
+  those by their authored sprite `id` values rather than by reusing the runtime
+  clone target name for both parent and child lookups.
+- For camera-follow and parallax logic, keep values in float space inside Rhai
+  and let the runtime perform the final rounding pass. Pre-truncating in script
+  makes near layers and particle-bound visuals step more visibly on SDL2.
+
 ### `game.*` — Global Game State & Navigation
 
 ```rhai

@@ -16,14 +16,17 @@
 - `bg_colour` omitted → engine uses `Color::Reset` → lower layers show through
 - Only the game-over overlay retains an explicit `bg_colour` (intentional dimming)
 
-### 3. 3-Layer Background Composition
+### 3. Unified Scene3D Solar Background
 Draw order (z-indexed):
-- `z=0` — `stars-layer.yml`: 22 text-sprite star field (5 gold `*`, 17 dim `.`)
-- `z=1` — `planets-layer.yml`: 3 closed vector-polygon planets/moon with palette bindings
-- `z=2` — gameplay entities (spawned at runtime)
+- `z=-30` — `solar-scene3d-layer.yml`: one `scene3_d` sprite with full system
+  composition (nebula, sun, planets, saturn-style ring disk, visible belt rocks)
+- `z=0+` — gameplay entities (spawned at runtime)
 - `z=10` — `hud-grid.yml`: transparent corner HUD
 
-All 3 palettes (`neon`, `classic`, `teal`) include `planet_body` and `planet_rim` keys.
+Background motion model:
+- `solar-system.scene3d.yml` provides a `solar-orbit` clip (`24s`, `24` keyframes)
+- Rhai selects `solar-orbit-${n}` per frame and applies a tiny camera-relative
+  drift for depth, while keeping the entire background as one render target
 
 ### 4. Retro Pixel-Art Life Icons
 - Replaced smooth vector-polygon hearts with `generic:3` pixel-art `♥` glyphs
@@ -49,11 +52,12 @@ All 3 palettes (`neon`, `classic`, `teal`) include `planet_body` and `planet_rim
 
 ## Files Changed
 - `scenes/game/layers/hud-grid.yml` — transparent panels, retro pixel-art hearts
-- `scenes/game/layers/stars-layer.yml` — NEW: z=0 star field
-- `scenes/game/layers/planets-layer.yml` — NEW: z=1 planet/moon background
-- `scenes/game/scene.yml` — added stars + planets layer refs
+- `assets/3d/solar-system.scene3d.yml` — NEW: full solar-system prefab scene
+- `assets/3d/saturn_ring_back.obj`, `assets/3d/saturn_ring_front.obj` — NEW: ring disk meshes
+- `scenes/game/layers/solar-scene3d-layer.yml` — NEW: one background `scene3_d` sprite
+- `scenes/game/scene.yml` — switched game background to unified `scene3_d` layer
 - `palettes/neon.yml`, `classic.yml`, `teal.yml` — added `planet_body`, `planet_rim`
-- `scenes/game/game-loop.rhai` — heart visibility control (unchanged, uses heart-1/2/3 ids)
+- `scenes/game/game-loop.rhai` — scene3d frame selection + camera-relative drift
 - `scenes/pause/scene.yml` — pause menu scene
 - `scenes/pause/pause.rhai` — pause menu navigation
 - `scenes/title/scene.yml` — removed menu-options
@@ -61,3 +65,14 @@ All 3 palettes (`neon`, `classic`, `teal`) include `planet_body` and `planet_rim
 
 ## Testing
 All scenes pass validation (`--check-scenes`). Ready to play!
+
+## Notes After Flicker Investigation
+
+- The top gameplay layer flicker was not a z-index bug. It came from runtime
+  clone target resolution and immediate-mode visual state resets.
+- Free camera movement made the failure much more visible because any missed
+  visual-sync write dropped the gameplay layer back to `(0,0)` before camera
+  subtraction.
+- The engine/runtime docs now describe the relevant contract:
+  runtime clone target aliases belong to the parent layer, and camera/parallax
+  state must be written every frame.

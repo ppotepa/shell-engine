@@ -265,10 +265,10 @@ impl TransformDef {
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum FrameDef {
-    /// Static frame — renders once with the listed objects visible.
-    Static(StaticFrameDef),
     /// Animated clip — generates N frames named `{frame_id}-{n}` (0-indexed).
     Clip(ClipFrameDef),
+    /// Static frame — renders once with the listed objects visible.
+    Static(StaticFrameDef),
 }
 
 #[derive(Debug, Deserialize)]

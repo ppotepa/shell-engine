@@ -27,5 +27,7 @@ consume.
 ## Working with this crate
 
 - keep authored format and resolution logic separate from renderer orchestration,
+- keep `FrameDef` untagged-deserialize precedence as `Clip` before `Static` so
+  `clip:`-based frame entries resolve correctly,
 - if Scene3D schema or reference rules change, update authoring/schema surfaces too,
 - heavy 3D rendering policy still belongs in compositor/runtime crates, not here.

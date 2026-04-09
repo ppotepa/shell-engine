@@ -40,6 +40,18 @@ The crate is intentionally split by responsibility:
 - `RawKeyEvent` / `SidecarIoFrameState` — per-frame input and sidecar snapshots
 - `TerminalShellRoute` — result of routing lifecycle-owned terminal shell input
 
+## Runtime Contracts That Matter
+
+- Runtime object state is immediate-mode. `reset_frame_state()` clears transient
+  offsets, visibility, and related derived state before behaviors run each
+  frame, so render-driving scripts must re-assert those values every tick.
+- `TargetResolver` treats explicit aliases as the authoritative targeting
+  surface. Runtime clone target names are reserved for the cloned layer/object;
+  child sprite display names are only fallback lookup keys.
+- Runtime-cloned layers may contain child sprites with the same authored name as
+  the clone target. Resolver stability and child-alias cleanup must preserve the
+  parent layer as the target for gameplay visual sync and soft-despawn paths.
+
 ## Working with this crate
 
 When changing runtime scene behavior:
@@ -48,7 +60,9 @@ When changing runtime scene behavior:
 - keep `SceneRuntime` focused on per-scene mutable state,
 - attach behaviors here, but keep behavior implementations in `engine-behavior`,
 - prefer adding runtime-local control logic here rather than back in `engine`,
-- preserve resolver stability because behaviors, compositor targeting, and UI focus all depend on it.
+- preserve resolver stability because behaviors, compositor targeting, and UI focus all depend on it,
+- preserve alias precedence: explicit aliases first, generated object names only
+  as fallback lookup keys.
 
 If you add a new runtime-owned control surface, model it here and let the engine
 call a narrow helper instead of duplicating scene-specific logic.

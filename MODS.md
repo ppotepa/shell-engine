@@ -11,6 +11,63 @@ which mod to load via:
 
 If neither is set, the default mod (`mods/shell-quest`) is used.
 
+## Asteroids (SDL2 Mod)
+
+Asteroids is the current gameplay-focused mod built on the same generic
+scene/runtime stack as Shell Quest, but configured for the SDL2 backend by
+default.
+
+### Structure
+
+```
+mods/asteroids/
++-- mod.yaml
++-- assets/
+|   +-- 3d/                  Ship, rock, and sphere OBJ meshes
++-- catalogs/
+|   +-- emitters.yaml        Thruster, impact, debris, and particle presets
+|   +-- prefabs.yaml         Ship, bullet, asteroid, shrapnel, debris configs
++-- objects/
++-- palettes/
++-- scenes/
+|   +-- mainmenu/
+|   +-- game/
+|   |   +-- scene.yml
+|   |   +-- game-loop.rhai
+|   |   +-- layers/
+|   |       +-- solar-scene3d-layer.yml
+|   |       +-- hud-grid.yml
+|   +-- highscores/
+```
+
+### Runtime Characteristics
+
+- `mod.yaml` selects `output: sdl2` with a 640x360 authored render size and
+  `fit` presentation policy.
+- The gameplay scene now uses one unified `scene3_d` background sprite
+  (`/assets/3d/solar-system.scene3d.yml`) that contains the full solar-system
+  composition (nebula, sun, planets, saturn-like rings, and visible belt rocks).
+- Clip-driven orbital motion is prerendered as a fixed frame set
+  (`solar-orbit-0..23`), then selected from Rhai each frame for stable timing.
+- Asteroids currently runs in a free-flight/open-world setup: world bounds are
+  defined for queries and camera logic, but gameplay entities are not clamped to
+  the old 320x260 camera box.
+- Background design/iteration notes: `mods/asteroids/SOLAR_BACKGROUND_ANALYSIS.md`.
+- Root troubleshooting notes for the recent visual jitter investigation live in
+  `flickering.md`.
+
+### Running
+
+```bash
+cargo run -p app -- --mod-source=mods/asteroids
+```
+
+Validation:
+
+```bash
+cargo run -p app -- --mod-source=mods/asteroids --check-scenes
+```
+
 ## Shell Quest (Main Mod)
 
 The primary game content. Contains all intro sequences, menus, gameplay

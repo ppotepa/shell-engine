@@ -1,0 +1,11 @@
+- name: solar-scene3d
+  z_index: -30
+  ui: true
+  sprites:
+    - type: scene3_d
+      id: solar-bg
+      src: /assets/3d/solar-system.scene3d.yml
+      frame: solar-orbit-0
+      x: 0
+      y: 0
+      z_index: 0

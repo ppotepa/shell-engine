@@ -79,6 +79,9 @@ See `scripting.md` at repo root for the full API reference.
   `min_x, min_y, max_x, max_y`.
 - `spawn_prefab("ship", #{ cfg: ... })` merges `args["cfg"]` into the catalog
   controller config. This is the intended path for per-level controller tuning.
+- `world.spawn_visual(...)` and `world.set_visual(...)` target the runtime clone
+  layer/object, not an arbitrary child sprite inside that clone. Use scene-side
+  sprite `id` values when mutating a specific child after spawn.
 - `local[]` state is per behavior instance. Cross-script coordination should go
   through persistent game state (`game.set/get`) instead of assuming two
   behavior files share locals.

@@ -95,16 +95,19 @@ Executed in this fixed order every frame inside `game_loop.rs`:
 | 7 | collision | `-` | Collision detection over gameplay entities |
 | 8 | gameplay_events (push) | `-` | Publish collision hits to script-visible buffer |
 | 9 | behavior | `behavior_us` | Rhai script execution per behavior |
-| 10 | audio_sequencer | `audio_us` | Semantic SFX/song sequencing and synth cue scheduling |
-| 11 | audio | `audio_us` | Audio backend tick + cue dispatch |
-| 12 | compositor | `compositor_us` | Layer blitting + sprite rendering to the render buffer |
-| 13 | postfx | `postfx_us` | Post-processing effects (scanline, glitch, etc.) |
-| 14 | renderer | `renderer_us` | Double-buffer diff + active output backend present |
-| 15 | gameplay_events (clear) | `-` | Clear per-frame collision buffer |
-| 16 | visual_binding cleanup | `-` | Despawn scene visuals bound to expired entities |
-| 17 | sleep | `sleep_us` | Frame budget sleep (target FPS remainder) |
+| 10 | visual_binding cleanup | `-` | Despawn scene visuals bound to expired entities before render sync/compositing |
+| 11 | particle_physics (collect) | `-` | Write back async worker-particle integration results |
+| 12 | particle_ramp | `-` | Apply typed particle colour/radius ramps |
+| 13 | audio_sequencer | `audio_us` | Semantic SFX/song sequencing and synth cue scheduling |
+| 14 | audio | `audio_us` | Audio backend tick + cue dispatch |
+| 15 | visual_sync | `-` | Copy `Transform2D` positions/headings into bound scene runtime targets |
+| 16 | compositor | `compositor_us` | Layer blitting + sprite rendering to the render buffer |
+| 17 | postfx | `postfx_us` | Post-processing effects (scanline, glitch, etc.) |
+| 18 | renderer | `renderer_us` | Double-buffer diff + active output backend present |
+| 19 | gameplay_events (clear) | `-` | Clear per-frame collision buffer |
+| 20 | sleep | `sleep_us` | Frame budget sleep (target FPS remainder) |
 
-After renderer (step 14), the frame-skip oracle is notified via
+After renderer (step 18), the frame-skip oracle is notified via
 `oracle.frame_advanced()`.
 
 ## 4. Strategy Pattern Architecture
@@ -237,6 +240,10 @@ layer or stage start). Key rules:
 - Use `game.set/get` for cross-script state handoff such as entity ids needed by
   both gameplay and render-sync behaviors.
 - Use `local[]` only for script-private frame-to-frame state.
+- Scene runtime object state is immediate-mode. `reset_frame_state()` clears
+  transient visibility/offset state before behaviors run, so scripts that drive
+  parallax, camera-relative layers, or other runtime-only presentation state
+  must re-emit those values every frame.
 
 **Debug keys** (when `--dev` is active):
 

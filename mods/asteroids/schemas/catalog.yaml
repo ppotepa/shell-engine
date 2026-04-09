@@ -133,7 +133,8 @@ $defs:
     enum: []
   scene3d_paths:
     type: string
-    enum: []
+    enum:
+    - /assets/3d/solar-system.scene3d.yml
   cutscene_refs:
     type: string
     enum: []
