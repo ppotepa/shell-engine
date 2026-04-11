@@ -66,12 +66,16 @@
               children:
                 - type: grid
                   columns: ["auto", "1fr", "auto"]
-                  rows: ["auto"]
+                  rows: ["auto", "auto"]
                   gap-x: 14
+                  gap-y: 2
                   children:
                     - { type: text, id: hud-orbital-alt,    content: "ALT  ---", grid-col: 1, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_label" }
                     - { type: text, id: hud-orbital-status, content: "ORBIT",    grid-col: 2, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_value" }
-                    - { type: text, id: hud-orbital-spd,    content: "SPD  ---", grid-col: 3, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_label" }
+                    - { type: text, id: hud-orbital-tspd,   content: "TSPD ---", grid-col: 3, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_label" }
+                    - { type: text, id: hud-orbital-rspd,   content: "RSPD ---", grid-col: 1, grid-row: 2, at: bc, font: "generic:1", fg: "@palette.hud_label" }
+                    - { type: text, id: hud-orbital-heat,   content: "HEAT ---", grid-col: 2, grid-row: 2, at: bc, font: "generic:1", fg: "@palette.hud_value" }
+                    - { type: text, id: hud-orbital-vxy,    content: "VXY  ---", grid-col: 3, grid-row: 2, at: bc, font: "generic:1", fg: "@palette.hud_label" }
 
             # ── Bottom-left: Lives (heart icons) ──────────────────────────────
             - type: panel

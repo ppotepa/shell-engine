@@ -18,6 +18,10 @@ bodies:
     # Gravitational mu for orbital mechanics (px³/s²)
     # Tuned so ORBIT_R=450px, ORBIT_V0≈9.42px/s gives stable circular orbit.
     gravity_mu: 565000.0
+    # Atmosphere tuning (altitude above surface in px)
+    atmosphere_top: 120.0
+    atmosphere_dense_start: 45.0
+    atmosphere_drag_max: 2.2
     # Scene sprite ids driven by game-loop.rhai
     sprite_surface: planet-bg-sphere
     sprite_clouds: planet-clouds

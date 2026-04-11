@@ -159,6 +159,25 @@ fn ship_basis_euler(srx, sry, srz, sfx, sfy, sfz, snx, sny, snz, prev_pitch, pre
     }
 }
 
+fn one_decimal_text(v) {
+    let av = absf(v);
+    let scaled = (av * 10.0).to_int();
+    let whole = scaled / 10;
+    let frac = scaled - whole * 10;
+    whole + "." + frac
+}
+
+fn fmt_kms(label, value) {
+    let sign = if value < 0.0 { "-" } else { "" };
+    label + " " + sign + one_decimal_text(value) + " km/s"
+}
+
+fn clamp01(x) {
+    if x < 0.0 { return 0.0; }
+    if x > 1.0 { return 1.0; }
+    x
+}
+
 fn hide_asteroid_slots(scene, prefix, count) {
     for i in 0..count {
         scene.set(prefix + i, "visible", false);
@@ -346,19 +365,13 @@ fn ship_hull_polygon(heading) {
     ]
 }
 
-fn ensure_ship(world) {
-    let WORLD_W = world.world_width();
-    let WORLD_H = world.world_height();
-    let PLANET_X = WORLD_W * 0.5;
-    let PLANET_Y = WORLD_H * 0.5;
-    let ORBIT_R  = 450.0;
-
+fn ensure_ship(world, spawn_x, spawn_y) {
     let existing = world.first_kind("ship");
     if existing > 0 { return existing; }
     // Spawn at 3-o'clock to match sn=(1,0,0) initial orbital state.
     let ship_id = world.spawn_prefab("ship", #{
-        x: PLANET_X + ORBIT_R,
-        y: PLANET_Y,
+        x: spawn_x,
+        y: spawn_y,
         vx: 0.0,
         vy: 0.0,
     });
@@ -368,18 +381,25 @@ fn ensure_ship(world) {
 // ======================== ORBITAL CONSTANTS ===================================
 // Read body and planet type from catalog; fall back to hardcoded defaults if
 // catalog not loaded (e.g. during tests or before first-frame catalog init).
-let PLANET_X       = WORLD_W * 0.5;   // world-space planet centre X (1600)
-let PLANET_Y       = WORLD_H * 0.5;   // world-space planet centre Y (900)
-let ORBIT_R        = 450.0;           // Constant orbital radius (px)
+let _body = world.body_info("main-planet");
+let PLANET_X = if type_of(_body["center_x"]) != "()" { _body["center_x"] } else { WORLD_W * 0.5 };
+let PLANET_Y = if type_of(_body["center_y"]) != "()" { _body["center_y"] } else { WORLD_H * 0.5 };
+let SURFACE_RADIUS = if type_of(_body["surface_radius"]) != "()" { _body["surface_radius"] } else { 90.0 };
+let BODY_RADIUS_PX = if type_of(_body["radius_px"]) != "()" { _body["radius_px"] } else { SURFACE_RADIUS };
+let BODY_GRAVITY_MU = if type_of(_body["gravity_mu"]) != "()" { _body["gravity_mu"] } else { 565000.0 };
+let ORBIT_START_ALT_PX = 360.0;
+let ORBIT_R        = SURFACE_RADIUS + ORBIT_START_ALT_PX; // Initial spawn radius (px)
 let PI             = 3.1415926535;
-let ORBIT_PERIOD_S = 300.0;           // Target full orbit time: 5 minutes
-let ORBIT_V0       = (2.0 * PI * ORBIT_R) / ORBIT_PERIOD_S;  // ~9.42 px/s at R=450
+let ORBIT_V0       = sqrtf(BODY_GRAVITY_MU / ORBIT_R);    // Circular speed at spawn radius
 let MAX_SPD        = 28.0;            // Speed cap tuned for slower cinematic orbit
+let MAX_VRAD       = 20.0;            // Cap radial speed for stable gameplay bounds
 let ACC_FWD        = 0.9;             // Forward/back acceleration (px/s²)
 let ACC_SIDE       = 0.6;             // Lateral acceleration (px/s²)
 let LIN_DAMP       = 0.08;            // Gentle vacuum stabilization
-let YAW_ACCEL      = 1.95;            // rad/s² — slightly snappier turn-on
-let YAW_DAMP       = 2.6;             // yaw-rate damping — slightly faster settle
+let SIDE_TRIM      = 0.20;            // Base side-slip assist for hybrid handling
+let SIDE_THRUST_TRIM = 1.0;           // Extra side-slip bleed while accelerating forward
+let YAW_RESPONSE   = 7.2;             // Target-rate convergence (higher = snappier steering)
+let YAW_DAMP       = 2.6;             // yaw-rate damping when stick is centered
 let YAW_MAX        = 1.1;             // rad/s
 let CAM_SWAY_TAU   = 0.50;            // forward-lag / sway smoothing (seconds)
 let CAM_SWAY_GAIN  = 0.28;            // sway amount from yaw rate — banking feel
@@ -392,17 +412,19 @@ let AST_SLOT_S_COUNT = 12;
 let AST_SLOT_L_PREFIX = "ast-slot-L-";
 let AST_SLOT_M_PREFIX = "ast-slot-M-";
 let AST_SLOT_S_PREFIX = "ast-slot-S-";
-// HUD scale: KM_PER_PX converts px distances to km at Earth scale.
-// WORLD_TIME_SCALE: 1 game-second ≈ WORLD_TIME_SCALE real-seconds for km/h display.
-// Tuned so ORBIT_V0 at R=450 reads near orbital-class speeds while gameplay stays readable.
-let KM_PER_PX      = 55.4;           // 6371 km / 115 px (Earth radius / surface radius)
+let ATMO_TOP_ALT_PX = if type_of(_body["atmosphere_top"]) != "()" { _body["atmosphere_top"] } else { 120.0 };
+let ATMO_DENSE_ALT_PX = if type_of(_body["atmosphere_dense_start"]) != "()" { _body["atmosphere_dense_start"] } else { 45.0 };
+let ATMO_DRAG_MAX = if type_of(_body["atmosphere_drag_max"]) != "()" { _body["atmosphere_drag_max"] } else { 2.2 };
+let HEAT_DAMAGE_START = 0.72;         // sustained reentry starts damaging hull
+let HEAT_KILL_THRESHOLD = 0.97;       // thermal runaway: instant ship loss
+let HEAT_TICK_ATMO_MIN = 0.25;        // heat damage ticks only while still in atmosphere
+let REENTRY_TICK_MS = 650.0;          // periodic heat damage cadence while burning
+// HUD scale: KM_PER_PX converts px distances to km at planet scale.
+let KM_PER_PX      = 6371.0 / BODY_RADIUS_PX.max(1.0);
 let WORLD_TIME_SCALE = 83.0;
 let SCENE_SCALE    = SHIP_RENDER_R / ORBIT_R;  // 2D world px -> shared chase-camera scene units
 
-// Read body-specific constants from catalog (surface radius, spin rates).
-// world.body_info / world.planet_type_info return maps with all defaults pre-filled.
-let _body = world.body_info("main-planet");
-let SURFACE_RADIUS = _body["surface_radius"];
+// Read body-specific visual constants from catalog.
 let _ptype_id = if type_of(_body["planet_type"]) != "()" { _body["planet_type"] } else { "earth_like" };
 let _ptype = world.planet_type_info(_ptype_id);
 let PLANET_SPIN_DPS  = _ptype["surface_spin_dps"];
@@ -427,12 +449,15 @@ if !(local.initialized ?? false) {
     // yaw_rate rotates sf/sr around sn. Camera has separate inertial lag state (cam_n, cam_up).
     // Spawn at 3-o'clock (sn=+X), forward north (-Y on screen), right toward +Z.
     // The ship starts flat on the local tangent plane: nose follows sf, dorsal side follows sn.
-    // vfwd = ORBIT_V0 (prograde north) gives circular XY orbit visible in 2D.
+    // vfwd = ORBIT_V0 gives circular spawn orbit at ORBIT_R.
     local.snx = 1.0; local.sny = 0.0; local.snz = 0.0;
     local.sfx = 0.0; local.sfy = -1.0; local.sfz = 0.0;
     local.srx = 0.0; local.sry = 0.0; local.srz = 1.0;
+    local.radius = ORBIT_R;
+    local.vrad = 0.0;
     local.vfwd = ORBIT_V0; local.vright = 0.0;
     local.yaw_rate = 0.0;
+    local.ship_heat = 0.0;
     local.ship_heading = 0.0;
     local.ship_vis_pitch = PI;
     local.ship_vis_yaw = -PI * 0.5;
@@ -442,8 +467,11 @@ if !(local.initialized ?? false) {
     local.cam_sway = 0.0;
     local.thrust_hold_ms = 0.0;
     local.thrust_release_ms = 9999.0;
+    local.reentry_damage_ms = 0.0;
     local.bullets = #{};   // orbital bullet tracking: id_str → {snx,sny,snz,dirx,diry,dirz,speed}
     local.ast_slots = #{};  // generator slot map: entity_id_str → slot_id
+    local.spawn_ship_x = PLANET_X + ORBIT_R;
+    local.spawn_ship_y = PLANET_Y;
     input.load_profile("default");
     if GAMEPLAY_ENABLED {
         spawn_wave(world, 1);
@@ -467,9 +495,12 @@ let sfz = local.sfz ?? 0.0;
 let srx = local.srx ?? 0.0;
 let sry = local.sry ?? 0.0;
 let srz = local.srz ?? 1.0;
+let radius = local.radius ?? ORBIT_R;
+let vrad = local.vrad ?? 0.0;
 let vfwd   = local.vfwd   ?? 0.0;
 let vright = local.vright ?? 0.0;
 let yaw_rate = local.yaw_rate ?? 0.0;
+let ship_heat = local.ship_heat ?? 0.0;
 let ship_heading = local.ship_heading ?? heading_from_forward(sfx, sfy, 0.0);
 let ship_vis_pitch = local.ship_vis_pitch ?? PI;
 let ship_vis_yaw = local.ship_vis_yaw ?? -PI * 0.5;
@@ -489,6 +520,7 @@ let wave      = local.wave ?? 1;
 let game_over = local.game_over ?? false;
 let respawning = local.respawning ?? false;
 let invincible = local.invincible ?? false;
+let reentry_damage_ms = local.reentry_damage_ms ?? 0.0;
 
 // ── Engine timer resolution ───────────────────────────────────────────────────
 if world.timer_fired("respawn_done") {
@@ -528,7 +560,7 @@ if game_over {
 } else {
 
 // ── Ship controls ────────────────────────────────────────────────────────────
-let ship_id = if !respawning { ensure_ship(world) } else { 0 };
+let ship_id = if !respawning { ensure_ship(world, PLANET_X + ORBIT_R, PLANET_Y) } else { 0 };
 local.ship_id = ship_id;
 scene.set("ship-scene-slot", "visible", ship_id > 0);
 
@@ -553,19 +585,26 @@ if ship_id > 0 {
         snx = 1.0; sny = 0.0; snz = 0.0;
         sfx = 0.0; sfy = -1.0; sfz = 0.0;
         srx = 0.0; sry = 0.0; srz = 1.0;
+        radius = ORBIT_R;
+        vrad = 0.0;
         vfwd = ORBIT_V0; vright = 0.0;
         yaw_rate = 0.0; ship_heading = 0.0;
+        ship_heat = 0.0;
         ship_vis_pitch = PI; ship_vis_yaw = -PI * 0.5; ship_vis_roll = 0.0;
         cam_nx = snx; cam_ny = sny; cam_nz = snz;
         cam_fx = sfx; cam_fy = sfy; cam_fz = sfz;
         cam_sway = 0.0;
         local.thrust_hold_ms = 0.0;
         local.thrust_release_ms = 9999.0;
+        local.reentry_damage_ms = 0.0;
         local.snx = snx; local.sny = sny; local.snz = snz;
         local.sfx = sfx; local.sfy = sfy; local.sfz = sfz;
         local.srx = srx; local.sry = sry; local.srz = srz;
+        local.radius = radius;
+        local.vrad = vrad;
         local.vfwd = vfwd; local.vright = vright;
         local.yaw_rate = yaw_rate;
+        local.ship_heat = ship_heat;
         local.ship_heading = ship_heading;
         local.ship_vis_pitch = ship_vis_pitch;
         local.ship_vis_yaw = ship_vis_yaw;
@@ -590,9 +629,13 @@ if ship_id > 0 {
         else if input.action_down("turn_left") && !input.action_down("turn_right") { 1.0 }
         else { 0.0 };
 
-    // ── Step 2: RCS yaw dynamics (source of truth for rotation) ───────────────
-    yaw_rate += yaw_axis * YAW_ACCEL * dt;
-    yaw_rate *= 1.0 / (1.0 + YAW_DAMP * dt);
+    // ── Step 2: target-rate yaw dynamics (hybrid: responsive but stable) ──────
+    let _yaw_target = yaw_axis * YAW_MAX;
+    let _yaw_blend = (YAW_RESPONSE * dt).min(1.0);
+    yaw_rate += (_yaw_target - yaw_rate) * _yaw_blend;
+    if absf(yaw_axis) < 0.001 {
+        yaw_rate *= 1.0 / (1.0 + YAW_DAMP * dt);
+    }
     if yaw_rate > YAW_MAX { yaw_rate = YAW_MAX; }
     if yaw_rate < -YAW_MAX { yaw_rate = -YAW_MAX; }
     let _dyaw = yaw_rate * dt;
@@ -606,26 +649,47 @@ if ship_id > 0 {
     // ── Step 3: translational thrust/strafe in ship tangent basis ─────────────
     vfwd   += thrust_axis * ACC_FWD * dt;
     vright += strafe_axis * ACC_SIDE * dt;
+    let _trim = SIDE_TRIM + (thrust_axis.max(0.0) * SIDE_THRUST_TRIM);
+    vright *= 1.0 / (1.0 + _trim * dt);
     vfwd   *= 1.0 / (1.0 + LIN_DAMP * dt);
     vright *= 1.0 / (1.0 + LIN_DAMP * dt);
+
+    let _altitude_px = (radius - SURFACE_RADIUS).max(0.0);
+    let _atmo_alpha = clamp01((ATMO_TOP_ALT_PX - _altitude_px) / ATMO_TOP_ALT_PX.max(0.1));
+    let _dense_alpha = clamp01((ATMO_DENSE_ALT_PX - _altitude_px) / ATMO_DENSE_ALT_PX.max(0.1));
+    let _drag = _atmo_alpha * _atmo_alpha * ATMO_DRAG_MAX;
+    vrad *= 1.0 / (1.0 + _drag * dt * 1.2);
+    vfwd *= 1.0 / (1.0 + _drag * dt);
+    vright *= 1.0 / (1.0 + _drag * dt);
+
     if vfwd   >  MAX_SPD        { vfwd   =  MAX_SPD; }
     if vfwd   < -MAX_SPD * 0.5  { vfwd   = -MAX_SPD * 0.5; }
     if vright >  MAX_SPD        { vright =  MAX_SPD; }
     if vright < -MAX_SPD        { vright = -MAX_SPD; }
+    let _vt2 = vfwd*vfwd + vright*vright;
+    let _grav = BODY_GRAVITY_MU / (radius * radius).max(1.0);
+    let _centrifugal = _vt2 / radius.max(SURFACE_RADIUS + 1.0);
+    vrad += (_centrifugal - _grav) * dt;
+    if vrad > MAX_VRAD { vrad = MAX_VRAD; }
+    if vrad < -MAX_VRAD { vrad = -MAX_VRAD; }
+    radius += vrad * dt;
+    if radius < SURFACE_RADIUS + 1.0 {
+        radius = SURFACE_RADIUS + 1.0;
+        if vrad < 0.0 { vrad = 0.0; }
+    }
 
     // ── Step 4: move on sphere via geodesic transport ─────────────────────────
-    let vel3x = sfx * vfwd + srx * vright;
-    let vel3y = sfy * vfwd + sry * vright;
-    let vel3z = sfz * vfwd + srz * vright;
-    let _v2 = vel3x*vel3x + vel3y*vel3y + vel3z*vel3z;
-    if _v2 > 0.001 {
+    if _vt2 > 0.001 {
+        let vel3x = sfx * vfwd + srx * vright;
+        let vel3y = sfy * vfwd + sry * vright;
+        let vel3z = sfz * vfwd + srz * vright;
         // Rotation axis = normalize(cross(sn, v_tan))
         let _ax = sny*vel3z - snz*vel3y;
         let _ay = snz*vel3x - snx*vel3z;
         let _az = snx*vel3y - sny*vel3x;
         let _al = sqrtf(_ax*_ax + _ay*_ay + _az*_az).max(0.0001);
         _ax /= _al; _ay /= _al; _az /= _al;
-        let _delta = sqrtf(_v2) * dt / ORBIT_R;
+        let _delta = sqrtf(_vt2) * dt / radius.max(SURFACE_RADIUS + 1.0);
         // Parallel transport: rotate sn and sf by same geodesic step
         let _rsn = rotate_axis(snx, sny, snz, _ax, _ay, _az, _delta);
         snx = _rsn.x; sny = _rsn.y; snz = _rsn.z;
@@ -645,14 +709,6 @@ if ship_id > 0 {
         let _srl = sqrtf(srx*srx + sry*sry + srz*srz).max(0.0001);
         srx /= _srl; sry /= _srl; srz /= _srl;
     }
-
-    // ── Step 5: reproject velocity onto updated tangent plane ──────────────────
-    let _dot_new = vel3x*snx + vel3y*sny + vel3z*snz;
-    let _vpx = vel3x - snx*_dot_new;
-    let _vpy = vel3y - sny*_dot_new;
-    let _vpz = vel3z - snz*_dot_new;
-    vfwd   = _vpx*sfx + _vpy*sfy + _vpz*sfz;
-    vright = _vpx*srx + _vpy*sry + _vpz*srz;
 
     // ── Step 6: ship transform follows the full orbital basis ──────────────────
     // Mesh local axes: +Y = nose, +X = starboard, +Z = dorsal/up.
@@ -674,9 +730,10 @@ if ship_id > 0 {
     scene.set(_ship_sprite, "obj.pitch", ship_vis_pitch * 57.29577951);
     scene.set(_ship_sprite, "obj.yaw",   ship_vis_yaw   * 57.29577951);
     scene.set(_ship_sprite, "obj.roll",  ship_vis_roll  * 57.29577951);
-    scene.set(_ship_sprite, "obj.world.x", snx * SHIP_RENDER_R);
-    scene.set(_ship_sprite, "obj.world.y", sny * SHIP_RENDER_R);
-    scene.set(_ship_sprite, "obj.world.z", snz * SHIP_RENDER_R);
+    let _ship_scene_r = radius * SCENE_SCALE;
+    scene.set(_ship_sprite, "obj.world.x", snx * _ship_scene_r);
+    scene.set(_ship_sprite, "obj.world.y", sny * _ship_scene_r);
+    scene.set(_ship_sprite, "obj.world.z", snz * _ship_scene_r);
     // 2D support systems still use the projected XY heading from the same forward basis.
     world.entity(ship_id).set_heading(ship_heading);
 
@@ -684,17 +741,20 @@ if ship_id > 0 {
     local.snx = snx; local.sny = sny; local.snz = snz;
     local.sfx = sfx; local.sfy = sfy; local.sfz = sfz;
     local.srx = srx; local.sry = sry; local.srz = srz;
+    local.radius = radius;
+    local.vrad = vrad;
     local.vfwd = vfwd; local.vright = vright;
     local.yaw_rate = yaw_rate;
+    local.ship_heat = ship_heat;
     local.ship_heading = ship_heading;
     local.ship_vis_pitch = ship_vis_pitch;
     local.ship_vis_yaw = ship_vis_yaw;
     local.ship_vis_roll = ship_vis_roll;
 
     // ── Step 8: drive engine entity to sphere position ─────────────────────────
-    // Set vel = (desired - current) / dt so engine's physics step lands ship on sphere.
-    let _dx = PLANET_X + snx * ORBIT_R;
-    let _dy = PLANET_Y + sny * ORBIT_R;
+    // Set vel = (desired - current) / dt so engine's physics step lands ship on the current orbit radius.
+    let _dx = PLANET_X + snx * radius;
+    let _dy = PLANET_Y + sny * radius;
     world.set_physics(ship_id,
         (_dx - ship_x) / dt,
         (_dy - ship_y) / dt,
@@ -704,8 +764,8 @@ if ship_id > 0 {
 // Camera follows ship — ship is always at screen centre (320, 180).
 // Use the freshly-computed orbital position (snx/sny updated this frame),
 // not the old transform position, so 2D camera matches the 3D planet camera exactly.
-let _cam_ship_x = PLANET_X + snx * ORBIT_R;
-let _cam_ship_y = PLANET_Y + sny * ORBIT_R;
+let _cam_ship_x = PLANET_X + snx * radius;
+let _cam_ship_y = PLANET_Y + sny * radius;
 world.set_camera(_cam_ship_x - 320.0, _cam_ship_y - 180.0);
 
 
@@ -723,6 +783,7 @@ let CAM_AHEAD     = 0.42;  // look deeper into the flight path
 let CAM_LOOK_LIFT = 0.02;  // keep target near the ship instead of aiming down at the planet
 let _cam_valid = snx*snx + sny*sny + snz*snz > 0.01;
 if _cam_valid {
+    let _ship_scene_r = radius * SCENE_SCALE;
     // Lag cam_n toward sn (smooth orbital position — no instant snapping)
     let _alpha_n = dt / (0.30 + dt);
     cam_nx += (snx - cam_nx) * _alpha_n;
@@ -744,15 +805,15 @@ if _cam_valid {
 
     // Eye: behind ship with only a slight lift so the shot reads as "behind"
     // rather than "hovering above and looking down".
-    let _ex = cam_nx * (SHIP_RENDER_R + CAM_LIFT) - cam_fx * CAM_BACK;
-    let _ey = cam_ny * (SHIP_RENDER_R + CAM_LIFT) - cam_fy * CAM_BACK;
-    let _ez = cam_nz * (SHIP_RENDER_R + CAM_LIFT) - cam_fz * CAM_BACK;
+    let _ex = cam_nx * (_ship_scene_r + CAM_LIFT) - cam_fx * CAM_BACK;
+    let _ey = cam_ny * (_ship_scene_r + CAM_LIFT) - cam_fy * CAM_BACK;
+    let _ez = cam_nz * (_ship_scene_r + CAM_LIFT) - cam_fz * CAM_BACK;
 
     // Look-at: target the ship's orbital position and a point farther ahead on
     // the tangent so the hull reads flat against the horizon.
-    let _lx = cam_nx * (SHIP_RENDER_R + CAM_LOOK_LIFT) + cam_fx * CAM_AHEAD;
-    let _ly = cam_ny * (SHIP_RENDER_R + CAM_LOOK_LIFT) + cam_fy * CAM_AHEAD;
-    let _lz = cam_nz * (SHIP_RENDER_R + CAM_LOOK_LIFT) + cam_fz * CAM_AHEAD;
+    let _lx = cam_nx * (_ship_scene_r + CAM_LOOK_LIFT) + cam_fx * CAM_AHEAD;
+    let _ly = cam_ny * (_ship_scene_r + CAM_LOOK_LIFT) + cam_fy * CAM_AHEAD;
+    let _lz = cam_nz * (_ship_scene_r + CAM_LOOK_LIFT) + cam_fz * CAM_AHEAD;
 
     // Camera-up = radial direction (sn = "sky"), with banking sway around cam_f
     let _target_sway = (-yaw_rate * CAM_SWAY_GAIN).max(-0.20).min(0.20);
@@ -778,7 +839,7 @@ scene.set("planet-clouds-2",  "obj.yaw", cloud_yaw_2);
 
 // ── Gravity on asteroid bodies ────────────────────────────────────────────────
 // Simple centripetal pull toward planet. G chosen so v≈56 at r=180.
-let AST_G = 565000.0;
+let AST_G = BODY_GRAVITY_MU;
 for grav_id in world.query_tag("asteroid") {
     let gxf = world.transform(grav_id) ?? #{};
     let egx = PLANET_X - (gxf["x"] ?? PLANET_X);
@@ -865,21 +926,48 @@ for _sid in world.query_tag("shrapnel") { scene.set("shrapnel-" + _sid, "visible
 for _did in world.query_tag("debris")   { scene.set("debris-" + _did,   "visible", false); }
 
 
-// Speed in km/h using world scale: 1 px = KM_PER_PX km, time compressed by WORLD_TIME_SCALE.
-let _speed_px_s = sqrtf(vfwd*vfwd + vright*vright);
-let _speed_kmh  = (_speed_px_s * KM_PER_PX / WORLD_TIME_SCALE * 3600.0).to_int();
-let _alt_km     = ((ORBIT_R - SURFACE_RADIUS) * KM_PER_PX).to_int();
-let hud_alt     = "ALT  " + _alt_km + " km";
-let hud_spd     = "SPD  " + _speed_kmh + " km/h";
-// Orbital status baseline: circular orbit at ORBIT_R with 5-minute period.
-let _v_circ_kmh = (ORBIT_V0 * KM_PER_PX / WORLD_TIME_SCALE * 3600.0).to_int();
-let hud_status = if _speed_kmh > _v_circ_kmh * 2 { "FAST!" }
-                 else if _speed_kmh > _v_circ_kmh + 5000 { "FAST" }
-                 else if _speed_kmh < 1000 { "SLOW" }
-                 else { "ORBIT ✓" };
+let _unit_km_s = KM_PER_PX / WORLD_TIME_SCALE / 1000.0;
+let _tspd_px_s = sqrtf(vfwd*vfwd + vright*vright);
+let _altitude_px = (radius - SURFACE_RADIUS).max(0.0);
+let _atmo_alpha = clamp01((ATMO_TOP_ALT_PX - _altitude_px) / ATMO_TOP_ALT_PX.max(0.1));
+let _dense_alpha = clamp01((ATMO_DENSE_ALT_PX - _altitude_px) / ATMO_DENSE_ALT_PX.max(0.1));
+let _world_vx = snx * vrad + sfx * vfwd + srx * vright;
+let _world_vy = sny * vrad + sfy * vfwd + sry * vright;
+let _tspd_km_s = _tspd_px_s * _unit_km_s;
+let _rspd_km_s = vrad * _unit_km_s;
+let _vx_km_s = _world_vx * _unit_km_s;
+let _vy_km_s = _world_vy * _unit_km_s;
+let _alt_km = (_altitude_px * KM_PER_PX).to_int();
+let _v_circ_km_s = sqrtf(BODY_GRAVITY_MU / radius.max(SURFACE_RADIUS + 1.0)) * _unit_km_s;
+let _v_esc_km_s = sqrtf(2.0 * BODY_GRAVITY_MU / radius.max(SURFACE_RADIUS + 1.0)) * _unit_km_s;
+let _heat_gain = _atmo_alpha * (_tspd_px_s + absf(vrad)) * 0.0037 + _dense_alpha * (_tspd_px_s * 0.0024);
+let _heat_cool = 0.14 - (_atmo_alpha * 0.04);
+ship_heat += (_heat_gain - _heat_cool) * dt;
+if ship_heat < 0.0 { ship_heat = 0.0; }
+if ship_heat > 1.0 { ship_heat = 1.0; }
+local.ship_heat = ship_heat;
+
+let hud_alt = "ALT  " + _alt_km + " km";
+let hud_tspd = fmt_kms("TSPD", _tspd_km_s);
+let hud_rspd = fmt_kms("RSPD", _rspd_km_s);
+let hud_vxy = "VXY  " + one_decimal_text(_vx_km_s) + "/" + one_decimal_text(_vy_km_s);
+let hud_heat = "HEAT " + (ship_heat * 100.0).to_int() + "%";
+let hud_status =
+    if radius <= SURFACE_RADIUS + 1.5 { "IMPACT" }
+    else if _dense_alpha > 0.85 && _rspd_km_s < -0.15 { "REENTRY" }
+    else if ship_heat >= HEAT_DAMAGE_START { "HOT" }
+    else if _atmo_alpha > 0.35 { "DRAG" }
+    else if _tspd_km_s >= _v_esc_km_s * 0.95 { "ESCAPE" }
+    else if _rspd_km_s < -0.05 { "DECAY" }
+    else if _rspd_km_s > 0.05 { "CLIMB" }
+    else if absf(_tspd_km_s - _v_circ_km_s) < 0.03 { "STABLE" }
+    else { "ORBIT" };
 scene.set("hud-orbital-alt",    "content", hud_alt);
-scene.set("hud-orbital-spd",    "content", hud_spd);
 scene.set("hud-orbital-status", "content", hud_status);
+scene.set("hud-orbital-tspd",   "content", hud_tspd);
+scene.set("hud-orbital-rspd",   "content", hud_rspd);
+scene.set("hud-orbital-heat",   "content", hud_heat);
+scene.set("hud-orbital-vxy",    "content", hud_vxy);
 
 if ship_id > 0 {
     world.entity(ship_id).physics.set_collider_polygon(ship_hull_polygon(ship_heading), 1, 6);
@@ -943,6 +1031,8 @@ if ship_id > 0 {
             snx: snx, sny: sny, snz: snz,
             dirx: _bvx / _bspd, diry: _bvy / _bspd, dirz: _bvz / _bspd,
             speed: _bspd,
+            radius: radius,
+            vrad: vrad,
         };
         local.bullets = _bullets;
         world.entity(ship_id).cooldown_start("fire", 180);
@@ -970,6 +1060,8 @@ if ship_id > 0 {
         let _bdy  = _bs["diry"] ?? 0.0;
         let _bdz  = _bs["dirz"] ?? 0.0;
         let _bspd = _bs["speed"] ?? 28.0;
+        let _brad = _bs["radius"] ?? ORBIT_R;
+        let _bvrad = _bs["vrad"] ?? 0.0;
 
         // Normalize sn
         let _bnl = sqrtf(_bsnx*_bsnx + _bsny*_bsny + _bsnz*_bsnz).max(0.0001);
@@ -987,14 +1079,19 @@ if ship_id > 0 {
         let _bal = sqrtf(_bax*_bax + _bay*_bay + _baz*_baz).max(0.0001);
         _bax /= _bal; _bay /= _bal; _baz /= _bal;
 
-        let _bdang = _bspd * dt / ORBIT_R;
+        let _bgrav = BODY_GRAVITY_MU / (_brad * _brad).max(1.0);
+        let _bcentrifugal = (_bspd * _bspd) / _brad.max(SURFACE_RADIUS + 1.0);
+        _bvrad += (_bcentrifugal - _bgrav) * dt;
+        _brad += _bvrad * dt;
+        if _brad < SURFACE_RADIUS + 1.0 { _brad = SURFACE_RADIUS + 1.0; }
+        let _bdang = _bspd * dt / _brad.max(SURFACE_RADIUS + 1.0);
         let _brsn = rotate_axis(_bsnx, _bsny, _bsnz, _bax, _bay, _baz, _bdang);
         _bsnx = _brsn.x; _bsny = _brsn.y; _bsnz = _brsn.z;
         let _brdir = rotate_axis(_bdx, _bdy, _bdz, _bax, _bay, _baz, _bdang);
         _bdx = _brdir.x; _bdy = _brdir.y; _bdz = _brdir.z;
 
-        let _bx = PLANET_X + _bsnx * ORBIT_R;
-        let _by = PLANET_Y + _bsny * ORBIT_R;
+        let _bx = PLANET_X + _bsnx * _brad;
+        let _by = PLANET_Y + _bsny * _brad;
         let _bxf = world.transform(_bid) ?? #{};
         let _bpx = _bxf["x"] ?? _bx;
         let _bpy = _bxf["y"] ?? _by;
@@ -1007,9 +1104,71 @@ if ship_id > 0 {
             snx: _bsnx, sny: _bsny, snz: _bsnz,
             dirx: _bdx, diry: _bdy, dirz: _bdz,
             speed: _bspd,
+            radius: _brad,
+            vrad: _bvrad,
         };
     }
     local.bullets = _new_b;
+}
+
+// ── Atmosphere / reentry failure model ────────────────────────────────────────
+if ship_id > 0 {
+    reentry_damage_ms = (reentry_damage_ms - frame_ms.to_float()).max(0.0);
+    local.reentry_damage_ms = reentry_damage_ms;
+}
+
+if !invincible && ship_id > 0 {
+    let _surface_impact = radius <= SURFACE_RADIUS + 1.2;
+    let _hard_reentry = _dense_alpha > 0.88 && _rspd_km_s < -0.16;
+    let _thermal_tick = ship_heat >= HEAT_DAMAGE_START && _atmo_alpha >= HEAT_TICK_ATMO_MIN && reentry_damage_ms <= 0.0;
+    let _thermal_kill = ship_heat >= HEAT_KILL_THRESHOLD && _atmo_alpha >= HEAT_TICK_ATMO_MIN;
+
+    if _surface_impact || _hard_reentry || _thermal_tick || _thermal_kill {
+        let _damage = if _surface_impact || _hard_reentry || _thermal_kill { 3 } else { 1 };
+        ship_hp = ship_hp - _damage;
+        local.ship_hp = ship_hp;
+        local.reentry_damage_ms = REENTRY_TICK_MS;
+
+        if _damage >= 3 {
+            world.emit("asteroids.impact_sparks", ship_id, #{ count: 16, speed: 90.0, spread: 6.28, fg: "#FFAA66" });
+            effects.shake(360, 3.0, 2.1, 12.0);
+        } else {
+            world.emit("asteroids.impact_sparks", ship_id, #{ count: 7, speed: 65.0, spread: 6.28, fg: "#FFCC88" });
+            effects.shake(180, 1.8, 1.2, 12.0);
+        }
+
+        if ship_hp <= 0 {
+            // Full death sequence
+            do_ship_death_fx(world, effects, col, ship_id);
+            world.despawn(ship_id);
+            local.ship_id = 0;
+            ship_id = 0;
+            local.ship_hp = 3;
+            ship_hp = 3;
+            local.reentry_damage_ms = 0.0;
+            lives = lives - 1;
+            local.lives = lives;
+            if lives <= 0 {
+                local.game_over = true;
+                local.lives = 0;
+                let final_score = score;
+                let result = merge_highscores(game.get("/highscores/scores"), final_score, wave);
+                let rank = result["rank"];
+                if rank >= 0 {
+                    game.set("/highscores/scores", result["scores"]);
+                    game.set("/highscores/last_entry_rank", rank);
+                } else {
+                    game.set("/highscores/last_entry_rank", -1);
+                }
+                game.set("/score", final_score);
+                clear_round_entities(world);
+                game.jump("asteroids-highscores");
+            } else {
+                local.respawning = true;
+                world.after_ms("respawn_done", 3000);
+            }
+        }
+    }
 }
 
 // ── Wave complete check ───────────────────────────────────────────────────────

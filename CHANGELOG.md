@@ -38,6 +38,15 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ## 11-04-2026
 
+**Asteroids realism-first hybrid orbital rework (radius/atmosphere/HUD)** ✅
+- **mods/asteroids**: replaced fixed-radius orbit lock with live orbital state (`radius`, `vrad`, `vfwd`, `vright`) driven by body catalog gravity (`gravity_mu`) and geodesic tangent transport
+- **mods/asteroids**: added atmosphere model fields in `catalogs/bodies.yaml` (`atmosphere_top`, `atmosphere_dense_start`, `atmosphere_drag_max`) and wired drag/heat into flight dynamics
+- **mods/asteroids**: introduced reentry failure logic (thermal tick damage, severe reentry kill path, surface-impact death) integrated with existing lives/game-over flow
+- **mods/asteroids**: rebuilt orbital telemetry HUD from 1-row to 2-row pilot panel: `ALT`, `STATUS`, `TSPD`, `RSPD`, `HEAT`, `VXY`
+- **mods/asteroids**: steering pass updated to target yaw-rate response with stronger side-slip trim under thrust; chase camera + ship scene placement now follow live orbital altitude (`radius * SCENE_SCALE`)
+- **docs**: updated `MODS.md` Asteroids section for the hybrid orbital model, atmosphere/reentry behavior, updated layer stack, and current feel parameters
+- **validation**: repeated `--check-scenes` and runtime `--start-scene ... --bench 1` smoke runs pass after the rework
+
 **Asteroids orbital control complete: geodesic transport, RCS gimbal, in-game feel tuning** ✅
 - **mods/asteroids**: orbital flight model — `sn/sf/sr` sphere normal/forward/right basis vectors; yaw rotates `sf/sr` around `sn`; translation via geodesic transport (Rodrigues rotation of `sn` and `sf` per frame)
 - **mods/asteroids**: input separation — `turn_left/right` (yaw via RCS), `strafe_left/right` (lateral), `thrust/brake` (prograde/retro) now independent (no heading-derived physics)

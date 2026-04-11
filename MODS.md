@@ -51,10 +51,11 @@ mods/asteroids/
 
 - **Position**: Sphere normal `sn` (unit vector from planet center to ship)
 - **Orientation**: Forward/right tangents `sf`, `sr` (local ship frame on sphere)
-- **Velocity**: `vfwd` (prograde in `sf` direction), `vright` (strafe in `sr` direction)
+- **Velocity**: `vrad` (radial), `vfwd` (prograde in `sf`), `vright` (strafe in `sr`)
 - **Rotation**: `yaw_rate` rotates `sf/sr` around `sn` axis
-- **Translation**: Geodesic transport via Rodrigues rotation of `sn` and `sf` each frame
-- **Period**: 5 minutes at baseline speed (450px orbit radius, 9.42 px/s)
+- **Translation**: Geodesic transport + live orbital radius (`radius`) under gravity (`gravity_mu`)
+- **Atmosphere**: altitude bands add drag + heat; severe reentry and impact can destroy the ship
+- **Telemetry**: orbital HUD exposes `ALT`, `TSPD`, `RSPD`, `HEAT`, and `VXY`
 
 ### Controls
 
@@ -84,13 +85,13 @@ mods/asteroids/
 ### Runtime Characteristics
 
 - `mod.yaml` selects `output: sdl2` with 640x360 authored render size and `fit` presentation policy.
-- The active gameplay scene currently loads 4 layers: stars → planet → gameplay → HUD.
+- The active gameplay scene currently loads 6 layers: stars → planet → asteroid scene slots → ship scene slot → gameplay canvas → HUD.
 - `planet-bg-layer.yml` renders cockpit planet (OBJ sphere + two cloud shells with biome shading + transparency).
-- `game-canvas.yml` hosts gameplay entities (asteroids, bullets, ship) with orbital motion.
+- `game-canvas.yml` is a support layer; ship/asteroid visuals are now scene-space OBJ slots.
 - `hud-grid.yml` displays transparent corner panels: SCORE, WAVE, LIVES (as retro pixel-art ♥), ESC hint.
-- Flight simulation runs on orbital state machine (no heading/physics coupling).
+- Flight simulation runs on a hybrid orbital state model (`radius + vrad + vfwd + vright`) with atmosphere drag/heat.
 - Asteroids spawn at world edges; ship orbits freely within 3200×1800 world bounds.
-- Orbital HUD telemetry shows altitude (distance from planet surface) and speed (magnitude of tangential velocity).
+- Orbital HUD telemetry shows altitude, tangential speed, radial speed, heat, and world-frame velocity components.
 - `solar-scene3d-layer.yml` and `planets-layer.yml` are retained in the repo as additional background assets, but they are not wired into the current `scenes/game/scene.yml`.
 
 ### Running
@@ -107,18 +108,22 @@ cargo run -p app -- --mod-source=mods/asteroids --check-scenes
 
 ### Feel Parameters (game-loop.rhai)
 
-Conservative tuning for responsive, visceral flight:
+Current hybrid tuning (first realism pass):
 
 ```rhai
-YAW_ACCEL = 1.95        // rad/s² — turn-on acceleration
+YAW_RESPONSE = 7.2      // target yaw-rate convergence
 YAW_DAMP = 2.6          // damping coefficient (faster settle)
 YAW_MAX = 1.1           // rad/s — rotational speed cap
 ACC_FWD = 0.9           // px/s² — prograde/retro accel
 ACC_SIDE = 0.6          // px/s² — strafe accel
 LIN_DAMP = 0.08         // linear damping (vacuum feel)
+SIDE_TRIM = 0.20        // base side-slip damping
+SIDE_THRUST_TRIM = 1.0  // extra side-slip trim under thrust
 MAX_SPD = 28.0          // px/s — speed cap (~3x baseline orbit speed)
-CAM_UP_TAU = 0.68       // s — gimbal lag (camera up smoothing)
-CAM_SWAY_GAIN = 0.28    // camera banking amount
+MAX_VRAD = 20.0         // px/s — radial speed cap
+ATMO_DRAG_MAX = 2.2     // atmosphere drag ceiling
+HEAT_DAMAGE_START = 0.72
+HEAT_KILL_THRESHOLD = 0.97
 ```
 
 ## Shell Quest (Main Mod)
