@@ -285,6 +285,24 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
         |world: &mut ScriptGameplayApi| world.world_bounds()
     );
 
+    // --- CATALOG QUERY OPERATIONS (world.body_info, world.planet_type_info) ---
+    engine.register_fn(
+        "body_info",
+        |world: &mut ScriptGameplayApi, id: &str| world.body_info(id),
+    );
+    engine.register_fn(
+        "world.body_info",
+        |world: &mut ScriptGameplayApi, id: &str| world.body_info(id),
+    );
+    engine.register_fn(
+        "planet_type_info",
+        |world: &mut ScriptGameplayApi, id: &str| world.planet_type_info(id),
+    );
+    engine.register_fn(
+        "world.planet_type_info",
+        |world: &mut ScriptGameplayApi, id: &str| world.planet_type_info(id),
+    );
+
     engine.register_fn(
         "angular_body_attach",
         |world: &mut ScriptGameplayApi, id: rhai::INT, config: RhaiMap| world.angular_body_attach(id, config),

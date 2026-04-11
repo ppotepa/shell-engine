@@ -1,8 +1,11 @@
 profiles:
   default:
     bindings:
-      thrust:      ["Up", "ArrowUp", "w", "W"]
-      turn_left:   ["Left", "ArrowLeft", "a", "A"]
-      turn_right:  ["Right", "ArrowRight", "d", "D"]
-      fire:        ["Space", " ", "x", "X"]
-      restart:     ["Enter", "r", "R"]
+      thrust:            ["Up", "ArrowUp", "w", "W"]
+      brake:             ["s", "S", "Down", "ArrowDown"]
+      turn_left:         ["Left", "ArrowLeft", "a", "A"]
+      turn_right:        ["Right", "ArrowRight", "d", "D"]
+      strafe_left:       ["q", "Q", "PageUp"]
+      strafe_right:      ["e", "E", "PageDown"]
+      fire:              ["Space", " ", "x", "X"]
+      restart:           ["Enter", "r", "R"]

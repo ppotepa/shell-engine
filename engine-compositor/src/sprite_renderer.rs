@@ -1156,11 +1156,43 @@ fn render_obj_sprite(
         midtone_colour,
         highlight_colour,
         tone_mix,
+        smooth_shading,
+        latitude_bands,
+        latitude_band_depth,
+        terrain_color,
+        terrain_threshold,
+        terrain_noise_scale,
+        terrain_noise_octaves,
+        marble_depth,
+        below_threshold_transparent,
+        polar_ice_color,
+        polar_ice_start,
+        polar_ice_end,
+        desert_color,
+        desert_strength,
+        atmo_color,
+        atmo_strength,
+        atmo_rim_power,
+        night_light_color,
+        night_light_threshold,
+        night_light_intensity,
         draw_char,
         align_x,
         align_y,
         fg_colour,
         bg_colour,
+        cam_world_x,
+        cam_world_y,
+        cam_world_z,
+        view_right_x,
+        view_right_y,
+        view_right_z,
+        view_up_x,
+        view_up_y,
+        view_up_z,
+        view_fwd_x,
+        view_fwd_y,
+        view_fwd_z,
         ..
     } = sprite
     else {
@@ -1202,14 +1234,17 @@ fn render_obj_sprite(
 
     // Prerender fast path: check if this sprite has a cached frame.
     let sprite_id_opt = id.as_deref();
-    let current_total_yaw = rotation_y.unwrap_or(0.0) + yaw_deg.unwrap_or(0.0);
+    let elapsed_s = sprite_elapsed as f32 / 1000.0;
+    let live_total_yaw = rotation_y.unwrap_or(0.0)
+        + yaw_deg.unwrap_or(0.0)
+        + rotate_y_deg_per_sec.unwrap_or(0.0) * elapsed_s;
     let current_pitch = pitch_deg.unwrap_or(0.0);
     let clip_min = clip_y_min.unwrap_or(0.0);
     let clip_max = clip_y_max.unwrap_or(1.0);
     if let Some(sid) = sprite_id_opt {
         if try_blit_prerendered(
             sid,
-            current_total_yaw,
+            live_total_yaw,
             current_pitch,
             clip_min,
             clip_max,
@@ -1295,6 +1330,45 @@ fn render_obj_sprite(
             object_translate_z: 0.0,
             clip_y_min: clip_y_min.unwrap_or(0.0),
             clip_y_max: clip_y_max.unwrap_or(1.0),
+            // Cockpit camera override: when cam_world_x/y/z are set, use them; otherwise fall
+            // back to the legacy (0, 0, -camera_distance) position.
+            camera_world_x: cam_world_x.unwrap_or(0.0),
+            camera_world_y: cam_world_y.unwrap_or(0.0),
+            camera_world_z: cam_world_z.unwrap_or(-camera_distance.unwrap_or(3.0)),
+            // View basis override: default is identity (right=X, up=Y, forward=Z).
+            view_right_x: view_right_x.unwrap_or(1.0),
+            view_right_y: view_right_y.unwrap_or(0.0),
+            view_right_z: view_right_z.unwrap_or(0.0),
+            view_up_x: view_up_x.unwrap_or(0.0),
+            view_up_y: view_up_y.unwrap_or(1.0),
+            view_up_z: view_up_z.unwrap_or(0.0),
+            view_forward_x: view_fwd_x.unwrap_or(0.0),
+            view_forward_y: view_fwd_y.unwrap_or(0.0),
+            view_forward_z: view_fwd_z.unwrap_or(1.0),
+            unlit: false,
+            ambient: 0.15,
+            light_point_falloff: 0.7,
+            light_point_2_falloff: 0.7,
+            smooth_shading: smooth_shading.unwrap_or(false),
+            latitude_bands: latitude_bands.unwrap_or(0),
+            latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
+            terrain_color: terrain_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            terrain_threshold: terrain_threshold.unwrap_or(0.5),
+            terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
+            terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
+            marble_depth: marble_depth.unwrap_or(0.0),
+            below_threshold_transparent: *below_threshold_transparent,
+            polar_ice_color: polar_ice_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            polar_ice_start: polar_ice_start.unwrap_or(0.78),
+            polar_ice_end: polar_ice_end.unwrap_or(0.92),
+            desert_color: desert_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            desert_strength: desert_strength.unwrap_or(0.0),
+            atmo_color: atmo_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            atmo_strength: atmo_strength.unwrap_or(0.0),
+            atmo_rim_power: atmo_rim_power.unwrap_or(4.5),
+            night_light_color: night_light_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            night_light_threshold: night_light_threshold.unwrap_or(0.82),
+            night_light_intensity: night_light_intensity.unwrap_or(0.0),
         },
         is_wireframe,
         backface_cull.unwrap_or(false),
@@ -1338,6 +1412,7 @@ fn render_scene3d_sprite(
         return;
     };
     use crate::scene3d_atlas::Scene3DAtlas;
+    use crate::scene3d_runtime_store::Scene3DRuntimeStore;
     use engine_render::rasterizer::blit;
     let draw_x = area
         .origin_x
@@ -1349,19 +1424,62 @@ fn render_scene3d_sprite(
         .saturating_add(*y)
         .saturating_add(object_state.offset_y)
         .max(0) as u16;
-    // Look up prerendered buffer from world-scoped atlas via thread-local pointer.
-    if let Some(buf) = Scene3DAtlas::current_get(src, frame) {
-        blit(&buf, ctx.layer_buf, draw_x, draw_y);
-        if let Some(id) = object_id {
-            object_regions.insert(
-                id.to_string(),
-                engine_core::effects::Region {
-                    x: draw_x,
-                    y: draw_y,
-                    width: buf.width,
-                    height: buf.height,
-                },
+
+    // Real-time path: if the frame string names a clip (no "-N" suffix with a numeric keyframe
+    // index), look up the parsed scene definition and render the current animation frame live.
+    // This gives true 60fps 3D animation without startup prerender cost for clip frames.
+    let rendered_realtime = if let (Some(entry), Some(asset_root)) = (
+        Scene3DRuntimeStore::current_get(src),
+        ctx.asset_root,
+    ) {
+        // Only try real-time if the definition actually has this clip as a bare name.
+        if entry.def.frames.contains_key(frame.as_str()) {
+            let buf = crate::scene3d_prerender::render_scene3d_frame_at(
+                entry,
+                frame,
+                ctx.scene_elapsed_ms,
+                asset_root,
             );
+            if let Some(buf) = buf {
+                blit(&buf, ctx.layer_buf, draw_x, draw_y);
+                if let Some(id) = object_id {
+                    object_regions.insert(
+                        id.to_string(),
+                        engine_core::effects::Region {
+                            x: draw_x,
+                            y: draw_y,
+                            width: buf.width,
+                            height: buf.height,
+                        },
+                    );
+                }
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    // Fallback: look up prerendered buffer from world-scoped atlas via thread-local pointer.
+    // Used for static frames and when no runtime store is available.
+    if !rendered_realtime {
+        if let Some(buf) = Scene3DAtlas::current_get(src, frame) {
+            blit(&buf, ctx.layer_buf, draw_x, draw_y);
+            if let Some(id) = object_id {
+                object_regions.insert(
+                    id.to_string(),
+                    engine_core::effects::Region {
+                        x: draw_x,
+                        y: draw_y,
+                        width: buf.width,
+                        height: buf.height,
+                    },
+                );
+            }
         }
     }
 }

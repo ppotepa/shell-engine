@@ -7,7 +7,9 @@ use engine_core::assets::AssetRoot;
 use engine_core::logging;
 use engine_core::scene::{Layer, SceneRenderedMode, Sprite, SpriteSizePreset};
 
-use crate::obj_prerender::{ObjPrerenderedFrames, PrerenderedFrame};
+use crate::obj_prerender::{
+    AnimSpriteFrames, ObjPrerenderedFrames, PrerenderedFrame, YAW_FRAME_COUNT, YAW_STEP_DEG,
+};
 use crate::{obj_sprite_dimensions, render_obj_to_canvas, ObjRenderParams};
 
 pub fn prerender_scene_sprites(
@@ -17,7 +19,8 @@ pub fn prerender_scene_sprites(
     asset_root: &AssetRoot,
 ) -> Option<ObjPrerenderedFrames> {
     let targets = collect_targets(layers, scene_mode);
-    if targets.is_empty() {
+    let anim_targets = collect_anim_targets(layers, scene_mode);
+    if targets.is_empty() && anim_targets.is_empty() {
         logging::info(
             "engine.prerender",
             format!("scene={scene_id}: no prerenderable OBJ sprites, skipping"),
@@ -25,13 +28,16 @@ pub fn prerender_scene_sprites(
         return None;
     }
 
-    logging::info(
-        "engine.prerender",
-        format!(
-            "scene={scene_id}: prerendering {} OBJ sprites (parallel)",
-            targets.len()
-        ),
-    );
+    // ── Static sprites ──────────────────────────────────────────────────────
+    if !targets.is_empty() {
+        logging::info(
+            "engine.prerender",
+            format!(
+                "scene={scene_id}: prerendering {} static OBJ sprites (parallel)",
+                targets.len()
+            ),
+        );
+    }
 
     let results: Vec<(String, PrerenderedFrame)> = targets
         .par_iter()
@@ -67,15 +73,105 @@ pub fn prerender_scene_sprites(
         })
         .collect();
 
-    let count = results.len();
+    let static_count = results.len();
     let mut frames = ObjPrerenderedFrames::new();
     for (id, frame) in results {
         frames.insert(id, frame);
     }
 
+    // ── Animated sprites: bake all YAW_FRAME_COUNT yaw keyframes ─────────────
+    if !anim_targets.is_empty() {
+        logging::info(
+            "engine.prerender",
+            format!(
+                "scene={scene_id}: baking {} animated OBJ sprites × {} yaw frames (parallel)",
+                anim_targets.len(),
+                YAW_FRAME_COUNT
+            ),
+        );
+    }
+
+    // Flatten to (sprite_id, yaw_step_index, job) for maximum rayon parallelism.
+    let anim_jobs: Vec<(String, usize, &AnimPrerenderTarget)> = anim_targets
+        .iter()
+        .flat_map(|target| {
+            (0..YAW_FRAME_COUNT).map(move |step| (target.sprite_id.clone(), step, target))
+        })
+        .collect();
+
+    type BakeItem = (String, usize, Arc<Vec<Option<[u8; 3]>>>, u16, u16, u16, u16);
+    let anim_results: Vec<BakeItem> = anim_jobs
+        .par_iter()
+        .filter_map(|(sprite_id, step, target)| {
+            let yaw_deg = (*step as u16 * YAW_STEP_DEG) as f32;
+            let mut params = target.base_params;
+            params.yaw_deg = yaw_deg;
+            params.rotation_y = 0.0;
+            params.rotate_y_deg_per_sec = 0.0;
+
+            let (canvas, virtual_w, virtual_h) = render_obj_to_canvas(
+                &target.source,
+                target.width,
+                target.height,
+                target.size,
+                target.mode,
+                params,
+                target.wireframe,
+                target.backface_cull,
+                target.fg,
+                Some(asset_root),
+            )?;
+            let (target_w, target_h) =
+                obj_sprite_dimensions(target.width, target.height, target.size);
+            Some((
+                sprite_id.clone(),
+                *step,
+                Arc::new(canvas),
+                virtual_w,
+                virtual_h,
+                target_w,
+                target_h,
+            ))
+        })
+        .collect();
+
+    // Assemble per-sprite: 72 canvases in step order.
+    type SlotVec = Vec<Option<Arc<Vec<Option<[u8; 3]>>>>>;
+    let mut anim_by_id: std::collections::HashMap<String, (u16, u16, u16, u16, SlotVec)> =
+        std::collections::HashMap::new();
+
+    for (sprite_id, step, canvas, vw, vh, tw, th) in anim_results {
+        let entry = anim_by_id
+            .entry(sprite_id)
+            .or_insert_with(|| (vw, vh, tw, th, vec![None; YAW_FRAME_COUNT]));
+        if step < entry.4.len() {
+            entry.4[step] = Some(canvas);
+        }
+    }
+
+    let anim_count = anim_by_id.len();
+    for (sprite_id, (vw, vh, tw, th, slots)) in anim_by_id {
+        let canvases: Vec<Arc<Vec<Option<[u8; 3]>>>> = slots
+            .into_iter()
+            .map(|s| s.unwrap_or_else(|| Arc::new(Vec::new())))
+            .collect();
+        frames.insert_anim(
+            sprite_id,
+            AnimSpriteFrames {
+                canvases,
+                virtual_w: vw,
+                virtual_h: vh,
+                target_w: tw,
+                target_h: th,
+            },
+        );
+    }
+
     logging::info(
         "engine.prerender",
-        format!("scene={scene_id}: prerender complete ({count} sprites cached)"),
+        format!(
+            "scene={scene_id}: prerender complete ({static_count} static + {anim_count} animated sprites cached)"
+        ),
     );
 
     Some(frames)
@@ -94,11 +190,38 @@ struct PrerenderTarget {
     fg: Color,
 }
 
+/// Target for animated prerender: bakes all YAW_FRAME_COUNT yaw keyframes at scene load.
+struct AnimPrerenderTarget {
+    sprite_id: String,
+    source: String,
+    width: Option<u16>,
+    height: Option<u16>,
+    size: Option<SpriteSizePreset>,
+    mode: SceneRenderedMode,
+    /// Base params — `yaw_deg` and `rotation_y` are overridden per keyframe; `rotate_y_deg_per_sec` is zeroed.
+    base_params: ObjRenderParams,
+    wireframe: bool,
+    backface_cull: bool,
+    fg: Color,
+}
+
 #[inline]
 fn collect_targets(layers: &[Layer], scene_mode: SceneRenderedMode) -> Vec<PrerenderTarget> {
     let mut targets = Vec::new();
     for layer in layers {
         collect_from_sprites(&layer.sprites, scene_mode, &mut targets);
+    }
+    targets
+}
+
+#[inline]
+fn collect_anim_targets(
+    layers: &[Layer],
+    scene_mode: SceneRenderedMode,
+) -> Vec<AnimPrerenderTarget> {
+    let mut targets = Vec::new();
+    for layer in layers {
+        collect_anim_from_sprites(&layer.sprites, scene_mode, &mut targets);
     }
     targets
 }
@@ -161,6 +284,14 @@ fn collect_from_sprites(
                 midtone_colour,
                 highlight_colour,
                 tone_mix,
+                smooth_shading,
+                latitude_bands,
+                latitude_band_depth,
+                terrain_color,
+                terrain_threshold,
+                terrain_noise_scale,
+                terrain_noise_octaves,
+                marble_depth,
                 fg_colour,
                 prerender,
                 clip_y_min: _,
@@ -234,6 +365,42 @@ fn collect_from_sprites(
                     object_translate_z: 0.0,
                     clip_y_min: 0.0,
                     clip_y_max: 1.0,
+                    camera_world_x: 0.0,
+                    camera_world_y: 0.0,
+                    camera_world_z: -camera_distance.unwrap_or(3.0),
+                    view_right_x: 1.0,
+                    view_right_y: 0.0,
+                    view_right_z: 0.0,
+                    view_up_x: 0.0,
+                    view_up_y: 1.0,
+                    view_up_z: 0.0,
+                    view_forward_x: 0.0,
+                    view_forward_y: 0.0,
+                    view_forward_z: 1.0,
+                    unlit: false,
+                    ambient: 0.0,
+                    light_point_falloff: 0.7,
+                    light_point_2_falloff: 0.7,
+                    smooth_shading: smooth_shading.unwrap_or(false),
+                    latitude_bands: latitude_bands.unwrap_or(0),
+                    latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
+                    terrain_color: terrain_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+                    terrain_threshold: terrain_threshold.unwrap_or(0.5),
+                    terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
+                    terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
+                    marble_depth: marble_depth.unwrap_or(0.0),
+                    below_threshold_transparent: false,
+                    polar_ice_color: None,
+                    polar_ice_start: 0.78,
+                    polar_ice_end: 0.92,
+                    desert_color: None,
+                    desert_strength: 0.0,
+                    atmo_color: None,
+                    atmo_strength: 0.0,
+                    atmo_rim_power: 4.5,
+                    night_light_color: None,
+                    night_light_threshold: 0.82,
+                    night_light_intensity: 0.0,
                 };
 
                 out.push(PrerenderTarget {
@@ -256,3 +423,206 @@ fn collect_from_sprites(
         }
     }
 }
+
+/// Collect OBJ sprites marked with `prerender-anim: true` that also have a nonzero `rotate-y-deg-per-sec`.
+/// These are baked into 72 yaw keyframes at scene load instead of rendered live every frame.
+#[inline]
+fn collect_anim_from_sprites(
+    sprites: &[Sprite],
+    mode: SceneRenderedMode,
+    out: &mut Vec<AnimPrerenderTarget>,
+) {
+    for sprite in sprites {
+        match sprite {
+            Sprite::Obj {
+                id: Some(id),
+                source,
+                size,
+                width,
+                height,
+                force_renderer_mode,
+                surface_mode,
+                backface_cull,
+                scale,
+                yaw_deg: _,
+                pitch_deg,
+                roll_deg,
+                rotation_x,
+                rotation_y: _,
+                rotation_z,
+                rotate_y_deg_per_sec,
+                camera_distance,
+                fov_degrees,
+                near_clip,
+                light_direction_x,
+                light_direction_y,
+                light_direction_z,
+                light_2_direction_x,
+                light_2_direction_y,
+                light_2_direction_z,
+                light_2_intensity,
+                light_point_x,
+                light_point_y,
+                light_point_z,
+                light_point_intensity,
+                light_point_colour,
+                light_point_flicker_depth,
+                light_point_flicker_hz,
+                light_point_orbit_hz,
+                light_point_snap_hz,
+                light_point_2_x,
+                light_point_2_y,
+                light_point_2_z,
+                light_point_2_intensity,
+                light_point_2_colour,
+                light_point_2_flicker_depth,
+                light_point_2_flicker_hz,
+                light_point_2_orbit_hz,
+                light_point_2_snap_hz,
+                cel_levels,
+                shadow_colour,
+                midtone_colour,
+                highlight_colour,
+                tone_mix,
+                smooth_shading,
+                latitude_bands,
+                latitude_band_depth,
+                terrain_color,
+                terrain_threshold,
+                terrain_noise_scale,
+                terrain_noise_octaves,
+                marble_depth,
+                fg_colour,
+                prerender_anim,
+                clip_y_min: _,
+                clip_y_max: _,
+                ..
+            } => {
+                if !prerender_anim {
+                    continue;
+                }
+                if rotate_y_deg_per_sec.unwrap_or(0.0).abs() <= f32::EPSILON {
+                    // No rotation — use static prerender instead.
+                    continue;
+                }
+
+                let resolved_mode =
+                    engine_render_policy::resolve_renderer_mode(mode, *force_renderer_mode);
+                let is_wireframe = surface_mode
+                    .as_deref()
+                    .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
+                    .unwrap_or(false);
+                let fg = fg_colour.as_ref().map(Color::from).unwrap_or(Color::White);
+
+                // Build a base params block; yaw_deg and rotation_y are overridden per keyframe.
+                let base_params = ObjRenderParams {
+                    scale: scale.unwrap_or(1.0),
+                    yaw_deg: 0.0,
+                    pitch_deg: pitch_deg.unwrap_or(0.0),
+                    roll_deg: roll_deg.unwrap_or(0.0),
+                    rotation_x: rotation_x.unwrap_or(0.0),
+                    rotation_y: 0.0,
+                    rotation_z: rotation_z.unwrap_or(0.0),
+                    rotate_y_deg_per_sec: 0.0,
+                    camera_distance: camera_distance.unwrap_or(3.0),
+                    fov_degrees: fov_degrees.unwrap_or(60.0),
+                    near_clip: near_clip.unwrap_or(0.001),
+                    light_direction_x: light_direction_x.unwrap_or(-0.45),
+                    light_direction_y: light_direction_y.unwrap_or(0.70),
+                    light_direction_z: light_direction_z.unwrap_or(-0.85),
+                    light_2_direction_x: light_2_direction_x.unwrap_or(0.0),
+                    light_2_direction_y: light_2_direction_y.unwrap_or(0.0),
+                    light_2_direction_z: light_2_direction_z.unwrap_or(-1.0),
+                    light_2_intensity: light_2_intensity.unwrap_or(0.0),
+                    light_point_x: light_point_x.unwrap_or(0.0),
+                    light_point_y: light_point_y.unwrap_or(2.0),
+                    light_point_z: light_point_z.unwrap_or(0.0),
+                    light_point_intensity: light_point_intensity.unwrap_or(0.0),
+                    light_point_colour: light_point_colour.as_ref().map(Color::from),
+                    light_point_flicker_depth: light_point_flicker_depth.unwrap_or(0.0),
+                    light_point_flicker_hz: light_point_flicker_hz.unwrap_or(0.0),
+                    light_point_orbit_hz: light_point_orbit_hz.unwrap_or(0.0),
+                    light_point_snap_hz: light_point_snap_hz.unwrap_or(0.0),
+                    light_point_2_x: light_point_2_x.unwrap_or(0.0),
+                    light_point_2_y: light_point_2_y.unwrap_or(0.0),
+                    light_point_2_z: light_point_2_z.unwrap_or(0.0),
+                    light_point_2_intensity: light_point_2_intensity.unwrap_or(0.0),
+                    light_point_2_colour: light_point_2_colour.as_ref().map(Color::from),
+                    light_point_2_flicker_depth: light_point_2_flicker_depth.unwrap_or(0.0),
+                    light_point_2_flicker_hz: light_point_2_flicker_hz.unwrap_or(0.0),
+                    light_point_2_orbit_hz: light_point_2_orbit_hz.unwrap_or(0.0),
+                    light_point_2_snap_hz: light_point_2_snap_hz.unwrap_or(0.0),
+                    cel_levels: cel_levels.unwrap_or(0),
+                    shadow_colour: shadow_colour.as_ref().map(Color::from),
+                    midtone_colour: midtone_colour.as_ref().map(Color::from),
+                    highlight_colour: highlight_colour.as_ref().map(Color::from),
+                    tone_mix: tone_mix.unwrap_or(0.0),
+                    scene_elapsed_ms: 0,
+                    camera_pan_x: 0.0,
+                    camera_pan_y: 0.0,
+                    camera_look_yaw: 0.0,
+                    camera_look_pitch: 0.0,
+                    object_translate_x: 0.0,
+                    object_translate_y: 0.0,
+                    object_translate_z: 0.0,
+                    clip_y_min: 0.0,
+                    clip_y_max: 1.0,
+                    camera_world_x: 0.0,
+                    camera_world_y: 0.0,
+                    camera_world_z: -camera_distance.unwrap_or(3.0),
+                    view_right_x: 1.0,
+                    view_right_y: 0.0,
+                    view_right_z: 0.0,
+                    view_up_x: 0.0,
+                    view_up_y: 1.0,
+                    view_up_z: 0.0,
+                    view_forward_x: 0.0,
+                    view_forward_y: 0.0,
+                    view_forward_z: 1.0,
+                    unlit: false,
+                    ambient: 0.0,
+                    light_point_falloff: 0.7,
+                    light_point_2_falloff: 0.7,
+                    smooth_shading: smooth_shading.unwrap_or(false),
+                    latitude_bands: latitude_bands.unwrap_or(0),
+                    latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
+                    terrain_color: terrain_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+                    terrain_threshold: terrain_threshold.unwrap_or(0.5),
+                    terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
+                    terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
+                    marble_depth: marble_depth.unwrap_or(0.0),
+                    below_threshold_transparent: false,
+                    polar_ice_color: None,
+                    polar_ice_start: 0.78,
+                    polar_ice_end: 0.92,
+                    desert_color: None,
+                    desert_strength: 0.0,
+                    atmo_color: None,
+                    atmo_strength: 0.0,
+                    atmo_rim_power: 4.5,
+                    night_light_color: None,
+                    night_light_threshold: 0.82,
+                    night_light_intensity: 0.0,
+                };
+
+                out.push(AnimPrerenderTarget {
+                    sprite_id: id.clone(),
+                    source: source.clone(),
+                    width: *width,
+                    height: *height,
+                    size: *size,
+                    mode: resolved_mode,
+                    base_params,
+                    wireframe: is_wireframe,
+                    backface_cull: backface_cull.unwrap_or(false),
+                    fg,
+                });
+            }
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => collect_anim_from_sprites(children, mode, out),
+            _ => {}
+        }
+    }
+}
+

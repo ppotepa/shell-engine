@@ -3,6 +3,7 @@
 use crate::buffer::TRUE_BLACK;
 use crate::obj_prerender::{ObjPrerenderStatus, ObjPrerenderedFrames};
 use crate::scene3d_atlas::Scene3DAtlas;
+use crate::scene3d_runtime_store::Scene3DRuntimeStore;
 use crate::scene_runtime::SceneRuntime;
 use crate::services::EngineWorldAccess;
 use crate::world::World;
@@ -178,6 +179,18 @@ pub fn compositor_system(world: &mut World) {
         Some(unsafe { &*atlas_ptr })
     };
 
+    // Extract Scene3DRuntimeStore pointer for real-time clip rendering.
+    // SAFETY: same pattern — stored separately in World, not mutated during rendering.
+    let runtime_store_ptr: *const Scene3DRuntimeStore = world
+        .get::<Scene3DRuntimeStore>()
+        .map(|s| s as *const _)
+        .unwrap_or(std::ptr::null());
+    let runtime_store: Option<&Scene3DRuntimeStore> = if runtime_store_ptr.is_null() {
+        None
+    } else {
+        Some(unsafe { &*runtime_store_ptr })
+    };
+
     let buffer = match world.buffer_mut() {
         Some(b) => b,
         None => return,
@@ -206,15 +219,17 @@ pub fn compositor_system(world: &mut World) {
         camera_y,
     };
     engine_compositor::clear_vector_primitives();
-    let object_regions = crate::scene3d_atlas::with_atlas(atlas, || {
-        engine_compositor::with_prerender_frames(prerender_frames, || {
-            engine_compositor::dispatch_composite(
-                rendered_mode,
-                &params,
-                layer_strategy,
-                halfblock_strategy,
-                buffer,
-            )
+    let object_regions = engine_compositor::with_runtime_store(runtime_store, || {
+        crate::scene3d_atlas::with_atlas(atlas, || {
+            engine_compositor::with_prerender_frames(prerender_frames, || {
+                engine_compositor::dispatch_composite(
+                    rendered_mode,
+                    &params,
+                    layer_strategy,
+                    halfblock_strategy,
+                    buffer,
+                )
+            })
         })
     });
 

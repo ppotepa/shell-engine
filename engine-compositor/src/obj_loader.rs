@@ -10,6 +10,8 @@ use engine_error::EngineError;
 #[derive(Debug, Clone)]
 pub struct ObjMesh {
     pub vertices: Vec<[f32; 3]>,
+    /// Area-weighted smooth vertex normals, computed at parse time by averaging adjacent face cross-products.
+    pub smooth_normals: Vec<[f32; 3]>,
     pub edges: Vec<(usize, usize)>,
     pub faces: Vec<ObjFace>,
     pub center: [f32; 3],
@@ -272,6 +274,38 @@ fn parse_obj_mesh_from_text(
     if vertices.is_empty() || (edges.is_empty() && faces.is_empty()) {
         return None;
     }
+
+    // Compute area-weighted smooth vertex normals by accumulating face cross-products.
+    let mut normal_accum: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]; vertices.len()];
+    for face in &faces {
+        let v0 = vertices[face.indices[0]];
+        let v1 = vertices[face.indices[1]];
+        let v2 = vertices[face.indices[2]];
+        let e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+        let e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+        // Cross product magnitude = 2 × face area → area-weighted accumulation.
+        let n = [
+            e1[1] * e2[2] - e1[2] * e2[1],
+            e1[2] * e2[0] - e1[0] * e2[2],
+            e1[0] * e2[1] - e1[1] * e2[0],
+        ];
+        for &i in &face.indices {
+            normal_accum[i][0] += n[0];
+            normal_accum[i][1] += n[1];
+            normal_accum[i][2] += n[2];
+        }
+    }
+    let smooth_normals: Vec<[f32; 3]> = normal_accum
+        .iter()
+        .map(|n| {
+            let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+            if len <= 1e-6 {
+                [0.0, 0.0, 1.0]
+            } else {
+                [n[0] / len, n[1] / len, n[2] / len]
+            }
+        })
+        .collect();
     let mut min = [f32::INFINITY; 3];
     let mut max = [f32::NEG_INFINITY; 3];
     for v in &vertices {
@@ -295,6 +329,7 @@ fn parse_obj_mesh_from_text(
 
     Some(ObjMesh {
         vertices,
+        smooth_normals,
         edges: edges.into_iter().collect(),
         faces,
         center,

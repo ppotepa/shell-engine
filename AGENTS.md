@@ -75,10 +75,10 @@ Schema drift check:
 cargo run -p schema-gen -- --all-mods --check
 ```
 
-Helper:
+Regenerate schemas directly:
 
 ```bash
-./refresh-schemas.sh
+cargo run -p schema-gen -- --all-mods
 ```
 
 Run app:

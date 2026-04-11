@@ -10,6 +10,14 @@ pub(crate) struct ProjectedVertex {
     pub(crate) y: f32,
     pub(crate) depth: f32,
     pub(crate) view: [f32; 3],
+    /// Rotated smooth vertex normal in world space. Used for Gouraud per-vertex shading.
+    pub(crate) normal: [f32; 3],
+    /// Pre-rotation local-space position (centered + scaled, before any yaw/pitch/roll).
+    pub(crate) local: [f32; 3],
+    /// Pre-computed fBm terrain noise at this vertex's local position.
+    /// Barycentrically interpolated per pixel — eliminates per-pixel noise evaluation.
+    /// Only meaningful when `terrain_color` is set; otherwise 0.0.
+    pub(crate) terrain_noise: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -215,6 +223,308 @@ pub(crate) fn rasterize_triangle(
     }
 }
 
+/// Deterministic hash for 3-D integer lattice coordinates, mapped to [0.0, 1.0).
+#[inline(always)]
+fn terrain_hash(xi: i32, yi: i32, zi: i32) -> f32 {
+    let mut h = xi.wrapping_mul(1619)
+        .wrapping_add(yi.wrapping_mul(31337))
+        .wrapping_add(zi.wrapping_mul(6271));
+    h ^= h >> 13;
+    h = h.wrapping_mul(1_000_000_007);
+    h ^= h >> 17;
+    (h as u32 as f32) * (1.0 / u32::MAX as f32)
+}
+
+/// Smooth 3-D value noise (trilinear, smoothstep filtered). Output range: [0.0, 1.0].
+fn value_noise_3d(px: f32, py: f32, pz: f32) -> f32 {
+    let xi = px.floor() as i32;
+    let xf = px - xi as f32;
+    let yi = py.floor() as i32;
+    let yf = py - yi as f32;
+    let zi = pz.floor() as i32;
+    let zf = pz - zi as f32;
+    let u = xf * xf * (3.0 - 2.0 * xf);
+    let v = yf * yf * (3.0 - 2.0 * yf);
+    let w = zf * zf * (3.0 - 2.0 * zf);
+    let c000 = terrain_hash(xi,     yi,     zi    );
+    let c100 = terrain_hash(xi + 1, yi,     zi    );
+    let c010 = terrain_hash(xi,     yi + 1, zi    );
+    let c110 = terrain_hash(xi + 1, yi + 1, zi    );
+    let c001 = terrain_hash(xi,     yi,     zi + 1);
+    let c101 = terrain_hash(xi + 1, yi,     zi + 1);
+    let c011 = terrain_hash(xi,     yi + 1, zi + 1);
+    let c111 = terrain_hash(xi + 1, yi + 1, zi + 1);
+    let x0 = c000 + u * (c100 - c000);
+    let x1 = c010 + u * (c110 - c010);
+    let x2 = c001 + u * (c101 - c001);
+    let x3 = c011 + u * (c111 - c011);
+    let y0 = x0 + v * (x1 - x0);
+    let y1 = x2 + v * (x3 - x2);
+    y0 + w * (y1 - y0)
+}
+
+/// Smoothstep cubic interpolation: maps [edge0, edge1] → [0.0, 1.0].
+#[inline(always)]
+fn ss(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// Optional planet biome and atmosphere parameters for the Gouraud rasterizer.
+/// All effects are opt-in: None fields or zero values disable the effect.
+#[derive(Clone, Copy)]
+pub(crate) struct PlanetBiomeParams {
+    pub polar_ice_color: Option<[u8; 3]>,
+    pub polar_ice_start: f32,
+    pub polar_ice_end: f32,
+    pub desert_color: Option<[u8; 3]>,
+    pub desert_strength: f32,
+    pub atmo_color: Option<[u8; 3]>,
+    pub atmo_strength: f32,
+    pub atmo_rim_power: f32,
+    pub night_light_color: Option<[u8; 3]>,
+    pub night_light_threshold: f32,
+    pub night_light_intensity: f32,
+    /// Normalized sun direction in world space (from `light_dir_norm`).
+    pub sun_dir: [f32; 3],
+    /// Normalized camera direction in world space (= `-view_forward`, toward the camera).
+    pub view_dir: [f32; 3],
+}
+
+/// Variable-octave fBm.`octaves` clamped to [1, 8]. Output range ≈ [0.0, 1.0).
+pub(crate) fn fbm_3d_octaves(x: f32, y: f32, z: f32, octaves: u8) -> f32 {
+    let n = octaves.clamp(1, 8) as usize;
+    let mut val = 0.0f32;
+    let mut amp = 0.5f32;
+    let mut freq = 1.0f32;
+    for _ in 0..n {
+        val += value_noise_3d(x * freq, y * freq, z * freq) * amp;
+        amp  *= 0.5;
+        freq *= 2.0;
+    }
+    // Normalize to [0, 1] by dividing by the geometric sum of amplitudes.
+    let max_val = 1.0 - amp; // sum = 0.5 * (1 - 0.5^n) / (1 - 0.5) = 1 - 0.5^n
+    val / max_val
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn rasterize_triangle_gouraud(
+    canvas: &mut [Option<[u8; 3]>],
+    depth: &mut [f32],
+    w: u16,
+    h: u16,
+    v0: ProjectedVertex,
+    v1: ProjectedVertex,
+    v2: ProjectedVertex,
+    base_color: [u8; 3],
+    shade0: f32,
+    shade1: f32,
+    shade2: f32,
+    shadow_colour: Option<Color>,
+    midtone_colour: Option<Color>,
+    highlight_colour: Option<Color>,
+    tone_mix: f32,
+    cel_levels: u8,
+    latitude_bands: u8,
+    latitude_band_depth: f32,
+    terrain_color: Option<[u8; 3]>,
+    terrain_threshold: f32,
+    marble_depth: f32,
+    below_threshold_transparent: bool,
+    biome: Option<PlanetBiomeParams>,
+    clip_min_y: i32,
+    clip_max_y: i32,
+    // First global row at index 0 of `canvas`/`depth`. Set to strip's first row for parallel strip rendering.
+    row_base: i32,
+) {
+    let area = edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y);
+    if area.abs() < 1e-5 {
+        return;
+    }
+    let inv_area = 1.0 / area;
+
+    let min_x = v0.x.min(v1.x).min(v2.x).floor().max(0.0) as i32;
+    let max_x = v0.x.max(v1.x).max(v2.x).ceil().min((w - 1) as f32) as i32;
+    let min_y = v0.y.min(v1.y).min(v2.y).floor().max(0.0) as i32;
+    let max_y = v0.y.max(v1.y).max(v2.y).ceil().min((h - 1) as f32) as i32;
+    let min_y = min_y.max(clip_min_y);
+    let max_y = max_y.min(clip_max_y);
+
+    if min_x > max_x || min_y > max_y {
+        return;
+    }
+
+    let use_bands = latitude_bands > 0 && latitude_band_depth > f32::EPSILON;
+
+    for py in min_y..=max_y {
+        let y = py as f32 + 0.5;
+        let row_start = (py - row_base) as usize * w as usize;
+        for px in min_x..=max_x {
+            let x = px as f32 + 0.5;
+            let w0 = edge(v1.x, v1.y, v2.x, v2.y, x, y) * inv_area;
+            let w1 = edge(v2.x, v2.y, v0.x, v0.y, x, y) * inv_area;
+            let w2 = edge(v0.x, v0.y, v1.x, v1.y, x, y) * inv_area;
+            if w0 < -1e-5 || w1 < -1e-5 || w2 < -1e-5 {
+                continue;
+            }
+            let z = w0 * v0.depth + w1 * v1.depth + w2 * v2.depth;
+            let idx = row_start + px as usize;
+            if z < depth[idx] {
+                depth[idx] = z;
+                // Gouraud: barycentrically interpolate pre-computed per-vertex shade.
+                let shade = (w0 * shade0 + w1 * shade1 + w2 * shade2).clamp(0.0, 1.0);
+                // Latitude band modulation: sine wave along world-space Y.
+                let shade = if use_bands {
+                    let view_y =
+                        w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
+                    let band = (view_y * latitude_bands as f32 * std::f32::consts::PI).sin();
+                    (shade + band * latitude_band_depth * 0.5).clamp(0.0, 1.0)
+                } else {
+                    shade
+                };
+
+                let mut pixel = if let Some(tc) = terrain_color {
+                    // Terrain noise was pre-computed per vertex and is barycentrically interpolated —
+                    // no fbm call per pixel; just 3 multiplies + threshold compare.
+                    let noise = w0 * v0.terrain_noise + w1 * v1.terrain_noise + w2 * v2.terrain_noise;
+                    if noise > terrain_threshold {
+                        // ── LAND pixel ─────────────────────────────────────────────
+                        let mut land_color = tc;
+                        if let Some(b) = biome {
+                            // Surface normal: normalize interpolated world-space position.
+                            // For a sphere, normalize(view) == surface normal in world space.
+                            let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
+                            let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
+                            let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
+                            let vlen = (vx * vx + vy * vy + vz * vz).sqrt().max(1e-6);
+                            let (nx, ny, nz) = (vx / vlen, vy / vlen, vz / vlen);
+                            let lat_abs = ny.abs();
+
+                            // Desert biome: equatorial dry zone
+                            if let Some(dc) = b.desert_color {
+                                if b.desert_strength > 0.0 {
+                                    let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
+                                    let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
+                                    let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
+                                    // Weight peaks near ±18° lat (lat_abs ≈ 0.31), fades toward poles/equator.
+                                    let eq_w = (1.0 - ((lat_abs - 0.28) * 3.5).abs()).clamp(0.0, 1.0);
+                                    let d_noise = value_noise_3d(lx * 7.0, ly * 7.0, lz * 7.0);
+                                    let d_mask = ss(0.62, 0.82, d_noise) * eq_w * b.desert_strength;
+                                    if d_mask > 0.005 {
+                                        land_color = mix_rgb(land_color, dc, d_mask);
+                                    }
+                                }
+                            }
+                            // Polar ice (overrides desert)
+                            if let Some(ice_c) = b.polar_ice_color {
+                                let elev_boost = (noise - terrain_threshold) * 0.15;
+                                let ice_mask = ss(b.polar_ice_start, b.polar_ice_end, lat_abs + elev_boost);
+                                if ice_mask > 0.005 {
+                                    land_color = mix_rgb(land_color, ice_c, ice_mask);
+                                }
+                            }
+
+                            let cel = quantize_shade(shade, cel_levels);
+                            let mut px_color = apply_shading(land_color, cel);
+
+                            // Night-side city lights (land, dark side only)
+                            if let Some(city_c) = b.night_light_color {
+                                if b.night_light_intensity > 0.0 {
+                                    let sun_dot = nx * b.sun_dir[0] + ny * b.sun_dir[1] + nz * b.sun_dir[2];
+                                    let night_f = ss(0.10, -0.08, sun_dot); // 1.0 on dark side
+                                    if night_f > 0.01 {
+                                        let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
+                                        let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
+                                        let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
+                                        let city_n = value_noise_3d(lx * 18.0, ly * 18.0, lz * 18.0);
+                                        let city_m = ss(b.night_light_threshold, 1.0, city_n)
+                                            * night_f
+                                            * b.night_light_intensity;
+                                        if city_m > 0.01 {
+                                            px_color = mix_rgb(px_color, city_c, city_m.clamp(0.0, 0.95));
+                                        }
+                                    }
+                                }
+                            }
+                            px_color
+                        } else {
+                            let cel = quantize_shade(shade, cel_levels);
+                            apply_shading(land_color, cel)
+                        }
+                    } else {
+                        // ── OCEAN / below-threshold pixel ───────────────────────────
+                        if below_threshold_transparent {
+                            continue;
+                        }
+                        // Polar ice on ocean (slightly tighter threshold than on land)
+                        if let Some(b) = biome {
+                            if let Some(ice_c) = b.polar_ice_color {
+                                let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
+                                let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
+                                let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
+                                let vlen = (vx * vx + vy * vy + vz * vz).sqrt().max(1e-6);
+                                let lat_abs = (vy / vlen).abs();
+                                let ice_mask = ss(b.polar_ice_start + 0.05, b.polar_ice_end, lat_abs);
+                                if ice_mask > 0.005 {
+                                    let cel = quantize_shade(shade, cel_levels);
+                                    let px_color = apply_shading(ice_c, cel);
+                                    canvas[idx] = Some(px_color);
+                                    continue;
+                                }
+                            }
+                        }
+                        // Ocean: cheap single-octave marble per pixel (8 hash calls).
+                        let lx = w0 * v0.local[0] + w1 * v1.local[0] + w2 * v2.local[0];
+                        let ly = w0 * v0.local[1] + w1 * v1.local[1] + w2 * v2.local[1];
+                        let lz = w0 * v0.local[2] + w1 * v1.local[2] + w2 * v2.local[2];
+                        let mn = value_noise_3d(lx * 4.0, ly * 4.0, lz * 4.0);
+                        let os = (shade + (mn - 0.5) * marble_depth).clamp(0.0, 1.0);
+                        let cel = quantize_shade(os, cel_levels);
+                        let sb = apply_shading(base_color, cel);
+                        apply_tone_palette(sb, cel, shadow_colour, midtone_colour, highlight_colour, tone_mix)
+                    }
+                } else {
+                    let cel_shade = quantize_shade(shade, cel_levels);
+                    let shaded_base = apply_shading(base_color, cel_shade);
+                    apply_tone_palette(
+                        shaded_base,
+                        cel_shade,
+                        shadow_colour,
+                        midtone_colour,
+                        highlight_colour,
+                        tone_mix,
+                    )
+                };
+
+                // Atmosphere rim overlay (applied over land and ocean, skipped for cloud layers).
+                if let Some(b) = biome {
+                    if let Some(ac) = b.atmo_color {
+                        if b.atmo_strength > 0.0 {
+                            let vx = w0 * v0.view[0] + w1 * v1.view[0] + w2 * v2.view[0];
+                            let vy = w0 * v0.view[1] + w1 * v1.view[1] + w2 * v2.view[1];
+                            let vz = w0 * v0.view[2] + w1 * v1.view[2] + w2 * v2.view[2];
+                            let vlen = (vx * vx + vy * vy + vz * vz).sqrt().max(1e-6);
+                            let (nx, ny, nz) = (vx / vlen, vy / vlen, vz / vlen);
+                            let nd = (nx * b.view_dir[0] + ny * b.view_dir[1] + nz * b.view_dir[2])
+                                .abs()
+                                .clamp(0.0, 1.0);
+                            let rim = (1.0 - nd).powf(b.atmo_rim_power);
+                            if rim > 0.01 {
+                                let sun_dot = nx * b.sun_dir[0] + ny * b.sun_dir[1] + nz * b.sun_dir[2];
+                                let day = ss(-0.05, 0.25, sun_dot);
+                                let ab = (rim * (0.20 + 0.80 * day) * b.atmo_strength).clamp(0.0, 0.85);
+                                pixel = mix_rgb(pixel, ac, ab);
+                            }
+                        }
+                    }
+                }
+
+                canvas[idx] = Some(pixel);
+            }
+        }
+    }
+}
+
 #[inline]
 pub(crate) fn edge(ax: f32, ay: f32, bx: f32, by: f32, px: f32, py: f32) -> f32 {
     (px - ax) * (by - ay) - (py - ay) * (bx - ax)
@@ -256,6 +566,10 @@ pub(crate) fn face_shading_with_specular(
     light_point_2_intensity: f32,
     cel_levels: u8,
     tone_mix: f32,
+    ambient: f32,
+    view_dir: [f32; 3],
+    point_falloff: f32,
+    point_2_falloff: f32,
 ) -> (f32, f32, f32, f32) {
     let e1 = sub3(v1, v0);
     let e2 = sub3(v2, v0);
@@ -275,7 +589,7 @@ pub(crate) fn face_shading_with_specular(
         (to_point[0] * to_point[0] + to_point[1] * to_point[1] + to_point[2] * to_point[2])
             .sqrt()
             .max(0.0001);
-    let point_atten = 1.0 / (1.0 + 0.7 * point_dist * point_dist);
+    let point_atten = 1.0 / (1.0 + point_falloff * point_dist * point_dist);
     let to_point_2 = sub3(light_point_2, centroid);
     let point_2_dir = normalize3(to_point_2);
     let point_2_dist = (to_point_2[0] * to_point_2[0]
@@ -283,23 +597,30 @@ pub(crate) fn face_shading_with_specular(
         + to_point_2[2] * to_point_2[2])
         .sqrt()
         .max(0.0001);
-    let point_2_atten = 1.0 / (1.0 + 0.7 * point_2_dist * point_2_dist);
-    // Two-sided Lambert: abs() keeps shading stable for OBJ files with inconsistent winding.
-    let lambert_1 = dot3(normal, light_dir).abs();
-    let lambert_2 = dot3(normal, light_2_dir).abs() * light_2_strength;
-    let lambert_point = dot3(normal, point_dir).abs() * point_strength * point_atten;
-    let lambert_point_2 = dot3(normal, point_2_dir).abs() * point_2_strength * point_2_atten;
+    let point_2_atten = 1.0 / (1.0 + point_2_falloff * point_2_dist * point_2_dist);
+    // One-sided Lambert: dark side stays dark (correct terminator line).
+    let lambert_1 = dot3(normal, light_dir).max(0.0);
+    let lambert_2 = dot3(normal, light_2_dir).max(0.0) * light_2_strength;
+    let lambert_point = dot3(normal, point_dir).max(0.0) * point_strength * point_atten;
+    let lambert_point_2 = dot3(normal, point_2_dir).max(0.0) * point_2_strength * point_2_atten;
     let lambert = (lambert_1 + lambert_2 + lambert_point + lambert_point_2).clamp(0.0, 1.0);
     // When tone_mix is high we intentionally reduce material influence so different OBJ
     // material packs still produce consistent silhouette lighting.
     let material_influence = (1.0 - tone_mix.clamp(0.0, 1.0)).clamp(0.0, 1.0);
     let ka_lum_material = (ka[0] * 0.299 + ka[1] * 0.587 + ka[2] * 0.114).clamp(0.03, 0.25);
-    let ka_lum = 0.06 + (ka_lum_material - 0.06) * material_influence;
-    // half_dir_1 and half_dir_2 are pre-computed by the caller (constant per render).
-    // point half-vectors depend on per-face centroid, so they remain here.
-    // VIEW_DIR = [0, 0, -1]; add directly without allocating a constant.
-    let half_dir_point = normalize3([point_dir[0], point_dir[1], point_dir[2] - 1.0]);
-    let half_dir_point_2 = normalize3([point_2_dir[0], point_2_dir[1], point_2_dir[2] - 1.0]);
+    // Ambient provides a minimum diffuse floor so the dark side is never pitch-black.
+    let ka_lum = (0.06 + (ka_lum_material - 0.06) * material_influence).max(ambient);
+    // Point light half-vectors use the real per-frame view direction.
+    let half_dir_point = normalize3([
+        point_dir[0] + view_dir[0],
+        point_dir[1] + view_dir[1],
+        point_dir[2] + view_dir[2],
+    ]);
+    let half_dir_point_2 = normalize3([
+        point_2_dir[0] + view_dir[0],
+        point_2_dir[1] + view_dir[1],
+        point_2_dir[2] + view_dir[2],
+    ]);
     let shininess = 24.0 + (ns.clamp(2.0, 200.0) - 24.0) * material_influence;
     let spec_1 = dot3(normal, half_dir_1).abs().powf(shininess);
     let spec_2 = dot3(normal, half_dir_2).abs().powf(shininess) * light_2_strength * 0.7;

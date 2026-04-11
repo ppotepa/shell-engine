@@ -242,11 +242,23 @@ world.emit("emitter.name", owner_id, #{ ... })  // → int  Emit particle/fx ent
 | `side_offset` | float  | No       | Extra right-offset (legacy additive)     |
 | `emission_local_x` | float | No   | Owner-local base emission X (+right)     |
 | `emission_local_y` | float | No   | Owner-local base emission Y (+down)      |
+| `color_ramp`  | `[]`   | No       | Per-particle lifetime colour ramp override |
+| `radius_max`  | int    | No       | Lifetime ramp start radius (fresh particle) |
+| `radius_min`  | int    | No       | Lifetime ramp end radius (old particle)  |
 
 Anchor and direction precedence:
 - Anchor: args `local_x/local_y` → catalog `local_x/local_y` → catalog edge interpolation → legacy `spawn_offset/side_offset`.
 - Direction: args `emission_local_x/y` → catalog `emission_local_x/y` → default owner backward axis.
 - Final emission direction applies catalog `emission_angle` then args `spread` (both radians).
+
+Emitter catalogs can also contribute runtime-only particle behavior:
+
+- `thread_mode`: `light`, `physics`, or `gravity`
+- `collision` / `collision_mask`
+- `gravity_scale`
+- `gravity_mode`: `flat` or `orbital`
+- `gravity_center_x` / `gravity_center_y` / `gravity_constant`
+- `palette_ramp`, `color_ramp`, `radius_max`, `radius_min`
 
 ### Randomness
 

@@ -172,8 +172,8 @@ cargo run -p app -- --no-opt-comp --no-opt-rowdiff
 # Benchmark with optimizations
 cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 
-# SDL2 release helper (adds --sdl2 --opt automatically)
-./run-release.sh --mod-source=mods/shell-quest-tests --bench 10
+# SDL2 release example (explicit --sdl2 --opt)
+cargo run -p app --release -- --sdl2 --mod-source=mods/shell-quest-tests --bench 10 --opt
 ```
 
 ---

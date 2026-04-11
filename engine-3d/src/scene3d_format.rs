@@ -110,6 +110,14 @@ pub struct LightDef {
     pub snap_hz: f32,
     #[serde(default)]
     pub colour: Option<String>,
+    /// Quadratic attenuation coefficient for point lights: `1 / (1 + k * dist²)`.
+    /// Default 0.7 (tight, unit-scale). Use ~0.001 for large-world scenes (radius 10–50 units).
+    #[serde(default = "default_falloff_constant")]
+    pub falloff_constant: f32,
+}
+
+fn default_falloff_constant() -> f32 {
+    0.7
 }
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
@@ -292,6 +300,11 @@ pub struct ClipDef {
     pub duration_ms: u64,
     /// Number of discrete frames to pre-render.
     pub keyframes: u32,
+    /// Optional shared orbit origin for tweens that use `orbit_angle_deg`.
+    /// Objects can still override per-object origin via
+    /// `orbit_center_x/y/z` tween properties.
+    #[serde(default)]
+    pub orbit_origin: Option<[f32; 3]>,
     #[serde(default)]
     pub tweens: Vec<TweenDef>,
 }
@@ -301,7 +314,9 @@ pub struct ClipDef {
 pub struct TweenDef {
     pub object: String,
     /// Property name understood by the prerender step:
-    /// `clip_y_min`, `clip_y_max`, `yaw_offset`, `opacity`, `translation_x/y/z`.
+    /// `clip_y_min`, `clip_y_max`, `yaw_offset`, `opacity`, `translation_x/y/z`,
+    /// and orbit helpers `orbit_angle_deg`, `orbit_center_x/y/z`,
+    /// `orbit_radius`, `orbit_phase_deg`.
     pub property: String,
     pub from: f32,
     pub to: f32,

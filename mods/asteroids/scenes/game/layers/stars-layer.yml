@@ -1,4 +1,4 @@
-# Stars Layer — z_index: 0
+# Stars Layer — z_index: -55 (behind planet at -50, behind all gameplay)
 #
 # Purely decorative star field. All sprites are individual text characters
 # placed at absolute canvas positions (640×360 space). No collision or gameplay
@@ -8,7 +8,7 @@
 # Dim fill stars use a fixed dark-blue-white tone that suits all palettes.
 
 - name: stars
-  z_index: 0
+  z_index: -55
   ui: true
   sprites:
     # ── accent stars (palette-driven) ──────────────────────────────────────

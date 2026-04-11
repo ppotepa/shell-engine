@@ -36,6 +36,29 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 11-04-2026
+
+**Asteroids orbital control complete: geodesic transport, RCS gimbal, in-game feel tuning** ✅
+- **mods/asteroids**: orbital flight model — `sn/sf/sr` sphere normal/forward/right basis vectors; yaw rotates `sf/sr` around `sn`; translation via geodesic transport (Rodrigues rotation of `sn` and `sf` per frame)
+- **mods/asteroids**: input separation — `turn_left/right` (yaw via RCS), `strafe_left/right` (lateral), `thrust/brake` (prograde/retro) now independent (no heading-derived physics)
+- **mods/asteroids**: RCS VFX pipeline (`mods/asteroids/scripts/rcs.rhai`) — 4-emitter system (main/bow/port/starboard); rotation couple with yaw rate feedback; rotation brake on release; linear trim corrections; settling puff at rest
+- **mods/asteroids**: main engine 3-phase profile — ignition (hot white/cyan), transition (mid cyan), sustain (blue burn), fade (cool tail); driven by thrust hold/release timers
+- **mods/asteroids**: camera inertial lag — `cam_n` (instant), `cam_up` (exponential smoothing, τ=0.68s), sway linked to yaw rate; gimbal feel without disconnection
+- **mods/asteroids**: critical bug fixes — dt cap removed (physics no longer freezes on FPS drops); camera 1-frame lag eliminated; bullet carries full tangential velocity
+- **mods/asteroids**: feel tuning applied — `YAW_ACCEL: 1.8→1.95` (snappier), `YAW_DAMP: 2.4→2.6` (faster settle), `CAM_UP_TAU: 0.58→0.68` (heavier gimbal), `CAM_SWAY_GAIN: 0.24→0.28` (banking cues)
+- **validation**: `--check-scenes` passes all 9 startup checks; no build errors
+- **result**: Asteroids orbital flight is now cinematic (5-min orbit, 450px radius, 9.42 px/s baseline), responsive (snappy yaw, independent controls), and visually rich (multi-phase engine VFX, planet gimbal camera, RCS torque clarity)
+
+**Asteroids orbital rendering, live Scene3D clips, and planet authoring refresh** ✅
+- **engine-compositor**: added `Scene3DRuntimeStore` live clip path — bare Scene3D clip ids like `solar-orbit` now render against current elapsed time instead of requiring pre-baked `clip-0..N` frame selection
+- **engine-3d / schemas**: Scene3D authoring extended with point-light `falloff_constant`, orbit/clip tween properties, and structured transform coverage for richer large-scale background scenes
+- **engine / authoring**: OBJ sprites gained planet-oriented biome shading controls (`polar-ice-*`, `desert-*`, `atmo-*`, `night-light-*`) plus transparent thresholded cloud overlays; added `lens-blur` post-FX
+- **engine-behavior / engine-game**: emitter catalogs now support worker-thread particle physics, collisions, orbital gravity attractors, and palette-driven lifetime ramps
+- **mods/asteroids**: game scene rebuilt around orbital flight (prograde / retro / strafe), cockpit-follow planet rendering, layered stars → planet → gameplay canvas composition, and bottom-centre orbital telemetry HUD
+- **result**: Asteroids now plays as a cinematic orbital dogfight with cockpit-follow planet rendering and much richer planet / particle authoring controls
+
+---
+
 ## 08-04-2026
 
 **Asteroids HUD: transparent panels, 3-layer background, retro pixel-art hearts** ✅

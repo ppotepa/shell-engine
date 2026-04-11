@@ -1236,6 +1236,69 @@ impl ScriptGameplayApi {
         RhaiArray::new()
     }
 
+    /// Returns a map of orbital body parameters for the given body id.
+    /// Returns a map with all default values when the id is not found.
+    pub(crate) fn body_info(&mut self, id: &str) -> RhaiMap {
+        let body = self.catalogs.bodies.get(id).cloned().unwrap_or_default();
+        let mut map = RhaiMap::new();
+        map.insert("center_x".into(),        (body.center_x as rhai::FLOAT).into());
+        map.insert("center_y".into(),        (body.center_y as rhai::FLOAT).into());
+        map.insert("orbit_radius".into(),    (body.orbit_radius as rhai::FLOAT).into());
+        map.insert("orbit_period_sec".into(),(body.orbit_period_sec as rhai::FLOAT).into());
+        map.insert("orbit_phase_deg".into(), (body.orbit_phase_deg as rhai::FLOAT).into());
+        map.insert("radius_px".into(),       (body.radius_px as rhai::FLOAT).into());
+        map.insert("surface_radius".into(),  (body.surface_radius as rhai::FLOAT).into());
+        map.insert("gravity_mu".into(),      (body.gravity_mu as rhai::FLOAT).into());
+        if let Some(s) = body.planet_type   { map.insert("planet_type".into(),    s.into()); }
+        if let Some(s) = body.parent        { map.insert("parent".into(),          s.into()); }
+        if let Some(s) = body.sprite_surface  { map.insert("sprite_surface".into(),  s.into()); }
+        if let Some(s) = body.sprite_clouds   { map.insert("sprite_clouds".into(),   s.into()); }
+        if let Some(s) = body.sprite_clouds_2 { map.insert("sprite_clouds_2".into(), s.into()); }
+        map
+    }
+
+    /// Returns a map of planet visual preset parameters for the given planet type id.
+    /// Returns a map with all default values when the id is not found.
+    pub(crate) fn planet_type_info(&mut self, id: &str) -> RhaiMap {
+        let p = self.catalogs.planet_types.get(id).cloned().unwrap_or_default();
+        let mut map = RhaiMap::new();
+        map.insert("ocean_color".into(),          p.ocean_color.into());
+        map.insert("land_color".into(),           p.land_color.into());
+        map.insert("terrain_threshold".into(),    (p.terrain_threshold as rhai::FLOAT).into());
+        map.insert("terrain_noise_scale".into(),  (p.terrain_noise_scale as rhai::FLOAT).into());
+        map.insert("terrain_noise_octaves".into(),(p.terrain_noise_octaves as rhai::INT).into());
+        map.insert("marble_depth".into(),         (p.marble_depth as rhai::FLOAT).into());
+        map.insert("ambient".into(),              (p.ambient as rhai::FLOAT).into());
+        map.insert("latitude_bands".into(),       (p.latitude_bands as rhai::INT).into());
+        map.insert("latitude_band_depth".into(),  (p.latitude_band_depth as rhai::FLOAT).into());
+        map.insert("polar_ice_start".into(),      (p.polar_ice_start as rhai::FLOAT).into());
+        map.insert("polar_ice_end".into(),        (p.polar_ice_end as rhai::FLOAT).into());
+        map.insert("desert_strength".into(),      (p.desert_strength as rhai::FLOAT).into());
+        map.insert("atmo_strength".into(),        (p.atmo_strength as rhai::FLOAT).into());
+        map.insert("atmo_rim_power".into(),       (p.atmo_rim_power as rhai::FLOAT).into());
+        map.insert("night_light_threshold".into(),(p.night_light_threshold as rhai::FLOAT).into());
+        map.insert("night_light_intensity".into(),(p.night_light_intensity as rhai::FLOAT).into());
+        map.insert("sun_dir_x".into(),            (p.sun_dir_x as rhai::FLOAT).into());
+        map.insert("sun_dir_y".into(),            (p.sun_dir_y as rhai::FLOAT).into());
+        map.insert("sun_dir_z".into(),            (p.sun_dir_z as rhai::FLOAT).into());
+        map.insert("surface_spin_dps".into(),     (p.surface_spin_dps as rhai::FLOAT).into());
+        map.insert("cloud_spin_dps".into(),       (p.cloud_spin_dps as rhai::FLOAT).into());
+        map.insert("cloud_spin_2_dps".into(),     (p.cloud_spin_2_dps as rhai::FLOAT).into());
+        map.insert("cloud_threshold".into(),      (p.cloud_threshold as rhai::FLOAT).into());
+        map.insert("cloud_noise_scale".into(),    (p.cloud_noise_scale as rhai::FLOAT).into());
+        map.insert("cloud_noise_octaves".into(),  (p.cloud_noise_octaves as rhai::INT).into());
+        if let Some(c) = p.polar_ice_color    { map.insert("polar_ice_color".into(),    c.into()); }
+        if let Some(c) = p.desert_color       { map.insert("desert_color".into(),       c.into()); }
+        if let Some(c) = p.atmo_color         { map.insert("atmo_color".into(),         c.into()); }
+        if let Some(c) = p.night_light_color  { map.insert("night_light_color".into(),  c.into()); }
+        if let Some(c) = p.cloud_color        { map.insert("cloud_color".into(),        c.into()); }
+        if let Some(c) = p.shadow_color       { map.insert("shadow_color".into(),       c.into()); }
+        if let Some(c) = p.midtone_color      { map.insert("midtone_color".into(),      c.into()); }
+        if let Some(c) = p.highlight_color    { map.insert("highlight_color".into(),    c.into()); }
+        map
+    }
+
+
     pub(crate) fn collisions(&mut self) -> RhaiArray {
         self.ctx.collisions
             .iter()
@@ -1787,13 +1850,20 @@ impl ScriptGameplayApi {
         }
 
         // Attach particle physics configuration if emitter specifies thread_mode/collision/gravity
-        if config.thread_mode.is_some() || config.collision.is_some() || config.gravity_scale.is_some() {
+        if config.thread_mode.is_some() || config.collision.is_some() || config.gravity_scale.is_some() || config.gravity_mode.is_some() {
             let thread_mode = config.thread_mode.as_deref().map(ParticleThreadMode::from_str).unwrap_or_default();
             let collision = config.collision.unwrap_or(false);
             let gravity_scale = config.gravity_scale.unwrap_or(0.0) as f32;
             let bounce = config.bounce.unwrap_or(0.0) as f32;
             let mass = config.mass.unwrap_or(1.0) as f32;
             let collision_mask = config.collision_mask.clone().unwrap_or_default();
+            let gravity_mode = match config.gravity_mode.as_deref() {
+                Some(s) if s.eq_ignore_ascii_case("orbital") => engine_game::components::ParticleGravityMode::Orbital,
+                _ => engine_game::components::ParticleGravityMode::Flat,
+            };
+            let gravity_center_x = config.gravity_center_x.unwrap_or(0.0) as f32;
+            let gravity_center_y = config.gravity_center_y.unwrap_or(0.0) as f32;
+            let gravity_constant = config.gravity_constant.unwrap_or(0.0) as f32;
             
             let particle_physics = ParticlePhysics {
                 thread_mode,
@@ -1802,6 +1872,10 @@ impl ScriptGameplayApi {
                 gravity_scale,
                 bounce,
                 mass,
+                gravity_mode,
+                gravity_center_x,
+                gravity_center_y,
+                gravity_constant,
             };
             let _ = world.attach_particle_physics(id, particle_physics);
         }

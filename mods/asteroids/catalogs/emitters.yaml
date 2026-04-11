@@ -1,7 +1,9 @@
 emitters:
   # === SHIP THRUSTER EMITTERS ===
+  # All ship emitters use orbital gravity (centripetal toward planet center at 1600,900).
+  # gravity_constant tuned for slower 5-minute orbital pacing.
   
-  # Main engine - heavy particles with slight gravity (exhaust falls slightly)
+  # Main engine - heavy particles that arc with the orbital curvature
   ship.main:
     max_count: 220
     cooldown_name: ship-main
@@ -14,20 +16,21 @@ emitters:
     emission_local_y: 1.0
     emission_angle: 0.0
     backward_speed: 0.0
-    ttl_ms: 520
+    ttl_ms: 420
     radius: 2
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
-    # Physics: exhaust particles drift slightly with micro-gravity
     thread_mode: "physics"
-    gravity_scale: 0.05
-    # Default ramp: resolved from active palette "thruster" entry.
-    # Hot thrust overrides with active palette "hot_engine" entry via emit args.
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 0.0
+    gravity_scale: 0.0
     palette_ramp: "thruster"
     radius_max: 2
     radius_min: 0
 
-  # Bow thruster - quick RCS bursts, light particles
+  # Bow thruster - quick RCS bursts, curve toward planet
   ship.bow:
     max_count: 140
     cooldown_name: ship-bow
@@ -40,16 +43,20 @@ emitters:
     emission_local_y: -1.0
     emission_angle: 0.0
     backward_speed: 0.0
-    ttl_ms: 240
+    ttl_ms: 280
     radius: 1
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
     thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
     palette_ramp: "thruster"
     radius_max: 1
     radius_min: 0
 
-  # Port thruster - lateral RCS
+  # Port thruster - lateral RCS, orbital curvature
   ship.port:
     max_count: 160
     cooldown_name: ship-port
@@ -62,16 +69,20 @@ emitters:
     emission_local_y: 0.0
     emission_angle: 0.0
     backward_speed: 0.0
-    ttl_ms: 240
+    ttl_ms: 280
     radius: 1
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
     thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
     palette_ramp: "thruster"
     radius_max: 1
     radius_min: 0
 
-  # Starboard thruster - lateral RCS
+  # Starboard thruster - lateral RCS, orbital curvature
   ship.starboard:
     max_count: 160
     cooldown_name: ship-starboard
@@ -84,11 +95,119 @@ emitters:
     emission_local_y: 0.0
     emission_angle: 0.0
     backward_speed: 0.0
-    ttl_ms: 240
+    ttl_ms: 280
     radius: 1
     velocity_scale: 1.0
     lifecycle: TtlOwnerBound
     thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
+    palette_ramp: "thruster"
+    radius_max: 1
+    radius_min: 0
+
+  # Rotational pair: front-left microthruster
+  ship.bow_left:
+    max_count: 120
+    cooldown_name: ship-bow-left
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: -6.0
+    local_y: -5.2
+    emission_local_x: -1.0
+    emission_local_y: 0.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 220
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound
+    thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
+    palette_ramp: "thruster"
+    radius_max: 1
+    radius_min: 0
+
+  # Rotational pair: front-right microthruster
+  ship.bow_right:
+    max_count: 120
+    cooldown_name: ship-bow-right
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: 6.0
+    local_y: -5.2
+    emission_local_x: 1.0
+    emission_local_y: 0.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 220
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound
+    thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
+    palette_ramp: "thruster"
+    radius_max: 1
+    radius_min: 0
+
+  # Rotational pair: aft-left microthruster
+  ship.aft_left:
+    max_count: 120
+    cooldown_name: ship-aft-left
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: -6.0
+    local_y: 5.2
+    emission_local_x: -1.0
+    emission_local_y: 0.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 220
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound
+    thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
+    palette_ramp: "thruster"
+    radius_max: 1
+    radius_min: 0
+
+  # Rotational pair: aft-right microthruster
+  ship.aft_right:
+    max_count: 120
+    cooldown_name: ship-aft-right
+    cooldown_ms: 0
+    min_cooldown_ms: 0
+    ramp_ms: 0
+    local_x: 6.0
+    local_y: 5.2
+    emission_local_x: 1.0
+    emission_local_y: 0.0
+    emission_angle: 0.0
+    backward_speed: 0.0
+    ttl_ms: 220
+    radius: 1
+    velocity_scale: 1.0
+    lifecycle: TtlOwnerBound
+    thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
     palette_ramp: "thruster"
     radius_max: 1
     radius_min: 0
@@ -150,7 +269,7 @@ emitters:
 
   # === BULLET TRAIL ===
 
-  # Luminous glow trail — owner-bound, tiny particles streaming behind bullet
+  # Luminous glow trail — owner-bound, tiny particles curving with orbital gravity
   bullet.trail:
     max_count: 80
     cooldown_name: "bullet-trail"
@@ -163,13 +282,17 @@ emitters:
     emission_local_y: 1.0      # backward in local space
     emission_angle: 0.0
     backward_speed: 40.0       # drift away from bullet heading
-    ttl_ms: 130
+    ttl_ms: 180
     radius: 1
     radius_max: 1
     radius_min: 0
     velocity_scale: 0.12       # only 12% of bullet velocity — trail lags behind
     lifecycle: TtlOwnerBound
     thread_mode: "light"
+    gravity_mode: "orbital"
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
     palette_ramp: "bullet_trail"
     spread: 0.35               # slight fan spread for glow width
 

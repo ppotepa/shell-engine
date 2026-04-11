@@ -243,6 +243,34 @@ Emitter precedence is deterministic:
 - Base direction: args `emission_local_x/y` → catalog `emission_local_x/y` → default backward axis
 - Final direction: base direction rotated by catalog `emission_angle` and per-call `spread`
 
+**Optional emitter runtime fields**:
+- `thread_mode`: `light` (main thread), `physics` (worker thread + full particle physics), or `gravity` (worker thread + gravity-focused path)
+- `collision` / `collision_mask`: enable tag-filtered particle collisions
+- `gravity_scale`: scalar gravity multiplier
+- `gravity_mode`: `flat` or `orbital`
+- `gravity_center_x` / `gravity_center_y` / `gravity_constant`: orbital attractor for planet-centric particle motion
+- `palette_ramp` / `color_ramp` / `radius_max` / `radius_min`: lifetime-driven particle colour and size ramps
+
+Example orbital thruster exhaust:
+
+```yaml
+emitters:
+  ship.main:
+    local_x: 0.0
+    local_y: 2.7
+    emission_local_x: 0.0
+    emission_local_y: 1.0
+    lifecycle: TtlOwnerBound
+    thread_mode: physics
+    gravity_mode: orbital
+    gravity_center_x: 1600.0
+    gravity_center_y: 900.0
+    gravity_constant: 2000000.0
+    palette_ramp: thruster
+    radius_max: 2
+    radius_min: 0
+```
+
 ### Thruster / RCS Emitter Pattern
 
 The emitter system provides all primitives needed to build physics-accurate
@@ -473,32 +501,63 @@ Order matters — passes apply sequentially to the composited buffer.
 | crt-distort     | Tube curvature + margins          |
 | crt-scan-glitch | Scanline sweep + chroma glitch    |
 | crt-ruby        | Ruby tint + edge reveal           |
+| lens-blur       | Separable Gaussian blur / soft focus haze |
 | terminal-crt    | Legacy alias                      |
 
 ---
 
 ## OBJ Lighting
 
-Scenes can define directional lights (primary + secondary), point lights, and
-cel shading for 3D objects.
+Scene3D assets and OBJ sprites can combine directional, point, and ambient
+lighting with cel-shaded tonal bands.
 
 ### Light Types
 
-| Type        | Fields                        | Behavior                        |
-|-------------|-------------------------------|---------------------------------|
-| Directional | direction, color, intensity   | Infinite parallel rays          |
-| Point       | position, color, radius       | Orbit or snap animation         |
-| Cel shading | steps, edge-threshold         | Posterized shading bands        |
+| Type        | Fields                                              | Behavior |
+|-------------|-----------------------------------------------------|----------|
+| Directional | `direction`, `colour`, `intensity`                  | Infinite parallel rays |
+| Point       | `position`, `colour`, `intensity`, `falloff_constant`, `snap_hz` | Local light with quadratic attenuation and optional snap/strobe timing |
+| Ambient     | `intensity`, `colour`                               | Flat base illumination |
+| Cel shading | `cel-levels`, `tone-mix`, `shadow/midtone/highlight-colour` | Posterized tonal bands |
 
-### Point Light Animation
+`falloff_constant` uses the attenuation curve `1 / (1 + k * dist²)`. Small
+unit-scale scenes work with the default `0.7`; large background scenes usually
+need values closer to `0.001`.
 
-| Mode     | Field    | Behavior                                      |
-|----------|----------|-----------------------------------------------|
-| Snap     | snap-hz  | Instant position jumps (deterministic hash)   |
-| Orbit    | orbit-hz | Smooth continuous rotation                    |
-| Static   | (none)   | Fixed position                                |
+### Live Scene3D Clips
 
-Priority: snap > orbit > static. When `snap-hz` is set, `orbit-hz` is ignored.
+Static Scene3D frames are still pre-rendered into the atlas at scene load. Clip
+frames additionally stay available as parsed runtime definitions, so a sprite
+may keep `frame: solar-orbit` and let the compositor evaluate the clip at the
+current timeline position each frame.
+
+Clip tweens currently cover:
+
+- `yaw_offset`
+- `opacity`
+- `translation_x/y/z`
+- `orbit_angle_deg`
+- `orbit_center_x/y/z`
+- `orbit_radius`
+- `orbit_phase_deg`
+- `clip_y_min` / `clip_y_max`
+
+### OBJ Planet / Cloud Authoring
+
+Large planet-style OBJ sprites can now be authored directly in scene YAML using
+procedural biome controls:
+
+- `terrain-color`, `terrain-threshold`, `terrain-noise-scale`, `terrain-noise-octaves`, `marble-depth`
+- `below-threshold-transparent` for cloud shells and other overlay-only layers
+- `polar-ice-color`, `polar-ice-start`, `polar-ice-end`
+- `desert-color`, `desert-strength`
+- `atmo-color`, `atmo-strength`, `atmo-rim-power`
+- `night-light-color`, `night-light-threshold`, `night-light-intensity`
+
+For cockpit-follow or parallax-heavy planet shots, Rhai can also drive
+per-sprite OBJ camera/view overrides via `scene.set(id, "obj.cam.wx", ...)`,
+`obj.cam.wy/wz`, and `obj.view.rx/ry/rz`, `obj.view.ux/uy/uz`,
+`obj.view.fx/fy/fz`.
 
 ---
 
@@ -912,7 +971,7 @@ let msg = "line one\nline two";
 1. Every YAML file has a correct `$schema` reference.
 2. `next` and each `menu-options[].to` point to existing scenes.
 3. All `ref` / `use` references resolve to valid targets.
-4. `./refresh-schemas.sh` and `cargo run -p schema-gen -- --all-mods --check` pass.
+4. `cargo run -p schema-gen -- --all-mods` and `cargo run -p schema-gen -- --all-mods --check` pass.
 5. Sprite timing falls within scene duration.
 6. A smoke run (`cargo run -p app`) starts without compile errors.
 7. `cargo run -p app -- --mod-source=mods/<mod> --check-scenes` reports zero warnings before merge.
@@ -922,6 +981,6 @@ let msg = "line one\nline two";
 ## Daily Workflow
 
 1. Edit YAML files under `mods/<mod>/`.
-2. Run `./refresh-schemas.sh` to regenerate schemas.
+2. Run `cargo run -p schema-gen -- --all-mods` to regenerate schemas.
 3. Continue authoring — editor completions reflect the updated schemas.
 4. Run `cargo run -p schema-gen -- --all-mods --check` before merge.

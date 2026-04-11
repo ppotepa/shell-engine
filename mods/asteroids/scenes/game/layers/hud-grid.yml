@@ -55,6 +55,23 @@
                     - { type: text, id: hud-label-wave, content: "WAVE", grid-col: 1, grid-row: 1, at: tr, font: "Orbitron:ascii", fg: "@palette.hud_label" }
                     - { type: text, id: hud-wave, content: "@game_state.wave", grid-col: 1, grid-row: 2, at: tr, font: "generic:2", fg: "@palette.hud_value" }
 
+            # ── Bottom-centre: Orbital telemetry ─────────────────────────────
+            - type: panel
+              id: hud-orbital-panel
+              grid-col: 2
+              grid-row: 3
+              at: bc
+              padding: 6
+              children:
+                - type: grid
+                  columns: ["auto", "1fr", "auto"]
+                  rows: ["auto"]
+                  gap-x: 14
+                  children:
+                    - { type: text, id: hud-orbital-alt,    content: "ALT  ---", grid-col: 1, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_label" }
+                    - { type: text, id: hud-orbital-status, content: "ORBIT",    grid-col: 2, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_value" }
+                    - { type: text, id: hud-orbital-spd,    content: "SPD  ---", grid-col: 3, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_label" }
+
             # ── Bottom-left: Lives (heart icons) ──────────────────────────────
             - type: panel
               id: hud-lives-panel

@@ -320,6 +320,17 @@ pub enum GameplayEvent {
     CollisionEnter { a: u64, b: u64 },
 }
 
+/// Gravity mode for particles.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum ParticleGravityMode {
+    /// Constant downward acceleration scaled by `gravity_scale` (legacy mode).
+    #[default]
+    Flat,
+    /// Centripetal attraction toward a world-space point, using inverse-square law.
+    /// Acceleration = `gravity_constant / dist²`, directed toward `(gravity_center_x, gravity_center_y)`.
+    Orbital,
+}
+
 /// Thread processing mode for particles.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ParticleThreadMode {
@@ -560,12 +571,21 @@ pub struct ParticlePhysics {
     pub collision: bool,
     /// Tags this particle can collide with.
     pub collision_mask: Vec<String>,
-    /// Gravity scale (0.0 = no gravity, 1.0 = world gravity).
+    /// Gravity scale (0.0 = no gravity, 1.0 = world gravity). Only used in Flat mode.
     pub gravity_scale: f32,
     /// Bounce coefficient (0.0 = absorb, 1.0 = elastic).
     pub bounce: f32,
     /// Particle mass for physics calculations.
     pub mass: f32,
+    /// Gravity mode: Flat (constant downward) or Orbital (centripetal toward a point).
+    pub gravity_mode: ParticleGravityMode,
+    /// World X of the orbital attractor (planet center). Only used in Orbital mode.
+    pub gravity_center_x: f32,
+    /// World Y of the orbital attractor (planet center). Only used in Orbital mode.
+    pub gravity_center_y: f32,
+    /// Gravitational constant for orbital mode. Accel = gravity_constant / dist².
+    /// Tune for visual effect; ~100_000 gives noticeable curvature at ORBIT_R=450.
+    pub gravity_constant: f32,
 }
 
 

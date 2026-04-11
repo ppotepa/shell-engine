@@ -13,8 +13,8 @@ cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --no-opt-comp
 # With all optimizations
 cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 
-# Release helper (SDL2 + --opt by default, optional uncapped pacing)
-./run-release.sh --mod-source=mods/shell-quest-tests --bench 10 --no-cap
+# Release build example (explicit SDL2 + --opt)
+cargo run -p app --release -- --sdl2 --mod-source=mods/shell-quest-tests --bench 10 --opt
 ```
 
 `--bench` automatically skips the splash screen. Reports are saved to

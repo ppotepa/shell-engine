@@ -13,9 +13,9 @@ If neither is set, the default mod (`mods/shell-quest`) is used.
 
 ## Asteroids (SDL2 Mod)
 
-Asteroids is the current gameplay-focused mod built on the same generic
-scene/runtime stack as Shell Quest, but configured for the SDL2 backend by
-default.
+Asteroids is a fast-paced orbital dogfight game with a cinematic planet-follow
+camera and a 3D cockpit planet backdrop. Gameplay is built on sphere-based
+orbital navigation (geodesic transport, Rodrigues rotation).
 
 ### Structure
 
@@ -23,9 +23,10 @@ default.
 mods/asteroids/
 +-- mod.yaml
 +-- assets/
-|   +-- 3d/                  Ship, rock, and sphere OBJ meshes
+|   +-- 3d/                  Ship/sphere OBJ meshes plus Scene3D definitions
 +-- catalogs/
-|   +-- emitters.yaml        Thruster, impact, debris, and particle presets
+|   +-- emitters.yaml        Thruster, impact, debris, and orbital particle presets
+|   +-- input-profiles.yaml  Yaw/strafe/thrust control mappings
 |   +-- prefabs.yaml         Ship, bullet, asteroid, shrapnel, debris configs
 +-- objects/
 +-- palettes/
@@ -35,26 +36,62 @@ mods/asteroids/
 |   |   +-- scene.yml
 |   |   +-- game-loop.rhai
 |   |   +-- layers/
+|   |       +-- stars-layer.yml
+|   |       +-- planet-bg-layer.yml
+|   |       +-- game-canvas.yml
+|   |       +-- planets-layer.yml
 |   |       +-- solar-scene3d-layer.yml
 |   |       +-- hud-grid.yml
+|   +-- scripts/
+|   |   +-- rcs.rhai
 |   +-- highscores/
 ```
 
+### Orbital Flight Model
+
+- **Position**: Sphere normal `sn` (unit vector from planet center to ship)
+- **Orientation**: Forward/right tangents `sf`, `sr` (local ship frame on sphere)
+- **Velocity**: `vfwd` (prograde in `sf` direction), `vright` (strafe in `sr` direction)
+- **Rotation**: `yaw_rate` rotates `sf/sr` around `sn` axis
+- **Translation**: Geodesic transport via Rodrigues rotation of `sn` and `sf` each frame
+- **Period**: 5 minutes at baseline speed (450px orbit radius, 9.42 px/s)
+
+### Controls
+
+| Input | Action |
+|-------|--------|
+| W/↑ | Prograde thrust (increase `vfwd`) |
+| S/↓ | Retro-brake (decrease `vfwd`) |
+| A/← | Yaw left (via RCS, rotates `sf/sr` CCW) |
+| D/→ | Yaw right (via RCS, rotates `sf/sr` CW) |
+| Q | Strafe left (lateral in `-sr` direction) |
+| E | Strafe right (lateral in `+sr` direction) |
+| SPACE | Fire bullet (inherits full tangential velocity) |
+| ESC | Pause menu |
+
+### Camera & VFX
+
+- **Camera**: Cockpit-follow planet rendering with inertial gimbal lag (`τ=0.68s`);
+  yaw-linked sway for banking feedback; instant normal tracking, delayed up-vector smoothing.
+- **RCS**: 4-emitter system (main rear, bow fore, port/starboard sides); rotation couple
+  with visual intensity scaling; auto-brake on yaw release; linear trim corrections.
+- **Main Engine**: 3-phase profile driven by thrust hold/release timers:
+  - Ignition: hot white/cyan burst (0–150ms)
+  - Transition: mid cyan (90–460ms)
+  - Sustain: full blue steady burn (260ms+)
+  - Fade: cool tail after release
+
 ### Runtime Characteristics
 
-- `mod.yaml` selects `output: sdl2` with a 640x360 authored render size and
-  `fit` presentation policy.
-- The gameplay scene now uses one unified `scene3_d` background sprite
-  (`/assets/3d/solar-system.scene3d.yml`) that contains the full solar-system
-  composition (nebula, sun, planets, saturn-like rings, and visible belt rocks).
-- Clip-driven orbital motion is prerendered as a fixed frame set
-  (`solar-orbit-0..23`), then selected from Rhai each frame for stable timing.
-- Asteroids currently runs in a free-flight/open-world setup: world bounds are
-  defined for queries and camera logic, but gameplay entities are not clamped to
-  the old 320x260 camera box.
-- Background design/iteration notes: `mods/asteroids/SOLAR_BACKGROUND_ANALYSIS.md`.
-- Root troubleshooting notes for the recent visual jitter investigation live in
-  `flickering.md`.
+- `mod.yaml` selects `output: sdl2` with 640x360 authored render size and `fit` presentation policy.
+- The active gameplay scene currently loads 4 layers: stars → planet → gameplay → HUD.
+- `planet-bg-layer.yml` renders cockpit planet (OBJ sphere + two cloud shells with biome shading + transparency).
+- `game-canvas.yml` hosts gameplay entities (asteroids, bullets, ship) with orbital motion.
+- `hud-grid.yml` displays transparent corner panels: SCORE, WAVE, LIVES (as retro pixel-art ♥), ESC hint.
+- Flight simulation runs on orbital state machine (no heading/physics coupling).
+- Asteroids spawn at world edges; ship orbits freely within 3200×1800 world bounds.
+- Orbital HUD telemetry shows altitude (distance from planet surface) and speed (magnitude of tangential velocity).
+- `solar-scene3d-layer.yml` and `planets-layer.yml` are retained in the repo as additional background assets, but they are not wired into the current `scenes/game/scene.yml`.
 
 ### Running
 
@@ -66,6 +103,22 @@ Validation:
 
 ```bash
 cargo run -p app -- --mod-source=mods/asteroids --check-scenes
+```
+
+### Feel Parameters (game-loop.rhai)
+
+Conservative tuning for responsive, visceral flight:
+
+```rhai
+YAW_ACCEL = 1.95        // rad/s² — turn-on acceleration
+YAW_DAMP = 2.6          // damping coefficient (faster settle)
+YAW_MAX = 1.1           // rad/s — rotational speed cap
+ACC_FWD = 0.9           // px/s² — prograde/retro accel
+ACC_SIDE = 0.6          // px/s² — strafe accel
+LIN_DAMP = 0.08         // linear damping (vacuum feel)
+MAX_SPD = 28.0          // px/s — speed cap (~3x baseline orbit speed)
+CAM_UP_TAU = 0.68       // s — gimbal lag (camera up smoothing)
+CAM_SWAY_GAIN = 0.28    // camera banking amount
 ```
 
 ## Shell Quest (Main Mod)

@@ -1,19 +1,20 @@
 // ============================================================================
-// ASTEROIDS — Full Realistic RCS Simulation v3.1
+// ASTEROIDS — Orbital RCS Simulation
 // ============================================================================
-// AUTO-BRAKE SYSTEM:
-//   - After 30ms of no input, auto-stabilization activates (fast response)
-//   - PHASE 1: Stop rotation (fire RCS opposite to angular velocity)
-//   - PHASE 2: Stop linear motion (fire thrusters opposite to velocity)
-//   - Velocity projected onto LOCAL ship axes each frame
-//   - Thruster selection based on velocity components in ship frame
+// SHIP MODEL: orbital basis vectors (sn / sf / sr) — no heading/2D physics.
+//   sn = unit normal from planet centre to ship (sphere position)
+//   sf = ship forward tangent  (yawed by player)
+//   sr = ship right tangent    (cross product of sf × sn)
+//   vfwd / vright = tangential speed in sf / sr directions (px/s)
+//
+// MOVEMENT: geodesic transport on sphere via Rodrigues rotation each frame.
+//   Yaw rotates sf/sr around sn.  Translation moves sn along great-circle arc.
 //
 // GAMEPLAY:
 //   SPACE/Fire  — shoot bullets
-//   Arrows/WASD — thrust and rotate
-//   Asteroids split on hit (large → 2 medium, medium → 2 small, small → destroyed)
-//   Ship collides with asteroids → lose life, respawn
-//   Score: large=20, medium=50, small=100
+//   W/S / ↑↓   — prograde thrust / retro-brake
+//   A/D / ←→   — yaw left / right
+//   Q/E         — lateral strafe
 // ============================================================================
 import "rcs" as rcs;
 
@@ -73,13 +74,6 @@ fn apply_obj_rotation(scene, id) {
     scene.set(visual, "obj.orbit_speed", 30.0 + rand() * 110.0);
 }
 
-// --- FREE FLIGHT MODE: no asteroid waves, camera follows ship ---
-// Asteroids disabled — world is open for free exploration.
-// fn keep_asteroids_alive(world, scene) {
-//     if world.count_kind("asteroid") > 0 { return; }
-//     spawn_wave(world, scene, 1);
-// }
-
 // Give an asteroid a random tumble (constant spin, no braking).
 fn add_tumble(world, id, size) {
     let max_spin = if size == 3 { 1.5 } else if size == 2 { 2.5 } else { 4.0 };
@@ -92,6 +86,17 @@ fn add_tumble(world, id, size) {
         auto_brake: false,
         angular_vel: spin,
     });
+}
+
+// ── Rodrigues axis-angle rotation ─────────────────────────────────────────────
+// Rotate vector (vx,vy,vz) by `angle` radians around unit axis (ax,ay,az).
+fn rotate_axis(vx, vy, vz, ax, ay, az, angle) {
+    let c = cos(angle); let s = sin(angle);
+    let d = vx*ax + vy*ay + vz*az;
+    let cx = ay*vz - az*vy; let cy = az*vx - ax*vz; let cz = ax*vy - ay*vx;
+    #{ x: vx*c + cx*s + ax*d*(1.0-c),
+       y: vy*c + cy*s + ay*d*(1.0-c),
+       z: vz*c + cz*s + az*d*(1.0-c) }
 }
 
 fn spawn_wave(world, scene, wave) {
@@ -176,36 +181,63 @@ fn do_ship_death_fx(world, effects, col, ship_id) {
 fn ensure_ship(world) {
     let WORLD_W = world.world_width();
     let WORLD_H = world.world_height();
-    let SHIP_X = WORLD_W * 0.5;
-    let SHIP_Y = WORLD_H * 0.5;
+    let PLANET_X = WORLD_W * 0.5;
+    let PLANET_Y = WORLD_H * 0.5;
+    let ORBIT_R  = 450.0;
+
     let existing = world.first_kind("ship");
     if existing > 0 { return existing; }
+    // Spawn at 3-o'clock to match sn=(1,0,0) initial orbital state.
     let ship_id = world.spawn_prefab("ship", #{
-        x: SHIP_X,
-        y: SHIP_Y,
-        heading: 0.0
+        x: PLANET_X + ORBIT_R,
+        y: PLANET_Y,
+        vx: 0.0,
+        vy: 0.0,
     });
-    if ship_id > 0 {
-        world.angular_body_attach(ship_id, #{ accel: 5.5, max: 7.0, deadband: 0.10, auto_brake: true });
-        world.linear_brake_attach(ship_id, #{ decel: 45.0, deadband: 2.0, auto_brake: true });
-        world.thruster_ramp_attach(ship_id, #{
-            thrust_delay_ms:       8.0,
-            thrust_ramp_ms:        12.0,
-            no_input_threshold_ms: 30.0,
-            rot_factor_max_vel:    7.0,
-            burst_speed_threshold: 15.0,
-            burst_wave_interval_ms: 150.0,
-            burst_wave_count:      3,
-        });
-    }
     ship_id
 }
+
+// ======================== ORBITAL CONSTANTS ===================================
+// Read body and planet type from catalog; fall back to hardcoded defaults if
+// catalog not loaded (e.g. during tests or before first-frame catalog init).
+let PLANET_X       = WORLD_W * 0.5;   // world-space planet centre X (1600)
+let PLANET_Y       = WORLD_H * 0.5;   // world-space planet centre Y (900)
+let ORBIT_R        = 450.0;           // Constant orbital radius (px)
+let PI             = 3.1415926535;
+let ORBIT_PERIOD_S = 300.0;           // Target full orbit time: 5 minutes
+let ORBIT_V0       = (2.0 * PI * ORBIT_R) / ORBIT_PERIOD_S;  // ~9.42 px/s at R=450
+let MAX_SPD        = 28.0;            // Speed cap tuned for slower cinematic orbit
+let ACC_FWD        = 0.9;             // Forward/back acceleration (px/s²)
+let ACC_SIDE       = 0.6;             // Lateral acceleration (px/s²)
+let LIN_DAMP       = 0.08;            // Gentle vacuum stabilization
+let YAW_ACCEL      = 1.95;            // rad/s² — slightly snappier turn-on
+let YAW_DAMP       = 2.6;             // yaw-rate damping — slightly faster settle
+let YAW_MAX        = 1.1;             // rad/s
+let CAM_UP_TAU     = 0.68;            // camera-up lag (seconds) — heavier gimbal feel
+let CAM_SWAY_TAU   = 0.50;            // sway smoothing (seconds) — slightly faster response
+let CAM_SWAY_GAIN  = 0.28;            // sway amount from yaw rate — more noticeable banking
+// HUD scale: KM_PER_PX converts px distances to km at Earth scale.
+// WORLD_TIME_SCALE: 1 game-second ≈ WORLD_TIME_SCALE real-seconds for km/h display.
+// Tuned so ORBIT_V0 at R=450 reads near orbital-class speeds while gameplay stays readable.
+let KM_PER_PX      = 55.4;           // 6371 km / 115 px (Earth radius / surface radius)
+let WORLD_TIME_SCALE = 83.0;
+
+// Read body-specific constants from catalog (surface radius, spin rates).
+// world.body_info / world.planet_type_info return maps with all defaults pre-filled.
+let _body = world.body_info("main-planet");
+let SURFACE_RADIUS = _body["surface_radius"];
+let _ptype_id = if type_of(_body["planet_type"]) != "()" { _body["planet_type"] } else { "earth_like" };
+let _ptype = world.planet_type_info(_ptype_id);
+let PLANET_SPIN_DPS  = _ptype["surface_spin_dps"];
+let CLOUD_SPIN_DPS   = _ptype["cloud_spin_dps"];
+let CLOUD2_SPIN_DPS  = _ptype["cloud_spin_2_dps"];
+
+// Use raw frame dt — engine pause steps cap tick rate to ~16ms, no need to clamp here.
+let dt = frame_ms.to_float() / 1000.0;
 
 // ======================== INITIALIZATION ===================================
 
 if !(local.initialized ?? false) {
-    // Free-flight mode: bounds set so world_width()/world_height() return correct values,
-    // but no entity wrapping occurs because enable_wrap() is never called per-entity.
     world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H);
     local.initialized = true;
     local.ship_id = 0;
@@ -214,11 +246,57 @@ if !(local.initialized ?? false) {
     local.ship_hp = 3;
     local.wave = 1;
     local.game_over = false;
+    // Orbital ship state: sn = sphere normal (position), sf/sr = ship forward/right tangents.
+    // yaw_rate rotates sf/sr around sn. Camera has separate inertial lag state (cam_n, cam_up).
+    // Spawn at 3-o'clock (sn=+X), forward north (-Y on screen), right toward -Z.
+    // vfwd = ORBIT_V0 (prograde north) gives circular XY orbit visible in 2D.
+    // ship_yaw = 0 → obj.roll = 0° → mesh nose points UP (north) ✓
+    local.snx = 1.0; local.sny = 0.0; local.snz = 0.0;
+    local.sfx = 0.0; local.sfy = -1.0; local.sfz = 0.0;
+    local.srx = 0.0; local.sry = 0.0; local.srz = -1.0;
+    local.vfwd = ORBIT_V0; local.vright = 0.0;
+    local.yaw_rate = 0.0;
+    // Align visual heading with initial prograde tangent (north = 0 rad).
+    local.ship_yaw = 0.0;
+    local.cam_nx = 1.0; local.cam_ny =  0.0; local.cam_nz = 0.0;
+    local.cam_ux = 0.0; local.cam_uy = -1.0; local.cam_uz = 0.0;
+    local.cam_sway = 0.0;
+    local.thrust_hold_ms = 0.0;
+    local.thrust_release_ms = 9999.0;
+    local.main_thrust_prev = false;
+    local.bullets = #{};   // orbital bullet tracking: id_str → {snx,sny,snz,dirx,diry,dirz,speed}
     input.load_profile("default");
-    // spawn_wave(world, scene, 1); // disabled — free-flight mode
+    spawn_wave(world, scene, 1);
 }
 
 // ======================== MAIN LOOP ========================================
+
+// ── Spherical ship state (spec §3) ────────────────────────────────────────────
+// sn  = unit normal from planet center to ship (all 3 axes, always length 1)
+// vfwd/vright = speed in the local forward/right tangent directions (px/s)
+// ── Orbital state ─────────────────────────────────────────────────────────────
+// sn = unit normal from planet to ship. sf/sr = ship local forward/right tangents.
+// vfwd/vright are ship-frame tangential speeds; yaw_rate rotates sf/sr around sn.
+let snx = local.snx ?? 1.0;
+let sny = local.sny ?? 0.0;
+let snz = local.snz ?? 0.0;
+let sfx = local.sfx ?? 0.0;
+let sfy = local.sfy ?? -1.0;
+let sfz = local.sfz ?? 0.0;
+let srx = local.srx ?? 0.0;
+let sry = local.sry ?? 0.0;
+let srz = local.srz ?? -1.0;
+let vfwd   = local.vfwd   ?? 0.0;
+let vright = local.vright ?? 0.0;
+let yaw_rate = local.yaw_rate ?? 0.0;
+let ship_yaw = local.ship_yaw ?? 0.0;
+let cam_nx = local.cam_nx ?? snx;
+let cam_ny = local.cam_ny ?? sny;
+let cam_nz = local.cam_nz ?? snz;
+let cam_ux = local.cam_ux ?? sfx;
+let cam_uy = local.cam_uy ?? sfy;
+let cam_uz = local.cam_uz ?? sfz;
+let cam_sway = local.cam_sway ?? 0.0;
 
 let score     = local.score ?? 0;
 let lives     = local.lives ?? 3;
@@ -269,63 +347,295 @@ if game_over {
 let ship_id = if !respawning { ensure_ship(world) } else { 0 };
 local.ship_id = ship_id;
 
-// ── Camera & parallax — ALWAYS run (even during respawn) ─────────────────────
-// Use last known ship position so the view stays stable during the 3-second
-// respawn window.  reset_frame_state() zeros all layer offsets every frame,
-// so we must re-declare parallax offsets unconditionally.
-//
-// IMPORTANT: Round position to integer BEFORE subtracting viewport centre.
-// visual_sync rounds Transform2D into integer sprite offsets, so camera must use
-// the same rounded basis to keep ship screen-x stable at 320.
+// ── Ship tracking — ALWAYS run (even during respawn) ─────────────────────────
+// Use last known ship position so planet stays centred during the 3-second respawn window.
 let ship_x = local.last_ship_x ?? 1600.0;
 let ship_y = local.last_ship_y ?? 900.0;
+// Input axes: declared in outer scope so both ship_id blocks can use them.
+let thrust_axis = 0.0;
+let strafe_axis = 0.0;
+let yaw_axis = 0.0;
 
 if ship_id > 0 {
-    // Sync 3-D roll with ship heading so the model rotates to match movement direction.
-    // roll = -heading (radians→degrees) because OBJ +roll is CCW, game heading is CW.
-    // Guard against the one-frame window where a freshly-spawned entity is still in the
-    // command queue and not yet in the physics world (world.transform returns ()).
     let xf = world.transform(ship_id) ?? #{};
-    let h = xf["heading"] ?? 0.0;
-    // Quantize to nearest 1° to avoid cel-shading boundary shimmer: sub-degree
-    // roll changes shift 3D projection just enough to flip pixel shading bands.
-    let roll_deg = (-h * 57.29578).round();
-    scene.set("ship-" + ship_id, "obj.roll", roll_deg);
-
     ship_x = xf["x"] ?? ship_x;
     ship_y = xf["y"] ?? ship_y;
     local.last_ship_x = ship_x;
     local.last_ship_y = ship_y;
+
+    // ── Respawn reset: restore orbital state to spawn values ──────────────────
+    if local.just_spawned ?? false {
+        snx = 1.0; sny = 0.0; snz = 0.0;
+        sfx = 0.0; sfy = -1.0; sfz = 0.0;
+        srx = 0.0; sry = 0.0; srz = -1.0;
+        vfwd = ORBIT_V0; vright = 0.0;
+        yaw_rate = 0.0; ship_yaw = 0.0;
+        cam_nx = snx; cam_ny = sny; cam_nz = snz;
+        cam_ux = sfx; cam_uy = sfy; cam_uz = sfz;
+        cam_sway = 0.0;
+        local.thrust_hold_ms = 0.0;
+        local.thrust_release_ms = 9999.0;
+        local.main_thrust_prev = false;
+        local.snx = snx; local.sny = sny; local.snz = snz;
+        local.sfx = sfx; local.sfy = sfy; local.sfz = sfz;
+        local.srx = srx; local.sry = sry; local.srz = srz;
+        local.vfwd = vfwd; local.vright = vright;
+        local.yaw_rate = yaw_rate;
+        local.ship_yaw = ship_yaw;
+        local.cam_nx = cam_nx; local.cam_ny = cam_ny; local.cam_nz = cam_nz;
+        local.cam_ux = cam_ux; local.cam_uy = cam_uy; local.cam_uz = cam_uz;
+        local.bullets = #{};
+    }
+
+    // ── Step 1: read pilot axes (yaw + thrust + strafe) ───────────────────────
+    thrust_axis =
+        if input.action_down("thrust") && !input.action_down("brake") { 1.0 }
+        else if input.action_down("brake") && !input.action_down("thrust") { -1.0 }
+        else { 0.0 };
+    strafe_axis =
+        if input.action_down("strafe_right") && !input.action_down("strafe_left") { 1.0 }
+        else if input.action_down("strafe_left") && !input.action_down("strafe_right") { -1.0 }
+        else { 0.0 };
+    // Sign intentionally inverted to match expected on-screen turn direction.
+    yaw_axis =
+        if input.action_down("turn_right") && !input.action_down("turn_left") { -1.0 }
+        else if input.action_down("turn_left") && !input.action_down("turn_right") { 1.0 }
+        else { 0.0 };
+
+    // ── Step 2: RCS yaw dynamics (source of truth for rotation) ───────────────
+    yaw_rate += yaw_axis * YAW_ACCEL * dt;
+    yaw_rate *= 1.0 / (1.0 + YAW_DAMP * dt);
+    if yaw_rate > YAW_MAX { yaw_rate = YAW_MAX; }
+    if yaw_rate < -YAW_MAX { yaw_rate = -YAW_MAX; }
+    let _dyaw = yaw_rate * dt;
+    if absf(_dyaw) > 0.000001 {
+        let _rsf_yaw = rotate_axis(sfx, sfy, sfz, snx, sny, snz, _dyaw);
+        sfx = _rsf_yaw.x; sfy = _rsf_yaw.y; sfz = _rsf_yaw.z;
+        let _rsr_yaw = rotate_axis(srx, sry, srz, snx, sny, snz, _dyaw);
+        srx = _rsr_yaw.x; sry = _rsr_yaw.y; srz = _rsr_yaw.z;
+        ship_yaw += _dyaw;
+    }
+
+    // ── Step 3: translational thrust/strafe in ship tangent basis ─────────────
+    vfwd   += thrust_axis * ACC_FWD * dt;
+    vright += strafe_axis * ACC_SIDE * dt;
+    vfwd   *= 1.0 / (1.0 + LIN_DAMP * dt);
+    vright *= 1.0 / (1.0 + LIN_DAMP * dt);
+    if vfwd   >  MAX_SPD        { vfwd   =  MAX_SPD; }
+    if vfwd   < -MAX_SPD * 0.5  { vfwd   = -MAX_SPD * 0.5; }
+    if vright >  MAX_SPD        { vright =  MAX_SPD; }
+    if vright < -MAX_SPD        { vright = -MAX_SPD; }
+
+    // ── Step 4: move on sphere via geodesic transport ─────────────────────────
+    let vel3x = sfx * vfwd + srx * vright;
+    let vel3y = sfy * vfwd + sry * vright;
+    let vel3z = sfz * vfwd + srz * vright;
+    let _v2 = vel3x*vel3x + vel3y*vel3y + vel3z*vel3z;
+    if _v2 > 0.001 {
+        // Rotation axis = normalize(cross(sn, v_tan))
+        let _ax = sny*vel3z - snz*vel3y;
+        let _ay = snz*vel3x - snx*vel3z;
+        let _az = snx*vel3y - sny*vel3x;
+        let _al = sqrtf(_ax*_ax + _ay*_ay + _az*_az).max(0.0001);
+        _ax /= _al; _ay /= _al; _az /= _al;
+        let _delta = sqrtf(_v2) * dt / ORBIT_R;
+        // Parallel transport: rotate sn and sf by same geodesic step
+        let _rsn = rotate_axis(snx, sny, snz, _ax, _ay, _az, _delta);
+        snx = _rsn.x; sny = _rsn.y; snz = _rsn.z;
+        let _rsf = rotate_axis(sfx, sfy, sfz, _ax, _ay, _az, _delta);
+        sfx = _rsf.x; sfy = _rsf.y; sfz = _rsf.z;
+        // Normalize sn
+        let _nl = sqrtf(snx*snx + sny*sny + snz*snz).max(0.0001);
+        snx /= _nl; sny /= _nl; snz /= _nl;
+        // Re-orthonormalize sf against sn and rebuild sr
+        let _dsf = sfx*snx + sfy*sny + sfz*snz;
+        sfx -= snx * _dsf; sfy -= sny * _dsf; sfz -= snz * _dsf;
+        let _sfl = sqrtf(sfx*sfx + sfy*sfy + sfz*sfz).max(0.0001);
+        sfx /= _sfl; sfy /= _sfl; sfz /= _sfl;
+        srx = sfy*snz - sfz*sny;
+        sry = sfz*snx - sfx*snz;
+        srz = sfx*sny - sfy*snx;
+        let _srl = sqrtf(srx*srx + sry*sry + srz*srz).max(0.0001);
+        srx /= _srl; sry /= _srl; srz /= _srl;
+    }
+
+    // ── Step 5: reproject velocity onto updated tangent plane ──────────────────
+    let _dot_new = vel3x*snx + vel3y*sny + vel3z*snz;
+    let _vpx = vel3x - snx*_dot_new;
+    let _vpy = vel3y - sny*_dot_new;
+    let _vpz = vel3z - snz*_dot_new;
+    vfwd   = _vpx*sfx + _vpy*sfy + _vpz*sfz;
+    vright = _vpx*srx + _vpy*sry + _vpz*srz;
+
+    // ── Step 6: ship transform heading follows orbital yaw ─────────────────────
+    // obj.roll rotates the OBJ mesh on screen (entity heading does NOT affect OBJ sprites).
+    // Negative sign: roll is CCW in model space, heading is CW in screen space.
+    scene.set("ship-" + ship_id, "obj.roll", -ship_yaw * 57.29577951);
+    world.entity(ship_id).set_heading(ship_yaw);
+
+    // ── Step 7: persist orbital state ──────────────────────────────────────────
+    local.snx = snx; local.sny = sny; local.snz = snz;
+    local.sfx = sfx; local.sfy = sfy; local.sfz = sfz;
+    local.srx = srx; local.sry = sry; local.srz = srz;
+    local.vfwd = vfwd; local.vright = vright;
+    local.yaw_rate = yaw_rate;
+    local.ship_yaw = ship_yaw;
+
+    // ── Step 8: drive engine entity to sphere position ─────────────────────────
+    // Set vel = (desired - current) / dt so engine's physics step lands ship on sphere.
+    let _dx = PLANET_X + snx * ORBIT_R;
+    let _dy = PLANET_Y + sny * ORBIT_R;
+    world.set_physics(ship_id,
+        (_dx - ship_x) / dt,
+        (_dy - ship_y) / dt,
+        0.0, 0.0, 0.0, 0.0);
+}  // end if ship_id > 0
+
+// Camera follows ship — ship is always at screen centre (320, 180).
+// Use the freshly-computed orbital position (snx/sny updated this frame),
+// not the old transform position, so 2D camera matches the 3D planet camera exactly.
+let _cam_ship_x = PLANET_X + snx * ORBIT_R;
+let _cam_ship_y = PLANET_Y + sny * ORBIT_R;
+world.set_camera(_cam_ship_x - 320.0, _cam_ship_y - 180.0);
+
+
+// ── Planet axial self-rotation (independent of camera/orbit) ──────────────────
+local.planet_self_yaw  = (local.planet_self_yaw  ?? 0.0) + PLANET_SPIN_DPS  * dt;
+local.cloud_self_yaw   = (local.cloud_self_yaw   ?? 0.0) + CLOUD_SPIN_DPS   * dt;
+local.cloud_self_yaw_2 = (local.cloud_self_yaw_2 ?? 90.0) + CLOUD2_SPIN_DPS * dt;
+
+// ── Planet cockpit camera with inertial lag (gimbal feel) ─────────────────────
+// Camera follows orbital basis with delayed response (no hard snapping on turn).
+let _cam_dist_surface  = 2.6;
+let _cam_dist_clouds   = 2.45;
+let _cam_dist_clouds_2 = 2.38;
+let _cam_valid = snx*snx + sny*sny + snz*snz > 0.01;
+if _cam_valid {
+    // Always aim exactly at ship: camera normal follows ship normal without delay.
+    cam_nx = snx; cam_ny = sny; cam_nz = snz;
+
+    // Delay only orientation around view axis (gimbal lag feel).
+    let _alpha_u = dt / (CAM_UP_TAU + dt);
+    cam_ux += (sfx - cam_ux) * _alpha_u;
+    cam_uy += (sfy - cam_uy) * _alpha_u;
+    cam_uz += (sfz - cam_uz) * _alpha_u;
+    let _ud = cam_ux*cam_nx + cam_uy*cam_ny + cam_uz*cam_nz;
+    cam_ux -= cam_nx * _ud; cam_uy -= cam_ny * _ud; cam_uz -= cam_nz * _ud;
+    let _cul = sqrtf(cam_ux*cam_ux + cam_uy*cam_uy + cam_uz*cam_uz).max(0.0001);
+    cam_ux /= _cul; cam_uy /= _cul; cam_uz /= _cul;
+
+    // Gentle delayed gimbal sway driven by yaw rate (bank-like camera response).
+    let _target_sway = (-yaw_rate * CAM_SWAY_GAIN).max(-0.20).min(0.20);
+    let _alpha_s = dt / (CAM_SWAY_TAU + dt);
+    cam_sway += (_target_sway - cam_sway) * _alpha_s;
+    let _swu = rotate_axis(cam_ux, cam_uy, cam_uz, -cam_nx, -cam_ny, -cam_nz, cam_sway);
+    cam_ux = _swu.x; cam_uy = _swu.y; cam_uz = _swu.z;
+}
+let _vfx = -cam_nx;  let _vfy = -cam_ny;  let _vfz = -cam_nz;
+let _vux = cam_ux;   let _vuy = cam_uy;   let _vuz = cam_uz;
+let _vrx = cam_uz*cam_ny - cam_uy*cam_nz;
+let _vry = cam_ux*cam_nz - cam_uz*cam_nx;
+let _vrz = cam_uy*cam_nx - cam_ux*cam_ny;
+local.cam_nx = cam_nx; local.cam_ny = cam_ny; local.cam_nz = cam_nz;
+local.cam_ux = cam_ux; local.cam_uy = cam_uy; local.cam_uz = cam_uz;
+local.cam_sway = cam_sway;
+
+// Planet body + atmosphere: camera at sn * 2.6
+let _cwx_s = cam_nx * _cam_dist_surface;
+let _cwy_s = cam_ny * _cam_dist_surface;
+let _cwz_s = cam_nz * _cam_dist_surface;
+// Cloud layer 1: camera at sn * 2.45
+let _cwx_c = cam_nx * _cam_dist_clouds;
+let _cwy_c = cam_ny * _cam_dist_clouds;
+let _cwz_c = cam_nz * _cam_dist_clouds;
+// Cloud layer 2: camera at sn * 2.38
+let _cwx_c2 = cam_nx * _cam_dist_clouds_2;
+let _cwy_c2 = cam_ny * _cam_dist_clouds_2;
+let _cwz_c2 = cam_nz * _cam_dist_clouds_2;
+
+// Apply camera override to all planet sprites (surface, clouds).
+// When ship is not yet alive, leave cam_world unset → default identity camera is used.
+if _cam_valid {
+    scene.set("planet-bg-sphere", "obj.cam.wx", _cwx_s);
+    scene.set("planet-bg-sphere", "obj.cam.wy", _cwy_s);
+    scene.set("planet-bg-sphere", "obj.cam.wz", _cwz_s);
+    scene.set("planet-bg-sphere", "obj.view.rx", _vrx);  scene.set("planet-bg-sphere", "obj.view.ry", _vry);  scene.set("planet-bg-sphere", "obj.view.rz", _vrz);
+    scene.set("planet-bg-sphere", "obj.view.ux", _vux);  scene.set("planet-bg-sphere", "obj.view.uy", _vuy);  scene.set("planet-bg-sphere", "obj.view.uz", _vuz);
+    scene.set("planet-bg-sphere", "obj.view.fx", _vfx);  scene.set("planet-bg-sphere", "obj.view.fy", _vfy);  scene.set("planet-bg-sphere", "obj.view.fz", _vfz);
+    scene.set("planet-clouds", "obj.cam.wx", _cwx_c);
+    scene.set("planet-clouds", "obj.cam.wy", _cwy_c);
+    scene.set("planet-clouds", "obj.cam.wz", _cwz_c);
+    scene.set("planet-clouds", "obj.view.rx", _vrx);  scene.set("planet-clouds", "obj.view.ry", _vry);  scene.set("planet-clouds", "obj.view.rz", _vrz);
+    scene.set("planet-clouds", "obj.view.ux", _vux);  scene.set("planet-clouds", "obj.view.uy", _vuy);  scene.set("planet-clouds", "obj.view.uz", _vuz);
+    scene.set("planet-clouds", "obj.view.fx", _vfx);  scene.set("planet-clouds", "obj.view.fy", _vfy);  scene.set("planet-clouds", "obj.view.fz", _vfz);
+    // Cloud layer 2
+    scene.set("planet-clouds-2", "obj.cam.wx", _cwx_c2);
+    scene.set("planet-clouds-2", "obj.cam.wy", _cwy_c2);
+    scene.set("planet-clouds-2", "obj.cam.wz", _cwz_c2);
+    scene.set("planet-clouds-2", "obj.view.rx", _vrx);  scene.set("planet-clouds-2", "obj.view.ry", _vry);  scene.set("planet-clouds-2", "obj.view.rz", _vrz);
+    scene.set("planet-clouds-2", "obj.view.ux", _vux);  scene.set("planet-clouds-2", "obj.view.uy", _vuy);  scene.set("planet-clouds-2", "obj.view.uz", _vuz);
+    scene.set("planet-clouds-2", "obj.view.fx", _vfx);  scene.set("planet-clouds-2", "obj.view.fy", _vfy);  scene.set("planet-clouds-2", "obj.view.fz", _vfz);
 }
 
-// Round FIRST (matching visual_sync's round()), then subtract viewport half-size
-// → camera perfectly tracks entity offset.
-let ship_px = ship_x.round().to_int();
-let ship_py = ship_y.round().to_int();
-let cam_x = (ship_px - 320).to_float();
-let cam_y = (ship_py - 180).to_float();
-world.set_camera(cam_x, cam_y);
+// Self-rotation only: obj.yaw = planet's own axial spin (no orbital omega_z needed).
+// Planet axial tilt is fixed at -14° pitch (set in YAML; don't override it here).
+let surface_yaw  = local.planet_self_yaw  ?? 0.0;
+let cloud_yaw    = local.cloud_self_yaw   ?? 0.0;
+let cloud_yaw_2  = local.cloud_self_yaw_2 ?? 90.0;
+scene.set("planet-bg-sphere", "obj.yaw", surface_yaw);
+scene.set("planet-clouds",    "obj.yaw", cloud_yaw);
+scene.set("planet-clouds-2",  "obj.yaw", cloud_yaw_2);
 
-let rest_cam_x = (WORLD_W * 0.5).round().to_int() - 320;
-let rest_cam_y = (WORLD_H * 0.5).round().to_int() - 180;
-let dx = ship_px - 320 - rest_cam_x;
-let dy = ship_py - 180 - rest_cam_y;
-// One unified Scene3D background; final offset is applied below with drift.
+// ── Gravity on asteroid bodies ────────────────────────────────────────────────
+// Simple centripetal pull toward planet. G chosen so v≈56 at r=180.
+let AST_G = 565000.0;
+for grav_id in world.query_tag("asteroid") {
+    let gxf = world.transform(grav_id) ?? #{};
+    let egx = PLANET_X - (gxf["x"] ?? PLANET_X);
+    let egy = PLANET_Y - (gxf["y"] ?? PLANET_Y);
+    let edist = sqrtf(egx * egx + egy * egy).max(SURFACE_RADIUS);
+    let egrav = AST_G / (edist * edist);
+    let ephys = world.physics(grav_id);
+    if type_of(ephys) == "map" {
+        world.set_physics(grav_id,
+            (ephys["vx"] ?? 0.0) + egx / edist * egrav * dt,
+            (ephys["vy"] ?? 0.0) + egy / edist * egrav * dt,
+            ephys["ax"] ?? 0.0, ephys["ay"] ?? 0.0,
+            ephys["drag"] ?? 0.0, ephys["max_speed"] ?? 0.0);
+    }
+}
+
+// ── Orbital telemetry HUD ─────────────────────────────────────────────────────
+// Speed in km/h using world scale: 1 px = KM_PER_PX km, time compressed by WORLD_TIME_SCALE.
+let _speed_px_s = sqrtf(vfwd*vfwd + vright*vright);
+let _speed_kmh  = (_speed_px_s * KM_PER_PX / WORLD_TIME_SCALE * 3600.0).to_int();
+let _alt_km     = ((ORBIT_R - SURFACE_RADIUS) * KM_PER_PX).to_int();
+let hud_alt     = "ALT  " + _alt_km + " km";
+let hud_spd     = "SPD  " + _speed_kmh + " km/h";
+// Orbital status baseline: circular orbit at ORBIT_R with 5-minute period.
+let _v_circ_kmh = (ORBIT_V0 * KM_PER_PX / WORLD_TIME_SCALE * 3600.0).to_int();
+let hud_status = if _speed_kmh > _v_circ_kmh * 2 { "FAST!" }
+                 else if _speed_kmh > _v_circ_kmh + 5000 { "FAST" }
+                 else if _speed_kmh < 1000 { "SLOW" }
+                 else { "ORBIT ✓" };
+scene.set("hud-orbital-alt",    "content", hud_alt);
+scene.set("hud-orbital-spd",    "content", hud_spd);
+scene.set("hud-orbital-status", "content", hud_status);
 
 if ship_id > 0 {
-    let xf = world.transform(ship_id) ?? #{};
-    let h = xf["heading"] ?? 0.0;
-
-    // ── Ship polygon collider — 6-point hull rotated by heading each frame ────
-    // Body-frame hull outline: derived from ship.obj vertex projections onto the
-    // 28×28 canvas (nose=top, wings=bottom). Offsets are from entity_pos center.
+    // ── Ship collider follows orbital yaw orientation ──────────────────────────
     let BASE_HULL = [[0.0, -6.9], [2.65, 5.39], [7.4, 6.9], [0.0, 2.7], [-7.4, 6.9], [-2.65, 5.39]];
-    let ch = cos(h); let sh = sin(h);
-    let hull_pts = [];
-    for p in BASE_HULL {
-        hull_pts.push([ch * p[0] - sh * p[1], sh * p[0] + ch * p[1]]);
-    }
-    world.entity(ship_id).physics.set_collider_polygon(hull_pts, 1, 6);
+    let _ch = cos(ship_yaw);
+    let _sh = sin(ship_yaw);
+    let HULL = [
+        [BASE_HULL[0][0] * _ch - BASE_HULL[0][1] * _sh, BASE_HULL[0][0] * _sh + BASE_HULL[0][1] * _ch],
+        [BASE_HULL[1][0] * _ch - BASE_HULL[1][1] * _sh, BASE_HULL[1][0] * _sh + BASE_HULL[1][1] * _ch],
+        [BASE_HULL[2][0] * _ch - BASE_HULL[2][1] * _sh, BASE_HULL[2][0] * _sh + BASE_HULL[2][1] * _ch],
+        [BASE_HULL[3][0] * _ch - BASE_HULL[3][1] * _sh, BASE_HULL[3][0] * _sh + BASE_HULL[3][1] * _ch],
+        [BASE_HULL[4][0] * _ch - BASE_HULL[4][1] * _sh, BASE_HULL[4][0] * _sh + BASE_HULL[4][1] * _ch],
+        [BASE_HULL[5][0] * _ch - BASE_HULL[5][1] * _sh, BASE_HULL[5][0] * _sh + BASE_HULL[5][1] * _ch],
+    ];
+    world.entity(ship_id).physics.set_collider_polygon(HULL, 1, 6);
 
     // ── Warp-in materialisation on first frame after respawn ──────────────────
     if local.just_spawned ?? false {
@@ -354,40 +664,129 @@ if ship_id > 0 {
     //     });
     // }
 
-    rcs::update_ship_controls(world, input, ship_id, col);
+    // ── Original-style orbital VFX orchestration (main/bow/port/starboard) ────
+    let _thrust_now  = thrust_axis > 0.0;
+    let _hold_ms = if _thrust_now {
+        (local.thrust_hold_ms ?? 0.0) + frame_ms.to_float()
+    } else { 0.0 };
+    let _release_ms = if _thrust_now {
+        0.0
+    } else {
+        ((local.thrust_release_ms ?? 9999.0) + frame_ms.to_float()).min(9999.0)
+    };
+    local.thrust_hold_ms = _hold_ms;
+    local.thrust_release_ms = _release_ms;
+    local.main_thrust_prev = _thrust_now;
+    let _ship_speed = sqrtf(vfwd * vfwd + vright * vright);
+
+    rcs::update_orbital_vfx_original_style(
+        world,
+        ship_id,
+        thrust_axis,
+        yaw_axis,
+        yaw_rate,
+        _hold_ms,
+        _release_ms,
+        vfwd,
+        vright,
+        _ship_speed,
+        col
+    );
 
     // ── Shooting ─────────────────────────────────────────────────────────────
     if input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
-        let bullet_id = world.spawn_from_heading(ship_id, "bullet", #{
-            speed: 960.0, offset: 17.0, ttl_ms: 1000, inherit_velocity: true
+        // Spawn bullet along current ship forward tangent.
+        let bullet_id = world.spawn_prefab("bullet", #{
+            x: ship_x + sfx * 17.0,
+            y: ship_y + sfy * 17.0,
+            vx: 0.0, vy: 0.0,
+            heading: ship_yaw, ttl_ms: 1800,
         });
+        // Store orbital state: bullet carries full ship tangential velocity + muzzle speed.
+        // Full vel3 = sf*(muzzle + vfwd) + sr*vright, then normalize to get direction and speed.
+        let _bvx = sfx * (24.0 + vfwd) + srx * vright;
+        let _bvy = sfy * (24.0 + vfwd) + sry * vright;
+        let _bvz = sfz * (24.0 + vfwd) + srz * vright;
+        let _bspd = sqrtf(_bvx*_bvx + _bvy*_bvy + _bvz*_bvz).max(0.1);
+        let _bullets = local.bullets ?? #{};
+        _bullets[bullet_id + ""] = #{
+            snx: snx, sny: sny, snz: snz,
+            dirx: _bvx / _bspd, diry: _bvy / _bspd, dirz: _bvz / _bspd,
+            speed: _bspd,
+        };
+        local.bullets = _bullets;
         world.entity(ship_id).cooldown_start("fire", 180);
 
-        // ── Recoil — small backward kick on each shot (Newton's 3rd law) ─────
-        let phys = world.physics(ship_id);
-        if type_of(phys) == "map" {
-            let recoil = 14.0;
-            world.set_physics(ship_id,
-                (phys["vx"] ?? 0.0) - sin(h) * recoil,
-                (phys["vy"] ?? 0.0) + cos(h) * recoil,
-                phys["ax"] ?? 0.0, phys["ay"] ?? 0.0,
-                phys["drag"] ?? 0.0, phys["max_speed"] ?? 0.0);
-        }
+        // Recoil: backward kick in orbital tangent frame
+        vfwd -= 14.0;
+        if vfwd < -MAX_SPD * 0.5 { vfwd = -MAX_SPD * 0.5; }
+        local.vfwd = vfwd;
     }
-    // ── Bullet trail — luminous glow particles streaming behind each bullet ──────
-    for bullet_id in world.query_tag("bullet") {
-        world.emit("bullet.trail", bullet_id, #{
-            count: 4, color_ramp: col.ramp_bullet_trail
-        });
+
+    // ── Orbital bullet update — move each bullet along the sphere ─────────────
+    let _alive_bullets = world.query_tag("bullet");
+    let _old_b = local.bullets ?? #{};
+    let _new_b = #{};
+    for _bid in _alive_bullets {
+        let _bkey = _bid + "";
+        let _bs = _old_b[_bkey] ?? ();
+        if type_of(_bs) != "map" { continue; }  // not an orbital bullet, skip
+
+        let _bsnx = _bs["snx"] ?? 0.0;
+        let _bsny = _bs["sny"] ?? -1.0;
+        let _bsnz = _bs["snz"] ?? 0.0;
+        let _bdx  = _bs["dirx"] ?? 1.0;
+        let _bdy  = _bs["diry"] ?? 0.0;
+        let _bdz  = _bs["dirz"] ?? 0.0;
+        let _bspd = _bs["speed"] ?? 28.0;
+
+        // Normalize sn
+        let _bnl = sqrtf(_bsnx*_bsnx + _bsny*_bsny + _bsnz*_bsnz).max(0.0001);
+        _bsnx /= _bnl; _bsny /= _bnl; _bsnz /= _bnl;
+        // Project dir onto tangent plane
+        let _bdd = _bdx*_bsnx + _bdy*_bsny + _bdz*_bsnz;
+        _bdx -= _bsnx*_bdd; _bdy -= _bsny*_bdd; _bdz -= _bsnz*_bdd;
+        let _bdl = sqrtf(_bdx*_bdx + _bdy*_bdy + _bdz*_bdz).max(0.0001);
+        _bdx /= _bdl; _bdy /= _bdl; _bdz /= _bdl;
+
+        // Geodesic rotation axis = cross(sn, dir) (already tangential, just normalize)
+        let _bax = _bsny*_bdz - _bsnz*_bdy;
+        let _bay = _bsnz*_bdx - _bsnx*_bdz;
+        let _baz = _bsnx*_bdy - _bsny*_bdx;
+        let _bal = sqrtf(_bax*_bax + _bay*_bay + _baz*_baz).max(0.0001);
+        _bax /= _bal; _bay /= _bal; _baz /= _bal;
+
+        let _bdang = _bspd * dt / ORBIT_R;
+        let _brsn = rotate_axis(_bsnx, _bsny, _bsnz, _bax, _bay, _baz, _bdang);
+        _bsnx = _brsn.x; _bsny = _brsn.y; _bsnz = _brsn.z;
+        let _brdir = rotate_axis(_bdx, _bdy, _bdz, _bax, _bay, _baz, _bdang);
+        _bdx = _brdir.x; _bdy = _brdir.y; _bdz = _brdir.z;
+
+        let _bx = PLANET_X + _bsnx * ORBIT_R;
+        let _by = PLANET_Y + _bsny * ORBIT_R;
+        let _bxf = world.transform(_bid) ?? #{};
+        let _bpx = _bxf["x"] ?? _bx;
+        let _bpy = _bxf["y"] ?? _by;
+        world.set_physics(_bid, (_bx - _bpx) / dt, (_by - _bpy) / dt, 0.0, 0.0, 0.0, 0.0);
+
+        // Trail VFX
+        world.emit("bullet.trail", _bid, #{ count: 4, color_ramp: col.ramp_bullet_trail });
+
+        _new_b[_bkey] = #{
+            snx: _bsnx, sny: _bsny, snz: _bsnz,
+            dirx: _bdx, diry: _bdy, dirz: _bdz,
+            speed: _bspd,
+        };
     }
+    local.bullets = _new_b;
 }
 
-// ── Wave complete check — DISABLED in free-flight mode ───────────────────────
-// if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respawning {
-//     wave = wave + 1;
-//     local.wave = wave;
-//     spawn_wave(world, scene, wave);
-// }
+// ── Wave complete check ───────────────────────────────────────────────────────
+if world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respawning {
+    wave = wave + 1;
+    local.wave = wave;
+    spawn_wave(world, scene, wave);
+}
 
 // ── Collision handling ────────────────────────────────────────────────────────
 // bullet hits asteroid — emit debris, score, split
@@ -612,20 +1011,6 @@ if !invincible && ship_id > 0 {
         break;
     }
 }
-
-// ── Unified Scene3D background motion ───────────────────────────────────────
-// `solar-orbit` clip is prerendered as 96 keyframes: solar-orbit-0..95.
-let t = scene_elapsed_ms.to_float() / 1000.0;
-let orbit_frames = 96;
-let orbit_cycle_ms = 24000;
-let orbit_frame = ((scene_elapsed_ms % orbit_cycle_ms) * orbit_frames) / orbit_cycle_ms;
-scene.set("solar-bg", "scene3d.frame", `solar-orbit-${orbit_frame}`);
-
-// Add slow astronomical drift so the background is not mechanically static.
-let drift_x = sin(t * 0.018) * 4.0;
-let drift_y = cos(t * 0.014) * 2.4;
-scene.set("solar-bg", "offset.x", -dx * 0.0040 + drift_x);
-scene.set("solar-bg", "offset.y", -dy * 0.0030 + drift_y);
 
 // ── Frame diagnostic — sampled every 120 frames (~2 sec @ 60fps) ──────────────
 let frame_n = (local.diag_frame ?? 0) + 1;

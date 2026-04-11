@@ -2,6 +2,7 @@
 
 pub mod artifact;
 pub mod blur;
+pub mod lens_blur;
 pub mod brighten;
 pub mod clear_to_colour;
 pub mod crt_burn_in;
@@ -29,6 +30,7 @@ pub mod whiteout;
 
 pub use artifact::ArtifactOutEffect;
 pub use blur::BlurEffect;
+pub use lens_blur::LensBlurEffect;
 pub use brighten::BrightenEffect;
 pub use clear_to_colour::ClearToColourEffect;
 pub use crt_burn_in::CrtBurnInEffect;
@@ -162,6 +164,10 @@ pub static BUILTIN_EFFECTS: &[BuiltinEffectDefinition] = &[
     BuiltinEffectDefinition {
         name: "lightning-optical-80s",
         constructor: || Box::new(LightningOptical80sEffect),
+    },
+    BuiltinEffectDefinition {
+        name: "lens-blur",
+        constructor: || Box::new(LensBlurEffect),
     },
     BuiltinEffectDefinition {
         name: "neon-edge-glow",

@@ -101,5 +101,5 @@ the engine spawns this automatically — no manual run needed during gameplay.
 ## see also
 
 - [engine-io/README.md](../../../../engine-io/README.md) — ipc protocol
-- [docs/scripts.md](../docs/scripts.md) — prologue quest design
+- [docs/scripts.md](../../docs/scripts.md) — prologue quest design
 - [AGENTS.md](../../../../AGENTS.md) — change playbook for sidecar code

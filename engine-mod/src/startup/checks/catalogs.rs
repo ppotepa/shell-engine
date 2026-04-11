@@ -51,13 +51,15 @@ impl StartupCheck for CatalogsCheck {
         report.add_info(
             self.name(),
             format!(
-                "catalogs loaded successfully ({} profiles, {} prefabs, {} weapons, {} emitters, {} groups, {} waves)",
+                "catalogs loaded successfully ({} profiles, {} prefabs, {} weapons, {} emitters, {} groups, {} waves, {} planet_types, {} bodies)",
                 catalogs.input_profiles.len(),
                 catalogs.prefabs.len(),
                 catalogs.weapons.len(),
                 catalogs.emitters.len(),
                 catalogs.groups.len(),
                 catalogs.waves.len(),
+                catalogs.planet_types.len(),
+                catalogs.bodies.len(),
             ),
         );
 

@@ -1,0 +1,75 @@
+# Planet visual presets catalog.
+# Each entry under planet_types defines a reusable archetype for the 3D OBJ planet renderer.
+# Bodies in bodies.yaml reference these types by id.
+
+planet_types:
+  earth_like:
+    # Surface
+    ocean_color: "#0b2748"
+    land_color: "#4f6b3d"
+    terrain_threshold: 0.585
+    terrain_noise_scale: 2.15
+    terrain_noise_octaves: 4
+    marble_depth: 0.018
+    ambient: 0.055
+    latitude_bands: 5
+    latitude_band_depth: 0.08
+    # Biomes
+    polar_ice_color: "#ddeeff"
+    polar_ice_start: 0.78
+    polar_ice_end: 0.93
+    desert_color: "#a08050"
+    desert_strength: 0.55
+    # Atmosphere
+    atmo_color: "#4a90d9"
+    atmo_strength: 0.22
+    atmo_rim_power: 4.8
+    # Night lights
+    night_light_color: "#e8c46a"
+    night_light_threshold: 0.84
+    night_light_intensity: 0.55
+    # Sun direction (must match light-direction-* in planet-bg-layer.yml)
+    sun_dir_x: 0.72
+    sun_dir_y: -0.56
+    sun_dir_z: 0.40
+    # Self-rotation speeds (degrees per second)
+    surface_spin_dps: 0.06
+    cloud_spin_dps: 0.10
+    cloud_spin_2_dps: 0.08
+    # Cloud layer visuals
+    cloud_threshold: 0.68
+    cloud_noise_scale: 3.8
+    cloud_noise_octaves: 3
+    # Shading palette
+    shadow_color: "#030d1a"
+    midtone_color: "#0f2d50"
+    highlight_color: "#5ab8d4"
+
+  rocky_moon:
+    ocean_color: "#3a3530"
+    land_color: "#6a6460"
+    terrain_threshold: 0.62
+    terrain_noise_scale: 3.5
+    terrain_noise_octaves: 5
+    marble_depth: 0.006
+    ambient: 0.04
+    latitude_bands: 0
+    latitude_band_depth: 0.0
+    # No biomes — barren rock
+    desert_strength: 0.0
+    atmo_strength: 0.0
+    night_light_intensity: 0.0
+    # Light — slightly warmer (reflected from nearby planet)
+    sun_dir_x: 0.72
+    sun_dir_y: -0.56
+    sun_dir_z: 0.40
+    # No rotation
+    surface_spin_dps: 0.0
+    cloud_spin_dps: 0.0
+    cloud_spin_2_dps: 0.0
+    cloud_threshold: 0.99
+    cloud_noise_scale: 1.0
+    cloud_noise_octaves: 1
+    shadow_color: "#1a1510"
+    midtone_color: "#4a4440"
+    highlight_color: "#b0a898"

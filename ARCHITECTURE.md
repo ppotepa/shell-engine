@@ -161,6 +161,19 @@ Scenes are authored in YAML. The `engine-authoring` crate compiles raw YAML into
 the normalized `Scene` model consumed by the runtime. Scene packages split layers,
 sprites, and effects into partial YAML files merged at load time.
 
+### Scene3D Render Path
+
+Scene3D assets now have two complementary runtime surfaces:
+
+- **`Scene3DAtlas`**: pre-baked buffers for static named frames.
+- **`Scene3DRuntimeStore`**: parsed Scene3D definitions kept live for clip frames.
+
+During compositing, static Scene3D frame ids blit directly from the atlas. Bare
+clip ids such as `solar-orbit` are instead evaluated against the current
+`elapsed_ms` and rendered on demand from the runtime store, which keeps clip
+tweens, orbit motion, and vertical reveal masks (`clip_y_min/max`) live without
+forcing authors to reference generated `clip-0..N` frame names.
+
 ## 6. Buffer Architecture
 
 The rendering pipeline uses a double-buffer with dirty tracking:
@@ -286,7 +299,6 @@ validation in editors.
 |---------|---------|
 | `cargo run -p schema-gen -- --all-mods` | Regenerate all schemas |
 | `cargo run -p schema-gen -- --all-mods --check` | Drift check (CI) |
-| `./refresh-schemas.sh` | Helper script |
 
 ## 12. Editor Architecture
 

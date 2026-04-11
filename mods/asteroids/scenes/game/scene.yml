@@ -1,6 +1,6 @@
 id: asteroids-game
 title: Asteroids Game
-bg: "#060620"
+bg: "#000000"
 objects:
   - { ref: ship }
   - { ref: bullet }
@@ -10,7 +10,9 @@ objects:
   - { ref: asteroid-small }
   - { ref: debris }
 layers:
-  - ref: game/layers/solar-scene3d-layer.yml
+  - ref: game/layers/stars-layer.yml
+  - ref: game/layers/planet-bg-layer.yml
+  - ref: game/layers/game-canvas.yml
   - ref: game/layers/hud-grid.yml
 logic:
   kind: script

@@ -1,0 +1,11 @@
+- name: saturn-3d
+  z_index: -30
+  ui: true
+  sprites:
+    - type: scene3_d
+      id: saturn-bg
+      src: /assets/3d/saturn-test.scene3d.yml
+      frame: saturn-orbit
+      x: 0
+      y: 0
+      z_index: 0

@@ -51,6 +51,7 @@ pub mod runtime_settings;
 pub mod scene3d_atlas;
 pub mod scene3d_format;
 pub mod scene3d_resolve;
+pub mod scene3d_runtime_store;
 mod scene_loader;
 pub mod scene_pipeline;
 pub mod scene_runtime;

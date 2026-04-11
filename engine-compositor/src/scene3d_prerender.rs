@@ -13,6 +13,7 @@ use engine_core::buffer::Buffer;
 use engine_core::logging;
 use engine_core::scene::{Layer, Scene, SceneRenderedMode, Sprite};
 
+use crate::scene3d_runtime_store::{Scene3DRuntimeEntry, Scene3DRuntimeStore};
 use crate::{
     blit_color_canvas, render_obj_to_shared_buffers, virtual_dimensions, ObjRenderParams,
     Scene3DAtlas,
@@ -129,6 +130,40 @@ fn collect_sources_from_sprites(
     }
 }
 
+fn look_at_basis(eye: [f32; 3], target: [f32; 3]) -> ([f32; 3], [f32; 3], [f32; 3]) {
+    let fwd = {
+        let d = [
+            target[0] - eye[0],
+            target[1] - eye[1],
+            target[2] - eye[2],
+        ];
+        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
+            .sqrt()
+            .max(1e-6);
+        [d[0] / len, d[1] / len, d[2] / len]
+    };
+    // right = normalize(cross(fwd, world_up))
+    let right = {
+        let wu = [0.0f32, 1.0, 0.0];
+        let d = [
+            fwd[1] * wu[2] - fwd[2] * wu[1],
+            fwd[2] * wu[0] - fwd[0] * wu[2],
+            fwd[0] * wu[1] - fwd[1] * wu[0],
+        ];
+        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
+            .sqrt()
+            .max(1e-6);
+        [d[0] / len, d[1] / len, d[2] / len]
+    };
+    // up = cross(right, fwd)
+    let up = [
+        right[1] * fwd[2] - right[2] * fwd[1],
+        right[2] * fwd[0] - right[0] * fwd[2],
+        right[0] * fwd[1] - right[1] * fwd[0],
+    ];
+    (right, up, fwd)
+}
+
 struct WorkItem {
     src: String,
     frame_id: String,
@@ -167,6 +202,7 @@ fn build_work_items(
                     &def.materials,
                     &def.camera,
                     &light_params,
+                    None,
                     &[],
                     0.0,
                 );
@@ -193,6 +229,7 @@ fn build_work_items(
                         &def.materials,
                         &def.camera,
                         &light_params,
+                        clip_def.clip.orbit_origin,
                         &clip_def.clip.tweens,
                         t,
                     );
@@ -220,10 +257,13 @@ struct LightParams {
     point1_intensity: f32,
     point1_colour: Option<Color>,
     point1_snap_hz: f32,
+    point1_falloff: f32,
     point2: [f32; 3],
     point2_intensity: f32,
     point2_colour: Option<Color>,
     point2_snap_hz: f32,
+    point2_falloff: f32,
+    ambient: f32,
 }
 
 fn extract_light_params(lights: &[LightDef]) -> LightParams {
@@ -235,10 +275,13 @@ fn extract_light_params(lights: &[LightDef]) -> LightParams {
         point1_intensity: 0.0,
         point1_colour: None,
         point1_snap_hz: 0.0,
+        point1_falloff: 0.7,
         point2: [0.0, 0.0, 0.0],
         point2_intensity: 0.0,
         point2_colour: None,
         point2_snap_hz: 0.0,
+        point2_falloff: 0.7,
+        ambient: 0.0,
     };
 
     let mut dir_count = 0u8;
@@ -264,16 +307,21 @@ fn extract_light_params(lights: &[LightDef]) -> LightParams {
                     p.point1_intensity = light.intensity;
                     p.point1_colour = colour;
                     p.point1_snap_hz = light.snap_hz;
+                    p.point1_falloff = light.falloff_constant;
                     point_count += 1;
                 } else if point_count == 1 {
                     p.point2 = pos;
                     p.point2_intensity = light.intensity;
                     p.point2_colour = colour;
                     p.point2_snap_hz = light.snap_hz;
+                    p.point2_falloff = light.falloff_constant;
                     point_count += 1;
                 }
             }
-            LightKind::Ambient => {}
+            LightKind::Ambient => {
+                // Sum multiple ambient sources; max avoids unintended brightness stacking.
+                p.ambient = (p.ambient + light.intensity).min(1.0);
+            }
         }
     }
 
@@ -286,6 +334,7 @@ fn build_object_specs(
     materials: &HashMap<String, MaterialDef>,
     camera: &CameraDef,
     lights: &LightParams,
+    clip_orbit_origin: Option<[f32; 3]>,
     tweens: &[TweenDef],
     t: f32,
 ) -> Vec<ObjectRenderSpec> {
@@ -298,6 +347,47 @@ fn build_object_specs(
             .or_default()
             .insert(tw.property.clone(), value);
     }
+
+    // ── Camera orbit tween support ──────────────────────────────────────────
+    // Object id "camera" with property "orbit_angle_deg" rotates the camera
+    // around camera.look_at in the horizontal plane, preserving radial distance
+    // and elevation angle from the initial position.
+    let base_cam_pos = camera.position.unwrap_or([0.0, 0.0, camera.distance]);
+    let effective_cam_pos =
+        if let (Some(cam_tw), Some(look_at)) = (tween_values.get("camera"), camera.look_at) {
+            if let Some(&orbit_angle_deg) = cam_tw.get("orbit_angle_deg") {
+                let dx = base_cam_pos[0] - look_at[0];
+                let dy = base_cam_pos[1] - look_at[1];
+                let dz = base_cam_pos[2] - look_at[2];
+                let horiz_r = (dx * dx + dz * dz).sqrt();
+                let elevation = dy.atan2(horiz_r);      // preserve vertical angle
+                let base_phase = dz.atan2(dx);           // initial azimuth
+                let theta = base_phase + orbit_angle_deg.to_radians();
+                let total_r = (dx * dx + dy * dy + dz * dz).sqrt();
+                [
+                    look_at[0] + total_r * elevation.cos() * theta.cos(),
+                    look_at[1] + total_r * elevation.sin(),
+                    look_at[2] + total_r * elevation.cos() * theta.sin(),
+                ]
+            } else {
+                base_cam_pos
+            }
+        } else {
+            base_cam_pos
+        };
+
+    let camera_distance = (effective_cam_pos[0].powi(2)
+        + effective_cam_pos[1].powi(2)
+        + effective_cam_pos[2].powi(2))
+    .sqrt()
+    .max(camera.distance.abs());
+
+    let (global_view_right, global_view_up, global_view_forward) =
+        if let Some(look_at) = camera.look_at {
+            look_at_basis(effective_cam_pos, look_at)
+        } else {
+            ([1.0f32, 0.0, 0.0], [0.0f32, 1.0, 0.0], [0.0f32, 0.0, 1.0])
+        };
 
     objects
         .iter()
@@ -331,12 +421,52 @@ fn build_object_specs(
                 .and_then(|m| m.get("translation_z"))
                 .copied()
                 .unwrap_or(base_translation[2]);
+            let orbit_angle_deg = obj_tweens.and_then(|m| m.get("orbit_angle_deg")).copied();
+
+            let (translation_x, translation_y, translation_z) = if let Some(orbit_angle_deg) =
+                orbit_angle_deg
+            {
+                let origin = clip_orbit_origin.unwrap_or([0.0, 0.0, 0.0]);
+                let orbit_center_x = obj_tweens
+                    .and_then(|m| m.get("orbit_center_x"))
+                    .copied()
+                    .unwrap_or(origin[0]);
+                let orbit_center_y = obj_tweens
+                    .and_then(|m| m.get("orbit_center_y"))
+                    .copied()
+                    .unwrap_or(origin[1]);
+                let orbit_center_z = obj_tweens
+                    .and_then(|m| m.get("orbit_center_z"))
+                    .copied()
+                    .unwrap_or(origin[2]);
+
+                let dx0 = translation_x - orbit_center_x;
+                let dz0 = translation_z - orbit_center_z;
+                let derived_radius = (dx0 * dx0 + dz0 * dz0).sqrt();
+                let orbit_radius = obj_tweens
+                    .and_then(|m| m.get("orbit_radius"))
+                    .copied()
+                    .unwrap_or(derived_radius);
+                let orbit_phase_deg = obj_tweens
+                    .and_then(|m| m.get("orbit_phase_deg"))
+                    .copied()
+                    .unwrap_or_else(|| dz0.atan2(dx0).to_degrees());
+
+                let theta = (orbit_phase_deg + orbit_angle_deg).to_radians();
+                (
+                    orbit_center_x + orbit_radius * theta.cos(),
+                    translation_y + (orbit_center_y - origin[1]),
+                    orbit_center_z + orbit_radius * theta.sin(),
+                )
+            } else {
+                (translation_x, translation_y, translation_z)
+            };
 
             let tf = &obj.transform;
-            let cam_pos = camera.position.unwrap_or([0.0, 0.0, camera.distance]);
-            let camera_distance = (cam_pos[0].powi(2) + cam_pos[1].powi(2) + cam_pos[2].powi(2))
-                .sqrt()
-                .max(camera.distance.abs());
+
+            let (view_right, view_up, view_forward) =
+                (global_view_right, global_view_up, global_view_forward);
+            let cam_pos = effective_cam_pos;
 
             let wireframe = mat.surface_mode == SurfaceMode::Wireframe;
             let fg = mat
@@ -397,6 +527,42 @@ fn build_object_specs(
                 object_translate_z: translation_z,
                 clip_y_min,
                 clip_y_max,
+                camera_world_x: cam_pos[0],
+                camera_world_y: cam_pos[1],
+                camera_world_z: cam_pos[2],
+                view_right_x: view_right[0],
+                view_right_y: view_right[1],
+                view_right_z: view_right[2],
+                view_up_x: view_up[0],
+                view_up_y: view_up[1],
+                view_up_z: view_up[2],
+                view_forward_x: view_forward[0],
+                view_forward_y: view_forward[1],
+                view_forward_z: view_forward[2],
+                unlit: mat.surface_mode == SurfaceMode::Unlit,
+                ambient: lights.ambient,
+                light_point_falloff: lights.point1_falloff,
+                light_point_2_falloff: lights.point2_falloff,
+                smooth_shading: false,
+                latitude_bands: 0,
+                latitude_band_depth: 0.0,
+                terrain_color: None,
+                terrain_threshold: 0.5,
+                terrain_noise_scale: 2.5,
+                terrain_noise_octaves: 2,
+                marble_depth: 0.0,
+                below_threshold_transparent: false,
+                polar_ice_color: None,
+                polar_ice_start: 0.78,
+                polar_ice_end: 0.92,
+                desert_color: None,
+                desert_strength: 0.0,
+                atmo_color: None,
+                atmo_strength: 0.0,
+                atmo_rim_power: 4.5,
+                night_light_color: None,
+                night_light_threshold: 0.82,
+                night_light_intensity: 0.0,
             };
 
             Some(ObjectRenderSpec {
@@ -482,4 +648,94 @@ fn parse_hex_color(s: &str) -> Option<Color> {
     let g = u8::from_str_radix(&s[2..4], 16).ok()?;
     let b = u8::from_str_radix(&s[4..6], 16).ok()?;
     Some(Color::Rgb { r, g, b })
+}
+
+/// Build a [`Scene3DRuntimeStore`] holding the parsed `Scene3DDefinition` for every
+/// `.scene3d.yml` referenced in `scene`.  Called alongside [`prerender_scene3d_atlas`] so that
+/// the real-time rendering path has access to the scene data at compositor time.
+pub fn build_scene3d_runtime_store(
+    scene: &Scene,
+    asset_root: &AssetRoot,
+    inherited_mode: SceneRenderedMode,
+) -> Option<Scene3DRuntimeStore> {
+    let sources = collect_scene3d_sources(&scene.layers);
+    if sources.is_empty() {
+        return None;
+    }
+
+    let resolver = AssetRootResolver { asset_root };
+    let mut store = Scene3DRuntimeStore::new();
+
+    for src in &sources {
+        let path = asset_root.resolve(src);
+        let path_str = path.to_string_lossy();
+        let mut def = match load_scene3d(&path_str) {
+            Ok(d) => d,
+            Err(e) => {
+                logging::warn(
+                    "engine.scene3d",
+                    format!("runtime-store: failed to load {src}: {e}"),
+                );
+                continue;
+            }
+        };
+        resolve_scene3d_refs(&mut def, src, &resolver);
+        let mode = engine_render_policy::resolve_renderer_mode(
+            inherited_mode,
+            def.viewport.rendered_mode,
+        );
+        store.insert(src.clone(), Scene3DRuntimeEntry { def, mode });
+    }
+
+    if store.is_empty() {
+        None
+    } else {
+        Some(store)
+    }
+}
+
+/// Render a single frame of a Scene3D clip at a given `elapsed_ms` within the clip's timeline.
+///
+/// `clip_name` must be the bare clip frame key (e.g. `"solar-orbit"`), **not** a keyframe id
+/// like `"solar-orbit-7"`.  Returns `None` if the clip is not found or the scene has no objects.
+pub fn render_scene3d_frame_at(
+    entry: &Scene3DRuntimeEntry,
+    clip_name: &str,
+    elapsed_ms: u64,
+    asset_root: &AssetRoot,
+) -> Option<Buffer> {
+    let frame_def = entry.def.frames.get(clip_name)?;
+    let FrameDef::Clip(clip) = frame_def else {
+        return None;
+    };
+
+    let duration_ms = clip.clip.duration_ms as u64;
+    let t = if duration_ms == 0 {
+        0.0f32
+    } else {
+        (elapsed_ms % duration_ms) as f32 / duration_ms as f32
+    };
+
+    let light_params = extract_light_params(&entry.def.lights);
+    let objects = build_object_specs(
+        &clip.show,
+        &entry.def.objects,
+        &entry.def.materials,
+        &entry.def.camera,
+        &light_params,
+        clip.clip.orbit_origin,
+        &clip.clip.tweens,
+        t,
+    );
+
+    let item = WorkItem {
+        src: String::new(),
+        frame_id: clip_name.to_string(),
+        viewport_w: entry.def.viewport.width,
+        viewport_h: entry.def.viewport.height,
+        mode: entry.mode,
+        objects,
+    };
+
+    render_frame(&item, asset_root)
 }

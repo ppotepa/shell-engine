@@ -586,7 +586,11 @@ impl SceneRuntime {
                             }
                         }
                         "obj.scale" | "obj.yaw" | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
-                        | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max" => {
+                        | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max"
+                        | "obj.cam.wx" | "obj.cam.wy" | "obj.cam.wz"
+                        | "obj.view.rx" | "obj.view.ry" | "obj.view.rz"
+                        | "obj.view.ux" | "obj.view.uy" | "obj.view.uz"
+                        | "obj.view.fx" | "obj.view.fy" | "obj.view.fz" => {
                             let mut applied = self.set_obj_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {

@@ -1,6 +1,6 @@
 //! Gameplay strategy traits and defaults for interchangeable simulation pieces.
 
-use crate::components::{ParticlePhysics, ParticleThreadMode, PhysicsBody2D, Transform2D};
+use crate::components::{ParticleGravityMode, ParticlePhysics, ParticleThreadMode, PhysicsBody2D, Transform2D};
 use crate::GameplayWorld;
 use rayon::prelude::*;
 
@@ -85,15 +85,36 @@ impl ParallelEulerIntegration {
         particle_physics: Option<&ParticlePhysics>,
     ) -> (PhysicsBody2D, Transform2D) {
         // Apply acceleration.
-        // gravity_scale is a transient per-frame impulse — NOT stored back into body.ay.
-        // thread_mode=Light means "no gravity" even if gravity_scale is set.
+        // Extra transient accelerations are computed from ParticlePhysics each frame and NOT
+        // stored back into the body, keeping particle physics stateless between frames.
+        // Orbital gravity applies to ALL thread modes; flat gravity still skips Light particles.
         const WORLD_GRAVITY_Y: f32 = 100.0;
-        let extra_ay = particle_physics
-            .filter(|pp| pp.gravity_scale > 0.0 && pp.thread_mode != ParticleThreadMode::Light)
-            .map(|pp| WORLD_GRAVITY_Y * pp.gravity_scale)
-            .unwrap_or(0.0);
+        let (extra_ax, extra_ay) = match particle_physics {
+            Some(pp) => match pp.gravity_mode {
+                ParticleGravityMode::Orbital if pp.gravity_constant > 0.0 => {
+                    let dx = pp.gravity_center_x - xf.x;
+                    let dy = pp.gravity_center_y - xf.y;
+                    let dist_sq = dx * dx + dy * dy;
+                    if dist_sq > 1.0 {
+                        let dist = dist_sq.sqrt();
+                        let g = pp.gravity_constant / dist_sq;
+                        (dx / dist * g, dy / dist * g)
+                    } else {
+                        (0.0, 0.0)
+                    }
+                }
+                ParticleGravityMode::Flat
+                    if pp.gravity_scale > 0.0
+                        && pp.thread_mode != ParticleThreadMode::Light =>
+                {
+                    (0.0, WORLD_GRAVITY_Y * pp.gravity_scale)
+                }
+                _ => (0.0, 0.0),
+            },
+            None => (0.0, 0.0),
+        };
 
-        body.vx += body.ax * dt_sec;
+        body.vx += (body.ax + extra_ax) * dt_sec;
         body.vy += (body.ay + extra_ay) * dt_sec;
 
         // Apply drag

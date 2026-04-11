@@ -251,6 +251,9 @@ pub struct EffectParams {
     /// CRT burn-in: phosphor colour decay tint (0 = uniform, 1 = full P31 green shift).
     #[serde(default)]
     pub decay_tint: Option<f32>,
+    /// Lens blur: number of convolution passes (1–4). Each pass doubles effective spread.
+    #[serde(default)]
+    pub passes: Option<f32>,
 }
 
 /// A single step in a stage — a group of effects that play in parallel.

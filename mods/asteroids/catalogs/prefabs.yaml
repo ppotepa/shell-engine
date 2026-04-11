@@ -8,24 +8,17 @@ prefabs:
       physics:
         vx: 0.0
         vy: 0.0
-        drag: 0.008          # Near-zero: true space inertia, must brake manually
-        max_speed: 280.0
-        mass: 8.0            # Light but not trivial — shrapnel/bullets will nudge it
-        restitution: 0.2     # Ship absorbs most impact (damaged, not bouncy)
+        drag: 0.0            # True vacuum — no passive deceleration
+        max_speed: 0.0       # Unlimited — orbit speed is Newtonian
+        mass: 8.0
+        restitution: 0.2
       collider:
         shape: circle
         radius: 10.0
         layer: 1
         mask: 6
-      controller:
-        controller_type: ArcadeController
-        config:
-          turn_step_ms: 16   # Faster turn response
-          thrust_power: 180.0
-          max_speed: 280.0
-          heading_bits: 64   # Smoother heading resolution
       lifecycle: Persistent
-      wrappable: true
+      wrappable: false       # Orbital: sphere is closed, no toroidal wrap needed
       extra_data:
         role: player
 
@@ -48,7 +41,7 @@ prefabs:
         layer: 4
         mask: 2
       lifecycle: Ttl
-      wrappable: true
+      wrappable: false       # Orbital bullets follow sphere, no toroidal wrap
 
   asteroid-large:
     kind: asteroid

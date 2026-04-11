@@ -388,6 +388,15 @@ $defs:
         type: integer
         minimum: 1
         description: Number of discrete frames to pre-render.
+      orbit_origin:
+        type: array
+        items:
+          type: number
+        minItems: 3
+        maxItems: 3
+        description: >
+          Optional shared orbit origin [x, y, z] used by `orbit_angle_deg` tweens
+          when per-object `orbit_center_x/y/z` overrides are not provided.
       tweens:
         type: array
         items:
@@ -408,13 +417,17 @@ $defs:
         description: Object ID to animate.
       property:
         type: string
-        enum: [clip_y_min, clip_y_max, yaw_offset, opacity, translation_x, translation_y, translation_z]
+        enum: [clip_y_min, clip_y_max, yaw_offset, opacity, translation_x, translation_y, translation_z, orbit_angle_deg, orbit_center_x, orbit_center_y, orbit_center_z, orbit_radius, orbit_phase_deg]
         description: >
           Property to interpolate. Supported values:
           `clip_y_min` / `clip_y_max` — vertical clip bounds (0.0–1.0);
           `yaw_offset` — additional Y-axis rotation (degrees);
           `opacity` — transparency (0.0–1.0);
-          `translation_x/y/z` — world-space offset.
+          `translation_x/y/z` — world-space offset;
+          `orbit_angle_deg` — orbital angle in degrees;
+          `orbit_center_x/y/z` — per-object orbit pivot override;
+          `orbit_radius` — orbit radius (defaults to distance from pivot at t=0);
+          `orbit_phase_deg` — start phase override (defaults to current position angle).
       from:
         type: number
         description: Start value at t=0.

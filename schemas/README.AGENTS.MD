@@ -22,11 +22,8 @@ Use:
 cargo run -p schema-gen -- --all-mods
 ```
 
-or:
-
-```bash
-./refresh-schemas.sh
-```
+There is currently no wrapper helper script in the repo; use the direct
+`cargo run -p schema-gen -- --all-mods` command above.
 
 Use check mode in validation flows:
 

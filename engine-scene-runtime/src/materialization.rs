@@ -690,6 +690,18 @@ fn set_obj_property_recursive(
                 surface_mode,
                 clip_y_min,
                 clip_y_max,
+                cam_world_x,
+                cam_world_y,
+                cam_world_z,
+                view_right_x,
+                view_right_y,
+                view_right_z,
+                view_up_x,
+                view_up_y,
+                view_up_z,
+                view_fwd_x,
+                view_fwd_y,
+                view_fwd_z,
                 ..
             } if id == sprite_id => match path {
                 "obj.scale" => {
@@ -765,6 +777,104 @@ fn set_obj_property_recursive(
                     if (clip_y_max.unwrap_or(1.0) - next).abs() > f32::EPSILON {
                         *clip_y_max = Some(next);
                         *updated = true;
+                    }
+                }
+                // ── Cockpit camera world position ──────────────────────────
+                "obj.cam.wx" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if cam_world_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *cam_world_x = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.cam.wy" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if cam_world_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *cam_world_y = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.cam.wz" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if cam_world_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *cam_world_z = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                // ── Cockpit camera view basis ──────────────────────────────
+                "obj.view.rx" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_right_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_right_x = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.ry" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_right_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_right_y = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.rz" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_right_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_right_z = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.ux" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_up_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_up_x = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.uy" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_up_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_up_y = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.uz" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_up_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_up_z = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.fx" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_fwd_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_fwd_x = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.fy" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_fwd_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_fwd_y = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.view.fz" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if view_fwd_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *view_fwd_z = Some(v);
+                            *updated = true;
+                        }
                     }
                 }
                 _ => {}

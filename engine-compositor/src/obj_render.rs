@@ -16,7 +16,7 @@ pub use super::obj_render_helpers::{blit_color_canvas, virtual_dimensions};
 
 /// Minimum vertex/face count to use parallel processing.
 /// Below this, serial is faster due to rayon thread spawn overhead.
-const VERTEX_PARALLEL_THRESHOLD: usize = 256;
+const VERTEX_PARALLEL_THRESHOLD: usize = 64;
 
 // Thread-local pointer to the current frame's ObjPrerenderedFrames (set by compositor, cleared after).
 // SAFETY: only set during `with_prerender_frames` and never accessed across threads.
@@ -138,6 +138,71 @@ pub struct ObjRenderParams {
     /// Vertical clip region (normalised 0.0–1.0). Rows outside [min, max) are skipped.
     pub clip_y_min: f32,
     pub clip_y_max: f32,
+    /// Camera world-space position for look_at view transform.
+    /// Default [0,0,-camera_distance] reproduces the legacy +z-forward camera.
+    pub camera_world_x: f32,
+    pub camera_world_y: f32,
+    pub camera_world_z: f32,
+    /// View-space basis vectors (right, up, forward). Identity reproduces legacy behavior.
+    pub view_right_x: f32,
+    pub view_right_y: f32,
+    pub view_right_z: f32,
+    pub view_up_x: f32,
+    pub view_up_y: f32,
+    pub view_up_z: f32,
+    pub view_forward_x: f32,
+    pub view_forward_y: f32,
+    pub view_forward_z: f32,
+    /// Skip all lighting; render each face at its intrinsic `fg` color (for nebula, stars, etc.).
+    pub unlit: bool,
+    /// Ambient light intensity: minimum diffuse floor (prevents pitch-black dark sides).
+    pub ambient: f32,
+    /// Quadratic attenuation coefficient for point light 1: `1 / (1 + k * dist²)`.
+    pub light_point_falloff: f32,
+    /// Quadratic attenuation coefficient for point light 2.
+    pub light_point_2_falloff: f32,
+    /// When true, uses per-vertex Gouraud shading with smooth normals instead of flat per-face shading.
+    pub smooth_shading: bool,
+    /// Number of procedural latitude bands (sine-wave modulation along world-Y). 0 = disabled.
+    pub latitude_bands: u8,
+    /// Strength of latitude band modulation (0.0–1.0). Controls how much bands brighten/darken the surface.
+    pub latitude_band_depth: f32,
+    /// Optional terrain (land) color in RGB. When set, 3-D noise is used to split the surface into
+    /// terrain (above `terrain_threshold`) and ocean (below). `None` disables the terrain system.
+    pub terrain_color: Option<[u8; 3]>,
+    /// Noise threshold for land vs. ocean classification. Typical range 0.4–0.6 (default 0.5).
+    pub terrain_threshold: f32,
+    /// 3-D noise frequency scale for terrain features. Higher = more/smaller continents.
+    pub terrain_noise_scale: f32,
+    /// Number of fBm octaves for terrain noise (1 = fast, 4 = detail-rich). Default 2.
+    pub terrain_noise_octaves: u8,
+    /// Strength of marble turbulence on ocean pixels. 0.0 = flat ocean color.
+    pub marble_depth: f32,
+    /// When true, below-threshold pixels are left transparent (canvas `None`) instead of
+    /// written with `fg_colour`. Used for cloud overlay layers.
+    pub below_threshold_transparent: bool,
+    /// Polar ice cap color. When Some, enables smooth ice coverage at high latitudes.
+    pub polar_ice_color: Option<[u8; 3]>,
+    /// Latitude |y| (0=equator, 1=pole) where ice coverage begins. Default 0.78.
+    pub polar_ice_start: f32,
+    /// Latitude |y| where ice coverage is full. Default 0.92.
+    pub polar_ice_end: f32,
+    /// Desert/dry zone color for equatorial land. When None, desert effect is disabled.
+    pub desert_color: Option<[u8; 3]>,
+    /// Strength of desert biome blending (0.0–1.0). Default 0.0.
+    pub desert_strength: f32,
+    /// Atmosphere rim/glow color. When None, atmosphere rim is disabled.
+    pub atmo_color: Option<[u8; 3]>,
+    /// Overall atmosphere blend strength (0.0–1.0). Default 0.0.
+    pub atmo_strength: f32,
+    /// Rim falloff power for atmosphere effect (higher = thinner). Default 4.5.
+    pub atmo_rim_power: f32,
+    /// Night-side city lights color. When None, city lights are disabled.
+    pub night_light_color: Option<[u8; 3]>,
+    /// Noise threshold for city light clusters (0.0–1.0). Default 0.82.
+    pub night_light_threshold: f32,
+    /// Brightness of night-side city light clusters. Default 0.0.
+    pub night_light_intensity: f32,
 }
 
 pub fn obj_sprite_dimensions(
@@ -238,7 +303,6 @@ pub fn render_obj_to_canvas(
     let roll = (params.roll_deg + params.rotation_z).to_radians();
     let fov = params.fov_degrees.clamp(10.0, 170.0).to_radians();
     let inv_tan = 1.0 / (fov * 0.5).tan().max(0.0001);
-    let camera_distance = params.camera_distance.max(0.1);
     let near_clip = params.near_clip.max(0.000001);
     let model_scale = params.scale.max(0.0001) / mesh.radius.max(0.0001);
     let aspect = virtual_w as f32 / virtual_h as f32;
@@ -285,18 +349,28 @@ pub fn render_obj_to_canvas(
             rotated[1] + params.object_translate_y,
             rotated[2] + params.object_translate_z,
         ];
-        // Apply camera pan: shift the scene in view-space (equivalent to moving camera).
-        let panned = [
-            translated[0] - params.camera_pan_x,
-            translated[1] - params.camera_pan_y,
-            translated[2],
+        // Apply look_at view transform: project world-space vertex into camera space.
+        let rel = [
+            translated[0] - params.camera_world_x,
+            translated[1] - params.camera_world_y,
+            translated[2] - params.camera_world_z,
         ];
-        let view_z = panned[2] + camera_distance;
+        let cam_x = rel[0] * params.view_right_x
+            + rel[1] * params.view_right_y
+            + rel[2] * params.view_right_z
+            - params.camera_pan_x;
+        let cam_y = rel[0] * params.view_up_x
+            + rel[1] * params.view_up_y
+            + rel[2] * params.view_up_z
+            - params.camera_pan_y;
+        let view_z = rel[0] * params.view_forward_x
+            + rel[1] * params.view_forward_y
+            + rel[2] * params.view_forward_z;
         if view_z <= near_clip {
             return None;
         }
-        let ndc_x = (panned[0] / aspect) * inv_tan / view_z;
-        let ndc_y = panned[1] * inv_tan / view_z;
+        let ndc_x = (cam_x / aspect) * inv_tan / view_z;
+        let ndc_y = cam_y * inv_tan / view_z;
         if !ndc_x.is_finite() || !ndc_y.is_finite() {
             return None;
         }
@@ -304,7 +378,20 @@ pub fn render_obj_to_canvas(
             x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
             y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
             depth: view_z,
-            view: panned,
+            view: translated, // world-space coords for point-light shading
+            normal: [0.0, 0.0, 1.0], // overwritten below when smooth_shading is active
+            local: centered, // pre-rotation local position for marble noise
+            // Terrain noise pre-computed here so the rasterizer avoids per-pixel fBm.
+            terrain_noise: if params.terrain_color.is_some() {
+                fbm_3d_octaves(
+                    centered[0] * params.terrain_noise_scale,
+                    centered[1] * params.terrain_noise_scale,
+                    centered[2] * params.terrain_noise_scale,
+                    params.terrain_noise_octaves,
+                )
+            } else {
+                0.0
+            },
         })
     };
     
@@ -313,6 +400,17 @@ pub fn render_obj_to_canvas(
         mesh.vertices.par_iter().map(project_vertex).collect_into_vec(&mut projected);
     } else {
         projected.extend(mesh.vertices.iter().map(project_vertex));
+    }
+
+    // When Gouraud shading is active, rotate smooth normals by the same rotation as vertices.
+    if params.smooth_shading && !mesh.smooth_normals.is_empty() {
+        for (i, pv_opt) in projected.iter_mut().enumerate() {
+            if let Some(pv) = pv_opt.as_mut() {
+                if let Some(&n) = mesh.smooth_normals.get(i) {
+                    pv.normal = rotate_xyz(n, pitch, yaw, roll);
+                }
+            }
+        }
     }
 
     // Use pooled buffers to avoid per-frame allocation.
@@ -407,17 +505,22 @@ pub fn render_obj_to_canvas(
             params.light_2_direction_y,
             params.light_2_direction_z,
         ]);
+        // World-space direction from surface toward camera (= -forward for perspective approx).
+        let view_dir = normalize3([
+            -params.view_forward_x,
+            -params.view_forward_y,
+            -params.view_forward_z,
+        ]);
         // Pre-compute Blinn-Phong half-vectors for directional lights (constant per mesh render).
-        // VIEW_DIR is always [0,0,-1] in view space (camera looks down -Z).
         let half_dir_1 = normalize3([
-            light_dir_norm[0],
-            light_dir_norm[1],
-            light_dir_norm[2] - 1.0,
+            light_dir_norm[0] + view_dir[0],
+            light_dir_norm[1] + view_dir[1],
+            light_dir_norm[2] + view_dir[2],
         ]);
         let half_dir_2 = normalize3([
-            light_2_dir_norm[0],
-            light_2_dir_norm[1],
-            light_2_dir_norm[2] - 1.0,
+            light_2_dir_norm[0] + view_dir[0],
+            light_2_dir_norm[1] + view_dir[1],
+            light_2_dir_norm[2] + view_dir[2],
         ]);
         // Sort faces back-to-front for correct painter's-algorithm blending when
         // depth-buffering alone isn't enough (avoids most z-fighting glitches).
@@ -445,75 +548,199 @@ pub fn render_obj_to_canvas(
         let highlight_colour = params.highlight_colour;
         let light_point_colour = params.light_point_colour;
         let light_point_2_colour = params.light_point_2_colour;
+        let unlit = params.unlit;
+        let ambient = params.ambient;
+        let light_point_falloff = params.light_point_falloff;
+        let light_point_2_falloff = params.light_point_2_falloff;
+        let smooth_shading = params.smooth_shading;
+        let latitude_bands = params.latitude_bands;
+        let latitude_band_depth = params.latitude_band_depth;
+        let fg_rgb = color_to_rgb(fg);
 
-        // Phase 1 (parallel): filter visible faces and compute shaded colors.
-        let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
-            sorted_faces[..face_limit]
+        // Build biome params once per render (shared immutably across rayon strips).
+        let biome_params: Option<PlanetBiomeParams> = {
+            let has_biome = params.polar_ice_color.is_some()
+                || params.desert_color.is_some()
+                || params.atmo_color.is_some()
+                || params.night_light_color.is_some();
+            if has_biome {
+                Some(PlanetBiomeParams {
+                    polar_ice_color: params.polar_ice_color,
+                    polar_ice_start: params.polar_ice_start,
+                    polar_ice_end: params.polar_ice_end,
+                    desert_color: params.desert_color,
+                    desert_strength: params.desert_strength,
+                    atmo_color: params.atmo_color,
+                    atmo_strength: params.atmo_strength,
+                    atmo_rim_power: params.atmo_rim_power,
+                    night_light_color: params.night_light_color,
+                    night_light_threshold: params.night_light_threshold,
+                    night_light_intensity: params.night_light_intensity,
+                    sun_dir: light_dir_norm,
+                    view_dir,
+                })
+            } else {
+                None
+            }
+        };
+
+        let drawn_faces = if smooth_shading {
+            // Gouraud path: compute per-vertex shade values using smooth normals.
+            let ka_lum_ambient = ambient.max(0.06_f32);
+            let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
+
+            let shade_at_vertex = |normal: [f32; 3]| -> f32 {
+                let lambert_1 = dot3(normal, light_dir_norm).max(0.0);
+                let lambert_2 = dot3(normal, light_2_dir_norm).max(0.0) * light_2_strength;
+                let lambert = (lambert_1 + lambert_2).clamp(0.0, 1.0);
+                (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
+            };
+
+            // Phase 1 (parallel): per-vertex shade, no per-face color computation.
+            let shaded_gouraud: Vec<(
+                ProjectedVertex,
+                ProjectedVertex,
+                ProjectedVertex,
+                [u8; 3],
+                f32,
+                f32,
+                f32,
+            )> = sorted_faces[..face_limit]
                 .par_iter()
                 .filter_map(|(_, face)| {
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
                     let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
                     let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
-                    // Back-face culling check
                     if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
                         return None;
                     }
-                    let shading = face_shading_with_specular(
-                        v0.view,
-                        v1.view,
-                        v2.view,
-                        face.ka,
-                        face.ks,
-                        face.ns,
-                        light_dir_norm,
-                        light_2_dir_norm,
-                        half_dir_1,
-                        half_dir_2,
-                        light_2_intensity,
-                        [light_1_x, light_point_y, light_1_z],
-                        light_point_intensity * point_1_flicker,
-                        [light_2_x, light_point_2_y, light_2_z],
-                        light_point_2_intensity * point_2_flicker,
-                        cel_levels,
-                        tone_mix,
-                    );
-                    let shaded_base = apply_shading(face.color, shading.0);
-                    let toned_color = apply_tone_palette(
-                        shaded_base,
-                        shading.1,
-                        shadow_colour,
-                        midtone_colour,
-                        highlight_colour,
-                        tone_mix,
-                    );
-                    let shaded_color = apply_point_light_tint(
-                        toned_color,
-                        light_point_colour,
-                        shading.2,
-                        light_point_2_colour,
-                        shading.3,
-                    );
-                    Some((v0, v1, v2, shaded_color))
+                    let (s0, s1, s2) = if unlit {
+                        (1.0, 1.0, 1.0)
+                    } else {
+                        (
+                            shade_at_vertex(v0.normal),
+                            shade_at_vertex(v1.normal),
+                            shade_at_vertex(v2.normal),
+                        )
+                    };
+                    let base_color = if unlit { fg_rgb } else { face.color };
+                    Some((v0, v1, v2, base_color, s0, s1, s2))
                 })
                 .collect();
 
-        // Phase 2 (sequential): rasterize in depth-sorted order.
-        // Canvas and depth buffer require exclusive access with correct ordering.
-        for (v0, v1, v2, shaded_color) in &shaded_faces {
-            rasterize_triangle(
-                &mut canvas,
-                &mut depth,
-                virtual_w,
-                virtual_h,
-                *v0,
-                *v1,
-                *v2,
-                *shaded_color,
-                clipped_viewport.min_y,
-                clipped_viewport.max_y,
-            );
-        }
-        let drawn_faces = shaded_faces.len();
+            let count = shaded_gouraud.len();
+            // Phase 2 (parallel strips): split canvas rows into N strips and rayon-parallelize.
+            // Each strip gets exclusive ownership of its canvas/depth rows — no data races.
+            let row_w = virtual_w as usize;
+            let num_strips = rayon::current_num_threads().max(1);
+            let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
+            // Collect (strip_y0, canvas_strip, depth_strip) tuples from split borrows.
+            let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 3]>], &mut [f32])> = canvas
+                .chunks_mut(strip_rows * row_w)
+                .zip(depth.chunks_mut(strip_rows * row_w))
+                .enumerate()
+                .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
+                .collect();
+            canvas_strips.par_iter_mut().for_each(|(strip_y0, cs, ds)| {
+                let strip_y1 = *strip_y0 + (cs.len() / row_w) as i32 - 1;
+                let clip_min = (*strip_y0).max(clipped_viewport.min_y);
+                let clip_max = strip_y1.min(clipped_viewport.max_y);
+                if clip_min > clip_max { return; }
+                for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
+                    rasterize_triangle_gouraud(
+                        cs, ds,
+                        virtual_w, virtual_h,
+                        *v0, *v1, *v2,
+                        *base_color, *s0, *s1, *s2,
+                        shadow_colour, midtone_colour, highlight_colour, tone_mix,
+                        cel_levels, latitude_bands, latitude_band_depth,
+                        params.terrain_color, params.terrain_threshold, params.marble_depth,
+                        params.below_threshold_transparent,
+                        biome_params,
+                        clip_min, clip_max,
+                        *strip_y0,
+                    );
+                }
+            });
+            count
+        } else {
+            // Phase 1 (parallel): filter visible faces and compute shaded colors.
+            let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
+                sorted_faces[..face_limit]
+                    .par_iter()
+                    .filter_map(|(_, face)| {
+                        let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
+                        let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
+                        let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
+                        // Back-face culling check
+                        if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
+                            return None;
+                        }
+                        // Unlit: render at flat fg color, skip all lighting.
+                        if unlit {
+                            return Some((v0, v1, v2, fg_rgb));
+                        }
+                        let shading = face_shading_with_specular(
+                            v0.view,
+                            v1.view,
+                            v2.view,
+                            face.ka,
+                            face.ks,
+                            face.ns,
+                            light_dir_norm,
+                            light_2_dir_norm,
+                            half_dir_1,
+                            half_dir_2,
+                            light_2_intensity,
+                            [light_1_x, light_point_y, light_1_z],
+                            light_point_intensity * point_1_flicker,
+                            [light_2_x, light_point_2_y, light_2_z],
+                            light_point_2_intensity * point_2_flicker,
+                            cel_levels,
+                            tone_mix,
+                            ambient,
+                            view_dir,
+                            light_point_falloff,
+                            light_point_2_falloff,
+                        );
+                        let shaded_base = apply_shading(face.color, shading.0);
+                        let toned_color = apply_tone_palette(
+                            shaded_base,
+                            shading.1,
+                            shadow_colour,
+                            midtone_colour,
+                            highlight_colour,
+                            tone_mix,
+                        );
+                        let shaded_color = apply_point_light_tint(
+                            toned_color,
+                            light_point_colour,
+                            shading.2,
+                            light_point_2_colour,
+                            shading.3,
+                        );
+                        Some((v0, v1, v2, shaded_color))
+                    })
+                    .collect();
+
+            let count = shaded_faces.len();
+            // Phase 2 (sequential): rasterize in depth-sorted order.
+            for (v0, v1, v2, shaded_color) in &shaded_faces {
+                rasterize_triangle(
+                    &mut canvas,
+                    &mut depth,
+                    virtual_w,
+                    virtual_h,
+                    *v0,
+                    *v1,
+                    *v2,
+                    *shaded_color,
+                    clipped_viewport.min_y,
+                    clipped_viewport.max_y,
+                );
+            }
+            count
+        };
 
         // Fallback if model has no valid faces/materials.
         if drawn_faces == 0 {
@@ -624,7 +851,6 @@ fn render_mesh_projected(
     let roll = (params.roll_deg + params.rotation_z).to_radians();
     let fov = params.fov_degrees.clamp(10.0, 170.0).to_radians();
     let inv_tan = 1.0 / (fov * 0.5).tan().max(0.0001);
-    let camera_distance = params.camera_distance.max(0.1);
     let near_clip = params.near_clip.max(0.000001);
     let model_scale = params.scale.max(0.0001) / mesh.radius.max(0.0001);
     let aspect = virtual_w as f32 / virtual_h as f32;
@@ -669,17 +895,27 @@ fn render_mesh_projected(
                 rotated[1] + params.object_translate_y,
                 rotated[2] + params.object_translate_z,
             ];
-            let panned = [
-                translated[0] - params.camera_pan_x,
-                translated[1] - params.camera_pan_y,
-                translated[2],
+            let rel = [
+                translated[0] - params.camera_world_x,
+                translated[1] - params.camera_world_y,
+                translated[2] - params.camera_world_z,
             ];
-            let view_z = panned[2] + camera_distance;
+            let cam_x = rel[0] * params.view_right_x
+                + rel[1] * params.view_right_y
+                + rel[2] * params.view_right_z
+                - params.camera_pan_x;
+            let cam_y = rel[0] * params.view_up_x
+                + rel[1] * params.view_up_y
+                + rel[2] * params.view_up_z
+                - params.camera_pan_y;
+            let view_z = rel[0] * params.view_forward_x
+                + rel[1] * params.view_forward_y
+                + rel[2] * params.view_forward_z;
             if view_z <= near_clip {
                 return None;
             }
-            let ndc_x = (panned[0] / aspect) * inv_tan / view_z;
-            let ndc_y = panned[1] * inv_tan / view_z;
+            let ndc_x = (cam_x / aspect) * inv_tan / view_z;
+            let ndc_y = cam_y * inv_tan / view_z;
             if !ndc_x.is_finite() || !ndc_y.is_finite() {
                 return None;
             }
@@ -687,10 +923,33 @@ fn render_mesh_projected(
                 x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
                 y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
                 depth: view_z,
-                view: panned,
+                view: translated,
+                normal: [0.0, 0.0, 1.0],
+                local: centered,
+                terrain_noise: if params.terrain_color.is_some() {
+                    fbm_3d_octaves(
+                        centered[0] * params.terrain_noise_scale,
+                        centered[1] * params.terrain_noise_scale,
+                        centered[2] * params.terrain_noise_scale,
+                        params.terrain_noise_octaves,
+                    )
+                } else {
+                    0.0
+                },
             })
         })
         .collect_into_vec(&mut projected);
+
+    // When Gouraud shading is active, rotate smooth normals by the same rotation as vertices.
+    if params.smooth_shading && !mesh.smooth_normals.is_empty() {
+        for (i, pv_opt) in projected.iter_mut().enumerate() {
+            if let Some(pv) = pv_opt.as_mut() {
+                if let Some(&n) = mesh.smooth_normals.get(i) {
+                    pv.normal = rotate_xyz(n, pitch, yaw, roll);
+                }
+            }
+        }
+    }
 
     if wireframe {
         let line_color = color_to_rgb(fg);
@@ -746,15 +1005,20 @@ fn render_mesh_projected(
             params.light_2_direction_y,
             params.light_2_direction_z,
         ]);
+        let view_dir = normalize3([
+            -params.view_forward_x,
+            -params.view_forward_y,
+            -params.view_forward_z,
+        ]);
         let half_dir_1 = normalize3([
-            light_dir_norm[0],
-            light_dir_norm[1],
-            light_dir_norm[2] - 1.0,
+            light_dir_norm[0] + view_dir[0],
+            light_dir_norm[1] + view_dir[1],
+            light_dir_norm[2] + view_dir[2],
         ]);
         let half_dir_2 = normalize3([
-            light_2_dir_norm[0],
-            light_2_dir_norm[1],
-            light_2_dir_norm[2] - 1.0,
+            light_2_dir_norm[0] + view_dir[0],
+            light_2_dir_norm[1] + view_dir[1],
+            light_2_dir_norm[2] + view_dir[2],
         ]);
 
         let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
@@ -778,9 +1042,61 @@ fn render_mesh_projected(
         let highlight_colour = params.highlight_colour;
         let light_point_colour = params.light_point_colour;
         let light_point_2_colour = params.light_point_2_colour;
+        let unlit = params.unlit;
+        let ambient = params.ambient;
+        let light_point_falloff = params.light_point_falloff;
+        let light_point_2_falloff = params.light_point_2_falloff;
+        let smooth_shading = params.smooth_shading;
+        let latitude_bands = params.latitude_bands;
+        let latitude_band_depth = params.latitude_band_depth;
+        let fg_rgb = color_to_rgb(fg);
 
-        let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
-            sorted_faces[..face_limit]
+        let biome_params: Option<PlanetBiomeParams> = {
+            let has_biome = params.polar_ice_color.is_some()
+                || params.desert_color.is_some()
+                || params.atmo_color.is_some()
+                || params.night_light_color.is_some();
+            if has_biome {
+                Some(PlanetBiomeParams {
+                    polar_ice_color: params.polar_ice_color,
+                    polar_ice_start: params.polar_ice_start,
+                    polar_ice_end: params.polar_ice_end,
+                    desert_color: params.desert_color,
+                    desert_strength: params.desert_strength,
+                    atmo_color: params.atmo_color,
+                    atmo_strength: params.atmo_strength,
+                    atmo_rim_power: params.atmo_rim_power,
+                    night_light_color: params.night_light_color,
+                    night_light_threshold: params.night_light_threshold,
+                    night_light_intensity: params.night_light_intensity,
+                    sun_dir: light_dir_norm,
+                    view_dir,
+                })
+            } else {
+                None
+            }
+        };
+
+        let drawn_faces = if smooth_shading {
+            let ka_lum_ambient = ambient.max(0.06_f32);
+            let light_2_strength = light_2_intensity.clamp(0.0, 2.0);
+
+            let shade_at_vertex = |normal: [f32; 3]| -> f32 {
+                let lambert_1 = dot3(normal, light_dir_norm).max(0.0);
+                let lambert_2 = dot3(normal, light_2_dir_norm).max(0.0) * light_2_strength;
+                let lambert = (lambert_1 + lambert_2).clamp(0.0, 1.0);
+                (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
+            };
+
+            let shaded_gouraud: Vec<(
+                ProjectedVertex,
+                ProjectedVertex,
+                ProjectedVertex,
+                [u8; 3],
+                f32,
+                f32,
+                f32,
+            )> = sorted_faces[..face_limit]
                 .par_iter()
                 .filter_map(|(_, face)| {
                     let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
@@ -789,61 +1105,128 @@ fn render_mesh_projected(
                     if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
                         return None;
                     }
-                    let shading = face_shading_with_specular(
-                        v0.view,
-                        v1.view,
-                        v2.view,
-                        face.ka,
-                        face.ks,
-                        face.ns,
-                        light_dir_norm,
-                        light_2_dir_norm,
-                        half_dir_1,
-                        half_dir_2,
-                        light_2_intensity,
-                        [light_1_x, light_point_y, light_1_z],
-                        light_point_intensity * point_1_flicker,
-                        [light_2_x, light_point_2_y, light_2_z],
-                        light_point_2_intensity * point_2_flicker,
-                        cel_levels,
-                        tone_mix,
-                    );
-                    let shaded_base = apply_shading(face.color, shading.0);
-                    let toned_color = apply_tone_palette(
-                        shaded_base,
-                        shading.1,
-                        shadow_colour,
-                        midtone_colour,
-                        highlight_colour,
-                        tone_mix,
-                    );
-                    let shaded_color = apply_point_light_tint(
-                        toned_color,
-                        light_point_colour,
-                        shading.2,
-                        light_point_2_colour,
-                        shading.3,
-                    );
-                    Some((v0, v1, v2, shaded_color))
+                    let (s0, s1, s2) = if unlit {
+                        (1.0, 1.0, 1.0)
+                    } else {
+                        (
+                            shade_at_vertex(v0.normal),
+                            shade_at_vertex(v1.normal),
+                            shade_at_vertex(v2.normal),
+                        )
+                    };
+                    let base_color = if unlit { fg_rgb } else { face.color };
+                    Some((v0, v1, v2, base_color, s0, s1, s2))
                 })
                 .collect();
 
-        for (v0, v1, v2, shaded_color) in &shaded_faces {
-            rasterize_triangle(
-                canvas,
-                depth_buf,
-                virtual_w,
-                virtual_h,
-                *v0,
-                *v1,
-                *v2,
-                *shaded_color,
-                clipped_viewport.min_y,
-                clipped_viewport.max_y,
-            );
-        }
+            let count = shaded_gouraud.len();
+            for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
+                rasterize_triangle_gouraud(
+                    canvas,
+                    depth_buf,
+                    virtual_w,
+                    virtual_h,
+                    *v0,
+                    *v1,
+                    *v2,
+                    *base_color,
+                    *s0,
+                    *s1,
+                    *s2,
+                    shadow_colour,
+                    midtone_colour,
+                    highlight_colour,
+                    tone_mix,
+                    cel_levels,
+                    latitude_bands,
+                    latitude_band_depth,
+                    params.terrain_color,
+                    params.terrain_threshold,
+                    params.marble_depth,
+                    params.below_threshold_transparent,
+                    biome_params,
+                    clipped_viewport.min_y,
+                    clipped_viewport.max_y,
+                    0, // row_base: full canvas, no strip offset
+                );
+            }
+            count
+        } else {
+            let shaded_faces: Vec<(ProjectedVertex, ProjectedVertex, ProjectedVertex, [u8; 3])> =
+                sorted_faces[..face_limit]
+                    .par_iter()
+                    .filter_map(|(_, face)| {
+                        let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
+                        let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
+                        let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
+                        if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
+                            return None;
+                        }
+                        if unlit {
+                            return Some((v0, v1, v2, fg_rgb));
+                        }
+                        let shading = face_shading_with_specular(
+                            v0.view,
+                            v1.view,
+                            v2.view,
+                            face.ka,
+                            face.ks,
+                            face.ns,
+                            light_dir_norm,
+                            light_2_dir_norm,
+                            half_dir_1,
+                            half_dir_2,
+                            light_2_intensity,
+                            [light_1_x, light_point_y, light_1_z],
+                            light_point_intensity * point_1_flicker,
+                            [light_2_x, light_point_2_y, light_2_z],
+                            light_point_2_intensity * point_2_flicker,
+                            cel_levels,
+                            tone_mix,
+                            ambient,
+                            view_dir,
+                            light_point_falloff,
+                            light_point_2_falloff,
+                        );
+                        let shaded_base = apply_shading(face.color, shading.0);
+                        let toned_color = apply_tone_palette(
+                            shaded_base,
+                            shading.1,
+                            shadow_colour,
+                            midtone_colour,
+                            highlight_colour,
+                            tone_mix,
+                        );
+                        let shaded_color = apply_point_light_tint(
+                            toned_color,
+                            light_point_colour,
+                            shading.2,
+                            light_point_2_colour,
+                            shading.3,
+                        );
+                        Some((v0, v1, v2, shaded_color))
+                    })
+                    .collect();
 
-        if shaded_faces.is_empty() {
+            let count = shaded_faces.len();
+            for (v0, v1, v2, shaded_color) in &shaded_faces {
+                rasterize_triangle(
+                    canvas,
+                    depth_buf,
+                    virtual_w,
+                    virtual_h,
+                    *v0,
+                    *v1,
+                    *v2,
+                    *shaded_color,
+                    clipped_viewport.min_y,
+                    clipped_viewport.max_y,
+                );
+            }
+            count
+        };
+
+        if drawn_faces == 0 {
             let line_color = color_to_rgb(fg);
             for (a, b) in &mesh.edges {
                 let Some(pa) = projected.get(*a).and_then(|p| *p) else {
@@ -969,13 +1352,12 @@ pub fn render_obj_content(
 
 /// Try to blit a pre-rendered OBJ sprite from the thread-local `ObjPrerenderedFrames`.
 ///
-/// Checks pose tolerance: yaw within 1° and pitch within 0.5°.
-/// If matched: applies clip masking and blits the canvas, returns `true`.
-/// If no frames registered or pose mismatch: returns `false` → caller does live render.
+/// Checks animated frame cache first (snapped yaw lookup), then static pose tolerance.
+/// Returns `true` if a cached frame was blitted; `false` → caller does live render.
 #[allow(clippy::too_many_arguments)]
 pub fn try_blit_prerendered(
     sprite_id: &str,
-    current_total_yaw: f32,
+    live_total_yaw: f32,
     current_pitch: f32,
     clip_y_min: f32,
     clip_y_max: f32,
@@ -987,12 +1369,42 @@ pub fn try_blit_prerendered(
     let Some(frames) = current_prerender_frames() else {
         return false;
     };
+
+    // ── Animated keyframe lookup (highest priority) ───────────────────────────
+    if let Some((canvas, virtual_w, virtual_h, target_w, target_h)) =
+        frames.get_anim_canvas(sprite_id, live_total_yaw)
+    {
+        let clip_min_row = (clip_y_min.clamp(0.0, 1.0) * virtual_h as f32) as usize;
+        let clip_max_row = (clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as usize;
+        if clip_max_row > clip_min_row {
+            blit_color_canvas(
+                buf,
+                mode,
+                canvas,
+                virtual_w,
+                virtual_h,
+                target_w,
+                target_h,
+                x,
+                y,
+                false,
+                '#',
+                Color::White,
+                Color::Reset,
+                clip_min_row,
+                clip_max_row,
+            );
+        }
+        return true;
+    }
+
+    // ── Static pose tolerance check ───────────────────────────────────────────
     let Some(frame) = frames.get(sprite_id) else {
         return false;
     };
 
     // Pose tolerance check — wider tolerance increases cache hits.
-    if (current_total_yaw - frame.rendered_yaw).abs() >= 2.0 {
+    if (live_total_yaw - frame.rendered_yaw).abs() >= 2.0 {
         return false;
     }
     if (current_pitch - frame.rendered_pitch).abs() >= 1.0 {

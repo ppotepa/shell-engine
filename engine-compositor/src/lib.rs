@@ -23,6 +23,7 @@ pub mod provider;
 pub mod render;
 pub mod scene3d_atlas;
 pub mod scene3d_prerender;
+pub mod scene3d_runtime_store;
 pub mod scene_compositor;
 pub mod sprite_renderer;
 pub mod systems;
@@ -47,7 +48,10 @@ pub use obj_render::{
 pub use prerender::prerender_scene_sprites;
 pub use provider::CompositorProvider;
 pub use scene3d_atlas::Scene3DAtlas;
-pub use scene3d_prerender::prerender_scene3d_atlas;
+pub use scene3d_prerender::{
+    build_scene3d_runtime_store, prerender_scene3d_atlas, render_scene3d_frame_at,
+};
+pub use scene3d_runtime_store::{Scene3DRuntimeStore, with_runtime_store};
 pub use scene_compositor::{
     CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
 };

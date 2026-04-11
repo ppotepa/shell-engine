@@ -462,6 +462,67 @@ pub enum Sprite {
         highlight_colour: Option<TermColour>,
         #[serde(default, rename = "tone-mix")]
         tone_mix: Option<f32>,
+        /// Enable Gouraud (per-vertex smooth) shading. Produces a smooth terminator on curved meshes.
+        #[serde(default, rename = "smooth-shading")]
+        smooth_shading: Option<bool>,
+        /// Number of procedural latitude bands (sine-wave along world-Y). 0 = disabled.
+        #[serde(default, rename = "latitude-bands")]
+        latitude_bands: Option<u8>,
+        /// Strength of latitude band modulation (0.0–1.0). Controls how much bands alter the shading.
+        #[serde(default, rename = "latitude-band-depth")]
+        latitude_band_depth: Option<f32>,
+        /// RGB hex color for terrain (land) surface. When set, enables 3-D Perlin noise terrain.
+        #[serde(default, rename = "terrain-color")]
+        terrain_color: Option<TermColour>,
+        /// Noise threshold for land vs. ocean (0.0–1.0). Default 0.5; higher = less land coverage.
+        #[serde(default, rename = "terrain-threshold")]
+        terrain_threshold: Option<f32>,
+        /// Scale of 3-D noise for terrain features. Higher = more/smaller continents. Default 2.5.
+        #[serde(default, rename = "terrain-noise-scale")]
+        terrain_noise_scale: Option<f32>,
+        /// Number of fBm octaves for terrain noise (1 = fast, 4 = detail-rich). Default 2.
+        #[serde(default, rename = "terrain-noise-octaves")]
+        terrain_noise_octaves: Option<u8>,
+        /// Strength of marble turbulence on ocean pixels. 0.0 = flat ocean color.
+        #[serde(default, rename = "marble-depth")]
+        marble_depth: Option<f32>,
+        /// When true, pixels below `terrain-threshold` are rendered transparent instead of
+        /// using `fg_colour`. Use for cloud/overlay layers where non-cloud areas must be clear.
+        #[serde(default, rename = "below-threshold-transparent")]
+        below_threshold_transparent: bool,
+        /// Polar ice cap color. When set, applies smooth ice coverage at high latitudes.
+        #[serde(default, rename = "polar-ice-color")]
+        polar_ice_color: Option<TermColour>,
+        /// Latitude |y| (0=equator, 1=pole) where ice coverage begins. Default 0.78.
+        #[serde(default, rename = "polar-ice-start")]
+        polar_ice_start: Option<f32>,
+        /// Latitude |y| where ice coverage is full. Default 0.92.
+        #[serde(default, rename = "polar-ice-end")]
+        polar_ice_end: Option<f32>,
+        /// Desert/dry zone color for equatorial land regions.
+        #[serde(default, rename = "desert-color")]
+        desert_color: Option<TermColour>,
+        /// Strength of desert biome blending (0.0–1.0). Default 0.0.
+        #[serde(default, rename = "desert-strength")]
+        desert_strength: Option<f32>,
+        /// Atmosphere rim/glow color. When set, renders a thin halo at the planet limb.
+        #[serde(default, rename = "atmo-color")]
+        atmo_color: Option<TermColour>,
+        /// Overall atmosphere blend strength (0.0–1.0). Default 0.0.
+        #[serde(default, rename = "atmo-strength")]
+        atmo_strength: Option<f32>,
+        /// Rim falloff power for atmosphere effect (higher = thinner rim). Default 4.5.
+        #[serde(default, rename = "atmo-rim-power")]
+        atmo_rim_power: Option<f32>,
+        /// Night-side city lights color. When set, renders procedural light clusters on the dark side.
+        #[serde(default, rename = "night-light-color")]
+        night_light_color: Option<TermColour>,
+        /// Noise threshold for city light clusters (0.0–1.0). Default 0.82.
+        #[serde(default, rename = "night-light-threshold")]
+        night_light_threshold: Option<f32>,
+        /// Brightness of night-side city light clusters. Default 0.0 (disabled).
+        #[serde(default, rename = "night-light-intensity")]
+        night_light_intensity: Option<f32>,
         #[serde(default, rename = "draw-char")]
         draw_char: Option<String>,
         align_x: Option<HorizontalAlign>,
@@ -488,6 +549,40 @@ pub enum Sprite {
         /// Set to `false` to opt out (e.g. for sprites that animate continuously).
         #[serde(default = "default_true")]
         prerender: bool,
+        /// When `true`, pre-bake all 72 rotation keyframes (every 5°) at scene load.
+        /// Eliminates per-frame 3D rasterisation for slowly-rotating objects (e.g. a planet).
+        /// Requires the sprite to have a nonzero `rotate-y-deg-per-sec`.
+        #[serde(default, rename = "prerender-anim")]
+        prerender_anim: bool,
+        /// Cockpit camera world-space position override.
+        /// When set, replaces the camera_distance-derived default position (0, 0, -camera_distance).
+        /// Set per frame via `scene.set(id, "obj.cam.wx"/"obj.cam.wy"/"obj.cam.wz", f)`.
+        #[serde(default)]
+        cam_world_x: Option<f32>,
+        #[serde(default)]
+        cam_world_y: Option<f32>,
+        #[serde(default)]
+        cam_world_z: Option<f32>,
+        /// Camera view-basis vectors override. Default: right=(1,0,0), up=(0,1,0), forward=(0,0,1).
+        /// Set per frame via `scene.set(id, "obj.view.rx/.../...", f)` to drive from ship 3D basis.
+        #[serde(default)]
+        view_right_x: Option<f32>,
+        #[serde(default)]
+        view_right_y: Option<f32>,
+        #[serde(default)]
+        view_right_z: Option<f32>,
+        #[serde(default)]
+        view_up_x: Option<f32>,
+        #[serde(default)]
+        view_up_y: Option<f32>,
+        #[serde(default)]
+        view_up_z: Option<f32>,
+        #[serde(default)]
+        view_fwd_x: Option<f32>,
+        #[serde(default)]
+        view_fwd_y: Option<f32>,
+        #[serde(default)]
+        view_fwd_z: Option<f32>,
     },
     /// UI panel container rendered as a themed box with optional border, corner radius and shadow.
     #[serde(rename = "panel")]
