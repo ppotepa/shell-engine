@@ -1,27 +1,6 @@
 kind: object
 name: ship
-sprites:
-  - type: obj
-    id: ship-outline
-    source: /assets/3d/ship.obj
-    x: -14
-    y: -14
-    width: 28
-    height: 28
-    scale: 1.0
-    surface-mode: material
-    rotate-y-deg-per-sec: 0
-    rotation-y: 0
-    camera-distance: 2.8
-    camera-source: scene
-    fov-degrees: 50
-    near-clip: 0.01
-    light-direction-x: -0.50
-    light-direction-y: 0.65
-    light-direction-z: -0.58
-    cel-levels: 4
-    shadow-colour: "#1a2e55"
-    midtone-colour: "#2d5a9e"
-    highlight-colour: "#7ae0dc"
-    tone-mix: 0.30
-    fg_colour: "#f6ae2d"
+# Visible ship mesh now lives in game/layers/ship-scene-layer.yml so it shares
+# the same stable scene-camera path as asteroids and no longer rides the prefab
+# object layer.
+sprites: []

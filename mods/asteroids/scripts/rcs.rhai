@@ -229,6 +229,16 @@ fn fire_settling_puff_original_style(world, ship_id, yaw_rate, vfwd, vright, pal
     }
 }
 
+fn fire_orbital_coast_plume(world, ship_id, thrust_axis, turn_axis, speed, pal) {
+    if absf(thrust_axis) > 0.001 { return; }
+    if absf(turn_axis) > 0.001 { return; }
+    if speed < 5.5 { return; }
+    if rand() > 0.32 { return; }
+
+    let intensity = (0.05 + (speed - 5.5) * 0.01).min(0.16);
+    emit_rcs_intensity(world, ship_id, "ship.main", 26.0 + speed * 1.6, 52, pal["pulse"], 0.025, intensity, 1);
+}
+
 fn update_orbital_vfx_original_style(world, ship_id, thrust_axis, turn_axis, yaw_rate, thrust_hold_ms, thrust_release_ms, vfwd, vright, speed, pal) {
     if ship_id <= 0 { return; }
     if !world.exists(ship_id) { return; }
@@ -242,4 +252,5 @@ fn update_orbital_vfx_original_style(world, ship_id, thrust_axis, turn_axis, yaw
     fire_translation_trim_original_style(world, ship_id, thrust_axis, vfwd, vright, pal);
     fire_main_engine_original_style(world, ship_id, thrust_axis > 0.0, thrust_hold_ms, thrust_release_ms, speed, pal);
     fire_settling_puff_original_style(world, ship_id, yaw_rate, vfwd, vright, pal);
+    fire_orbital_coast_plume(world, ship_id, thrust_axis, turn_axis, speed, pal);
 }

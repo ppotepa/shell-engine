@@ -1,21 +1,5 @@
 kind: object
 name: asteroid-medium
-sprites:
-  - type: obj
-    id: asteroid-medium-sprite
-    source: /assets/3d/rock.obj
-    x: -13
-    y: -7
-    width: 26
-    height: 14
-    scale: 1.0
-    surface-mode: material
-    rotate-y-deg-per-sec: 80
-    rotation-y: 120
-    pitch-deg: 15
-    camera-distance: 2.8
-    fov-degrees: 50
-    near-clip: 0.01
-    light-direction-x: 0.5
-    light-direction-y: -0.7
-    light-direction-z: 0.5
+# Visual is handled by the asteroids-gen-layer slot pool (generator pattern).
+# Physics collider and tags are defined in catalogs/prefabs.yaml.
+sprites: []

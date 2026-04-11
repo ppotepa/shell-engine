@@ -12,6 +12,8 @@ objects:
 layers:
   - ref: game/layers/stars-layer.yml
   - ref: game/layers/planet-bg-layer.yml
+  - ref: game/layers/asteroids-gen-layer.yml
+  - ref: game/layers/ship-scene-layer.yml
   - ref: game/layers/game-canvas.yml
   - ref: game/layers/hud-grid.yml
 logic:

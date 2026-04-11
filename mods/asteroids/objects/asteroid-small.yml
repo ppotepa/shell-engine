@@ -1,21 +1,5 @@
 kind: object
 name: asteroid-small
-sprites:
-  - type: obj
-    id: asteroid-small-sprite
-    source: /assets/3d/rock.obj
-    x: -8
-    y: -4
-    width: 16
-    height: 9
-    scale: 1.0
-    surface-mode: material
-    rotate-y-deg-per-sec: 100
-    rotation-y: 240
-    pitch-deg: -20
-    camera-distance: 2.8
-    fov-degrees: 50
-    near-clip: 0.01
-    light-direction-x: 0.5
-    light-direction-y: -0.7
-    light-direction-z: 0.5
+# Visual is handled by the asteroids-gen-layer slot pool (generator pattern).
+# Physics collider and tags are defined in catalogs/prefabs.yaml.
+sprites: []

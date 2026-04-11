@@ -1,0 +1,37 @@
+# Ship Scene Layer
+#
+# Dedicated chase-camera ship visual, separate from the prefab object layer.
+# The ship prefab still spawns a gameplay entity, but the visible 3D mesh is
+# rendered here so it no longer depends on the non-UI object-layer camera path.
+#
+# The mesh is a mostly flat top-down silhouette. Runtime now drives full
+# obj.pitch / obj.yaw / obj.roll from the orbital sn / sf / sr basis, so this
+# layer intentionally keeps no baked-in orientation offsets.
+
+- name: ship-scene
+  z_index: -10
+  ui: true
+  space: 3d
+  sprites:
+    - type: obj
+      id: ship-scene-slot
+      source: /assets/3d/ship.obj
+      x: 0
+      y: 0
+      scale: 0.20
+      surface-mode: material
+      prerender: false
+      rotate-y-deg-per-sec: 0
+      camera-source: scene
+      fov-degrees: 65
+      near-clip: 0.01
+      light-direction-x: -0.50
+      light-direction-y: 0.65
+      light-direction-z: -0.58
+      cel-levels: 4
+      shadow-colour: "#1a2e55"
+      midtone-colour: "#2d5a9e"
+      highlight-colour: "#7ae0dc"
+      tone-mix: 0.30
+      fg_colour: "#f6ae2d"
+      visible: true

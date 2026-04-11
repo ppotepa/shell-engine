@@ -1,11 +1,5 @@
 kind: object
 name: debris
-sprites:
-  - type: vector
-    id: debris-sprite
-    points: [[0,0],[1,0]]
-    closed: false
-    draw-char: "."
-    x: 0
-    y: 0
-    fg_colour: gray
+# Visual handled by particle emitters (asteroid.debris).
+# Physics entity kept for scripted interactions.
+sprites: []

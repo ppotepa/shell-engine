@@ -1,8 +1,8 @@
 # Planet Background Layer
 #
 # Earth-like sphere rendered with the 3D OBJ pipeline.
-# Canvas: 640×320 virtual px (2:1 halfblock ratio), centered at screen centre (320,180).
-# fov-degrees: 50 — gives ~4% margin at sphere silhouette so the circle is never clipped.
+# Uses the live scene viewport so the chase camera stays consistent across
+# terminal/output sizes.
 # z_index: -50 keeps it behind all gameplay and HUD layers.
 #
 # Yaw is driven from game-loop.rhai each frame (self-rotation + cockpit camera).
@@ -29,9 +29,7 @@
       id: planet-bg-sphere
       source: /assets/3d/sphere.obj
       x: 0
-      y: 20
-      width: 640
-      height: 320
+      y: 0
       scale: 1.0
       surface-mode: material
       rotation-y: 30
@@ -74,9 +72,7 @@
       id: planet-clouds
       source: /assets/3d/sphere.obj
       x: 0
-      y: 20
-      width: 640
-      height: 320
+      y: 0
       scale: 1.0
       surface-mode: material
       camera-distance: 2.45
@@ -106,9 +102,7 @@
       id: planet-clouds-2
       source: /assets/3d/sphere.obj
       x: 0
-      y: 20
-      width: 640
-      height: 320
+      y: 0
       scale: 1.0
       surface-mode: material
       rotation-y: 180

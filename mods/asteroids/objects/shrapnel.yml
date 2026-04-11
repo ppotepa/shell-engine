@@ -1,11 +1,5 @@
 kind: object
 name: shrapnel
-sprites:
-  - type: vector
-    id: shrapnel-sprite
-    points: [[0,-2],[1,0],[0,2],[-1,0]]
-    closed: true
-    draw-char: "◆"
-    x: 0
-    y: 0
-    fg_colour: white
+# Visual handled by particle emitters (asteroid.impact_fragments, asteroids.impact_sparks).
+# Physics entity kept for collision detection — shrapnel still damages the ship.
+sprites: []

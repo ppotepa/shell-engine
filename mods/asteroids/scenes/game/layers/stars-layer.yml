@@ -1,8 +1,8 @@
 # Stars Layer — z_index: -55 (behind planet at -50, behind all gameplay)
 #
-# Purely decorative star field. All sprites are individual text characters
-# placed at absolute canvas positions (640×360 space). No collision or gameplay
-# role. Drawn first so every other plane composites on top.
+# Purely decorative star field. All sprites are individual text characters with
+# authored screen-space positions. No collision or gameplay role. Drawn first so
+# every other plane composites on top.
 #
 # Accent stars use @palette.star so they shift with the active palette.
 # Dim fill stars use a fixed dark-blue-white tone that suits all palettes.
@@ -10,7 +10,7 @@
 - name: stars
   z_index: -55
   ui: true
-  space: 3d
+  space: screen
   sprites:
     # ── accent stars (palette-driven) ──────────────────────────────────────
     - { type: text, content: "*", at: tl, x: 142, y: 22,  fg: "#c8a83e" }
