@@ -95,6 +95,15 @@ pub enum BehaviorCommand {
         x: f32,
         y: f32,
     },
+    /// Set the shared scene-level 3D camera eye/target pair.
+    SetCamera3DLookAt {
+        eye: [f32; 3],
+        look_at: [f32; 3],
+    },
+    /// Set the shared scene-level 3D camera up vector.
+    SetCamera3DUp {
+        up: [f32; 3],
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

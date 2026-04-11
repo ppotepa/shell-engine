@@ -5,8 +5,10 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::Region;
-use engine_core::scene::{Layer, SceneRenderedMode};
-use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
+use engine_core::scene::{Layer, LayerSpace, SceneRenderedMode, SceneSpace};
+use engine_core::scene_runtime_types::{
+    ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
+};
 use engine_pipeline::LayerCompositor;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -27,6 +29,7 @@ pub fn composite_layers(
     scene_w: u16,
     scene_h: u16,
     scene_rendered_mode: SceneRenderedMode,
+    scene_space: SceneSpace,
     asset_root: Option<&AssetRoot>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -38,6 +41,7 @@ pub fn composite_layers(
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
+    scene_camera_3d: &SceneCamera3D,
     is_pixel_backend: bool,
     default_font: Option<&str>,
     camera_x: i32,
@@ -45,6 +49,20 @@ pub fn composite_layers(
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
+    let resolve_layer_space = |layer: &Layer| match layer.space {
+        LayerSpace::Inherit => {
+            if layer.ui {
+                LayerSpace::Screen
+            } else {
+                match scene_space {
+                    SceneSpace::TwoD => LayerSpace::TwoD,
+                    SceneSpace::ThreeD => LayerSpace::ThreeD,
+                }
+            }
+        }
+        other => other,
+    };
+
     for (layer_idx, layer) in layers.iter().enumerate() {
         if layer.ui && !ui_enabled {
             continue;
@@ -63,9 +81,18 @@ pub fn composite_layers(
         }
         let base_x = scene_origin_x.saturating_add(layer_state.offset_x);
         let base_y = scene_origin_y.saturating_add(layer_state.offset_y);
-        // UI layers are fixed (HUD, menus) — camera offset does not apply to them.
-        let total_origin_x = if layer.ui { base_x } else { base_x.saturating_sub(camera_x) };
-        let total_origin_y = if layer.ui { base_y } else { base_y.saturating_sub(camera_y) };
+        let layer_space = resolve_layer_space(layer);
+        let use_2d_camera = matches!(layer_space, LayerSpace::TwoD);
+        let total_origin_x = if use_2d_camera {
+            base_x.saturating_sub(camera_x)
+        } else {
+            base_x
+        };
+        let total_origin_y = if use_2d_camera {
+            base_y.saturating_sub(camera_y)
+        } else {
+            base_y
+        };
 
         // ── Flicker diagnostic: detect non-UI layer position jitter ──────
         if !layer.ui {
@@ -189,6 +216,7 @@ pub fn composite_layers(
                     step_idx,
                     elapsed_ms,
                     obj_camera_states,
+                    scene_camera_3d,
                     is_pixel_backend,
                     default_font,
                     &mut layer_buf,
@@ -228,6 +256,7 @@ pub fn composite_layers(
                 step_idx,
                 elapsed_ms,
                 obj_camera_states,
+                scene_camera_3d,
                 is_pixel_backend,
                 default_font,
                 buffer,

@@ -1146,6 +1146,7 @@ mod tests {
             cutscene: true,
             target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
+            space: Default::default(),
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),

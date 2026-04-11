@@ -45,6 +45,21 @@ mods/<mod>/
 A scene is either a single YAML file or a package directory containing
 `scene.yml` plus partials. Both forms are interchangeable at runtime.
 
+### Scene space and camera model
+
+Scenes can now declare a default `space` of `2d` or `3d`.
+
+- `space: 2d` keeps the existing world-camera behavior: non-screen layers are offset by `world.set_camera(x, y)`.
+- `space: 3d` makes `3d` the default for inherited layers and enables the shared scene 3D camera driven by `world.set_camera_3d_look_at(...)` and `world.set_camera_3d_up(...)`.
+
+Layers can override that default with `space: inherit | 2d | 3d | screen`.
+
+- `2d` uses the scene's 2D camera.
+- `3d` ignores the 2D camera and is intended for OBJ / Scene3D content.
+- `screen` is fixed HUD space.
+
+OBJ and `scene3_d` sprites can opt into the shared scene camera with `camera-source: scene`. The default remains `camera-source: local`, which preserves authored per-sprite camera values.
+
 Object instances support both explicit entries and a repeat shorthand. The
 `repeat` form expands at compile time and supports `{i}` token substitution
 in `as`/`id` and string values inside `with`.

@@ -12,6 +12,7 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::logging;
 use engine_core::scene::{Layer, Scene, SceneRenderedMode, Sprite};
+use engine_core::scene_runtime_types::SceneCamera3D;
 
 use crate::scene3d_runtime_store::{Scene3DRuntimeEntry, Scene3DRuntimeStore};
 use crate::{
@@ -130,7 +131,11 @@ fn collect_sources_from_sprites(
     }
 }
 
-fn look_at_basis(eye: [f32; 3], target: [f32; 3]) -> ([f32; 3], [f32; 3], [f32; 3]) {
+fn look_at_basis(
+    eye: [f32; 3],
+    target: [f32; 3],
+    world_up: [f32; 3],
+) -> ([f32; 3], [f32; 3], [f32; 3]) {
     let fwd = {
         let d = [
             target[0] - eye[0],
@@ -144,11 +149,10 @@ fn look_at_basis(eye: [f32; 3], target: [f32; 3]) -> ([f32; 3], [f32; 3], [f32; 
     };
     // right = normalize(cross(fwd, world_up))
     let right = {
-        let wu = [0.0f32, 1.0, 0.0];
         let d = [
-            fwd[1] * wu[2] - fwd[2] * wu[1],
-            fwd[2] * wu[0] - fwd[0] * wu[2],
-            fwd[0] * wu[1] - fwd[1] * wu[0],
+            fwd[1] * world_up[2] - fwd[2] * world_up[1],
+            fwd[2] * world_up[0] - fwd[0] * world_up[2],
+            fwd[0] * world_up[1] - fwd[1] * world_up[0],
         ];
         let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
             .sqrt()
@@ -201,6 +205,7 @@ fn build_work_items(
                     &def.objects,
                     &def.materials,
                     &def.camera,
+                    None,
                     &light_params,
                     None,
                     &[],
@@ -228,6 +233,7 @@ fn build_work_items(
                         &def.objects,
                         &def.materials,
                         &def.camera,
+                        None,
                         &light_params,
                         clip_def.clip.orbit_origin,
                         &clip_def.clip.tweens,
@@ -333,6 +339,7 @@ fn build_object_specs(
     objects: &[ObjectDef],
     materials: &HashMap<String, MaterialDef>,
     camera: &CameraDef,
+    camera_override: Option<&SceneCamera3D>,
     lights: &LightParams,
     clip_orbit_origin: Option<[f32; 3]>,
     tweens: &[TweenDef],
@@ -352,9 +359,14 @@ fn build_object_specs(
     // Object id "camera" with property "orbit_angle_deg" rotates the camera
     // around camera.look_at in the horizontal plane, preserving radial distance
     // and elevation angle from the initial position.
-    let base_cam_pos = camera.position.unwrap_or([0.0, 0.0, camera.distance]);
+    let base_cam_pos = camera_override
+        .map(|camera| camera.eye)
+        .unwrap_or_else(|| camera.position.unwrap_or([0.0, 0.0, camera.distance]));
+    let look_at = camera_override
+        .map(|camera| camera.look_at)
+        .or(camera.look_at);
     let effective_cam_pos =
-        if let (Some(cam_tw), Some(look_at)) = (tween_values.get("camera"), camera.look_at) {
+        if let (Some(cam_tw), Some(look_at)) = (tween_values.get("camera"), look_at) {
             if let Some(&orbit_angle_deg) = cam_tw.get("orbit_angle_deg") {
                 let dx = base_cam_pos[0] - look_at[0];
                 let dy = base_cam_pos[1] - look_at[1];
@@ -376,15 +388,22 @@ fn build_object_specs(
             base_cam_pos
         };
 
-    let camera_distance = (effective_cam_pos[0].powi(2)
-        + effective_cam_pos[1].powi(2)
-        + effective_cam_pos[2].powi(2))
-    .sqrt()
-    .max(camera.distance.abs());
+    let camera_distance = if camera_override.is_some() {
+        ((effective_cam_pos[0] - look_at.unwrap_or([0.0, 0.0, 0.0])[0]).powi(2)
+            + (effective_cam_pos[1] - look_at.unwrap_or([0.0, 0.0, 0.0])[1]).powi(2)
+            + (effective_cam_pos[2] - look_at.unwrap_or([0.0, 0.0, 0.0])[2]).powi(2))
+        .sqrt()
+        .max(0.001)
+    } else {
+        (effective_cam_pos[0].powi(2) + effective_cam_pos[1].powi(2) + effective_cam_pos[2].powi(2))
+            .sqrt()
+            .max(camera.distance.abs())
+    };
 
     let (global_view_right, global_view_up, global_view_forward) =
-        if let Some(look_at) = camera.look_at {
-            look_at_basis(effective_cam_pos, look_at)
+        if let Some(look_at) = look_at {
+            let up = camera_override.map(|camera| camera.up).unwrap_or([0.0, 1.0, 0.0]);
+            look_at_basis(effective_cam_pos, look_at, up)
         } else {
             ([1.0f32, 0.0, 0.0], [0.0f32, 1.0, 0.0], [0.0f32, 0.0, 1.0])
         };
@@ -700,37 +719,49 @@ pub fn build_scene3d_runtime_store(
 /// like `"solar-orbit-7"`.  Returns `None` if the clip is not found or the scene has no objects.
 pub fn render_scene3d_frame_at(
     entry: &Scene3DRuntimeEntry,
-    clip_name: &str,
+    frame_name: &str,
     elapsed_ms: u64,
     asset_root: &AssetRoot,
+    camera_override: Option<&SceneCamera3D>,
 ) -> Option<Buffer> {
-    let frame_def = entry.def.frames.get(clip_name)?;
-    let FrameDef::Clip(clip) = frame_def else {
-        return None;
-    };
-
-    let duration_ms = clip.clip.duration_ms as u64;
-    let t = if duration_ms == 0 {
-        0.0f32
-    } else {
-        (elapsed_ms % duration_ms) as f32 / duration_ms as f32
-    };
-
+    let frame_def = entry.def.frames.get(frame_name)?;
     let light_params = extract_light_params(&entry.def.lights);
-    let objects = build_object_specs(
-        &clip.show,
-        &entry.def.objects,
-        &entry.def.materials,
-        &entry.def.camera,
-        &light_params,
-        clip.clip.orbit_origin,
-        &clip.clip.tweens,
-        t,
-    );
+    let objects = match frame_def {
+        FrameDef::Static(static_def) => build_object_specs(
+            &static_def.show,
+            &entry.def.objects,
+            &entry.def.materials,
+            &entry.def.camera,
+            camera_override,
+            &light_params,
+            None,
+            &[],
+            0.0,
+        ),
+        FrameDef::Clip(clip) => {
+            let duration_ms = clip.clip.duration_ms as u64;
+            let t = if duration_ms == 0 {
+                0.0f32
+            } else {
+                (elapsed_ms % duration_ms) as f32 / duration_ms as f32
+            };
+            build_object_specs(
+                &clip.show,
+                &entry.def.objects,
+                &entry.def.materials,
+                &entry.def.camera,
+                camera_override,
+                &light_params,
+                clip.clip.orbit_origin,
+                &clip.clip.tweens,
+                t,
+            )
+        }
+    };
 
     let item = WorkItem {
         src: String::new(),
-        frame_id: clip_name.to_string(),
+        frame_id: frame_name.to_string(),
         viewport_w: entry.def.viewport.width,
         viewport_h: entry.def.viewport.height,
         mode: entry.mode,

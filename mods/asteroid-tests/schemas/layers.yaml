@@ -1,6 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/asteroids/schemas/layers.yaml
-title: schema asteroids layers
+$id: https://shell-quest.local/mods/asteroid-tests/schemas/layers.yaml
+title: schema asteroid-tests layers
 $defs:
   step_overlay:
     type: object

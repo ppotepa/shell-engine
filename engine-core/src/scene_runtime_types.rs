@@ -159,3 +159,45 @@ pub struct ObjCameraState {
     pub look_pitch: f32,
     pub last_mouse_pos: Option<(u16, u16)>,
 }
+
+/// Shared scene-level 3D camera state.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SceneCamera3D {
+    pub eye: [f32; 3],
+    pub look_at: [f32; 3],
+    pub up: [f32; 3],
+    pub fov_degrees: f32,
+    pub near_clip: f32,
+}
+
+impl Default for SceneCamera3D {
+    fn default() -> Self {
+        Self {
+            eye: [0.0, 0.0, 3.0],
+            look_at: [0.0, 0.0, 0.0],
+            up: [0.0, 1.0, 0.0],
+            fov_degrees: 60.0,
+            near_clip: 0.001,
+        }
+    }
+}
+
+impl SceneCamera3D {
+    pub fn forward(&self) -> [f32; 3] {
+        let dx = self.look_at[0] - self.eye[0];
+        let dy = self.look_at[1] - self.eye[1];
+        let dz = self.look_at[2] - self.eye[2];
+        let len = (dx * dx + dy * dy + dz * dz).sqrt().max(1e-6);
+        [dx / len, dy / len, dz / len]
+    }
+
+    pub fn right(&self) -> [f32; 3] {
+        let fwd = self.forward();
+        let up = self.up;
+        let dx = fwd[1] * up[2] - fwd[2] * up[1];
+        let dy = fwd[2] * up[0] - fwd[0] * up[2];
+        let dz = fwd[0] * up[1] - fwd[1] * up[0];
+        let len = (dx * dx + dy * dy + dz * dz).sqrt().max(1e-6);
+        [dx / len, dy / len, dz / len]
+    }
+}

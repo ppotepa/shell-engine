@@ -42,6 +42,16 @@ Scenes are loaded as single YAML files (`scenes/*.yml`) or scene packages
 (`scenes/<name>/scene.yml` + partials). Asset loading supports unpacked mod
 directories and zip-packaged mods.
 
+Scene composition now has an explicit space model:
+
+- scene default: `space: 2d | 3d`
+- layer override: `space: inherit | 2d | 3d | screen`
+
+The runtime keeps both a 2D world camera (`camera_x/y`) and a shared scene 3D
+camera (`eye`, `look_at`, `up`, `fov`, `near_clip`). `2d` layers consume the
+2D camera, `screen` layers stay fixed, and OBJ / Scene3D sprites can opt into
+the shared 3D camera with `camera-source: scene`.
+
 ## 2. Crate Dependency Graph
 
 ```

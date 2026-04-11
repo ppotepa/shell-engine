@@ -587,6 +587,7 @@ impl SceneRuntime {
                         }
                         "obj.scale" | "obj.yaw" | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
                         | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max"
+                        | "obj.world.x" | "obj.world.y" | "obj.world.z"
                         | "obj.cam.wx" | "obj.cam.wy" | "obj.cam.wz"
                         | "obj.view.rx" | "obj.view.ry" | "obj.view.rz"
                         | "obj.view.ux" | "obj.view.uy" | "obj.view.uz"
@@ -673,8 +674,18 @@ impl SceneRuntime {
                 BehaviorCommand::SetCamera { x, y } => {
                     // Match gameplay visual sync rounding so camera-driven parallax and
                     // entity positions land on the same pixel grid.
-                    self.camera_x = x.round() as i32;
-                    self.camera_y = y.round() as i32;
+                    self.set_camera_internal(x.round() as i32, y.round() as i32);
+                }
+                BehaviorCommand::SetCamera3DLookAt { eye, look_at } => {
+                    let mut camera = self.scene_camera_3d;
+                    camera.eye = *eye;
+                    camera.look_at = *look_at;
+                    self.set_scene_camera_3d_internal(camera);
+                }
+                BehaviorCommand::SetCamera3DUp { up } => {
+                    let mut camera = self.scene_camera_3d;
+                    camera.up = *up;
+                    self.set_scene_camera_3d_internal(camera);
                 }
             }
         }

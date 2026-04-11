@@ -181,6 +181,7 @@ mod tests {
             cutscene: false,
             target_fps: None,
             rendered_mode: SceneRenderedMode::default(),
+            space: Default::default(),
             virtual_size_override: None,
             bg_colour: None,
             stages: SceneStages {
@@ -197,6 +198,8 @@ mod tests {
             postfx: Vec::new(),
             next: None,
             prerender: false,
+            palette_bindings: Vec::new(),
+            game_state_bindings: Vec::new(),
         }
     }
 

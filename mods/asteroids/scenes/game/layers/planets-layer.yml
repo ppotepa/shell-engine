@@ -12,7 +12,7 @@
 #   planet_shadow — dark-side fill colour
 
 - name: planets
-  z_index: 1
+  z_index: -35
   ui: true
   sprites:
     # ── Large planet (right-centre, partially off right edge) ──────────────

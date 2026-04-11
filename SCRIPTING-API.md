@@ -206,9 +206,14 @@ world.disable_wrap(id)        // Disable per-entity wrapping
 
 ```rhai
 world.set_camera(x, y)        // Shift viewport so world-pos (x, y) maps to screen top-left.
-                               // Call each frame: world.set_camera(ship_x - 320.0, ship_y - 180.0)
-                               // UI layers (ui: true in YAML) are NOT affected — they stay fixed.
-                               // Camera resets to (0,0) on scene transition.
+                                // Call each frame: world.set_camera(ship_x - 320.0, ship_y - 180.0)
+                                // Screen-space layers are NOT affected — they stay fixed.
+                                // Camera resets to (0,0) on scene transition.
+world.set_camera_3d_look_at(eye_x, eye_y, eye_z, target_x, target_y, target_z)
+                                // Update the shared scene 3D camera. OBJ / scene3_d sprites use it
+                                // only when authored with camera-source: scene.
+world.set_camera_3d_up(up_x, up_y, up_z)
+                                // Override the shared scene 3D up vector for banking / cockpit roll.
 ```
 
 ### Timers (World-level)
@@ -579,6 +584,9 @@ scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
 | `style.fg`         | str     | Foreground colour name                            |
 | `style.bg`         | str     | Background colour name                            |
 | `vector.points`    | `[]`    | Replace polygon points (array of `[x,y]`)        |
+| `obj.world.x`      | float   | OBJ world-space X translation (pre-projection)   |
+| `obj.world.y`      | float   | OBJ world-space Y translation (pre-projection)   |
+| `obj.world.z`      | float   | OBJ world-space Z translation (pre-projection)   |
 
 ### Scene Graph Mutations
 

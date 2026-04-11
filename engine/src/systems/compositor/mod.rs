@@ -71,6 +71,8 @@ pub fn compositor_system(world: &mut World) {
         step_idx,
         elapsed_ms,
         scene_elapsed_ms,
+        scene_space,
+        scene_camera_3d,
         effects_ptr,
         scene_step_dur,
         rendered_mode,
@@ -119,6 +121,10 @@ pub fn compositor_system(world: &mut World) {
             .scene_runtime()
             .map(|rt| rt.camera())
             .unwrap_or((0, 0));
+        let scene_camera_3d = world
+            .scene_runtime()
+            .map(|rt| rt.scene_camera_3d())
+            .unwrap_or_default();
 
         (
             bg,
@@ -130,6 +136,8 @@ pub fn compositor_system(world: &mut World) {
             step,
             elapsed,
             scene_elapsed,
+            scene.space,
+            scene_camera_3d,
             effects_ptr,
             scene_step_dur,
             runtime_mode_override.unwrap_or(scene.rendered_mode),
@@ -211,6 +219,8 @@ pub fn compositor_system(world: &mut World) {
         step_idx,
         elapsed_ms,
         scene_elapsed_ms,
+        scene_space,
+        scene_camera_3d: &scene_camera_3d,
         scene_effects,
         scene_step_dur,
         is_pixel_backend,

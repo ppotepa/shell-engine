@@ -38,7 +38,8 @@ use engine_core::scene::{
     TerminalShellControls, UiThemeStyle,
 };
 pub use engine_core::scene_runtime_types::{
-    ObjCameraState, ObjectRuntimeState, RawKeyEvent, SidecarIoFrameState, TargetResolver,
+    ObjCameraState, ObjectRuntimeState, RawKeyEvent, SceneCamera3D, SidecarIoFrameState,
+    TargetResolver,
 };
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
 use engine_render_terminal::rasterizer::generic::GenericMode;
@@ -95,6 +96,7 @@ pub struct SceneRuntime {
     /// Non-UI layers are offset by (-camera_x, -camera_y) during compositing.
     camera_x: i32,
     camera_y: i32,
+    scene_camera_3d: SceneCamera3D,
     /// Palette version when bindings were last applied; 0 means not yet applied.
     palette_applied_version: u64,
     /// GameState version when text bindings were last applied; 0 means not yet applied.

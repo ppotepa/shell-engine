@@ -7,8 +7,10 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_core::markup::strip_markup;
-use engine_core::scene::{Layer, SceneRenderedMode, Sprite};
-use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
+use engine_core::scene::{CameraSource, Layer, SceneRenderedMode, Sprite};
+use engine_core::scene_runtime_types::{
+    ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
+};
 use engine_render::VectorPrimitive;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -112,6 +114,7 @@ pub fn render_sprites(
     step_idx: usize,
     elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
+    scene_camera_3d: &SceneCamera3D,
     is_pixel_backend: bool,
     default_font: Option<&str>,
     layer_buf: &mut Buffer,
@@ -124,6 +127,7 @@ pub fn render_sprites(
         elapsed_ms,
         layer_buf,
         obj_camera_states,
+        scene_camera_3d,
         is_pixel_backend,
         default_font,
     };
@@ -1181,6 +1185,9 @@ fn render_obj_sprite(
         align_y,
         fg_colour,
         bg_colour,
+        world_x,
+        world_y,
+        world_z,
         cam_world_x,
         cam_world_y,
         cam_world_z,
@@ -1193,6 +1200,7 @@ fn render_obj_sprite(
         view_fwd_x,
         view_fwd_y,
         view_fwd_z,
+        camera_source,
         ..
     } = sprite
     else {
@@ -1272,6 +1280,8 @@ fn render_obj_sprite(
         }
     }
 
+    let use_scene_camera = *camera_source == CameraSource::Scene;
+    let scene_camera = ctx.scene_camera_3d;
     render_obj_content(
         source,
         Some(sprite_width),
@@ -1325,26 +1335,73 @@ fn render_obj_sprite(
             camera_pan_y: camera_state.pan_y,
             camera_look_yaw: camera_state.look_yaw,
             camera_look_pitch: camera_state.look_pitch,
-            object_translate_x: 0.0,
-            object_translate_y: 0.0,
-            object_translate_z: 0.0,
+            object_translate_x: world_x.unwrap_or(0.0),
+            object_translate_y: world_y.unwrap_or(0.0),
+            object_translate_z: world_z.unwrap_or(0.0),
             clip_y_min: clip_y_min.unwrap_or(0.0),
             clip_y_max: clip_y_max.unwrap_or(1.0),
             // Cockpit camera override: when cam_world_x/y/z are set, use them; otherwise fall
             // back to the legacy (0, 0, -camera_distance) position.
-            camera_world_x: cam_world_x.unwrap_or(0.0),
-            camera_world_y: cam_world_y.unwrap_or(0.0),
-            camera_world_z: cam_world_z.unwrap_or(-camera_distance.unwrap_or(3.0)),
-            // View basis override: default is identity (right=X, up=Y, forward=Z).
-            view_right_x: view_right_x.unwrap_or(1.0),
-            view_right_y: view_right_y.unwrap_or(0.0),
-            view_right_z: view_right_z.unwrap_or(0.0),
-            view_up_x: view_up_x.unwrap_or(0.0),
-            view_up_y: view_up_y.unwrap_or(1.0),
-            view_up_z: view_up_z.unwrap_or(0.0),
-            view_forward_x: view_fwd_x.unwrap_or(0.0),
-            view_forward_y: view_fwd_y.unwrap_or(0.0),
-            view_forward_z: view_fwd_z.unwrap_or(1.0),
+            camera_world_x: if use_scene_camera {
+                scene_camera.eye[0]
+            } else {
+                cam_world_x.unwrap_or(0.0)
+            },
+            camera_world_y: if use_scene_camera {
+                scene_camera.eye[1]
+            } else {
+                cam_world_y.unwrap_or(0.0)
+            },
+            camera_world_z: if use_scene_camera {
+                scene_camera.eye[2]
+            } else {
+                cam_world_z.unwrap_or(-camera_distance.unwrap_or(3.0))
+            },
+            view_right_x: if use_scene_camera {
+                scene_camera.right()[0]
+            } else {
+                view_right_x.unwrap_or(1.0)
+            },
+            view_right_y: if use_scene_camera {
+                scene_camera.right()[1]
+            } else {
+                view_right_y.unwrap_or(0.0)
+            },
+            view_right_z: if use_scene_camera {
+                scene_camera.right()[2]
+            } else {
+                view_right_z.unwrap_or(0.0)
+            },
+            view_up_x: if use_scene_camera {
+                scene_camera.up[0]
+            } else {
+                view_up_x.unwrap_or(0.0)
+            },
+            view_up_y: if use_scene_camera {
+                scene_camera.up[1]
+            } else {
+                view_up_y.unwrap_or(1.0)
+            },
+            view_up_z: if use_scene_camera {
+                scene_camera.up[2]
+            } else {
+                view_up_z.unwrap_or(0.0)
+            },
+            view_forward_x: if use_scene_camera {
+                scene_camera.forward()[0]
+            } else {
+                view_fwd_x.unwrap_or(0.0)
+            },
+            view_forward_y: if use_scene_camera {
+                scene_camera.forward()[1]
+            } else {
+                view_fwd_y.unwrap_or(0.0)
+            },
+            view_forward_z: if use_scene_camera {
+                scene_camera.forward()[2]
+            } else {
+                view_fwd_z.unwrap_or(1.0)
+            },
             unlit: false,
             ambient: 0.15,
             light_point_falloff: 0.7,
@@ -1406,7 +1463,12 @@ fn render_scene3d_sprite(
     ctx: &mut RenderCtx<'_>,
 ) {
     let Sprite::Scene3D {
-        src, frame, x, y, ..
+        src,
+        frame,
+        x,
+        y,
+        camera_source,
+        ..
     } = sprite
     else {
         return;
@@ -1432,13 +1494,13 @@ fn render_scene3d_sprite(
         Scene3DRuntimeStore::current_get(src),
         ctx.asset_root,
     ) {
-        // Only try real-time if the definition actually has this clip as a bare name.
         if entry.def.frames.contains_key(frame.as_str()) {
             let buf = crate::scene3d_prerender::render_scene3d_frame_at(
                 entry,
                 frame,
                 ctx.scene_elapsed_ms,
                 asset_root,
+                (*camera_source == CameraSource::Scene).then_some(ctx.scene_camera_3d),
             );
             if let Some(buf) = buf {
                 blit(&buf, ctx.layer_buf, draw_x, draw_y);
@@ -1466,7 +1528,7 @@ fn render_scene3d_sprite(
 
     // Fallback: look up prerendered buffer from world-scoped atlas via thread-local pointer.
     // Used for static frames and when no runtime store is available.
-    if !rendered_realtime {
+    if !rendered_realtime && *camera_source != CameraSource::Scene {
         if let Some(buf) = Scene3DAtlas::current_get(src, frame) {
             blit(&buf, ctx.layer_buf, draw_x, draw_y);
             if let Some(id) = object_id {

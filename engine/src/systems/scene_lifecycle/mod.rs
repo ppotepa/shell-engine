@@ -562,6 +562,7 @@ mod tests {
             cutscene: false,
             target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
+            space: Default::default(),
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages {
@@ -582,6 +583,8 @@ mod tests {
             postfx: Vec::new(),
             next: Some("playground-3d-scene".into()),
             prerender: false,
+            palette_bindings: Vec::new(),
+            game_state_bindings: Vec::new(),
         }
     }
 
@@ -592,6 +595,7 @@ mod tests {
             cutscene: true,
             target_fps: None,
             rendered_mode: SceneRenderedMode::Cell,
+            space: Default::default(),
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),
@@ -604,6 +608,8 @@ mod tests {
             postfx: Vec::new(),
             next: next.map(Into::into),
             prerender: false,
+            palette_bindings: Vec::new(),
+            game_state_bindings: Vec::new(),
         }
     }
 

@@ -316,6 +316,24 @@ where
         "set_camera",
         |world: &mut TWorld, x: rhai::FLOAT, y: rhai::FLOAT| world.set_camera(x, y),
     );
+    engine.register_fn(
+        "set_camera_3d_look_at",
+        |world: &mut TWorld,
+         eye_x: rhai::FLOAT,
+         eye_y: rhai::FLOAT,
+         eye_z: rhai::FLOAT,
+         target_x: rhai::FLOAT,
+         target_y: rhai::FLOAT,
+         target_z: rhai::FLOAT| {
+            world.set_camera_3d_look_at(eye_x, eye_y, eye_z, target_x, target_y, target_z)
+        },
+    );
+    engine.register_fn(
+        "set_camera_3d_up",
+        |world: &mut TWorld, up_x: rhai::FLOAT, up_y: rhai::FLOAT, up_z: rhai::FLOAT| {
+            world.set_camera_3d_up(up_x, up_y, up_z)
+        },
+    );
     engine.register_fn("rand_i", |world: &mut TWorld, min: rhai::INT, max: rhai::INT| {
         world.rand_i(min, max)
     });

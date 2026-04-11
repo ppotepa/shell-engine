@@ -3,8 +3,10 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::Region;
-use engine_core::scene::{Effect, Layer, SceneRenderedMode};
-use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
+use engine_core::scene::{Effect, Layer, SceneRenderedMode, SceneSpace};
+use engine_core::scene_runtime_types::{
+    ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
+};
 use engine_pipeline::{HalfblockPacker, LayerCompositor};
 use std::collections::HashMap;
 
@@ -25,6 +27,8 @@ pub struct CompositeParams<'a> {
     pub step_idx: usize,
     pub elapsed_ms: u64,
     pub scene_elapsed_ms: u64,
+    pub scene_space: SceneSpace,
+    pub scene_camera_3d: &'a SceneCamera3D,
     pub scene_effects: &'a [Effect],
     pub scene_step_dur: u64,
     pub is_pixel_backend: bool,

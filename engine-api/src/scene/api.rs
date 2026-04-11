@@ -57,6 +57,9 @@ fn kind_capabilities(kind: Option<&str>) -> RhaiMap {
                 cap.insert("obj.roll".into(), true.into());
                 cap.insert("obj.orbit_speed".into(), true.into());
                 cap.insert("obj.surface_mode".into(), true.into());
+                cap.insert("obj.world.x".into(), true.into());
+                cap.insert("obj.world.y".into(), true.into());
+                cap.insert("obj.world.z".into(), true.into());
             }
             _ => {}
         }

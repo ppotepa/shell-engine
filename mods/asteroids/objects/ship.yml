@@ -13,6 +13,7 @@ sprites:
     rotate-y-deg-per-sec: 0
     rotation-y: 0
     camera-distance: 2.8
+    camera-source: scene
     fov-degrees: 50
     near-clip: 0.01
     light-direction-x: -0.50

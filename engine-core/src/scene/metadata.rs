@@ -30,6 +30,9 @@ const SPRITE_TYPE_OPTIONS: &[&str] = &[
 ];
 const LOGIC_TYPE_OPTIONS: &[&str] = &["native", "graph", "script"];
 const RENDERED_MODE_OPTIONS: &[&str] = &["cell", "halfblock", "quadblock", "braille"];
+const SCENE_SPACE_OPTIONS: &[&str] = &["2d", "3d"];
+const LAYER_SPACE_OPTIONS: &[&str] = &["inherit", "2d", "3d", "screen"];
+const CAMERA_SOURCE_OPTIONS: &[&str] = &["local", "scene"];
 const ALIGN_X_OPTIONS: &[&str] = &["left", "center", "right"];
 const ALIGN_Y_OPTIONS: &[&str] = &["top", "center", "bottom"];
 const AT_OPTIONS: &[&str] = &["cc", "ct", "cb", "lc", "rc", "lt", "lb", "rt", "rb"];
@@ -205,6 +208,21 @@ pub static SCENE_FIELDS: &[FieldMetadata] = &[
     },
     FieldMetadata {
         target: TargetKind::Scene,
+        name: "space",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Default spatial mode for scene layers: 2d or 3d.",
+        default_text: Some("2d"),
+        default_number: None,
+        enum_options: Some(SCENE_SPACE_OPTIONS),
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Scene,
         name: "virtual-size-override",
         value_kind: ValueKind::Text,
         requirement: Requirement::Optional,
@@ -307,6 +325,21 @@ pub static LAYER_FIELDS: &[FieldMetadata] = &[
         default_text: Some("false"),
         default_number: None,
         enum_options: None,
+        min: None,
+        max: None,
+        step: None,
+        unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Layer,
+        name: "space",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "Layer spatial mode override: inherit scene default, use 2d camera, use 3d camera, or render in screen space.",
+        default_text: Some("inherit"),
+        default_number: None,
+        enum_options: Some(LAYER_SPACE_OPTIONS),
         min: None,
         max: None,
         step: None,
@@ -794,6 +827,16 @@ pub static SPRITE_FIELDS: &[FieldMetadata] = &[
         description: "Camera distance from mesh center for perspective projection (type=obj).",
         default_text: None, default_number: None, enum_options: None,
         min: Some(0.01), max: None, step: None, unit: None,
+        sources: LIT_ONLY,
+    },
+    FieldMetadata {
+        target: TargetKind::Sprite,
+        name: "camera-source",
+        value_kind: ValueKind::Select,
+        requirement: Requirement::Optional,
+        description: "OBJ/Scene3D only: use sprite-local camera values or the shared scene 3D camera.",
+        default_text: Some("local"), default_number: None, enum_options: Some(CAMERA_SOURCE_OPTIONS),
+        min: None, max: None, step: None, unit: None,
         sources: LIT_ONLY,
     },
     FieldMetadata {

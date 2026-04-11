@@ -24,12 +24,14 @@ pub use easing::Easing;
 pub use metadata::{LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
 pub use model::{
     Animation, AudioCue, BehaviorParams, BehaviorSpec, Effect, EffectParams, EffectTargetKind,
-    GameStateBinding, Layer, LayerStages, MenuOption, ObjViewerControls, PaletteBinding, Scene,
-    SceneAudio, SceneInput, SceneRenderedMode, SceneStages, SceneUi, Stage, StageTrigger, Step,
-    TerminalShellCommand, TerminalShellControls, TerminalShellMode, TerminalShellOutput,
-    TerminalSizeTesterControls, UiPersistence,
+    GameStateBinding, Layer, LayerSpace, LayerStages, MenuOption, ObjViewerControls,
+    PaletteBinding, Scene, SceneAudio, SceneInput, SceneRenderedMode, SceneSpace, SceneStages,
+    SceneUi, Stage, StageTrigger, Step, TerminalShellCommand, TerminalShellControls,
+    TerminalShellMode, TerminalShellOutput, TerminalSizeTesterControls, UiPersistence,
 };
-pub use sprite::{FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign};
+pub use sprite::{
+    CameraSource, FlexDirection, HorizontalAlign, Sprite, SpriteSizePreset, VerticalAlign,
+};
 pub use ui_theme::{
     normalize_theme_key, resolve_ui_theme, resolve_ui_theme_or_default, ScrollListThemeStyle,
     UiThemeStyle, WindowThemeStyle,

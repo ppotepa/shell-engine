@@ -13,6 +13,7 @@
 - name: planet-bg
   z_index: -50
   ui: true
+  space: 3d
   sprites:
     # ── Planet body (ocean + terrain + biomes) ───────────────────────────────
     # fg_colour   = deep ocean dark blue
@@ -36,13 +37,13 @@
       rotation-y: 30
       pitch-deg: -14
       camera-distance: 2.6
-      fov-degrees: 50
+      camera-source: scene
+      fov-degrees: 65
       near-clip: 0.01
       rotate-y-deg-per-sec: 0
       prerender: false
       smooth-shading: true
       ambient: 0.055
-      latitude-bands: 5
       latitude-band-depth: 0.08
       terrain-color: "#4f6b3d"
       terrain-threshold: 0.585
@@ -79,7 +80,8 @@
       scale: 1.0
       surface-mode: material
       camera-distance: 2.45
-      fov-degrees: 50
+      camera-source: scene
+      fov-degrees: 65
       near-clip: 0.01
       smooth-shading: true
       ambient: 0.10
@@ -111,7 +113,8 @@
       surface-mode: material
       rotation-y: 180
       camera-distance: 2.38
-      fov-degrees: 50
+      camera-source: scene
+      fov-degrees: 65
       near-clip: 0.01
       smooth-shading: true
       ambient: 0.10

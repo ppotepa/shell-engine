@@ -7,8 +7,10 @@ use engine_core::buffer::{Buffer, Cell, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::effects::Region;
 use engine_effects::apply_effect;
-use engine_core::scene::{Effect, Layer, SceneRenderedMode};
-use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
+use engine_core::scene::{Effect, Layer, SceneRenderedMode, SceneSpace};
+use engine_core::scene_runtime_types::{
+    ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
+};
 use engine_pipeline::{HalfblockPacker, LayerCompositor};
 
 use crate::buffer_pool::acquire_buffer;
@@ -33,6 +35,8 @@ fn composite_scene(
     step_idx: usize,
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
+    scene_space: SceneSpace,
+    scene_camera_3d: &SceneCamera3D,
     scene_effects: &[Effect],
     scene_step_dur: u64,
     is_pixel_backend: bool,
@@ -73,6 +77,7 @@ fn composite_scene(
         scene_w,
         scene_h,
         scene_rendered_mode,
+        scene_space,
         asset_root,
         Some(target_resolver),
         &mut object_regions,
@@ -84,6 +89,7 @@ fn composite_scene(
         elapsed_ms,
         scene_elapsed_ms,
         obj_camera_states,
+        scene_camera_3d,
         is_pixel_backend,
         default_font,
         camera_x,
@@ -126,6 +132,8 @@ fn composite_scene_halfblock(
     step_idx: usize,
     elapsed_ms: u64,
     scene_elapsed_ms: u64,
+    scene_space: SceneSpace,
+    scene_camera_3d: &SceneCamera3D,
     scene_effects: &[Effect],
     scene_step_dur: u64,
     is_pixel_backend: bool,
@@ -155,6 +163,8 @@ fn composite_scene_halfblock(
         step_idx,
         elapsed_ms,
         scene_elapsed_ms,
+        scene_space,
+        scene_camera_3d,
         scene_effects,
         scene_step_dur,
         is_pixel_backend,
@@ -277,6 +287,8 @@ pub fn dispatch_composite(
             params.step_idx,
             params.elapsed_ms,
             params.scene_elapsed_ms,
+            params.scene_space,
+            params.scene_camera_3d,
             params.scene_effects,
             params.scene_step_dur,
             params.is_pixel_backend,
@@ -300,6 +312,8 @@ pub fn dispatch_composite(
             params.step_idx,
             params.elapsed_ms,
             params.scene_elapsed_ms,
+            params.scene_space,
+            params.scene_camera_3d,
             params.scene_effects,
             params.scene_step_dur,
             params.is_pixel_backend,

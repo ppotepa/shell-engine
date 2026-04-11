@@ -6,7 +6,9 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_core::scene::LayerStages;
-use engine_core::scene_runtime_types::{ObjCameraState, ObjectRuntimeState, TargetResolver};
+use engine_core::scene_runtime_types::{
+    ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
+};
 use std::collections::HashMap;
 
 use super::super::effect_applicator::apply_sprite_effects;
@@ -25,6 +27,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) elapsed_ms: u64,
     pub(crate) layer_buf: &'a mut Buffer,
     pub(crate) obj_camera_states: &'a HashMap<String, ObjCameraState>,
+    pub(crate) scene_camera_3d: &'a SceneCamera3D,
     pub(crate) is_pixel_backend: bool,
     pub(crate) default_font: Option<&'a str>,
 }

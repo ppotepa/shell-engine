@@ -136,6 +136,7 @@ impl SceneRuntime {
             spawn_batch_depth: 0,
             camera_x: 0,
             camera_y: 0,
+            scene_camera_3d: SceneCamera3D::default(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
         runtime.terminal_shell_state = runtime

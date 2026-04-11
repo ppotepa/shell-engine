@@ -131,40 +131,8 @@ $defs:
   effect_names:
     type: string
     enum:
-    - artifact-out
-    - blur
-    - brighten
-    - clear-to-colour
-    - crt-burn-in
-    - crt-distort
-    - crt-on
-    - crt-reflection
-    - crt-ruby
-    - crt-scan-glitch
-    - crt-underlay
-    - cutout
-    - devour-out
     - fade-in
     - fade-out
-    - fade-to-black
-    - glitch-out
-    - lightning-ambient
-    - lightning-branch
-    - lightning-fbm
-    - lightning-flash
-    - lightning-growth
-    - lightning-natural
-    - lightning-optical-80s
-    - neon-edge-glow
-    - posterize
-    - power-off
-    - scanlines
-    - screen-shake
-    - shatter-glitch
-    - shine
-    - terminal-crt
-    - tesla-orb
-    - whiteout
   layer_refs:
     type: string
     enum:

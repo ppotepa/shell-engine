@@ -1484,6 +1484,38 @@ impl ScriptGameplayApi {
         });
     }
 
+    pub(crate) fn set_camera_3d_look_at(
+        &mut self,
+        eye_x: rhai::FLOAT,
+        eye_y: rhai::FLOAT,
+        eye_z: rhai::FLOAT,
+        target_x: rhai::FLOAT,
+        target_y: rhai::FLOAT,
+        target_z: rhai::FLOAT,
+    ) {
+        let Ok(mut queue) = self.ctx.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::SetCamera3DLookAt {
+            eye: [eye_x as f32, eye_y as f32, eye_z as f32],
+            look_at: [target_x as f32, target_y as f32, target_z as f32],
+        });
+    }
+
+    pub(crate) fn set_camera_3d_up(
+        &mut self,
+        up_x: rhai::FLOAT,
+        up_y: rhai::FLOAT,
+        up_z: rhai::FLOAT,
+    ) {
+        let Ok(mut queue) = self.ctx.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::SetCamera3DUp {
+            up: [up_x as f32, up_y as f32, up_z as f32],
+        });
+    }
+
     /// Attach an [`AngularBody`] to an entity.
     ///
     /// `config` map keys (all optional, snake_case field names):

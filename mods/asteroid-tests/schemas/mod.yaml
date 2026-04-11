@@ -1,6 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/asteroids/schemas/mod.yaml
-title: schema asteroids mod
+$id: https://shell-quest.local/mods/asteroid-tests/schemas/mod.yaml
+title: schema asteroid-tests mod
 type: object
 additionalProperties: true
 required:

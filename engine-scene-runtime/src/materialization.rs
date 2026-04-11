@@ -690,6 +690,9 @@ fn set_obj_property_recursive(
                 surface_mode,
                 clip_y_min,
                 clip_y_max,
+                world_x,
+                world_y,
+                world_z,
                 cam_world_x,
                 cam_world_y,
                 cam_world_z,
@@ -777,6 +780,31 @@ fn set_obj_property_recursive(
                     if (clip_y_max.unwrap_or(1.0) - next).abs() > f32::EPSILON {
                         *clip_y_max = Some(next);
                         *updated = true;
+                    }
+                }
+                // ── Object world-space translation ──────────────────────────
+                "obj.world.x" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if world_x.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *world_x = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.world.y" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if world_y.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *world_y = Some(v);
+                            *updated = true;
+                        }
+                    }
+                }
+                "obj.world.z" => {
+                    if let Some(v) = json_value_to_f32(value) {
+                        if world_z.map_or(true, |c| (c - v).abs() > f32::EPSILON) {
+                            *world_z = Some(v);
+                            *updated = true;
+                        }
                     }
                 }
                 // ── Cockpit camera world position ──────────────────────────

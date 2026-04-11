@@ -1,79 +1,30 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/asteroids/schemas/catalog.yaml
-title: schema asteroids catalog
+$id: https://shell-quest.local/mods/asteroid-tests/schemas/catalog.yaml
+title: schema asteroid-tests catalog
 $defs:
   scene_ids:
     type: string
     enum:
-    - asteroids-game
-    - asteroids-highscores
-    - asteroids-mainmenu
+    - saturn-test
   scene_paths:
     type: string
     enum:
-    - /scenes/game/scene.yml
-    - /scenes/highscores/scene.yml
-    - /scenes/mainmenu/scene.yml
+    - /scenes/saturn/scene.yml
   scene_refs:
     type: string
     enum:
-    - /scenes/game/scene.yml
-    - /scenes/highscores/scene.yml
-    - /scenes/mainmenu/scene.yml
-    - asteroids-game
-    - asteroids-highscores
-    - asteroids-mainmenu
+    - /scenes/saturn/scene.yml
+    - saturn-test
   object_names:
     type: string
-    enum:
-    - asteroid-large
-    - asteroid-medium
-    - asteroid-small
-    - bullet
-    - debris
-    - ship
+    enum: []
   effect_names:
     type: string
-    enum:
-    - artifact-out
-    - blur
-    - brighten
-    - clear-to-colour
-    - crt-burn-in
-    - crt-distort
-    - crt-on
-    - crt-reflection
-    - crt-ruby
-    - crt-scan-glitch
-    - crt-underlay
-    - cutout
-    - devour-out
-    - fade-in
-    - fade-out
-    - fade-to-black
-    - glitch-out
-    - lightning-ambient
-    - lightning-branch
-    - lightning-fbm
-    - lightning-flash
-    - lightning-growth
-    - lightning-natural
-    - lightning-optical-80s
-    - neon-edge-glow
-    - posterize
-    - power-off
-    - scanlines
-    - screen-shake
-    - shatter-glitch
-    - shine
-    - terminal-crt
-    - tesla-orb
-    - whiteout
+    enum: []
   layer_refs:
     type: string
     enum:
-    - game/layers/hud.yml
-    - mainmenu/layers/main.yml
+    - saturn/layers/saturn-3d.yml
   sprite_refs:
     type: string
     enum: []
@@ -82,38 +33,16 @@ $defs:
     enum: []
   object_refs:
     type: string
-    enum:
-    - /objects/asteroid-large.yml
-    - /objects/asteroid-medium.yml
-    - /objects/asteroid-small.yml
-    - /objects/bullet.yml
-    - /objects/debris.yml
-    - /objects/ship.yml
-    - asteroid-large
-    - asteroid-medium
-    - asteroid-small
-    - bullet
-    - debris
-    - ship
+    enum: []
   effect_refs:
     type: string
     enum: []
   font_names:
     type: string
-    enum:
-    - Orbitron
-    - Space Mono
+    enum: []
   font_specs:
     type: string
     enum:
-    - Orbitron
-    - Orbitron:ascii
-    - Orbitron:raster
-    - Orbitron:terminal-pixels
-    - Space Mono
-    - Space Mono:ascii
-    - Space Mono:raster
-    - Space Mono:terminal-pixels
     - default
     - generic
     - generic:1
@@ -134,41 +63,14 @@ $defs:
   scene3d_paths:
     type: string
     enum:
-    - /assets/3d/solar-system.scene3d.yml
+    - /assets/3d/saturn-test.scene3d.yml
   cutscene_refs:
     type: string
     enum: []
   sprite_ids:
     type: string
     enum:
-    - cursor
-    - header
-    - hint
-    - hud-gameover
-    - hud-gameover-score
-    - hud-gameover-sub
-    - hud-hint
-    - hud-label-lives
-    - hud-label-score
-    - hud-label-wave
-    - hud-lives
-    - hud-score
-    - hud-wave
-    - item-0
-    - item-1
-    - item-2
-    - row-0
-    - row-1
-    - row-2
-    - row-3
-    - row-4
-    - row-5
-    - row-6
-    - row-7
-    - row-8
-    - row-9
-    - test-visible-sprite
-    - title-text
+    - saturn-bg
   template_names:
     type: string
     enum: []

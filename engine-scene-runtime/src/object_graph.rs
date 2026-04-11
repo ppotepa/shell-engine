@@ -63,6 +63,14 @@ impl SceneRuntime {
         self.camera_y = y;
     }
 
+    pub fn scene_camera_3d(&self) -> SceneCamera3D {
+        self.scene_camera_3d
+    }
+
+    pub(crate) fn set_scene_camera_3d_internal(&mut self, camera: SceneCamera3D) {
+        self.scene_camera_3d = camera;
+    }
+
     pub fn set_scene_rendered_mode(&mut self, mode: SceneRenderedMode) {
         self.scene.rendered_mode = mode;
     }

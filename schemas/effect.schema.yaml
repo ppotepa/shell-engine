@@ -36,6 +36,7 @@ properties:
       - lightning-growth: Slow-growing branched bolt spreading outward.
       - lightning-natural: Naturalistic bolt with secondary arcs.
       - lightning-optical-80s: Retro 80s neon-style optical lightning.
+      - lens-blur: Gaussian aperture blur — smooth depth-of-field / bokeh feel on any layer or sprite.
       - neon-edge-glow: Cyberpunk neon glow around content edges with volumetric spillover.
       - posterize: Reduces colour band count by quantizing RGB channels.
       - power-off: Old display shutdown collapse to center line.
@@ -71,6 +72,7 @@ properties:
     - lightning-growth
     - lightning-natural
     - lightning-optical-80s
+    - lens-blur
     - neon-edge-glow
     - posterize
     - power-off

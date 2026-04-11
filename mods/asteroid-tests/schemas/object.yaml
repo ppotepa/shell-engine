@@ -1,6 +1,6 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-$id: https://shell-quest.local/mods/asteroids/schemas/object.yaml
-title: schema asteroids object
+$id: https://shell-quest.local/mods/asteroid-tests/schemas/object.yaml
+title: schema asteroid-tests object
 $defs:
   object_logic_overlay:
     allOf:

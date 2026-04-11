@@ -98,6 +98,20 @@ impl GameplayWorldCoreApi<ScriptGameplayEntityApi> for ScriptGameplayApi {
     fn world_width(&mut self) -> rhai::FLOAT { self.world_width() }
     fn world_height(&mut self) -> rhai::FLOAT { self.world_height() }
     fn set_camera(&mut self, x: rhai::FLOAT, y: rhai::FLOAT) { self.set_camera(x, y) }
+    fn set_camera_3d_look_at(
+        &mut self,
+        eye_x: rhai::FLOAT,
+        eye_y: rhai::FLOAT,
+        eye_z: rhai::FLOAT,
+        target_x: rhai::FLOAT,
+        target_y: rhai::FLOAT,
+        target_z: rhai::FLOAT,
+    ) {
+        self.set_camera_3d_look_at(eye_x, eye_y, eye_z, target_x, target_y, target_z)
+    }
+    fn set_camera_3d_up(&mut self, up_x: rhai::FLOAT, up_y: rhai::FLOAT, up_z: rhai::FLOAT) {
+        self.set_camera_3d_up(up_x, up_y, up_z)
+    }
     fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool { self.angular_body_attach(id, config) }
     fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool { self.set_angular_input(id, input) }
     fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT { self.angular_vel(id) }

@@ -112,6 +112,7 @@ mod tests {
             cutscene: true,
             target_fps: None,
             rendered_mode: Default::default(),
+            space: Default::default(),
             virtual_size_override: None,
             bg_colour: None,
             stages: SceneStages {

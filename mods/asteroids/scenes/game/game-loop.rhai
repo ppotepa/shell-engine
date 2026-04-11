@@ -213,9 +213,9 @@ let LIN_DAMP       = 0.08;            // Gentle vacuum stabilization
 let YAW_ACCEL      = 1.95;            // rad/s² — slightly snappier turn-on
 let YAW_DAMP       = 2.6;             // yaw-rate damping — slightly faster settle
 let YAW_MAX        = 1.1;             // rad/s
-let CAM_UP_TAU     = 0.68;            // camera-up lag (seconds) — heavier gimbal feel
-let CAM_SWAY_TAU   = 0.50;            // sway smoothing (seconds) — slightly faster response
-let CAM_SWAY_GAIN  = 0.28;            // sway amount from yaw rate — more noticeable banking
+let CAM_SWAY_TAU   = 0.50;            // forward-lag / sway smoothing (seconds)
+let CAM_SWAY_GAIN  = 0.28;            // sway amount from yaw rate — banking feel
+let SHIP_RENDER_R  = 1.25;            // ship orbital radius in 3D camera space
 // HUD scale: KM_PER_PX converts px distances to km at Earth scale.
 // WORLD_TIME_SCALE: 1 game-second ≈ WORLD_TIME_SCALE real-seconds for km/h display.
 // Tuned so ORBIT_V0 at R=450 reads near orbital-class speeds while gameplay stays readable.
@@ -259,7 +259,7 @@ if !(local.initialized ?? false) {
     // Align visual heading with initial prograde tangent (north = 0 rad).
     local.ship_yaw = 0.0;
     local.cam_nx = 1.0; local.cam_ny =  0.0; local.cam_nz = 0.0;
-    local.cam_ux = 0.0; local.cam_uy = -1.0; local.cam_uz = 0.0;
+    local.cam_fx = 0.0; local.cam_fy = -1.0; local.cam_fz = 0.0;  // lagged sf
     local.cam_sway = 0.0;
     local.thrust_hold_ms = 0.0;
     local.thrust_release_ms = 9999.0;
@@ -293,9 +293,9 @@ let ship_yaw = local.ship_yaw ?? 0.0;
 let cam_nx = local.cam_nx ?? snx;
 let cam_ny = local.cam_ny ?? sny;
 let cam_nz = local.cam_nz ?? snz;
-let cam_ux = local.cam_ux ?? sfx;
-let cam_uy = local.cam_uy ?? sfy;
-let cam_uz = local.cam_uz ?? sfz;
+let cam_fx = local.cam_fx ?? sfx;
+let cam_fy = local.cam_fy ?? sfy;
+let cam_fz = local.cam_fz ?? sfz;
 let cam_sway = local.cam_sway ?? 0.0;
 
 let score     = local.score ?? 0;
@@ -371,7 +371,7 @@ if ship_id > 0 {
         vfwd = ORBIT_V0; vright = 0.0;
         yaw_rate = 0.0; ship_yaw = 0.0;
         cam_nx = snx; cam_ny = sny; cam_nz = snz;
-        cam_ux = sfx; cam_uy = sfy; cam_uz = sfz;
+        cam_fx = sfx; cam_fy = sfy; cam_fz = sfz;
         cam_sway = 0.0;
         local.thrust_hold_ms = 0.0;
         local.thrust_release_ms = 9999.0;
@@ -383,7 +383,7 @@ if ship_id > 0 {
         local.yaw_rate = yaw_rate;
         local.ship_yaw = ship_yaw;
         local.cam_nx = cam_nx; local.cam_ny = cam_ny; local.cam_nz = cam_nz;
-        local.cam_ux = cam_ux; local.cam_uy = cam_uy; local.cam_uz = cam_uz;
+        local.cam_fx = cam_fx; local.cam_fy = cam_fy; local.cam_fz = cam_fz;
         local.bullets = #{};
     }
 
@@ -470,7 +470,12 @@ if ship_id > 0 {
     // ── Step 6: ship transform heading follows orbital yaw ─────────────────────
     // obj.roll rotates the OBJ mesh on screen (entity heading does NOT affect OBJ sprites).
     // Negative sign: roll is CCW in model space, heading is CW in screen space.
-    scene.set("ship-" + ship_id, "obj.roll", -ship_yaw * 57.29577951);
+    let _ship_sprite = "ship-" + ship_id;
+    scene.set(_ship_sprite, "obj.roll", -ship_yaw * 57.29577951);
+    // Ship mesh is now positioned in shared scene 3D space (camera-source: scene).
+    scene.set(_ship_sprite, "obj.world.x", snx * SHIP_RENDER_R);
+    scene.set(_ship_sprite, "obj.world.y", sny * SHIP_RENDER_R);
+    scene.set(_ship_sprite, "obj.world.z", snz * SHIP_RENDER_R);
     world.entity(ship_id).set_heading(ship_yaw);
 
     // ── Step 7: persist orbital state ──────────────────────────────────────────
@@ -496,7 +501,7 @@ if ship_id > 0 {
 // not the old transform position, so 2D camera matches the 3D planet camera exactly.
 let _cam_ship_x = PLANET_X + snx * ORBIT_R;
 let _cam_ship_y = PLANET_Y + sny * ORBIT_R;
-world.set_camera(_cam_ship_x - 320.0, _cam_ship_y - 180.0);
+world.set_camera(_cam_ship_x - 320.0, _cam_ship_y - 240.0);
 
 
 // ── Planet axial self-rotation (independent of camera/orbit) ──────────────────
@@ -504,78 +509,56 @@ local.planet_self_yaw  = (local.planet_self_yaw  ?? 0.0) + PLANET_SPIN_DPS  * dt
 local.cloud_self_yaw   = (local.cloud_self_yaw   ?? 0.0) + CLOUD_SPIN_DPS   * dt;
 local.cloud_self_yaw_2 = (local.cloud_self_yaw_2 ?? 90.0) + CLOUD2_SPIN_DPS * dt;
 
-// ── Planet cockpit camera with inertial lag (gimbal feel) ─────────────────────
-// Camera follows orbital basis with delayed response (no hard snapping on turn).
-let _cam_dist_surface  = 2.6;
-let _cam_dist_clouds   = 2.45;
-let _cam_dist_clouds_2 = 2.38;
+// ── Chase (behind-ship) 3D camera ─────────────────────────────────────────────
+// Camera sits behind and above the ship, looking toward ship+ahead.
+// Planet curves below as a horizon. sn = "up" (radial = sky direction).
+let _cam_dist_surface  = 2.6;   // unused constant kept for reference
+let CAM_HEIGHT = 0.40;  // camera radially above ship
+let CAM_BACK   = 0.45;  // camera behind ship along -sf
+let CAM_AHEAD  = 0.10;  // look-at point ahead of ship along +sf
 let _cam_valid = snx*snx + sny*sny + snz*snz > 0.01;
 if _cam_valid {
-    // Always aim exactly at ship: camera normal follows ship normal without delay.
-    cam_nx = snx; cam_ny = sny; cam_nz = snz;
+    // Lag cam_n toward sn (smooth orbital position — no instant snapping)
+    let _alpha_n = dt / (0.30 + dt);
+    cam_nx += (snx - cam_nx) * _alpha_n;
+    cam_ny += (sny - cam_ny) * _alpha_n;
+    cam_nz += (snz - cam_nz) * _alpha_n;
+    let _cnl = sqrtf(cam_nx*cam_nx + cam_ny*cam_ny + cam_nz*cam_nz).max(0.0001);
+    cam_nx /= _cnl; cam_ny /= _cnl; cam_nz /= _cnl;
 
-    // Delay only orientation around view axis (gimbal lag feel).
-    let _alpha_u = dt / (CAM_UP_TAU + dt);
-    cam_ux += (sfx - cam_ux) * _alpha_u;
-    cam_uy += (sfy - cam_uy) * _alpha_u;
-    cam_uz += (sfz - cam_uz) * _alpha_u;
-    let _ud = cam_ux*cam_nx + cam_uy*cam_ny + cam_uz*cam_nz;
-    cam_ux -= cam_nx * _ud; cam_uy -= cam_ny * _ud; cam_uz -= cam_nz * _ud;
-    let _cul = sqrtf(cam_ux*cam_ux + cam_uy*cam_uy + cam_uz*cam_uz).max(0.0001);
-    cam_ux /= _cul; cam_uy /= _cul; cam_uz /= _cul;
+    // Lag cam_f toward sf (smooth forward direction — banks on yaw)
+    let _alpha_f = dt / (CAM_SWAY_TAU + dt);
+    cam_fx += (sfx - cam_fx) * _alpha_f;
+    cam_fy += (sfy - cam_fy) * _alpha_f;
+    cam_fz += (sfz - cam_fz) * _alpha_f;
+    // Re-orthogonalize cam_f against cam_n (keep it tangential to sphere)
+    let _fd = cam_fx*cam_nx + cam_fy*cam_ny + cam_fz*cam_nz;
+    cam_fx -= cam_nx*_fd; cam_fy -= cam_ny*_fd; cam_fz -= cam_nz*_fd;
+    let _cfl = sqrtf(cam_fx*cam_fx + cam_fy*cam_fy + cam_fz*cam_fz).max(0.0001);
+    cam_fx /= _cfl; cam_fy /= _cfl; cam_fz /= _cfl;
 
-    // Gentle delayed gimbal sway driven by yaw rate (bank-like camera response).
+    // Eye: behind ship (along -cam_f) and above ship (along +cam_n)
+    let _ex = cam_nx * (SHIP_RENDER_R + CAM_HEIGHT) - cam_fx * CAM_BACK;
+    let _ey = cam_ny * (SHIP_RENDER_R + CAM_HEIGHT) - cam_fy * CAM_BACK;
+    let _ez = cam_nz * (SHIP_RENDER_R + CAM_HEIGHT) - cam_fz * CAM_BACK;
+
+    // Look-at: ship position + slight ahead offset (planet horizon below)
+    let _lx = cam_nx * SHIP_RENDER_R + cam_fx * CAM_AHEAD;
+    let _ly = cam_ny * SHIP_RENDER_R + cam_fy * CAM_AHEAD;
+    let _lz = cam_nz * SHIP_RENDER_R + cam_fz * CAM_AHEAD;
+
+    // Camera-up = radial direction (sn = "sky"), with banking sway around cam_f
     let _target_sway = (-yaw_rate * CAM_SWAY_GAIN).max(-0.20).min(0.20);
     let _alpha_s = dt / (CAM_SWAY_TAU + dt);
     cam_sway += (_target_sway - cam_sway) * _alpha_s;
-    let _swu = rotate_axis(cam_ux, cam_uy, cam_uz, -cam_nx, -cam_ny, -cam_nz, cam_sway);
-    cam_ux = _swu.x; cam_uy = _swu.y; cam_uz = _swu.z;
+    let _sup = rotate_axis(cam_nx, cam_ny, cam_nz, cam_fx, cam_fy, cam_fz, cam_sway);
+
+    world.set_camera_3d_look_at(_ex, _ey, _ez, _lx, _ly, _lz);
+    world.set_camera_3d_up(_sup.x, _sup.y, _sup.z);
 }
-let _vfx = -cam_nx;  let _vfy = -cam_ny;  let _vfz = -cam_nz;
-let _vux = cam_ux;   let _vuy = cam_uy;   let _vuz = cam_uz;
-let _vrx = cam_uz*cam_ny - cam_uy*cam_nz;
-let _vry = cam_ux*cam_nz - cam_uz*cam_nx;
-let _vrz = cam_uy*cam_nx - cam_ux*cam_ny;
 local.cam_nx = cam_nx; local.cam_ny = cam_ny; local.cam_nz = cam_nz;
-local.cam_ux = cam_ux; local.cam_uy = cam_uy; local.cam_uz = cam_uz;
+local.cam_fx = cam_fx; local.cam_fy = cam_fy; local.cam_fz = cam_fz;
 local.cam_sway = cam_sway;
-
-// Planet body + atmosphere: camera at sn * 2.6
-let _cwx_s = cam_nx * _cam_dist_surface;
-let _cwy_s = cam_ny * _cam_dist_surface;
-let _cwz_s = cam_nz * _cam_dist_surface;
-// Cloud layer 1: camera at sn * 2.45
-let _cwx_c = cam_nx * _cam_dist_clouds;
-let _cwy_c = cam_ny * _cam_dist_clouds;
-let _cwz_c = cam_nz * _cam_dist_clouds;
-// Cloud layer 2: camera at sn * 2.38
-let _cwx_c2 = cam_nx * _cam_dist_clouds_2;
-let _cwy_c2 = cam_ny * _cam_dist_clouds_2;
-let _cwz_c2 = cam_nz * _cam_dist_clouds_2;
-
-// Apply camera override to all planet sprites (surface, clouds).
-// When ship is not yet alive, leave cam_world unset → default identity camera is used.
-if _cam_valid {
-    scene.set("planet-bg-sphere", "obj.cam.wx", _cwx_s);
-    scene.set("planet-bg-sphere", "obj.cam.wy", _cwy_s);
-    scene.set("planet-bg-sphere", "obj.cam.wz", _cwz_s);
-    scene.set("planet-bg-sphere", "obj.view.rx", _vrx);  scene.set("planet-bg-sphere", "obj.view.ry", _vry);  scene.set("planet-bg-sphere", "obj.view.rz", _vrz);
-    scene.set("planet-bg-sphere", "obj.view.ux", _vux);  scene.set("planet-bg-sphere", "obj.view.uy", _vuy);  scene.set("planet-bg-sphere", "obj.view.uz", _vuz);
-    scene.set("planet-bg-sphere", "obj.view.fx", _vfx);  scene.set("planet-bg-sphere", "obj.view.fy", _vfy);  scene.set("planet-bg-sphere", "obj.view.fz", _vfz);
-    scene.set("planet-clouds", "obj.cam.wx", _cwx_c);
-    scene.set("planet-clouds", "obj.cam.wy", _cwy_c);
-    scene.set("planet-clouds", "obj.cam.wz", _cwz_c);
-    scene.set("planet-clouds", "obj.view.rx", _vrx);  scene.set("planet-clouds", "obj.view.ry", _vry);  scene.set("planet-clouds", "obj.view.rz", _vrz);
-    scene.set("planet-clouds", "obj.view.ux", _vux);  scene.set("planet-clouds", "obj.view.uy", _vuy);  scene.set("planet-clouds", "obj.view.uz", _vuz);
-    scene.set("planet-clouds", "obj.view.fx", _vfx);  scene.set("planet-clouds", "obj.view.fy", _vfy);  scene.set("planet-clouds", "obj.view.fz", _vfz);
-    // Cloud layer 2
-    scene.set("planet-clouds-2", "obj.cam.wx", _cwx_c2);
-    scene.set("planet-clouds-2", "obj.cam.wy", _cwy_c2);
-    scene.set("planet-clouds-2", "obj.cam.wz", _cwz_c2);
-    scene.set("planet-clouds-2", "obj.view.rx", _vrx);  scene.set("planet-clouds-2", "obj.view.ry", _vry);  scene.set("planet-clouds-2", "obj.view.rz", _vrz);
-    scene.set("planet-clouds-2", "obj.view.ux", _vux);  scene.set("planet-clouds-2", "obj.view.uy", _vuy);  scene.set("planet-clouds-2", "obj.view.uz", _vuz);
-    scene.set("planet-clouds-2", "obj.view.fx", _vfx);  scene.set("planet-clouds-2", "obj.view.fy", _vfy);  scene.set("planet-clouds-2", "obj.view.fz", _vfz);
-}
 
 // Self-rotation only: obj.yaw = planet's own axial spin (no orbital omega_z needed).
 // Planet axial tilt is fixed at -14° pitch (set in YAML; don't override it here).

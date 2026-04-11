@@ -22,6 +22,27 @@ pub enum SceneRenderedMode {
     Braille,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+pub enum SceneSpace {
+    #[default]
+    #[serde(rename = "2d")]
+    TwoD,
+    #[serde(rename = "3d")]
+    ThreeD,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum LayerSpace {
+    #[default]
+    Inherit,
+    #[serde(rename = "2d")]
+    TwoD,
+    #[serde(rename = "3d")]
+    ThreeD,
+    Screen,
+}
+
 /// Runtime animation attached to a sprite after authored scene parsing.
 ///
 /// Animations modify sprite transform and presentation, not the pixel data
@@ -609,6 +630,8 @@ pub struct Layer {
     #[serde(default)]
     pub ui: bool,
     #[serde(default)]
+    pub space: LayerSpace,
+    #[serde(default)]
     pub stages: LayerStages,
     #[serde(default)]
     pub behaviors: Vec<BehaviorSpec>,
@@ -638,6 +661,8 @@ pub struct Scene {
     pub target_fps: Option<u16>,
     #[serde(default, rename = "rendered-mode")]
     pub rendered_mode: SceneRenderedMode,
+    #[serde(default)]
+    pub space: SceneSpace,
     #[serde(default, rename = "virtual-size-override")]
     pub virtual_size_override: Option<String>,
     pub bg_colour: Option<TermColour>,

@@ -1,5 +1,5 @@
 - name: solar-scene3d
-  z_index: -30
+  z_index: -52
   ui: true
   stages:
     on_idle:

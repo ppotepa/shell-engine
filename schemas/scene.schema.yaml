@@ -848,6 +848,15 @@ $defs:
         type: number
         minimum: 0.01
         description: Camera distance from mesh center for perspective projection (type=obj).
+      world-x:
+        type: number
+        description: Object world-space X translation for type=obj (applied before camera/view projection).
+      world-y:
+        type: number
+        description: Object world-space Y translation for type=obj (applied before camera/view projection).
+      world-z:
+        type: number
+        description: Object world-space Z translation for type=obj (applied before camera/view projection).
       fov-degrees:
         type: number
         minimum: 1

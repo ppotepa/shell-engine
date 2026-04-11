@@ -175,6 +175,16 @@ where
     fn world_width(&mut self) -> rhai::FLOAT;
     fn world_height(&mut self) -> rhai::FLOAT;
     fn set_camera(&mut self, x: rhai::FLOAT, y: rhai::FLOAT);
+    fn set_camera_3d_look_at(
+        &mut self,
+        eye_x: rhai::FLOAT,
+        eye_y: rhai::FLOAT,
+        eye_z: rhai::FLOAT,
+        target_x: rhai::FLOAT,
+        target_y: rhai::FLOAT,
+        target_z: rhai::FLOAT,
+    );
+    fn set_camera_3d_up(&mut self, up_x: rhai::FLOAT, up_y: rhai::FLOAT, up_z: rhai::FLOAT);
     fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool;
     fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool;
     fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT;

@@ -1,3 +1,4 @@
 - name: game-canvas
   z_index: -30
   ui: true
+  space: screen

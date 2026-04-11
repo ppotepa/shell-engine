@@ -17,6 +17,14 @@ pub enum VerticalAlign {
     Bottom,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CameraSource {
+    #[default]
+    Local,
+    Scene,
+}
+
 /// Controls uppercase conversion of text sprite content before glyph lookup.
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -394,6 +402,8 @@ pub enum Sprite {
         rotate_y_deg_per_sec: Option<f32>,
         #[serde(default, rename = "camera-distance")]
         camera_distance: Option<f32>,
+        #[serde(default, rename = "camera-source")]
+        camera_source: CameraSource,
         #[serde(default, rename = "fov-degrees")]
         fov_degrees: Option<f32>,
         #[serde(default, rename = "near-clip")]
@@ -554,6 +564,15 @@ pub enum Sprite {
         /// Requires the sprite to have a nonzero `rotate-y-deg-per-sec`.
         #[serde(default, rename = "prerender-anim")]
         prerender_anim: bool,
+        /// Object world-space translation (applied before view/projection).
+        /// Useful when driving multiple OBJ sprites from one shared scene camera.
+        /// Set per frame via `scene.set(id, "obj.world.x/y/z", value)`.
+        #[serde(default, rename = "world-x")]
+        world_x: Option<f32>,
+        #[serde(default, rename = "world-y")]
+        world_y: Option<f32>,
+        #[serde(default, rename = "world-z")]
+        world_z: Option<f32>,
         /// Cockpit camera world-space position override.
         /// When set, replaces the camera_distance-derived default position (0, 0, -camera_distance).
         /// Set per frame via `scene.set(id, "obj.cam.wx"/"obj.cam.wy"/"obj.cam.wz", f)`.
@@ -756,6 +775,8 @@ pub enum Sprite {
         /// Which named frame from the atlas to display. Changed at runtime via `scene.set`.
         #[serde(default)]
         frame: String,
+        #[serde(default, rename = "camera-source")]
+        camera_source: CameraSource,
         #[serde(default)]
         x: i32,
         #[serde(default)]
