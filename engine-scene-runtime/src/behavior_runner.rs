@@ -31,8 +31,6 @@ impl SceneRuntime {
         default_palette: Option<String>,
         debug_enabled: bool,
     ) -> Vec<BehaviorCommand> {
-        self.terminal_shell_scene_elapsed_ms = scene_elapsed_ms;
-        self.sync_terminal_shell_sprites();
         // Mark all per-frame derived caches dirty.
         self.effective_states_dirty = true;
         self.cached_object_states = None;
@@ -168,21 +166,36 @@ impl SceneRuntime {
             current_pairs
                 .iter()
                 .filter(|p| !self.prev_collision_pairs.contains(p))
-                .map(|&(a, b)| engine_game::CollisionHit { a, b, normal_x: 0.0, normal_y: 0.0 })
+                .map(|&(a, b)| engine_game::CollisionHit {
+                    a,
+                    b,
+                    normal_x: 0.0,
+                    normal_y: 0.0,
+                })
                 .collect(),
         );
         let collision_stays: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
             current_pairs
                 .iter()
                 .filter(|p| self.prev_collision_pairs.contains(p))
-                .map(|&(a, b)| engine_game::CollisionHit { a, b, normal_x: 0.0, normal_y: 0.0 })
+                .map(|&(a, b)| engine_game::CollisionHit {
+                    a,
+                    b,
+                    normal_x: 0.0,
+                    normal_y: 0.0,
+                })
                 .collect(),
         );
         let collision_exits: std::sync::Arc<Vec<engine_game::CollisionHit>> = std::sync::Arc::new(
             self.prev_collision_pairs
                 .iter()
                 .filter(|p| !current_pairs.contains(p))
-                .map(|&(a, b)| engine_game::CollisionHit { a, b, normal_x: 0.0, normal_y: 0.0 })
+                .map(|&(a, b)| engine_game::CollisionHit {
+                    a,
+                    b,
+                    normal_x: 0.0,
+                    normal_y: 0.0,
+                })
                 .collect(),
         );
         self.prev_collision_pairs = current_pairs;
@@ -226,7 +239,9 @@ impl SceneRuntime {
             rhai_key_map,
             engine_key_map,
             debug_enabled,
-            frame_ms: scene_elapsed_ms.saturating_sub(self.prev_scene_elapsed_ms).max(1),
+            frame_ms: scene_elapsed_ms
+                .saturating_sub(self.prev_scene_elapsed_ms)
+                .max(1),
             action_bindings: match &self.cached_action_bindings {
                 Some(cached) => std::sync::Arc::clone(cached),
                 None => {
@@ -278,9 +293,7 @@ impl SceneRuntime {
         if self.scene.palette_bindings.is_empty() {
             return;
         }
-        let current_version = palettes
-            .version
-            .load(std::sync::atomic::Ordering::Relaxed);
+        let current_version = palettes.version.load(std::sync::atomic::Ordering::Relaxed);
         if current_version == self.palette_applied_version {
             return;
         }
@@ -481,9 +494,7 @@ impl SceneRuntime {
                                     let n = obj.children.len();
                                     for i in 0..n {
                                         let cid = self.objects[object_id].children[i].clone();
-                                        if let Some(state) =
-                                            self.object_states.get_mut(&cid)
-                                        {
+                                        if let Some(state) = self.object_states.get_mut(&cid) {
                                             state.heading = heading;
                                         }
                                     }
@@ -569,9 +580,7 @@ impl SceneRuntime {
                             }
                         }
                         "vector.points" | "vector.closed" | "vector.draw_char" | "vector.fg"
-                        | "vector.bg"
-                        | "style.border"
-                        | "style.shadow" => {
+                        | "vector.bg" | "style.border" | "style.shadow" => {
                             let mut applied = self.set_vector_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
@@ -587,15 +596,34 @@ impl SceneRuntime {
                         }
                         "obj.scale" | "obj.yaw" | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
                         | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max"
-                        | "obj.world.x" | "obj.world.y" | "obj.world.z"
-                        | "obj.cam.wx" | "obj.cam.wy" | "obj.cam.wz"
-                        | "obj.view.rx" | "obj.view.ry" | "obj.view.rz"
-                        | "obj.view.ux" | "obj.view.uy" | "obj.view.uz"
+                        | "obj.world.x" | "obj.world.y" | "obj.world.z" | "obj.cam.wx"
+                        | "obj.cam.wy" | "obj.cam.wz" | "obj.view.rx" | "obj.view.ry"
+                        | "obj.view.rz" | "obj.view.ux" | "obj.view.uy" | "obj.view.uz"
                         | "obj.view.fx" | "obj.view.fy" | "obj.view.fz" => {
                             let mut applied = self.set_obj_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
                                     if self.set_obj_sprite_property(&alias, path, value) {
+                                        applied = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if !applied {
+                                continue;
+                            }
+                        }
+                        "planet.spin_deg"
+                        | "planet.cloud_spin_deg"
+                        | "planet.cloud2_spin_deg"
+                        | "planet.observer_altitude_km"
+                        | "planet.sun_dir.x"
+                        | "planet.sun_dir.y"
+                        | "planet.sun_dir.z" => {
+                            let mut applied = self.set_planet_sprite_property(target, path, value);
+                            if !applied {
+                                for alias in self.object_alias_candidates(object_id, target) {
+                                    if self.set_planet_sprite_property(&alias, path, value) {
                                         applied = true;
                                         break;
                                     }
@@ -652,12 +680,6 @@ impl SceneRuntime {
                 BehaviorCommand::SceneDespawn { target } => {
                     pending_despawns.push(target.clone());
                 }
-                BehaviorCommand::TerminalPushOutput { line } => {
-                    self.terminal_push_output(line.clone());
-                }
-                BehaviorCommand::TerminalClearOutput => {
-                    self.terminal_clear_output();
-                }
                 BehaviorCommand::SceneTransition { .. } => {}
                 BehaviorCommand::DebugLog { .. } => {}
                 BehaviorCommand::BindInputAction { action, keys } => {
@@ -675,6 +697,9 @@ impl SceneRuntime {
                     // Match gameplay visual sync rounding so camera-driven parallax and
                     // entity positions land on the same pixel grid.
                     self.set_camera_internal(x.round() as i32, y.round() as i32);
+                }
+                BehaviorCommand::SetCameraZoom { zoom } => {
+                    self.set_camera_zoom_internal(*zoom);
                 }
                 BehaviorCommand::SetCamera3DLookAt { eye, look_at } => {
                     let mut camera = self.scene_camera_3d;
@@ -1416,7 +1441,9 @@ fn sprite_descriptor_runtime(
     let kind = match sprite {
         Sprite::Text { .. } => GameObjectKind::TextSprite,
         Sprite::Image { .. } => GameObjectKind::ImageSprite,
-        Sprite::Obj { .. } | Sprite::Scene3D { .. } => GameObjectKind::ObjSprite,
+        Sprite::Obj { .. } | Sprite::Planet { .. } | Sprite::Scene3D { .. } => {
+            GameObjectKind::ObjSprite
+        }
         Sprite::Panel { .. } => GameObjectKind::PanelSprite,
         Sprite::Grid { .. } => GameObjectKind::GridSprite,
         Sprite::Flex { .. } => GameObjectKind::FlexSprite,
@@ -1551,6 +1578,7 @@ fn retag_sprite_ids(sprite: &mut Sprite, base: &str, counter: &mut usize) {
         Sprite::Text { id, .. }
         | Sprite::Image { id, .. }
         | Sprite::Obj { id, .. }
+        | Sprite::Planet { id, .. }
         | Sprite::Panel { id, .. }
         | Sprite::Grid { id, .. }
         | Sprite::Flex { id, .. }

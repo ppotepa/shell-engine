@@ -1,7 +1,7 @@
-use anyhow::Result;
+use crate::cargo::ensure_sdl2_dll;
 use crate::cli::SetupArgs;
 use crate::env;
-use crate::cargo::ensure_sdl2_dll;
+use anyhow::Result;
 use std::path::Path;
 
 pub fn run(workspace_root: &Path, args: &SetupArgs) -> Result<()> {
@@ -27,11 +27,17 @@ pub fn run(workspace_root: &Path, args: &SetupArgs) -> Result<()> {
                         if dst.exists() {
                             println!("  ✓ SDL2.dll already in target/{}", profile);
                         } else {
-                            println!("  ○ SDL2.dll not yet in target/{} (will be copied on next run)", profile);
+                            println!(
+                                "  ○ SDL2.dll not yet in target/{} (will be copied on next run)",
+                                profile
+                            );
                         }
                     }
                 } else {
-                    println!("  ✗ SDL2_LIB_DIR set but SDL2.dll not found at {}", dll.display());
+                    println!(
+                        "  ✗ SDL2_LIB_DIR set but SDL2.dll not found at {}",
+                        dll.display()
+                    );
                 }
             }
             _ => {
@@ -54,7 +60,9 @@ pub fn run(workspace_root: &Path, args: &SetupArgs) -> Result<()> {
                         if !dst.exists() {
                             match std::fs::copy(&dll_src, &dst) {
                                 Ok(_) => println!("  ✓ Copied SDL2.dll → target/{}/", profile),
-                                Err(e) => println!("  ✗ Could not copy to target/{}: {}", profile, e),
+                                Err(e) => {
+                                    println!("  ✗ Could not copy to target/{}: {}", profile, e)
+                                }
                             }
                         } else {
                             println!("  ✓ SDL2.dll already present in target/{}/", profile);
@@ -64,7 +72,7 @@ pub fn run(workspace_root: &Path, args: &SetupArgs) -> Result<()> {
 
                 // Also ensure it runs for current profile
                 ensure_sdl2_dll(workspace_root, None);
-                println!("\n  SDL2 is ready. Run with:  se run <mod> --sdl2");
+                println!("\n  SDL2 is ready. Run with:  se run <mod>");
             } else {
                 println!("  ✗ SDL2_LIB_DIR is set but SDL2.dll not found.");
                 print_sdl2_instructions();

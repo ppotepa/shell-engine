@@ -6,8 +6,7 @@
 //! - **`SceneRuntime`**: Main runtime struct managing scene state, objects, and behaviors
 //! - **`behavior_runner`**: Behavior attachment and update lifecycle
 //! - **`object_graph`**: Object lookup and target resolution (TargetResolver)
-//! - **`lifecycle_controls`**: Terminal shell, object viewer, and size tester controls
-//! - **`terminal_shell`**: Terminal UI state and command input handling
+//! - **`lifecycle_controls`**: Object viewer controls and other runtime-only input helpers
 //! - **`construction`**: Scene runtime initialization and object materialization
 //! - **`materialization`**: Sprite and text rendering helpers
 //! - **`camera_3d`**: 3D camera state management for object sprites
@@ -21,7 +20,6 @@ pub mod construction;
 pub mod lifecycle_controls;
 pub mod materialization;
 pub mod object_graph;
-pub mod terminal_shell;
 pub mod ui_focus;
 
 pub use access::SceneRuntimeAccess;
@@ -34,23 +32,17 @@ use engine_behavior_registry::ModBehaviorRegistry;
 use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
 use engine_core::scene::{
-    resolve_ui_theme_or_default, BehaviorSpec, Scene, SceneRenderedMode, Sprite, TermColour,
-    TerminalShellControls, UiThemeStyle,
+    resolve_ui_theme_or_default, BehaviorSpec, FreeLookCameraControls, Scene, Sprite, TermColour,
+    UiThemeStyle,
 };
 pub use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, RawKeyEvent, SceneCamera3D, SidecarIoFrameState,
     TargetResolver,
 };
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
-use engine_render_terminal::rasterizer::generic::GenericMode;
-pub use lifecycle_controls::TerminalShellRoute;
 pub(crate) use materialization::{find_text_layout_recursive, parse_term_colour};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 use std::collections::{BTreeMap, HashMap, HashSet};
-#[cfg(test)]
-pub(crate) use terminal_shell::wrap_text_to_width;
-use tui_input::{Input, InputRequest};
-pub(crate) use ui_focus::{find_panel_layout_recursive, set_panel_height_recursive};
 
 /// Materialized runtime view of a [`Scene`] with stable object ids, behavior
 /// bindings, and per-frame mutable state.
@@ -80,8 +72,7 @@ pub struct SceneRuntime {
     obj_orbit_default_speed: HashMap<String, f32>,
     obj_camera_states: HashMap<String, ObjCameraState>,
     cached_obj_camera_states: Option<std::sync::Arc<HashMap<String, ObjCameraState>>>,
-    terminal_shell_state: Option<TerminalShellState>,
-    terminal_shell_scene_elapsed_ms: u64,
+    free_look_camera: Option<FreeLookCameraState>,
     ui_state: UiRuntimeState,
     pending_bindings: Vec<BehaviorBinding>,
     action_bindings: HashMap<String, Vec<String>>,
@@ -96,6 +87,8 @@ pub struct SceneRuntime {
     /// Non-UI layers are offset by (-camera_x, -camera_y) during compositing.
     camera_x: i32,
     camera_y: i32,
+    /// 2D camera zoom factor (default 1.0). Values > 1.0 zoom in, < 1.0 zoom out.
+    camera_zoom: f32,
     scene_camera_3d: SceneCamera3D,
     /// Palette version when bindings were last applied; 0 means not yet applied.
     palette_applied_version: u64,
@@ -108,19 +101,36 @@ pub struct SceneRuntime {
 }
 
 #[derive(Debug, Clone)]
-struct TerminalShellState {
-    controls: TerminalShellControls,
-    input: Input,
-    input_masked: bool,
-    sidecar_fullscreen_mode: bool,
-    output_lines: Vec<String>,
-    history: Vec<String>,
-    history_cursor: Option<usize>,
-    prompt_panel_height: Option<f32>,
-    last_layout_sync_ms: u64,
+struct FreeLookCameraState {
+    active: bool,
+    pending_activate: bool,
+    position: [f32; 3],
+    yaw_deg: f32,
+    pitch_deg: f32,
+    move_speed: f32,
+    mouse_sensitivity: f32,
+    last_mouse_pos: Option<(u16, u16)>,
+    held_keys: HashSet<String>,
+}
+
+impl FreeLookCameraState {
+    fn from_controls(controls: &FreeLookCameraControls) -> Self {
+        Self {
+            active: false,
+            pending_activate: false,
+            position: [0.0, 0.0, 0.0],
+            yaw_deg: 0.0,
+            pitch_deg: 0.0,
+            move_speed: controls.move_speed,
+            mouse_sensitivity: controls.mouse_sensitivity,
+            last_mouse_pos: None,
+            held_keys: HashSet::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 struct PanelLayoutSpec {
     width: u16,
     border_width: u16,
@@ -129,6 +139,7 @@ struct PanelLayoutSpec {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct TextLayoutSpec {
     x: i32,
     y: i32,
@@ -185,7 +196,7 @@ mod tests {
     use super::SceneRuntime;
     use engine_behavior::BehaviorCommand;
     use engine_core::game_object::GameObjectKind;
-    use engine_core::scene::{Scene, SceneRenderedMode, Sprite, TermColour};
+    use engine_core::scene::{Scene, Sprite, TermColour};
 
     fn intro_scene() -> Scene {
         serde_yaml::from_str(
@@ -223,6 +234,22 @@ layers:
       - type: obj
         id: helsinki-uni-wireframe
         source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
+{extra_fields}"#
+        ))
+        .expect("scene should parse")
+    }
+
+    fn planet_scene(extra_fields: &str) -> Scene {
+        serde_yaml::from_str(&format!(
+            r#"
+id: planet-scene
+title: Planet
+layers:
+  - name: planet
+    sprites:
+      - type: planet
+        id: main-planet-view
+        body-id: main-planet
 {extra_fields}"#
         ))
         .expect("scene should parse")
@@ -578,16 +605,17 @@ layers:
             "ship-1"
         );
         assert!(matches!(
-            runtime.object(&ship_layer_id).expect("ship clone layer").kind,
+            runtime
+                .object(&ship_layer_id)
+                .expect("ship clone layer")
+                .kind,
             GameObjectKind::Layer
         ));
-        assert!(
-            runtime
-                .object(&ship_child_id)
-                .expect("ship clone child object")
-                .aliases
-                .is_empty()
-        );
+        assert!(runtime
+            .object(&ship_child_id)
+            .expect("ship clone child object")
+            .aliases
+            .is_empty());
 
         let resolver = runtime.target_resolver();
         runtime.apply_behavior_commands(
@@ -604,7 +632,11 @@ layers:
             .to_string();
         let ship_layer = runtime.object(&ship_layer_id).expect("ship clone layer");
         assert!(matches!(ship_layer.kind, GameObjectKind::Layer));
-        let ship_child_id = ship_layer.children.first().expect("ship clone child").clone();
+        let ship_child_id = ship_layer
+            .children
+            .first()
+            .expect("ship clone child")
+            .clone();
         assert_eq!(
             runtime
                 .object(&ship_child_id)
@@ -612,13 +644,11 @@ layers:
                 .name,
             "ship-1"
         );
-        assert!(
-            runtime
-                .object(&ship_child_id)
-                .expect("ship clone child object")
-                .aliases
-                .is_empty()
-        );
+        assert!(runtime
+            .object(&ship_child_id)
+            .expect("ship clone child object")
+            .aliases
+            .is_empty());
     }
 
     #[test]
@@ -675,7 +705,7 @@ layers:
                 BehaviorCommand::SetProperty {
                     target: "title".to_string(),
                     path: "text.font".to_string(),
-                    value: serde_json::json!("generic:half"),
+                    value: serde_json::json!("generic:2"),
                 },
                 BehaviorCommand::SetProperty {
                     target: "title".to_string(),
@@ -718,7 +748,7 @@ layers:
                 _ => None,
             })
             .expect("text style");
-        assert_eq!(text_style.0.as_deref(), Some("generic:half"));
+        assert_eq!(text_style.0.as_deref(), Some("generic:2"));
         assert_eq!(text_style.1, Some(TermColour::Yellow));
         assert_eq!(text_style.2, Some(TermColour::Rgb(0x11, 0x22, 0x33)));
     }
@@ -754,10 +784,8 @@ layers:
     fn apply_behavior_commands_set_camera_rounds_to_nearest_pixel() {
         let mut runtime = SceneRuntime::new(intro_scene());
         let resolver = runtime.target_resolver();
-        runtime.apply_behavior_commands(
-            &resolver,
-            &[BehaviorCommand::SetCamera { x: 9.8, y: -2.4 }],
-        );
+        runtime
+            .apply_behavior_commands(&resolver, &[BehaviorCommand::SetCamera { x: 9.8, y: -2.4 }]);
         assert_eq!(runtime.camera(), (10, -2));
     }
 
@@ -835,9 +863,89 @@ layers:
     }
 
     #[test]
+    fn apply_behavior_commands_set_property_updates_planet_paths() {
+        let mut runtime = SceneRuntime::new(planet_scene(""));
+        let resolver = runtime.target_resolver();
+        runtime.apply_behavior_commands(
+            &resolver,
+            &[
+                BehaviorCommand::SetProperty {
+                    target: "main-planet-view".to_string(),
+                    path: "planet.spin_deg".to_string(),
+                    value: serde_json::json!(15),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "main-planet-view".to_string(),
+                    path: "planet.cloud_spin_deg".to_string(),
+                    value: serde_json::json!(21),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "main-planet-view".to_string(),
+                    path: "planet.cloud2_spin_deg".to_string(),
+                    value: serde_json::json!(33),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "main-planet-view".to_string(),
+                    path: "planet.observer_altitude_km".to_string(),
+                    value: serde_json::json!(420),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "main-planet-view".to_string(),
+                    path: "planet.sun_dir.x".to_string(),
+                    value: serde_json::json!(0.5),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "main-planet-view".to_string(),
+                    path: "planet.sun_dir.y".to_string(),
+                    value: serde_json::json!(-0.4),
+                },
+                BehaviorCommand::SetProperty {
+                    target: "main-planet-view".to_string(),
+                    path: "planet.sun_dir.z".to_string(),
+                    value: serde_json::json!(0.2),
+                },
+            ],
+        );
+        let planet_props = runtime
+            .scene()
+            .layers
+            .iter()
+            .flat_map(|layer| layer.sprites.iter())
+            .find_map(|sprite| match sprite {
+                Sprite::Planet {
+                    id,
+                    spin_deg,
+                    cloud_spin_deg,
+                    cloud2_spin_deg,
+                    observer_altitude_km,
+                    sun_dir_x,
+                    sun_dir_y,
+                    sun_dir_z,
+                    ..
+                } if id.as_deref() == Some("main-planet-view") => Some((
+                    *spin_deg,
+                    *cloud_spin_deg,
+                    *cloud2_spin_deg,
+                    *observer_altitude_km,
+                    *sun_dir_x,
+                    *sun_dir_y,
+                    *sun_dir_z,
+                )),
+                _ => None,
+            })
+            .expect("planet properties");
+        assert_eq!(planet_props.0, Some(15.0));
+        assert_eq!(planet_props.1, Some(21.0));
+        assert_eq!(planet_props.2, Some(33.0));
+        assert_eq!(planet_props.3, Some(420.0));
+        assert_eq!(planet_props.4, Some(0.5));
+        assert_eq!(planet_props.5, Some(-0.4));
+        assert_eq!(planet_props.6, Some(0.2));
+    }
+
+    #[test]
     fn adjusts_obj_scale_for_target_sprite_id() {
         let mut runtime = SceneRuntime::new(obj_scene("        scale: 1.0"));
-        runtime.set_scene_rendered_mode(SceneRenderedMode::Braille);
         assert!(runtime.adjust_obj_scale("helsinki-uni-wireframe", 0.2));
 
         let obj_scale = runtime
@@ -914,68 +1022,4 @@ layers:
         assert!((speed_on - 14.0).abs() < f32::EPSILON);
     }
 
-    // ── wrap_text_to_width tests ─────────────────────────────────────
-
-    #[test]
-    fn wrap_plain_text_fits() {
-        let result = super::wrap_text_to_width("hello", 10);
-        assert_eq!(result, vec!["hello"]);
-    }
-
-    #[test]
-    fn wrap_plain_text_exact() {
-        let result = super::wrap_text_to_width("abcde", 5);
-        assert_eq!(result, vec!["abcde"]);
-    }
-
-    #[test]
-    fn wrap_word_boundary() {
-        let result = super::wrap_text_to_width("hello world foo", 11);
-        assert_eq!(result, vec!["hello world", "foo"]);
-    }
-
-    #[test]
-    fn wrap_does_not_break_mid_word() {
-        let result = super::wrap_text_to_width("the available memory", 10);
-        assert_eq!(result, vec!["the", "available", "memory"]);
-    }
-
-    #[test]
-    fn wrap_long_word_hard_break() {
-        let result = super::wrap_text_to_width("abcdefghij", 4);
-        assert_eq!(result, vec!["abcd", "efgh", "ij"]);
-    }
-
-    #[test]
-    fn wrap_preserves_newlines() {
-        let result = super::wrap_text_to_width("abc\ndefgh ij", 6);
-        assert_eq!(result, vec!["abc", "defgh", "ij"]);
-    }
-
-    #[test]
-    fn wrap_empty_line() {
-        let result = super::wrap_text_to_width("", 10);
-        assert_eq!(result, vec![""]);
-    }
-
-    #[test]
-    fn wrap_markup_zero_width() {
-        let result = super::wrap_text_to_width("[red]abcde[/]", 5);
-        assert_eq!(result, vec!["[red]abcde[/]"]);
-    }
-
-    #[test]
-    fn wrap_markup_overflow_carries_colour() {
-        let result = super::wrap_text_to_width("[red]hello world[/]", 5);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], "[red]hello[/]");
-        assert_eq!(result[1], "[red]world[/]");
-    }
-
-    #[test]
-    fn wrap_mixed_markup_and_plain() {
-        // "xx " = 3 visible + "[green]yy[/]" = 2 visible = 5 total → fits on one line
-        let result = super::wrap_text_to_width("xx [green]yy[/] zz", 5);
-        assert_eq!(result, vec!["xx [green]yy[/]", "zz"]);
-    }
 }

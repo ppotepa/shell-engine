@@ -5,7 +5,7 @@ use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::Region;
-use engine_core::scene::{Layer, LayerSpace, SceneRenderedMode, SceneSpace};
+use engine_core::scene::{Layer, LayerSpace, SceneSpace};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -28,7 +28,6 @@ pub fn composite_layers(
     ui_enabled: bool,
     scene_w: u16,
     scene_h: u16,
-    scene_rendered_mode: SceneRenderedMode,
     scene_space: SceneSpace,
     asset_root: Option<&AssetRoot>,
     target_resolver: Option<&TargetResolver>,
@@ -42,10 +41,12 @@ pub fn composite_layers(
     scene_elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
     scene_camera_3d: &SceneCamera3D,
+    celestial_catalogs: Option<&engine_celestial::CelestialCatalogs>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
     camera_x: i32,
     camera_y: i32,
+    camera_zoom: f32,
     layer_compositor: &dyn LayerCompositor,
     buffer: &mut Buffer,
 ) {
@@ -83,22 +84,34 @@ pub fn composite_layers(
         let base_y = scene_origin_y.saturating_add(layer_state.offset_y);
         let layer_space = resolve_layer_space(layer);
         let use_2d_camera = matches!(layer_space, LayerSpace::TwoD);
-        let total_origin_x = if use_2d_camera {
-            base_x.saturating_sub(camera_x)
+        let (total_origin_x, total_origin_y) = if use_2d_camera && (camera_zoom - 1.0).abs() > 0.001
+        {
+            // Zoom scales world pixels around the camera centre (viewport midpoint).
+            let half_w = scene_w as f32 * 0.5;
+            let half_h = scene_h as f32 * 0.5;
+            let world_x = (base_x - camera_x) as f32;
+            let world_y = (base_y - camera_y) as f32;
+            (
+                (half_w + (world_x - half_w) * camera_zoom).round() as i32,
+                (half_h + (world_y - half_h) * camera_zoom).round() as i32,
+            )
+        } else if use_2d_camera {
+            (
+                base_x.saturating_sub(camera_x),
+                base_y.saturating_sub(camera_y),
+            )
         } else {
-            base_x
-        };
-        let total_origin_y = if use_2d_camera {
-            base_y.saturating_sub(camera_y)
-        } else {
-            base_y
+            (base_x, base_y)
         };
 
         // ── Flicker diagnostic: detect non-UI layer position jitter ──────
         if !layer.ui {
             use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
             static JITTER_COUNT: AtomicU64 = AtomicU64::new(0);
-            if layer_idx >= layers.len().saturating_sub(10) || layer.name.starts_with("ship") || layer.name.contains("ship") {
+            if layer_idx >= layers.len().saturating_sub(10)
+                || layer.name.starts_with("ship")
+                || layer.name.contains("ship")
+            {
                 let diag_key = layer_object_id
                     .map(str::to_string)
                     .unwrap_or_else(|| format!("{}#{layer_idx}", layer.name));
@@ -204,7 +217,6 @@ pub fn composite_layers(
                     layer,
                     scene_w,
                     scene_h,
-                    scene_rendered_mode,
                     asset_root,
                     target_resolver,
                     object_regions,
@@ -217,6 +229,7 @@ pub fn composite_layers(
                     elapsed_ms,
                     obj_camera_states,
                     scene_camera_3d,
+                    celestial_catalogs,
                     is_pixel_backend,
                     default_font,
                     &mut layer_buf,
@@ -244,7 +257,6 @@ pub fn composite_layers(
                 layer,
                 scene_w,
                 scene_h,
-                scene_rendered_mode,
                 asset_root,
                 target_resolver,
                 object_regions,
@@ -257,6 +269,7 @@ pub fn composite_layers(
                 elapsed_ms,
                 obj_camera_states,
                 scene_camera_3d,
+                celestial_catalogs,
                 is_pixel_backend,
                 default_font,
                 buffer,

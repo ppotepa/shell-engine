@@ -8,20 +8,12 @@
 
 // Re-export trait defs and simple impls from engine-pipeline
 pub use engine_pipeline::{
-    AlwaysPresenter, AlwaysRender, CoordinatedSkip, DirectLayerCompositor, DirtyRegionPacker,
-    DisplayFrame, DisplaySink, FrameSkipOracle, FullScanPacker, HalfblockPacker, HashSkipPresenter,
-    LayerCompositor, PipelineStrategies, ScratchLayerCompositor, VirtualPresenter,
+    AlwaysPresenter, AlwaysRender, CoordinatedSkip, DirectLayerCompositor,
+    FrameSkipOracle, HashSkipPresenter, LayerCompositor, PipelineStrategies,
+    ScratchLayerCompositor, VirtualPresenter,
 };
-
-// Re-export terminal-specific strategies from engine-render-terminal
-pub use engine_render_terminal::strategy::display::{AsyncDisplaySink, SyncDisplaySink};
-pub use engine_render_terminal::strategy::flush::{AnsiBatchFlusher, NaiveFlusher};
-pub use engine_render_terminal::TerminalFlusher;
+pub use engine_compositor::CompositeParams;
 
 pub mod behavior_factory;
-pub mod scene_compositor;
 
 pub use behavior_factory::{BehaviorFactory, BuiltInBehaviorFactory};
-pub use scene_compositor::{
-    CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
-};

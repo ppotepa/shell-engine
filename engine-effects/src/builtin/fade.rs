@@ -1,10 +1,10 @@
 //! Fade-in and fade-out effects that linearly interpolate foreground brightness.
 
+use crate::metadata::{EffectMetadata, P_EASING};
+use crate::utils::color::lerp_colour;
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{EffectMetadata, P_EASING};
-use crate::utils::color::lerp_colour;
 use engine_core::scene::EffectParams;
 
 /// Static effect metadata for the fade-in variant.

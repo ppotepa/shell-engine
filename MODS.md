@@ -84,7 +84,7 @@ mods/asteroids/
 
 ### Runtime Characteristics
 
-- `mod.yaml` selects `output: sdl2` with 640x360 authored render size and `fit` presentation policy.
+- `mod.yaml` sets `display:` block with 640x360 authored render size and `fit` presentation policy; SDL2 is the only renderer backend.
 - The active gameplay scene currently loads 6 layers: stars → planet → asteroid scene slots → ship scene slot → gameplay canvas → HUD.
 - `planet-bg-layer.yml` renders cockpit planet (OBJ sphere + two cloud shells with biome shading + transparency).
 - `game-canvas.yml` is a support layer; ship/asteroid visuals are now scene-space OBJ slots.
@@ -170,12 +170,9 @@ mods/shell-quest/
 | 03    | 03.intro.lab-enter       | Fade-in/out              | Environment setup      |
 | 04    | 04.difficulty-select     | 4x PostFX, 3D portraits | Menu with OBJ renders  |
 | 05    | 05.intro.cpu-on          | Fade-in                  | CPU power-on sequence  |
-| 06    | 06.intro.login           | Terminal-shell scripted  | Dual-prompt pattern    |
-
 ### Special Features
 
 - Prerender pass for 3D scenes (OBJ model rasterization).
-- Scripted terminal-shell with dual-prompt input pattern.
 - IPC bridge to C# sidecar (`os/cognitOS/`) for CognitOS simulation.
 
 ## Shell Quest Tests (Benchmark Mod)
@@ -207,8 +204,7 @@ Scene 04 loops back to 00 for continuous benchmarking.
 ## Playground (Dev Mod)
 
 Development sandbox with reference scenes for isolated feature testing.
-Contains scenes for terminal-shell, 3d-scene, terminal-size-test,
-rhai-lab, rhai-time, and many more.
+Contains scenes for 3d-scene, rhai-lab, rhai-time, and many more.
 
 ### Running
 
@@ -240,7 +236,7 @@ name: my-mod
 version: "0.1.0"
 description: "My custom mod"
 entrypoint: /scenes/hello/scene.yml
-terminal:
+display:
   min_colours: 256
   min_width: 120
   min_height: 30

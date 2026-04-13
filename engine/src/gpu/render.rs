@@ -103,9 +103,8 @@ pub fn render_obj_gpu(
     Some(pixels)
 }
 
-/// Convert raw RGBA pixels to terminal RGB colors.
-/// Quantizes RGB to terminal 256-color palette or true color.
-pub fn convert_to_terminal_colors(rgba: &[u8], width: u32, height: u32) -> Vec<Option<[u8; 3]>> {
+/// Convert raw RGBA pixels to optional RGB samples.
+pub fn convert_rgba_to_rgb_samples(rgba: &[u8], width: u32, height: u32) -> Vec<Option<[u8; 3]>> {
     let mut result = Vec::with_capacity((width * height) as usize);
 
     for y in 0..height {

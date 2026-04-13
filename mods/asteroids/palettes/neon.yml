@@ -7,9 +7,6 @@ colors:
   title:        "#f6ae2d"
   ship:         "#f6ae2d"
   ship_art:     "#f6ae2d"
-  asteroid:     "#2e5eaa"
-  bullet:       "#8dd6d4"
-  debris:       "#172e55"
   star:         "#f6ae2d"
   # Background planes
   planet_body:  "#0a1230"
@@ -19,11 +16,8 @@ colors:
   # HUD
   hud_label:    "#172e55"
   hud_value:    "#f6ae2d"
-  hud_heart:    "#EE3366"
   hud_panel_bg: "#080e1e"
   hud_border:   "#1e3366"
-  gameover:     "#5bc0be"
-  gameover_sub: "#2e5eaa"
   # Menu
   menu_sel:     "#f6ae2d"
   menu_idle:    "#172e55"
@@ -40,5 +34,3 @@ particles:
   hot_engine: ["#DDEEFF", "#AACCFF", "#6699EE", "#4466CC", "#223399", "#112266"]
   brake:      ["#CCDDFF", "#AABBEE", "#7788CC", "#445599", "#223366", "#111133"]
   heat_trail: ["#DDEEFF", "#AACCFF", "#8899DD", "#5566BB", "#223388", "#111144"]
-  fragment:   ["#2e5eaa", "#243f7f", "#1a2e5a", "#101e38", "#070e1a", "#020612"]
-  bullet_trail: ["#EEFFFF", "#8dd6d4", "#4499AA", "#225566", "#102233", "#020612"]

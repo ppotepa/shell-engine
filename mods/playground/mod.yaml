@@ -2,7 +2,7 @@
 name: Playground
 version: 0.1.0
 entrypoint: /scenes/menu/scene.yml
-terminal:
+display:
   min_colours: 256
   min_width: 379
   min_height: 109

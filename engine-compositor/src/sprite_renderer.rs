@@ -3,11 +3,12 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use engine_animation::SceneStage;
+use engine_celestial::{BodyDef, CelestialCatalogs};
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::effects::Region;
 use engine_core::markup::strip_markup;
-use engine_core::scene::{CameraSource, Layer, SceneRenderedMode, Sprite};
+use engine_core::scene::{CameraSource, Layer, Sprite};
 use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, SceneCamera3D, TargetResolver,
 };
@@ -90,9 +91,10 @@ use super::render::{
     render_children_in_cells, sprite_transform_offset, RenderCtx,
 };
 use crate::{
-    dim_colour, image_sprite_dimensions, obj_sprite_dimensions, render_image_content,
-    render_obj_content, render_text_content, text_sprite_dimensions, try_blit_prerendered,
-    ClipRect, ObjRenderParams,
+    blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba, dim_colour,
+    image_sprite_dimensions, obj_sprite_dimensions, render_image_content, render_obj_content,
+    render_obj_to_canvas, render_obj_to_rgba_canvas, render_text_content, text_sprite_dimensions,
+    try_blit_prerendered, ClipRect, ObjRenderParams,
 };
 
 /// Render all sprites in a layer onto `layer_buf`.
@@ -102,7 +104,6 @@ pub fn render_sprites(
     layer: &Layer,
     scene_w: u16,
     scene_h: u16,
-    scene_rendered_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -115,6 +116,7 @@ pub fn render_sprites(
     elapsed_ms: u64,
     obj_camera_states: &HashMap<String, ObjCameraState>,
     scene_camera_3d: &SceneCamera3D,
+    celestial_catalogs: Option<&CelestialCatalogs>,
     is_pixel_backend: bool,
     default_font: Option<&str>,
     layer_buf: &mut Buffer,
@@ -128,6 +130,7 @@ pub fn render_sprites(
         layer_buf,
         obj_camera_states,
         scene_camera_3d,
+        celestial_catalogs,
         is_pixel_backend,
         default_font,
     };
@@ -154,7 +157,6 @@ pub fn render_sprites(
                 &mut sprite_path,
                 sprite,
                 root_area,
-                scene_rendered_mode,
                 None,
                 target_resolver,
                 object_regions,
@@ -172,7 +174,6 @@ fn render_sprite(
     sprite_path: &mut Vec<usize>,
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -185,7 +186,7 @@ fn render_sprite(
         .and_then(|id| object_states.get(id))
         .cloned()
         .unwrap_or_default();
-    
+
     // Check authored model visibility first
     if !sprite.visible() {
         return;
@@ -211,7 +212,6 @@ fn render_sprite(
         Sprite::Text { .. } => render_text_sprite(
             sprite,
             area,
-            inherited_mode,
             clip_rect,
             target_resolver,
             object_regions,
@@ -224,7 +224,6 @@ fn render_sprite(
         Sprite::Image { .. } => render_image_sprite(
             sprite,
             area,
-            inherited_mode,
             clip_rect,
             target_resolver,
             object_regions,
@@ -237,7 +236,6 @@ fn render_sprite(
         Sprite::Vector { .. } => render_vector_sprite(
             sprite,
             area,
-            inherited_mode,
             clip_rect,
             target_resolver,
             object_regions,
@@ -250,7 +248,6 @@ fn render_sprite(
         Sprite::Panel { .. } => render_panel_sprite(
             sprite,
             area,
-            inherited_mode,
             clip_rect,
             target_resolver,
             object_regions,
@@ -266,7 +263,6 @@ fn render_sprite(
         Sprite::Grid { .. } => render_grid_sprite(
             sprite,
             area,
-            inherited_mode,
             clip_rect,
             target_resolver,
             object_regions,
@@ -282,7 +278,6 @@ fn render_sprite(
         Sprite::Flex { .. } => render_flex_sprite(
             sprite,
             area,
-            inherited_mode,
             clip_rect,
             target_resolver,
             object_regions,
@@ -298,12 +293,21 @@ fn render_sprite(
         Sprite::Obj { .. } => render_obj_sprite(
             sprite,
             area,
-            inherited_mode,
             target_resolver,
             object_regions,
             object_id,
             &object_state,
             appear_at,
+            sprite_elapsed,
+            ctx,
+        ),
+        Sprite::Planet { .. } => render_planet_sprite(
+            sprite,
+            area,
+            target_resolver,
+            object_regions,
+            object_id,
+            &object_state,
             sprite_elapsed,
             ctx,
         ),
@@ -317,7 +321,6 @@ fn render_sprite(
 fn render_text_sprite(
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -333,7 +336,6 @@ fn render_text_sprite(
         y,
         size,
         font,
-        force_renderer_mode,
         force_font_mode,
         align_x,
         align_y,
@@ -376,8 +378,6 @@ fn render_text_sprite(
         font.as_deref(),
         force_font_mode.as_deref(),
         *size,
-        inherited_mode,
-        *force_renderer_mode,
         ctx.is_pixel_backend,
         ctx.default_font,
     );
@@ -538,7 +538,6 @@ fn render_text_sprite(
 fn render_image_sprite(
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     _clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -559,7 +558,6 @@ fn render_image_sprite(
         width,
         height,
         stretch_to_area,
-        force_renderer_mode,
         align_x,
         align_y,
         ..
@@ -567,8 +565,6 @@ fn render_image_sprite(
     else {
         return;
     };
-    let resolved_mode =
-        engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
     let target_width = if *stretch_to_area {
         Some(area.width.max(1))
     } else {
@@ -588,7 +584,6 @@ fn render_image_sprite(
         *spritesheet_columns,
         *spritesheet_rows,
         *frame_index,
-        resolved_mode,
         ctx.asset_root,
     );
     let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
@@ -608,7 +603,6 @@ fn render_image_sprite(
         *spritesheet_columns,
         *spritesheet_rows,
         *frame_index,
-        resolved_mode,
         sprite_elapsed,
         ctx.asset_root,
         draw_x,
@@ -636,7 +630,6 @@ fn render_image_sprite(
 fn render_vector_sprite(
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     _clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -652,7 +645,6 @@ fn render_vector_sprite(
         draw_char,
         x,
         y,
-        force_renderer_mode,
         align_x,
         align_y,
         fg_colour,
@@ -662,8 +654,6 @@ fn render_vector_sprite(
     else {
         return;
     };
-    let _resolved_mode =
-        engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
     let Some(bounds) = engine_vector::bounds(points) else {
         return;
     };
@@ -697,7 +687,10 @@ fn render_vector_sprite(
             .map(|p| {
                 let fx = p[0] as f32;
                 let fy = p[1] as f32;
-                [(fx * cos_h - fy * sin_h).round() as i32, (fx * sin_h + fy * cos_h).round() as i32]
+                [
+                    (fx * cos_h - fy * sin_h).round() as i32,
+                    (fx * sin_h + fy * cos_h).round() as i32,
+                ]
             })
             .collect();
         &rotated
@@ -757,7 +750,6 @@ fn render_vector_sprite(
 fn render_panel_sprite(
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -781,7 +773,6 @@ fn render_panel_sprite(
         corner_radius,
         shadow_x,
         shadow_y,
-        force_renderer_mode,
         align_x,
         align_y,
         bg_colour,
@@ -797,9 +788,7 @@ fn render_panel_sprite(
     if children.is_empty() {
         return;
     }
-    let resolved_mode =
-        engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
-    let (auto_w, auto_h) = measure_sprite_for_layout(sprite, resolved_mode, ctx.asset_root);
+    let (auto_w, auto_h) = measure_sprite_for_layout(sprite, ctx.asset_root);
     let container_w = if let Some(explicit) = *width {
         explicit
     } else if let Some(percent) = *width_percent {
@@ -820,10 +809,7 @@ fn render_panel_sprite(
         .saturating_add(dy)
         .saturating_add(object_state.offset_y);
 
-    let panel_bg = bg_colour
-        .as_ref()
-        .map(Color::from)
-        .unwrap_or(Color::Reset);
+    let panel_bg = bg_colour.as_ref().map(Color::from).unwrap_or(Color::Reset);
     let panel_border = border_colour
         .as_ref()
         .map(Color::from)
@@ -874,7 +860,6 @@ fn render_panel_sprite(
             sprite_path,
             child,
             inner_area,
-            resolved_mode,
             child_clip,
             target_resolver,
             object_regions,
@@ -905,7 +890,6 @@ fn render_panel_sprite(
 fn render_grid_sprite(
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -925,7 +909,6 @@ fn render_grid_sprite(
         height,
         gap_x,
         gap_y,
-        force_renderer_mode,
         align_x,
         align_y,
         columns,
@@ -940,8 +923,6 @@ fn render_grid_sprite(
     if children.is_empty() {
         return;
     }
-    let resolved_mode =
-        engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
     let container_w = width.unwrap_or(area.width).max(1);
     let container_h = height.unwrap_or(area.height).max(1);
     let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
@@ -962,7 +943,6 @@ fn render_grid_sprite(
         container_h,
         *gap_x,
         *gap_y,
-        resolved_mode,
         ctx.asset_root,
         &measure_sprite_for_layout,
     );
@@ -973,7 +953,6 @@ fn render_grid_sprite(
         &child_cells,
         draw_x,
         draw_y,
-        resolved_mode,
         clip_rect,
         target_resolver,
         object_regions,
@@ -1003,7 +982,6 @@ fn render_grid_sprite(
 fn render_flex_sprite(
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     clip_rect: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -1023,7 +1001,6 @@ fn render_flex_sprite(
         height,
         gap,
         direction,
-        force_renderer_mode,
         align_x,
         align_y,
         children,
@@ -1036,8 +1013,6 @@ fn render_flex_sprite(
     if children.is_empty() {
         return;
     }
-    let resolved_mode =
-        engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
     let container_w = width.unwrap_or(area.width).max(1);
     let container_h = height.unwrap_or(area.height).max(1);
     let base_x = area.origin_x + resolve_x(*x, align_x, area.width, container_w);
@@ -1056,7 +1031,6 @@ fn render_flex_sprite(
         container_w,
         container_h,
         *gap,
-        resolved_mode,
         ctx.asset_root,
         &measure_sprite_for_layout,
     );
@@ -1067,7 +1041,6 @@ fn render_flex_sprite(
         &child_cells,
         draw_x,
         draw_y,
-        resolved_mode,
         clip_rect,
         target_resolver,
         object_regions,
@@ -1097,7 +1070,6 @@ fn render_flex_sprite(
 fn render_obj_sprite(
     sprite: &Sprite,
     area: RenderArea,
-    inherited_mode: SceneRenderedMode,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
     object_id: Option<&str>,
@@ -1114,7 +1086,6 @@ fn render_obj_sprite(
         size,
         width,
         height,
-        force_renderer_mode,
         surface_mode,
         backface_cull,
         clip_y_min,
@@ -1177,6 +1148,8 @@ fn render_obj_sprite(
         atmo_color,
         atmo_strength,
         atmo_rim_power,
+        atmo_haze_strength,
+        atmo_haze_power,
         night_light_color,
         night_light_threshold,
         night_light_intensity,
@@ -1206,8 +1179,6 @@ fn render_obj_sprite(
     else {
         return;
     };
-    let resolved_mode =
-        engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
         obj_sprite_dimensions(*width, *height, *size)
     } else {
@@ -1256,7 +1227,6 @@ fn render_obj_sprite(
             current_pitch,
             clip_min,
             clip_max,
-            resolved_mode,
             draw_x,
             draw_y,
             ctx.layer_buf,
@@ -1287,7 +1257,6 @@ fn render_obj_sprite(
         Some(sprite_width),
         Some(sprite_height),
         *size,
-        resolved_mode,
         ObjRenderParams {
             scale: scale.unwrap_or(1.0),
             yaw_deg: yaw_deg.unwrap_or(0.0),
@@ -1409,23 +1378,59 @@ fn render_obj_sprite(
             smooth_shading: smooth_shading.unwrap_or(false),
             latitude_bands: latitude_bands.unwrap_or(0),
             latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
-            terrain_color: terrain_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            terrain_color: terrain_color.as_ref().map(|c| {
+                let (r, g, b) = Color::from(c).to_rgb();
+                [r, g, b]
+            }),
             terrain_threshold: terrain_threshold.unwrap_or(0.5),
             terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
             terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
             marble_depth: marble_depth.unwrap_or(0.0),
+            terrain_relief: 0.0,
+            noise_seed: 0.0,
+            warp_strength: 0.0,
+            warp_octaves: 2,
+            noise_lacunarity: 2.0,
+            noise_persistence: 0.5,
+            normal_perturb_strength: 0.0,
+            ocean_specular: 0.0,
+            crater_density: 0.0,
+            crater_rim_height: 0.35,
+            snow_line_altitude: 0.0,
+            terrain_displacement: 0.0,
             below_threshold_transparent: *below_threshold_transparent,
-            polar_ice_color: polar_ice_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            cloud_alpha_softness: 0.0,
+            polar_ice_color: polar_ice_color.as_ref().map(|c| {
+                let (r, g, b) = Color::from(c).to_rgb();
+                [r, g, b]
+            }),
             polar_ice_start: polar_ice_start.unwrap_or(0.78),
             polar_ice_end: polar_ice_end.unwrap_or(0.92),
-            desert_color: desert_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            desert_color: desert_color.as_ref().map(|c| {
+                let (r, g, b) = Color::from(c).to_rgb();
+                [r, g, b]
+            }),
             desert_strength: desert_strength.unwrap_or(0.0),
-            atmo_color: atmo_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            atmo_color: atmo_color.as_ref().map(|c| {
+                let (r, g, b) = Color::from(c).to_rgb();
+                [r, g, b]
+            }),
             atmo_strength: atmo_strength.unwrap_or(0.0),
             atmo_rim_power: atmo_rim_power.unwrap_or(4.5),
-            night_light_color: night_light_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+            atmo_haze_strength: atmo_haze_strength.unwrap_or(0.0),
+            atmo_haze_power: atmo_haze_power.unwrap_or(1.8),
+            ocean_noise_scale: 4.0,
+            ocean_color_rgb: None,
+            night_light_color: night_light_color.as_ref().map(|c| {
+                let (r, g, b) = Color::from(c).to_rgb();
+                [r, g, b]
+            }),
             night_light_threshold: night_light_threshold.unwrap_or(0.82),
             night_light_intensity: night_light_intensity.unwrap_or(0.0),
+            heightmap: None,
+            heightmap_w: 0,
+            heightmap_h: 0,
+            heightmap_blend: 0.0,
         },
         is_wireframe,
         backface_cull.unwrap_or(false),
@@ -1452,6 +1457,534 @@ fn render_obj_sprite(
         target_resolver,
         object_regions,
     );
+}
+
+const DEFAULT_PLANET_MESH_SOURCE: &str = "cube-sphere://64";
+const DEFAULT_PLANET_CLOUD_COLOR: &str = "#eaf2f8";
+const DEFAULT_PLANET_CLOUD_2_COLOR: &str = "#d7e2ec";
+
+#[allow(clippy::too_many_arguments)]
+fn render_planet_sprite(
+    sprite: &Sprite,
+    area: RenderArea,
+    target_resolver: Option<&TargetResolver>,
+    object_regions: &mut HashMap<String, Region>,
+    object_id: Option<&str>,
+    object_state: &ObjectRuntimeState,
+    sprite_elapsed: u64,
+    ctx: &mut RenderCtx<'_>,
+) {
+    let Sprite::Planet {
+        body_id,
+        preset,
+        mesh_source,
+        x,
+        y,
+        size,
+        width,
+        height,
+        scale,
+        yaw_deg,
+        pitch_deg,
+        roll_deg,
+        spin_deg,
+        cloud_spin_deg,
+        cloud2_spin_deg,
+        observer_altitude_km,
+        camera_distance,
+        camera_source,
+        fov_degrees,
+        near_clip,
+        sun_dir_x,
+        sun_dir_y,
+        sun_dir_z,
+        align_x,
+        align_y,
+        ..
+    } = sprite
+    else {
+        return;
+    };
+
+    let Some(catalogs) = ctx.celestial_catalogs else {
+        return;
+    };
+    let Some(body) = catalogs.bodies.get(body_id) else {
+        return;
+    };
+    let preset_id = preset.as_deref().or(body.planet_type.as_deref());
+    let Some(planet) = preset_id.and_then(|id| catalogs.planet_types.get(id)) else {
+        return;
+    };
+
+    let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
+        obj_sprite_dimensions(*width, *height, *size)
+    } else {
+        (area.width.max(1), area.height.max(1))
+    };
+    let base_x = area.origin_x + resolve_x(*x, align_x, area.width, sprite_width);
+    let base_y = area.origin_y + resolve_y(*y, align_y, area.height, sprite_height);
+    let (draw_x, draw_y) = compute_draw_pos(
+        base_x,
+        base_y,
+        sprite.animations(),
+        sprite_elapsed,
+        object_state,
+    );
+
+    let use_scene_camera = *camera_source == CameraSource::Scene;
+    let scene_camera = ctx.scene_camera_3d;
+    let sun_dir = [
+        sun_dir_x.unwrap_or(planet.sun_dir_x as f32),
+        sun_dir_y.unwrap_or(planet.sun_dir_y as f32),
+        sun_dir_z.unwrap_or(planet.sun_dir_z as f32),
+    ];
+    let surface_scale = scale.unwrap_or(1.0);
+    let (cloud_scale, cloud2_scale) = planet_cloud_scales(body, surface_scale);
+    let mesh_path = mesh_source.as_deref().unwrap_or(DEFAULT_PLANET_MESH_SOURCE);
+    let base_yaw = yaw_deg.unwrap_or(0.0);
+    let pitch = pitch_deg.unwrap_or(0.0);
+    let roll = roll_deg.unwrap_or(0.0);
+    let camera_distance = camera_distance.unwrap_or(3.0);
+    let fov_degrees = fov_degrees.unwrap_or(60.0);
+    let near_clip = near_clip.unwrap_or(0.001);
+    let atmo_visibility = planet_atmosphere_visibility(body, observer_altitude_km.unwrap_or(0.0));
+
+    let mut surface_params = build_planet_base_params(
+        surface_scale,
+        base_yaw + spin_deg.unwrap_or(0.0),
+        pitch,
+        roll,
+        camera_distance,
+        fov_degrees,
+        near_clip,
+        sprite_elapsed,
+        use_scene_camera,
+        scene_camera,
+        sun_dir,
+    );
+    surface_params.ambient = planet.ambient as f32;
+    surface_params.smooth_shading = true;
+    surface_params.latitude_bands = planet.latitude_bands;
+    surface_params.latitude_band_depth = planet.latitude_band_depth as f32;
+    surface_params.terrain_displacement = planet.terrain_displacement as f32;
+    surface_params.terrain_color = colour_rgb(Some(planet.land_color.as_str()));
+    surface_params.terrain_threshold = planet.terrain_threshold as f32;
+    surface_params.terrain_noise_scale = planet.terrain_noise_scale as f32;
+    surface_params.terrain_noise_octaves = planet.terrain_noise_octaves;
+    surface_params.marble_depth = planet.marble_depth as f32;
+    surface_params.terrain_relief = planet.terrain_relief as f32;
+    surface_params.polar_ice_color = planet
+        .polar_ice_color
+        .as_deref()
+        .and_then(|value| colour_rgb(Some(value)));
+    surface_params.polar_ice_start = planet.polar_ice_start as f32;
+    surface_params.polar_ice_end = planet.polar_ice_end as f32;
+    surface_params.desert_color = planet
+        .desert_color
+        .as_deref()
+        .and_then(|value| colour_rgb(Some(value)));
+    surface_params.desert_strength = planet.desert_strength as f32;
+    surface_params.atmo_color = planet
+        .atmo_color
+        .as_deref()
+        .and_then(|value| colour_rgb(Some(value)));
+    surface_params.atmo_strength = planet.atmo_strength as f32 * atmo_visibility;
+    surface_params.atmo_rim_power = planet.atmo_rim_power as f32;
+    surface_params.atmo_haze_strength = (planet.atmo_strength as f32 * 0.45) * atmo_visibility;
+    surface_params.atmo_haze_power = planet.atmo_haze_power as f32;
+    surface_params.night_light_color = planet
+        .night_light_color
+        .as_deref()
+        .and_then(|value| colour_rgb(Some(value)));
+    surface_params.night_light_threshold = planet.night_light_threshold as f32;
+    surface_params.night_light_intensity = planet.night_light_intensity as f32;
+    // Wire tone palette — this is what gives the ocean its colour (shadow→midtone→highlight
+    // maps the Lambertian shade range onto authored ocean colours). Without tone_mix > 0 the
+    // ocean renders as shaded white/grey from the sphere mesh face colour.
+    surface_params.shadow_colour = planet
+        .shadow_color
+        .as_deref()
+        .map(|s| colour_value(Some(s), Color::Black));
+    surface_params.midtone_colour = planet
+        .midtone_color
+        .as_deref()
+        .map(|s| colour_value(Some(s), Color::White));
+    surface_params.highlight_colour = planet
+        .highlight_color
+        .as_deref()
+        .map(|s| colour_value(Some(s), Color::White));
+    surface_params.tone_mix = planet.tone_mix as f32;
+    surface_params.cel_levels = planet.cel_levels;
+    surface_params.noise_seed = planet.noise_seed as f32;
+    surface_params.heightmap = planet.generated_heightmap.clone();
+    surface_params.heightmap_w = planet.generated_heightmap_w;
+    surface_params.heightmap_h = planet.generated_heightmap_h;
+    surface_params.heightmap_blend = planet.heightmap_blend as f32;
+    surface_params.warp_strength = planet.warp_strength as f32;
+    surface_params.warp_octaves = planet.warp_octaves;
+    surface_params.noise_lacunarity = planet.noise_lacunarity as f32;
+    surface_params.noise_persistence = planet.noise_persistence as f32;
+    surface_params.normal_perturb_strength = planet.normal_perturb_strength as f32;
+    surface_params.ocean_specular = planet.ocean_specular as f32;
+    surface_params.ocean_noise_scale = planet.ocean_noise_scale as f32;
+    surface_params.crater_density = planet.crater_density as f32;
+    surface_params.crater_rim_height = planet.crater_rim_height as f32;
+    surface_params.snow_line_altitude = planet.snow_line_altitude as f32;
+
+    // ── RGBA compositing pipeline: surface → cloud1 → cloud2 → blit ──────────
+    let ocean_fg = colour_value(Some(planet.ocean_color.as_str()), Color::White);
+    let (ocean_r, ocean_g, ocean_b) = ocean_fg.to_rgb();
+    surface_params.ocean_color_rgb = Some([ocean_r, ocean_g, ocean_b]);
+
+    // 1. Render surface (opaque) to RGB canvas, then convert to RGBA.
+    let Some((surface_rgb, virtual_w, virtual_h)) = render_obj_to_canvas(
+        mesh_path,
+        Some(sprite_width),
+        Some(sprite_height),
+        *size,
+        surface_params,
+        false,
+        false,
+        ocean_fg,
+        ctx.asset_root,
+    ) else {
+        return;
+    };
+    let mut composited = convert_canvas_to_rgba(surface_rgb);
+
+    // 2. Cloud layer 1 — soft alpha edges, per-pixel noise.
+    let cloud_colour = planet
+        .cloud_color
+        .as_deref()
+        .unwrap_or(DEFAULT_PLANET_CLOUD_COLOR);
+    let cloud_rgb = colour_rgb(Some(cloud_colour));
+    let cloud_threshold = (planet.cloud_threshold as f32).clamp(0.0, 0.999);
+    let mut cloud_params = build_planet_base_params(
+        cloud_scale,
+        base_yaw + cloud_spin_deg.unwrap_or(0.0),
+        pitch,
+        roll,
+        camera_distance,
+        fov_degrees,
+        near_clip,
+        sprite_elapsed,
+        use_scene_camera,
+        scene_camera,
+        sun_dir,
+    );
+    cloud_params.ambient = planet.cloud_ambient as f32;
+    cloud_params.smooth_shading = true;
+    cloud_params.terrain_color = cloud_rgb;
+    cloud_params.terrain_threshold = cloud_threshold;
+    cloud_params.terrain_noise_scale = planet.cloud_noise_scale as f32;
+    cloud_params.terrain_noise_octaves = planet.cloud_noise_octaves.max(1);
+    cloud_params.marble_depth = (planet.marble_depth as f32 * 0.5).max(0.003);
+    cloud_params.below_threshold_transparent = true;
+    cloud_params.cloud_alpha_softness = 0.12;
+
+    if let Some((cloud1_rgba, _, _)) = render_obj_to_rgba_canvas(
+        mesh_path,
+        Some(sprite_width),
+        Some(sprite_height),
+        *size,
+        cloud_params,
+        false,
+        colour_value(Some(cloud_colour), Color::White),
+        ctx.asset_root,
+    ) {
+        composite_rgba_over(&mut composited, &cloud1_rgba);
+    }
+
+    // 3. Cloud layer 2 — sparse high-altitude breakup.
+    let cloud2_colour = DEFAULT_PLANET_CLOUD_2_COLOR;
+    let mut cloud2_params = build_planet_base_params(
+        cloud2_scale,
+        base_yaw + 180.0 + cloud2_spin_deg.unwrap_or(0.0),
+        pitch,
+        roll,
+        camera_distance,
+        fov_degrees,
+        near_clip,
+        sprite_elapsed,
+        use_scene_camera,
+        scene_camera,
+        sun_dir,
+    );
+    cloud2_params.ambient = 0.004;
+    cloud2_params.smooth_shading = true;
+    cloud2_params.terrain_color = colour_rgb(Some(cloud2_colour));
+    cloud2_params.terrain_threshold = (cloud_threshold + 0.12).min(0.992);
+    cloud2_params.terrain_noise_scale = (planet.cloud_noise_scale as f32 * 0.35).max(1.1);
+    cloud2_params.terrain_noise_octaves = planet.cloud_noise_octaves.clamp(1, 2);
+    cloud2_params.marble_depth = (planet.marble_depth as f32 * 0.2).max(0.002);
+    cloud2_params.below_threshold_transparent = true;
+    cloud2_params.cloud_alpha_softness = 0.08;
+
+    if let Some((cloud2_rgba, _, _)) = render_obj_to_rgba_canvas(
+        mesh_path,
+        Some(sprite_width),
+        Some(sprite_height),
+        *size,
+        cloud2_params,
+        false,
+        colour_value(Some(cloud2_colour), Color::White),
+        ctx.asset_root,
+    ) {
+        composite_rgba_over(&mut composited, &cloud2_rgba);
+    }
+
+    // 4. Blit composited RGBA canvas to buffer.
+    let (target_w, _target_h) =
+        obj_sprite_dimensions(Some(sprite_width), Some(sprite_height), *size);
+    blit_rgba_canvas(
+        ctx.layer_buf,
+        &composited,
+        virtual_w,
+        virtual_h,
+        target_w,
+        sprite_height,
+        draw_x,
+        draw_y,
+    );
+
+    let sprite_region = Region {
+        x: draw_x,
+        y: draw_y,
+        width: sprite_width,
+        height: sprite_height,
+    };
+    finalize_sprite(
+        object_id,
+        sprite_region,
+        sprite_elapsed,
+        sprite.stages(),
+        ctx,
+        target_resolver,
+        object_regions,
+    );
+}
+
+fn build_planet_base_params(
+    scale: f32,
+    yaw_deg: f32,
+    pitch_deg: f32,
+    roll_deg: f32,
+    camera_distance: f32,
+    fov_degrees: f32,
+    near_clip: f32,
+    scene_elapsed_ms: u64,
+    use_scene_camera: bool,
+    scene_camera: &SceneCamera3D,
+    sun_dir: [f32; 3],
+) -> ObjRenderParams {
+    ObjRenderParams {
+        scale,
+        yaw_deg,
+        pitch_deg,
+        roll_deg,
+        rotation_x: 0.0,
+        rotation_y: 0.0,
+        rotation_z: 0.0,
+        rotate_y_deg_per_sec: 0.0,
+        camera_distance,
+        fov_degrees,
+        near_clip,
+        light_direction_x: sun_dir[0],
+        light_direction_y: sun_dir[1],
+        light_direction_z: sun_dir[2],
+        light_2_direction_x: 0.0,
+        light_2_direction_y: 0.0,
+        light_2_direction_z: -1.0,
+        light_2_intensity: 0.0,
+        light_point_x: 0.0,
+        light_point_y: 2.0,
+        light_point_z: 0.0,
+        light_point_intensity: 0.0,
+        light_point_colour: None,
+        light_point_flicker_depth: 0.0,
+        light_point_flicker_hz: 0.0,
+        light_point_orbit_hz: 0.0,
+        light_point_snap_hz: 0.0,
+        light_point_2_x: 0.0,
+        light_point_2_y: 0.0,
+        light_point_2_z: 0.0,
+        light_point_2_intensity: 0.0,
+        light_point_2_colour: None,
+        light_point_2_flicker_depth: 0.0,
+        light_point_2_flicker_hz: 0.0,
+        light_point_2_orbit_hz: 0.0,
+        light_point_2_snap_hz: 0.0,
+        cel_levels: 0,
+        shadow_colour: None,
+        midtone_colour: None,
+        highlight_colour: None,
+        tone_mix: 0.0,
+        scene_elapsed_ms,
+        camera_pan_x: 0.0,
+        camera_pan_y: 0.0,
+        camera_look_yaw: 0.0,
+        camera_look_pitch: 0.0,
+        object_translate_x: 0.0,
+        object_translate_y: 0.0,
+        object_translate_z: 0.0,
+        clip_y_min: 0.0,
+        clip_y_max: 1.0,
+        camera_world_x: if use_scene_camera {
+            scene_camera.eye[0]
+        } else {
+            0.0
+        },
+        camera_world_y: if use_scene_camera {
+            scene_camera.eye[1]
+        } else {
+            0.0
+        },
+        camera_world_z: if use_scene_camera {
+            scene_camera.eye[2]
+        } else {
+            -camera_distance
+        },
+        view_right_x: if use_scene_camera {
+            scene_camera.right()[0]
+        } else {
+            1.0
+        },
+        view_right_y: if use_scene_camera {
+            scene_camera.right()[1]
+        } else {
+            0.0
+        },
+        view_right_z: if use_scene_camera {
+            scene_camera.right()[2]
+        } else {
+            0.0
+        },
+        view_up_x: if use_scene_camera {
+            scene_camera.up[0]
+        } else {
+            0.0
+        },
+        view_up_y: if use_scene_camera {
+            scene_camera.up[1]
+        } else {
+            1.0
+        },
+        view_up_z: if use_scene_camera {
+            scene_camera.up[2]
+        } else {
+            0.0
+        },
+        view_forward_x: if use_scene_camera {
+            scene_camera.forward()[0]
+        } else {
+            0.0
+        },
+        view_forward_y: if use_scene_camera {
+            scene_camera.forward()[1]
+        } else {
+            0.0
+        },
+        view_forward_z: if use_scene_camera {
+            scene_camera.forward()[2]
+        } else {
+            1.0
+        },
+        unlit: false,
+        ambient: 0.05,
+        light_point_falloff: 0.7,
+        light_point_2_falloff: 0.7,
+        smooth_shading: true,
+        latitude_bands: 0,
+        latitude_band_depth: 0.0,
+        terrain_displacement: 0.0,
+        terrain_color: None,
+        terrain_threshold: 0.5,
+        terrain_noise_scale: 2.5,
+        terrain_noise_octaves: 2,
+        marble_depth: 0.0,
+        terrain_relief: 0.0,
+        noise_seed: 0.0,
+        warp_strength: 0.0,
+        warp_octaves: 2,
+        noise_lacunarity: 2.0,
+        noise_persistence: 0.5,
+        normal_perturb_strength: 0.0,
+        ocean_specular: 0.0,
+        crater_density: 0.0,
+        crater_rim_height: 0.35,
+        snow_line_altitude: 0.0,
+        below_threshold_transparent: false,
+        cloud_alpha_softness: 0.0,
+        polar_ice_color: None,
+        polar_ice_start: 0.78,
+        polar_ice_end: 0.92,
+        desert_color: None,
+        desert_strength: 0.0,
+        atmo_color: None,
+        atmo_strength: 0.0,
+        atmo_rim_power: 4.5,
+        atmo_haze_strength: 0.0,
+        atmo_haze_power: 1.8,
+        ocean_noise_scale: 4.0,
+        ocean_color_rgb: None,
+        night_light_color: None,
+        night_light_threshold: 0.82,
+        night_light_intensity: 0.0,
+        heightmap: None,
+        heightmap_w: 0,
+        heightmap_h: 0,
+        heightmap_blend: 0.0,
+    }
+}
+
+fn colour_value(raw: Option<&str>, fallback: Color) -> Color {
+    raw.and_then(engine_core::scene::color::parse_colour_str)
+        .map(|value| Color::from(&value))
+        .unwrap_or(fallback)
+}
+
+fn colour_rgb(raw: Option<&str>) -> Option<[u8; 3]> {
+    let colour = raw.and_then(engine_core::scene::color::parse_colour_str)?;
+    let (r, g, b) = Color::from(&colour).to_rgb();
+    Some([r, g, b])
+}
+
+fn body_radius_km(body: &BodyDef) -> Option<f32> {
+    body.radius_km.map(|value| value as f32).or_else(|| {
+        body.km_per_px
+            .map(|km_per_px| (body.radius_px * km_per_px) as f32)
+    })
+}
+
+fn planet_cloud_scales(body: &BodyDef, surface_scale: f32) -> (f32, f32) {
+    let Some(radius_km) = body_radius_km(body).filter(|value| *value > f32::EPSILON) else {
+        return (surface_scale, surface_scale);
+    };
+    let cloud_bottom = body.cloud_bottom_km.unwrap_or(0.0) as f32;
+    let cloud_top = body.cloud_top_km.unwrap_or(cloud_bottom as f64) as f32;
+    let cloud_mid = ((cloud_bottom + cloud_top) * 0.5).max(0.0);
+    let cloud_high = (cloud_top + (cloud_top - cloud_bottom).max(6.0) * 1.5).max(cloud_mid);
+    (
+        surface_scale * (1.0 + cloud_mid / radius_km),
+        surface_scale * (1.0 + cloud_high / radius_km),
+    )
+}
+
+fn planet_atmosphere_visibility(body: &BodyDef, observer_altitude_km: f32) -> f32 {
+    let top_km = body
+        .atmosphere_top_km
+        .map(|value| value as f32)
+        .or_else(|| {
+            body.atmosphere_top
+                .zip(body.km_per_px)
+                .map(|(top_px, km_per_px)| (top_px * km_per_px) as f32)
+        })
+        .unwrap_or(0.0);
+    if top_km <= f32::EPSILON {
+        return 1.0;
+    }
+    (1.0 - (observer_altitude_km / (top_km * 8.0)).clamp(0.0, 0.65)).clamp(0.35, 1.0)
 }
 
 fn render_scene3d_sprite(
@@ -1490,10 +2023,9 @@ fn render_scene3d_sprite(
     // Real-time path: if the frame string names a clip (no "-N" suffix with a numeric keyframe
     // index), look up the parsed scene definition and render the current animation frame live.
     // This gives true 60fps 3D animation without startup prerender cost for clip frames.
-    let rendered_realtime = if let (Some(entry), Some(asset_root)) = (
-        Scene3DRuntimeStore::current_get(src),
-        ctx.asset_root,
-    ) {
+    let rendered_realtime = if let (Some(entry), Some(asset_root)) =
+        (Scene3DRuntimeStore::current_get(src), ctx.asset_root)
+    {
         if entry.def.frames.contains_key(frame.as_str()) {
             let buf = crate::scene3d_prerender::render_scene3d_frame_at(
                 entry,
@@ -1629,8 +2161,7 @@ fn intersect_clip_rect(a: Option<ClipRect>, b: Option<ClipRect>) -> Option<ClipR
 #[allow(clippy::nonminimal_bool)]
 fn panel_cell_visible(x: u16, y: u16, width: u16, height: u16, rounded: bool) -> bool {
     !rounded
-        || !((x == 0 || x == width.saturating_sub(1))
-            && (y == 0 || y == height.saturating_sub(1)))
+        || !((x == 0 || x == width.saturating_sub(1)) && (y == 0 || y == height.saturating_sub(1)))
 }
 
 #[inline(always)]

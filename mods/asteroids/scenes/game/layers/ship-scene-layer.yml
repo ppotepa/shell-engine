@@ -18,20 +18,21 @@
       source: /assets/3d/ship.obj
       x: 0
       y: 0
-      scale: 0.20
+      scale: 0.04
+      ambient: 0.04
       surface-mode: material
       prerender: false
       rotate-y-deg-per-sec: 0
       camera-source: scene
       fov-degrees: 65
       near-clip: 0.01
-      light-direction-x: -0.50
-      light-direction-y: 0.65
-      light-direction-z: -0.58
-      cel-levels: 4
-      shadow-colour: "#1a2e55"
-      midtone-colour: "#2d5a9e"
-      highlight-colour: "#7ae0dc"
-      tone-mix: 0.30
-      fg_colour: "#f6ae2d"
+      light-direction-x: -0.42
+      light-direction-y: 0.72
+      light-direction-z: -0.54
+      cel-levels: 5
+      shadow-colour: "#09111d"
+      midtone-colour: "#245ca8"
+      highlight-colour: "#b9fff5"
+      tone-mix: 0.45
+      fg_colour: "#ffb84a"
       visible: true

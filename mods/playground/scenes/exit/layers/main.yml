@@ -2,5 +2,5 @@
 - name: exit
   z_index: 0
   sprites:
-    - { type: text, content: "EXITING PLAYGROUND...", at: cc, font: "generic:half", fg: white }
+    - { type: text, content: "EXITING PLAYGROUND...", at: cc, font: "generic:2", fg: white }
 

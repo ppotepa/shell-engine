@@ -9,7 +9,7 @@
         content: "PLAYGROUND",
         at: ct,
         y: -9,
-        font: "generic:half",
+        font: "generic:2",
         fg: white,
       }
     - {
@@ -17,7 +17,7 @@
         content: "MENU",
         at: ct,
         y: -2,
-        font: "generic:half",
+        font: "generic:2",
         fg: gray,
       }
     - {
@@ -25,7 +25,7 @@
         content: "Arrows: navigate, Enter: select, [0]-[9]: shortcut",
         at: cb,
         y: -1,
-        font: "generic:half",
+        font: "generic:2",
         fg: gray,
         hide_on_leave: true,
         behaviors:

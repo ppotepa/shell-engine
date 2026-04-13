@@ -38,6 +38,10 @@ impl SceneRuntime {
     /// Clear all held keys (used on focus-loss to avoid stuck movement input).
     pub fn clear_keys_down(&mut self) {
         self.ui_state.keys_down.clear();
+        if let Some(state) = self.free_look_camera.as_mut() {
+            state.held_keys.clear();
+            state.last_mouse_pos = None;
+        }
     }
 
     /// Returns a clone of the current held-key set for behavior context.
@@ -112,16 +116,7 @@ impl SceneRuntime {
     }
 
     pub(crate) fn initialize_ui_state(&mut self) {
-        let mut focus_order = normalize_focus_order(&self.scene.ui.focus_order);
-        if focus_order.is_empty() {
-            if let Some(prompt_id) = self
-                .terminal_shell_state
-                .as_ref()
-                .map(|state| state.controls.prompt_sprite_id.clone())
-            {
-                focus_order.push(prompt_id);
-            }
-        }
+        let focus_order = normalize_focus_order(&self.scene.ui.focus_order);
         self.ui_state.focus_order = focus_order;
         self.ui_state.focused_index = 0;
         let resolved_theme = resolve_ui_theme_or_default(self.scene.ui.theme.as_deref());
@@ -151,12 +146,14 @@ impl SceneRuntime {
         };
     }
 
+    #[allow(dead_code)]
     pub(crate) fn is_ui_target_focused(&self, target_id: &str) -> bool {
         self.focused_ui_target_id()
             .map(|focused| focused == target_id)
             .unwrap_or(true)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn resolve_text_layout(&self, sprite_id: &str) -> Option<TextLayoutSpec> {
         self.scene
             .layers
@@ -190,6 +187,7 @@ fn normalize_key_code(code: &str) -> String {
     trimmed.to_string()
 }
 
+#[allow(dead_code)]
 pub(crate) fn find_panel_layout_recursive(
     sprites: &[Sprite],
     panel_id: &str,
@@ -237,6 +235,7 @@ pub(crate) fn find_panel_layout_recursive(
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Planet { .. }
             | Sprite::Scene3D { .. }
             | Sprite::Vector { .. } => {}
         }
@@ -244,6 +243,7 @@ pub(crate) fn find_panel_layout_recursive(
     None
 }
 
+#[allow(dead_code)]
 pub(crate) fn set_panel_height_recursive(
     sprites: &mut [Sprite],
     panel_id: &str,
@@ -272,6 +272,7 @@ pub(crate) fn set_panel_height_recursive(
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Planet { .. }
             | Sprite::Scene3D { .. }
             | Sprite::Vector { .. } => {}
         }

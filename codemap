@@ -22,7 +22,7 @@ CRATE_DIRS=(
   engine-compositor engine-core engine-debug engine-error engine-events
   engine-frame engine-game engine-io engine-mod engine-persistence engine-physics
   engine-pipeline engine-render engine-render-policy engine-render-sdl2
-  engine-render-terminal engine-runtime engine-scene-runtime engine-terminal
+  engine-runtime engine-scene-runtime
   engine-vector mods schemas docs
 )
 

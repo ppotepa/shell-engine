@@ -1,10 +1,10 @@
 //! Effect that sweeps a Gaussian highlight beam across the frame.
 
+use crate::metadata::{slider, EffectMetadata, P_EASING, P_INTENSITY, P_SPEED};
+use crate::utils::color::lerp_colour;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::{Effect, Region};
-use crate::metadata::{slider, EffectMetadata, P_EASING, P_INTENSITY, P_SPEED};
-use crate::utils::color::lerp_colour;
 use engine_core::scene::EffectParams;
 
 /// Static effect metadata exposed to the editor and effect registry.

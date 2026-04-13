@@ -5,7 +5,6 @@ title: FPS Showcase 2D 10
 cutscene: true
 target-fps: 10
 bg: black
-rendered-mode: halfblock
 stages-ref: /stages/fps-timeout-5s.yml
 layers:
   - name: fps-showcase-2d

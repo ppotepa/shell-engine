@@ -566,6 +566,8 @@ scene.set("hud-score", "text.content", `${score}`)
 scene.set("player",    "visible", false)
 scene.set("ship",      "position.x", 320.0)
 scene.set("polygon",   "vector.points", pts)
+scene.set("main-planet", "planet.spin_deg", 18.0)
+scene.set("main-planet", "planet.sun_dir.x", 0.72)
 
 // Set the same property on multiple objects at once (cheaper than a Rhai for-loop):
 scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
@@ -587,6 +589,13 @@ scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col)
 | `obj.world.x`      | float   | OBJ world-space X translation (pre-projection)   |
 | `obj.world.y`      | float   | OBJ world-space Y translation (pre-projection)   |
 | `obj.world.z`      | float   | OBJ world-space Z translation (pre-projection)   |
+| `planet.spin_deg`  | float   | Planet surface spin angle in degrees             |
+| `planet.cloud_spin_deg` | float | Planet primary cloud deck spin angle in degrees |
+| `planet.cloud2_spin_deg` | float | Planet secondary cloud breakup spin angle in degrees |
+| `planet.observer_altitude_km` | float | Observer altitude hint used for planet atmosphere presentation |
+| `planet.sun_dir.x` | float   | Planet sun direction X override                  |
+| `planet.sun_dir.y` | float   | Planet sun direction Y override                  |
+| `planet.sun_dir.z` | float   | Planet sun direction Z override                  |
 
 ### Scene Graph Mutations
 
@@ -755,17 +764,6 @@ ui.has_change()         // → bool  True if a widget value changed this frame
 ui.change_target()      // → str  Id of the changed widget
 ui.change_text()        // → str  New text value
 ui.flash_message("msg", ttl_ms)  // Show a flash message overlay
-```
-
----
-
-## `terminal` — TerminalApi
-
-For scenes with a `terminal-shell` layer — push/clear terminal output lines.
-
-```rhai
-terminal.push("Hello, world!")   // Append a line
-terminal.clear()                 // Clear all output
 ```
 
 ---

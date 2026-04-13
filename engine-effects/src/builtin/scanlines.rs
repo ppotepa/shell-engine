@@ -1,8 +1,8 @@
 //! Effect that overlays classic CRT horizontal scanlines onto the frame.
 
+use crate::metadata::{EffectMetadata, P_INTENSITY};
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{EffectMetadata, P_INTENSITY};
 use engine_core::scene::EffectParams;
 
 /// Static effect metadata exposed to the editor and effect registry.

@@ -1,6 +1,6 @@
 effect-presets:
   fx.mrmo.tube:
-    name: terminal-crt
+    name: crt-filter
     duration: 0
     params:
       intensity: 0.82

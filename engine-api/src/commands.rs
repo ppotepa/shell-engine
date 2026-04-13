@@ -49,10 +49,6 @@ pub enum BehaviorCommand {
     SceneDespawn {
         target: String,
     },
-    TerminalPushOutput {
-        line: String,
-    },
-    TerminalClearOutput,
     SceneTransition {
         to_scene_id: String,
     },
@@ -94,6 +90,13 @@ pub enum BehaviorCommand {
     SetCamera {
         x: f32,
         y: f32,
+    },
+    /// Set the 2D camera zoom factor (default 1.0).
+    ///
+    /// Values > 1.0 zoom in (fewer world pixels visible), < 1.0 zoom out.
+    /// Non-UI layers are scaled by this factor around the camera centre.
+    SetCameraZoom {
+        zoom: f32,
     },
     /// Set the shared scene-level 3D camera eye/target pair.
     SetCamera3DLookAt {

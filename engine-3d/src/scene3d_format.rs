@@ -4,7 +4,6 @@
 //! The parsed [`Scene3DDefinition`] is consumed by [`Scene3DPrerenderStep`] to
 //! pre-render every named frame into the [`Scene3DAtlas`] before a scene loads.
 
-use engine_core::scene::SceneRenderedMode;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -45,9 +44,6 @@ pub struct Scene3DDefinition {
 pub struct ViewportDef {
     pub width: u16,
     pub height: u16,
-    /// Override renderer mode for this 3D scene.
-    #[serde(default)]
-    pub rendered_mode: Option<SceneRenderedMode>,
 }
 
 // ── Camera ───────────────────────────────────────────────────────────────────

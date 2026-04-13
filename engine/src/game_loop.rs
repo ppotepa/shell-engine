@@ -7,7 +7,7 @@ use crate::services::EngineWorldAccess;
 use crate::systems;
 use crate::world::World;
 use engine_events::{EngineEvent::KeyPressed, InputBackend};
-use engine_render_terminal::input::is_debug_fast_forward_toggle;
+use engine_mod::display_config;
 
 /// Runs the engine game loop for `world` at `target_fps` until the player quits.
 /// If `frame_capture` is provided, captures each frame after rendering.
@@ -48,7 +48,7 @@ pub fn game_loop(
                 if let Some(buf) = world.buffer_mut() {
                     bench::render_bench_results(buf, &results);
                 }
-                // Flush the results screen to terminal.
+                // Flush the results screen immediately.
                 systems::renderer::renderer_system(world);
                 if let Some(bs) = world.get_mut::<BenchmarkState>() {
                     bs.mark_results_shown();
@@ -124,10 +124,7 @@ pub fn game_loop(
         systems::hot_reload::debug_scene_hot_reload_system(world);
         let t_hotreload = t_hotreload_start.elapsed();
 
-        // Bridge external sidecar IO before behaviors run (behaviors clear UI submit/change each frame).
-        let t_io_start = Instant::now();
-        systems::engine_io::engine_io_system(world, tick_ms);
-        let t_io = t_io_start.elapsed();
+        let t_io = Duration::ZERO;
 
         // Process transitions emitted by animator in the same frame to avoid
         // rendering one extra "done" frame that can briefly re-show sprites.
@@ -161,6 +158,7 @@ pub fn game_loop(
         let t0 = Instant::now();
         systems::behavior::behavior_system(world); // ← runs while particle_handle computes on rayon
         let t1 = Instant::now();
+        systems::free_look_camera::free_look_camera_system(world, tick_ms);
         // Apply lifecycle-driven visual despawns before visual sync/compositing so
         // expired FX layers do not survive one extra frame with reset state.
         systems::visual_binding::cleanup_visuals(world);
@@ -214,13 +212,13 @@ pub fn game_loop(
         // Update EMA-smoothed per-system timings (α=0.15).
         if let Some(st) = world.get_mut::<crate::debug_features::SystemTimings>() {
             const A: f32 = 0.15;
-            st.physics_us   = st.physics_us   * (1.0 - A) + t_phys.as_micros() as f32 * A;
-            st.behavior_us  = st.behavior_us  * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
-            st.compositor_us= st.compositor_us* (1.0 - A) + (t2 - t1b).as_micros() as f32 * A;
-            st.postfx_us    = st.postfx_us    * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
-            st.renderer_us  = st.renderer_us  * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
-            st.sleep_us     = st.sleep_us     * (1.0 - A) + t_sleep.as_micros() as f32 * A;
-            st.frame_us     = st.frame_us     * (1.0 - A) + frame_elapsed.as_micros() as f32 * A;
+            st.physics_us = st.physics_us * (1.0 - A) + t_phys.as_micros() as f32 * A;
+            st.behavior_us = st.behavior_us * (1.0 - A) + (t1 - t0).as_micros() as f32 * A;
+            st.compositor_us = st.compositor_us * (1.0 - A) + (t2 - t1b).as_micros() as f32 * A;
+            st.postfx_us = st.postfx_us * (1.0 - A) + (t3 - t2).as_micros() as f32 * A;
+            st.renderer_us = st.renderer_us * (1.0 - A) + (t4 - t3).as_micros() as f32 * A;
+            st.sleep_us = st.sleep_us * (1.0 - A) + t_sleep.as_micros() as f32 * A;
+            st.frame_us = st.frame_us * (1.0 - A) + frame_elapsed.as_micros() as f32 * A;
         }
 
         // Update smoothed FPS counter (EMA, α=0.15) using full frame time
@@ -281,16 +279,25 @@ pub fn game_loop(
     Ok(())
 }
 
+fn is_debug_fast_forward_toggle(
+    code: engine_events::KeyCode,
+    modifiers: engine_events::KeyModifiers,
+) -> bool {
+    modifiers.contains(engine_events::KeyModifiers::CONTROL) && code == engine_events::KeyCode::F(5)
+}
+
 #[inline]
 fn resolve_target_fps(default_target_fps: u16, scene_target_fps: Option<u16>) -> u16 {
     scene_target_fps
         .unwrap_or(default_target_fps)
-        .clamp(1, crate::terminal_caps::MAX_TARGET_FPS)
+        .clamp(1, display_config::MAX_TARGET_FPS)
 }
 
 #[cfg(test)]
 mod tests {
     use super::resolve_target_fps;
+    use engine_mod::display_config;
+
     #[test]
     fn scene_fps_override_has_priority() {
         assert_eq!(resolve_target_fps(60, Some(30)), 30);
@@ -300,12 +307,12 @@ mod tests {
     fn fps_is_clamped_to_supported_range() {
         assert_eq!(resolve_target_fps(0, None), 1);
         assert_eq!(
-            resolve_target_fps(crate::terminal_caps::MAX_TARGET_FPS + 100, None),
-            crate::terminal_caps::MAX_TARGET_FPS
+            resolve_target_fps(display_config::MAX_TARGET_FPS + 100, None),
+            display_config::MAX_TARGET_FPS
         );
         assert_eq!(
-            resolve_target_fps(60, Some(crate::terminal_caps::MAX_TARGET_FPS + 1)),
-            crate::terminal_caps::MAX_TARGET_FPS
+            resolve_target_fps(60, Some(display_config::MAX_TARGET_FPS + 1)),
+            display_config::MAX_TARGET_FPS
         );
     }
 }

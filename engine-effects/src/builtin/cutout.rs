@@ -1,8 +1,8 @@
+use crate::metadata::{select, slider, EffectMetadata, P_EASING};
+use crate::utils::color::{colour_to_rgb, lerp_colour};
 use engine_core::buffer::{Buffer, Cell, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{select, slider, EffectMetadata, P_EASING};
-use crate::utils::color::{colour_to_rgb, lerp_colour};
 use engine_core::scene::EffectParams;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};

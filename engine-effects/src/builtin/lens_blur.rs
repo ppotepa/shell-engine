@@ -5,7 +5,7 @@
 //! gradually — closer to a real camera aperture blur (bokeh / depth-of-field feel).
 //!
 //! Two-pass separable implementation: horizontal → vertical, each O(w·h·kernel_size).
-//! At the typical terminal halfblock resolution (320×180) the total work per frame is fast
+//! At the typical SDL2 pixel resolution (640×360) the total work per frame is fast
 //! enough to keep the game at 60 fps in release mode even with `passes: 2`.
 //!
 //! ## Parameters
@@ -144,8 +144,10 @@ impl Effect for LensBlurEffect {
                         wsum += w_val;
                     }
                     if wsum > 0.0 {
-                        h_fg[center_idx] = [(sr / wsum) as u8, (sg / wsum) as u8, (sb / wsum) as u8];
-                        h_bg[center_idx] = [(br / wsum) as u8, (bg_g / wsum) as u8, (bb / wsum) as u8];
+                        h_fg[center_idx] =
+                            [(sr / wsum) as u8, (sg / wsum) as u8, (sb / wsum) as u8];
+                        h_bg[center_idx] =
+                            [(br / wsum) as u8, (bg_g / wsum) as u8, (bb / wsum) as u8];
                     }
                 }
             }
@@ -180,8 +182,10 @@ impl Effect for LensBlurEffect {
                         wsum += w_val;
                     }
                     if wsum > 0.0 {
-                        v_fg[center_idx] = [(sr / wsum) as u8, (sg / wsum) as u8, (sb / wsum) as u8];
-                        v_bg[center_idx] = [(br2 / wsum) as u8, (bg2 / wsum) as u8, (bb2 / wsum) as u8];
+                        v_fg[center_idx] =
+                            [(sr / wsum) as u8, (sg / wsum) as u8, (sb / wsum) as u8];
+                        v_bg[center_idx] =
+                            [(br2 / wsum) as u8, (bg2 / wsum) as u8, (bb2 / wsum) as u8];
                     }
                 }
             }
@@ -202,9 +206,8 @@ impl Effect for LensBlurEffect {
                     .cloned()
                     .unwrap_or_default();
 
-                let lerp = |a: u8, b: u8| -> u8 {
-                    (a as f32 + (b as f32 - a as f32) * intensity) as u8
-                };
+                let lerp =
+                    |a: u8, b: u8| -> u8 { (a as f32 + (b as f32 - a as f32) * intensity) as u8 };
 
                 let out_fg = Color::Rgb {
                     r: lerp(orig_fg[idx][0], fg[idx][0]),
@@ -216,7 +219,13 @@ impl Effect for LensBlurEffect {
                     g: lerp(orig_bg[idx][1], bg[idx][1]),
                     b: lerp(orig_bg[idx][2], bg[idx][2]),
                 };
-                buffer.set(region.x + dx as u16, region.y + dy as u16, cell.symbol, out_fg, out_bg);
+                buffer.set(
+                    region.x + dx as u16,
+                    region.y + dy as u16,
+                    cell.symbol,
+                    out_fg,
+                    out_bg,
+                );
             }
         }
     }

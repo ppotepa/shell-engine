@@ -3,7 +3,6 @@
 id: playground-3d-scene
 title: 3D Scene (OBJ Wireframe Test)
 bg: black
-rendered-mode: quadblock
 layers:
   - ref: main
 input:

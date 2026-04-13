@@ -41,11 +41,7 @@ pub fn filter_hits_by_kind(
 /// Filters a collision hit slice to those involving the given kind (either side).
 ///
 /// Returns `#{self: id, other: id}` maps where `self` is the entity of the given kind.
-pub fn filter_hits_of_kind(
-    hits: &[CollisionHit],
-    world: &GameplayWorld,
-    kind: &str,
-) -> RhaiArray {
+pub fn filter_hits_of_kind(hits: &[CollisionHit], world: &GameplayWorld, kind: &str) -> RhaiArray {
     hits.iter()
         .filter_map(|hit| {
             let ka = world.kind_of(hit.a).unwrap_or_default();
@@ -97,42 +93,56 @@ impl ScriptCollisionApi {
 
     /// All collision-enter events between `kind_a` and `kind_b` this frame.
     pub fn enters(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world() else { return vec![]; };
+        let Some(world) = self.world() else {
+            return vec![];
+        };
         filter_hits_by_kind(&self.ctx.collision_enters, world, kind_a, kind_b)
     }
 
     /// All collision-stay events between `kind_a` and `kind_b` this frame.
     pub fn stays(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world() else { return vec![]; };
+        let Some(world) = self.world() else {
+            return vec![];
+        };
         filter_hits_by_kind(&self.ctx.collision_stays, world, kind_a, kind_b)
     }
 
     /// All collision-exit events between `kind_a` and `kind_b` this frame.
     pub fn exits(&mut self, kind_a: &str, kind_b: &str) -> RhaiArray {
-        let Some(world) = self.world() else { return vec![]; };
+        let Some(world) = self.world() else {
+            return vec![];
+        };
         filter_hits_by_kind(&self.ctx.collision_exits, world, kind_a, kind_b)
     }
 
     /// All collision-enter events involving `kind` on either side.
     pub fn enters_of(&mut self, kind: &str) -> RhaiArray {
-        let Some(world) = self.world() else { return vec![]; };
+        let Some(world) = self.world() else {
+            return vec![];
+        };
         filter_hits_of_kind(&self.ctx.collision_enters, world, kind)
     }
 
     /// All collision-stay events involving `kind` on either side.
     pub fn stays_of(&mut self, kind: &str) -> RhaiArray {
-        let Some(world) = self.world() else { return vec![]; };
+        let Some(world) = self.world() else {
+            return vec![];
+        };
         filter_hits_of_kind(&self.ctx.collision_stays, world, kind)
     }
 
     /// All raw collision-enter events for this frame (unfiltered).
     pub fn all_enters(&mut self) -> RhaiArray {
-        self.ctx.collision_enters.iter().map(|hit| {
-            let mut map = RhaiMap::new();
-            map.insert("a".into(), (hit.a as rhai::INT).into());
-            map.insert("b".into(), (hit.b as rhai::INT).into());
-            map.into()
-        }).collect()
+        self.ctx
+            .collision_enters
+            .iter()
+            .map(|hit| {
+                let mut map = RhaiMap::new();
+                map.insert("a".into(), (hit.a as rhai::INT).into());
+                map.insert("b".into(), (hit.b as rhai::INT).into());
+                map.into()
+            })
+            .collect()
     }
 
     /// Returns the number of enter events between `kind_a` and `kind_b`.
@@ -170,9 +180,10 @@ impl ScriptCollisionApi {
 pub fn register_collision_api(engine: &mut RhaiEngine) {
     engine.register_type_with_name::<ScriptCollisionApi>("CollisionApi");
 
-    engine.register_fn("enters", |api: &mut ScriptCollisionApi, a: &str, b: &str| {
-        api.enters(a, b)
-    });
+    engine.register_fn(
+        "enters",
+        |api: &mut ScriptCollisionApi, a: &str, b: &str| api.enters(a, b),
+    );
     engine.register_fn("stays", |api: &mut ScriptCollisionApi, a: &str, b: &str| {
         api.stays(a, b)
     });

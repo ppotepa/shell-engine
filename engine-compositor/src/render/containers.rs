@@ -1,8 +1,6 @@
-//! Recursive helpers for rendering container sprite children.
-
 use crate::ClipRect;
 use engine_core::effects::Region;
-use engine_core::scene::{SceneRenderedMode, Sprite};
+use engine_core::scene::Sprite;
 use engine_core::scene_runtime_types::{ObjectRuntimeState, TargetResolver};
 use std::collections::HashMap;
 
@@ -18,7 +16,6 @@ pub(crate) fn render_children_in_cells<F>(
     child_cells: &[(usize, GridCellRect)],
     draw_x: i32,
     draw_y: i32,
-    resolved_mode: SceneRenderedMode,
     parent_clip: Option<ClipRect>,
     target_resolver: Option<&TargetResolver>,
     object_regions: &mut HashMap<String, Region>,
@@ -31,7 +28,6 @@ pub(crate) fn render_children_in_cells<F>(
         &mut Vec<usize>,
         &Sprite,
         RenderArea,
-        SceneRenderedMode,
         Option<ClipRect>,
         Option<&TargetResolver>,
         &mut HashMap<String, Region>,
@@ -57,7 +53,6 @@ pub(crate) fn render_children_in_cells<F>(
             sprite_path,
             child,
             child_area,
-            resolved_mode,
             parent_clip,
             target_resolver,
             object_regions,

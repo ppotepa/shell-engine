@@ -1,6 +1,6 @@
 # Shell Quest Optimization Reference
 
-Pipeline: `simulate -> composite -> postfx -> present -> flush_to_terminal`
+Pipeline: `simulate -> composite -> postfx -> present`
 
 Optimizations are either always-on (safe) or configurable via CLI flags.
 22 of 24 optimizations complete. 2 deferred.
@@ -11,7 +11,7 @@ Optimizations are either always-on (safe) or configurable via CLI flags.
 
 | Flag           | Scope       | What it gates                                | Default |
 |----------------|-------------|----------------------------------------------|---------|
-| `--opt-comp`   | Compositor  | Layer scratch skip, dirty-halfblock narrowing | ON      |
+| `--opt-comp`   | Compositor  | Layer scratch skip                           | ON      |
 | `--opt-present`| Present     | Hash-based static frame skip                 | OFF     |
 | `--opt-diff`   | Buffer diff | DirtyRegionDiff (experimental)               | OFF     |
 | `--opt-skip`   | Frame skip  | Unified FrameSkipOracle                      | OFF     |
@@ -30,7 +30,6 @@ Selected at startup via `PipelineStrategies::from_flags()`.
 |--------------------|------------------|-----------------------|-------------------------|
 | `--opt-diff`       | DiffStrategy     | FullScanDiff          | DirtyRegionDiff         |
 | `--opt-comp` (layer)| LayerCompositor | ScratchLayerCompositor| DirectLayerCompositor   |
-| `--opt-comp` (pack)| HalfblockPacker  | FullScanPacker        | DirtyRegionPacker       |
 | `--opt-present`    | VirtualPresenter | AlwaysPresenter       | HashSkipPresenter       |
 | `--opt-skip`       | FrameSkipOracle  | NeverSkipOracle       | UnifiedFrameSkipOracle  |
 | `--opt-rowdiff`    | DiffStrategy     | FullScanDiff          | RowSkipDiff             |
@@ -41,16 +40,16 @@ Selected at startup via `PipelineStrategies::from_flags()`.
 
 | #  | ID                     | Status             | Notes                              |
 |----|------------------------|--------------------|------------------------------------|
-| 1  | opt-term-bufwrite      | Always on          | BufWriter 64KB wraps stdout        |
-| 2  | opt-term-colorstate    | Always on          | Skip redundant SetColor ANSI       |
-| 3  | opt-term-ansibuf       | Always on          | Single write_all per frame         |
+| 1  | opt-term-bufwrite      | Removed            | Terminal I/O removed (SDL2-only)   |
+| 2  | opt-term-colorstate    | Removed            | Terminal I/O removed (SDL2-only)   |
+| 3  | opt-term-ansibuf       | Removed            | Terminal I/O removed (SDL2-only)   |
 | 4  | opt-comp-layerscratch  | Gated --opt-comp   | Direct render when no effects      |
-| 5  | opt-comp-halfblock     | Gated --opt-comp   | Pack only dirty-region rows        |
+| 5  | opt-comp-halfblock     | Removed            | Halfblock packing removed (SDL2-only) |
 | 6  | opt-comp-effectsref    | Always on          | Raw pointer avoids Vec clone       |
 | 7  | opt-postfx-swap        | Always on          | copy_back_from skips front copy    |
 | 8  | opt-postfx-passes      | Always on          | All passes use copy_back_from      |
 | 9  | opt-img-sheetview      | Always on          | Zero-copy ImageView                |
-| 10 | opt-img-quadstack      | Always on          | Stack arrays in quadblock/braille  |
+| 10 | opt-img-quadstack      | Removed            | Terminal pixel modes removed       |
 | 11 | opt-sim-objstates      | Always on          | Gen-counter snapshot skip          |
 | 12 | opt-sim-rhaiscope      | Always on          | BEHAVIOR_SCOPES rewind             |
 | 13 | opt-present-skipstatic | Gated --opt-present| Buffer hash frame skip             |
@@ -58,8 +57,7 @@ Selected at startup via `PipelineStrategies::from_flags()`.
 |    | opt-diff               | Gated --opt-diff   | DirtyRegionDiff strategy           |
 |    | opt-skip               | Gated --opt-skip   | FrameSkipOracle                    |
 |    | opt-rowdiff            | Gated --opt-rowdiff| Row-level dirty skip               |
-|    | ANSI reduction         | Always on          | Skip MoveTo, use MoveRight         |
-|    | opt-async              | Gated --opt-async  | AsyncDisplaySink                   |
+|    | opt-async              | Removed            | AsyncDisplaySink removed           |
 | 15 | opt-comp-skipidle      | Deferred           | Invasive dirty tracking            |
 | 16 | opt-postfx-earlyret    | Always on          | Early return when no passes        |
 | 17 | opt-comp-regioncache   | Deferred           | Already O(1) HashMap               |
@@ -101,14 +99,14 @@ Selected at startup via `PipelineStrategies::from_flags()`.
 
 ---
 
-### OPT-31: Static Scene Halfblock Pack Skip (Always On)
+### OPT-31: Static Scene Diff Skip (Always On)
 
-**Location:** `engine-pipeline/src/strategies/halfblock.rs:DirtyRegionPacker`
+**Location:** `engine-pipeline/src/strategies/diff.rs:DirtyRegionDiff`
 
 **What it does:**
-- `DirtyRegionPacker::iteration_bounds()` already returns `None` when `dirty_bounds()` is empty
-- When no dirty region exists (scene unchanged), the compositor skips halfblock packing entirely
-- Eliminates full-buffer or region iteration when content is static
+- `DirtyRegionDiff` already returns early when `dirty_bounds()` is empty
+- When no dirty region exists (scene unchanged), the diff scan is skipped entirely
+- Eliminates full-buffer iteration when content is static
 
 **Expected improvement:** 15-20% pack time reduction on static scenes (no-op frames)
 
@@ -172,8 +170,8 @@ cargo run -p app -- --no-opt-comp --no-opt-rowdiff
 # Benchmark with optimizations
 cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 
-# SDL2 release example (explicit --sdl2 --opt)
-cargo run -p app --release -- --sdl2 --mod-source=mods/shell-quest-tests --bench 10 --opt
+# Release example with optimizations
+cargo run -p app --release -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 ```
 
 ---
@@ -220,37 +218,23 @@ if is_sprite_offscreen(draw_x as i32, draw_y as i32, sprite_width, sprite_height
 
 ### OPT-42: Color Space Optimization (Always On)
 
-**Location:** `engine-render-terminal/src/color_convert.rs`
+**Location:** `engine-render-sdl2/src/runtime.rs`
 
 **What it does:**
-- Caches engine Color → crossterm Color conversions in thread-local HashMap
-- Uses color hash key (named colors 0-16, RGB packed as u32) for fast lookup
-- Avoids per-frame RGB↔256 conversions on color-heavy scenes
+- Caches engine Color conversions in the active presentation path
+- Uses compact color keys for fast lookup
+- Avoids repeated per-frame color conversion work on color-heavy scenes
 
 **Expected impact:** 5-7% latency reduction on color-heavy scenes, especially with many unique RGB values
 
 **Implementation:**
 ```rust
-thread_local! {
-    static COLOR_CACHE: RefCell<HashMap<u32, CrosstermColor>> = RefCell::new(HashMap::new());
-}
-
-// Cache key: named colors 0-16, RGB packed as (100<<24)|(r<<16)|(g<<8)|b
-pub fn to_crossterm(c: Color) -> CrosstermColor {
-    let key = color_to_cache_key(c);
-    COLOR_CACHE.with(|cache| {
-        let mut cache_ref = cache.borrow_mut();
-        if let Some(&cached) = cache_ref.get(&key) {
-            return cached;
-        }
-        // ... compute conversion, store in cache
-    })
-}
+// See the renderer/runtime-specific conversion cache helpers.
 ```
 
 **Cache statistics:**
 - Named colors: 17 entries (instant hits after first occurrence)
-- RGB colors: Unlimited (LRU eviction not needed; terminal palette size naturally limits)
+- RGB colors: Unlimited (LRU eviction not needed for current workloads)
 - Typical frame: 100-500 unique colors cached after warmup
 
 ### OPT-40/41: Async I/O for Asset Loading (Deferred)
@@ -275,11 +259,11 @@ pub fn to_crossterm(c: Color) -> CrosstermColor {
 ```bash
 # Verify compilation
 cargo check -p engine-compositor
-cargo check -p engine-render-terminal
+cargo check -p engine-render-sdl2
 
 # Run test suite
 cargo test -p engine-compositor
-cargo test -p engine-render-terminal
+cargo test -p engine-render-sdl2
 
 # Benchmark sprite-heavy scene
 cargo run -p app -- --mod-source=mods/playground --start-scene=3d-scene --bench 5

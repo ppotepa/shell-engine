@@ -219,9 +219,6 @@ fn generic_mode_line_height(mode: generic::GenericMode) -> u16 {
         generic::GenericMode::Tiny => 5,
         generic::GenericMode::Standard => 7,
         generic::GenericMode::Large => 14,
-        generic::GenericMode::Half => 4,
-        generic::GenericMode::Quad => 4,
-        generic::GenericMode::Braille => 2,
     }
 }
 
@@ -231,9 +228,6 @@ fn generic_mode_line_gap(mode: generic::GenericMode) -> u16 {
         generic::GenericMode::Tiny
         | generic::GenericMode::Standard
         | generic::GenericMode::Large => 1,
-        generic::GenericMode::Half | generic::GenericMode::Quad | generic::GenericMode::Braille => {
-            0
-        }
     }
 }
 

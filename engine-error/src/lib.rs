@@ -42,8 +42,8 @@ pub enum EngineError {
         #[source]
         source: serde_yaml::Error,
     },
-    #[error("terminal does not meet mod requirements: {0}")]
-    TerminalRequirementsNotMet(String),
+    #[error("display configuration does not meet mod requirements: {0}")]
+    DisplayRequirementsNotMet(String),
     #[error("startup check `{check}` failed: {details}")]
     StartupCheckFailed { check: String, details: String },
     #[error("render error: {0}")]

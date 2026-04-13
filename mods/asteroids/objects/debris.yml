@@ -1,5 +1,0 @@
-kind: object
-name: debris
-# Visual handled by particle emitters (asteroid.debris).
-# Physics entity kept for scripted interactions.
-sprites: []

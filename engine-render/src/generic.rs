@@ -524,9 +524,6 @@ pub enum GenericMode {
     Tiny,
     Standard,
     Large,
-    Half,
-    Quad,
-    Braille,
 }
 
 impl GenericMode {
@@ -539,9 +536,6 @@ impl GenericMode {
         match spec.as_deref() {
             Some("1") | Some("tiny") => Self::Tiny,
             Some("3") | Some("large") => Self::Large,
-            Some("half") | Some("half-block") | Some("halfblock") => Self::Half,
-            Some("quad") | Some("quadrant") => Self::Quad,
-            Some("braille") | Some("br") => Self::Braille,
             Some("2") | Some("standard") | None | Some("") => Self::Standard,
             _ => Self::Standard,
         }
@@ -559,9 +553,6 @@ pub fn generic_dimensions_mode(content: &str, mode: GenericMode) -> (u16, u16) {
             GenericMode::Tiny => (1, GENERIC_TINY_GLYPH_HEIGHT),
             GenericMode::Standard => (1, 7),
             GenericMode::Large => (1, 14),
-            GenericMode::Half => (1, 4),
-            GenericMode::Quad => (1, 4),
-            GenericMode::Braille => (1, 2),
         };
     }
 
@@ -572,193 +563,6 @@ pub fn generic_dimensions_mode(content: &str, mode: GenericMode) -> (u16, u16) {
         ),
         GenericMode::Standard => (char_count * 6, 7),
         GenericMode::Large => (char_count * 12, 14),
-        GenericMode::Half => (char_count * 6, 4),
-        GenericMode::Quad => (char_count * 3, 4),
-        GenericMode::Braille => (char_count * 3, 2),
-    }
-}
-
-fn source_bit(rows: [u8; 7], sx: u16, sy: u16) -> bool {
-    if sx >= 5 || sy >= 7 {
-        return false;
-    }
-    ((rows[sy as usize] >> (4 - sx)) & 1) == 1
-}
-
-fn quadrant_char(mask: u8) -> Option<char> {
-    match mask {
-        0 => None,
-        1 => Some('▘'),
-        2 => Some('▝'),
-        3 => Some('▀'),
-        4 => Some('▖'),
-        5 => Some('▌'),
-        6 => Some('▞'),
-        7 => Some('▛'),
-        8 => Some('▗'),
-        9 => Some('▚'),
-        10 => Some('▐'),
-        11 => Some('▜'),
-        12 => Some('▄'),
-        13 => Some('▙'),
-        14 => Some('▟'),
-        15 => Some('█'),
-        _ => None,
-    }
-}
-
-fn braille_char(mask: u8) -> Option<char> {
-    if mask == 0 {
-        return None;
-    }
-    char::from_u32(0x2800 + mask as u32)
-}
-
-pub fn rasterize_generic_half(
-    content: &str,
-    fg_col: engine_core::color::Color,
-    draw_x: u16,
-    draw_y: u16,
-    buffer: &mut engine_core::buffer::Buffer,
-    transform: &TextTransform,
-) {
-    let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| apply_transform(c, transform)) {
-        let rows = match generic_glyph_rows(ch) {
-            Some(r) => r,
-            None => continue,
-        };
-        if ch == ' ' {
-            cursor_x += 6;
-            continue;
-        }
-        for oy in 0..4u16 {
-            let sy = oy * 2;
-            for sx in 0..6u16 {
-                let top = source_bit(rows, sx, sy);
-                let bottom = source_bit(rows, sx, sy + 1);
-                let symbol = match (top, bottom) {
-                    (false, false) => None,
-                    (true, false) => Some('▀'),
-                    (false, true) => Some('▄'),
-                    (true, true) => Some('█'),
-                };
-                if let Some(sym) = symbol {
-                    buffer.set(
-                        cursor_x + sx,
-                        draw_y + oy,
-                        sym,
-                        fg_col,
-                        engine_core::color::Color::Reset,
-                    );
-                }
-            }
-        }
-        cursor_x += 6;
-    }
-}
-
-pub fn rasterize_generic_quad(
-    content: &str,
-    fg_col: engine_core::color::Color,
-    draw_x: u16,
-    draw_y: u16,
-    buffer: &mut engine_core::buffer::Buffer,
-    transform: &TextTransform,
-) {
-    let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| apply_transform(c, transform)) {
-        let rows = match generic_glyph_rows(ch) {
-            Some(r) => r,
-            None => continue,
-        };
-        if ch == ' ' {
-            cursor_x += 3;
-            continue;
-        }
-        for oy in 0..4u16 {
-            for ox in 0..3u16 {
-                let sx = ox * 2;
-                let sy = oy * 2;
-                let tl = source_bit(rows, sx, sy) as u8;
-                let tr = source_bit(rows, sx + 1, sy) as u8;
-                let bl = source_bit(rows, sx, sy + 1) as u8;
-                let br = source_bit(rows, sx + 1, sy + 1) as u8;
-                let mask = tl | (tr << 1) | (bl << 2) | (br << 3);
-                if let Some(sym) = quadrant_char(mask) {
-                    buffer.set(
-                        cursor_x + ox,
-                        draw_y + oy,
-                        sym,
-                        fg_col,
-                        engine_core::color::Color::Reset,
-                    );
-                }
-            }
-        }
-        cursor_x += 3;
-    }
-}
-
-pub fn rasterize_generic_braille(
-    content: &str,
-    fg_col: engine_core::color::Color,
-    draw_x: u16,
-    draw_y: u16,
-    buffer: &mut engine_core::buffer::Buffer,
-    transform: &TextTransform,
-) {
-    let mut cursor_x = draw_x;
-    for ch in content.chars().map(|c| apply_transform(c, transform)) {
-        let rows = match generic_glyph_rows(ch) {
-            Some(r) => r,
-            None => continue,
-        };
-        if ch == ' ' {
-            cursor_x += 3;
-            continue;
-        }
-        for oy in 0..2u16 {
-            for ox in 0..3u16 {
-                let sx = ox * 2;
-                let sy = oy * 4;
-                let mut mask = 0u8;
-                if source_bit(rows, sx, sy) {
-                    mask |= 0b0000_0001;
-                } // dot 1
-                if source_bit(rows, sx, sy + 1) {
-                    mask |= 0b0000_0010;
-                } // dot 2
-                if source_bit(rows, sx, sy + 2) {
-                    mask |= 0b0000_0100;
-                } // dot 3
-                if source_bit(rows, sx + 1, sy) {
-                    mask |= 0b0000_1000;
-                } // dot 4
-                if source_bit(rows, sx + 1, sy + 1) {
-                    mask |= 0b0001_0000;
-                } // dot 5
-                if source_bit(rows, sx + 1, sy + 2) {
-                    mask |= 0b0010_0000;
-                } // dot 6
-                if source_bit(rows, sx, sy + 3) {
-                    mask |= 0b0100_0000;
-                } // dot 7
-                if source_bit(rows, sx + 1, sy + 3) {
-                    mask |= 0b1000_0000;
-                } // dot 8
-                if let Some(sym) = braille_char(mask) {
-                    buffer.set(
-                        cursor_x + ox,
-                        draw_y + oy,
-                        sym,
-                        fg_col,
-                        engine_core::color::Color::Reset,
-                    );
-                }
-            }
-        }
-        cursor_x += 3;
     }
 }
 
@@ -777,11 +581,6 @@ pub fn rasterize_spans_mode(
             GenericMode::Tiny => rasterize_generic_tiny(text, *colour, x, draw_y, buf, transform),
             GenericMode::Standard => rasterize_generic(text, 1, *colour, x, draw_y, buf, transform),
             GenericMode::Large => rasterize_generic(text, 2, *colour, x, draw_y, buf, transform),
-            GenericMode::Half => rasterize_generic_half(text, *colour, x, draw_y, buf, transform),
-            GenericMode::Quad => rasterize_generic_quad(text, *colour, x, draw_y, buf, transform),
-            GenericMode::Braille => {
-                rasterize_generic_braille(text, *colour, x, draw_y, buf, transform)
-            }
         }
         x += w;
     }
@@ -822,18 +621,6 @@ mod tests {
             GenericMode::Standard
         );
         assert_eq!(GenericMode::from_font_name("generic:3"), GenericMode::Large);
-        assert_eq!(
-            GenericMode::from_font_name("generic:half"),
-            GenericMode::Half
-        );
-        assert_eq!(
-            GenericMode::from_font_name("generic:quad"),
-            GenericMode::Quad
-        );
-        assert_eq!(
-            GenericMode::from_font_name("generic:braille"),
-            GenericMode::Braille
-        );
     }
 
     #[test]
@@ -844,9 +631,6 @@ mod tests {
             (12, 7)
         );
         assert_eq!(generic_dimensions_mode("AB", GenericMode::Large), (24, 14));
-        assert_eq!(generic_dimensions_mode("AB", GenericMode::Half), (12, 4));
-        assert_eq!(generic_dimensions_mode("AB", GenericMode::Quad), (6, 4));
-        assert_eq!(generic_dimensions_mode("AB", GenericMode::Braille), (6, 2));
     }
 
     #[test]

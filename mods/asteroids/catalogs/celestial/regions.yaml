@@ -1,0 +1,8 @@
+regions:
+  asteroids-sector:
+    kind: sector
+    display-name: Asteroids Sector
+    children: [asteroids-sim]
+    map-position:
+      x: 0.0
+      y: 0.0

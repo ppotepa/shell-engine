@@ -121,8 +121,7 @@ impl SceneRuntime {
             obj_orbit_default_speed: HashMap::new(),
             obj_camera_states: HashMap::new(),
             cached_obj_camera_states: None,
-            terminal_shell_state: None,
-            terminal_shell_scene_elapsed_ms: 0,
+            free_look_camera: None,
             ui_state: UiRuntimeState::default(),
             pending_bindings: Vec::new(),
             action_bindings: HashMap::new(),
@@ -136,17 +135,17 @@ impl SceneRuntime {
             spawn_batch_depth: 0,
             camera_x: 0,
             camera_y: 0,
+            camera_zoom: 1.0,
             scene_camera_3d: SceneCamera3D::default(),
         };
         runtime.obj_orbit_default_speed = collect_obj_orbit_defaults(&runtime.scene);
-        runtime.terminal_shell_state = runtime
+        runtime.free_look_camera = runtime
             .scene
             .input
-            .terminal_shell
-            .clone()
-            .map(TerminalShellState::new);
+            .free_look_camera
+            .as_ref()
+            .map(FreeLookCameraState::from_controls);
         runtime.initialize_ui_state();
-        runtime.sync_terminal_shell_sprites();
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings, None);
         runtime.resolver_cache = std::sync::Arc::new(runtime.build_target_resolver());
@@ -191,6 +190,12 @@ fn build_sprite_objects(
         },
     );
     sprite_ids.insert(path_key(layer_idx, sprite_path), sprite_id.clone());
+    // Apply authored initial visibility (default is true; sprites may declare visible: false).
+    if !sprite.visible() {
+        if let Some(state) = object_states.get_mut(&sprite_id) {
+            state.visible = false;
+        }
+    }
     if !sprite.behaviors().is_empty() {
         behavior_bindings.push(BehaviorBinding {
             object_id: sprite_id.clone(),
@@ -247,6 +252,11 @@ fn sprite_descriptor(sprite: &Sprite, sprite_idx: usize) -> (GameObjectKind, Str
         Sprite::Obj { id, .. } => (
             GameObjectKind::ObjSprite,
             sprite_name("obj", id.as_deref(), sprite_idx),
+            sprite_aliases(id.as_deref()),
+        ),
+        Sprite::Planet { id, .. } => (
+            GameObjectKind::ObjSprite,
+            sprite_name("planet", id.as_deref(), sprite_idx),
             sprite_aliases(id.as_deref()),
         ),
         Sprite::Vector { id, .. } => (

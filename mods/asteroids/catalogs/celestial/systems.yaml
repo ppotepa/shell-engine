@@ -1,0 +1,8 @@
+systems:
+  asteroids-sim:
+    region: asteroids-sector
+    display-name: Asteroids Sim
+    bodies: [main-planet]
+    map-position:
+      x: 0.0
+      y: 0.0

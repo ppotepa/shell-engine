@@ -20,7 +20,7 @@ pub struct AnimationParams {
     /// Axis the animation moves along.
     #[serde(default)]
     pub axis: AnimationAxis,
-    /// Peak displacement in terminal cells.
+    /// Peak displacement in frame-grid units.
     #[serde(default = "default_amplitude")]
     pub amplitude: u16,
     /// Full cycle duration in milliseconds.

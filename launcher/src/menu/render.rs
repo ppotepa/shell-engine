@@ -1,17 +1,21 @@
-use anyhow::Result;
-use crossterm::terminal;
-use std::io::{stdout, Write};
-use super::state::MenuState;
 use super::scanner::{MenuMod, MenuScene};
+use super::state::MenuState;
+use anyhow::Result;
+use console::Term;
+use std::io::{stdout, Write};
+
+fn menu_viewport_size() -> (usize, usize) {
+    let term = Term::stdout();
+    let (h, w) = term.size();
+    (w as usize, h as usize)
+}
 
 // Fixed layout metrics (rows used by chrome above the list)
-const HEADER_ROWS: usize = 8;  // header + blank + flags(3) + blank + help + blank
-const FOOTER_ROWS: usize = 3;  // status + scrollbar hint + blank
+const HEADER_ROWS: usize = 8; // header + blank + flags(3) + blank + help + blank
+const FOOTER_ROWS: usize = 3; // status + scrollbar hint + blank
 
 pub fn render_menu(state: &mut MenuState) -> Result<()> {
-    let (term_w, term_h) = terminal::size().unwrap_or((80, 24));
-    let term_w = term_w as usize;
-    let term_h = term_h as usize;
+    let (term_w, term_h) = menu_viewport_size();
 
     let viewport_height = term_h.saturating_sub(HEADER_ROWS + FOOTER_ROWS);
     let viewport_height = viewport_height.max(1);
@@ -24,25 +28,36 @@ pub fn render_menu(state: &mut MenuState) -> Result<()> {
     out.push_str("\x1b[H");
 
     // ── Header ──────────────────────────────────────────────────────
-    push_line(&mut out, "\x1b[1;36m  Shell Engine\x1b[0m\x1b[2m  —  interactive launcher\x1b[0m", term_w);
+    push_line(
+        &mut out,
+        "\x1b[1;36m  Shell Engine\x1b[0m\x1b[2m  —  interactive launcher\x1b[0m",
+        term_w,
+    );
 
     push_blank(&mut out, term_w);
 
     // ── Flags ────────────────────────────────────────────────────────
     let f = &state.flags;
-    push_line(&mut out, &format!(
-        "  \x1b[2mFlags:\x1b[0m  {}  {}  {}  {}",
-        fmt_flag(1, "SDL2",      f.sdl2),
-        fmt_flag(2, "SkipSplash",f.skip_splash),
-        fmt_flag(3, "Audio",     f.audio),
-        fmt_flag(4, "CheckScene",f.check_scenes),
-    ), term_w);
-    push_line(&mut out, &format!(
-        "           {}  {}  {}",
-        fmt_flag(5, "Release",   f.release),
-        fmt_flag(6, "Dev",       f.dev),
-        fmt_flag(7, "AllOpt",    f.all_opt),
-    ), term_w);
+    push_line(
+        &mut out,
+        &format!(
+            "  \x1b[2mFlags:\x1b[0m  {}  {}  {}",
+            fmt_flag(1, "SkipSplash", f.skip_splash),
+            fmt_flag(2, "Audio", f.audio),
+            fmt_flag(3, "CheckScene", f.check_scenes),
+        ),
+        term_w,
+    );
+    push_line(
+        &mut out,
+        &format!(
+            "           {}  {}  {}",
+            fmt_flag(4, "Release", f.release),
+            fmt_flag(5, "Dev", f.dev),
+            fmt_flag(6, "AllOpt", f.all_opt),
+        ),
+        term_w,
+    );
 
     push_blank(&mut out, term_w);
 
@@ -53,12 +68,16 @@ pub fn render_menu(state: &mut MenuState) -> Result<()> {
             state.search
         ), term_w);
     } else if !state.search.is_empty() {
-        push_line(&mut out, &format!(
-            "  \x1b[2mFilter: \x1b[35m/{}\x1b[0m  \x1b[2m(/ to edit  Esc clear)\x1b[0m",
-            state.search
-        ), term_w);
+        push_line(
+            &mut out,
+            &format!(
+                "  \x1b[2mFilter: \x1b[35m/{}\x1b[0m  \x1b[2m(/ to edit  Esc clear)\x1b[0m",
+                state.search
+            ),
+            term_w,
+        );
     } else {
-        push_line(&mut out, "  \x1b[2m↑↓/jk navigate   → expand   Enter launch   ← collapse   / search   1-7 flags   q quit\x1b[0m", term_w);
+        push_line(&mut out, "  \x1b[2m↑↓/jk navigate   → expand   Enter launch   ← collapse   / search   1-6 flags   q quit\x1b[0m", term_w);
     }
 
     push_blank(&mut out, term_w);
@@ -124,7 +143,11 @@ fn push_blank(out: &mut String, term_w: usize) {
 }
 
 fn fmt_flag(n: u8, label: &str, checked: bool) -> String {
-    let box_char = if checked { "\x1b[32m✓\x1b[0m" } else { "\x1b[31m✗\x1b[0m" };
+    let box_char = if checked {
+        "\x1b[32m✓\x1b[0m"
+    } else {
+        "\x1b[31m✗\x1b[0m"
+    };
     format!("[{}] \x1b[0m{}\x1b[2m({})\x1b[0m", box_char, label, n)
 }
 
@@ -132,13 +155,20 @@ fn fmt_mod(m: &MenuMod, expanded: bool, selected: bool, _term_w: usize) -> Strin
     let arrow = if expanded { "▼" } else { "▶" };
 
     let meta = {
-        let colors = if m.colors > 0 { format!("{} col", m.colors) } else { String::new() };
+        let colors = if m.colors > 0 {
+            format!("{} col", m.colors)
+        } else {
+            String::new()
+        };
         let parts: Vec<&str> = [
             colors.as_str(),
             m.render_size.as_str(),
             m.policy.as_str(),
-            m.backend.as_str(),
-        ].iter().filter(|s: &&&str| !s.is_empty()).copied().collect();
+        ]
+        .iter()
+        .filter(|s: &&&str| !s.is_empty())
+        .copied()
+        .collect();
         parts.join("  ")
     };
 
@@ -158,14 +188,22 @@ fn fmt_mod(m: &MenuMod, expanded: bool, selected: bool, _term_w: usize) -> Strin
 fn fmt_scene(scene: &MenuScene, is_last: bool, selected: bool, _term_w: usize) -> String {
     let tree_char = if is_last { "└─" } else { "├─" };
     let label = scene.id.as_deref().unwrap_or(&scene.dir_name);
-    let title_part = scene.title.as_deref()
+    let title_part = scene
+        .title
+        .as_deref()
         .map(|t| format!("\x1b[2m  —  {}\x1b[0m", t))
         .unwrap_or_default();
 
     if selected {
-        format!("     \x1b[1;32m{} {}{}\x1b[0m", tree_char, label, title_part)
+        format!(
+            "     \x1b[1;32m{} {}{}\x1b[0m",
+            tree_char, label, title_part
+        )
     } else {
-        format!("     \x1b[36m{}\x1b[0m \x1b[37m{}{}\x1b[0m", tree_char, label, title_part)
+        format!(
+            "     \x1b[36m{}\x1b[0m \x1b[37m{}{}\x1b[0m",
+            tree_char, label, title_part
+        )
     }
 }
 
@@ -173,7 +211,11 @@ fn build_status(state: &MenuState, viewport_height: usize) -> String {
     let total = state.filtered_indices.len();
 
     if state.search_mode {
-        let scene_count = state.filtered_indices.iter().filter(|(_, s)| s.is_some()).count();
+        let scene_count = state
+            .filtered_indices
+            .iter()
+            .filter(|(_, s)| s.is_some())
+            .count();
         return format!(
             "  \x1b[35m/{}\x1b[0m\x1b[2m  {} scene{} matched\x1b[0m",
             state.search,
@@ -191,12 +233,17 @@ fn build_status(state: &MenuState, viewport_height: usize) -> String {
 
     let location = if let Some(si) = scene_idx {
         let scene = &m.scenes[si];
-        format!("scene  \x1b[37m{}\x1b[0m  in mod  \x1b[37m{}\x1b[0m", 
+        format!(
+            "scene  \x1b[37m{}\x1b[0m  in mod  \x1b[37m{}\x1b[0m",
             scene.id.as_deref().unwrap_or(&scene.dir_name),
-            m.name)
+            m.name
+        )
     } else {
         let scene_count = m.scenes.len();
-        format!("mod  \x1b[37m{}\x1b[0m  \x1b[2m({} scenes)\x1b[0m", m.name, scene_count)
+        format!(
+            "mod  \x1b[37m{}\x1b[0m  \x1b[2m({} scenes)\x1b[0m",
+            m.name, scene_count
+        )
     };
 
     // Scroll indicator

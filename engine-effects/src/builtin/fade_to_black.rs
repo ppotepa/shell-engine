@@ -1,10 +1,10 @@
 //! Effect that fades a region to black with a radial vignette collapse.
 
+use crate::metadata::{EffectMetadata, P_EASING};
+use crate::utils::math::smoothstep;
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{EffectMetadata, P_EASING};
-use crate::utils::math::smoothstep;
 use engine_core::scene::EffectParams;
 
 /// Static effect metadata exposed to the editor and effect registry.

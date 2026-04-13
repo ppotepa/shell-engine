@@ -22,7 +22,7 @@ $defs:
               - y
             amplitude:
               type: integer
-              description: Peak displacement in terminal cells
+              description: Peak displacement in pixels
               default: 1.0
               minimum: 0.0
               maximum: 100.0

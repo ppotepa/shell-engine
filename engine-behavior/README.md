@@ -20,7 +20,7 @@ emits commands for higher-level systems to apply.
 
 - `Behavior` — per-tick behavior interface
 - `BehaviorContext` — frame-local snapshot of stage, timing, object state, UI state, key state, game state, gameplay world, and collision hits
-- `BehaviorCommand` — side-effect envelope such as `SetVisibility`, `SetOffset`, `SetText`, terminal output commands, and script errors
+- `BehaviorCommand` — side-effect envelope such as `SetVisibility`, `SetOffset`, `SetText`, and script errors
 - `RhaiScriptBehavior` — mod or scene-defined scripted behavior
 - `SceneAudioBehavior` — built-in scene audio cue emitter
 - `BuiltInBehaviorFactory` — authoritative dispatcher for engine-defined behavior names

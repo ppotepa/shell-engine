@@ -1,12 +1,13 @@
 # editor
 
-Terminal authoring tool for Shell Quest content.
+SDL2-backed authoring tool stub for Shell Quest content.
 
 ## Purpose
 
-`editor/` is the TUI application used to browse, inspect, and edit mod content.
-It combines terminal UI code with authoring/domain indexes built on top of
-`engine-authoring` and `engine-core`.
+`editor/` is the editor application for browsing, inspecting, and editing mod
+content. The original terminal TUI (crossterm/ratatui) has been removed; the
+editor now runs as an SDL2-backed stub while a full SDL2 UI is being built. It
+combines domain indexes built on top of `engine-authoring` and `engine-core`.
 
 ## Main areas
 
@@ -16,7 +17,7 @@ It combines terminal UI code with authoring/domain indexes built on top of
 - `io` — file scanning and YAML I/O
 - `input` — key mappings and command dispatch
 - `state` — editor state machine
-- `ui` — terminal layout, widgets, and theme
+- `ui` — draw, layout, and theme (SDL2-backed stub)
 
 ## Common usage
 

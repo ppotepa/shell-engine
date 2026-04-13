@@ -67,7 +67,14 @@ impl RuntimeEffectsResource {
     }
 
     /// Add a new runtime effect starting at `scene_elapsed_ms`.
-    pub fn push(&mut self, name: String, duration_ms: u64, looping: bool, params: EffectParams, scene_elapsed_ms: u64) {
+    pub fn push(
+        &mut self,
+        name: String,
+        duration_ms: u64,
+        looping: bool,
+        params: EffectParams,
+        scene_elapsed_ms: u64,
+    ) {
         self.effects.push(RuntimeEffect {
             name,
             started_ms: scene_elapsed_ms,

@@ -1,129 +1,18 @@
-# Planet Background Layer
-#
-# Earth-like sphere rendered with the 3D OBJ pipeline.
-# Uses the live scene viewport so the chase camera stays consistent across
-# terminal/output sizes.
-# z_index: -50 keeps it behind all gameplay and HUD layers.
-#
-# Yaw is driven from game-loop.rhai each frame (self-rotation + cockpit camera).
-# Pitch: -14° so the terminator cuts diagonally — more dramatic.
-# Light comes from upper-left, matching HUD and asteroid shading.
-# Two cloud layers (planet-clouds, planet-clouds-2) rotate at different speeds in Rhai.
-
 - name: planet-bg
   z_index: -50
   ui: true
   space: 3d
   sprites:
-    # ── Planet body (ocean + terrain + biomes) ───────────────────────────────
-    # fg_colour   = deep ocean dark blue
-    # terrain-color = muted olive-green land
-    # threshold 0.585 → ~40% land, 60% ocean (more realistic)
-    # noise-scale 2.15 → large continent shapes, not blotchy
-    # marble-depth 0.018 → subtle ocean shimmer without turbulence
-    # polar-ice-color  → white polar caps blending in at high latitudes
-    # desert-color     → sandy tone for equatorial dry belts
-    # atmo-color       → blue atmospheric rim at limb
-    # night-light-color → amber city-light clusters on dark side
-    - type: obj
-      id: planet-bg-sphere
-      source: /assets/3d/sphere.obj
+    - type: planet
+      id: main-planet-view
+      body-id: main-planet
+      mesh-source: /assets/3d/sphere.obj
       x: 0
       y: 0
       scale: 1.0
-      surface-mode: material
-      rotation-y: 30
+      yaw-deg: 30
       pitch-deg: -14
-      camera-distance: 2.6
+      camera-distance: 2.68
       camera-source: scene
       fov-degrees: 65
       near-clip: 0.01
-      rotate-y-deg-per-sec: 0
-      prerender: false
-      smooth-shading: true
-      ambient: 0.055
-      latitude-band-depth: 0.08
-      terrain-color: "#4f6b3d"
-      terrain-threshold: 0.585
-      terrain-noise-scale: 2.15
-      terrain-noise-octaves: 4
-      marble-depth: 0.018
-      fg_colour: "#0b2748"
-      shadow-colour: "#030d1a"
-      midtone-colour: "#0f2d50"
-      highlight-colour: "#5ab8d4"
-      light-direction-x: 0.72
-      light-direction-y: -0.56
-      light-direction-z: 0.40
-      polar-ice-color: "#ddeeff"
-      polar-ice-start: 0.78
-      polar-ice-end: 0.93
-      desert-color: "#a08050"
-      desert-strength: 0.55
-      atmo-color: "#4a90d9"
-      atmo-strength: 0.22
-      atmo-rim-power: 4.8
-      night-light-color: "#e8c46a"
-      night-light-threshold: 0.84
-      night-light-intensity: 0.55
-
-    # ── Cloud layer 1 (faster spin) ──────────────────────────────────────────
-    - type: obj
-      id: planet-clouds
-      source: /assets/3d/sphere.obj
-      x: 0
-      y: 0
-      scale: 1.0
-      surface-mode: material
-      camera-distance: 2.45
-      camera-source: scene
-      fov-degrees: 65
-      near-clip: 0.01
-      smooth-shading: true
-      ambient: 0.10
-      rotate-y-deg-per-sec: 0
-      prerender: false
-      terrain-color: "#e8f2ff"
-      terrain-threshold: 0.68
-      terrain-noise-scale: 3.8
-      terrain-noise-octaves: 3
-      marble-depth: 0.06
-      below-threshold-transparent: true
-      fg_colour: "#1a3a58"
-      shadow-colour: "#0e2035"
-      midtone-colour: "#4a7090"
-      highlight-colour: "#f0f8ff"
-      light-direction-x: 0.72
-      light-direction-y: -0.56
-      light-direction-z: 0.40
-
-    # ── Cloud layer 2 (slower spin, different pattern) ───────────────────────
-    - type: obj
-      id: planet-clouds-2
-      source: /assets/3d/sphere.obj
-      x: 0
-      y: 0
-      scale: 1.0
-      surface-mode: material
-      rotation-y: 180
-      camera-distance: 2.38
-      camera-source: scene
-      fov-degrees: 65
-      near-clip: 0.01
-      smooth-shading: true
-      ambient: 0.10
-      rotate-y-deg-per-sec: 0
-      prerender: false
-      terrain-color: "#ddeeff"
-      terrain-threshold: 0.72
-      terrain-noise-scale: 2.6
-      terrain-noise-octaves: 3
-      marble-depth: 0.05
-      below-threshold-transparent: true
-      fg_colour: "#152a40"
-      shadow-colour: "#0a1828"
-      midtone-colour: "#3a6080"
-      highlight-colour: "#eaf4ff"
-      light-direction-x: 0.72
-      light-direction-y: -0.56
-      light-direction-z: 0.40

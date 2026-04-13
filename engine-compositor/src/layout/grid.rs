@@ -1,7 +1,7 @@
 //! Grid container layout resolution built on CSS-like track sizing.
 
 use engine_core::assets::AssetRoot;
-use engine_core::scene::{SceneRenderedMode, Sprite};
+use engine_core::scene::Sprite;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -26,7 +26,7 @@ pub(crate) fn invalidate_grid_cache() {
 }
 
 fn grid_cache_key(
-    measure_sprite: &impl Fn(&Sprite, SceneRenderedMode, Option<&AssetRoot>) -> (u16, u16),
+    measure_sprite: &impl Fn(&Sprite, Option<&AssetRoot>) -> (u16, u16),
     columns: &[String],
     rows: &[String],
     children: &[Sprite],
@@ -34,7 +34,6 @@ fn grid_cache_key(
     container_h: u16,
     gap_x: u16,
     gap_y: u16,
-    inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -45,7 +44,7 @@ fn grid_cache_key(
     columns.hash(&mut h);
     rows.hash(&mut h);
     for child in children {
-        let (pw, ph) = measure_sprite(child, inherited_mode, asset_root);
+        let (pw, ph) = measure_sprite(child, asset_root);
         pw.hash(&mut h);
         ph.hash(&mut h);
         let (row, col, rs, cs) = child.grid_position();
@@ -66,9 +65,8 @@ pub fn compute_grid_cells(
     container_h: u16,
     gap_x: u16,
     gap_y: u16,
-    inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
-    measure_sprite: &impl Fn(&Sprite, SceneRenderedMode, Option<&AssetRoot>) -> (u16, u16),
+    measure_sprite: &impl Fn(&Sprite, Option<&AssetRoot>) -> (u16, u16),
 ) -> Vec<(usize, GridCellRect)> {
     // OPT-6: Cache hit returns previous result without TaffyTree rebuild.
     let cache_key = grid_cache_key(
@@ -80,7 +78,6 @@ pub fn compute_grid_cells(
         container_h,
         gap_x,
         gap_y,
-        inherited_mode,
         asset_root,
     );
     let cached = GRID_LAYOUT_CACHE.with(|c| c.borrow().get(&cache_key).cloned());
@@ -123,7 +120,7 @@ pub fn compute_grid_cells(
         let row_span_clamped = (row_span as usize)
             .max(1)
             .min(row_specs.len().saturating_sub(row_idx));
-        let (pref_w, pref_h) = measure_sprite(child, inherited_mode, asset_root);
+        let (pref_w, pref_h) = measure_sprite(child, asset_root);
         let min_width = if col_span_clamped == 1 && matches!(col_specs[col_idx], TrackSpec::Auto) {
             length(pref_w.max(1) as f32)
         } else {
@@ -227,13 +224,9 @@ pub fn compute_grid_cells(
 mod tests {
     use super::compute_grid_cells;
     use engine_core::assets::AssetRoot;
-    use engine_core::scene::{SceneRenderedMode, Sprite};
+    use engine_core::scene::Sprite;
 
-    fn measure_sprite(
-        sprite: &Sprite,
-        _mode: SceneRenderedMode,
-        _asset_root: Option<&AssetRoot>,
-    ) -> (u16, u16) {
+    fn measure_sprite(sprite: &Sprite, _asset_root: Option<&AssetRoot>) -> (u16, u16) {
         match sprite {
             Sprite::Grid { width, height, .. } => (width.unwrap_or(1), height.unwrap_or(1)),
             _ => (1, 1),
@@ -266,7 +259,6 @@ rows: []
             20,
             1,
             1,
-            SceneRenderedMode::Cell,
             None,
             &measure_sprite,
         );

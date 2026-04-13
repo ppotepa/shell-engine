@@ -4,15 +4,13 @@ use crate::audio::AudioCommand;
 use crate::debug_log::DebugLogBuffer;
 use crate::events::EngineEvent;
 use crate::scene::{self};
-use crate::scene_runtime::{RawKeyEvent, SceneRuntime, TerminalShellRoute};
+use crate::scene_runtime::{RawKeyEvent, SceneRuntime};
 use crate::services::EngineWorldAccess;
 use crate::systems::menu::{evaluate_menu_action, MenuAction};
 use crate::world::World;
-use crossterm::terminal::SetSize;
 use engine_animation::{Animator, SceneStage};
 use engine_core::logging;
 use engine_events::{KeyCode, KeyEvent, KeyModifiers};
-use std::io::stdout;
 
 pub struct SceneLifecycleManager;
 const PLAYGROUND_MENU_ID: &str = "playground-menu";
@@ -53,6 +51,12 @@ impl SceneLifecycleManager {
             &lifecycle.key_presses,
             &lifecycle.key_releases,
             lifecycle.input_focus_lost,
+        );
+        handle_scene_free_look_input(
+            world,
+            &lifecycle.key_presses,
+            &lifecycle.key_releases,
+            &lifecycle.mouse_moves,
         );
         if !lifecycle.key_presses.is_empty() {
             Self::advance_on_any_key(world, &lifecycle.key_presses);
@@ -112,13 +116,7 @@ impl SceneLifecycleManager {
         if handle_playground_escape_to_menu(world, &routed_keys) {
             return;
         }
-        if handle_terminal_shell_controls(world, &routed_keys) {
-            return;
-        }
         if handle_obj_viewer_controls(world, &routed_keys) {
-            return;
-        }
-        if handle_terminal_size_tester_controls(world, &routed_keys) {
             return;
         }
 
@@ -306,6 +304,7 @@ pub(super) fn begin_leave(a: &mut engine_animation::Animator) {
     a.stage_elapsed_ms = 0;
 }
 
+#[allow(dead_code)]
 fn reset_timeout_idle_clock(world: &mut World) {
     let should_reset = {
         let Some(animator) = world.animator() else {
@@ -390,69 +389,6 @@ fn handle_ui_focus_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool
     runtime.handle_ui_focus_keys(key_presses)
 }
 
-fn apply_terminal_size_change(world: &mut World, width: u16, height: u16) {
-    let _ = crossterm::execute!(stdout(), SetSize(width, height));
-    if let Some(buf) = world.buffer_mut() {
-        buf.resize(width, height);
-    }
-}
-
-fn handle_terminal_size_tester_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
-    let Some(presets) = world
-        .scene_runtime()
-        .and_then(|runtime| runtime.terminal_size_presets())
-    else {
-        return false;
-    };
-    if !is_scene_idle(world) {
-        return false;
-    }
-    if key_presses
-        .iter()
-        .any(|key| matches!(key.code, KeyCode::Enter))
-    {
-        return false;
-    }
-
-    for key in key_presses {
-        if let KeyCode::Char(c @ '1'..='9') = key.code {
-            let i = (c as usize) - ('1' as usize);
-            if let Some(&(w, h)) = presets.get(i) {
-                apply_terminal_size_change(world, w, h);
-                return true;
-            }
-        }
-    }
-    false
-}
-
-fn handle_terminal_shell_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
-    if !is_scene_idle(world) {
-        return false;
-    }
-    let route = {
-        let Some(runtime) = world.scene_runtime_mut() else {
-            return false;
-        };
-        runtime.handle_terminal_shell_lifecycle_keys(key_presses)
-    };
-    match route {
-        TerminalShellRoute::Absent => false,
-        TerminalShellRoute::Passive => true,
-        TerminalShellRoute::ConsumedInput => {
-            reset_timeout_idle_clock(world);
-            true
-        }
-        TerminalShellRoute::BackRequested(next_scene) => {
-            if let Some(animator) = world.animator_mut() {
-                animator.next_scene_override = next_scene;
-                begin_leave(animator);
-            }
-            true
-        }
-    }
-}
-
 fn handle_obj_viewer_controls(world: &mut World, key_presses: &[KeyEvent]) -> bool {
     if !is_scene_idle(world) {
         return false;
@@ -469,6 +405,23 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(u16, u16)]) {
     }
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.apply_obj_viewer_mouse_moves(mouse_moves);
+    }
+}
+
+fn handle_scene_free_look_input(
+    world: &mut World,
+    key_presses: &[KeyEvent],
+    key_releases: &[KeyEvent],
+    mouse_moves: &[(u16, u16)],
+) {
+    if !is_scene_idle(world) {
+        return;
+    }
+    if let Some(runtime) = world.scene_runtime_mut() {
+        let _ = runtime.apply_free_look_key_events(key_presses, key_releases);
+        if !mouse_moves.is_empty() {
+            runtime.apply_free_look_mouse_moves(mouse_moves);
+        }
     }
 }
 
@@ -510,7 +463,7 @@ mod tests {
     use crate::events::EngineEvent;
     use crate::runtime_settings::{RenderSize, RuntimeSettings};
     use crate::scene::{
-        MenuOption, Scene, SceneAudio, SceneRenderedMode, SceneStages, Sprite, Stage, StageTrigger,
+        MenuOption, Scene, SceneAudio, SceneStages, Sprite, Stage, StageTrigger,
         TermColour,
     };
     use crate::scene_loader::SceneLoader;
@@ -561,8 +514,8 @@ mod tests {
             title: "Menu".into(),
             cutscene: false,
             target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
             space: Default::default(),
+            celestial: Default::default(),
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages {
@@ -594,8 +547,8 @@ mod tests {
             title: id.into(),
             cutscene: true,
             target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
             space: Default::default(),
+            celestial: Default::default(),
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),
@@ -632,113 +585,6 @@ layers:
         source: /scenes/3d/helsinki-university/city_scene_horizontal_front_yup.obj
         scale: 1.0
         rotate-y-deg-per-sec: 14
-"#;
-
-    const TERMINAL_SHELL_SCENE_YAML: &str = r#"
-id: playground-terminal-shell
-title: Terminal Shell
-bg_colour: black
-input:
-  terminal-shell:
-    prompt_sprite_id: terminal-prompt
-    output_sprite_id: terminal-output
-    prompt_prefix: "λ "
-    max_lines: 20
-    banner:
-      - "connected: shell-node"
-    commands:
-      - name: status
-        description: Show system status
-        output:
-          - "hull: 92%"
-          - "power: online"
-stages:
-  on_idle:
-    trigger: any-key
-    looping: true
-    steps: []
-next: playground-menu
-menu-options:
-  - key: "1"
-    next: playground-3d-scene
-layers:
-  - name: ui
-    sprites:
-      - type: text
-        id: terminal-output
-        at: lt
-        content: ""
-      - type: text
-        id: terminal-prompt
-        at: lb
-        content: ""
-"#;
-
-    const TERMINAL_SHELL_FOCUS_SCENE_YAML: &str = r#"
-id: terminal-shell-focus
-title: Terminal Shell Focus
-bg_colour: black
-ui:
-  focus-order:
-    - terminal-output
-    - terminal-prompt
-input:
-  terminal-shell:
-    prompt_sprite_id: terminal-prompt
-    output_sprite_id: terminal-output
-    prompt_prefix: "λ "
-    max_lines: 20
-    banner:
-      - "connected: shell-node"
-stages:
-  on_idle:
-    trigger: any-key
-    looping: true
-    steps: []
-next: terminal-next
-layers:
-  - name: ui
-    sprites:
-      - type: text
-        id: terminal-output
-        at: lt
-        content: ""
-      - type: text
-        id: terminal-prompt
-        at: lb
-        content: ""
-"#;
-
-    const TERMINAL_SHELL_TIMEOUT_SCENE_YAML: &str = r#"
-id: terminal-shell-timeout
-title: Terminal Shell Timeout
-bg_colour: black
-ui:
-  enabled: true
-  focus-order:
-    - terminal-prompt
-input:
-  terminal-shell:
-    prompt_sprite_id: terminal-prompt
-    output_sprite_id: terminal-output
-    prompt_prefix: ""
-stages:
-  on_idle:
-    trigger: timeout
-    steps:
-      - { pause: 1000ms }
-next: terminal-next
-layers:
-  - name: ui
-    sprites:
-      - type: text
-        id: terminal-output
-        at: lt
-        content: ""
-      - type: text
-        id: terminal-prompt
-        at: lb
-        content: ""
 "#;
 
     #[test]
@@ -831,7 +677,6 @@ layers:
             &mut world,
             vec![
                 key_pressed(KeyCode::Char('A')),
-                key_pressed(KeyCode::Char('4')),
                 key_pressed(KeyCode::Char('5')),
                 key_pressed(KeyCode::Char('O')),
             ],
@@ -840,7 +685,6 @@ layers:
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.stage, SceneStage::OnIdle);
         let runtime = world.get::<SceneRuntime>().expect("runtime present");
-        assert_eq!(runtime.scene().rendered_mode, SceneRenderedMode::Braille);
         let (scale, surface_mode, orbit_speed) = runtime
             .scene()
             .layers
@@ -878,194 +722,6 @@ layers:
             SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Enter)]);
         let animator = world.get::<Animator>().expect("animator present");
         assert_eq!(animator.stage, SceneStage::OnLeave);
-    }
-
-    #[test]
-    fn terminal_shell_consumes_keys_and_updates_text_sprites() {
-        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
-        let mut world = World::new();
-        world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(make_idle_animator());
-
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![
-                key_pressed(KeyCode::Char('l')),
-                key_pressed(KeyCode::Char('s')),
-                key_pressed(KeyCode::Enter),
-                key_pressed(KeyCode::Char('1')),
-            ],
-        );
-
-        let animator = world.get::<Animator>().expect("animator present");
-        assert_eq!(animator.stage, SceneStage::OnIdle);
-        assert_eq!(animator.next_scene_override, None);
-
-        let runtime = world.get::<SceneRuntime>().expect("runtime present");
-        let output = runtime
-            .text_sprite_content("terminal-output")
-            .expect("terminal output sprite");
-        assert!(output.contains("connected: shell-node"));
-        assert!(output.contains("λ ls"));
-        assert!(output.contains("logs  vault  airlock  notes"));
-
-        let prompt = runtime
-            .text_sprite_content("terminal-prompt")
-            .expect("terminal prompt sprite");
-        assert_eq!(prompt, "λ [#adadad]1[/]");
-    }
-
-    #[test]
-    fn terminal_shell_supports_line_edit_shortcuts() {
-        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
-        let mut world = World::new();
-        world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(make_idle_animator());
-
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![
-                key_pressed(KeyCode::Char('a')),
-                key_pressed(KeyCode::Char('b')),
-                key_pressed(KeyCode::Char('c')),
-                key_pressed_with_modifiers(KeyCode::Char('a'), KeyModifiers::CONTROL),
-                key_pressed(KeyCode::Char('x')),
-                key_pressed_with_modifiers(KeyCode::Char('k'), KeyModifiers::CONTROL),
-            ],
-        );
-
-        let animator = world.get::<Animator>().expect("animator present");
-        assert_eq!(animator.stage, SceneStage::OnIdle);
-        assert_eq!(animator.next_scene_override, None);
-
-        let runtime = world.get::<SceneRuntime>().expect("runtime present");
-        let prompt = runtime
-            .text_sprite_content("terminal-prompt")
-            .expect("terminal prompt sprite");
-        assert_eq!(prompt, "λ [#adadad]x[/]");
-
-        let output = runtime
-            .text_sprite_content("terminal-output")
-            .expect("terminal output sprite");
-        assert!(output.contains("connected: shell-node"));
-        assert!(!output.contains("λ abc"));
-    }
-
-    #[test]
-    fn terminal_shell_escape_on_empty_prompt_leaves_scene() {
-        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
-        let mut world = World::new();
-        world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(make_idle_animator());
-
-        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Esc)]);
-
-        let animator = world.get::<Animator>().expect("animator present");
-        assert_eq!(animator.stage, SceneStage::OnLeave);
-    }
-
-    #[test]
-    fn terminal_shell_non_edit_key_does_not_auto_leave() {
-        let scene: Scene = serde_yaml::from_str(TERMINAL_SHELL_SCENE_YAML).expect("scene parse");
-        let mut world = World::new();
-        world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(make_idle_animator());
-
-        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::F(5))]);
-
-        let animator = world.get::<Animator>().expect("animator present");
-        assert_eq!(animator.stage, SceneStage::OnIdle);
-        assert_eq!(animator.next_scene_override, None);
-    }
-
-    #[test]
-    fn terminal_shell_focus_order_blocks_prompt_editing_until_tab() {
-        let scene: Scene =
-            serde_yaml::from_str(TERMINAL_SHELL_FOCUS_SCENE_YAML).expect("scene parse");
-        let mut world = World::new();
-        world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(make_idle_animator());
-
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![
-                key_pressed(KeyCode::Char('l')),
-                key_pressed(KeyCode::Char('s')),
-                key_pressed(KeyCode::Enter),
-            ],
-        );
-        let runtime = world.get::<SceneRuntime>().expect("runtime present");
-        let prompt = runtime
-            .text_sprite_content("terminal-prompt")
-            .expect("terminal prompt sprite");
-        assert_eq!(prompt, "λ ");
-        let output = runtime
-            .text_sprite_content("terminal-output")
-            .expect("terminal output sprite");
-        assert_eq!(output, "connected: shell-node");
-
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![
-                key_pressed(KeyCode::Tab),
-                key_pressed(KeyCode::Char('l')),
-                key_pressed(KeyCode::Char('s')),
-                key_pressed(KeyCode::Enter),
-            ],
-        );
-        let runtime = world.get::<SceneRuntime>().expect("runtime present");
-        let output = runtime
-            .text_sprite_content("terminal-output")
-            .expect("terminal output sprite");
-        assert!(output.contains("λ ls"));
-    }
-
-    #[test]
-    fn terminal_shell_back_requires_prompt_focus() {
-        let scene: Scene =
-            serde_yaml::from_str(TERMINAL_SHELL_FOCUS_SCENE_YAML).expect("scene parse");
-        let mut world = World::new();
-        world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(make_idle_animator());
-
-        let _ = SceneLifecycleManager::process_events(&mut world, vec![key_pressed(KeyCode::Esc)]);
-        let animator = world.get::<Animator>().expect("animator present");
-        assert_eq!(animator.stage, SceneStage::OnIdle);
-        assert_eq!(animator.next_scene_override, None);
-
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![key_pressed(KeyCode::Tab), key_pressed(KeyCode::Esc)],
-        );
-        let animator = world.get::<Animator>().expect("animator present");
-        assert_eq!(animator.stage, SceneStage::OnLeave);
-        assert_eq!(
-            animator.next_scene_override.as_deref(),
-            Some("terminal-next")
-        );
-    }
-
-    #[test]
-    fn terminal_shell_input_resets_timeout_idle_clock() {
-        let scene: Scene =
-            serde_yaml::from_str(TERMINAL_SHELL_TIMEOUT_SCENE_YAML).expect("scene parse");
-        let mut world = World::new();
-        world.register_scoped(SceneRuntime::new(scene));
-        world.register_scoped(make_idle_animator());
-        if let Some(animator) = world.animator_mut() {
-            animator.elapsed_ms = 900;
-            animator.stage_elapsed_ms = 900;
-        }
-
-        let _ = SceneLifecycleManager::process_events(
-            &mut world,
-            vec![key_pressed(KeyCode::Char('x'))],
-        );
-
-        let animator = world.get::<Animator>().expect("animator present");
-        assert_eq!(animator.stage, SceneStage::OnIdle);
-        assert_eq!(animator.elapsed_ms, 0);
-        assert_eq!(animator.stage_elapsed_ms, 0);
     }
 
     #[test]
@@ -1429,5 +1085,41 @@ layers:
         let runtime = world.scene_runtime().expect("runtime");
         assert!(runtime.keys_down_snapshot().is_empty());
         assert!(runtime.last_raw_key_snapshot().is_none());
+    }
+
+    #[test]
+    fn free_look_camera_masks_wasd_and_moves_scene_camera() {
+        let scene: Scene = serde_yaml::from_str(
+            r#"
+id: free-look-test
+title: Free Look
+bg_colour: black
+input:
+  free-look-camera: {}
+layers: []
+next: null
+"#,
+        )
+        .expect("scene parse");
+        let mut world = World::new();
+        world.register_scoped(SceneRuntime::new(scene));
+        world.register_scoped(make_idle_animator());
+
+        SceneLifecycleManager::process_events(
+            &mut world,
+            vec![
+                key_pressed_with_modifiers(KeyCode::Char('f'), KeyModifiers::CONTROL),
+                key_pressed(KeyCode::Char('w')),
+            ],
+        );
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.free_look_camera_engaged());
+        assert!(!runtime.keys_down_snapshot().contains("w"));
+
+        crate::systems::free_look_camera::free_look_camera_system(&mut world, 1000);
+
+        let runtime = world.scene_runtime().expect("runtime");
+        assert!(runtime.scene_camera_3d().eye[2] < 3.0);
     }
 }

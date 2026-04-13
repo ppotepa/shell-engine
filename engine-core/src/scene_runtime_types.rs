@@ -112,6 +112,9 @@ pub struct ObjectRuntimeState {
     pub visible: bool,
     pub offset_x: i32,
     pub offset_y: i32,
+    /// Z-axis depth offset, synced from `Transform2D` by `visual_sync_system`.
+    /// Used for 3D world placement of OBJ sprites. 0 for pure 2D entities.
+    pub offset_z: i32,
     /// Heading in radians, synced from `Transform2D` by `visual_sync_system`.
     /// Used to rotate vector sprites around their local origin at render time.
     pub heading: f32,
@@ -123,6 +126,7 @@ impl Default for ObjectRuntimeState {
             visible: true,
             offset_x: 0,
             offset_y: 0,
+            offset_z: 0,
             heading: 0.0,
         }
     }

@@ -10,19 +10,6 @@ use crate::animations::AnimationParams;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
-pub enum SceneRenderedMode {
-    #[default]
-    #[serde(rename = "cell")]
-    Cell,
-    #[serde(rename = "halfblock")]
-    HalfBlock,
-    #[serde(rename = "quadblock")]
-    QuadBlock,
-    #[serde(rename = "braille")]
-    Braille,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
 pub enum SceneSpace {
     #[default]
     #[serde(rename = "2d")]
@@ -364,18 +351,15 @@ pub struct SceneInput {
     /// Optional OBJ viewer controls profile.
     #[serde(default, rename = "obj-viewer")]
     pub obj_viewer: Option<ObjViewerControls>,
-    /// Optional terminal size tester controls profile.
-    #[serde(default, rename = "terminal-size-tester")]
-    pub terminal_size_tester: Option<TerminalSizeTesterControls>,
-    /// Optional interactive terminal shell profile.
-    #[serde(default, rename = "terminal-shell", alias = "terminal_shell")]
-    pub terminal_shell: Option<TerminalShellControls>,
+    /// Optional free-look scene camera controls profile.
+    #[serde(default, rename = "free-look-camera", alias = "free_look_camera")]
+    pub free_look_camera: Option<FreeLookCameraControls>,
 }
 
 impl SceneInput {
     /// Returns names of all built-in input profiles.
     pub fn builtin_profiles() -> Vec<&'static str> {
-        vec!["obj-viewer", "terminal-size-tester", "terminal-shell"]
+        vec!["obj-viewer", "free-look-camera"]
     }
 }
 
@@ -416,6 +400,69 @@ impl Default for SceneUi {
     }
 }
 
+/// Which slice of the celestial hierarchy this scene intends to resolve.
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CelestialScope {
+    #[default]
+    Local,
+    System,
+    Region,
+}
+
+/// Coordinate frame used to interpret celestial rendering and gameplay.
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CelestialFrame {
+    #[default]
+    FocusRelative,
+    Barycentric,
+    SurfaceLocal,
+}
+
+/// Time source used for celestial pose resolution.
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum CelestialClockSource {
+    #[default]
+    Scene,
+    Campaign,
+    Fixed,
+}
+
+/// Scene-level binding to the persistent celestial domain.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct SceneCelestial {
+    #[serde(default)]
+    pub scope: CelestialScope,
+    #[serde(default)]
+    pub region: Option<String>,
+    #[serde(default)]
+    pub system: Option<String>,
+    #[serde(default, rename = "focus-body", alias = "focus_body")]
+    pub focus_body: Option<String>,
+    #[serde(default, rename = "focus-site", alias = "focus_site")]
+    pub focus_site: Option<String>,
+    #[serde(default)]
+    pub frame: CelestialFrame,
+    #[serde(default, rename = "clock-source", alias = "clock_source")]
+    pub clock_source: CelestialClockSource,
+}
+
+impl Default for SceneCelestial {
+    fn default() -> Self {
+        Self {
+            scope: CelestialScope::Local,
+            region: None,
+            system: None,
+            focus_body: None,
+            focus_site: None,
+            frame: CelestialFrame::FocusRelative,
+            clock_source: CelestialClockSource::Scene,
+        }
+    }
+}
+
 /// Declarative OBJ viewer controls target.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ObjViewerControls {
@@ -423,177 +470,40 @@ pub struct ObjViewerControls {
     pub sprite_id: String,
 }
 
-/// Declarative terminal-size tester controls.
-#[derive(Debug, Clone, Deserialize, Default)]
-pub struct TerminalSizeTesterControls {
-    /// Optional preset list in WIDTHxHEIGHT format, e.g. "120x36".
-    #[serde(default)]
-    pub presets: Vec<String>,
+fn default_free_look_move_speed() -> f32 {
+    1.5
 }
 
-fn default_terminal_prompt_prefix() -> String {
-    "> ".to_string()
+fn default_free_look_mouse_sensitivity() -> f32 {
+    1.0
 }
 
-fn default_terminal_max_lines() -> usize {
-    120
-}
-
-fn default_terminal_prompt_wrap() -> bool {
-    true
-}
-
-fn default_terminal_prompt_min_lines() -> u16 {
-    1
-}
-
-fn default_terminal_prompt_max_lines() -> u16 {
-    4
-}
-
-fn default_terminal_prompt_growth_ms() -> u64 {
-    120
-}
-
-fn default_terminal_shell_mode() -> TerminalShellMode {
-    TerminalShellMode::Builtin
-}
-
-/// Terminal shell interaction mode.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "kebab-case")]
-pub enum TerminalShellMode {
-    /// Built-in shell commands (help, clear, ls, pwd, echo, whoami) are executed by the engine.
-    #[default]
-    Builtin,
-    /// Shell commands are not executed; only UI events (submit/change) are emitted for script handling.
-    Scripted,
-    /// Shell commands and key events are bridged to an external sidecar process (structured IPC).
-    Sidecar,
-}
-
+/// Declarative free-look scene camera controls.
 #[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub enum TerminalShellOutput {
-    Single(String),
-    Multi(Vec<String>),
+pub struct FreeLookCameraControls {
+    /// Camera translation speed in scene-world units per second.
+    #[serde(
+        default = "default_free_look_move_speed",
+        rename = "move-speed",
+        alias = "move_speed"
+    )]
+    pub move_speed: f32,
+    /// Mouse look sensitivity multiplier.
+    #[serde(
+        default = "default_free_look_mouse_sensitivity",
+        rename = "mouse-sensitivity",
+        alias = "mouse_sensitivity"
+    )]
+    pub mouse_sensitivity: f32,
 }
 
-impl TerminalShellOutput {
-    pub fn lines(&self) -> Vec<String> {
-        match self {
-            Self::Single(line) => vec![line.clone()],
-            Self::Multi(lines) => lines.clone(),
+impl Default for FreeLookCameraControls {
+    fn default() -> Self {
+        Self {
+            move_speed: default_free_look_move_speed(),
+            mouse_sensitivity: default_free_look_mouse_sensitivity(),
         }
     }
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-pub struct TerminalShellCommand {
-    pub name: String,
-    #[serde(default)]
-    pub description: Option<String>,
-    #[serde(default)]
-    pub output: Option<TerminalShellOutput>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-pub struct TerminalShellSidecarControls {
-    /// Executable name/path (resolved by the host OS PATH).
-    pub command: String,
-    /// Arguments passed to the sidecar process.
-    #[serde(default)]
-    pub args: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct TerminalShellControls {
-    /// Text sprite id used for the command prompt line.
-    #[serde(rename = "prompt-sprite-id", alias = "prompt_sprite_id")]
-    pub prompt_sprite_id: String,
-    /// Text sprite id used for command output transcript.
-    #[serde(rename = "output-sprite-id", alias = "output_sprite_id")]
-    pub output_sprite_id: String,
-    /// Optional panel widget id that hosts the prompt sprite.
-    #[serde(default, rename = "prompt-panel-id", alias = "prompt_panel_id")]
-    pub prompt_panel_id: Option<String>,
-    /// Optional panel widget id used as visual shadow for prompt panel auto-grow sync.
-    #[serde(
-        default,
-        rename = "prompt-shadow-panel-id",
-        alias = "prompt_shadow_panel_id"
-    )]
-    pub prompt_shadow_panel_id: Option<String>,
-    /// Prompt prefix rendered before the current command line.
-    #[serde(
-        default = "default_terminal_prompt_prefix",
-        rename = "prompt-prefix",
-        alias = "prompt_prefix"
-    )]
-    pub prompt_prefix: String,
-    /// Enables prompt word wrapping inside the prompt panel.
-    #[serde(
-        default = "default_terminal_prompt_wrap",
-        rename = "prompt-wrap",
-        alias = "prompt_wrap"
-    )]
-    pub prompt_wrap: bool,
-    /// Enables auto-growing prompt panel height based on wrapped line count.
-    #[serde(
-        default = "default_terminal_prompt_wrap",
-        rename = "prompt-auto-grow",
-        alias = "prompt_auto_grow"
-    )]
-    pub prompt_auto_grow: bool,
-    /// Minimum number of input lines kept visible in prompt panel.
-    #[serde(
-        default = "default_terminal_prompt_min_lines",
-        rename = "prompt-min-lines",
-        alias = "prompt_min_lines"
-    )]
-    pub prompt_min_lines: u16,
-    /// Maximum number of wrapped input lines shown before clipping.
-    #[serde(
-        default = "default_terminal_prompt_max_lines",
-        rename = "prompt-max-lines",
-        alias = "prompt_max_lines"
-    )]
-    pub prompt_max_lines: u16,
-    /// Target animation time for panel auto-grow transitions.
-    #[serde(
-        default = "default_terminal_prompt_growth_ms",
-        rename = "prompt-growth-ms",
-        alias = "prompt_growth_ms"
-    )]
-    pub prompt_growth_ms: u64,
-    /// Maximum number of output transcript lines preserved on screen.
-    #[serde(
-        default = "default_terminal_max_lines",
-        rename = "max-lines",
-        alias = "max_lines"
-    )]
-    pub max_lines: usize,
-    /// Initial transcript lines shown when scene loads.
-    #[serde(default)]
-    pub banner: Vec<String>,
-    /// Optional custom command table, in addition to built-ins.
-    #[serde(default)]
-    pub commands: Vec<TerminalShellCommand>,
-    /// Optional message shown for unknown commands.
-    #[serde(default, rename = "unknown-message", alias = "unknown_message")]
-    pub unknown_message: Option<String>,
-    /// Terminal shell interaction mode (builtin, scripted, or sidecar).
-    #[serde(default = "default_terminal_shell_mode")]
-    pub mode: TerminalShellMode,
-
-    /// Sidecar process configuration (used when `mode: sidecar`).
-    #[serde(default)]
-    pub sidecar: Option<TerminalShellSidecarControls>,
-
-    /// When true, the sidecar hello message includes `boot_scene: true`,
-    /// causing the external process to run its boot sequence before login.
-    #[serde(default, rename = "boot-scene", alias = "boot_scene")]
-    pub boot_scene: bool,
 }
 
 /// Audio cue descriptor (design hook only; playback is external).
@@ -659,10 +569,10 @@ pub struct Scene {
     pub cutscene: bool,
     #[serde(default, rename = "target-fps", alias = "target_fps")]
     pub target_fps: Option<u16>,
-    #[serde(default, rename = "rendered-mode")]
-    pub rendered_mode: SceneRenderedMode,
     #[serde(default)]
     pub space: SceneSpace,
+    #[serde(default)]
+    pub celestial: SceneCelestial,
     #[serde(default, rename = "virtual-size-override")]
     pub virtual_size_override: Option<String>,
     pub bg_colour: Option<TermColour>,
@@ -735,8 +645,8 @@ impl Scene {
 
 #[cfg(test)]
 mod tests {
-    use super::{Scene, TerminalShellOutput, UiPersistence};
-    use crate::scene::{Stage, TerminalShellMode};
+    use super::{CelestialClockSource, CelestialFrame, CelestialScope, Scene, SceneSpace, UiPersistence};
+    use crate::scene::Stage;
 
     #[test]
     fn parses_scene_target_fps_kebab_case() {
@@ -775,7 +685,7 @@ layers: []
 id: postfx-scene
 title: PostFX
 postfx:
-  - name: terminal-crt
+  - name: crt-filter
     params:
       intensity: 0.6
 layers: []
@@ -784,7 +694,7 @@ layers: []
         .expect("scene should parse");
 
         assert_eq!(scene.postfx.len(), 1);
-        assert_eq!(scene.postfx[0].name, "terminal-crt");
+        assert_eq!(scene.postfx[0].name, "crt-filter");
         assert_eq!(scene.postfx[0].params.intensity, Some(0.6));
     }
 
@@ -801,98 +711,6 @@ steps:
         assert_eq!(stage.steps.len(), 1);
         assert!(stage.steps[0].effects.is_empty());
         assert_eq!(stage.steps[0].duration, Some(300));
-    }
-
-    #[test]
-    fn parses_terminal_shell_input_profile() {
-        let scene = serde_yaml::from_str::<Scene>(
-            r#"
-id: terminal-shell
-title: Terminal
-input:
-  terminal-shell:
-    prompt-sprite-id: terminal-prompt
-    output-sprite-id: terminal-output
-    prompt-panel-id: prompt-panel
-    prompt-shadow-panel-id: prompt-panel-shadow
-    prompt-prefix: "$ "
-    prompt-wrap: true
-    prompt-auto-grow: true
-    prompt-min-lines: 1
-    prompt-max-lines: 3
-    prompt-growth-ms: 200
-    max-lines: 80
-    banner:
-      - boot ok
-    commands:
-      - name: status
-        output:
-          - online
-layers: []
-"#,
-        )
-        .expect("scene should parse");
-
-        let controls = scene
-            .input
-            .terminal_shell
-            .expect("terminal-shell controls should parse");
-        assert_eq!(controls.prompt_sprite_id, "terminal-prompt");
-        assert_eq!(controls.output_sprite_id, "terminal-output");
-        assert_eq!(controls.prompt_panel_id.as_deref(), Some("prompt-panel"));
-        assert_eq!(
-            controls.prompt_shadow_panel_id.as_deref(),
-            Some("prompt-panel-shadow")
-        );
-        assert_eq!(controls.prompt_prefix, "$ ");
-        assert!(controls.prompt_wrap);
-        assert!(controls.prompt_auto_grow);
-        assert_eq!(controls.prompt_min_lines, 1);
-        assert_eq!(controls.prompt_max_lines, 3);
-        assert_eq!(controls.prompt_growth_ms, 200);
-        assert_eq!(controls.max_lines, 80);
-        assert_eq!(controls.banner, vec!["boot ok".to_string()]);
-        assert_eq!(controls.commands.len(), 1);
-    }
-
-    #[test]
-    fn parses_terminal_shell_sidecar_mode() {
-        let scene = serde_yaml::from_str::<Scene>(
-            r#"
-id: terminal-shell
-title: Terminal
-input:
-  terminal-shell:
-    prompt-sprite-id: terminal-prompt
-    output-sprite-id: terminal-output
-    mode: sidecar
-    sidecar:
-      command: dotnet
-      args: [run, --project, tools/virtual-os-proto/VirtualOs.Proto.csproj]
-layers: []
-"#,
-        )
-        .expect("scene should parse");
-
-        let controls = scene
-            .input
-            .terminal_shell
-            .expect("terminal-shell controls should parse");
-        assert_eq!(controls.mode, TerminalShellMode::Sidecar);
-        let sidecar = controls.sidecar.expect("sidecar config should parse");
-        assert_eq!(sidecar.command, "dotnet");
-        assert_eq!(sidecar.args.len(), 3);
-    }
-
-    #[test]
-    fn terminal_shell_output_supports_string_and_array() {
-        let single: TerminalShellOutput =
-            serde_yaml::from_str("online").expect("single output should parse");
-        assert_eq!(single.lines(), vec!["online".to_string()]);
-
-        let multiple: TerminalShellOutput =
-            serde_yaml::from_str("[a, b]").expect("array output should parse");
-        assert_eq!(multiple.lines(), vec!["a".to_string(), "b".to_string()]);
     }
 
     #[test]
@@ -983,5 +801,35 @@ layers: []
         )
         .expect("scene should parse");
         assert_eq!(scene.ui.theme.as_deref(), Some("win98"));
+    }
+
+    #[test]
+    fn parses_scene_celestial_binding() {
+        let scene = serde_yaml::from_str::<Scene>(
+            r#"
+id: orbital-nav
+title: Orbital Nav
+space: 3d
+celestial:
+  scope: system
+  region: local-cluster
+  system: sol
+  focus-body: earth
+  focus_site: leo
+  frame: barycentric
+  clock-source: campaign
+layers: []
+"#,
+        )
+        .expect("scene should parse");
+
+        assert_eq!(scene.space, SceneSpace::ThreeD);
+        assert_eq!(scene.celestial.scope, CelestialScope::System);
+        assert_eq!(scene.celestial.region.as_deref(), Some("local-cluster"));
+        assert_eq!(scene.celestial.system.as_deref(), Some("sol"));
+        assert_eq!(scene.celestial.focus_body.as_deref(), Some("earth"));
+        assert_eq!(scene.celestial.focus_site.as_deref(), Some("leo"));
+        assert_eq!(scene.celestial.frame, CelestialFrame::Barycentric);
+        assert_eq!(scene.celestial.clock_source, CelestialClockSource::Campaign);
     }
 }

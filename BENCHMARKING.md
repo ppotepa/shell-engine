@@ -13,8 +13,8 @@ cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --no-opt-comp
 # With all optimizations
 cargo run -p app -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 
-# Release build example (explicit SDL2 + --opt)
-cargo run -p app --release -- --sdl2 --mod-source=mods/shell-quest-tests --bench 10 --opt
+# Release build example
+cargo run -p app --release -- --mod-source=mods/shell-quest-tests --bench 10 --opt
 ```
 
 `--bench` automatically skips the splash screen. Reports are saved to
@@ -26,7 +26,7 @@ cargo run -p app --release -- --sdl2 --mod-source=mods/shell-quest-tests --bench
 
 | Flag | Description |
 |------|-------------|
-| `--opt-comp` | Compositor: layer scratch skip, dirty-halfblock (enabled by default; use `--no-opt-comp` to disable) |
+| `--opt-comp` | Compositor: layer scratch skip (enabled by default; use `--no-opt-comp` to disable) |
 | `--opt-diff` | Dirty-region diff (experimental) |
 | `--opt-present` | Hash-based static frame skip |
 | `--opt-skip` | Unified frame-skip oracle |
@@ -140,7 +140,7 @@ SCENE                          FRAMES  FPS avg  COMP us   PFX us  REND us   BHV 
 ```
 
 System columns: Compositor (sprite compositing), PostFX (CRT/glow passes),
-Renderer (terminal diff/flush), Behavior (Rhai script execution).
+Renderer (SDL2 diff/present), Behavior (Rhai script execution).
 
 ---
 
@@ -174,7 +174,7 @@ For SDL2 backend stage timings (diff/build, runtime apply, texture upload, prese
 enable profiling logs:
 
 ```bash
-SHELL_QUEST_SDL_PROFILE=1 cargo run -p app -- --sdl2
+SHELL_QUEST_SDL_PROFILE=1 cargo run -p app --
 ```
 
 When run logging is enabled, look for `sdl2.backend` and `sdl2.runtime`

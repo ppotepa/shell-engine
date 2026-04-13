@@ -1,6 +1,6 @@
+use crate::metadata::{slider, EffectMetadata, P_EASING};
 use engine_core::buffer::{Buffer, Cell, TRUE_BLACK};
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{slider, EffectMetadata, P_EASING};
 use engine_core::scene::EffectParams;
 
 pub static METADATA: EffectMetadata = EffectMetadata {

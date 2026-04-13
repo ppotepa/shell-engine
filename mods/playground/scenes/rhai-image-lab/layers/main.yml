@@ -9,8 +9,8 @@
       rows: ["auto", "auto", "auto", "auto", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "RHAI IMAGE LAB", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: white }
+        - { type: text, content: "RHAI IMAGE LAB", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: white }
         - { type: image, id: tux-image, source: "/assets/images/tux.png", grid-col: 1, grid-row: 2, at: cc, size: 3 }
-        - { type: text, content: "Mutated: visible, position.x, position.y", grid-col: 1, grid-row: 3, at: cc, font: "generic:half", fg: gray }
-        - { type: text, id: image-status, content: "tux x=0 y=0 visible=true", grid-col: 1, grid-row: 4, at: cc, font: "generic:half", fg: yellow }
-    - { type: text, content: "0: return to Rhai Lab", at: cb, y: -1, font: "generic:half", fg: gray, hide_on_leave: true }
+        - { type: text, content: "Mutated: visible, position.x, position.y", grid-col: 1, grid-row: 3, at: cc, font: "generic:2", fg: gray }
+        - { type: text, id: image-status, content: "tux x=0 y=0 visible=true", grid-col: 1, grid-row: 4, at: cc, font: "generic:2", fg: yellow }
+    - { type: text, content: "0: return to Rhai Lab", at: cb, y: -1, font: "generic:2", fg: gray, hide_on_leave: true }

@@ -1,9 +1,9 @@
 //! Effect that fills a region with a solid terminal colour.
 
+use crate::metadata::{EffectMetadata, ParamControl, ParamMetadata, P_EASING};
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::effects::{Effect, Region};
-use crate::metadata::{EffectMetadata, ParamControl, ParamMetadata, P_EASING};
 use engine_core::scene::EffectParams;
 
 /// Static effect metadata exposed to the editor and effect registry.

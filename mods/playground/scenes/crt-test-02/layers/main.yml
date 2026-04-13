@@ -9,7 +9,7 @@
       rows: ["auto", "auto", "auto", "1fr", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "▓▓▓  NETWORK MONITOR  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: cyan }
+        - { type: text, content: "▓▓▓  NETWORK MONITOR  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: cyan }
         - { type: text, content: "SCREEN 02 — CYAN/BLUE — watch for green ghost from screen 01", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: "rgb(100,200,255)" }
         - { type: text, content: "The green BIOS text persists as a fading phosphor afterimage.", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(80,180,240)" }
         - type: grid

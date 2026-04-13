@@ -18,10 +18,8 @@ strategy building blocks used to assemble the active pipeline behavior.
 
 - async render-thread usage,
 - scene-change redraw guards,
-- renderer-mode locking,
 - compositor optimization gates,
-- diff/present/skip optimizations,
-- async display offload.
+- diff/present/skip optimizations.
 
 ## Working with this crate
 

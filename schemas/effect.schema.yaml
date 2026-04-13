@@ -13,9 +13,9 @@ properties:
     description: |-
       Effect identifier. Built-in effects:
       - artifact-out: Digital compression artefacts fragmenting the image.
-      - blur: Box blur: softens terminal cell colours by averaging a neighbourhood of pixels.
+      - blur: Box blur: softens pixel colours by averaging a neighbourhood of pixels.
       - brighten: Brightens pixels toward white by intensity over duration.
-      - clear-to-colour: Clears region to a target terminal colour.
+      - clear-to-colour: Clears region to a target colour.
       - crt-on: CRT startup sweep with phosphor-like reveal.
       - crt-burn-in: PostFX: phosphor persistence — ghost of old scene overlays new one with exponential decay, brightness pump, P31 colour shift, and 2D blur.
       - crt-underlay: PostFX: soft phosphor underlay glow beneath scene content.
@@ -45,7 +45,7 @@ properties:
       - shatter-glitch: Frame shatters and scatters across the buffer.
       - shine: Moving highlight beam crossing the whole frame.
       - tesla-orb: Orbital electric arcs around a plasma core.
-      - terminal-crt: Subtle CRT post-process with safe curvature, scanlines, vignette and phosphor noise.
+      - crt-filter: Subtle CRT post-process with safe curvature, scanlines, vignette and phosphor noise.
       - whiteout: Flash all pixels toward white.
     enum:
     - artifact-out
@@ -81,7 +81,7 @@ properties:
     - shatter-glitch
     - shine
     - tesla-orb
-    - terminal-crt
+    - crt-filter
     - whiteout
   duration:
     type: integer

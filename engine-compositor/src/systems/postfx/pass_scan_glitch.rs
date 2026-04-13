@@ -1,8 +1,8 @@
 use super::{lerp_colour_local, rand01, scale_colour, PostFxContext};
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
-use engine_effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
+use engine_effects::utils::color::colour_to_rgb;
 
 pub(super) fn apply(ctx: &PostFxContext<'_>, src: &Buffer, dst: &mut Buffer, pass: &Effect) {
     let intensity = pass.params.intensity.unwrap_or(0.35).clamp(0.0, 2.0);

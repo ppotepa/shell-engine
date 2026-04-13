@@ -13,11 +13,9 @@ use std::cell::Cell;
 use std::collections::HashMap;
 
 use engine_3d::scene3d_format::Scene3DDefinition;
-use engine_core::scene::SceneRenderedMode;
 
 pub struct Scene3DRuntimeEntry {
     pub def: Scene3DDefinition,
-    pub mode: SceneRenderedMode,
 }
 
 /// World resource: parsed Scene3D definitions for all `.scene3d.yml` sources referenced by the
@@ -56,9 +54,7 @@ thread_local! {
 /// # Safety
 /// `store` must remain valid for the entire duration of `f`.
 pub fn with_runtime_store<R>(store: Option<&Scene3DRuntimeStore>, f: impl FnOnce() -> R) -> R {
-    let ptr = store
-        .map(|s| s as *const _)
-        .unwrap_or(std::ptr::null());
+    let ptr = store.map(|s| s as *const _).unwrap_or(std::ptr::null());
     STORE_PTR.with(|cell| cell.set(ptr));
     let result = f();
     STORE_PTR.with(|cell| cell.set(std::ptr::null()));

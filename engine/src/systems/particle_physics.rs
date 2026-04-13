@@ -23,10 +23,7 @@ pub struct ParticlePhysicsHandle {
 
 /// Extract worker-thread particle data and spawn computation on rayon.
 /// Returns None if there are no worker particles this frame.
-pub fn start_async(
-    world: &engine_core::world::World,
-    dt_ms: u64,
-) -> Option<ParticlePhysicsHandle> {
+pub fn start_async(world: &engine_core::world::World, dt_ms: u64) -> Option<ParticlePhysicsHandle> {
     if dt_ms == 0 {
         return None;
     }
@@ -68,7 +65,9 @@ pub fn start_async(
 /// If handle is None (no worker particles this frame), this is a no-op.
 pub fn collect_async(world: &engine_core::world::World, handle: Option<ParticlePhysicsHandle>) {
     let Some(h) = handle else { return };
-    let Some(gameplay) = world.get::<GameplayWorld>() else { return };
+    let Some(gameplay) = world.get::<GameplayWorld>() else {
+        return;
+    };
 
     // recv() blocks until rayon finishes — by this point behavior system has run
     // so the overlap window has already been used productively.

@@ -58,8 +58,8 @@ impl StartupCheck for CatalogsCheck {
                 catalogs.emitters.len(),
                 catalogs.groups.len(),
                 catalogs.waves.len(),
-                catalogs.planet_types.len(),
-                catalogs.bodies.len(),
+                catalogs.celestial.planet_types.len(),
+                catalogs.celestial.bodies.len(),
             ),
         );
 

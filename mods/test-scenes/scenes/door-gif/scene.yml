@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=../../schemas/scenes.yaml
-id: test-scenes-door-gif
-title: Lab Open GIF 320x180
-cutscene: true
-bg: black
-layers:
-  - ref: main
-stages-ref: /stages/door-cutscene.yml
-next: test-scenes-menu

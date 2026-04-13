@@ -363,14 +363,25 @@ mod tests {
 
         let mut fill_buf = Buffer::new(40, 30);
         fill_polygon(
-            &mut fill_buf, &poly, origin_x, origin_y, '█',
-            Color::White, Color::Black,
+            &mut fill_buf,
+            &poly,
+            origin_x,
+            origin_y,
+            '█',
+            Color::White,
+            Color::Black,
         );
 
         let mut outline_buf = Buffer::new(40, 30);
         draw_polyline(
-            &mut outline_buf, &poly, true, origin_x, origin_y, '*',
-            Color::White, Color::Black,
+            &mut outline_buf,
+            &poly,
+            true,
+            origin_x,
+            origin_y,
+            '*',
+            Color::White,
+            Color::Black,
         );
 
         // Center of polygon in world coords should be filled
@@ -379,7 +390,11 @@ mod tests {
             "center of polygon must be filled"
         );
         assert_eq!(
-            fill_buf.get(origin_x as u16, origin_y as u16).unwrap().symbol, '█',
+            fill_buf
+                .get(origin_x as u16, origin_y as u16)
+                .unwrap()
+                .symbol,
+            '█',
             "center must have fill char"
         );
 

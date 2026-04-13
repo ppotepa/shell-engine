@@ -90,13 +90,7 @@ $defs:
       height:
         type: integer
         minimum: 1
-        description: Viewport height in terminal rows.
-      rendered_mode:
-        type: string
-        enum: [cell, halfblock, quadblock, braille]
-        description: >
-          Renderer mode override for this 3D scene.
-          Overrides the parent scene's rendered_mode if set.
+        description: Viewport height in frame pixels.
 
   camera:
     type: object

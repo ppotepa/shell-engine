@@ -4,13 +4,13 @@
 //! that bleeds outward into empty cells.  A breathing pulse driven by
 //! `progress × speed` keeps the glow alive.
 
-use engine_core::buffer::Buffer;
-use engine_core::color::Color;
-use engine_core::effects::{Effect, EffectTargetMask, Region};
 use crate::metadata::{
     slider, EffectMetadata, ParamControl, ParamMetadata, P_EASING, P_INTENSITY, P_SPEED,
 };
 use crate::utils::color::lerp_colour;
+use engine_core::buffer::Buffer;
+use engine_core::color::Color;
+use engine_core::effects::{Effect, EffectTargetMask, Region};
 use engine_core::scene::EffectParams;
 
 pub static METADATA: EffectMetadata = EffectMetadata {

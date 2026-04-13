@@ -77,7 +77,12 @@ pub fn collision_system(
                 &b_xf,
                 strategies.wrap_strategy,
             ) {
-                hits.push(CollisionHit { a: a_id, b: b_id, normal_x: nx, normal_y: ny });
+                hits.push(CollisionHit {
+                    a: a_id,
+                    b: b_id,
+                    normal_x: nx,
+                    normal_y: ny,
+                });
                 world.emit_event(GameplayEvent::CollisionEnter { a: a_id, b: b_id });
                 world.emit_event(GameplayEvent::CollisionEnter { a: b_id, b: a_id });
             }
@@ -92,8 +97,7 @@ pub fn collision_system(
 /// Uses the hit normal and per-body mass/restitution for elastic/inelastic response.
 pub fn apply_collision_response(world: &GameplayWorld, hits: &[CollisionHit]) {
     for hit in hits {
-        let (Some(mut body_a), Some(mut body_b)) =
-            (world.physics(hit.a), world.physics(hit.b))
+        let (Some(mut body_a), Some(mut body_b)) = (world.physics(hit.a), world.physics(hit.b))
         else {
             continue;
         };
@@ -121,8 +125,16 @@ pub fn apply_collision_response(world: &GameplayWorld, hits: &[CollisionHit]) {
 
         // Impulse scalar: j = -(1 + e) * dvn / (1/m_a + 1/m_b)
         // Infinite mass (mass == 0.0) means immovable.
-        let inv_mass_a = if body_a.mass > 0.0 { 1.0 / body_a.mass } else { 0.0 };
-        let inv_mass_b = if body_b.mass > 0.0 { 1.0 / body_b.mass } else { 0.0 };
+        let inv_mass_a = if body_a.mass > 0.0 {
+            1.0 / body_a.mass
+        } else {
+            0.0
+        };
+        let inv_mass_b = if body_b.mass > 0.0 {
+            1.0 / body_b.mass
+        } else {
+            0.0
+        };
         let inv_mass_sum = inv_mass_a + inv_mass_b;
         if inv_mass_sum == 0.0 {
             continue; // Both immovable
@@ -142,11 +154,21 @@ pub fn apply_collision_response(world: &GameplayWorld, hits: &[CollisionHit]) {
             const SEPARATION: f32 = 0.5;
             let _ = world.set_transform(
                 hit.a,
-                Transform2D { x: a_xf.x - nx * SEPARATION, y: a_xf.y - ny * SEPARATION, heading: a_xf.heading },
+                Transform2D {
+                    x: a_xf.x - nx * SEPARATION,
+                    y: a_xf.y - ny * SEPARATION,
+                    z: a_xf.z,
+                    heading: a_xf.heading,
+                },
             );
             let _ = world.set_transform(
                 hit.b,
-                Transform2D { x: b_xf.x + nx * SEPARATION, y: b_xf.y + ny * SEPARATION, heading: b_xf.heading },
+                Transform2D {
+                    x: b_xf.x + nx * SEPARATION,
+                    y: b_xf.y + ny * SEPARATION,
+                    z: b_xf.z,
+                    heading: b_xf.heading,
+                },
             );
         }
 
@@ -218,7 +240,10 @@ pub fn particle_collision_system(
             }
 
             let target_tags = world.tags(*t_id);
-            let matches_mask = pp.collision_mask.iter().any(|mask| target_tags.contains(mask));
+            let matches_mask = pp
+                .collision_mask
+                .iter()
+                .any(|mask| target_tags.contains(mask));
             if !matches_mask {
                 continue;
             }
@@ -238,7 +263,12 @@ pub fn particle_collision_system(
                 &t_xf,
                 strategies.wrap_strategy,
             ) {
-                hits.push(CollisionHit { a: *p_id, b: *t_id, normal_x: nx, normal_y: ny });
+                hits.push(CollisionHit {
+                    a: *p_id,
+                    b: *t_id,
+                    normal_x: nx,
+                    normal_y: ny,
+                });
                 world.emit_event(GameplayEvent::CollisionEnter { a: *p_id, b: *t_id });
                 world.emit_event(GameplayEvent::CollisionEnter { a: *t_id, b: *p_id });
             }
@@ -304,10 +334,20 @@ fn center_to_center_normal(a_xf: &Transform2D, b_xf: &Transform2D) -> (f32, f32)
 
 /// Circle vs polygon: approximate circle as its center point plus a radius check
 /// against the polygon boundary, using `engine_physics` for exact intersection math.
-fn circle_polygon(circle_xf: &Transform2D, radius: f32, poly_xf: &Transform2D, poly_points: &[[f32; 2]]) -> bool {
+fn circle_polygon(
+    circle_xf: &Transform2D,
+    radius: f32,
+    poly_xf: &Transform2D,
+    poly_points: &[[f32; 2]],
+) -> bool {
     let int_points: Vec<[i32; 2]> = poly_points
         .iter()
-        .map(|p| [(p[0] + poly_xf.x).round() as i32, (p[1] + poly_xf.y).round() as i32])
+        .map(|p| {
+            [
+                (p[0] + poly_xf.x).round() as i32,
+                (p[1] + poly_xf.y).round() as i32,
+            ]
+        })
         .collect();
     if int_points.len() < 3 {
         return false;
@@ -338,14 +378,29 @@ fn circle_polygon(circle_xf: &Transform2D, radius: f32, poly_xf: &Transform2D, p
 }
 
 /// Polygon vs polygon using `engine_physics` geo-backed intersection.
-fn polygon_polygon(a_xf: &Transform2D, pa: &[[f32; 2]], b_xf: &Transform2D, pb: &[[f32; 2]]) -> bool {
+fn polygon_polygon(
+    a_xf: &Transform2D,
+    pa: &[[f32; 2]],
+    b_xf: &Transform2D,
+    pb: &[[f32; 2]],
+) -> bool {
     let pa_i32: Vec<[i32; 2]> = pa
         .iter()
-        .map(|p| [(p[0] + a_xf.x).round() as i32, (p[1] + a_xf.y).round() as i32])
+        .map(|p| {
+            [
+                (p[0] + a_xf.x).round() as i32,
+                (p[1] + a_xf.y).round() as i32,
+            ]
+        })
         .collect();
     let pb_i32: Vec<[i32; 2]> = pb
         .iter()
-        .map(|p| [(p[0] + b_xf.x).round() as i32, (p[1] + b_xf.y).round() as i32])
+        .map(|p| {
+            [
+                (p[0] + b_xf.x).round() as i32,
+                (p[1] + b_xf.y).round() as i32,
+            ]
+        })
         .collect();
     engine_physics::polygons_intersect(&pa_i32, [0, 0], &pb_i32, [0, 0])
 }
@@ -375,16 +430,31 @@ fn segment_point_dist_sq(a: [i32; 2], b: [i32; 2], p: [i32; 2]) -> i64 {
 }
 
 /// Returns `Some((nx, ny))` contact normal (A→B) when circles intersect, else `None`.
-fn circle_circle_normal(a: &Transform2D, ra: f32, b: &Transform2D, rb: f32, wrap: WrapStrategy) -> Option<(f32, f32)> {
+fn circle_circle_normal(
+    a: &Transform2D,
+    ra: f32,
+    b: &Transform2D,
+    rb: f32,
+    wrap: WrapStrategy,
+) -> Option<(f32, f32)> {
     let (dx, dy) = match wrap {
         WrapStrategy::None => (b.x - a.x, b.y - a.y),
-        WrapStrategy::Toroid { min_x, max_x, min_y, max_y } => {
+        WrapStrategy::Toroid {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
+        } => {
             let w = max_x - min_x;
             let h = max_y - min_y;
             let mut dx = b.x - a.x;
             let mut dy = b.y - a.y;
-            if dx.abs() > w * 0.5 { dx -= dx.signum() * w; }
-            if dy.abs() > h * 0.5 { dy -= dy.signum() * h; }
+            if dx.abs() > w * 0.5 {
+                dx -= dx.signum() * w;
+            }
+            if dy.abs() > h * 0.5 {
+                dy -= dy.signum() * h;
+            }
             (dx, dy)
         }
     };
@@ -401,6 +471,3 @@ fn circle_circle_normal(a: &Transform2D, ra: f32, b: &Transform2D, rb: f32, wrap
         None
     }
 }
-
-
-

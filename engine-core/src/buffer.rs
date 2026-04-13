@@ -1,6 +1,6 @@
 use crate::color::Color;
 
-/// A single terminal cell — the atomic "pixel" of the engine.
+/// A single buffer cell in the engine's composed frame.
 /// Stores a Unicode character plus foreground and background colours.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Cell {
@@ -9,7 +9,7 @@ pub struct Cell {
     pub bg: Color,
 }
 
-/// True black constant — bypasses terminal theme palette.
+/// True black constant used as the default clear/background colour.
 pub const TRUE_BLACK: Color = Color::BLACK;
 
 impl Cell {
@@ -29,11 +29,89 @@ impl Default for Cell {
     }
 }
 
-/// A changed cell ready to be written to the terminal.
+/// A changed cell ready to be forwarded to an output backend.
 pub struct CellDiff<'a> {
     pub x: u16,
     pub y: u16,
     pub cell: &'a Cell,
+}
+
+/// Optional direct pixel canvas — RGBA pixel buffer for SDL2 bypass.
+///
+/// When enabled, sprite renderers write raw RGBA pixels here directly,
+/// bypassing the Cell→char encoding.  The SDL2 renderer reads this
+/// instead of decoding cells back to pixels.
+#[derive(Debug, Clone)]
+pub struct PixelCanvas {
+    /// RGBA pixel data (4 bytes per pixel, row-major).
+    pub data: Vec<u8>,
+    /// Pixel-level width of the canvas.
+    pub width: u16,
+    /// Pixel-level height of the canvas.
+    pub height: u16,
+    /// True if any pixel was written this frame (skip upload when false).
+    pub dirty: bool,
+    /// Frame-grid → pixel multiplier (x axis).
+    pub cell_mult_x: u16,
+    /// Frame-grid → pixel multiplier (y axis).
+    pub cell_mult_y: u16,
+}
+
+impl PixelCanvas {
+    pub fn new(width: u16, height: u16) -> Self {
+        Self {
+            data: vec![0u8; width as usize * height as usize * 4],
+            width,
+            height,
+            dirty: false,
+            cell_mult_x: 1,
+            cell_mult_y: 1,
+        }
+    }
+
+    /// Clear to fully transparent black.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.data.fill(0);
+        self.dirty = false;
+    }
+
+    /// Clear to an opaque RGB background colour.
+    pub fn clear_with_bg(&mut self, r: u8, g: u8, b: u8) {
+        for chunk in self.data.chunks_exact_mut(4) {
+            chunk[0] = r;
+            chunk[1] = g;
+            chunk[2] = b;
+            chunk[3] = 255;
+        }
+        self.dirty = true;
+    }
+
+    /// Write a single opaque pixel.
+    #[inline]
+    pub fn set_pixel(&mut self, x: u16, y: u16, r: u8, g: u8, b: u8) {
+        if x < self.width && y < self.height {
+            let idx = (y as usize * self.width as usize + x as usize) * 4;
+            self.data[idx] = r;
+            self.data[idx + 1] = g;
+            self.data[idx + 2] = b;
+            self.data[idx + 3] = 255;
+            self.dirty = true;
+        }
+    }
+
+    /// Write a single RGBA pixel.
+    #[inline]
+    pub fn set_pixel_rgba(&mut self, x: u16, y: u16, r: u8, g: u8, b: u8, a: u8) {
+        if x < self.width && y < self.height {
+            let idx = (y as usize * self.width as usize + x as usize) * 4;
+            self.data[idx] = r;
+            self.data[idx + 1] = g;
+            self.data[idx + 2] = b;
+            self.data[idx + 3] = a;
+            self.dirty = true;
+        }
+    }
 }
 
 /// Double-buffered pixel bitmap for the terminal screen.
@@ -69,6 +147,8 @@ pub struct Buffer {
     pub write_count: u64,
     /// Number of cells emitted by the most recent diff_into / diff_into_dirty call.
     pub last_diff_count: u32,
+    /// Direct pixel canvas for SDL2 presentation. `None` keeps cell-based buffer data only.
+    pub pixel_canvas: Option<PixelCanvas>,
 }
 
 impl Buffer {
@@ -100,6 +180,7 @@ impl Buffer {
             dirty_rows,
             write_count: 0,
             last_diff_count: 0,
+            pixel_canvas: None,
         }
     }
 
@@ -114,6 +195,35 @@ impl Buffer {
         // Mark all rows as dirty
         self.dirty_rows.fill(true);
         self.write_count += 1;
+        // Clear pixel canvas with the same background colour.
+        if let Some(pc) = &mut self.pixel_canvas {
+            let (r, g, b) = bg.to_rgb();
+            pc.clear_with_bg(r, g, b);
+        }
+    }
+
+    /// Enable the direct pixel canvas for SDL2-based rendering.
+    /// `pixel_w` × `pixel_h` is the virtual pixel resolution (may differ from cell grid).
+    pub fn enable_pixel_canvas(&mut self, pixel_w: u16, pixel_h: u16) {
+        let mult_x = if self.width > 0 {
+            pixel_w / self.width
+        } else {
+            1
+        };
+        let mult_y = if self.height > 0 {
+            pixel_h / self.height
+        } else {
+            1
+        };
+        if let Some(pc) = &mut self.pixel_canvas {
+            if pc.width == pixel_w && pc.height == pixel_h {
+                return;
+            }
+        }
+        let mut pc = PixelCanvas::new(pixel_w, pixel_h);
+        pc.cell_mult_x = mult_x.max(1);
+        pc.cell_mult_y = mult_y.max(1);
+        self.pixel_canvas = Some(pc);
     }
 
     /// Write a single pixel to the back buffer, tracking dirty region.
@@ -138,6 +248,115 @@ impl Buffer {
             // Mark this row as dirty
             if (y as usize) < self.dirty_rows.len() {
                 self.dirty_rows[y as usize] = true;
+            }
+            // Write to pixel canvas when enabled (SDL2 bypass).
+            if let Some(pc) = &mut self.pixel_canvas {
+                let mx = pc.cell_mult_x as usize;
+                let my = pc.cell_mult_y as usize;
+                let pcw = pc.width as usize;
+                let pch = pc.height as usize;
+                let base_px = x as usize * mx;
+                let base_py = y as usize * my;
+                let (fr, fg_g, fb) = fg.to_rgb();
+                let (br, bg_g, bb) = bg.to_rgb();
+                match symbol {
+                    '▀' => {
+                        // Top half = fg, bottom half = bg.
+                        let half = my / 2;
+                        for dy in 0..my {
+                            let py = base_py + dy;
+                            if py >= pch {
+                                break;
+                            }
+                            let (r, g, b) = if dy < half {
+                                (fr, fg_g, fb)
+                            } else {
+                                (br, bg_g, bb)
+                            };
+                            for dx in 0..mx {
+                                let px = base_px + dx;
+                                if px >= pcw {
+                                    break;
+                                }
+                                let i = (py * pcw + px) * 4;
+                                pc.data[i] = r;
+                                pc.data[i + 1] = g;
+                                pc.data[i + 2] = b;
+                                pc.data[i + 3] = 255;
+                            }
+                        }
+                        pc.dirty = true;
+                    }
+                    '▄' => {
+                        // Top half = bg, bottom half = fg.
+                        let half = my / 2;
+                        for dy in 0..my {
+                            let py = base_py + dy;
+                            if py >= pch {
+                                break;
+                            }
+                            let (r, g, b) = if dy < half {
+                                (br, bg_g, bb)
+                            } else {
+                                (fr, fg_g, fb)
+                            };
+                            for dx in 0..mx {
+                                let px = base_px + dx;
+                                if px >= pcw {
+                                    break;
+                                }
+                                let i = (py * pcw + px) * 4;
+                                pc.data[i] = r;
+                                pc.data[i + 1] = g;
+                                pc.data[i + 2] = b;
+                                pc.data[i + 3] = 255;
+                            }
+                        }
+                        pc.dirty = true;
+                    }
+                    ' ' => {
+                        // Blank — fill with bg.
+                        for dy in 0..my {
+                            let py = base_py + dy;
+                            if py >= pch {
+                                break;
+                            }
+                            for dx in 0..mx {
+                                let px = base_px + dx;
+                                if px >= pcw {
+                                    break;
+                                }
+                                let i = (py * pcw + px) * 4;
+                                pc.data[i] = br;
+                                pc.data[i + 1] = bg_g;
+                                pc.data[i + 2] = bb;
+                                pc.data[i + 3] = 255;
+                            }
+                        }
+                        pc.dirty = true;
+                    }
+                    _ => {
+                        // '█' and all other characters: fill all sub-pixels with fg.
+                        for dy in 0..my {
+                            let py = base_py + dy;
+                            if py >= pch {
+                                break;
+                            }
+                            for dx in 0..mx {
+                                let px = base_px + dx;
+                                if px >= pcw {
+                                    break;
+                                }
+                                let i = (py * pcw + px) * 4;
+                                pc.data[i] = fr;
+                                pc.data[i + 1] = fg_g;
+                                pc.data[i + 2] = fb;
+                                pc.data[i + 3] = 255;
+                            }
+                        }
+                        pc.dirty = true;
+                    }
+                }
             }
         }
     }
@@ -311,7 +530,7 @@ impl Buffer {
         h
     }
 
-    /// #5 opt-comp-halfblock: return dirty bounds (x_min, x_max, y_min, y_max).
+    /// #5 opt-comp-dirtyregion: return dirty bounds (x_min, x_max, y_min, y_max).
     /// Returns None if no dirty region exists.
     #[inline]
     pub fn dirty_bounds(&self) -> Option<(u16, u16, u16, u16)> {
@@ -443,6 +662,16 @@ impl Buffer {
         self.dirty_y_min = 0;
         self.dirty_y_max = height.saturating_sub(1);
         self.write_count += 1;
+        // Resize pixel canvas if active (compositor will re-enable with correct virtual dims).
+        if let Some(pc) = &mut self.pixel_canvas {
+            let new_pw = width as u16 * pc.cell_mult_x;
+            let new_ph = height as u16 * pc.cell_mult_y;
+            if new_pw != pc.width || new_ph != pc.height {
+                *pc = PixelCanvas::new(new_pw, new_ph);
+                pc.cell_mult_x = new_pw / width.max(1);
+                pc.cell_mult_y = new_ph / height.max(1);
+            }
+        }
     }
 
     /// Blit a rectangular region from source buffer to this buffer's back.
@@ -491,6 +720,48 @@ impl Buffer {
                     min_y = min_y.min(dst_row);
                     max_y = max_y.max(dst_row);
                     any_written = true;
+                    // Also write to pixel canvas for SDL2 bypass.
+                    if let Some(pc) = &mut self.pixel_canvas {
+                        let mx = pc.cell_mult_x as usize;
+                        let my = pc.cell_mult_y as usize;
+                        let pcw = pc.width as usize;
+                        let pch = pc.height as usize;
+                        let bpx = dst_col as usize * mx;
+                        let bpy = dst_row as usize * my;
+                        let (fr, fg, fb) = cell.fg.to_rgb();
+                        let (br, bg, bb) = cell.bg.to_rgb();
+                        // Use same char→pixel logic as set().
+                        let (top_r, top_g, top_b, bot_r, bot_g, bot_b) = match cell.symbol {
+                            '▀' => (fr, fg, fb, br, bg, bb),
+                            '▄' => (br, bg, bb, fr, fg, fb),
+                            ' ' => (br, bg, bb, br, bg, bb),
+                            _ => (fr, fg, fb, fr, fg, fb),
+                        };
+                        let half = my / 2;
+                        for dy in 0..my {
+                            let py = bpy + dy;
+                            if py >= pch {
+                                break;
+                            }
+                            let (r, g, b) = if dy < half {
+                                (top_r, top_g, top_b)
+                            } else {
+                                (bot_r, bot_g, bot_b)
+                            };
+                            for dx in 0..mx {
+                                let px = bpx + dx;
+                                if px >= pcw {
+                                    break;
+                                }
+                                let i = (py * pcw + px) * 4;
+                                pc.data[i] = r;
+                                pc.data[i + 1] = g;
+                                pc.data[i + 2] = b;
+                                pc.data[i + 3] = 255;
+                            }
+                        }
+                        pc.dirty = true;
+                    }
                 }
             }
         }

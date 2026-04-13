@@ -56,6 +56,9 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
         super::thruster_ramp::thruster_ramp_system(gameplay_world, dt_ms);
     }
 
+    super::gravity::gravity_system(world, dt_ms);
+    super::atmosphere::atmosphere_system(world, dt_ms);
+
     // Run physics integration
     if let (Some(strategies), Some(gameplay_world)) = (
         world.get::<GameplayStrategies>(),
@@ -80,13 +83,13 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
     if let Some(gameplay_world) = world.get::<GameplayWorld>().cloned() {
         let emitter_state = world.get::<EmitterState>().cloned();
         let ids = gameplay_world.ids_with_lifecycle();
-        
+
         // PHASE 1: Single-lock batch read of all lifecycle data
         let lifecycle_data = gameplay_world.batch_read_lifecycle(&ids);
-        
+
         // PHASE 2: Compute lifecycle actions (parallel only if >32 entities)
         const PARALLEL_THRESHOLD: usize = 32;
-        
+
         let compute_action = |item: &(u64, i32, LifecyclePolicy, Option<u64>)| {
             let (id, ttl_ms, policy, owner_id) = *item;
             // Check owner-bound lifecycle
@@ -111,7 +114,7 @@ pub fn gameplay_system(world: &mut engine_core::world::World, dt_ms: u64) {
 
             LifecycleAction::None
         };
-        
+
         let actions: Vec<LifecycleAction> = if lifecycle_data.len() > PARALLEL_THRESHOLD {
             lifecycle_data.par_iter().map(compute_action).collect()
         } else {

@@ -2,11 +2,8 @@
 name: Shell Quest
 version: 0.1.0
 entrypoint: /scenes/00-intro-logo/scene.yml
-# Ask the player whether to stay in the terminal or open the SDL2 window backend.
-# CLI `--output` still wins when explicitly provided.
-output_backend: prompt
-terminal:
-  # Minimum terminal capabilities required before startup (cell units).
+display:
+  # Minimum display capabilities required before startup.
   # With fit/stretch policy size checks are skipped; only min_colours is enforced.
   min_colours: 256
   min_width: 320
@@ -20,5 +17,5 @@ terminal:
   # game rendering stays in this virtual resolution.
   render_size: 320x180
 
-  # Preserve aspect ratio when projecting the authored canvas to terminal/SDL.
+  # Preserve aspect ratio when projecting the authored canvas to the SDL window.
   presentation_policy: stretch

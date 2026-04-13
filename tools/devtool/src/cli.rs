@@ -117,10 +117,10 @@ pub struct NewSpriteArgs {
     /// Sprite anchor/placement value.
     #[arg(long, default_value = "cc")]
     pub at: String,
-    /// Initial sprite width in terminal cells.
+    /// Initial sprite width in pixels.
     #[arg(long, default_value_t = 24)]
     pub width: u32,
-    /// Optional initial sprite height in terminal cells.
+    /// Optional initial sprite height in pixels.
     #[arg(long)]
     pub height: Option<u32>,
     /// Overwrite existing asset file or sprite with the same id.
@@ -172,10 +172,10 @@ pub struct EditSpriteArgs {
     /// Replace vertical offset (integer or expression string).
     #[arg(long, allow_hyphen_values = true)]
     pub y: Option<String>,
-    /// Replace width in terminal cells.
+    /// Replace width in pixels.
     #[arg(long)]
     pub width: Option<u32>,
-    /// Replace height in terminal cells.
+    /// Replace height in pixels.
     #[arg(long, conflicts_with = "clear_height")]
     pub height: Option<u32>,
     /// Remove the explicit height field.

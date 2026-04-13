@@ -1,0 +1,34 @@
+# Asteroids celestial bodies.
+# Each entry defines one persistent orbital body for the mod's celestial model.
+#
+# Scale contract: v_orbit = 7 km/s, T_orbit = 60 s at surface.
+#   R = v×T/(2π) = 66.85 km
+#   μ = v²×R = 3,275.65 km³/s²
+#   surface_g = μ/R² = 733 m/s² (decoupled for gameplay lift)
+#   km_per_px = 66.85/200 = 0.334 km/px
+#   gravity_mu (px) = v_px²×R_px = 20.96²×200 = 87,861
+
+bodies:
+  main-planet:
+    planet_type: earth_like
+    # Fixed at world center — not orbiting anything
+    center_x: 1600.0
+    center_y: 900.0
+    orbit_radius: 0.0
+    orbit_period_sec: 0.0
+    orbit_phase_deg: 0.0
+    # Visual/collision dimensions (px)
+    radius_px: 230.0
+    surface_radius: 200.0
+    # Physical scale contract (v=7 km/s, T=60s orbit)
+    radius_km: 66.85
+    km_per_px: 0.334
+    # Gravitational mu for orbital mechanics (px^3/s^2)
+    # v_circ = sqrt(87861/200) = 20.96 px/s → 7.0 km/s at surface → 60s orbit.
+    gravity_mu: 87861.0
+    # Atmosphere / cloud layering (physical km above surface)
+    cloud_bottom_km: 0.0
+    cloud_top_km: 1.0
+    atmosphere_top_km: 14.0
+    atmosphere_dense_start_km: 4.5
+    atmosphere_drag_max: 2.2

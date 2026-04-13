@@ -198,14 +198,11 @@ pub(super) fn collect_font_specs(font_names: &BTreeSet<String>) -> BTreeSet<Stri
         "generic:standard".to_string(),
         "generic:3".to_string(),
         "generic:large".to_string(),
-        "generic:half".to_string(),
-        "generic:quad".to_string(),
-        "generic:braille".to_string(),
     ]);
 
     for name in font_names {
         specs.insert(name.clone());
-        for mode in ["ascii", "raster", "terminal-pixels"] {
+        for mode in ["ascii", "raster"] {
             specs.insert(format!("{name}:{mode}"));
         }
     }

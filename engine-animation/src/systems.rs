@@ -153,7 +153,7 @@ fn tick_animator_primitives(
 mod tests {
     use super::*;
     use engine_core::scene::{
-        Scene, SceneAudio, SceneInput, SceneRenderedMode, SceneStages, SceneUi, Stage,
+        Scene, SceneAudio, SceneInput, SceneStages, SceneUi, Stage,
         StageTrigger, Step,
     };
 
@@ -180,8 +180,8 @@ mod tests {
             title: "Test".to_string(),
             cutscene: false,
             target_fps: None,
-            rendered_mode: SceneRenderedMode::default(),
             space: Default::default(),
+            celestial: Default::default(),
             virtual_size_override: None,
             bg_colour: None,
             stages: SceneStages {

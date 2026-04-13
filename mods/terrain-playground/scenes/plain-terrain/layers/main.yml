@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: plain-terrain
+  z_index: 0
+  sprites:
+    - {
+        type: text,
+        content: "PLAIN TERRAIN",
+        at: ct,
+        y: 20,
+        font: "Orbitron:ascii",
+        fg: "#44cc88",
+      }
+    - {
+        type: text,
+        content: "________________________________________________________________________________",
+        at: cc,
+        y: 4,
+        font: "generic:1",
+        fg: "#44aa99",
+      }
+    - {
+        type: text,
+        content: "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+        at: cc,
+        y: 3,
+        font: "generic:1",
+        fg: "#33bb88",
+      }
+    - {
+        type: text,
+        content: "[ PRESS ANY KEY TO RETURN ]",
+        at: cb,
+        y: -20,
+        font: "generic:1",
+        fg: "#2a6e55",
+        behaviors:
+          [{ name: blink, params: { visible_ms: 600, hidden_ms: 600 } }],
+      }

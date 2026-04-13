@@ -7,13 +7,11 @@ All flags passed via command-line or environment variables:
 | Flag | Purpose | Type |
 |------|---------|------|
 | `--mod-source <PATH>` | Load mod from directory instead of built-in | String |
-| `--sdl2` | Shorthand for `--output sdl2` | Boolean |
 | `--sdl-window-ratio <RATIO>` | SDL startup ratio (`16:9`, `4:3`, `free`) | String |
 | `--sdl-pixel-scale <N>` | SDL startup logical pixel scale | Number |
 | `--no-sdl-vsync` | Disable SDL VSync | Boolean |
 | `--bench <SECS>` | Benchmark mode, run for N seconds | Number |
 | `--capture-frames <DIR>` | Capture binary frames to directory | String |
-| `--output <terminal\|sdl2\|prompt>` | Override startup backend selection | String |
 | `--audio` | Enable audio output (default: off) | Boolean |
 | `--start-scene <SCENE>` | Jump directly to a scene path | String |
 | `--skip-splash` | Skip splash screen (auto-on for `--bench`) | Boolean |
@@ -39,8 +37,6 @@ Visible when `--debug-feature` is on. The Stats panel shows scene id, stage, ren
 **EngineConfig** (set from CLI flags):
 ```
 pub struct EngineConfig {
-    pub output_backend: BackendKind,       // resolved from --output or mod.yaml
-    pub renderer_mode: Option<String>,     // --renderer-mode <MODE>
     pub bench_secs: Option<f32>,           // --bench <SECS>
     pub capture_frames_dir: Option<PathBuf>, // --capture-frames <DIR>
     pub audio: bool,                       // --audio
@@ -48,15 +44,11 @@ pub struct EngineConfig {
 }
 ```
 
-**Mod manifest startup output**:
+**Mod manifest display settings**:
 ```yaml
-output_backend: prompt   # terminal | sdl2 | prompt
+display:
+  render_size: 320x180
 ```
-
-Precedence:
-1. CLI `--output` when provided
-2. mod.yaml `output_backend`
-3. fallback `terminal`
 
 **PipelineFlags** (optimization toggles):
 ```
@@ -72,7 +64,7 @@ pub struct PipelineFlags {
 ## App Startup Flow
 
 1. **Parse CLI args** (`cli.rs`)
-   - Extract `--mod-source`, `--output`, `--bench`, `--capture-frames`, opt flags
+   - Extract `--mod-source`, `--bench`, `--capture-frames`, opt flags
    - Set `EngineConfig` and `PipelineFlags`
 
 2. **Optional startup validation** (`--check-scenes`)
@@ -107,4 +99,4 @@ pub struct PipelineFlags {
 - **PipelineStrategies**: Created via `PipelineFlags::from_cli()` → strategies chosen per flag
 - **BenchmarkState**: Registered once, populated per frame
 - **World setup**: Subsystems added via `app.register_system()`
-- **Event loop**: Routed through `InputBackend` (`TerminalInputBackend` or `Sdl2InputBackend`), frame pacing via sleep
+- **Event loop**: Routed through `InputBackend` (`Sdl2InputBackend`), frame pacing via sleep

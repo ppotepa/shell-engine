@@ -37,12 +37,11 @@
               at: cc
               width: 200
               columns: ["1fr"]
-              rows: ["auto", "auto", "auto"]
+              rows: ["auto", "auto"]
               gap-y: 14
               children:
-                - { type: text, id: item-0, content: "NEW GAME",    grid-col: 1, grid-row: 1, at: cc, font: "Orbitron:ascii", fg: "#f6ae2d" }
-                - { type: text, id: item-1, content: "HIGH SCORES", grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "#2e5eaa" }
-                - { type: text, id: item-2, content: "EXIT",        grid-col: 1, grid-row: 3, at: cc, font: "Orbitron:ascii", fg: "#2e5eaa" }
+                - { type: text, id: item-0, content: "NEW GAME", grid-col: 1, grid-row: 1, at: cc, font: "Orbitron:ascii", fg: "#f6ae2d" }
+                - { type: text, id: item-1, content: "EXIT",     grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "#2e5eaa" }
 
             # ── Footer Hint ───────────────────────────────────────────────────
             - type: text

@@ -34,19 +34,15 @@ properties:
     minimum: 1
     maximum: 240
     description: Optional scene-level FPS cap override (applies regardless of renderer/scene type).
-  rendered-mode:
-    type: string
-    enum: [cell, halfblock, quadblock, braille]
-    description: >
-      Optional scene-level renderer packing mode override.
-      Runtime currently supports `halfblock` for 2x vertical virtual resolution.
-      Other modes are reserved for upcoming packed renderers.
+  celestial:
+    $ref: "#/$defs/scene_celestial"
+    description: Optional binding to the persistent celestial scope resolved by this scene.
   virtual-size-override:
     type: string
     pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
     description: >
       Optional scene-local render canvas override in WIDTHxHEIGHT form (e.g. 320x240).
-      Compatibility-only: prefer a single mod-level `terminal.render_size` so the whole mod
+      Compatibility-only: prefer a single mod-level `display.render_size` so the whole mod
       shares one authored canvas and presentation remains a backend concern.
   bg_colour:
     $ref: "#/$defs/colour"
@@ -169,6 +165,58 @@ $defs:
         default: {}
         additionalProperties: true
 
+  celestial_scope:
+    type: string
+    enum: [local, system, region]
+    default: local
+    description: Which slice of the celestial hierarchy the scene intends to resolve.
+
+  celestial_frame:
+    type: string
+    enum: [focus-relative, barycentric, surface-local]
+    default: focus-relative
+    description: Coordinate frame used for celestial rendering and gameplay in this scene.
+
+  celestial_clock_source:
+    type: string
+    enum: [scene, campaign, fixed]
+    default: scene
+    description: Time source used when resolving celestial poses for this scene.
+
+  scene_celestial:
+    type: object
+    additionalProperties: false
+    properties:
+      scope:
+        $ref: "#/$defs/celestial_scope"
+      region:
+        type: string
+        minLength: 1
+        description: Optional region/sector/cluster id bound to this scene.
+      system:
+        type: string
+        minLength: 1
+        description: Optional star-system id bound to this scene.
+      focus-body:
+        type: string
+        minLength: 1
+        description: Optional body id used as the scene focus.
+      focus-site:
+        type: string
+        minLength: 1
+        description: Optional site/POI id used as the scene focus.
+      frame:
+        $ref: "#/$defs/celestial_frame"
+      clock-source:
+        $ref: "#/$defs/celestial_clock_source"
+    patternProperties:
+      "^focus_body$":
+        $ref: "#/$defs/scene_celestial/properties/focus-body"
+      "^focus_site$":
+        $ref: "#/$defs/scene_celestial/properties/focus-site"
+      "^clock_source$":
+        $ref: "#/$defs/scene_celestial/properties/clock-source"
+
   # ── Scene input profiles ────────────────────────────────────────────────────
   scene_input:
     type: object
@@ -176,17 +224,13 @@ $defs:
     properties:
       obj-viewer:
         $ref: "#/$defs/obj_viewer_controls"
-      terminal-size-tester:
-        $ref: "#/$defs/terminal_size_tester_controls"
-      terminal-shell:
-        $ref: "#/$defs/terminal_shell_controls"
+      free-look-camera:
+        $ref: "#/$defs/free_look_camera_controls"
     patternProperties:
       "^obj_viewer$":
         $ref: "#/$defs/obj_viewer_controls"
-      "^terminal_size_tester$":
-        $ref: "#/$defs/terminal_size_tester_controls"
-      "^terminal_shell$":
-        $ref: "#/$defs/terminal_shell_controls"
+      "^free_look_camera$":
+        $ref: "#/$defs/free_look_camera_controls"
 
   ui_persist_mode:
     type: string
@@ -227,117 +271,25 @@ $defs:
         minLength: 1
         description: Target OBJ sprite id for 3D viewer controls.
 
-  terminal_size_tester_controls:
+  free_look_camera_controls:
     type: object
     additionalProperties: false
     properties:
-      presets:
-        type: array
-        description: Optional terminal size presets in WIDTHxHEIGHT format.
-        items:
-          type: string
-          pattern: "^[1-9][0-9]*x[1-9][0-9]*$"
-
-  terminal_shell_controls:
-    type: object
-    additionalProperties: false
-    anyOf:
-      - required: [prompt-sprite-id, output-sprite-id]
-      - required: [prompt_sprite_id, output_sprite_id]
-    properties:
-      prompt-sprite-id:
-        type: string
-        minLength: 1
-        description: Text sprite id used for the editable command prompt.
-      output-sprite-id:
-        type: string
-        minLength: 1
-        description: Text sprite id used for command transcript/output.
-      prompt-prefix:
-        type: string
-        default: "> "
-        description: Prefix rendered before the current command line.
-      max-lines:
-        type: integer
-        minimum: 1
-        maximum: 1000
-        default: 120
-        description: Maximum transcript line count retained in the output sprite.
-      banner:
-        type: array
-        default: []
-        description: Initial output transcript lines shown when scene starts.
-        items:
-          type: string
-      unknown_message:
-        type: string
-        minLength: 1
-        description: Optional fallback line used for unknown commands.
-      commands:
-        type: array
-        default: []
-        description: Optional command table handled by the terminal-shell input profile.
-        items:
-          $ref: "#/$defs/terminal_shell_command"
-      mode:
-        type: string
-        enum: [builtin, scripted, sidecar]
-        default: builtin
-        description: >
-          Terminal shell interaction mode.
-          `builtin`: Engine executes built-in commands (help, clear, ls, pwd, echo, whoami).
-          `scripted`: Commands are not executed; only UI submit/change events are emitted for script handling.
-          `sidecar`: Commands are forwarded to an external process configured in `sidecar`; engine does not execute built-ins.
-      sidecar:
-        type: object
-        additionalProperties: false
-        required: [command]
-        description: 'External sidecar process configuration used when `mode: sidecar`.'
-        properties:
-          command:
-            type: string
-            minLength: 1
-            description: Executable name/path to spawn (e.g. `dotnet`).
-          args:
-            type: array
-            default: []
-            items:
-              type: string
-            description: Arguments passed to the sidecar process.
+      move-speed:
+        type: number
+        exclusiveMinimum: 0
+        default: 1.5
+        description: Camera translation speed in scene-world units per second.
+      mouse-sensitivity:
+        type: number
+        exclusiveMinimum: 0
+        default: 1.0
+        description: Mouse-look sensitivity multiplier.
     patternProperties:
-      "^prompt_sprite_id$":
-        $ref: "#/$defs/terminal_shell_controls/properties/prompt-sprite-id"
-      "^output_sprite_id$":
-        $ref: "#/$defs/terminal_shell_controls/properties/output-sprite-id"
-      "^prompt_prefix$":
-        $ref: "#/$defs/terminal_shell_controls/properties/prompt-prefix"
-      "^max_lines$":
-        $ref: "#/$defs/terminal_shell_controls/properties/max-lines"
-      "^unknown-message$":
-        $ref: "#/$defs/terminal_shell_controls/properties/unknown_message"
-      "^unknown_message$":
-        $ref: "#/$defs/terminal_shell_controls/properties/unknown_message"
-
-  terminal_shell_command:
-    type: object
-    additionalProperties: false
-    required: [name]
-    properties:
-      name:
-        type: string
-        minLength: 1
-        description: Command name without arguments, for example `ls` or `status`.
-      description:
-        type: string
-        minLength: 1
-        description: Optional description shown in `help`.
-      output:
-        oneOf:
-          - type: string
-          - type: array
-            items:
-              type: string
-        description: Output line(s) emitted when this command runs.
+      "^move_speed$":
+        $ref: "#/$defs/free_look_camera_controls/properties/move-speed"
+      "^mouse_sensitivity$":
+        $ref: "#/$defs/free_look_camera_controls/properties/mouse-sensitivity"
 
   # ── Effect ─────────────────────────────────────────────────────────────────
   effect:
@@ -669,9 +621,9 @@ $defs:
     properties:
       type:
         type: string
-        enum: [text, image, obj, vector, grid, flex, window, scroll-list, scene3_d]
+        enum: [text, image, obj, planet, vector, grid, flex, window, scroll-list, scene3_d]
         description: >
-          Sprite type. Runtime-native: text, image, obj, vector, grid, flex, scene3_d.
+          Sprite type. Runtime-native: text, image, obj, planet, vector, grid, flex, scene3_d.
           Authoring sugar: window, scroll-list (expanded to grid/text by compiler).
           scene3_d: blits a pre-rendered frame from a .scene3d.yml atlas.
       use:
@@ -693,6 +645,18 @@ $defs:
         type: string
         minLength: 1
         description: Asset path (required for type=image/obj), e.g. /assets/images/tux.png or /scenes/3d/model.obj.
+      body-id:
+        type: string
+        minLength: 1
+        description: Body catalog id for type=planet. Resolves against catalogs/celestial/bodies.yaml.
+      preset:
+        type: string
+        minLength: 1
+        description: Optional planet preset override for type=planet. Defaults to the body's planet_type.
+      mesh-source:
+        type: string
+        minLength: 1
+        description: Optional sphere mesh asset override for type=planet. Defaults to /assets/3d/sphere.obj.
       src:
         type: string
         minLength: 1
@@ -772,16 +736,13 @@ $defs:
           Font for rasterized rendering. Three forms are supported:
 
           Mod/engine default alias:
-            "default"    — resolve to `terminal.default_font` from mod.yaml.
+            "default"    — resolve to `display.default_font` from mod.yaml.
                            If unset, engine fallback font is used.
 
           Built-in generic pixel font (no asset files required):
             "generic:1"  — compact 4×5 tiny bitmaps (minimum readable, 4 cells wide × 5 tall per glyph).
             "generic:2"  — 5×7 standard bitmaps (5 cells wide × 7 tall per glyph). Default.
             "generic:3"  — 5×7 bitmaps × 2 cell scale (10×14 cells — large pixel art).
-            "generic:half"    — 5×7 compressed with upper/lower half blocks (6×4 cells per glyph).
-            "generic:quad"    — 5×7 compressed with quadrant blocks (3×4 cells per glyph).
-            "generic:braille" — 5×7 compressed with braille dots (3×2 cells per glyph).
             "generic"    — equivalent to generic:2.
 
           Named bitmap fonts loaded from mod assets:
@@ -795,7 +756,7 @@ $defs:
         minimum: 1
         maximum: 65535
         description: >
-          Target sprite width in terminal cells.
+          Target sprite width in pixels.
           For image sprites, when only width is set, height is derived from source aspect ratio.
       size:
         type: integer
@@ -812,7 +773,7 @@ $defs:
         minimum: 1
         maximum: 65535
         description: >
-          Target sprite height in terminal cells.
+          Target sprite height in pixels.
           For image sprites, when only height is set, width is derived from source aspect ratio.
           For grid sprites, sets container height.
       scale:
@@ -866,6 +827,28 @@ $defs:
         type: number
         minimum: 0.000001
         description: Near clipping plane distance in camera space for type=obj (smaller renders closer geometry).
+      spin-deg:
+        type: number
+        description: Surface spin angle in degrees for type=planet.
+      cloud-spin-deg:
+        type: number
+        description: Primary cloud deck spin angle in degrees for type=planet.
+      cloud2-spin-deg:
+        type: number
+        description: Secondary cloud breakup spin angle in degrees for type=planet.
+      observer-altitude-km:
+        type: number
+        minimum: 0
+        description: Observer altitude hint in kilometers for type=planet.
+      sun-dir-x:
+        type: number
+        description: Planet sun direction X override for type=planet.
+      sun-dir-y:
+        type: number
+        description: Planet sun direction Y override for type=planet.
+      sun-dir-z:
+        type: number
+        description: Planet sun direction Z override for type=planet.
       light-direction-x:
         type: number
         description: Directional light X component for type=obj shading vector.
@@ -1036,33 +1019,22 @@ $defs:
         description: Child renderable sprites for type=grid or type=flex.
         items:
           $ref: "#/$defs/sprite"
-      force-renderer-mode:
-        type: string
-        enum: [cell, halfblock, quadblock, braille]
-        description: >
-          Optional per-sprite renderer mode override.
-          Priority: sprite.force-renderer-mode > scene.rendered-mode > engine default.
-          Applies only to renderable sprites.
       force-font-mode:
         type: string
         enum:
           - ascii
           - raster
-          - terminal-pixels
           - 1
           - 2
           - 3
           - tiny
           - standard
           - large
-          - half
-          - quad
-          - braille
         description: >
           Optional per-sprite font mode override.
-          For named bitmap fonts: ascii/raster/terminal-pixels.
-          For generic fonts: 1/2/3 or tiny/standard/large/half/quad/braille.
-          Priority: force-font-mode > renderer-derived generic mode > sprite font declaration.
+          For named bitmap fonts: ascii/raster.
+          For generic fonts: 1/2/3 or tiny/standard/large.
+          Priority: force-font-mode > sprite font declaration.
       stretch-to-area:
         type: boolean
         default: false
@@ -1156,6 +1128,12 @@ $defs:
               const: image
         then:
           required: [source]
+      - if:
+          properties:
+            type:
+              const: planet
+        then:
+          required: [body-id]
       - if:
           properties:
             type:

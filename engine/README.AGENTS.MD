@@ -19,7 +19,7 @@ that still need engine-only world access.
 
 | System | Timing field | Purpose |
 |---|---|---|
-| input | `input_us` | Crossterm event polling |
+| input | `input_us` | SDL2 event polling |
 | lifecycle | `lifecycle_us` | Scene transitions, debug shortcuts, event routing |
 | animator | `animator_us` | Stage/step advancement |
 | hot_reload | `hot_reload_us` | Dev-mode file scanning |
@@ -47,7 +47,7 @@ hot paths.
 
 Important flags:
 
-- `--opt-comp` — compositor and halfblock packing optimizations
+- `--opt-comp` — compositor optimizations (layer scratch skip)
 - `--opt-diff` — dirty-region diff
 - `--opt-present` — hash-based present skipping
 - `--opt-skip` — coordinated frame-skip oracle

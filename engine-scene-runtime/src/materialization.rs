@@ -147,12 +147,16 @@ impl SceneRuntime {
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
                 set_text_fg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
-                if updated { return true; }
+                if updated {
+                    return true;
+                }
             }
         }
         for layer in &mut self.scene.layers {
             set_text_fg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
-            if updated { return true; }
+            if updated {
+                return true;
+            }
         }
         false
     }
@@ -166,12 +170,16 @@ impl SceneRuntime {
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
                 set_text_bg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
-                if updated { return true; }
+                if updated {
+                    return true;
+                }
             }
         }
         for layer in &mut self.scene.layers {
             set_text_bg_recursive(&mut layer.sprites, sprite_id, &next_colour, &mut updated);
-            if updated { return true; }
+            if updated {
+                return true;
+            }
         }
         false
     }
@@ -185,13 +193,53 @@ impl SceneRuntime {
         let mut updated = false;
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
-                set_obj_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
-                if updated { return true; }
+                set_obj_property_recursive(
+                    &mut layer.sprites,
+                    sprite_id,
+                    path,
+                    value,
+                    &mut updated,
+                );
+                if updated {
+                    return true;
+                }
             }
         }
         for layer in &mut self.scene.layers {
             set_obj_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
-            if updated { return true; }
+            if updated {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub(crate) fn set_planet_sprite_property(
+        &mut self,
+        sprite_id: &str,
+        path: &str,
+        value: &JsonValue,
+    ) -> bool {
+        let mut updated = false;
+        if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
+            if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
+                set_planet_property_recursive(
+                    &mut layer.sprites,
+                    sprite_id,
+                    path,
+                    value,
+                    &mut updated,
+                );
+                if updated {
+                    return true;
+                }
+            }
+        }
+        for layer in &mut self.scene.layers {
+            set_planet_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+            if updated {
+                return true;
+            }
         }
         false
     }
@@ -206,7 +254,13 @@ impl SceneRuntime {
         // Fast path: use sprite_id_to_layer index for O(1) layer lookup
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
-                set_vector_property_recursive(&mut layer.sprites, sprite_id, path, value, &mut updated);
+                set_vector_property_recursive(
+                    &mut layer.sprites,
+                    sprite_id,
+                    path,
+                    value,
+                    &mut updated,
+                );
                 if updated {
                     return true;
                 }
@@ -226,13 +280,22 @@ impl SceneRuntime {
         let mut updated = false;
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
-                set_scene3d_frame_recursive(&mut layer.sprites, sprite_id, next_frame, &mut updated);
-                if updated { return true; }
+                set_scene3d_frame_recursive(
+                    &mut layer.sprites,
+                    sprite_id,
+                    next_frame,
+                    &mut updated,
+                );
+                if updated {
+                    return true;
+                }
             }
         }
         for layer in &mut self.scene.layers {
             set_scene3d_frame_recursive(&mut layer.sprites, sprite_id, next_frame, &mut updated);
-            if updated { return true; }
+            if updated {
+                return true;
+            }
         }
         false
     }
@@ -245,8 +308,15 @@ impl SceneRuntime {
         let mut updated = false;
         if let Some(&layer_idx) = self.sprite_id_to_layer.get(sprite_id) {
             if let Some(layer) = self.scene.layers.get_mut(layer_idx) {
-                set_image_frame_index_recursive(&mut layer.sprites, sprite_id, next_frame, &mut updated);
-                if updated { return true; }
+                set_image_frame_index_recursive(
+                    &mut layer.sprites,
+                    sprite_id,
+                    next_frame,
+                    &mut updated,
+                );
+                if updated {
+                    return true;
+                }
             }
         }
         for layer in &mut self.scene.layers {
@@ -256,7 +326,9 @@ impl SceneRuntime {
                 next_frame,
                 &mut updated,
             );
-            if updated { return true; }
+            if updated {
+                return true;
+            }
         }
         false
     }
@@ -300,7 +372,7 @@ impl SceneRuntime {
     /// - No JsonValue allocation
     /// - No resolve_alias (we resolve once via the Arc resolver)
     /// - Heading child cascade uses index iteration (no Vec<String> clone)
-    pub fn apply_particle_visual_sync(&mut self, sync_data: &[(String, f32, f32, f32)]) {
+    pub fn apply_particle_visual_sync(&mut self, sync_data: &[(String, f32, f32, f32, f32)]) {
         if sync_data.is_empty() {
             return;
         }
@@ -311,7 +383,7 @@ impl SceneRuntime {
 
         let resolver = std::sync::Arc::clone(&self.resolver_cache);
 
-        for (visual_id, x, y, heading) in sync_data {
+        for (visual_id, x, y, z, heading) in sync_data {
             let Some(object_id) = resolver.resolve_alias(visual_id) else {
                 continue;
             };
@@ -321,6 +393,7 @@ impl SceneRuntime {
             if let Some(state) = self.object_states.get_mut(object_id) {
                 state.offset_x = x.round() as i32;
                 state.offset_y = y.round() as i32;
+                state.offset_z = z.round() as i32;
                 state.heading = *heading;
             }
 
@@ -403,6 +476,7 @@ fn find_text_content<'a>(sprites: &'a [Sprite], sprite_id: &str) -> Option<&'a s
     None
 }
 
+#[allow(dead_code)]
 pub(crate) fn find_text_layout_recursive(
     sprites: &[Sprite],
     sprite_id: &str,
@@ -911,6 +985,102 @@ fn set_obj_property_recursive(
             | Sprite::Flex { children, .. }
             | Sprite::Panel { children, .. } => {
                 set_obj_property_recursive(children, sprite_id, path, value, updated);
+            }
+            _ => {}
+        }
+    }
+}
+
+fn set_planet_property_recursive(
+    sprites: &mut [Sprite],
+    sprite_id: &str,
+    path: &str,
+    value: &JsonValue,
+    updated: &mut bool,
+) {
+    for sprite in sprites.iter_mut() {
+        match sprite {
+            Sprite::Planet {
+                id: Some(id),
+                spin_deg,
+                cloud_spin_deg,
+                cloud2_spin_deg,
+                observer_altitude_km,
+                sun_dir_x,
+                sun_dir_y,
+                sun_dir_z,
+                ..
+            } if id == sprite_id => match path {
+                "planet.spin_deg" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (spin_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *spin_deg = Some(next);
+                        *updated = true;
+                    }
+                }
+                "planet.cloud_spin_deg" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (cloud_spin_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *cloud_spin_deg = Some(next);
+                        *updated = true;
+                    }
+                }
+                "planet.cloud2_spin_deg" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if (cloud2_spin_deg.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *cloud2_spin_deg = Some(next);
+                        *updated = true;
+                    }
+                }
+                "planet.observer_altitude_km" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    let next = next.max(0.0);
+                    if (observer_altitude_km.unwrap_or(0.0) - next).abs() > f32::EPSILON {
+                        *observer_altitude_km = Some(next);
+                        *updated = true;
+                    }
+                }
+                "planet.sun_dir.x" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if sun_dir_x.map_or(true, |current| (current - next).abs() > f32::EPSILON) {
+                        *sun_dir_x = Some(next);
+                        *updated = true;
+                    }
+                }
+                "planet.sun_dir.y" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if sun_dir_y.map_or(true, |current| (current - next).abs() > f32::EPSILON) {
+                        *sun_dir_y = Some(next);
+                        *updated = true;
+                    }
+                }
+                "planet.sun_dir.z" => {
+                    let Some(next) = json_value_to_f32(value) else {
+                        continue;
+                    };
+                    if sun_dir_z.map_or(true, |current| (current - next).abs() > f32::EPSILON) {
+                        *sun_dir_z = Some(next);
+                        *updated = true;
+                    }
+                }
+                _ => {}
+            },
+            Sprite::Grid { children, .. }
+            | Sprite::Flex { children, .. }
+            | Sprite::Panel { children, .. } => {
+                set_planet_property_recursive(children, sprite_id, path, value, updated);
             }
             _ => {}
         }

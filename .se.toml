@@ -1,9 +1,8 @@
 # Shell Engine launcher config — auto-generated, safe to edit
 [flags]
-sdl2 = true
 skip_splash = true
 audio = true
 check_scenes = false
 release = true
 dev = false
-all_opt = false
+all_opt = true

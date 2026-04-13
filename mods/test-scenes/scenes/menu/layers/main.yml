@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=../../../schemas/layers.yaml
-- name: menu
-  z_index: 0
-  objects:
-    - ref: centered-endless-menu-3
-  sprites:
-    - { type: text, content: "TEST SCENES", at: ct, y: 1, font: "generic:1", fg: white }
-    - { type: text, content: "CUTSCENE COMPARISON MENU", at: ct, y: 3, font: "generic:1", fg: silver }
-    - { type: text, content: "Arrows: navigate | Enter: select | [1]-[3]: shortcut", at: cb, y: -1, font: "generic:1", fg: silver, hide_on_leave: true, behaviors: [{ name: blink, params: { visible_ms: 800, hidden_ms: 500 } }] }

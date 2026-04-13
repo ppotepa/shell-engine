@@ -63,16 +63,22 @@ impl SceneRuntime {
         self.camera_y = y;
     }
 
+    /// Returns the current 2D camera zoom factor (default 1.0).
+    pub fn camera_zoom(&self) -> f32 {
+        self.camera_zoom
+    }
+
+    /// Sets the 2D camera zoom factor (called from behavior_runner).
+    pub(crate) fn set_camera_zoom_internal(&mut self, zoom: f32) {
+        self.camera_zoom = zoom.max(0.001);
+    }
+
     pub fn scene_camera_3d(&self) -> SceneCamera3D {
         self.scene_camera_3d
     }
 
     pub(crate) fn set_scene_camera_3d_internal(&mut self, camera: SceneCamera3D) {
         self.scene_camera_3d = camera;
-    }
-
-    pub fn set_scene_rendered_mode(&mut self, mode: SceneRenderedMode) {
-        self.scene.rendered_mode = mode;
     }
 
     /// Returns the runtime object id assigned to the scene root node.
@@ -207,7 +213,9 @@ impl SceneRuntime {
         // first child sprite, which is retagged to the same name).
         for (object_id, object) in &self.objects {
             for alias in &object.aliases {
-                aliases.entry(alias.clone()).or_insert_with(|| object_id.clone());
+                aliases
+                    .entry(alias.clone())
+                    .or_insert_with(|| object_id.clone());
             }
         }
 

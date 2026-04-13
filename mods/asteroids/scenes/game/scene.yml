@@ -1,21 +1,23 @@
 id: asteroids-game
-title: Asteroids Game
+title: Surface Launch Sim
 bg: "#000000"
+celestial:
+  scope: local
+  region: asteroids-sector
+  system: asteroids-sim
+  focus-body: main-planet
+  focus-site: main-orbit
+  frame: focus-relative
+  clock-source: scene
 objects:
   - { ref: ship }
-  - { ref: bullet }
-  - { ref: shrapnel }
-  - { ref: asteroid-large }
-  - { ref: asteroid-medium }
-  - { ref: asteroid-small }
-  - { ref: debris }
 layers:
-  - ref: game/layers/stars-layer.yml
+  - ref: game/layers/stars-layer-1.yml
   - ref: game/layers/planet-bg-layer.yml
-  - ref: game/layers/asteroids-gen-layer.yml
   - ref: game/layers/ship-scene-layer.yml
-  - ref: game/layers/game-canvas.yml
   - ref: game/layers/hud-grid.yml
+input:
+  free-look-camera: {}
 logic:
   kind: script
   behavior: rhai-script

@@ -1,0 +1,7 @@
+sites:
+  main-orbit:
+    kind: orbit
+    display-name: Main Orbit
+    system: asteroids-sim
+    body: main-planet
+    orbit-altitude-km: 200.0

@@ -1,7 +1,6 @@
 //! Engine-owned color abstraction — platform-agnostic RGB + named colors.
 //!
-//! Replaces crossterm::style::Color with an engine-internal type that can be:
-//! - Rendered as terminal ANSI (via engine-render-terminal)
+//! An engine-internal color type that can be:
 //! - Rendered as SDL2 pixels (via engine-render-sdl2)
 //! - Captured to binary frames (via engine-capture)
 

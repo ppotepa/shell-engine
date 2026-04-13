@@ -1,7 +1,7 @@
 //! Builtin effects catalogue sourced directly from engine-core metadata.
 
-use engine_effects::{shared_dispatcher, EffectDispatcher};
 use engine_core::scene::EffectTargetKind;
+use engine_effects::{shared_dispatcher, EffectDispatcher};
 
 /// Renderable documentation snapshot sourced from engine-core effect metadata.
 #[derive(Debug, Clone, Copy)]

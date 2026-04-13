@@ -5,9 +5,9 @@ use engine_effects::{shared_dispatcher, ParamControl};
 use serde_yaml::{Mapping, Value};
 use std::collections::BTreeSet;
 
-use super::helpers::{mapping_with, non_empty_string_schema, object_schema, schema_ref};
 #[cfg(test)]
 use super::helpers::field_metadata_to_schema;
+use super::helpers::{mapping_with, non_empty_string_schema, object_schema, schema_ref};
 use super::overlays::{
     object_doc_overlay_patch, object_instance_overlay_patch, object_logic_overlay_def,
     scene_overlay_patch, shared_overlay_defs,
@@ -185,9 +185,9 @@ pub(super) fn build_behavior_schema() -> Value {
 /// Builds schema for all built-in animations with their parameter schemas.
 #[cfg(test)]
 pub(super) fn build_animation_schema() -> Value {
+    use super::helpers::field_metadata_to_schema;
     use engine_core::authoring::catalog::animation_catalog;
     use engine_core::authoring::metadata::Requirement;
-    use super::helpers::field_metadata_to_schema;
 
     let mut root = Mapping::new();
     root.insert(
@@ -669,16 +669,12 @@ pub(super) fn build_mod_overlay_schema(mod_name: &str) -> Value {
         )),
     );
     props.insert(
-        Value::String("output_backend".to_string()),
-        schema_ref("../../../schemas/mod.schema.yaml#/properties/output_backend"),
-    );
-    props.insert(
         Value::String("splash".to_string()),
         schema_ref("../../../schemas/mod.schema.yaml#/properties/splash"),
     );
     props.insert(
-        Value::String("terminal".to_string()),
-        schema_ref("../../../schemas/mod.schema.yaml#/properties/terminal"),
+        Value::String("display".to_string()),
+        schema_ref("../../../schemas/mod.schema.yaml#/properties/display"),
     );
     root.insert(
         Value::String("properties".to_string()),
@@ -1007,9 +1003,7 @@ pub(super) fn effect_preset_alias_schema() -> Value {
     Value::Mapping(alias)
 }
 
-pub(super) fn effect_params_schema(
-    params: &'static [engine_effects::ParamMetadata],
-) -> Value {
+pub(super) fn effect_params_schema(params: &'static [engine_effects::ParamMetadata]) -> Value {
     let mut properties = Mapping::new();
     for param in params {
         let mut schema = Mapping::new();

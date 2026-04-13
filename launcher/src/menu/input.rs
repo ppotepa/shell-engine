@@ -1,107 +1,42 @@
+//! Raw-terminal key input for the launcher menu — supports arrow keys, Enter, Escape.
+
+use super::state::{MenuAction, MenuState};
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use super::state::{MenuState, MenuAction};
+use console::{Key, Term};
 
 pub fn wait_for_input(state: &mut MenuState) -> Result<MenuAction> {
-    loop {
-        let ev = event::read()?;
-        match ev {
-            Event::Key(key) => {
-                // Only handle Press events — ignore Release/Repeat to prevent double-jump
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
-                return handle_key(state, key);
-            }
-            Event::Resize(_, _) => {
-                // Signal a re-render on resize
-                return Ok(MenuAction::Redraw);
-            }
-            _ => continue,
-        }
-    }
-}
+    let term = Term::stdout();
+    let key = term.read_key()?;
 
-fn handle_key(state: &mut MenuState, key: KeyEvent) -> Result<MenuAction> {
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-        return Ok(MenuAction::Quit);
-    }
-
-    if state.search_mode {
-        return handle_search_key(state, key);
-    }
-
-    match key.code {
-        KeyCode::Up | KeyCode::Char('k') => {
+    let action = match key {
+        Key::ArrowUp | Key::Char('k') => {
             state.navigate(-1);
-            Ok(MenuAction::Redraw)
+            MenuAction::Redraw
         }
-        KeyCode::Down | KeyCode::Char('j') => {
+        Key::ArrowDown | Key::Char('j') => {
             state.navigate(1);
-            Ok(MenuAction::Redraw)
+            MenuAction::Redraw
         }
-        KeyCode::Right => {
-            let action = state.expand_or_launch();
-            Ok(action)
-        }
-        KeyCode::Enter => {
-            let action = state.enter_action();
-            Ok(action)
-        }
-        KeyCode::Left => {
+        Key::ArrowLeft | Key::Char('h') | Key::Char('b') => {
             state.collapse_current();
-            Ok(MenuAction::Redraw)
+            MenuAction::Redraw
         }
-        KeyCode::Esc => {
-            state.collapse_current();
-            Ok(MenuAction::Redraw)
-        }
-        KeyCode::Char('q') | KeyCode::Char('Q') => Ok(MenuAction::Quit),
-        KeyCode::Char('/') => {
-            state.search_mode = true;
-            Ok(MenuAction::Redraw)
-        }
-        KeyCode::Char(c) if c.is_ascii_digit() && ('1'..='7').contains(&c) => {
-            let n = (c as u8) - b'0';
-            Ok(state.toggle_flag(n))
-        }
-        // Backspace outside search — collapse or noop
-        KeyCode::Backspace => {
-            state.collapse_current();
-            Ok(MenuAction::Redraw)
-        }
-        _ => Ok(MenuAction::None),
-    }
-}
-
-fn handle_search_key(state: &mut MenuState, key: KeyEvent) -> Result<MenuAction> {
-    match key.code {
-        KeyCode::Esc => {
-            state.search_mode = false;
-            state.search_clear();
-            Ok(MenuAction::Redraw)
-        }
-        KeyCode::Enter => {
-            // Confirm search, exit search mode but keep filter active, and launch if 1 result
-            state.search_mode = false;
-            // If there's exactly one scene visible, launch it
-            let scene_count = state.filtered_indices.iter()
-                .filter(|(_, s)| s.is_some()).count();
-            if scene_count == 1 {
-                state.cursor = state.filtered_indices.iter()
-                    .position(|(_, s)| s.is_some()).unwrap_or(0);
-                return Ok(MenuAction::Launch);
+        Key::ArrowRight | Key::Enter | Key::Char('l') => state.enter_action(),
+        Key::Escape | Key::Char('q') => MenuAction::Quit,
+        Key::Char(c) if c.is_ascii_digit() && c != '0' => {
+            let n = (c as u8 - b'0') as usize;
+            if n <= state.filtered_indices.len() {
+                state.cursor = n - 1;
+                state.enter_action()
+            } else if n <= 6 {
+                // Flag toggles (1-6)
+                state.toggle_flag(n as u8)
+            } else {
+                MenuAction::Redraw
             }
-            Ok(MenuAction::Redraw)
         }
-        KeyCode::Backspace => {
-            state.search_backspace();
-            Ok(MenuAction::Redraw)
-        }
-        KeyCode::Char(c) => {
-            state.search_add_char(c);
-            Ok(MenuAction::Redraw)
-        }
-        _ => Ok(MenuAction::None),
-    }
+        _ => MenuAction::None,
+    };
+
+    Ok(action)
 }

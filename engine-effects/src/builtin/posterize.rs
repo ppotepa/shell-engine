@@ -1,8 +1,8 @@
+use crate::metadata::{slider, EffectMetadata, P_EASING};
+use crate::utils::color::colour_to_rgb;
 use engine_core::buffer::Buffer;
 use engine_core::color::Color;
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{slider, EffectMetadata, P_EASING};
-use crate::utils::color::colour_to_rgb;
 use engine_core::scene::EffectParams;
 
 pub static METADATA: EffectMetadata = EffectMetadata {

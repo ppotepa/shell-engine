@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: placeholder
+  z_index: 0
+  sprites:
+    - { type: text, content: "EROSION", at: ct, y: 20, font: "Orbitron:ascii", fg: "#44cc88" }
+    - { type: text, content: "COMING SOON", at: cc, font: "Orbitron:ascii", fg: "#2a6e55" }
+    - { type: text, content: "[ PRESS ANY KEY TO RETURN ]", at: cb, y: -20, font: "generic:1", fg: "#2a6e55", behaviors: [{ name: blink, params: { visible_ms: 600, hidden_ms: 600 } }] }

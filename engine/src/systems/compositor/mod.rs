@@ -1,4 +1,4 @@
-//! Compositor system — walks the scene layer/sprite tree and renders each frame into the terminal `Buffer`.
+//! Compositor system — walks the scene layer/sprite tree and renders each frame into the active `Buffer`.
 
 use crate::buffer::TRUE_BLACK;
 use crate::obj_prerender::{ObjPrerenderStatus, ObjPrerenderedFrames};
@@ -13,16 +13,15 @@ use engine_core::color::Color;
 /// Composites the current scene into the active buffer, applying effects and mode-specific rendering.
 pub fn compositor_system(world: &mut World) {
     let asset_root = world.asset_root().cloned();
-    let (runtime_mode_override, is_pixel_backend, default_font) = world
+    let (is_pixel_backend, default_font) = world
         .runtime_settings()
         .map(|s| {
             (
-                s.renderer_mode_override,
                 s.is_pixel_backend,
                 s.default_font.clone(),
             )
         })
-        .unwrap_or((None, false, None));
+        .unwrap_or((true, None));
 
     // Extract raw pointer to PipelineStrategies to avoid a long-lived borrow that would
     // conflict with the buffer borrow taken later in this function.
@@ -34,16 +33,10 @@ pub fn compositor_system(world: &mut World) {
         .unwrap_or(std::ptr::null());
     static FALLBACK_LAYER: crate::strategy::ScratchLayerCompositor =
         crate::strategy::ScratchLayerCompositor;
-    static FALLBACK_HALFBLOCK: crate::strategy::FullScanPacker = crate::strategy::FullScanPacker;
     let layer_strategy: &dyn crate::strategy::LayerCompositor = if strats_ptr.is_null() {
         &FALLBACK_LAYER
     } else {
         unsafe { (*strats_ptr).layer.as_ref() }
-    };
-    let halfblock_strategy: &dyn crate::strategy::HalfblockPacker = if strats_ptr.is_null() {
-        &FALLBACK_HALFBLOCK
-    } else {
-        unsafe { (*strats_ptr).halfblock.as_ref() }
     };
 
     // Extract a raw pointer to the scene layer slice to avoid deep-cloning the entire
@@ -75,9 +68,9 @@ pub fn compositor_system(world: &mut World) {
         scene_camera_3d,
         effects_ptr,
         scene_step_dur,
-        rendered_mode,
         camera_x,
         camera_y,
+        camera_zoom,
     ) = {
         // Get both Arc snapshots first (requires &mut)
         let (object_states, obj_camera_states) = world
@@ -121,6 +114,10 @@ pub fn compositor_system(world: &mut World) {
             .scene_runtime()
             .map(|rt| rt.camera())
             .unwrap_or((0, 0));
+        let camera_zoom = world
+            .scene_runtime()
+            .map(|rt| rt.camera_zoom())
+            .unwrap_or(1.0);
         let scene_camera_3d = world
             .scene_runtime()
             .map(|rt| rt.scene_camera_3d())
@@ -140,9 +137,9 @@ pub fn compositor_system(world: &mut World) {
             scene_camera_3d,
             effects_ptr,
             scene_step_dur,
-            runtime_mode_override.unwrap_or(scene.rendered_mode),
             camera_x,
             camera_y,
+            camera_zoom,
         )
     };
 
@@ -199,10 +196,28 @@ pub fn compositor_system(world: &mut World) {
         Some(unsafe { &*runtime_store_ptr })
     };
 
+    let celestial_catalogs_ptr: *const engine_celestial::CelestialCatalogs = world
+        .get::<engine_behavior::catalog::ModCatalogs>()
+        .map(|catalogs| &catalogs.celestial as *const _)
+        .unwrap_or(std::ptr::null());
+    let celestial_catalogs: Option<&engine_celestial::CelestialCatalogs> =
+        if celestial_catalogs_ptr.is_null() {
+            None
+        } else {
+            Some(unsafe { &*celestial_catalogs_ptr })
+        };
+
     let buffer = match world.buffer_mut() {
         Some(b) => b,
         None => return,
     };
+
+    // Enable pixel canvas for direct SDL2 pixel output (bypass Cell encoding).
+    if is_pixel_backend {
+        let (vw, vh) = engine_compositor::virtual_dimensions(buffer.width, buffer.height);
+        buffer.enable_pixel_canvas(vw, vh);
+    }
+
     let buf_w = buffer.width;
     let buf_h = buffer.height;
 
@@ -210,7 +225,6 @@ pub fn compositor_system(world: &mut World) {
         bg,
         layers,
         ui_enabled,
-        scene_rendered_mode: rendered_mode,
         asset_root: asset_root.as_ref(),
         target_resolver: target_resolver.as_ref(),
         object_states: &object_states,
@@ -221,22 +235,22 @@ pub fn compositor_system(world: &mut World) {
         scene_elapsed_ms,
         scene_space,
         scene_camera_3d: &scene_camera_3d,
+        celestial_catalogs,
         scene_effects,
         scene_step_dur,
         is_pixel_backend,
         default_font: default_font.as_deref(),
         camera_x,
         camera_y,
+        camera_zoom,
     };
     engine_compositor::clear_vector_primitives();
     let object_regions = engine_compositor::with_runtime_store(runtime_store, || {
         crate::scene3d_atlas::with_atlas(atlas, || {
             engine_compositor::with_prerender_frames(prerender_frames, || {
                 engine_compositor::dispatch_composite(
-                    rendered_mode,
                     &params,
                     layer_strategy,
-                    halfblock_strategy,
                     buffer,
                 )
             })
@@ -293,7 +307,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::assets::AssetRoot;
-    use crate::buffer::{Buffer, TRUE_BLACK};
+    use crate::buffer::TRUE_BLACK;
     use crate::runtime_settings::RuntimeSettings;
     use crate::scene::Scene;
     use crate::scene_loader::SceneLoader;
@@ -302,37 +316,6 @@ mod tests {
     use engine_animation::{Animator, SceneStage};
 
     use super::compositor_system;
-    use crate::strategy::FullScanPacker;
-
-    #[test]
-    fn packs_two_virtual_rows_into_one_terminal_cell() {
-        let mut source = Buffer::new(1, 2);
-        source.fill(TRUE_BLACK);
-        source.set(0, 0, '#', Color::Red, TRUE_BLACK);
-        source.set(0, 1, '#', Color::Blue, TRUE_BLACK);
-
-        let mut target = Buffer::new(1, 1);
-        engine_compositor::pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
-
-        let cell = target.get(0, 0).expect("cell exists");
-        assert_eq!(cell.symbol, '▀');
-        assert_eq!(cell.fg, Color::Red);
-        assert_eq!(cell.bg, Color::Blue);
-    }
-
-    #[test]
-    fn keeps_background_for_empty_virtual_pixels() {
-        let mut source = Buffer::new(1, 2);
-        source.fill(Color::DarkGrey);
-
-        let mut target = Buffer::new(1, 1);
-        engine_compositor::pack_halfblock_buffer(&source, &mut target, TRUE_BLACK, &FullScanPacker);
-
-        let cell = target.get(0, 0).expect("cell exists");
-        assert_eq!(cell.symbol, ' ');
-        assert_eq!(cell.bg, Color::DarkGrey);
-    }
-
     #[test]
     fn higher_z_layer_renders_above_background_layer_effects() {
         let scene: Scene = serde_yaml::from_str(

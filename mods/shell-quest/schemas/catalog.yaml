@@ -11,7 +11,6 @@ $defs:
     - 03.intro.lab-enter
     - 04.intro.difficulty-select
     - 05.intro.cpu-on
-    - 06.intro.login
     - mainmenu
   scene_paths:
     type: string
@@ -22,7 +21,6 @@ $defs:
     - /scenes/03-intro-lab-enter/scene.yml
     - /scenes/04-difficulty-select/scene.yml
     - /scenes/05-intro-cpu-on/scene.yml
-    - /scenes/06-intro-login/scene.yml
     - /scenes/mainmenu/scene.yml
   scene_refs:
     type: string
@@ -33,7 +31,6 @@ $defs:
     - /scenes/03-intro-lab-enter/scene.yml
     - /scenes/04-difficulty-select/scene.yml
     - /scenes/05-intro-cpu-on/scene.yml
-    - /scenes/06-intro-login/scene.yml
     - /scenes/mainmenu/scene.yml
     - 00.intro.logo
     - 01.intro.date
@@ -41,7 +38,6 @@ $defs:
     - 03.intro.lab-enter
     - 04.intro.difficulty-select
     - 05.intro.cpu-on
-    - 06.intro.login
     - mainmenu
   object_names:
     type: string
@@ -75,7 +71,6 @@ $defs:
     - 03-intro-lab-enter/layers/main.yml
     - 04-difficulty-select/layers/main.yml
     - 05-intro-cpu-on/layers/main.yml
-    - 06-intro-login/layers/main.yml
     - mainmenu/layers/main.yml
   sprite_refs:
     type: string
@@ -107,24 +102,18 @@ $defs:
     - Abril Fatface
     - Abril Fatface:ascii
     - Abril Fatface:raster
-    - Abril Fatface:terminal-pixels
     - DejaVuSans-BoldOblique
     - DejaVuSans-BoldOblique-Small
     - DejaVuSans-BoldOblique-Small:ascii
     - DejaVuSans-BoldOblique-Small:raster
-    - DejaVuSans-BoldOblique-Small:terminal-pixels
     - DejaVuSans-BoldOblique:ascii
     - DejaVuSans-BoldOblique:raster
-    - DejaVuSans-BoldOblique:terminal-pixels
     - default
     - generic
     - generic:1
     - generic:2
     - generic:3
-    - generic:braille
-    - generic:half
     - generic:large
-    - generic:quad
     - generic:standard
     - generic:tiny
   image_paths:

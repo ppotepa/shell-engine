@@ -8,6 +8,7 @@ shell-quest/
 ├── editor/                    TUI authoring tool
 ├── engine/                    Runtime orchestrator (re-exports all subsystems)
 ├── engine-core/               Scene model, buffer, effects, metadata
+├── engine-celestial/          Bodies, planet presets, regions, systems, sites, routes
 ├── engine-authoring/          YAML compile/normalize/schema pipeline
 ├── engine-3d/                 OBJ mesh loading, Scene3D definitions
 ├── engine-animation/          Stage/step animator
@@ -26,10 +27,8 @@ shell-quest/
 ├── engine-render/             Shared render traits (`RenderBackend`, `OutputBackend`)
 ├── engine-render-policy/      Render scheduling policies
 ├── engine-scene-runtime/      Mutable scene instance state + runtime cloning
-├── engine-render-terminal/    Crossterm terminal presenter + input backend
-├── engine-render-sdl2/        Optional SDL2 presenter + input backend
+├── engine-render-sdl2/        SDL2 presenter + input backend
 ├── engine-runtime/            RuntimeSettings, virtual-size parsing
-├── engine-terminal/           Terminal detection and configuration
 ├── mods/                      Content mods
 │   ├── shell-quest/           Main game mod
 │   ├── shell-quest-tests/     Automated test mod (no user input)
@@ -37,6 +36,11 @@ shell-quest/
 ├── schemas/                   JSON schemas for YAML validation
 └── tools/                     schema-gen, devtool, benchmarks
 ```
+
+`engine-celestial` is intentionally lightweight: it owns authored celestial
+catalog data and loaders so rendering, gameplay, and scene binding can all
+depend on one shared domain model without pulling in Rhai or higher-level
+runtime systems.
 
 Scenes are loaded as single YAML files (`scenes/*.yml`) or scene packages
 (`scenes/<name>/scene.yml` + partials). Asset loading supports unpacked mod
@@ -71,7 +75,7 @@ the shared 3D camera with `camera-source: scene`.
                                     │
           ───────────────── Tier 2 ─┼──────────────────────────
                          ┌──────────┴───────────┐
-                         │  engine-render-terminal│
+                         │  engine-render-sdl2    │
                          │  engine-authoring      │
                          └──────────┬───────────┘
                                     │
@@ -79,7 +83,7 @@ the shared 3D camera with `camera-source: scene`.
               ┌─────────────────────┼─────────────────────┐
               │                     │                     │
      engine-animation    engine-render         engine-runtime
-     engine-audio        engine-render-policy  engine-terminal
+     engine-audio        engine-render-policy
      engine-3d           engine-behavior-registry
      engine-capture      (all depend on engine-core)
               │                     │                     │
@@ -96,7 +100,7 @@ Executed in this fixed order every frame inside `game_loop.rs`:
 
 | # | System | Timing Field | Purpose |
 |---|--------|-------------|---------|
-| 1 | input | `input_us` | Active `InputBackend` polling (terminal or SDL2) |
+| 1 | input | `input_us` | Active `InputBackend` polling (SDL2) |
 | 2 | lifecycle | `lifecycle_us` | Scene transitions, event drain |
 | 3 | animator | `animator_us` | Stage/step advancement via elapsed time |
 | 4 | hot_reload | `hot_reload_us` | Dev-mode file change scanning |
@@ -127,10 +131,9 @@ trait-based dispatch. Strategies are selected from CLI flags at startup.
 
 ```rust
 pub struct PipelineStrategies {
-    pub diff:      Box<dyn DiffStrategy>,
-    pub layer:     Box<dyn LayerCompositor>,
-    pub halfblock: Box<dyn HalfblockPacker>,
-    pub present:   Box<dyn VirtualPresenter>,
+    pub diff:    Box<dyn DiffStrategy>,
+    pub layer:   Box<dyn LayerCompositor>,
+    pub present: Box<dyn VirtualPresenter>,
 }
 ```
 
@@ -139,16 +142,8 @@ pub struct PipelineStrategies {
 | `--opt-diff` | `DiffStrategy` | `FullScanDiff` | `DirtyRegionDiff` |
 | `--opt-rowdiff` | `DiffStrategy` | `FullScanDiff` | `RowSkipDiff` |
 | `--opt-comp` (layer) | `LayerCompositor` | `ScratchLayerCompositor` | `DirectLayerCompositor` |
-| `--opt-comp` (pack) | `HalfblockPacker` | `FullScanPacker` | `DirtyRegionPacker` |
 | `--opt-present` | `VirtualPresenter` | `AlwaysPresenter` | `HashSkipPresenter` |
 | `--opt-skip` | `FrameSkipOracle` | `AlwaysRender` | `CoordinatedSkip` |
-
-Additional non-flagged strategy families:
-
-| Trait | Implementations | Selection |
-|-------|----------------|-----------|
-| `SceneCompositor` | `CellSceneCompositor`, `HalfblockSceneCompositor` | Auto from renderer mode |
-| `TerminalFlusher` | `NaiveFlusher`, `AnsiBatchFlusher` | Owned by `TerminalRenderer`, default is `AnsiBatchFlusher` |
 
 The umbrella flag `--opt` enables all optimizations at once.
 
@@ -195,36 +190,38 @@ The rendering pipeline uses a double-buffer with dirty tracking:
                      │
               dirty cells list
                      │
-              terminal flush (AnsiBatchFlusher)
+              SDL2 present (GlyphPatch upload)
 ```
 
 - **Double buffer**: back (current frame) vs front (previous frame).
 - **Dirty tracking**: bounding-box region + per-row `BitSet`.
 - **Diff strategies**: `FullScanDiff` scans every cell; `DirtyRegionDiff`
   restricts to tracked bounding box; `RowSkipDiff` skips clean rows entirely.
+- **SDL2 output**: dirty cells are uploaded as `GlyphPatch` records to the SDL2
+  worker thread, which renders glyphs to a pixel canvas and presents the texture.
 
-## 7. Halfblock Rendering
+## 7. SDL2 Pixel Rendering
 
-Halfblock mode doubles vertical resolution by encoding two pixel rows per
-terminal cell using Unicode half-block characters.
+The SDL2 backend renders the virtual cell buffer to a pixel canvas:
 
 ```
-Terminal  W x H     (physical terminal size)
+Virtual Buffer  W x H     (cell-based in-memory canvas)
     │
     ▼
-Virtual   W x (H*2) (double-height pixel buffer)
+Diff scan       (DiffStrategy)
     │
     ▼
-Output    W x H     (packed halfblock cells)
+GlyphPatch list (dirty cells only)
+    │
+    ▼
+SDL2 pixel canvas  (glyph rasterization per patch)
+    │
+    ▼
+SDL2 texture present
 ```
 
-Recommended virtual-size tiers:
-
-| Tier | Resolution | Notes |
-|------|-----------|-------|
-| 1 (safe) | 120 x 60 | Works on most terminals |
-| 2 (recommended) | 160 x 80 | Good balance of detail and performance |
-| 3 (high-res) | 200+ x 100+ | Requires `--unconstrained` or large terminal |
+Virtual render sizes are authored in `mod.yaml` under the `display:` block and
+define the in-memory canvas dimensions independent of the window size.
 
 ## 8. Timeline System
 
@@ -244,8 +241,7 @@ layer or stage start). Key rules:
 | Profile | Use Case |
 |---------|----------|
 | `obj-viewer` | 3D object viewer controls |
-| `terminal-size-tester` | Terminal capability probing |
-| `terminal-shell` | Full shell interaction mode |
+| `free-look-camera` | Scene-level camera fly controls |
 
 **Rhai key bridge** — variables available in behavior scripts:
 
@@ -312,14 +308,15 @@ validation in editors.
 
 ## 12. Editor Architecture
 
-The editor is a YAML-first TUI authoring tool built on `engine-core` and
-`engine-authoring`.
+The editor is a YAML-first authoring tool built on `engine-core` and
+`engine-authoring`. The terminal TUI has been replaced with an SDL2-backed stub;
+full editor UI is not yet implemented.
 
 **Current modules** (`editor/src/`):
 
 | Module | Purpose |
 |--------|---------|
-| `app.rs` | Terminal lifecycle, main editor loop |
+| `app.rs` | Editor lifecycle, main editor loop |
 | `cli.rs` | CLI options (`--mod-source`) |
 | `domain/` | Scene/effect/asset indexes, diagnostics |
 | `io/` | File scanning, YAML I/O |
@@ -356,10 +353,8 @@ the underlying runtime order.
 |------|-------------|
 | `--mod <NAME>` | Mod to load by name (default: `shell-quest`) |
 | `--mod-source <PATH>` | Full mod source path (dir or .zip), overrides `--mod` |
-| `--renderer-mode <MODE>` | Force renderer: `cell`, `halfblock`, `quadblock`, `braille` |
 | `--dev` | Enable dev helpers (overlays, scene nav). Auto in debug builds |
 | `--no-dev` | Disable dev helpers even in debug builds |
-| `--sdl2` | Shorthand for `--output sdl2` |
 | `--sdl-window-ratio <RATIO>` | SDL startup window ratio (`16:9`, `4:3`, `free`) |
 | `--sdl-pixel-scale <N>` | SDL startup pixel scale multiplier |
 | `--no-sdl-vsync` | Disable SDL VSync |
@@ -372,12 +367,11 @@ the underlying runtime order.
 | `--check-scenes` | Run startup validation for the selected mod and exit |
 | `--target-fps <FPS>` | Override target FPS (default: from mod manifest, 60) |
 | `--opt` | Enable ALL optimizations |
-| `--opt-comp` | Compositor optimizations (layer skip, dirty halfblock) |
+| `--opt-comp` | Compositor optimizations (layer scratch skip) |
 | `--opt-diff` | Dirty-region diff scan |
 | `--opt-present` | Hash-based static frame skip |
 | `--opt-skip` | Unified frame-skip coordination |
 | `--opt-rowdiff` | Row-level dirty skip in diff scan |
-| `--opt-async` | Async display sink (background terminal I/O thread) |
 | `--bench [SECS]` | Benchmark mode (default 5s), saves report |
 | `--capture-frames <DIR>` | Capture frames for visual regression testing |
 

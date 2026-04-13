@@ -1,9 +1,10 @@
-use engine_render::{OutputBackend, OverlayData, RenderError, VectorOverlay};
+use engine_render::{OverlayData, RenderError, RendererBackend, VectorOverlay};
 use engine_runtime::PresentationPolicy;
 
 use crate::input::Sdl2InputBackend;
 use crate::runtime::{
-    sdl_profile_enabled, CellPatch, RuntimeCommand, RuntimeResponse, Sdl2RuntimeClient,
+    sdl_profile_enabled, GlyphPatch, PixelCanvasData, RuntimeCommand, RuntimeResponse,
+    Sdl2RuntimeClient,
 };
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -131,22 +132,38 @@ impl Sdl2Backend {
     }
 }
 
-impl OutputBackend for Sdl2Backend {
-    fn present_buffer(&mut self, buffer: &engine_core::buffer::Buffer) {
+impl RendererBackend for Sdl2Backend {
+    fn present_frame(&mut self, buffer: &engine_core::buffer::Buffer) {
         let overlay = self.pending_overlay.take();
         let vectors = self.pending_vectors.take();
+
+        // ── Extract pixel canvas data for direct SDL2 upload ─────────────
+        let pixel_canvas_data = buffer
+            .pixel_canvas
+            .as_ref()
+            .filter(|pc| pc.dirty)
+            .map(|pc| PixelCanvasData {
+                data: pc.data.clone(),
+                width: pc.width as u32,
+                height: pc.height as u32,
+            });
+
         let t_diff = Instant::now();
-        let mut patches = Vec::<CellPatch>::new();
+        let mut patches = Vec::<GlyphPatch>::new();
         buffer.diff_into(&mut patches);
         let diff_dur = t_diff.elapsed();
 
         // ── Flicker diagnostic: log patch counts at ~1 Hz ────────────────────
         {
             static DIAG_FRAME: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-            static DIAG_ZERO_RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-            static DIAG_NONZERO_RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-            static DIAG_MAX_PATCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-            static DIAG_MIN_PATCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(u64::MAX);
+            static DIAG_ZERO_RUNS: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(0);
+            static DIAG_NONZERO_RUNS: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(0);
+            static DIAG_MAX_PATCH: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(0);
+            static DIAG_MIN_PATCH: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(u64::MAX);
             let fnum = DIAG_FRAME.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             let plen = patches.len() as u64;
             if patches.is_empty() {
@@ -171,7 +188,8 @@ impl OutputBackend for Sdl2Backend {
             }
         }
 
-        if patches.is_empty() && overlay.is_none() && vectors.is_none() {
+        let has_pixel_canvas = pixel_canvas_data.is_some();
+        if patches.is_empty() && overlay.is_none() && vectors.is_none() && !has_pixel_canvas {
             if let Some(profile) = self.profile.as_mut() {
                 profile.record(0, diff_dur, Duration::ZERO, false);
             }
@@ -185,6 +203,7 @@ impl OutputBackend for Sdl2Backend {
             patches,
             overlay,
             vectors,
+            pixel_canvas: pixel_canvas_data,
         });
         if let Some(profile) = self.profile.as_mut() {
             profile.record(patch_count, diff_dur, t_req.elapsed(), true);

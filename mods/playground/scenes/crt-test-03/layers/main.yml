@@ -9,7 +9,7 @@
       rows: ["auto", "auto", "auto", "1fr", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "▓▓▓  AMBER WARNING  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: yellow }
+        - { type: text, content: "▓▓▓  AMBER WARNING  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: yellow }
         - { type: text, content: "SCREEN 03 — AMBER/GOLD — blue ghost fading behind...", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: "rgb(255,200,60)" }
         - { type: text, content: "Classic amber phosphor monitor — the cyan network data ghosts away.", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(220,170,40)" }
         - type: flex

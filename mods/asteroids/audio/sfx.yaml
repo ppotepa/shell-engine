@@ -1,30 +1,6 @@
 version: 1
 
 events:
-  fire:
-    gain: 0.8
-    max_polyphony: 8
-    cooldown_ms: 0
-    variants:
-      - asset: "synth:fire"
-        weight: 1
-
-  explosion_small:
-    gain: 0.9
-    max_polyphony: 4
-    cooldown_ms: 0
-    variants:
-      - asset: "synth:explosion_small"
-        weight: 1
-
-  explosion_large:
-    gain: 1.0
-    max_polyphony: 2
-    cooldown_ms: 0
-    variants:
-      - asset: "synth:explosion_large"
-        weight: 1
-
   thrust:
     gain: 0.35
     max_polyphony: 2

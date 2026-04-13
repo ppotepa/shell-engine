@@ -12,8 +12,6 @@ mod level_config;
 mod palettes;
 mod rhai_scripts;
 mod scene_graph;
-mod terminal_requirements;
-
 pub use action_map::ActionMapCheck;
 pub use audio_sequencer::AudioSequencerCheck;
 pub use catalogs::CatalogsCheck;
@@ -25,4 +23,3 @@ pub use level_config::LevelConfigCheck;
 pub use palettes::PalettesCheck;
 pub use rhai_scripts::RhaiScriptsCheck;
 pub use scene_graph::SceneGraphCheck;
-pub use terminal_requirements::TerminalRequirementsCheck;

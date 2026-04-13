@@ -6,8 +6,8 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -93,7 +93,11 @@ impl PaletteStore {
     }
 
     /// Resolve the active palette given an optional persisted id and an optional default id.
-    pub fn resolve<'a>(&'a self, persisted: Option<&str>, default: Option<&str>) -> Option<&'a PaletteData> {
+    pub fn resolve<'a>(
+        &'a self,
+        persisted: Option<&str>,
+        default: Option<&str>,
+    ) -> Option<&'a PaletteData> {
         if let Some(id) = persisted {
             if let Some(p) = self.palettes.get(id) {
                 return Some(p);
@@ -113,7 +117,11 @@ impl PaletteStore {
         if self.order.is_empty() {
             return None;
         }
-        let pos = self.order.iter().position(|id| id == current_id).unwrap_or(0);
+        let pos = self
+            .order
+            .iter()
+            .position(|id| id == current_id)
+            .unwrap_or(0);
         let next = (pos + 1) % self.order.len();
         Some(self.order[next].clone())
     }

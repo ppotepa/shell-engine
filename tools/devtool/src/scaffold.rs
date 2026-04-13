@@ -189,7 +189,7 @@ pub fn human_title(raw: &str) -> String {
 
 fn render_mod_yaml(name: &str, entrypoint: &str) -> String {
     format!(
-        "# yaml-language-server: $schema=./schemas/mod.yaml\nname: {name}\nversion: 0.1.0\nentrypoint: {entrypoint}\nterminal:\n  min_colours: 256\n  render_size: 120x30\n  presentation_policy: stretch\n"
+        "# yaml-language-server: $schema=./schemas/mod.yaml\nname: {name}\nversion: 0.1.0\nentrypoint: {entrypoint}\ndisplay:\n  min_colours: 256\n  min_width: 320\n  min_height: 180\n  render_size: 320x180\n  presentation_policy: stretch\n"
     )
 }
 

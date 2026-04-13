@@ -11,12 +11,12 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true }
-crossterm = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
 anyhow = { workspace = true }
 toml = "0.8"
 which = "7"
+console = "0.15"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

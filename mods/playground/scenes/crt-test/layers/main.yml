@@ -9,7 +9,7 @@
       rows: ["auto", "auto", "auto", "1fr", "auto", "auto"]
       gap-y: 1
       children:
-        - { type: text, content: "▓▓▓  SYSTEM BOOT  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:half", fg: green }
+        - { type: text, content: "▓▓▓  SYSTEM BOOT  ▓▓▓", grid-col: 1, grid-row: 1, at: cc, font: "generic:2", fg: green }
         - { type: text, content: "PHOSPHOR BURN-IN DEMO — SCREEN 01 — GREEN THEME", grid-col: 1, grid-row: 2, at: cc, font: "default", fg: green }
         - { type: text, content: "When you press ENTER, this green content will ghost into the next blue screen.", grid-col: 1, grid-row: 3, at: cc, font: "default", fg: "rgb(100,255,100)" }
         - type: flex

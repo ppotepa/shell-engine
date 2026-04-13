@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: terrain-menu
+title: Terrain Playground
+bg: "#060a10"
+layers:
+  - ref: main
+logic:
+  kind: script
+  behavior: rhai-script
+  src: ./menu.rhai
+postfx:
+  - name: crt-scan-glitch
+    params:
+      intensity: 0.04
+      transparency: 0.06
+      brightness: 1.0
+      speed: 0.2
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 500 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 60ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 300 }] }

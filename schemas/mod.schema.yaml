@@ -3,7 +3,7 @@ $id: "https://shell-quest.local/schemas/mod.schema.yaml"
 title: Mod Manifest Schema
 description: |
   Root manifest for a Shell Quest mod.
-  Defines entrypoint scene and optional terminal/runtime presentation settings.
+  Defines entrypoint scene and optional display/runtime presentation settings.
 type: object
 additionalProperties: true
 required:
@@ -24,14 +24,6 @@ properties:
     minLength: 1
     pattern: "^/.+\\.yml$"
     description: Absolute path (inside mod) to the first scene YAML file.
-  output_backend:
-    type: string
-    enum: [terminal, sdl2, prompt]
-    description: |
-      Startup output selection policy.
-      terminal - always launch in the terminal backend.
-      sdl2     - always launch in the SDL2 window backend.
-      prompt   - ask the player which backend to use before engine startup.
   splash:
     type: object
     description: |
@@ -56,26 +48,26 @@ properties:
         $ref: "#/properties/splash/properties/scene"
       "^scene_path$":
         $ref: "#/properties/splash/properties/scene"
-  terminal:
+  display:
     type: object
     description: |
-      Optional terminal requirements and render presentation settings.
-      Capability checks run at startup. Rendering uses a single render canvas that is
-      presented to the active backend according to `presentation_policy`.
+      Optional display requirements and render presentation settings.
+      Rendering uses a single authored canvas that is presented by the SDL2 backend
+      according to `presentation_policy`.
     additionalProperties: false
     properties:
       min_colours:
         type: integer
         minimum: 1
-        description: Minimum number of colours the terminal must support (e.g. 8, 16, 256, 16777216).
+        description: Minimum colour depth the display stack should support (e.g. 8, 16, 256, 16777216).
       min_width:
         type: integer
         minimum: 1
-        description: Minimum terminal width in columns.
+        description: Minimum output width in logical cells/pixels.
       min_height:
         type: integer
         minimum: 1
-        description: Minimum terminal height in rows.
+        description: Minimum output height in logical cells/pixels.
       target_fps:
         type: integer
         minimum: 1
@@ -90,23 +82,19 @@ properties:
         description: |
           Preferred: a fixed authored render canvas in WIDTHxHEIGHT form
           (for example 180x30, 320x180, or 320x240).
-          "match-output" tracks the current output size and is kept for
-          backward compatibility. `max-available` remains an alias for `match-output`.
+          "match-output" tracks the current output size. `max-available`
+          remains an alias for `match-output`.
       virtual_size:
-        $ref: "#/properties/terminal/properties/render_size"
+        $ref: "#/properties/display/properties/render_size"
       presentation_policy:
         type: string
         enum: [strict, fit, stretch]
         description: |
-          strict  - require output >= render size in cells; no resampling.
+          strict  - require output >= render size; no resampling.
           fit     - preserve aspect ratio with centered letterbox.
-          stretch - scale authored render output to fill the current terminal/output buffer.
+          stretch - scale authored render output to fill the current output area.
       virtual_policy:
-        $ref: "#/properties/terminal/properties/presentation_policy"
-      renderer_mode:
-        type: string
-        enum: [cell, halfblock, quadblock, braille]
-        description: Optional global renderer mode override for all scenes.
+        $ref: "#/properties/display/properties/presentation_policy"
       default_font:
         type: string
         minLength: 1
@@ -116,21 +104,19 @@ properties:
           or a named font (for example `Abril Fatface`).
     patternProperties:
       "^render-size$":
-        $ref: "#/properties/terminal/properties/render_size"
+        $ref: "#/properties/display/properties/render_size"
       "^presentation-policy$":
-        $ref: "#/properties/terminal/properties/presentation_policy"
+        $ref: "#/properties/display/properties/presentation_policy"
       "^target-fps$":
-        $ref: "#/properties/terminal/properties/target_fps"
+        $ref: "#/properties/display/properties/target_fps"
       "^virtual-size$":
-        $ref: "#/properties/terminal/properties/render_size"
+        $ref: "#/properties/display/properties/render_size"
       "^virtual-policy$":
-        $ref: "#/properties/terminal/properties/presentation_policy"
+        $ref: "#/properties/display/properties/presentation_policy"
       "^renderer-mode$":
-        $ref: "#/properties/terminal/properties/renderer_mode"
+        $ref: "#/properties/display/properties/renderer_mode"
       "^default-font$":
-        $ref: "#/properties/terminal/properties/default_font"
+        $ref: "#/properties/display/properties/default_font"
 patternProperties:
-  "^output-backend$":
-    $ref: "#/properties/output_backend"
-  "^output_backend$":
-    $ref: "#/properties/output_backend"
+  "^display$":
+    $ref: "#/properties/display"

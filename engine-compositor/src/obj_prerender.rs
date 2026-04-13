@@ -18,7 +18,7 @@ pub struct PrerenderedFrame {
     /// Virtual pixel dimensions used when blitting.
     pub virtual_w: u16,
     pub virtual_h: u16,
-    /// Terminal cell dimensions.
+    /// Sprite target dimensions in pixels.
     pub target_w: u16,
     pub target_h: u16,
     /// Total yaw at render time (rotation_y + yaw_deg) — for cache-hit check.
@@ -75,7 +75,13 @@ impl ObjPrerenderedFrames {
         let normalized = ((live_yaw_deg % 360.0) + 360.0) % 360.0;
         let index = ((normalized / YAW_STEP_DEG as f32).round() as usize) % YAW_FRAME_COUNT;
         let canvas = entry.canvases.get(index)?;
-        Some((canvas, entry.virtual_w, entry.virtual_h, entry.target_w, entry.target_h))
+        Some((
+            canvas,
+            entry.virtual_w,
+            entry.virtual_h,
+            entry.target_w,
+            entry.target_h,
+        ))
     }
 
     pub fn is_empty(&self) -> bool {

@@ -1,5 +1,0 @@
-kind: object
-name: asteroid-small
-# Visual is handled by the asteroids-gen-layer slot pool (generator pattern).
-# Physics collider and tags are defined in catalogs/prefabs.yaml.
-sprites: []

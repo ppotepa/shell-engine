@@ -17,24 +17,22 @@ pub struct EntityCountSnapshot {
 impl EntityCountSnapshot {
     /// Returns a human-readable summary of the snapshot.
     pub fn summary(&self) -> String {
-        let mut lines = vec![
-            format!("Total entities: {}", self.total),
-        ];
-        
+        let mut lines = vec![format!("Total entities: {}", self.total)];
+
         if !self.by_kind.is_empty() {
             lines.push("By kind:".to_string());
             for (kind, count) in &self.by_kind {
                 lines.push(format!("  {}: {}", kind, count));
             }
         }
-        
+
         if !self.by_policy.is_empty() {
             lines.push("By lifecycle policy:".to_string());
             for (policy, count) in &self.by_policy {
                 lines.push(format!("  {}: {}", policy, count));
             }
         }
-        
+
         lines.join("\n")
     }
 

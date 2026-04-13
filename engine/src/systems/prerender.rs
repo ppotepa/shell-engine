@@ -30,7 +30,7 @@ impl ScenePreparationStep for ObjPrerenderStep {
             return;
         };
         let Some(frames) =
-            prerender_scene_sprites(&scene.layers, scene.rendered_mode, &scene.id, &asset_root)
+            prerender_scene_sprites(&scene.layers, &scene.id, &asset_root)
         else {
             return;
         };

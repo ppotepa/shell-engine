@@ -2,4 +2,4 @@
 
 pub mod cues;
 
-pub use cues::{ScriptAudioApi, register_audio_api};
+pub use cues::{register_audio_api, ScriptAudioApi};

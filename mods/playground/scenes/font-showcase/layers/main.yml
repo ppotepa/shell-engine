@@ -69,15 +69,15 @@
           gap-x: 4
           gap-y: 0
           children:
-            - { type: text, content: "generic:half", grid-col: 1, grid-row: 1, col-span: 2, at: lc, font: "generic:1", fg: gray }
-            - { type: text, content: "ABCDEFGHIJKL", grid-col: 1, grid-row: 2, at: lc, font: "generic:half", fg: yellow }
-            - { type: text, content: "abcdefghijkl;", grid-col: 2, grid-row: 2, at: lc, font: "generic:half", fg: yellow }
-            - { type: text, content: "MNOPQRSTUVWX", grid-col: 1, grid-row: 3, at: lc, font: "generic:half", fg: yellow }
-            - { type: text, content: "mnopqrstuvwxyz", grid-col: 2, grid-row: 3, at: lc, font: "generic:half", fg: yellow }
-            - { type: text, content: "YZ0123456789", grid-col: 1, grid-row: 4, at: lc, font: "generic:half", fg: yellow }
-            - { type: text, content: "!@#!@ $%^&*", grid-col: 2, grid-row: 4, at: lc, font: "generic:half", fg: yellow }
-            - { type: text, content: "[]{}<>/\\|", grid-col: 1, grid-row: 5, at: lc, font: "generic:half", fg: yellow }
-            - { type: text, content: "_+-=;:,.?/", grid-col: 2, grid-row: 5, at: lc, font: "generic:half", fg: yellow }
+            - { type: text, content: "generic:2", grid-col: 1, grid-row: 1, col-span: 2, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKL", grid-col: 1, grid-row: 2, at: lc, font: "generic:2", fg: yellow }
+            - { type: text, content: "abcdefghijkl;", grid-col: 2, grid-row: 2, at: lc, font: "generic:2", fg: yellow }
+            - { type: text, content: "MNOPQRSTUVWX", grid-col: 1, grid-row: 3, at: lc, font: "generic:2", fg: yellow }
+            - { type: text, content: "mnopqrstuvwxyz", grid-col: 2, grid-row: 3, at: lc, font: "generic:2", fg: yellow }
+            - { type: text, content: "YZ0123456789", grid-col: 1, grid-row: 4, at: lc, font: "generic:2", fg: yellow }
+            - { type: text, content: "!@#!@ $%^&*", grid-col: 2, grid-row: 4, at: lc, font: "generic:2", fg: yellow }
+            - { type: text, content: "[]{}<>/\\|", grid-col: 1, grid-row: 5, at: lc, font: "generic:2", fg: yellow }
+            - { type: text, content: "_+-=;:,.?/", grid-col: 2, grid-row: 5, at: lc, font: "generic:2", fg: yellow }
 
         - type: grid
           width: 360
@@ -86,15 +86,15 @@
           gap-x: 4
           gap-y: 0
           children:
-            - { type: text, content: "generic:quad", grid-col: 1, grid-row: 1, col-span: 2, at: lc, font: "generic:1", fg: gray }
-            - { type: text, content: "ABCDEFGHIJKL", grid-col: 1, grid-row: 2, at: lc, font: "generic:quad", fg: yellow }
-            - { type: text, content: "abcdefghijkl;", grid-col: 2, grid-row: 2, at: lc, font: "generic:quad", fg: yellow }
-            - { type: text, content: "MNOPQRSTUVWX", grid-col: 1, grid-row: 3, at: lc, font: "generic:quad", fg: yellow }
-            - { type: text, content: "mnopqrstuvwxyz", grid-col: 2, grid-row: 3, at: lc, font: "generic:quad", fg: yellow }
-            - { type: text, content: "YZ0123456789", grid-col: 1, grid-row: 4, at: lc, font: "generic:quad", fg: yellow }
-            - { type: text, content: "!@#!@ $%^&*", grid-col: 2, grid-row: 4, at: lc, font: "generic:quad", fg: yellow }
-            - { type: text, content: "[]{}<>/\\|", grid-col: 1, grid-row: 5, at: lc, font: "generic:quad", fg: yellow }
-            - { type: text, content: "_+-=;:,.?/", grid-col: 2, grid-row: 5, at: lc, font: "generic:quad", fg: yellow }
+            - { type: text, content: "generic:3", grid-col: 1, grid-row: 1, col-span: 2, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKL", grid-col: 1, grid-row: 2, at: lc, font: "generic:3", fg: yellow }
+            - { type: text, content: "abcdefghijkl;", grid-col: 2, grid-row: 2, at: lc, font: "generic:3", fg: yellow }
+            - { type: text, content: "MNOPQRSTUVWX", grid-col: 1, grid-row: 3, at: lc, font: "generic:3", fg: yellow }
+            - { type: text, content: "mnopqrstuvwxyz", grid-col: 2, grid-row: 3, at: lc, font: "generic:3", fg: yellow }
+            - { type: text, content: "YZ0123456789", grid-col: 1, grid-row: 4, at: lc, font: "generic:3", fg: yellow }
+            - { type: text, content: "!@#!@ $%^&*", grid-col: 2, grid-row: 4, at: lc, font: "generic:3", fg: yellow }
+            - { type: text, content: "[]{}<>/\\|", grid-col: 1, grid-row: 5, at: lc, font: "generic:3", fg: yellow }
+            - { type: text, content: "_+-=;:,.?/", grid-col: 2, grid-row: 5, at: lc, font: "generic:3", fg: yellow }
 
         - type: grid
           width: 360
@@ -103,14 +103,14 @@
           gap-x: 4
           gap-y: 0
           children:
-            - { type: text, content: "generic:braille", grid-col: 1, grid-row: 1, col-span: 2, at: lc, font: "generic:1", fg: gray }
-            - { type: text, content: "ABCDEFGHIJKL", grid-col: 1, grid-row: 2, at: lc, font: "generic:braille", fg: magenta }
-            - { type: text, content: "abcdefghijkl;", grid-col: 2, grid-row: 2, at: lc, font: "generic:braille", fg: magenta }
-            - { type: text, content: "MNOPQRSTUVWX", grid-col: 1, grid-row: 3, at: lc, font: "generic:braille", fg: magenta }
-            - { type: text, content: "mnopqrstuvwxyz", grid-col: 2, grid-row: 3, at: lc, font: "generic:braille", fg: magenta }
-            - { type: text, content: "YZ0123456789", grid-col: 1, grid-row: 4, at: lc, font: "generic:braille", fg: magenta }
-            - { type: text, content: "!@#!@ $%^&*", grid-col: 2, grid-row: 4, at: lc, font: "generic:braille", fg: magenta }
-            - { type: text, content: "[]{}<>/\\|", grid-col: 1, grid-row: 5, at: lc, font: "generic:braille", fg: magenta }
-            - { type: text, content: "_+-=;:,.?/", grid-col: 2, grid-row: 5, at: lc, font: "generic:braille", fg: magenta }
+            - { type: text, content: "generic:3", grid-col: 1, grid-row: 1, col-span: 2, at: lc, font: "generic:1", fg: gray }
+            - { type: text, content: "ABCDEFGHIJKL", grid-col: 1, grid-row: 2, at: lc, font: "generic:3", fg: magenta }
+            - { type: text, content: "abcdefghijkl;", grid-col: 2, grid-row: 2, at: lc, font: "generic:3", fg: magenta }
+            - { type: text, content: "MNOPQRSTUVWX", grid-col: 1, grid-row: 3, at: lc, font: "generic:3", fg: magenta }
+            - { type: text, content: "mnopqrstuvwxyz", grid-col: 2, grid-row: 3, at: lc, font: "generic:3", fg: magenta }
+            - { type: text, content: "YZ0123456789", grid-col: 1, grid-row: 4, at: lc, font: "generic:3", fg: magenta }
+            - { type: text, content: "!@#!@ $%^&*", grid-col: 2, grid-row: 4, at: lc, font: "generic:3", fg: magenta }
+            - { type: text, content: "[]{}<>/\\|", grid-col: 1, grid-row: 5, at: lc, font: "generic:3", fg: magenta }
+            - { type: text, content: "_+-=;:,.?/", grid-col: 2, grid-row: 5, at: lc, font: "generic:3", fg: magenta }
 
     - { type: text, content: "Press any key to return", font: "generic:1", fg: gray, at: bc, y: -1 }

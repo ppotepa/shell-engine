@@ -4,8 +4,8 @@
 //! systems and scripts. Rendering-specific helpers stay in `engine-vector`.
 
 use geo::algorithm::contains::Contains;
-use geo::algorithm::intersects::Intersects;
 use geo::algorithm::coords_iter::CoordsIter;
+use geo::algorithm::intersects::Intersects;
 use geo::BooleanOps;
 use geo::{Coord, Line, LineString, MultiPolygon, Point, Polygon};
 
@@ -66,10 +66,7 @@ pub fn segment_intersects_polygon(
 /// Uses boolean difference (CSG subtraction). Returns one polygon when the cut
 /// creates a notch, multiple polygons when it splits the shape, or an empty vec
 /// when `b` completely covers `a`.
-pub fn subtract_polygons(
-    polygon_a: &[[i32; 2]],
-    polygon_b: &[[i32; 2]],
-) -> Vec<Vec<[i32; 2]>> {
+pub fn subtract_polygons(polygon_a: &[[i32; 2]], polygon_b: &[[i32; 2]]) -> Vec<Vec<[i32; 2]>> {
     let Some(poly_a) = polygon_from_points(polygon_a, [0, 0]) else {
         return vec![];
     };
@@ -167,7 +164,10 @@ mod tests {
         let big = [[-10, -10], [10, -10], [10, 10], [-10, 10]];
         let bite = [[5, -3], [15, -3], [15, 3], [5, 3]];
         let result = subtract_polygons(&big, &bite);
-        assert!(!result.is_empty(), "subtraction should produce at least one polygon");
+        assert!(
+            !result.is_empty(),
+            "subtraction should produce at least one polygon"
+        );
         // The result should have more vertices than the original (notch adds corners)
         assert!(result[0].len() > 4);
     }

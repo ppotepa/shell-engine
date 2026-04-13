@@ -14,7 +14,7 @@ mod package and provides startup validation before runtime boot.
 - validate required manifest structure,
 - verify that the configured scene entrypoint exists in that source,
 - run startup checks for scene graph, levels, Rhai scripts, effect names,
-  image/font assets, terminal requirements, and audio sequencer data,
+  image/font assets, display settings, and audio sequencer data,
 - expose startup helpers used before scene compilation begins.
 
 ## Main exports

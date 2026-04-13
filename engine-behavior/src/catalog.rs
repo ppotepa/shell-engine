@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 
+pub use engine_celestial::{
+    BodyDef, CelestialCatalogs, PlanetDef, RegionDef, RouteDef, SiteDef, SystemDef,
+};
+
 /// Complete set of catalogs for a mod.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ModCatalogs {
@@ -15,10 +19,9 @@ pub struct ModCatalogs {
     pub emitters: HashMap<String, EmitterConfig>,
     pub groups: HashMap<String, GroupTemplate>,
     pub waves: HashMap<String, WaveTemplate>,
-    /// Planet visual presets: archetype id → visual definition. Loaded from `catalogs/planets.yaml`.
-    pub planet_types: HashMap<String, PlanetDef>,
-    /// Orbital bodies: body id → orbital + physical definition. Loaded from `catalogs/bodies.yaml`.
-    pub bodies: HashMap<String, BodyDef>,
+    /// Celestial world data: bodies, planet presets, regions, systems, sites, and routes.
+    #[serde(default)]
+    pub celestial: CelestialCatalogs,
 }
 
 /// Input action bindings: action_name -> list of key codes
@@ -66,16 +69,20 @@ pub struct PrefabComponents {
 }
 
 /// Physics component: velocity, drag, max_speed.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PhysicsComponent {
     #[serde(default)]
     pub vx: Option<f64>,
     #[serde(default)]
     pub vy: Option<f64>,
     #[serde(default)]
+    pub vz: Option<f64>,
+    #[serde(default)]
     pub ax: Option<f64>,
     #[serde(default)]
     pub ay: Option<f64>,
+    #[serde(default)]
+    pub az: Option<f64>,
     #[serde(default)]
     pub drag: Option<f64>,
     #[serde(default)]
@@ -84,6 +91,24 @@ pub struct PhysicsComponent {
     pub mass: Option<f64>,
     #[serde(default)]
     pub restitution: Option<f64>,
+    #[serde(default)]
+    pub gravity_scale: Option<f64>,
+    #[serde(default)]
+    pub gravity_mode: Option<String>,
+    #[serde(default)]
+    pub gravity_body: Option<String>,
+    #[serde(default)]
+    pub gravity_flat_x: Option<f64>,
+    #[serde(default)]
+    pub gravity_flat_y: Option<f64>,
+    #[serde(default)]
+    pub atmosphere_body: Option<String>,
+    #[serde(default)]
+    pub atmosphere_drag_scale: Option<f64>,
+    #[serde(default)]
+    pub atmosphere_heat_scale: Option<f64>,
+    #[serde(default)]
+    pub atmosphere_cooling: Option<f64>,
 }
 
 /// Collider component: shape and collision masks.
@@ -151,6 +176,9 @@ pub struct EmitterConfig {
     pub local_x: Option<f64>,
     #[serde(default)]
     pub local_y: Option<f64>,
+    /// Z-axis position in owner-local space. 0.0 for pure 2D emitters.
+    #[serde(default)]
+    pub local_z: Option<f64>,
     /// Optional edge anchor in owner-local coordinates:
     /// anchor = from + (to - from) * edge_t.
     /// If set and local_x/local_y are not set, this overrides spawn_offset/side_offset.
@@ -175,6 +203,9 @@ pub struct EmitterConfig {
     pub emission_local_x: Option<f64>,
     #[serde(default)]
     pub emission_local_y: Option<f64>,
+    /// Z-axis emission direction in owner-local coordinates. 0.0 for 2D emitters.
+    #[serde(default)]
+    pub emission_local_z: Option<f64>,
     #[serde(default)]
     pub backward_speed: Option<f64>,
     #[serde(default)]
@@ -190,10 +221,12 @@ pub struct EmitterConfig {
     #[serde(default)]
     pub follow_local_y: Option<f64>,
     #[serde(default)]
+    pub follow_local_z: Option<f64>,
+    #[serde(default)]
     pub follow_inherit_heading: Option<bool>,
-    
+
     // === PHYSICS FLAGS ===
-    /// Thread mode for particle processing: "light" (main thread, default), 
+    /// Thread mode for particle processing: "light" (main thread, default),
     /// "physics" (worker thread with full physics), "gravity" (worker with gravity only).
     #[serde(default)]
     pub thread_mode: Option<String>,
@@ -216,6 +249,9 @@ pub struct EmitterConfig {
     /// World Y of the orbital gravity attractor (planet center). Used with gravity_mode: orbital.
     #[serde(default)]
     pub gravity_center_y: Option<f64>,
+    /// World Z of the orbital gravity attractor. 0.0 for 2D orbital gravity.
+    #[serde(default)]
+    pub gravity_center_z: Option<f64>,
     /// Gravitational constant for orbital mode. Acceleration = gravity_constant / dist².
     #[serde(default)]
     pub gravity_constant: Option<f64>,
@@ -243,223 +279,6 @@ pub struct EmitterConfig {
     /// Particle radius at end of life (life→0). 0 = fade out, ≥1 = stays visible.
     #[serde(default)]
     pub radius_min: Option<i64>,
-}
-
-/// Visual preset for a planet type (surface, clouds, atmosphere, biomes).
-/// Defines all renderer-level parameters for one planet archetype.
-/// Referenced by `BodyDef.planet_type`. Loaded from `catalogs/planets.yaml`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlanetDef {
-    // ── Surface ──────────────────────────────────────────────────────────────
-    #[serde(default = "PlanetDef::default_ocean_color")]
-    pub ocean_color: String,
-    #[serde(default = "PlanetDef::default_land_color")]
-    pub land_color: String,
-    #[serde(default = "PlanetDef::default_terrain_threshold")]
-    pub terrain_threshold: f64,
-    #[serde(default = "PlanetDef::default_terrain_noise_scale")]
-    pub terrain_noise_scale: f64,
-    #[serde(default = "PlanetDef::default_terrain_noise_octaves")]
-    pub terrain_noise_octaves: u8,
-    #[serde(default = "PlanetDef::default_marble_depth")]
-    pub marble_depth: f64,
-    #[serde(default = "PlanetDef::default_ambient")]
-    pub ambient: f64,
-    #[serde(default = "PlanetDef::default_latitude_bands")]
-    pub latitude_bands: u8,
-    #[serde(default = "PlanetDef::default_latitude_band_depth")]
-    pub latitude_band_depth: f64,
-    // ── Biomes ───────────────────────────────────────────────────────────────
-    #[serde(default)]
-    pub polar_ice_color: Option<String>,
-    #[serde(default = "PlanetDef::default_polar_ice_start")]
-    pub polar_ice_start: f64,
-    #[serde(default = "PlanetDef::default_polar_ice_end")]
-    pub polar_ice_end: f64,
-    #[serde(default)]
-    pub desert_color: Option<String>,
-    #[serde(default)]
-    pub desert_strength: f64,
-    // ── Atmosphere ───────────────────────────────────────────────────────────
-    #[serde(default)]
-    pub atmo_color: Option<String>,
-    #[serde(default)]
-    pub atmo_strength: f64,
-    #[serde(default = "PlanetDef::default_atmo_rim_power")]
-    pub atmo_rim_power: f64,
-    // ── Night lights ─────────────────────────────────────────────────────────
-    #[serde(default)]
-    pub night_light_color: Option<String>,
-    #[serde(default = "PlanetDef::default_night_light_threshold")]
-    pub night_light_threshold: f64,
-    #[serde(default)]
-    pub night_light_intensity: f64,
-    // ── Light direction (sun) ─────────────────────────────────────────────────
-    #[serde(default = "PlanetDef::default_sun_dir_x")]
-    pub sun_dir_x: f64,
-    #[serde(default = "PlanetDef::default_sun_dir_y")]
-    pub sun_dir_y: f64,
-    #[serde(default = "PlanetDef::default_sun_dir_z")]
-    pub sun_dir_z: f64,
-    // ── Spin rates (degrees per second) ──────────────────────────────────────
-    #[serde(default = "PlanetDef::default_surface_spin_dps")]
-    pub surface_spin_dps: f64,
-    #[serde(default = "PlanetDef::default_cloud_spin_dps")]
-    pub cloud_spin_dps: f64,
-    #[serde(default = "PlanetDef::default_cloud_spin_2_dps")]
-    pub cloud_spin_2_dps: f64,
-    // ── Cloud visual ─────────────────────────────────────────────────────────
-    #[serde(default)]
-    pub cloud_color: Option<String>,
-    #[serde(default = "PlanetDef::default_cloud_threshold")]
-    pub cloud_threshold: f64,
-    #[serde(default = "PlanetDef::default_cloud_noise_scale")]
-    pub cloud_noise_scale: f64,
-    #[serde(default = "PlanetDef::default_cloud_noise_octaves")]
-    pub cloud_noise_octaves: u8,
-    // ── Shading palette ──────────────────────────────────────────────────────
-    #[serde(default)]
-    pub shadow_color: Option<String>,
-    #[serde(default)]
-    pub midtone_color: Option<String>,
-    #[serde(default)]
-    pub highlight_color: Option<String>,
-}
-
-impl PlanetDef {
-    fn default_ocean_color() -> String { "#0b2748".to_string() }
-    fn default_land_color() -> String { "#4f6b3d".to_string() }
-    fn default_terrain_threshold() -> f64 { 0.585 }
-    fn default_terrain_noise_scale() -> f64 { 2.15 }
-    fn default_terrain_noise_octaves() -> u8 { 4 }
-    fn default_marble_depth() -> f64 { 0.018 }
-    fn default_ambient() -> f64 { 0.055 }
-    fn default_latitude_bands() -> u8 { 5 }
-    fn default_latitude_band_depth() -> f64 { 0.08 }
-    fn default_polar_ice_start() -> f64 { 0.78 }
-    fn default_polar_ice_end() -> f64 { 0.93 }
-    fn default_atmo_rim_power() -> f64 { 4.8 }
-    fn default_night_light_threshold() -> f64 { 0.84 }
-    fn default_sun_dir_x() -> f64 { 0.72 }
-    fn default_sun_dir_y() -> f64 { -0.56 }
-    fn default_sun_dir_z() -> f64 { 0.40 }
-    fn default_surface_spin_dps() -> f64 { 0.06 }
-    fn default_cloud_spin_dps() -> f64 { 0.10 }
-    fn default_cloud_spin_2_dps() -> f64 { 0.08 }
-    fn default_cloud_threshold() -> f64 { 0.68 }
-    fn default_cloud_noise_scale() -> f64 { 3.8 }
-    fn default_cloud_noise_octaves() -> u8 { 3 }
-}
-
-impl Default for PlanetDef {
-    fn default() -> Self {
-        Self {
-            ocean_color: Self::default_ocean_color(),
-            land_color: Self::default_land_color(),
-            terrain_threshold: Self::default_terrain_threshold(),
-            terrain_noise_scale: Self::default_terrain_noise_scale(),
-            terrain_noise_octaves: Self::default_terrain_noise_octaves(),
-            marble_depth: Self::default_marble_depth(),
-            ambient: Self::default_ambient(),
-            latitude_bands: Self::default_latitude_bands(),
-            latitude_band_depth: Self::default_latitude_band_depth(),
-            polar_ice_color: None,
-            polar_ice_start: Self::default_polar_ice_start(),
-            polar_ice_end: Self::default_polar_ice_end(),
-            desert_color: None,
-            desert_strength: 0.0,
-            atmo_color: None,
-            atmo_strength: 0.0,
-            atmo_rim_power: Self::default_atmo_rim_power(),
-            night_light_color: None,
-            night_light_threshold: Self::default_night_light_threshold(),
-            night_light_intensity: 0.0,
-            sun_dir_x: Self::default_sun_dir_x(),
-            sun_dir_y: Self::default_sun_dir_y(),
-            sun_dir_z: Self::default_sun_dir_z(),
-            surface_spin_dps: Self::default_surface_spin_dps(),
-            cloud_spin_dps: Self::default_cloud_spin_dps(),
-            cloud_spin_2_dps: Self::default_cloud_spin_2_dps(),
-            cloud_color: None,
-            cloud_threshold: Self::default_cloud_threshold(),
-            cloud_noise_scale: Self::default_cloud_noise_scale(),
-            cloud_noise_octaves: Self::default_cloud_noise_octaves(),
-            shadow_color: None,
-            midtone_color: None,
-            highlight_color: None,
-        }
-    }
-}
-
-/// Orbital body definition — a specific planet, moon, or station in the scene.
-/// References a `PlanetDef` type for visuals, and optionally orbits a parent body.
-/// Loaded from `catalogs/bodies.yaml`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BodyDef {
-    /// Visual preset type id (key in `planet_types`).
-    #[serde(default)]
-    pub planet_type: Option<String>,
-    /// World-space center X when no parent (absolute position).
-    #[serde(default)]
-    pub center_x: f64,
-    /// World-space center Y when no parent (absolute position).
-    #[serde(default)]
-    pub center_y: f64,
-    /// Parent body id. `None` = fixed at center_x/y.
-    #[serde(default)]
-    pub parent: Option<String>,
-    /// Orbit radius in world pixels (0 = stationary at center_x/y).
-    #[serde(default)]
-    pub orbit_radius: f64,
-    /// Full orbit period in seconds (0 = stationary).
-    #[serde(default)]
-    pub orbit_period_sec: f64,
-    /// Starting orbital phase in degrees (0 = 3-o'clock).
-    #[serde(default)]
-    pub orbit_phase_deg: f64,
-    /// Visual sphere radius in world pixels (for display/camera reference).
-    #[serde(default = "BodyDef::default_radius_px")]
-    pub radius_px: f64,
-    /// Gravitational mu constant (px³/s²) for orbital mechanics.
-    #[serde(default)]
-    pub gravity_mu: f64,
-    /// Collision/gameplay surface radius in pixels.
-    #[serde(default = "BodyDef::default_surface_radius")]
-    pub surface_radius: f64,
-    /// Scene sprite id for the surface layer.
-    #[serde(default)]
-    pub sprite_surface: Option<String>,
-    /// Scene sprite id for cloud layer 1.
-    #[serde(default)]
-    pub sprite_clouds: Option<String>,
-    /// Scene sprite id for cloud layer 2.
-    #[serde(default)]
-    pub sprite_clouds_2: Option<String>,
-}
-
-impl BodyDef {
-    fn default_radius_px() -> f64 { 115.0 }
-    fn default_surface_radius() -> f64 { 90.0 }
-}
-
-impl Default for BodyDef {
-    fn default() -> Self {
-        Self {
-            planet_type: None,
-            center_x: 0.0,
-            center_y: 0.0,
-            parent: None,
-            orbit_radius: 0.0,
-            orbit_period_sec: 0.0,
-            orbit_phase_deg: 0.0,
-            radius_px: Self::default_radius_px(),
-            gravity_mu: 0.0,
-            surface_radius: Self::default_surface_radius(),
-            sprite_surface: None,
-            sprite_clouds: None,
-            sprite_clouds_2: None,
-        }
-    }
 }
 
 /// Group template: predefined batch spawn.
@@ -617,43 +436,7 @@ impl ModCatalogs {
             }
         }
 
-        // Load planet visual presets
-        let planets_path = catalogs_dir.join("planets.yaml");
-        if planets_path.exists() {
-            let content = std::fs::read_to_string(&planets_path)
-                .map_err(|e| format!("Failed to read planets.yaml: {}", e))?;
-            let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
-                .map_err(|e| format!("Failed to parse planets.yaml: {}", e))?;
-
-            if let Some(types) = parsed.get("planet_types").and_then(|v| v.as_mapping()) {
-                for (key, value) in types.iter() {
-                    if let Some(key_str) = key.as_str() {
-                        if let Ok(pdef) = serde_yaml::from_value::<PlanetDef>(value.clone()) {
-                            catalogs.planet_types.insert(key_str.to_string(), pdef);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Load orbital bodies
-        let bodies_path = catalogs_dir.join("bodies.yaml");
-        if bodies_path.exists() {
-            let content = std::fs::read_to_string(&bodies_path)
-                .map_err(|e| format!("Failed to read bodies.yaml: {}", e))?;
-            let parsed: serde_yaml::Value = serde_yaml::from_str(&content)
-                .map_err(|e| format!("Failed to parse bodies.yaml: {}", e))?;
-
-            if let Some(bodies) = parsed.get("bodies").and_then(|v| v.as_mapping()) {
-                for (key, value) in bodies.iter() {
-                    if let Some(key_str) = key.as_str() {
-                        if let Ok(body) = serde_yaml::from_value::<BodyDef>(value.clone()) {
-                            catalogs.bodies.insert(key_str.to_string(), body);
-                        }
-                    }
-                }
-            }
-        }
+        catalogs.celestial = CelestialCatalogs::load_from_directory(catalogs_dir)?;
 
         Ok(catalogs)
     }
@@ -670,13 +453,16 @@ impl ModCatalogs {
         // Ship prefab
         let mut ship_components = HashMap::new();
         ship_components.insert("controller_type".to_string(), json!("ArcadeController"));
-        ship_components.insert("config".to_string(), json!({
-            "turn_step_ms": 25,
-            "thrust_power": 100.0,
-            "max_speed": 200.0,
-            "heading_bits": 8
-        }));
-        
+        ship_components.insert(
+            "config".to_string(),
+            json!({
+                "turn_step_ms": 25,
+                "thrust_power": 100.0,
+                "max_speed": 200.0,
+                "heading_bits": 8
+            }),
+        );
+
         catalogs.prefabs.insert(
             "vehicle".to_string(),
             PrefabTemplate {
@@ -693,6 +479,7 @@ impl ModCatalogs {
                         ay: Some(0.0),
                         drag: Some(0.1),
                         max_speed: Some(200.0),
+                        ..PhysicsComponent::default()
                     }),
                     collider: Some(ColliderComponent {
                         shape: "circle".to_string(),
@@ -730,6 +517,7 @@ impl ModCatalogs {
                         ay: None,
                         drag: None,
                         max_speed: None,
+                        ..PhysicsComponent::default()
                     }),
                     collider: Some(ColliderComponent {
                         shape: "circle".to_string(),
@@ -764,6 +552,7 @@ impl ModCatalogs {
                         ay: None,
                         drag: Some(0.0),
                         max_speed: None,
+                        ..PhysicsComponent::default()
                     }),
                     collider: Some(ColliderComponent {
                         shape: "circle".to_string(),
@@ -798,6 +587,7 @@ impl ModCatalogs {
                         ay: None,
                         drag: Some(0.04),
                         max_speed: None,
+                        ..PhysicsComponent::default()
                     }),
                     collider: None,
                     controller: None,
@@ -825,8 +615,8 @@ mod tests {
         assert!(catalogs.emitters.is_empty());
         assert!(catalogs.groups.is_empty());
         assert!(catalogs.waves.is_empty());
-        assert!(catalogs.planet_types.is_empty());
-        assert!(catalogs.bodies.is_empty());
+        assert!(catalogs.celestial.planet_types.is_empty());
+        assert!(catalogs.celestial.bodies.is_empty());
     }
 
     #[test]
@@ -877,11 +667,7 @@ groups:
       - {x: 300, y: -210, vx: 0.0, vy: 2.0, shape: 1, size: 3}
 "#;
         let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-        let group_val = parsed
-            .get("groups")
-            .unwrap()
-            .get("game.initial")
-            .unwrap();
+        let group_val = parsed.get("groups").unwrap().get("game.initial").unwrap();
         let group: GroupTemplate = serde_yaml::from_value(group_val.clone()).unwrap();
 
         assert_eq!(group.prefab, "entity");
@@ -901,11 +687,7 @@ waves:
       - {min_idx: 5, size: 1}
 "#;
         let parsed: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-        let wave_val = parsed
-            .get("waves")
-            .unwrap()
-            .get("game.dynamic")
-            .unwrap();
+        let wave_val = parsed.get("waves").unwrap().get("game.dynamic").unwrap();
         let wave: WaveTemplate = serde_yaml::from_value(wave_val.clone()).unwrap();
 
         assert_eq!(wave.prefab, "entity");

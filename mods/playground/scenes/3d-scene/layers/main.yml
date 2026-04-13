@@ -8,7 +8,7 @@
           1-4 renderer, 5 wireframe, ENTER back",
         at: cb,
         y: -1,
-        font: "generic:half",
+        font: "generic:2",
         fg: gray,
         hide_on_leave: true,
       }

@@ -9,9 +9,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use crate::components::{
-    BrakePhase, Collider2D, EntityTimers, FollowAnchor2D, GameplayEvent, LifecyclePolicy, Lifetime,
-    Ownership, ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ArcadeController, AngularBody,
-    LinearBrake, ThrusterRamp, Transform2D, VisualBinding, WrapBounds,
+    AngularBody, ArcadeController, AtmosphereAffected2D, BrakePhase, Collider2D, EntityTimers,
+    FollowAnchor2D, GameplayEvent, GravityAffected2D, LifecyclePolicy, Lifetime, LinearBrake,
+    Ownership, ParticleColorRamp, ParticlePhysics, PhysicsBody2D, ThrusterRamp, Transform2D,
+    VisualBinding, WrapBounds,
 };
 
 /// Snapshot of a spawned gameplay entity.
@@ -29,6 +30,8 @@ struct GameplayStore {
     entities: BTreeMap<u64, GameplayEntity>,
     transforms: BTreeMap<u64, Transform2D>,
     physics: BTreeMap<u64, PhysicsBody2D>,
+    gravity: BTreeMap<u64, GravityAffected2D>,
+    atmosphere: BTreeMap<u64, AtmosphereAffected2D>,
     colliders: BTreeMap<u64, Collider2D>,
     lifetimes: BTreeMap<u64, Lifetime>,
     lifecycles: BTreeMap<u64, LifecyclePolicy>,
@@ -66,6 +69,8 @@ impl Default for GameplayStore {
             entities: BTreeMap::new(),
             transforms: BTreeMap::new(),
             physics: BTreeMap::new(),
+            gravity: BTreeMap::new(),
+            atmosphere: BTreeMap::new(),
             colliders: BTreeMap::new(),
             lifetimes: BTreeMap::new(),
             lifecycles: BTreeMap::new(),
@@ -106,7 +111,9 @@ pub struct GameplayWorld {
 /// Ignition ramp factor: 0 until `delay_ms` has passed, then linearly 0→1 over `ramp_ms`.
 #[inline]
 fn igf(elapsed_ms: f32, delay_ms: f32, ramp_ms: f32) -> f32 {
-    if elapsed_ms < delay_ms { return 0.0; }
+    if elapsed_ms < delay_ms {
+        return 0.0;
+    }
     ((elapsed_ms - delay_ms) / ramp_ms).min(1.0)
 }
 
@@ -126,7 +133,7 @@ impl GameplayWorld {
     }
 
     /// Collects all visual IDs that need cleanup, then clears all gameplay entities.
-    /// 
+    ///
     /// Returns a list of scene object IDs (visual IDs) that should be despawned
     /// via engine commands. This ensures visuals are cleaned up before gameplay
     /// state is wiped, maintaining consistency between presentation and gameplay layers.
@@ -255,6 +262,8 @@ impl GameplayWorld {
             };
             store.transforms.remove(&id);
             store.physics.remove(&id);
+            store.gravity.remove(&id);
+            store.atmosphere.remove(&id);
             store.colliders.remove(&id);
             store.lifetimes.remove(&id);
             store.lifecycles.remove(&id);
@@ -590,6 +599,67 @@ impl GameplayWorld {
             return None;
         };
         store.physics.get(&id).copied()
+    }
+
+    pub fn attach_gravity(&self, id: u64, gravity: GravityAffected2D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.gravity.insert(id, gravity);
+        true
+    }
+
+    pub fn gravity(&self, id: u64) -> Option<GravityAffected2D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.gravity.get(&id).cloned()
+    }
+
+    pub fn ids_with_gravity(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.gravity.keys().copied().collect()
+    }
+
+    pub fn attach_atmosphere(&self, id: u64, atmosphere: AtmosphereAffected2D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.atmosphere.insert(id, atmosphere);
+        true
+    }
+
+    pub fn atmosphere(&self, id: u64) -> Option<AtmosphereAffected2D> {
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
+        store.atmosphere.get(&id).cloned()
+    }
+
+    pub fn ids_with_atmosphere(&self) -> Vec<u64> {
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
+        store.atmosphere.keys().copied().collect()
+    }
+
+    pub fn set_atmosphere_state(&self, id: u64, atmosphere: AtmosphereAffected2D) -> bool {
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
+        store.atmosphere.insert(id, atmosphere);
+        true
     }
 
     /// Apply an instant velocity change (impulse) to an entity's physics body.
@@ -1052,6 +1122,7 @@ impl GameplayWorld {
             let xf = Transform2D {
                 x: owner_xf.x + cos_h * follow.local_x - sin_h * follow.local_y,
                 y: owner_xf.y + sin_h * follow.local_x + cos_h * follow.local_y,
+                z: owner_xf.z,
                 heading: if follow.inherit_heading {
                     owner_xf.heading
                 } else {
@@ -1208,7 +1279,13 @@ impl GameplayWorld {
             let Some(ref visual_id) = binding.visual_id else {
                 continue;
             };
-            out.push((id, visual_id.clone(), ramp.clone(), lifetime.ttl_ms, lifetime.original_ttl_ms));
+            out.push((
+                id,
+                visual_id.clone(),
+                ramp.clone(),
+                lifetime.ttl_ms,
+                lifetime.original_ttl_ms,
+            ));
         }
         out
     }
@@ -1222,14 +1299,20 @@ impl GameplayWorld {
     /// All fields default to `AngularBody::default()` if the entity exists;
     /// pass a pre-built struct to customise config.
     pub fn attach_angular_body(&self, id: u64, body: AngularBody) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false; };
-        if !store.entities.contains_key(&id) { return false; }
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
         store.angular_bodies.insert(id, body);
         true
     }
 
     pub fn angular_body(&self, id: u64) -> Option<AngularBody> {
-        let Ok(store) = self.store.lock() else { return None; };
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
         store.angular_bodies.get(&id).cloned()
     }
 
@@ -1237,14 +1320,20 @@ impl GameplayWorld {
     where
         F: FnOnce(&mut AngularBody),
     {
-        let Ok(mut store) = self.store.lock() else { return false; };
-        let Some(ab) = store.angular_bodies.get_mut(&id) else { return false; };
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(ab) = store.angular_bodies.get_mut(&id) else {
+            return false;
+        };
         f(ab);
         true
     }
 
     pub fn ids_with_angular_body(&self) -> Vec<u64> {
-        let Ok(store) = self.store.lock() else { return Vec::new(); };
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
         store.angular_bodies.keys().copied().collect()
     }
 
@@ -1258,7 +1347,9 @@ impl GameplayWorld {
 
     /// Read the current angular velocity (rad/s) of an [`AngularBody`] entity.
     pub fn angular_vel(&self, id: u64) -> Option<f32> {
-        let Ok(store) = self.store.lock() else { return None; };
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
         store.angular_bodies.get(&id).map(|ab| ab.angular_vel)
     }
 
@@ -1268,12 +1359,18 @@ impl GameplayWorld {
     pub fn tick_angular_bodies(&self, dt_ms: u64) {
         let dt = dt_ms as f32 / 1000.0;
         let ids: Vec<u64> = {
-            let Ok(store) = self.store.lock() else { return; };
+            let Ok(store) = self.store.lock() else {
+                return;
+            };
             store.angular_bodies.keys().copied().collect()
         };
         for id in ids {
-            let Ok(mut store) = self.store.lock() else { return; };
-            let Some(ab) = store.angular_bodies.get_mut(&id) else { continue; };
+            let Ok(mut store) = self.store.lock() else {
+                return;
+            };
+            let Some(ab) = store.angular_bodies.get_mut(&id) else {
+                continue;
+            };
 
             if ab.input != 0.0 {
                 let torque = ab.input * ab.accel * dt;
@@ -1301,26 +1398,38 @@ impl GameplayWorld {
 
     /// Attach or replace the [`LinearBrake`] component for an entity.
     pub fn attach_linear_brake(&self, id: u64, brake: LinearBrake) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false; };
-        if !store.entities.contains_key(&id) { return false; }
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
         store.linear_brakes.insert(id, brake);
         true
     }
 
     pub fn linear_brake(&self, id: u64) -> Option<LinearBrake> {
-        let Ok(store) = self.store.lock() else { return None; };
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
         store.linear_brakes.get(&id).cloned()
     }
 
     pub fn ids_with_linear_brake(&self) -> Vec<u64> {
-        let Ok(store) = self.store.lock() else { return Vec::new(); };
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
         store.linear_brakes.keys().copied().collect()
     }
 
     /// Set the per-frame `active` flag — suppresses braking when true.
     pub fn set_linear_brake_active(&self, id: u64, active: bool) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false; };
-        let Some(lb) = store.linear_brakes.get_mut(&id) else { return false; };
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        let Some(lb) = store.linear_brakes.get_mut(&id) else {
+            return false;
+        };
         lb.active = active;
         true
     }
@@ -1330,11 +1439,17 @@ impl GameplayWorld {
     /// Called by `linear_brake_system` each physics tick after arcade controller.
     pub fn tick_linear_brakes(&self, dt_ms: u64) {
         let dt = (dt_ms as f32) / 1000.0;
-        if dt <= 0.0 { return; }
+        if dt <= 0.0 {
+            return;
+        }
         let ids = self.ids_with_linear_brake();
         for id in ids {
-            let Ok(mut store) = self.store.lock() else { continue; };
-            let Some(lb) = store.linear_brakes.get_mut(&id) else { continue; };
+            let Ok(mut store) = self.store.lock() else {
+                continue;
+            };
+            let Some(lb) = store.linear_brakes.get_mut(&id) else {
+                continue;
+            };
             if !lb.auto_brake || lb.active {
                 lb.active = false; // reset for next frame
                 continue;
@@ -1343,8 +1458,12 @@ impl GameplayWorld {
             let decel = lb.decel;
             let deadband = lb.deadband;
             drop(store); // release lock before physics read
-            let Ok(mut store) = self.store.lock() else { continue; };
-            let Some(body) = store.physics.get_mut(&id) else { continue; };
+            let Ok(mut store) = self.store.lock() else {
+                continue;
+            };
+            let Some(body) = store.physics.get_mut(&id) else {
+                continue;
+            };
             let speed = (body.vx * body.vx + body.vy * body.vy).sqrt();
             if speed <= deadband {
                 body.vx = 0.0;
@@ -1361,27 +1480,37 @@ impl GameplayWorld {
 
     /// Attach or replace the [`ThrusterRamp`] component for an entity.
     pub fn attach_thruster_ramp(&self, id: u64, ramp: ThrusterRamp) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false; };
-        if !store.entities.contains_key(&id) { return false; }
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
+        if !store.entities.contains_key(&id) {
+            return false;
+        }
         store.thruster_ramps.insert(id, ramp);
         true
     }
 
     /// Read the current [`ThrusterRamp`] outputs for an entity (cloned snapshot).
     pub fn thruster_ramp(&self, id: u64) -> Option<ThrusterRamp> {
-        let Ok(store) = self.store.lock() else { return None; };
+        let Ok(store) = self.store.lock() else {
+            return None;
+        };
         store.thruster_ramps.get(&id).cloned()
     }
 
     /// Returns all entity IDs that have a [`ThrusterRamp`] component.
     pub fn ids_with_thruster_ramp(&self) -> Vec<u64> {
-        let Ok(store) = self.store.lock() else { return Vec::new(); };
+        let Ok(store) = self.store.lock() else {
+            return Vec::new();
+        };
         store.thruster_ramps.keys().copied().collect()
     }
 
     /// Detach the [`ThrusterRamp`] component from an entity.
     pub fn detach_thruster_ramp(&self, id: u64) -> bool {
-        let Ok(mut store) = self.store.lock() else { return false; };
+        let Ok(mut store) = self.store.lock() else {
+            return false;
+        };
         store.thruster_ramps.remove(&id).is_some()
     }
 
@@ -1392,22 +1521,44 @@ impl GameplayWorld {
     /// Called by `thruster_ramp_system` each gameplay tick after `linear_brake_system`.
     pub fn tick_thruster_ramps(&self, dt_ms: u64) {
         let dt = dt_ms as f32;
-        if dt <= 0.0 { return; }
+        if dt <= 0.0 {
+            return;
+        }
 
         let ids: Vec<u64> = {
-            let Ok(store) = self.store.lock() else { return; };
+            let Ok(store) = self.store.lock() else {
+                return;
+            };
             store.thruster_ramps.keys().copied().collect()
         };
 
         for id in ids {
             // ── Read all inputs in one lock ───────────────────────────────
             let (is_thrusting, rotation_input_active, angular_vel, speed) = {
-                let Ok(store) = self.store.lock() else { continue; };
-                let thrusting = store.controllers.get(&id).map(|c| c.is_thrusting).unwrap_or(false);
-                let rot_input = store.angular_bodies.get(&id).map(|ab| ab.input != 0.0).unwrap_or(false);
-                let ang_vel   = store.angular_bodies.get(&id).map(|ab| ab.angular_vel).unwrap_or(0.0);
-                let (vx, vy)  = store.physics.get(&id).map(|p| (p.vx, p.vy)).unwrap_or((0.0, 0.0));
-                let speed     = (vx * vx + vy * vy).sqrt();
+                let Ok(store) = self.store.lock() else {
+                    continue;
+                };
+                let thrusting = store
+                    .controllers
+                    .get(&id)
+                    .map(|c| c.is_thrusting)
+                    .unwrap_or(false);
+                let rot_input = store
+                    .angular_bodies
+                    .get(&id)
+                    .map(|ab| ab.input != 0.0)
+                    .unwrap_or(false);
+                let ang_vel = store
+                    .angular_bodies
+                    .get(&id)
+                    .map(|ab| ab.angular_vel)
+                    .unwrap_or(0.0);
+                let (vx, vy) = store
+                    .physics
+                    .get(&id)
+                    .map(|p| (p.vx, p.vy))
+                    .unwrap_or((0.0, 0.0));
+                let speed = (vx * vx + vy * vy).sqrt();
                 (thrusting, rot_input, ang_vel, speed)
             };
 
@@ -1415,22 +1566,34 @@ impl GameplayWorld {
 
             // ── Read ramp config + state ──────────────────────────────────
             let ramp_snap = {
-                let Ok(store) = self.store.lock() else { continue; };
+                let Ok(store) = self.store.lock() else {
+                    continue;
+                };
                 store.thruster_ramps.get(&id).cloned()
             };
-            let Some(mut ramp) = ramp_snap else { continue; };
+            let Some(mut ramp) = ramp_snap else {
+                continue;
+            };
 
             // Derived state
             let still_rotating = angular_vel.abs() > ramp.rot_deadband;
-            let still_moving   = speed > ramp.move_deadband;
+            let still_moving = speed > ramp.move_deadband;
 
             // ── No-input accumulator ──────────────────────────────────────
-            if linear_input_active { ramp.no_input_ms = 0.0; } else { ramp.no_input_ms += dt; }
+            if linear_input_active {
+                ramp.no_input_ms = 0.0;
+            } else {
+                ramp.no_input_ms += dt;
+            }
 
             // ── Thrust ignition ramp ──────────────────────────────────────
             if is_thrusting {
                 ramp.thrust_ignition_ms += dt;
-                ramp.thrust_factor = igf(ramp.thrust_ignition_ms, ramp.thrust_delay_ms, ramp.thrust_ramp_ms);
+                ramp.thrust_factor = igf(
+                    ramp.thrust_ignition_ms,
+                    ramp.thrust_delay_ms,
+                    ramp.thrust_ramp_ms,
+                );
             } else {
                 ramp.thrust_ignition_ms = 0.0;
                 ramp.thrust_factor = 0.0;
@@ -1445,8 +1608,12 @@ impl GameplayWorld {
 
             if still_rotating && !rotation_input_active {
                 ramp.brake_ignition_ms += dt;
-                ramp.brake_factor = igf(ramp.brake_ignition_ms, ramp.thrust_delay_ms * 0.3, ramp.thrust_ramp_ms * 0.5);
-                ramp.brake_phase  = BrakePhase::Rotation;
+                ramp.brake_factor = igf(
+                    ramp.brake_ignition_ms,
+                    ramp.thrust_delay_ms * 0.3,
+                    ramp.thrust_ramp_ms * 0.5,
+                );
+                ramp.brake_phase = BrakePhase::Rotation;
             } else if linear_brake_active {
                 // Reset ignition timer on phase entry (Rotation→Linear transition)
                 if ramp.brake_phase != BrakePhase::Linear {
@@ -1456,7 +1623,7 @@ impl GameplayWorld {
                 ramp.brake_factor = igf(
                     ramp.brake_ignition_ms,
                     ramp.thrust_delay_ms * 0.5,
-                    ramp.thrust_ramp_ms  * 0.8,
+                    ramp.thrust_ramp_ms * 0.8,
                 );
                 ramp.brake_phase = BrakePhase::Linear;
             } else if !linear_input_active && !still_rotating && !still_moving {
@@ -1471,7 +1638,7 @@ impl GameplayWorld {
 
             // ── Final stabilisation burst ─────────────────────────────────
             ramp.final_burst_fired = false;
-            ramp.final_burst_wave  = 0;
+            ramp.final_burst_wave = 0;
 
             let burst_trigger_zone = linear_brake_active
                 && speed < ramp.burst_speed_threshold
@@ -1480,37 +1647,41 @@ impl GameplayWorld {
             if burst_trigger_zone {
                 if !ramp.final_burst_triggered {
                     ramp.final_burst_triggered = true;
-                    ramp.final_burst_waves     = 0;
-                    ramp.final_burst_timer_ms  = 0.0;
+                    ramp.final_burst_waves = 0;
+                    ramp.final_burst_timer_ms = 0.0;
                 }
                 if ramp.final_burst_waves < ramp.burst_wave_count {
                     ramp.final_burst_timer_ms += dt;
                     if ramp.final_burst_timer_ms >= ramp.burst_wave_interval_ms {
-                        ramp.final_burst_fired    = true;
-                        ramp.final_burst_wave     = ramp.final_burst_waves;
-                        ramp.final_burst_waves   += 1;
+                        ramp.final_burst_fired = true;
+                        ramp.final_burst_wave = ramp.final_burst_waves;
+                        ramp.final_burst_waves += 1;
                         ramp.final_burst_timer_ms = 0.0;
                     }
                 }
             } else if !still_moving && !still_rotating {
                 ramp.final_burst_triggered = false;
-                ramp.final_burst_waves     = 0;
-                ramp.final_burst_timer_ms  = 0.0;
+                ramp.final_burst_waves = 0;
+                ramp.final_burst_timer_ms = 0.0;
             }
             if linear_input_active {
                 ramp.final_burst_triggered = false;
-                ramp.final_burst_waves     = 0;
-                ramp.final_burst_timer_ms  = 0.0;
+                ramp.final_burst_waves = 0;
+                ramp.final_burst_timer_ms = 0.0;
             }
 
             // ── Write outputs back ────────────────────────────────────────
-            let Ok(mut store) = self.store.lock() else { continue; };
+            let Ok(mut store) = self.store.lock() else {
+                continue;
+            };
             store.thruster_ramps.insert(id, ramp);
         }
     }
 
-
-    pub fn batch_read_physics(&self, ids: &[u64]) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
+    pub fn batch_read_physics(
+        &self,
+        ids: &[u64],
+    ) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
         };
@@ -1525,11 +1696,15 @@ impl GameplayWorld {
     }
 
     /// Batch read ALL physics entities in a single lock acquisition.
-    pub fn batch_read_all_physics(&self) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
+    pub fn batch_read_all_physics(
+        &self,
+    ) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
         };
-        store.physics.keys()
+        store
+            .physics
+            .keys()
             .filter_map(|&id| {
                 let xf = store.transforms.get(&id)?;
                 let body = store.physics.get(&id)?;
@@ -1541,14 +1716,22 @@ impl GameplayWorld {
 
     /// Batch read physics for entities processed inline (thread_mode=Light or no particle physics).
     /// Worker-thread particles (Physics/Gravity) are excluded — handled by async path.
-    pub fn batch_read_inline_physics(&self) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
+    pub fn batch_read_inline_physics(
+        &self,
+    ) -> Vec<(u64, Transform2D, PhysicsBody2D, Option<ParticlePhysics>)> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
         };
-        store.physics.keys()
+        store
+            .physics
+            .keys()
             .filter_map(|&id| {
                 let pp = store.particle_physics.get(&id).cloned();
-                if pp.as_ref().map(|p| p.thread_mode.uses_worker_thread()).unwrap_or(false) {
+                if pp
+                    .as_ref()
+                    .map(|p| p.thread_mode.uses_worker_thread())
+                    .unwrap_or(false)
+                {
                     return None; // skip — will be processed by async particle system
                 }
                 let xf = store.transforms.get(&id)?;
@@ -1559,11 +1742,15 @@ impl GameplayWorld {
     }
 
     /// Batch read physics for worker-thread particles only (thread_mode=Physics|Gravity).
-    pub fn batch_read_worker_physics(&self) -> Vec<(u64, Transform2D, PhysicsBody2D, ParticlePhysics)> {
+    pub fn batch_read_worker_physics(
+        &self,
+    ) -> Vec<(u64, Transform2D, PhysicsBody2D, ParticlePhysics)> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
         };
-        store.particle_physics.iter()
+        store
+            .particle_physics
+            .iter()
             .filter(|(_, pp)| pp.thread_mode.uses_worker_thread())
             .filter_map(|(&id, pp)| {
                 let xf = store.transforms.get(&id)?;
@@ -1588,7 +1775,10 @@ impl GameplayWorld {
 
     /// Batch read lifecycle data for parallel TTL computation.
     /// Returns (id, ttl_ms, lifecycle_policy, owner_id).
-    pub fn batch_read_lifecycle(&self, ids: &[u64]) -> Vec<(u64, i32, LifecyclePolicy, Option<u64>)> {
+    pub fn batch_read_lifecycle(
+        &self,
+        ids: &[u64],
+    ) -> Vec<(u64, i32, LifecyclePolicy, Option<u64>)> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
         };
@@ -1625,16 +1815,20 @@ impl GameplayWorld {
     }
 
     /// Batch-read transform + visual_id for all entities with visual bindings.
-    /// Returns `(visual_id, x, y, heading)` tuples in a single lock.
-    pub fn batch_read_visual_sync(&self) -> Vec<(String, f32, f32, f32)> {
+    /// Returns `(visual_id, x, y, z, heading)` tuples in a single lock.
+    pub fn batch_read_visual_sync(&self) -> Vec<(String, f32, f32, f32, f32)> {
         let Ok(store) = self.store.lock() else {
             return Vec::new();
         };
         let mut out = Vec::with_capacity(store.visuals.len());
         for (&id, binding) in &store.visuals {
-            let Some(ref visual_id) = binding.visual_id else { continue };
-            let Some(xf) = store.transforms.get(&id) else { continue };
-            out.push((visual_id.clone(), xf.x, xf.y, xf.heading));
+            let Some(ref visual_id) = binding.visual_id else {
+                continue;
+            };
+            let Some(xf) = store.transforms.get(&id) else {
+                continue;
+            };
+            out.push((visual_id.clone(), xf.x, xf.y, xf.z, xf.heading));
         }
         out
     }
@@ -1768,6 +1962,8 @@ impl GameplayWorld {
             max_x,
             min_y,
             max_y,
+            min_z: 0.0,
+            max_z: 0.0,
         });
     }
 
@@ -2055,6 +2251,7 @@ mod tests {
             Transform2D {
                 x: 10.0,
                 y: 20.0,
+                z: 0.0,
                 heading: std::f32::consts::FRAC_PI_2,
             },
         ));
@@ -2063,6 +2260,7 @@ mod tests {
             Transform2D {
                 x: 0.0,
                 y: 0.0,
+                z: 0.0,
                 heading: 0.0,
             },
         ));
@@ -2084,5 +2282,3 @@ mod tests {
         assert!((child_xf.heading - std::f32::consts::FRAC_PI_2).abs() < 0.001);
     }
 }
-
-

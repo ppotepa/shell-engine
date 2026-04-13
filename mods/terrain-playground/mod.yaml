@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=./schemas/mod.yaml
+name: Terrain Playground
+version: 0.1.0
+entrypoint: /scenes/menu/scene.yml
+display:
+  min_colours: 256
+  min_width: 640
+  min_height: 360
+  default_font: "generic:1"
+  render_size: 640x360
+  presentation_policy: fit

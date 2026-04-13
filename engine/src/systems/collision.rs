@@ -24,7 +24,9 @@ pub fn apply_collision_response(
 
 /// Runs collision detection for particles (those with ParticlePhysics.collision=true)
 /// against collidable entities whose tags match the particle's collision_mask.
-pub fn particle_collision_system(world: &mut engine_core::world::World) -> Vec<engine_game::CollisionHit> {
+pub fn particle_collision_system(
+    world: &mut engine_core::world::World,
+) -> Vec<engine_game::CollisionHit> {
     let (Some(strategies), Some(gameplay_world)) = (
         world.get::<CollisionStrategies>(),
         world.get::<GameplayWorld>(),

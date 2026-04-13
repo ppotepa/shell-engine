@@ -1,4 +1,4 @@
-//! IO domain APIs: Terminal and input.
+//! IO domain APIs: input.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -7,33 +7,6 @@ use rhai::Engine as RhaiEngine;
 
 use crate::rhai_util::normalize_input_code;
 use crate::{catalog, BehaviorCommand};
-
-#[derive(Clone)]
-pub(crate) struct ScriptTerminalApi {
-    queue: Arc<Mutex<Vec<BehaviorCommand>>>,
-}
-
-impl ScriptTerminalApi {
-    pub(crate) fn new(queue: Arc<Mutex<Vec<BehaviorCommand>>>) -> Self {
-        Self { queue }
-    }
-
-    fn push(&mut self, line: &str) {
-        let Ok(mut queue) = self.queue.lock() else {
-            return;
-        };
-        queue.push(BehaviorCommand::TerminalPushOutput {
-            line: line.to_string(),
-        });
-    }
-
-    fn clear(&mut self) {
-        let Ok(mut queue) = self.queue.lock() else {
-            return;
-        };
-        queue.push(BehaviorCommand::TerminalClearOutput);
-    }
-}
 
 #[derive(Clone)]
 pub(crate) struct ScriptInputApi {
@@ -137,15 +110,7 @@ impl ScriptInputApi {
 }
 
 pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
-    engine.register_type_with_name::<ScriptTerminalApi>("TerminalApi");
     engine.register_type_with_name::<ScriptInputApi>("InputApi");
-
-    engine.register_fn("push", |terminal: &mut ScriptTerminalApi, line: &str| {
-        terminal.push(line);
-    });
-    engine.register_fn("clear", |terminal: &mut ScriptTerminalApi| {
-        terminal.clear();
-    });
 
     engine.register_fn("down", |input: &mut ScriptInputApi, code: &str| {
         input.down(code)

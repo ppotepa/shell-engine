@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=../../../schemas/layers.yaml
-- name: door-png
-  z_index: 0
-  objects:
-    - use: lab-open-png-sequence-640

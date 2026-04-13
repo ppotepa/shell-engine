@@ -4,6 +4,11 @@ ARCH.MD — CRATE REBALANCING PLAN (REFINED)
 NOTE: historical planning snapshot from the crate-rebalancing pass.
 Use `ARCHITECTURE.md` for the current runtime structure and crate inventory.
 
+NOTE: Terminal-era strategy traits referenced below (HalfblockPacker,
+FullScanPacker, DirtyRegionPacker, TerminalFlusher, SceneCompositor) have been
+removed from the codebase as part of the SDL2-only migration. PipelineStrategies
+no longer has a `halfblock` field.
+
 STATUS: REFINED FOR DEPENDENCY SAFETY — Ready for execution
 CONTEXT: Shell Quest engine was split into 20 sub-crates, but extraction moved
          only type definitions, leaving ~30K LOC of systems/logic in engine/.
@@ -31,7 +36,7 @@ REVISED PHASE ORDER (Dependency-Safe Bottom-Up)
 
 PHASE 1: Startup Pipeline → engine-mod         (NO deps on other systems)
 PHASE 2: Strategy Traits → engine-pipeline     (TYPE DEFS only, no impls)
-PHASE 3: Renderer → engine-render-terminal    (depends on Phase 2)
+PHASE 3: Renderer → engine-render-sdl2        (depends on Phase 2)
 PHASE 4: Scene Lifecycle → engine-animation   (depends on Phase 3)
 PHASE 5: Behavior System → engine-behavior-registry (depends on Phase 1-4)
 PHASE 6: Compositor + PostFX → engine-compositor (depends on Phase 2-5)
@@ -92,22 +97,22 @@ RESULT:
 VERIFY: cargo test -p engine-pipeline && cargo test -p engine
 
 ------------------------------------------------------------------------
-PHASE 3: Renderer System → engine-render-terminal (MEDIUM DEPS)
+PHASE 3: Renderer System → engine-render-sdl2 (MEDIUM DEPS)
 ------------------------------------------------------------------------
 
-WHY:  Renderer (817 LOC) plus terminal-specific strategies (flush, present,
-      display) are the natural home for engine-render-terminal.
+WHY:  Renderer (817 LOC) plus SDL2 presentation-specific strategies are the
+      natural home for engine-render-sdl2.
       Generic FrameSkipOracle impl goes to engine-render.
 
 WHAT MOVES:
-  engine/src/systems/renderer.rs      (817 LOC) → engine-render-terminal/src/renderer.rs
-  engine/src/strategy/flush.rs                  → engine-render-terminal/src/strategy/flush.rs
-  engine/src/strategy/present.rs                → engine-render-terminal/src/strategy/present.rs
-  engine/src/strategy/display.rs                → engine-render-terminal/src/strategy/display.rs
+  engine/src/systems/renderer.rs      (817 LOC) → engine-render-sdl2/src/renderer.rs
+  engine/src/strategy/flush.rs                  → engine-render-sdl2/src/strategy/flush.rs
+  engine/src/strategy/present.rs                → engine-render-sdl2/src/strategy/present.rs
+  engine/src/strategy/display.rs                → engine-render-sdl2/src/strategy/display.rs
   engine/src/strategy/skip.rs         (~80 LOC) → engine-render/src/strategy/skip.rs
 
 HOW:
-  1. Define RendererProvider trait in engine-render-terminal:
+  1. Define RendererProvider trait in engine-render-sdl2:
      pub trait RendererProvider {
          fn buffer(&self) -> Option<&Buffer>;
          fn buffer_mut(&mut self) -> Option<&mut Buffer>;
@@ -121,16 +126,16 @@ HOW:
 
   3. Make renderer.rs generic: fn renderer_system<T: RendererProvider>(t: &mut T)
 
-  4. Move files to engine-render-terminal/src/
+  4. Move files to engine-render-sdl2/src/
 
-  5. Update engine/game_loop.rs to call engine_render_terminal::renderer_system(world)
+  5. Update engine/game_loop.rs to call the SDL2 renderer system
 
 RESULT:
   engine-render: 118 → ~200 LOC
-  engine-render-terminal: 80 → ~1,200 LOC
+  engine-render-sdl2: 80 → ~1,200 LOC
   engine/: shrinks by ~1,600 LOC
 
-VERIFY: cargo test -p engine-render-terminal && cargo test -p engine
+VERIFY: cargo test -p engine-render-sdl2 && cargo test -p engine
 
 ------------------------------------------------------------------------
 PHASE 4: Scene Lifecycle → engine-animation (MODERATE DEPS)
@@ -304,7 +309,7 @@ engine-animation/         ~6 files  ~1.9K LOC  (Animator + Lifecycle + Menu)
 
 engine-mod/              ~15 files  ~1.6K LOC  (Manifest + Startup Validation)
 
-engine-render-terminal/   ~5 files  ~1.2K LOC  (Renderer + Terminal Strategies)
+engine-render-sdl2/       ~5 files  ~1.2K LOC  (Renderer + SDL2 presentation)
 
 engine-pipeline/          ~3 files  ~670 LOC   (Strategy trait defs + flags)
 
@@ -312,7 +317,7 @@ engine-render/            ~1 file   ~200 LOC   (FrameSkipOracle impl)
 
 Leaf crates (unchanged):
   engine-3d, engine-audio, engine-io, engine-capture, engine-debug,
-  engine-game, engine-runtime, engine-terminal, engine-render-policy,
+  engine-game, engine-runtime, engine-render-policy,
   engine-error, engine-events, engine-frame
 
 

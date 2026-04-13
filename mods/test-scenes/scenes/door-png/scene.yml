@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=../../schemas/scenes.yaml
-id: test-scenes-door-png
-title: Lab Open PNG 640x360 (direct)
-cutscene: true
-bg: black
-layers:
-  - ref: main
-stages-ref: /stages/door-cutscene.yml
-next: test-scenes-menu

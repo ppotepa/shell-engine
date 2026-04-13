@@ -11,7 +11,7 @@ use engine_3d::scene3d_resolve::{resolve_scene3d_refs, Scene3DAssetResolver};
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
 use engine_core::logging;
-use engine_core::scene::{Layer, Scene, SceneRenderedMode, Sprite};
+use engine_core::scene::{Layer, Scene, Sprite};
 use engine_core::scene_runtime_types::SceneCamera3D;
 
 use crate::scene3d_runtime_store::{Scene3DRuntimeEntry, Scene3DRuntimeStore};
@@ -26,7 +26,6 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
         return None;
     }
 
-    let inherited_mode = scene.rendered_mode;
     let scene_id = scene.id.clone();
 
     logging::info(
@@ -54,7 +53,7 @@ pub fn prerender_scene3d_atlas(scene: &Scene, asset_root: &AssetRoot) -> Option<
                 }
             };
             resolve_scene3d_refs(&mut def, src, &resolver);
-            build_work_items(src, def, inherited_mode)
+            build_work_items(src, def)
         })
         .collect();
 
@@ -137,14 +136,8 @@ fn look_at_basis(
     world_up: [f32; 3],
 ) -> ([f32; 3], [f32; 3], [f32; 3]) {
     let fwd = {
-        let d = [
-            target[0] - eye[0],
-            target[1] - eye[1],
-            target[2] - eye[2],
-        ];
-        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
-            .sqrt()
-            .max(1e-6);
+        let d = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]];
+        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(1e-6);
         [d[0] / len, d[1] / len, d[2] / len]
     };
     // right = normalize(cross(fwd, world_up))
@@ -154,9 +147,7 @@ fn look_at_basis(
             fwd[2] * world_up[0] - fwd[0] * world_up[2],
             fwd[0] * world_up[1] - fwd[1] * world_up[0],
         ];
-        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
-            .sqrt()
-            .max(1e-6);
+        let len = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt().max(1e-6);
         [d[0] / len, d[1] / len, d[2] / len]
     };
     // up = cross(right, fwd)
@@ -173,7 +164,6 @@ struct WorkItem {
     frame_id: String,
     viewport_w: u16,
     viewport_h: u16,
-    mode: SceneRenderedMode,
     objects: Vec<ObjectRenderSpec>,
 }
 
@@ -188,10 +178,7 @@ struct ObjectRenderSpec {
 fn build_work_items(
     src: &str,
     def: Scene3DDefinition,
-    inherited_mode: SceneRenderedMode,
 ) -> Vec<WorkItem> {
-    let mode =
-        engine_render_policy::resolve_renderer_mode(inherited_mode, def.viewport.rendered_mode);
     let vw = def.viewport.width;
     let vh = def.viewport.height;
     let light_params = extract_light_params(&def.lights);
@@ -216,7 +203,6 @@ fn build_work_items(
                     frame_id: frame_id.clone(),
                     viewport_w: vw,
                     viewport_h: vh,
-                    mode,
                     objects,
                 });
             }
@@ -244,7 +230,6 @@ fn build_work_items(
                         frame_id: format!("{frame_id}-{kf}"),
                         viewport_w: vw,
                         viewport_h: vh,
-                        mode,
                         objects,
                     });
                 }
@@ -372,8 +357,8 @@ fn build_object_specs(
                 let dy = base_cam_pos[1] - look_at[1];
                 let dz = base_cam_pos[2] - look_at[2];
                 let horiz_r = (dx * dx + dz * dz).sqrt();
-                let elevation = dy.atan2(horiz_r);      // preserve vertical angle
-                let base_phase = dz.atan2(dx);           // initial azimuth
+                let elevation = dy.atan2(horiz_r); // preserve vertical angle
+                let base_phase = dz.atan2(dx); // initial azimuth
                 let theta = base_phase + orbit_angle_deg.to_radians();
                 let total_r = (dx * dx + dy * dy + dz * dz).sqrt();
                 [
@@ -400,13 +385,14 @@ fn build_object_specs(
             .max(camera.distance.abs())
     };
 
-    let (global_view_right, global_view_up, global_view_forward) =
-        if let Some(look_at) = look_at {
-            let up = camera_override.map(|camera| camera.up).unwrap_or([0.0, 1.0, 0.0]);
-            look_at_basis(effective_cam_pos, look_at, up)
-        } else {
-            ([1.0f32, 0.0, 0.0], [0.0f32, 1.0, 0.0], [0.0f32, 0.0, 1.0])
-        };
+    let (global_view_right, global_view_up, global_view_forward) = if let Some(look_at) = look_at {
+        let up = camera_override
+            .map(|camera| camera.up)
+            .unwrap_or([0.0, 1.0, 0.0]);
+        look_at_basis(effective_cam_pos, look_at, up)
+    } else {
+        ([1.0f32, 0.0, 0.0], [0.0f32, 1.0, 0.0], [0.0f32, 0.0, 1.0])
+    };
 
     objects
         .iter()
@@ -442,44 +428,43 @@ fn build_object_specs(
                 .unwrap_or(base_translation[2]);
             let orbit_angle_deg = obj_tweens.and_then(|m| m.get("orbit_angle_deg")).copied();
 
-            let (translation_x, translation_y, translation_z) = if let Some(orbit_angle_deg) =
-                orbit_angle_deg
-            {
-                let origin = clip_orbit_origin.unwrap_or([0.0, 0.0, 0.0]);
-                let orbit_center_x = obj_tweens
-                    .and_then(|m| m.get("orbit_center_x"))
-                    .copied()
-                    .unwrap_or(origin[0]);
-                let orbit_center_y = obj_tweens
-                    .and_then(|m| m.get("orbit_center_y"))
-                    .copied()
-                    .unwrap_or(origin[1]);
-                let orbit_center_z = obj_tweens
-                    .and_then(|m| m.get("orbit_center_z"))
-                    .copied()
-                    .unwrap_or(origin[2]);
+            let (translation_x, translation_y, translation_z) =
+                if let Some(orbit_angle_deg) = orbit_angle_deg {
+                    let origin = clip_orbit_origin.unwrap_or([0.0, 0.0, 0.0]);
+                    let orbit_center_x = obj_tweens
+                        .and_then(|m| m.get("orbit_center_x"))
+                        .copied()
+                        .unwrap_or(origin[0]);
+                    let orbit_center_y = obj_tweens
+                        .and_then(|m| m.get("orbit_center_y"))
+                        .copied()
+                        .unwrap_or(origin[1]);
+                    let orbit_center_z = obj_tweens
+                        .and_then(|m| m.get("orbit_center_z"))
+                        .copied()
+                        .unwrap_or(origin[2]);
 
-                let dx0 = translation_x - orbit_center_x;
-                let dz0 = translation_z - orbit_center_z;
-                let derived_radius = (dx0 * dx0 + dz0 * dz0).sqrt();
-                let orbit_radius = obj_tweens
-                    .and_then(|m| m.get("orbit_radius"))
-                    .copied()
-                    .unwrap_or(derived_radius);
-                let orbit_phase_deg = obj_tweens
-                    .and_then(|m| m.get("orbit_phase_deg"))
-                    .copied()
-                    .unwrap_or_else(|| dz0.atan2(dx0).to_degrees());
+                    let dx0 = translation_x - orbit_center_x;
+                    let dz0 = translation_z - orbit_center_z;
+                    let derived_radius = (dx0 * dx0 + dz0 * dz0).sqrt();
+                    let orbit_radius = obj_tweens
+                        .and_then(|m| m.get("orbit_radius"))
+                        .copied()
+                        .unwrap_or(derived_radius);
+                    let orbit_phase_deg = obj_tweens
+                        .and_then(|m| m.get("orbit_phase_deg"))
+                        .copied()
+                        .unwrap_or_else(|| dz0.atan2(dx0).to_degrees());
 
-                let theta = (orbit_phase_deg + orbit_angle_deg).to_radians();
-                (
-                    orbit_center_x + orbit_radius * theta.cos(),
-                    translation_y + (orbit_center_y - origin[1]),
-                    orbit_center_z + orbit_radius * theta.sin(),
-                )
-            } else {
-                (translation_x, translation_y, translation_z)
-            };
+                    let theta = (orbit_phase_deg + orbit_angle_deg).to_radians();
+                    (
+                        orbit_center_x + orbit_radius * theta.cos(),
+                        translation_y + (orbit_center_y - origin[1]),
+                        orbit_center_z + orbit_radius * theta.sin(),
+                    )
+                } else {
+                    (translation_x, translation_y, translation_z)
+                };
 
             let tf = &obj.transform;
 
@@ -570,7 +555,20 @@ fn build_object_specs(
                 terrain_noise_scale: 2.5,
                 terrain_noise_octaves: 2,
                 marble_depth: 0.0,
+                terrain_relief: 0.0,
+                noise_seed: 0.0,
+                warp_strength: 0.0,
+                warp_octaves: 2,
+                noise_lacunarity: 2.0,
+                noise_persistence: 0.5,
+                normal_perturb_strength: 0.0,
+                ocean_specular: 0.0,
+                crater_density: 0.0,
+                crater_rim_height: 0.35,
+                snow_line_altitude: 0.0,
+                terrain_displacement: 0.0,
                 below_threshold_transparent: false,
+                cloud_alpha_softness: 0.0,
                 polar_ice_color: None,
                 polar_ice_start: 0.78,
                 polar_ice_end: 0.92,
@@ -579,9 +577,17 @@ fn build_object_specs(
                 atmo_color: None,
                 atmo_strength: 0.0,
                 atmo_rim_power: 4.5,
+                atmo_haze_strength: 0.0,
+                atmo_haze_power: 1.8,
+                ocean_noise_scale: 4.0,
+                ocean_color_rgb: None,
                 night_light_color: None,
                 night_light_threshold: 0.82,
                 night_light_intensity: 0.0,
+                heightmap: None,
+                heightmap_w: 0,
+                heightmap_h: 0,
+                heightmap_blend: 0.0,
             };
 
             Some(ObjectRenderSpec {
@@ -597,7 +603,7 @@ fn build_object_specs(
 
 fn render_frame(item: &WorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
     let mut buf = Buffer::new(item.viewport_w, item.viewport_h);
-    let (virtual_w, virtual_h) = virtual_dimensions(item.mode, item.viewport_w, item.viewport_h);
+    let (virtual_w, virtual_h) = virtual_dimensions(item.viewport_w, item.viewport_h);
     let canvas_size = virtual_w as usize * virtual_h as usize;
     if canvas_size == 0 {
         return Some(buf);
@@ -611,8 +617,7 @@ fn render_frame(item: &WorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
             &obj.mesh,
             item.viewport_w,
             item.viewport_h,
-            item.mode,
-            obj.params,
+            obj.params.clone(),
             obj.wireframe,
             obj.backface_cull,
             obj.fg,
@@ -626,8 +631,7 @@ fn render_frame(item: &WorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
             &obj.mesh,
             item.viewport_w,
             item.viewport_h,
-            item.mode,
-            obj.params,
+            obj.params.clone(),
             obj.wireframe,
             obj.backface_cull,
             obj.fg,
@@ -639,7 +643,6 @@ fn render_frame(item: &WorkItem, asset_root: &AssetRoot) -> Option<Buffer> {
 
     blit_color_canvas(
         &mut buf,
-        item.mode,
         &canvas,
         virtual_w,
         virtual_h,
@@ -675,7 +678,6 @@ fn parse_hex_color(s: &str) -> Option<Color> {
 pub fn build_scene3d_runtime_store(
     scene: &Scene,
     asset_root: &AssetRoot,
-    inherited_mode: SceneRenderedMode,
 ) -> Option<Scene3DRuntimeStore> {
     let sources = collect_scene3d_sources(&scene.layers);
     if sources.is_empty() {
@@ -699,11 +701,7 @@ pub fn build_scene3d_runtime_store(
             }
         };
         resolve_scene3d_refs(&mut def, src, &resolver);
-        let mode = engine_render_policy::resolve_renderer_mode(
-            inherited_mode,
-            def.viewport.rendered_mode,
-        );
-        store.insert(src.clone(), Scene3DRuntimeEntry { def, mode });
+        store.insert(src.clone(), Scene3DRuntimeEntry { def });
     }
 
     if store.is_empty() {
@@ -764,7 +762,6 @@ pub fn render_scene3d_frame_at(
         frame_id: frame_name.to_string(),
         viewport_w: entry.def.viewport.width,
         viewport_h: entry.def.viewport.height,
-        mode: entry.mode,
         objects,
     };
 

@@ -12,12 +12,7 @@ pub use strategies::{
     CoordinatedSkip,
     // Simple impls (no engine/ deps)
     DirectLayerCompositor,
-    DirtyRegionPacker,
-    DisplayFrame,
-    DisplaySink,
     FrameSkipOracle,
-    FullScanPacker,
-    HalfblockPacker,
     HashSkipPresenter,
     // Trait definitions
     LayerCompositor,
@@ -48,14 +43,9 @@ pub struct PipelineFlags {
     /// Default: `2`.
     pub sync_guard_frame_count: u8,
 
-    /// Lock the renderer mode (`Cell`/`HalfBlock`/etc.) to the value active at scene entry.
-    /// Prevents mid-scene renderer mode drift from adaptive or hot-reload changes.
-    /// Default: `true`.
-    pub lock_renderer_mode_to_scene: bool,
-
     /// `--opt-comp`: Compositor optimizations.
     /// Gates #4 (skip scratch buffer for effectless layers) and
-    /// #5 (dirty-region narrowing in halfblock packing).
+    /// #5 (dirty-region narrowing in compositing).
     /// Default: `false` (full redraw every frame — stable).
     pub opt_comp: bool,
 
@@ -86,10 +76,10 @@ pub struct PipelineFlags {
     pub opt_rowdiff: bool,
 
     /// `--opt-async`: Async display sink for I/O offload.
-    /// Decouple main thread from terminal write/flush latency.
-    /// Renderer submits ANSI blob to background thread; main thread starts next frame immediately.
-    /// Safe: blob is immutable after diff+swap; I/O thread only reads and writes to terminal.
-    /// Expected: 1-5ms/frame unblocked on slow terminal emulators.
+    /// Decouple main thread from output write/flush latency.
+    /// Renderer submits immutable frame data to a background thread; main thread starts
+    /// the next frame immediately.
+    /// Expected: 1-5ms/frame unblocked on slower output backends.
     /// Default: `false` (sync flush — no latency decoupling).
     pub opt_async_display: bool,
 }
@@ -100,7 +90,6 @@ impl Default for PipelineFlags {
             async_render_enabled: false,
             full_redraw_on_scene_change: true,
             sync_guard_frame_count: 2,
-            lock_renderer_mode_to_scene: true,
             opt_comp: false,
             opt_present: false,
             opt_diff: false,

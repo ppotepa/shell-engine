@@ -1,14 +1,14 @@
 //! Effect simulating a CRT monitor powering on with phosphor-like reveal phases.
 
-use engine_core::buffer::{Buffer, TRUE_BLACK};
-use engine_core::color::Color;
-use engine_core::effects::{Effect, EffectTargetMask, Region};
 use crate::metadata::{EffectMetadata, P_EASING};
 use crate::utils::math::{
     phase_progress, smoothstep, PHASE_BOOT, PHASE_POWER_ON, PHASE_SCAN_END, PHASE_SCAN_START,
     PHASE_WHITE_FLASH,
 };
 use crate::utils::noise::crt_hash;
+use engine_core::buffer::{Buffer, TRUE_BLACK};
+use engine_core::color::Color;
+use engine_core::effects::{Effect, EffectTargetMask, Region};
 use engine_core::scene::EffectParams;
 
 /// Static effect metadata exposed to the editor and effect registry.

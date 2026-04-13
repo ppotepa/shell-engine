@@ -2,11 +2,11 @@
 
 pub mod artifact;
 pub mod blur;
-pub mod lens_blur;
 pub mod brighten;
 pub mod clear_to_colour;
 pub mod crt_burn_in;
 pub mod crt_distort;
+pub mod crt_filter;
 pub mod crt_on;
 pub mod crt_reflection;
 pub mod crt_ruby;
@@ -17,6 +17,7 @@ pub mod devour;
 pub mod fade;
 pub mod fade_to_black;
 pub mod glitch;
+pub mod lens_blur;
 pub mod lightning;
 pub mod neon_edge_glow;
 pub mod posterize;
@@ -25,16 +26,15 @@ pub mod scanlines;
 pub mod shake;
 pub mod shatter;
 pub mod shine;
-pub mod terminal_crt;
 pub mod whiteout;
 
 pub use artifact::ArtifactOutEffect;
 pub use blur::BlurEffect;
-pub use lens_blur::LensBlurEffect;
 pub use brighten::BrightenEffect;
 pub use clear_to_colour::ClearToColourEffect;
 pub use crt_burn_in::CrtBurnInEffect;
 pub use crt_distort::CtrDistortEffect;
+pub use crt_filter::CrtFilterEffect;
 pub use crt_on::CrtOnEffect;
 pub use crt_reflection::CrtReflectionEffect;
 pub use crt_ruby::CtrRubyEffect;
@@ -45,6 +45,7 @@ pub use devour::DevourOutEffect;
 pub use fade::{FadeInEffect, FadeOutEffect};
 pub use fade_to_black::FadeToBlackEffect;
 pub use glitch::GlitchOutEffect;
+pub use lens_blur::LensBlurEffect;
 pub use lightning::{
     LightningAmbientEffect, LightningBranchEffect, LightningFbmEffect, LightningFlashEffect,
     LightningGrowthEffect, LightningNaturalEffect, LightningOptical80sEffect, TeslaOrbEffect,
@@ -56,7 +57,6 @@ pub use scanlines::ScanlinesEffect;
 pub use shake::ScreenShakeEffect;
 pub use shatter::ShatterGlitchEffect;
 pub use shine::ShineEffect;
-pub use terminal_crt::TerminalCrtEffect;
 pub use whiteout::WhiteoutEffect;
 
 use std::sync::OnceLock;
@@ -202,8 +202,8 @@ pub static BUILTIN_EFFECTS: &[BuiltinEffectDefinition] = &[
         constructor: || Box::new(TeslaOrbEffect),
     },
     BuiltinEffectDefinition {
-        name: "terminal-crt",
-        constructor: || Box::new(TerminalCrtEffect),
+        name: "crt-filter",
+        constructor: || Box::new(CrtFilterEffect),
     },
     BuiltinEffectDefinition {
         name: "whiteout",

@@ -36,6 +36,32 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ---
 
+## 13-04-2026
+
+**SDL2-only migration complete — terminal renderer fully removed** ✅
+- **engine**: removed `SceneRenderedMode` enum and `rendered_mode` field from Scene; removed `HalfblockPacker`, `FullScanPacker`, `DirtyRegionPacker` strategies; removed `ratatui` and `crossterm` dependencies from all crates
+- **engine-render**: removed `DisplaySink`/`DisplayFrame` traits; `CellPatch` renamed to `GlyphPatch` in SDL2 renderer
+- **engine-render-policy**: removed `resolve_renderer_mode()`; `renderer-mode` and `force-renderer-mode` config fields gone
+- **engine-runtime**: removed `SHELL_QUEST_RENDERER_MODE` env var and `SceneRenderedMode` parsing
+- **engine-pipeline**: removed `HalfblockPacker` from `PipelineStrategies`; `renderer-mode locking` flag removed
+- **engine-compositor**: halfblock packing path removed; `convert_to_terminal_colors` renamed to `convert_rgba_to_rgb_samples`; `terminal_crt` effect renamed to `crt-filter`
+- **editor**: terminal TUI (ratatui/crossterm) replaced with SDL2 stub; terminal launcher menu replaced with stdin-based menu
+- **docs**: updated ARCHITECTURE.md, AGENTS.md, ARCH.MD, OPTIMIZATIONS.md, AUTHORING.md, BENCHMARKING.md, and all subsystem READMEs to reflect SDL2-only architecture
+
+## 12-04-2026
+
+**Terminal output backend removed — SDL2-only, display manifest rename** ✅
+- **engine**: deleted `engine-render-terminal` and `engine-terminal` crates; SDL2 is now the only renderer backend; no feature flags or runtime selection remain
+- **engine-mod**: replaced `terminal_caps.rs` with `display_config.rs`; `target_fps_from_manifest()` now reads from `display:` block
+- **engine-error**: renamed `TerminalRequirementsNotMet` → `DisplayRequirementsNotMet`
+- **engine-runtime**: manifest parsing updated; `terminal:` block renamed to `display:` in all parsing paths and tests
+- **app**: removed `resolve_startup_output()` and manifest-driven backend selection; `StartupOutputSetting::Sdl2` is hardcoded
+- **launcher**: removed `--sdl2`/`--output` CLI args, `sdl2: bool` flag from `LaunchFlags`, SDL2 toggle from menu; always passes `engine/sdl2` feature; reads `display.render_size` instead of `terminal.*`
+- **mods**: all `mod.yaml` manifests updated — `terminal:` → `display:`, `output: sdl2`/`output_backend:` lines removed
+- **schemas**: `schemas/mod.schema.yaml` and all per-mod generated schemas regenerated; `output_backend` property removed; `terminal` → `display` throughout
+- **docs**: `ARCHITECTURE.md`, `ARCH.MD`, `BENCHMARKING.md`, `OPTIMIZATIONS.md`, `MODS.md`, `app/README.AGENTS.MD`, `engine-render*/README.md`, `engine-mod/README.md` updated to reflect SDL2-only stack
+- **result**: zero terminal-backend references in source or schemas; `cargo build --workspace --features sdl2` clean; all mod scene checks pass
+
 ## 11-04-2026
 
 **Asteroids realism-first hybrid orbital rework (radius/atmosphere/HUD)** ✅

@@ -9,7 +9,7 @@ use crate::{
     TrackSpec,
 };
 use engine_core::assets::AssetRoot;
-use engine_core::scene::{FlexDirection, SceneRenderedMode, Sprite};
+use engine_core::scene::{FlexDirection, Sprite};
 
 thread_local! {
     /// Propagates the active backend flag to measurement helpers without
@@ -43,7 +43,6 @@ pub(crate) fn with_render_context<R>(
 /// Measures the approximate render size of a sprite for layout purposes.
 pub(crate) fn measure_sprite_for_layout(
     sprite: &Sprite,
-    inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> (u16, u16) {
     match sprite {
@@ -51,7 +50,6 @@ pub(crate) fn measure_sprite_for_layout(
             content,
             size,
             font,
-            force_renderer_mode,
             force_font_mode,
             fg_colour,
             bg_colour,
@@ -66,8 +64,6 @@ pub(crate) fn measure_sprite_for_layout(
                 font.as_deref(),
                 force_font_mode.as_deref(),
                 *size,
-                inherited_mode,
-                *force_renderer_mode,
                 PIXEL_BACKEND.with(|c| c.get()),
                 default_font.as_deref(),
             );
@@ -89,11 +85,8 @@ pub(crate) fn measure_sprite_for_layout(
             spritesheet_columns,
             spritesheet_rows,
             frame_index,
-            force_renderer_mode,
             ..
         } => {
-            let mode =
-                engine_render_policy::resolve_renderer_mode(inherited_mode, *force_renderer_mode);
             image_sprite_dimensions(
                 source,
                 *width,
@@ -102,10 +95,15 @@ pub(crate) fn measure_sprite_for_layout(
                 *spritesheet_columns,
                 *spritesheet_rows,
                 *frame_index,
-                mode,
                 asset_root,
             )
         }
+        Sprite::Planet {
+            width,
+            height,
+            size,
+            ..
+        } => obj_sprite_dimensions(*width, *height, *size),
         Sprite::Vector { points, .. } => engine_vector::bounds(points)
             .map(|b| (b.width.max(1), b.height.max(1)))
             .unwrap_or((1, 1)),
@@ -138,7 +136,7 @@ pub(crate) fn measure_sprite_for_layout(
             let mut row_auto_reqs = vec![1u16; row_specs.len().max(1)];
 
             for child in children {
-                let (pref_w, pref_h) = measure_sprite_for_layout(child, inherited_mode, asset_root);
+                let (pref_w, pref_h) = measure_sprite_for_layout(child, asset_root);
                 let (row, col, row_span, col_span) = child.grid_position();
 
                 let col_idx = (col as usize)
@@ -220,12 +218,12 @@ pub(crate) fn measure_sprite_for_layout(
             let inset = border_width.saturating_add(*padding).max(1);
             let max_w = children
                 .iter()
-                .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).0)
+                .map(|c| measure_sprite_for_layout(c, asset_root).0)
                 .max()
                 .unwrap_or(1);
             let sum_h: u16 = children
                 .iter()
-                .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).1)
+                .map(|c| measure_sprite_for_layout(c, asset_root).1)
                 .fold(0u16, |acc, h| acc.saturating_add(h))
                 .max(1);
             let measured_w = if let Some(explicit) = *width {
@@ -252,12 +250,12 @@ pub(crate) fn measure_sprite_for_layout(
                 FlexDirection::Column => {
                     let max_w = children
                         .iter()
-                        .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).0)
+                        .map(|c| measure_sprite_for_layout(c, asset_root).0)
                         .max()
                         .unwrap_or(1);
                     let sum_h: u16 = children
                         .iter()
-                        .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).1)
+                        .map(|c| measure_sprite_for_layout(c, asset_root).1)
                         .fold(0u16, |acc, h| acc.saturating_add(h));
                     let gaps = gap.saturating_mul(n.saturating_sub(1) as u16);
                     (
@@ -268,11 +266,11 @@ pub(crate) fn measure_sprite_for_layout(
                 FlexDirection::Row => {
                     let sum_w: u16 = children
                         .iter()
-                        .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).0)
+                        .map(|c| measure_sprite_for_layout(c, asset_root).0)
                         .fold(0u16, |acc, w| acc.saturating_add(w));
                     let max_h = children
                         .iter()
-                        .map(|c| measure_sprite_for_layout(c, inherited_mode, asset_root).1)
+                        .map(|c| measure_sprite_for_layout(c, asset_root).1)
                         .max()
                         .unwrap_or(1);
                     let gaps = gap.saturating_mul(n.saturating_sub(1) as u16);

@@ -23,36 +23,18 @@ pub(super) fn scene_overlay_patch() -> Mapping {
             "next",
             nullable_suggested_string_refs(&["./catalog.yaml#/$defs/scene_refs"]),
         ),
-        conditional_property_overlay(
-            "menu-options",
-            menu_options_overlay(),
-        ),
-        conditional_property_overlay(
-            "menu_options",
-            menu_options_overlay(),
-        ),
+        conditional_property_overlay("menu-options", menu_options_overlay()),
+        conditional_property_overlay("menu_options", menu_options_overlay()),
         conditional_property_overlay("objects", objects_overlay()),
         conditional_property_overlay("input", scene_input_overlay()),
-        conditional_property_overlay(
-            "behaviors",
-            array_items_ref("#/$defs/behavior_overlay"),
-        ),
-        conditional_property_overlay(
-            "logic",
-            schema_ref("#/$defs/scene_logic_overlay"),
-        ),
-        conditional_property_overlay(
-            "layers",
-            scene_layers_overlay(),
-        ),
+        conditional_property_overlay("behaviors", array_items_ref("#/$defs/behavior_overlay")),
+        conditional_property_overlay("logic", schema_ref("#/$defs/scene_logic_overlay")),
+        conditional_property_overlay("layers", scene_layers_overlay()),
         conditional_property_overlay(
             "templates",
             object_additional_properties_ref("#/$defs/sprite_overlay"),
         ),
-        conditional_property_overlay(
-            "stages",
-            schema_ref("#/$defs/scene_stages_overlay"),
-        ),
+        conditional_property_overlay("stages", schema_ref("#/$defs/scene_stages_overlay")),
         conditional_property_overlay(
             "effect-presets",
             object_additional_properties_ref("./effects.yaml#/items"),
@@ -69,10 +51,7 @@ pub(super) fn scene_overlay_patch() -> Mapping {
             "effect_presets_ref",
             suggested_string_refs(&["./catalog.yaml#/$defs/effect_refs"]),
         ),
-        conditional_property_overlay(
-            "postfx",
-            array_items_ref("./effects.yaml#/items"),
-        ),
+        conditional_property_overlay("postfx", array_items_ref("./effects.yaml#/items")),
     ];
 
     let mut root = Mapping::new();
@@ -173,39 +152,15 @@ pub(super) fn scene_input_overlay() -> Value {
         Value::Mapping(obj_viewer_props),
     );
 
-    let mut terminal_shell_props = Mapping::new();
-    terminal_shell_props.insert(
-        Value::String("prompt-sprite-id".to_string()),
-        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
-    );
-    terminal_shell_props.insert(
-        Value::String("prompt_sprite_id".to_string()),
-        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
-    );
-    terminal_shell_props.insert(
-        Value::String("output-sprite-id".to_string()),
-        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
-    );
-    terminal_shell_props.insert(
-        Value::String("output_sprite_id".to_string()),
-        suggested_string_refs(&["./catalog.yaml#/$defs/sprite_ids"]),
-    );
-    let mut terminal_shell = Mapping::new();
-    terminal_shell.insert(
-        Value::String("properties".to_string()),
-        Value::Mapping(terminal_shell_props),
-    );
-
     let mut input_props = Mapping::new();
     input_props.insert(
         Value::String("obj-viewer".to_string()),
         Value::Mapping(obj_viewer),
     );
     input_props.insert(
-        Value::String("terminal-shell".to_string()),
-        Value::Mapping(terminal_shell),
+        Value::String("free-look-camera".to_string()),
+        Value::Mapping(Mapping::new()),
     );
-
     let mut input = Mapping::new();
     input.insert(
         Value::String("type".to_string()),

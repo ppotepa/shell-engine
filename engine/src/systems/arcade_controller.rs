@@ -43,7 +43,8 @@ pub fn arcade_controller_system(world: &GameplayWorld, dt_ms: u64) {
                             (controller.current_heading + heading_bits - 1) % heading_bits;
                     }
                     1 => {
-                        controller.current_heading = (controller.current_heading + 1) % heading_bits;
+                        controller.current_heading =
+                            (controller.current_heading + 1) % heading_bits;
                     }
                     _ => {}
                 }

@@ -184,8 +184,8 @@ pub fn missing_glyphs(mod_source: Option<&Path>, font: &str, text: &str) -> Opti
 
 /// Engine-level fallback used when named font assets are missing.
 ///
-/// Uses the engine-wide generic fallback spec so SDL and terminal backends both
-/// keep readable glyph shapes instead of raw cell symbols.
+/// Uses the engine-wide generic fallback spec so the active renderer keeps
+/// readable glyph shapes instead of raw cell symbols.
 fn rasterize_engine_fallback(text: &str, fg: Color) -> Buffer {
     let mode = generic::GenericMode::from_font_name(generic::ENGINE_FALLBACK_FONT_SPEC);
     let (width, height) = generic::generic_dimensions_mode(text, mode);
@@ -200,15 +200,6 @@ fn rasterize_engine_fallback(text: &str, fg: Color) -> Buffer {
         }
         generic::GenericMode::Large => {
             generic::rasterize_generic(text, 2, fg, 0, 0, &mut out, &TextTransform::None);
-        }
-        generic::GenericMode::Half => {
-            generic::rasterize_generic_half(text, fg, 0, 0, &mut out, &TextTransform::None);
-        }
-        generic::GenericMode::Quad => {
-            generic::rasterize_generic_quad(text, fg, 0, 0, &mut out, &TextTransform::None);
-        }
-        generic::GenericMode::Braille => {
-            generic::rasterize_generic_braille(text, fg, 0, 0, &mut out, &TextTransform::None);
         }
     }
     out

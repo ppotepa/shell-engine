@@ -15,7 +15,6 @@ loading support.
 
 - `RenderBackend` — trait for presenting composed frames
 - `OutputBackend` — live runtime backend contract for diffed cell output
-- `DisplaySink` — lower-level sink abstraction for queued output
 - `RenderFrame` — frame payload passed to a backend
 - `RenderCaps`, `ColorDepth`, `PresentMode` — backend capability and present semantics
 - `rasterizer` — shared text/font rasterization helpers
@@ -24,7 +23,6 @@ loading support.
 
 ## Integration points
 
-- `engine-render-terminal` implements the terminal `OutputBackend`
 - `engine-render-sdl2` implements an SDL2 `OutputBackend`
 - `engine-compositor` uses shared rasterization and loader helpers
 - the engine runtime presents final buffers through a boxed `OutputBackend`

@@ -1,7 +1,7 @@
 //! Flex container layout resolution with content-sized children.
 
 use engine_core::assets::AssetRoot;
-use engine_core::scene::{FlexDirection as SceneFlexDirection, SceneRenderedMode, Sprite};
+use engine_core::scene::{FlexDirection as SceneFlexDirection, Sprite};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -25,13 +25,12 @@ pub(crate) fn invalidate_flex_cache() {
 #[inline]
 #[allow(clippy::too_many_arguments)]
 fn flex_cache_key(
-    measure_sprite: &impl Fn(&Sprite, SceneRenderedMode, Option<&AssetRoot>) -> (u16, u16),
+    measure_sprite: &impl Fn(&Sprite, Option<&AssetRoot>) -> (u16, u16),
     children: &[Sprite],
     direction: SceneFlexDirection,
     container_w: u16,
     container_h: u16,
     gap: u16,
-    inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
 ) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -40,7 +39,7 @@ fn flex_cache_key(
     gap.hash(&mut h);
     std::mem::discriminant(&direction).hash(&mut h);
     for child in children {
-        let (pw, ph) = measure_sprite(child, inherited_mode, asset_root);
+        let (pw, ph) = measure_sprite(child, asset_root);
         pw.hash(&mut h);
         ph.hash(&mut h);
     }
@@ -55,9 +54,8 @@ pub fn compute_flex_cells(
     container_w: u16,
     container_h: u16,
     gap: u16,
-    inherited_mode: SceneRenderedMode,
     asset_root: Option<&AssetRoot>,
-    measure_sprite: &impl Fn(&Sprite, SceneRenderedMode, Option<&AssetRoot>) -> (u16, u16),
+    measure_sprite: &impl Fn(&Sprite, Option<&AssetRoot>) -> (u16, u16),
 ) -> Vec<(usize, GridCellRect)> {
     if children.is_empty() {
         return vec![];
@@ -71,7 +69,6 @@ pub fn compute_flex_cells(
         container_w,
         container_h,
         gap,
-        inherited_mode,
         asset_root,
     );
     let cached = FLEX_LAYOUT_CACHE.with(|c| c.borrow().get(&cache_key).cloned());
@@ -82,7 +79,7 @@ pub fn compute_flex_cells(
     let mut taffy: TaffyTree<()> = TaffyTree::new();
     let mut child_nodes = Vec::with_capacity(children.len());
     for child in children {
-        let (pref_w, pref_h) = measure_sprite(child, inherited_mode, asset_root);
+        let (pref_w, pref_h) = measure_sprite(child, asset_root);
         let child_style = match direction {
             SceneFlexDirection::Column => Style {
                 size: Size {
@@ -171,13 +168,9 @@ pub fn compute_flex_cells(
 mod tests {
     use super::compute_flex_cells;
     use engine_core::assets::AssetRoot;
-    use engine_core::scene::{FlexDirection, SceneRenderedMode, Sprite};
+    use engine_core::scene::{FlexDirection, Sprite};
 
-    fn measure_sprite(
-        sprite: &Sprite,
-        _mode: SceneRenderedMode,
-        _asset_root: Option<&AssetRoot>,
-    ) -> (u16, u16) {
+    fn measure_sprite(sprite: &Sprite, _asset_root: Option<&AssetRoot>) -> (u16, u16) {
         match sprite {
             Sprite::Grid { width, height, .. } => (width.unwrap_or(1), height.unwrap_or(1)),
             _ => (1, 1),
@@ -206,7 +199,6 @@ rows: []
             20,
             6,
             2,
-            SceneRenderedMode::Cell,
             None,
             &measure_sprite,
         );
@@ -228,7 +220,6 @@ rows: []
             12,
             20,
             1,
-            SceneRenderedMode::Cell,
             None,
             &measure_sprite,
         );

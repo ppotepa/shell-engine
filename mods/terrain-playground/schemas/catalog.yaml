@@ -1,0 +1,112 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://shell-quest.local/mods/terrain-playground/schemas/catalog.yaml
+title: schema terrain-playground catalog
+$defs:
+  scene_ids:
+    type: string
+    enum:
+    - terrain-exit
+    - terrain-menu
+    - terrain-placeholder-caves
+    - terrain-placeholder-erosion
+    - terrain-placeholder-heightmap
+    - terrain-plain
+  scene_paths:
+    type: string
+    enum:
+    - /scenes/exit/scene.yml
+    - /scenes/menu/scene.yml
+    - /scenes/placeholder-caves/scene.yml
+    - /scenes/placeholder-erosion/scene.yml
+    - /scenes/placeholder-heightmap/scene.yml
+    - /scenes/plain-terrain/scene.yml
+  scene_refs:
+    type: string
+    enum:
+    - /scenes/exit/scene.yml
+    - /scenes/menu/scene.yml
+    - /scenes/placeholder-caves/scene.yml
+    - /scenes/placeholder-erosion/scene.yml
+    - /scenes/placeholder-heightmap/scene.yml
+    - /scenes/plain-terrain/scene.yml
+    - terrain-exit
+    - terrain-menu
+    - terrain-placeholder-caves
+    - terrain-placeholder-erosion
+    - terrain-placeholder-heightmap
+    - terrain-plain
+  object_names:
+    type: string
+    enum: []
+  effect_names:
+    type: string
+    enum:
+    - fade-in
+    - fade-out
+  layer_refs:
+    type: string
+    enum:
+    - exit/layers/main.yml
+    - menu/layers/main.yml
+    - placeholder-caves/layers/main.yml
+    - placeholder-erosion/layers/main.yml
+    - placeholder-heightmap/layers/main.yml
+    - plain-terrain/layers/main.yml
+  sprite_refs:
+    type: string
+    enum: []
+  template_refs:
+    type: string
+    enum: []
+  object_refs:
+    type: string
+    enum: []
+  effect_refs:
+    type: string
+    enum: []
+  font_names:
+    type: string
+    enum:
+    - Orbitron
+  font_specs:
+    type: string
+    enum:
+    - Orbitron
+    - Orbitron:ascii
+    - Orbitron:raster
+    - default
+    - generic
+    - generic:1
+    - generic:2
+    - generic:3
+    - generic:large
+    - generic:standard
+    - generic:tiny
+  image_paths:
+    type: string
+    enum: []
+  model_paths:
+    type: string
+    enum: []
+  scene3d_paths:
+    type: string
+    enum: []
+  cutscene_refs:
+    type: string
+    enum: []
+  sprite_ids:
+    type: string
+    enum:
+    - hint
+    - item-0
+    - item-1
+    - item-2
+    - item-3
+    - item-4
+    - menu-content
+    - menu-frame
+    - menu-items
+    - title-text
+  template_names:
+    type: string
+    enum: []

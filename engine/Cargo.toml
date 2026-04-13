@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = []
+default = ["sdl2"]
 sdl2 = ["dep:engine-render-sdl2"]
 
 [dependencies]
@@ -12,15 +12,14 @@ engine-authoring = { workspace = true }
 engine-animation = { path = "../engine-animation" }
 engine-audio = { path = "../engine-audio" }
 engine-audio-sequencer = { path = "../engine-audio-sequencer" }
+engine-celestial = { workspace = true }
 engine-3d = { path = "../engine-3d" }
 engine-events = { path = "../engine-events" }
 engine-game = { path = "../engine-game" }
 engine-render = { path = "../engine-render" }
 engine-render-sdl2 = { path = "../engine-render-sdl2", optional = true }
 engine-render-policy = { path = "../engine-render-policy" }
-engine-render-terminal = { path = "../engine-render-terminal" }
 engine-runtime = { path = "../engine-runtime" }
-engine-terminal = { path = "../engine-terminal" }
 engine-pipeline = { path = "../engine-pipeline" }
 engine-error = { path = "../engine-error" }
 engine-frame = { path = "../engine-frame" }
@@ -36,7 +35,6 @@ engine-core = { workspace = true }
 engine-effects = { workspace = true }
 engine-io = { workspace = true }
 engine-persistence = { workspace = true }
-crossterm = "0.29"
 tui-input = { version = "0.11", default-features = false }
 taffy = "0.7"
 image = { version = "0.25", default-features = false, features = ["png", "gif"] }

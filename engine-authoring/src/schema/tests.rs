@@ -1,4 +1,3 @@
-
 use super::builders::{
     build_animation_schema, build_behavior_schema, build_input_profile_schema, build_sugar_schema,
 };
@@ -132,7 +131,7 @@ fn generate_fragment_contains_dynamic_defs() {
         .expect("font_specs enum");
     assert!(font_specs
         .iter()
-        .any(|v| v.as_str() == Some("generic:quad")));
+        .any(|v| v.as_str() == Some("generic:3")));
     assert!(font_specs
         .iter()
         .any(|v| v.as_str() == Some("Mono Display:raster")));
@@ -410,22 +409,7 @@ fn test_input_profile_schema_generation() {
 
     // Check that known profiles exist
     let has_obj_viewer = enum_values.iter().any(|v| v.as_str() == Some("obj-viewer"));
-    let has_terminal_tester = enum_values
-        .iter()
-        .any(|v| v.as_str() == Some("terminal-size-tester"));
-    let has_terminal_shell = enum_values
-        .iter()
-        .any(|v| v.as_str() == Some("terminal-shell"));
-
     assert!(has_obj_viewer, "obj-viewer profile should be in schema");
-    assert!(
-        has_terminal_tester,
-        "terminal-size-tester profile should be in schema"
-    );
-    assert!(
-        has_terminal_shell,
-        "terminal-shell profile should be in schema"
-    );
 }
 
 #[test]

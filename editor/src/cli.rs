@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "sq-editor",
-    about = "Shell Quest terminal editor/browser (MVP)"
+    about = "Shell Quest scene editor/browser (MVP)"
 )]
 pub struct Cli {
     /// Path to mod root directory

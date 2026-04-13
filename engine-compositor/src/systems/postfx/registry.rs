@@ -84,23 +84,6 @@ fn resolve_builtin(pass: &Effect) -> Option<PostFxBuiltin> {
         "crt-ruby" | "ruby-crt" | "ruby-overlay" => Some(PostFxBuiltin::Ruby),
         "crt-burn-in" | "crt-persistence" | "phosphor-burn" => Some(PostFxBuiltin::BurnIn),
 
-        // Backward-compatible terminal-crt mode switching via params.coverage.
-        "terminal-crt" => {
-            let mode = pass
-                .params
-                .coverage
-                .as_deref()
-                .unwrap_or("underlay")
-                .to_ascii_lowercase();
-            match mode.as_str() {
-                "scan-glitch" | "scanline-glitch" | "global-scan" => {
-                    Some(PostFxBuiltin::ScanGlitch)
-                }
-                "crt-distort" | "crt-curve" | "tube-distort" => Some(PostFxBuiltin::Distort),
-                "ruby-crt" | "ruby-overlay" | "crt-ruby" => Some(PostFxBuiltin::Ruby),
-                _ => Some(PostFxBuiltin::Underlay),
-            }
-        }
         _ => None,
     }
 }
@@ -169,21 +152,6 @@ mod tests {
             compiled[0],
             CompiledPostFx::Builtin {
                 kind: PostFxBuiltin::Distort,
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn terminal_crt_coverage_alias_is_supported() {
-        let mut e = effect("terminal-crt");
-        e.params.coverage = Some("scan-glitch".to_string());
-        let compiled = compile_passes(&[e]);
-        assert_eq!(compiled.len(), 1);
-        assert!(matches!(
-            compiled[0],
-            CompiledPostFx::Builtin {
-                kind: PostFxBuiltin::ScanGlitch,
                 ..
             }
         ));

@@ -25,13 +25,7 @@ impl Command for PingCmd {
             None
         });
 
-        if let Some(remote) = kernel
-            .network
-            .active_connections
-            .values()
-            .next()
-            .cloned()
-        {
+        if let Some(remote) = kernel.network.active_connections.values().next().cloned() {
             // placeholder
             let _ = remote;
         }
@@ -303,9 +297,7 @@ impl Command for FingerCmd {
 
         if anomaly_count >= 2 && !upload_success {
             // (null) session visible — hides after upload success
-            uow.print(
-                "(null)    ???                  tty2      0  Sep 17 21:12".to_string(),
-            );
+            uow.print("(null)    ???                  tty2      0  Sep 17 21:12".to_string());
         }
 
         // After tier 3, .plan for (null)

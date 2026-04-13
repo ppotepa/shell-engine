@@ -41,6 +41,7 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use emit::*;
 pub use emitter_state::EmitterState;
+use engine_api::{ScriptCollisionApi, ScriptEffectsApi};
 use factory::BehaviorFactory;
 use rhai_util::*;
 use scripting::{
@@ -51,11 +52,9 @@ use scripting::{
     game::{ScriptGameApi, ScriptLevelApi},
     gameplay::ScriptGameplayApi,
     io::ScriptInputApi,
-    io::ScriptTerminalApi,
     scene::ScriptSceneApi,
     ui::ScriptUiApi,
 };
-use engine_api::{ScriptEffectsApi, ScriptCollisionApi};
 
 /// Per-tick context passed to every [`Behavior::update`] call.
 #[derive(Debug, Clone)]
@@ -640,10 +639,6 @@ impl Behavior for RhaiScriptBehavior {
                 );
                 scope.push("level", ScriptLevelApi::new(ctx.level_state.clone()));
                 scope.push(
-                    "terminal",
-                    ScriptTerminalApi::new(Arc::clone(&helper_commands)),
-                );
-                scope.push(
                     "input",
                     ScriptInputApi::new(
                         Arc::clone(&ctx.keys_down),
@@ -690,7 +685,10 @@ impl Behavior for RhaiScriptBehavior {
                     ),
                 );
                 scope.push("audio", ScriptAudioApi::new(Arc::clone(&helper_commands)));
-                scope.push("effects", ScriptEffectsApi::new(Arc::clone(&helper_commands)));
+                scope.push(
+                    "effects",
+                    ScriptEffectsApi::new(Arc::clone(&helper_commands)),
+                );
                 scope.push(
                     "collision",
                     ScriptCollisionApi::from_arcs(
@@ -1115,7 +1113,7 @@ mod tests {
     use engine_core::game_state::GameState;
     use engine_core::level_state::LevelState;
     use engine_core::scene::{
-        AudioCue, BehaviorParams, BehaviorSpec, MenuOption, Scene, SceneAudio, SceneRenderedMode,
+        AudioCue, BehaviorParams, BehaviorSpec, MenuOption, Scene, SceneAudio,
         SceneStages, TermColour,
     };
     use engine_core::scene_runtime_types::{
@@ -1145,8 +1143,8 @@ mod tests {
             title: "Intro".to_string(),
             cutscene: true,
             target_fps: None,
-            rendered_mode: SceneRenderedMode::Cell,
             space: Default::default(),
+            celestial: Default::default(),
             virtual_size_override: None,
             bg_colour: Some(TermColour::Black),
             stages: SceneStages::default(),
@@ -2106,24 +2104,40 @@ input.load_profile("game.default");
             "game.default".to_string(),
             catalog::InputProfile {
                 bindings: [
-                    ("turn_left".to_string(), vec!["Left".to_string(), "a".to_string(), "A".to_string()]),
-                    ("turn_right".to_string(), vec!["Right".to_string(), "d".to_string(), "D".to_string()]),
-                    ("thrust".to_string(), vec!["Up".to_string(), "w".to_string(), "W".to_string()]),
-                    ("fire".to_string(), vec![" ".to_string(), "f".to_string(), "F".to_string()]),
-                ].into_iter().collect(),
+                    (
+                        "turn_left".to_string(),
+                        vec!["Left".to_string(), "a".to_string(), "A".to_string()],
+                    ),
+                    (
+                        "turn_right".to_string(),
+                        vec!["Right".to_string(), "d".to_string(), "D".to_string()],
+                    ),
+                    (
+                        "thrust".to_string(),
+                        vec!["Up".to_string(), "w".to_string(), "W".to_string()],
+                    ),
+                    (
+                        "fire".to_string(),
+                        vec![" ".to_string(), "f".to_string(), "F".to_string()],
+                    ),
+                ]
+                .into_iter()
+                .collect(),
             },
         );
 
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.catalogs = std::sync::Arc::new(catalogs);
-        let mut commands = run_behavior(
-            &mut behavior,
-            &scene_with_menu_options(1),
-            test_ctx,
-        );
+        let mut commands = run_behavior(&mut behavior, &scene_with_menu_options(1), test_ctx);
         commands.sort_by(|a, b| {
-            let action_a = match a { BehaviorCommand::BindInputAction { action, .. } => action.as_str(), _ => "" };
-            let action_b = match b { BehaviorCommand::BindInputAction { action, .. } => action.as_str(), _ => "" };
+            let action_a = match a {
+                BehaviorCommand::BindInputAction { action, .. } => action.as_str(),
+                _ => "",
+            };
+            let action_b = match b {
+                BehaviorCommand::BindInputAction { action, .. } => action.as_str(),
+                _ => "",
+            };
             action_a.cmp(action_b)
         });
         assert_eq!(
@@ -2555,7 +2569,7 @@ obj.set("position.y", dy + 2);
                 r#"
 let out = [];
 let obj = scene.get("menu-item-0");
-if obj.get("props.text.font") == "generic:half" {
+if obj.get("props.text.font") == "generic:2" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 1, dy: 0 });
 }
 out
@@ -2581,7 +2595,7 @@ out
         let mut object_props = HashMap::new();
         object_props.insert(
             "obj:menu-item-0".to_string(),
-            serde_json::json!({ "text": { "font": "generic:half" } }),
+            serde_json::json!({ "text": { "font": "generic:2" } }),
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
@@ -2607,7 +2621,7 @@ out
                 r#"
 let out = [];
 let obj = scene.get("menu-item-0");
-if obj.get("text.font") == "generic:half" {
+if obj.get("text.font") == "generic:2" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 2, dy: 0 });
 }
 out
@@ -2633,7 +2647,7 @@ out
         let mut object_props = HashMap::new();
         object_props.insert(
             "obj:menu-item-0".to_string(),
-            serde_json::json!({ "text": { "font": "generic:half" } }),
+            serde_json::json!({ "text": { "font": "generic:2" } }),
         );
         let mut test_ctx = ctx(SceneStage::OnIdle, 0, 0);
         test_ctx.target_resolver = Arc::new(resolver);
@@ -2659,7 +2673,7 @@ out
                 r#"
 let out = [];
 let obj = scene.get("menu-item-0");
-if obj.get("props.text.content") == "HELLO" && obj.get("props.text.font") == "generic:half" {
+if obj.get("props.text.content") == "HELLO" && obj.get("props.text.font") == "generic:2" {
   out.push(#{ op: "offset", target: "menu-item-0", dx: 3, dy: 0 });
 }
 out
@@ -2685,7 +2699,7 @@ out
         let mut object_props = HashMap::new();
         object_props.insert(
             "obj:menu-item-0".to_string(),
-            serde_json::json!({ "text": { "font": "generic:half" } }),
+            serde_json::json!({ "text": { "font": "generic:2" } }),
         );
         let mut object_text = HashMap::new();
         object_text.insert("obj:menu-item-0".to_string(), "HELLO".to_string());
@@ -3395,7 +3409,11 @@ let entity = world.spawn_prefab("entity", #{
         );
 
         let vehicle_ids = gameplay_world.query_kind("vehicle");
-        assert_eq!(vehicle_ids.len(), 1, "vehicle prefab should create one vehicle");
+        assert_eq!(
+            vehicle_ids.len(),
+            1,
+            "vehicle prefab should create one vehicle"
+        );
         let vehicle_id = vehicle_ids[0];
         let vehicle_visual = gameplay_world.visual(vehicle_id).and_then(|v| v.visual_id);
         assert!(
@@ -3423,9 +3441,7 @@ let entity = world.spawn_prefab("entity", #{
             .expect("entity transform");
         assert!((xf.x - 12.0).abs() < 0.01);
         assert!((xf.y - 18.0).abs() < 0.01);
-        let phys = gameplay_world
-            .physics(entity_id)
-            .expect("entity physics");
+        let phys = gameplay_world.physics(entity_id).expect("entity physics");
         assert!((phys.vx - 2.0).abs() < 0.01);
         assert!((phys.vy + 1.0).abs() < 0.01);
         assert_eq!(
@@ -3563,9 +3579,9 @@ game.set("/test/fx_id", fx);
             .unwrap_or(0);
         assert!(fx_id > 0);
         assert!(gameplay_world.exists(fx_id as u64));
-        assert!(
-            commands.iter().any(|c| matches!(c, BehaviorCommand::SetProperty { path, .. } if path == "style.fg"))
-        );
+        assert!(commands
+            .iter()
+            .any(|c| matches!(c, BehaviorCommand::SetProperty { path, .. } if path == "style.fg")));
     }
 
     #[test]
@@ -3640,7 +3656,9 @@ game.set("/test/fx_id", fx);
         assert!((follow.local_y - 1.0).abs() < 0.001);
         assert!(follow.inherit_heading);
         assert_eq!(
-            gameplay_world.ownership(fx_id as u64).map(|ownership| ownership.owner_id),
+            gameplay_world
+                .ownership(fx_id as u64)
+                .map(|ownership| ownership.owner_id),
             Some(1)
         );
     }

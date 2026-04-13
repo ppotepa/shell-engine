@@ -240,13 +240,22 @@ impl FtpApp {
             100,
         );
         uow.schedule("total 48".to_string(), 300);
-        uow.schedule("drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 .".to_string(), 0);
-        uow.schedule("drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 ..".to_string(), 0);
+        uow.schedule(
+            "drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 .".to_string(),
+            0,
+        );
+        uow.schedule(
+            "drwxr-xr-x  4 ftp   ftp   512 Sep 15 12:00 ..".to_string(),
+            0,
+        );
         uow.schedule(
             "-rw-r--r--  1 ftp   ftp  4096 Sep 16 08:00 README".to_string(),
             0,
         );
-        uow.schedule("drwxr-xr-x  2 ftp   ftp   512 Sep 12 00:00 pub".to_string(), 0);
+        uow.schedule(
+            "drwxr-xr-x  2 ftp   ftp   512 Sep 12 00:00 pub".to_string(),
+            0,
+        );
 
         if uow.quest.upload_success {
             uow.schedule(

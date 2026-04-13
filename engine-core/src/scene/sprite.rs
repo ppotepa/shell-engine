@@ -1,4 +1,4 @@
-use super::{color::TermColour, BehaviorSpec, LayerStages, SceneRenderedMode};
+use super::{color::TermColour, BehaviorSpec, LayerStages};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -189,10 +189,7 @@ pub enum Sprite {
         #[serde(default)]
         size: Option<SpriteSizePreset>,
         font: Option<String>,
-        /// Optional per-sprite renderer mode override.
-        #[serde(default, rename = "force-renderer-mode")]
-        force_renderer_mode: Option<SceneRenderedMode>,
-        /// Optional per-sprite font mode override (e.g. ascii/raster/half/quad/braille).
+        /// Optional per-sprite font mode override (e.g. ascii/raster).
         #[serde(default, rename = "force-font-mode")]
         force_font_mode: Option<String>,
         align_x: Option<HorizontalAlign>,
@@ -275,8 +272,6 @@ pub enum Sprite {
         /// When true, scales the image to exactly fill its resolved draw area.
         #[serde(default, rename = "stretch-to-area")]
         stretch_to_area: bool,
-        #[serde(default, rename = "force-renderer-mode")]
-        force_renderer_mode: Option<SceneRenderedMode>,
         align_x: Option<HorizontalAlign>,
         align_y: Option<VerticalAlign>,
         #[serde(default)]
@@ -322,8 +317,6 @@ pub enum Sprite {
         row_span: u16,
         #[serde(default = "default_grid_span", rename = "col-span")]
         col_span: u16,
-        #[serde(default, rename = "force-renderer-mode")]
-        force_renderer_mode: Option<SceneRenderedMode>,
         align_x: Option<HorizontalAlign>,
         align_y: Option<VerticalAlign>,
         fg_colour: Option<TermColour>,
@@ -369,8 +362,6 @@ pub enum Sprite {
         width: Option<u16>,
         #[serde(default)]
         height: Option<u16>,
-        #[serde(default, rename = "force-renderer-mode")]
-        force_renderer_mode: Option<SceneRenderedMode>,
         #[serde(default, rename = "surface-mode")]
         surface_mode: Option<String>,
         #[serde(default, rename = "backface-cull")]
@@ -524,6 +515,12 @@ pub enum Sprite {
         /// Rim falloff power for atmosphere effect (higher = thinner rim). Default 4.5.
         #[serde(default, rename = "atmo-rim-power")]
         atmo_rim_power: Option<f32>,
+        /// Broad atmosphere haze strength (0.0–1.0). Default 0.0.
+        #[serde(default, rename = "atmo-haze-strength")]
+        atmo_haze_strength: Option<f32>,
+        /// Haze falloff power for atmosphere effect (lower = broader). Default 1.8.
+        #[serde(default, rename = "atmo-haze-power")]
+        atmo_haze_power: Option<f32>,
         /// Night-side city lights color. When set, renders procedural light clusters on the dark side.
         #[serde(default, rename = "night-light-color")]
         night_light_color: Option<TermColour>,
@@ -603,6 +600,85 @@ pub enum Sprite {
         #[serde(default)]
         view_fwd_z: Option<f32>,
     },
+    /// Body-backed planet sprite rendered from mod body + preset catalogs.
+    Planet {
+        #[serde(default)]
+        id: Option<String>,
+        #[serde(rename = "body-id")]
+        body_id: String,
+        #[serde(default)]
+        preset: Option<String>,
+        /// Optional sphere mesh override. Defaults to `/assets/3d/sphere.obj`.
+        #[serde(default, rename = "mesh-source")]
+        mesh_source: Option<String>,
+        #[serde(default)]
+        x: i32,
+        #[serde(default)]
+        y: i32,
+        #[serde(default)]
+        z_index: i32,
+        #[serde(default = "default_grid_line", rename = "grid-row")]
+        grid_row: u16,
+        #[serde(default = "default_grid_line", rename = "grid-col")]
+        grid_col: u16,
+        #[serde(default = "default_grid_span", rename = "row-span")]
+        row_span: u16,
+        #[serde(default = "default_grid_span", rename = "col-span")]
+        col_span: u16,
+        #[serde(default)]
+        size: Option<SpriteSizePreset>,
+        #[serde(default)]
+        width: Option<u16>,
+        #[serde(default)]
+        height: Option<u16>,
+        #[serde(default)]
+        scale: Option<f32>,
+        #[serde(default, rename = "yaw-deg")]
+        yaw_deg: Option<f32>,
+        #[serde(default, rename = "pitch-deg")]
+        pitch_deg: Option<f32>,
+        #[serde(default, rename = "roll-deg")]
+        roll_deg: Option<f32>,
+        #[serde(default, rename = "spin-deg")]
+        spin_deg: Option<f32>,
+        #[serde(default, rename = "cloud-spin-deg")]
+        cloud_spin_deg: Option<f32>,
+        #[serde(default, rename = "cloud2-spin-deg")]
+        cloud2_spin_deg: Option<f32>,
+        #[serde(default, rename = "observer-altitude-km")]
+        observer_altitude_km: Option<f32>,
+        #[serde(default, rename = "camera-distance")]
+        camera_distance: Option<f32>,
+        #[serde(default, rename = "camera-source")]
+        camera_source: CameraSource,
+        #[serde(default, rename = "fov-degrees")]
+        fov_degrees: Option<f32>,
+        #[serde(default, rename = "near-clip")]
+        near_clip: Option<f32>,
+        #[serde(default, rename = "sun-dir-x")]
+        sun_dir_x: Option<f32>,
+        #[serde(default, rename = "sun-dir-y")]
+        sun_dir_y: Option<f32>,
+        #[serde(default, rename = "sun-dir-z")]
+        sun_dir_z: Option<f32>,
+        align_x: Option<HorizontalAlign>,
+        align_y: Option<VerticalAlign>,
+        #[serde(default)]
+        appear_at_ms: Option<u64>,
+        #[serde(default)]
+        disappear_at_ms: Option<u64>,
+        #[serde(default)]
+        hide_on_leave: bool,
+        /// Initial visibility state. Can be toggled at runtime via scene.set(id, "visible", bool).
+        #[serde(default = "default_true")]
+        visible: bool,
+        #[serde(default)]
+        stages: LayerStages,
+        #[serde(default)]
+        animations: Vec<crate::scene::Animation>,
+        #[serde(default)]
+        behaviors: Vec<BehaviorSpec>,
+    },
     /// UI panel container rendered as a themed box with optional border, corner radius and shadow.
     #[serde(rename = "panel")]
     Panel {
@@ -638,8 +714,6 @@ pub enum Sprite {
         shadow_x: i32,
         #[serde(default = "default_panel_shadow_y", rename = "shadow-y")]
         shadow_y: i32,
-        #[serde(default, rename = "force-renderer-mode")]
-        force_renderer_mode: Option<SceneRenderedMode>,
         align_x: Option<HorizontalAlign>,
         align_y: Option<VerticalAlign>,
         fg_colour: Option<TermColour>,
@@ -692,8 +766,6 @@ pub enum Sprite {
         gap_x: u16,
         #[serde(default, rename = "gap-y")]
         gap_y: u16,
-        #[serde(default, rename = "force-renderer-mode")]
-        force_renderer_mode: Option<SceneRenderedMode>,
         align_x: Option<HorizontalAlign>,
         align_y: Option<VerticalAlign>,
         #[serde(default)]
@@ -743,8 +815,6 @@ pub enum Sprite {
         gap: u16,
         #[serde(default)]
         direction: FlexDirection,
-        #[serde(default, rename = "force-renderer-mode")]
-        force_renderer_mode: Option<SceneRenderedMode>,
         align_x: Option<HorizontalAlign>,
         align_y: Option<VerticalAlign>,
         #[serde(default)]
@@ -815,6 +885,7 @@ impl Sprite {
             Sprite::Text { id, .. }
             | Sprite::Image { id, .. }
             | Sprite::Obj { id, .. }
+            | Sprite::Planet { id, .. }
             | Sprite::Panel { id, .. }
             | Sprite::Grid { id, .. }
             | Sprite::Flex { id, .. }
@@ -828,6 +899,7 @@ impl Sprite {
             Sprite::Text { z_index, .. }
             | Sprite::Image { z_index, .. }
             | Sprite::Obj { z_index, .. }
+            | Sprite::Planet { z_index, .. }
             | Sprite::Panel { z_index, .. }
             | Sprite::Grid { z_index, .. }
             | Sprite::Flex { z_index, .. }
@@ -841,6 +913,7 @@ impl Sprite {
             Sprite::Text { stages, .. }
             | Sprite::Image { stages, .. }
             | Sprite::Obj { stages, .. }
+            | Sprite::Planet { stages, .. }
             | Sprite::Panel { stages, .. }
             | Sprite::Grid { stages, .. }
             | Sprite::Flex { stages, .. }
@@ -866,6 +939,13 @@ impl Sprite {
                 ..
             }
             | Sprite::Obj {
+                grid_row,
+                grid_col,
+                row_span,
+                col_span,
+                ..
+            }
+            | Sprite::Planet {
                 grid_row,
                 grid_col,
                 row_span,
@@ -933,6 +1013,7 @@ impl Sprite {
             Sprite::Text { behaviors, .. }
             | Sprite::Image { behaviors, .. }
             | Sprite::Obj { behaviors, .. }
+            | Sprite::Planet { behaviors, .. }
             | Sprite::Panel { behaviors, .. }
             | Sprite::Grid { behaviors, .. }
             | Sprite::Flex { behaviors, .. }
@@ -946,6 +1027,7 @@ impl Sprite {
             Sprite::Text { hide_on_leave, .. }
             | Sprite::Image { hide_on_leave, .. }
             | Sprite::Obj { hide_on_leave, .. }
+            | Sprite::Planet { hide_on_leave, .. }
             | Sprite::Panel { hide_on_leave, .. }
             | Sprite::Grid { hide_on_leave, .. }
             | Sprite::Flex { hide_on_leave, .. }
@@ -959,6 +1041,7 @@ impl Sprite {
             Sprite::Text { visible, .. }
             | Sprite::Image { visible, .. }
             | Sprite::Obj { visible, .. }
+            | Sprite::Planet { visible, .. }
             | Sprite::Panel { visible, .. }
             | Sprite::Grid { visible, .. }
             | Sprite::Flex { visible, .. }
@@ -972,6 +1055,7 @@ impl Sprite {
             Sprite::Text { appear_at_ms, .. }
             | Sprite::Image { appear_at_ms, .. }
             | Sprite::Obj { appear_at_ms, .. }
+            | Sprite::Planet { appear_at_ms, .. }
             | Sprite::Panel { appear_at_ms, .. }
             | Sprite::Grid { appear_at_ms, .. }
             | Sprite::Flex { appear_at_ms, .. }
@@ -989,6 +1073,9 @@ impl Sprite {
                 disappear_at_ms, ..
             }
             | Sprite::Obj {
+                disappear_at_ms, ..
+            }
+            | Sprite::Planet {
                 disappear_at_ms, ..
             }
             | Sprite::Panel {
@@ -1014,6 +1101,7 @@ impl Sprite {
             Sprite::Text { animations, .. }
             | Sprite::Image { animations, .. }
             | Sprite::Obj { animations, .. }
+            | Sprite::Planet { animations, .. }
             | Sprite::Panel { animations, .. }
             | Sprite::Grid { animations, .. }
             | Sprite::Flex { animations, .. }
@@ -1026,7 +1114,6 @@ impl Sprite {
 #[cfg(test)]
 mod tests {
     use super::{Sprite, SpriteSizePreset};
-    use crate::scene::SceneRenderedMode;
 
     #[test]
     fn supports_negative_sprite_offsets() {
@@ -1044,6 +1131,7 @@ y: -8
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Planet { .. }
             | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
@@ -1055,28 +1143,26 @@ y: -8
     }
 
     #[test]
-    fn parses_force_renderer_and_font_modes() {
+    fn parses_force_font_mode() {
         let raw = r#"
 type: text
 content: "TEST"
 font: "generic:2"
-force-renderer-mode: quadblock
-force-font-mode: braille
+force-font-mode: ascii
 "#;
         let sprite: Sprite = serde_yaml::from_str(raw).expect("sprite should parse");
         match sprite {
             Sprite::Text {
-                force_renderer_mode,
                 force_font_mode,
                 behaviors,
                 ..
             } => {
-                assert_eq!(force_renderer_mode, Some(SceneRenderedMode::QuadBlock));
-                assert_eq!(force_font_mode.as_deref(), Some("braille"));
+                assert_eq!(force_font_mode.as_deref(), Some("ascii"));
                 assert!(behaviors.is_empty());
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Planet { .. }
             | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
@@ -1093,7 +1179,6 @@ force-font-mode: braille
 type: image
 source: "/assets/images/tux.png"
 size: 3
-force-renderer-mode: halfblock
 stretch-to-area: true
 "#;
         let sprite: Sprite = serde_yaml::from_str(raw).expect("image sprite should parse");
@@ -1107,7 +1192,6 @@ stretch-to-area: true
                 width,
                 height,
                 stretch_to_area,
-                force_renderer_mode,
                 ..
             } => {
                 assert_eq!(source, "/assets/images/tux.png");
@@ -1118,10 +1202,10 @@ stretch-to-area: true
                 assert_eq!(width, None);
                 assert_eq!(height, None);
                 assert!(stretch_to_area);
-                assert_eq!(force_renderer_mode, Some(SceneRenderedMode::HalfBlock));
             }
             Sprite::Text { .. }
             | Sprite::Obj { .. }
+            | Sprite::Planet { .. }
             | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }
@@ -1202,6 +1286,7 @@ children:
             Sprite::Text { .. }
             | Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Planet { .. }
             | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Flex { .. }
@@ -1236,6 +1321,7 @@ behaviors:
             }
             Sprite::Image { .. }
             | Sprite::Obj { .. }
+            | Sprite::Planet { .. }
             | Sprite::Vector { .. }
             | Sprite::Panel { .. }
             | Sprite::Grid { .. }

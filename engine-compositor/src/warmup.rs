@@ -51,6 +51,11 @@ fn collect_from_sprites(sprites: &[Sprite], out: &mut Vec<String>) {
     for sprite in sprites {
         match sprite {
             Sprite::Obj { source, .. } => out.push(source.clone()),
+            Sprite::Planet { mesh_source, .. } => out.push(
+                mesh_source
+                    .clone()
+                    .unwrap_or_else(|| "/assets/3d/sphere.obj".to_string()),
+            ),
             Sprite::Panel { children, .. }
             | Sprite::Grid { children, .. }
             | Sprite::Flex { children, .. } => collect_from_sprites(children, out),

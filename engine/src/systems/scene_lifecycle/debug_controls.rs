@@ -65,7 +65,11 @@ fn switch_palette_by_index(world: &mut World, index: usize) -> bool {
         let Some(id) = store.order.get(index) else {
             logging::debug(
                 "engine.debug.palette",
-                format!("palette index {} out of range (have {})", index, store.len()),
+                format!(
+                    "palette index {} out of range (have {})",
+                    index,
+                    store.len()
+                ),
             );
             return false;
         };

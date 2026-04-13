@@ -15,11 +15,12 @@ pub mod scene;
 pub mod testing;
 
 // Re-export key types and functions for easy access
+pub use audio::{register_audio_api, ScriptAudioApi};
+pub use collision::{
+    filter_hits_by_kind, filter_hits_of_kind, register_collision_api, ScriptCollisionApi,
+};
 pub use commands::{BehaviorCommand, DebugLogSeverity};
-pub use audio::{ScriptAudioApi, register_audio_api};
-pub use collision::{ScriptCollisionApi, register_collision_api, filter_hits_by_kind, filter_hits_of_kind};
-pub use effects::{ScriptEffectsApi, register_effects_api};
-pub use scene::{ScriptSceneApi, ScriptObjectApi, register_scene_api};
+pub use effects::{register_effects_api, ScriptEffectsApi};
 pub use gameplay::api::{CommandQueue, ScriptEntityContext, ScriptWorldContext};
 pub use gameplay::emitters::EmitResolved;
 pub use gameplay::geometry::{
@@ -32,7 +33,8 @@ pub use gameplay::lifecycle::{
 pub use gameplay::world::EphemeralPrefabResolved;
 pub use input::normalization::normalize_input_code;
 pub use rhai::conversion::{
-    behavior_params_to_rhai_map, json_to_rhai_dynamic, map_bool, map_dynamic,
-    map_get_path_dynamic, map_int, map_number, map_set_path_dynamic, map_string, merge_rhai_maps,
-    normalize_set_path, region_to_rhai_map, rhai_dynamic_to_json,
+    behavior_params_to_rhai_map, json_to_rhai_dynamic, map_bool, map_dynamic, map_get_path_dynamic,
+    map_int, map_number, map_set_path_dynamic, map_string, merge_rhai_maps, normalize_set_path,
+    region_to_rhai_map, rhai_dynamic_to_json,
 };
+pub use scene::{register_scene_api, ScriptObjectApi, ScriptSceneApi};

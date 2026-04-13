@@ -348,13 +348,6 @@ fn normalize_sprites(
             out.append(&mut expanded);
             continue;
         }
-        if is_sprite_type(sprite_map, "terminal-input") {
-            let terminal_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
-            let mut expanded =
-                expand_terminal_input_sprite(sprite_map, terminal_defaults.as_ref(), scene_theme)?;
-            out.append(&mut expanded);
-            continue;
-        }
         if is_sprite_type(sprite_map, "scroll-list") {
             let list_defaults = merge_defaults(inherited_defaults, local_defaults.as_ref());
             let mut expanded =
@@ -975,180 +968,6 @@ fn expand_window_sprite(
     Ok(vec![Value::Mapping(panel)])
 }
 
-fn expand_terminal_input_sprite(
-    sprite_map: &Mapping,
-    inherited_defaults: Option<&Mapping>,
-    scene_theme: Option<&str>,
-) -> Result<Vec<Value>, serde_yaml::Error> {
-    let base_id = map_get_str(sprite_map, &["id"]).unwrap_or("terminal-input");
-    let title_id = map_get_str(sprite_map, &["title-id", "title_id"])
-        .map(ToString::to_string)
-        .unwrap_or_else(|| format!("{base_id}-title"));
-    let body_id = map_get_str(sprite_map, &["hint-id", "hint_id", "body-id", "body_id"])
-        .map(ToString::to_string)
-        .unwrap_or_else(|| format!("{base_id}-hint"));
-    let prompt_id = map_get_str(
-        sprite_map,
-        &["prompt-id", "prompt_id", "footer-id", "footer_id"],
-    )
-    .map(ToString::to_string)
-    .unwrap_or_else(|| format!("{base_id}-prompt"));
-
-    let title =
-        map_get_str(sprite_map, &["title-bar", "title_bar", "title", "header"]).unwrap_or_default();
-    let hint = map_get_str(
-        sprite_map,
-        &[
-            "hint-content",
-            "hint_content",
-            "body-content",
-            "body_content",
-            "body",
-            "content",
-        ],
-    )
-    .unwrap_or_default();
-    let prompt_content = map_get_str(
-        sprite_map,
-        &[
-            "prompt-content",
-            "prompt_content",
-            "footer-content",
-            "footer_content",
-            "footer",
-        ],
-    )
-    .unwrap_or_default();
-    let has_explicit_title =
-        map_get_str(sprite_map, &["title-bar", "title_bar", "title"]).is_some();
-    let has_explicit_hint = map_get_str(
-        sprite_map,
-        &[
-            "hint-content",
-            "hint_content",
-            "hint-id",
-            "hint_id",
-            "body-content",
-            "body_content",
-            "body",
-        ],
-    )
-    .is_some();
-    let slots_id = format!("{base_id}-slots");
-
-    let mut window_map = Mapping::new();
-    for (key, value) in sprite_map {
-        let Some(name) = key.as_str() else {
-            window_map.insert(key.clone(), value.clone());
-            continue;
-        };
-        if TERMINAL_INPUT_RESERVED_KEYS.contains(&name) {
-            continue;
-        }
-        window_map.insert(key.clone(), value.clone());
-    }
-
-    window_map.insert(
-        Value::String("type".to_string()),
-        Value::String("window".to_string()),
-    );
-    window_map
-        .entry(Value::String("id".to_string()))
-        .or_insert_with(|| Value::String(base_id.to_string()));
-    window_map
-        .entry(Value::String("at".to_string()))
-        .or_insert_with(|| Value::String("cb".to_string()));
-    window_map
-        .entry(Value::String("y".to_string()))
-        .or_insert_with(|| Value::Number(Number::from(-2)));
-    if !window_map.contains_key(Value::String("width".to_string()))
-        && !window_map.contains_key(Value::String("width-percent".to_string()))
-    {
-        window_map.insert(
-            Value::String("width-percent".to_string()),
-            Value::Number(Number::from(95)),
-        );
-    }
-    window_map
-        .entry(Value::String("padding".to_string()))
-        .or_insert_with(|| Value::Number(Number::from(1)));
-    window_map.insert(
-        Value::String("title".to_string()),
-        Value::String(title.to_string()),
-    );
-    window_map.insert(
-        Value::String("title-id".to_string()),
-        Value::String(title_id.clone()),
-    );
-    window_map.insert(
-        Value::String("body-id".to_string()),
-        Value::String(body_id.clone()),
-    );
-    window_map.insert(
-        Value::String("footer-id".to_string()),
-        Value::String(prompt_id.clone()),
-    );
-    window_map.insert(
-        Value::String("body-content".to_string()),
-        Value::String(hint.to_string()),
-    );
-    window_map.insert(
-        Value::String("footer-content".to_string()),
-        Value::String(prompt_content.to_string()),
-    );
-
-    let mut expanded = expand_window_sprite(&window_map, inherited_defaults, scene_theme)?;
-    let Some(panel) = expanded.get_mut(0).and_then(Value::as_mapping_mut) else {
-        return Ok(expanded);
-    };
-    let Some(children) = panel
-        .get_mut(Value::String("children".to_string()))
-        .and_then(Value::as_sequence_mut)
-    else {
-        return Ok(expanded);
-    };
-
-    let Some(slots_map) = children.iter_mut().find_map(|child| {
-        let map = child.as_mapping_mut()?;
-        let id = map
-            .get(Value::String("id".to_string()))
-            .and_then(Value::as_str)?;
-        if id == slots_id {
-            Some(map)
-        } else {
-            None
-        }
-    }) else {
-        return Ok(expanded);
-    };
-    let Some(slot_children) = slots_map
-        .get_mut(Value::String("children".to_string()))
-        .and_then(Value::as_sequence_mut)
-    else {
-        return Ok(expanded);
-    };
-    slot_children.retain(|child| {
-        let Some(child_map) = child.as_mapping() else {
-            return true;
-        };
-        let Some(child_id) = child_map
-            .get(Value::String("id".to_string()))
-            .and_then(Value::as_str)
-        else {
-            return true;
-        };
-        if child_id == title_id && !has_explicit_title && title.trim().is_empty() {
-            return false;
-        }
-        if child_id == body_id && !has_explicit_hint && hint.trim().is_empty() {
-            return false;
-        }
-        true
-    });
-
-    Ok(expanded)
-}
-
 fn expand_scroll_list_sprite(
     sprite_map: &Mapping,
     inherited_defaults: Option<&Mapping>,
@@ -1471,18 +1290,6 @@ const WINDOW_RESERVED_KEYS: &[&str] = &[
     "frame_style",
     "children",
     "font",
-];
-
-const TERMINAL_INPUT_RESERVED_KEYS: &[&str] = &[
-    "header",
-    "hint-id",
-    "hint_id",
-    "hint-content",
-    "hint_content",
-    "prompt-id",
-    "prompt_id",
-    "prompt-content",
-    "prompt_content",
 ];
 
 const SCROLL_LIST_RESERVED_KEYS: &[&str] = &[
@@ -1950,52 +1757,6 @@ layers:
     }
 
     #[test]
-    fn expands_terminal_input_sprite_to_panel_with_prompt_slot() {
-        let raw = r#"
-id: terminal-input-scene
-title: Terminal Input
-layers:
-  - sprites:
-      - type: terminal-input
-        id: term
-"#;
-        let scene = serde_yaml::from_str::<SceneDocument>(raw)
-            .expect("document")
-            .compile()
-            .expect("scene");
-        match &scene.layers[0].sprites[0] {
-            Sprite::Panel {
-                id,
-                width,
-                width_percent,
-                height,
-                padding,
-                align_x,
-                align_y,
-                children,
-                ..
-            } => {
-                assert_eq!(id.as_deref(), Some("term"));
-                assert_eq!(*width, None);
-                assert_eq!(*width_percent, Some(95));
-                assert_eq!(*height, None);
-                assert_eq!(*padding, 1);
-                assert!(matches!(align_x, Some(HorizontalAlign::Center)));
-                assert!(matches!(align_y, Some(VerticalAlign::Bottom)));
-                assert_eq!(children.len(), 1);
-                let prompt =
-                    find_text_by_id(children, "term-prompt").and_then(|child| match child {
-                        Sprite::Text { y, content, .. } => Some((content, y)),
-                        _ => None,
-                    });
-                assert_eq!(prompt.map(|(content, _)| content), Some(&"".to_string()));
-                assert_eq!(prompt.map(|(_, y)| *y), Some(0));
-            }
-            _ => panic!("expected panel from terminal-input sugar"),
-        }
-    }
-
-    #[test]
     fn window_supports_title_bar_alias() {
         let raw = r#"
 id: window-title-bar
@@ -2033,33 +1794,6 @@ layers:
     }
 
     #[test]
-    fn terminal_input_allows_custom_prompt_id() {
-        let raw = r#"
-id: terminal-input-custom
-title: Terminal Input Custom
-layers:
-  - sprites:
-      - type: terminal-input
-        id: terminal-ui
-        prompt-id: ui-terminal-prompt
-        hint-id: ui-terminal-hint
-"#;
-        let scene = serde_yaml::from_str::<SceneDocument>(raw)
-            .expect("document")
-            .compile()
-            .expect("scene");
-        match &scene.layers[0].sprites[0] {
-            Sprite::Panel { children, .. } => {
-                let has_prompt = find_text_by_id(children, "ui-terminal-prompt").is_some();
-                assert!(has_prompt, "custom prompt id should be preserved");
-                let has_hint = find_text_by_id(children, "ui-terminal-hint").is_some();
-                assert!(has_hint, "custom hint id should be preserved");
-            }
-            _ => panic!("expected panel from terminal-input sugar"),
-        }
-    }
-
-    #[test]
     fn expands_window_sprite_with_generic_font_forwards_font_to_slot_children() {
         let raw = r#"
 id: window-ascii
@@ -2070,7 +1804,7 @@ layers:
         id: terminal-window
         at: cc
         width: 20
-        font: "generic:half"
+        font: "generic:2"
         title: TERMINAL
 "#;
         let scene = serde_yaml::from_str::<SceneDocument>(raw)
@@ -2085,7 +1819,7 @@ layers:
                         _ => None,
                     },
                 );
-                assert_eq!(title_font, Some("generic:half"));
+                assert_eq!(title_font, Some("generic:2"));
             }
             _ => panic!("expected panel from window sugar"),
         }
@@ -2100,7 +1834,7 @@ layers:
   - sprites:
       - type: window
         id: terminal-window
-        font: "generic:half"
+        font: "generic:2"
         title-bar: HINTS
         body-content: TYPE LS
         footer-content: READY
@@ -2126,50 +1860,6 @@ layers:
                 );
             }
             _ => panic!("expected panel from window sugar"),
-        }
-    }
-
-    #[test]
-    fn terminal_input_slots_stack_without_manual_y_offsets() {
-        let raw = r#"
-id: terminal-input-offsets
-title: Terminal Input Offsets
-layers:
-  - sprites:
-      - type: terminal-input
-        id: term
-        font: "generic:half"
-        title-bar: HINTS
-        hint-content: TYPE LS
-        prompt-content: "> "
-"#;
-        let scene = serde_yaml::from_str::<SceneDocument>(raw)
-            .expect("document")
-            .compile()
-            .expect("scene");
-        match &scene.layers[0].sprites[0] {
-            Sprite::Panel { children, .. } => {
-                let title = find_text_by_id(children, "term-title");
-                let hint = find_text_by_id(children, "term-hint");
-                let prompt = find_text_by_id(children, "term-prompt");
-                assert!(title.is_some(), "title slot missing");
-                assert!(hint.is_some(), "hint slot missing");
-                assert!(prompt.is_some(), "prompt slot missing");
-                let all_zero = [title, hint, prompt]
-                    .iter()
-                    .filter_map(|sprite| {
-                        sprite.and_then(|child| match child {
-                            Sprite::Text { y, .. } => Some(*y),
-                            _ => None,
-                        })
-                    })
-                    .all(|y| y == 0);
-                assert!(
-                    all_zero,
-                    "slot text should not depend on absolute y offsets when grouped in flex"
-                );
-            }
-            _ => panic!("expected panel from terminal-input sugar"),
         }
     }
 
@@ -2284,7 +1974,7 @@ layers:
       - type: window
         id: terminal-window
         width: 20
-        font: "generic:half"
+        font: "generic:2"
 "#;
         let scene = serde_yaml::from_str::<SceneDocument>(raw)
             .expect("document")

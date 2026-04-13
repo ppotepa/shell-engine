@@ -63,7 +63,7 @@ impl<'a> StartupContext<'a> {
             mod_source,
             manifest,
             entrypoint,
-            selected_output: StartupOutputSetting::Terminal,
+            selected_output: StartupOutputSetting::Sdl2,
             scene_cache: OnceLock::new(),
             scene_loader,
             font_asset_checker: None,

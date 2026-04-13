@@ -8,7 +8,7 @@ if !(local.initialized ?? false) {
     local.sel = 0;
 }
 
-let count = 3;
+let count = 2;
 let sel   = local.sel;
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ let col_idle  = palette.get("menu_idle"); if col_idle  == "" { col_idle  = "#2e5
 let t = time.scene_elapsed_ms;
 let float_x = sin(t.to_float() / 400.0) * 3.0;
 
-let items = ["item-0", "item-1", "item-2"];
+let items = ["item-0", "item-1"];
 for i in 0..count {
     if i == sel {
         scene.set(items[i], "style.fg", col_sel);
@@ -44,8 +44,6 @@ if input.just_pressed("Enter") || input.just_pressed("Space") {
     if sel == 0 {
         game.jump("asteroids-game");
     } else if sel == 1 {
-        game.jump("asteroids-highscores");
-    } else if sel == 2 {
         scene.quit();
     }
 }

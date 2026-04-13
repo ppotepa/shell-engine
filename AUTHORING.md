@@ -58,7 +58,59 @@ Layers can override that default with `space: inherit | 2d | 3d | screen`.
 - `3d` ignores the 2D camera and is intended for OBJ / Scene3D content.
 - `screen` is fixed HUD space.
 
-OBJ and `scene3_d` sprites can opt into the shared scene camera with `camera-source: scene`. The default remains `camera-source: local`, which preserves authored per-sprite camera values.
+OBJ, `planet`, and `scene3_d` sprites can opt into the shared scene camera with `camera-source: scene`. The default remains `camera-source: local`, which preserves authored per-sprite camera values.
+
+Scenes can also bind themselves to a celestial scope:
+
+```yaml
+space: 3d
+
+celestial:
+  scope: system
+  region: local-cluster
+  system: sol
+  focus-body: earth
+  frame: focus-relative
+  clock-source: scene
+```
+
+This block does not render anything by itself. It tells the engine which
+celestial slice the scene is about, so future body/system/region views can
+share one persistent world model instead of hardcoding scope in Rhai.
+
+### Planet sprite
+
+Planets can now be authored as one first-class sprite backed by the mod's body
+and planet catalogs instead of hand-authoring multiple OBJ shells in the scene.
+
+```yaml
+- type: planet
+  id: main-planet-view
+  body-id: main-planet
+  mesh-source: /assets/3d/sphere.obj   # optional; default is this path
+  pitch-deg: -14
+  camera-source: scene
+  fov-degrees: 65
+```
+
+`body-id` resolves against `catalogs/celestial/bodies.yaml`. The body chooses the default visual preset via
+`planet_type`, while the scene sprite owns framing and presentation. Rhai
+should drive the runtime state through high-level paths such as
+`planet.spin_deg`, `planet.cloud_spin_deg`, `planet.cloud2_spin_deg`,
+`planet.observer_altitude_km`, and `planet.sun_dir.x/y/z`.
+
+Celestial catalogs can now be grouped under `catalogs/celestial/`:
+
+```text
+catalogs/
+  celestial/
+    regions.yaml
+    systems.yaml
+    bodies.yaml
+    planets.yaml
+    sites.yaml
+    routes.yaml
+```
 
 Object instances support both explicit entries and a repeat shorthand. The
 `repeat` form expands at compile time and supports `{i}` token substitution
@@ -467,9 +519,6 @@ The engine ships a 5×7 pixel bitmap font with several rendering modes:
 | `generic:1`     | 4×5             | Compact tiny — HUD counters      |
 | `generic:2`     | 6×7 (scale 1)   | Standard — score/wave labels     |
 | `generic:3`     | 12×14 (scale 2) | Large — titles, life icons       |
-| `generic:half`  | 6×4             | Half-block sub-pixel rendering   |
-| `generic:quad`  | 3×4             | Quadrant sub-pixel rendering     |
-| `generic:braille` | 3×2           | Braille dot rendering            |
 
 Supported special glyphs: `♥` (retro 5×7 heart), `→←↑↓`, `·•…` and all
 printable ASCII. To render chunky retro icon sprites (e.g. life icons), use
@@ -500,14 +549,14 @@ A `scene.yml` controls the following concerns:
 | PostFX      | postfx (ordered list of post-processing passes)           |
 | UI          | ui.enabled, ui.persist, ui.theme, ui.focus-order          |
 | Routing     | next, menu-options (each with `to`)                       |
-| Input       | input profiles (terminal-shell, menu, custom)             |
+| Input       | input profiles (obj-viewer, free-look-camera, custom)     |
 | Prerender   | prerender hooks                                           |
 
 ---
 
 ## PostFX Pipeline
 
-PostFX passes execute after the compositor and before terminal flush.
+PostFX passes execute after the compositor and before final frame presentation.
 Order matters — passes apply sequentially to the composited buffer.
 
 | Pass            | Purpose                           |
@@ -517,7 +566,7 @@ Order matters — passes apply sequentially to the composited buffer.
 | crt-scan-glitch | Scanline sweep + chroma glitch    |
 | crt-ruby        | Ruby tint + edge reveal           |
 | lens-blur       | Separable Gaussian blur / soft focus haze |
-| terminal-crt    | Legacy alias                      |
+| crt-filter      | Full-screen CRT display pass      |
 
 ---
 
@@ -569,6 +618,10 @@ procedural biome controls:
 - `atmo-color`, `atmo-strength`, `atmo-rim-power`
 - `night-light-color`, `night-light-threshold`, `night-light-intensity`
 
+Prefer the builtin `type: planet` sprite for body-backed worlds. Raw OBJ planet
+authoring remains useful for one-off art shots, background shells, or effects
+that are intentionally not tied to a body catalog.
+
 For cockpit-follow or parallax-heavy planet shots, Rhai can also drive
 per-sprite OBJ camera/view overrides via `scene.set(id, "obj.cam.wx", ...)`,
 `obj.cam.wy/wz`, and `obj.view.rx/ry/rz`, `obj.view.ux/uy/uz`,
@@ -587,20 +640,6 @@ Slot layout respects the active font height for vertical sizing.
 
 `type: terminal-input` is a specialized window for interactive prompts.
 
-### Shell Input Profile
-
-The `input.terminal-shell` section binds a shell prompt to sprites:
-
-| Field           | Purpose                                    |
-|-----------------|--------------------------------------------|
-| prompt-sprite-id | Sprite displaying the prompt text         |
-| output-sprite-id | Sprite displaying command output          |
-| prompt-panel-id  | Panel containing the prompt               |
-| prompt-wrap      | Enable line wrapping in prompt            |
-| prompt-auto-grow | Panel grows with input length             |
-
-In scripted mode the engine skips built-in commands entirely; Rhai handles
-all input processing and output rendering.
 
 ### Action Map
 

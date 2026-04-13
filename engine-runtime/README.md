@@ -5,12 +5,11 @@ Runtime settings parsed from mod manifests and environment overrides.
 ## Purpose
 
 `engine-runtime` owns the small but important layer that turns authored
-`mod.yaml` terminal/runtime settings into concrete runtime configuration used by
+`mod.yaml` display/runtime settings into concrete runtime configuration used by
 the app and engine.
 
 It is intentionally narrow: this crate does not run the game loop; it defines
-how runtime options such as render size, presentation policy, and renderer mode
-overrides are interpreted.
+how runtime options such as render size and presentation policy are interpreted.
 
 ## Key types
 
@@ -22,12 +21,11 @@ overrides are interpreted.
 
 ## What it does
 
-- reads terminal settings from the manifest `terminal` block,
+- reads display settings from the manifest `display` block,
 - accepts both kebab-case and snake_case YAML keys,
 - applies environment overrides such as:
   - `SHELL_QUEST_RENDER_SIZE`
   - `SHELL_QUEST_PRESENTATION_POLICY`
-  - `SHELL_QUEST_RENDERER_MODE`
 - prefers fixed authored render sizes and still resolves `match-output` / `max-available`
   for compatibility when older content tracks the current output dimensions.
 - supports display policies:
@@ -39,6 +37,5 @@ overrides are interpreted.
 
 - keep parsing behavior backward-compatible when possible,
 - if manifest field names change, support both forms during migrations,
-- keep renderer-mode parsing aligned with `engine-core::scene::SceneRenderedMode`,
 - when runtime settings change, update launcher docs and mod authoring docs in
   the same change.

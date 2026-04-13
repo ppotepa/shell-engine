@@ -1,12 +1,12 @@
-use engine_core::buffer::{Buffer, TRUE_BLACK};
-use engine_core::color::Color;
-use engine_core::effects::{Effect, EffectTargetMask, Region};
 use crate::metadata::{
     select, text, EffectMetadata, P_EASING, P_GLOW, P_INTENSITY, P_OCTAVES, P_ORIENTATION, P_SPEED,
     P_STRIKES, P_THICKNESS,
 };
 use crate::utils::color::{colour_to_rgb, lerp_colour};
 use crate::utils::noise::crt_hash;
+use engine_core::buffer::{Buffer, TRUE_BLACK};
+use engine_core::color::Color;
+use engine_core::effects::{Effect, EffectTargetMask, Region};
 use engine_core::scene::EffectParams;
 use std::f32::consts::TAU;
 
@@ -981,7 +981,7 @@ impl Effect for LightningOptical80sEffect {
     }
 }
 
-/// Shader-inspired procedural lightning (FBM/noise warp) adapted for terminal cells.
+/// Shader-inspired procedural lightning (FBM/noise warp).
 pub struct LightningFbmEffect;
 
 impl Effect for LightningFbmEffect {

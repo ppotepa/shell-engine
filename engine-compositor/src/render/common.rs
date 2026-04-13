@@ -1,6 +1,7 @@
 //! Common render-time context and helpers shared across sprite variants.
 
 use engine_animation::SceneStage;
+use engine_celestial::CelestialCatalogs;
 use engine_core::animations::AnimationDispatcher;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
@@ -28,6 +29,7 @@ pub(crate) struct RenderCtx<'a> {
     pub(crate) layer_buf: &'a mut Buffer,
     pub(crate) obj_camera_states: &'a HashMap<String, ObjCameraState>,
     pub(crate) scene_camera_3d: &'a SceneCamera3D,
+    pub(crate) celestial_catalogs: Option<&'a CelestialCatalogs>,
     pub(crate) is_pixel_backend: bool,
     pub(crate) default_font: Option<&'a str>,
 }

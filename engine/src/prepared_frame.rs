@@ -1,4 +1,4 @@
-//! `PreparedFrame` — the output of the render thread, ready for terminal presentation.
+//! `PreparedFrame` — the output of the render thread, ready for backend presentation.
 //!
 //! The render pipeline has three explicit phases:
 //!
@@ -9,7 +9,7 @@
 //!    validates its `FrameTicket` against the current ticket, and discards stale results.
 //!    When accepted, the frame's buffers are staged back into `World`.
 //!
-//! 3. **Present** (`renderer_system`): main thread flushes the staged buffers to the terminal.
+//! 3. **Present** (`renderer_system`): main thread flushes the staged buffers to the active backend.
 //!
 //! `PreparedFrame` is the contract between phases 1→2 and 2→3. It owns the render buffers
 //! and carries the ticket + object regions needed by the simulation thread on the next frame.
@@ -19,7 +19,7 @@ use crate::effects::Region;
 use crate::frame_ticket::FrameTicket;
 use std::collections::HashMap;
 
-/// A fully composited and postfx-applied frame, ready for terminal presentation.
+/// A fully composited and postfx-applied frame, ready for backend presentation.
 ///
 /// Produced by the render thread after compositor → postfx. Validated by ticket
 /// before being staged into World for `renderer_system`.

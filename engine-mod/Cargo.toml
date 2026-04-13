@@ -12,7 +12,6 @@ engine-effects = { workspace = true }
 engine-error = { path = "../engine-error" }
 engine-render-policy = { path = "../engine-render-policy" }
 engine-runtime = { path = "../engine-runtime" }
-crossterm = "0.29"
 serde_yaml = "0.9"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 

@@ -58,8 +58,8 @@ pub fn resolve_ui_theme(theme_id: Option<&str>) -> Option<UiThemeStyle> {
     let key = normalize_theme_key(theme_id)?;
     match key.as_str() {
         "default" | "engine-default" => Some(DEFAULT_UI_THEME),
-        "terminal" | "terminal-shell" | "shell" => Some(UiThemeStyle {
-            id: "terminal",
+        "shell" => Some(UiThemeStyle {
+            id: "shell",
             window: WindowThemeStyle {
                 border_fg: "#353535",
                 border_bg: "#252525",
@@ -146,13 +146,9 @@ mod tests {
     }
 
     #[test]
-    fn resolves_terminal_theme_aliases() {
-        let terminal = resolve_ui_theme(Some("terminal")).expect("terminal theme");
-        let shell = resolve_ui_theme(Some("shell")).expect("shell alias");
-        let terminal_shell = resolve_ui_theme(Some("terminal-shell")).expect("terminal-shell");
-        assert_eq!(terminal.id, "terminal");
-        assert_eq!(terminal, shell);
-        assert_eq!(terminal, terminal_shell);
+    fn resolves_shell_theme() {
+        let shell = resolve_ui_theme(Some("shell")).expect("shell theme");
+        assert_eq!(shell.id, "shell");
     }
 
     #[test]

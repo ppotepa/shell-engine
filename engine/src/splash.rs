@@ -5,20 +5,18 @@
 
 use std::collections::VecDeque;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::buffer::Buffer;
 use crate::effects::Region;
-use engine_effects::shared_dispatcher;
 use crate::scene::{HorizontalAlign, TermColour, VerticalAlign};
 use base64::Engine as _;
-use crossterm::{cursor, queue, style, terminal};
 use engine_core::color::Color;
+use engine_effects::shared_dispatcher;
 #[cfg(feature = "sdl2")]
-use engine_render::OutputBackend;
-use engine_render_terminal::color_convert;
+use engine_render::RendererBackend;
 use image::{imageops, load_from_memory};
 use serde::Deserialize;
 use serde_yaml::{Mapping, Value};
@@ -79,7 +77,7 @@ fn map_get<'a>(map: &'a Mapping, key: &str) -> Option<&'a Value> {
 
 fn resolve_mod_path(mod_source: &Path, raw: &str) -> PathBuf {
     let p = Path::new(raw);
-    if p.is_absolute() {
+    if p.is_absolute() || raw.starts_with('/') || raw.starts_with('\\') {
         let trimmed = raw.trim_start_matches('/');
         mod_source.join(trimmed)
     } else {
@@ -137,7 +135,7 @@ struct SplashScene {
     image_path: PathBuf,
     splatter_path: Option<PathBuf>,
     audio_path: PathBuf,
-    bg_colour: style::Color,
+    bg_colour: Color,
     alpha_threshold: u8,
     logo_scale: f32,
     logo_align_x: Option<HorizontalAlign>,
@@ -213,7 +211,7 @@ impl SplashScene {
                 .as_deref()
                 .map(|asset| resolve_scene_asset(scene_dir, asset)),
             audio_path: resolve_scene_asset(scene_dir, &definition.audio),
-            bg_colour: convert_to_crossterm(Color::from(&definition.bg_colour)),
+            bg_colour: Color::from(&definition.bg_colour),
             alpha_threshold: definition.alpha_threshold,
             logo_scale: definition.logo_scale.max(0.1),
             logo_align_x: definition.logo_align_x,
@@ -260,30 +258,14 @@ impl SplashScene {
     }
 }
 
-/// Display the engine splash scene centered on the terminal.
-///
-/// Must be called after the alternate screen has been entered and the console
-/// cleared. This blocks the calling thread while the splash is shown and plays
-/// the splash audio in a background thread.
-pub fn show_splash(target_bg: style::Color, scene_path_override: Option<&Path>) {
-    let Some(splash_scene) = load_splash_scene(scene_path_override) else {
-        return;
-    };
-
-    start_splash_audio(&splash_scene);
-    if let Err(error) = try_show_splash(&splash_scene, target_bg) {
-        crate::logging::warn("engine.splash", format!("splash display skipped: {error}"));
-    }
-}
-
 /// Display splash content through the active render backend (SDL path).
 ///
-/// This keeps splash rendering in the selected target window instead of using
-/// terminal ANSI drawing.
+/// This keeps splash rendering in the selected output window and avoids any
+/// terminal-specific drawing path.
 #[cfg(feature = "sdl2")]
 pub fn show_splash_on_output(
-    output: &mut dyn OutputBackend,
-    target_bg: style::Color,
+    output: &mut dyn RendererBackend,
+    target_bg: Color,
     fit_size: (u16, u16),
     scene_path_override: Option<&Path>,
 ) {
@@ -404,93 +386,11 @@ fn start_splash_audio(splash_scene: &SplashScene) {
     }
 }
 
-fn try_show_splash(splash_scene: &SplashScene, target_bg: style::Color) -> io::Result<()> {
-    let SplashVisuals {
-        logo,
-        splatter,
-        preserve_layer_alignment,
-    } = load_splash_visuals(splash_scene)?;
-    let black_logo = build_flood_filled_silhouette(&logo);
-
-    let (term_w, term_h) = terminal::size()?;
-    let mut stdout = io::stdout();
-    let logo_layout = placement_for_terminal(&logo, term_w, term_h)
-        .map(|layout| scale_placement(layout, splash_scene.logo_scale, term_w, term_h))
-        .map(|layout| {
-            align_placement(
-                layout,
-                term_w,
-                term_h,
-                &splash_scene.logo_align_x,
-                &splash_scene.logo_align_y,
-                splash_scene.logo_offset_x_cells,
-                splash_scene.logo_offset_y_cells,
-            )
-        });
-    let splatter_layout = splatter.as_ref().and_then(|img| {
-        if preserve_layer_alignment {
-            logo_layout
-        } else {
-            logo_layout.map(|logo_layout| {
-                let layout = scaled_placement(
-                    logo_layout,
-                    img,
-                    splash_scene.splatter_scale,
-                    term_w,
-                    term_h,
-                );
-                align_placement(
-                    layout,
-                    term_w,
-                    term_h,
-                    &splash_scene.splatter_align_x,
-                    &splash_scene.splatter_align_y,
-                    splash_scene.splatter_offset_x_cells,
-                    splash_scene.splatter_offset_y_cells,
-                )
-            })
-        }
-    });
-
-    let total_ms = splash_scene.total_ms().max(1);
-    let frame_interval = Duration::from_millis(16);
-    let start = Instant::now();
-
-    loop {
-        let elapsed_ms = u64::try_from(start.elapsed().as_millis())
-            .unwrap_or(u64::MAX)
-            .min(total_ms);
-        render_splash_frame(
-            &mut stdout,
-            term_w,
-            term_h,
-            &logo,
-            &black_logo,
-            logo_layout,
-            splatter.as_ref(),
-            splatter_layout,
-            splash_scene,
-            target_bg,
-            elapsed_ms,
-            total_ms,
-        )?;
-        stdout.flush()?;
-
-        if elapsed_ms >= total_ms {
-            break;
-        }
-
-        std::thread::sleep(frame_interval);
-    }
-
-    Ok(())
-}
-
 #[cfg(feature = "sdl2")]
 fn try_show_splash_on_output(
-    output: &mut dyn OutputBackend,
+    output: &mut dyn RendererBackend,
     splash_scene: &SplashScene,
-    target_bg: style::Color,
+    target_bg: Color,
     fit_size: (u16, u16),
 ) -> io::Result<()> {
     let SplashVisuals {
@@ -505,7 +405,7 @@ fn try_show_splash_on_output(
     let term_h = term_h.max(1);
     let fit_w = fit_size.0.max(1).min(term_w);
     let fit_h = fit_size.1.max(1).min(term_h);
-    let logo_layout = placement_for_terminal(&logo, fit_w, fit_h)
+    let logo_layout = placement_for_frame(&logo, fit_w, fit_h)
         .map(|layout| scale_placement(layout, splash_scene.logo_scale, term_w, term_h))
         .map(|layout| scale_placement(layout, SDL_SPLASH_SCALE_FACTOR, term_w, term_h))
         .map(|layout| {
@@ -565,7 +465,7 @@ fn try_show_splash_on_output(
             elapsed_ms,
             total_ms,
         )?;
-        output.present_buffer(&frame_buffer);
+        output.present_frame(&frame_buffer);
         frame_buffer.swap();
 
         if elapsed_ms >= total_ms {
@@ -826,134 +726,6 @@ fn enqueue_outside_pixel(
     queue.push_back((x, y));
 }
 
-#[allow(clippy::too_many_arguments)]
-fn render_splash_frame(
-    stdout: &mut io::Stdout,
-    term_w: u16,
-    term_h: u16,
-    logo: &image::RgbaImage,
-    black_logo: &image::RgbaImage,
-    logo_layout: Option<ImagePlacement>,
-    splatter: Option<&image::RgbaImage>,
-    splatter_layout: Option<ImagePlacement>,
-    splash_scene: &SplashScene,
-    target_bg: style::Color,
-    elapsed_ms: u64,
-    total_ms: u64,
-) -> io::Result<()> {
-    let fade_start_ms = total_ms.saturating_sub(splash_scene.fade_ms);
-    let fade_t = if splash_scene.fade_ms == 0 || elapsed_ms <= fade_start_ms {
-        0.0
-    } else {
-        (elapsed_ms.saturating_sub(fade_start_ms) as f32 / splash_scene.fade_ms as f32)
-            .clamp(0.0, 1.0)
-    };
-    let bg = lerp_colour(splash_scene.bg_colour, target_bg, fade_t);
-    fill_solid(stdout, term_w, term_h, bg)?;
-
-    let (shake_x, shake_y, _shake_scale, rotation_deg) = shake_transform(
-        elapsed_ms,
-        splash_scene.shake_delay_ms,
-        splash_scene.shake_ms,
-        splash_scene.shake_amplitude_cells,
-        splash_scene.shake_rotate_deg,
-        splash_scene.shake_punch_scale,
-    );
-
-    if let (Some(splatter), Some(layout)) = (splatter, splatter_layout) {
-        let reveal_t = phase_progress(
-            elapsed_ms,
-            splash_scene.splatter_delay_ms,
-            splash_scene.splatter_reveal_ms,
-        );
-        let splatter_opacity = if splash_scene.splatter_reveal_ms == 0 {
-            if elapsed_ms >= splash_scene.splatter_delay_ms {
-                1.0 - fade_t
-            } else {
-                0.0
-            }
-        } else {
-            let reveal = ease_out_cubic(reveal_t);
-            (0.2 + reveal * 0.8) * (1.0 - fade_t)
-        };
-        let clip_y = if splash_scene.splatter_reveal_ms == 0 {
-            1.0
-        } else {
-            ease_out_cubic(reveal_t)
-        };
-        let drip_t = phase_progress(
-            elapsed_ms,
-            splash_scene.splatter_delay_ms,
-            splash_scene.splatter_drip_ms,
-        );
-        let drip_motion_t = ease_out_quad(drip_t);
-        if splatter_opacity > 0.0 {
-            let splatter_placement = ImagePlacement {
-                origin_x: offset_cell(layout.origin_x, shake_x),
-                origin_y: offset_cell(layout.origin_y, shake_y),
-                ..layout
-            };
-            draw_image(
-                stdout,
-                splatter,
-                splatter_placement,
-                ImageColourMode::Source,
-                bg,
-                splash_scene.alpha_threshold,
-                splatter_opacity,
-                clip_y,
-                rotation_deg,
-                drip_motion_t,
-            )?;
-            draw_drip_tail(
-                stdout,
-                splatter,
-                splatter_placement,
-                term_h,
-                splatter_opacity,
-                drip_motion_t,
-            )?;
-        }
-    }
-
-    if let Some(layout) = logo_layout {
-        let logo_opacity = phase_progress(
-            elapsed_ms,
-            splash_scene.blank_ms,
-            splash_scene.logo_fade_in_ms,
-        ) * (1.0 - fade_t);
-
-        if logo_opacity <= 0.0 {
-            return Ok(());
-        }
-
-        let (logo_image, logo_colour_mode) = if elapsed_ms >= splash_scene.splatter_delay_ms {
-            (logo, ImageColourMode::Source)
-        } else {
-            (black_logo, ImageColourMode::Source)
-        };
-
-        draw_image(
-            stdout,
-            logo_image,
-            ImagePlacement {
-                origin_x: offset_cell(layout.origin_x, shake_x),
-                origin_y: offset_cell(layout.origin_y, shake_y),
-                ..layout
-            },
-            logo_colour_mode,
-            bg,
-            splash_scene.alpha_threshold,
-            logo_opacity,
-            1.0,
-            rotation_deg,
-            0.0,
-        )?;
-    }
-
-    Ok(())
-}
-
 #[cfg(feature = "sdl2")]
 fn render_splash_frame_to_buffer(
     target: &mut Buffer,
@@ -963,7 +735,7 @@ fn render_splash_frame_to_buffer(
     splatter: Option<&image::RgbaImage>,
     splatter_layout: Option<ImagePlacement>,
     splash_scene: &SplashScene,
-    target_bg: style::Color,
+    target_bg: Color,
     elapsed_ms: u64,
     total_ms: u64,
 ) -> io::Result<()> {
@@ -1079,88 +851,9 @@ fn render_splash_frame_to_buffer(
     Ok(())
 }
 
-fn fill_solid(stdout: &mut io::Stdout, w: u16, h: u16, bg: style::Color) -> io::Result<()> {
-    queue!(
-        stdout,
-        style::SetForegroundColor(bg),
-        style::SetBackgroundColor(bg)
-    )?;
-    for y in 0..h {
-        queue!(stdout, cursor::MoveTo(0, y))?;
-        for _ in 0..w {
-            queue!(stdout, style::Print(' '))?;
-        }
-    }
-    Ok(())
-}
-
 #[cfg(feature = "sdl2")]
-fn fill_solid_buffer(target: &mut Buffer, bg: style::Color) {
-    target.fill(color_convert::from_crossterm(bg));
-}
-
-#[allow(clippy::too_many_arguments)]
-fn draw_image(
-    stdout: &mut io::Stdout,
-    img: &image::RgbaImage,
-    placement: ImagePlacement,
-    colour_mode: ImageColourMode,
-    bg: style::Color,
-    alpha_threshold: u8,
-    opacity: f32,
-    clip_y: f32,
-    rotation_deg: f32,
-    drip_t: f32,
-) -> io::Result<()> {
-    let virtual_h = placement.render_rows as u32 * 2;
-    let bg_rgb = to_rgb(bg);
-
-    for row in 0..placement.render_rows {
-        for col in 0..placement.render_cols {
-            let top = sample_transformed_clipped(
-                img,
-                col as u32,
-                row as u32 * 2,
-                placement.render_cols as u32,
-                virtual_h,
-                clip_y,
-                rotation_deg,
-                drip_t,
-            );
-            let bot = sample_transformed_clipped(
-                img,
-                col as u32,
-                row as u32 * 2 + 1,
-                placement.render_cols as u32,
-                virtual_h,
-                clip_y,
-                rotation_deg,
-                drip_t,
-            );
-
-            let (sym, cell_fg, cell_bg) = match render_halfblock_cell(
-                top,
-                bot,
-                colour_mode,
-                bg_rgb,
-                alpha_threshold,
-                opacity,
-            ) {
-                Some(v) => v,
-                None => continue,
-            };
-
-            queue!(
-                stdout,
-                cursor::MoveTo(placement.origin_x + col, placement.origin_y + row),
-                style::SetForegroundColor(cell_fg),
-                style::SetBackgroundColor(cell_bg),
-                style::Print(sym),
-            )?;
-        }
-    }
-
-    Ok(())
+fn fill_solid_buffer(target: &mut Buffer, bg: Color) {
+    target.fill(bg);
 }
 
 #[cfg(feature = "sdl2")]
@@ -1169,7 +862,7 @@ fn draw_image_to_buffer(
     img: &image::RgbaImage,
     placement: ImagePlacement,
     colour_mode: ImageColourMode,
-    bg: style::Color,
+    bg: Color,
     alpha_threshold: u8,
     opacity: f32,
     clip_y: f32,
@@ -1177,7 +870,7 @@ fn draw_image_to_buffer(
     drip_t: f32,
 ) {
     let virtual_h = placement.render_rows as u32 * 2;
-    let bg_rgb = to_rgb(bg);
+    let bg_rgb = bg.to_rgb();
 
     for row in 0..placement.render_rows {
         for col in 0..placement.render_cols {
@@ -1202,7 +895,7 @@ fn draw_image_to_buffer(
                 drip_t,
             );
 
-            let (sym, cell_fg, cell_bg) = match render_halfblock_cell(
+            let (sym, cell_fg, cell_bg) = match render_splash_cell(
                 top,
                 bot,
                 colour_mode,
@@ -1218,21 +911,21 @@ fn draw_image_to_buffer(
                 placement.origin_x.saturating_add(col),
                 placement.origin_y.saturating_add(row),
                 sym,
-                color_convert::from_crossterm(cell_fg),
-                color_convert::from_crossterm(cell_bg),
+                cell_fg,
+                cell_bg,
             );
         }
     }
 }
 
-fn render_halfblock_cell(
+fn render_splash_cell(
     top: [u8; 4],
     bot: [u8; 4],
     colour_mode: ImageColourMode,
     bg: (u8, u8, u8),
     alpha_threshold: u8,
     opacity: f32,
-) -> Option<(char, style::Color, style::Color)> {
+) -> Option<(char, Color, Color)> {
     let (top_on, top_rgb) = composite_pixel(top, colour_mode, bg, alpha_threshold, opacity);
     let (bot_on, bot_rgb) = composite_pixel(bot, colour_mode, bg, alpha_threshold, opacity);
 
@@ -1277,43 +970,18 @@ fn blend(bg: (u8, u8, u8), fg: (u8, u8, u8), alpha: f32) -> (u8, u8, u8) {
     )
 }
 
-fn lerp_colour(from: style::Color, to: style::Color, t: f32) -> style::Color {
+fn lerp_colour(from: Color, to: Color, t: f32) -> Color {
     let t = t.clamp(0.0, 1.0);
-    let a = to_rgb(from);
-    let b = to_rgb(to);
+    let a = from.to_rgb();
+    let b = to.to_rgb();
     rgb(blend(a, b, t))
 }
 
-fn rgb((r, g, b): (u8, u8, u8)) -> style::Color {
-    style::Color::Rgb { r, g, b }
+fn rgb((r, g, b): (u8, u8, u8)) -> Color {
+    Color::Rgb { r, g, b }
 }
 
-fn to_rgb(c: style::Color) -> (u8, u8, u8) {
-    use style::Color;
-    match c {
-        Color::Rgb { r, g, b } => (r, g, b),
-        Color::Black => (0, 0, 0),
-        Color::DarkGrey => (85, 85, 85),
-        Color::Red => (255, 0, 0),
-        Color::DarkRed => (128, 0, 0),
-        Color::Green => (0, 255, 0),
-        Color::DarkGreen => (0, 128, 0),
-        Color::Yellow => (255, 255, 0),
-        Color::DarkYellow => (128, 128, 0),
-        Color::Blue => (0, 0, 255),
-        Color::DarkBlue => (0, 0, 128),
-        Color::Magenta => (255, 0, 255),
-        Color::DarkMagenta => (128, 0, 128),
-        Color::Cyan => (0, 255, 255),
-        Color::DarkCyan => (0, 128, 128),
-        Color::White => (255, 255, 255),
-        Color::Grey => (192, 192, 192),
-        Color::Reset => (0, 0, 0),
-        Color::AnsiValue(_) => (0, 0, 0),
-    }
-}
-
-/// Compute (render_cols, render_rows) that fit the logo into the terminal,
+/// Compute (render_cols, render_rows) that fit the logo into the output frame,
 /// preserving aspect ratio and leaving a 1-cell margin.
 fn fit_logo(img_w: u32, img_h: u32, term_w: u16, term_h: u16) -> (u16, u16) {
     let max_cols = term_w.saturating_sub(2) as u32;
@@ -1338,7 +1006,7 @@ fn fit_logo(img_w: u32, img_h: u32, term_w: u16, term_h: u16) -> (u16, u16) {
     )
 }
 
-fn placement_for_terminal(
+fn placement_for_frame(
     img: &image::RgbaImage,
     term_w: u16,
     term_h: u16,
@@ -1589,64 +1257,6 @@ fn passes_drip_mask(u: f32, v: f32, drip_t: f32) -> bool {
     v <= drip_edge.min(1.0)
 }
 
-fn draw_drip_tail(
-    stdout: &mut io::Stdout,
-    img: &image::RgbaImage,
-    placement: ImagePlacement,
-    term_h: u16,
-    opacity: f32,
-    drip_t: f32,
-) -> io::Result<()> {
-    let max_tail_rows =
-        term_h.saturating_sub(placement.origin_y.saturating_add(placement.render_rows));
-    if max_tail_rows == 0 || drip_t <= 0.0 || placement.render_cols == 0 {
-        return Ok(());
-    }
-
-    let mut buffer = transparent_buffer(placement.render_cols, max_tail_rows.saturating_add(1));
-    for col in 0..placement.render_cols {
-        let u = (col as f32 + 0.5) / placement.render_cols as f32;
-        let Some(paint) = sample_drip_colour(img, u) else {
-            continue;
-        };
-        let paint_colour = Color::Rgb {
-            r: paint.0,
-            g: paint.1,
-            b: paint.2,
-        };
-        buffer.set(col, 0, ' ', Color::Reset, paint_colour);
-        if max_tail_rows > 0 {
-            buffer.set(col, 1.min(max_tail_rows), ' ', Color::Reset, paint_colour);
-        }
-    }
-
-    let params = crate::scene::EffectParams {
-        colour: None,
-        intensity: Some(1.0),
-        speed: Some(1.0),
-        thickness: Some(1.25),
-        alpha: Some(opacity.clamp(0.0, 1.0)),
-        distortion: Some(0.3),
-        brightness: Some(0.18),
-        falloff: Some(1.35),
-        ..crate::scene::EffectParams::default()
-    };
-    shared_dispatcher().apply(
-        "paint-splatter",
-        drip_t,
-        &params,
-        Region::full(&buffer),
-        &mut buffer,
-    );
-    render_buffer_overlay(
-        stdout,
-        &buffer,
-        placement.origin_x,
-        placement.origin_y + placement.render_rows.saturating_sub(1),
-    )?;
-    Ok(())
-}
-
 #[cfg(feature = "sdl2")]
 fn draw_drip_tail_to_buffer(
     target: &mut Buffer,
@@ -1737,32 +1347,6 @@ fn blit_buffer_overlay(target: &mut Buffer, overlay: &Buffer, origin_x: u16, ori
     }
 }
 
-fn render_buffer_overlay(
-    stdout: &mut io::Stdout,
-    buffer: &Buffer,
-    origin_x: u16,
-    origin_y: u16,
-) -> io::Result<()> {
-    for y in 0..buffer.height {
-        for x in 0..buffer.width {
-            let Some(cell) = buffer.get(x, y).copied() else {
-                continue;
-            };
-            if cell.symbol == ' ' && cell.fg == Color::Reset && cell.bg == Color::Reset {
-                continue;
-            }
-            queue!(
-                stdout,
-                cursor::MoveTo(origin_x + x, origin_y + y),
-                style::SetForegroundColor(convert_to_crossterm(cell.fg)),
-                style::SetBackgroundColor(convert_to_crossterm(cell.bg)),
-                style::Print(cell.symbol),
-            )?;
-        }
-    }
-    Ok(())
-}
-
 fn sample_drip_colour(img: &image::RgbaImage, u: f32) -> Option<(u8, u8, u8)> {
     let x = ((u.clamp(0.0, 1.0) * img.width().saturating_sub(1) as f32).round() as u32)
         .min(img.width().saturating_sub(1));
@@ -1773,11 +1357,6 @@ fn sample_drip_colour(img: &image::RgbaImage, u: f32) -> Option<(u8, u8, u8)> {
         }
     }
     None
-}
-
-/// Convert engine_core::color::Color to crossterm::style::Color.
-fn convert_to_crossterm(c: Color) -> style::Color {
-    color_convert::to_crossterm(c)
 }
 
 #[cfg(test)]

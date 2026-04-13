@@ -1,9 +1,8 @@
 name: Asteroids
 version: 0.1.0
 entrypoint: /scenes/mainmenu/scene.yml
-output: sdl2
 default_palette: teal
-terminal:
+display:
   min_colours: 16
   min_width: 640
   min_height: 360

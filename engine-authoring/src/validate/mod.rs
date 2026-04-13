@@ -59,6 +59,11 @@ pub fn validate_sprite_timeline(scene: &Scene) -> Vec<TimelineDiagnostic> {
                     disappear_at_ms,
                     ..
                 } => (*appear_at_ms, *disappear_at_ms),
+                Sprite::Planet {
+                    appear_at_ms,
+                    disappear_at_ms,
+                    ..
+                } => (*appear_at_ms, *disappear_at_ms),
                 Sprite::Vector {
                     appear_at_ms,
                     disappear_at_ms,
@@ -111,8 +116,8 @@ mod tests {
             title: "Test".into(),
             cutscene: true,
             target_fps: None,
-            rendered_mode: Default::default(),
             space: Default::default(),
+            celestial: Default::default(),
             virtual_size_override: None,
             bg_colour: None,
             stages: SceneStages {
@@ -154,7 +159,6 @@ mod tests {
             col_span: 1,
             size: None,
             font: None,
-            force_renderer_mode: None,
             force_font_mode: None,
             align_x: None,
             align_y: None,

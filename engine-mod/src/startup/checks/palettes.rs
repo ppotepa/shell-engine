@@ -20,7 +20,10 @@ impl StartupCheck for PalettesCheck {
         let palettes_dir = ctx.mod_source().join("palettes");
 
         if !palettes_dir.exists() {
-            report.add_info(self.name(), "palettes check skipped (no /palettes directory)");
+            report.add_info(
+                self.name(),
+                "palettes check skipped (no /palettes directory)",
+            );
             return Ok(());
         }
 

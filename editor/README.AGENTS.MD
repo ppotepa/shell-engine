@@ -2,7 +2,9 @@
 
 ## Architecture Overview
 
-Editor is a TUI (terminal user interface) for authoring shell-quest scenes.
+The editor is an SDL2-backed stub for authoring shell-quest scenes. The original
+terminal TUI (crossterm/ratatui) has been replaced; a full SDL2 editor UI is not
+yet implemented.
 
 **7 main modules:**
 
@@ -57,7 +59,7 @@ Editor is a TUI (terminal user interface) for authoring shell-quest scenes.
 - Dispatch: key → command → state change
 
 ### UI Rendering (ui/)
-- **Renderer**: Terminal drawing via crossterm
+- **Renderer**: Drawing layer (SDL2-backed stub)
 - **Layout**: Viewport grid (left panel: tree, right panel: editor/preview)
 - **Theme**: Color scheme (light/dark)
 - **FocusTarget**: Currently focused element (tree item, text input, etc.)

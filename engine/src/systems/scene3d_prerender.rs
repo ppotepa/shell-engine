@@ -29,10 +29,7 @@ impl ScenePreparationStep for Scene3DPrerenderStep {
         }
 
         // Build the runtime store (parsed definitions for real-time clip rendering).
-        let inherited_mode = scene.rendered_mode;
-        if let Some(store) =
-            build_scene3d_runtime_store(scene, &asset_root, inherited_mode)
-        {
+        if let Some(store) = build_scene3d_runtime_store(scene, &asset_root) {
             world.register_scoped(store);
         }
     }

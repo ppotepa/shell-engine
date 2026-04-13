@@ -1,11 +1,11 @@
 //! Effect simulating an old CRT display shutting down (collapse to centre line).
 
 use super::crt_on::{crt_blank_row, crt_dim_row, crt_static_row};
+use crate::metadata::{EffectMetadata, P_EASING};
+use crate::utils::noise::crt_hash;
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{EffectMetadata, P_EASING};
-use crate::utils::noise::crt_hash;
 use engine_core::scene::EffectParams;
 
 /// Static effect metadata exposed to the editor and effect registry.

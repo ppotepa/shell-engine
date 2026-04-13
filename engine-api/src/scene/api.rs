@@ -40,7 +40,7 @@ fn kind_capabilities(kind: Option<&str>) -> RhaiMap {
     cap.insert("offset.y".into(), true.into());
     cap.insert("position.x".into(), true.into());
     cap.insert("position.y".into(), true.into());
-    
+
     // Kind-specific capabilities
     if let Some(k) = kind {
         match k {
@@ -195,12 +195,20 @@ impl ScriptSceneApi {
     /// scene.set_multi(["star-0", "star-1", ..., "star-19"], "style.fg", col);
     /// ```
     pub fn set_multi(&mut self, targets: RhaiDynamic, path: &str, value: RhaiDynamic) {
-        let Ok(arr) = targets.into_array() else { return };
+        let Ok(arr) = targets.into_array() else {
+            return;
+        };
         let normalized_path = normalize_set_path(path);
-        let Some(json_value) = rhai_dynamic_to_json(&value) else { return };
-        let Ok(mut queue) = self.queue.lock() else { return };
+        let Some(json_value) = rhai_dynamic_to_json(&value) else {
+            return;
+        };
+        let Ok(mut queue) = self.queue.lock() else {
+            return;
+        };
         for t in arr {
-            let Ok(target_str) = t.into_string() else { continue };
+            let Ok(target_str) = t.into_string() else {
+                continue;
+            };
             let resolved = self
                 .target_resolver
                 .resolve_alias(&target_str)

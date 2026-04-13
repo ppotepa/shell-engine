@@ -3,8 +3,6 @@ pub mod access;
 use serde_yaml::Value;
 use std::env;
 
-use engine_core::scene::SceneRenderedMode;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PresentationPolicy {
     Strict,
@@ -17,11 +15,16 @@ pub type VirtualPolicy = PresentationPolicy;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderSize {
-    Fixed { width: u16, height: u16 },
+    Fixed {
+        width: u16,
+        height: u16,
+    },
     MatchOutput,
     /// Fix the width; derive height from the live terminal's aspect ratio.
     /// Authored as `"640x~"` in YAML.
-    FitWidth { width: u16 },
+    FitWidth {
+        width: u16,
+    },
 }
 
 impl Default for RenderSize {
@@ -71,7 +74,6 @@ pub struct BufferLayout {
 pub struct RuntimeSettings {
     pub render_size: RenderSize,
     pub presentation_policy: PresentationPolicy,
-    pub renderer_mode_override: Option<SceneRenderedMode>,
     /// Optional mod-level default text font used when sprite `font` is set to
     /// `default`. Supports both generic specs and named bitmap fonts.
     pub default_font: Option<String>,
@@ -95,7 +97,6 @@ impl Default for RuntimeSettings {
         Self {
             render_size: RenderSize::default(),
             presentation_policy: PresentationPolicy::Fit,
-            renderer_mode_override: None,
             default_font: None,
             is_pixel_backend: false,
         }
@@ -106,7 +107,7 @@ impl RuntimeSettings {
     pub fn from_manifest(manifest: &Value) -> Self {
         let mut settings = Self::default();
 
-        if let Some(block) = manifest.get("terminal") {
+        if let Some(block) = manifest.get("display") {
             let _legacy_use_virtual_buffer = block
                 .get("use_virtual_buffer")
                 .or_else(|| block.get("use-virtual-buffer"))
@@ -132,15 +133,6 @@ impl RuntimeSettings {
                 .and_then(parse_presentation_policy);
             if let Some(policy) = policy {
                 settings.presentation_policy = policy;
-            }
-
-            let renderer_mode = block
-                .get("renderer_mode")
-                .or_else(|| block.get("renderer-mode"))
-                .and_then(Value::as_str)
-                .and_then(parse_renderer_mode);
-            if renderer_mode.is_some() {
-                settings.renderer_mode_override = renderer_mode;
             }
 
             let default_font = block
@@ -169,12 +161,6 @@ impl RuntimeSettings {
             .and_then(parse_presentation_policy)
         {
             settings.presentation_policy = policy;
-        }
-
-        if let Ok(raw) = env::var("SHELL_QUEST_RENDERER_MODE") {
-            if let Some(mode) = parse_renderer_mode(&raw) {
-                settings.renderer_mode_override = Some(mode);
-            }
         }
 
         if let Some(default_font) = env::var("SHELL_QUEST_DEFAULT_FONT")
@@ -211,7 +197,6 @@ impl RuntimeSettings {
     pub fn fixed_render_size(&self) -> Option<(u16, u16)> {
         self.render_size.fixed()
     }
-
 }
 
 pub fn compute_presentation_layout(
@@ -300,16 +285,6 @@ fn parse_presentation_policy(raw: &str) -> Option<PresentationPolicy> {
     }
 }
 
-fn parse_renderer_mode(raw: &str) -> Option<SceneRenderedMode> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "cell" => Some(SceneRenderedMode::Cell),
-        "halfblock" | "half-block" => Some(SceneRenderedMode::HalfBlock),
-        "quadblock" | "quad-block" => Some(SceneRenderedMode::QuadBlock),
-        "braille" => Some(SceneRenderedMode::Braille),
-        _ => None,
-    }
-}
-
 pub fn parse_render_size(raw: &str) -> Option<RenderSize> {
     let normalized = raw.trim().to_ascii_lowercase();
     if matches!(
@@ -356,9 +331,9 @@ mod tests {
     };
 
     #[test]
-    fn parses_runtime_settings_from_manifest_terminal_block() {
+    fn parses_runtime_settings_from_manifest_display_block() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  use-virtual-buffer: true\n  render-size: \"320x200\"\n  presentation-policy: strict\n",
+            "display:\n  use-virtual-buffer: true\n  render-size: \"320x200\"\n  presentation-policy: strict\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
@@ -370,14 +345,13 @@ mod tests {
             }
         );
         assert_eq!(settings.presentation_policy, PresentationPolicy::Strict);
-        assert_eq!(settings.renderer_mode_override, None);
         assert_eq!(settings.default_font, None);
     }
 
     #[test]
     fn parses_stretch_presentation_policy() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  use-virtual-buffer: true\n  render-size: \"120x30\"\n  presentation-policy: stretch\n",
+            "display:\n  use-virtual-buffer: true\n  render-size: \"120x30\"\n  presentation-policy: stretch\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
@@ -388,34 +362,15 @@ mod tests {
     fn keeps_defaults_when_block_absent() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>("name: test\n").expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
-        assert_eq!(
-            settings.render_size,
-            RenderSize::Fixed {
-                width: 320,
-                height: 240
-            }
-        );
+        assert_eq!(settings.render_size, RenderSize::Fixed { width: 320, height: 240 });
         assert_eq!(settings.presentation_policy, PresentationPolicy::Fit);
-        assert_eq!(settings.renderer_mode_override, None);
         assert_eq!(settings.default_font, None);
     }
 
     #[test]
-    fn parses_renderer_mode_from_manifest_terminal_block() {
-        let yaml =
-            serde_yaml::from_str::<serde_yaml::Value>("terminal:\n  renderer-mode: braille\n")
-                .expect("yaml parse");
-        let settings = RuntimeSettings::from_manifest(&yaml);
-        assert_eq!(
-            settings.renderer_mode_override,
-            Some(engine_core::scene::SceneRenderedMode::Braille)
-        );
-    }
-
-    #[test]
-    fn parses_default_font_from_manifest_terminal_block() {
+    fn parses_default_font_from_manifest_display_block() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  default-font: DejaVuSans-BoldOblique\n",
+            "display:\n  default-font: DejaVuSans-BoldOblique\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
@@ -428,7 +383,7 @@ mod tests {
     #[test]
     fn parses_max_available_virtual_size() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  use-virtual-buffer: true\n  render-size: match-output\n",
+            "display:\n  use-virtual-buffer: true\n  render-size: match-output\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
@@ -439,7 +394,7 @@ mod tests {
     #[test]
     fn keeps_virtual_aliases_compatible() {
         let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  virtual-size: max-available\n  virtual-policy: fit\n",
+            "display:\n  virtual-size: max-available\n  virtual-policy: fit\n",
         )
         .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
@@ -455,7 +410,6 @@ mod tests {
                 height: 30,
             },
             presentation_policy: PresentationPolicy::Stretch,
-            renderer_mode_override: None,
             default_font: None,
             is_pixel_backend: false,
         };
@@ -533,10 +487,9 @@ mod tests {
 
     #[test]
     fn parses_fit_width_render_size() {
-        let yaml = serde_yaml::from_str::<serde_yaml::Value>(
-            "terminal:\n  render-size: \"640x~\"\n",
-        )
-        .expect("yaml parse");
+        let yaml =
+            serde_yaml::from_str::<serde_yaml::Value>("display:\n  render-size: \"640x~\"\n")
+                .expect("yaml parse");
         let settings = RuntimeSettings::from_manifest(&yaml);
         assert!(settings.render_size_matches_output());
         // 16:9-ish terminal (160 cols × 50 rows) → height = 640 * 50 / 160 = 200
@@ -547,6 +500,3 @@ mod tests {
         assert_eq!(settings.resolved_render_size(100, 100), (640, 640));
     }
 }
-
-
-

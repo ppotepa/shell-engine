@@ -25,21 +25,14 @@ menu-options:
   - { key: "1", label: 3D SCENE, to: playground-3d-scene }
   - { key: "2", label: STOP ANIMATION, to: playground-stop-animation }
   - { key: "3", label: DECORATION SHOWCASE, to: playground-decoration-showcase }
-  - { key: "4", label: TERMINAL SIZE TEST, to: playground-terminal-size-test }
   - {
-      key: "5",
+      key: "4",
       label: FPS CAP SHOWCASE 2D+3D,
       to: playground-fps-showcase-2d-30,
     }
-  - { key: "6", label: FONT MODE SHOWCASE, to: playground-font-showcase }
-  - { key: "7", label: TERMINAL SHELL DEMO, to: playground-terminal-shell }
-  - {
-      key: "shift+7",
-      label: TERMINAL SHELL (SCRIPTED),
-      to: playground-terminal-shell-scripted,
-    }
-  - { key: "8", label: LAYOUT LAB, to: playground-layout-lab }
-  - { key: "shift+8", label: CRT-TEST, to: playground-crt-test }
-  - { key: "9", label: RHAI LAB, to: playground-rhai-lab }
-  - { key: "shift+9", label: AUDIO DEMO, to: playground-audio-demo }
+  - { key: "5", label: FONT MODE SHOWCASE, to: playground-font-showcase }
+  - { key: "6", label: LAYOUT LAB, to: playground-layout-lab }
+  - { key: "shift+6", label: CRT-TEST, to: playground-crt-test }
+  - { key: "7", label: RHAI LAB, to: playground-rhai-lab }
+  - { key: "shift+7", label: AUDIO DEMO, to: playground-audio-demo }
   - { key: "0", label: EXIT, to: playground-exit }

@@ -1,0 +1,93 @@
+# Asteroids planet visual presets.
+# Each entry under planet_types defines a reusable archetype for the builtin planet renderer.
+
+planet_types:
+  earth_like:
+    # Surface
+    ocean_color: "#0b2748"
+    land_color: "#3a6b28"
+    terrain_threshold: 0.56
+    terrain_noise_scale: 2.35
+    terrain_noise_octaves: 5
+    marble_depth: 0.055
+    terrain_relief: 0.38
+    noise_seed: 42.0
+    warp_strength: 0.15
+    warp_octaves: 2
+    noise_lacunarity: 2.0
+    noise_persistence: 0.5
+    ambient: 0.06
+    latitude_bands: 6
+    latitude_band_depth: 0.11
+    # Biomes
+    polar_ice_color: "#ddeeff"
+    polar_ice_start: 0.72
+    polar_ice_end: 0.88
+    desert_color: "#a87848"
+    desert_strength: 0.68
+    # Atmosphere
+    atmo_color: "#4a90d9"
+    atmo_strength: 0.34
+    atmo_rim_power: 3.8
+    # Night lights
+    night_light_color: "#e8c46a"
+    night_light_threshold: 0.80
+    night_light_intensity: 0.68
+    # Sun direction (must match scene lighting assumptions)
+    sun_dir_x: 0.72
+    sun_dir_y: -0.56
+    sun_dir_z: 0.40
+    # Self-rotation speeds (degrees per second)
+    surface_spin_dps: 0.06
+    cloud_spin_dps: 0.10
+    cloud_spin_2_dps: 0.08
+    # Cloud layer visuals
+    cloud_threshold: 0.65
+    cloud_noise_scale: 3.8
+    cloud_noise_octaves: 4
+    # Shading palette — maps Lambertian shade onto ocean colour tones.
+    # shadow=deep dark ocean, midtone=open sea, highlight=shallow/lit specular.
+    shadow_color: "#020810"
+    midtone_color: "#0d3464"
+    highlight_color: "#5abde8"
+    tone_mix: 0.80
+    cel_levels: 0
+
+  rocky_moon:
+    ocean_color: "#3a3530"
+    land_color: "#6a6460"
+    terrain_threshold: 0.62
+    terrain_noise_scale: 3.5
+    terrain_noise_octaves: 5
+    marble_depth: 0.006
+    terrain_relief: 0.50
+    noise_seed: 17.0
+    warp_strength: 0.15
+    warp_octaves: 2
+    noise_lacunarity: 2.0
+    noise_persistence: 0.5
+    crater_density: 2.5
+    crater_rim_height: 0.35
+    ambient: 0.04
+    latitude_bands: 0
+    latitude_band_depth: 0.0
+    # No biomes — barren rock
+    desert_strength: 0.0
+    atmo_strength: 0.0
+    night_light_intensity: 0.0
+    # Light — slightly warmer (reflected from nearby planet)
+    sun_dir_x: 0.72
+    sun_dir_y: -0.56
+    sun_dir_z: 0.40
+    # No rotation
+    surface_spin_dps: 0.0
+    cloud_spin_dps: 0.0
+    cloud_spin_2_dps: 0.0
+    cloud_threshold: 0.99
+    cloud_noise_scale: 1.0
+    cloud_noise_octaves: 1
+    shadow_color: "#0d0b09"
+    midtone_color: "#3a3530"
+    highlight_color: "#9c9488"
+    tone_mix: 0.60
+    cel_levels: 0

@@ -8,11 +8,13 @@ use rayon::prelude::*;
 use crate::obj_prerender::ObjPrerenderedFrames;
 use engine_core::assets::AssetRoot;
 use engine_core::buffer::Buffer;
-use engine_core::scene::{SceneRenderedMode, SpriteSizePreset};
+use engine_core::scene::SpriteSizePreset;
 
 use super::obj_loader::{load_obj_mesh, ObjFace, ObjMesh};
 use super::obj_render_helpers::*;
-pub use super::obj_render_helpers::{blit_color_canvas, virtual_dimensions};
+pub use super::obj_render_helpers::{
+    blit_color_canvas, blit_rgba_canvas, composite_rgba_over, virtual_dimensions,
+};
 
 /// Minimum vertex/face count to use parallel processing.
 /// Below this, serial is faster due to rayon thread spawn overhead.
@@ -51,6 +53,7 @@ fn current_prerender_frames<'a>() -> Option<&'a ObjPrerenderedFrames> {
 static OBJ_MESH_CACHE: OnceLock<Mutex<HashMap<String, Arc<ObjMesh>>>> = OnceLock::new();
 
 /// Get or load an OBJ mesh from cache.
+/// Supports the `cube-sphere://N` URI scheme for procedurally generated cube-sphere meshes.
 fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMesh>> {
     let cache = OBJ_MESH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
 
@@ -62,7 +65,18 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
         }
     }
 
-    // Not in cache, load it.
+    // Handle procedural cube-sphere URI: cube-sphere://N
+    if let Some(rest) = path.strip_prefix("cube-sphere://") {
+        let subdivisions: u32 = rest.trim().parse().unwrap_or(64);
+        let mesh = engine_mesh::primitives::cube_sphere(subdivisions);
+        let mesh_arc = crate::obj_loader::mesh_to_obj_mesh(&mesh);
+        if let Ok(mut cache_lock) = cache.lock() {
+            cache_lock.insert(path.to_string(), Arc::clone(&mesh_arc));
+        }
+        return Some(mesh_arc);
+    }
+
+    // Not in cache, load from asset file.
     let mesh_arc = load_obj_mesh(asset_root, path)?;
 
     // Store in cache.
@@ -76,11 +90,12 @@ fn get_or_load_obj_mesh(asset_root: &AssetRoot, path: &str) -> Option<Arc<ObjMes
 // Thread-local pooled buffers for OBJ rendering — avoids per-frame allocation.
 thread_local! {
     static OBJ_CANVAS: RefCell<Vec<Option<[u8; 3]>>> = const { RefCell::new(Vec::new()) };
+    static OBJ_CANVAS_RGBA: RefCell<Vec<Option<[u8; 4]>>> = const { RefCell::new(Vec::new()) };
     static OBJ_DEPTH: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     static OBJ_PROJECTED: RefCell<Vec<Option<ProjectedVertex>>> = const { RefCell::new(Vec::new()) };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ObjRenderParams {
     pub scale: f32,
     pub yaw_deg: f32,
@@ -178,9 +193,41 @@ pub struct ObjRenderParams {
     pub terrain_noise_octaves: u8,
     /// Strength of marble turbulence on ocean pixels. 0.0 = flat ocean color.
     pub marble_depth: f32,
+    /// Elevation-based shade modulation for land pixels (0.0 = off, 0.35 = strong relief).
+    /// High terrain (noise well above threshold) is brightened; low terrain (near threshold) is darkened.
+    /// Gives terrain a sense of height without per-pixel normal perturbation.
+    pub terrain_relief: f32,
+    /// Seed offset for terrain noise. Different seeds give different continent shapes.
+    pub noise_seed: f32,
+    /// Domain warp strength for organic coastlines (0.0–2.0).
+    pub warp_strength: f32,
+    /// Octaves for domain warp field.
+    pub warp_octaves: u8,
+    /// FBM lacunarity (frequency multiplier per octave). Default 2.0.
+    pub noise_lacunarity: f32,
+    /// FBM persistence (amplitude decay per octave). Default 0.5.
+    pub noise_persistence: f32,
+    /// Per-pixel normal perturbation strength for fake bumps (0.0–1.0).
+    pub normal_perturb_strength: f32,
+    /// Ocean specular highlight strength (0.0–1.0).
+    pub ocean_specular: f32,
+    /// Crater density scale (0.0 = off, higher = more/smaller craters).
+    pub crater_density: f32,
+    /// Crater rim brightness boost.
+    pub crater_rim_height: f32,
+    /// Altitude (0–1 above threshold) where snow appears. 0.0 = disabled.
+    pub snow_line_altitude: f32,
+    /// Vertex displacement along sphere normal (fraction of sphere radius).
+    /// 0.0 = flat sphere, 0.12–0.22 = visible mountains at silhouette.
+    /// Applied before rotation so displaced geometry is correct from all angles.
+    pub terrain_displacement: f32,
     /// When true, below-threshold pixels are left transparent (canvas `None`) instead of
     /// written with `fg_colour`. Used for cloud overlay layers.
     pub below_threshold_transparent: bool,
+    /// Alpha softness width for cloud threshold edges (0.0 = binary cutoff).
+    /// When > 0.0, pixels near `terrain_threshold` get a smooth alpha gradient
+    /// instead of hard on/off.  Only used by the RGBA cloud render path.
+    pub cloud_alpha_softness: f32,
     /// Polar ice cap color. When Some, enables smooth ice coverage at high latitudes.
     pub polar_ice_color: Option<[u8; 3]>,
     /// Latitude |y| (0=equator, 1=pole) where ice coverage begins. Default 0.78.
@@ -197,12 +244,115 @@ pub struct ObjRenderParams {
     pub atmo_strength: f32,
     /// Rim falloff power for atmosphere effect (higher = thinner). Default 4.5.
     pub atmo_rim_power: f32,
+    /// Broad haze contribution for atmosphere volume (0.0–1.0). Default 0.0.
+    pub atmo_haze_strength: f32,
+    /// Haze falloff power (lower = broader). Default 1.8.
+    pub atmo_haze_power: f32,
+    /// Scale for ocean surface noise (higher = finer waves). Default 4.0.
+    pub ocean_noise_scale: f32,
+    /// Ocean base color override (RGB). When Some, replaces OBJ face color for ocean pixels.
+    pub ocean_color_rgb: Option<[u8; 3]>,
     /// Night-side city lights color. When None, city lights are disabled.
     pub night_light_color: Option<[u8; 3]>,
     /// Noise threshold for city light clusters (0.0–1.0). Default 0.82.
     pub night_light_threshold: f32,
     /// Brightness of night-side city light clusters. Default 0.0.
     pub night_light_intensity: f32,
+    // ── Tectonic heightmap ────────────────────────────────────────────────────
+    /// Tectonic elevation grid (0..1, 0.5=sea level). Row-major, row 0 = south pole.
+    pub heightmap: Option<std::sync::Arc<Vec<f32>>>,
+    /// Heightmap grid width.
+    pub heightmap_w: u32,
+    /// Heightmap grid height.
+    pub heightmap_h: u32,
+    /// Blend: 0=pure fBm, 1=pure heightmap. Default 0.
+    pub heightmap_blend: f32,
+}
+
+/// Bilinear-sample the tectonic elevation heightmap at a 3D sphere point.
+/// `cx/cy/cz` is the pre-rotation local sphere position (unit sphere scale).
+/// Grid: row 0 = south pole, row h-1 = north pole. Column wraps (longitude).
+fn sample_heightmap(data: &[f32], w: u32, h: u32, cx: f32, cy: f32, cz: f32) -> f32 {
+    let len = (cx * cx + cy * cy + cz * cz).sqrt().max(1e-6);
+    let yn = cy / len;
+    let lat_t = ((yn + 1.0) * 0.5).clamp(0.0, 1.0);
+    let lon_t = (cz.atan2(cx) / std::f32::consts::TAU + 0.5).rem_euclid(1.0);
+    let w = w as usize;
+    let h = h as usize;
+    let fx = lon_t * (w as f32 - 1.0);
+    let fy = lat_t * (h as f32 - 1.0);
+    let ix = fx as usize;
+    let iy = fy as usize;
+    let tx = fx - ix as f32;
+    let ty = fy - iy as f32;
+    let ix1 = (ix + 1) % w;
+    let iy1 = (iy + 1).min(h - 1);
+    let v00 = data[iy * w + ix];
+    let v10 = data[iy * w + ix1];
+    let v01 = data[iy1 * w + ix];
+    let v11 = data[iy1 * w + ix1];
+    v00 * (1.0 - tx) * (1.0 - ty)
+        + v10 * tx * (1.0 - ty)
+        + v01 * (1.0 - tx) * ty
+        + v11 * tx * ty
+}
+
+/// Evaluate terrain noise at a model-space sphere position.
+/// Returns [0,1]. Used for both vertex displacement and surface coloring so they are always in sync.
+#[inline]
+fn compute_terrain_noise_at(centered: [f32; 3], params: &ObjRenderParams) -> f32 {
+    let seed = params.noise_seed;
+    let scale = params.terrain_noise_scale;
+    let lac = params.noise_lacunarity;
+    let per = params.noise_persistence;
+    let sx = centered[0] * scale + seed;
+    let sy = centered[1] * scale + seed * 1.7;
+    let sz = centered[2] * scale + seed * 0.3;
+    let (wx, wy, wz) = if params.warp_strength > 0.0 {
+        let ws = scale * 0.6;
+        let w0 = fbm_3d_full(
+            centered[0] * ws + seed + 5.1,
+            centered[1] * ws + seed * 1.7 + 2.3,
+            centered[2] * ws + seed * 0.3 + 1.1,
+            params.warp_octaves.max(1),
+            lac, per,
+        ) - 0.5;
+        let w1 = fbm_3d_full(
+            centered[0] * ws + seed + 1.9,
+            centered[1] * ws + seed * 1.7 + 4.7,
+            centered[2] * ws + seed * 0.3 + 3.3,
+            params.warp_octaves.max(1),
+            lac, per,
+        ) - 0.5;
+        (
+            sx + w0 * params.warp_strength,
+            sy + w1 * params.warp_strength,
+            sz + (w0 * 0.5 + w1 * 0.5) * params.warp_strength,
+        )
+    } else {
+        (sx, sy, sz)
+    };
+    let fbm_val = fbm_3d_full(wx, wy, wz, params.terrain_noise_octaves, lac, per);
+    if params.heightmap_blend > 0.0 {
+        if let Some(hmap) = &params.heightmap {
+            let hv = sample_heightmap(hmap, params.heightmap_w, params.heightmap_h,
+                centered[0], centered[1], centered[2]);
+            fbm_val * (1.0 - params.heightmap_blend) + hv * params.heightmap_blend
+        } else {
+            fbm_val
+        }
+    } else {
+        fbm_val
+    }
+}
+
+/// Displace a model-space sphere vertex outward along its normal by `noise * strength`.
+/// noise in [0,1]; positive values raise terrain, negative sink it.
+#[inline]
+fn displace_sphere_vertex(c: [f32; 3], noise: f32, strength: f32) -> [f32; 3] {
+    let len = (c[0]*c[0] + c[1]*c[1] + c[2]*c[2]).sqrt().max(1e-5);
+    let d = noise * strength;
+    [c[0] + c[0]/len * d, c[1] + c[1]/len * d, c[2] + c[2]/len * d]
 }
 
 pub fn obj_sprite_dimensions(
@@ -227,7 +377,6 @@ pub fn render_obj_to_canvas(
     width: Option<u16>,
     height: Option<u16>,
     size: Option<SpriteSizePreset>,
-    mode: SceneRenderedMode,
     params: ObjRenderParams,
     wireframe: bool,
     backface_cull: bool,
@@ -240,7 +389,7 @@ pub fn render_obj_to_canvas(
     if target_w < 2 || target_h < 2 {
         return None;
     }
-    let (virtual_w, virtual_h) = virtual_dimensions(mode, target_w, target_h);
+    let (virtual_w, virtual_h) = virtual_dimensions(target_w, target_h);
     if virtual_w < 2 || virtual_h < 2 {
         return None;
     }
@@ -335,14 +484,27 @@ pub fn render_obj_to_canvas(
         taken.reserve(mesh.vertices.len());
         taken
     });
-    
+
     // Projection function (shared by serial and parallel paths)
     let project_vertex = |v: &[f32; 3]| {
-        let centered = [
+        let centered_raw = [
             (v[0] - center[0]) * model_scale,
             (v[1] - center[1]) * model_scale,
             (v[2] - center[2]) * model_scale,
         ];
+        // Compute terrain noise at the raw sphere surface position.
+        // This drives both displacement (vertex position) and coloring, keeping them in sync.
+        let terrain_noise_val = if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
+            compute_terrain_noise_at(centered_raw, &params)
+        } else {
+            0.0
+        };
+        // Displace vertex outward along sphere normal before rotation.
+        let centered = if params.terrain_displacement > 0.0 {
+            displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
+        } else {
+            centered_raw
+        };
         let rotated = rotate_xyz(centered, pitch, yaw, roll);
         let translated = [
             rotated[0] + params.object_translate_x,
@@ -359,10 +521,9 @@ pub fn render_obj_to_canvas(
             + rel[1] * params.view_right_y
             + rel[2] * params.view_right_z
             - params.camera_pan_x;
-        let cam_y = rel[0] * params.view_up_x
-            + rel[1] * params.view_up_y
-            + rel[2] * params.view_up_z
-            - params.camera_pan_y;
+        let cam_y =
+            rel[0] * params.view_up_x + rel[1] * params.view_up_y + rel[2] * params.view_up_z
+                - params.camera_pan_y;
         let view_z = rel[0] * params.view_forward_x
             + rel[1] * params.view_forward_y
             + rel[2] * params.view_forward_z;
@@ -378,26 +539,19 @@ pub fn render_obj_to_canvas(
             x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
             y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
             depth: view_z,
-            view: translated, // world-space coords for point-light shading
-            normal: [0.0, 0.0, 1.0], // overwritten below when smooth_shading is active
-            local: centered, // pre-rotation local position for marble noise
-            // Terrain noise pre-computed here so the rasterizer avoids per-pixel fBm.
-            terrain_noise: if params.terrain_color.is_some() {
-                fbm_3d_octaves(
-                    centered[0] * params.terrain_noise_scale,
-                    centered[1] * params.terrain_noise_scale,
-                    centered[2] * params.terrain_noise_scale,
-                    params.terrain_noise_octaves,
-                )
-            } else {
-                0.0
-            },
+            view: translated,
+            normal: [0.0, 0.0, 1.0],
+            local: centered,
+            terrain_noise: terrain_noise_val,
         })
     };
-    
+
     // Use parallel only for large vertex counts
     if mesh.vertices.len() > VERTEX_PARALLEL_THRESHOLD {
-        mesh.vertices.par_iter().map(project_vertex).collect_into_vec(&mut projected);
+        mesh.vertices
+            .par_iter()
+            .map(project_vertex)
+            .collect_into_vec(&mut projected);
     } else {
         projected.extend(mesh.vertices.iter().map(project_vertex));
     }
@@ -573,6 +727,8 @@ pub fn render_obj_to_canvas(
                     atmo_color: params.atmo_color,
                     atmo_strength: params.atmo_strength,
                     atmo_rim_power: params.atmo_rim_power,
+                    atmo_haze_strength: params.atmo_haze_strength,
+                    atmo_haze_power: params.atmo_haze_power,
                     night_light_color: params.night_light_color,
                     night_light_threshold: params.night_light_threshold,
                     night_light_intensity: params.night_light_intensity,
@@ -582,6 +738,28 @@ pub fn render_obj_to_canvas(
             } else {
                 None
             }
+        };
+
+        let planet_terrain_extra: Option<PlanetTerrainParams> = if params.terrain_color.is_some()
+            && (params.normal_perturb_strength > 0.0
+                || params.ocean_specular > 0.0
+                || params.crater_density > 0.0
+                || params.snow_line_altitude > 0.0
+                || params.ocean_noise_scale != 4.0
+                || params.ocean_color_rgb.is_some())
+        {
+            Some(PlanetTerrainParams {
+                noise_scale: params.terrain_noise_scale,
+                normal_perturb: params.normal_perturb_strength,
+                ocean_specular: params.ocean_specular,
+                crater_density: params.crater_density,
+                crater_rim_height: params.crater_rim_height,
+                snow_line: params.snow_line_altitude,
+                ocean_noise_scale: params.ocean_noise_scale,
+                ocean_color_override: params.ocean_color_rgb,
+            })
+        } else {
+            None
         };
 
         let drawn_faces = if smooth_shading {
@@ -645,19 +823,38 @@ pub fn render_obj_to_canvas(
                 let strip_y1 = *strip_y0 + (cs.len() / row_w) as i32 - 1;
                 let clip_min = (*strip_y0).max(clipped_viewport.min_y);
                 let clip_max = strip_y1.min(clipped_viewport.max_y);
-                if clip_min > clip_max { return; }
+                if clip_min > clip_max {
+                    return;
+                }
                 for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
                     rasterize_triangle_gouraud(
-                        cs, ds,
-                        virtual_w, virtual_h,
-                        *v0, *v1, *v2,
-                        *base_color, *s0, *s1, *s2,
-                        shadow_colour, midtone_colour, highlight_colour, tone_mix,
-                        cel_levels, latitude_bands, latitude_band_depth,
-                        params.terrain_color, params.terrain_threshold, params.marble_depth,
+                        cs,
+                        ds,
+                        virtual_w,
+                        virtual_h,
+                        *v0,
+                        *v1,
+                        *v2,
+                        *base_color,
+                        *s0,
+                        *s1,
+                        *s2,
+                        shadow_colour,
+                        midtone_colour,
+                        highlight_colour,
+                        tone_mix,
+                        cel_levels,
+                        latitude_bands,
+                        latitude_band_depth,
+                        params.terrain_color,
+                        params.terrain_threshold,
+                        params.marble_depth,
+                        params.terrain_relief,
                         params.below_threshold_transparent,
                         biome_params,
-                        clip_min, clip_max,
+                        planet_terrain_extra,
+                        clip_min,
+                        clip_max,
                         *strip_y0,
                     );
                 }
@@ -779,6 +976,324 @@ pub fn render_obj_to_canvas(
     Some((canvas, virtual_w, virtual_h))
 }
 
+/// Convert an RGB canvas (from `render_obj_to_canvas`) to RGBA with alpha=255 for every painted pixel.
+pub fn convert_canvas_to_rgba(rgb: Vec<Option<[u8; 3]>>) -> Vec<Option<[u8; 4]>> {
+    rgb.into_iter()
+        .map(|px| px.map(|[r, g, b]| [r, g, b, 255]))
+        .collect()
+}
+
+/// Render an OBJ mesh into an RGBA canvas (Gouraud path only).
+///
+/// Produces `[u8; 4]` pixels: RGB + alpha.  When `cloud_alpha_softness > 0`,
+/// pixels near the terrain threshold get smooth alpha edges (soft clouds).
+/// Per-pixel noise is evaluated for cloud layers (instead of vertex-interpolated).
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
+pub fn render_obj_to_rgba_canvas(
+    source: &str,
+    width: Option<u16>,
+    height: Option<u16>,
+    size: Option<SpriteSizePreset>,
+    params: ObjRenderParams,
+    backface_cull: bool,
+    fg: Color,
+    asset_root: Option<&AssetRoot>,
+) -> Option<(Vec<Option<[u8; 4]>>, u16, u16)> {
+    let root = asset_root?;
+    let mesh = get_or_load_obj_mesh(root, source)?;
+    let (target_w, target_h) = obj_sprite_dimensions(width, height, size);
+    if target_w < 2 || target_h < 2 {
+        return None;
+    }
+    let (virtual_w, virtual_h) = virtual_dimensions(target_w, target_h);
+    if virtual_w < 2 || virtual_h < 2 {
+        return None;
+    }
+
+    let yaw = (params.yaw_deg + params.rotation_y).to_radians();
+    let pitch = (params.pitch_deg + params.rotation_x).to_radians();
+    let roll = (params.roll_deg + params.rotation_z).to_radians();
+    let fov = params.fov_degrees.clamp(10.0, 170.0).to_radians();
+    let inv_tan = 1.0 / (fov * 0.5).tan().max(0.0001);
+    let near_clip = params.near_clip.max(0.000001);
+    let model_scale = params.scale.max(0.0001) / mesh.radius.max(0.0001);
+    let aspect = virtual_w as f32 / virtual_h as f32;
+    let viewport = Viewport {
+        min_x: 0,
+        min_y: 0,
+        max_x: virtual_w as i32 - 1,
+        max_y: virtual_h as i32 - 1,
+    };
+    let clip_row_min = (params.clip_y_min.clamp(0.0, 1.0) * virtual_h as f32).floor() as i32;
+    let clip_row_max = (params.clip_y_max.clamp(0.0, 1.0) * virtual_h as f32).ceil() as i32 - 1;
+    let clipped_viewport = Viewport {
+        min_x: viewport.min_x,
+        min_y: viewport.min_y.max(clip_row_min),
+        max_x: viewport.max_x,
+        max_y: viewport.max_y.min(clip_row_max),
+    };
+    if clipped_viewport.min_y > clipped_viewport.max_y {
+        return None;
+    }
+
+    let center = mesh.center;
+    let mut projected = OBJ_PROJECTED.with(|p| {
+        let mut v = p.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.reserve(mesh.vertices.len());
+        taken
+    });
+
+    let project_vertex = |v: &[f32; 3]| {
+        let centered_raw = [
+            (v[0] - center[0]) * model_scale,
+            (v[1] - center[1]) * model_scale,
+            (v[2] - center[2]) * model_scale,
+        ];
+        let terrain_noise_val = if params.terrain_color.is_some() && params.cloud_alpha_softness <= 0.0
+            || params.terrain_displacement > 0.0
+        {
+            compute_terrain_noise_at(centered_raw, &params)
+        } else {
+            0.0
+        };
+        let centered = if params.terrain_displacement > 0.0 {
+            displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
+        } else {
+            centered_raw
+        };
+        let rotated = rotate_xyz(centered, pitch, yaw, roll);
+        let translated = [
+            rotated[0] + params.object_translate_x,
+            rotated[1] + params.object_translate_y,
+            rotated[2] + params.object_translate_z,
+        ];
+        let rel = [
+            translated[0] - params.camera_world_x,
+            translated[1] - params.camera_world_y,
+            translated[2] - params.camera_world_z,
+        ];
+        let cam_x = rel[0] * params.view_right_x
+            + rel[1] * params.view_right_y
+            + rel[2] * params.view_right_z
+            - params.camera_pan_x;
+        let cam_y =
+            rel[0] * params.view_up_x + rel[1] * params.view_up_y + rel[2] * params.view_up_z
+                - params.camera_pan_y;
+        let view_z = rel[0] * params.view_forward_x
+            + rel[1] * params.view_forward_y
+            + rel[2] * params.view_forward_z;
+        if view_z <= near_clip {
+            return None;
+        }
+        let ndc_x = (cam_x / aspect) * inv_tan / view_z;
+        let ndc_y = cam_y * inv_tan / view_z;
+        if !ndc_x.is_finite() || !ndc_y.is_finite() {
+            return None;
+        }
+        Some(ProjectedVertex {
+            x: (ndc_x + 1.0) * 0.5 * (virtual_w as f32 - 1.0),
+            y: (1.0 - (ndc_y + 1.0) * 0.5) * (virtual_h as f32 - 1.0),
+            depth: view_z,
+            view: translated,
+            normal: [0.0, 0.0, 1.0],
+            local: centered,
+            terrain_noise: terrain_noise_val,
+        })
+    };
+
+    if mesh.vertices.len() > VERTEX_PARALLEL_THRESHOLD {
+        mesh.vertices
+            .par_iter()
+            .map(project_vertex)
+            .collect_into_vec(&mut projected);
+    } else {
+        projected.extend(mesh.vertices.iter().map(project_vertex));
+    }
+
+    // Rotate smooth normals.
+    if !mesh.smooth_normals.is_empty() {
+        for (i, pv_opt) in projected.iter_mut().enumerate() {
+            if let Some(pv) = pv_opt.as_mut() {
+                if let Some(&n) = mesh.smooth_normals.get(i) {
+                    pv.normal = rotate_xyz(n, pitch, yaw, roll);
+                }
+            }
+        }
+    }
+
+    let canvas_size = virtual_w as usize * virtual_h as usize;
+    let mut canvas = OBJ_CANVAS_RGBA.with(|c| {
+        let mut v = c.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.resize(canvas_size, None);
+        taken
+    });
+    let mut depth = OBJ_DEPTH.with(|d| {
+        let mut v = d.borrow_mut();
+        let mut taken = std::mem::take(&mut *v);
+        taken.clear();
+        taken.resize(canvas_size, f32::INFINITY);
+        taken
+    });
+
+    let light_dir_norm = normalize3([
+        params.light_direction_x,
+        params.light_direction_y,
+        params.light_direction_z,
+    ]);
+    let light_2_dir_norm = normalize3([
+        params.light_2_direction_x,
+        params.light_2_direction_y,
+        params.light_2_direction_z,
+    ]);
+    let view_dir = normalize3([
+        -params.view_forward_x,
+        -params.view_forward_y,
+        -params.view_forward_z,
+    ]);
+    let fg_rgb = color_to_rgb(fg);
+    let ka_lum_ambient = params.ambient.max(0.06_f32);
+    let light_2_strength = params.light_2_intensity.clamp(0.0, 2.0);
+
+    let shade_at_vertex = |normal: [f32; 3]| -> f32 {
+        let lambert_1 = dot3(normal, light_dir_norm).max(0.0);
+        let lambert_2 = dot3(normal, light_2_dir_norm).max(0.0) * light_2_strength;
+        let lambert = (lambert_1 + lambert_2).clamp(0.0, 1.0);
+        (ka_lum_ambient + (1.0 - ka_lum_ambient) * lambert * 0.9).clamp(0.0, 1.0)
+    };
+
+    let biome_params: Option<PlanetBiomeParams> = {
+        let has_biome = params.polar_ice_color.is_some()
+            || params.desert_color.is_some()
+            || params.atmo_color.is_some()
+            || params.night_light_color.is_some();
+        if has_biome {
+            Some(PlanetBiomeParams {
+                polar_ice_color: params.polar_ice_color,
+                polar_ice_start: params.polar_ice_start,
+                polar_ice_end: params.polar_ice_end,
+                desert_color: params.desert_color,
+                desert_strength: params.desert_strength,
+                atmo_color: params.atmo_color,
+                atmo_strength: params.atmo_strength,
+                atmo_rim_power: params.atmo_rim_power,
+                atmo_haze_strength: params.atmo_haze_strength,
+                atmo_haze_power: params.atmo_haze_power,
+                night_light_color: params.night_light_color,
+                night_light_threshold: params.night_light_threshold,
+                night_light_intensity: params.night_light_intensity,
+                sun_dir: light_dir_norm,
+                view_dir,
+            })
+        } else {
+            None
+        }
+    };
+
+    // Sort faces back-to-front.
+    let mut sorted_faces: Vec<(f32, &ObjFace)> = mesh
+        .faces
+        .iter()
+        .map(|f| (face_avg_depth(&projected, f), f))
+        .collect();
+    sorted_faces
+        .sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let face_limit = sorted_faces.len().min(50_000);
+    let unlit = params.unlit;
+
+    let shaded_gouraud: Vec<(
+        ProjectedVertex,
+        ProjectedVertex,
+        ProjectedVertex,
+        [u8; 3],
+        f32,
+        f32,
+        f32,
+    )> = sorted_faces[..face_limit]
+        .par_iter()
+        .filter_map(|(_, face)| {
+            let v0 = projected.get(face.indices[0]).and_then(|p| *p)?;
+            let v1 = projected.get(face.indices[1]).and_then(|p| *p)?;
+            let v2 = projected.get(face.indices[2]).and_then(|p| *p)?;
+            if backface_cull && edge(v0.x, v0.y, v1.x, v1.y, v2.x, v2.y) < 0.0 {
+                return None;
+            }
+            let (s0, s1, s2) = if unlit {
+                (1.0, 1.0, 1.0)
+            } else {
+                (
+                    shade_at_vertex(v0.normal),
+                    shade_at_vertex(v1.normal),
+                    shade_at_vertex(v2.normal),
+                )
+            };
+            let base_color = if unlit { fg_rgb } else { face.color };
+            Some((v0, v1, v2, base_color, s0, s1, s2))
+        })
+        .collect();
+
+    // Phase 2: rasterize with RGBA output.
+    let row_w = virtual_w as usize;
+    let cel_levels = params.cel_levels;
+    let num_strips = rayon::current_num_threads().max(1);
+    let strip_rows = ((virtual_h as usize) + num_strips - 1) / num_strips;
+    let mut canvas_strips: Vec<(i32, &mut [Option<[u8; 4]>], &mut [f32])> = canvas
+        .chunks_mut(strip_rows * row_w)
+        .zip(depth.chunks_mut(strip_rows * row_w))
+        .enumerate()
+        .map(|(i, (cs, ds))| ((i * strip_rows) as i32, cs, ds))
+        .collect();
+    canvas_strips.par_iter_mut().for_each(|(strip_y0, cs, ds)| {
+        let strip_y1 = *strip_y0 + (cs.len() / row_w) as i32 - 1;
+        let clip_min = (*strip_y0).max(clipped_viewport.min_y);
+        let clip_max = strip_y1.min(clipped_viewport.max_y);
+        if clip_min > clip_max {
+            return;
+        }
+        for (v0, v1, v2, base_color, s0, s1, s2) in &shaded_gouraud {
+            rasterize_triangle_gouraud_rgba(
+                cs,
+                ds,
+                virtual_w,
+                virtual_h,
+                *v0,
+                *v1,
+                *v2,
+                *base_color,
+                *s0,
+                *s1,
+                *s2,
+                cel_levels,
+                params.terrain_color,
+                params.terrain_threshold,
+                params.terrain_noise_scale,
+                params.terrain_noise_octaves,
+                params.below_threshold_transparent,
+                params.cloud_alpha_softness,
+                biome_params,
+                clip_min,
+                clip_max,
+                *strip_y0,
+                params.marble_depth,
+                params.shadow_colour,
+                params.midtone_colour,
+                params.highlight_colour,
+                params.tone_mix,
+                params.latitude_bands,
+                params.latitude_band_depth,
+            );
+        }
+    });
+
+    OBJ_DEPTH.with(|d| *d.borrow_mut() = depth);
+    OBJ_PROJECTED.with(|p| *p.borrow_mut() = projected);
+    Some((canvas, virtual_w, virtual_h))
+}
+
 /// Project vertices and render a single mesh into provided canvas and depth buffers.
 ///
 /// Both `canvas` and `depth_buf` must be pre-sized to `virtual_w * virtual_h` elements.
@@ -884,11 +1399,21 @@ fn render_mesh_projected(
     mesh.vertices
         .par_iter()
         .map(|v| {
-            let centered = [
+            let centered_raw = [
                 (v[0] - center[0]) * model_scale,
                 (v[1] - center[1]) * model_scale,
                 (v[2] - center[2]) * model_scale,
             ];
+            let terrain_noise_val = if params.terrain_color.is_some() || params.terrain_displacement > 0.0 {
+                compute_terrain_noise_at(centered_raw, &params)
+            } else {
+                0.0
+            };
+            let centered = if params.terrain_displacement > 0.0 {
+                displace_sphere_vertex(centered_raw, terrain_noise_val, params.terrain_displacement)
+            } else {
+                centered_raw
+            };
             let rotated = rotate_xyz(centered, pitch, yaw, roll);
             let translated = [
                 rotated[0] + params.object_translate_x,
@@ -904,10 +1429,9 @@ fn render_mesh_projected(
                 + rel[1] * params.view_right_y
                 + rel[2] * params.view_right_z
                 - params.camera_pan_x;
-            let cam_y = rel[0] * params.view_up_x
-                + rel[1] * params.view_up_y
-                + rel[2] * params.view_up_z
-                - params.camera_pan_y;
+            let cam_y =
+                rel[0] * params.view_up_x + rel[1] * params.view_up_y + rel[2] * params.view_up_z
+                    - params.camera_pan_y;
             let view_z = rel[0] * params.view_forward_x
                 + rel[1] * params.view_forward_y
                 + rel[2] * params.view_forward_z;
@@ -926,16 +1450,7 @@ fn render_mesh_projected(
                 view: translated,
                 normal: [0.0, 0.0, 1.0],
                 local: centered,
-                terrain_noise: if params.terrain_color.is_some() {
-                    fbm_3d_octaves(
-                        centered[0] * params.terrain_noise_scale,
-                        centered[1] * params.terrain_noise_scale,
-                        centered[2] * params.terrain_noise_scale,
-                        params.terrain_noise_octaves,
-                    )
-                } else {
-                    0.0
-                },
+                terrain_noise: terrain_noise_val,
             })
         })
         .collect_into_vec(&mut projected);
@@ -1066,6 +1581,8 @@ fn render_mesh_projected(
                     atmo_color: params.atmo_color,
                     atmo_strength: params.atmo_strength,
                     atmo_rim_power: params.atmo_rim_power,
+                    atmo_haze_strength: params.atmo_haze_strength,
+                    atmo_haze_power: params.atmo_haze_power,
                     night_light_color: params.night_light_color,
                     night_light_threshold: params.night_light_threshold,
                     night_light_intensity: params.night_light_intensity,
@@ -1075,6 +1592,28 @@ fn render_mesh_projected(
             } else {
                 None
             }
+        };
+
+        let planet_terrain_extra: Option<PlanetTerrainParams> = if params.terrain_color.is_some()
+            && (params.normal_perturb_strength > 0.0
+                || params.ocean_specular > 0.0
+                || params.crater_density > 0.0
+                || params.snow_line_altitude > 0.0
+                || params.ocean_noise_scale != 4.0
+                || params.ocean_color_rgb.is_some())
+        {
+            Some(PlanetTerrainParams {
+                noise_scale: params.terrain_noise_scale,
+                normal_perturb: params.normal_perturb_strength,
+                ocean_specular: params.ocean_specular,
+                crater_density: params.crater_density,
+                crater_rim_height: params.crater_rim_height,
+                snow_line: params.snow_line_altitude,
+                ocean_noise_scale: params.ocean_noise_scale,
+                ocean_color_override: params.ocean_color_rgb,
+            })
+        } else {
+            None
         };
 
         let drawn_faces = if smooth_shading {
@@ -1143,8 +1682,10 @@ fn render_mesh_projected(
                     params.terrain_color,
                     params.terrain_threshold,
                     params.marble_depth,
+                    params.terrain_relief,
                     params.below_threshold_transparent,
                     biome_params,
+                    planet_terrain_extra,
                     clipped_viewport.min_y,
                     clipped_viewport.max_y,
                     0, // row_base: full canvas, no strip offset
@@ -1259,7 +1800,6 @@ pub fn render_obj_to_shared_buffers(
     source: &str,
     target_w: u16,
     target_h: u16,
-    mode: SceneRenderedMode,
     params: ObjRenderParams,
     wireframe: bool,
     backface_cull: bool,
@@ -1277,7 +1817,7 @@ pub fn render_obj_to_shared_buffers(
     if target_w < 2 || target_h < 2 {
         return;
     }
-    let (virtual_w, virtual_h) = virtual_dimensions(mode, target_w, target_h);
+    let (virtual_w, virtual_h) = virtual_dimensions(target_w, target_h);
     if virtual_w < 2 || virtual_h < 2 {
         return;
     }
@@ -1301,7 +1841,6 @@ pub fn render_obj_content(
     width: Option<u16>,
     height: Option<u16>,
     size: Option<SpriteSizePreset>,
-    mode: SceneRenderedMode,
     params: ObjRenderParams,
     wireframe: bool,
     backface_cull: bool,
@@ -1320,7 +1859,6 @@ pub fn render_obj_content(
         width,
         height,
         size,
-        mode,
         params,
         wireframe,
         backface_cull,
@@ -1331,7 +1869,6 @@ pub fn render_obj_content(
     };
     blit_color_canvas(
         buf,
-        mode,
         &canvas,
         virtual_w,
         virtual_h,
@@ -1361,7 +1898,6 @@ pub fn try_blit_prerendered(
     current_pitch: f32,
     clip_y_min: f32,
     clip_y_max: f32,
-    mode: SceneRenderedMode,
     x: u16,
     y: u16,
     buf: &mut Buffer,
@@ -1379,7 +1915,6 @@ pub fn try_blit_prerendered(
         if clip_max_row > clip_min_row {
             blit_color_canvas(
                 buf,
-                mode,
                 canvas,
                 virtual_w,
                 virtual_h,
@@ -1425,7 +1960,6 @@ pub fn try_blit_prerendered(
 
     blit_color_canvas(
         buf,
-        mode,
         canvas,
         virtual_w,
         virtual_h,

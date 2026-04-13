@@ -2,4 +2,4 @@
 
 pub mod api;
 
-pub use api::{ScriptEffectsApi, register_effects_api};
+pub use api::{register_effects_api, ScriptEffectsApi};

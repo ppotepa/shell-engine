@@ -3,7 +3,7 @@
 //! This crate provides:
 //! - PostFX: post-processing effect passes (CRT distort, bloom, burn-in, etc.)
 //! - OBJ prerender frame store and Scene3D atlas
-//! - Scene compositor strategy pattern types (Cell vs Halfblock)
+//! - Scene compositor strategy pattern types and dispatch
 //! - CompositorProvider trait for decoupling from engine's World type
 //! - BufferPool: reusable buffer allocation for efficient frame rendering
 
@@ -34,14 +34,15 @@ pub use access::CompositorAccess;
 pub use buffer_pool::{
     acquire_buffer, pool_stats, BufferPool, BufferPoolConfig, PoolStats, PooledBuffer,
 };
-pub use compositor::{dispatch_composite, pack_halfblock_buffer};
+pub use compositor::dispatch_composite;
 pub use image_render::{image_sprite_dimensions, render_image_content};
 pub use layout::{
     compute_flex_cells, compute_grid_cells, parse_track_spec, resolve_x, resolve_y, GridCellRect,
     RenderArea, TrackSpec,
 };
 pub use obj_render::{
-    blit_color_canvas, obj_sprite_dimensions, render_obj_content, render_obj_to_canvas,
+    blit_color_canvas, blit_rgba_canvas, composite_rgba_over, convert_canvas_to_rgba,
+    obj_sprite_dimensions, render_obj_content, render_obj_to_canvas, render_obj_to_rgba_canvas,
     render_obj_to_shared_buffers, try_blit_prerendered, virtual_dimensions, with_prerender_frames,
     ObjRenderParams,
 };
@@ -51,10 +52,8 @@ pub use scene3d_atlas::Scene3DAtlas;
 pub use scene3d_prerender::{
     build_scene3d_runtime_store, prerender_scene3d_atlas, render_scene3d_frame_at,
 };
-pub use scene3d_runtime_store::{Scene3DRuntimeStore, with_runtime_store};
-pub use scene_compositor::{
-    CellSceneCompositor, CompositeParams, HalfblockSceneCompositor, SceneCompositor,
-};
+pub use scene3d_runtime_store::{with_runtime_store, Scene3DRuntimeStore};
+pub use scene_compositor::CompositeParams;
 pub use systems::postfx;
 pub use text_render::{dim_colour, render_text_content, text_sprite_dimensions, ClipRect};
 pub use warmup::warmup_scene_meshes;

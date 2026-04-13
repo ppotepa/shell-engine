@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use engine_effects::shared_dispatcher;
 use engine_core::scene::{Easing, EffectParams, EffectTargetKind};
+use engine_effects::shared_dispatcher;
 
 pub const PREVIEW_DURATION_MS: u64 = 1_600;
 const DEFAULT_VIEWPORT_W: u16 = 32;
@@ -29,8 +29,6 @@ struct PreviewSceneDoc {
     id: String,
     title: String,
     cutscene: bool,
-    #[serde(rename = "rendered-mode")]
-    rendered_mode: String,
     bg_colour: String,
     stages: PreviewStages,
     layers: Vec<PreviewLayer>,
@@ -225,7 +223,6 @@ fn build_preview_scene_doc(
         id: String::from("effect_preview"),
         title: String::from("Effect Preview"),
         cutscene: false,
-        rendered_mode: String::from("halfblock"),
         bg_colour: String::from("black"),
         stages: PreviewStages {
             on_idle: build_stage(placement == PreviewPlacement::Scene, &effect),
@@ -250,13 +247,13 @@ impl PreviewLayout {
         let viewport_w = viewport_w.max(12);
         let viewport_h = viewport_h.max(8);
 
-        // Calculate dimensions in terminal CELL units.
+        // Calculate preview layout in viewport grid units.
         // Leave 3 rows for caption + top/bottom margin.
         let max_cell_h = viewport_h.saturating_sub(3).max(4);
         let max_cell_w = viewport_w.saturating_sub(4).max(8);
 
-        // Tux penguin pixel aspect is roughly 2:3 (w:h). In halfblock mode each terminal cell
-        // covers 1 column × 2 pixel rows, so natural cell ratio is w_cells / h_cells ≈ 1.4.
+        // Tux penguin pixel aspect is roughly 2:3 (w:h), so the preview keeps a compact
+        // width/height ratio that fits comfortably inside the viewport.
         let desired_cell_w = ((max_cell_h as f32) * 1.4).round() as u16;
         let cell_w = desired_cell_w.min(max_cell_w);
         let cell_h = ((cell_w as f32) / 1.4).round() as u16;
@@ -286,7 +283,6 @@ fn build_preview_layer(
         Vec::new()
     } else {
         // Sprite-level effects: show penguin as subject.
-        // In halfblock mode height and y-offset are in virtual row units (2x terminal rows).
         let layout = PreviewLayout::for_viewport(viewport_w, viewport_h);
         vec![
             PreviewSprite::Image {

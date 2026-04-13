@@ -1,11 +1,10 @@
-//! Abstract render backend trait enabling pluggable rendering (Terminal, OpenGL, D3D, Vulkan, WebGL).
+//! Abstract render backend traits and helpers for backend-neutral frame presentation.
 //!
 //! Also exports rasterizer for font rendering across crates.
 //!
 //! Core types:
 //! - `RenderBackend` trait: present frames, query capabilities, shutdown
-//! - `DisplaySink` trait: queue and flush frames (may be async)
-//! - `RenderFrame`: per-frame data (buffer, render canvas size, present mode)
+//! - `RenderFrame`: per-frame data (frame buffer, render canvas size, present mode)
 //! - `RenderCaps`: capabilities (resolution, color depth, FPS)
 
 use engine_core::buffer::Buffer;
@@ -68,15 +67,15 @@ pub struct RenderCaps {
     pub max_fps: u16,
 }
 
-/// Per-frame render data passed to `RenderBackend::present()`
+/// Per-frame render data passed to `RenderBackend::present()`.
 pub struct RenderFrame<'a> {
     pub buffer: &'a Buffer,
-    /// Render canvas size. The field name is legacy terminology.
+    /// Logical frame size before backend-specific presentation is applied.
     pub virtual_size: (u16, u16),
     pub present_mode: PresentMode,
 }
 
-/// Abstract trait for render backends (Terminal, OpenGL, D3D, Vulkan, WebGL, etc).
+/// Abstract trait for full render backends (SDL2, OpenGL, D3D, Vulkan, WebGL, etc).
 ///
 /// Implementations handle all rendering details; the engine calls these methods
 /// each frame without knowing which backend is active.
@@ -92,41 +91,28 @@ pub trait RenderBackend {
     fn shutdown(&mut self) -> Result<(), RenderError>;
 }
 
-/// Minimal backend interface used by the live engine loop.
+/// Minimal presentation backend interface used by the live engine loop.
 ///
-/// Unlike `RenderBackend`, this works on already-diffed cell output and is the
+/// Unlike `RenderBackend`, this works on the engine's composed frame data and is the
 /// abstraction point for interchangeable runtime backends.
-pub trait OutputBackend: Send {
-    fn present_buffer(&mut self, buffer: &Buffer);
+pub trait RendererBackend: Send {
+    fn present_frame(&mut self, buffer: &Buffer);
     /// Render a debug overlay on top of the last presented frame.
     ///
-    /// Called after `present_buffer`. Lines are drawn directly onto the output
-    /// surface (terminal or window) at native resolution, bypassing the game
-    /// buffer so text is always readable regardless of game scaling.
+    /// Called after `present_frame`. Lines are drawn directly onto the output
+    /// surface at native resolution so text stays readable regardless of frame scaling.
     fn present_overlay(&mut self, overlay: &OverlayData);
     /// Stage vector primitives for native-resolution rendering on the next present.
     ///
     /// Pixel backends (SDL2) draw these directly on the canvas, bypassing the
-    /// character-cell buffer for smooth polygon/line output. Terminal backends
-    /// ignore this (vectors are already rasterized to glyphs by the compositor).
+    /// main frame buffer for smooth polygon/line output. Backends without native
+    /// vector support may ignore this hook.
     fn present_vectors(&mut self, _vectors: &VectorOverlay) {}
-    /// Returns the logical output grid size that the engine composes into before
-    /// backend-specific window/display presentation is applied.
+    /// Returns the logical output size before backend-specific window/display presentation
+    /// is applied.
     fn output_size(&self) -> (u16, u16);
     fn clear(&mut self) -> Result<(), RenderError>;
     fn shutdown(&mut self) -> Result<(), RenderError>;
-}
-
-/// Trait for display sinks (may buffer/batch/async-queue frames).
-pub trait DisplaySink: Send {
-    /// Queue a frame for output (may batch internally)
-    fn queue_frame(&self, buffer: &Buffer, timestamp_ns: u64) -> Result<(), RenderError>;
-
-    /// Flush queued frames (called each frame by game loop)
-    fn flush(&self) -> Result<(), RenderError>;
-
-    /// Drain and close (called during shutdown)
-    fn drain(&mut self) -> Result<(), RenderError>;
 }
 
 #[cfg(test)]

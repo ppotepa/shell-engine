@@ -28,8 +28,8 @@
 use super::{normalize_bg, PostFxContext};
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::color::Color;
-use engine_effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
+use engine_effects::utils::color::colour_to_rgb;
 use std::cell::RefCell;
 
 // ── State ─────────────────────────────────────────────────────────────────

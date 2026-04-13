@@ -51,4 +51,4 @@ stages:
     steps: [{ pause: 1ms }]
   on_leave:
     steps: [{ pause: 80ms }]
-next: 06.intro.login
+next: mainmenu

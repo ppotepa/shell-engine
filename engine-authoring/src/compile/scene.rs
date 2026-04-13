@@ -304,12 +304,8 @@ where
         // Objects without an explicit `as:` or `id:` alias are templates used
         // exclusively for SceneSpawn cloning — hide them so they don't render
         // at the default (0,0) position.
-        let has_alias = instance_map
-            .get(Value::String("as".to_string()))
-            .is_some()
-            || instance_map
-                .get(Value::String("id".to_string()))
-                .is_some();
+        let has_alias = instance_map.get(Value::String("as".to_string())).is_some()
+            || instance_map.get(Value::String("id".to_string())).is_some();
         if !has_alias {
             layer.insert(Value::String("visible".to_string()), Value::Bool(false));
         }
@@ -1373,7 +1369,7 @@ next: null
                     r#"
 effect-presets:
   fx.shared:
-    name: terminal-crt
+    name: crt-filter
     duration: 900
     params:
       intensity: 0.8
@@ -1385,7 +1381,7 @@ effect-presets:
         )
         .expect("scene compile");
         assert_eq!(scene.postfx.len(), 2);
-        assert_eq!(scene.postfx[0].name, "terminal-crt");
+        assert_eq!(scene.postfx[0].name, "crt-filter");
         assert_eq!(scene.postfx[0].duration, 900);
         assert_eq!(scene.postfx[1].name, "crt-ruby");
         assert_eq!(scene.postfx[1].duration, 240);
@@ -1398,7 +1394,7 @@ id: intro
 title: Intro
 effect-presets:
   fx.crt:
-    name: terminal-crt
+    name: crt-filter
     duration: 1200
     params:
       intensity: 0.9
@@ -1413,7 +1409,7 @@ next: null
         let scene =
             compile_scene_document_with_loader(scene_raw, |_path| None).expect("scene compile");
         assert_eq!(scene.postfx.len(), 1);
-        assert_eq!(scene.postfx[0].name, "terminal-crt");
+        assert_eq!(scene.postfx[0].name, "crt-filter");
         assert_eq!(scene.postfx[0].duration, 1200);
         assert_eq!(scene.postfx[0].params.intensity, Some(1.1));
     }

@@ -6,4 +6,3 @@ $defs:
     type: string
     enum:
     - obj-viewer
-    - terminal-size-tester

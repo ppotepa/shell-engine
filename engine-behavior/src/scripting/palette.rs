@@ -23,7 +23,11 @@ impl ScriptPaletteApi {
         persistence: Option<PersistenceStore>,
         default_id: Option<String>,
     ) -> Self {
-        Self { store, persistence, default_id }
+        Self {
+            store,
+            persistence,
+            default_id,
+        }
     }
 
     fn active_id(&self) -> Option<String> {
@@ -93,14 +97,24 @@ impl ScriptPaletteApi {
     /// All color keys in declaration order.
     fn color_keys(&self) -> RhaiArray {
         self.active_palette()
-            .map(|p| p.colors.keys().map(|k| RhaiDynamic::from(k.clone())).collect())
+            .map(|p| {
+                p.colors
+                    .keys()
+                    .map(|k| RhaiDynamic::from(k.clone()))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
     /// All color values in declaration order.
     fn color_values(&self) -> RhaiArray {
         self.active_palette()
-            .map(|p| p.colors.values().map(|v| RhaiDynamic::from(v.clone())).collect())
+            .map(|p| {
+                p.colors
+                    .values()
+                    .map(|v| RhaiDynamic::from(v.clone()))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -121,7 +135,9 @@ impl ScriptPaletteApi {
         if let Some(p) = &self.persistence {
             p.set(PERSIST_KEY, serde_json::Value::String(id.to_string()));
             // Bump the shared version counter so scripts can detect the change.
-            self.store.version.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.store
+                .version
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             return true;
         }
         false
@@ -131,7 +147,9 @@ impl ScriptPaletteApi {
     /// Scripts should cache this value; when it differs from the cached value
     /// the active palette has changed and all palette-derived colors should be refreshed.
     fn version(&self) -> rhai::INT {
-        self.store.version.load(std::sync::atomic::Ordering::Relaxed) as rhai::INT
+        self.store
+            .version
+            .load(std::sync::atomic::Ordering::Relaxed) as rhai::INT
     }
 
     fn cycle(&self) -> String {
@@ -165,12 +183,8 @@ pub(crate) fn register_with_rhai(engine: &mut RhaiEngine) {
     engine.register_fn("key_at", |api: &mut ScriptPaletteApi, idx: rhai::INT| {
         api.key_at(idx)
     });
-    engine.register_fn("colors_len", |api: &mut ScriptPaletteApi| {
-        api.colors_len()
-    });
-    engine.register_fn("color_keys", |api: &mut ScriptPaletteApi| {
-        api.color_keys()
-    });
+    engine.register_fn("colors_len", |api: &mut ScriptPaletteApi| api.colors_len());
+    engine.register_fn("color_keys", |api: &mut ScriptPaletteApi| api.color_keys());
     engine.register_fn("color_values", |api: &mut ScriptPaletteApi| {
         api.color_values()
     });

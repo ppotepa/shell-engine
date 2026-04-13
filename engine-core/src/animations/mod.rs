@@ -78,7 +78,7 @@ impl AnimationDispatcher {
                     name: "amplitude",
                     value_kind: ValueKind::Integer,
                     requirement: Requirement::Optional,
-                    description: "Peak displacement in terminal cells",
+                    description: "Peak displacement in frame-grid units",
                     default_text: None,
                     default_number: Some(1.0),
                     enum_options: None,

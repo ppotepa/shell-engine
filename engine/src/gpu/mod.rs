@@ -15,4 +15,4 @@ pub mod render;
 
 pub use context::GpuContext;
 pub use mesh::{GpuMesh, Vertex, RenderParams};
-pub use render::{render_obj_gpu, convert_to_terminal_colors};
+pub use render::{convert_rgba_to_rgb_samples, render_obj_gpu};

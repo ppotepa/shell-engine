@@ -18,7 +18,6 @@ layers:
         y: "$y"
         width: "$width"
         height: "$height"
-        force-renderer-mode: halfblock
   - name: "$base-frame"
     z_index: 2
     visible: true
@@ -30,4 +29,3 @@ layers:
         y: "$y"
         width: "$width"
         height: "$height"
-        force-renderer-mode: halfblock

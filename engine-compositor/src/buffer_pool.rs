@@ -4,7 +4,6 @@
 //! reducing GC pressure and allocation overhead. Common scratch buffers include:
 //! - Layer temporary buffers (for effect composition)
 //! - Sprite scratch space (for intermediate rasterization)
-//! - Halfblock virtual buffers (for 2× scale rendering)
 
 use engine_core::buffer::Buffer;
 use std::cell::RefCell;

@@ -24,38 +24,6 @@
           gap-x: 8
           gap-y: 4
           children:
-            # ── Top-left: Score ───────────────────────────────────────────────
-            - type: panel
-              id: hud-score-panel
-              grid-col: 1
-              grid-row: 1
-              at: tl
-              padding: 8
-              children:
-                - type: grid
-                  columns: ["1fr"]
-                  rows: ["auto", "auto"]
-                  gap-y: 3
-                  children:
-                    - { type: text, id: hud-label-score, content: "SCORE", grid-col: 1, grid-row: 1, at: tl, font: "Orbitron:ascii", fg: "@palette.hud_label" }
-                    - { type: text, id: hud-score, content: "@game_state.score", grid-col: 1, grid-row: 2, at: tl, font: "generic:2", fg: "@palette.hud_value" }
-
-            # ── Top-right: Wave ───────────────────────────────────────────────
-            - type: panel
-              id: hud-wave-panel
-              grid-col: 3
-              grid-row: 1
-              at: tr
-              padding: 8
-              children:
-                - type: grid
-                  columns: ["1fr"]
-                  rows: ["auto", "auto"]
-                  gap-y: 3
-                  children:
-                    - { type: text, id: hud-label-wave, content: "WAVE", grid-col: 1, grid-row: 1, at: tr, font: "Orbitron:ascii", fg: "@palette.hud_label" }
-                    - { type: text, id: hud-wave, content: "@game_state.wave", grid-col: 1, grid-row: 2, at: tr, font: "generic:2", fg: "@palette.hud_value" }
-
             # ── Bottom-centre: Orbital telemetry ─────────────────────────────
             - type: panel
               id: hud-orbital-panel
@@ -75,50 +43,7 @@
                     - { type: text, id: hud-orbital-tspd,   content: "TSPD ---", grid-col: 3, grid-row: 1, at: bc, font: "generic:1", fg: "@palette.hud_label" }
                     - { type: text, id: hud-orbital-rspd,   content: "RSPD ---", grid-col: 1, grid-row: 2, at: bc, font: "generic:1", fg: "@palette.hud_label" }
                     - { type: text, id: hud-orbital-heat,   content: "HEAT ---", grid-col: 2, grid-row: 2, at: bc, font: "generic:1", fg: "@palette.hud_value" }
-                    - { type: text, id: hud-orbital-vxy,    content: "VXY  ---", grid-col: 3, grid-row: 2, at: bc, font: "generic:1", fg: "@palette.hud_label" }
-
-            # ── Bottom-left: Lives (heart icons) ──────────────────────────────
-            - type: panel
-              id: hud-lives-panel
-              grid-col: 1
-              grid-row: 3
-              at: bl
-              width: 154
-              height: 50
-              padding: 6
-              children:
-                # Retro pixel-art hearts: generic:3 (5×7 scale-2 bitmap) + 2× blit scale
-                # Panel 154×50 padding:6 → inner 142×38 px
-                # Heart rendered: 12×14 → after 2× blit: 24×28 px
-                # y = 6 + (38-28)/2 = 11  (vertically centred)
-                # x: 4 equal gaps = (142 - 3×24)/4 ≈ 17px  → 23, 64, 105
-                - type: text
-                  id: heart-1
-                  content: "♥"
-                  font: "generic:3"
-                  scale-x: 2.0
-                  scale-y: 2.0
-                  x: 23
-                  y: 11
-                  fg_colour: "@palette.hud_heart"
-                - type: text
-                  id: heart-2
-                  content: "♥"
-                  font: "generic:3"
-                  scale-x: 2.0
-                  scale-y: 2.0
-                  x: 64
-                  y: 11
-                  fg_colour: "@palette.hud_heart"
-                - type: text
-                  id: heart-3
-                  content: "♥"
-                  font: "generic:3"
-                  scale-x: 2.0
-                  scale-y: 2.0
-                  x: 105
-                  y: 11
-                  fg_colour: "@palette.hud_heart"
+                    - { type: text, id: hud-orbital-vxy,    content: "REF  ---", grid-col: 3, grid-row: 2, at: bc, font: "generic:1", fg: "@palette.hud_label" }
 
             # ── Bottom-right: Hint ────────────────────────────────────────────
             - type: panel
@@ -129,36 +54,4 @@
               padding: 8
               children:
                 - { type: text, id: hud-hint, content: "ESC  MENU", at: br, font: "generic:1", fg: "@palette.hud_label", opacity: 0.7 }
-
-# ============================================================================
-# GAME OVER OVERLAY — centered panel with matching margin feel
-# ============================================================================
-- name: gameover-overlay
-  z_index: 100
-  ui: true
-  visible: false
-  sprites:
-    - type: panel
-      id: gameover-panel
-      at: cc
-      width: 380
-      height: 160
-      corner-radius: 4
-      border-width: 1
-      border-colour: "@palette.gameover"
-      bg_colour: "@palette.hud_panel_bg"
-      shadow-x: 3
-      shadow-y: 3
-      shadow-colour: "@palette.bg"
-      padding: 0
-      children:
-        - type: grid
-          id: gameover-grid
-          columns: ["1fr"]
-          rows: ["1fr", "auto", "auto", "auto", "1fr"]
-          gap-y: 10
-          children:
-            - { type: text, id: hud-gameover, content: "GAME OVER", grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "@palette.gameover" }
-            - { type: text, id: hud-gameover-score, content: "@game_state.score", grid-col: 1, grid-row: 3, at: cc, font: "generic:2", fg: "@palette.hud_value" }
-            - { type: text, id: hud-gameover-sub, content: "SPACE  RESTART     ESC  MENU", grid-col: 1, grid-row: 4, at: cc, font: "generic:1", fg: "@palette.gameover_sub" }
 

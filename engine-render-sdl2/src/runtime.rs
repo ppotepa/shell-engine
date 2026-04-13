@@ -13,20 +13,30 @@ use sdl2::pixels::{Color as SdlColor, PixelFormatEnum};
 use sdl2::rect::Rect;
 use sdl2::video::FullscreenType;
 
-pub(crate) type CellPatch = (u16, u16, char, Color, Color);
+pub(crate) type GlyphPatch = (u16, u16, char, Color, Color);
 
 pub(crate) enum RuntimeCommand {
     Present {
         width: u16,
         height: u16,
-        patches: Vec<CellPatch>,
+        patches: Vec<GlyphPatch>,
         overlay: Option<OverlayData>,
         vectors: Option<VectorOverlay>,
+        /// Direct pixel canvas data (RGBA, row-major) for SDL2 bypass.
+        /// When Some, uploaded directly to the texture before cell patches.
+        pixel_canvas: Option<PixelCanvasData>,
     },
     SetSplashMode(bool),
     PollInput,
     Clear,
     Shutdown,
+}
+
+/// Direct pixel canvas data for SDL2 bypass — avoids Cell→char→pixel encoding.
+pub(crate) struct PixelCanvasData {
+    pub data: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
 }
 
 pub(crate) enum RuntimeResponse {
@@ -274,74 +284,69 @@ fn runtime_thread(
                 patches,
                 overlay,
                 vectors,
+                pixel_canvas,
             } => {
                 let t_cmd = Instant::now();
-                if width != current_output_width || height != current_output_height {
-                    current_output_width = width.max(1);
-                    current_output_height = height.max(1);
-                    content_pixel_size =
-                        logical_dimensions(current_output_width, current_output_height);
-                    pixel_buffer.resize(
-                        pixel_buffer_size(content_pixel_size.0, content_pixel_size.1),
-                        0,
-                    );
-                    let Ok(new_texture) = texture_creator.create_texture_streaming(
-                        PixelFormatEnum::RGBA32,
-                        content_pixel_size.0,
-                        content_pixel_size.1,
-                    ) else {
-                        let _ = response_tx.send(RuntimeResponse::Ack);
-                        break;
-                    };
-                    frame_texture = new_texture;
-                    pixel_buffer.fill(0);
-                    row_ranges.resize(current_output_height as usize, None);
-                    if frame_texture
-                        .update(None, &pixel_buffer, content_pixel_size.0 as usize * 4)
-                        .is_err()
-                    {
+
+                // ── Pixel canvas path: direct pixel upload ───────────────
+                if let Some(pc) = &pixel_canvas {
+                    let pc_size = (pc.width, pc.height);
+                    if pc_size != content_pixel_size {
+                        content_pixel_size = pc_size;
+                        current_output_width = width.max(1);
+                        current_output_height = height.max(1);
+                        pixel_buffer.resize(pixel_buffer_size(pc_size.0, pc_size.1), 0);
+                        let Ok(new_texture) = texture_creator.create_texture_streaming(
+                            PixelFormatEnum::RGBA32,
+                            pc_size.0,
+                            pc_size.1,
+                        ) else {
+                            let _ = response_tx.send(RuntimeResponse::Ack);
+                            break;
+                        };
+                        frame_texture = new_texture;
+                        row_ranges.resize(pc_size.1 as usize, None);
+                    }
+                    // Copy pixel canvas data into local pixel buffer.
+                    let copy_len = pc.data.len().min(pixel_buffer.len());
+                    pixel_buffer[..copy_len].copy_from_slice(&pc.data[..copy_len]);
+                    // Upload the entire texture (pixel canvas is the full frame).
+                    let t_apply = Instant::now();
+                    let upload_ok = frame_texture
+                        .update(None, &pixel_buffer, pc_size.0 as usize * 4)
+                        .is_ok();
+                    let apply_dur = t_apply.elapsed();
+                    if !upload_ok {
                         let _ = response_tx.send(RuntimeResponse::Ack);
                         break;
                     }
-                }
 
-                let mut dirty = DirtyPixelRect::empty();
-                row_ranges.fill(None);
-                let patch_count = patches.len();
-                let t_apply = Instant::now();
-                for patch in &patches {
-                    apply_patch_to_pixels(
-                        patch,
-                        current_output_width,
-                        current_output_height,
-                        &mut pixel_buffer,
-                        &mut dirty,
-                    );
-                    update_row_range(&mut row_ranges, patch);
-                }
-                let apply_dur = t_apply.elapsed();
-
-                let mut upload_dur = Duration::ZERO;
-                if let Some(rect) = dirty.to_rect() {
-                    let t_upload = Instant::now();
-                    if update_texture_row_ranges(
-                        &mut frame_texture,
-                        &pixel_buffer,
-                        content_pixel_size.0,
-                        &row_ranges,
-                        rect,
-                    )
-                    .is_err()
-                    {
-                        let _ = response_tx.send(RuntimeResponse::Ack);
-                        break;
+                    // Apply cell patches ON TOP for text/UI sprites.
+                    let mut dirty = DirtyPixelRect::empty();
+                    row_ranges.fill(None);
+                    let patch_count = patches.len();
+                    if !patches.is_empty() {
+                        for patch in &patches {
+                            apply_patch_to_pixels(
+                                patch,
+                                current_output_width,
+                                current_output_height,
+                                &mut pixel_buffer,
+                                &mut dirty,
+                            );
+                            update_row_range(&mut row_ranges, patch);
+                        }
+                        if let Some(rect) = dirty.to_rect() {
+                            let _ = update_texture_row_ranges(
+                                &mut frame_texture,
+                                &pixel_buffer,
+                                content_pixel_size.0,
+                                &row_ranges,
+                                rect,
+                            );
+                        }
                     }
-                    upload_dur = t_upload.elapsed();
-                }
 
-                let should_present = dirty.has_updates || overlay.is_some() || vectors.is_some();
-                let mut present_dur = Duration::ZERO;
-                if should_present {
                     let active_policy =
                         get_active_presentation_policy(splash_mode, presentation_policy);
                     let present_rect = presentation_rect(
@@ -350,12 +355,7 @@ fn runtime_thread(
                         active_policy,
                     );
                     let t_present = Instant::now();
-                    if splash_mode {
-                        let (r, g, b) = splash_clear_rgb(&pixel_buffer);
-                        clear_canvas(&mut canvas, SdlColor::RGB(r, g, b));
-                    } else {
-                        clear_canvas(&mut canvas, SdlColor::RGB(0, 0, 0));
-                    }
+                    clear_canvas(&mut canvas, SdlColor::RGB(0, 0, 0));
                     if canvas
                         .copy(&frame_texture, None, Some(present_rect))
                         .is_err()
@@ -363,7 +363,6 @@ fn runtime_thread(
                         let _ = response_tx.send(RuntimeResponse::Ack);
                         break;
                     }
-
                     if let Some(ref vector_data) = vectors {
                         if !vector_data.is_empty() {
                             draw_vectors(
@@ -374,7 +373,6 @@ fn runtime_thread(
                             );
                         }
                     }
-
                     if let Some(ref overlay_data) = overlay {
                         if !overlay_data.is_empty() {
                             if overlay_data.dim_scene {
@@ -383,22 +381,147 @@ fn runtime_thread(
                             draw_overlay(&mut canvas, overlay_data);
                         }
                     }
-
                     canvas.present();
-                    present_dur = t_present.elapsed();
-                }
-                if let Some(profile) = profile.as_mut() {
-                    profile.record(
-                        patch_count,
-                        apply_dur,
-                        upload_dur,
-                        present_dur,
-                        t_cmd.elapsed(),
-                        should_present,
-                    );
-                }
+                    let present_dur = t_present.elapsed();
 
-                RuntimeResponse::Ack
+                    if let Some(profile) = profile.as_mut() {
+                        profile.record(
+                            patch_count,
+                            apply_dur,
+                            Duration::ZERO,
+                            present_dur,
+                            t_cmd.elapsed(),
+                            true,
+                        );
+                    }
+                    RuntimeResponse::Ack
+                } else {
+                    // ── Cell patch path (terminal compatibility) ─────────────
+                    if width != current_output_width || height != current_output_height {
+                        current_output_width = width.max(1);
+                        current_output_height = height.max(1);
+                        content_pixel_size =
+                            logical_dimensions(current_output_width, current_output_height);
+                        pixel_buffer.resize(
+                            pixel_buffer_size(content_pixel_size.0, content_pixel_size.1),
+                            0,
+                        );
+                        let Ok(new_texture) = texture_creator.create_texture_streaming(
+                            PixelFormatEnum::RGBA32,
+                            content_pixel_size.0,
+                            content_pixel_size.1,
+                        ) else {
+                            let _ = response_tx.send(RuntimeResponse::Ack);
+                            break;
+                        };
+                        frame_texture = new_texture;
+                        pixel_buffer.fill(0);
+                        row_ranges.resize(current_output_height as usize, None);
+                        if frame_texture
+                            .update(None, &pixel_buffer, content_pixel_size.0 as usize * 4)
+                            .is_err()
+                        {
+                            let _ = response_tx.send(RuntimeResponse::Ack);
+                            break;
+                        }
+                    }
+
+                    let mut dirty = DirtyPixelRect::empty();
+                    row_ranges.fill(None);
+                    let patch_count = patches.len();
+                    let t_apply = Instant::now();
+                    for patch in &patches {
+                        apply_patch_to_pixels(
+                            patch,
+                            current_output_width,
+                            current_output_height,
+                            &mut pixel_buffer,
+                            &mut dirty,
+                        );
+                        update_row_range(&mut row_ranges, patch);
+                    }
+                    let apply_dur = t_apply.elapsed();
+
+                    let mut upload_dur = Duration::ZERO;
+                    if let Some(rect) = dirty.to_rect() {
+                        let t_upload = Instant::now();
+                        if update_texture_row_ranges(
+                            &mut frame_texture,
+                            &pixel_buffer,
+                            content_pixel_size.0,
+                            &row_ranges,
+                            rect,
+                        )
+                        .is_err()
+                        {
+                            let _ = response_tx.send(RuntimeResponse::Ack);
+                            break;
+                        }
+                        upload_dur = t_upload.elapsed();
+                    }
+
+                    let should_present =
+                        dirty.has_updates || overlay.is_some() || vectors.is_some();
+                    let mut present_dur = Duration::ZERO;
+                    if should_present {
+                        let active_policy =
+                            get_active_presentation_policy(splash_mode, presentation_policy);
+                        let present_rect = presentation_rect(
+                            current_window_pixel_size(&canvas),
+                            content_pixel_size,
+                            active_policy,
+                        );
+                        let t_present = Instant::now();
+                        if splash_mode {
+                            let (r, g, b) = splash_clear_rgb(&pixel_buffer);
+                            clear_canvas(&mut canvas, SdlColor::RGB(r, g, b));
+                        } else {
+                            clear_canvas(&mut canvas, SdlColor::RGB(0, 0, 0));
+                        }
+                        if canvas
+                            .copy(&frame_texture, None, Some(present_rect))
+                            .is_err()
+                        {
+                            let _ = response_tx.send(RuntimeResponse::Ack);
+                            break;
+                        }
+
+                        if let Some(ref vector_data) = vectors {
+                            if !vector_data.is_empty() {
+                                draw_vectors(
+                                    &mut canvas,
+                                    vector_data,
+                                    present_rect,
+                                    content_pixel_size,
+                                );
+                            }
+                        }
+
+                        if let Some(ref overlay_data) = overlay {
+                            if !overlay_data.is_empty() {
+                                if overlay_data.dim_scene {
+                                    draw_scene_dim(&mut canvas);
+                                }
+                                draw_overlay(&mut canvas, overlay_data);
+                            }
+                        }
+
+                        canvas.present();
+                        present_dur = t_present.elapsed();
+                    }
+                    if let Some(profile) = profile.as_mut() {
+                        profile.record(
+                            patch_count,
+                            apply_dur,
+                            upload_dur,
+                            present_dur,
+                            t_cmd.elapsed(),
+                            should_present,
+                        );
+                    }
+
+                    RuntimeResponse::Ack
+                } // else (cell-patch path)
             }
             RuntimeCommand::PollInput => RuntimeResponse::Input(poll_input(
                 &mut canvas,
@@ -533,7 +656,7 @@ fn blend(fg: (u8, u8, u8), bg: (u8, u8, u8), fg_weight: f32) -> (u8, u8, u8) {
 }
 
 fn apply_patch_to_pixels(
-    patch: &CellPatch,
+    patch: &GlyphPatch,
     output_width: u16,
     output_height: u16,
     pixel_buffer: &mut [u8],
@@ -608,7 +731,7 @@ fn update_texture_row_ranges(
 }
 
 #[inline]
-fn update_row_range(row_ranges: &mut [Option<(u16, u16)>], patch: &CellPatch) {
+fn update_row_range(row_ranges: &mut [Option<(u16, u16)>], patch: &GlyphPatch) {
     let (x, y, _, _, _) = *patch;
     let row = y as usize;
     if row >= row_ranges.len() {
@@ -1134,19 +1257,13 @@ mod tests {
     fn logical_surface_is_one_to_one() {
         // 1:1 pixel mode — logical dimensions equal buffer dimensions, no doubling.
         assert_eq!(logical_dimensions(120, 30), (120, 30));
-        assert_eq!(
-            window_dimensions(120, 30, 1, None),
-            (120, 30)
-        );
+        assert_eq!(window_dimensions(120, 30, 1, None), (120, 30));
     }
 
     #[test]
     fn window_dimensions_respects_16_9_ratio() {
         // Forced ratio with pixel_scale=1 — width 180 × 9/16 = 101.
-        assert_eq!(
-            window_dimensions(180, 30, 1, Some((16, 9))),
-            (180, 101)
-        );
+        assert_eq!(window_dimensions(180, 30, 1, Some((16, 9))), (180, 101));
     }
 
     #[test]

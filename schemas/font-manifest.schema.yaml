@@ -43,12 +43,12 @@ properties:
     type: string
     description: >
       Rendering mode for this manifest's glyphs.
-      "terminal-pixels" — each glyph file contains a block of '█' / ' ' characters
-                          forming a pixel-art bitmap rendered cell-by-cell.
+      "raster"          — each glyph file contains a block of '█' / ' ' characters
+                          forming a pixel-art bitmap rendered directly as bitmap glyph data.
       "ascii"           — each glyph file contains ASCII art characters
-                          drawn directly as terminal text (no per-pixel colouring).
+                          drawn directly as text glyph data.
     enum:
-      - terminal-pixels
+      - raster
       - ascii
   glyphs:
     type: array

@@ -4,8 +4,8 @@ SDL2 output backend for the Shell Quest runtime.
 
 ## Purpose
 
-`engine-render-sdl2` provides the optional windowed backend selected via
-`--output sdl2`. It implements the shared `engine-render::OutputBackend`
+`engine-render-sdl2` provides the SDL2 windowed output backend. It implements
+the shared `engine-render::OutputBackend`
 contract and exposes SDL2-backed input through the shared `InputBackend`
 interface.
 
@@ -23,7 +23,7 @@ canvas types to satisfy thread-safety guarantees they do not provide.
 ## Current behavior
 
 - SDL keeps a fixed offscreen render texture sized from the engine output buffer
-- Output rows are expanded to double-height logical pixels so halfblocks stay sharp
+- Glyphs are rendered to a pixel canvas and uploaded as texture patches
 - The window presents that texture using the shared `presentation_policy` (`stretch`, `fit`, or `strict`) without emitting engine buffer resize events
 - Key, mouse, and quit events are translated into `engine-events`
 - The crate is enabled through the `engine/sdl2` feature

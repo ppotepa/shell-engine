@@ -19,8 +19,6 @@ pub use engine_audio as audio;
 pub use engine_animation as animation;
 // Re-export 3D subsystem
 pub use engine_3d as rendering_3d;
-// Re-export terminal subsystem
-pub use engine_terminal as terminal;
 // Re-export game subsystem
 pub use engine_game as game;
 // Re-export persistence subsystem
@@ -59,7 +57,6 @@ mod services;
 mod splash;
 pub mod strategy;
 pub mod systems;
-pub mod terminal_caps;
 pub mod world;
 
 /// Returns (behavior_name, fields) tuples for all built-in behaviors.
@@ -73,7 +70,7 @@ pub fn behavior_catalog() -> Vec<(
 
 use std::path::{Path, PathBuf};
 
-use engine_render::OutputBackend;
+use engine_render::RendererBackend;
 use mod_loader::load_mod_manifest;
 use serde_yaml::Value;
 use services::EngineWorldAccess;
@@ -86,24 +83,16 @@ pub struct ShellEngine {
     config: EngineConfig,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BackendKind {
-    Terminal,
-    Sdl2,
-}
-
 /// Runtime launch options passed explicitly from the launcher.
 #[derive(Debug, Clone)]
 pub struct EngineConfig {
-    pub output_backend: BackendKind,
-    pub renderer_mode: Option<String>,
     pub debug_feature: bool,
     pub audio: bool,
     /// Override the mod's entrypoint — jump straight to this scene path.
     pub start_scene: Option<String>,
     /// Skip the engine splash screen on startup.
     pub skip_splash: bool,
-    /// Enable compositor optimizations (#4 layer-scratch, #5 dirty-halfblock).
+    /// Enable compositor optimizations (#4 layer-scratch, #5 dirty-region narrowing).
     /// Enabled by default in the launcher.
     pub opt_comp: bool,
     /// Enable present optimizations (#13 hash-based frame skip).
@@ -115,8 +104,7 @@ pub struct EngineConfig {
     /// Enable row-level dirty skip in diff scan.
     /// Enabled by default in the launcher.
     pub opt_rowdiff: bool,
-    /// Enable async display sink: offload terminal I/O to background thread.
-    /// Decouples main thread from write/flush latency (1-5ms/frame).
+    /// Enable async display-related optimizations.
     pub opt_async_display: bool,
     /// Run benchmark mode for N seconds, then show results and exit.
     pub bench_secs: Option<f32>,
@@ -142,27 +130,12 @@ fn sdl_startup_output_size(manifest: &Value) -> (u16, u16) {
     if let Some((w, h)) = settings.render_size.fixed() {
         return (w, h);
     }
-    // For MatchOutput / FitWidth we don't yet have a window to query.
-    // Fall back to min_width/min_height requirements as a starting canvas size.
-    let requirements =
-        terminal_caps::TerminalRequirements::from_manifest(manifest).unwrap_or_default();
-    (
-        requirements
-            .min_width
-            .unwrap_or(SDL_DEFAULT_OUTPUT_WIDTH)
-            .max(1),
-        requirements
-            .min_height
-            .unwrap_or(SDL_DEFAULT_OUTPUT_HEIGHT)
-            .max(1),
-    )
+    (SDL_DEFAULT_OUTPUT_WIDTH, SDL_DEFAULT_OUTPUT_HEIGHT)
 }
 
 impl Default for EngineConfig {
     fn default() -> Self {
         Self {
-            output_backend: BackendKind::Terminal,
-            renderer_mode: None,
             debug_feature: false,
             audio: false,
             start_scene: None,
@@ -215,11 +188,10 @@ impl ShellEngine {
         };
         use engine_mod::StartupOutputSetting;
         use events::EventQueue;
-        use runtime_settings::{RenderSize, RuntimeSettings};
+        use runtime_settings::RuntimeSettings;
         use scene_loader::SceneLoader;
         use scene_runtime::SceneRuntime;
-        use systems::renderer::TerminalRenderer;
-        use terminal_caps::target_fps_from_manifest;
+        use engine_mod::display_config::target_fps_from_manifest;
 
         // Initialize behavior system with mod source for Rhai module resolution
         init_behavior_system(
@@ -278,10 +250,7 @@ impl ShellEngine {
             entrypoint,
             &scene_loader_fn,
         )
-        .with_selected_output(match self.config.output_backend {
-            BackendKind::Terminal => StartupOutputSetting::Terminal,
-            BackendKind::Sdl2 => StartupOutputSetting::Sdl2,
-        })
+        .with_selected_output(StartupOutputSetting::Sdl2)
         .with_font_asset_checker(&font_checker)
         .with_glyph_coverage_checker(&glyph_checker)
         .with_image_asset_checker(&image_checker)
@@ -306,25 +275,9 @@ impl ShellEngine {
             .target_fps_override
             .unwrap_or_else(|| target_fps_from_manifest(&self.mod_manifest));
         let mut runtime_settings = RuntimeSettings::from_manifest(&self.mod_manifest);
-        if matches!(self.config.output_backend, BackendKind::Terminal) {
-            runtime_settings.render_size = RenderSize::MatchOutput;
-        }
-        if matches!(self.config.output_backend, BackendKind::Sdl2) {
-            runtime_settings.is_pixel_backend = true;
-        }
-        if let Some(mode) = self
-            .config
-            .renderer_mode
-            .as_deref()
-            .and_then(parse_renderer_mode)
-        {
-            runtime_settings.renderer_mode_override = Some(mode);
-        }
+        runtime_settings.is_pixel_backend = true;
 
-        let (output_w, output_h) = match self.config.output_backend {
-            BackendKind::Terminal => crossterm::terminal::size()?,
-            BackendKind::Sdl2 => sdl_startup_output_size(&self.mod_manifest),
-        };
+        let (output_w, output_h)= sdl_startup_output_size(&self.mod_manifest);
         let layout = runtime_settings::buffer_layout_for_scene(
             &runtime_settings,
             &scene,
@@ -335,10 +288,7 @@ impl ShellEngine {
             "engine.runtime",
             format!(
                 "output={} output_size={}x{} render_size={}x{} policy={:?} scene_override={}",
-                match self.config.output_backend {
-                    BackendKind::Terminal => "terminal",
-                    BackendKind::Sdl2 => "sdl2",
-                },
+                "sdl2",
                 output_w,
                 output_h,
                 layout.render_width,
@@ -395,7 +345,9 @@ impl ShellEngine {
         {
             let catalogs_dir = self.mod_source.join("catalogs");
             if catalogs_dir.is_dir() {
-                if let Ok(cats) = engine_behavior::catalog::ModCatalogs::load_from_directory(&catalogs_dir) {
+                if let Ok(cats) =
+                    engine_behavior::catalog::ModCatalogs::load_from_directory(&catalogs_dir)
+                {
                     world.register(cats);
                 }
             }
@@ -404,10 +356,16 @@ impl ShellEngine {
         {
             let palettes_dir = self.mod_source.join("palettes");
             match engine_behavior::palette::PaletteStore::load_from_directory(&palettes_dir) {
-                Ok(store) => { world.register(store); }
-                Err(e) => { eprintln!("[palette] load failed: {}", e); }
+                Ok(store) => {
+                    world.register(store);
+                }
+                Err(e) => {
+                    eprintln!("[palette] load failed: {}", e);
+                }
             }
-            world.register(mod_manifest::ModManifestData::from_manifest(&self.mod_manifest));
+            world.register(mod_manifest::ModManifestData::from_manifest(
+                &self.mod_manifest,
+            ));
         }
         let persistence_namespace = self
             .mod_manifest
@@ -458,72 +416,49 @@ impl ShellEngine {
         let splash_bg = scene
             .bg_colour
             .as_ref()
-            .map(|tc| {
-                let engine_color = engine_core::color::Color::from(tc);
-                engine_render_terminal::color_convert::to_crossterm(engine_color)
-            })
-            .unwrap_or(crossterm::style::Color::Black);
+            .map(engine_core::color::Color::from)
+            .unwrap_or(engine_core::color::Color::Black);
         let splash_config = splash::config_from_manifest(&self.mod_source, &self.mod_manifest);
         let splash_enabled = !self.config.skip_splash && splash_config.enabled;
         let splash_scene_path = splash_config.scene_path.as_deref();
 
-        let mut input_backend: Box<dyn InputBackend> = match self.config.output_backend {
-            BackendKind::Terminal => {
-                let mut renderer = TerminalRenderer::new_with_async(
-                    self.config.opt_async_display,
-                    Box::new(strategy::AnsiBatchFlusher),
+        let mut input_backend: Box<dyn InputBackend> = {
+            #[cfg(feature = "sdl2")]
+            {
+                let (mut renderer, input) = engine_render_sdl2::renderer::Sdl2Backend::new_pair(
+                    layout.render_width,
+                    layout.render_height,
                     presentation_policy,
-                )?;
+                    self.config.sdl_window_ratio,
+                    self.config.sdl_pixel_scale,
+                    self.config.sdl_vsync,
+                )
+                .map_err(|error| EngineError::Render(std::io::Error::other(error)))?;
                 renderer.clear().map_err(|error| {
                     EngineError::Render(std::io::Error::other(error.to_string()))
                 })?;
                 if splash_enabled {
-                    splash::show_splash(splash_bg, splash_scene_path);
-                }
-                world.register(Box::new(renderer) as Box<dyn OutputBackend>);
-                Box::new(engine_render_terminal::input::TerminalInputBackend::new(
-                    self.config.debug_feature,
-                )?)
-            }
-            BackendKind::Sdl2 => {
-                #[cfg(feature = "sdl2")]
-                {
-                    let (mut renderer, input) =
-                        engine_render_sdl2::renderer::Sdl2Backend::new_pair(
-                            layout.render_width,
-                            layout.render_height,
-                            presentation_policy,
-                            self.config.sdl_window_ratio,
-                            self.config.sdl_pixel_scale,
-                            self.config.sdl_vsync,
-                        )
-                        .map_err(|error| EngineError::Render(std::io::Error::other(error)))?;
-                    renderer.clear().map_err(|error| {
+                    renderer.set_splash_mode(true).map_err(|error| {
                         EngineError::Render(std::io::Error::other(error.to_string()))
                     })?;
-                    if splash_enabled {
-                        renderer.set_splash_mode(true).map_err(|error| {
-                            EngineError::Render(std::io::Error::other(error.to_string()))
-                        })?;
-                        splash::show_splash_on_output(
-                            &mut renderer,
-                            splash_bg,
-                            (output_w, output_h),
-                            splash_scene_path,
-                        );
-                        renderer.set_splash_mode(false).map_err(|error| {
-                            EngineError::Render(std::io::Error::other(error.to_string()))
-                        })?;
-                    }
-                    world.register(Box::new(renderer) as Box<dyn OutputBackend>);
-                    Box::new(input)
+                    splash::show_splash_on_output(
+                        &mut renderer,
+                        splash_bg,
+                        (output_w, output_h),
+                        splash_scene_path,
+                    );
+                    renderer.set_splash_mode(false).map_err(|error| {
+                        EngineError::Render(std::io::Error::other(error.to_string()))
+                    })?;
                 }
-                #[cfg(not(feature = "sdl2"))]
-                {
-                    return Err(EngineError::Render(std::io::Error::other(
-                        "SDL2 backend requested but engine was built without the `sdl2` feature",
-                    )));
-                }
+                world.register(Box::new(renderer) as Box<dyn RendererBackend>);
+                Box::new(input)
+            }
+            #[cfg(not(feature = "sdl2"))]
+            {
+                return Err(EngineError::Render(std::io::Error::other(
+                    "SDL2 backend requested but engine was built without the `sdl2` feature",
+                )));
             }
         };
 
@@ -596,20 +531,10 @@ impl ShellEngine {
     }
 }
 
-fn parse_renderer_mode(raw: &str) -> Option<scene::SceneRenderedMode> {
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "cell" => Some(scene::SceneRenderedMode::Cell),
-        "halfblock" | "half-block" => Some(scene::SceneRenderedMode::HalfBlock),
-        "quadblock" | "quad-block" => Some(scene::SceneRenderedMode::QuadBlock),
-        "braille" => Some(scene::SceneRenderedMode::Braille),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::ShellEngine;
-    use super::{sdl_startup_output_size, SDL_DEFAULT_OUTPUT_HEIGHT, SDL_DEFAULT_OUTPUT_WIDTH};
+    use super::sdl_startup_output_size;
     use crate::scene_loader;
     use crate::EngineError;
     use engine_asset::{create_scene_repository, SceneRepository};
@@ -695,21 +620,15 @@ mod tests {
     }
 
     #[test]
-    fn sdl_startup_output_uses_manifest_minimums() {
+    fn sdl_startup_output_uses_default_render_size_when_no_display_block() {
         let manifest =
-            serde_yaml::from_str::<Value>("terminal:\n  min_width: 132\n  min_height: 37\n")
+            serde_yaml::from_str::<Value>("name: demo\n")
                 .expect("manifest");
 
-        assert_eq!(sdl_startup_output_size(&manifest), (132, 37));
-    }
-
-    #[test]
-    fn sdl_startup_output_falls_back_to_defaults() {
-        let manifest = serde_yaml::from_str::<Value>("name: demo\n").expect("manifest");
-
+        // No display block → RuntimeSettings uses default render size (320x240)
         assert_eq!(
             sdl_startup_output_size(&manifest),
-            (SDL_DEFAULT_OUTPUT_WIDTH, SDL_DEFAULT_OUTPUT_HEIGHT)
+            (320, 240)
         );
     }
 

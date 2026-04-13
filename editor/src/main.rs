@@ -1,9 +1,5 @@
 mod app;
 mod cli;
-mod domain;
-mod input;
-mod io;
-mod state;
 mod ui;
 
 use anyhow::Result;
@@ -15,8 +11,6 @@ fn main() -> Result<()> {
     let cli = cli::Cli::parse();
     init_logging(&cli);
 
-    // Initialize theme before running app
-    ui::theme::init_theme();
     logging::info(
         "editor.main",
         format!("editor startup: mod_source={}", cli.mod_source),

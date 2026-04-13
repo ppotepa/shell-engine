@@ -1,28 +1,31 @@
+use crate::{env, workspace};
 use anyhow::Result;
-use crate::{workspace, env};
 use std::path::Path;
 
 pub fn run(workspace_root: &Path) -> Result<()> {
     println!("Shell Engine Doctor\n");
-    
+
     let platform = env::detect_platform_env();
-    
+
     check_command("cargo", &["--version"]);
     check_command("rustc", &["--version"]);
     check_command("dotnet", &["--version"]);
-    
+
     if platform.is_windows {
         println!("\nSDL2 (Windows):");
         if let Some(ref lib_dir) = platform.sdl2_lib_dir {
             if lib_dir.exists() {
                 println!("  ✓ SDL2_LIB_DIR = {}", lib_dir.display());
             } else {
-                println!("  ✗ SDL2_LIB_DIR set but path doesn't exist: {}", lib_dir.display());
+                println!(
+                    "  ✗ SDL2_LIB_DIR set but path doesn't exist: {}",
+                    lib_dir.display()
+                );
             }
         } else {
             println!("  ✗ SDL2_LIB_DIR not set");
         }
-        
+
         if let Some(ref flags) = platform.rustflags {
             println!("  ✓ RUSTFLAGS = {}", flags);
         } else {
@@ -35,7 +38,7 @@ pub fn run(workspace_root: &Path) -> Result<()> {
             println!("\n  ✗ SDL2 not found (sdl2-config missing)");
         }
     }
-    
+
     println!("\nMods:");
     match workspace::scan_mods(workspace_root) {
         Ok(mods) => {
@@ -49,10 +52,10 @@ pub fn run(workspace_root: &Path) -> Result<()> {
             println!("  ✗ Failed to scan mods: {}", e);
         }
     }
-    
+
     println!("\nWorkspace build:");
     check_command("cargo", &["check", "--workspace", "--quiet"]);
-    
+
     Ok(())
 }
 
@@ -60,7 +63,7 @@ fn check_command(cmd: &str, args: &[&str]) {
     match which::which(cmd) {
         Ok(path) => {
             print!("  ✓ {} ", cmd);
-            
+
             if let Ok(output) = std::process::Command::new(&path).args(args).output() {
                 if output.status.success() {
                     let version = String::from_utf8_lossy(&output.stdout);

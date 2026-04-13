@@ -16,12 +16,8 @@ use engine_audio::AudioProvider;
 use engine_behavior_registry::BehaviorProvider;
 use engine_compositor::CompositorProvider;
 use engine_core::scene::Scene;
-use engine_debug::{FpsCounter, ProcessStats, SystemTimings};
-use engine_pipeline::{FrameSkipOracle, PipelineStrategies};
-use engine_render::{OutputBackend, VectorOverlay};
-use engine_render_terminal::RendererProvider;
+use engine_render::RendererBackend;
 use std::any::Any;
-use std::sync::Mutex;
 
 trait WorldResourceAccess {
     fn resource<T: Any + 'static>(&self) -> Option<&T>;
@@ -55,6 +51,7 @@ pub(crate) trait EngineWorldAccess {
     fn scene_runtime_mut(&mut self) -> Option<&mut SceneRuntime>;
     fn animator(&self) -> Option<&Animator>;
     fn animator_mut(&mut self) -> Option<&mut Animator>;
+#[allow(dead_code)]
     fn buffer(&self) -> Option<&Buffer>;
     fn buffer_mut(&mut self) -> Option<&mut Buffer>;
     fn output_buffer(&self) -> Option<&Buffer>;
@@ -62,7 +59,7 @@ pub(crate) trait EngineWorldAccess {
     fn runtime_settings(&self) -> Option<&RuntimeSettings>;
     fn audio_runtime_mut(&mut self) -> Option<&mut AudioRuntime>;
     fn asset_root(&self) -> Option<&AssetRoot>;
-    fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)>;
+    fn renderer_mut(&mut self) -> Option<&mut (dyn RendererBackend + '_)>;
     fn scene_loader(&self) -> Option<&SceneLoader>;
 }
 
@@ -101,7 +98,7 @@ impl EngineWorldAccess for World {
     }
 
     fn output_dimensions(&self) -> Option<(u16, u16)> {
-        self.resource::<Box<dyn OutputBackend>>()
+        self.resource::<Box<dyn RendererBackend>>()
             .map(|renderer| renderer.output_size())
             .or_else(|| {
                 self.resource::<Buffer>()
@@ -121,8 +118,8 @@ impl EngineWorldAccess for World {
         self.resource::<AssetRoot>()
     }
 
-    fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)> {
-        let renderer = self.get_mut::<Box<dyn OutputBackend>>()?;
+    fn renderer_mut(&mut self) -> Option<&mut (dyn RendererBackend + '_)> {
+        let renderer = self.get_mut::<Box<dyn RendererBackend>>()?;
         Some(renderer.as_mut())
     }
 
@@ -179,89 +176,6 @@ impl crate::scene3d_resolve::Scene3DAssetResolver for AssetRoot {
     }
 }
 
-// Implement RendererProvider for World to work with engine-render-terminal
-impl RendererProvider for World {
-    fn buffer(&self) -> Option<&Buffer> {
-        self.resource::<Buffer>()
-    }
-
-    fn buffer_mut(&mut self) -> Option<&mut Buffer> {
-        self.resource_mut::<Buffer>()
-    }
-
-    fn runtime_settings(&self) -> Option<&RuntimeSettings> {
-        self.resource::<RuntimeSettings>()
-    }
-
-    fn debug_features(&self) -> Option<&DebugFeatures> {
-        self.resource::<DebugFeatures>()
-    }
-
-    fn debug_log(&self) -> Option<&DebugLogBuffer> {
-        self.resource::<DebugLogBuffer>()
-    }
-
-    fn animator(&self) -> Option<&Animator> {
-        self.resource::<Animator>()
-    }
-
-    fn fps_counter(&self) -> Option<&FpsCounter> {
-        self.resource::<FpsCounter>()
-    }
-
-    fn process_stats(&self) -> Option<&ProcessStats> {
-        self.resource::<ProcessStats>()
-    }
-
-    fn object_count(&self) -> Option<usize> {
-        EngineWorldAccess::scene_runtime(self).map(|sr| sr.object_count())
-    }
-
-    fn gameplay_diagnostics(&self) -> Option<&engine_debug::GameplayDiagnostics> {
-        self.resource::<engine_debug::GameplayDiagnostics>()
-    }
-
-    fn system_timings(&self) -> Option<&SystemTimings> {
-        self.resource::<SystemTimings>()
-    }
-
-    fn current_scene_id(&self) -> String {
-        EngineWorldAccess::scene_runtime(self)
-            .map(|sr| sr.scene().id.clone())
-            .unwrap_or_else(|| "unknown".to_string())
-    }
-
-    fn frame_skip_oracle(&self) -> Option<&Mutex<Box<dyn FrameSkipOracle>>> {
-        self.resource::<Mutex<Box<dyn FrameSkipOracle>>>()
-    }
-
-    fn renderer_mut(&mut self) -> Option<&mut (dyn OutputBackend + '_)> {
-        let renderer = self.get_mut::<Box<dyn OutputBackend>>()?;
-        Some(renderer.as_mut())
-    }
-
-    fn swap_buffers(&mut self) {
-        if let Some(buf) = self.get_mut::<Buffer>() {
-            buf.swap();
-        }
-    }
-
-    fn restore_front_to_back(&mut self) {
-        if let Some(buf) = self.get_mut::<Buffer>() {
-            buf.restore_front_to_back();
-        }
-    }
-
-    fn pipeline_strategies_ptr(&self) -> *const PipelineStrategies {
-        self.get::<PipelineStrategies>()
-            .map(|ps| ps as *const PipelineStrategies)
-            .unwrap_or(std::ptr::null())
-    }
-
-    fn vector_overlay(&self) -> Option<&VectorOverlay> {
-        self.resource::<VectorOverlay>()
-    }
-}
 
 // Implement LifecycleProvider for World to work with engine-animation
 impl LifecycleProvider for World {
@@ -413,10 +327,6 @@ impl engine_compositor::CompositorAccess for World {
         None
     }
 
-    fn halfblock_packer(&self) -> Option<&dyn std::any::Any> {
-        // Halfblock packer is a strategy, not stored in World
-        None
-    }
 }
 
 // Implement SceneRuntimeAccess for World

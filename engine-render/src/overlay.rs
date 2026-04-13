@@ -1,7 +1,7 @@
 //! Overlay data model for backend-agnostic debug console rendering.
 //!
 //! The overlay is rendered **after** the game buffer is presented, directly
-//! onto the output surface (terminal or window), so it is always readable
+//! onto the output surface, so it is always readable
 //! regardless of game resolution or scaling.
 
 use engine_core::color::Color;
@@ -9,7 +9,6 @@ use engine_core::color::Color;
 /// A single line of overlay text with foreground and background colors.
 ///
 /// `bg_alpha` controls background opacity (0 = transparent, 255 = opaque).
-/// SDL2 uses this for alpha blending; terminal ignores it (no alpha support).
 #[derive(Debug, Clone)]
 pub struct OverlayLine {
     pub text: String,

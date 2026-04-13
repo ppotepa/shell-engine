@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../schemas/scenes.yaml
+id: terrain-placeholder-heightmap
+title: Heightmap Terrain (Coming Soon)
+bg: "#060a10"
+layers:
+  - ref: main
+stages:
+  on_enter:
+    steps:
+      - { effects: [{ name: fade-in, duration: 300 }] }
+  on_idle:
+    trigger: any-key
+    looping: true
+    steps:
+      - pause: 500ms
+  on_leave:
+    steps:
+      - { effects: [{ name: fade-out, duration: 250 }] }
+next: terrain-menu

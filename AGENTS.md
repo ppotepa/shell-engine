@@ -6,7 +6,7 @@
 
 ### Root-Level Consolidated Docs (Main Directory)
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Repository structure, dependency graph, per-frame systems, strategy pattern, scene model, buffer architecture, halfblock rendering, timeline system, input system, logging, schema system, editor design, change playbook
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — Repository structure, dependency graph, per-frame systems, strategy pattern, scene model, buffer architecture, SDL2 pixel rendering, timeline system, input system, logging, schema system, editor design, change playbook
 - **[AUTHORING.md](AUTHORING.md)** — Metadata-first approach, mod structure, asset system, sprite types, scene contract, PostFX pipeline, OBJ lighting, terminal HUD, Rhai scripting, compilation pipeline, author checklist, daily workflow
 - **[MODS.md](MODS.md)** — Shell Quest main mod, shell-quest-tests benchmark mod, playground dev mod, creating custom mods
 - **[BENCHMARKING.md](BENCHMARKING.md)** — Quick start, optimization flags, test mod specs, frame capture regression testing, benchmark scenarios and reports
@@ -20,9 +20,11 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - **[editor/README.AGENTS.MD](editor/README.AGENTS.MD)** — Editor architecture, hot-reload, subsystems
 - **[engine/README.AGENTS.MD](engine/README.AGENTS.MD)** — Runtime systems, optimization status, benchmarking
 - **[engine-core/README.AGENTS.MD](engine-core/README.AGENTS.MD)** — Scene model, buffer management, strategy traits
+- **[engine-mesh/README.md](engine-mesh/README.md)** — Procedural mesh generation, cube-sphere/UV-sphere, compositor URI integration
 - **[engine-*/README.md](engine-3d/README.md)** — crate-specific READMEs (purpose, key types, dependencies, usage)
 - **[mods/shell-quest/README.AGENTS.MD](mods/shell-quest/README.AGENTS.MD)** — Content structure, scenes, assets
 - **[mods/shell-quest-tests/README.AGENTS.MD](mods/shell-quest-tests/README.AGENTS.MD)** — Test mod, benchmarking, looping
+- **[mods/planet-generator/README.md](mods/planet-generator/README.md)** — Procedural planet viewer mod, controls, authoring new planet types
 - **[tools/README.AGENTS.MD](tools/README.AGENTS.MD)** — Benchmark runners, frame capture, schema tools
 - **[schemas/README.AGENTS.MD](schemas/README.AGENTS.MD)** — Schema generation, validation, drift checking
 
@@ -34,6 +36,7 @@ Each subsystem has a focused `README.AGENTS.MD` for deep dives:
 - `engine/` runtime systems and render pipeline
 - `engine-core/` shared model, metadata, built-in effects
 - `engine-authoring/` YAML compile/normalize/schema pipeline
+- `engine-mesh/` procedural 3D mesh generation (cube-sphere, UV-sphere)
 - `engine-io/` transport-agnostic IPC bridge (sidecar communication)
 - `editor/` TUI authoring tool
 - `mods/` content mods
@@ -154,7 +157,7 @@ Optimization flags:
 
 | Flag | What it does |
 |------|-------------|
-| `--opt-comp` | Compositor: layer scratch skip, dirty-region halfblock |
+| `--opt-comp` | Compositor: layer scratch skip |
 | `--opt-diff` | DirtyRegionDiff instead of full buffer scan |
 | `--opt-present` | Hash-based static frame skip |
 | `--opt-skip` | Unified frame-skip oracle (prevents flickering) |

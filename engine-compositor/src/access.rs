@@ -36,6 +36,4 @@ pub trait CompositorAccess {
     /// Get layer compositor strategy (delegates to strategy/LayerCompositor impl).
     fn layer_compositor(&self) -> Option<&dyn std::any::Any>;
 
-    /// Get halfblock packer strategy (delegates to strategy/HalfblockPacker impl).
-    fn halfblock_packer(&self) -> Option<&dyn std::any::Any>;
 }

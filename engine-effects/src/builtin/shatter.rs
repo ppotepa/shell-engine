@@ -1,10 +1,10 @@
-use engine_core::buffer::{Buffer, Cell, TRUE_BLACK};
-use engine_core::color::Color;
-use engine_core::effects::{Effect, Region};
 use crate::metadata::{EffectMetadata, P_EASING, P_INTENSITY};
 use crate::utils::color::colour_to_rgb;
 use crate::utils::math::{smoothstep, TICK_MS};
 use crate::utils::noise::crt_hash;
+use engine_core::buffer::{Buffer, Cell, TRUE_BLACK};
+use engine_core::color::Color;
+use engine_core::effects::{Effect, Region};
 use engine_core::scene::EffectParams;
 
 pub static METADATA: EffectMetadata = EffectMetadata {

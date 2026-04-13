@@ -8,15 +8,18 @@ use rhai::{Array as RhaiArray, Dynamic as RhaiDynamic, Map as RhaiMap};
 use serde_json::{Map as JsonMap, Value as JsonValue};
 
 use engine_api::{
+    filter_hits_by_kind, filter_hits_of_kind, follow_anchor_from_args, is_ephemeral_lifecycle,
+    map_int, map_number, map_string, parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
     ScriptEntityContext, ScriptWorldContext,
-    filter_hits_by_kind, filter_hits_of_kind,
-    follow_anchor_from_args, is_ephemeral_lifecycle, map_int, map_number, map_string,
-    parse_lifecycle_policy, EmitResolved, EphemeralPrefabResolved,
 };
-use engine_game::components::{DespawnVisual, LifecyclePolicy, ArcadeController, ParticleColorRamp, ParticlePhysics, ParticleThreadMode, AngularBody, LinearBrake, ThrusterRamp};
+use engine_game::components::{
+    AngularBody, ArcadeController, AtmosphereAffected2D, DespawnVisual, GravityAffected2D,
+    GravityMode2D, LifecyclePolicy, LinearBrake, ParticleColorRamp, ParticlePhysics,
+    ParticleThreadMode, ThrusterRamp,
+};
 use engine_game::{
-    Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime, PhysicsBody2D, Transform2D,
-    VisualBinding,
+    point_gravity_accel_3d, Collider2D, ColliderShape, CollisionHit, GameplayWorld, Lifetime,
+    PhysicsBody2D, Transform2D, VisualBinding,
 };
 
 use engine_persistence::PersistenceStore;
@@ -119,30 +122,33 @@ impl ScriptGameplayApi {
             .and_then(|palette| palette.particles.get(ramp_name).cloned())
     }
 
-
     pub(crate) fn count(&mut self) -> rhai::INT {
-        self.ctx.world
+        self.ctx
+            .world
             .as_ref()
             .map(|world| world.count() as rhai::INT)
             .unwrap_or(0)
     }
 
     pub(crate) fn count_kind(&mut self, kind: &str) -> rhai::INT {
-        self.ctx.world
+        self.ctx
+            .world
             .as_ref()
             .map(|world| world.count_kind(kind) as rhai::INT)
             .unwrap_or(0)
     }
 
     pub(crate) fn count_tag(&mut self, tag: &str) -> rhai::INT {
-        self.ctx.world
+        self.ctx
+            .world
             .as_ref()
             .map(|world| world.count_tag(tag) as rhai::INT)
             .unwrap_or(0)
     }
 
     pub(crate) fn first_kind(&mut self, kind: &str) -> rhai::INT {
-        self.ctx.world
+        self.ctx
+            .world
             .as_ref()
             .and_then(|world| world.first_kind(kind))
             .map(|id| id as rhai::INT)
@@ -150,7 +156,8 @@ impl ScriptGameplayApi {
     }
 
     pub(crate) fn first_tag(&mut self, tag: &str) -> rhai::INT {
-        self.ctx.world
+        self.ctx
+            .world
             .as_ref()
             .and_then(|world| world.first_tag(tag))
             .map(|id| id as rhai::INT)
@@ -313,7 +320,12 @@ impl ScriptGameplayApi {
             .collect()
     }
 
-    pub(crate) fn query_circle(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, radius: rhai::FLOAT) -> RhaiArray {
+    pub(crate) fn query_circle(
+        &mut self,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        radius: rhai::FLOAT,
+    ) -> RhaiArray {
         let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
@@ -324,7 +336,13 @@ impl ScriptGameplayApi {
             .collect()
     }
 
-    pub(crate) fn query_rect(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, w: rhai::FLOAT, h: rhai::FLOAT) -> RhaiArray {
+    pub(crate) fn query_rect(
+        &mut self,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        w: rhai::FLOAT,
+        h: rhai::FLOAT,
+    ) -> RhaiArray {
         let Some(world) = self.ctx.world.as_ref() else {
             return RhaiArray::new();
         };
@@ -335,7 +353,12 @@ impl ScriptGameplayApi {
             .collect()
     }
 
-    pub(crate) fn query_nearest(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT {
+    pub(crate) fn query_nearest(
+        &mut self,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        max_dist: rhai::FLOAT,
+    ) -> rhai::INT {
         let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
@@ -345,7 +368,13 @@ impl ScriptGameplayApi {
             .unwrap_or(0)
     }
 
-    pub(crate) fn query_nearest_kind(&mut self, kind: &str, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT {
+    pub(crate) fn query_nearest_kind(
+        &mut self,
+        kind: &str,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        max_dist: rhai::FLOAT,
+    ) -> rhai::INT {
         let Some(world) = self.ctx.world.as_ref() else {
             return 0;
         };
@@ -427,11 +456,38 @@ impl ScriptGameplayApi {
         if id < 0 {
             return false;
         }
+        let existing = world.transform(id as u64).unwrap_or_default();
         world.set_transform(
             id as u64,
             Transform2D {
                 x: x as f32,
                 y: y as f32,
+                z: existing.z,
+                heading: heading as f32,
+            },
+        )
+    }
+
+    pub(crate) fn set_transform_3d(
+        &mut self,
+        id: rhai::INT,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        z: rhai::FLOAT,
+        heading: rhai::FLOAT,
+    ) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        world.set_transform(
+            id as u64,
+            Transform2D {
+                x: x as f32,
+                y: y as f32,
+                z: z as f32,
                 heading: heading as f32,
             },
         )
@@ -448,6 +504,7 @@ impl ScriptGameplayApi {
             let mut map = RhaiMap::new();
             map.insert("x".into(), (xf.x as rhai::FLOAT).into());
             map.insert("y".into(), (xf.y as rhai::FLOAT).into());
+            map.insert("z".into(), (xf.z as rhai::FLOAT).into());
             map.insert("heading".into(), (xf.heading as rhai::FLOAT).into());
             return map.into();
         }
@@ -471,15 +528,53 @@ impl ScriptGameplayApi {
         if id < 0 {
             return false;
         }
-        // Preserve existing mass/restitution when overwriting via script
         let existing = world.physics(id as u64).unwrap_or_default();
         world.set_physics(
             id as u64,
             PhysicsBody2D {
                 vx: vx as f32,
                 vy: vy as f32,
+                vz: existing.vz,
                 ax: ax as f32,
                 ay: ay as f32,
+                az: existing.az,
+                drag: drag as f32,
+                max_speed: max_speed as f32,
+                mass: existing.mass,
+                restitution: existing.restitution,
+            },
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn set_physics_3d(
+        &mut self,
+        id: rhai::INT,
+        vx: rhai::FLOAT,
+        vy: rhai::FLOAT,
+        vz: rhai::FLOAT,
+        ax: rhai::FLOAT,
+        ay: rhai::FLOAT,
+        az: rhai::FLOAT,
+        drag: rhai::FLOAT,
+        max_speed: rhai::FLOAT,
+    ) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        let existing = world.physics(id as u64).unwrap_or_default();
+        world.set_physics(
+            id as u64,
+            PhysicsBody2D {
+                vx: vx as f32,
+                vy: vy as f32,
+                vz: vz as f32,
+                ax: ax as f32,
+                ay: ay as f32,
+                az: az as f32,
                 drag: drag as f32,
                 max_speed: max_speed as f32,
                 mass: existing.mass,
@@ -499,15 +594,170 @@ impl ScriptGameplayApi {
             let mut map = RhaiMap::new();
             map.insert("vx".into(), (body.vx as rhai::FLOAT).into());
             map.insert("vy".into(), (body.vy as rhai::FLOAT).into());
+            map.insert("vz".into(), (body.vz as rhai::FLOAT).into());
             map.insert("ax".into(), (body.ax as rhai::FLOAT).into());
             map.insert("ay".into(), (body.ay as rhai::FLOAT).into());
+            map.insert("az".into(), (body.az as rhai::FLOAT).into());
             map.insert("drag".into(), (body.drag as rhai::FLOAT).into());
             map.insert("max_speed".into(), (body.max_speed as rhai::FLOAT).into());
             map.insert("mass".into(), (body.mass as rhai::FLOAT).into());
-            map.insert("restitution".into(), (body.restitution as rhai::FLOAT).into());
+            map.insert(
+                "restitution".into(),
+                (body.restitution as rhai::FLOAT).into(),
+            );
             return map.into();
         }
         ().into()
+    }
+
+    pub(crate) fn gravity_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        let mode = match config
+            .get("mode")
+            .and_then(|v| v.clone().try_cast::<String>())
+        {
+            Some(mode) if mode.eq_ignore_ascii_case("flat") => GravityMode2D::Flat,
+            _ => GravityMode2D::Point,
+        };
+        let body_id = config
+            .get("body")
+            .and_then(|v| v.clone().try_cast::<String>())
+            .or_else(|| {
+                config
+                    .get("body_id")
+                    .and_then(|v| v.clone().try_cast::<String>())
+            });
+        let gravity_scale = Self::map_number(&config, "gravity_scale", 1.0) as f32;
+        let flat_ax = Self::map_number(&config, "flat_ax", 0.0) as f32;
+        let flat_ay = Self::map_number(&config, "flat_ay", 0.0) as f32;
+        world.attach_gravity(
+            id as u64,
+            GravityAffected2D {
+                mode,
+                body_id,
+                gravity_scale,
+                flat_ax,
+                flat_ay,
+            },
+        )
+    }
+
+    pub(crate) fn gravity(&mut self, id: rhai::INT) -> RhaiDynamic {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return ().into();
+        };
+        if id < 0 {
+            return ().into();
+        }
+        let Some(gravity) = world.gravity(id as u64) else {
+            return ().into();
+        };
+        let mut map = RhaiMap::new();
+        map.insert(
+            "mode".into(),
+            match gravity.mode {
+                GravityMode2D::Flat => "flat",
+                GravityMode2D::Point => "point",
+            }
+            .into(),
+        );
+        map.insert(
+            "gravity_scale".into(),
+            (gravity.gravity_scale as rhai::FLOAT).into(),
+        );
+        map.insert("flat_ax".into(), (gravity.flat_ax as rhai::FLOAT).into());
+        map.insert("flat_ay".into(), (gravity.flat_ay as rhai::FLOAT).into());
+        if let Some(body_id) = gravity.body_id {
+            map.insert("body".into(), body_id.into());
+        }
+        map.into()
+    }
+
+    pub(crate) fn body_gravity(
+        &mut self,
+        body_id: &str,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        z: rhai::FLOAT,
+    ) -> RhaiMap {
+        let mut map = RhaiMap::new();
+        let Some(body) = self.catalogs.celestial.bodies.get(body_id) else {
+            return map;
+        };
+        let dx = body.center_x as f32 - x as f32;
+        let dy = body.center_y as f32 - y as f32;
+        let dz = -(z as f32);
+        let dist_sq = dx * dx + dy * dy + dz * dz;
+        let dist = dist_sq.sqrt();
+        if let Some((ax, ay, az)) = point_gravity_accel_3d(dx, dy, dz, body.gravity_mu as f32) {
+            map.insert("ax".into(), (ax as rhai::FLOAT).into());
+            map.insert("ay".into(), (ay as rhai::FLOAT).into());
+            map.insert("az".into(), (az as rhai::FLOAT).into());
+        }
+        map.insert("distance".into(), (dist as rhai::FLOAT).into());
+        map
+    }
+
+    pub(crate) fn atmosphere_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
+        if id < 0 {
+            return false;
+        }
+        let body_id = config
+            .get("body")
+            .and_then(|v| v.clone().try_cast::<String>())
+            .or_else(|| {
+                config
+                    .get("body_id")
+                    .and_then(|v| v.clone().try_cast::<String>())
+            });
+        world.attach_atmosphere(
+            id as u64,
+            AtmosphereAffected2D {
+                body_id,
+                drag_scale: Self::map_number(&config, "drag_scale", 1.0) as f32,
+                heat_scale: Self::map_number(&config, "heat_scale", 1.0) as f32,
+                cooling: Self::map_number(&config, "cooling", 0.20) as f32,
+                ..AtmosphereAffected2D::default()
+            },
+        )
+    }
+
+    pub(crate) fn atmosphere(&mut self, id: rhai::INT) -> RhaiDynamic {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return ().into();
+        };
+        if id < 0 {
+            return ().into();
+        }
+        let Some(atmo) = world.atmosphere(id as u64) else {
+            return ().into();
+        };
+        let mut map = RhaiMap::new();
+        map.insert("drag_scale".into(), (atmo.drag_scale as rhai::FLOAT).into());
+        map.insert("heat_scale".into(), (atmo.heat_scale as rhai::FLOAT).into());
+        map.insert("cooling".into(), (atmo.cooling as rhai::FLOAT).into());
+        map.insert("heat".into(), (atmo.heat as rhai::FLOAT).into());
+        map.insert("density".into(), (atmo.density as rhai::FLOAT).into());
+        map.insert(
+            "dense_density".into(),
+            (atmo.dense_density as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "altitude_km".into(),
+            (atmo.altitude_km as rhai::FLOAT).into(),
+        );
+        if let Some(body_id) = atmo.body_id {
+            map.insert("body".into(), body_id.into());
+        }
+        map.into()
     }
 
     pub(crate) fn set_collider_circle(
@@ -638,7 +888,7 @@ impl ScriptGameplayApi {
             })
             .unwrap_or(0.0) as f32;
 
-        if !world.set_transform(entity_id, Transform2D { x, y, heading }) {
+        if !world.set_transform(entity_id, Transform2D { x, y, z: 0.0, heading }) {
             world.despawn(entity_id);
             return 0;
         }
@@ -684,24 +934,18 @@ impl ScriptGameplayApi {
                 for point in poly_arr {
                     if let Some(point_arr) = point.try_cast::<RhaiArray>() {
                         if point_arr.len() >= 2 {
-                            let px = point_arr[0]
-                                .clone()
-                                .try_cast::<rhai::FLOAT>()
-                                .or_else(|| {
-                                    point_arr[0]
-                                        .clone()
-                                        .try_cast::<rhai::INT>()
-                                        .map(|v| v as rhai::FLOAT)
-                                });
-                            let py = point_arr[1]
-                                .clone()
-                                .try_cast::<rhai::FLOAT>()
-                                .or_else(|| {
-                                    point_arr[1]
-                                        .clone()
-                                        .try_cast::<rhai::INT>()
-                                        .map(|v| v as rhai::FLOAT)
-                                });
+                            let px = point_arr[0].clone().try_cast::<rhai::FLOAT>().or_else(|| {
+                                point_arr[0]
+                                    .clone()
+                                    .try_cast::<rhai::INT>()
+                                    .map(|v| v as rhai::FLOAT)
+                            });
+                            let py = point_arr[1].clone().try_cast::<rhai::FLOAT>().or_else(|| {
+                                point_arr[1]
+                                    .clone()
+                                    .try_cast::<rhai::INT>()
+                                    .map(|v| v as rhai::FLOAT)
+                            });
                             if let (Some(px), Some(py)) = (px, py) {
                                 points.push([px as f32, py as f32]);
                             }
@@ -770,8 +1014,10 @@ impl ScriptGameplayApi {
             let body = PhysicsBody2D {
                 vx: extract_f("vx"),
                 vy: extract_f("vy"),
+                vz: 0.0,
                 ax: extract_f("ax"),
                 ay: extract_f("ay"),
+                az: 0.0,
                 drag: extract_f("drag"),
                 max_speed: extract_f("max_speed"),
                 mass: extract_f("mass").max(0.0),
@@ -787,7 +1033,7 @@ impl ScriptGameplayApi {
     }
 
     /// Generic prefab applicator: reads catalog components and applies them to an entity.
-    /// This centralizes all prefab component logic (physics, collider, controller, lifecycle) 
+    /// This centralizes all prefab component logic (physics, collider, controller, lifecycle)
     /// in one place, eliminating hardcoded match arms.
     fn apply_prefab_components(
         &mut self,
@@ -803,8 +1049,10 @@ impl ScriptGameplayApi {
         if let Some(phys) = &components.physics {
             let mut vx = phys.vx.unwrap_or(0.0);
             let mut vy = phys.vy.unwrap_or(0.0);
+            let mut vz = phys.vz.unwrap_or(0.0);
             let ax = phys.ax.unwrap_or(0.0);
             let ay = phys.ay.unwrap_or(0.0);
+            let az = phys.az.unwrap_or(0.0);
             let drag = phys.drag.unwrap_or(0.0);
             let max_speed = phys.max_speed.unwrap_or(0.0);
             let mass = phys.mass.unwrap_or(1.0) as f32;
@@ -816,21 +1064,66 @@ impl ScriptGameplayApi {
             if let Some(arg_vy) = args.get("vy").and_then(|v| v.as_float().ok()) {
                 vy = arg_vy;
             }
+            if let Some(arg_vz) = args.get("vz").and_then(|v| v.as_float().ok()) {
+                vz = arg_vz;
+            }
 
             let Some(world) = self.ctx.world.as_ref() else {
                 return false;
             };
-            if !world.set_physics(entity_id as u64, PhysicsBody2D {
-                vx: vx as f32,
-                vy: vy as f32,
-                ax: ax as f32,
-                ay: ay as f32,
-                drag: drag as f32,
-                max_speed: max_speed as f32,
-                mass,
-                restitution,
-            }) {
+            if !world.set_physics(
+                entity_id as u64,
+                PhysicsBody2D {
+                    vx: vx as f32,
+                    vy: vy as f32,
+                    vz: vz as f32,
+                    ax: ax as f32,
+                    ay: ay as f32,
+                    az: az as f32,
+                    drag: drag as f32,
+                    max_speed: max_speed as f32,
+                    mass,
+                    restitution,
+                },
+            ) {
                 return false;
+            }
+
+            if phys.gravity_scale.unwrap_or(0.0) > 0.0 || phys.gravity_mode.is_some() {
+                let gravity_mode = match phys.gravity_mode.as_deref() {
+                    Some("flat") => GravityMode2D::Flat,
+                    _ => GravityMode2D::Point,
+                };
+                if !world.attach_gravity(
+                    entity_id as u64,
+                    GravityAffected2D {
+                        mode: gravity_mode,
+                        body_id: phys.gravity_body.clone(),
+                        gravity_scale: phys.gravity_scale.unwrap_or(1.0) as f32,
+                        flat_ax: phys.gravity_flat_x.unwrap_or(0.0) as f32,
+                        flat_ay: phys.gravity_flat_y.unwrap_or(0.0) as f32,
+                    },
+                ) {
+                    return false;
+                }
+            }
+
+            if phys.atmosphere_body.is_some()
+                || phys.atmosphere_drag_scale.is_some()
+                || phys.atmosphere_heat_scale.is_some()
+            {
+                if !world.attach_atmosphere(
+                    entity_id as u64,
+                    AtmosphereAffected2D {
+                        body_id: phys.atmosphere_body.clone(),
+                        drag_scale: phys.atmosphere_drag_scale.unwrap_or(1.0) as f32,
+                        heat_scale: phys.atmosphere_heat_scale.unwrap_or(1.0) as f32,
+                        cooling: phys.atmosphere_cooling.unwrap_or(0.20) as f32,
+                        ..AtmosphereAffected2D::default()
+                    },
+                ) {
+                    return false;
+                }
             }
         }
 
@@ -905,7 +1198,21 @@ impl ScriptGameplayApi {
         // Apply args overrides for shape, size, and any other fields
         for (k, v) in args {
             // Skip position/velocity args that are handled separately
-            if !["x", "y", "heading", "vx", "vy", "ttl_ms", "radius", "owner_id", "cfg", "invulnerable_ms", "collider_radius"].contains(&k.as_str()) {
+            if ![
+                "x",
+                "y",
+                "heading",
+                "vx",
+                "vy",
+                "ttl_ms",
+                "radius",
+                "owner_id",
+                "cfg",
+                "invulnerable_ms",
+                "collider_radius",
+            ]
+            .contains(&k.as_str())
+            {
                 data.insert(k.clone(), v.clone());
             }
         }
@@ -974,7 +1281,9 @@ impl ScriptGameplayApi {
 
         // Apply default_tags from prefab catalog, then override/extend with args tags
         {
-            let Some(world) = self.ctx.world.as_ref() else { return id; };
+            let Some(world) = self.ctx.world.as_ref() else {
+                return id;
+            };
             for tag in &prefab.default_tags {
                 world.tag_add(id as u64, tag);
             }
@@ -1004,16 +1313,29 @@ impl ScriptGameplayApi {
     /// - `offset`: forward distance from owner origin to spawn point (default 0.0)
     /// - `inherit_velocity`: add owner velocity to projectile (default false)
     /// - Any other keys are forwarded to `spawn_prefab` (e.g. `ttl_ms`, `heading`)
-    pub(crate) fn spawn_from_heading(&mut self, owner_id: rhai::INT, prefab: &str, args: RhaiMap) -> rhai::INT {
-        let Some(world) = self.ctx.world.as_ref() else { return 0; };
-        let Some(xf) = world.transform(owner_id as u64) else { return 0; };
+    pub(crate) fn spawn_from_heading(
+        &mut self,
+        owner_id: rhai::INT,
+        prefab: &str,
+        args: RhaiMap,
+    ) -> rhai::INT {
+        let Some(world) = self.ctx.world.as_ref() else {
+            return 0;
+        };
+        let Some(xf) = world.transform(owner_id as u64) else {
+            return 0;
+        };
         let heading = xf.heading;
         let (fwd_x, fwd_y) = (heading.sin(), -heading.cos());
         let speed = Self::map_number(&args, "speed", 0.0) as f32;
         let offset = Self::map_number(&args, "offset", 0.0) as f32;
-        let inherit_velocity = args.get("inherit_velocity").and_then(|v| v.as_bool().ok()).unwrap_or(false);
+        let inherit_velocity = args
+            .get("inherit_velocity")
+            .and_then(|v| v.as_bool().ok())
+            .unwrap_or(false);
         let (svx, svy) = if inherit_velocity {
-            world.physics(owner_id as u64)
+            world
+                .physics(owner_id as u64)
                 .map(|b| (b.vx, b.vy))
                 .unwrap_or((0.0, 0.0))
         } else {
@@ -1044,19 +1366,27 @@ impl ScriptGameplayApi {
     /// - `speed` – total speed magnitude
     pub(crate) fn heading_drift(&mut self, id: rhai::INT) -> RhaiMap {
         let mut out = RhaiMap::new();
-        let Some(world) = self.ctx.world.as_ref() else { return out; };
-        let Some(xf) = world.transform(id as u64) else { return out; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return out;
+        };
+        let Some(xf) = world.transform(id as u64) else {
+            return out;
+        };
         let heading = xf.heading;
         let (fwd_x, fwd_y) = (heading.sin(), -heading.cos());
         let (vx, vy) = match world.physics(id as u64) {
             Some(b) => (b.vx, b.vy),
             None => (0.0, 0.0),
         };
-        let fwd   = vx * fwd_x + vy * fwd_y;
+        let fwd = vx * fwd_x + vy * fwd_y;
         let right = vx * (-fwd_y) + vy * fwd_x;
         let speed = (vx * vx + vy * vy).sqrt();
-        let drift = if speed > 0.001 { right.abs() / speed } else { 0.0 };
-        out.insert("fwd".into(),   (fwd   as rhai::FLOAT).into());
+        let drift = if speed > 0.001 {
+            right.abs() / speed
+        } else {
+            0.0
+        };
+        out.insert("fwd".into(), (fwd as rhai::FLOAT).into());
         out.insert("right".into(), (right as rhai::FLOAT).into());
         out.insert("drift".into(), (drift as rhai::FLOAT).into());
         out.insert("speed".into(), (speed as rhai::FLOAT).into());
@@ -1095,7 +1425,8 @@ impl ScriptGameplayApi {
             .map(|s| s.as_str())
             .unwrap_or("");
 
-        let resolved = self.resolve_ephemeral_prefab(prefab, args, lifecycle_str, vx, vy, drag, max_speed);
+        let resolved =
+            self.resolve_ephemeral_prefab(prefab, args, lifecycle_str, vx, vy, drag, max_speed);
 
         let Some(id) = spawn_ephemeral_visual(
             world,
@@ -1180,36 +1511,37 @@ impl ScriptGameplayApi {
         args: &RhaiMap,
     ) {
         // Args-level override wins over catalog default
-        let color_str = if let Some(arg_fg) = args.get("fg").and_then(|v| v.clone().into_string().ok()) {
-            if !arg_fg.is_empty() {
-                arg_fg
-            } else {
-                return;
-            }
-        } else if let Some(cfg) = fg_colour {
-            if let Some(key) = cfg.strip_prefix("@palette.") {
-                let resolved = self
-                    .palette_store
-                    .resolve(
-                        self.palette_persistence
-                            .as_ref()
-                            .and_then(|p| p.get("/__palette__"))
-                            .and_then(|v| v.as_str().map(|s| s.to_string()))
-                            .as_deref(),
-                        self.palette_default_id.as_deref(),
-                    )
-                    .and_then(|pal| pal.colors.get(key))
-                    .cloned();
-                match resolved {
-                    Some(c) => c,
-                    None => return,
+        let color_str =
+            if let Some(arg_fg) = args.get("fg").and_then(|v| v.clone().into_string().ok()) {
+                if !arg_fg.is_empty() {
+                    arg_fg
+                } else {
+                    return;
+                }
+            } else if let Some(cfg) = fg_colour {
+                if let Some(key) = cfg.strip_prefix("@palette.") {
+                    let resolved = self
+                        .palette_store
+                        .resolve(
+                            self.palette_persistence
+                                .as_ref()
+                                .and_then(|p| p.get("/__palette__"))
+                                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                                .as_deref(),
+                            self.palette_default_id.as_deref(),
+                        )
+                        .and_then(|pal| pal.colors.get(key))
+                        .cloned();
+                    match resolved {
+                        Some(c) => c,
+                        None => return,
+                    }
+                } else {
+                    cfg.clone()
                 }
             } else {
-                cfg.clone()
-            }
-        } else {
-            return;
-        };
+                return;
+            };
         self.set(id, "style.fg", rhai::Dynamic::from(color_str));
     }
 
@@ -1239,68 +1571,193 @@ impl ScriptGameplayApi {
     /// Returns a map of orbital body parameters for the given body id.
     /// Returns a map with all default values when the id is not found.
     pub(crate) fn body_info(&mut self, id: &str) -> RhaiMap {
-        let body = self.catalogs.bodies.get(id).cloned().unwrap_or_default();
+        let body = self
+            .catalogs
+            .celestial
+            .bodies
+            .get(id)
+            .cloned()
+            .unwrap_or_default();
         let mut map = RhaiMap::new();
-        map.insert("center_x".into(),        (body.center_x as rhai::FLOAT).into());
-        map.insert("center_y".into(),        (body.center_y as rhai::FLOAT).into());
-        map.insert("orbit_radius".into(),    (body.orbit_radius as rhai::FLOAT).into());
-        map.insert("orbit_period_sec".into(),(body.orbit_period_sec as rhai::FLOAT).into());
-        map.insert("orbit_phase_deg".into(), (body.orbit_phase_deg as rhai::FLOAT).into());
-        map.insert("radius_px".into(),       (body.radius_px as rhai::FLOAT).into());
-        map.insert("surface_radius".into(),  (body.surface_radius as rhai::FLOAT).into());
-        map.insert("gravity_mu".into(),      (body.gravity_mu as rhai::FLOAT).into());
-        if let Some(s) = body.planet_type   { map.insert("planet_type".into(),    s.into()); }
-        if let Some(s) = body.parent        { map.insert("parent".into(),          s.into()); }
-        if let Some(s) = body.sprite_surface  { map.insert("sprite_surface".into(),  s.into()); }
-        if let Some(s) = body.sprite_clouds   { map.insert("sprite_clouds".into(),   s.into()); }
-        if let Some(s) = body.sprite_clouds_2 { map.insert("sprite_clouds_2".into(), s.into()); }
+        map.insert("center_x".into(), (body.center_x as rhai::FLOAT).into());
+        map.insert("center_y".into(), (body.center_y as rhai::FLOAT).into());
+        map.insert(
+            "orbit_radius".into(),
+            (body.orbit_radius as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "orbit_period_sec".into(),
+            (body.orbit_period_sec as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "orbit_phase_deg".into(),
+            (body.orbit_phase_deg as rhai::FLOAT).into(),
+        );
+        map.insert("radius_px".into(), (body.radius_px as rhai::FLOAT).into());
+        map.insert(
+            "surface_radius".into(),
+            (body.surface_radius as rhai::FLOAT).into(),
+        );
+        map.insert("gravity_mu".into(), (body.gravity_mu as rhai::FLOAT).into());
+        if let Some(v) = body.radius_km {
+            map.insert("radius_km".into(), v.into());
+        }
+        if let Some(v) = body.km_per_px {
+            map.insert("km_per_px".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_top {
+            map.insert("atmosphere_top".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_dense_start {
+            map.insert("atmosphere_dense_start".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_drag_max {
+            map.insert("atmosphere_drag_max".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_top_km {
+            map.insert("atmosphere_top_km".into(), v.into());
+        }
+        if let Some(v) = body.atmosphere_dense_start_km {
+            map.insert("atmosphere_dense_start_km".into(), v.into());
+        }
+        if let Some(v) = body.cloud_bottom_km {
+            map.insert("cloud_bottom_km".into(), v.into());
+        }
+        if let Some(v) = body.cloud_top_km {
+            map.insert("cloud_top_km".into(), v.into());
+        }
+        if let Some(s) = body.planet_type {
+            map.insert("planet_type".into(), s.into());
+        }
+        if let Some(s) = body.parent {
+            map.insert("parent".into(), s.into());
+        }
         map
     }
 
     /// Returns a map of planet visual preset parameters for the given planet type id.
     /// Returns a map with all default values when the id is not found.
     pub(crate) fn planet_type_info(&mut self, id: &str) -> RhaiMap {
-        let p = self.catalogs.planet_types.get(id).cloned().unwrap_or_default();
+        let p = self
+            .catalogs
+            .celestial
+            .planet_types
+            .get(id)
+            .cloned()
+            .unwrap_or_default();
         let mut map = RhaiMap::new();
-        map.insert("ocean_color".into(),          p.ocean_color.into());
-        map.insert("land_color".into(),           p.land_color.into());
-        map.insert("terrain_threshold".into(),    (p.terrain_threshold as rhai::FLOAT).into());
-        map.insert("terrain_noise_scale".into(),  (p.terrain_noise_scale as rhai::FLOAT).into());
-        map.insert("terrain_noise_octaves".into(),(p.terrain_noise_octaves as rhai::INT).into());
-        map.insert("marble_depth".into(),         (p.marble_depth as rhai::FLOAT).into());
-        map.insert("ambient".into(),              (p.ambient as rhai::FLOAT).into());
-        map.insert("latitude_bands".into(),       (p.latitude_bands as rhai::INT).into());
-        map.insert("latitude_band_depth".into(),  (p.latitude_band_depth as rhai::FLOAT).into());
-        map.insert("polar_ice_start".into(),      (p.polar_ice_start as rhai::FLOAT).into());
-        map.insert("polar_ice_end".into(),        (p.polar_ice_end as rhai::FLOAT).into());
-        map.insert("desert_strength".into(),      (p.desert_strength as rhai::FLOAT).into());
-        map.insert("atmo_strength".into(),        (p.atmo_strength as rhai::FLOAT).into());
-        map.insert("atmo_rim_power".into(),       (p.atmo_rim_power as rhai::FLOAT).into());
-        map.insert("night_light_threshold".into(),(p.night_light_threshold as rhai::FLOAT).into());
-        map.insert("night_light_intensity".into(),(p.night_light_intensity as rhai::FLOAT).into());
-        map.insert("sun_dir_x".into(),            (p.sun_dir_x as rhai::FLOAT).into());
-        map.insert("sun_dir_y".into(),            (p.sun_dir_y as rhai::FLOAT).into());
-        map.insert("sun_dir_z".into(),            (p.sun_dir_z as rhai::FLOAT).into());
-        map.insert("surface_spin_dps".into(),     (p.surface_spin_dps as rhai::FLOAT).into());
-        map.insert("cloud_spin_dps".into(),       (p.cloud_spin_dps as rhai::FLOAT).into());
-        map.insert("cloud_spin_2_dps".into(),     (p.cloud_spin_2_dps as rhai::FLOAT).into());
-        map.insert("cloud_threshold".into(),      (p.cloud_threshold as rhai::FLOAT).into());
-        map.insert("cloud_noise_scale".into(),    (p.cloud_noise_scale as rhai::FLOAT).into());
-        map.insert("cloud_noise_octaves".into(),  (p.cloud_noise_octaves as rhai::INT).into());
-        if let Some(c) = p.polar_ice_color    { map.insert("polar_ice_color".into(),    c.into()); }
-        if let Some(c) = p.desert_color       { map.insert("desert_color".into(),       c.into()); }
-        if let Some(c) = p.atmo_color         { map.insert("atmo_color".into(),         c.into()); }
-        if let Some(c) = p.night_light_color  { map.insert("night_light_color".into(),  c.into()); }
-        if let Some(c) = p.cloud_color        { map.insert("cloud_color".into(),        c.into()); }
-        if let Some(c) = p.shadow_color       { map.insert("shadow_color".into(),       c.into()); }
-        if let Some(c) = p.midtone_color      { map.insert("midtone_color".into(),      c.into()); }
-        if let Some(c) = p.highlight_color    { map.insert("highlight_color".into(),    c.into()); }
+        map.insert("ocean_color".into(), p.ocean_color.into());
+        map.insert("land_color".into(), p.land_color.into());
+        map.insert(
+            "terrain_threshold".into(),
+            (p.terrain_threshold as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "terrain_noise_scale".into(),
+            (p.terrain_noise_scale as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "terrain_noise_octaves".into(),
+            (p.terrain_noise_octaves as rhai::INT).into(),
+        );
+        map.insert(
+            "marble_depth".into(),
+            (p.marble_depth as rhai::FLOAT).into(),
+        );
+        map.insert("ambient".into(), (p.ambient as rhai::FLOAT).into());
+        map.insert(
+            "latitude_bands".into(),
+            (p.latitude_bands as rhai::INT).into(),
+        );
+        map.insert(
+            "latitude_band_depth".into(),
+            (p.latitude_band_depth as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "polar_ice_start".into(),
+            (p.polar_ice_start as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "polar_ice_end".into(),
+            (p.polar_ice_end as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "desert_strength".into(),
+            (p.desert_strength as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "atmo_strength".into(),
+            (p.atmo_strength as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "atmo_rim_power".into(),
+            (p.atmo_rim_power as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "night_light_threshold".into(),
+            (p.night_light_threshold as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "night_light_intensity".into(),
+            (p.night_light_intensity as rhai::FLOAT).into(),
+        );
+        map.insert("sun_dir_x".into(), (p.sun_dir_x as rhai::FLOAT).into());
+        map.insert("sun_dir_y".into(), (p.sun_dir_y as rhai::FLOAT).into());
+        map.insert("sun_dir_z".into(), (p.sun_dir_z as rhai::FLOAT).into());
+        map.insert(
+            "surface_spin_dps".into(),
+            (p.surface_spin_dps as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "cloud_spin_dps".into(),
+            (p.cloud_spin_dps as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "cloud_spin_2_dps".into(),
+            (p.cloud_spin_2_dps as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "cloud_threshold".into(),
+            (p.cloud_threshold as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "cloud_noise_scale".into(),
+            (p.cloud_noise_scale as rhai::FLOAT).into(),
+        );
+        map.insert(
+            "cloud_noise_octaves".into(),
+            (p.cloud_noise_octaves as rhai::INT).into(),
+        );
+        if let Some(c) = p.polar_ice_color {
+            map.insert("polar_ice_color".into(), c.into());
+        }
+        if let Some(c) = p.desert_color {
+            map.insert("desert_color".into(), c.into());
+        }
+        if let Some(c) = p.atmo_color {
+            map.insert("atmo_color".into(), c.into());
+        }
+        if let Some(c) = p.night_light_color {
+            map.insert("night_light_color".into(), c.into());
+        }
+        if let Some(c) = p.cloud_color {
+            map.insert("cloud_color".into(), c.into());
+        }
+        if let Some(c) = p.shadow_color {
+            map.insert("shadow_color".into(), c.into());
+        }
+        if let Some(c) = p.midtone_color {
+            map.insert("midtone_color".into(), c.into());
+        }
+        if let Some(c) = p.highlight_color {
+            map.insert("highlight_color".into(), c.into());
+        }
         map
     }
 
-
     pub(crate) fn collisions(&mut self) -> RhaiArray {
-        self.ctx.collisions
+        self.ctx
+            .collisions
             .iter()
             .map(|hit| {
                 let mut map = RhaiMap::new();
@@ -1484,6 +1941,20 @@ impl ScriptGameplayApi {
         });
     }
 
+    /// Set the 2D camera zoom factor.
+    ///
+    /// Values > 1.0 zoom in (fewer world pixels visible, objects appear larger).
+    /// Values < 1.0 zoom out (more world pixels visible, objects appear smaller).
+    /// Default is 1.0.
+    pub(crate) fn set_camera_zoom(&mut self, zoom: rhai::FLOAT) {
+        let Ok(mut queue) = self.ctx.queue.lock() else {
+            return;
+        };
+        queue.push(BehaviorCommand::SetCameraZoom {
+            zoom: zoom as f32,
+        });
+    }
+
     pub(crate) fn set_camera_3d_look_at(
         &mut self,
         eye_x: rhai::FLOAT,
@@ -1521,19 +1992,25 @@ impl ScriptGameplayApi {
     /// `config` map keys (all optional, snake_case field names):
     /// `accel`, `max`, `deadband`, `auto_brake`.
     pub(crate) fn angular_body_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
         let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
-            map.get(key).and_then(|v| v.as_float().ok()).unwrap_or(default as rhai::FLOAT) as f32
+            map.get(key)
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(default as rhai::FLOAT) as f32
         };
         let get_b = |map: &RhaiMap, key: &str, default: bool| -> bool {
-            map.get(key).and_then(|v| v.as_bool().ok()).unwrap_or(default)
+            map.get(key)
+                .and_then(|v| v.as_bool().ok())
+                .unwrap_or(default)
         };
         let body = AngularBody {
-            accel:       get_f(&config, "accel",       5.5),
-            max:         get_f(&config, "max",          7.0),
-            deadband:    get_f(&config, "deadband",     0.10),
-            auto_brake:  get_b(&config, "auto_brake",   true),
-            angular_vel: get_f(&config, "angular_vel",  0.0),
+            accel: get_f(&config, "accel", 5.5),
+            max: get_f(&config, "max", 7.0),
+            deadband: get_f(&config, "deadband", 0.10),
+            auto_brake: get_b(&config, "auto_brake", true),
+            angular_vel: get_f(&config, "angular_vel", 0.0),
             ..Default::default()
         };
         world.attach_angular_body(id as u64, body)
@@ -1544,7 +2021,9 @@ impl ScriptGameplayApi {
     /// The `angular_body_system` reads this value and applies torque to the
     /// entity's angular velocity automatically — no manual tick needed.
     pub(crate) fn set_angular_input(&mut self, id: rhai::INT, input: rhai::FLOAT) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
         world.set_angular_input(id as u64, input as f32)
     }
 
@@ -1552,7 +2031,9 @@ impl ScriptGameplayApi {
     ///
     /// Returns `0.0` if the entity has no `AngularBody`.
     pub(crate) fn angular_vel(&mut self, id: rhai::INT) -> rhai::FLOAT {
-        let Some(world) = self.ctx.world.as_ref() else { return 0.0; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return 0.0;
+        };
         world.angular_vel(id as u64).unwrap_or(0.0) as rhai::FLOAT
     }
 
@@ -1560,17 +2041,23 @@ impl ScriptGameplayApi {
     ///
     /// Config map keys: `decel` (f32), `deadband` (f32), `auto_brake` (bool).
     pub(crate) fn linear_brake_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
         let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
-            map.get(key).and_then(|v| v.as_float().ok()).unwrap_or(default as rhai::FLOAT) as f32
+            map.get(key)
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(default as rhai::FLOAT) as f32
         };
         let get_b = |map: &RhaiMap, key: &str, default: bool| -> bool {
-            map.get(key).and_then(|v| v.as_bool().ok()).unwrap_or(default)
+            map.get(key)
+                .and_then(|v| v.as_bool().ok())
+                .unwrap_or(default)
         };
         let brake = LinearBrake {
-            decel:      get_f(&config, "decel",      45.0),
-            deadband:   get_f(&config, "deadband",    2.5),
-            auto_brake: get_b(&config, "auto_brake",  true),
+            decel: get_f(&config, "decel", 45.0),
+            deadband: get_f(&config, "deadband", 2.5),
+            auto_brake: get_b(&config, "auto_brake", true),
             active: false,
         };
         world.attach_linear_brake(id as u64, brake)
@@ -1578,7 +2065,9 @@ impl ScriptGameplayApi {
 
     /// Suppress auto-braking for this frame (call when entity is thrusting).
     pub(crate) fn set_linear_brake_active(&mut self, id: rhai::INT, active: bool) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
         world.set_linear_brake_active(id as u64, active)
     }
 
@@ -1589,23 +2078,29 @@ impl ScriptGameplayApi {
     /// `rot_factor_max_vel`, `burst_speed_threshold`, `burst_wave_interval_ms`,
     /// `burst_wave_count`, `rot_deadband`, `move_deadband`.
     pub(crate) fn thruster_ramp_attach(&mut self, id: rhai::INT, config: RhaiMap) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
         let get_f = |map: &RhaiMap, key: &str, default: f32| -> f32 {
-            map.get(key).and_then(|v| v.as_float().ok()).unwrap_or(default as rhai::FLOAT) as f32
+            map.get(key)
+                .and_then(|v| v.as_float().ok())
+                .unwrap_or(default as rhai::FLOAT) as f32
         };
         let get_u8 = |map: &RhaiMap, key: &str, default: u8| -> u8 {
-            map.get(key).and_then(|v| v.as_int().ok()).unwrap_or(default as rhai::INT) as u8
+            map.get(key)
+                .and_then(|v| v.as_int().ok())
+                .unwrap_or(default as rhai::INT) as u8
         };
         let ramp = ThrusterRamp {
-            thrust_delay_ms:       get_f(&config, "thrust_delay_ms",       8.0),
-            thrust_ramp_ms:        get_f(&config, "thrust_ramp_ms",       12.0),
+            thrust_delay_ms: get_f(&config, "thrust_delay_ms", 8.0),
+            thrust_ramp_ms: get_f(&config, "thrust_ramp_ms", 12.0),
             no_input_threshold_ms: get_f(&config, "no_input_threshold_ms", 30.0),
-            rot_factor_max_vel:    get_f(&config, "rot_factor_max_vel",     7.0),
+            rot_factor_max_vel: get_f(&config, "rot_factor_max_vel", 7.0),
             burst_speed_threshold: get_f(&config, "burst_speed_threshold", 15.0),
             burst_wave_interval_ms: get_f(&config, "burst_wave_interval_ms", 150.0),
-            burst_wave_count:      get_u8(&config, "burst_wave_count",       3),
-            rot_deadband:          get_f(&config, "rot_deadband",           0.10),
-            move_deadband:         get_f(&config, "move_deadband",           2.5),
+            burst_wave_count: get_u8(&config, "burst_wave_count", 3),
+            rot_deadband: get_f(&config, "rot_deadband", 0.10),
+            move_deadband: get_f(&config, "move_deadband", 2.5),
             ..Default::default()
         };
         world.attach_thruster_ramp(id as u64, ramp)
@@ -1619,22 +2114,49 @@ impl ScriptGameplayApi {
     /// `brake_factor` (float), `brake_phase` (string),
     /// `final_burst_fired` (bool), `final_burst_wave` (int).
     pub(crate) fn thruster_ramp(&mut self, id: rhai::INT) -> RhaiMap {
-        let Some(world) = self.ctx.world.as_ref() else { return RhaiMap::new(); };
-        let Some(ramp) = world.thruster_ramp(id as u64) else { return RhaiMap::new(); };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return RhaiMap::new();
+        };
+        let Some(ramp) = world.thruster_ramp(id as u64) else {
+            return RhaiMap::new();
+        };
         let mut map = RhaiMap::new();
-        map.insert("thrust_factor".into(),     rhai::Dynamic::from_float(ramp.thrust_factor as rhai::FLOAT));
-        map.insert("rot_factor".into(),        rhai::Dynamic::from_float(ramp.rot_factor    as rhai::FLOAT));
-        map.insert("brake_factor".into(),      rhai::Dynamic::from_float(ramp.brake_factor  as rhai::FLOAT));
-        map.insert("brake_phase".into(),       rhai::Dynamic::from(ramp.brake_phase.as_str().to_string()));
-        map.insert("final_burst_fired".into(), rhai::Dynamic::from_bool(ramp.final_burst_fired));
-        map.insert("final_burst_wave".into(),  rhai::Dynamic::from_int(ramp.final_burst_wave as rhai::INT));
-        map.insert("thrust_ignition_ms".into(), rhai::Dynamic::from_float(ramp.thrust_ignition_ms as rhai::FLOAT));
+        map.insert(
+            "thrust_factor".into(),
+            rhai::Dynamic::from_float(ramp.thrust_factor as rhai::FLOAT),
+        );
+        map.insert(
+            "rot_factor".into(),
+            rhai::Dynamic::from_float(ramp.rot_factor as rhai::FLOAT),
+        );
+        map.insert(
+            "brake_factor".into(),
+            rhai::Dynamic::from_float(ramp.brake_factor as rhai::FLOAT),
+        );
+        map.insert(
+            "brake_phase".into(),
+            rhai::Dynamic::from(ramp.brake_phase.as_str().to_string()),
+        );
+        map.insert(
+            "final_burst_fired".into(),
+            rhai::Dynamic::from_bool(ramp.final_burst_fired),
+        );
+        map.insert(
+            "final_burst_wave".into(),
+            rhai::Dynamic::from_int(ramp.final_burst_wave as rhai::INT),
+        );
+        map.insert(
+            "thrust_ignition_ms".into(),
+            rhai::Dynamic::from_float(ramp.thrust_ignition_ms as rhai::FLOAT),
+        );
         map
     }
 
     /// Detach the [`ThrusterRamp`] component from an entity.
     pub(crate) fn thruster_ramp_detach(&mut self, id: rhai::INT) -> bool {
-        let Some(world) = self.ctx.world.as_ref() else { return false; };
+        let Some(world) = self.ctx.world.as_ref() else {
+            return false;
+        };
         world.detach_thruster_ramp(id as u64)
     }
 
@@ -1817,8 +2339,7 @@ impl ScriptGameplayApi {
         let velocity_scale = config.velocity_scale.unwrap_or(1.0);
         // side_offset: perpendicular right offset from heading direction.
         // Right-perp of (hx, hy) is (hy, -hx).  Negative values = left side.
-        let side_offset = config_side_offset
-            + Self::map_number(&args, "side_offset", 0.0);
+        let side_offset = config_side_offset + Self::map_number(&args, "side_offset", 0.0);
         let resolved = self.resolve_emit(&config, &args, spawn_offset, hx, hy);
 
         // Base emission axis is provided in world-space by resolve_emit.
@@ -1871,7 +2392,10 @@ impl ScriptGameplayApi {
                                 points
                                     .into_iter()
                                     .map(|[px, py]| {
-                                        JsonValue::Array(vec![JsonValue::from(px), JsonValue::from(py)])
+                                        JsonValue::Array(vec![
+                                            JsonValue::from(px),
+                                            JsonValue::from(py),
+                                        ])
                                     })
                                     .collect(),
                             ),
@@ -1882,21 +2406,44 @@ impl ScriptGameplayApi {
         }
 
         // Attach particle physics configuration if emitter specifies thread_mode/collision/gravity
-        if config.thread_mode.is_some() || config.collision.is_some() || config.gravity_scale.is_some() || config.gravity_mode.is_some() {
-            let thread_mode = config.thread_mode.as_deref().map(ParticleThreadMode::from_str).unwrap_or_default();
+        if config.thread_mode.is_some()
+            || config.collision.is_some()
+            || config.gravity_scale.is_some()
+            || config.gravity_mode.is_some()
+        {
+            let thread_mode = config
+                .thread_mode
+                .as_deref()
+                .map(ParticleThreadMode::from_str)
+                .unwrap_or_default();
             let collision = config.collision.unwrap_or(false);
             let gravity_scale = config.gravity_scale.unwrap_or(0.0) as f32;
             let bounce = config.bounce.unwrap_or(0.0) as f32;
             let mass = config.mass.unwrap_or(1.0) as f32;
             let collision_mask = config.collision_mask.clone().unwrap_or_default();
             let gravity_mode = match config.gravity_mode.as_deref() {
-                Some(s) if s.eq_ignore_ascii_case("orbital") => engine_game::components::ParticleGravityMode::Orbital,
+                Some(s) if s.eq_ignore_ascii_case("orbital") => {
+                    engine_game::components::ParticleGravityMode::Orbital
+                }
                 _ => engine_game::components::ParticleGravityMode::Flat,
             };
-            let gravity_center_x = config.gravity_center_x.unwrap_or(0.0) as f32;
-            let gravity_center_y = config.gravity_center_y.unwrap_or(0.0) as f32;
+            let gravity_center_x = args
+                .get("gravity_center_x")
+                .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+                .map(|v| v as f32)
+                .unwrap_or_else(|| config.gravity_center_x.unwrap_or(0.0) as f32);
+            let gravity_center_y = args
+                .get("gravity_center_y")
+                .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+                .map(|v| v as f32)
+                .unwrap_or_else(|| config.gravity_center_y.unwrap_or(0.0) as f32);
+            let gravity_center_z = args
+                .get("gravity_center_z")
+                .and_then(|v| v.clone().try_cast::<rhai::FLOAT>())
+                .map(|v| v as f32)
+                .unwrap_or_else(|| config.gravity_center_z.unwrap_or(0.0) as f32);
             let gravity_constant = config.gravity_constant.unwrap_or(0.0) as f32;
-            
+
             let particle_physics = ParticlePhysics {
                 thread_mode,
                 collision,
@@ -1907,6 +2454,7 @@ impl ScriptGameplayApi {
                 gravity_mode,
                 gravity_center_x,
                 gravity_center_y,
+                gravity_center_z,
                 gravity_constant,
             };
             let _ = world.attach_particle_physics(id, particle_physics);
@@ -1916,9 +2464,16 @@ impl ScriptGameplayApi {
         let ramp_colors: Option<Vec<String>> = args
             .get("color_ramp")
             .and_then(|v| v.clone().try_cast::<rhai::Array>())
-            .map(|arr| arr.into_iter().filter_map(|c| c.try_cast::<String>()).collect())
+            .map(|arr| {
+                arr.into_iter()
+                    .filter_map(|c| c.try_cast::<String>())
+                    .collect()
+            })
             .or_else(|| {
-                config.palette_ramp.as_deref().and_then(|name| self.resolve_palette_ramp(name))
+                config
+                    .palette_ramp
+                    .as_deref()
+                    .and_then(|name| self.resolve_palette_ramp(name))
             })
             .or_else(|| config.color_ramp.clone());
         if let Some(colors) = ramp_colors {
@@ -1933,7 +2488,14 @@ impl ScriptGameplayApi {
                     .and_then(|v| v.clone().try_cast::<rhai::INT>())
                     .unwrap_or_else(|| config.radius_min.unwrap_or(0))
                     as i32;
-                let _ = world.attach_particle_ramp(id, ParticleColorRamp { colors, radius_max, radius_min });
+                let _ = world.attach_particle_ramp(
+                    id,
+                    ParticleColorRamp {
+                        colors,
+                        radius_max,
+                        radius_min,
+                    },
+                );
             }
         }
 
@@ -2040,7 +2602,8 @@ impl ScriptGameplayApi {
             extra_data.insert("fg".to_string(), JsonValue::from(fg.clone()));
         }
 
-        let (base_dir_x, base_dir_y) = Self::resolve_emit_base_dir(config, args, heading_x, heading_y);
+        let (base_dir_x, base_dir_y) =
+            Self::resolve_emit_base_dir(config, args, heading_x, heading_y);
         let base_emission_angle = config.emission_angle.unwrap_or(0.0);
         EmitResolved {
             speed: Self::map_number(args, "speed", 0.0),
@@ -2076,13 +2639,15 @@ impl ScriptGameplayApi {
             .get("emission_local_y")
             .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
         if let (Some(local_x), Some(local_y)) = (arg_local_x, arg_local_y) {
-            if let Some(dir) = Self::local_vec_to_world_unit(local_x, local_y, heading_x, heading_y) {
+            if let Some(dir) = Self::local_vec_to_world_unit(local_x, local_y, heading_x, heading_y)
+            {
                 return dir;
             }
         }
 
         if let (Some(local_x), Some(local_y)) = (config.emission_local_x, config.emission_local_y) {
-            if let Some(dir) = Self::local_vec_to_world_unit(local_x, local_y, heading_x, heading_y) {
+            if let Some(dir) = Self::local_vec_to_world_unit(local_x, local_y, heading_x, heading_y)
+            {
                 return dir;
             }
         }
@@ -2127,8 +2692,12 @@ impl ScriptGameplayApi {
     /// 3) config.edge_{from,to}_* + edge_t interpolation
     /// 4) legacy config.spawn_offset/config.side_offset fallback
     fn resolve_emit_anchor_offsets(config: &catalog::EmitterConfig, args: &RhaiMap) -> (f64, f64) {
-        let arg_local_x = args.get("local_x").and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
-        let arg_local_y = args.get("local_y").and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+        let arg_local_x = args
+            .get("local_x")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
+        let arg_local_y = args
+            .get("local_y")
+            .and_then(|v| v.clone().try_cast::<rhai::FLOAT>());
         if let (Some(local_x), Some(local_y)) = (arg_local_x, arg_local_y) {
             return (local_y, -local_x);
         }
@@ -2438,7 +3007,10 @@ impl ScriptGameplayEntityApi {
                 (physics.max_speed as rhai::FLOAT).into(),
             );
             phys.insert("mass".into(), (physics.mass as rhai::FLOAT).into());
-            phys.insert("restitution".into(), (physics.restitution as rhai::FLOAT).into());
+            phys.insert(
+                "restitution".into(),
+                (physics.restitution as rhai::FLOAT).into(),
+            );
             metadata.insert("physics".into(), phys.into());
         }
 
@@ -2518,8 +3090,54 @@ impl ScriptGameplayEntityApi {
                 (physics.max_speed as rhai::FLOAT).into(),
             );
             phys.insert("mass".into(), (physics.mass as rhai::FLOAT).into());
-            phys.insert("restitution".into(), (physics.restitution as rhai::FLOAT).into());
+            phys.insert(
+                "restitution".into(),
+                (physics.restitution as rhai::FLOAT).into(),
+            );
             components.insert("physics".into(), phys.into());
+        }
+
+        if let Some(gravity) = world.gravity(self.ctx.id) {
+            let mut grav = RhaiMap::new();
+            grav.insert(
+                "mode".into(),
+                match gravity.mode {
+                    GravityMode2D::Flat => "flat",
+                    GravityMode2D::Point => "point",
+                }
+                .into(),
+            );
+            grav.insert(
+                "gravity_scale".into(),
+                (gravity.gravity_scale as rhai::FLOAT).into(),
+            );
+            grav.insert("flat_ax".into(), (gravity.flat_ax as rhai::FLOAT).into());
+            grav.insert("flat_ay".into(), (gravity.flat_ay as rhai::FLOAT).into());
+            if let Some(body_id) = gravity.body_id {
+                grav.insert("body".into(), body_id.into());
+            }
+            components.insert("gravity".into(), grav.into());
+        }
+
+        if let Some(atmo) = world.atmosphere(self.ctx.id) {
+            let mut map = RhaiMap::new();
+            map.insert("drag_scale".into(), (atmo.drag_scale as rhai::FLOAT).into());
+            map.insert("heat_scale".into(), (atmo.heat_scale as rhai::FLOAT).into());
+            map.insert("cooling".into(), (atmo.cooling as rhai::FLOAT).into());
+            map.insert("heat".into(), (atmo.heat as rhai::FLOAT).into());
+            map.insert("density".into(), (atmo.density as rhai::FLOAT).into());
+            map.insert(
+                "dense_density".into(),
+                (atmo.dense_density as rhai::FLOAT).into(),
+            );
+            map.insert(
+                "altitude_km".into(),
+                (atmo.altitude_km as rhai::FLOAT).into(),
+            );
+            if let Some(body_id) = atmo.body_id {
+                map.insert("body".into(), body_id.into());
+            }
+            components.insert("atmosphere".into(), map.into());
         }
 
         if let Some(collider) = world.collider(self.ctx.id) {
@@ -2632,7 +3250,10 @@ impl ScriptGameplayEntityApi {
         result.insert("drag".into(), (phys.drag as rhai::FLOAT).into());
         result.insert("max_speed".into(), (phys.max_speed as rhai::FLOAT).into());
         result.insert("mass".into(), (phys.mass as rhai::FLOAT).into());
-        result.insert("restitution".into(), (phys.restitution as rhai::FLOAT).into());
+        result.insert(
+            "restitution".into(),
+            (phys.restitution as rhai::FLOAT).into(),
+        );
         result
     }
 

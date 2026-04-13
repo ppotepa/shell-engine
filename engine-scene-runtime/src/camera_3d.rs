@@ -1,5 +1,12 @@
 use super::*;
 
+const FREE_LOOK_CAPTURED_KEYS: &[&str] = &[
+    "w", "a", "s", "d", "q", "e", " ", "Up", "Down", "Left", "Right",
+];
+const FREE_LOOK_VERTICAL_LOOK_SCALE: f32 = 1.8;
+const FREE_LOOK_HORIZONTAL_LOOK_SCALE: f32 = 1.8;
+const FREE_LOOK_PITCH_LIMIT_DEG: f32 = 85.0;
+
 impl SceneRuntime {
     pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
         if delta == 0.0 {
@@ -131,6 +138,172 @@ impl SceneRuntime {
             .get(sprite_id)
             .and_then(|state| state.last_mouse_pos)
     }
+
+    pub fn free_look_camera_engaged(&self) -> bool {
+        self.free_look_camera
+            .as_ref()
+            .is_some_and(|state| state.active || state.pending_activate)
+    }
+
+    pub fn apply_free_look_key_events(
+        &mut self,
+        key_presses: &[KeyEvent],
+        key_releases: &[KeyEvent],
+    ) -> bool {
+        if self.free_look_camera.is_none() {
+            return false;
+        }
+
+        let mut toggled = false;
+        for key in key_presses {
+            if is_free_look_toggle(key) {
+                self.toggle_free_look_camera();
+                toggled = true;
+                continue;
+            }
+            if let Some(name) = free_look_captured_key_name(key) {
+                if let Some(state) = self.free_look_camera.as_mut() {
+                    if state.active || state.pending_activate {
+                        state.held_keys.insert(name.to_string());
+                    }
+                }
+            }
+        }
+
+        for key in key_releases {
+            if let Some(name) = free_look_captured_key_name(key) {
+                if let Some(state) = self.free_look_camera.as_mut() {
+                    state.held_keys.remove(name);
+                }
+            }
+        }
+
+        if self.free_look_camera_engaged() {
+            self.mask_free_look_keys_from_scene_input();
+        }
+
+        toggled
+    }
+
+    pub fn apply_free_look_mouse_moves(&mut self, mouse_moves: &[(u16, u16)]) {
+        let Some(state) = self.free_look_camera.as_mut() else {
+            return;
+        };
+        if !(state.active || state.pending_activate) {
+            return;
+        }
+
+        let Some((mut prev_col, mut prev_row)) = state.last_mouse_pos else {
+            state.last_mouse_pos = mouse_moves.last().copied();
+            return;
+        };
+
+        let mut total_dyaw = 0.0f32;
+        let mut total_dpitch = 0.0f32;
+        for &(col, row) in mouse_moves {
+            let dc = col as f32 - prev_col as f32;
+            let dr = row as f32 - prev_row as f32;
+            total_dyaw += dc * FREE_LOOK_HORIZONTAL_LOOK_SCALE * state.mouse_sensitivity;
+            total_dpitch -= dr * FREE_LOOK_VERTICAL_LOOK_SCALE * state.mouse_sensitivity;
+            prev_col = col;
+            prev_row = row;
+        }
+
+        state.last_mouse_pos = Some((prev_col, prev_row));
+        if state.active {
+            state.yaw_deg += total_dyaw;
+            state.pitch_deg = (state.pitch_deg + total_dpitch)
+                .clamp(-FREE_LOOK_PITCH_LIMIT_DEG, FREE_LOOK_PITCH_LIMIT_DEG);
+        }
+    }
+
+    pub fn step_free_look_camera(&mut self, dt_ms: u64) -> bool {
+        let current_camera = self.scene_camera_3d;
+        let Some(state) = self.free_look_camera.as_mut() else {
+            return false;
+        };
+        if !(state.active || state.pending_activate) {
+            return false;
+        }
+
+        if state.pending_activate {
+            let forward = current_camera.forward();
+            state.position = current_camera.eye;
+            state.yaw_deg = forward[0].atan2(-forward[2]).to_degrees();
+            state.pitch_deg = forward[1].clamp(-1.0, 1.0).asin().to_degrees();
+            state.pending_activate = false;
+            state.active = true;
+        }
+
+        let dt_s = dt_ms as f32 / 1000.0;
+        let forward = free_look_forward(state.yaw_deg, state.pitch_deg);
+        let right = normalize3(cross3(forward, [0.0, 1.0, 0.0]));
+        let up = normalize3(cross3(right, forward));
+
+        let mut move_dir = [0.0f32, 0.0, 0.0];
+        if state.held_keys.contains("w") {
+            move_dir = add3(move_dir, forward);
+        }
+        if state.held_keys.contains("s") {
+            move_dir = add3(move_dir, scale3(forward, -1.0));
+        }
+        if state.held_keys.contains("d") {
+            move_dir = add3(move_dir, right);
+        }
+        if state.held_keys.contains("a") {
+            move_dir = add3(move_dir, scale3(right, -1.0));
+        }
+        if state.held_keys.contains("e") {
+            move_dir = add3(move_dir, up);
+        }
+        if state.held_keys.contains("q") {
+            move_dir = add3(move_dir, scale3(up, -1.0));
+        }
+
+        let move_len = length3(move_dir);
+        if move_len > 0.0 {
+            let step = scale3(normalize3(move_dir), state.move_speed * dt_s);
+            state.position = add3(state.position, step);
+        }
+
+        let mut camera = current_camera;
+        camera.eye = state.position;
+        camera.look_at = add3(state.position, forward);
+        camera.up = up;
+        self.set_scene_camera_3d_internal(camera);
+        true
+    }
+
+    fn toggle_free_look_camera(&mut self) {
+        let Some(state) = self.free_look_camera.as_mut() else {
+            return;
+        };
+        if state.active || state.pending_activate {
+            for key in &state.held_keys {
+                self.ui_state.keys_down.insert(key.clone());
+            }
+            state.active = false;
+            state.pending_activate = false;
+            state.last_mouse_pos = None;
+            return;
+        }
+
+        state.held_keys.clear();
+        for key in FREE_LOOK_CAPTURED_KEYS {
+            if self.ui_state.keys_down.contains(*key) {
+                state.held_keys.insert((*key).to_string());
+            }
+        }
+        state.last_mouse_pos = None;
+        state.pending_activate = true;
+        self.mask_free_look_keys_from_scene_input();
+    }
+
+    fn mask_free_look_keys_from_scene_input(&mut self) {
+        for key in FREE_LOOK_CAPTURED_KEYS {
+            self.ui_state.keys_down.remove(*key);
+        }
+    }
 }
 
 /// Visit every [`Sprite::Obj`] mutably in a tree, recursing into grids.
@@ -167,9 +340,67 @@ fn obj_orbit_active_in_sprites(sprites: &[Sprite], sprite_id: &str) -> Option<bo
             }
             Sprite::Text { .. }
             | Sprite::Image { .. }
+            | Sprite::Planet { .. }
             | Sprite::Scene3D { .. }
             | Sprite::Vector { .. } => {}
         }
     }
     None
+}
+
+fn is_free_look_toggle(key: &KeyEvent) -> bool {
+    key.modifiers.contains(KeyModifiers::CONTROL)
+        && matches!(key.code, KeyCode::Char('f') | KeyCode::Char('F'))
+}
+
+fn free_look_captured_key_name(key: &KeyEvent) -> Option<&'static str> {
+    match key.code {
+        KeyCode::Char('w') | KeyCode::Char('W') => Some("w"),
+        KeyCode::Char('a') | KeyCode::Char('A') => Some("a"),
+        KeyCode::Char('s') | KeyCode::Char('S') => Some("s"),
+        KeyCode::Char('d') | KeyCode::Char('D') => Some("d"),
+        KeyCode::Char('q') | KeyCode::Char('Q') => Some("q"),
+        KeyCode::Char('e') | KeyCode::Char('E') => Some("e"),
+        KeyCode::Char(' ') => Some(" "),
+        KeyCode::Up => Some("Up"),
+        KeyCode::Down => Some("Down"),
+        KeyCode::Left => Some("Left"),
+        KeyCode::Right => Some("Right"),
+        _ => None,
+    }
+}
+
+fn free_look_forward(yaw_deg: f32, pitch_deg: f32) -> [f32; 3] {
+    let yaw = yaw_deg.to_radians();
+    let pitch = pitch_deg.to_radians();
+    [
+        yaw.sin() * pitch.cos(),
+        pitch.sin(),
+        -yaw.cos() * pitch.cos(),
+    ]
+}
+
+fn add3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+fn scale3(v: [f32; 3], s: f32) -> [f32; 3] {
+    [v[0] * s, v[1] * s, v[2] * s]
+}
+
+fn cross3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ]
+}
+
+fn length3(v: [f32; 3]) -> f32 {
+    (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+}
+
+fn normalize3(v: [f32; 3]) -> [f32; 3] {
+    let len = length3(v).max(1e-6);
+    [v[0] / len, v[1] / len, v[2] / len]
 }

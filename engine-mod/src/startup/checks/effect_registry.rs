@@ -1,7 +1,7 @@
 //! Verifies that every effect name referenced in the mod's scenes is registered in the effect dispatcher.
 
-use engine_effects::{shared_dispatcher, EffectDispatcher};
 use engine_core::scene::{Effect, EffectTargetKind, LayerStages, Scene, Sprite, Stage};
+use engine_effects::{shared_dispatcher, EffectDispatcher};
 use engine_error::EngineError;
 use std::collections::BTreeMap;
 
@@ -324,9 +324,10 @@ fn collect_sprite_target_kinds(
 fn sprite_target_kind(sprite: &Sprite) -> EffectTargetKind {
     match sprite {
         Sprite::Text { .. } => EffectTargetKind::SpriteText,
-        Sprite::Image { .. } | Sprite::Obj { .. } | Sprite::Vector { .. } => {
-            EffectTargetKind::SpriteBitmap
-        }
+        Sprite::Image { .. }
+        | Sprite::Obj { .. }
+        | Sprite::Planet { .. }
+        | Sprite::Vector { .. } => EffectTargetKind::SpriteBitmap,
         Sprite::Grid { .. }
         | Sprite::Flex { .. }
         | Sprite::Panel { .. }

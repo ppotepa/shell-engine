@@ -196,8 +196,8 @@ fn combine_core_halo(
                     .normalized();
                     // Only apply shimmer if alpha is significant.
                     if mix.a > 0.01 {
-                        let shimmer =
-                            0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
+                        let shimmer = 0.92
+                            + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
                         mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
                     }
                     *out_pix = mix;
@@ -217,7 +217,8 @@ fn combine_core_halo(
             .normalized();
             // Only apply shimmer if alpha is significant (avoid wasted rand for transparent pixels).
             if mix.a > 0.01 {
-                let shimmer = 0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
+                let shimmer =
+                    0.92 + 0.16 * rand01(i as u16, (i >> 8) as u16, frame.wrapping_add(1703));
                 mix.a = (mix.a * shimmer).clamp(0.0, 1.0);
             }
             out[i] = mix;
@@ -235,7 +236,7 @@ fn blur_glow3x3_into(src: &[GlowPixel], dst: &mut [GlowPixel], width: usize, hei
     }
 
     let n = width * height;
-    
+
     // Interior pixels (not on edge) — no bounds checks needed.
     // Process in parallel for large buffers using row-based chunks.
     if n > PARALLEL_PIXEL_THRESHOLD && height > 2 {

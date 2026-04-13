@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: main
+  z_index: 0
+  sprites:
+    - type: grid
+      id: menu-frame
+      at: tl
+      columns: ["24", "1fr", "24"]
+      rows: ["20", "1fr", "20"]
+      children:
+        - type: grid
+          id: menu-content
+          grid-col: 2
+          grid-row: 2
+          columns: ["1fr"]
+          rows: ["2fr", "auto", "1fr"]
+          children:
+            - type: text
+              id: title-text
+              content: "TERRAIN"
+              grid-col: 1
+              grid-row: 1
+              at: cb
+              font: "Orbitron:ascii"
+              fg: "#44cc88"
+
+            - type: grid
+              id: menu-items
+              grid-col: 1
+              grid-row: 2
+              at: cc
+              width: 260
+              columns: ["1fr"]
+              rows: ["auto", "auto", "auto", "auto", "auto"]
+              gap-y: 14
+              children:
+                - { type: text, id: item-0, content: "PLAIN TERRAIN",    grid-col: 1, grid-row: 1, at: cc, font: "Orbitron:ascii", fg: "#44cc88" }
+                - { type: text, id: item-1, content: "HEIGHTMAP TERRAIN", grid-col: 1, grid-row: 2, at: cc, font: "Orbitron:ascii", fg: "#2a6e55" }
+                - { type: text, id: item-2, content: "EROSION",          grid-col: 1, grid-row: 3, at: cc, font: "Orbitron:ascii", fg: "#2a6e55" }
+                - { type: text, id: item-3, content: "CAVES",            grid-col: 1, grid-row: 4, at: cc, font: "Orbitron:ascii", fg: "#2a6e55" }
+                - { type: text, id: item-4, content: "EXIT",             grid-col: 1, grid-row: 5, at: cc, font: "Orbitron:ascii", fg: "#1a3e35" }
+
+            - type: text
+              id: hint
+              content: "UP / DOWN   NAVIGATE     ENTER   SELECT"
+              grid-col: 1
+              grid-row: 3
+              at: ct
+              font: "generic:1"
+              fg: "#1a3e35"

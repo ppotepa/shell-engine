@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=./schemas/mod.yaml
-name: demo-mod
-version: 0.1.0
-entrypoint: /scenes/intro/scene.yml
-terminal:
-  min_colours: 256
-  render_size: 120x30
-  presentation_policy: fit

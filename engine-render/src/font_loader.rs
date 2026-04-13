@@ -204,17 +204,11 @@ fn mode_order(preferred_mode: Option<&str>) -> Vec<String> {
     let mut order: Vec<String> = Vec::new();
     if let Some(mode) = preferred_mode.map(|m| m.trim().to_ascii_lowercase()) {
         let canonical = match mode.as_str() {
-            "cell" | "raster" => "terminal-pixels".to_string(),
+            "cell" => "raster".to_string(),
             _ => mode,
         };
-        order.push(canonical.clone());
-        if canonical == "terminal-pixels" {
-            order.push("raster".to_string());
-        } else if canonical == "raster" {
-            order.push("terminal-pixels".to_string());
-        }
+        order.push(canonical);
     }
-    order.push("terminal-pixels".to_string());
     order.push("raster".to_string());
     order.push("ascii".to_string());
 
@@ -266,8 +260,8 @@ mod tests {
         let temp = tempdir().expect("temp dir");
         let mod_dir = temp.path().join("mod");
         fs::create_dir_all(mod_dir.join("assets/fonts/test-font/8px/ascii")).expect("create ascii");
-        fs::create_dir_all(mod_dir.join("assets/fonts/test-font/8px/terminal-pixels"))
-            .expect("create terminal-pixels");
+        fs::create_dir_all(mod_dir.join("assets/fonts/test-font/8px/raster"))
+            .expect("create raster");
         fs::create_dir_all(mod_dir.join("assets/fonts/8px/test-font/ascii"))
             .expect("create legacy");
         fs::write(
@@ -276,10 +270,10 @@ mod tests {
         )
         .expect("write ascii manifest");
         fs::write(
-            mod_dir.join("assets/fonts/test-font/8px/terminal-pixels/manifest.yaml"),
+            mod_dir.join("assets/fonts/test-font/8px/raster/manifest.yaml"),
             "glyphs: []\n",
         )
-        .expect("write terminal manifest");
+        .expect("write raster manifest");
         fs::write(
             mod_dir.join("assets/fonts/8px/test-font/ascii/manifest.yaml"),
             "glyphs: []\n",
@@ -293,17 +287,10 @@ mod tests {
 
         let fallback =
             find_font_manifest_path(&repo, "test-font", Some("raster")).expect("fallback path");
-        assert_eq!(
-            fallback,
-            "/assets/fonts/test-font/8px/terminal-pixels/manifest.yaml"
-        );
+        assert_eq!(fallback, "/assets/fonts/test-font/8px/raster/manifest.yaml");
         assert_eq!(
             mode_order(Some("ascii")),
-            vec![
-                "ascii".to_string(),
-                "terminal-pixels".to_string(),
-                "raster".to_string()
-            ]
+            vec!["ascii".to_string(), "raster".to_string()]
         );
     }
 

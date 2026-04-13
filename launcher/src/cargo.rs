@@ -28,8 +28,15 @@ pub fn ensure_sdl2_dll(workspace_root: &Path, profile: Option<&str>) {
         }
 
         if let Err(e) = std::fs::copy(&src, &dst) {
-            eprintln!("\x1b[33m[se] warning: could not copy SDL2.dll to {}: {}\x1b[0m", dst.display(), e);
-            eprintln!("\x1b[33m[se] hint: add {} to your PATH or copy SDL2.dll manually\x1b[0m", lib_dir.display());
+            eprintln!(
+                "\x1b[33m[se] warning: could not copy SDL2.dll to {}: {}\x1b[0m",
+                dst.display(),
+                e
+            );
+            eprintln!(
+                "\x1b[33m[se] hint: add {} to your PATH or copy SDL2.dll manually\x1b[0m",
+                lib_dir.display()
+            );
         } else {
             println!("\x1b[2m[se] copied SDL2.dll → {}\x1b[0m", dst.display());
         }
@@ -57,22 +64,22 @@ impl CargoCommand {
             app_args: Vec::new(),
         }
     }
-    
+
     pub fn profile(mut self, profile: impl Into<String>) -> Self {
         self.profile = Some(profile.into());
         self
     }
-    
+
     pub fn feature(mut self, feature: impl Into<String>) -> Self {
         self.features.push(feature.into());
         self
     }
-    
+
     pub fn app_arg(mut self, arg: impl Into<String>) -> Self {
         self.app_args.push(arg.into());
         self
     }
-    
+
     pub fn app_args<I, S>(mut self, args: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -81,10 +88,10 @@ impl CargoCommand {
         self.app_args.extend(args.into_iter().map(|s| s.into()));
         self
     }
-    
+
     pub fn build_args(&self) -> Vec<String> {
         let mut args = vec!["run".to_string(), "-p".to_string(), self.package.clone()];
-        
+
         if let Some(ref profile) = self.profile {
             if profile == "release" {
                 args.push("--release".to_string());
@@ -93,39 +100,39 @@ impl CargoCommand {
                 args.push(profile.clone());
             }
         }
-        
+
         if !self.features.is_empty() {
             args.push("--features".to_string());
             args.push(self.features.join(","));
         }
-        
+
         if !self.app_args.is_empty() {
             args.push("--".to_string());
             args.extend(self.app_args.clone());
         }
-        
+
         args
     }
-    
+
     pub fn exec(self, workspace_root: &Path) -> Result<std::process::ExitStatus> {
-        if self.features.iter().any(|f| f == "sdl2") {
+        if self.features.iter().any(|f| f.contains("sdl2")) {
             ensure_sdl2_dll(workspace_root, self.profile.as_deref());
         }
         let args = self.build_args();
-        
+
         let mut cmd = Command::new("cargo");
         cmd.args(&args).current_dir(workspace_root);
         inject_sdl2_rustflags(&mut cmd, &self.features);
         cmd.status().context("failed to execute cargo")
     }
-    
+
     #[allow(dead_code)]
     pub fn spawn(self, workspace_root: &Path) -> Result<std::process::Child> {
-        if self.features.iter().any(|f| f == "sdl2") {
+        if self.features.iter().any(|f| f.contains("sdl2")) {
             ensure_sdl2_dll(workspace_root, self.profile.as_deref());
         }
         let args = self.build_args();
-        
+
         let mut cmd = Command::new("cargo");
         cmd.args(&args).current_dir(workspace_root);
         inject_sdl2_rustflags(&mut cmd, &self.features);
@@ -137,7 +144,7 @@ impl CargoCommand {
 /// `-L native=<SDL2_LIB_DIR>` so the linker can find SDL2.lib.
 fn inject_sdl2_rustflags(cmd: &mut Command, features: &[String]) {
     #[cfg(target_os = "windows")]
-    if features.iter().any(|f| f == "sdl2") {
+    if features.iter().any(|f| f.contains("sdl2")) {
         if let Ok(lib_dir) = std::env::var("SDL2_LIB_DIR") {
             let needed = format!("-L native={}", lib_dir);
             let current = std::env::var("RUSTFLAGS").unwrap_or_default();

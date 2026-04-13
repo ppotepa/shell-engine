@@ -1,8 +1,7 @@
 //! Scene-facing scripting APIs.
 
+pub mod api;
 pub mod mutation;
 pub mod queries;
-pub mod api;
 
-pub use api::{ScriptSceneApi, ScriptObjectApi, register_scene_api};
-
+pub use api::{register_scene_api, ScriptObjectApi, ScriptSceneApi};

@@ -5,7 +5,7 @@ use rayon::prelude::*;
 
 use engine_core::assets::AssetRoot;
 use engine_core::logging;
-use engine_core::scene::{Layer, SceneRenderedMode, Sprite, SpriteSizePreset};
+use engine_core::scene::{Layer, Sprite, SpriteSizePreset};
 
 use crate::obj_prerender::{
     AnimSpriteFrames, ObjPrerenderedFrames, PrerenderedFrame, YAW_FRAME_COUNT, YAW_STEP_DEG,
@@ -14,12 +14,11 @@ use crate::{obj_sprite_dimensions, render_obj_to_canvas, ObjRenderParams};
 
 pub fn prerender_scene_sprites(
     layers: &[Layer],
-    scene_mode: SceneRenderedMode,
     scene_id: &str,
     asset_root: &AssetRoot,
 ) -> Option<ObjPrerenderedFrames> {
-    let targets = collect_targets(layers, scene_mode);
-    let anim_targets = collect_anim_targets(layers, scene_mode);
+    let targets = collect_targets(layers);
+    let anim_targets = collect_anim_targets(layers);
     if targets.is_empty() && anim_targets.is_empty() {
         logging::info(
             "engine.prerender",
@@ -47,8 +46,7 @@ pub fn prerender_scene_sprites(
                 target.width,
                 target.height,
                 target.size,
-                target.mode,
-                target.params,
+                target.params.clone(),
                 target.wireframe,
                 target.backface_cull,
                 target.fg,
@@ -104,7 +102,7 @@ pub fn prerender_scene_sprites(
         .par_iter()
         .filter_map(|(sprite_id, step, target)| {
             let yaw_deg = (*step as u16 * YAW_STEP_DEG) as f32;
-            let mut params = target.base_params;
+            let mut params = target.base_params.clone();
             params.yaw_deg = yaw_deg;
             params.rotation_y = 0.0;
             params.rotate_y_deg_per_sec = 0.0;
@@ -114,7 +112,6 @@ pub fn prerender_scene_sprites(
                 target.width,
                 target.height,
                 target.size,
-                target.mode,
                 params,
                 target.wireframe,
                 target.backface_cull,
@@ -183,7 +180,6 @@ struct PrerenderTarget {
     width: Option<u16>,
     height: Option<u16>,
     size: Option<SpriteSizePreset>,
-    mode: SceneRenderedMode,
     params: ObjRenderParams,
     wireframe: bool,
     backface_cull: bool,
@@ -197,7 +193,6 @@ struct AnimPrerenderTarget {
     width: Option<u16>,
     height: Option<u16>,
     size: Option<SpriteSizePreset>,
-    mode: SceneRenderedMode,
     /// Base params — `yaw_deg` and `rotation_y` are overridden per keyframe; `rotate_y_deg_per_sec` is zeroed.
     base_params: ObjRenderParams,
     wireframe: bool,
@@ -206,10 +201,10 @@ struct AnimPrerenderTarget {
 }
 
 #[inline]
-fn collect_targets(layers: &[Layer], scene_mode: SceneRenderedMode) -> Vec<PrerenderTarget> {
+fn collect_targets(layers: &[Layer]) -> Vec<PrerenderTarget> {
     let mut targets = Vec::new();
     for layer in layers {
-        collect_from_sprites(&layer.sprites, scene_mode, &mut targets);
+        collect_from_sprites(&layer.sprites, &mut targets);
     }
     targets
 }
@@ -217,11 +212,10 @@ fn collect_targets(layers: &[Layer], scene_mode: SceneRenderedMode) -> Vec<Prere
 #[inline]
 fn collect_anim_targets(
     layers: &[Layer],
-    scene_mode: SceneRenderedMode,
 ) -> Vec<AnimPrerenderTarget> {
     let mut targets = Vec::new();
     for layer in layers {
-        collect_anim_from_sprites(&layer.sprites, scene_mode, &mut targets);
+        collect_anim_from_sprites(&layer.sprites, &mut targets);
     }
     targets
 }
@@ -229,7 +223,6 @@ fn collect_anim_targets(
 #[inline]
 fn collect_from_sprites(
     sprites: &[Sprite],
-    mode: SceneRenderedMode,
     out: &mut Vec<PrerenderTarget>,
 ) {
     for sprite in sprites {
@@ -240,7 +233,6 @@ fn collect_from_sprites(
                 size,
                 width,
                 height,
-                force_renderer_mode,
                 surface_mode,
                 backface_cull,
                 scale,
@@ -305,8 +297,6 @@ fn collect_from_sprites(
                     continue;
                 }
 
-                let resolved_mode =
-                    engine_render_policy::resolve_renderer_mode(mode, *force_renderer_mode);
                 let is_wireframe = surface_mode
                     .as_deref()
                     .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
@@ -384,12 +374,28 @@ fn collect_from_sprites(
                     smooth_shading: smooth_shading.unwrap_or(false),
                     latitude_bands: latitude_bands.unwrap_or(0),
                     latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
-                    terrain_color: terrain_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+                    terrain_color: terrain_color.as_ref().map(|c| {
+                        let (r, g, b) = Color::from(c).to_rgb();
+                        [r, g, b]
+                    }),
                     terrain_threshold: terrain_threshold.unwrap_or(0.5),
                     terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
                     terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
                     marble_depth: marble_depth.unwrap_or(0.0),
+                    terrain_relief: 0.0,
+                    noise_seed: 0.0,
+                    warp_strength: 0.0,
+                    warp_octaves: 2,
+                    noise_lacunarity: 2.0,
+                    noise_persistence: 0.5,
+                    normal_perturb_strength: 0.0,
+                    ocean_specular: 0.0,
+                    crater_density: 0.0,
+                    crater_rim_height: 0.35,
+                    snow_line_altitude: 0.0,
+                    terrain_displacement: 0.0,
                     below_threshold_transparent: false,
+                    cloud_alpha_softness: 0.0,
                     polar_ice_color: None,
                     polar_ice_start: 0.78,
                     polar_ice_end: 0.92,
@@ -398,9 +404,17 @@ fn collect_from_sprites(
                     atmo_color: None,
                     atmo_strength: 0.0,
                     atmo_rim_power: 4.5,
+                    atmo_haze_strength: 0.0,
+                    atmo_haze_power: 1.8,
+                    ocean_noise_scale: 4.0,
+                    ocean_color_rgb: None,
                     night_light_color: None,
                     night_light_threshold: 0.82,
                     night_light_intensity: 0.0,
+                    heightmap: None,
+                    heightmap_w: 0,
+                    heightmap_h: 0,
+                    heightmap_blend: 0.0,
                 };
 
                 out.push(PrerenderTarget {
@@ -409,7 +423,6 @@ fn collect_from_sprites(
                     width: *width,
                     height: *height,
                     size: *size,
-                    mode: resolved_mode,
                     params,
                     wireframe: is_wireframe,
                     backface_cull: backface_cull.unwrap_or(false),
@@ -418,7 +431,7 @@ fn collect_from_sprites(
             }
             Sprite::Grid { children, .. }
             | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => collect_from_sprites(children, mode, out),
+            | Sprite::Panel { children, .. } => collect_from_sprites(children, out),
             _ => {}
         }
     }
@@ -429,7 +442,6 @@ fn collect_from_sprites(
 #[inline]
 fn collect_anim_from_sprites(
     sprites: &[Sprite],
-    mode: SceneRenderedMode,
     out: &mut Vec<AnimPrerenderTarget>,
 ) {
     for sprite in sprites {
@@ -440,7 +452,6 @@ fn collect_anim_from_sprites(
                 size,
                 width,
                 height,
-                force_renderer_mode,
                 surface_mode,
                 backface_cull,
                 scale,
@@ -506,8 +517,6 @@ fn collect_anim_from_sprites(
                     continue;
                 }
 
-                let resolved_mode =
-                    engine_render_policy::resolve_renderer_mode(mode, *force_renderer_mode);
                 let is_wireframe = surface_mode
                     .as_deref()
                     .map(|s| s.trim().eq_ignore_ascii_case("wireframe"))
@@ -586,12 +595,28 @@ fn collect_anim_from_sprites(
                     smooth_shading: smooth_shading.unwrap_or(false),
                     latitude_bands: latitude_bands.unwrap_or(0),
                     latitude_band_depth: latitude_band_depth.unwrap_or(0.0),
-                    terrain_color: terrain_color.as_ref().map(|c| { let (r,g,b) = Color::from(c).to_rgb(); [r,g,b] }),
+                    terrain_color: terrain_color.as_ref().map(|c| {
+                        let (r, g, b) = Color::from(c).to_rgb();
+                        [r, g, b]
+                    }),
                     terrain_threshold: terrain_threshold.unwrap_or(0.5),
                     terrain_noise_scale: terrain_noise_scale.unwrap_or(2.5),
                     terrain_noise_octaves: terrain_noise_octaves.unwrap_or(2),
                     marble_depth: marble_depth.unwrap_or(0.0),
+                    terrain_relief: 0.0,
+                    noise_seed: 0.0,
+                    warp_strength: 0.0,
+                    warp_octaves: 2,
+                    noise_lacunarity: 2.0,
+                    noise_persistence: 0.5,
+                    normal_perturb_strength: 0.0,
+                    ocean_specular: 0.0,
+                    crater_density: 0.0,
+                    crater_rim_height: 0.35,
+                    snow_line_altitude: 0.0,
+                    terrain_displacement: 0.0,
                     below_threshold_transparent: false,
+                    cloud_alpha_softness: 0.0,
                     polar_ice_color: None,
                     polar_ice_start: 0.78,
                     polar_ice_end: 0.92,
@@ -600,9 +625,17 @@ fn collect_anim_from_sprites(
                     atmo_color: None,
                     atmo_strength: 0.0,
                     atmo_rim_power: 4.5,
+                    atmo_haze_strength: 0.0,
+                    atmo_haze_power: 1.8,
+                    ocean_noise_scale: 4.0,
+                    ocean_color_rgb: None,
                     night_light_color: None,
                     night_light_threshold: 0.82,
                     night_light_intensity: 0.0,
+                    heightmap: None,
+                    heightmap_w: 0,
+                    heightmap_h: 0,
+                    heightmap_blend: 0.0,
                 };
 
                 out.push(AnimPrerenderTarget {
@@ -611,7 +644,6 @@ fn collect_anim_from_sprites(
                     width: *width,
                     height: *height,
                     size: *size,
-                    mode: resolved_mode,
                     base_params,
                     wireframe: is_wireframe,
                     backface_cull: backface_cull.unwrap_or(false),
@@ -620,9 +652,8 @@ fn collect_anim_from_sprites(
             }
             Sprite::Grid { children, .. }
             | Sprite::Flex { children, .. }
-            | Sprite::Panel { children, .. } => collect_anim_from_sprites(children, mode, out),
+            | Sprite::Panel { children, .. } => collect_anim_from_sprites(children, out),
             _ => {}
         }
     }
 }
-

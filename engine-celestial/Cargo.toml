@@ -1,0 +1,14 @@
+[package]
+name = "engine-celestial"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+engine-terrain = { workspace = true }
+serde          = { workspace = true }
+serde_yaml     = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

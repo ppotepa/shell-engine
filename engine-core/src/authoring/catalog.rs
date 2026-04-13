@@ -29,100 +29,6 @@ const OBJ_VIEWER_FIELDS: &[FieldMetadata] = &[FieldMetadata {
     sources: LIT_ONLY,
 }];
 
-const TERMINAL_SIZE_TESTER_FIELDS: &[FieldMetadata] = &[FieldMetadata {
-    target: TargetKind::InputProfile,
-    name: "presets",
-    value_kind: ValueKind::SelectList,
-    requirement: Requirement::Optional,
-    description: "Optional terminal size presets in WIDTHxHEIGHT format (e.g. 120x36).",
-    default_text: None,
-    default_number: None,
-    enum_options: None,
-    min: None,
-    max: None,
-    step: None,
-    unit: None,
-    sources: LIT_ONLY,
-}];
-
-const TERMINAL_SHELL_FIELDS: &[FieldMetadata] = &[
-    FieldMetadata {
-        target: TargetKind::InputProfile,
-        name: "prompt_sprite_id",
-        value_kind: ValueKind::Text,
-        requirement: Requirement::Required,
-        description: "Text sprite id used for the editable command prompt.",
-        default_text: None,
-        default_number: None,
-        enum_options: None,
-        min: None,
-        max: None,
-        step: None,
-        unit: None,
-        sources: LIT_ONLY,
-    },
-    FieldMetadata {
-        target: TargetKind::InputProfile,
-        name: "output_sprite_id",
-        value_kind: ValueKind::Text,
-        requirement: Requirement::Required,
-        description: "Text sprite id used for the command transcript.",
-        default_text: None,
-        default_number: None,
-        enum_options: None,
-        min: None,
-        max: None,
-        step: None,
-        unit: None,
-        sources: LIT_ONLY,
-    },
-    FieldMetadata {
-        target: TargetKind::InputProfile,
-        name: "prompt_prefix",
-        value_kind: ValueKind::Text,
-        requirement: Requirement::Optional,
-        description: "Prompt prefix rendered before the typed command.",
-        default_text: Some("> "),
-        default_number: None,
-        enum_options: None,
-        min: None,
-        max: None,
-        step: None,
-        unit: None,
-        sources: LIT_ONLY,
-    },
-    FieldMetadata {
-        target: TargetKind::InputProfile,
-        name: "max_lines",
-        value_kind: ValueKind::Integer,
-        requirement: Requirement::Optional,
-        description: "Maximum output transcript line count retained on screen.",
-        default_text: None,
-        default_number: Some(120.0),
-        enum_options: None,
-        min: Some(1.0),
-        max: Some(1000.0),
-        step: Some(1.0),
-        unit: Some("lines"),
-        sources: LIT_ONLY,
-    },
-    FieldMetadata {
-        target: TargetKind::InputProfile,
-        name: "commands",
-        value_kind: ValueKind::SelectList,
-        requirement: Requirement::Optional,
-        description: "Optional command table with scripted outputs.",
-        default_text: None,
-        default_number: None,
-        enum_options: None,
-        min: None,
-        max: None,
-        step: None,
-        unit: None,
-        sources: LIT_ONLY,
-    },
-];
-
 /// Authoring sugar: aliases, shorthands, and normalizers.
 #[derive(Debug, Clone)]
 pub struct SugarCatalog {
@@ -184,13 +90,6 @@ pub fn sugar_catalog() -> SugarCatalog {
                 to_structure: "type=panel with generated title/body/footer children",
             },
             ShorthandSpec {
-                name: "terminal-input",
-                description:
-                    "Expand terminal input widget into window panel with hint + prompt slots",
-                from_syntax: "type: terminal-input",
-                to_structure: "type=window sugar with generated hint/prompt text children",
-            },
-            ShorthandSpec {
                 name: "scroll-list",
                 description: "Expand list sprite into grid rows of text items",
                 from_syntax: "type: scroll-list",
@@ -221,7 +120,6 @@ pub fn sugar_catalog() -> SugarCatalog {
             "apply_defaults",               // engine-authoring/src/document/scene.rs
             "expand_frame_sequence",        // engine-authoring/src/document/scene.rs
             "expand_window_sprite",         // engine-authoring/src/document/scene.rs
-            "expand_terminal_input_sprite", // engine-authoring/src/document/scene.rs
             "expand_scroll_list_sprite",    // engine-authoring/src/document/scene.rs
         ],
     }
@@ -1119,27 +1017,17 @@ pub fn input_profile_catalog() -> Vec<&'static str> {
 
 /// Returns full parameter-shape metadata for all built-in input profiles.
 pub fn input_profile_shapes() -> Vec<InputProfileShape> {
-    vec![
-        InputProfileShape {
-            name: "obj-viewer",
-            fields: OBJ_VIEWER_FIELDS,
-        },
-        InputProfileShape {
-            name: "terminal-size-tester",
-            fields: TERMINAL_SIZE_TESTER_FIELDS,
-        },
-        InputProfileShape {
-            name: "terminal-shell",
-            fields: TERMINAL_SHELL_FIELDS,
-        },
-    ]
+    vec![InputProfileShape {
+        name: "obj-viewer",
+        fields: OBJ_VIEWER_FIELDS,
+    }]
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        animation_catalog, behavior_catalog, input_profile_catalog,
-        input_profile_shapes, static_catalog, sugar_catalog,
+        animation_catalog, behavior_catalog, input_profile_catalog, input_profile_shapes,
+        static_catalog, sugar_catalog,
     };
     use crate::authoring::metadata::{Requirement, ValueKind};
 
@@ -1164,8 +1052,6 @@ mod tests {
     fn input_profile_catalog_has_builtin_profiles() {
         let profiles = input_profile_catalog();
         assert!(profiles.contains(&"obj-viewer"));
-        assert!(profiles.contains(&"terminal-size-tester"));
-        assert!(profiles.contains(&"terminal-shell"));
     }
 
     #[test]
@@ -1186,30 +1072,6 @@ mod tests {
             Requirement::Required
         );
 
-        let tst = shapes
-            .iter()
-            .find(|s| s.name == "terminal-size-tester")
-            .expect("terminal-size-tester");
-        let presets = tst
-            .fields
-            .iter()
-            .find(|f| f.name == "presets")
-            .expect("presets");
-        assert_eq!(presets.value_kind, ValueKind::SelectList);
-        assert_eq!(presets.requirement, Requirement::Optional);
-
-        let terminal_shell = shapes
-            .iter()
-            .find(|s| s.name == "terminal-shell")
-            .expect("terminal-shell");
-        assert!(terminal_shell
-            .fields
-            .iter()
-            .any(|f| f.name == "prompt_sprite_id"));
-        assert!(terminal_shell
-            .fields
-            .iter()
-            .any(|f| f.name == "output_sprite_id"));
     }
 
     #[test]

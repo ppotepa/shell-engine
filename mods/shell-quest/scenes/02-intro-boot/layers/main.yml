@@ -10,4 +10,3 @@
       at: cc
       stretch-to-area: true
       disappear_at_ms: 10750
-      force-renderer-mode: cell

@@ -1,6 +1,6 @@
 use engine_core::color::Color;
 
-/// Convert a crossterm Color to its (r, g, b) components.
+/// Convert an engine Color to its (r, g, b) components.
 pub fn colour_to_rgb(c: Color) -> (u8, u8, u8) {
     match c {
         Color::Rgb { r, g, b } => (r, g, b),

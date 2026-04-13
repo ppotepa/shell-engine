@@ -150,12 +150,7 @@ pub fn scale_points_frac_i32(points: &[[i32; 2]], num: i32, denom: i32) -> Vec<[
     let d = denom as i64;
     points
         .iter()
-        .map(|p| {
-            [
-                (p[0] as i64 * n / d) as i32,
-                (p[1] as i64 * n / d) as i32,
-            ]
-        })
+        .map(|p| [(p[0] as i64 * n / d) as i32, (p[1] as i64 * n / d) as i32])
         .collect()
 }
 
@@ -281,10 +276,7 @@ pub fn center_points_i32(points: &[[i32; 2]]) -> Vec<[i32; 2]> {
 
 /// Scales a polygon so its maximum vertex distance from the origin equals
 /// `target_radius`.  The polygon must already be centred at the origin.
-pub fn normalize_polygon_radius_i32(
-    points: &[[i32; 2]],
-    target_radius: i32,
-) -> Vec<[i32; 2]> {
+pub fn normalize_polygon_radius_i32(points: &[[i32; 2]], target_radius: i32) -> Vec<[i32; 2]> {
     if points.is_empty() {
         return vec![];
     }
@@ -301,7 +293,10 @@ pub fn normalize_polygon_radius_i32(
     points
         .iter()
         .map(|p| {
-            [(p[0] as f64 * scale).round() as i32, (p[1] as f64 * scale).round() as i32]
+            [
+                (p[0] as f64 * scale).round() as i32,
+                (p[1] as f64 * scale).round() as i32,
+            ]
         })
         .collect()
 }
@@ -354,16 +349,10 @@ pub fn split_polygon_half_i32(
     normalize_polygon_radius_i32(&centred, target_radius)
 }
 
-pub fn split_polygon_i32(
-    points: &[[i32; 2]],
-    heading: i32,
-) -> (Vec<[i32; 2]>, Vec<[i32; 2]>) {
+pub fn split_polygon_i32(points: &[[i32; 2]], heading: i32) -> (Vec<[i32; 2]>, Vec<[i32; 2]>) {
     let n = points.len();
     if n < 3 {
-        return (
-            center_points_i32(points),
-            center_points_i32(points),
-        );
+        return (center_points_i32(points), center_points_i32(points));
     }
 
     // Translate to centroid-relative space first
@@ -474,7 +463,11 @@ mod tests {
     fn crack_polygon_inserts_two_extra_vertices() {
         let square = vec![[10, 0], [0, 10], [-10, 0], [0, -10]];
         let cracked = crack_polygon_i32(&square, 10, 0, 60);
-        assert_eq!(cracked.len(), 6, "one vertex replaced by three → +2 vertices");
+        assert_eq!(
+            cracked.len(),
+            6,
+            "one vertex replaced by three → +2 vertices"
+        );
     }
 
     #[test]
@@ -485,7 +478,9 @@ mod tests {
         let tip = cracked[1];
         let dist_tip = tip[0] * tip[0] + tip[1] * tip[1];
         let dist_orig = 10 * 10; // original vertex was [10,0], centroid is [0,0]
-        assert!(dist_tip < dist_orig, "crack tip must be pushed toward centroid");
+        assert!(
+            dist_tip < dist_orig,
+            "crack tip must be pushed toward centroid"
+        );
     }
 }
-

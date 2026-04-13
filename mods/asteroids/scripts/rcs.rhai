@@ -17,35 +17,38 @@
 
 // ======================== EMIT HELPERS =====================================
 
-fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius) {
+fn emit_rcs_intensity(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, planet_x, planet_y) {
     let speed = base_speed * ignition_factor;
     world.emit(emitter, ship_id, #{
-        kind: "fx", template: "debris",
+        kind: "fx",
         speed: speed, ttl_ms: ttl_ms, fg: color, radius: radius,
         spread: (rand() - 0.5) * spread * 0.35,
-        radius_max: radius, radius_min: 0
+        radius_max: radius, radius_min: 0,
+        gravity_center_x: planet_x, gravity_center_y: planet_y
     })
 }
 
-fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, pal) {
+fn emit_hot_engine(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, pal, planet_x, planet_y) {
     let speed = base_speed * ignition_factor;
     world.emit(emitter, ship_id, #{
-        kind: "fx", template: "debris",
+        kind: "fx",
         speed: speed, ttl_ms: ttl_ms, fg: color, radius: radius,
         spread: (rand() - 0.5) * spread * 0.35,
         color_ramp: pal["ramp_hot_engine"],
-        radius_max: radius, radius_min: 0
+        radius_max: radius, radius_min: 0,
+        gravity_center_x: planet_x, gravity_center_y: planet_y
     })
 }
 
-fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, local_x, local_y) {
+fn emit_rcs_directed(world, ship_id, emitter, base_speed, ttl_ms, color, spread, ignition_factor, radius, local_x, local_y, planet_x, planet_y) {
     let speed = base_speed * ignition_factor;
     world.emit(emitter, ship_id, #{
-        kind: "fx", template: "debris",
+        kind: "fx",
         speed: speed, ttl_ms: ttl_ms, fg: color, radius: radius,
         spread: (rand() - 0.5) * spread * 0.35,
         emission_local_x: local_x, emission_local_y: local_y,
-        radius_max: radius, radius_min: 0
+        radius_max: radius, radius_min: 0,
+        gravity_center_x: planet_x, gravity_center_y: planet_y
     })
 }
 
@@ -80,7 +83,7 @@ fn abs_speed_bursts(comp) {
 // turn_axis (from game-loop.rhai yaw_axis):
 //   < 0.0 => turn right  (turn_right action → yaw_axis = -1.0)
 //   > 0.0 => turn left   (turn_left action  → yaw_axis = +1.0)
-fn fire_rotation_couple_original_style(world, ship_id, turn_axis, yaw_rate, pal) {
+fn fire_rotation_couple_original_style(world, ship_id, turn_axis, yaw_rate, pal, planet_x, planet_y) {
     let av = absf(yaw_rate).max(absf(turn_axis) * 0.25);
     let bursts = abs_turn_bursts(av);
     let core = (0.22 + av * 0.58).min(1.0);
@@ -90,32 +93,32 @@ fn fire_rotation_couple_original_style(world, ship_id, turn_axis, yaw_rate, pal)
     if turn_axis < 0.0 {
         for i in 0..bursts {
             let s = spd + to_float(i) * 6.0;
-            emit_rcs_intensity(world, ship_id, "ship.port", s, ttl, pal["correct"], 0.08, core, 1);
+            emit_rcs_intensity(world, ship_id, "ship.port", s, ttl, pal["correct"], 0.08, core, 1, planet_x, planet_y);
             if i % 2 == 0 {
-                emit_rcs_intensity(world, ship_id, "ship.starboard", s * 0.78, ttl - 10, pal["correct"], 0.07, core * 0.55, 1);
+                emit_rcs_intensity(world, ship_id, "ship.starboard", s * 0.78, ttl - 10, pal["correct"], 0.07, core * 0.55, 1, planet_x, planet_y);
             }
         }
 
         if av > 0.28 {
-            emit_rcs_directed(world, ship_id, "ship.bow", 52.0 + av * 20.0, 95, pal["correct"], 0.06, (0.16 + av * 0.18).min(0.42), 1, 1.0, 0.0);
+            emit_rcs_directed(world, ship_id, "ship.bow", 52.0 + av * 20.0, 95, pal["correct"], 0.06, (0.16 + av * 0.18).min(0.42), 1, 1.0, 0.0, planet_x, planet_y);
         }
     } else if turn_axis > 0.0 {
         for i in 0..bursts {
             let s = spd + to_float(i) * 6.0;
-            emit_rcs_intensity(world, ship_id, "ship.starboard", s, ttl, pal["correct"], 0.08, core, 1);
+            emit_rcs_intensity(world, ship_id, "ship.starboard", s, ttl, pal["correct"], 0.08, core, 1, planet_x, planet_y);
             if i % 2 == 0 {
-                emit_rcs_intensity(world, ship_id, "ship.port", s * 0.78, ttl - 10, pal["correct"], 0.07, core * 0.55, 1);
+                emit_rcs_intensity(world, ship_id, "ship.port", s * 0.78, ttl - 10, pal["correct"], 0.07, core * 0.55, 1, planet_x, planet_y);
             }
         }
 
         if av > 0.28 {
-            emit_rcs_directed(world, ship_id, "ship.bow", 52.0 + av * 20.0, 95, pal["correct"], 0.06, (0.16 + av * 0.18).min(0.42), 1, -1.0, 0.0);
+            emit_rcs_directed(world, ship_id, "ship.bow", 52.0 + av * 20.0, 95, pal["correct"], 0.06, (0.16 + av * 0.18).min(0.42), 1, -1.0, 0.0, planet_x, planet_y);
         }
     }
 }
 
 // turn_axis == 0, but ship still has yaw_rate
-fn fire_rotation_brake_original_style(world, ship_id, yaw_rate, pal) {
+fn fire_rotation_brake_original_style(world, ship_id, yaw_rate, pal, planet_x, planet_y) {
     let av = absf(yaw_rate);
     if av < 0.035 { return; }
 
@@ -127,37 +130,37 @@ fn fire_rotation_brake_original_style(world, ship_id, yaw_rate, pal) {
     if yaw_rate < 0.0 {
         for i in 0..bursts {
             let s = spd + to_float(i) * 5.0;
-            emit_rcs_intensity(world, ship_id, "ship.starboard", s, ttl, pal["brake"], 0.06, core, 1);
+            emit_rcs_intensity(world, ship_id, "ship.starboard", s, ttl, pal["brake"], 0.06, core, 1, planet_x, planet_y);
             if i % 2 == 0 {
-                emit_rcs_intensity(world, ship_id, "ship.port", s * 0.72, ttl - 10, pal["brake"], 0.05, core * 0.45, 1);
+                emit_rcs_intensity(world, ship_id, "ship.port", s * 0.72, ttl - 10, pal["brake"], 0.05, core * 0.45, 1, planet_x, planet_y);
             }
         }
 
-        emit_rcs_directed(world, ship_id, "ship.bow", 42.0 + av * 14.0, 80, pal["brake"], 0.05, (0.12 + av * 0.12).min(0.26), 1, -1.0, 0.0);
+        emit_rcs_directed(world, ship_id, "ship.bow", 42.0 + av * 14.0, 80, pal["brake"], 0.05, (0.12 + av * 0.12).min(0.26), 1, -1.0, 0.0, planet_x, planet_y);
     } else {
         for i in 0..bursts {
             let s = spd + to_float(i) * 5.0;
-            emit_rcs_intensity(world, ship_id, "ship.port", s, ttl, pal["brake"], 0.06, core, 1);
+            emit_rcs_intensity(world, ship_id, "ship.port", s, ttl, pal["brake"], 0.06, core, 1, planet_x, planet_y);
             if i % 2 == 0 {
-                emit_rcs_intensity(world, ship_id, "ship.starboard", s * 0.72, ttl - 10, pal["brake"], 0.05, core * 0.45, 1);
+                emit_rcs_intensity(world, ship_id, "ship.starboard", s * 0.72, ttl - 10, pal["brake"], 0.05, core * 0.45, 1, planet_x, planet_y);
             }
         }
 
-        emit_rcs_directed(world, ship_id, "ship.bow", 42.0 + av * 14.0, 80, pal["brake"], 0.05, (0.12 + av * 0.12).min(0.26), 1, 1.0, 0.0);
+        emit_rcs_directed(world, ship_id, "ship.bow", 42.0 + av * 14.0, 80, pal["brake"], 0.05, (0.12 + av * 0.12).min(0.26), 1, 1.0, 0.0, planet_x, planet_y);
     }
 }
 
 // Translation corrections in local orbital frame:
 // vfwd = nose-forward component, vright = side component.
-fn fire_translation_trim_original_style(world, ship_id, thrust_axis, vfwd, vright, pal) {
+fn fire_translation_trim_original_style(world, ship_id, thrust_axis, vfwd, vright, pal, planet_x, planet_y) {
     if thrust_axis > 0.0 {
-        emit_rcs_intensity(world, ship_id, "ship.main", 110.0, 90, pal["thrust_init"], 0.04, 0.18, 1);
+        emit_rcs_intensity(world, ship_id, "ship.main", 110.0, 90, pal["thrust_init"], 0.04, 0.18, 1, planet_x, planet_y);
     }
 
     if thrust_axis < 0.0 {
         let bursts = abs_speed_bursts(vfwd);
         for i in 0..bursts {
-            emit_rcs_intensity(world, ship_id, "ship.bow", 78.0 + to_float(i) * 8.0, 85, pal["brake"], 0.05, 0.22, 1);
+            emit_rcs_intensity(world, ship_id, "ship.bow", 78.0 + to_float(i) * 8.0, 85, pal["brake"], 0.05, 0.22, 1, planet_x, planet_y);
         }
     }
 
@@ -167,17 +170,17 @@ fn fire_translation_trim_original_style(world, ship_id, thrust_axis, vfwd, vrigh
 
         if vright > 0.0 {
             for i in 0..bursts {
-                emit_rcs_intensity(world, ship_id, "ship.port", 48.0 + to_float(i) * 7.0, 80, pal["correct"], 0.05, intensity, 1);
+                emit_rcs_intensity(world, ship_id, "ship.port", 48.0 + to_float(i) * 7.0, 80, pal["correct"], 0.05, intensity, 1, planet_x, planet_y);
             }
         } else {
             for i in 0..bursts {
-                emit_rcs_intensity(world, ship_id, "ship.starboard", 48.0 + to_float(i) * 7.0, 80, pal["correct"], 0.05, intensity, 1);
+                emit_rcs_intensity(world, ship_id, "ship.starboard", 48.0 + to_float(i) * 7.0, 80, pal["correct"], 0.05, intensity, 1, planet_x, planet_y);
             }
         }
     }
 }
 
-fn fire_main_engine_original_style(world, ship_id, thrust_on, thrust_hold_ms, thrust_release_ms, speed, pal) {
+fn fire_main_engine_original_style(world, ship_id, thrust_on, thrust_hold_ms, thrust_release_ms, speed, pal, planet_x, planet_y) {
     let speed_norm = (speed / 7.5).min(1.0);
     let ignite = clamp01(thrust_hold_ms / 140.0);
     let mid = clamp01((thrust_hold_ms - 110.0) / 340.0);
@@ -187,33 +190,33 @@ fn fire_main_engine_original_style(world, ship_id, thrust_on, thrust_hold_ms, th
     if thrust_on && thrust_hold_ms < 150.0 {
         let hot = (0.35 + ignite * 0.65) * fade;
         for i in 0..5 {
-            emit_hot_engine(world, ship_id, "ship.main", 118.0 + to_float(i) * 15.0, 90.0 + to_float(i) * 8.0, pal["hot_core"], 0.10, hot, 2, pal);
+            emit_hot_engine(world, ship_id, "ship.main", 118.0 + to_float(i) * 15.0, 90.0 + to_float(i) * 8.0, pal["hot_core"], 0.10, hot, 2, pal, planet_x, planet_y);
         }
     }
 
     if thrust_on && thrust_hold_ms >= 90.0 {
         let trans = (0.18 + mid * 0.62) * fade;
         for i in 0..6 {
-            emit_hot_engine(world, ship_id, "ship.main", (135.0 + to_float(i) * 16.0) * (1.0 + speed_norm * 0.22), 120.0 + to_float(i) * 10.0, pal["hot_init"], 0.08, trans, 1, pal);
+            emit_hot_engine(world, ship_id, "ship.main", (135.0 + to_float(i) * 16.0) * (1.0 + speed_norm * 0.22), 120.0 + to_float(i) * 10.0, pal["hot_init"], 0.08, trans, 1, pal, planet_x, planet_y);
         }
     }
 
     if thrust_on && thrust_hold_ms >= 260.0 {
         let blue = (0.24 + sustain * 0.76) * fade;
         for i in 0..8 {
-            emit_rcs_intensity(world, ship_id, "ship.main", (105.0 + to_float(i) * 12.0) * (1.0 + speed_norm * 0.18), 150.0 + to_float(i) * 16.0, pal["thrust_init"], 0.045, blue, 1);
+            emit_rcs_intensity(world, ship_id, "ship.main", (105.0 + to_float(i) * 12.0) * (1.0 + speed_norm * 0.18), 150.0 + to_float(i) * 16.0, pal["thrust_init"], 0.045, blue, 1, planet_x, planet_y);
         }
     }
 
     if !thrust_on && thrust_release_ms < 180.0 {
         let cool = 1.0 - clamp01(thrust_release_ms / 180.0);
         for i in 0..4 {
-            emit_rcs_intensity(world, ship_id, "ship.main", 76.0 + to_float(i) * 10.0, 70.0 + to_float(i) * 18.0, pal["thrust_init"], 0.04, cool * 0.65, 1);
+            emit_rcs_intensity(world, ship_id, "ship.main", 76.0 + to_float(i) * 10.0, 70.0 + to_float(i) * 18.0, pal["thrust_init"], 0.04, cool * 0.65, 1, planet_x, planet_y);
         }
     }
 }
 
-fn fire_settling_puff_original_style(world, ship_id, yaw_rate, vfwd, vright, pal) {
+fn fire_settling_puff_original_style(world, ship_id, yaw_rate, vfwd, vright, pal, planet_x, planet_y) {
     if absf(yaw_rate) > 0.025 { return; }
     if absf(vfwd) > 0.30 { return; }
     if absf(vright) > 0.20 { return; }
@@ -221,36 +224,36 @@ fn fire_settling_puff_original_style(world, ship_id, yaw_rate, vfwd, vright, pal
 
     let pick = rand();
     if pick < 0.33 {
-        emit_rcs_intensity(world, ship_id, "ship.port", 42.0, 55, pal["correct"], 0.04, 0.08, 1);
+        emit_rcs_intensity(world, ship_id, "ship.port", 42.0, 55, pal["correct"], 0.04, 0.08, 1, planet_x, planet_y);
     } else if pick < 0.66 {
-        emit_rcs_intensity(world, ship_id, "ship.starboard", 42.0, 55, pal["correct"], 0.04, 0.08, 1);
+        emit_rcs_intensity(world, ship_id, "ship.starboard", 42.0, 55, pal["correct"], 0.04, 0.08, 1, planet_x, planet_y);
     } else {
-        emit_rcs_intensity(world, ship_id, "ship.bow", 38.0, 48, pal["brake"], 0.04, 0.07, 1);
+        emit_rcs_intensity(world, ship_id, "ship.bow", 38.0, 48, pal["brake"], 0.04, 0.07, 1, planet_x, planet_y);
     }
 }
 
-fn fire_orbital_coast_plume(world, ship_id, thrust_axis, turn_axis, speed, pal) {
+fn fire_orbital_coast_plume(world, ship_id, thrust_axis, turn_axis, speed, pal, planet_x, planet_y) {
     if absf(thrust_axis) > 0.001 { return; }
     if absf(turn_axis) > 0.001 { return; }
     if speed < 5.5 { return; }
     if rand() > 0.32 { return; }
 
     let intensity = (0.05 + (speed - 5.5) * 0.01).min(0.16);
-    emit_rcs_intensity(world, ship_id, "ship.main", 26.0 + speed * 1.6, 52, pal["pulse"], 0.025, intensity, 1);
+    emit_rcs_intensity(world, ship_id, "ship.main", 26.0 + speed * 1.6, 52, pal["pulse"], 0.025, intensity, 1, planet_x, planet_y);
 }
 
-fn update_orbital_vfx_original_style(world, ship_id, thrust_axis, turn_axis, yaw_rate, thrust_hold_ms, thrust_release_ms, vfwd, vright, speed, pal) {
+fn update_orbital_vfx_original_style(world, ship_id, thrust_axis, turn_axis, yaw_rate, thrust_hold_ms, thrust_release_ms, vfwd, vright, speed, pal, planet_x, planet_y) {
     if ship_id <= 0 { return; }
     if !world.exists(ship_id) { return; }
 
     if absf(turn_axis) > 0.001 {
-        fire_rotation_couple_original_style(world, ship_id, turn_axis, yaw_rate, pal);
+        fire_rotation_couple_original_style(world, ship_id, turn_axis, yaw_rate, pal, planet_x, planet_y);
     } else {
-        fire_rotation_brake_original_style(world, ship_id, yaw_rate, pal);
+        fire_rotation_brake_original_style(world, ship_id, yaw_rate, pal, planet_x, planet_y);
     }
 
-    fire_translation_trim_original_style(world, ship_id, thrust_axis, vfwd, vright, pal);
-    fire_main_engine_original_style(world, ship_id, thrust_axis > 0.0, thrust_hold_ms, thrust_release_ms, speed, pal);
-    fire_settling_puff_original_style(world, ship_id, yaw_rate, vfwd, vright, pal);
-    fire_orbital_coast_plume(world, ship_id, thrust_axis, turn_axis, speed, pal);
+    fire_translation_trim_original_style(world, ship_id, thrust_axis, vfwd, vright, pal, planet_x, planet_y);
+    fire_main_engine_original_style(world, ship_id, thrust_axis > 0.0, thrust_hold_ms, thrust_release_ms, speed, pal, planet_x, planet_y);
+    fire_settling_puff_original_style(world, ship_id, yaw_rate, vfwd, vright, pal, planet_x, planet_y);
+    fire_orbital_coast_plume(world, ship_id, thrust_axis, turn_axis, speed, pal, planet_x, planet_y);
 }

@@ -1,20 +1,19 @@
 // ============================================================================
-// ASTEROIDS — Orbital RCS Simulation
+// ASTEROIDS — Surface Launch Simulation (minimal)
 // ============================================================================
+// Ship spawns on Earth's surface. Earth spins. Ship co-rotates with surface.
+//
 // SHIP MODEL: orbital basis vectors (sn / sf / sr).
-//   sn = ship local up / radial normal from planet centre
+//   sn = radial normal from planet centre (local up)
 //   sf = ship nose-forward tangent on the local horizon
-//   sr = ship right tangent    (cross product of sf × sn)
-//   vfwd / vright = tangential speed in sf / sr directions (px/s)
+//   sr = ship right tangent (cross product of sf × sn)
 //
-// MOVEMENT: geodesic transport on sphere via Rodrigues rotation each frame.
-//   Yaw rotates sf/sr around sn.  Translation moves sn along great-circle arc.
-//
-// GAMEPLAY:
-//   SPACE/Fire  — shoot bullets
+// CONTROLS:
+//   E           — main engine (forward thrust)
+//   SPACE       — bottom engine (radial lift)
 //   W/S / ↑↓   — prograde thrust / retro-brake
-//   A/D / ←→   — yaw left / right
-//   Q/E         — lateral strafe
+//   A/D / ←→   — yaw left / right (RCS)
+//   Q           — lateral strafe left
 // ============================================================================
 import "rcs" as rcs;
 
@@ -23,63 +22,29 @@ if type_of(local) == "()" { local = #{}; }
 let WORLD_W = 3200.0;
 let WORLD_H = 1800.0;
 
-// ======================== PALETTE SETUP ====================================
-// Only re-read palette values when the active palette has changed.
-// palette.version() is bumped by the engine every time set_active/cycle is called.
+// ======================== PALETTE ==========================================
 let pal_ver = palette.version();
 if pal_ver != (local.pal_ver ?? -1) {
     local.pal_ver = pal_ver;
-
-    let PAL_BG           = palette.get("bg");           if PAL_BG           == "" { PAL_BG           = "#060620"; }
-    let PAL_SHIP         = palette.get("ship");         if PAL_SHIP         == "" { PAL_SHIP         = "white"; }
-    let PAL_ASTEROID     = palette.get("asteroid");     if PAL_ASTEROID     == "" { PAL_ASTEROID     = "white"; }
-    let PAL_BULLET       = palette.get("bullet");       if PAL_BULLET       == "" { PAL_BULLET       = "yellow"; }
-    let PAL_P_THRUST_INIT  = palette.get("particle_thruster_init"); if PAL_P_THRUST_INIT  == "" { PAL_P_THRUST_INIT  = "white"; }
-    let PAL_P_HOT_INIT     = palette.get("particle_hot_init");      if PAL_P_HOT_INIT     == "" { PAL_P_HOT_INIT     = "#66FFFF"; }
-    let PAL_P_HOT_CORE     = palette.get("particle_hot_core_init"); if PAL_P_HOT_CORE     == "" { PAL_P_HOT_CORE     = "#AAFFFF"; }
-    let PAL_P_CORRECT      = palette.get("particle_correction");    if PAL_P_CORRECT      == "" { PAL_P_CORRECT      = "#AACCFF"; }
-    let PAL_P_PULSE        = palette.get("particle_pulse");         if PAL_P_PULSE        == "" { PAL_P_PULSE        = "#00FFFF"; }
-
+    let PAL_BG = palette.get("bg"); if PAL_BG == "" { PAL_BG = "#060620"; }
     local.pal = #{
-        bg:           PAL_BG,
-        ship:         PAL_SHIP,
-        asteroid:     PAL_ASTEROID,
-        bullet:       PAL_BULLET,
-        thrust_init:  PAL_P_THRUST_INIT,
-        hot_init:     PAL_P_HOT_INIT,
-        hot_core:     PAL_P_HOT_CORE,
-        pulse:        PAL_P_PULSE,
-        correct:      PAL_P_CORRECT,
+        bg: PAL_BG,
+        ship: palette.get("ship"),
+        thrust_init: palette.get("particle_thruster_init"),
+        hot_init: palette.get("particle_hot_init"),
+        hot_core: palette.get("particle_hot_core_init"),
+        correct: palette.get("particle_correction"),
+        pulse: palette.get("particle_pulse"),
         ramp_hot_engine: palette.particles("hot_engine"),
-        ramp_brake:      palette.particles("brake"),
+        ramp_brake: palette.particles("brake"),
         ramp_heat_trail: palette.particles("heat_trail"),
-        ramp_bullet_trail: palette.particles("bullet_trail"),
     };
-
-    // Apply palette-driven static styles (only needed on change)
     scene.set_bg(PAL_BG);
 }
+let col = local.pal ?? #{};
 
-let col  = local.pal ?? #{};
+// ======================== UTILITY FUNCTIONS =================================
 
-
-
-// Give an asteroid a random tumble (constant spin, no braking).
-fn add_tumble(world, id, size) {
-    let max_spin = if size == 3 { 1.5 } else if size == 2 { 2.5 } else { 4.0 };
-    let spin = (rand() - 0.5) * max_spin * 2.0;
-    if absf(spin) < 0.3 { spin = if spin >= 0.0 { 0.3 } else { -0.3 }; }
-    world.angular_body_attach(id, #{
-        accel: 0.0,
-        max: max_spin + 1.0,
-        deadband: 0.0,
-        auto_brake: false,
-        angular_vel: spin,
-    });
-}
-
-// ── Rodrigues axis-angle rotation ─────────────────────────────────────────────
-// Rotate vector (vx,vy,vz) by `angle` radians around unit axis (ax,ay,az).
 fn rotate_axis(vx, vy, vz, ax, ay, az, angle) {
     let c = cos(angle); let s = sin(angle);
     let d = vx*ax + vy*ay + vz*az;
@@ -89,11 +54,9 @@ fn rotate_axis(vx, vy, vz, ax, ay, az, angle) {
        z: vz*c + cz*s + az*d*(1.0-c) }
 }
 
-fn clamp_unit(v) {
-    if v < -1.0 { return -1.0; }
-    if v > 1.0 { return 1.0; }
-    v
-}
+fn clamp_unit(v) { if v < -1.0 { return -1.0; } if v > 1.0 { return 1.0; } v }
+
+fn clamp01(x) { if x < 0.0 { return 0.0; } if x > 1.0 { return 1.0; } x }
 
 fn angle_from_cos_sin(c, s) {
     let a = acos(clamp_unit(c));
@@ -102,19 +65,12 @@ fn angle_from_cos_sin(c, s) {
 }
 
 fn nearest_angle(angle, reference) {
-    let pi = 3.1415926535;
-    let tau = 6.2831853070;
-    let best = angle;
-    let best_delta = absf(best - reference);
+    let pi = 3.1415926535; let tau = 6.2831853070;
+    let best = angle; let best_delta = absf(best - reference);
     let plus = angle + tau;
-    if absf(plus - reference) < best_delta {
-        best = plus;
-        best_delta = absf(plus - reference);
-    }
+    if absf(plus - reference) < best_delta { best = plus; best_delta = absf(plus - reference); }
     let minus = angle - tau;
-    if absf(minus - reference) < best_delta {
-        best = minus;
-    }
+    if absf(minus - reference) < best_delta { best = minus; }
     while best > pi { best -= tau; }
     while best < -pi { best += tau; }
     best
@@ -123,35 +79,24 @@ fn nearest_angle(angle, reference) {
 fn heading_from_forward(fx, fy, fallback) {
     let fl = sqrtf(fx * fx + fy * fy);
     if fl < 0.0001 { return fallback; }
-    let nfx = fx / fl;
-    let nfy = fy / fl;
+    let nfx = fx / fl; let nfy = fy / fl;
     let h = acos(clamp_unit(-nfy));
     if nfx < 0.0 { return -h; }
     h
 }
 
-fn heading_dir_xy(heading) {
-    #{ x: sin(heading), y: -cos(heading) }
-}
-
 fn ship_basis_euler(srx, sry, srz, sfx, sfy, sfz, snx, sny, snz, prev_pitch, prev_yaw, prev_roll) {
     let cy = sqrtf(srx * srx + sry * sry);
     let yaw = angle_from_cos_sin(cy, -srz);
-    let pitch = prev_pitch;
-    let roll = prev_roll;
-
+    let pitch = prev_pitch; let roll = prev_roll;
     if cy > 0.0005 {
         pitch = angle_from_cos_sin(snz / cy, sfz / cy);
         roll = angle_from_cos_sin(srx / cy, sry / cy);
     } else {
-        let combo = if srz >= 0.0 {
-            angle_from_cos_sin(-snx, -sny)
-        } else {
-            angle_from_cos_sin(snx, -sny)
-        };
+        let combo = if srz >= 0.0 { angle_from_cos_sin(-snx, -sny) }
+                    else { angle_from_cos_sin(snx, -sny) };
         pitch = if srz >= 0.0 { combo - roll } else { combo + roll };
     }
-
     #{
         pitch: nearest_angle(pitch, prev_pitch),
         yaw: nearest_angle(yaw, prev_yaw),
@@ -162,8 +107,7 @@ fn ship_basis_euler(srx, sry, srz, sfx, sfy, sfz, snx, sny, snz, prev_pitch, pre
 fn one_decimal_text(v) {
     let av = absf(v);
     let scaled = (av * 10.0).to_int();
-    let whole = scaled / 10;
-    let frac = scaled - whole * 10;
+    let whole = scaled / 10; let frac = scaled - whole * 10;
     whole + "." + frac
 }
 
@@ -172,504 +116,189 @@ fn fmt_kms(label, value) {
     label + " " + sign + one_decimal_text(value) + " km/s"
 }
 
-fn clamp01(x) {
-    if x < 0.0 { return 0.0; }
-    if x > 1.0 { return 1.0; }
-    x
-}
-
-fn hide_asteroid_slots(scene, prefix, count) {
-    for i in 0..count {
-        scene.set(prefix + i, "visible", false);
-    }
-}
-
-fn init_asteroid_slot(scene, slot_id) {
-    scene.set(slot_id, "obj.yaw",         rand() * 360.0);
-    scene.set(slot_id, "obj.pitch",       rand() * 360.0);
-    scene.set(slot_id, "obj.roll",        rand() * 360.0);
-    scene.set(slot_id, "obj.orbit_speed", 30.0 + rand() * 110.0);
-}
-
-fn project_world_to_scene(x, y, planet_x, planet_y, scene_scale) {
-    #{
-        x: (x - planet_x) * scene_scale,
-        y: (y - planet_y) * scene_scale,
-        z: 0.0,
-    }
-}
-
-fn prune_dead_asteroid_slots(world, ast_slots) {
-    let next_slots = #{};
-    for key in ast_slots.keys() {
-        let eid = key.parse_int();
-        if type_of(eid) == "i64" && world.exists(eid) {
-            next_slots[key] = ast_slots[key];
-        }
-    }
-    next_slots
-}
-
-fn sync_asteroid_slot_group(scene, world, ast_slots, live_ids, prefix, count, planet_x, planet_y, scene_scale) {
-    let next_slots = ast_slots;
-    let used_slots = [];
-    for aid in live_ids {
-        let key = aid + "";
-        let slot = next_slots[key];
-        if type_of(slot) == "string" { used_slots.push(slot); }
-    }
-
-    let next_free = 0;
-    for aid in live_ids {
-        // Hide the prefab-cloned object layer: asteroid visuals are rendered via
-        // the dedicated generator slot pool, not the empty runtime object layer.
-        scene.set("asteroid-" + aid, "visible", false);
-        let key = aid + "";
-        let slot = next_slots[key];
-        if type_of(slot) != "string" {
-            while next_free < count {
-                let candidate = prefix + next_free;
-                if !used_slots.contains(candidate) {
-                    slot = candidate;
-                    next_slots[key] = slot;
-                    used_slots.push(slot);
-                    init_asteroid_slot(scene, slot);
-                    break;
-                }
-                next_free += 1;
-            }
-        }
-
-        if type_of(slot) != "string" { continue; }
-
-        let axf = world.transform(aid) ?? #{};
-        let pos = project_world_to_scene(
-            axf["x"] ?? planet_x,
-            axf["y"] ?? planet_y,
-            planet_x,
-            planet_y,
-            scene_scale
-        );
-        scene.set(slot, "obj.world.x", pos["x"]);
-        scene.set(slot, "obj.world.y", pos["y"]);
-        scene.set(slot, "obj.world.z", pos["z"]);
-        scene.set(slot, "visible", true);
-    }
-
-    next_slots
-}
-
-fn spawn_wave(world, wave) {
-    let WORLD_W = world.world_width();
-    let WORLD_H = world.world_height();
-    let count = 3 + wave;
-    for i in 0..count {
-        let side = i % 4;
-        let x = if side == 0 { -32.0 } else if side == 1 { WORLD_W + 32.0 } else { 20.0 + rand() * (WORLD_W - 40.0) };
-        let y = if side == 2 { -32.0 } else if side == 3 { WORLD_H + 32.0 } else { 20.0 + rand() * (WORLD_H - 40.0) };
-        if absf(x - WORLD_W * 0.5) < 60.0 && absf(y - WORLD_H * 0.5) < 60.0 {
-            x = if rand() > 0.5 { -32.0 } else { WORLD_W + 32.0 };
-        }
-        let base_speed = 30.0 + to_float(wave) * 5.0;
-        let vx = (rand() - 0.5) * base_speed * 2.0;
-        let vy = (rand() - 0.5) * base_speed * 2.0;
-        if absf(vx) < 10.0 { vx = if vx >= 0.0 { 10.0 } else { -10.0 }; }
-        if absf(vy) < 10.0 { vy = if vy >= 0.0 { 10.0 } else { -10.0 }; }
-        let heading = rand() * 6.2832;
-        let id = world.spawn_prefab("asteroid-large", #{ x: x, y: y, vx: vx, vy: vy, heading: heading });
-        if id > 0 { add_tumble(world, id, 3); }
-    }
-}
-
-fn spawn_medium_asteroids(world, x, y, parent_vx, parent_vy) {
-    for i in 0..2 {
-        let speed = 40.0 + rand() * 30.0;
-        let vx = parent_vx * 0.5 + speed * (if i == 0 { 1.0 } else { -1.0 }) * 0.707;
-        let vy = parent_vy * 0.5 + speed * (if i == 0 { 0.707 } else { -0.707 });
-        let heading = rand() * 6.2832;
-        let id = world.spawn_prefab("asteroid-medium", #{ x: x, y: y, vx: vx, vy: vy, heading: heading });
-        if id > 0 { add_tumble(world, id, 2); }
-    }
-}
-
-fn spawn_small_asteroids(world, x, y, parent_vx, parent_vy) {
-    for i in 0..2 {
-        let speed = 55.0 + rand() * 25.0;
-        let vx = parent_vx * 0.4 + speed * (if i == 0 { 1.0 } else { -1.0 });
-        let vy = parent_vy * 0.4 + speed * (if i == 0 { 0.5 } else { -0.5 });
-        let heading = rand() * 6.2832;
-        let id = world.spawn_prefab("asteroid-small", #{ x: x, y: y, vx: vx, vy: vy, heading: heading });
-        if id > 0 { add_tumble(world, id, 1); }
-    }
-}
-
-// Spawn shrapnel: real physics entities that can ricochet and damage the ship.
-// Evenly spread around 360° with jitter, inheriting asteroid + bullet momentum.
-fn spawn_shrapnel(world, ax, ay, bvx, bvy, avx, avy, count, base_speed) {
-    for i in range(0, count) {
-        let angle = (i.to_float() / count.to_float()) * 6.2832 + (rand() - 0.5) * 1.2;
-        let spd   = base_speed + (rand() - 0.5) * 40.0;
-        let vx    = sin(angle)  * spd + avx * 0.4 + bvx * 0.2;
-        let vy    = -cos(angle) * spd + avy * 0.4 + bvy * 0.2;
-        let ttl   = 1200 + (rand() * 600.0).to_int();
-        world.spawn_prefab("shrapnel", #{
-            x: ax, y: ay, vx: vx, vy: vy, ttl_ms: ttl, heading: angle
-        });
-    }
-}
-
-// Shared death visual sequence — hull pieces + shockwave + shake + whiteout flash.
-// Call BEFORE despawning the ship so ship_id is still a valid entity.
-fn do_ship_death_fx(world, effects, col, ship_id) {
-    world.emit("ship.hull_pieces", ship_id, #{ count: 22, speed:  95.0, spread: 6.28, fg: col.ship ?? "white" });
-    world.emit("ship.hull_pieces", ship_id, #{ count:  9, speed: 195.0, spread: 6.28, fg: col.ship ?? "white" });
-    world.emit("ship.shockwave",   ship_id, #{ count: 20, speed: 320.0, spread: 6.28 });
-    world.emit("asteroids.impact_sparks", ship_id, #{ count: 14, speed: 55.0, spread: 6.28, fg: col.ship ?? "white" });
-    effects.shake(600, 4.0, 3.0, 8.0);
-    effects.trigger("whiteout", 300, #{ intensity: 0.85 });
-}
-
-fn clear_round_entities(world) {
-    for id in world.query_tag("asteroid") { world.despawn(id); }
-    for id in world.query_tag("bullet")   { world.despawn(id); }
-    for id in world.query_tag("shrapnel") { world.despawn(id); }
-}
-
-fn merge_highscores(saved, final_score, wave) {
-    let scores = if type_of(saved) == "array" { saved } else { [] };
-    let rank = -1;
-    for i in 0..scores.len() {
-        if final_score > scores[i].score { rank = i; break; }
-    }
-    if rank < 0 && scores.len() < 10 { rank = scores.len(); }
-    if rank >= 0 {
-        let entry = #{ rank: rank + 1, score: final_score, name: "---", wave: wave };
-        scores.insert(rank, entry);
-        while scores.len() > 10 { scores.pop(); }
-        for i in 0..scores.len() { scores[i].rank = i + 1; }
-    }
-    #{ scores: scores, rank: rank }
-}
-
-fn ship_hull_polygon(heading) {
-    let c = cos(heading);
-    let s = sin(heading);
-    let base = [[0.0, -6.9], [2.65, 5.39], [7.4, 6.9], [0.0, 2.7], [-7.4, 6.9], [-2.65, 5.39]];
-    [
-        [base[0][0] * c - base[0][1] * s, base[0][0] * s + base[0][1] * c],
-        [base[1][0] * c - base[1][1] * s, base[1][0] * s + base[1][1] * c],
-        [base[2][0] * c - base[2][1] * s, base[2][0] * s + base[2][1] * c],
-        [base[3][0] * c - base[3][1] * s, base[3][0] * s + base[3][1] * c],
-        [base[4][0] * c - base[4][1] * s, base[4][0] * s + base[4][1] * c],
-        [base[5][0] * c - base[5][1] * s, base[5][0] * s + base[5][1] * c],
-    ]
-}
-
 fn ensure_ship(world, spawn_x, spawn_y) {
     let existing = world.first_kind("ship");
     if existing > 0 { return existing; }
-    // Spawn at 3-o'clock to match sn=(1,0,0) initial orbital state.
-    let ship_id = world.spawn_prefab("ship", #{
-        x: spawn_x,
-        y: spawn_y,
-        vx: 0.0,
-        vy: 0.0,
-    });
-    ship_id
+    world.spawn_prefab("ship", #{ x: spawn_x, y: spawn_y, vx: 0.0, vy: 0.0 })
 }
 
-// ======================== ORBITAL CONSTANTS ===================================
-// Read body and planet type from catalog; fall back to hardcoded defaults if
-// catalog not loaded (e.g. during tests or before first-frame catalog init).
+// ======================== CONSTANTS =========================================
 let _body = world.body_info("main-planet");
 let PLANET_X = if type_of(_body["center_x"]) != "()" { _body["center_x"] } else { WORLD_W * 0.5 };
 let PLANET_Y = if type_of(_body["center_y"]) != "()" { _body["center_y"] } else { WORLD_H * 0.5 };
-let SURFACE_RADIUS = if type_of(_body["surface_radius"]) != "()" { _body["surface_radius"] } else { 90.0 };
+let SURFACE_RADIUS = if type_of(_body["surface_radius"]) != "()" { _body["surface_radius"] } else { 200.0 };
 let BODY_RADIUS_PX = if type_of(_body["radius_px"]) != "()" { _body["radius_px"] } else { SURFACE_RADIUS };
-let BODY_GRAVITY_MU = if type_of(_body["gravity_mu"]) != "()" { _body["gravity_mu"] } else { 565000.0 };
-let ORBIT_START_ALT_PX = 360.0;
-let ORBIT_R        = SURFACE_RADIUS + ORBIT_START_ALT_PX; // Initial spawn radius (px)
-let PI             = 3.1415926535;
-let ORBIT_V0       = sqrtf(BODY_GRAVITY_MU / ORBIT_R);    // Circular speed at spawn radius
-let MAX_SPD        = 28.0;            // Speed cap tuned for slower cinematic orbit
-let MAX_VRAD       = 20.0;            // Cap radial speed for stable gameplay bounds
-let ACC_FWD        = 0.9;             // Forward/back acceleration (px/s²)
-let ACC_SIDE       = 0.6;             // Lateral acceleration (px/s²)
-let LIN_DAMP       = 0.08;            // Gentle vacuum stabilization
-let SIDE_TRIM      = 0.20;            // Base side-slip assist for hybrid handling
-let SIDE_THRUST_TRIM = 1.0;           // Extra side-slip bleed while accelerating forward
-let YAW_RESPONSE   = 7.2;             // Target-rate convergence (higher = snappier steering)
-let YAW_DAMP       = 2.6;             // yaw-rate damping when stick is centered
-let YAW_MAX        = 1.1;             // rad/s
-let CAM_SWAY_TAU   = 0.50;            // forward-lag / sway smoothing (seconds)
-let CAM_SWAY_GAIN  = 0.28;            // sway amount from yaw rate — banking feel
-let SHIP_RENDER_R  = 1.25;            // shared ship orbital radius in 3D camera space
-let ORBIT_PREVIEW_ONLY = true;        // ship + planet chase preview only
-let GAMEPLAY_ENABLED   = !ORBIT_PREVIEW_ONLY;
-let AST_SLOT_L_COUNT = 8;
-let AST_SLOT_M_COUNT = 8;
-let AST_SLOT_S_COUNT = 12;
-let AST_SLOT_L_PREFIX = "ast-slot-L-";
-let AST_SLOT_M_PREFIX = "ast-slot-M-";
-let AST_SLOT_S_PREFIX = "ast-slot-S-";
-let ATMO_TOP_ALT_PX = if type_of(_body["atmosphere_top"]) != "()" { _body["atmosphere_top"] } else { 120.0 };
-let ATMO_DENSE_ALT_PX = if type_of(_body["atmosphere_dense_start"]) != "()" { _body["atmosphere_dense_start"] } else { 45.0 };
+let BODY_GRAVITY_MU = if type_of(_body["gravity_mu"]) != "()" { _body["gravity_mu"] } else { 87861.0 };
+let BODY_RADIUS_KM = if type_of(_body["radius_km"]) != "()" { _body["radius_km"] } else { 66.85 };
+let KM_PER_PX = if type_of(_body["km_per_px"]) != "()" { _body["km_per_px"].max(0.001) } else { BODY_RADIUS_KM / BODY_RADIUS_PX.max(1.0) };
+let ATMO_TOP_ALT_PX =
+    if type_of(_body["atmosphere_top_km"]) != "()" { (_body["atmosphere_top_km"] / KM_PER_PX).max(0.0) }
+    else { 42.0 };
+let ATMO_DENSE_ALT_PX =
+    if type_of(_body["atmosphere_dense_start_km"]) != "()" { (_body["atmosphere_dense_start_km"] / KM_PER_PX).max(0.0) }
+    else { 13.5 };
 let ATMO_DRAG_MAX = if type_of(_body["atmosphere_drag_max"]) != "()" { _body["atmosphere_drag_max"] } else { 2.2 };
-let HEAT_DAMAGE_START = 0.72;         // sustained reentry starts damaging hull
-let HEAT_KILL_THRESHOLD = 0.97;       // thermal runaway: instant ship loss
-let HEAT_TICK_ATMO_MIN = 0.25;        // heat damage ticks only while still in atmosphere
-let REENTRY_TICK_MS = 650.0;          // periodic heat damage cadence while burning
-// HUD scale: KM_PER_PX converts px distances to km at planet scale.
-let KM_PER_PX      = 6371.0 / BODY_RADIUS_PX.max(1.0);
-let WORLD_TIME_SCALE = 83.0;
-let SCENE_SCALE    = SHIP_RENDER_R / ORBIT_R;  // 2D world px -> shared chase-camera scene units
 
-// Read body-specific visual constants from catalog.
+let PI = 3.1415926535;
+let ORBIT_R = SURFACE_RADIUS + 1.0;
+// v_circ at surface = sqrt(87861/200) = 20.96 px/s ≈ 7 km/s → 60s orbit.
+let MAX_SPD        = 35.0;
+let MAX_VRAD       = 20.0;
+let ACC_FWD        = 1.8;
+let ACC_SIDE       = 1.2;
+let ACC_LIFT       = 5.0;    // ~2.3× surface g (2.2 px/s²)
+let ACC_MAIN_ENG   = 3.2;
+let LIN_DAMP       = 0.04;
+let SIDE_TRIM      = 0.20;
+let SIDE_THRUST_TRIM = 1.0;
+let YAW_RESPONSE   = 7.2;
+let YAW_DAMP       = 2.6;
+let YAW_MAX        = 1.1;
+let CAM_SWAY_TAU   = 0.50;
+let CAM_SWAY_GAIN  = 0.28;
+// Map physics surface radius to 3D unit sphere: surface → r=1.0
+let SCENE_SCALE    = 1.0 / SURFACE_RADIUS;
+
 let _ptype_id = if type_of(_body["planet_type"]) != "()" { _body["planet_type"] } else { "earth_like" };
 let _ptype = world.planet_type_info(_ptype_id);
-let PLANET_SPIN_DPS  = _ptype["surface_spin_dps"];
-let CLOUD_SPIN_DPS   = _ptype["cloud_spin_dps"];
-let CLOUD2_SPIN_DPS  = _ptype["cloud_spin_2_dps"];
+let PLANET_SPIN_DPS = _ptype["surface_spin_dps"];
+let CLOUD_SPIN_DPS  = _ptype["cloud_spin_dps"];
+let CLOUD2_SPIN_DPS = _ptype["cloud_spin_2_dps"];
 
-// Use raw frame dt — engine pause steps cap tick rate to ~16ms, no need to clamp here.
 let dt = frame_ms.to_float() / 1000.0;
 
-// ======================== INITIALIZATION ===================================
-
+// ======================== INITIALIZATION ====================================
 if !(local.initialized ?? false) {
     world.set_world_bounds(0.0, 0.0, WORLD_W, WORLD_H);
     local.initialized = true;
     local.ship_id = 0;
-    local.score = 0;
-    local.lives = 3;
-    local.ship_hp = 3;
-    local.wave = 1;
-    local.game_over = false;
-    // Orbital ship state: sn = sphere normal (position), sf/sr = ship forward/right tangents.
-    // yaw_rate rotates sf/sr around sn. Camera has separate inertial lag state (cam_n, cam_up).
-    // Spawn at 3-o'clock (sn=+X), forward north (-Y on screen), right toward +Z.
-    // The ship starts flat on the local tangent plane: nose follows sf, dorsal side follows sn.
-    // vfwd = ORBIT_V0 gives circular spawn orbit at ORBIT_R.
-    local.snx = 1.0; local.sny = 0.0; local.snz = 0.0;
-    local.sfx = 0.0; local.sfy = -1.0; local.sfz = 0.0;
+    // Random spawn angle on the surface
+    let _spawn_angle = rand() * 2.0 * PI;
+    let _ca = cos(_spawn_angle); let _sa = sin(_spawn_angle);
+    local.snx = _ca; local.sny = _sa; local.snz = 0.0;
+    // Forward tangent perpendicular to radial (rotated 90° CCW in XY plane)
+    local.sfx = -_sa; local.sfy = _ca; local.sfz = 0.0;
     local.srx = 0.0; local.sry = 0.0; local.srz = 1.0;
     local.radius = ORBIT_R;
     local.vrad = 0.0;
-    local.vfwd = ORBIT_V0; local.vright = 0.0;
+    local.vfwd = 0.0; local.vright = 0.0;
     local.yaw_rate = 0.0;
-    local.ship_heat = 0.0;
     local.ship_heading = 0.0;
     local.ship_vis_pitch = PI;
     local.ship_vis_yaw = -PI * 0.5;
     local.ship_vis_roll = 0.0;
-    local.cam_nx = 1.0; local.cam_ny =  0.0; local.cam_nz = 0.0;
-    local.cam_fx = 0.0; local.cam_fy = -1.0; local.cam_fz = 0.0;  // lagged sf
+    local.cam_nx = _ca; local.cam_ny = _sa; local.cam_nz = 0.0;
+    local.cam_fx = -_sa; local.cam_fy = _ca; local.cam_fz = 0.0;
     local.cam_sway = 0.0;
     local.thrust_hold_ms = 0.0;
     local.thrust_release_ms = 9999.0;
-    local.reentry_damage_ms = 0.0;
-    local.bullets = #{};   // orbital bullet tracking: id_str → {snx,sny,snz,dirx,diry,dirz,speed}
-    local.ast_slots = #{};  // generator slot map: entity_id_str → slot_id
-    local.spawn_ship_x = PLANET_X + ORBIT_R;
-    local.spawn_ship_y = PLANET_Y;
+    local.spawn_ship_x = PLANET_X + ORBIT_R * _ca;
+    local.spawn_ship_y = PLANET_Y + ORBIT_R * _sa;
     input.load_profile("default");
-    if GAMEPLAY_ENABLED {
-        spawn_wave(world, 1);
-    }
 }
 
-// ======================== MAIN LOOP ========================================
-
-// ── Spherical ship state (spec §3) ────────────────────────────────────────────
-// sn  = unit normal from planet center to ship (all 3 axes, always length 1)
-// vfwd/vright = speed in the local forward/right tangent directions (px/s)
-// ── Orbital state ─────────────────────────────────────────────────────────────
-// sn = unit normal from planet to ship. sf/sr = ship local forward/right tangents.
-// vfwd/vright are ship-frame tangential speeds; yaw_rate rotates sf/sr around sn.
-let snx = local.snx ?? 1.0;
-let sny = local.sny ?? 0.0;
-let snz = local.snz ?? 0.0;
-let sfx = local.sfx ?? 0.0;
-let sfy = local.sfy ?? -1.0;
-let sfz = local.sfz ?? 0.0;
-let srx = local.srx ?? 0.0;
-let sry = local.sry ?? 0.0;
-let srz = local.srz ?? 1.0;
+// ======================== ORBITAL STATE =====================================
+let snx = local.snx ?? 1.0; let sny = local.sny ?? 0.0; let snz = local.snz ?? 0.0;
+let sfx = local.sfx ?? 0.0; let sfy = local.sfy ?? -1.0; let sfz = local.sfz ?? 0.0;
+let srx = local.srx ?? 0.0; let sry = local.sry ?? 0.0; let srz = local.srz ?? 1.0;
 let radius = local.radius ?? ORBIT_R;
 let vrad = local.vrad ?? 0.0;
-let vfwd   = local.vfwd   ?? 0.0;
+let vfwd = local.vfwd ?? 0.0;
 let vright = local.vright ?? 0.0;
 let yaw_rate = local.yaw_rate ?? 0.0;
-let ship_heat = local.ship_heat ?? 0.0;
-let ship_heading = local.ship_heading ?? heading_from_forward(sfx, sfy, 0.0);
+let ship_heading = local.ship_heading ?? 0.0;
 let ship_vis_pitch = local.ship_vis_pitch ?? PI;
 let ship_vis_yaw = local.ship_vis_yaw ?? -PI * 0.5;
 let ship_vis_roll = local.ship_vis_roll ?? 0.0;
-let cam_nx = local.cam_nx ?? snx;
-let cam_ny = local.cam_ny ?? sny;
-let cam_nz = local.cam_nz ?? snz;
-let cam_fx = local.cam_fx ?? sfx;
-let cam_fy = local.cam_fy ?? sfy;
-let cam_fz = local.cam_fz ?? sfz;
+let cam_nx = local.cam_nx ?? snx; let cam_ny = local.cam_ny ?? sny; let cam_nz = local.cam_nz ?? snz;
+let cam_fx = local.cam_fx ?? sfx; let cam_fy = local.cam_fy ?? sfy; let cam_fz = local.cam_fz ?? sfz;
 let cam_sway = local.cam_sway ?? 0.0;
 
-let score     = local.score ?? 0;
-let lives     = local.lives ?? 3;
-let ship_hp   = local.ship_hp ?? 3;
-let wave      = local.wave ?? 1;
-let game_over = local.game_over ?? false;
-let respawning = local.respawning ?? false;
-let invincible = local.invincible ?? false;
-let reentry_damage_ms = local.reentry_damage_ms ?? 0.0;
-
-// ── Engine timer resolution ───────────────────────────────────────────────────
-if world.timer_fired("respawn_done") {
-    local.respawning = false;
-    respawning = false;
-    local.invincible = true;
-    invincible = true;
-    local.just_spawned = true;
-    world.after_ms("invincible_done", 2000);
-}
-if world.timer_fired("invincible_done") {
-    local.invincible = false;
-    invincible = false;
-}
-if world.timer_fired("hit_invincible_done") {
-    local.invincible = false;
-    invincible = false;
-}
-
-// ── HUD game state sync ───────────────────────────────────────────────────────
-game.set("/score", score);
-game.set("/wave", wave);
-scene.set("heart-1", "visible", lives >= 1);
-scene.set("heart-2", "visible", lives >= 2);
-scene.set("heart-3", "visible", lives >= 3);
-
-// ── ESC key: return to main menu ──────────────────────────────────────────────
-if !game_over && (key.code == "Escape" || key.code == "escape") {
-    world.reset_dynamic_entities();
-    game.jump("asteroids-mainmenu");
-}
-
-// ── Game-over state ─────────────────────────────────────────────────────────
-if game_over {
-    // Scene transition already queued from the collision handler; just wait.
-    #{state: local}
-} else {
-
-// ── Ship controls ────────────────────────────────────────────────────────────
-let ship_id = if !respawning { ensure_ship(world, PLANET_X + ORBIT_R, PLANET_Y) } else { 0 };
+// ======================== SHIP SPAWN ========================================
+let ship_id = ensure_ship(world, PLANET_X + snx * radius, PLANET_Y + sny * radius);
 local.ship_id = ship_id;
 scene.set("ship-scene-slot", "visible", ship_id > 0);
 
-// ── Ship tracking — ALWAYS run (even during respawn) ─────────────────────────
-// Use last known ship position so planet stays centred during the 3-second respawn window.
-let ship_x = local.last_ship_x ?? 1600.0;
-let ship_y = local.last_ship_y ?? 900.0;
-// Input axes: declared in outer scope so both ship_id blocks can use them.
+let ship_x = local.spawn_ship_x ?? (PLANET_X + radius);
+let ship_y = local.spawn_ship_y ?? PLANET_Y;
+
+// Input axes
 let thrust_axis = 0.0;
 let strafe_axis = 0.0;
 let yaw_axis = 0.0;
+let main_engine_on = false;
+let lift_on = false;
 
 if ship_id > 0 {
     let xf = world.transform(ship_id) ?? #{};
     ship_x = xf["x"] ?? ship_x;
     ship_y = xf["y"] ?? ship_y;
-    local.last_ship_x = ship_x;
-    local.last_ship_y = ship_y;
+    local.spawn_ship_x = ship_x;
+    local.spawn_ship_y = ship_y;
 
-    // ── Respawn reset: restore orbital state to spawn values ──────────────────
-    if local.just_spawned ?? false {
-        snx = 1.0; sny = 0.0; snz = 0.0;
-        sfx = 0.0; sfy = -1.0; sfz = 0.0;
-        srx = 0.0; sry = 0.0; srz = 1.0;
-        radius = ORBIT_R;
-        vrad = 0.0;
-        vfwd = ORBIT_V0; vright = 0.0;
-        yaw_rate = 0.0; ship_heading = 0.0;
-        ship_heat = 0.0;
-        ship_vis_pitch = PI; ship_vis_yaw = -PI * 0.5; ship_vis_roll = 0.0;
-        cam_nx = snx; cam_ny = sny; cam_nz = snz;
-        cam_fx = sfx; cam_fy = sfy; cam_fz = sfz;
-        cam_sway = 0.0;
-        local.thrust_hold_ms = 0.0;
-        local.thrust_release_ms = 9999.0;
-        local.reentry_damage_ms = 0.0;
-        local.snx = snx; local.sny = sny; local.snz = snz;
-        local.sfx = sfx; local.sfy = sfy; local.sfz = sfz;
-        local.srx = srx; local.sry = sry; local.srz = srz;
-        local.radius = radius;
-        local.vrad = vrad;
-        local.vfwd = vfwd; local.vright = vright;
-        local.yaw_rate = yaw_rate;
-        local.ship_heat = ship_heat;
-        local.ship_heading = ship_heading;
-        local.ship_vis_pitch = ship_vis_pitch;
-        local.ship_vis_yaw = ship_vis_yaw;
-        local.ship_vis_roll = ship_vis_roll;
-        local.cam_nx = cam_nx; local.cam_ny = cam_ny; local.cam_nz = cam_nz;
-        local.cam_fx = cam_fx; local.cam_fy = cam_fy; local.cam_fz = cam_fz;
-        local.bullets = #{};
-    }
-
-    // ── Step 1: read pilot axes (yaw + thrust + strafe) ───────────────────────
+    // ── Input ──────────────────────────────────────────────────────────────
     thrust_axis =
         if input.action_down("thrust") && !input.action_down("brake") { 1.0 }
         else if input.action_down("brake") && !input.action_down("thrust") { -1.0 }
         else { 0.0 };
-    strafe_axis =
-        if input.action_down("strafe_right") && !input.action_down("strafe_left") { 1.0 }
-        else if input.action_down("strafe_left") && !input.action_down("strafe_right") { -1.0 }
-        else { 0.0 };
-    // Sign intentionally inverted to match expected on-screen turn direction.
+    strafe_axis = if input.action_down("strafe_left") { -1.0 } else { 0.0 };
     yaw_axis =
         if input.action_down("turn_right") && !input.action_down("turn_left") { -1.0 }
         else if input.action_down("turn_left") && !input.action_down("turn_right") { 1.0 }
         else { 0.0 };
+    main_engine_on = input.action_down("main_engine");
+    lift_on = input.action_down("lift");
 
-    // ── Step 2: target-rate yaw dynamics (hybrid: responsive but stable) ──────
+    // ── Yaw dynamics ───────────────────────────────────────────────────────
     let _yaw_target = yaw_axis * YAW_MAX;
     let _yaw_blend = (YAW_RESPONSE * dt).min(1.0);
     yaw_rate += (_yaw_target - yaw_rate) * _yaw_blend;
-    if absf(yaw_axis) < 0.001 {
-        yaw_rate *= 1.0 / (1.0 + YAW_DAMP * dt);
-    }
-    if yaw_rate > YAW_MAX { yaw_rate = YAW_MAX; }
-    if yaw_rate < -YAW_MAX { yaw_rate = -YAW_MAX; }
+    if yaw_axis == 0.0 { yaw_rate *= 1.0 / (1.0 + YAW_DAMP * dt); }
+    if absf(yaw_rate) > YAW_MAX { yaw_rate = if yaw_rate > 0.0 { YAW_MAX } else { -YAW_MAX }; }
+
     let _dyaw = yaw_rate * dt;
-    if absf(_dyaw) > 0.000001 {
+    if absf(_dyaw) > 0.00001 {
         let _rsf_yaw = rotate_axis(sfx, sfy, sfz, snx, sny, snz, _dyaw);
         sfx = _rsf_yaw.x; sfy = _rsf_yaw.y; sfz = _rsf_yaw.z;
         let _rsr_yaw = rotate_axis(srx, sry, srz, snx, sny, snz, _dyaw);
         srx = _rsr_yaw.x; sry = _rsr_yaw.y; srz = _rsr_yaw.z;
     }
 
-    // ── Step 3: translational thrust/strafe in ship tangent basis ─────────────
-    vfwd   += thrust_axis * ACC_FWD * dt;
+    // ── Thrust ─────────────────────────────────────────────────────────────
+    vfwd += thrust_axis * ACC_FWD * dt;
     vright += strafe_axis * ACC_SIDE * dt;
+    if main_engine_on { vfwd += ACC_MAIN_ENG * dt; }
+
     let _trim = SIDE_TRIM + (thrust_axis.max(0.0) * SIDE_THRUST_TRIM);
     vright *= 1.0 / (1.0 + _trim * dt);
-    vfwd   *= 1.0 / (1.0 + LIN_DAMP * dt);
+    vfwd *= 1.0 / (1.0 + LIN_DAMP * dt);
     vright *= 1.0 / (1.0 + LIN_DAMP * dt);
 
+    // Atmospheric drag
     let _altitude_px = (radius - SURFACE_RADIUS).max(0.0);
     let _atmo_alpha = clamp01((ATMO_TOP_ALT_PX - _altitude_px) / ATMO_TOP_ALT_PX.max(0.1));
-    let _dense_alpha = clamp01((ATMO_DENSE_ALT_PX - _altitude_px) / ATMO_DENSE_ALT_PX.max(0.1));
     let _drag = _atmo_alpha * _atmo_alpha * ATMO_DRAG_MAX;
     vrad *= 1.0 / (1.0 + _drag * dt * 1.2);
     vfwd *= 1.0 / (1.0 + _drag * dt);
     vright *= 1.0 / (1.0 + _drag * dt);
 
-    if vfwd   >  MAX_SPD        { vfwd   =  MAX_SPD; }
-    if vfwd   < -MAX_SPD * 0.5  { vfwd   = -MAX_SPD * 0.5; }
-    if vright >  MAX_SPD        { vright =  MAX_SPD; }
-    if vright < -MAX_SPD        { vright = -MAX_SPD; }
+    // Speed caps
+    if vfwd > MAX_SPD { vfwd = MAX_SPD; }
+    if vfwd < -MAX_SPD * 0.5 { vfwd = -MAX_SPD * 0.5; }
+    if vright > MAX_SPD { vright = MAX_SPD; }
+    if vright < -MAX_SPD { vright = -MAX_SPD; }
+
+    // ── Gravity + centrifugal + lift ───────────────────────────────────────
     let _vt2 = vfwd*vfwd + vright*vright;
-    let _grav = BODY_GRAVITY_MU / (radius * radius).max(1.0);
+    let _ship_world_x = PLANET_X + snx * radius;
+    let _ship_world_y = PLANET_Y + sny * radius;
+    let _ship_gravity = world.body_gravity("main-planet", _ship_world_x, _ship_world_y, snz * radius);
+    let _grav_radial = (_ship_gravity["ax"] ?? 0.0) * snx
+                     + (_ship_gravity["ay"] ?? 0.0) * sny
+                     + (_ship_gravity["az"] ?? 0.0) * snz;
     let _centrifugal = _vt2 / radius.max(SURFACE_RADIUS + 1.0);
-    vrad += (_centrifugal - _grav) * dt;
+    let _lift_acc = if lift_on { ACC_LIFT } else { 0.0 };
+    vrad += (_centrifugal + _grav_radial + _lift_acc) * dt;
     if vrad > MAX_VRAD { vrad = MAX_VRAD; }
     if vrad < -MAX_VRAD { vrad = -MAX_VRAD; }
     radius += vrad * dt;
@@ -678,55 +307,44 @@ if ship_id > 0 {
         if vrad < 0.0 { vrad = 0.0; }
     }
 
-    // ── Step 4: move on sphere via geodesic transport ─────────────────────────
-    if _vt2 > 0.001 {
-        let vel3x = sfx * vfwd + srx * vright;
-        let vel3y = sfy * vfwd + sry * vright;
-        let vel3z = sfz * vfwd + srz * vright;
-        // Rotation axis = normalize(cross(sn, v_tan))
-        let _ax = sny*vel3z - snz*vel3y;
-        let _ay = snz*vel3x - snx*vel3z;
-        let _az = snx*vel3y - sny*vel3x;
-        let _al = sqrtf(_ax*_ax + _ay*_ay + _az*_az).max(0.0001);
-        _ax /= _al; _ay /= _al; _az /= _al;
-        let _delta = sqrtf(_vt2) * dt / radius.max(SURFACE_RADIUS + 1.0);
-        // Parallel transport: rotate sn and sf by same geodesic step
-        let _rsn = rotate_axis(snx, sny, snz, _ax, _ay, _az, _delta);
-        snx = _rsn.x; sny = _rsn.y; snz = _rsn.z;
-        let _rsf = rotate_axis(sfx, sfy, sfz, _ax, _ay, _az, _delta);
-        sfx = _rsf.x; sfy = _rsf.y; sfz = _rsf.z;
-        // Normalize sn
-        let _nl = sqrtf(snx*snx + sny*sny + snz*snz).max(0.0001);
-        snx /= _nl; sny /= _nl; snz /= _nl;
-        // Re-orthonormalize sf against sn and rebuild sr
-        let _dsf = sfx*snx + sfy*sny + sfz*snz;
-        sfx -= snx * _dsf; sfy -= sny * _dsf; sfz -= snz * _dsf;
-        let _sfl = sqrtf(sfx*sfx + sfy*sfy + sfz*sfz).max(0.0001);
-        sfx /= _sfl; sfy /= _sfl; sfz /= _sfl;
-        srx = sfy*snz - sfz*sny;
-        sry = sfz*snx - sfx*snz;
-        srz = sfx*sny - sfy*snx;
-        let _srl = sqrtf(srx*srx + sry*sry + srz*srz).max(0.0001);
-        srx /= _srl; sry /= _srl; srz /= _srl;
+    // ── Geodesic transport (move sn/sf/sr along sphere) ────────────────────
+    let _vt2_safe = vfwd*vfwd + vright*vright;
+    if _vt2_safe > 0.001 {
+        let _delta = sqrtf(_vt2_safe) * dt / radius.max(SURFACE_RADIUS + 1.0);
+        let _vt_l = sqrtf(_vt2_safe);
+        let _tang_x = (sfx * vfwd + srx * vright) / _vt_l;
+        let _tang_y = (sfy * vfwd + sry * vright) / _vt_l;
+        let _tang_z = (sfz * vfwd + srz * vright) / _vt_l;
+        let _rn = rotate_axis(snx, sny, snz, _tang_x, _tang_y, _tang_z, _delta);
+        snx = _rn.x; sny = _rn.y; snz = _rn.z;
+        let _rf = rotate_axis(sfx, sfy, sfz, _tang_x, _tang_y, _tang_z, _delta);
+        sfx = _rf.x; sfy = _rf.y; sfz = _rf.z;
+        let _rr = rotate_axis(srx, sry, srz, _tang_x, _tang_y, _tang_z, _delta);
+        srx = _rr.x; sry = _rr.y; srz = _rr.z;
     }
 
-    // ── Step 6: ship transform follows the full orbital basis ──────────────────
-    // Mesh local axes: +Y = nose, +X = starboard, +Z = dorsal/up.
-    // World mapping:    sf = nose-forward tangent, sr = starboard tangent,
-    //                   sn = radial up away from the planet.
-    let _ship_layer = "ship-" + ship_id;
+    // Re-orthonormalize basis
+    let _nl = sqrtf(snx*snx + sny*sny + snz*snz).max(0.0001);
+    snx /= _nl; sny /= _nl; snz /= _nl;
+    let _fd = sfx*snx + sfy*sny + sfz*snz;
+    sfx -= snx*_fd; sfy -= sny*_fd; sfz -= snz*_fd;
+    let _fl = sqrtf(sfx*sfx + sfy*sfy + sfz*sfz).max(0.0001);
+    sfx /= _fl; sfy /= _fl; sfz /= _fl;
+    srx = sfy*snz - sfz*sny;
+    sry = sfz*snx - sfx*snz;
+    srz = sfx*sny - sfy*snx;
+
+    // ── 3D ship visual ─────────────────────────────────────────────────────
     let _ship_sprite = "ship-scene-slot";
     ship_heading = heading_from_forward(sfx, sfy, ship_heading);
     let _ship_euler = ship_basis_euler(
-        srx, sry, srz,
-        sfx, sfy, sfz,
-        snx, sny, snz,
+        srx, sry, srz, sfx, sfy, sfz, snx, sny, snz,
         ship_vis_pitch, ship_vis_yaw, ship_vis_roll
     );
     ship_vis_pitch = _ship_euler["pitch"] ?? ship_vis_pitch;
     ship_vis_yaw = _ship_euler["yaw"] ?? ship_vis_yaw;
     ship_vis_roll = _ship_euler["roll"] ?? ship_vis_roll;
-    scene.set(_ship_layer, "visible", false);
+    scene.set("ship-" + ship_id, "visible", false);
     scene.set(_ship_sprite, "obj.pitch", ship_vis_pitch * 57.29577951);
     scene.set(_ship_sprite, "obj.yaw",   ship_vis_yaw   * 57.29577951);
     scene.set(_ship_sprite, "obj.roll",  ship_vis_roll  * 57.29577951);
@@ -734,10 +352,9 @@ if ship_id > 0 {
     scene.set(_ship_sprite, "obj.world.x", snx * _ship_scene_r);
     scene.set(_ship_sprite, "obj.world.y", sny * _ship_scene_r);
     scene.set(_ship_sprite, "obj.world.z", snz * _ship_scene_r);
-    // 2D support systems still use the projected XY heading from the same forward basis.
     world.entity(ship_id).set_heading(ship_heading);
 
-    // ── Step 7: persist orbital state ──────────────────────────────────────────
+    // ── Persist state ──────────────────────────────────────────────────────
     local.snx = snx; local.sny = sny; local.snz = snz;
     local.sfx = sfx; local.sfy = sfy; local.sfz = sfz;
     local.srx = srx; local.sry = sry; local.srz = srz;
@@ -745,46 +362,65 @@ if ship_id > 0 {
     local.vrad = vrad;
     local.vfwd = vfwd; local.vright = vright;
     local.yaw_rate = yaw_rate;
-    local.ship_heat = ship_heat;
     local.ship_heading = ship_heading;
     local.ship_vis_pitch = ship_vis_pitch;
     local.ship_vis_yaw = ship_vis_yaw;
     local.ship_vis_roll = ship_vis_roll;
 
-    // ── Step 8: drive engine entity to sphere position ─────────────────────────
-    // Set vel = (desired - current) / dt so engine's physics step lands ship on the current orbit radius.
+    // ── Drive engine entity to sphere position ─────────────────────────────
     let _dx = PLANET_X + snx * radius;
     let _dy = PLANET_Y + sny * radius;
     world.set_physics(ship_id,
-        (_dx - ship_x) / dt,
-        (_dy - ship_y) / dt,
+        (_dx - ship_x) / dt, (_dy - ship_y) / dt,
         0.0, 0.0, 0.0, 0.0);
+
+    // ── RCS VFX ────────────────────────────────────────────────────────────
+    let _thrust_now = thrust_axis > 0.0 || main_engine_on;
+    let _hold_ms = if _thrust_now { (local.thrust_hold_ms ?? 0.0) + frame_ms.to_float() } else { 0.0 };
+    let _release_ms = if _thrust_now { 0.0 }
+        else { ((local.thrust_release_ms ?? 9999.0) + frame_ms.to_float()).min(9999.0) };
+    local.thrust_hold_ms = _hold_ms;
+    local.thrust_release_ms = _release_ms;
+    let _ship_speed = sqrtf(vfwd * vfwd + vright * vright);
+    rcs::update_orbital_vfx_original_style(
+        world, ship_id, thrust_axis, yaw_axis, yaw_rate,
+        _hold_ms, _release_ms, vfwd, vright, _ship_speed, col,
+        PLANET_X, PLANET_Y
+    );
 }  // end if ship_id > 0
 
-// Camera follows ship — ship is always at screen centre (320, 180).
-// Use the freshly-computed orbital position (snx/sny updated this frame),
-// not the old transform position, so 2D camera matches the 3D planet camera exactly.
+// ======================== 2D CAMERA =========================================
 let _cam_ship_x = PLANET_X + snx * radius;
 let _cam_ship_y = PLANET_Y + sny * radius;
 world.set_camera(_cam_ship_x - 320.0, _cam_ship_y - 180.0);
 
+// Adaptive zoom: surface → zoomed in, orbit → zoomed out
+let _alt_px = (radius - SURFACE_RADIUS).max(0.0);
+let ZOOM_SURFACE = 3.0;
+let ZOOM_ORBIT   = 1.0;
+let ZOOM_FADE_PX = SURFACE_RADIUS;
+let _zoom_t = clamp01(_alt_px / ZOOM_FADE_PX);
+let _zoom_t2 = 1.0 - (1.0 - _zoom_t) * (1.0 - _zoom_t);
+world.set_camera_zoom(ZOOM_SURFACE + (ZOOM_ORBIT - ZOOM_SURFACE) * _zoom_t2);
 
-// ── Planet axial self-rotation (independent of camera/orbit) ──────────────────
+// ======================== PLANET SPIN =======================================
 local.planet_self_yaw  = (local.planet_self_yaw  ?? 0.0) + PLANET_SPIN_DPS  * dt;
 local.cloud_self_yaw   = (local.cloud_self_yaw   ?? 0.0) + CLOUD_SPIN_DPS   * dt;
 local.cloud_self_yaw_2 = (local.cloud_self_yaw_2 ?? 90.0) + CLOUD2_SPIN_DPS * dt;
+scene.set("main-planet-view", "planet.spin_deg", local.planet_self_yaw ?? 0.0);
+scene.set("main-planet-view", "planet.cloud_spin_deg", local.cloud_self_yaw ?? 0.0);
+scene.set("main-planet-view", "planet.cloud2_spin_deg", local.cloud_self_yaw_2 ?? 90.0);
 
-// ── Chase (behind-ship) 3D camera ─────────────────────────────────────────────
-// Camera sits behind the ship and stays close to the local tangent plane.
-// sn = local up (radial away from planet), sf = ship forward tangent.
-let CAM_LIFT      = 0.08;  // small rise above the hull, but still tangent-dominant
-let CAM_BACK      = 0.62;  // pull the camera a bit farther behind the ship
-let CAM_AHEAD     = 0.42;  // look deeper into the flight path
-let CAM_LOOK_LIFT = 0.02;  // keep target near the ship instead of aiming down at the planet
+// ======================== 3D CHASE CAMERA ===================================
 let _cam_valid = snx*snx + sny*sny + snz*snz > 0.01;
 if _cam_valid {
     let _ship_scene_r = radius * SCENE_SCALE;
-    // Lag cam_n toward sn (smooth orbital position — no instant snapping)
+    // Altitude-adaptive camera: hugs the ship at surface, pulls back in orbit
+    let _alt_frac = clamp01((radius - SURFACE_RADIUS) / SURFACE_RADIUS);
+    let CAM_LIFT = 0.005 + _alt_frac * 0.04;
+    let CAM_BACK = 0.04 + _alt_frac * 0.74;    // 0.04 at surface → 0.78 in orbit
+    let CAM_AHEAD = 0.03 + _alt_frac * 0.55;   // 0.03 at surface → 0.58 in orbit
+
     let _alpha_n = dt / (0.30 + dt);
     cam_nx += (snx - cam_nx) * _alpha_n;
     cam_ny += (sny - cam_ny) * _alpha_n;
@@ -792,30 +428,22 @@ if _cam_valid {
     let _cnl = sqrtf(cam_nx*cam_nx + cam_ny*cam_ny + cam_nz*cam_nz).max(0.0001);
     cam_nx /= _cnl; cam_ny /= _cnl; cam_nz /= _cnl;
 
-    // Lag cam_f toward sf (smooth forward direction — banks on yaw)
     let _alpha_f = dt / (CAM_SWAY_TAU + dt);
     cam_fx += (sfx - cam_fx) * _alpha_f;
     cam_fy += (sfy - cam_fy) * _alpha_f;
     cam_fz += (sfz - cam_fz) * _alpha_f;
-    // Re-orthogonalize cam_f against cam_n (keep it tangential to sphere)
     let _fd = cam_fx*cam_nx + cam_fy*cam_ny + cam_fz*cam_nz;
     cam_fx -= cam_nx*_fd; cam_fy -= cam_ny*_fd; cam_fz -= cam_nz*_fd;
     let _cfl = sqrtf(cam_fx*cam_fx + cam_fy*cam_fy + cam_fz*cam_fz).max(0.0001);
     cam_fx /= _cfl; cam_fy /= _cfl; cam_fz /= _cfl;
 
-    // Eye: behind ship with only a slight lift so the shot reads as "behind"
-    // rather than "hovering above and looking down".
     let _ex = cam_nx * (_ship_scene_r + CAM_LIFT) - cam_fx * CAM_BACK;
     let _ey = cam_ny * (_ship_scene_r + CAM_LIFT) - cam_fy * CAM_BACK;
     let _ez = cam_nz * (_ship_scene_r + CAM_LIFT) - cam_fz * CAM_BACK;
+    let _lx = cam_nx * _ship_scene_r + cam_fx * CAM_AHEAD;
+    let _ly = cam_ny * _ship_scene_r + cam_fy * CAM_AHEAD;
+    let _lz = cam_nz * _ship_scene_r + cam_fz * CAM_AHEAD;
 
-    // Look-at: target the ship's orbital position and a point farther ahead on
-    // the tangent so the hull reads flat against the horizon.
-    let _lx = cam_nx * (_ship_scene_r + CAM_LOOK_LIFT) + cam_fx * CAM_AHEAD;
-    let _ly = cam_ny * (_ship_scene_r + CAM_LOOK_LIFT) + cam_fy * CAM_AHEAD;
-    let _lz = cam_nz * (_ship_scene_r + CAM_LOOK_LIFT) + cam_fz * CAM_AHEAD;
-
-    // Camera-up = radial direction (sn = "sky"), with banking sway around cam_f
     let _target_sway = (-yaw_rate * CAM_SWAY_GAIN).max(-0.20).min(0.20);
     let _alpha_s = dt / (CAM_SWAY_TAU + dt);
     cam_sway += (_target_sway - cam_sway) * _alpha_s;
@@ -828,554 +456,35 @@ local.cam_nx = cam_nx; local.cam_ny = cam_ny; local.cam_nz = cam_nz;
 local.cam_fx = cam_fx; local.cam_fy = cam_fy; local.cam_fz = cam_fz;
 local.cam_sway = cam_sway;
 
-// Self-rotation only: obj.yaw = planet's own axial spin (no orbital omega_z needed).
-// Planet axial tilt is fixed at -14° pitch (set in YAML; don't override it here).
-let surface_yaw  = local.planet_self_yaw  ?? 0.0;
-let cloud_yaw    = local.cloud_self_yaw   ?? 0.0;
-let cloud_yaw_2  = local.cloud_self_yaw_2 ?? 90.0;
-scene.set("planet-bg-sphere", "obj.yaw", surface_yaw);
-scene.set("planet-clouds",    "obj.yaw", cloud_yaw);
-scene.set("planet-clouds-2",  "obj.yaw", cloud_yaw_2);
-
-// ── Gravity on asteroid bodies ────────────────────────────────────────────────
-// Simple centripetal pull toward planet. G chosen so v≈56 at r=180.
-let AST_G = BODY_GRAVITY_MU;
-for grav_id in world.query_tag("asteroid") {
-    let gxf = world.transform(grav_id) ?? #{};
-    let egx = PLANET_X - (gxf["x"] ?? PLANET_X);
-    let egy = PLANET_Y - (gxf["y"] ?? PLANET_Y);
-    let edist = sqrtf(egx * egx + egy * egy).max(SURFACE_RADIUS);
-    let egrav = AST_G / (edist * edist);
-    let ephys = world.physics(grav_id);
-    if type_of(ephys) == "map" {
-        world.set_physics(grav_id,
-            (ephys["vx"] ?? 0.0) + egx / edist * egrav * dt,
-            (ephys["vy"] ?? 0.0) + egy / edist * egrav * dt,
-            ephys["ax"] ?? 0.0, ephys["ay"] ?? 0.0,
-            ephys["drag"] ?? 0.0, ephys["max_speed"] ?? 0.0);
-    }
-}
-
-// ── Asteroid generator — map physics entities to 3D scene slot pool ───────────
-// Each frame: hide all slots, then show+position only those with a live entity.
-// Slot assignment is sticky (stored in local.ast_slots) so tumble rotation is
-// continuous — obj.orbit_speed drives the renderer spin from elapsed_ms.
-hide_asteroid_slots(scene, AST_SLOT_L_PREFIX, AST_SLOT_L_COUNT);
-hide_asteroid_slots(scene, AST_SLOT_M_PREFIX, AST_SLOT_M_COUNT);
-hide_asteroid_slots(scene, AST_SLOT_S_PREFIX, AST_SLOT_S_COUNT);
-
-// Gather live asteroid IDs by size.
-let _live_large  = [];
-let _live_medium = [];
-let _live_small  = [];
-for _aid in world.query_tag("asteroid") {
-    if      world.tag_has(_aid, "asteroid-large")  { _live_large.push(_aid);  }
-    else if world.tag_has(_aid, "asteroid-medium") { _live_medium.push(_aid); }
-    else                                            { _live_small.push(_aid);  }
-}
-
-// Persistent slot map: entity_id_str → slot_id.
-let _ast_slots = prune_dead_asteroid_slots(world, local.ast_slots ?? #{});
-
-if _live_large.len() > AST_SLOT_L_COUNT {
-    if !(local.ast_slot_warn_large ?? false) {
-        diag.warn(`[AST SLOT] large overflow: live=${_live_large.len()} slots=${AST_SLOT_L_COUNT}`);
-    }
-    local.ast_slot_warn_large = true;
-} else {
-    local.ast_slot_warn_large = false;
-}
-if _live_medium.len() > AST_SLOT_M_COUNT {
-    if !(local.ast_slot_warn_medium ?? false) {
-        diag.warn(`[AST SLOT] medium overflow: live=${_live_medium.len()} slots=${AST_SLOT_M_COUNT}`);
-    }
-    local.ast_slot_warn_medium = true;
-} else {
-    local.ast_slot_warn_medium = false;
-}
-if _live_small.len() > AST_SLOT_S_COUNT {
-    if !(local.ast_slot_warn_small ?? false) {
-        diag.warn(`[AST SLOT] small overflow: live=${_live_small.len()} slots=${AST_SLOT_S_COUNT}`);
-    }
-    local.ast_slot_warn_small = true;
-} else {
-    local.ast_slot_warn_small = false;
-}
-
-_ast_slots = sync_asteroid_slot_group(
-    scene, world, _ast_slots, _live_large,
-    AST_SLOT_L_PREFIX, AST_SLOT_L_COUNT,
-    PLANET_X, PLANET_Y, SCENE_SCALE
-);
-_ast_slots = sync_asteroid_slot_group(
-    scene, world, _ast_slots, _live_medium,
-    AST_SLOT_M_PREFIX, AST_SLOT_M_COUNT,
-    PLANET_X, PLANET_Y, SCENE_SCALE
-);
-_ast_slots = sync_asteroid_slot_group(
-    scene, world, _ast_slots, _live_small,
-    AST_SLOT_S_PREFIX, AST_SLOT_S_COUNT,
-    PLANET_X, PLANET_Y, SCENE_SCALE
-);
-
-local.ast_slots = _ast_slots;
-
-// Other gameplay entities now rely on particles or scene-layer visuals rather
-// than prefab sprite layers, so keep their runtime visual layers hidden.
-for _sid in world.query_tag("shrapnel") { scene.set("shrapnel-" + _sid, "visible", false); }
-for _did in world.query_tag("debris")   { scene.set("debris-" + _did,   "visible", false); }
-
-
-let _unit_km_s = KM_PER_PX / WORLD_TIME_SCALE / 1000.0;
+// ======================== HUD ===============================================
+let _unit_km_s = KM_PER_PX;
 let _tspd_px_s = sqrtf(vfwd*vfwd + vright*vright);
 let _altitude_px = (radius - SURFACE_RADIUS).max(0.0);
-let _atmo_alpha = clamp01((ATMO_TOP_ALT_PX - _altitude_px) / ATMO_TOP_ALT_PX.max(0.1));
-let _dense_alpha = clamp01((ATMO_DENSE_ALT_PX - _altitude_px) / ATMO_DENSE_ALT_PX.max(0.1));
-let _world_vx = snx * vrad + sfx * vfwd + srx * vright;
-let _world_vy = sny * vrad + sfy * vfwd + sry * vright;
 let _tspd_km_s = _tspd_px_s * _unit_km_s;
 let _rspd_km_s = vrad * _unit_km_s;
-let _vx_km_s = _world_vx * _unit_km_s;
-let _vy_km_s = _world_vy * _unit_km_s;
 let _alt_km = (_altitude_px * KM_PER_PX).to_int();
 let _v_circ_km_s = sqrtf(BODY_GRAVITY_MU / radius.max(SURFACE_RADIUS + 1.0)) * _unit_km_s;
 let _v_esc_km_s = sqrtf(2.0 * BODY_GRAVITY_MU / radius.max(SURFACE_RADIUS + 1.0)) * _unit_km_s;
-let _heat_gain = _atmo_alpha * (_tspd_px_s + absf(vrad)) * 0.0037 + _dense_alpha * (_tspd_px_s * 0.0024);
-let _heat_cool = 0.14 - (_atmo_alpha * 0.04);
-ship_heat += (_heat_gain - _heat_cool) * dt;
-if ship_heat < 0.0 { ship_heat = 0.0; }
-if ship_heat > 1.0 { ship_heat = 1.0; }
-local.ship_heat = ship_heat;
+scene.set("main-planet-view", "planet.observer_altitude_km", _alt_km.to_float());
 
-let hud_alt = "ALT  " + _alt_km + " km";
-let hud_tspd = fmt_kms("TSPD", _tspd_km_s);
-let hud_rspd = fmt_kms("RSPD", _rspd_km_s);
-let hud_vxy = "VXY  " + one_decimal_text(_vx_km_s) + "/" + one_decimal_text(_vy_km_s);
-let hud_heat = "HEAT " + (ship_heat * 100.0).to_int() + "%";
+let _atmo_alpha = clamp01((ATMO_TOP_ALT_PX - _altitude_px) / ATMO_TOP_ALT_PX.max(0.1));
 let hud_status =
-    if radius <= SURFACE_RADIUS + 1.5 { "IMPACT" }
-    else if _dense_alpha > 0.85 && _rspd_km_s < -0.15 { "REENTRY" }
-    else if ship_heat >= HEAT_DAMAGE_START { "HOT" }
-    else if _atmo_alpha > 0.35 { "DRAG" }
+    if radius <= SURFACE_RADIUS + 1.5 && absf(vrad) < 0.5 { "SURFACE" }
     else if _tspd_km_s >= _v_esc_km_s * 0.95 { "ESCAPE" }
-    else if _rspd_km_s < -0.05 { "DECAY" }
     else if _rspd_km_s > 0.05 { "CLIMB" }
+    else if _rspd_km_s < -0.05 { "DECAY" }
     else if absf(_tspd_km_s - _v_circ_km_s) < 0.03 { "STABLE" }
     else { "ORBIT" };
-scene.set("hud-orbital-alt",    "content", hud_alt);
+let _status_colour =
+    if hud_status == "ESCAPE" || hud_status == "DECAY" { "#ddd47d" }
+    else if hud_status == "SURFACE" { "#7aff9e" }
+    else { "#9ed8ff" };
+
+scene.set("hud-orbital-alt",    "content", "ALT  " + _alt_km + " km");
 scene.set("hud-orbital-status", "content", hud_status);
-scene.set("hud-orbital-tspd",   "content", hud_tspd);
-scene.set("hud-orbital-rspd",   "content", hud_rspd);
-scene.set("hud-orbital-heat",   "content", hud_heat);
-scene.set("hud-orbital-vxy",    "content", hud_vxy);
-
-if ship_id > 0 {
-    world.entity(ship_id).physics.set_collider_polygon(ship_hull_polygon(ship_heading), 1, 6);
-
-    // ── Warp-in materialisation on first frame after respawn ──────────────────
-    if local.just_spawned ?? false {
-        local.just_spawned = false;
-        world.emit("ship.warp_in", ship_id, #{ count: 26, speed: 120.0, spread: 6.28, fg: col.ship ?? "white" });
-        world.emit("ship.warp_in", ship_id, #{ count: 10, speed:  60.0, spread: 6.28, fg: col.ship ?? "white" });
-        world.emit("asteroids.impact_sparks", ship_id, #{ count: 10, speed: 70.0, spread: 3.14, fg: "#AADDFF" });
-        effects.shake(300, 2.5, 1.8, 10.0);
-        effects.trigger("whiteout", 200, #{ intensity: 0.5 });
-    }
-
-    // ── Original-style orbital VFX orchestration (main/bow/port/starboard) ────
-    let _thrust_now  = thrust_axis > 0.0;
-    let _hold_ms = if _thrust_now {
-        (local.thrust_hold_ms ?? 0.0) + frame_ms.to_float()
-    } else { 0.0 };
-    let _release_ms = if _thrust_now {
-        0.0
-    } else {
-        ((local.thrust_release_ms ?? 9999.0) + frame_ms.to_float()).min(9999.0)
-    };
-    local.thrust_hold_ms = _hold_ms;
-    local.thrust_release_ms = _release_ms;
-    let _ship_speed = sqrtf(vfwd * vfwd + vright * vright);
-
-    rcs::update_orbital_vfx_original_style(
-        world,
-        ship_id,
-        thrust_axis,
-        yaw_axis,
-        yaw_rate,
-        _hold_ms,
-        _release_ms,
-        vfwd,
-        vright,
-        _ship_speed,
-        col
-    );
-
-    // ── Shooting ─────────────────────────────────────────────────────────────
-    if GAMEPLAY_ENABLED && input.action_just_pressed("fire") && world.entity(ship_id).cooldown_ready("fire") {
-        let _ship_xy = heading_dir_xy(ship_heading);
-        // Spawn bullet from the projected nose position used by 2D support systems.
-        let bullet_id = world.spawn_prefab("bullet", #{
-            x: ship_x + (_ship_xy["x"] ?? 0.0) * 17.0,
-            y: ship_y + (_ship_xy["y"] ?? -1.0) * 17.0,
-            vx: 0.0, vy: 0.0,
-            heading: ship_heading, ttl_ms: 1800,
-        });
-        // Store orbital state: bullet carries full ship tangential velocity + muzzle speed.
-        // Full vel3 = sf*(muzzle + vfwd) + sr*vright, then normalize to get direction and speed.
-        let _bvx = sfx * (24.0 + vfwd) + srx * vright;
-        let _bvy = sfy * (24.0 + vfwd) + sry * vright;
-        let _bvz = sfz * (24.0 + vfwd) + srz * vright;
-        let _bspd = sqrtf(_bvx*_bvx + _bvy*_bvy + _bvz*_bvz).max(0.1);
-        let _bullets = local.bullets ?? #{};
-        _bullets[bullet_id + ""] = #{
-            snx: snx, sny: sny, snz: snz,
-            dirx: _bvx / _bspd, diry: _bvy / _bspd, dirz: _bvz / _bspd,
-            speed: _bspd,
-            radius: radius,
-            vrad: vrad,
-        };
-        local.bullets = _bullets;
-        world.entity(ship_id).cooldown_start("fire", 180);
-
-        // Recoil: backward kick in orbital tangent frame
-        vfwd -= 14.0;
-        if vfwd < -MAX_SPD * 0.5 { vfwd = -MAX_SPD * 0.5; }
-        local.vfwd = vfwd;
-    }
-
-    // ── Orbital bullet update — move each bullet along the sphere ─────────────
-    let _alive_bullets = world.query_tag("bullet");
-    let _old_b = local.bullets ?? #{};
-    let _new_b = #{};
-    for _bid in _alive_bullets {
-        scene.set("bullet-" + _bid, "visible", false);
-        let _bkey = _bid + "";
-        let _bs = _old_b[_bkey] ?? ();
-        if type_of(_bs) != "map" { continue; }  // not an orbital bullet, skip
-
-        let _bsnx = _bs["snx"] ?? 0.0;
-        let _bsny = _bs["sny"] ?? -1.0;
-        let _bsnz = _bs["snz"] ?? 0.0;
-        let _bdx  = _bs["dirx"] ?? 1.0;
-        let _bdy  = _bs["diry"] ?? 0.0;
-        let _bdz  = _bs["dirz"] ?? 0.0;
-        let _bspd = _bs["speed"] ?? 28.0;
-        let _brad = _bs["radius"] ?? ORBIT_R;
-        let _bvrad = _bs["vrad"] ?? 0.0;
-
-        // Normalize sn
-        let _bnl = sqrtf(_bsnx*_bsnx + _bsny*_bsny + _bsnz*_bsnz).max(0.0001);
-        _bsnx /= _bnl; _bsny /= _bnl; _bsnz /= _bnl;
-        // Project dir onto tangent plane
-        let _bdd = _bdx*_bsnx + _bdy*_bsny + _bdz*_bsnz;
-        _bdx -= _bsnx*_bdd; _bdy -= _bsny*_bdd; _bdz -= _bsnz*_bdd;
-        let _bdl = sqrtf(_bdx*_bdx + _bdy*_bdy + _bdz*_bdz).max(0.0001);
-        _bdx /= _bdl; _bdy /= _bdl; _bdz /= _bdl;
-
-        // Geodesic rotation axis = cross(sn, dir) (already tangential, just normalize)
-        let _bax = _bsny*_bdz - _bsnz*_bdy;
-        let _bay = _bsnz*_bdx - _bsnx*_bdz;
-        let _baz = _bsnx*_bdy - _bsny*_bdx;
-        let _bal = sqrtf(_bax*_bax + _bay*_bay + _baz*_baz).max(0.0001);
-        _bax /= _bal; _bay /= _bal; _baz /= _bal;
-
-        let _bgrav = BODY_GRAVITY_MU / (_brad * _brad).max(1.0);
-        let _bcentrifugal = (_bspd * _bspd) / _brad.max(SURFACE_RADIUS + 1.0);
-        _bvrad += (_bcentrifugal - _bgrav) * dt;
-        _brad += _bvrad * dt;
-        if _brad < SURFACE_RADIUS + 1.0 { _brad = SURFACE_RADIUS + 1.0; }
-        let _bdang = _bspd * dt / _brad.max(SURFACE_RADIUS + 1.0);
-        let _brsn = rotate_axis(_bsnx, _bsny, _bsnz, _bax, _bay, _baz, _bdang);
-        _bsnx = _brsn.x; _bsny = _brsn.y; _bsnz = _brsn.z;
-        let _brdir = rotate_axis(_bdx, _bdy, _bdz, _bax, _bay, _baz, _bdang);
-        _bdx = _brdir.x; _bdy = _brdir.y; _bdz = _brdir.z;
-
-        let _bx = PLANET_X + _bsnx * _brad;
-        let _by = PLANET_Y + _bsny * _brad;
-        let _bxf = world.transform(_bid) ?? #{};
-        let _bpx = _bxf["x"] ?? _bx;
-        let _bpy = _bxf["y"] ?? _by;
-        world.set_physics(_bid, (_bx - _bpx) / dt, (_by - _bpy) / dt, 0.0, 0.0, 0.0, 0.0);
-
-        // Trail VFX
-        world.emit("bullet.trail", _bid, #{ count: 4, color_ramp: col.ramp_bullet_trail });
-
-        _new_b[_bkey] = #{
-            snx: _bsnx, sny: _bsny, snz: _bsnz,
-            dirx: _bdx, diry: _bdy, dirz: _bdz,
-            speed: _bspd,
-            radius: _brad,
-            vrad: _bvrad,
-        };
-    }
-    local.bullets = _new_b;
-}
-
-// ── Atmosphere / reentry failure model ────────────────────────────────────────
-if ship_id > 0 {
-    reentry_damage_ms = (reentry_damage_ms - frame_ms.to_float()).max(0.0);
-    local.reentry_damage_ms = reentry_damage_ms;
-}
-
-if !invincible && ship_id > 0 {
-    let _surface_impact = radius <= SURFACE_RADIUS + 1.2;
-    let _hard_reentry = _dense_alpha > 0.88 && _rspd_km_s < -0.16;
-    let _thermal_tick = ship_heat >= HEAT_DAMAGE_START && _atmo_alpha >= HEAT_TICK_ATMO_MIN && reentry_damage_ms <= 0.0;
-    let _thermal_kill = ship_heat >= HEAT_KILL_THRESHOLD && _atmo_alpha >= HEAT_TICK_ATMO_MIN;
-
-    if _surface_impact || _hard_reentry || _thermal_tick || _thermal_kill {
-        let _damage = if _surface_impact || _hard_reentry || _thermal_kill { 3 } else { 1 };
-        ship_hp = ship_hp - _damage;
-        local.ship_hp = ship_hp;
-        local.reentry_damage_ms = REENTRY_TICK_MS;
-
-        if _damage >= 3 {
-            world.emit("asteroids.impact_sparks", ship_id, #{ count: 16, speed: 90.0, spread: 6.28, fg: "#FFAA66" });
-            effects.shake(360, 3.0, 2.1, 12.0);
-        } else {
-            world.emit("asteroids.impact_sparks", ship_id, #{ count: 7, speed: 65.0, spread: 6.28, fg: "#FFCC88" });
-            effects.shake(180, 1.8, 1.2, 12.0);
-        }
-
-        if ship_hp <= 0 {
-            // Full death sequence
-            do_ship_death_fx(world, effects, col, ship_id);
-            world.despawn(ship_id);
-            local.ship_id = 0;
-            ship_id = 0;
-            local.ship_hp = 3;
-            ship_hp = 3;
-            local.reentry_damage_ms = 0.0;
-            lives = lives - 1;
-            local.lives = lives;
-            if lives <= 0 {
-                local.game_over = true;
-                local.lives = 0;
-                let final_score = score;
-                let result = merge_highscores(game.get("/highscores/scores"), final_score, wave);
-                let rank = result["rank"];
-                if rank >= 0 {
-                    game.set("/highscores/scores", result["scores"]);
-                    game.set("/highscores/last_entry_rank", rank);
-                } else {
-                    game.set("/highscores/last_entry_rank", -1);
-                }
-                game.set("/score", final_score);
-                clear_round_entities(world);
-                game.jump("asteroids-highscores");
-            } else {
-                local.respawning = true;
-                world.after_ms("respawn_done", 3000);
-            }
-        }
-    }
-}
-
-// ── Wave complete check ───────────────────────────────────────────────────────
-if GAMEPLAY_ENABLED && world.count_kind("asteroid") == 0 && world.count_tag("bullet") == 0 && !respawning {
-    wave = wave + 1;
-    local.wave = wave;
-    spawn_wave(world, wave);
-}
-
-// ── Collision handling ────────────────────────────────────────────────────────
-// bullet hits asteroid — emit debris, score, split
-for hit in collision.enters("bullet", "asteroid") {
-    let bullet_id   = hit["bullet"];
-    let asteroid_id = hit["asteroid"];
-    if !world.exists(bullet_id) || !world.exists(asteroid_id) { continue; }
-    let axf = world.transform(asteroid_id);
-    let ax = if type_of(axf) == "map" { axf["x"] ?? 0.0 } else { 0.0 };
-    let ay = if type_of(axf) == "map" { axf["y"] ?? 0.0 } else { 0.0 };
-    let aphys = world.physics(asteroid_id);
-    let avx = if type_of(aphys) == "map" { aphys["vx"] ?? 0.0 } else { 0.0 };
-    let avy = if type_of(aphys) == "map" { aphys["vy"] ?? 0.0 } else { 0.0 };
-
-    // Engine-level elastic impulse already applied before scripts run.
-    // Read bullet velocity for shrapnel spawn direction.
-    let bphys = world.physics(bullet_id);
-    let bvx = if type_of(bphys) == "map" { bphys["vx"] ?? 0.0 } else { 0.0 };
-    let bvy = if type_of(bphys) == "map" { bphys["vy"] ?? 0.0 } else { 0.0 };
-
-    // Shrapnel: real physics entities — ricochet off asteroids, damage ship
-    let shard_count = if world.tag_has(asteroid_id, "asteroid-large") { 5 }
-                 else if world.tag_has(asteroid_id, "asteroid-medium") { 4 }
-                 else { 3 };
-    let shard_speed = if world.tag_has(asteroid_id, "asteroid-large") { 220.0 }
-                 else if world.tag_has(asteroid_id, "asteroid-medium") { 280.0 }
-                 else { 340.0 };
-    spawn_shrapnel(world, ax, ay, bvx, bvy, avx, avy, shard_count, shard_speed);
-
-    // Fragment halo: glowing dust cloud that fades to background over 2s (visual only)
-    let frag_count = shard_count - 1;
-    let frag_speed = shard_speed * 0.4;
-    world.emit("asteroid.impact_fragments", asteroid_id, #{
-        count: frag_count, speed: frag_speed, spread: 6.28, fg: col.asteroid ?? "white"
-    });
-
-    // Impact sparks and debris
-    let spark_count = if world.tag_has(asteroid_id, "asteroid-large") { 12 }
-                 else if world.tag_has(asteroid_id, "asteroid-medium") { 8 }
-                 else { 5 };
-    world.emit("asteroids.impact_sparks", asteroid_id, #{
-        count: spark_count, speed: 60.0, spread: 3.14, fg: col.asteroid ?? "white"
-    });
-    world.emit("asteroid.debris", asteroid_id, #{
-        count: spark_count / 2, speed: 35.0, spread: 6.28, fg: col.asteroid ?? "white"
-    });
-
-    // Score + split
-    if world.tag_has(asteroid_id, "asteroid-large") {
-        score = score + 20;
-        world.despawn(asteroid_id);
-        spawn_medium_asteroids(world, ax, ay, avx, avy);
-    } else if world.tag_has(asteroid_id, "asteroid-medium") {
-        score = score + 50;
-        world.despawn(asteroid_id);
-        spawn_small_asteroids(world, ax, ay, avx, avy);
-    } else if world.tag_has(asteroid_id, "asteroid-small") {
-        score = score + 100;
-        world.despawn(asteroid_id);
-    }
-    local.score = score;
-    // Let bullet ricochet briefly instead of instant despawn — engine impulse already deflected it
-    world.set_lifetime(bullet_id, 250);
-}
-
-// shrapnel hits asteroid — ricochet: reflect velocity × 0.5, nudge asteroid
-for hit in collision.enters("shrapnel", "asteroid") {
-    let s_id = hit["shrapnel"];
-    let a_id = hit["asteroid"];
-    if !world.exists(s_id) || !world.exists(a_id) { continue; }
-    let sphys = world.physics(s_id);
-    let svx = if type_of(sphys) == "map" { sphys["vx"] ?? 0.0 } else { 0.0 };
-    let svy = if type_of(sphys) == "map" { sphys["vy"] ?? 0.0 } else { 0.0 };
-    // Reflect and bleed 50% speed
-    if type_of(sphys) == "map" {
-        world.set_physics(s_id,
-            -svx * 0.5, -svy * 0.5,
-            sphys["ax"] ?? 0.0, sphys["ay"] ?? 0.0,
-            sphys["drag"] ?? 0.0, sphys["max_speed"] ?? 0.0);
-    }
-    // 3% momentum nudge to the asteroid
-    let aphys = world.physics(a_id);
-    if type_of(aphys) == "map" {
-        let push = 0.03;
-        world.set_physics(a_id,
-            (aphys["vx"] ?? 0.0) + svx * push,
-            (aphys["vy"] ?? 0.0) + svy * push,
-            aphys["ax"] ?? 0.0, aphys["ay"] ?? 0.0,
-            aphys["drag"] ?? 0.0, aphys["max_speed"] ?? 0.0);
-    }
-    // Spark flash at ricochet
-    world.emit("asteroids.impact_sparks", a_id, #{
-        count: 3, speed: 40.0, spread: 2.0, fg: col.asteroid ?? "white"
-    });
-}
-
-// shrapnel hits ship — 3-hit HP system: lose a life only on 3rd hit
-if !invincible && ship_id > 0 {
-    for hit in collision.enters("shrapnel", "ship") {
-        let s_id      = hit["shrapnel"];
-        let hit_ship  = hit["ship"];
-        if hit_ship != ship_id || !world.exists(s_id) { continue; }
-        world.despawn(s_id);
-
-        ship_hp = ship_hp - 1;
-        local.ship_hp = ship_hp;
-
-        if ship_hp <= 0 {
-            // Full death sequence
-            do_ship_death_fx(world, effects, col, ship_id);
-            world.despawn(ship_id);
-            local.ship_id = 0;
-            ship_id = 0;
-            local.ship_hp = 3;
-            ship_hp = 3;
-            lives = lives - 1;
-            local.lives = lives;
-            if lives <= 0 {
-                local.game_over = true;
-                local.lives = 0;
-                let final_score = score;
-                let result = merge_highscores(game.get("/highscores/scores"), final_score, wave);
-                let rank = result["rank"];
-                if rank >= 0 {
-                    game.set("/highscores/scores", result["scores"]);
-                    game.set("/highscores/last_entry_rank", rank);
-                } else {
-                    game.set("/highscores/last_entry_rank", -1);
-                }
-                game.set("/score", final_score);
-                clear_round_entities(world);
-                game.jump("asteroids-highscores");
-            } else {
-                local.respawning = true;
-                world.after_ms("respawn_done", 3000);
-            }
-        } else {
-            // Hit flash — brief invincibility, small spark burst only
-            world.emit("asteroids.impact_sparks", ship_id, #{
-                count: 6, speed: 50.0, spread: 6.28, fg: col.ship ?? "white"
-            });
-            local.invincible = true;
-            invincible = true;
-            world.after_ms("hit_invincible_done", 800);
-        }
-        break;
-    }
-}
-
-// ship hits asteroid — 3-hit HP system: lose a life only on 3rd hit
-if !invincible && ship_id > 0 {
-    for hit in collision.enters("ship", "asteroid") {
-        let hit_ship_id = hit["ship"];
-        if hit_ship_id != ship_id { continue; }
-
-        ship_hp = ship_hp - 1;
-        local.ship_hp = ship_hp;
-
-        if ship_hp <= 0 {
-            // Full death sequence
-            do_ship_death_fx(world, effects, col, ship_id);
-            world.despawn(ship_id);
-            local.ship_id = 0;
-            ship_id = 0;
-            local.ship_hp = 3;
-            ship_hp = 3;
-            lives = lives - 1;
-            local.lives = lives;
-            if lives <= 0 {
-                local.game_over = true;
-                local.lives = 0;
-                let final_score = score;
-                let result = merge_highscores(game.get("/highscores/scores"), final_score, wave);
-                let rank = result["rank"];
-                if rank >= 0 {
-                    game.set("/highscores/scores", result["scores"]);
-                    game.set("/highscores/last_entry_rank", rank);
-                } else {
-                    game.set("/highscores/last_entry_rank", -1);
-                }
-                game.set("/score", final_score);
-                clear_round_entities(world);
-                game.jump("asteroids-highscores");
-            } else {
-                local.respawning = true;
-                world.after_ms("respawn_done", 3000);
-            }
-        } else {
-            // Hit flash — brief invincibility, small spark burst only
-            world.emit("asteroids.impact_sparks", ship_id, #{
-                count: 8, speed: 60.0, spread: 6.28, fg: col.ship ?? "white"
-            });
-            local.invincible = true;
-            invincible = true;
-            world.after_ms("hit_invincible_done", 800);
-        }
-        break;
-    }
-}
-
-#{state: local}
-} // end game_over else block
+scene.set("hud-orbital-tspd",   "content", fmt_kms("TSPD", _tspd_km_s));
+scene.set("hud-orbital-rspd",   "content", fmt_kms("RSPD", _rspd_km_s));
+scene.set("hud-orbital-heat",   "content", "");
+scene.set("hud-orbital-vxy",    "content", "REF  " + one_decimal_text(_v_circ_km_s) + "/" + one_decimal_text(_v_esc_km_s));
+scene.set("hud-orbital-status", "style.fg", _status_colour);
+scene.set("hud-orbital-vxy",    "style.fg", "#88a8c4");

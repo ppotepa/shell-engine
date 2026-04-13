@@ -1,7 +1,6 @@
 id: effect_preview
 title: Effect Preview
 cutscene: false
-rendered-mode: halfblock
 bg_colour: black
 stages:
 __SCENE_STAGES__

@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../../schemas/layers.yaml
+- name: exit
+  z_index: 0
+  sprites:
+    - { type: text, content: "EXITING TERRAIN PLAYGROUND...", at: cc, font: "generic:2", fg: white }

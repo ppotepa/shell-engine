@@ -13,7 +13,7 @@ pub struct PrerenderedFrame {
     /// Virtual pixel dimensions used when blitting.
     pub virtual_w: u16,
     pub virtual_h: u16,
-    /// Terminal cell dimensions.
+    /// Sprite target dimensions in pixels.
     pub target_w: u16,
     pub target_h: u16,
     /// Total yaw at render time (rotation_y + yaw_deg) — for cache-hit check.

@@ -15,8 +15,8 @@ use super::registry::PostFxBuiltin;
 use super::{lerp_colour_local, normalize_bg, rand01, scale_colour, PostFxContext};
 use engine_core::buffer::{Buffer, Cell};
 use engine_core::color::Color;
-use engine_effects::utils::color::colour_to_rgb;
 use engine_core::scene::Effect;
+use engine_effects::utils::color::colour_to_rgb;
 use rayon::prelude::*;
 use std::cell::RefCell;
 
@@ -360,44 +360,50 @@ pub(super) fn apply(
 
     // Snapshot data from thread_locals into owned structures so they can cross thread boundaries.
     // This allows the pixel loop below to run in parallel without thread_local contention.
-    let (glow_snapshot, center_weight_snapshot, edge_dist_snapshot, sample_idx_snapshot, shade_snapshot) =
-        CRT_CACHE.with(|cache_cell| {
-            let mut cache = cache_cell.borrow_mut();
-            cache.ensure_geometry(src.width, src.height);
-            if let Some((strength, inset_x, inset_y, _)) = distort_cfg {
-                cache.ensure_distort(src.width, src.height, strength, inset_x, inset_y);
-            }
+    let (
+        glow_snapshot,
+        center_weight_snapshot,
+        edge_dist_snapshot,
+        sample_idx_snapshot,
+        shade_snapshot,
+    ) = CRT_CACHE.with(|cache_cell| {
+        let mut cache = cache_cell.borrow_mut();
+        cache.ensure_geometry(src.width, src.height);
+        if let Some((strength, inset_x, inset_y, _)) = distort_cfg {
+            cache.ensure_distort(src.width, src.height, strength, inset_x, inset_y);
+        }
 
-            let center_w = cache.center_weight.clone();
-            let edge_d = cache.edge_dist.clone();
-            let (sample_idx, shade) = if distort_cfg.is_some() {
-                cache
-                    .distort
-                    .as_ref()
-                    .map(|d| (d.sample_idx.clone(), d.shade.clone()))
-                    .unwrap_or_default()
-            } else {
-                (Vec::new(), Vec::new())
-            };
+        let center_w = cache.center_weight.clone();
+        let edge_d = cache.edge_dist.clone();
+        let (sample_idx, shade) = if distort_cfg.is_some() {
+            cache
+                .distort
+                .as_ref()
+                .map(|d| (d.sample_idx.clone(), d.shade.clone()))
+                .unwrap_or_default()
+        } else {
+            (Vec::new(), Vec::new())
+        };
 
-            let glow = if has_glow {
-                GLOW_SCRATCH.with(|scratch| scratch.borrow().out.clone())
-            } else {
-                Vec::new()
-            };
+        let glow = if has_glow {
+            GLOW_SCRATCH.with(|scratch| scratch.borrow().out.clone())
+        } else {
+            Vec::new()
+        };
 
-            (glow, center_w, edge_d, sample_idx, shade)
-        });
+        (glow, center_w, edge_d, sample_idx, shade)
+    });
 
     // Borrow slices for the pixel loop
     let glow_out: &[GlowPixel] = &glow_snapshot;
     let center_weight_map: &[f32] = &center_weight_snapshot;
     let edge_dist_map: &[f32] = &edge_dist_snapshot;
-    let distort_maps: Option<(&[usize], &[f32])> = if distort_cfg.is_some() && !sample_idx_snapshot.is_empty() {
-        Some((&sample_idx_snapshot, &shade_snapshot))
-    } else {
-        None
-    };
+    let distort_maps: Option<(&[usize], &[f32])> =
+        if distort_cfg.is_some() && !sample_idx_snapshot.is_empty() {
+            Some((&sample_idx_snapshot, &shade_snapshot))
+        } else {
+            None
+        };
 
     // Inline pixel computation as a closure (used by both serial and parallel paths)
     let process_pixel = |idx: usize, x: u16, y: u16| -> Cell {
@@ -405,16 +411,15 @@ pub(super) fn apply(
         let orig = src_cells[idx];
 
         // ── DISTORT ──────────────────────────────────────────
-        let (sample, shade, distort_brightness) =
-            if let Some((_, _, _, d_bright)) = distort_cfg {
-                if let Some((sample_idx_map, shade_map)) = distort_maps {
-                    (src_cells[sample_idx_map[idx]], shade_map[idx], d_bright)
-                } else {
-                    (orig, 1.0, d_bright)
-                }
+        let (sample, shade, distort_brightness) = if let Some((_, _, _, d_bright)) = distort_cfg {
+            if let Some((sample_idx_map, shade_map)) = distort_maps {
+                (src_cells[sample_idx_map[idx]], shade_map[idx], d_bright)
             } else {
-                (orig, 1.0, 1.0)
-            };
+                (orig, 1.0, d_bright)
+            }
+        } else {
+            (orig, 1.0, 1.0)
+        };
 
         // Blend fg: preserve glyph identity.
         let fg_source = if orig.symbol != ' ' {
@@ -433,8 +438,7 @@ pub(super) fn apply(
         };
 
         let mut fg = scale_colour(fg_source, distort_brightness * shade);
-        let mut bg =
-            scale_colour(normalize_bg(sample.bg), (0.94 * shade).clamp(0.70, 1.0));
+        let mut bg = scale_colour(normalize_bg(sample.bg), (0.94 * shade).clamp(0.70, 1.0));
         let mut symbol = orig.symbol;
 
         // ── GLOW (empty cells only) ──────────────────────────
@@ -442,13 +446,9 @@ pub(super) fn apply(
             let pix = glow_out[idx];
             if pix.a >= 0.004 {
                 let pulse = 0.90
-                    + 0.10
-                        * ((t * (0.95 + glow_speed * 1.9) + y as f32 * 0.07).sin()
-                            * 0.5
-                            + 0.5);
+                    + 0.10 * ((t * (0.95 + glow_speed * 1.9) + y as f32 * 0.07).sin() * 0.5 + 0.5);
                 let shimmer = 0.92 + 0.16 * rand01(x, y, frame.wrapping_add(4901));
-                let aura = (pix.a * glow_brightness * pulse * shimmer * glow_alpha)
-                    .clamp(0.0, 1.0);
+                let aura = (pix.a * glow_brightness * pulse * shimmer * glow_alpha).clamp(0.0, 1.0);
                 let glow_colour = Color::Rgb {
                     r: (pix.r * 255.0).round().clamp(0.0, 255.0) as u8,
                     g: (pix.g * 255.0).round().clamp(0.0, 255.0) as u8,
@@ -475,10 +475,8 @@ pub(super) fn apply(
 
             let xi = x as i32;
             let sx_r = (xi - shift).clamp(0, src_width_i32 - 1) as usize;
-            let sx_g =
-                (xi - shift + band.chroma / 2).clamp(0, src_width_i32 - 1) as usize;
-            let sx_b =
-                (xi - shift + band.chroma).clamp(0, src_width_i32 - 1) as usize;
+            let sx_g = (xi - shift + band.chroma / 2).clamp(0, src_width_i32 - 1) as usize;
+            let sx_b = (xi - shift + band.chroma).clamp(0, src_width_i32 - 1) as usize;
 
             let base_cell = src_cells[row_start + sx_r];
             let (rr, _, _) = colour_to_rgb(src_cells[row_start + sx_r].fg);
@@ -497,28 +495,23 @@ pub(super) fn apply(
         // ── RUBY ─────────────────────────────────────────────
         if let Some(r) = &ruby_cfg {
             if !center_weight_map.is_empty() {
-                let center_dark = (1.0
-                    - center_weight_map[idx] * (0.05 + 0.11 * r.intensity))
-                    .clamp(0.78, 1.0);
+                let center_dark =
+                    (1.0 - center_weight_map[idx] * (0.05 + 0.11 * r.intensity)).clamp(0.78, 1.0);
 
                 fg = scale_colour(
                     lerp_colour_local(fg, r.ruby, r.tint),
                     center_dark * r.brightness,
                 );
-                bg = scale_colour(
-                    lerp_colour_local(bg, r.ruby_bg, r.tint * 0.55),
-                    center_dark,
-                );
+                bg = scale_colour(lerp_colour_local(bg, r.ruby_bg, r.tint * 0.55), center_dark);
 
                 if !edge_dist_map.is_empty() {
                     let band_dist = (edge_dist_map[idx] - r.front).abs();
                     if band_dist <= r.band {
                         let xi = x as i32;
                         let sx = (xi - r.shift).clamp(0, src_width_i32 - 1) as usize;
-                        let sx_g = (xi - r.shift + r.chroma / 2).clamp(0, src_width_i32 - 1)
-                            as usize;
-                        let sx_b =
-                            (xi - r.shift + r.chroma).clamp(0, src_width_i32 - 1) as usize;
+                        let sx_g =
+                            (xi - r.shift + r.chroma / 2).clamp(0, src_width_i32 - 1) as usize;
+                        let sx_b = (xi - r.shift + r.chroma).clamp(0, src_width_i32 - 1) as usize;
 
                         let rsample = src_cells[row_start + sx];
                         if symbol == ' ' && rsample.symbol != ' ' {
@@ -533,8 +526,7 @@ pub(super) fn apply(
                             b: bb,
                         };
                         let local_r = 1.0 - (band_dist / r.band).clamp(0.0, 1.0);
-                        let reveal_blend =
-                            (0.12 + 0.30 * local_r * r.intensity).clamp(0.0, 0.45);
+                        let reveal_blend = (0.12 + 0.30 * local_r * r.intensity).clamp(0.0, 0.45);
                         fg = lerp_colour_local(
                             fg,
                             scale_colour(chroma_fg, 1.0 + 0.18 * local_r),

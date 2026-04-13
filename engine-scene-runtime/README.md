@@ -1,6 +1,6 @@
 # engine-scene-runtime
 
-Materialized scene runtime, object graph, UI state, terminal shell, and runtime-side control handling.
+Materialized scene runtime, object graph, UI state, and runtime-side control handling.
 
 ## Purpose
 
@@ -11,9 +11,8 @@ other systems can consume frame by frame. It owns:
 - object runtime state snapshots,
 - behavior attachment and behavior command application,
 - UI focus and theme state,
-- terminal shell transcript and editing state,
 - OBJ viewer camera state,
-- runtime-side lifecycle helpers for terminal shell, object viewer, and terminal-size tester controls.
+- runtime-side lifecycle helpers for object viewer and UI focus controls.
 
 This crate is the mutable scene instance, not the scene compiler and not the
 global world container.
@@ -27,7 +26,6 @@ The crate is intentionally split by responsibility:
 - `materialization` — text/object property snapshots and sprite mutation helpers
 - `behavior_runner` — behavior updates and command application
 - `ui_focus` — focus order, theme state, and text layout helpers
-- `terminal_shell` — terminal widget state and key handling
 - `camera_3d` — OBJ viewer camera and orbit helpers
 - `lifecycle_controls` — runtime-owned control routing consumed by engine lifecycle orchestration
 
@@ -38,7 +36,6 @@ The crate is intentionally split by responsibility:
 - `ObjectRuntimeState` — visibility and offset state per object
 - `ObjCameraState` — free-camera state for OBJ viewer scenes
 - `RawKeyEvent` / `SidecarIoFrameState` — per-frame input and sidecar snapshots
-- `TerminalShellRoute` — result of routing lifecycle-owned terminal shell input
 
 ## Runtime Contracts That Matter
 

@@ -6,7 +6,7 @@ Frame capture and frame-comparison utilities for regression workflows.
 
 `engine-capture` serializes rendered buffers to disk and loads them back for
 comparison. It underpins visual regression tests and optimization checks where
-we need to detect whether two runs produced different terminal output.
+we need to detect whether two runs produced different rendered output.
 
 ## Main exports
 
@@ -23,7 +23,7 @@ gameplay.
 Typical usage flows through repository scripts and app flags such as:
 
 ```bash
-cargo run -p app -- --capture-frames /tmp/frames --mod-source=mods/shell-quest-tests
+cargo run -p app -- --capture-frames reports/frames --mod-source=mods/shell-quest-tests
 ```
 
 and comparison/reporting utilities built on top of the serialized format.

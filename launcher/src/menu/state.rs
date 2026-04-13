@@ -1,5 +1,5 @@
-use crate::config::LaunchFlags;
 use super::scanner::MenuMod;
+use crate::config::LaunchFlags;
 use std::collections::HashSet;
 
 pub struct MenuState {
@@ -60,11 +60,19 @@ impl MenuState {
         } else {
             let query = self.search.to_lowercase();
             for (mod_idx, m) in self.mods.iter().enumerate() {
-                let has_match = m.name.to_lowercase().contains(&query) ||
-                    m.scenes.iter().any(|s| {
+                let has_match = m.name.to_lowercase().contains(&query)
+                    || m.scenes.iter().any(|s| {
                         s.dir_name.to_lowercase().contains(&query)
-                            || s.id.as_deref().unwrap_or("").to_lowercase().contains(&query)
-                            || s.title.as_deref().unwrap_or("").to_lowercase().contains(&query)
+                            || s.id
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_lowercase()
+                                .contains(&query)
+                            || s.title
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_lowercase()
+                                .contains(&query)
                     });
 
                 if has_match {
@@ -73,8 +81,16 @@ impl MenuState {
 
                     for (scene_idx, s) in m.scenes.iter().enumerate() {
                         let scene_matches = s.dir_name.to_lowercase().contains(&query)
-                            || s.id.as_deref().unwrap_or("").to_lowercase().contains(&query)
-                            || s.title.as_deref().unwrap_or("").to_lowercase().contains(&query);
+                            || s.id
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_lowercase()
+                                .contains(&query)
+                            || s.title
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_lowercase()
+                                .contains(&query);
                         if scene_matches {
                             self.filtered_indices.push((mod_idx, Some(scene_idx)));
                         }
@@ -186,13 +202,12 @@ impl MenuState {
 
     pub fn toggle_flag(&mut self, n: u8) -> MenuAction {
         match n {
-            1 => self.flags.sdl2 = !self.flags.sdl2,
-            2 => self.flags.skip_splash = !self.flags.skip_splash,
-            3 => self.flags.audio = !self.flags.audio,
-            4 => self.flags.check_scenes = !self.flags.check_scenes,
-            5 => self.flags.release = !self.flags.release,
-            6 => self.flags.dev = !self.flags.dev,
-            7 => self.flags.all_opt = !self.flags.all_opt,
+            1 => self.flags.skip_splash = !self.flags.skip_splash,
+            2 => self.flags.audio = !self.flags.audio,
+            3 => self.flags.check_scenes = !self.flags.check_scenes,
+            4 => self.flags.release = !self.flags.release,
+            5 => self.flags.dev = !self.flags.dev,
+            6 => self.flags.all_opt = !self.flags.all_opt,
             _ => return MenuAction::None,
         }
         MenuAction::FlagsChanged

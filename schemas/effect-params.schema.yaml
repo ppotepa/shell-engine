@@ -41,7 +41,7 @@ properties:
     minimum: 0.1
     maximum: 2.0
     multipleOf: 0.1
-    description: 'Ghost luminance multiplier. Used by: crt-burn-in, crt-distort, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, terminal-crt.'
+    description: 'Ghost luminance multiplier. Used by: crt-burn-in, crt-distort, crt-filter, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay.'
   colour:
     $ref: '#/$defs/colour'
     description: 'Target colour (name or #rrggbb). Used by: clear-to-colour, neon-edge-glow.'
@@ -72,7 +72,7 @@ properties:
     - ease-out
     - ease-in-out
     default: linear
-    description: 'Progress curve applied to the effect. Used by: artifact-out, blur, brighten, clear-to-colour, crt-burn-in, crt-distort, crt-on, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, cutout, devour-out, fade-in, fade-out, fade-to-black, glitch-out, lens-blur, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, posterize, power-off, screen-shake, shatter-glitch, shine, terminal-crt, tesla-orb, whiteout.'
+    description: 'Progress curve applied to the effect. Used by: artifact-out, blur, brighten, clear-to-colour, crt-burn-in, crt-distort, crt-filter, crt-on, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, cutout, devour-out, fade-in, fade-out, fade-to-black, glitch-out, lens-blur, lightning-branch, lightning-fbm, lightning-flash, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, posterize, power-off, screen-shake, shatter-glitch, shine, tesla-orb, whiteout.'
   edge_fidelity:
     type: number
     minimum: 0.0
@@ -114,7 +114,7 @@ properties:
     minimum: 0.0
     maximum: 2.0
     multipleOf: 0.05
-    description: 'Overall strength multiplier. Used by: artifact-out, brighten, crt-burn-in, crt-distort, crt-ruby, crt-scan-glitch, crt-underlay, devour-out, glitch-out, lens-blur, lightning-ambient, lightning-fbm, lightning-flash, lightning-natural, lightning-optical-80s, neon-edge-glow, scanlines, shatter-glitch, shine, terminal-crt, tesla-orb, whiteout.'
+    description: 'Overall strength multiplier. Used by: artifact-out, brighten, crt-burn-in, crt-distort, crt-filter, crt-ruby, crt-scan-glitch, crt-underlay, devour-out, glitch-out, lens-blur, lightning-ambient, lightning-fbm, lightning-flash, lightning-natural, lightning-optical-80s, neon-edge-glow, scanlines, shatter-glitch, shine, tesla-orb, whiteout.'
   levels:
     type: number
     minimum: 1.0
@@ -168,13 +168,13 @@ properties:
     minimum: 0.01
     maximum: 10.0
     multipleOf: 0.05
-    description: 'How many seconds the ghost takes to disappear. Used by: crt-burn-in, crt-distort, crt-ruby, crt-scan-glitch, crt-underlay, lightning-ambient, lightning-branch, lightning-fbm, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, shine, terminal-crt, tesla-orb.'
+    description: 'How many seconds the ghost takes to disappear. Used by: crt-burn-in, crt-distort, crt-filter, crt-ruby, crt-scan-glitch, crt-underlay, lightning-ambient, lightning-branch, lightning-fbm, lightning-growth, lightning-natural, lightning-optical-80s, neon-edge-glow, shine, tesla-orb.'
   sphericality:
     type: number
     minimum: 0.0
     maximum: 1.0
     multipleOf: 0.05
-    description: 'Glow offset bias. Used by: crt-distort, crt-reflection, crt-underlay, terminal-crt.'
+    description: 'Glow offset bias. Used by: crt-distort, crt-filter, crt-reflection, crt-underlay.'
   start_x:
     type: string
     default: random
@@ -196,7 +196,7 @@ properties:
     minimum: 0.0
     maximum: 1.0
     multipleOf: 0.05
-    description: 'Glow spread / blur amount. Used by: crt-distort, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay, terminal-crt.'
+    description: 'Glow spread / blur amount. Used by: crt-distort, crt-filter, crt-reflection, crt-ruby, crt-scan-glitch, crt-underlay.'
   width:
     type: number
     minimum: 1.0

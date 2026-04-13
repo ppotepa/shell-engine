@@ -5,5 +5,5 @@ title: Stop Animation (Placeholder)
 bg: black
 stages-ref: /stages/anykey-fade-300-250.yml
 layers:
-  - { name: placeholder, z_index: 0, sprites: [{ type: text, content: "PLACEHOLDER TEXT", at: cc, y: 0, font: "generic:half", fg: white }] }
+  - { name: placeholder, z_index: 0, sprites: [{ type: text, content: "PLACEHOLDER TEXT", at: cc, y: 0, font: "generic:2", fg: white }] }
 next: playground-menu

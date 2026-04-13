@@ -1,13 +1,13 @@
-//! Vector overlay data for high-fidelity polygon rendering on pixel backends.
+//! Vector overlay data for high-fidelity polygon rendering on renderer backends
+//! with native vector support.
 //!
-//! Terminal backend renders vectors as character glyphs via `engine_vector`.
 //! SDL2 backend draws vectors directly on the canvas at native resolution,
-//! bypassing the character-cell buffer for smooth, anti-alias-ready shapes.
+//! bypassing the main frame buffer for smooth, anti-alias-ready shapes.
 
-/// A single resolved vector shape ready for pixel-backend rendering.
+/// A single resolved vector shape ready for backend rendering.
 #[derive(Debug, Clone)]
 pub struct VectorPrimitive {
-    /// Points in buffer cell coordinates (sprite-local + origin already applied).
+    /// Points in frame-buffer coordinates (sprite-local + origin already applied).
     pub points: Vec<[f32; 2]>,
     /// Whether the shape is closed (last point connects to first).
     pub closed: bool,

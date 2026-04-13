@@ -32,7 +32,6 @@ impl StartupCheck for FontManifestCheck {
                         let Sprite::Text {
                             font,
                             size,
-                            force_renderer_mode,
                             force_font_mode,
                             ..
                         } = node
@@ -43,8 +42,6 @@ impl StartupCheck for FontManifestCheck {
                             font.as_deref(),
                             force_font_mode.as_deref(),
                             *size,
-                            sf.scene.rendered_mode,
-                            *force_renderer_mode,
                             false,
                             default_font,
                         ) else {

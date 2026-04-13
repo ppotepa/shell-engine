@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=../../schemas/scenes.yaml
-id: demo-mod.second
-title: Second
-bg: black
-stages-ref: /stages/simple-anykey-fade.yml
-next: null

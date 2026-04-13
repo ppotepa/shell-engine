@@ -5,7 +5,7 @@
 
 pub mod output_backend;
 pub mod startup;
-pub mod terminal_caps;
+pub mod display_config;
 
 use std::{
     fs,

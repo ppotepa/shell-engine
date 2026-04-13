@@ -119,9 +119,22 @@ where
     fn query_kind(&mut self, kind: &str) -> RhaiArray;
     fn query_tag(&mut self, tag: &str) -> RhaiArray;
     fn query_circle(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, radius: rhai::FLOAT) -> RhaiArray;
-    fn query_rect(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, w: rhai::FLOAT, h: rhai::FLOAT) -> RhaiArray;
-    fn query_nearest(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT;
-    fn query_nearest_kind(&mut self, kind: &str, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT) -> rhai::INT;
+    fn query_rect(
+        &mut self,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        w: rhai::FLOAT,
+        h: rhai::FLOAT,
+    ) -> RhaiArray;
+    fn query_nearest(&mut self, x: rhai::FLOAT, y: rhai::FLOAT, max_dist: rhai::FLOAT)
+        -> rhai::INT;
+    fn query_nearest_kind(
+        &mut self,
+        kind: &str,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        max_dist: rhai::FLOAT,
+    ) -> rhai::INT;
     fn get(&mut self, id: rhai::INT, path: &str) -> RhaiDynamic;
     fn set(&mut self, id: rhai::INT, path: &str, value: RhaiDynamic) -> bool;
     fn has(&mut self, id: rhai::INT, path: &str) -> bool;
@@ -134,6 +147,14 @@ where
         y: rhai::FLOAT,
         heading: rhai::FLOAT,
     ) -> bool;
+    fn set_transform_3d(
+        &mut self,
+        id: rhai::INT,
+        x: rhai::FLOAT,
+        y: rhai::FLOAT,
+        z: rhai::FLOAT,
+        heading: rhai::FLOAT,
+    ) -> bool;
     fn transform(&mut self, id: rhai::INT) -> RhaiDynamic;
     #[allow(clippy::too_many_arguments)]
     fn set_physics(
@@ -143,6 +164,19 @@ where
         vy: rhai::FLOAT,
         ax: rhai::FLOAT,
         ay: rhai::FLOAT,
+        drag: rhai::FLOAT,
+        max_speed: rhai::FLOAT,
+    ) -> bool;
+    #[allow(clippy::too_many_arguments)]
+    fn set_physics_3d(
+        &mut self,
+        id: rhai::INT,
+        vx: rhai::FLOAT,
+        vy: rhai::FLOAT,
+        vz: rhai::FLOAT,
+        ax: rhai::FLOAT,
+        ay: rhai::FLOAT,
+        az: rhai::FLOAT,
         drag: rhai::FLOAT,
         max_speed: rhai::FLOAT,
     ) -> bool;
@@ -175,6 +209,7 @@ where
     fn world_width(&mut self) -> rhai::FLOAT;
     fn world_height(&mut self) -> rhai::FLOAT;
     fn set_camera(&mut self, x: rhai::FLOAT, y: rhai::FLOAT);
+    fn set_camera_zoom(&mut self, zoom: rhai::FLOAT);
     fn set_camera_3d_look_at(
         &mut self,
         eye_x: rhai::FLOAT,
@@ -214,4 +249,3 @@ where
     fn clear_events(&mut self);
     fn spawn_batch(&mut self, specs: RhaiArray) -> RhaiArray;
 }
-

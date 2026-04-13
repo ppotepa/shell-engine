@@ -1,5 +1,0 @@
-kind: object
-name: bullet
-# Visual is purely the bullet.trail particle emitter (set in catalogs/emitters.yaml).
-# The 2D vector sprite has been removed — bullets appear as glowing orbital trails.
-sprites: []

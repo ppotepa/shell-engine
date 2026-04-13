@@ -17,7 +17,6 @@ id: difficulty-portraits
 viewport:
   width: 150
   height: 100
-  rendered_mode: halfblock
 
 camera:
   distance: 6.15

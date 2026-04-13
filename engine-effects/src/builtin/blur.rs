@@ -1,20 +1,20 @@
-//! Box blur effect — softens terminal cell colours by averaging a neighbourhood.
+//! Box blur effect — softens pixel colours by averaging a neighbourhood.
 //!
 //! Works on any target. Progress is intentionally ignored so the blur is always
 //! applied at full `radius` strength; use `duration: 0` or loop the step for a
 //! persistent static blur.
 
+use crate::metadata::{slider, EffectMetadata, P_EASING};
+use crate::utils::color::colour_to_rgb;
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::color::Color;
 use engine_core::effects::{Effect, EffectTargetMask, Region};
-use crate::metadata::{slider, EffectMetadata, P_EASING};
-use crate::utils::color::colour_to_rgb;
 use engine_core::scene::EffectParams;
 
 pub static METADATA: EffectMetadata = EffectMetadata {
     name: "blur",
     display_name: "Blur",
-    summary: "Box blur: softens terminal cell colours by averaging a neighbourhood of pixels.",
+    summary: "Box blur: softens pixel colours by averaging a neighbourhood of pixels.",
     category: "colour",
     compatible_targets: EffectTargetMask::ANY,
     params: &[

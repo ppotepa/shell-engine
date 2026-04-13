@@ -11,10 +11,10 @@ mod registry;
 
 use engine_core::buffer::{Buffer, TRUE_BLACK};
 use engine_core::effects::Region;
+use engine_core::scene::Effect;
 use engine_effects::apply_effect;
 use engine_effects::utils::color::{colour_to_rgb, lerp_colour};
 use engine_effects::utils::noise::crt_hash;
-use engine_core::scene::Effect;
 
 use engine_core::color::Color;
 use engine_core::world::World;
@@ -95,7 +95,8 @@ pub fn postfx_system(world: &mut World) {
         // Restoring the cache would make any moving entity flicker (its composited
         // position would alternate between current and last-frame-with-PostFX).
         POSTFX_RUNTIME.with(|runtime| {
-            runtime.borrow_mut().frame_count = runtime.borrow().frame_count.saturating_add(1);
+            let new_count = runtime.borrow().frame_count.saturating_add(1);
+            runtime.borrow_mut().frame_count = new_count;
         });
         return;
     }

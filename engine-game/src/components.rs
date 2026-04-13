@@ -6,6 +6,8 @@ use std::collections::HashMap;
 pub struct Transform2D {
     pub x: f32,
     pub y: f32,
+    /// Depth along the Z-axis. 0.0 for pure 2D entities; non-zero for 3D world placement.
+    pub z: f32,
     /// Heading in radians. Scripts using 32-step headings can convert as needed.
     pub heading: f32,
 }
@@ -14,8 +16,12 @@ pub struct Transform2D {
 pub struct PhysicsBody2D {
     pub vx: f32,
     pub vy: f32,
+    /// Velocity along the Z-axis. 0.0 for pure 2D entities.
+    pub vz: f32,
     pub ax: f32,
     pub ay: f32,
+    /// Acceleration along the Z-axis. 0.0 for pure 2D entities.
+    pub az: f32,
     /// Linear drag factor per second (0.0 = none, 1.0 = full stop).
     pub drag: f32,
     /// Maximum linear speed magnitude; 0.0 disables the clamp.
@@ -33,12 +39,82 @@ impl Default for PhysicsBody2D {
         Self {
             vx: 0.0,
             vy: 0.0,
+            vz: 0.0,
             ax: 0.0,
             ay: 0.0,
+            az: 0.0,
             drag: 0.0,
             max_speed: 0.0,
             mass: 1.0,
             restitution: 0.7,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum GravityMode2D {
+    #[default]
+    Point,
+    Flat,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct GravityAffected2D {
+    /// Point gravity uses `body_id`; flat gravity uses flat_ax/flat_ay.
+    pub mode: GravityMode2D,
+    /// Body id in `catalogs/celestial/bodies.yaml` used as the gravity source.
+    pub body_id: Option<String>,
+    /// Scales the source acceleration for this entity (0 = ignore, 1 = full).
+    pub gravity_scale: f32,
+    /// Constant X acceleration used in Flat mode.
+    pub flat_ax: f32,
+    /// Constant Y acceleration used in Flat mode.
+    pub flat_ay: f32,
+}
+
+impl Default for GravityAffected2D {
+    fn default() -> Self {
+        Self {
+            mode: GravityMode2D::Point,
+            body_id: None,
+            gravity_scale: 1.0,
+            flat_ax: 0.0,
+            flat_ay: 0.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AtmosphereAffected2D {
+    /// Body id in `catalogs/celestial/bodies.yaml` that defines the atmosphere bands.
+    pub body_id: Option<String>,
+    /// Multiplier for atmospheric drag contribution.
+    pub drag_scale: f32,
+    /// Multiplier for heat accumulation.
+    pub heat_scale: f32,
+    /// Cooling per second applied when drag is low or absent.
+    pub cooling: f32,
+    /// Runtime heat state [0,1].
+    pub heat: f32,
+    /// Runtime density band [0,1].
+    pub density: f32,
+    /// Runtime dense-atmosphere band [0,1].
+    pub dense_density: f32,
+    /// Runtime altitude above the surface in km.
+    pub altitude_km: f32,
+}
+
+impl Default for AtmosphereAffected2D {
+    fn default() -> Self {
+        Self {
+            body_id: None,
+            drag_scale: 1.0,
+            heat_scale: 1.0,
+            cooling: 0.20,
+            heat: 0.0,
+            density: 0.0,
+            dense_density: 0.0,
+            altitude_km: 0.0,
         }
     }
 }
@@ -190,6 +266,9 @@ pub struct WrapBounds {
     pub max_x: f32,
     pub min_y: f32,
     pub max_y: f32,
+    /// Z-axis wrap bounds. If both are 0.0, z-wrapping is disabled.
+    pub min_z: f32,
+    pub max_z: f32,
 }
 
 impl WrapBounds {
@@ -199,7 +278,13 @@ impl WrapBounds {
             max_x,
             min_y,
             max_y,
+            min_z: 0.0,
+            max_z: 0.0,
         }
+    }
+
+    pub fn new_3d(min_x: f32, max_x: f32, min_y: f32, max_y: f32, min_z: f32, max_z: f32) -> Self {
+        Self { min_x, max_x, min_y, max_y, min_z, max_z }
     }
 
     /// Wrap a single value in [min, max] toroidally.
@@ -230,6 +315,21 @@ impl WrapBounds {
             self.min_y
         } else {
             y
+        }
+    }
+
+    #[inline]
+    pub fn wrap_z(&self, z: f32) -> f32 {
+        let range = self.max_z - self.min_z;
+        if range <= 0.0 {
+            return z;
+        }
+        if z < self.min_z {
+            self.max_z
+        } else if z > self.max_z {
+            self.min_z
+        } else {
+            z
         }
     }
 }
@@ -308,7 +408,6 @@ impl ArcadeController {
     }
 }
 
-
 /// Gameplay events emitted during frame processing.
 ///
 /// Events accumulate during a frame and can be polled by scripts via the world API.
@@ -353,7 +452,7 @@ impl ParticleThreadMode {
             _ => Self::Light,
         }
     }
-    
+
     /// Check if particle should be processed on worker thread.
     pub fn uses_worker_thread(self) -> bool {
         matches!(self, Self::Physics | Self::Gravity)
@@ -456,7 +555,6 @@ impl Default for LinearBrake {
     }
 }
 
-
 /// Phase of the auto-brake sequence produced by [`ThrusterRamp`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum BrakePhase {
@@ -471,10 +569,10 @@ pub enum BrakePhase {
 impl BrakePhase {
     pub fn as_str(&self) -> &'static str {
         match self {
-            BrakePhase::Idle      => "idle",
-            BrakePhase::Rotation  => "rotation",
-            BrakePhase::Linear    => "linear",
-            BrakePhase::Stopped   => "stopped",
+            BrakePhase::Idle => "idle",
+            BrakePhase::Rotation => "rotation",
+            BrakePhase::Linear => "linear",
+            BrakePhase::Stopped => "stopped",
             BrakePhase::Thrusting => "thrusting",
         }
     }
@@ -512,13 +610,13 @@ pub struct ThrusterRamp {
     pub move_deadband: f32,
 
     // ── State (maintained by thruster_ramp_system each tick) ─────────────
-    pub thrust_ignition_ms:    f32,
-    pub no_input_ms:           f32,
-    pub brake_ignition_ms:     f32,
-    pub brake_phase:           BrakePhase,
+    pub thrust_ignition_ms: f32,
+    pub no_input_ms: f32,
+    pub brake_ignition_ms: f32,
+    pub brake_phase: BrakePhase,
     pub final_burst_triggered: bool,
-    pub final_burst_waves:     u8,
-    pub final_burst_timer_ms:  f32,
+    pub final_burst_waves: u8,
+    pub final_burst_timer_ms: f32,
 
     // ── Outputs (read by scripts each frame) ─────────────────────────────
     /// Thrust intensity 0–1 (ramps up on thrust input, resets to 0 when released).
@@ -536,29 +634,29 @@ pub struct ThrusterRamp {
 impl Default for ThrusterRamp {
     fn default() -> Self {
         Self {
-            thrust_delay_ms:       8.0,
-            thrust_ramp_ms:        12.0,
+            thrust_delay_ms: 8.0,
+            thrust_ramp_ms: 12.0,
             no_input_threshold_ms: 30.0,
-            rot_factor_max_vel:    7.0,
+            rot_factor_max_vel: 7.0,
             burst_speed_threshold: 15.0,
             burst_wave_interval_ms: 150.0,
-            burst_wave_count:      3,
-            rot_deadband:          0.10,
-            move_deadband:         2.5,
+            burst_wave_count: 3,
+            rot_deadband: 0.10,
+            move_deadband: 2.5,
 
-            thrust_ignition_ms:    0.0,
-            no_input_ms:           0.0,
-            brake_ignition_ms:     0.0,
-            brake_phase:           BrakePhase::Idle,
+            thrust_ignition_ms: 0.0,
+            no_input_ms: 0.0,
+            brake_ignition_ms: 0.0,
+            brake_phase: BrakePhase::Idle,
             final_burst_triggered: false,
-            final_burst_waves:     0,
-            final_burst_timer_ms:  0.0,
+            final_burst_waves: 0,
+            final_burst_timer_ms: 0.0,
 
-            thrust_factor:     0.0,
-            rot_factor:        0.0,
-            brake_factor:      0.0,
+            thrust_factor: 0.0,
+            rot_factor: 0.0,
+            brake_factor: 0.0,
             final_burst_fired: false,
-            final_burst_wave:  0,
+            final_burst_wave: 0,
         }
     }
 }
@@ -583,9 +681,9 @@ pub struct ParticlePhysics {
     pub gravity_center_x: f32,
     /// World Y of the orbital attractor (planet center). Only used in Orbital mode.
     pub gravity_center_y: f32,
+    /// World Z of the orbital attractor (planet center). Only used in Orbital mode. 0.0 for 2D.
+    pub gravity_center_z: f32,
     /// Gravitational constant for orbital mode. Accel = gravity_constant / dist².
     /// Tune for visual effect; ~100_000 gives noticeable curvature at ORBIT_R=450.
     pub gravity_constant: f32,
 }
-
-

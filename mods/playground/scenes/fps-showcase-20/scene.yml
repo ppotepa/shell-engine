@@ -5,7 +5,6 @@ title: FPS Showcase 3D 20
 cutscene: true
 target-fps: 20
 bg: black
-rendered-mode: quadblock
 stages-ref: /stages/fps-timeout-5s.yml
 layers:
   - name: fps-showcase

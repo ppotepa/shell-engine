@@ -11,7 +11,7 @@ pub mod asset_cache;
 pub mod assets;
 /// Authoring metadata and field catalogues for the editor.
 pub mod authoring;
-/// Terminal cell buffer for rendering.
+/// Core frame-buffer types used by rendering.
 pub mod buffer;
 /// Platform-agnostic color abstraction (RGB + named colors).
 pub mod color;
