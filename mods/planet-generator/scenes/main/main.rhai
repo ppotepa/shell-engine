@@ -359,12 +359,12 @@ scene.set("planet-mesh", "world.lapse_rate",              lapse);
 scene.set("planet-mesh", "world.rain_shadow",             rain);
 scene.set("planet-mesh", "world.displacement_scale",      disp);
 scene.set("planet-mesh", "world.coloring",                coloring_str);
-scene.set("planet-mesh", "rotate_y_deg_per_sec",     rotspeed);
-scene.set("planet-mesh", "ambient",                  ambient);
+scene.set("planet-mesh", "obj.rotation-speed",  rotspeed);
+scene.set("planet-mesh", "obj.ambient",          ambient);
 
 // Recompute light direction from azimuth + elevation angles
 let az_rad = sunaz * 0.01745329;
 let el_rad = sunel * 0.01745329;
-scene.set("planet-mesh", "light_direction_x", -(az_rad.cos() * el_rad.cos()));
-scene.set("planet-mesh", "light_direction_y", el_rad.sin());
-scene.set("planet-mesh", "light_direction_z", -(az_rad.sin() * el_rad.cos()));
+scene.set("planet-mesh", "obj.light.x", -(az_rad.cos() * el_rad.cos()));
+scene.set("planet-mesh", "obj.light.y", el_rad.sin());
+scene.set("planet-mesh", "obj.light.z", -(az_rad.sin() * el_rad.cos()));

@@ -598,7 +598,7 @@ impl SceneRuntime {
                                 continue;
                             }
                         }
-                        path if path.starts_with("obj.") || path.starts_with("terrain.") => {
+                        path if path.starts_with("obj.") || path.starts_with("terrain.") || path.starts_with("world.") => {
                             let mut applied = self.set_obj_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
