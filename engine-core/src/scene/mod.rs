@@ -25,8 +25,8 @@ pub use metadata::{LAYER_FIELDS, OBJECT_FIELDS, SCENE_FIELDS, SPRITE_FIELDS};
 pub use model::{
     Animation, AudioCue, BehaviorParams, BehaviorSpec, CelestialClockSource, CelestialFrame,
     CelestialScope, Effect, EffectParams, EffectTargetKind, FreeLookCameraControls,
-    GameStateBinding, Layer, LayerSpace, LayerStages, MenuOption, ObjViewerControls,
-    PaletteBinding, Scene, SceneAudio, SceneCelestial, SceneInput, SceneSpace,
+    GameStateBinding, Layer, LayerSpace, LayerStages, MenuOption, ObjOrbitCameraControls,
+    ObjViewerControls, PaletteBinding, Scene, SceneAudio, SceneCelestial, SceneInput, SceneSpace,
     SceneStages, SceneUi, Stage, StageTrigger, Step, UiPersistence,
 };
 pub use sprite::{

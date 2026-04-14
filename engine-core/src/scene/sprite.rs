@@ -569,6 +569,19 @@ pub enum Sprite {
         /// Requires the sprite to have a nonzero `rotate-y-deg-per-sec`.
         #[serde(default, rename = "prerender-anim")]
         prerender_anim: bool,
+        /// Terrain-plane geometry override: height amplitude (default: 1.0).
+        /// Set at runtime via `scene.set(id, "terrain.amplitude", v)`.
+        #[serde(default, rename = "terrain-amplitude")]
+        terrain_plane_amplitude: Option<f32>,
+        /// Terrain-plane geometry override: noise frequency (default: 1.0).
+        #[serde(default, rename = "terrain-frequency")]
+        terrain_plane_frequency: Option<f32>,
+        /// Terrain-plane geometry override: fBm roughness 0.0–1.0 (default: 1.0).
+        #[serde(default, rename = "terrain-roughness")]
+        terrain_plane_roughness: Option<f32>,
+        /// Terrain-plane geometry override: fBm octave count 1–4 (default: 3).
+        #[serde(default, rename = "terrain-octaves")]
+        terrain_plane_octaves: Option<u8>,
         /// Object world-space translation (applied before view/projection).
         /// Useful when driving multiple OBJ sprites from one shared scene camera.
         /// Set per frame via `scene.set(id, "obj.world.x/y/z", value)`.

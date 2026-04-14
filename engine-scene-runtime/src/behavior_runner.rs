@@ -253,6 +253,7 @@ impl SceneRuntime {
             mouse_x: self.gui_state.mouse_x,
             mouse_y: self.gui_state.mouse_y,
             gui_state: Some(self.gui_state_arc()),
+            orbit_active: self.orbit_camera_active(),
         };
         let mut local_commands = Vec::new();
         for idx in 0..self.behaviors.len() {
@@ -597,13 +598,7 @@ impl SceneRuntime {
                                 continue;
                             }
                         }
-                        "obj.source" | "obj.camera-distance" | "obj.scale" | "obj.yaw"
-                        | "obj.pitch" | "obj.roll" | "obj.orbit_speed"
-                        | "obj.surface_mode" | "obj.clip_y_min" | "obj.clip_y_max"
-                        | "obj.world.x" | "obj.world.y" | "obj.world.z" | "obj.cam.wx"
-                        | "obj.cam.wy" | "obj.cam.wz" | "obj.view.rx" | "obj.view.ry"
-                        | "obj.view.rz" | "obj.view.ux" | "obj.view.uy" | "obj.view.uz"
-                        | "obj.view.fx" | "obj.view.fy" | "obj.view.fz" => {
+                        path if path.starts_with("obj.") || path.starts_with("terrain.") => {
                             let mut applied = self.set_obj_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {
@@ -617,13 +612,7 @@ impl SceneRuntime {
                                 continue;
                             }
                         }
-                        "planet.spin_deg"
-                        | "planet.cloud_spin_deg"
-                        | "planet.cloud2_spin_deg"
-                        | "planet.observer_altitude_km"
-                        | "planet.sun_dir.x"
-                        | "planet.sun_dir.y"
-                        | "planet.sun_dir.z" => {
+                        path if path.starts_with("planet.") => {
                             let mut applied = self.set_planet_sprite_property(target, path, value);
                             if !applied {
                                 for alias in self.object_alias_candidates(object_id, target) {

@@ -8,6 +8,164 @@ const FREE_LOOK_HORIZONTAL_LOOK_SCALE: f32 = 1.8;
 const FREE_LOOK_PITCH_LIMIT_DEG: f32 = 85.0;
 
 impl SceneRuntime {
+    /// Returns `true` if the orbit camera is currently active.
+    pub fn orbit_camera_active(&self) -> bool {
+        self.orbit_camera.as_ref().is_some_and(|s| s.active)
+    }
+
+    /// Handle key events for the orbit camera.
+    ///
+    /// - Ctrl+F toggles orbit mode (only when free-look camera is not present).
+    /// - `+`/`=` zooms in; `-` zooms out (only while active).
+    ///
+    /// Returns `true` if orbit mode was toggled this frame.
+    pub fn apply_orbit_camera_key_events(
+        &mut self,
+        key_presses: &[KeyEvent],
+        key_releases: &[KeyEvent],
+    ) -> bool {
+        // Don't conflict with free-look camera.
+        if self.orbit_camera.is_none() || self.free_look_camera.is_some() {
+            return false;
+        }
+
+        let _ = key_releases; // orbit camera has no release-sensitive keys
+        let mut toggled = false;
+
+        for key in key_presses {
+            if is_free_look_toggle(key) {
+                self.toggle_orbit_camera();
+                toggled = true;
+            }
+        }
+
+        // Zoom: read distance params before borrow
+        let active = self.orbit_camera.as_ref().is_some_and(|s| s.active);
+        if active {
+            let (mut dist, dist_min, dist_max, step, target) = {
+                let s = self.orbit_camera.as_ref().unwrap();
+                (s.distance, s.distance_min, s.distance_max, s.distance_step, s.target.clone())
+            };
+            let mut changed = false;
+            for key in key_presses {
+                match key.code {
+                    KeyCode::Char('=') | KeyCode::Char('+') => {
+                        dist = (dist - step).max(dist_min);
+                        changed = true;
+                    }
+                    KeyCode::Char('-') => {
+                        dist = (dist + step).min(dist_max);
+                        changed = true;
+                    }
+                    _ => {}
+                }
+            }
+            if changed {
+                self.orbit_camera.as_mut().unwrap().distance = dist;
+                let v = serde_json::Value::from(dist as f64);
+                let _ = self.set_obj_sprite_property(&target, "obj.camera-distance", &v);
+            }
+        }
+
+        toggled
+    }
+
+    /// Feed mouse moves into the orbit camera when left-dragging on empty canvas.
+    pub fn apply_orbit_camera_mouse_moves(&mut self, mouse_moves: &[(f32, f32)]) {
+        if mouse_moves.is_empty() {
+            return;
+        }
+        // Read drag state before mutably borrowing orbit_camera.
+        let is_dragging = {
+            use engine_events::MouseButton;
+            self.gui_state.drag_button == Some(MouseButton::Left)
+                && self.gui_state.drag_widget.is_none()
+        };
+
+        let Some(state) = self.orbit_camera.as_mut() else {
+            return;
+        };
+        if !state.active {
+            return;
+        }
+
+        let Some((mut prev_x, mut prev_y)) = state.last_mouse_pos else {
+            state.last_mouse_pos = mouse_moves.last().copied();
+            return;
+        };
+
+        if !is_dragging {
+            state.last_mouse_pos = mouse_moves.last().copied();
+            return;
+        }
+
+        let sensitivity = state.drag_sensitivity;
+        let mut total_dyaw = 0.0f32;
+        let mut total_dpitch = 0.0f32;
+        for &(x, y) in mouse_moves {
+            total_dyaw += (x - prev_x) * sensitivity;
+            total_dpitch += (y - prev_y) * sensitivity;
+            prev_x = x;
+            prev_y = y;
+        }
+        state.last_mouse_pos = Some((prev_x, prev_y));
+        state.yaw += total_dyaw;
+        let pitch_min = state.pitch_min;
+        let pitch_max = state.pitch_max;
+        state.pitch = (state.pitch + total_dpitch).clamp(pitch_min, pitch_max);
+    }
+
+    /// Apply orbit camera state to its target sprite each frame.
+    ///
+    /// Writes `obj.yaw`, `obj.pitch`, `obj.camera-distance`, and `obj.orbit_speed`
+    /// (0 while orbiting, restored on deactivate).
+    pub fn step_orbit_camera(&mut self) -> bool {
+        let Some(state) = self.orbit_camera.as_ref() else {
+            return false;
+        };
+        if !state.active {
+            return false;
+        }
+        let (target, yaw, pitch, dist) =
+            (state.target.clone(), state.yaw, state.pitch, state.distance);
+
+        let v_yaw = serde_json::Value::from(yaw as f64);
+        let v_pitch = serde_json::Value::from(pitch as f64);
+        let v_dist = serde_json::Value::from(dist as f64);
+        let v_speed = serde_json::Value::from(0.0_f64);
+
+        let _ = self.set_obj_sprite_property(&target, "obj.yaw", &v_yaw);
+        let _ = self.set_obj_sprite_property(&target, "obj.pitch", &v_pitch);
+        let _ = self.set_obj_sprite_property(&target, "obj.camera-distance", &v_dist);
+        let _ = self.set_obj_sprite_property(&target, "obj.orbit_speed", &v_speed);
+        true
+    }
+
+    fn toggle_orbit_camera(&mut self) {
+        let Some(state) = self.orbit_camera.as_mut() else {
+            return;
+        };
+        if state.active {
+            state.active = false;
+            state.last_mouse_pos = None;
+            // Restore saved auto-rotation speed.
+            let speed = state.paused_orbit_speed;
+            let target = state.target.clone();
+            let v = serde_json::Value::from(speed as f64);
+            let _ = self.set_obj_sprite_property(&target, "obj.orbit_speed", &v);
+        } else {
+            // Save default auto-rotation speed before pausing.
+            let speed = self
+                .obj_orbit_default_speed
+                .get(&state.target)
+                .copied()
+                .unwrap_or(0.0);
+            state.paused_orbit_speed = speed;
+            state.active = true;
+            state.last_mouse_pos = None;
+        }
+    }
+
     pub fn adjust_obj_scale(&mut self, sprite_id: &str, delta: f32) -> bool {
         if delta == 0.0 {
             return false;

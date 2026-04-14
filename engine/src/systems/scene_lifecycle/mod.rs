@@ -64,6 +64,12 @@ impl SceneLifecycleManager {
             &lifecycle.key_releases,
             &mouse_moves,
         );
+        handle_scene_orbit_camera_input(
+            world,
+            &lifecycle.key_presses,
+            &lifecycle.key_releases,
+            &mouse_moves,
+        );
         if !lifecycle.key_presses.is_empty() {
             Self::advance_on_any_key(world, &lifecycle.key_presses);
         }
@@ -418,6 +424,23 @@ fn handle_playground_3d_mouse(world: &mut World, mouse_moves: &[(f32, f32)]) {
     }
     if let Some(runtime) = world.scene_runtime_mut() {
         runtime.apply_obj_viewer_mouse_moves(mouse_moves);
+    }
+}
+
+fn handle_scene_orbit_camera_input(
+    world: &mut World,
+    key_presses: &[KeyEvent],
+    key_releases: &[KeyEvent],
+    mouse_moves: &[(f32, f32)],
+) {
+    if !is_scene_idle(world) {
+        return;
+    }
+    if let Some(runtime) = world.scene_runtime_mut() {
+        let _ = runtime.apply_orbit_camera_key_events(key_presses, key_releases);
+        if !mouse_moves.is_empty() {
+            runtime.apply_orbit_camera_mouse_moves(mouse_moves);
+        }
     }
 }
 

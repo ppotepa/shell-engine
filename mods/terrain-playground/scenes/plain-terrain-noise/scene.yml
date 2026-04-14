@@ -9,6 +9,18 @@ logic:
   kind: script
   behavior: rhai-script
   src: ./terrain.rhai
+input:
+  orbit-camera:
+    target: terrain-mesh
+    yaw: 20.0
+    pitch: -38.0
+    distance: 2.4
+    pitch-min: -85.0
+    pitch-max: 0.0
+    distance-min: 1.0
+    distance-max: 8.0
+    distance-step: 0.2
+    drag-sensitivity: 0.3
 postfx:
   - name: crt-scan-glitch
     params:

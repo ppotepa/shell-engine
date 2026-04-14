@@ -766,6 +766,10 @@ fn set_obj_property_recursive(
                 clip_y_min,
                 clip_y_max,
                 camera_distance,
+                terrain_plane_amplitude,
+                terrain_plane_frequency,
+                terrain_plane_roughness,
+                terrain_plane_octaves,
                 world_x,
                 world_y,
                 world_z,
@@ -788,6 +792,42 @@ fn set_obj_property_recursive(
                     if source.as_str() != next {
                         *source = next.to_string();
                         *updated = true;
+                    }
+                }
+                "terrain.amplitude" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.01, 10.0);
+                        if terrain_plane_amplitude.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_amplitude = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.frequency" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.01, 16.0);
+                        if terrain_plane_frequency.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_frequency = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.roughness" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = next.clamp(0.0, 1.0);
+                        if terrain_plane_roughness.map_or(true, |v| (v - next).abs() > f32::EPSILON) {
+                            *terrain_plane_roughness = Some(next);
+                            *updated = true;
+                        }
+                    }
+                }
+                "terrain.octaves" => {
+                    if let Some(next) = json_value_to_f32(value) {
+                        let next = (next.round() as u8).clamp(1, 8);
+                        if terrain_plane_octaves.map_or(true, |v| v != next) {
+                            *terrain_plane_octaves = Some(next);
+                            *updated = true;
+                        }
                     }
                 }
                 "obj.camera-distance" => {

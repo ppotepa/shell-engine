@@ -32,8 +32,8 @@ use engine_behavior_registry::ModBehaviorRegistry;
 use engine_core::effects::Region;
 use engine_core::game_object::{GameObject, GameObjectKind};
 use engine_core::scene::{
-    resolve_ui_theme_or_default, BehaviorSpec, FreeLookCameraControls, Scene, Sprite, TermColour,
-    UiThemeStyle,
+    resolve_ui_theme_or_default, BehaviorSpec, FreeLookCameraControls, ObjOrbitCameraControls,
+    Scene, Sprite, TermColour, UiThemeStyle,
 };
 pub use engine_core::scene_runtime_types::{
     ObjCameraState, ObjectRuntimeState, RawKeyEvent, SceneCamera3D, SidecarIoFrameState,
@@ -73,6 +73,7 @@ pub struct SceneRuntime {
     obj_camera_states: HashMap<String, ObjCameraState>,
     cached_obj_camera_states: Option<std::sync::Arc<HashMap<String, ObjCameraState>>>,
     free_look_camera: Option<FreeLookCameraState>,
+    orbit_camera: Option<ObjOrbitCameraState>,
     ui_state: UiRuntimeState,
     pending_bindings: Vec<BehaviorBinding>,
     action_bindings: HashMap<String, Vec<String>>,
@@ -131,6 +132,45 @@ impl FreeLookCameraState {
             mouse_sensitivity: controls.mouse_sensitivity,
             last_mouse_pos: None,
             held_keys: HashSet::new(),
+        }
+    }
+}
+
+/// Runtime state for the orbit camera — arcs around a single OBJ sprite target.
+#[derive(Debug, Clone)]
+struct ObjOrbitCameraState {
+    target: String,
+    active: bool,
+    yaw: f32,
+    pitch: f32,
+    distance: f32,
+    pitch_min: f32,
+    pitch_max: f32,
+    distance_min: f32,
+    distance_max: f32,
+    distance_step: f32,
+    drag_sensitivity: f32,
+    last_mouse_pos: Option<(f32, f32)>,
+    /// Auto-rotation speed saved when orbit activates, restored on deactivate.
+    paused_orbit_speed: f32,
+}
+
+impl ObjOrbitCameraState {
+    fn from_controls(controls: &ObjOrbitCameraControls) -> Self {
+        Self {
+            target: controls.target.clone(),
+            active: false,
+            yaw: controls.yaw,
+            pitch: controls.pitch,
+            distance: controls.distance,
+            pitch_min: controls.pitch_min,
+            pitch_max: controls.pitch_max,
+            distance_min: controls.distance_min,
+            distance_max: controls.distance_max,
+            distance_step: controls.distance_step,
+            drag_sensitivity: controls.drag_sensitivity,
+            last_mouse_pos: None,
+            paused_orbit_speed: 0.0,
         }
     }
 }

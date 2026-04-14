@@ -122,6 +122,7 @@ impl SceneRuntime {
             obj_camera_states: HashMap::new(),
             cached_obj_camera_states: None,
             free_look_camera: None,
+            orbit_camera: None,
             ui_state: UiRuntimeState::default(),
             pending_bindings: Vec::new(),
             action_bindings: HashMap::new(),
@@ -152,6 +153,12 @@ impl SceneRuntime {
             .free_look_camera
             .as_ref()
             .map(FreeLookCameraState::from_controls);
+        runtime.orbit_camera = runtime
+            .scene
+            .input
+            .orbit_camera
+            .as_ref()
+            .map(ObjOrbitCameraState::from_controls);
         runtime.initialize_ui_state();
         runtime.attach_default_behaviors();
         runtime.attach_declared_behaviors(behavior_bindings, None);

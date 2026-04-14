@@ -8,6 +8,7 @@ pub mod behavior;
 pub mod collision;
 pub mod compositor;
 pub mod free_look_camera;
+pub mod orbit_camera;
 pub mod gameplay;
 pub mod gameplay_events;
 pub mod gravity;

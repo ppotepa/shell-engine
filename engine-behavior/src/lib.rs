@@ -101,6 +101,8 @@ pub struct BehaviorContext {
     pub last_raw_key: Option<Arc<RawKeyEvent>>,
     /// Whether the engine was started with --debug-feature.
     pub debug_enabled: bool,
+    /// Whether orbit camera is currently active (toggled by Ctrl+F when `orbit-camera` declared).
+    pub orbit_active: bool,
     /// Held key set (normalized key codes), exposed to Rhai via `input.down(code)`.
     pub keys_down: Arc<HashSet<String>>,
     /// Keys that were NOT held last frame but ARE held this frame — fires once per press.
@@ -618,6 +620,7 @@ impl Behavior for RhaiScriptBehavior {
 
                 // Debug feature flag — true when --debug-feature CLI flag is active.
                 scope.push("debug_enabled", ctx.debug_enabled);
+                scope.push("orbit_active", ctx.orbit_active);
 
                 // Gameplay collision events (array of {a, b} maps).
                 scope.push_dynamic(
@@ -875,6 +878,7 @@ fn smoke_probe_context(
         rhai_key_map: Arc::new(RhaiMap::new()),
         engine_key_map: Arc::new(RhaiMap::new()),
         debug_enabled: false,
+        orbit_active: false,
         frame_ms: 16,
         mouse_x: 0.0,
         mouse_y: 0.0,
@@ -1275,6 +1279,7 @@ mod tests {
             rhai_key_map: empty_rhai_key_map(),
             engine_key_map: empty_engine_key_map(),
             debug_enabled: false,
+            orbit_active: false,
             frame_ms: 16,
             mouse_x: 0,
             mouse_y: 0,

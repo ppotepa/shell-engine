@@ -2,6 +2,7 @@ use engine_core::color::Color;
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use crate::obj_render::parse_terrain_params_from_uri;
 use engine_animation::SceneStage;
 use engine_celestial::{BodyDef, CelestialCatalogs};
 use engine_core::assets::AssetRoot;
@@ -1177,10 +1178,51 @@ fn render_obj_sprite(
         view_fwd_y,
         view_fwd_z,
         camera_source,
+        terrain_plane_amplitude,
+        terrain_plane_frequency,
+        terrain_plane_roughness,
+        terrain_plane_octaves,
         ..
     } = sprite
     else {
         return;
+    };
+
+    // Build effective source: if base source is a terrain-plane URI and any override
+    // fields are set, parse the URI defaults and override them.
+    let effective_source_buf: String;
+    let effective_source: &str = if source.starts_with("terrain-plane://")
+        && (terrain_plane_amplitude.is_some()
+            || terrain_plane_frequency.is_some()
+            || terrain_plane_roughness.is_some()
+            || terrain_plane_octaves.is_some())
+    {
+        let mut params = parse_terrain_params_from_uri(source);
+        if let Some(v) = terrain_plane_amplitude {
+            params.amplitude = *v;
+        }
+        if let Some(v) = terrain_plane_frequency {
+            params.frequency = *v;
+        }
+        if let Some(v) = terrain_plane_roughness {
+            params.roughness = *v;
+        }
+        if let Some(v) = terrain_plane_octaves {
+            params.octaves = *v;
+        }
+        // Preserve grid size from the original URI authority section.
+        let grid = source
+            .trim_start_matches("terrain-plane://")
+            .split('?')
+            .next()
+            .unwrap_or("64");
+        effective_source_buf = format!(
+            "terrain-plane://{}?amp={}&freq={}&oct={}&rough={}",
+            grid, params.amplitude, params.frequency, params.octaves, params.roughness
+        );
+        &effective_source_buf
+    } else {
+        source.as_str()
     };
     let (sprite_width, sprite_height) = if width.is_some() || height.is_some() || size.is_some() {
         obj_sprite_dimensions(*width, *height, *size)
@@ -1256,7 +1298,7 @@ fn render_obj_sprite(
     let use_scene_camera = *camera_source == CameraSource::Scene;
     let scene_camera = ctx.scene_camera_3d;
     render_obj_content(
-        source,
+        effective_source,
         Some(sprite_width),
         Some(sprite_height),
         *size,

@@ -354,13 +354,62 @@ pub struct SceneInput {
     /// Optional free-look scene camera controls profile.
     #[serde(default, rename = "free-look-camera", alias = "free_look_camera")]
     pub free_look_camera: Option<FreeLookCameraControls>,
+    /// Optional orbit camera controls — Ctrl+F orbits a target OBJ sprite.
+    #[serde(default, rename = "orbit-camera", alias = "orbit_camera")]
+    pub orbit_camera: Option<ObjOrbitCameraControls>,
 }
 
 impl SceneInput {
     /// Returns names of all built-in input profiles.
     pub fn builtin_profiles() -> Vec<&'static str> {
-        vec!["obj-viewer", "free-look-camera"]
+        vec!["obj-viewer", "free-look-camera", "orbit-camera"]
     }
+}
+
+fn default_orbit_pitch() -> f32 { -30.0 }
+fn default_orbit_distance() -> f32 { 3.0 }
+fn default_orbit_pitch_min() -> f32 { -85.0 }
+fn default_orbit_pitch_max() -> f32 { -5.0 }
+fn default_orbit_distance_min() -> f32 { 0.5 }
+fn default_orbit_distance_max() -> f32 { 8.0 }
+fn default_orbit_distance_step() -> f32 { 0.25 }
+fn default_orbit_drag_sensitivity() -> f32 { 0.5 }
+
+/// Declarative orbit-camera controls for a single OBJ sprite target.
+///
+/// Ctrl+F toggles orbit mode. Left-drag rotates; `+`/`-` zoom.
+/// Declared under `input.orbit-camera:` in scene YAML.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ObjOrbitCameraControls {
+    /// Sprite ID to orbit around.
+    pub target: String,
+    /// Initial yaw in degrees (default: 0.0).
+    #[serde(default)]
+    pub yaw: f32,
+    /// Initial pitch in degrees (default: -30.0).
+    #[serde(default = "default_orbit_pitch")]
+    pub pitch: f32,
+    /// Initial camera distance (default: 3.0).
+    #[serde(default = "default_orbit_distance")]
+    pub distance: f32,
+    /// Minimum pitch clamp (default: -85.0).
+    #[serde(default = "default_orbit_pitch_min", rename = "pitch-min")]
+    pub pitch_min: f32,
+    /// Maximum pitch clamp (default: -5.0).
+    #[serde(default = "default_orbit_pitch_max", rename = "pitch-max")]
+    pub pitch_max: f32,
+    /// Minimum camera distance (default: 0.5).
+    #[serde(default = "default_orbit_distance_min", rename = "distance-min")]
+    pub distance_min: f32,
+    /// Maximum camera distance (default: 8.0).
+    #[serde(default = "default_orbit_distance_max", rename = "distance-max")]
+    pub distance_max: f32,
+    /// Distance change per `+`/`-` key press (default: 0.25).
+    #[serde(default = "default_orbit_distance_step", rename = "distance-step")]
+    pub distance_step: f32,
+    /// Mouse drag sensitivity — degrees per pixel (default: 0.5).
+    #[serde(default = "default_orbit_drag_sensitivity", rename = "drag-sensitivity")]
+    pub drag_sensitivity: f32,
 }
 
 /// Whether authored UI should reset with scene lifecycle or persist globally.
