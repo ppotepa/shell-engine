@@ -38,7 +38,15 @@ Keep entries minimalistic (one-liner per subdomain). Move detailed feature specs
 
 ## 14-04-2026
 
-**Sphere terrain scene + `obj.ambient` / `obj.light.*` runtime property paths** ✅
+**Unified `world://` URI — biome planet pipeline via `engine-terrain`** ✅
+- **engine-terrain**: added `WorldShape`, `WorldColoring`, `WorldGenParams` enums/struct to `params.rs`; new `coloring.rs` module with `biome_color(Biome) → [u8;3]` (10-biome Earth palette) and `altitude_color(f32) → [u8;3]` gradient; all exported from crate root
+- **engine-mesh**: re-exported `compute_smooth_normals` from crate root (was pub but not in lib.rs)
+- **engine-compositor**: added `engine-terrain` dep; wired `world://` URI handler in `get_or_load_obj_mesh`; `build_world_mesh` bridges the full pipeline: `engine_terrain::generate()` → 512×256 heightmap → `cube_sphere(N)` geometry → per-vertex elevation displacement → `compute_smooth_normals` → per-face biome/altitude coloring → `ObjMesh` cached by full parameterized URI; `sprite_renderer.rs` builds effective URI from `world_gen_*` fields
+- **engine-core**: added 11 `world_gen_*` fields to `Sprite::Obj` (world-shape, world-coloring, world-seed, world-ocean-fraction, world-continent-scale/warp/octaves, world-mountain-scale/strength, world-moisture-scale, world-displacement-scale)
+- **engine-scene-runtime**: added `world.*` Rhai property paths (seed, ocean_fraction, continent_scale/warp/octaves, mountain_scale/strength, moisture_scale, displacement_scale, coloring) — any change rebuilds the URI key → cache miss → planet regenerated
+- **terrain-playground earth-planet**: migrated from `earth-sphere://32` (altitude gradient) to `world://32` (full biome pipeline); HUD panel replaced 12 terrain-mesh params with 6 world params: seed, ocean%, continent size, coast chaos, mountain strength, displacement
+
+
 - **engine-core**: added `ambient: Option<f32>` field to `Sprite::Obj` (was previously silently ignored in YAML; now properly deserialized and exposed)
 - **engine-compositor**: wire `ambient` from `Sprite::Obj` through `ObjRenderParams` (falls back to `0.15` if not set)
 - **engine-scene-runtime**: added `obj.ambient`, `obj.light.x`, `obj.light.y`, `obj.light.z`, and `obj.rotation-speed` runtime property paths in `materialization.rs`; added `ambient` + `light_direction_x/y/z` to the destructure block so scripts can adjust lighting at runtime
