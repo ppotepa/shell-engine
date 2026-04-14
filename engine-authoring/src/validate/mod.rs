@@ -134,6 +134,7 @@ mod tests {
             },
             behaviors: vec![],
             audio: Default::default(),
+            gui: Default::default(),
             ui: Default::default(),
             layers: vec![],
             menu_options: vec![],

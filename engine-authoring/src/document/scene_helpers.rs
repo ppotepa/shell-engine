@@ -94,9 +94,9 @@ pub(super) fn apply_at_anchor(map: &mut Mapping) {
         _ => return,
     };
 
-    map.entry(Value::String("align_x".to_string()))
+    map.entry(Value::String("align-x".to_string()))
         .or_insert_with(|| Value::String(ax.to_string()));
-    map.entry(Value::String("align_y".to_string()))
+    map.entry(Value::String("align-y".to_string()))
         .or_insert_with(|| Value::String(ay.to_string()));
 }
 

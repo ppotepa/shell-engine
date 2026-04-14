@@ -788,8 +788,10 @@ fn render_panel_sprite(
     else {
         return;
     };
-    // Fast-path: skip empty panels
-    if children.is_empty() {
+    // Panels with no children still render their background box —
+    // this supports background-only panels (e.g. HUD decoration behind a flat sprite layer).
+    // Only skip rendering if there are no children AND no explicit dimensions are set.
+    if children.is_empty() && width.is_none() && height.is_none() {
         return;
     }
     let (auto_w, auto_h) = measure_sprite_for_layout(sprite, ctx.asset_root);

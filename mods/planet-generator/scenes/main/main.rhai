@@ -128,9 +128,8 @@ if !(local.initialized ?? false) {
     local.tab_sync_needed = true;
 }
 
-let tab      = local.tab      ?? 0;
-let dirty_ms = local.dirty_ms ?? -1.0;
-let seed     = local.seed     ?? 0.0;
+let tab  = local.tab  ?? 0;
+let seed = local.seed ?? 0.0;
 let ocean    = local.ocean    ?? 0.55;
 let cscale   = local.cscale   ?? 2.5;
 let cwarp    = local.cwarp    ?? 0.65;
@@ -404,7 +403,10 @@ if ps.len() > 0 {
         `OCEAN ${ocean_pct}%  FOREST ${forest_pct}%  DESERT ${desert_pct}%  SNOW ${cold_pct}%`);
 }
 
-// ── Push world params to planet mesh (throttled) ─────────────────────────────
+// ── Push world params to planet mesh (throttled to ≤ THROTTLE_MS between pushes) ──
+// Push immediately on first frame, then only when dirty and enough time has passed.
+let THROTTLE_MS = 150.0;
+
 let prev_seed    = local.prev_seed    ?? seed;
 let prev_ocean   = local.prev_ocean   ?? ocean;
 let prev_cscale  = local.prev_cscale  ?? cscale;
@@ -433,20 +435,23 @@ local.prev_mstr = mstr; local.prev_mroct = mroct; local.prev_moisture = moisture
 local.prev_ice = ice; local.prev_lapse = lapse; local.prev_rain = rain;
 local.prev_disp = disp; local.prev_subdiv = subdiv; local.prev_coloring = coloring;
 
-if world_changed {
-    dirty_ms = dirty_ms + frame_ms.to_float();
-    local.dirty_ms = dirty_ms;
-} else if dirty_ms > 0.0 {
-    dirty_ms = dirty_ms + frame_ms.to_float();
-    local.dirty_ms = dirty_ms;
+if !(local.push_ready ?? false) {
+    local.push_ready = true;
+    local.push_timer = THROTTLE_MS;  // Start ready to push on frame 1
+    local.push_dirty = true;
 }
 
-let THROTTLE_MS = 500.0;
-let should_push = (dirty_ms < 0.0)
-    || (world_changed && dirty_ms >= THROTTLE_MS)
-    || (!world_changed && dirty_ms > 0.0);
+local.push_timer = (local.push_timer ?? THROTTLE_MS) + frame_ms.to_float();
+
+if world_changed {
+    local.push_dirty = true;
+}
+
+let should_push = (local.push_dirty ?? false) && local.push_timer >= THROTTLE_MS;
 
 if should_push {
+    local.push_dirty = false;
+    local.push_timer = 0.0;
     let coloring_str = if coloring < 0.5 { "biome" } else if coloring < 1.5 { "elevation" } else { "moisture" };
     scene.set("planet-mesh", "world.seed",               seed);
     scene.set("planet-mesh", "world.ocean_fraction",     ocean);
@@ -463,9 +468,6 @@ if should_push {
     scene.set("planet-mesh", "world.displacement_scale",     disp);
     scene.set("planet-mesh", "world.subdivisions",           subdiv);
     scene.set("planet-mesh", "world.coloring",               coloring_str);
-    dirty_ms = 0.0;
-    local.dirty_ms = 0.0;
-    if !world_changed { local.dirty_ms = -1.0; }
 }
 
 // Visual-only params always update immediately (no mesh rebuild)
